@@ -53,7 +53,7 @@ impl From<Fr> for Tag {
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
 // This should probably be TaggedPointer, or something.
-struct TaggedHash {
+pub struct TaggedHash {
     tag: Fr,
     // Hash is misnamed. It could be a hash, or it could be an immediate value.
     hash: Fr,
@@ -66,7 +66,7 @@ impl Hash for TaggedHash {
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
-enum Expression {
+pub enum Expression {
     Nil,
     Cons(TaggedHash, TaggedHash),
     Sym(String),
@@ -171,7 +171,7 @@ pub struct Store {
 }
 
 impl Store {
-    fn fetch(&self, t: TaggedHash) -> Option<Expression> {
+    pub fn fetch(&self, t: TaggedHash) -> Option<Expression> {
         match t.tag {
             // Nums are immediate so not looked up in map.
             tag if tag == Tag::Num.fr() => Some(Expression::Num(t.hash)),
@@ -179,17 +179,20 @@ impl Store {
         }
     }
 
-    fn store(&mut self, exp: &Expression) {
+    pub fn store(&mut self, exp: &Expression) {
         self.map.entry(exp.tagged_hash()).or_insert(exp.clone());
     }
 
-    fn intern(&mut self, s: &str) -> Expression {
+    // Consider a secondary map/index on symbol names, which would be proper
+    // interning and save expensive rehashing each time. The same potentially
+    // goes for other types.
+    pub fn intern(&mut self, s: &str) -> Expression {
         let sym = Expression::read_sym(s);
         self.store(&sym);
         sym
     }
 
-    fn car_cdr(&self, expr: &Expression) -> (Expression, Expression) {
+    pub fn car_cdr(&self, expr: &Expression) -> (Expression, Expression) {
         match expr {
             Cons(car, cdr) => (
                 self.fetch(*car).expect("Car not found!").clone(),
@@ -199,11 +202,11 @@ impl Store {
         }
     }
 
-    fn car(&self, expr: &Expression) -> Expression {
+    pub fn car(&self, expr: &Expression) -> Expression {
         self.car_cdr(expr).0
     }
 
-    fn cdr(&self, expr: &Expression) -> Expression {
+    pub fn cdr(&self, expr: &Expression) -> Expression {
         self.car_cdr(expr).1
     }
 }
