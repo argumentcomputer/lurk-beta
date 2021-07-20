@@ -1,12 +1,10 @@
 use bellperson::bls::{Bls12, Fr, FrRepr};
 use core::hash::Hash;
-use ff::{Field, PrimeField, ScalarEngine};
-use generic_array::typenum::{U16, U2, U24, U36, U4, U8};
+use ff::{Field, PrimeField};
+use generic_array::typenum::{U16, U2, U4, U8};
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use neptune::{
-    hash_type::HashType, poseidon::Poseidon, poseidon::PoseidonConstants, Arity, Strength,
-};
+use neptune::{hash_type::HashType, poseidon::Poseidon, poseidon::PoseidonConstants, Strength};
 use std::collections::HashMap;
 use std::hash::Hasher;
 
@@ -22,7 +20,7 @@ lazy_static! {
 
 /// Order of these tag variants is significant, since it will be concretely
 /// encoded into content-addressable data structures.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
 pub enum Tag {
     Nil,
     Cons,
@@ -103,7 +101,7 @@ fn hash_string(s: &str) -> Fr {
     x
 }
 
-impl Expression {
+impl Tagged for Expression {
     fn tag(&self) -> Tag {
         match self {
             Nil => Tag::Nil,
@@ -114,7 +112,9 @@ impl Expression {
             Cont() => Tag::Cont,
         }
     }
+}
 
+impl Expression {
     fn get_hash(&self) -> Fr {
         match self {
             Nil => hash_string("NIL"),
@@ -126,7 +126,7 @@ impl Expression {
         }
     }
 
-    fn tagged_hash(&self) -> TaggedHash {
+    pub fn tagged_hash(&self) -> TaggedHash {
         let tag = self.tag().fr();
         let hash = self.get_hash();
 
@@ -137,11 +137,11 @@ impl Expression {
         Sym(s.to_uppercase())
     }
 
-    fn cons(a: &Expression, b: &Expression) -> Expression {
+    pub fn cons(a: &Expression, b: &Expression) -> Expression {
         Cons(a.tagged_hash(), b.tagged_hash())
     }
 
-    fn num(n: u64) -> Expression {
+    pub fn num(n: u64) -> Expression {
         Num(fr_from_u64(n))
     }
 }
@@ -165,7 +165,7 @@ impl Tagged for Num {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Store {
     map: HashMap<TaggedHash, Expression>,
 }
@@ -173,6 +173,8 @@ pub struct Store {
 impl Store {
     pub fn fetch(&self, t: TaggedHash) -> Option<Expression> {
         match t.tag {
+            // Nil has a unique identity.
+            tag if tag == Tag::Nil.fr() => Some(Expression::Nil),
             // Nums are immediate so not looked up in map.
             tag if tag == Tag::Num.fr() => Some(Expression::Num(t.hash)),
             _ => self.map.get(&t).map(|x| x.clone()),
@@ -190,6 +192,12 @@ impl Store {
         let sym = Expression::read_sym(s);
         self.store(&sym);
         sym
+    }
+
+    pub fn cons(&mut self, car: &Expression, cdr: &Expression) -> Expression {
+        let cons = Expression::cons(car, cdr);
+        self.store(&cons);
+        cons
     }
 
     pub fn car_cdr(&self, expr: &Expression) -> (Expression, Expression) {
