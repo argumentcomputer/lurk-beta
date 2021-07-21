@@ -5,8 +5,8 @@ use crate::data::{Expression, Store, Tag, Tagged};
 enum Continuation {
     Outermost,
     Simple(Box<Continuation>),
-    Call(Expression),  // The unevaluated argument
-    Call2(Expression), // The function
+    Call(Expression, Box<Continuation>), // The unevaluated argument
+    Call2(Expression, Box<Continuation>), // The function
     Error,
     Lookup(Expression, Box<Continuation>), // The saved env
     Binop(Expression),                     // Unevaluated arguments
@@ -14,6 +14,12 @@ enum Continuation {
     Relop(Expression),                     // Unevaluated arguments
     Relop2(Expression),                    //The first argument
     If(Expression),                        //Unevaluated arguments
+}
+
+struct Function {
+    arg: Expression,
+    body: Expression,
+    closed_env: Expression,
 }
 
 fn eval_expr(
@@ -25,7 +31,7 @@ fn eval_expr(
     match expr {
         Expression::Nil => invoke_continuation(cont, expr, env, store),
         Expression::Num(_) => invoke_continuation(cont, expr, env, store),
-        Expression::Fun() => invoke_continuation(cont, expr, env, store),
+        Expression::Fun(_, _, _) => invoke_continuation(cont, expr, env, store),
         Expression::Sym(_) if expr == &store.intern("T") => {
             invoke_continuation(cont, expr, env, store)
         }
@@ -42,10 +48,55 @@ fn eval_expr(
                 )
             }
         }
-        Expression::Cons(car, cdr) => {
-            todo!();
+        Expression::Cons(head_t, rest_t) => {
+            let head = store.fetch(*head_t).unwrap();
+            dbg!(store.print_expr(&head));
+            let rest = store.fetch(*rest_t).unwrap();
+            dbg!(store.print_expr(&rest));
+
+            if rest == Expression::Nil {
+                //todo!("maybe implement zero-arg functions");
+                (expr.clone(), env.clone(), cont.clone())
+            } else if head == Expression::Sym("LAMBDA".to_string()) {
+                let (args, body) = store.car_cdr(&rest);
+                let (arg, rest) = store.car_cdr(&args);
+                assert_eq!(Expression::Nil, rest);
+                let function =
+                    Expression::Fun(arg.tagged_hash(), body.tagged_hash(), env.tagged_hash());
+
+                invoke_continuation(cont, &function, env, store)
+            } else {
+                //                    let (car, cdr) = store.fetch(&cdr).unwrap();
+                let fun_form = head;
+                let args = rest;
+                let (arg, more_args) = store.car_cdr(&args);
+
+                dbg!(store.print_expr(&arg), store.print_expr(&more_args));
+                match &more_args {
+                    Expression::Nil => (
+                        fun_form,
+                        env.clone(),
+                        Continuation::Call(arg, Box::new(cont.clone())),
+                    ),
+                    _ => {
+                        panic!(
+                            "Only one arg supported, but got more args: {}",
+                            store.print_expr(&more_args)
+                        );
+                    }
+                }
+            }
+
+            // todo!("bottom of cons eval");
         }
         Expression::Cont() => panic!("Cannot evaluate a continuation: {}"),
+    }
+}
+
+fn maybe_wrap_continuation(cont: Continuation) -> Continuation {
+    match cont {
+        Continuation::Outermost => Continuation::Simple(Box::new(cont)),
+        _ => cont,
     }
 }
 
@@ -53,14 +104,44 @@ fn invoke_continuation(
     cont: &Continuation,
     expr: &Expression,
     env: &Expression,
-    store: &Store,
+    store: &mut Store,
 ) -> (Expression, Expression, Continuation) {
     match &cont {
         Continuation::Outermost => (expr.clone(), env.clone(), cont.clone()),
+        Continuation::Simple(continuation) => (expr.clone(), env.clone(), *continuation.clone()),
         Continuation::Lookup(saved_env, continuation) => {
             (expr.clone(), saved_env.clone(), (*continuation.clone()))
         }
-        _ => todo!(),
+        Continuation::Call(arg, continuation) => match expr.tag() {
+            Tag::Fun => {
+                let function = expr;
+                let next_expr = arg;
+                let newer_cont = Continuation::Call2(
+                    function.clone(),
+                    Box::new(maybe_wrap_continuation(*continuation.clone())),
+                );
+                (next_expr.clone(), env.clone(), newer_cont)
+            }
+            _ => {
+                todo!("poiu")
+            }
+        },
+        Continuation::Call2(function, continuation) => match function {
+            Expression::Fun(arg_t, body, saved_env) => {
+                let body_t = store.fetch(*body).unwrap();
+                let next_expr = store.car(&body_t);
+                let arg = store.fetch(*arg_t).unwrap();
+                let newer_env = extend(env, &arg, expr, store);
+                (next_expr, newer_env, *continuation.clone())
+            }
+            _ => {
+                panic!("Call2 continuation contains a non-function: {:?}", function);
+            }
+        },
+        _ => {
+            dbg!(cont);
+            todo!()
+        }
     }
 }
 
@@ -167,7 +248,7 @@ mod test {
     }
 
     #[test]
-    fn test_outer_evaluate_simple() {
+    fn outer_evaluate_simple() {
         let mut store = Store::default();
 
         let limit = 20;
@@ -180,7 +261,7 @@ mod test {
     }
 
     #[test]
-    fn test_outer_evaluate_lookup() {
+    fn outer_evaluate_lookup() {
         let mut store = Store::default();
 
         let limit = 20;
@@ -205,5 +286,90 @@ mod test {
             assert_eq!(2, iterations);
             assert_eq!(&result_expr, &val);
         }
+    }
+
+    #[test]
+    fn print_expr() {
+        let mut s = Store::default();
+        let nil = Expression::Nil;
+        let x = s.intern("x");
+        let lambda = s.intern("lambda");
+        let val = Expression::num(123);
+        let lambda_args = s.cons(&x, &nil);
+        let body = s.cons(&x, &nil);
+        let rest = s.cons(&lambda_args, &body);
+        let whole_lambda = s.cons(&lambda, &rest);
+        let lambda_arguments = s.cons(&val, &nil);
+        let expr = s.cons(&whole_lambda, &lambda_arguments);
+
+        assert_eq!("((LAMBDA . ((X . NIL) . (X . NIL))) . (Fr(0x000000000000000000000000000000000000000000000000000000000000007b) . NIL))".to_string(), s.print_expr(&expr));
+    }
+
+    #[test]
+    fn outer_evaluate_lambda() {
+        let mut s = Store::default();
+        let limit = 20;
+
+        let nil = Expression::Nil;
+        let x = s.intern("x");
+        let lambda = s.intern("lambda");
+        let val = Expression::num(123);
+        let lambda_args = s.cons(&x, &nil);
+        let body = s.cons(&x, &nil);
+        let rest = s.cons(&lambda_args, &body);
+        let whole_lambda = s.cons(&lambda, &rest);
+        let lambda_arguments = s.cons(&val, &nil);
+        let expr = s.cons(&whole_lambda, &lambda_arguments);
+
+        assert_eq!("((LAMBDA . ((X . NIL) . (X . NIL))) . (Fr(0x000000000000000000000000000000000000000000000000000000000000007b) . NIL))".to_string(), s.print_expr(&expr));
+
+        let (result_expr, new_env, iterations, continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(4, iterations);
+        assert_eq!(val, result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_lambda2() {
+        let mut s = Store::default();
+        let limit = 20;
+
+        // ((lambda (y)
+        //   ((lambda (x)
+        //     y)
+        //    ,unused))
+        //  ,val)
+
+        let nil = Expression::Nil;
+        let x = s.intern("x");
+        let y = s.intern("y");
+        let lambda = s.intern("lambda");
+        let val = Expression::num(123);
+        let unused = Expression::num(321);
+
+        let inner_lambda_list = s.cons(&x, &nil); // (x)
+        let inner_body = s.cons(&y, &nil); // (y)
+        let inner_rest = s.cons(&inner_lambda_list, &inner_body); // ((x) y)
+        let innermost = s.cons(&lambda, &inner_rest); // (lambda (x) y)
+        let innermost_rest = s.cons(&unused, &nil); // (,unused)
+        let inner = s.cons(&innermost, &innermost_rest); // ((lambda (x) y) ,unused)
+
+        let outer_lambda_list = s.cons(&y, &nil); // (y)
+        let outer_body1 = s.cons(&val, &nil); // (,val)
+        let outer_body2 = s.cons(&inner, &nil); // ((((lambda (x) y) ,unused)))
+        let outer_rest = s.cons(&outer_lambda_list, &outer_body2); // ( (y) (((lambda (x) y) ,unused)))
+        let outer = s.cons(&lambda, &outer_rest);
+        let expr = s.cons(&outer, &outer_body1);
+
+        dbg!(&s.print_expr(&expr));
+
+        assert_eq!("((LAMBDA . ((Y . NIL) . (((LAMBDA . ((X . NIL) . (Y . NIL))) . (Fr(0x0000000000000000000000000000000000000000000000000000000000000141) . NIL)) . NIL))) . (Fr(0x000000000000000000000000000000000000000000000000000000000000007b) . NIL))".to_string(), s.print_expr(&expr));
+
+        let (result_expr, new_env, iterations, continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(9, iterations);
+        assert_eq!(val, result_expr);
     }
 }

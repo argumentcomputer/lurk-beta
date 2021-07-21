@@ -68,7 +68,7 @@ pub enum Expression {
     Nil,
     Cons(TaggedHash, TaggedHash),
     Sym(String),
-    Fun(),
+    Fun(TaggedHash, TaggedHash, TaggedHash), // arg, body, saved-env
     Num(Fr),
     Cont(),
 }
@@ -107,7 +107,7 @@ impl Tagged for Expression {
             Nil => Tag::Nil,
             Cons(_, _) => Tag::Cons,
             Sym(_) => Tag::Sym,
-            Fun() => Tag::Fun,
+            Fun(_, _, _) => Tag::Fun,
             Num(_) => Tag::Num,
             Cont() => Tag::Cont,
         }
@@ -120,7 +120,7 @@ impl Expression {
             Nil => hash_string("NIL"),
             Cons(car, cdr) => binary_hash(car, cdr),
             Sym(s) => hash_string(s),
-            Fun() => todo!(),
+            Fun(_, _, _) => todo!(),
             Num(fr) => *fr, // Nums are immediate.
             Cont() => todo!(),
         }
@@ -216,6 +216,21 @@ impl Store {
 
     pub fn cdr(&self, expr: &Expression) -> Expression {
         self.car_cdr(expr).1
+    }
+
+    pub fn print_expr(&self, expr: &Expression) -> String {
+        match expr {
+            Nil => "NIL".to_string(),
+            Sym(s) => s.clone(),
+            Fun(_, _, _) => todo!(),
+            Num(fr) => format!("{}", fr),
+            Cont() => todo!(),
+            Cons(car, cdr) => {
+                let car = self.fetch(*car).unwrap();
+                let cdr = self.fetch(*cdr).unwrap();
+                format!("({} . {})", self.print_expr(&car), self.print_expr(&cdr))
+            }
+        }
     }
 }
 
