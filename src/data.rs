@@ -46,7 +46,7 @@ impl Tag {
 }
 
 impl From<Fr> for Tag {
-    fn from(fr: Fr) -> Self {
+    fn from(_fr: Fr) -> Self {
         unimplemented!();
     }
 }
@@ -70,7 +70,7 @@ pub enum Expression {
     Nil,
     Cons(TaggedHash, TaggedHash),
     Sym(String),
-    Fun(TaggedHash, TaggedHash, TaggedHash), // arg, body, saved-env
+    Fun(TaggedHash, TaggedHash), // arg, body
     Num(Fr),
     Cont(),
 }
@@ -109,7 +109,7 @@ impl Tagged for Expression {
             Nil => Tag::Nil,
             Cons(_, _) => Tag::Cons,
             Sym(_) => Tag::Sym,
-            Fun(_, _, _) => Tag::Fun,
+            Fun(_, _) => Tag::Fun,
             Num(_) => Tag::Num,
             Cont() => Tag::Cont,
         }
@@ -122,7 +122,7 @@ impl Expression {
             Nil => hash_string("NIL"),
             Cons(car, cdr) => binary_hash(car, cdr),
             Sym(s) => hash_string(s),
-            Fun(_, _, _) => todo!(),
+            Fun(_, _) => todo!(),
             Num(fr) => *fr, // Nums are immediate.
             Cont() => todo!(),
         }
@@ -157,6 +157,7 @@ pub trait Tagged {
     }
 }
 
+#[allow(dead_code)]
 pub struct Num {
     value: Fr,
 }
@@ -224,7 +225,7 @@ impl Store {
         match expr {
             Nil => "NIL".to_string(),
             Sym(s) => s.clone(),
-            Fun(_, _, _) => todo!(),
+            Fun(_, _) => todo!(),
             Num(fr) => format!("{}", fr),
             Cont() => todo!(),
             Cons(car, cdr) => {
@@ -288,29 +289,25 @@ impl Store {
         &mut self,
         chars: &mut Peekable<T>,
     ) -> Option<Expression> {
-        if let Some(&c) = chars.peek() {
-            if let Some(c) = skip_whitespace_and_peek(chars) {
-                match c {
-                    ')' => {
-                        chars.next();
-                        Some(Expression::Nil)
-                    }
-                    '.' => {
-                        chars.next();
-                        let cdr = self.read_next(chars).unwrap();
-                        Some(cdr)
-                    }
-                    _ => {
-                        let car = self.read_next(chars).unwrap();
-                        let rest = self.read_tail(chars).unwrap();
-                        Some(self.cons(&car, &rest))
-                    }
+        if let Some(c) = skip_whitespace_and_peek(chars) {
+            match c {
+                ')' => {
+                    chars.next();
+                    Some(Expression::Nil)
                 }
-            } else {
-                panic!("premature end of input");
+                '.' => {
+                    chars.next();
+                    let cdr = self.read_next(chars).unwrap();
+                    Some(cdr)
+                }
+                _ => {
+                    let car = self.read_next(chars).unwrap();
+                    let rest = self.read_tail(chars).unwrap();
+                    Some(self.cons(&car, &rest))
+                }
             }
         } else {
-            None
+            panic!("premature end of input");
         }
     }
 
@@ -373,6 +370,7 @@ fn is_digit_char(c: &char) -> bool {
     }
 }
 
+#[allow(dead_code)]
 fn is_reserved_char(c: &char) -> bool {
     match c {
         '(' | ')' | '.' => true,
@@ -380,6 +378,7 @@ fn is_reserved_char(c: &char) -> bool {
     }
 }
 
+#[allow(dead_code)]
 fn is_whitespace_char(c: &char) -> bool {
     match c {
         ' ' | '\t' | '\n' | '\r' => true,
@@ -527,8 +526,6 @@ mod test {
         let num_again = store.fetch(num_t).unwrap();
 
         assert_eq!(num, num_again.clone());
-
-        let num2 = Expression::num(123);
     }
 
     #[test]

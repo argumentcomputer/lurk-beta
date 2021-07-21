@@ -2,7 +2,7 @@ use crate::data::{Expression, Store, Tag, Tagged};
 
 // TODO: Unify this with Expression::Cont. For simplicity, keep separate for now.
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
-enum Continuation {
+pub enum Continuation {
     Outermost,
     Simple(Box<Continuation>),
     Call(Expression, Box<Continuation>), // The unevaluated argument
@@ -16,6 +16,7 @@ enum Continuation {
     If(Expression),                        //Unevaluated arguments
 }
 
+#[allow(dead_code)]
 struct Function {
     arg: Expression,
     body: Expression,
@@ -31,7 +32,7 @@ fn eval_expr(
     match expr {
         Expression::Nil => invoke_continuation(cont, expr, env, store),
         Expression::Num(_) => invoke_continuation(cont, expr, env, store),
-        Expression::Fun(_, _, _) => invoke_continuation(cont, expr, env, store),
+        Expression::Fun(_, _) => invoke_continuation(cont, expr, env, store),
         Expression::Sym(_) if expr == &store.intern("T") => {
             invoke_continuation(cont, expr, env, store)
         }
@@ -50,9 +51,7 @@ fn eval_expr(
         }
         Expression::Cons(head_t, rest_t) => {
             let head = store.fetch(*head_t).unwrap();
-            dbg!(store.print_expr(&head));
             let rest = store.fetch(*rest_t).unwrap();
-            dbg!(store.print_expr(&rest));
 
             if rest == Expression::Nil {
                 //todo!("maybe implement zero-arg functions");
@@ -61,8 +60,7 @@ fn eval_expr(
                 let (args, body) = store.car_cdr(&rest);
                 let (arg, rest) = store.car_cdr(&args);
                 assert_eq!(Expression::Nil, rest);
-                let function =
-                    Expression::Fun(arg.tagged_hash(), body.tagged_hash(), env.tagged_hash());
+                let function = Expression::Fun(arg.tagged_hash(), body.tagged_hash());
 
                 invoke_continuation(cont, &function, env, store)
             } else {
@@ -71,7 +69,6 @@ fn eval_expr(
                 let args = rest;
                 let (arg, more_args) = store.car_cdr(&args);
 
-                dbg!(store.print_expr(&arg), store.print_expr(&more_args));
                 match &more_args {
                     Expression::Nil => (
                         fun_form,
@@ -127,7 +124,7 @@ fn invoke_continuation(
             }
         },
         Continuation::Call2(function, continuation) => match function {
-            Expression::Fun(arg_t, body, saved_env) => {
+            Expression::Fun(arg_t, body) => {
                 let body_t = store.fetch(*body).unwrap();
                 let next_expr = store.car(&body_t);
                 let arg = store.fetch(*arg_t).unwrap();
@@ -139,13 +136,12 @@ fn invoke_continuation(
             }
         },
         _ => {
-            dbg!(cont);
             todo!()
         }
     }
 }
 
-fn outer_evaluate(
+pub fn outer_evaluate(
     expr: Expression,
     env: Expression,
     mut store: &mut Store,
@@ -173,25 +169,23 @@ fn outer_evaluate(
     (next_expr.clone(), next_env, limit, next_cont)
 }
 
-fn empty_sym_env(store: &Store) -> Expression {
+pub fn empty_sym_env(_store: &Store) -> Expression {
     Expression::Nil
 }
 
 fn extend(env: &Expression, var: &Expression, val: &Expression, store: &mut Store) -> Expression {
     let cons = store.cons(var, val);
-    dbg!(&cons, &cons.tagged_hash(), &store.fetch(cons.tagged_hash()));
     store.cons(&cons, env)
 }
 
+#[allow(dead_code)]
 fn lookup(env: &Expression, var: &Expression, store: &Store) -> Expression {
     assert_eq!(Tag::Sym, var.tag());
-    dbg!("lookup", &var, &env);
     match &*env {
         Expression::Nil => Expression::Nil,
         Expression::Cons(_, _) => {
             let (binding, smaller_env) = store.car_cdr(&env);
             let (v, val) = store.car_cdr(&binding);
-            dbg!(&binding, &v, &var);
             if v == *var {
                 val
             } else {
@@ -213,11 +207,9 @@ mod test {
         let var = store.intern("variable");
         let val = Expression::num(123);
 
-        dbg!(&store, &env, &var, &val);
         assert_eq!(Expression::Nil, lookup(&env, &var, &store));
 
         let new_env = extend(&env, &var, &val, &mut store);
-        dbg!(&store, &new_env);
         assert_eq!(val, lookup(&new_env, &var, &store));
     }
 
@@ -227,7 +219,7 @@ mod test {
 
         {
             let num = Expression::num(123);
-            let (result, new_env, cont) = eval_expr(
+            let (result, _new_env, _cont) = eval_expr(
                 &num,
                 &empty_sym_env(&store),
                 &Continuation::Outermost,
@@ -237,7 +229,7 @@ mod test {
         }
 
         {
-            let (result, new_env, cont) = eval_expr(
+            let (result, _new_env, _cont) = eval_expr(
                 &Expression::Nil,
                 &empty_sym_env(&store),
                 &Continuation::Outermost,
@@ -253,7 +245,7 @@ mod test {
 
         let limit = 20;
         let val = Expression::num(999);
-        let (result_expr, new_env, iterations, continuation) =
+        let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(val.clone(), empty_sym_env(&store), &mut store, limit);
 
         assert_eq!(1, iterations);
@@ -272,7 +264,7 @@ mod test {
         let env = extend(&empty_sym_env(&store), &var, &val, &mut store);
 
         {
-            let (result_expr, new_env, iterations, continuation) =
+            let (result_expr, _new_env, iterations, _continuation) =
                 outer_evaluate(var.clone(), env.clone(), &mut store, limit);
 
             assert_eq!(1, iterations);
@@ -280,7 +272,7 @@ mod test {
         }
         {
             let env2 = extend(&env, &var2, &val2, &mut store);
-            let (result_expr, new_env, iterations, continuation) =
+            let (result_expr, _new_env, iterations, _continuation) =
                 outer_evaluate(var, env2, &mut store, limit);
 
             assert_eq!(2, iterations);
@@ -312,7 +304,7 @@ mod test {
         let val = Expression::num(123);
         let expr = s.read("((lambda (x) x) 123)").unwrap();
 
-        let (result_expr, new_env, iterations, continuation) =
+        let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
         assert_eq!(4, iterations);
@@ -326,7 +318,7 @@ mod test {
         let val = Expression::num(123);
         let expr = s.read("((lambda (y) ((lambda (x) y) 321)) 123)").unwrap();
 
-        let (result_expr, new_env, iterations, continuation) =
+        let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
         assert_eq!(9, iterations);
