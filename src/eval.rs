@@ -89,7 +89,7 @@ fn eval_expr(
 
             // todo!("bottom of cons eval");
         }
-        Expression::Cont() => panic!("Cannot evaluate a continuation: {}"),
+        Expression::Cont() => panic!("Cannot evaluate a continuation."),
     }
 }
 
@@ -309,19 +309,8 @@ mod test {
     fn outer_evaluate_lambda() {
         let mut s = Store::default();
         let limit = 20;
-
-        let nil = Expression::Nil;
-        let x = s.intern("x");
-        let lambda = s.intern("lambda");
         let val = Expression::num(123);
-        let lambda_args = s.cons(&x, &nil);
-        let body = s.cons(&x, &nil);
-        let rest = s.cons(&lambda_args, &body);
-        let whole_lambda = s.cons(&lambda, &rest);
-        let lambda_arguments = s.cons(&val, &nil);
-        let expr = s.cons(&whole_lambda, &lambda_arguments);
-
-        assert_eq!("((LAMBDA . ((X . NIL) . (X . NIL))) . (Fr(0x000000000000000000000000000000000000000000000000000000000000007b) . NIL))".to_string(), s.print_expr(&expr));
+        let expr = s.read("((lambda (x) x) 123)").unwrap();
 
         let (result_expr, new_env, iterations, continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
@@ -334,37 +323,8 @@ mod test {
     fn outer_evaluate_lambda2() {
         let mut s = Store::default();
         let limit = 20;
-
-        // ((lambda (y)
-        //   ((lambda (x)
-        //     y)
-        //    ,unused))
-        //  ,val)
-
-        let nil = Expression::Nil;
-        let x = s.intern("x");
-        let y = s.intern("y");
-        let lambda = s.intern("lambda");
         let val = Expression::num(123);
-        let unused = Expression::num(321);
-
-        let inner_lambda_list = s.cons(&x, &nil); // (x)
-        let inner_body = s.cons(&y, &nil); // (y)
-        let inner_rest = s.cons(&inner_lambda_list, &inner_body); // ((x) y)
-        let innermost = s.cons(&lambda, &inner_rest); // (lambda (x) y)
-        let innermost_rest = s.cons(&unused, &nil); // (,unused)
-        let inner = s.cons(&innermost, &innermost_rest); // ((lambda (x) y) ,unused)
-
-        let outer_lambda_list = s.cons(&y, &nil); // (y)
-        let outer_body1 = s.cons(&val, &nil); // (,val)
-        let outer_body2 = s.cons(&inner, &nil); // ((((lambda (x) y) ,unused)))
-        let outer_rest = s.cons(&outer_lambda_list, &outer_body2); // ( (y) (((lambda (x) y) ,unused)))
-        let outer = s.cons(&lambda, &outer_rest);
-        let expr = s.cons(&outer, &outer_body1);
-
-        dbg!(&s.print_expr(&expr));
-
-        assert_eq!("((LAMBDA . ((Y . NIL) . (((LAMBDA . ((X . NIL) . (Y . NIL))) . (Fr(0x0000000000000000000000000000000000000000000000000000000000000141) . NIL)) . NIL))) . (Fr(0x000000000000000000000000000000000000000000000000000000000000007b) . NIL))".to_string(), s.print_expr(&expr));
+        let expr = s.read("((lambda (y) ((lambda (x) y) 321)) 123)").unwrap();
 
         let (result_expr, new_env, iterations, continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);

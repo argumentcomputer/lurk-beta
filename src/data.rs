@@ -7,6 +7,8 @@ use lazy_static::lazy_static;
 use neptune::{hash_type::HashType, poseidon::Poseidon, poseidon::PoseidonConstants, Strength};
 use std::collections::HashMap;
 use std::hash::Hasher;
+use std::iter::Peekable;
+use std::string::ToString;
 
 lazy_static! {
     pub static ref POSEIDON_CONSTANTS_2: PoseidonConstants::<Bls12, U2> = PoseidonConstants::new();
@@ -232,6 +234,170 @@ impl Store {
             }
         }
     }
+
+    pub fn read(&mut self, input: &str) -> Option<Expression> {
+        let mut chars = input.chars().peekable();
+
+        self.read_next(&mut chars)
+    }
+
+    fn read_next<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut Peekable<T>,
+    ) -> Option<Expression> {
+        while let Some(&c) = chars.peek() {
+            if let Some(next_expr) = match c {
+                '(' => self.read_list(chars),
+                '0'..='9' => self.read_number(chars),
+                ' ' | '\t' | '\n' | '\r' => {
+                    // Skip whitespace.
+                    chars.next();
+                    None
+                }
+                'a'..='z' | 'A'..='Z' => self.read_symbol(chars),
+                _ => {
+                    panic!("bad input character: {}", c);
+                }
+            } {
+                return Some(next_expr);
+            }
+        }
+        None
+    }
+
+    // In this context, 'list' includes improper lists, i.e. dotted cons-pairs like (1 . 2).
+    fn read_list<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut Peekable<T>,
+    ) -> Option<Expression> {
+        if let Some(&c) = chars.peek() {
+            match c {
+                '(' => {
+                    chars.next(); // Discard.
+                    self.read_tail(chars)
+                }
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    // Read the tail of a list.
+    fn read_tail<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut Peekable<T>,
+    ) -> Option<Expression> {
+        if let Some(&c) = chars.peek() {
+            if let Some(c) = skip_whitespace_and_peek(chars) {
+                match c {
+                    ')' => {
+                        chars.next();
+                        Some(Expression::Nil)
+                    }
+                    '.' => {
+                        chars.next();
+                        let cdr = self.read_next(chars).unwrap();
+                        Some(cdr)
+                    }
+                    _ => {
+                        let car = self.read_next(chars).unwrap();
+                        let rest = self.read_tail(chars).unwrap();
+                        Some(self.cons(&car, &rest))
+                    }
+                }
+            } else {
+                panic!("premature end of input");
+            }
+        } else {
+            None
+        }
+    }
+
+    fn read_number<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut Peekable<T>,
+    ) -> Option<Expression> {
+        // As written, read_number assumes the next char is known to be a digit.
+        // So it will never return None.
+        let mut acc = Fr::zero();
+        let ten: Fr = fr_from_u64(10);
+
+        while let Some(&c) = chars.peek() {
+            if is_digit_char(&c) {
+                if acc != Fr::zero() {
+                    acc.mul_assign(&ten);
+                }
+                let digit_char = chars.next().unwrap();
+                let digit = digit_char.to_digit(10).unwrap();
+                let fr = fr_from_u64(digit.into());
+                acc.add_assign(&fr);
+            } else {
+                break;
+            }
+        }
+        return Some(Expression::Num(acc));
+    }
+
+    fn read_symbol<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut Peekable<T>,
+    ) -> Option<Expression> {
+        let mut name_chars: Vec<char> = Vec::new();
+        while let Some(&c) = chars.peek() {
+            if is_symbol_char(&c) {
+                let c = chars.next().unwrap();
+                name_chars.push(c);
+            } else {
+                break;
+            }
+        }
+        let name: String = name_chars.into_iter().collect();
+
+        Some(self.intern(&name))
+    }
+}
+
+fn is_symbol_char(c: &char) -> bool {
+    match c {
+        // FIXME: suppport more than just alpha.
+        'a'..='z' | 'A'..='Z' => true,
+        _ => false,
+    }
+}
+
+fn is_digit_char(c: &char) -> bool {
+    match c {
+        '0'..='9' => true,
+        _ => false,
+    }
+}
+
+fn is_reserved_char(c: &char) -> bool {
+    match c {
+        '(' | ')' | '.' => true,
+        _ => false,
+    }
+}
+
+fn is_whitespace_char(c: &char) -> bool {
+    match c {
+        ' ' | '\t' | '\n' | '\r' => true,
+        _ => false,
+    }
+}
+
+fn skip_whitespace_and_peek<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> Option<char> {
+    while let Some(&c) = chars.peek() {
+        match c {
+            ' ' | '\t' | '\n' | '\r' => {
+                // Skip whitespace.
+                chars.next();
+            }
+            _ => return Some(c),
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -382,5 +548,85 @@ mod test {
         let (a, d) = store.car_cdr(&cons1);
         assert_eq!(store.car(&cons1), a);
         assert_eq!(store.cdr(&cons1), d);
+    }
+
+    #[test]
+    fn read_sym() {
+        let test = |input, expected: &str| {
+            let mut store = Store::default();
+            let expr = store.read(input).unwrap();
+            assert_eq!(Expression::Sym(expected.to_string()), expr);
+        };
+        test("asdf", "ASDF");
+        test("asdf ", "ASDF");
+        test("asdf(", "ASDF");
+        test(" asdf", "ASDF");
+        test(" asdf ", "ASDF");
+        test(
+            "
+asdf(", "ASDF",
+        );
+    }
+
+    #[test]
+    fn read_num() {
+        let test = |input, expected: u64| {
+            let mut store = Store::default();
+            let expr = store.read(input).unwrap();
+            assert_eq!(Expression::num(expected), expr);
+        };
+        test("123", 123);
+        test("0987654321", 987654321);
+        test("123)", 123);
+        test("123 ", 123);
+        test("123z", 123);
+        test(" 123", 123);
+        test(
+            "
+0987654321",
+            987654321,
+        );
+    }
+
+    #[test]
+    fn read_list() {
+        let mut store = Store::default();
+        let test = |store: &mut Store, input, expected| {
+            let expr = store.read(input).unwrap();
+            assert_eq!(expected, &expr);
+        };
+
+        let expected = store.cons(&Expression::num(123), &Expression::Nil);
+        test(&mut store, "(123)", &expected);
+
+        let expected2 = store.cons(&Expression::num(321), &expected);
+        test(&mut store, "(321 123)", &expected2);
+
+        let expected3 = store.cons(&Expression::Sym("PUMPKIN".to_string()), &expected2);
+        test(&mut store, "(pumpkin 321 123)", &expected3);
+
+        let expected4 = store.cons(&expected, &Expression::Nil);
+        test(&mut store, "((123))", &expected4);
+
+        let alt = store.cons(&Expression::num(321), &Expression::Nil);
+        let expected5 = store.cons(&alt, &expected4);
+        test(&mut store, "((321) (123))", &expected5);
+
+        let expected6 = store.cons(&expected2, &expected3);
+        test(&mut store, "((321 123) pumpkin 321 123)", &expected6);
+    }
+
+    #[test]
+    fn read_improper_list() {
+        let mut store = Store::default();
+        let test = |store: &mut Store, input, expected| {
+            let expr = store.read(input).unwrap();
+            assert_eq!(expected, &expr);
+        };
+
+        let expected = store.cons(&Expression::num(123), &Expression::num(321));
+        test(&mut store, "(123 . 321)", &expected);
+
+        assert_eq!(store.read("(123 321)"), store.read("(123 . ( 321 ))"))
     }
 }
