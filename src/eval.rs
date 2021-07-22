@@ -1,4 +1,5 @@
 use crate::data::{Expression, Store, Tag, Tagged};
+use ff::Field;
 
 // TODO: Unify this with Expression::Cont. For simplicity, keep separate for now.
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
@@ -8,12 +9,12 @@ pub enum Continuation {
     Call(Expression, Box<Continuation>), // The unevaluated argument
     Call2(Expression, Box<Continuation>), // The function
     Error,
-    Lookup(Expression, Box<Continuation>), // The saved env
-    Binop(Expression),                     // Unevaluated arguments
-    Binop2(Expression),                    // The first argument
-    Relop(Expression),                     // Unevaluated arguments
-    Relop2(Expression),                    //The first argument
-    If(Expression),                        //Unevaluated arguments
+    Lookup(Expression, Box<Continuation>),      // The saved env
+    Binop(Op2, Expression, Box<Continuation>),  // Unevaluated arguments
+    Binop2(Op2, Expression, Box<Continuation>), // The first argument
+    Relop(Expression),                          // Unevaluated arguments
+    Relop2(Expression),                         //The first argument
+    If(Expression),                             //Unevaluated arguments
 }
 
 #[allow(dead_code)]
@@ -21,6 +22,14 @@ struct Function {
     arg: Expression,
     body: Expression,
     closed_env: Expression,
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+pub enum Op2 {
+    Sum,
+    Diff,
+    Product,
+    Quotient,
 }
 
 fn eval_expr(
@@ -37,6 +46,7 @@ fn eval_expr(
             invoke_continuation(cont, expr, env, store)
         }
         Expression::Sym(_) => {
+            dbg!(store.print_expr(&env));
             let (binding, smaller_env) = store.car_cdr(&env);
             let (v, val) = store.car_cdr(&binding);
             if v == *expr {
@@ -60,11 +70,24 @@ fn eval_expr(
                 let (args, body) = store.car_cdr(&rest);
                 let (arg, rest) = store.car_cdr(&args);
                 assert_eq!(Expression::Nil, rest);
-                let function = Expression::Fun(arg.tagged_hash(), body.tagged_hash());
+                let function = store.fun(&arg, &body);
 
                 invoke_continuation(cont, &function, env, store)
+            } else if head == Expression::Sym("+".to_string()) {
+                let (arg1, more) = store.car_cdr(&rest);
+                (
+                    arg1,
+                    env.clone(),
+                    Continuation::Binop(Op2::Sum, more, Box::new(cont.clone())),
+                )
+            } else if head == Expression::Sym("-".to_string()) {
+                let (arg1, more) = store.car_cdr(&rest);
+                (
+                    arg1,
+                    env.clone(),
+                    Continuation::Binop(Op2::Diff, more, Box::new(cont.clone())),
+                )
             } else {
-                //                    let (car, cdr) = store.fetch(&cdr).unwrap();
                 let fun_form = head;
                 let args = rest;
                 let (arg, more_args) = store.car_cdr(&args);
@@ -135,8 +158,36 @@ fn invoke_continuation(
                 panic!("Call2 continuation contains a non-function: {:?}", function);
             }
         },
+        Continuation::Binop(op2, more_args, continuation) => {
+            let (arg2, rest) = store.car_cdr(&more_args);
+            assert_eq!(Expression::Nil, rest);
+            (
+                arg2,
+                env.clone(),
+                Continuation::Binop2(op2.clone(), expr.clone(), continuation.clone()),
+            )
+        }
+        Continuation::Binop2(op2, arg1, continuation) => {
+            let arg2 = expr;
+            match (arg1, arg2) {
+                (Expression::Num(a), Expression::Num(b)) => match op2 {
+                    Op2::Sum => {
+                        let mut tmp = a.clone();
+                        tmp.add_assign(b);
+                        (Expression::Num(tmp), env.clone(), (*continuation.clone()))
+                    }
+                    Op2::Diff => {
+                        let mut tmp = a.clone();
+                        tmp.sub_assign(b);
+                        (Expression::Num(tmp), env.clone(), (*continuation.clone()))
+                    }
+                    _ => unimplemented!("Op2"),
+                },
+                _ => unimplemented!("Binop2"),
+            }
+        }
         _ => {
-            todo!()
+            todo!("Unhandled Continuation variant.")
         }
     }
 }
@@ -323,5 +374,82 @@ mod test {
 
         assert_eq!(9, iterations);
         assert_eq!(val, result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_lambda3() {
+        let mut s = Store::default();
+        let limit = 20;
+        let val = Expression::num(123);
+        let expr = s
+            .read("((lambda (y) ((lambda (x) ((lambda (z) z) x)) y)) 123)")
+            .unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(10, iterations);
+        assert_eq!(val, result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_lambda4() {
+        let mut s = Store::default();
+        let limit = 20;
+        let _val = Expression::num(999);
+        let val2 = Expression::num(888);
+        let expr = s
+            // NOTE: We pass two different values. This tests which is returned.
+            .read("((lambda (y) ((lambda (x) ((lambda (z) z) x)) 888)) 999)")
+            .unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(10, iterations);
+        assert_eq!(val2, result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_lambda5() {
+        let mut s = Store::default();
+        let limit = 20;
+        let val = Expression::num(999);
+        let expr = s
+            // Bind a function to the name FN, then call it.
+            .read("(((lambda (fn) (lambda (x) (fn x))) (lambda (y) y)) 999)")
+            .unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(12, iterations);
+        assert_eq!(val, result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_sum() {
+        let mut s = Store::default();
+        let limit = 20;
+        let expr = s.read("(+ 2 (+ 3 4))").unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(6, iterations);
+        assert_eq!(Expression::num(9), result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_diff() {
+        let mut s = Store::default();
+        let limit = 20;
+        let expr = s.read("(- 9 5)").unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(3, iterations);
+        assert_eq!(Expression::num(4), result_expr);
     }
 }

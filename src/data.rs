@@ -1,7 +1,7 @@
 use bellperson::bls::{Bls12, Fr, FrRepr};
 use core::hash::Hash;
 use ff::{Field, PrimeField};
-use generic_array::typenum::{U16, U2, U4, U8};
+use generic_array::typenum::{U16, U2, U4, U6, U8};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use neptune::{hash_type::HashType, poseidon::Poseidon, poseidon::PoseidonConstants, Strength};
@@ -13,6 +13,7 @@ use std::string::ToString;
 lazy_static! {
     pub static ref POSEIDON_CONSTANTS_2: PoseidonConstants::<Bls12, U2> = PoseidonConstants::new();
     pub static ref POSEIDON_CONSTANTS_4: PoseidonConstants::<Bls12, U4> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_6: PoseidonConstants::<Bls12, U6> = PoseidonConstants::new();
     pub static ref POSEIDON_CONSTANTS_8: PoseidonConstants::<Bls12, U8> = PoseidonConstants::new();
     pub static ref POSEIDON_CONSTANTS_16: PoseidonConstants::<Bls12, U16> =
         PoseidonConstants::new();
@@ -103,6 +104,15 @@ fn hash_string(s: &str) -> Fr {
     x
 }
 
+use Expression::*;
+
+pub trait Tagged {
+    fn tag(&self) -> Tag;
+    fn tag_fr(&self) -> Fr {
+        self.tag().fr()
+    }
+}
+
 impl Tagged for Expression {
     fn tag(&self) -> Tag {
         match self {
@@ -122,7 +132,7 @@ impl Expression {
             Nil => hash_string("NIL"),
             Cons(car, cdr) => binary_hash(car, cdr),
             Sym(s) => hash_string(s),
-            Fun(_, _) => todo!(),
+            Fun(arg, body) => binary_hash(arg, body),
             Num(fr) => *fr, // Nums are immediate.
             Cont() => todo!(),
         }
@@ -146,25 +156,14 @@ impl Expression {
     pub fn num(n: u64) -> Expression {
         Num(fr_from_u64(n))
     }
-}
 
-use Expression::*;
-
-pub trait Tagged {
-    fn tag(&self) -> Tag;
-    fn tag_fr(&self) -> Fr {
-        self.tag().fr()
-    }
-}
-
-#[allow(dead_code)]
-pub struct Num {
-    value: Fr,
-}
-
-impl Tagged for Num {
-    fn tag(&self) -> Tag {
-        Tag::Num
+    pub fn fun(arg: &Expression, body: &Expression) -> Expression {
+        match arg {
+            Expression::Sym(_) => Fun(arg.tagged_hash(), body.tagged_hash()),
+            _ => {
+                panic!("ARG mus be a symbol.");
+            }
+        }
     }
 }
 
@@ -203,6 +202,12 @@ impl Store {
         cons
     }
 
+    pub fn fun(&mut self, arg: &Expression, body: &Expression) -> Expression {
+        let fun = Expression::fun(&arg, body);
+        self.store(&fun);
+        fun
+    }
+
     pub fn car_cdr(&self, expr: &Expression) -> (Expression, Expression) {
         match expr {
             Cons(car, cdr) => (
@@ -225,7 +230,11 @@ impl Store {
         match expr {
             Nil => "NIL".to_string(),
             Sym(s) => s.clone(),
-            Fun(_, _) => todo!(),
+            Fun(arg, body) => {
+                let arg = self.fetch(*arg).unwrap();
+                let body = self.fetch(*body).unwrap();
+                format!("({} . {})", self.print_expr(&arg), self.print_expr(&body))
+            }
             Num(fr) => format!("{}", fr),
             Cont() => todo!(),
             Cons(car, cdr) => {
@@ -255,7 +264,7 @@ impl Store {
                     chars.next();
                     None
                 }
-                'a'..='z' | 'A'..='Z' => self.read_symbol(chars),
+                x if is_symbol_char(&x) => self.read_symbol(chars),
                 _ => {
                     panic!("bad input character: {}", c);
                 }
@@ -358,7 +367,7 @@ impl Store {
 fn is_symbol_char(c: &char) -> bool {
     match c {
         // FIXME: suppport more than just alpha.
-        'a'..='z' | 'A'..='Z' => true,
+        'a'..='z' | 'A'..='Z' | '+' | '-' => true,
         _ => false,
     }
 }
@@ -388,12 +397,10 @@ fn is_whitespace_char(c: &char) -> bool {
 
 fn skip_whitespace_and_peek<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> Option<char> {
     while let Some(&c) = chars.peek() {
-        match c {
-            ' ' | '\t' | '\n' | '\r' => {
-                // Skip whitespace.
-                chars.next();
-            }
-            _ => return Some(c),
+        if is_whitespace_char(&c) {
+            chars.next();
+        } else {
+            return Some(c);
         }
     }
     None
