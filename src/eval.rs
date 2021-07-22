@@ -87,6 +87,20 @@ fn eval_expr(
                     env.clone(),
                     Continuation::Binop(Op2::Diff, more, Box::new(cont.clone())),
                 )
+            } else if head == Expression::Sym("*".to_string()) {
+                let (arg1, more) = store.car_cdr(&rest);
+                (
+                    arg1,
+                    env.clone(),
+                    Continuation::Binop(Op2::Product, more, Box::new(cont.clone())),
+                )
+            } else if head == Expression::Sym("/".to_string()) {
+                let (arg1, more) = store.car_cdr(&rest);
+                (
+                    arg1,
+                    env.clone(),
+                    Continuation::Binop(Op2::Quotient, more, Box::new(cont.clone())),
+                )
             } else {
                 let fun_form = head;
                 let args = rest;
@@ -181,6 +195,19 @@ fn invoke_continuation(
                         tmp.sub_assign(b);
                         (Expression::Num(tmp), env.clone(), (*continuation.clone()))
                     }
+                    Op2::Product => {
+                        let mut tmp = a.clone();
+                        tmp.mul_assign(b);
+                        (Expression::Num(tmp), env.clone(), (*continuation.clone()))
+                    }
+                    Op2::Quotient => {
+                        let mut tmp = a.clone();
+                        // TODO: Return error continuation.
+                        assert!(!b.is_zero(), "Division by zero error.");
+                        tmp.mul_assign(&b.inverse().unwrap());
+                        (Expression::Num(tmp), env.clone(), (*continuation.clone()))
+                    }
+
                     _ => unimplemented!("Op2"),
                 },
                 _ => unimplemented!("Binop2"),
@@ -451,5 +478,44 @@ mod test {
 
         assert_eq!(3, iterations);
         assert_eq!(Expression::num(4), result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_product() {
+        let mut s = Store::default();
+        let limit = 20;
+        let expr = s.read("(* 9 5)").unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(3, iterations);
+        assert_eq!(Expression::num(45), result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_quotient() {
+        let mut s = Store::default();
+        let limit = 20;
+        let expr = s.read("(/ 21 7)").unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(3, iterations);
+        assert_eq!(Expression::num(3), result_expr);
+    }
+
+    #[test]
+    #[should_panic]
+    // This shouldn't actually panic, it should return an error continuation.
+    // But for now document the handling.
+    fn outer_evaluate_quotient_divide_by_zero() {
+        let mut s = Store::default();
+        let limit = 20;
+        let expr = s.read("(/ 21 0)").unwrap();
+
+        let (_result_expr, _new_env, _iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
     }
 }

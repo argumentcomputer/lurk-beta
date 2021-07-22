@@ -367,7 +367,7 @@ impl Store {
 fn is_symbol_char(c: &char) -> bool {
     match c {
         // FIXME: suppport more than just alpha.
-        'a'..='z' | 'A'..='Z' | '+' | '-' => true,
+        'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' => true,
         _ => false,
     }
 }
