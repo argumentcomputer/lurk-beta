@@ -12,8 +12,8 @@ pub enum Continuation {
     Lookup(Expression, Box<Continuation>),      // The saved env
     Binop(Op2, Expression, Box<Continuation>),  // Unevaluated arguments
     Binop2(Op2, Expression, Box<Continuation>), // The first argument
-    Relop(Expression),                          // Unevaluated arguments
-    Relop2(Expression),                         //The first argument
+    Relop(Rel2, Expression, Box<Continuation>), // Unevaluated arguments
+    Relop2(Rel2, Expression, Box<Continuation>), //The first argument
     If(Expression),                             //Unevaluated arguments
 }
 
@@ -32,6 +32,11 @@ pub enum Op2 {
     Quotient,
 }
 
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+pub enum Rel2 {
+    Equal,
+}
+
 fn eval_expr(
     expr: &Expression,
     env: &Expression,
@@ -46,7 +51,6 @@ fn eval_expr(
             invoke_continuation(cont, expr, env, store)
         }
         Expression::Sym(_) => {
-            dbg!(store.print_expr(&env));
             let (binding, smaller_env) = store.car_cdr(&env);
             let (v, val) = store.car_cdr(&binding);
             if v == *expr {
@@ -73,6 +77,41 @@ fn eval_expr(
                 let function = store.fun(&arg, &body);
 
                 invoke_continuation(cont, &function, env, store)
+            } else if head == Expression::Sym("LET".to_string()) {
+                let (bindings, body) = store.car_cdr(&rest);
+                let (body1, rest_body) = store.car_cdr(&body);
+                // Only a single body form allowed for now.
+                assert_eq!(Expression::Nil, rest_body);
+                if bindings == Expression::Nil {
+                    (body, env.clone(), cont.clone())
+                } else {
+                    let (binding1, rest_bindings) = store.car_cdr(&bindings);
+                    let (var, more_vals) = store.car_cdr(&binding1);
+                    let (val, end) = store.car_cdr(&more_vals);
+                    assert_eq!(Expression::Nil, end);
+                    let expanded = if rest_bindings == Expression::Nil {
+                        let lambda = store.intern("LAMBDA");
+                        let var = store.list(vec![var]);
+                        let lambda_form = store.list(vec![lambda, var, body1]);
+
+                        let whole = store.list(vec![lambda_form, val]);
+                        whole
+                    } else {
+                        let lambda = store.intern("LAMBDA");
+                        let var = store.list(vec![var]);
+                        let letsym = store.intern("LET");
+                        let body = store.list(vec![letsym, rest_bindings, body1]);
+                        let lambda_form = store.list(vec![lambda, var, body]);
+
+                        let whole = store.list(vec![lambda_form, val]);
+                        whole
+                    };
+                    (
+                        expanded,
+                        env.clone(),
+                        Continuation::Simple(Box::new(cont.clone())),
+                    )
+                }
             } else if head == Expression::Sym("+".to_string()) {
                 let (arg1, more) = store.car_cdr(&rest);
                 (
@@ -101,11 +140,17 @@ fn eval_expr(
                     env.clone(),
                     Continuation::Binop(Op2::Quotient, more, Box::new(cont.clone())),
                 )
+            } else if head == Expression::Sym("=".to_string()) {
+                let (arg1, more) = store.car_cdr(&rest);
+                (
+                    arg1,
+                    env.clone(),
+                    Continuation::Relop(Rel2::Equal, more, Box::new(cont.clone())),
+                )
             } else {
                 let fun_form = head;
                 let args = rest;
                 let (arg, more_args) = store.car_cdr(&args);
-
                 match &more_args {
                     Expression::Nil => (
                         fun_form,
@@ -113,6 +158,7 @@ fn eval_expr(
                         Continuation::Call(arg, Box::new(cont.clone())),
                     ),
                     _ => {
+                        dbg!(store.print_expr(&fun_form), store.print_expr(&args));
                         panic!(
                             "Only one arg supported, but got more args: {}",
                             store.print_expr(&more_args)
@@ -157,7 +203,7 @@ fn invoke_continuation(
                 (next_expr.clone(), env.clone(), newer_cont)
             }
             _ => {
-                todo!("poiu")
+                panic!("call expects a function: {}", store.print_expr(&expr));
             }
         },
         Continuation::Call2(function, continuation) => match function {
@@ -207,10 +253,33 @@ fn invoke_continuation(
                         tmp.mul_assign(&b.inverse().unwrap());
                         (Expression::Num(tmp), env.clone(), (*continuation.clone()))
                     }
-
-                    _ => unimplemented!("Op2"),
                 },
                 _ => unimplemented!("Binop2"),
+            }
+        }
+        Continuation::Relop(rel2, more_args, continuation) => {
+            let (arg2, rest) = store.car_cdr(&more_args);
+            assert_eq!(Expression::Nil, rest);
+            (
+                arg2,
+                env.clone(),
+                Continuation::Relop2(rel2.clone(), expr.clone(), continuation.clone()),
+            )
+        }
+        Continuation::Relop2(rel2, arg1, continuation) => {
+            let arg2 = expr;
+            match (arg1, arg2) {
+                (Expression::Num(a), Expression::Num(b)) => match rel2 {
+                    Rel2::Equal => {
+                        let result = if a == b {
+                            Expression::Sym("T".to_string()) // TODO: maybe explicit boolean.
+                        } else {
+                            Expression::Nil
+                        };
+                        (result, env.clone(), (*continuation.clone()))
+                    }
+                },
+                _ => unimplemented!("Relop2"),
             }
         }
         _ => {
@@ -233,6 +302,11 @@ pub fn outer_evaluate(
         let (new_expr, new_env, new_cont) =
             eval_expr(&next_expr, &next_env, &next_cont, &mut store);
 
+        dbg!(
+            store.print_expr(&next_expr),
+            store.print_expr(&next_env),
+            next_cont
+        );
         match &new_cont {
             Continuation::Outermost => return (new_expr, new_env, i, new_cont),
             Continuation::Error => panic!("Error when evaluating."), // FIXME: handle better.
@@ -372,7 +446,7 @@ mod test {
         let lambda_arguments = s.cons(&val, &nil);
         let expr = s.cons(&whole_lambda, &lambda_arguments);
 
-        assert_eq!("((LAMBDA . ((X . NIL) . (X . NIL))) . (Fr(0x000000000000000000000000000000000000000000000000000000000000007b) . NIL))".to_string(), s.print_expr(&expr));
+        assert_eq!("((LAMBDA . ((X) . (X))) . (Fr(0x000000000000000000000000000000000000000000000000000000000000007b)))".to_string(), s.print_expr(&expr));
     }
 
     #[test]
@@ -517,5 +591,120 @@ mod test {
 
         let (_result_expr, _new_env, _iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+    }
+
+    #[test]
+    fn outer_evaluate_num_equal() {
+        let mut s = Store::default();
+        let limit = 20;
+
+        {
+            let expr = s.read("(= 5 5)").unwrap();
+
+            let (result_expr, _new_env, iterations, _continuation) =
+                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+            assert_eq!(3, iterations);
+            // TODO: Consider special-casing T, like NIL, and force it to the
+            // immediate value 1 (with Symbol type-tag). That way boolean logic
+            // will work out. It might be more consistent to have an explicit
+            // boolean type (like Scheme), though. Otherwise we will have to
+            // think about handling of symbol names (if made explicit), since
+            // neither T/NIL as 1/0 will *not* be hashes of their symbol names.
+            assert_eq!(Expression::Sym("T".to_string()), result_expr);
+        }
+        {
+            let expr = s.read("(= 5 6)").unwrap();
+
+            let (result_expr, _new_env, iterations, _continuation) =
+                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+            assert_eq!(3, iterations);
+            assert_eq!(Expression::Nil, result_expr);
+        }
+    }
+
+    #[test]
+    fn outer_evaluate_adder() {
+        let mut s = Store::default();
+        let limit = 20;
+        let expr = s.read("(((lambda (x) (lambda (y) (+ x y))) 2) 3)").unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(12, iterations);
+        assert_eq!(Expression::num(5), result_expr);
+    }
+
+    // Enable this when we have LET.
+    #[test]
+    fn outer_evaluate_adder2() {
+        let mut s = Store::default();
+        let limit = 20;
+        let expr = s
+            .read(
+                "(let ((make-adder (lambda (x) (lambda (y) (+ x y)))))
+                              ((make-adder 2) 3))",
+            )
+            .unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(16, iterations);
+        assert_eq!(Expression::num(5), result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_let_simple() {
+        let mut s = Store::default();
+        let limit = 20;
+        let expr = s.read("(let ((a 1)) a)").unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(5, iterations);
+        assert_eq!(Expression::num(1), result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_let1() {
+        let mut s = Store::default();
+        let limit = 20;
+        let expr = s
+            .read(
+                "(let ((a 1)
+                       (b 2))
+                   (+ a b))",
+            )
+            .unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(15, iterations);
+        assert_eq!(Expression::num(3), result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_arithmetic_let() {
+        let mut s = Store::default();
+        let limit = 30;
+        let expr = s
+            .read(
+                "(let ((a 1)
+                       (b 2)
+                       (c 3))
+                   (+ a (+ b c)))",
+            )
+            .unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(27, iterations);
+        assert_eq!(Expression::num(6), result_expr);
     }
 }

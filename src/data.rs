@@ -202,6 +202,13 @@ impl Store {
         cons
     }
 
+    pub fn list(&mut self, elts: Vec<Expression>) -> Expression {
+        let mut elts = elts;
+        elts.reverse();
+        elts.iter()
+            .fold(Expression::Nil, |acc, elt| self.cons(elt, &acc))
+    }
+
     pub fn fun(&mut self, arg: &Expression, body: &Expression) -> Expression {
         let fun = Expression::fun(&arg, body);
         self.store(&fun);
@@ -240,7 +247,10 @@ impl Store {
             Cons(car, cdr) => {
                 let car = self.fetch(*car).unwrap();
                 let cdr = self.fetch(*cdr).unwrap();
-                format!("({} . {})", self.print_expr(&car), self.print_expr(&cdr))
+                match cdr {
+                    Expression::Nil => format!("({})", self.print_expr(&car)),
+                    _ => format!("({} . {})", self.print_expr(&car), self.print_expr(&cdr)),
+                }
             }
         }
     }
@@ -367,7 +377,7 @@ impl Store {
 fn is_symbol_char(c: &char) -> bool {
     match c {
         // FIXME: suppport more than just alpha.
-        'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' => true,
+        'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' | '=' => true,
         _ => false,
     }
 }
