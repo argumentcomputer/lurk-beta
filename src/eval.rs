@@ -14,7 +14,7 @@ pub enum Continuation {
     Binop2(Op2, Expression, Box<Continuation>), // The first argument
     Relop(Rel2, Expression, Box<Continuation>), // Unevaluated arguments
     Relop2(Rel2, Expression, Box<Continuation>), //The first argument
-    If(Expression),                             //Unevaluated arguments
+    If(Expression, Box<Continuation>),          //Unevaluated arguments
 }
 
 #[allow(dead_code)]
@@ -146,6 +146,14 @@ fn eval_expr(
                     arg1,
                     env.clone(),
                     Continuation::Relop(Rel2::Equal, more, Box::new(cont.clone())),
+                )
+            } else if head == Expression::Sym("IF".to_string()) {
+                let (condition, more) = store.car_cdr(&rest);
+
+                (
+                    condition,
+                    env.clone(),
+                    Continuation::If(more, Box::new(cont.clone())),
                 )
             } else {
                 let fun_form = head;
@@ -280,6 +288,45 @@ fn invoke_continuation(
                     }
                 },
                 _ => unimplemented!("Relop2"),
+            }
+        }
+        Continuation::If(more_args, continuation) => {
+            let condition = expr;
+            let (arg1, more) = store.car_cdr(more_args);
+            // NOTE: as formulated here, IF operates on any condition. Every
+            // value but NIL is considered true.
+            //
+            // We can implement this in constraints:
+            // X * (1-X) = 0
+            // C * X = 0
+            // (X + C) * Q = 1
+            //
+            // where X is a constrained boolean which is true (1) iff C == 0. Q
+            // is a value non-deterministically supplied by the prover to
+            // demonstrate that both X and C are not 0. If both were 0, the
+            // constraint C * X = 0 would hold. But in that case, X should be 1
+            // since C = 0.
+            //
+            // Now X can be used as the known-boolean conditional in a
+            // conditional selection: (B - A) * X = B - C
+            //
+            // where C is the result, A is the 'true' result, and B is the
+            // false/else result. i.e. if X then A else B.
+            //
+            // All of the above is just 'how to implement an exact equality
+            // check' in the case that the value checked against is zero. We
+            // will need this throughout, when branching on symbols (effectively
+            // a CASE expression). Since symbols are field elements with
+            // equality, this is relatively efficient. When doing this, the
+            // value being checked against is not zero, so that value should
+            // first be subtracted from the value being checked.
+
+            if *condition == Expression::Nil {
+                let (arg2, end) = store.car_cdr(&more);
+                assert_eq!(end, Expression::Nil);
+                (arg2, env.clone(), (*continuation.clone()))
+            } else {
+                (arg1, env.clone(), (*continuation.clone()))
             }
         }
         _ => {
@@ -670,7 +717,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_let1() {
+    fn outer_evaluate_let() {
         let mut s = Store::default();
         let limit = 20;
         let expr = s
@@ -706,5 +753,46 @@ mod test {
 
         assert_eq!(27, iterations);
         assert_eq!(Expression::num(6), result_expr);
+    }
+
+    #[test]
+    // Not because it's efficient, but to prove we can.
+    fn outer_evaluate_fundamental_conditional() {
+        let mut s = Store::default();
+        let limit = 100;
+        let expr = s
+            .read(
+                "(let ((true (lambda (a)
+                               (lambda (b)
+                                 a)))
+                        (false (lambda (a)
+                                 (lambda (b)
+                                   b)))
+                        (iff (lambda (a)
+                               (lambda (b)
+                                 (lambda (cond)
+                                   ((cond a) b))))))
+                   (((iff 5) 6) true))",
+            )
+            .unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(48, iterations);
+        assert_eq!(Expression::num(5), result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_if() {
+        let mut s = Store::default();
+        let limit = 100;
+        let expr = s.read("(if t 5 6)").unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+        assert_eq!(2, iterations);
+        assert_eq!(Expression::num(5), result_expr);
     }
 }
