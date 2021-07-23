@@ -166,7 +166,6 @@ fn eval_expr(
                         Continuation::Call(arg, Box::new(cont.clone())),
                     ),
                     _ => {
-                        dbg!(store.print_expr(&fun_form), store.print_expr(&args));
                         panic!(
                             "Only one arg supported, but got more args: {}",
                             store.print_expr(&more_args)
@@ -349,11 +348,6 @@ pub fn outer_evaluate(
         let (new_expr, new_env, new_cont) =
             eval_expr(&next_expr, &next_env, &next_cont, &mut store);
 
-        dbg!(
-            store.print_expr(&next_expr),
-            store.print_expr(&next_env),
-            next_cont
-        );
         match &new_cont {
             Continuation::Outermost => return (new_expr, new_env, i, new_cont),
             Continuation::Error => panic!("Error when evaluating."), // FIXME: handle better.
@@ -794,5 +788,26 @@ mod test {
 
         assert_eq!(2, iterations);
         assert_eq!(Expression::num(5), result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_recursion() {
+        let mut s = Store::default();
+        let limit = 300;
+        let expr = s
+            .read(
+                "(let ((exp (lambda (base)
+                              (lambda (exponent)
+                                (if (= 0 exponent)
+                                    1
+                                    (* base ((exp base) (- exponent 1))))))))
+                   ((exp 5) 3))",
+            )
+            .unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+        assert_eq!(109, iterations);
+        assert_eq!(Expression::num(125), result_expr);
     }
 }
