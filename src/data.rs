@@ -71,14 +71,65 @@ pub enum Expression {
     Nil,
     Cons(TaggedHash, TaggedHash),
     Sym(String),
-    Fun(TaggedHash, TaggedHash), // arg, body
+    Fun(TaggedHash, TaggedHash, TaggedHash), // arg, body, closed env
     Num(Fr),
-    Cont(),
+    Cont(FulfilledContinuation),
+}
+
+// #[allow(dead_code)]
+// pub struct Function {
+//     arg: Expression,
+//     body: Expression,
+//     closed_env: Expression,
+// }
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+pub enum Op2 {
+    Sum,
+    Diff,
+    Product,
+    Quotient,
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+pub enum Rel2 {
+    Equal,
+}
+
+// TODO: Unify this with Expression::Cont. For simplicity, keep separate for now.
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+pub enum Continuation {
+    Outermost,
+    Simple(Box<Continuation>),
+    Call(Expression, Expression, Box<Continuation>), // The unevaluated argument and the saved env.
+    Call2(Expression, Expression, Box<Continuation>), // The function and the saved env.
+    Call3(Expression, Box<Continuation>),            // The saved env
+    Error,
+    Lookup(Expression, Box<Continuation>),      // The saved env
+    Binop(Op2, Expression, Box<Continuation>),  // Unevaluated arguments
+    Binop2(Op2, Expression, Box<Continuation>), // The first argument
+    Relop(Rel2, Expression, Box<Continuation>), // Unevaluated arguments
+    Relop2(Rel2, Expression, Box<Continuation>), //The first argument
+    If(Expression, Box<Continuation>),          //Unevaluated arguments
+    Let(Expression, Expression, Expression, Box<Continuation>), // The var, the body, and the saved env.
+    LetRecStar(Expression, Expression, Expression, Box<Continuation>), // The var, the saved env, and the body.
+    Dummy,
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+pub struct FulfilledContinuation {
+    pub value: Box<Expression>,
+    pub continuation: Box<Continuation>,
 }
 
 fn binary_hash(a: &TaggedHash, b: &TaggedHash) -> Fr {
     let preimage = vec![a.tag, a.hash, b.tag, b.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_4).hash()
+}
+
+fn tri_hash(a: &TaggedHash, b: &TaggedHash, c: &TaggedHash) -> Fr {
+    let preimage = vec![a.tag, a.hash, b.tag, b.hash, c.tag, c.hash];
+    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_6).hash()
 }
 
 fn oct_hash(preimage: &[Fr]) -> Fr {
@@ -119,9 +170,9 @@ impl Tagged for Expression {
             Nil => Tag::Nil,
             Cons(_, _) => Tag::Cons,
             Sym(_) => Tag::Sym,
-            Fun(_, _) => Tag::Fun,
+            Fun(_, _, _) => Tag::Fun,
             Num(_) => Tag::Num,
-            Cont() => Tag::Cont,
+            Cont(_) => Tag::Cont,
         }
     }
 }
@@ -132,9 +183,9 @@ impl Expression {
             Nil => hash_string("NIL"),
             Cons(car, cdr) => binary_hash(car, cdr),
             Sym(s) => hash_string(s),
-            Fun(arg, body) => binary_hash(arg, body),
+            Fun(arg, body, closed_env) => binary_hash(arg, body),
             Num(fr) => *fr, // Nums are immediate.
-            Cont() => todo!(),
+            Cont(_) => todo!(),
         }
     }
 
@@ -157,11 +208,16 @@ impl Expression {
         Num(fr_from_u64(n))
     }
 
-    pub fn fun(arg: &Expression, body: &Expression) -> Expression {
+    pub fn fun(arg: &Expression, body: &Expression, closed_env: &Expression) -> Expression {
         match arg {
-            Expression::Sym(_) => Fun(arg.tagged_hash(), body.tagged_hash()),
+            // TODO: closed_env must be an env.
+            Expression::Sym(_) => Fun(
+                arg.tagged_hash(),
+                body.tagged_hash(),
+                closed_env.tagged_hash(),
+            ),
             _ => {
-                panic!("ARG mus be a symbol.");
+                panic!("ARG must be a symbol.");
             }
         }
     }
@@ -209,8 +265,13 @@ impl Store {
             .fold(Expression::Nil, |acc, elt| self.cons(elt, &acc))
     }
 
-    pub fn fun(&mut self, arg: &Expression, body: &Expression) -> Expression {
-        let fun = Expression::fun(&arg, body);
+    pub fn fun(
+        &mut self,
+        arg: &Expression,
+        body: &Expression,
+        closed_env: &Expression,
+    ) -> Expression {
+        let fun = Expression::fun(&arg, body, closed_env);
         self.store(&fun);
         fun
     }
@@ -237,13 +298,17 @@ impl Store {
         match expr {
             Nil => "NIL".to_string(),
             Sym(s) => s.clone(),
-            Fun(arg, body) => {
+            Fun(arg, body, _closed_env) => {
                 let arg = self.fetch(*arg).unwrap();
                 let body = self.fetch(*body).unwrap();
-                format!("({} . {})", self.print_expr(&arg), self.print_expr(&body))
+                format!(
+                    "<FUNCTION ({}) . {}>",
+                    self.print_expr(&arg),
+                    self.print_expr(&body)
+                )
             }
             Num(fr) => format!("{}", fr),
-            Cont() => todo!(),
+            Cont(_) => format!("Cont [TODO]"),
             Cons(car, cdr) => {
                 let car = self.fetch(*car).unwrap();
                 let cdr = self.fetch(*cdr).unwrap();
@@ -369,8 +434,12 @@ impl Store {
             }
         }
         let name: String = name_chars.into_iter().collect();
+        let sym = self.intern(&name);
 
-        Some(self.intern(&name))
+        match sym {
+            Expression::Sym(s) if s == "NIL" => Some(Expression::Nil),
+            _ => Some(sym),
+        }
     }
 }
 
@@ -580,6 +649,13 @@ mod test {
             "
 asdf(", "ASDF",
         );
+    }
+
+    #[test]
+    fn read_nil() {
+        let mut store = Store::default();
+        let expr = store.read("nil").unwrap();
+        assert_eq!(Expression::Nil, expr);
     }
 
     #[test]

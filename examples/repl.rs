@@ -1,5 +1,5 @@
-use dendron::data::Store;
-use dendron::eval::{empty_sym_env, outer_evaluate, Continuation};
+use dendron::data::{Continuation, Store};
+use dendron::eval::{empty_sym_env, outer_evaluate};
 use std::io::{self, BufRead, Write};
 
 // For the moment, input must be on a single line.
@@ -8,7 +8,7 @@ fn main() {
 
     let mut s = Store::default();
     let prompt = "> ";
-    let limit = 1000;
+    let limit = 1000000;
 
     let stdin = io::stdin();
     let mut it = stdin.lock().lines();
