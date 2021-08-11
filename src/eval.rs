@@ -55,20 +55,64 @@ fn eval_expr(
                 if binding == Expression::Nil {
                     (expr.clone(), env.clone(), Continuation::Error)
                 } else {
-                    let (v, val) = store.car_cdr(&binding);
-                    if v == *expr {
-                        fulfill_continuation(cont, &val, env, store)
-                    } else {
-                        match cont {
-                            Continuation::Lookup(_, previous_cont) => {
-                                (expr.clone(), smaller_env, cont.clone())
+                    let (var_or_rec_binding, val_or_more_rec_env) = store.car_cdr(&binding);
+                    dbg!(store.print_expr(&binding));
+                    match &var_or_rec_binding {
+                        // In a simple_env.
+                        Expression::Sym(_) => {
+                            let v = var_or_rec_binding;
+                            let val = val_or_more_rec_env;
+
+                            if v == *expr {
+                                fulfill_continuation(cont, &val, env, store)
+                            } else {
+                                match cont {
+                                    Continuation::Lookup(_, previous_cont) => {
+                                        (expr.clone(), smaller_env, cont.clone())
+                                    }
+                                    _ => (
+                                        expr.clone(),
+                                        smaller_env,
+                                        Continuation::Lookup(env.clone(), Box::new(cont.clone())),
+                                    ),
+                                }
                             }
-                            _ => (
-                                expr.clone(),
-                                smaller_env,
-                                Continuation::Lookup(env.clone(), Box::new(cont.clone())),
-                            ),
                         }
+                        // Start of a recursive_env.
+                        Expression::Cons(_, _) => {
+                            let rec_env = binding;
+                            let smaller_rec_env = var_or_rec_binding;
+
+                            let (v, val) = store.car_cdr(&smaller_rec_env);
+                            if v == *expr {
+                                let val_to_use = {
+                                    match val {
+                                        Expression::Fun(_, _, _) => {
+                                            extend_closure(&val, &rec_env, store)
+                                        }
+                                        _ => val,
+                                    }
+                                };
+                                fulfill_continuation(cont, &val_to_use, env, store)
+                            } else {
+                                let env_to_use = if smaller_rec_env == Expression::Nil {
+                                    smaller_env
+                                } else {
+                                    store.cons(&smaller_rec_env, &smaller_env)
+                                };
+                                match cont {
+                                    Continuation::Lookup(_, _) => {
+                                        (expr.clone(), env_to_use, cont.clone())
+                                    }
+                                    _ => (
+                                        expr.clone(),
+                                        env_to_use,
+                                        Continuation::Lookup(env.clone(), Box::new(cont.clone())),
+                                    ),
+                                }
+                            }
+                        }
+                        _ => panic!("Bad form."),
                     }
                 }
             }
@@ -284,29 +328,9 @@ fn invoke_continuation(
             (body.clone(), extended_env, c)
         }
         Continuation::LetRecStar(var, body, saved_env, continuation) => {
-            let result = match &expr {
-                // FIXME: The problem is that we need the binding to be
-                // accessible from the body of the Fun. We can accomplish this
-                // by mutating the Fun, but we try (unsuccessfully) to do the
-                // same in a 'pure' way. What's the best way to resolve this?
-                // Effectively, we are trying to create a circularity in an
-                // immutable, content-addressable structure.
-                Expression::Fun(arg_t, body_t, closed_env_t) => {
-                    let closed_env = store.fetch(*closed_env_t).unwrap();
-                    dbg!("LetRecStar", &closed_env, &var, &store.print_expr(&expr));
-                    let extended = extend(&closed_env, var, expr, store);
-                    Expression::Fun(*arg_t, *body_t, extended.tagged_hash())
-                }
-                _ => expr.clone(),
-            };
-            let extended_env = extend(&env, var, &result, store);
+            let extended_env = extend_rec(&env, var, expr, store);
             let c = Continuation::Call3(saved_env.clone(), Box::new(*continuation.clone()));
-            dbg!(
-                &var,
-                &expr,
-                store.print_expr(&body),
-                &store.print_expr(&extended_env)
-            );
+            dbg!(&var, &expr, &body, &store.print_expr(&extended_env));
             (body.clone(), extended_env, c)
         }
         Continuation::Binop(op2, more_args, continuation) => {
@@ -456,6 +480,47 @@ pub fn empty_sym_env(_store: &Store) -> Expression {
 fn extend(env: &Expression, var: &Expression, val: &Expression, store: &mut Store) -> Expression {
     let cons = store.cons(var, val);
     store.cons(&cons, env)
+}
+
+fn extend_rec(
+    env: &Expression,
+    var: &Expression,
+    val: &Expression,
+    store: &mut Store,
+) -> Expression {
+    let (binding_or_env, _rest) = store.car_cdr(env);
+    let (var_or_binding, _val_or_more_bindings) = store.car_cdr(&binding_or_env);
+    match var_or_binding {
+        // It's a var, so we are extending a simple env with a recursive env.
+        Expression::Sym(_) | Expression::Nil => {
+            let cons = store.cons(var, val);
+            let list = store.list(vec![cons]);
+            store.cons(&list, env)
+        }
+        // It's a binding, so we are extending a recursive env.
+        Expression::Cons(_, _) => {
+            let cons = store.cons(var, val);
+            let cons2 = store.cons(&cons, &binding_or_env);
+            store.list(vec![cons2])
+        }
+        _ => {
+            panic!("Bad input form.")
+        }
+    }
+}
+
+fn extend_closure(fun: &Expression, rec_env: &Expression, store: &mut Store) -> Expression {
+    match fun {
+        Expression::Fun(arg, body, closed_env) => {
+            let extended = store.cons(&rec_env, &store.fetch(closed_env.clone()).clone().unwrap());
+            store.fun(
+                &store.fetch(*arg).unwrap(),
+                &store.fetch(*body).unwrap(),
+                &extended,
+            )
+        }
+        _ => panic!("extend_closure received non-Fun: {:?}", fun),
+    }
 }
 
 #[allow(dead_code)]
@@ -951,11 +1016,10 @@ mod test {
         }
     }
 
-    // FIXME: This should fail and needs LETREC*.
     #[test]
     fn outer_evaluate_recursion1() {
         let mut s = Store::default();
-        let limit = 30000;
+        let limit = 200;
         let expr = s
             .read(
                 "(letrec* ((exp (lambda (base)
@@ -970,7 +1034,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
         // 1:43, 2:74, 3:109, 4:148, 5:191
-        assert_eq!(109, iterations);
+        assert_eq!(137, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
 

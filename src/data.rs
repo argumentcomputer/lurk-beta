@@ -282,6 +282,7 @@ impl Store {
                 self.fetch(*car).expect("Car not found!").clone(),
                 self.fetch(*cdr).expect("Cdr not found!").clone(),
             ),
+            Nil => (Nil, Nil),
             _ => panic!("Can only extract car_cdr from a Cons."),
         }
     }
