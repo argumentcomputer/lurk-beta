@@ -309,7 +309,11 @@ impl Store {
                 )
             }
             Num(fr) => format!("{}", fr),
-            Cont(_) => format!("Cont [TODO]"),
+            Cont(f) => format!(
+                "Cont value {:?}; cont: {:?}",
+                self.print_expr(&f.value),
+                f.continuation
+            ),
             Cons(car, cdr) => {
                 let car = self.fetch(*car).unwrap();
                 let cdr = self.fetch(*cdr).unwrap();
