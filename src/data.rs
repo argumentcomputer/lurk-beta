@@ -73,7 +73,7 @@ pub enum Expression {
     Sym(String),
     Fun(TaggedHash, TaggedHash, TaggedHash), // arg, body, closed env
     Num(Fr),
-    Cont(FulfilledContinuation),
+    Cont(Thunk),
 }
 
 // #[allow(dead_code)]
@@ -117,7 +117,7 @@ pub enum Continuation {
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
-pub struct FulfilledContinuation {
+pub struct Thunk {
     pub value: Box<Expression>,
     pub continuation: Box<Continuation>,
 }

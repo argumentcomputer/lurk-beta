@@ -1,4 +1,4 @@
-use crate::data::{Continuation, Expression, FulfilledContinuation, Op2, Rel2, Store, Tag, Tagged};
+use crate::data::{Continuation, Expression, Op2, Rel2, Store, Tag, Tagged, Thunk};
 use ff::Field;
 
 fn maybe_wrap_continuation(cont: Continuation) -> Continuation {
@@ -9,7 +9,7 @@ fn maybe_wrap_continuation(cont: Continuation) -> Continuation {
 }
 
 // Returns (Expression::Cont, Expression::Env, Continuation)
-fn fulfill_continuation(
+fn make_thunk(
     cont: &Continuation,
     result: &Expression,
     env: &Expression,
@@ -26,15 +26,15 @@ fn fulfill_continuation(
     match cont {
         // These are the tail-continuations.
         Continuation::Call3(_, continuation) => {
-            fulfill_continuation(continuation, result, effective_env, store)
+            make_thunk(continuation, result, effective_env, store)
         }
         _ => {
-            let fulfilled = FulfilledContinuation {
+            let thunk = Thunk {
                 value: Box::new(result.clone()),
                 continuation: Box::new(cont.clone()),
             };
             (
-                Expression::Cont(fulfilled),
+                Expression::Cont(thunk),
                 effective_env.clone(),
                 Continuation::Dummy,
             )
@@ -49,13 +49,13 @@ fn eval_expr(
     store: &mut Store,
 ) -> (Expression, Expression, Continuation) {
     match expr {
-        Expression::Cont(fulfilled) => {
-            invoke_continuation(&fulfilled.continuation, &fulfilled.value, env, store)
+        Expression::Cont(thunk) => {
+            invoke_continuation(&thunk.continuation, &thunk.value, env, store)
         }
-        Expression::Nil => fulfill_continuation(cont, expr, env, store),
+        Expression::Nil => make_thunk(cont, expr, env, store),
         Expression::Sym(_) => {
             if expr == &store.intern("NIL") || (expr == &store.intern("T")) {
-                fulfill_continuation(cont, expr, env, store)
+                make_thunk(cont, expr, env, store)
             } else {
                 assert!(Expression::Nil != *env, "Unbound variable: {:?}", expr);
                 let (binding, smaller_env) = store.car_cdr(&env);
@@ -71,7 +71,7 @@ fn eval_expr(
                             let val = val_or_more_rec_env;
 
                             if v == *expr {
-                                fulfill_continuation(cont, &val, env, store)
+                                make_thunk(cont, &val, env, store)
                             } else {
                                 match cont {
                                     Continuation::Lookup(_, previous_cont) => {
@@ -103,7 +103,7 @@ fn eval_expr(
                                         _ => val,
                                     }
                                 };
-                                fulfill_continuation(cont, &val_to_use, env, store)
+                                make_thunk(cont, &val_to_use, env, store)
                             } else {
                                 let env_to_use = if smaller_rec_env == Expression::Nil {
                                     smaller_env
@@ -127,8 +127,8 @@ fn eval_expr(
                 }
             }
         }
-        Expression::Num(_) => fulfill_continuation(cont, expr, env, store),
-        Expression::Fun(_, _, _) => fulfill_continuation(cont, expr, env, store),
+        Expression::Num(_) => make_thunk(cont, expr, env, store),
+        Expression::Fun(_, _, _) => make_thunk(cont, expr, env, store),
         Expression::Cons(head_t, rest_t) => {
             let head = store.fetch(*head_t).unwrap();
             let rest = store.fetch(*rest_t).unwrap();
@@ -149,7 +149,7 @@ fn eval_expr(
                 };
                 let function = store.fun(&arg, &inner_body, &env);
 
-                fulfill_continuation(cont, &function, env, store)
+                make_thunk(cont, &function, env, store)
             } else if head == Expression::Sym("LET*".to_string()) {
                 let (bindings, body) = store.car_cdr(&rest);
                 let (body1, rest_body) = store.car_cdr(&body);
@@ -380,7 +380,7 @@ fn invoke_continuation(
                 },
                 _ => unimplemented!("Binop2"),
             };
-            fulfill_continuation(continuation, &result, env, store)
+            make_thunk(continuation, &result, env, store)
         }
         Continuation::Relop(rel2, more_args, continuation) => {
             let (arg2, rest) = store.car_cdr(&more_args);
@@ -405,7 +405,7 @@ fn invoke_continuation(
                 },
                 _ => unimplemented!("Relop2"),
             };
-            fulfill_continuation(continuation, &result, env, store)
+            make_thunk(continuation, &result, env, store)
         }
         Continuation::If(more_args, continuation) => {
             let condition = result;
@@ -447,14 +447,12 @@ fn invoke_continuation(
             }
         }
         Continuation::Lookup(saved_env, continuation) => {
-            fulfill_continuation(continuation, result, saved_env, store)
+            make_thunk(continuation, result, saved_env, store)
         }
-        Continuation::Simple(continuation) => {
-            fulfill_continuation(continuation, result, env, store)
-        }
+        Continuation::Simple(continuation) => make_thunk(continuation, result, env, store),
         _ => {
             unreachable!();
-            // fulfill_continuation(cont, result, env, store)
+            // make_thunk(cont, result, env, store)
         }
     }
 }
@@ -596,11 +594,11 @@ mod test {
                 &Continuation::Outermost,
                 &mut store,
             );
-            let fulfilled = Expression::Cont(FulfilledContinuation {
+            let thunk = Expression::Cont(Thunk {
                 value: Box::new(num),
                 continuation: Box::new(Continuation::Outermost),
             });
-            assert_eq!(fulfilled, result);
+            assert_eq!(thunk, result);
         }
 
         {
@@ -610,11 +608,11 @@ mod test {
                 &Continuation::Outermost,
                 &mut store,
             );
-            let fulfilled = Expression::Cont(FulfilledContinuation {
+            let thunk = Expression::Cont(Thunk {
                 value: Box::new(Expression::Nil),
                 continuation: Box::new(Continuation::Outermost),
             });
-            assert_eq!(fulfilled, result);
+            assert_eq!(thunk, result);
         }
     }
 
