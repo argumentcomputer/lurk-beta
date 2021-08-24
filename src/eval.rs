@@ -18,14 +18,16 @@ fn make_thunk(
     let effective_env = match cont {
         // These are the restore-env continuations.
         Continuation::Lookup(saved_env, _) => saved_env,
-        Continuation::Call3(saved_env, _) => saved_env,
+        Continuation::Tail(saved_env, _) => saved_env,
         _ => env,
     };
 
     // This structure is in case we have other tail continuations in the future.
+    // I think we should not have, though -- since by definition we should be able
+    // to use Tail for any such need.
     match cont {
         // These are the tail-continuations.
-        Continuation::Call3(_, continuation) => {
+        Continuation::Tail(_, continuation) => {
             make_thunk(continuation, result, effective_env, store)
         }
         _ => {
@@ -320,11 +322,10 @@ fn invoke_continuation(
                 let closed_env = store.fetch(*closed_env_t).unwrap();
                 let arg = store.fetch(*arg_t).unwrap();
                 let newer_env = extend(&closed_env, &arg, result, store);
-                // TODO: Handle tail continuations.
                 let cont = match &**continuation {
-                    // Match all tail continuations here. (only Call3, for now).
-                    Continuation::Call3(_, c) => *c.clone(),
-                    _ => Continuation::Call3(saved_env.clone(), Box::new(*continuation.clone())),
+                    // Match all tail continuations here.
+                    Continuation::Tail(_, c) => *c.clone(),
+                    _ => Continuation::Tail(saved_env.clone(), Box::new(*continuation.clone())),
                 };
                 (body_form, newer_env, cont)
             }
@@ -334,12 +335,12 @@ fn invoke_continuation(
         },
         Continuation::Let(var, body, saved_env, continuation) => {
             let extended_env = extend(&env, var, result, store);
-            let c = Continuation::Call3(saved_env.clone(), Box::new(*continuation.clone()));
+            let c = Continuation::Tail(saved_env.clone(), Box::new(*continuation.clone()));
             (body.clone(), extended_env, c)
         }
         Continuation::LetRecStar(var, body, saved_env, continuation) => {
             let extended_env = extend_rec(&env, var, result, store);
-            let c = Continuation::Call3(saved_env.clone(), Box::new(*continuation.clone()));
+            let c = Continuation::Tail(saved_env.clone(), Box::new(*continuation.clone()));
             (body.clone(), extended_env, c)
         }
         Continuation::Binop(op2, more_args, continuation) => {

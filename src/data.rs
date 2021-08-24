@@ -103,7 +103,7 @@ pub enum Continuation {
     Simple(Box<Continuation>),
     Call(Expression, Expression, Box<Continuation>), // The unevaluated argument and the saved env.
     Call2(Expression, Expression, Box<Continuation>), // The function and the saved env.
-    Call3(Expression, Box<Continuation>),            // The saved env
+    Tail(Expression, Box<Continuation>),             // The saved env
     Error,
     Lookup(Expression, Box<Continuation>),      // The saved env
     Binop(Op2, Expression, Box<Continuation>),  // Unevaluated arguments
