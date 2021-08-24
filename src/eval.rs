@@ -285,7 +285,7 @@ fn eval_expr(
                     (
                         val,
                         env.clone(),
-                        Continuation::Let(
+                        Continuation::LetStar(
                             var,
                             expanded,
                             env.clone(),
@@ -455,7 +455,7 @@ fn invoke_continuation(
                 panic!("Call2 continuation contains a non-function: {:?}", function);
             }
         },
-        Continuation::Let(var, body, saved_env, continuation) => {
+        Continuation::LetStar(var, body, saved_env, continuation) => {
             let extended_env = extend(&env, var, result, store);
             let c = Continuation::Tail(saved_env.clone(), Box::new(*continuation.clone()));
             (body.clone(), extended_env, c)

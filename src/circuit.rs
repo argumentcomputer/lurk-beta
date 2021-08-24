@@ -10,7 +10,7 @@ use bellperson::{
 use ff::{Field, ScalarEngine};
 
 use crate::constraints::{self, equal};
-use crate::data::{fr_from_u64, Continuation, Expression, Store, Tag, Tagged};
+use crate::data::{fr_from_u64, BaseContinuationTag, Continuation, Expression, Store, Tag, Tagged};
 use crate::eval::{empty_sym_env, Frame, IO};
 
 pub trait Provable {
@@ -86,9 +86,6 @@ fn bind_input_cont<CS: ConstraintSystem<Bls12>>(
 
 impl Circuit<Bls12> for Frame<IO> {
     fn synthesize<CS: ConstraintSystem<Bls12>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
-        // FIXME: We ignore continuations initially.
-        // They must be handled eventually.
-
         ////////////////////////////////////////////////////////////////////////////////
         // Bind public inputs.
         //
@@ -135,7 +132,7 @@ impl Circuit<Bls12> for Frame<IO> {
         // Input type
 
         // Optimization: We don't need to allocate the tags, but avoiding it requires a version
-        // of `alloc_equal` that takes a constant.
+        // of `alloc_equal` that takes a constant. TODO
         let nil_tag = AllocatedNum::alloc(cs.namespace(|| "nil tag"), || Ok(Tag::Nil.fr()))?;
         let input_is_nil = alloc_equal(cs.namespace(|| "input is nil"), &input_tag, &nil_tag)?;
 
@@ -151,16 +148,272 @@ impl Circuit<Bls12> for Frame<IO> {
         let num_tag = AllocatedNum::alloc(cs.namespace(|| "num tag"), || Ok(Tag::Num.fr()))?;
         let input_is_num = alloc_equal(cs.namespace(|| "input is num"), &input_tag, &num_tag)?;
 
-        let cont_tag = AllocatedNum::alloc(cs.namespace(|| "cont tag"), || Ok(Tag::Thunk.fr()))?;
-        let input_is_cont = alloc_equal(cs.namespace(|| "input is Cont"), &input_tag, &cont_tag)?;
+        let thunk_tag = AllocatedNum::alloc(cs.namespace(|| "cont tag"), || Ok(Tag::Thunk.fr()))?;
+        let input_is_cont = alloc_equal(cs.namespace(|| "input is Cont"), &input_tag, &thunk_tag)?;
 
         //
         ////////////////////////////////////////////////////////////////////////////////
 
         ////////////////////////////////////////////////////////////////////////////////
-        // Continuation type
+        // Input Continuation type
 
-        // TODO
+        let outermost_cont_tag =
+            AllocatedNum::alloc(cs.namespace(|| "Outermost continuation tag"), || {
+                Ok(BaseContinuationTag::Outermost.cont_tag_fr())
+            })?;
+        let input_cont_is_outermost = alloc_equal(
+            cs.namespace(|| "input cont is Outermost"),
+            &input_cont_tag,
+            &outermost_cont_tag,
+        )?;
+
+        let simple_cont_tag =
+            AllocatedNum::alloc(cs.namespace(|| "Simple continuation tag"), || {
+                Ok(BaseContinuationTag::Simple.cont_tag_fr())
+            })?;
+        let input_cont_is_simple = alloc_equal(
+            cs.namespace(|| "input cont is Simple"),
+            &input_cont_tag,
+            &simple_cont_tag,
+        )?;
+
+        let call_cont_tag = AllocatedNum::alloc(cs.namespace(|| "Call continuation tag"), || {
+            Ok(BaseContinuationTag::Call.cont_tag_fr())
+        })?;
+        let input_cont_is_call = alloc_equal(
+            cs.namespace(|| "input cont is Call"),
+            &input_cont_tag,
+            &call_cont_tag,
+        )?;
+
+        let call2_cont_tag =
+            AllocatedNum::alloc(cs.namespace(|| "Call2 continuation tag"), || {
+                Ok(BaseContinuationTag::Call2.cont_tag_fr())
+            })?;
+        let input_cont_is_call2 = alloc_equal(
+            cs.namespace(|| "input cont is Call2"),
+            &input_cont_tag,
+            &call2_cont_tag,
+        )?;
+
+        let tail_cont_tag = AllocatedNum::alloc(cs.namespace(|| "Tail continuation tag"), || {
+            Ok(BaseContinuationTag::Tail.cont_tag_fr())
+        })?;
+        let input_cont_is_tail = alloc_equal(
+            cs.namespace(|| "input cont is Tail"),
+            &input_cont_tag,
+            &tail_cont_tag,
+        )?;
+
+        let error_cont_tag =
+            AllocatedNum::alloc(cs.namespace(|| "Error continuation tag"), || {
+                Ok(BaseContinuationTag::Error.cont_tag_fr())
+            })?;
+        let input_cont_is_error = alloc_equal(
+            cs.namespace(|| "input cont is Error"),
+            &input_cont_tag,
+            &error_cont_tag,
+        )?;
+
+        let lookup_cont_tag =
+            AllocatedNum::alloc(cs.namespace(|| "Lookup continuation tag"), || {
+                Ok(BaseContinuationTag::Lookup.cont_tag_fr())
+            })?;
+        let input_cont_is_lookup = alloc_equal(
+            cs.namespace(|| "input cont is Lookup"),
+            &input_cont_tag,
+            &lookup_cont_tag,
+        )?;
+
+        let binop_cont_tag =
+            AllocatedNum::alloc(cs.namespace(|| "Binop continuation tag"), || {
+                Ok(BaseContinuationTag::Binop.cont_tag_fr())
+            })?;
+        let input_cont_is_binop = alloc_equal(
+            cs.namespace(|| "input cont is Binop"),
+            &input_cont_tag,
+            &binop_cont_tag,
+        )?;
+
+        let binop2_cont_tag =
+            AllocatedNum::alloc(cs.namespace(|| "Binop2 continuation tag"), || {
+                Ok(BaseContinuationTag::Binop2.cont_tag_fr())
+            })?;
+        let input_cont_is_binop2 = alloc_equal(
+            cs.namespace(|| "input cont is Binop2"),
+            &input_cont_tag,
+            &binop2_cont_tag,
+        )?;
+
+        let relop_cont_tag =
+            AllocatedNum::alloc(cs.namespace(|| "Relop continuation tag"), || {
+                Ok(BaseContinuationTag::Relop.cont_tag_fr())
+            })?;
+        let input_cont_is_relop = alloc_equal(
+            cs.namespace(|| "input cont is Relop"),
+            &input_cont_tag,
+            &relop_cont_tag,
+        )?;
+
+        let relop2_cont_tag =
+            AllocatedNum::alloc(cs.namespace(|| "Relop2 continuation tag"), || {
+                Ok(BaseContinuationTag::Relop2.cont_tag_fr())
+            })?;
+        let input_cont_is_relop2 = alloc_equal(
+            cs.namespace(|| "input cont is Relop2"),
+            &input_cont_tag,
+            &relop2_cont_tag,
+        )?;
+
+        let if_cont_tag = AllocatedNum::alloc(cs.namespace(|| "If continuation tag"), || {
+            Ok(BaseContinuationTag::If.cont_tag_fr())
+        })?;
+        let input_cont_is_if = alloc_equal(
+            cs.namespace(|| "input cont is If"),
+            &input_cont_tag,
+            &if_cont_tag,
+        )?;
+
+        let let_cont_tag = AllocatedNum::alloc(cs.namespace(|| "Let continuation tag"), || {
+            Ok(BaseContinuationTag::LetStar.cont_tag_fr())
+        })?;
+        let input_cont_is_let = alloc_equal(
+            cs.namespace(|| "input cont is Let"),
+            &input_cont_tag,
+            &let_cont_tag,
+        )?;
+
+        let let_rec_star_cont_tag =
+            AllocatedNum::alloc(cs.namespace(|| "LetRecStar continuation tag"), || {
+                Ok(BaseContinuationTag::Tail.cont_tag_fr())
+            })?;
+        let input_cont_is_let_rec_star = alloc_equal(
+            cs.namespace(|| "input cont is LetRecStar"),
+            &input_cont_tag,
+            &let_rec_star_cont_tag,
+        )?;
+
+        let dummy_cont_tag =
+            AllocatedNum::alloc(cs.namespace(|| "Dummy continuation tag"), || {
+                Ok(BaseContinuationTag::Dummy.cont_tag_fr())
+            })?;
+        let input_cont_is_dummy = alloc_equal(
+            cs.namespace(|| "input cont is Dummy"),
+            &input_cont_tag,
+            &dummy_cont_tag,
+        )?;
+
+        let terminal_cont_tag =
+            AllocatedNum::alloc(cs.namespace(|| "Terminal continuation tag"), || {
+                Ok(BaseContinuationTag::Terminal.cont_tag_fr())
+            })?;
+        let input_cont_is_terminal = alloc_equal(
+            cs.namespace(|| "input cont is Terminal"),
+            &input_cont_tag,
+            &terminal_cont_tag,
+        )?;
+
+        //
+        ////////////////////////////////////////////////////////////////////////////////
+
+        ////////////////////////////////////////////////////////////////////////////////
+        // Output Continuation type
+
+        let output_cont_is_outermost = alloc_equal(
+            cs.namespace(|| "output cont is Outermost"),
+            &output_cont_tag,
+            &outermost_cont_tag,
+        )?;
+
+        let output_cont_is_simple = alloc_equal(
+            cs.namespace(|| "output cont is Simple"),
+            &output_cont_tag,
+            &simple_cont_tag,
+        )?;
+
+        let output_cont_is_call = alloc_equal(
+            cs.namespace(|| "output cont is Call"),
+            &output_cont_tag,
+            &call_cont_tag,
+        )?;
+
+        let output_cont_is_call2 = alloc_equal(
+            cs.namespace(|| "output cont is Call2"),
+            &output_cont_tag,
+            &call2_cont_tag,
+        )?;
+
+        let output_cont_is_tail = alloc_equal(
+            cs.namespace(|| "output cont is Tail"),
+            &output_cont_tag,
+            &tail_cont_tag,
+        )?;
+
+        let output_cont_is_error = alloc_equal(
+            cs.namespace(|| "output cont is Error"),
+            &output_cont_tag,
+            &error_cont_tag,
+        )?;
+
+        let output_cont_is_lookup = alloc_equal(
+            cs.namespace(|| "output cont is Lookup"),
+            &output_cont_tag,
+            &lookup_cont_tag,
+        )?;
+
+        let output_cont_is_binop = alloc_equal(
+            cs.namespace(|| "output cont is Binop"),
+            &output_cont_tag,
+            &binop_cont_tag,
+        )?;
+
+        let output_cont_is_binop2 = alloc_equal(
+            cs.namespace(|| "output cont is Binop2"),
+            &output_cont_tag,
+            &binop2_cont_tag,
+        )?;
+
+        let output_cont_is_relop = alloc_equal(
+            cs.namespace(|| "output cont is Relop"),
+            &output_cont_tag,
+            &relop_cont_tag,
+        )?;
+
+        let output_cont_is_relop2 = alloc_equal(
+            cs.namespace(|| "output cont is Relop2"),
+            &output_cont_tag,
+            &relop2_cont_tag,
+        )?;
+
+        let output_cont_is_if = alloc_equal(
+            cs.namespace(|| "output cont is If"),
+            &output_cont_tag,
+            &if_cont_tag,
+        )?;
+
+        let output_cont_is_let = alloc_equal(
+            cs.namespace(|| "output cont is Let"),
+            &output_cont_tag,
+            &let_cont_tag,
+        )?;
+
+        let output_cont_is_let_rec_star = alloc_equal(
+            cs.namespace(|| "output cont is LetRecStar"),
+            &output_cont_tag,
+            &let_rec_star_cont_tag,
+        )?;
+
+        let output_cont_is_dummy = alloc_equal(
+            cs.namespace(|| "output cont is Dummy"),
+            &output_cont_tag,
+            &dummy_cont_tag,
+        )?;
+
+        let output_cont_is_terminal = alloc_equal(
+            cs.namespace(|| "output cont is Terminal"),
+            &output_cont_tag,
+            &terminal_cont_tag,
+        )?;
 
         //
         ////////////////////////////////////////////////////////////////////////////////

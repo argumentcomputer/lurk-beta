@@ -58,7 +58,7 @@ pub enum BaseContinuationTag {
     Relop,
     Relop2,
     If,
-    Let,
+    LetStar,
     LetRecStar,
     Dummy,
     Terminal,
@@ -179,7 +179,7 @@ pub enum Continuation {
     Relop(Rel2, Expression, Box<Continuation>), // Unevaluated arguments
     Relop2(Rel2, Expression, Box<Continuation>), //The first argument
     If(Expression, Box<Continuation>),          //Unevaluated arguments
-    Let(Expression, Expression, Expression, Box<Continuation>), // The var, the body, and the saved env.
+    LetStar(Expression, Expression, Expression, Box<Continuation>), // The var, the body, and the saved env.
     LetRecStar(Expression, Expression, Expression, Box<Continuation>), // The var, the saved env, and the body.
     Dummy,
     Terminal,
@@ -272,8 +272,8 @@ impl Continuation {
                     &continuation.continuation_tagged_hash(),
                 ),
             ),
-            Continuation::Let(var, body, saved_env, continuation) => simple_binary_hash(
-                BaseContinuationTag::Let.cont_tag_fr(),
+            Continuation::LetStar(var, body, saved_env, continuation) => simple_binary_hash(
+                BaseContinuationTag::LetStar.cont_tag_fr(),
                 quad_hash(
                     &var.tagged_hash(),
                     &body.tagged_hash(),
@@ -315,7 +315,7 @@ impl Continuation {
             Continuation::Relop(_, _, _) => BaseContinuationTag::Relop,
             Continuation::Relop2(_, _, _) => BaseContinuationTag::Relop2,
             Continuation::If(_, _) => BaseContinuationTag::If,
-            Continuation::Let(_, _, _, _) => BaseContinuationTag::Let,
+            Continuation::LetStar(_, _, _, _) => BaseContinuationTag::LetStar,
             Continuation::LetRecStar(_, _, _, _) => BaseContinuationTag::LetRecStar,
             Continuation::Dummy => BaseContinuationTag::Dummy,
             Continuation::Terminal => BaseContinuationTag::Terminal,
@@ -766,8 +766,8 @@ mod test {
         assert_eq!(21, Relop2.thunk_tag_val());
         assert_eq!(22, If.cont_tag_val());
         assert_eq!(23, If.thunk_tag_val());
-        assert_eq!(24, Let.cont_tag_val());
-        assert_eq!(25, Let.thunk_tag_val());
+        assert_eq!(24, LetStar.cont_tag_val());
+        assert_eq!(25, LetStar.thunk_tag_val());
         assert_eq!(26, LetRecStar.cont_tag_val());
         assert_eq!(27, LetRecStar.thunk_tag_val());
         assert_eq!(28, Dummy.cont_tag_val());
