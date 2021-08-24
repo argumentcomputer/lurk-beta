@@ -95,6 +95,9 @@ fn eval_expr(
                                 let val_to_use = {
                                     match val {
                                         Expression::Fun(_, _, _) => {
+                                            // We just found a closure in a recursive env.
+                                            // We need to extend its environment to include that recursive env.
+
                                             extend_closure(&val, &rec_env, store)
                                         }
                                         _ => val,
@@ -147,7 +150,7 @@ fn eval_expr(
                 let function = store.fun(&arg, &inner_body, &env);
 
                 fulfill_continuation(cont, &function, env, store)
-            } else if head == Expression::Sym("LET".to_string()) {
+            } else if head == Expression::Sym("LET*".to_string()) {
                 let (bindings, body) = store.car_cdr(&rest);
                 let (body1, rest_body) = store.car_cdr(&body);
                 // Only a single body form allowed for now.
@@ -163,7 +166,7 @@ fn eval_expr(
                     let expanded = if rest_bindings == Expression::Nil {
                         body1
                     } else {
-                        let lt = store.intern("LET");
+                        let lt = store.intern("LET*");
                         store.list(vec![lt, rest_bindings, body1])
                     };
                     (
@@ -868,8 +871,8 @@ mod test {
         let limit = 25;
         let expr = s
             .read(
-                "(let ((make-adder (lambda (x) (lambda (y) (+ x y)))))
-                              ((make-adder 2) 3))",
+                "(let* ((make-adder (lambda (x) (lambda (y) (+ x y)))))
+                   ((make-adder 2) 3))",
             )
             .unwrap();
 
@@ -884,7 +887,7 @@ mod test {
     fn outer_evaluate_let_simple() {
         let mut s = Store::default();
         let limit = 20;
-        let expr = s.read("(let ((a 1)) a)").unwrap();
+        let expr = s.read("(let* ((a 1)) a)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
@@ -897,7 +900,7 @@ mod test {
     fn outer_evaluate_empty_let_bug() {
         let mut s = Store::default();
         let limit = 20;
-        let expr = s.read("(let () (+ 1 2))").unwrap();
+        let expr = s.read("(let* () (+ 1 2))").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
@@ -912,8 +915,8 @@ mod test {
         let limit = 20;
         let expr = s
             .read(
-                "(let ((a 1)
-                       (b 2))
+                "(let* ((a 1)
+                        (b 2))
                    (+ a b))",
             )
             .unwrap();
@@ -931,7 +934,7 @@ mod test {
     fn outer_evaluate_let_bug() {
         let mut s = Store::default();
         let limit = 20;
-        let expr = s.read("(let ((a 1) (b a)) b)").unwrap();
+        let expr = s.read("(let* ((a 1) (b a)) b)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
@@ -946,9 +949,9 @@ mod test {
         let limit = 100;
         let expr = s
             .read(
-                "(let ((a 1)
-                       (b 2)
-                       (c 3))
+                "(let* ((a 1)
+                        (b 2)
+                        (c 3))
                    (+ a (+ b c)))",
             )
             .unwrap();
@@ -968,17 +971,17 @@ mod test {
             let mut s = Store::default();
             let expr = s
                 .read(
-                    "(let ((true (lambda (a)
-                               (lambda (b)
-                                 a)))
-                        (false (lambda (a)
-                                 (lambda (b)
-                                   b)))
-                        (iff (lambda (a)
-                               (lambda (b)
-                                 (lambda (cond)
-                                   ((cond a) b))))))
-                   (((iff 5) 6) true))",
+                    "(let* ((true (lambda (a)
+                                    (lambda (b)
+                                      a)))
+                            (false (lambda (a)
+                                     (lambda (b)
+                                      b)))
+                            (iff (lambda (a)
+                                   (lambda (b)
+                                     (lambda (cond)
+                                       ((cond a) b))))))
+                       (((iff 5) 6) true))",
                 )
                 .unwrap();
 
@@ -992,17 +995,17 @@ mod test {
             let mut s = Store::default();
             let expr = s
                 .read(
-                    "(let ((true (lambda (a)
-                               (lambda (b)
-                                 a)))
-                        (false (lambda (a)
-                                 (lambda (b)
+                    "(let* ((true (lambda (a)
+                                    (lambda (b)
+                                   a)))
+                            (false (lambda (a)
+                                  (lambda (b)
                                    b)))
-                        (iff (lambda (a)
-                               (lambda (b)
-                                 (lambda (cond)
-                                   ((cond a) b))))))
-                   (((iff 5) 6) false))",
+                            (iff (lambda (a)
+                                   (lambda (b)
+                                     (lambda (cond)
+                                       ((cond a) b))))))
+                       (((iff 5) 6) false))",
                 )
                 .unwrap();
 
@@ -1108,14 +1111,14 @@ mod test {
         let limit = 300;
         let expr = s
             .read(
-                "(let ((exp (lambda (base)
-                              (letrec* ((base-inner
-                                         (lambda (exponent)
-                                           (if (= 0 exponent)
-                                               1
-                                               (* base (base-inner (- exponent 1)))))))
-                                       base-inner))))
-                   ((exp 5) 3))",
+                "(let* ((exp (lambda (base)
+                               (letrec* ((base-inner
+                                          (lambda (exponent)
+                                            (if (= 0 exponent)
+                                                1
+                                                (* base (base-inner (- exponent 1)))))))
+                                        base-inner))))
+                    ((exp 5) 3))",
             )
             .unwrap();
 
