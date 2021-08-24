@@ -14,6 +14,10 @@ generic-array = "0.14.4"
 itertools = "0.9"
 lazy_static = { version = "1.4.0" }
 neptune = { version = "^3.0", default-features = false }
+rand = "0.7"
+
+[dev-dependencies]
+rand_xorshift = "0.2.0"
 
 [features]
 default = ["gpu", "pairing"]

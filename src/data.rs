@@ -1,7 +1,7 @@
 use bellperson::bls::{Bls12, Fr, FrRepr};
 use core::hash::Hash;
 use ff::{Field, PrimeField};
-use generic_array::typenum::{U16, U2, U4, U6, U8};
+use generic_array::typenum::{U10, U11, U16, U2, U3, U4, U5, U6, U7, U8, U9};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use neptune::{hash_type::HashType, poseidon::Poseidon, poseidon::PoseidonConstants, Strength};
@@ -12,9 +12,17 @@ use std::string::ToString;
 
 lazy_static! {
     pub static ref POSEIDON_CONSTANTS_2: PoseidonConstants::<Bls12, U2> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_3: PoseidonConstants::<Bls12, U3> = PoseidonConstants::new();
     pub static ref POSEIDON_CONSTANTS_4: PoseidonConstants::<Bls12, U4> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_5: PoseidonConstants::<Bls12, U5> = PoseidonConstants::new();
     pub static ref POSEIDON_CONSTANTS_6: PoseidonConstants::<Bls12, U6> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_7: PoseidonConstants::<Bls12, U7> = PoseidonConstants::new();
     pub static ref POSEIDON_CONSTANTS_8: PoseidonConstants::<Bls12, U8> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_9: PoseidonConstants::<Bls12, U9> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_10: PoseidonConstants::<Bls12, U10> =
+        PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_11: PoseidonConstants::<Bls12, U11> =
+        PoseidonConstants::new();
     pub static ref POSEIDON_CONSTANTS_16: PoseidonConstants::<Bls12, U16> =
         PoseidonConstants::new();
     pub static ref POSEIDON_CONSTANTS_VARIABLE: PoseidonConstants::<Bls12, U16> =
@@ -30,7 +38,52 @@ pub enum Tag {
     Sym,
     Fun,
     Num,
-    Cont,
+    Thunk,
+}
+
+/// Order of these tag variants is significant, since it will be concretely
+/// encoded into content-addressable data structures.
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+pub enum BaseContinuationTag {
+    //
+    Outermost,
+    Simple,
+    Call,
+    Call2,
+    Tail,
+    Error,
+    Lookup,
+    Binop,
+    Binop2,
+    Relop,
+    Relop2,
+    If,
+    Let,
+    LetRecStar,
+    Dummy,
+    Terminal,
+}
+
+// For now, partition ContinuationTags into thunks and conts.
+// If never used, we can collapse.
+// We will likely want both if we ever make continuations (including
+// thunks) first-class expressions, though.
+impl BaseContinuationTag {
+    pub fn cont_tag_val(&self) -> u64 {
+        2 * *self as u64
+    }
+
+    pub fn cont_tag_fr(&self) -> Fr {
+        fr_from_u64(self.cont_tag_val())
+    }
+
+    fn thunk_tag_val(&self) -> u64 {
+        1 + self.cont_tag_val()
+    }
+
+    fn thunk_tag_fr(&self) -> Fr {
+        fr_from_u64(self.thunk_tag_val())
+    }
 }
 
 pub fn fr_from_u64<Fr: PrimeField>(i: u64) -> Fr {
@@ -41,7 +94,7 @@ pub fn fr_from_u64s(parts: [u64; 4]) -> Fr {
 }
 
 impl Tag {
-    fn fr(self) -> Fr {
+    pub fn fr(self) -> Fr {
         fr_from_u64(self as u64)
     }
 }
@@ -55,9 +108,9 @@ impl From<Fr> for Tag {
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
 // This should probably be TaggedPointer, or something.
 pub struct TaggedHash {
-    tag: Fr,
+    pub tag: Fr,
     // Hash is misnamed. It could be a hash, or it could be an immediate value.
-    hash: Fr,
+    pub hash: Fr,
 }
 
 impl Hash for TaggedHash {
@@ -73,7 +126,7 @@ pub enum Expression {
     Sym(String),
     Fun(TaggedHash, TaggedHash, TaggedHash), // arg, body, closed env
     Num(Fr),
-    Cont(Thunk),
+    Thunk(Thunk),
 }
 
 // #[allow(dead_code)]
@@ -91,12 +144,27 @@ pub enum Op2 {
     Quotient,
 }
 
+impl Op2 {
+    fn fr(&self) -> Fr {
+        fr_from_u64(self.clone() as u64)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
 pub enum Rel2 {
     Equal,
 }
 
-// TODO: Unify this with Expression::Cont. For simplicity, keep separate for now.
+impl Rel2 {
+    fn fr(&self) -> Fr {
+        fr_from_u64(self.clone() as u64)
+    }
+}
+
+// TODO: Unify this with Expression::Thunk. For simplicity, keep separate for now.
+// This separateness means that Expression and Continuation have separate namespaces.
+// In practice, this means they have distinct tags, and the containing code must know
+// statically which is expected.
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
 pub enum Continuation {
     Outermost,
@@ -114,6 +182,152 @@ pub enum Continuation {
     Let(Expression, Expression, Expression, Box<Continuation>), // The var, the body, and the saved env.
     LetRecStar(Expression, Expression, Expression, Box<Continuation>), // The var, the saved env, and the body.
     Dummy,
+    Terminal,
+}
+
+impl Continuation {
+    // Consider making Continuation a first-class Expression.
+    pub fn get_hash(&self) -> Fr {
+        match self {
+            Continuation::Outermost => simple_binary_hash(
+                BaseContinuationTag::Outermost.cont_tag_fr(),
+                Fr::zero(), // FIXME:
+            ),
+            Continuation::Simple(continuation) => tagged_1_hash(
+                &BaseContinuationTag::Simple.cont_tag_fr(),
+                &continuation.continuation_tagged_hash(),
+            ),
+            Continuation::Call(arg, saved_env, continuation) => simple_binary_hash(
+                BaseContinuationTag::Call.cont_tag_fr(),
+                tri_hash(
+                    &arg.tagged_hash(),
+                    &saved_env.tagged_hash(),
+                    &continuation.continuation_tagged_hash(),
+                ),
+            ),
+            Continuation::Call2(fun, saved_env, continuation) => simple_binary_hash(
+                BaseContinuationTag::Call2.cont_tag_fr(),
+                tri_hash(
+                    &fun.tagged_hash(),
+                    &saved_env.tagged_hash(),
+                    &continuation.continuation_tagged_hash(),
+                ),
+            ),
+            Continuation::Tail(saved_env, continuation) => simple_binary_hash(
+                BaseContinuationTag::Tail.cont_tag_fr(),
+                binary_hash(
+                    &saved_env.tagged_hash(),
+                    &continuation.continuation_tagged_hash(),
+                ),
+            ),
+            Continuation::Error => {
+                simple_binary_hash(
+                    BaseContinuationTag::Error.cont_tag_fr(),
+                    Fr::zero(), // FIXME
+                )
+            }
+            Continuation::Lookup(saved_env, continuation) => simple_binary_hash(
+                BaseContinuationTag::Lookup.cont_tag_fr(),
+                binary_hash(
+                    &saved_env.tagged_hash(),
+                    &continuation.continuation_tagged_hash(),
+                ),
+            ),
+            Continuation::Binop(op2, unevaled_args, continuation) => simple_binary_hash(
+                BaseContinuationTag::Binop.cont_tag_fr(),
+                tagged_2_hash(
+                    &op2.fr(),
+                    &unevaled_args.tagged_hash(),
+                    &continuation.continuation_tagged_hash(),
+                ),
+            ),
+            Continuation::Binop2(op2, arg1, continuation) => simple_binary_hash(
+                BaseContinuationTag::Binop2.cont_tag_fr(),
+                tagged_2_hash(
+                    &op2.fr(),
+                    &arg1.tagged_hash(),
+                    &continuation.continuation_tagged_hash(),
+                ),
+            ),
+            Continuation::Relop(rel2, unevaled_args, continuation) => simple_binary_hash(
+                BaseContinuationTag::Relop.cont_tag_fr(),
+                tagged_2_hash(
+                    &rel2.fr(),
+                    &unevaled_args.tagged_hash(),
+                    &continuation.continuation_tagged_hash(),
+                ),
+            ),
+            Continuation::Relop2(rel2, arg1, continuation) => simple_binary_hash(
+                BaseContinuationTag::Relop2.cont_tag_fr(),
+                tagged_2_hash(
+                    &rel2.fr(),
+                    &arg1.tagged_hash(),
+                    &continuation.continuation_tagged_hash(),
+                ),
+            ),
+            Continuation::If(unevaled_args, continuation) => simple_binary_hash(
+                BaseContinuationTag::If.cont_tag_fr(),
+                binary_hash(
+                    &unevaled_args.tagged_hash(),
+                    &continuation.continuation_tagged_hash(),
+                ),
+            ),
+            Continuation::Let(var, body, saved_env, continuation) => simple_binary_hash(
+                BaseContinuationTag::Let.cont_tag_fr(),
+                quad_hash(
+                    &var.tagged_hash(),
+                    &body.tagged_hash(),
+                    &saved_env.tagged_hash(),
+                    &continuation.continuation_tagged_hash(),
+                ),
+            ),
+            Continuation::LetRecStar(var, body, saved_env, continuation) => simple_binary_hash(
+                BaseContinuationTag::LetRecStar.cont_tag_fr(),
+                quad_hash(
+                    &var.tagged_hash(),
+                    &body.tagged_hash(),
+                    &saved_env.tagged_hash(),
+                    &continuation.continuation_tagged_hash(),
+                ),
+            ),
+            Continuation::Dummy => {
+                simple_binary_hash(BaseContinuationTag::Dummy.cont_tag_fr(), Fr::zero())
+                // FIXME
+            }
+            Continuation::Terminal => {
+                simple_binary_hash(BaseContinuationTag::Terminal.cont_tag_fr(), Fr::zero())
+                // FIXME
+            }
+        }
+    }
+
+    pub fn get_continuation_tag(&self) -> BaseContinuationTag {
+        match self {
+            Continuation::Outermost => BaseContinuationTag::Outermost,
+            Continuation::Simple(_) => BaseContinuationTag::Simple,
+            Continuation::Call(_, _, _) => BaseContinuationTag::Call,
+            Continuation::Call2(_, _, _) => BaseContinuationTag::Call2,
+            Continuation::Tail(_, _) => BaseContinuationTag::Tail,
+            Continuation::Error => BaseContinuationTag::Error,
+            Continuation::Lookup(_, _) => BaseContinuationTag::Lookup,
+            Continuation::Binop(_, _, _) => BaseContinuationTag::Binop,
+            Continuation::Binop2(_, _, _) => BaseContinuationTag::Binop2,
+            Continuation::Relop(_, _, _) => BaseContinuationTag::Relop,
+            Continuation::Relop2(_, _, _) => BaseContinuationTag::Relop2,
+            Continuation::If(_, _) => BaseContinuationTag::If,
+            Continuation::Let(_, _, _, _) => BaseContinuationTag::Let,
+            Continuation::LetRecStar(_, _, _, _) => BaseContinuationTag::LetRecStar,
+            Continuation::Dummy => BaseContinuationTag::Dummy,
+            Continuation::Terminal => BaseContinuationTag::Terminal,
+        }
+    }
+
+    pub fn continuation_tagged_hash(&self) -> TaggedHash {
+        TaggedHash {
+            tag: self.get_continuation_tag().cont_tag_fr(),
+            hash: self.get_hash(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
@@ -132,8 +346,28 @@ fn tri_hash(a: &TaggedHash, b: &TaggedHash, c: &TaggedHash) -> Fr {
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_6).hash()
 }
 
+fn quad_hash(a: &TaggedHash, b: &TaggedHash, c: &TaggedHash, d: &TaggedHash) -> Fr {
+    let preimage = vec![a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash];
+    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_8).hash()
+}
+
 fn oct_hash(preimage: &[Fr]) -> Fr {
     Poseidon::new_with_preimage(preimage, &POSEIDON_CONSTANTS_8).hash()
+}
+
+fn simple_binary_hash(a: Fr, b: Fr) -> Fr {
+    let preimage = vec![a, b];
+    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_2).hash()
+}
+
+fn tagged_1_hash(tag_fr: &Fr, a: &TaggedHash) -> Fr {
+    let preimage = vec![*tag_fr, a.tag, a.hash];
+    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_3).hash()
+}
+
+fn tagged_2_hash(tag_fr: &Fr, a: &TaggedHash, b: &TaggedHash) -> Fr {
+    let preimage = vec![*tag_fr, a.tag, a.hash, b.tag, b.hash];
+    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_5).hash()
 }
 
 fn hash_string(s: &str) -> Fr {
@@ -172,20 +406,20 @@ impl Tagged for Expression {
             Sym(_) => Tag::Sym,
             Fun(_, _, _) => Tag::Fun,
             Num(_) => Tag::Num,
-            Cont(_) => Tag::Cont,
+            Thunk(_) => Tag::Thunk,
         }
     }
 }
 
 impl Expression {
-    fn get_hash(&self) -> Fr {
+    pub fn get_hash(&self) -> Fr {
         match self {
             Nil => hash_string("NIL"),
             Cons(car, cdr) => binary_hash(car, cdr),
             Sym(s) => hash_string(s),
-            Fun(arg, body, closed_env) => binary_hash(arg, body),
+            Fun(arg, body, closed_env) => tri_hash(arg, body, closed_env),
             Num(fr) => *fr, // Nums are immediate.
-            Cont(_) => todo!(),
+            Thunk(_) => todo!(),
         }
     }
 
@@ -309,7 +543,7 @@ impl Store {
                 )
             }
             Num(fr) => format!("{}", fr),
-            Cont(f) => format!(
+            Thunk(f) => format!(
                 "Cont value {:?}; cont: {:?}",
                 self.print_expr(&f.value),
                 f.continuation
@@ -501,7 +735,45 @@ mod test {
         assert_eq!(2, Tag::Sym as u64);
         assert_eq!(3, Tag::Fun as u64);
         assert_eq!(4, Tag::Num as u64);
-        assert_eq!(5, Tag::Cont as u64);
+        assert_eq!(5, Tag::Thunk as u64);
+    }
+
+    #[test]
+    fn cont_tag_vals() {
+        use super::BaseContinuationTag::*;
+
+        assert_eq!(0, Outermost.cont_tag_val());
+        assert_eq!(1, Outermost.thunk_tag_val());
+        assert_eq!(2, Simple.cont_tag_val());
+        assert_eq!(3, Simple.thunk_tag_val());
+        assert_eq!(4, Call.cont_tag_val());
+        assert_eq!(5, Call.thunk_tag_val());
+        assert_eq!(6, Call2.cont_tag_val());
+        assert_eq!(7, Call2.thunk_tag_val());
+        assert_eq!(8, Tail.cont_tag_val());
+        assert_eq!(9, Tail.thunk_tag_val());
+        assert_eq!(10, Error.cont_tag_val());
+        assert_eq!(11, Error.thunk_tag_val());
+        assert_eq!(12, Lookup.cont_tag_val());
+        assert_eq!(13, Lookup.thunk_tag_val());
+        assert_eq!(14, Binop.cont_tag_val());
+        assert_eq!(15, Binop.thunk_tag_val());
+        assert_eq!(16, Binop2.cont_tag_val());
+        assert_eq!(17, Binop2.thunk_tag_val());
+        assert_eq!(18, Relop.cont_tag_val());
+        assert_eq!(19, Relop.thunk_tag_val());
+        assert_eq!(20, Relop2.cont_tag_val());
+        assert_eq!(21, Relop2.thunk_tag_val());
+        assert_eq!(22, If.cont_tag_val());
+        assert_eq!(23, If.thunk_tag_val());
+        assert_eq!(24, Let.cont_tag_val());
+        assert_eq!(25, Let.thunk_tag_val());
+        assert_eq!(26, LetRecStar.cont_tag_val());
+        assert_eq!(27, LetRecStar.thunk_tag_val());
+        assert_eq!(28, Dummy.cont_tag_val());
+        assert_eq!(29, Dummy.thunk_tag_val());
+        assert_eq!(30, Terminal.cont_tag_val());
+        assert_eq!(31, Terminal.thunk_tag_val());
     }
 
     #[test]

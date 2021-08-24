@@ -1,5 +1,115 @@
 use crate::data::{Continuation, Expression, Op2, Rel2, Store, Tag, Tagged, Thunk};
 use ff::Field;
+use std::cmp::PartialEq;
+use std::iter::Iterator;
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+pub struct IO {
+    pub expr: Expression,
+    pub env: Expression,
+    pub cont: Continuation, // FIXME: This needs to be an Expression too.
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+pub struct Frame<T> {
+    pub input: T,
+    pub output: T,
+    pub initial: T,
+    pub i: usize,
+}
+
+pub trait Evaluable {
+    fn eval(&self, store: &mut Store) -> Self;
+
+    fn is_terminal(&self) -> bool;
+}
+
+impl Evaluable for IO {
+    fn eval(&self, store: &mut Store) -> Self {
+        let (new_expr, new_env, new_cont) = eval_expr(&self.expr, &self.env, &self.cont, store);
+
+        Self {
+            expr: new_expr,
+            env: new_env,
+            cont: new_cont,
+        }
+    }
+
+    fn is_terminal(&self) -> bool {
+        match self.cont {
+            Continuation::Error | Continuation::Terminal => true,
+            _ => false,
+        }
+    }
+}
+
+impl<T: Evaluable + Clone + PartialEq> Frame<T> {
+    fn next(&self, store: &mut Store) -> Self {
+        let input = self.output.clone();
+        let output = input.eval(store);
+        let i = self.i + 1;
+
+        Self {
+            input,
+            output,
+            initial: self.initial.clone(),
+            i,
+        }
+    }
+}
+
+impl<T: Evaluable + Clone + PartialEq> Frame<T> {
+    fn from_initial_input(input: T, store: &mut Store) -> Self {
+        let output = input.eval(store);
+
+        Self {
+            input: input.clone(),
+            output,
+            initial: input.clone(),
+            i: 0,
+        }
+    }
+}
+
+struct FrameIt<'a, T> {
+    initial_input: T,
+    frame: Option<Frame<T>>,
+    store: &'a mut Store,
+}
+
+impl<'a, T> FrameIt<'a, T> {
+    fn new(initial_input: T, store: &'a mut Store) -> Self {
+        Self {
+            initial_input,
+            frame: None,
+            store,
+        }
+    }
+}
+
+impl<'a, T: Evaluable + Clone + PartialEq> Iterator for FrameIt<'a, T> {
+    type Item = Frame<T>;
+
+    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        if let Some(next_frame) = if let Some(frame) = &self.frame {
+            if frame.output.is_terminal() {
+                None
+            } else {
+                Some(frame.next(self.store))
+            }
+        } else {
+            Some(Frame::from_initial_input(
+                self.initial_input.clone(),
+                self.store,
+            ))
+        } {
+            self.frame = Some(next_frame);
+            self.frame.clone()
+        } else {
+            None
+        }
+    }
+}
 
 fn maybe_wrap_continuation(cont: Continuation) -> Continuation {
     match cont {
@@ -30,13 +140,14 @@ fn make_thunk(
         Continuation::Tail(_, continuation) => {
             make_thunk(continuation, result, effective_env, store)
         }
+        Continuation::Outermost => (result.clone(), env.clone(), Continuation::Terminal),
         _ => {
             let thunk = Thunk {
                 value: Box::new(result.clone()),
                 continuation: Box::new(cont.clone()),
             };
             (
-                Expression::Cont(thunk),
+                Expression::Thunk(thunk),
                 effective_env.clone(),
                 Continuation::Dummy,
             )
@@ -51,7 +162,7 @@ fn eval_expr(
     store: &mut Store,
 ) -> (Expression, Expression, Continuation) {
     match expr {
-        Expression::Cont(thunk) => {
+        Expression::Thunk(thunk) => {
             invoke_continuation(&thunk.continuation, &thunk.value, env, store)
         }
         Expression::Nil => make_thunk(cont, expr, env, store),
@@ -76,7 +187,7 @@ fn eval_expr(
                                 make_thunk(cont, &val, env, store)
                             } else {
                                 match cont {
-                                    Continuation::Lookup(_, previous_cont) => {
+                                    Continuation::Lookup(_, _) => {
                                         (expr.clone(), smaller_env, cont.clone())
                                     }
                                     _ => (
@@ -138,7 +249,7 @@ fn eval_expr(
 
             if head == lambda {
                 let (args, body) = store.car_cdr(&rest);
-                let (arg, rest) = store.car_cdr(&args);
+                let (arg, _rest) = store.car_cdr(&args);
                 let cdr_args = store.cdr(&args);
                 let inner_body = if cdr_args == Expression::Nil {
                     body
@@ -297,7 +408,18 @@ fn invoke_continuation(
     store: &mut Store,
 ) -> (Expression, Expression, Continuation) {
     match &cont {
-        Continuation::Outermost => unreachable!(),
+        Continuation::Terminal => unreachable!("Terminal Continuation should never be invoked."),
+        Continuation::Outermost => match result {
+            Expression::Thunk(thunk) => {
+                let final_expr = &thunk.value;
+                (*final_expr.clone(), env.clone(), Continuation::Terminal)
+            }
+            _ => {
+                (result.clone(), env.clone(), Continuation::Terminal)
+                // dbg!(&result);
+                // unreachable!()
+            }
+        },
         Continuation::Dummy => unreachable!(),
         Continuation::Call(arg, saved_env, continuation) => match result.tag() {
             Tag::Fun => {
@@ -458,7 +580,7 @@ fn invoke_continuation(
     }
 }
 
-pub fn outer_evaluate(
+pub fn outer_evaluate_old(
     expr: Expression,
     env: Expression,
     mut store: &mut Store,
@@ -478,15 +600,17 @@ pub fn outer_evaluate(
         //     store.print_expr(&new_env),
         //     &new_cont
         // );
-        if let Expression::Cont(f) = &new_expr {
+        if let Expression::Thunk(f) = &new_expr {
             match *f.continuation {
                 Continuation::Outermost => return (*f.value.clone(), new_env, i, new_cont),
                 _ => (),
             }
         }
         match &new_cont {
-            Continuation::Outermost => return (new_expr, new_env, i, new_cont),
-            Continuation::Error => panic!("Error when evaluating."), // FIXME: handle better.
+            // Eventually, we probably want error results to be first class so shouldn't panic.
+            // For example, it would be useful to have a proof that some input yields an error.
+            // Leave for now to simplify testing and development.
+            Continuation::Error => panic!("Error when evaluating."),
             _ => (),
         }
 
@@ -496,6 +620,29 @@ pub fn outer_evaluate(
     }
 
     (next_expr.clone(), next_env, limit, next_cont)
+}
+
+pub fn outer_evaluate(
+    expr: Expression,
+    env: Expression,
+    store: &mut Store,
+    limit: usize,
+) -> (Expression, Expression, usize, Continuation) {
+    let initial_input = IO {
+        expr,
+        env,
+        cont: Continuation::Outermost,
+    };
+
+    let frame_iterator = FrameIt::new(initial_input, store).take(limit);
+
+    // FIXME: Handle limit.
+    if let Some(last_frame) = frame_iterator.last() {
+        let output = last_frame.output;
+        (output.expr, output.env, last_frame.i + 1, output.cont)
+    } else {
+        panic!("xxx")
+    }
 }
 
 pub fn empty_sym_env(_store: &Store) -> Expression {
@@ -595,11 +742,7 @@ mod test {
                 &Continuation::Outermost,
                 &mut store,
             );
-            let thunk = Expression::Cont(Thunk {
-                value: Box::new(num),
-                continuation: Box::new(Continuation::Outermost),
-            });
-            assert_eq!(thunk, result);
+            assert_eq!(num, result);
         }
 
         {
@@ -609,11 +752,7 @@ mod test {
                 &Continuation::Outermost,
                 &mut store,
             );
-            let thunk = Expression::Cont(Thunk {
-                value: Box::new(Expression::Nil),
-                continuation: Box::new(Continuation::Outermost),
-            });
-            assert_eq!(thunk, result);
+            assert_eq!(Expression::Nil, result);
         }
     }
 
@@ -1026,7 +1165,7 @@ mod test {
             let (result_expr, _new_env, iterations, _continuation) =
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-            assert_eq!(3, iterations);
+            assert_eq!(4, iterations);
             assert_eq!(Expression::num(5), result_expr);
         }
         {
@@ -1036,8 +1175,23 @@ mod test {
             let (result_expr, _new_env, iterations, _continuation) =
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-            assert_eq!(3, iterations);
+            assert_eq!(4, iterations);
             assert_eq!(Expression::num(6), result_expr);
+        }
+    }
+
+    #[test]
+    fn outer_evaluate_fully_evaluates() {
+        let limit = 100;
+        {
+            let mut s = Store::default();
+            let expr = s.read("(if t (+ 5 5) 6)").unwrap();
+
+            let (result_expr, _new_env, iterations, _continuation) =
+                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+            assert_eq!(8, iterations);
+            assert_eq!(Expression::num(10), result_expr);
         }
     }
 
