@@ -11,11 +11,12 @@ pub struct IO {
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
-pub struct Frame<T> {
+pub struct Frame<T, W> {
     pub input: T,
     pub output: T,
     pub initial: T,
     pub i: usize,
+    pub witness: W,
 }
 
 pub trait Evaluable {
@@ -43,22 +44,22 @@ impl Evaluable for IO {
     }
 }
 
-impl<T: Evaluable + Clone + PartialEq> Frame<T> {
+impl<T: Evaluable + Clone + PartialEq, W: Clone> Frame<T, W> {
     fn next(&self, store: &mut Store) -> Self {
         let input = self.output.clone();
         let output = input.eval(store);
         let i = self.i + 1;
-
         Self {
             input,
             output,
             initial: self.initial.clone(),
             i,
+            witness: self.witness.clone(),
         }
     }
 }
 
-impl<T: Evaluable + Clone + PartialEq> Frame<T> {
+impl<T: Evaluable + Clone + PartialEq, W: Default> Frame<T, W> {
     fn from_initial_input(input: T, store: &mut Store) -> Self {
         let output = input.eval(store);
 
@@ -67,17 +68,18 @@ impl<T: Evaluable + Clone + PartialEq> Frame<T> {
             output,
             initial: input.clone(),
             i: 0,
+            witness: W::default(),
         }
     }
 }
 
-struct FrameIt<'a, T> {
+struct FrameIt<'a, T, W> {
     initial_input: T,
-    frame: Option<Frame<T>>,
+    frame: Option<Frame<T, W>>,
     store: &'a mut Store,
 }
 
-impl<'a, T> FrameIt<'a, T> {
+impl<'a, T, W> FrameIt<'a, T, W> {
     fn new(initial_input: T, store: &'a mut Store) -> Self {
         Self {
             initial_input,
@@ -87,8 +89,8 @@ impl<'a, T> FrameIt<'a, T> {
     }
 }
 
-impl<'a, T: Evaluable + Clone + PartialEq> Iterator for FrameIt<'a, T> {
-    type Item = Frame<T>;
+impl<'a, T: Evaluable + Clone + PartialEq, W: Clone + Default> Iterator for FrameIt<'a, T, W> {
+    type Item = Frame<T, W>;
 
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         if let Some(next_frame) = if let Some(frame) = &self.frame {
@@ -118,13 +120,19 @@ fn maybe_wrap_continuation(cont: Continuation) -> Continuation {
     }
 }
 
-// Returns (Expression::Cont, Expression::Env, Continuation)
+// Returns (Expression::Thunk, Expression::Env, Continuation)
 fn make_thunk(
     cont: &Continuation,
     result: &Expression,
     env: &Expression,
     store: &mut Store,
+    witness: &mut Witness,
 ) -> (Expression, Expression, Continuation) {
+    witness.make_thunk_was_called = true;
+    witness.make_thunk_result = Some(result.clone());
+    witness.make_thunk_env = Some(env.clone());
+    witness.make_thunk_cont = Some(cont.clone());
+
     let effective_env = match cont {
         // These are the restore-env continuations.
         Continuation::Lookup(saved_env, _) => saved_env,
@@ -138,8 +146,10 @@ fn make_thunk(
     match cont {
         // These are the tail-continuations.
         Continuation::Tail(_, continuation) => {
-            make_thunk(continuation, result, effective_env, store)
+            make_thunk(continuation, result, effective_env, store, witness)
         }
+        // If continuation is outermost, we don't actually make a thunk. Instead, we signal
+        // that this is the terminal result by returning a Terminal continuation.
         Continuation::Outermost => (result.clone(), env.clone(), Continuation::Terminal),
         _ => {
             let thunk = Thunk {
@@ -155,20 +165,40 @@ fn make_thunk(
     }
 }
 
+#[derive(Clone, Debug, Default, PartialEq, PartialOrd, std::cmp::Eq)]
+pub struct Witness {
+    pub make_thunk_was_called: bool,
+    pub make_thunk_result: Option<Expression>,
+    pub make_thunk_env: Option<Expression>,
+    pub make_thunk_cont: Option<Continuation>,
+}
+
 fn eval_expr(
     expr: &Expression,
     env: &Expression,
     cont: &Continuation,
     store: &mut Store,
 ) -> (Expression, Expression, Continuation) {
+    let mut witness = Witness::default();
+
+    eval_expr_with_witness(expr, env, cont, store, &mut witness)
+}
+
+fn eval_expr_with_witness(
+    expr: &Expression,
+    env: &Expression,
+    cont: &Continuation,
+    store: &mut Store,
+    witness: &mut Witness,
+) -> (Expression, Expression, Continuation) {
     match expr {
         Expression::Thunk(thunk) => {
-            invoke_continuation(&thunk.continuation, &thunk.value, env, store)
+            invoke_continuation(&thunk.continuation, &thunk.value, env, store, witness)
         }
-        Expression::Nil => make_thunk(cont, expr, env, store),
+        Expression::Nil => make_thunk(cont, expr, env, store, witness),
         Expression::Sym(_) => {
             if expr == &store.intern("NIL") || (expr == &store.intern("T")) {
-                make_thunk(cont, expr, env, store)
+                make_thunk(cont, expr, env, store, witness)
             } else {
                 assert!(Expression::Nil != *env, "Unbound variable: {:?}", expr);
                 let (binding, smaller_env) = store.car_cdr(&env);
@@ -184,7 +214,7 @@ fn eval_expr(
                             let val = val_or_more_rec_env;
 
                             if v == *expr {
-                                make_thunk(cont, &val, env, store)
+                                make_thunk(cont, &val, env, store, witness)
                             } else {
                                 match cont {
                                     Continuation::Lookup(_, _) => {
@@ -216,7 +246,7 @@ fn eval_expr(
                                         _ => val,
                                     }
                                 };
-                                make_thunk(cont, &val_to_use, env, store)
+                                make_thunk(cont, &val_to_use, env, store, witness)
                             } else {
                                 let env_to_use = if smaller_rec_env == Expression::Nil {
                                     smaller_env
@@ -240,8 +270,8 @@ fn eval_expr(
                 }
             }
         }
-        Expression::Num(_) => make_thunk(cont, expr, env, store),
-        Expression::Fun(_, _, _) => make_thunk(cont, expr, env, store),
+        Expression::Num(_) => make_thunk(cont, expr, env, store, witness),
+        Expression::Fun(_, _, _) => make_thunk(cont, expr, env, store, witness),
         Expression::Cons(head_t, rest_t) => {
             let head = store.fetch(*head_t).unwrap();
             let rest = store.fetch(*rest_t).unwrap();
@@ -262,7 +292,7 @@ fn eval_expr(
                 };
                 let function = store.fun(&arg, &inner_body, &env);
 
-                make_thunk(cont, &function, env, store)
+                make_thunk(cont, &function, env, store, witness)
             } else if head == Expression::Sym("LET*".to_string()) {
                 let (bindings, body) = store.car_cdr(&rest);
                 let (body1, rest_body) = store.car_cdr(&body);
@@ -406,6 +436,7 @@ fn invoke_continuation(
     result: &Expression,
     env: &Expression,
     store: &mut Store,
+    witness: &mut Witness,
 ) -> (Expression, Expression, Continuation) {
     match &cont {
         Continuation::Terminal => unreachable!("Terminal Continuation should never be invoked."),
@@ -503,7 +534,7 @@ fn invoke_continuation(
                 },
                 _ => unimplemented!("Binop2"),
             };
-            make_thunk(continuation, &result, env, store)
+            make_thunk(continuation, &result, env, store, witness)
         }
         Continuation::Relop(rel2, more_args, continuation) => {
             let (arg2, rest) = store.car_cdr(&more_args);
@@ -528,7 +559,7 @@ fn invoke_continuation(
                 },
                 _ => unimplemented!("Relop2"),
             };
-            make_thunk(continuation, &result, env, store)
+            make_thunk(continuation, &result, env, store, witness)
         }
         Continuation::If(more_args, continuation) => {
             let condition = result;
@@ -570,9 +601,9 @@ fn invoke_continuation(
             }
         }
         Continuation::Lookup(saved_env, continuation) => {
-            make_thunk(continuation, result, saved_env, store)
+            make_thunk(continuation, result, saved_env, store, witness)
         }
-        Continuation::Simple(continuation) => make_thunk(continuation, result, env, store),
+        Continuation::Simple(continuation) => make_thunk(continuation, result, env, store, witness),
         _ => {
             unreachable!();
             // make_thunk(cont, result, env, store)
@@ -634,7 +665,8 @@ pub fn outer_evaluate(
         cont: Continuation::Outermost,
     };
 
-    let frame_iterator = FrameIt::new(initial_input, store).take(limit);
+    let frame_iterator: std::iter::Take<FrameIt<'_, IO, Witness>> =
+        FrameIt::new(initial_input, store).take(limit);
 
     // FIXME: Handle limit.
     if let Some(last_frame) = frame_iterator.last() {

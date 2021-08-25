@@ -119,6 +119,15 @@ impl Hash for TaggedHash {
     }
 }
 
+impl Default for TaggedHash {
+    fn default() -> Self {
+        Self {
+            tag: Fr::zero(),
+            hash: Fr::zero(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
 pub enum Expression {
     Nil,
@@ -189,115 +198,118 @@ impl Continuation {
     // Consider making Continuation a first-class Expression.
     pub fn get_hash(&self) -> Fr {
         match self {
-            Continuation::Outermost => simple_binary_hash(
-                BaseContinuationTag::Outermost.cont_tag_fr(),
-                Fr::zero(), // FIXME:
+            Continuation::Outermost => tagged_4_hash(
+                &BaseContinuationTag::Outermost.cont_tag_fr(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
             ),
-            Continuation::Simple(continuation) => tagged_1_hash(
+            Continuation::Simple(continuation) => tagged_4_hash(
                 &BaseContinuationTag::Simple.cont_tag_fr(),
                 &continuation.continuation_tagged_hash(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
             ),
-            Continuation::Call(arg, saved_env, continuation) => simple_binary_hash(
-                BaseContinuationTag::Call.cont_tag_fr(),
-                tri_hash(
-                    &arg.tagged_hash(),
-                    &saved_env.tagged_hash(),
-                    &continuation.continuation_tagged_hash(),
-                ),
+            Continuation::Call(arg, saved_env, continuation) => tagged_4_hash(
+                &BaseContinuationTag::Call.cont_tag_fr(),
+                &arg.tagged_hash(),
+                &saved_env.tagged_hash(),
+                &continuation.continuation_tagged_hash(),
+                &TaggedHash::default(),
             ),
-            Continuation::Call2(fun, saved_env, continuation) => simple_binary_hash(
-                BaseContinuationTag::Call2.cont_tag_fr(),
-                tri_hash(
-                    &fun.tagged_hash(),
-                    &saved_env.tagged_hash(),
-                    &continuation.continuation_tagged_hash(),
-                ),
+            Continuation::Call2(fun, saved_env, continuation) => tagged_4_hash(
+                &BaseContinuationTag::Call2.cont_tag_fr(),
+                &fun.tagged_hash(),
+                &saved_env.tagged_hash(),
+                &continuation.continuation_tagged_hash(),
+                &TaggedHash::default(),
             ),
-            Continuation::Tail(saved_env, continuation) => simple_binary_hash(
-                BaseContinuationTag::Tail.cont_tag_fr(),
-                binary_hash(
-                    &saved_env.tagged_hash(),
-                    &continuation.continuation_tagged_hash(),
-                ),
+            Continuation::Tail(saved_env, continuation) => tagged_4_hash(
+                &BaseContinuationTag::Tail.cont_tag_fr(),
+                &saved_env.tagged_hash(),
+                &continuation.continuation_tagged_hash(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
             ),
-            Continuation::Error => {
-                simple_binary_hash(
-                    BaseContinuationTag::Error.cont_tag_fr(),
-                    Fr::zero(), // FIXME
-                )
-            }
-            Continuation::Lookup(saved_env, continuation) => simple_binary_hash(
-                BaseContinuationTag::Lookup.cont_tag_fr(),
-                binary_hash(
-                    &saved_env.tagged_hash(),
-                    &continuation.continuation_tagged_hash(),
-                ),
+            Continuation::Error => tagged_4_hash(
+                &BaseContinuationTag::Error.cont_tag_fr(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
             ),
-            Continuation::Binop(op2, unevaled_args, continuation) => simple_binary_hash(
-                BaseContinuationTag::Binop.cont_tag_fr(),
-                tagged_2_hash(
-                    &op2.fr(),
-                    &unevaled_args.tagged_hash(),
-                    &continuation.continuation_tagged_hash(),
-                ),
+            Continuation::Lookup(saved_env, continuation) => tagged_4_hash(
+                &BaseContinuationTag::Lookup.cont_tag_fr(),
+                &saved_env.tagged_hash(),
+                &continuation.continuation_tagged_hash(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
             ),
-            Continuation::Binop2(op2, arg1, continuation) => simple_binary_hash(
-                BaseContinuationTag::Binop2.cont_tag_fr(),
-                tagged_2_hash(
-                    &op2.fr(),
-                    &arg1.tagged_hash(),
-                    &continuation.continuation_tagged_hash(),
-                ),
+            Continuation::Binop(op2, unevaled_args, continuation) => tagged_4_hash_x(
+                &BaseContinuationTag::Binop.cont_tag_fr(),
+                &op2.fr(),
+                &unevaled_args.tagged_hash(),
+                &continuation.continuation_tagged_hash(),
+                &TaggedHash::default(),
             ),
-            Continuation::Relop(rel2, unevaled_args, continuation) => simple_binary_hash(
-                BaseContinuationTag::Relop.cont_tag_fr(),
-                tagged_2_hash(
-                    &rel2.fr(),
-                    &unevaled_args.tagged_hash(),
-                    &continuation.continuation_tagged_hash(),
-                ),
+            Continuation::Binop2(op2, arg1, continuation) => tagged_4_hash_x(
+                &BaseContinuationTag::Binop2.cont_tag_fr(),
+                &op2.fr(),
+                &arg1.tagged_hash(),
+                &continuation.continuation_tagged_hash(),
+                &TaggedHash::default(),
             ),
-            Continuation::Relop2(rel2, arg1, continuation) => simple_binary_hash(
-                BaseContinuationTag::Relop2.cont_tag_fr(),
-                tagged_2_hash(
-                    &rel2.fr(),
-                    &arg1.tagged_hash(),
-                    &continuation.continuation_tagged_hash(),
-                ),
+            Continuation::Relop(rel2, unevaled_args, continuation) => tagged_4_hash_x(
+                &BaseContinuationTag::Relop.cont_tag_fr(),
+                &rel2.fr(),
+                &unevaled_args.tagged_hash(),
+                &continuation.continuation_tagged_hash(),
+                &TaggedHash::default(),
             ),
-            Continuation::If(unevaled_args, continuation) => simple_binary_hash(
-                BaseContinuationTag::If.cont_tag_fr(),
-                binary_hash(
-                    &unevaled_args.tagged_hash(),
-                    &continuation.continuation_tagged_hash(),
-                ),
+            Continuation::Relop2(rel2, arg1, continuation) => tagged_4_hash_x(
+                &BaseContinuationTag::Relop2.cont_tag_fr(),
+                &rel2.fr(),
+                &arg1.tagged_hash(),
+                &continuation.continuation_tagged_hash(),
+                &TaggedHash::default(),
             ),
-            Continuation::LetStar(var, body, saved_env, continuation) => simple_binary_hash(
-                BaseContinuationTag::LetStar.cont_tag_fr(),
-                quad_hash(
-                    &var.tagged_hash(),
-                    &body.tagged_hash(),
-                    &saved_env.tagged_hash(),
-                    &continuation.continuation_tagged_hash(),
-                ),
+            Continuation::If(unevaled_args, continuation) => tagged_4_hash(
+                &BaseContinuationTag::If.cont_tag_fr(),
+                &unevaled_args.tagged_hash(),
+                &continuation.continuation_tagged_hash(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
             ),
-            Continuation::LetRecStar(var, body, saved_env, continuation) => simple_binary_hash(
-                BaseContinuationTag::LetRecStar.cont_tag_fr(),
-                quad_hash(
-                    &var.tagged_hash(),
-                    &body.tagged_hash(),
-                    &saved_env.tagged_hash(),
-                    &continuation.continuation_tagged_hash(),
-                ),
+            Continuation::LetStar(var, body, saved_env, continuation) => tagged_4_hash(
+                &BaseContinuationTag::LetStar.cont_tag_fr(),
+                &var.tagged_hash(),
+                &body.tagged_hash(),
+                &saved_env.tagged_hash(),
+                &continuation.continuation_tagged_hash(),
             ),
-            Continuation::Dummy => {
-                simple_binary_hash(BaseContinuationTag::Dummy.cont_tag_fr(), Fr::zero())
-                // FIXME
-            }
-            Continuation::Terminal => {
-                simple_binary_hash(BaseContinuationTag::Terminal.cont_tag_fr(), Fr::zero())
-                // FIXME
-            }
+            Continuation::LetRecStar(var, body, saved_env, continuation) => tagged_4_hash(
+                &BaseContinuationTag::LetRecStar.cont_tag_fr(),
+                &var.tagged_hash(),
+                &body.tagged_hash(),
+                &saved_env.tagged_hash(),
+                &continuation.continuation_tagged_hash(),
+            ),
+            Continuation::Dummy => tagged_4_hash(
+                &BaseContinuationTag::Dummy.cont_tag_fr(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
+            ),
+            Continuation::Terminal => tagged_4_hash(
+                &BaseContinuationTag::Terminal.cont_tag_fr(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
+            ),
         }
     }
 
@@ -368,6 +380,76 @@ fn tagged_1_hash(tag_fr: &Fr, a: &TaggedHash) -> Fr {
 fn tagged_2_hash(tag_fr: &Fr, a: &TaggedHash, b: &TaggedHash) -> Fr {
     let preimage = vec![*tag_fr, a.tag, a.hash, b.tag, b.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_5).hash()
+}
+fn tagged_4_hash(
+    tag_fr: &Fr,
+    a: &TaggedHash,
+    b: &TaggedHash,
+    c: &TaggedHash,
+    d: &TaggedHash,
+) -> Fr {
+    let preimage = vec![
+        *tag_fr, a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash,
+    ];
+    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_9).hash()
+}
+fn tagged_4_hash_x(
+    tag_fr: &Fr,
+    inner_tag_fr: &Fr,
+    a: &TaggedHash,
+    b: &TaggedHash,
+    c: &TaggedHash,
+) -> Fr {
+    let preimage = vec![
+        *tag_fr,
+        *inner_tag_fr,
+        Fr::zero(),
+        a.tag,
+        a.hash,
+        b.tag,
+        b.hash,
+        c.tag,
+        c.hash,
+    ];
+    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_9).hash()
+}
+
+fn tagged_5_hash(
+    tag_fr: &Fr,
+    a: &TaggedHash,
+    b: &TaggedHash,
+    c: &TaggedHash,
+    d: &TaggedHash,
+    e: &TaggedHash,
+) -> Fr {
+    let preimage = vec![
+        *tag_fr, a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash, e.tag, e.hash,
+    ];
+    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_11).hash()
+}
+
+fn tagged_5_hash_x(
+    tag_fr: &Fr,
+    inner_tag_fr: &Fr,
+    a: &TaggedHash,
+    b: &TaggedHash,
+    c: &TaggedHash,
+    d: &TaggedHash,
+) -> Fr {
+    let preimage = vec![
+        *tag_fr,
+        *inner_tag_fr,
+        Fr::zero(),
+        a.tag,
+        a.hash,
+        b.tag,
+        b.hash,
+        c.tag,
+        c.hash,
+        d.tag,
+        d.hash,
+    ];
+    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_11).hash()
 }
 
 fn hash_string(s: &str) -> Fr {
