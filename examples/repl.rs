@@ -1,10 +1,10 @@
-use dendron::data::{Continuation, Store};
-use dendron::eval::{empty_sym_env, outer_evaluate};
+use lurk::data::{Continuation, Store};
+use lurk::eval::{empty_sym_env, outer_evaluate};
 use std::io::{self, BufRead, Write};
 
 // For the moment, input must be on a single line.
 fn main() {
-    println!("Dendron REPL welcomes you.");
+    println!("Lurk REPL welcomes you.");
 
     let mut s = Store::default();
     let prompt = "> ";
