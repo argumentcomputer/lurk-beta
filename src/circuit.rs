@@ -23,7 +23,7 @@ pub struct Proof<F: Provable> {
     groth16_proof: groth16::Proof<Bls12>,
 }
 
-impl<W> Provable for Frame<IO, W> {
+impl<W> Provable for Frame<IO<W>> {
     fn public_inputs(&self) -> Vec<Fr> {
         let mut inputs = Vec::with_capacity(10);
 
@@ -36,7 +36,7 @@ impl<W> Provable for Frame<IO, W> {
     }
 }
 
-impl IO {
+impl<W> IO<W> {
     fn public_inputs(&self) -> Vec<Fr> {
         vec![
             self.expr.tag_fr(),
@@ -62,10 +62,10 @@ fn bind_input<CS: ConstraintSystem<Bls12>>(
 ) -> Result<(AllocatedNum<Bls12>, AllocatedNum<Bls12>), SynthesisError> {
     let tagged_hash = expr.tagged_hash();
     let tag = AllocatedNum::alloc(cs.namespace(|| "tag"), || Ok(tagged_hash.tag))?;
-    tag.inputize(cs.namespace(|| "tag input"));
+    tag.inputize(cs.namespace(|| "tag input"))?;
 
     let hash = AllocatedNum::alloc(cs.namespace(|| "hash"), || Ok(tagged_hash.hash))?;
-    hash.inputize(cs.namespace(|| "hash input"));
+    hash.inputize(cs.namespace(|| "hash input"))?;
 
     Ok((tag, hash))
 }
@@ -77,10 +77,28 @@ fn bind_input_cont<CS: ConstraintSystem<Bls12>>(
     let tag = AllocatedNum::alloc(cs.namespace(|| "continuation tag"), || {
         Ok(cont.get_continuation_tag().cont_tag_fr())
     })?;
-    tag.inputize(cs.namespace(|| "continuation tag input"));
+    tag.inputize(cs.namespace(|| "continuation tag input"))?;
 
     let hash = AllocatedNum::alloc(cs.namespace(|| "continuation hash"), || Ok(cont.get_hash()))?;
-    hash.inputize(cs.namespace(|| "continuation hash input"));
+    hash.inputize(cs.namespace(|| "continuation hash input"))?;
+
+    Ok((tag, hash))
+}
+
+fn bind_tag_hash<CS: ConstraintSystem<Bls12>>(
+    cs: &mut CS,
+    expr: Option<Expression>,
+) -> Result<(AllocatedNum<Bls12>, AllocatedNum<Bls12>), SynthesisError> {
+    let (tag, hash) = if let Some(e) = expr {
+        let tag = AllocatedNum::alloc(cs.namespace(|| "tag"), || Ok(e.tag_fr()))?;
+        let hash = AllocatedNum::alloc(cs.namespace(|| "hash"), || Ok(e.get_hash()))?;
+        (tag, hash)
+    } else {
+        let tag = AllocatedNum::alloc(cs.namespace(|| "tag"), || Ok(Fr::zero()))?;
+        let hash = AllocatedNum::alloc(cs.namespace(|| "hash"), || Ok(Fr::zero()))?;
+
+        (tag, hash)
+    };
 
     Ok((tag, hash))
 }
@@ -143,9 +161,9 @@ macro_rules! allocate_continuation_tag {
     };
 }
 
-impl Circuit<Bls12> for Frame<IO, Witness> {
+impl Circuit<Bls12> for Frame<IO<Witness>> {
     fn synthesize<CS: ConstraintSystem<Bls12>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
-        let witness = self.witness.clone();
+        let witness = self.input.witness.clone().unwrap();
 
         ////////////////////////////////////////////////////////////////////////////////
         // Bind public inputs.
@@ -279,6 +297,69 @@ impl Circuit<Bls12> for Frame<IO, Witness> {
         let output_cont_is_terminal = equal!(cs, &output_cont_tag, &terminal_cont_tag)?;
 
         ////////////////////////////////////////////////////////////////////////////////
+        // Witness
+
+        // True if make_thunk was called when evaluating (according to the prover's witness).
+        let make_thunk_was_called = Boolean::Is(AllocatedBit::alloc(
+            cs.namespace(|| "make_thunk_called"),
+            Some(witness.make_thunk_was_called),
+        )?);
+
+        let (make_thunk_result_tag, make_thunk_result_hash) = bind_tag_hash(
+            &mut cs.namespace(|| "make_thunk result"),
+            witness.clone().make_thunk_result,
+        )?;
+
+        let (make_thunk_env_tag, make_thunk_env_hash) = bind_tag_hash(
+            &mut cs.namespace(|| "make_thunk env"),
+            witness.clone().make_thunk_env,
+        )?;
+
+        // let make_thunk_result_tag =
+        //     AllocatedNum::alloc(cs.namespace(|| "make_thunk result tag"), || {
+        //         Ok(witness
+        //             .clone()
+        //             .make_thunk_result
+        //             .map_or_else(|| Fr::zero(), |r| r.tag_fr()))
+        //     })?;
+
+        // let make_thunk_result_hash =
+        //     AllocatedNum::alloc(cs.namespace(|| "make_thunk result hash"), || {
+        //         Ok(witness
+        //             .clone()
+        //             .make_thunk_result
+        //             .map_or_else(|| Fr::zero(), |r| r.get_hash()))
+        //     })?;
+
+        ////////////////////////////////////////////////////////////////////////////////
+        // Thunk
+        let thunk_result_tag_matches_input_tag = equal!(cs, &input_tag, &make_thunk_result_tag)?;
+        let thunk_result_hash_matches_input_hash =
+            equal!(cs, &input_hash, &make_thunk_result_hash)?;
+
+        let thunk_env_tag_matches_input_tag = equal!(cs, &input_tag, &make_thunk_env_tag)?;
+        let thunk_env_hash_matches_input_hash = equal!(cs, &input_hash, &make_thunk_env_hash)?;
+
+        ////////////////////////////////////////////////////////////////////////////////
+        // Handle input types
+
+        // If Input is Nil.
+        {
+            if_then!(cs, &input_is_nil, &thunk_result_tag_matches_input_tag);
+            if_then!(cs, &input_is_nil, &thunk_result_hash_matches_input_hash);
+
+            // TODO: Branch on continuation type/tag to get effective output env.
+            if_then!(cs, &input_is_nil, &thunk_env_tag_matches_input_tag);
+            if_then!(cs, &input_is_nil, &thunk_env_hash_matches_input_hash);
+        }
+
+        // let input_is_cons = equal!(cs, &input_tag, &cons_tag)?;
+        // let input_is_sym = equal!(cs, &input_tag, &sym_tag)?;
+        // let input_is_fun = equal!(cs, &input_tag, &fun_tag)?;
+        // let input_is_num = equal!(cs, &input_tag, &num_tag)?;
+        // let input_is_thunk = equal!(cs, &input_tag, &thunk_tag)?;
+
+        ////////////////////////////////////////////////////////////////////////////////
         // Self-evaluating inputs
         //
         let input_is_self_evaluating = {
@@ -334,27 +415,27 @@ impl Circuit<Bls12> for Frame<IO, Witness> {
         // make_thunk
         //
 
-        // True if make_thunk was called when evaluating (according to the prover's witness).
-        let make_thunk_was_called = Boolean::Is(AllocatedBit::alloc(
-            cs.namespace(|| "make_thunk_called"),
-            Some(witness.make_thunk_was_called),
-        )?);
-
         if_then!(cs, &output_is_thunk, &make_thunk_was_called)?;
-        if_then!(cs, &make_thunk_was_called, &output_is_thunk)?;
+        let output_is_thunk_or_output_cont_is_terminal =
+            or!(cs, &output_is_thunk, &output_cont_is_terminal)?;
+        if_then!(
+            cs,
+            &make_thunk_was_called,
+            &output_is_thunk_or_output_cont_is_terminal
+        )?;
 
-        let (cont_hash, cont_tag) = if let Some(cont) = witness.make_thunk_cont {
-            let cont_hash = cont.get_hash();
-            let cont_tag = AllocatedNum::alloc(cs.namespace(|| "make_thunk_cont tag"), || {
-                Ok(cont.get_continuation_tag().cont_tag_fr())
-            });
+        // let (cont_hash, cont_tag) = if let Some(cont) = witness.make_thunk_cont {
+        //     let cont_hash = cont.get_hash();
+        //     let cont_tag = AllocatedNum::alloc(cs.namespace(|| "make_thunk_cont tag"), || {
+        //         Ok(cont.get_continuation_tag().cont_tag_fr())
+        //     })?;
 
-            // let h = poseidon_hash(cs.namespace(|| "contxxxx"), vec![cont_tag, ]);
-            todo!();
-            //(hash, tag)
-        } else {
-            (Fr::zero(), Fr::zero())
-        };
+        //     // let h = poseidon_hash(cs.namespace(|| "contxxxx"), vec![cont_tag, ]);
+        //     //todo!();
+        //     (cont_hash, cont_tag)
+        // } else {
+        //     (Fr::zero(), Fr::zero())
+        // };
 
         //
         ////////////////////////////////////////////////////////////////////////////////
@@ -373,7 +454,7 @@ fn enforce_implication<CS: ConstraintSystem<E>, E: Engine>(
     Ok(())
 }
 
-fn enforce_true<CS: ConstraintSystem<E>, E: Engine>(mut cs: CS, prop: &Boolean) {
+fn enforce_true<CS: ConstraintSystem<E>, E: Engine>(cs: CS, prop: &Boolean) {
     Boolean::enforce_equal(cs, &Boolean::Constant(true), &prop).unwrap(); // FIXME: unwrap
 }
 
@@ -466,13 +547,15 @@ mod tests {
         let env = empty_sym_env(&store);
         let num = Expression::num(123);
 
-        let input = IO {
+        let mut input = IO {
             expr: num.clone(),
             env: env.clone(),
             cont: Continuation::Outermost,
+            witness: None,
         };
 
         let initial = input.clone();
+        input.ensure_witness(&mut store.clone());
 
         let test_with_output = |output, expect_success| {
             let mut cs = TestConstraintSystem::new();
@@ -482,7 +565,6 @@ mod tests {
                 output,
                 initial: initial.clone(),
                 i: 0,
-                witness: Witness::default(),
             };
 
             frame.synthesize(&mut cs).expect("failed to synthesize");
@@ -500,6 +582,7 @@ mod tests {
                 expr: num.clone(),
                 env: env.clone(),
                 cont: Continuation::Terminal,
+                witness: None,
             };
 
             test_with_output(output, true);
@@ -513,6 +596,7 @@ mod tests {
                     expr: store.intern("SYMBOL"),
                     env: env.clone(),
                     cont: Continuation::Terminal,
+                    witness: None,
                 };
 
                 test_with_output(bad_output_tag, false);
@@ -523,6 +607,7 @@ mod tests {
                     expr: Expression::num(999),
                     env: env.clone(),
                     cont: Continuation::Terminal,
+                    witness: None,
                 };
 
                 test_with_output(bad_output_value, false);
@@ -536,15 +621,17 @@ mod tests {
         let env = empty_sym_env(&store);
         let nil = Expression::Nil;
 
-        let input = IO {
+        let mut input = IO {
             expr: nil.clone(),
             env: env.clone(),
             cont: Continuation::Outermost,
+            witness: None,
         };
 
         let initial = input.clone();
+        input.ensure_witness(&mut store.clone());
 
-        let test_with_output = |output, expect_success| {
+        let mut test_with_output = |output, expect_success| {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
@@ -552,7 +639,6 @@ mod tests {
                 output,
                 initial: initial.clone(),
                 i: 0,
-                witness: Witness::default(),
             };
 
             frame.synthesize(&mut cs).expect("failed to synthesize");
@@ -570,6 +656,7 @@ mod tests {
                 expr: nil.clone(),
                 env: env.clone(),
                 cont: Continuation::Terminal,
+                witness: None,
             };
 
             test_with_output(output, true);
@@ -583,6 +670,7 @@ mod tests {
                     expr: store.intern("SYMBOL"),
                     env: env.clone(),
                     cont: Continuation::Terminal,
+                    witness: None,
                 };
 
                 test_with_output(bad_output_tag, false);
@@ -593,6 +681,7 @@ mod tests {
                     expr: Expression::num(999),
                     env: env.clone(),
                     cont: Continuation::Terminal,
+                    witness: None,
                 };
 
                 test_with_output(bad_output_value, false);
@@ -606,13 +695,15 @@ mod tests {
         let env = empty_sym_env(&store);
         let t = store.intern("T");
 
-        let input = IO {
+        let mut input = IO {
             expr: t.clone(),
             env: env.clone(),
             cont: Continuation::Outermost,
+            witness: None,
         };
 
         let initial = input.clone();
+        input.ensure_witness(&mut store.clone());
 
         let test_with_output = |output, expect_success| {
             let mut cs = TestConstraintSystem::new();
@@ -622,7 +713,6 @@ mod tests {
                 output,
                 initial: initial.clone(),
                 i: 0,
-                witness: Witness::default(),
             };
 
             frame.synthesize(&mut cs).expect("failed to synthesize");
@@ -640,6 +730,7 @@ mod tests {
                 expr: t.clone(),
                 env: env.clone(),
                 cont: Continuation::Terminal,
+                witness: None,
             };
 
             test_with_output(output, true);
@@ -653,6 +744,7 @@ mod tests {
                     expr: Expression::num(999),
                     env: env.clone(),
                     cont: Continuation::Terminal,
+                    witness: None,
                 };
 
                 test_with_output(bad_output_tag, false);
@@ -663,6 +755,7 @@ mod tests {
                     expr: store.intern("S"),
                     env: env.clone(),
                     cont: Continuation::Terminal,
+                    witness: None,
                 };
 
                 test_with_output(bad_output_value, false);
@@ -678,13 +771,15 @@ mod tests {
         let body = store.list(vec![var.clone()]);
         let fun = Expression::Fun(var.tagged_hash(), body.tagged_hash(), env.tagged_hash());
 
-        let input = IO {
+        let mut input = IO {
             expr: fun.clone(),
             env: env.clone(),
             cont: Continuation::Outermost,
+            witness: None,
         };
 
         let initial = input.clone();
+        input.ensure_witness(&mut store.clone());
 
         let test_with_output = |output, expect_success| {
             let mut cs = TestConstraintSystem::new();
@@ -694,7 +789,6 @@ mod tests {
                 output,
                 initial: initial.clone(),
                 i: 0,
-                witness: Witness::default(),
             };
 
             frame.synthesize(&mut cs).expect("failed to synthesize");
@@ -712,6 +806,7 @@ mod tests {
                 expr: fun.clone(),
                 env: env.clone(),
                 cont: Continuation::Terminal,
+                witness: None,
             };
 
             test_with_output(output, true);
@@ -725,6 +820,7 @@ mod tests {
                     expr: store.intern("SYMBOL"),
                     env: env.clone(),
                     cont: Continuation::Terminal,
+                    witness: None,
                 };
 
                 test_with_output(bad_output_tag, false);
@@ -735,6 +831,7 @@ mod tests {
                     expr: Expression::num(999),
                     env: env.clone(),
                     cont: Continuation::Terminal,
+                    witness: None,
                 };
 
                 test_with_output(bad_output_value, false);
@@ -749,13 +846,15 @@ mod tests {
 
         // Input is not self-evaluating.
         let expr = store.read("(+ 1 2)").unwrap();
-        let input = IO {
+        let mut input = IO {
             expr: expr.clone(),
             env: env.clone(),
             cont: Continuation::Outermost,
+            witness: None,
         };
 
         let initial = input.clone();
+        input.ensure_witness(&mut store.clone());
 
         let test_with_output = |output, expect_success| {
             let mut cs = TestConstraintSystem::new();
@@ -765,7 +864,6 @@ mod tests {
                 output,
                 initial: initial.clone(),
                 i: 0,
-                witness: Witness::default(),
             };
 
             frame.synthesize(&mut cs).expect("failed to synthesize");
@@ -786,6 +884,7 @@ mod tests {
                     expr: Expression::num(987),
                     env: env.clone(),
                     cont: Continuation::Terminal,
+                    witness: None,
                 };
 
                 test_with_output(output, true);
@@ -798,6 +897,7 @@ mod tests {
                     expr: expr.clone(),
                     env: env.clone(),
                     cont: Continuation::Terminal,
+                    witness: None,
                 };
 
                 test_with_output(output, true);

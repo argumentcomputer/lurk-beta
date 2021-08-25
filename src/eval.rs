@@ -4,19 +4,19 @@ use std::cmp::PartialEq;
 use std::iter::Iterator;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
-pub struct IO {
+pub struct IO<W> {
     pub expr: Expression,
     pub env: Expression,
     pub cont: Continuation, // FIXME: This needs to be an Expression too.
+    pub witness: Option<W>,
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
-pub struct Frame<T, W> {
+pub struct Frame<T> {
     pub input: T,
     pub output: T,
     pub initial: T,
     pub i: usize,
-    pub witness: W,
 }
 
 pub trait Evaluable {
@@ -25,14 +25,16 @@ pub trait Evaluable {
     fn is_terminal(&self) -> bool;
 }
 
-impl Evaluable for IO {
+impl Evaluable for IO<Witness> {
     fn eval(&self, store: &mut Store) -> Self {
-        let (new_expr, new_env, new_cont) = eval_expr(&self.expr, &self.env, &self.cont, store);
+        let (new_expr, new_env, new_cont, witness) =
+            eval_expr(&self.expr, &self.env, &self.cont, store);
 
         Self {
             expr: new_expr,
             env: new_env,
             cont: new_cont,
+            witness: Some(witness),
         }
     }
 
@@ -44,7 +46,17 @@ impl Evaluable for IO {
     }
 }
 
-impl<T: Evaluable + Clone + PartialEq, W: Clone> Frame<T, W> {
+impl IO<Witness> {
+    pub fn ensure_witness(&mut self, store: &mut Store) {
+        if self.witness.is_none() {
+            let evaled = self.eval(store);
+            assert!(evaled.witness.is_some());
+            self.witness = evaled.witness;
+        }
+    }
+}
+
+impl<T: Evaluable + Clone + PartialEq> Frame<T> {
     fn next(&self, store: &mut Store) -> Self {
         let input = self.output.clone();
         let output = input.eval(store);
@@ -54,12 +66,11 @@ impl<T: Evaluable + Clone + PartialEq, W: Clone> Frame<T, W> {
             output,
             initial: self.initial.clone(),
             i,
-            witness: self.witness.clone(),
         }
     }
 }
 
-impl<T: Evaluable + Clone + PartialEq, W: Default> Frame<T, W> {
+impl<T: Evaluable + Clone + PartialEq> Frame<T> {
     fn from_initial_input(input: T, store: &mut Store) -> Self {
         let output = input.eval(store);
 
@@ -68,18 +79,17 @@ impl<T: Evaluable + Clone + PartialEq, W: Default> Frame<T, W> {
             output,
             initial: input.clone(),
             i: 0,
-            witness: W::default(),
         }
     }
 }
 
-struct FrameIt<'a, T, W> {
+struct FrameIt<'a, T> {
     initial_input: T,
-    frame: Option<Frame<T, W>>,
+    frame: Option<Frame<T>>,
     store: &'a mut Store,
 }
 
-impl<'a, T, W> FrameIt<'a, T, W> {
+impl<'a, T> FrameIt<'a, T> {
     fn new(initial_input: T, store: &'a mut Store) -> Self {
         Self {
             initial_input,
@@ -89,8 +99,8 @@ impl<'a, T, W> FrameIt<'a, T, W> {
     }
 }
 
-impl<'a, T: Evaluable + Clone + PartialEq, W: Clone + Default> Iterator for FrameIt<'a, T, W> {
-    type Item = Frame<T, W>;
+impl<'a, T: Evaluable + Clone + PartialEq> Iterator for FrameIt<'a, T> {
+    type Item = Frame<T>;
 
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         if let Some(next_frame) = if let Some(frame) = &self.frame {
@@ -178,10 +188,12 @@ fn eval_expr(
     env: &Expression,
     cont: &Continuation,
     store: &mut Store,
-) -> (Expression, Expression, Continuation) {
+) -> (Expression, Expression, Continuation, Witness) {
     let mut witness = Witness::default();
 
-    eval_expr_with_witness(expr, env, cont, store, &mut witness)
+    let (new_expr, new_env, new_cont) =
+        eval_expr_with_witness(expr, env, cont, store, &mut witness);
+    (new_expr, new_env, new_cont, witness)
 }
 
 fn eval_expr_with_witness(
@@ -191,6 +203,8 @@ fn eval_expr_with_witness(
     store: &mut Store,
     witness: &mut Witness,
 ) -> (Expression, Expression, Continuation) {
+    dbg!(&expr);
+
     match expr {
         Expression::Thunk(thunk) => {
             invoke_continuation(&thunk.continuation, &thunk.value, env, store, witness)
@@ -622,7 +636,7 @@ pub fn outer_evaluate_old(
     let mut next_env = env;
 
     for i in 1..=limit {
-        let (new_expr, new_env, new_cont) =
+        let (new_expr, new_env, new_cont, _witness) =
             eval_expr(&next_expr, &next_env, &next_cont, &mut store);
 
         // dbg!(
@@ -663,9 +677,10 @@ pub fn outer_evaluate(
         expr,
         env,
         cont: Continuation::Outermost,
+        witness: None,
     };
 
-    let frame_iterator: std::iter::Take<FrameIt<'_, IO, Witness>> =
+    let frame_iterator: std::iter::Take<FrameIt<'_, IO<Witness>>> =
         FrameIt::new(initial_input, store).take(limit);
 
     // FIXME: Handle limit.
@@ -768,7 +783,7 @@ mod test {
 
         {
             let num = Expression::num(123);
-            let (result, _new_env, _cont) = eval_expr(
+            let (result, _new_env, _cont, _witness) = eval_expr(
                 &num,
                 &empty_sym_env(&store),
                 &Continuation::Outermost,
@@ -778,7 +793,7 @@ mod test {
         }
 
         {
-            let (result, _new_env, _cont) = eval_expr(
+            let (result, _new_env, _cont, _witness) = eval_expr(
                 &Expression::Nil,
                 &empty_sym_env(&store),
                 &Continuation::Outermost,
