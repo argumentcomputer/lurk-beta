@@ -150,13 +150,61 @@ fn make_thunk(
         _ => env,
     };
 
+    witness.make_thunk_effective_env = Some(effective_env.clone());
+
     // This structure is in case we have other tail continuations in the future.
     // I think we should not have, though -- since by definition we should be able
     // to use Tail for any such need.
-    match cont {
+    let (output_result, output_env, output_cont) = match cont {
         // These are the tail-continuations.
         Continuation::Tail(_, continuation) => {
-            make_thunk(continuation, result, effective_env, store, witness)
+            if let Continuation::Tail(_, _) = **continuation {
+                panic!("Tail continuation should not have Tail continuation as its continuation. Collapse them.");
+            };
+
+            witness.make_thunk_tail_continuation_cont = Some(*continuation.clone());
+            // There is no risk of a recursive loop here, so the self-call below
+            // is just convenience. It can be unrolled in the circuit. That
+            // said, it' a pain to deal with in circuit and would probably be
+            // easier if it were done here instead, then copied.
+
+            //make_thunk(continuation, result, effective_env, store, witness)
+
+            // Yes, we are unrolling it. Original code and comment left above to
+            // clarify what we are doing below and why.
+
+            // We know:
+            // - effective_env = saved_env.
+            // - continuation is not a tail continuation.
+
+            // So, expanding the recursive call, we get:
+
+            let effective_env2 = match &**continuation {
+                Continuation::Lookup(saved_env2, _) => saved_env2,
+                Continuation::Tail(_, _) => unreachable!(),
+                _ => effective_env,
+            };
+            witness.make_thunk_effective_env2 = Some(effective_env.clone());
+
+            match &**continuation {
+                Continuation::Outermost => (
+                    result.clone(),
+                    effective_env.clone(),
+                    Continuation::Terminal,
+                ),
+                _ => {
+                    let thunk = Thunk {
+                        value: Box::new(result.clone()),
+                        continuation: continuation.clone(),
+                    };
+                    witness.make_thunk_tail_continuation_thunk = Some(thunk.clone());
+                    (
+                        Expression::Thunk(thunk),
+                        effective_env2.clone(),
+                        Continuation::Dummy,
+                    )
+                }
+            }
         }
         // If continuation is outermost, we don't actually make a thunk. Instead, we signal
         // that this is the terminal result by returning a Terminal continuation.
@@ -172,7 +220,13 @@ fn make_thunk(
                 Continuation::Dummy,
             )
         }
-    }
+    };
+
+    witness.make_thunk_output_result = Some(output_result.clone());
+    witness.make_thunk_output_env = Some(output_env.clone());
+    witness.make_thunk_output_cont = Some(output_cont.clone());
+
+    (output_result, output_env, output_cont)
 }
 
 #[derive(Clone, Debug, Default, PartialEq, PartialOrd, std::cmp::Eq)]
@@ -181,6 +235,13 @@ pub struct Witness {
     pub make_thunk_result: Option<Expression>,
     pub make_thunk_env: Option<Expression>,
     pub make_thunk_cont: Option<Continuation>,
+    pub make_thunk_effective_env: Option<Expression>,
+    pub make_thunk_tail_continuation_cont: Option<Continuation>,
+    pub make_thunk_effective_env2: Option<Expression>,
+    pub make_thunk_tail_continuation_thunk: Option<Thunk>,
+    pub make_thunk_output_result: Option<Expression>,
+    pub make_thunk_output_env: Option<Expression>,
+    pub make_thunk_output_cont: Option<Continuation>,
 }
 
 fn eval_expr(
@@ -203,8 +264,6 @@ fn eval_expr_with_witness(
     store: &mut Store,
     witness: &mut Witness,
 ) -> (Expression, Expression, Continuation) {
-    dbg!(&expr);
-
     match expr {
         Expression::Thunk(thunk) => {
             invoke_continuation(&thunk.continuation, &thunk.value, env, store, witness)
@@ -489,11 +548,7 @@ fn invoke_continuation(
                 let closed_env = store.fetch(*closed_env_t).unwrap();
                 let arg = store.fetch(*arg_t).unwrap();
                 let newer_env = extend(&closed_env, &arg, result, store);
-                let cont = match &**continuation {
-                    // Match all tail continuations here.
-                    Continuation::Tail(_, c) => *c.clone(),
-                    _ => Continuation::Tail(saved_env.clone(), Box::new(*continuation.clone())),
-                };
+                let cont = make_tail_continuation(&saved_env, continuation);
                 (body_form, newer_env, cont)
             }
             _ => {
@@ -502,12 +557,14 @@ fn invoke_continuation(
         },
         Continuation::LetStar(var, body, saved_env, continuation) => {
             let extended_env = extend(&env, var, result, store);
-            let c = Continuation::Tail(saved_env.clone(), Box::new(*continuation.clone()));
+            let c = make_tail_continuation(saved_env, continuation);
+
             (body.clone(), extended_env, c)
         }
         Continuation::LetRecStar(var, body, saved_env, continuation) => {
             let extended_env = extend_rec(&env, var, result, store);
-            let c = Continuation::Tail(saved_env.clone(), Box::new(*continuation.clone()));
+            let c = make_tail_continuation(saved_env, continuation);
+
             (body.clone(), extended_env, c)
         }
         Continuation::Binop(op2, more_args, continuation) => {
@@ -622,6 +679,14 @@ fn invoke_continuation(
             unreachable!();
             // make_thunk(cont, result, env, store)
         }
+    }
+}
+
+fn make_tail_continuation(env: &Expression, continuation: &Box<Continuation>) -> Continuation {
+    match &**continuation {
+        // Match all tail continuations here.
+        Continuation::Tail(_, c) => *c.clone(),
+        _ => Continuation::Tail(env.clone(), Box::new(*continuation.clone())),
     }
 }
 
