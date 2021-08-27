@@ -184,7 +184,7 @@ fn make_thunk(
                 Continuation::Tail(_, _) => unreachable!(),
                 _ => effective_env,
             };
-            witness.make_thunk_effective_env2 = Some(effective_env.clone());
+            witness.make_thunk_effective_env2 = Some(effective_env2.clone());
 
             match &**continuation {
                 Continuation::Outermost => (
@@ -214,6 +214,7 @@ fn make_thunk(
                 value: Box::new(result.clone()),
                 continuation: Box::new(cont.clone()),
             };
+            witness.make_thunk_thunk = Some(thunk.clone());
             (
                 Expression::Thunk(thunk),
                 effective_env.clone(),
@@ -239,9 +240,21 @@ pub struct Witness {
     pub make_thunk_tail_continuation_cont: Option<Continuation>,
     pub make_thunk_effective_env2: Option<Expression>,
     pub make_thunk_tail_continuation_thunk: Option<Thunk>,
+    pub make_thunk_thunk: Option<Thunk>,
     pub make_thunk_output_result: Option<Expression>,
     pub make_thunk_output_env: Option<Expression>,
     pub make_thunk_output_cont: Option<Continuation>,
+
+    pub invoke_continuation_was_called: bool,
+    pub invoke_continuation_result: Option<Expression>,
+    pub invoke_continuation_env: Option<Expression>,
+    pub invoke_continuation_cont: Option<Continuation>,
+
+    pub invoke_continuation_output_result: Option<Expression>,
+    pub invoke_continuation_output_env: Option<Expression>,
+    pub invoke_continuation_output_cont: Option<Continuation>,
+
+    pub invoke_continuation_thunk: Option<Thunk>,
 }
 
 fn eval_expr(
@@ -511,20 +524,18 @@ fn invoke_continuation(
     store: &mut Store,
     witness: &mut Witness,
 ) -> (Expression, Expression, Continuation) {
-    match &cont {
+    witness.invoke_continuation_was_called = true;
+    witness.invoke_continuation_cont = Some(cont.clone());
+    witness.invoke_continuation_result = Some(result.clone());
+    witness.invoke_continuation_env = Some(env.clone());
+
+    let (output_result, output_env, output_cont) = match &cont {
         Continuation::Terminal => unreachable!("Terminal Continuation should never be invoked."),
+        Continuation::Dummy => unreachable!("Dummy Continuation should never be invoked."),
         Continuation::Outermost => match result {
-            Expression::Thunk(thunk) => {
-                let final_expr = &thunk.value;
-                (*final_expr.clone(), env.clone(), Continuation::Terminal)
-            }
-            _ => {
-                (result.clone(), env.clone(), Continuation::Terminal)
-                // dbg!(&result);
-                // unreachable!()
-            }
+            Expression::Thunk(thunk) => (*thunk.value.clone(), env.clone(), Continuation::Terminal),
+            _ => (result.clone(), env.clone(), Continuation::Terminal),
         },
-        Continuation::Dummy => unreachable!(),
         Continuation::Call(arg, saved_env, continuation) => match result.tag() {
             Tag::Fun => {
                 let function = result;
@@ -677,9 +688,14 @@ fn invoke_continuation(
         Continuation::Simple(continuation) => make_thunk(continuation, result, env, store, witness),
         _ => {
             unreachable!();
-            // make_thunk(cont, result, env, store)
         }
-    }
+    };
+
+    witness.invoke_continuation_output_result = Some(output_result.clone());
+    witness.invoke_continuation_output_env = Some(output_env.clone());
+    witness.invoke_continuation_output_cont = Some(output_cont.clone());
+
+    (output_result, output_env, output_cont)
 }
 
 fn make_tail_continuation(env: &Expression, continuation: &Box<Continuation>) -> Continuation {

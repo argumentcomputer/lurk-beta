@@ -106,6 +106,26 @@ fn bind_tag_hash<CS: ConstraintSystem<Bls12>>(
     Ok((tag, hash))
 }
 
+fn bind_continuation_tag_hash<CS: ConstraintSystem<Bls12>>(
+    cs: &mut CS,
+    cont: Option<Continuation>,
+) -> Result<(AllocatedNum<Bls12>, AllocatedNum<Bls12>), SynthesisError> {
+    let (tag, hash) = if let Some(e) = cont {
+        let tag = AllocatedNum::alloc(cs.namespace(|| "tag"), || {
+            Ok(e.get_continuation_tag().cont_tag_fr())
+        })?;
+        let hash = AllocatedNum::alloc(cs.namespace(|| "hash"), || Ok(e.get_hash()))?;
+        (tag, hash)
+    } else {
+        let tag = AllocatedNum::alloc(cs.namespace(|| "tag"), || Ok(Fr::zero()))?;
+        let hash = AllocatedNum::alloc(cs.namespace(|| "hash"), || Ok(Fr::zero()))?;
+
+        (tag, hash)
+    };
+
+    Ok((tag, hash))
+}
+
 // Enforces constraint that a implies b.
 macro_rules! if_then {
     ($cs:ident, $a:expr, $b:expr) => {
@@ -113,7 +133,7 @@ macro_rules! if_then {
             $cs.namespace(|| format!("if {} then {}", stringify!($a), stringify!($b))),
             $a,
             $b,
-        );
+        )
     };
 }
 
@@ -164,6 +184,23 @@ macro_rules! and {
     };
 }
 
+macro_rules! tag_and_hash_equal {
+    ($cs:ident, $a_tag:expr, $b_tag:expr, $a_hash:expr, $b_hash:expr) => {{
+        let tags_equal = equal!($cs, &$a_tag, &$b_tag)?;
+        let hashes_equal = equal!($cs, &$a_hash, &$b_hash)?;
+        let mut cs = $cs.namespace(|| {
+            format!(
+                "({} equals {}) and ({} equals {})",
+                stringify!($a_tag),
+                stringify!($b_tag),
+                stringify!($a_hash),
+                stringify!($b_hash)
+            )
+        });
+        and!(cs, &tags_equal, &hashes_equal)
+    }};
+}
+
 // Returns a Boolean which is true if a or b are true.
 macro_rules! or {
     ($cs:ident, $a:expr, $b:expr) => {
@@ -172,6 +209,13 @@ macro_rules! or {
             $a,
             $b,
         );
+    };
+}
+
+// Enforce that x is true.
+macro_rules! is_true {
+    ($cs:ident, $x:expr) => {
+        enforce_true($cs.namespace(|| format!("{} is true!", stringify!($x))), $x);
     };
 }
 
@@ -284,7 +328,7 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
         let relop_cont_tag = allocate_continuation_tag!(cs, BaseContinuationTag::Relop)?;
         let relop2_cont_tag = allocate_continuation_tag!(cs, BaseContinuationTag::Relop2)?;
         let if_cont_tag = allocate_continuation_tag!(cs, BaseContinuationTag::If)?;
-        let let_cont_tag = allocate_continuation_tag!(cs, BaseContinuationTag::LetStar)?;
+        let let_star_cont_tag = allocate_continuation_tag!(cs, BaseContinuationTag::LetStar)?;
         let let_rec_star_cont_tag =
             allocate_continuation_tag!(cs, BaseContinuationTag::LetRecStar)?;
         let dummy_cont_tag = allocate_continuation_tag!(cs, BaseContinuationTag::Dummy)?;
@@ -304,7 +348,7 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
         let input_cont_is_relop = equal!(cs, &input_cont_tag, &relop_cont_tag)?;
         let input_cont_is_relop2 = equal!(cs, &input_cont_tag, &relop2_cont_tag)?;
         let input_cont_is_if = equal!(cs, &input_cont_tag, &if_cont_tag)?;
-        let input_cont_is_let = equal!(cs, &input_cont_tag, &let_cont_tag)?;
+        let input_cont_is_let_star = equal!(cs, &input_cont_tag, &let_star_cont_tag)?;
         let input_cont_is_let_rec_star = equal!(cs, &input_cont_tag, &let_rec_star_cont_tag)?;
         let input_cont_is_dummy = equal!(cs, &input_cont_tag, &dummy_cont_tag)?;
         let input_cont_is_terminal = equal!(cs, &input_cont_tag, &terminal_cont_tag)?;
@@ -323,7 +367,7 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
         let output_cont_is_relop = equal!(cs, &output_cont_tag, &relop_cont_tag)?;
         let output_cont_is_relop2 = equal!(cs, &output_cont_tag, &relop2_cont_tag)?;
         let output_cont_is_if = equal!(cs, &output_cont_tag, &if_cont_tag)?;
-        let output_cont_is_let = equal!(cs, &output_cont_tag, &let_cont_tag)?;
+        let output_cont_is_let_star = equal!(cs, &output_cont_tag, &let_star_cont_tag)?;
         let output_cont_is_let_rec_star = equal!(cs, &output_cont_tag, &let_rec_star_cont_tag)?;
         let output_cont_is_dummy = equal!(cs, &output_cont_tag, &dummy_cont_tag)?;
         let output_cont_is_terminal = equal!(cs, &output_cont_tag, &terminal_cont_tag)?;
@@ -331,9 +375,62 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
         ////////////////////////////////////////////////////////////////////////////////
         // Witness
 
+        let (invoke_continuation_cont_tag, invoke_continuation_cont_hash) = if let Some(cont) =
+            &witness.invoke_continuation_cont
+        {
+            let tag = AllocatedNum::alloc(cs.namespace(|| "continuation tag"), || {
+                Ok(cont.get_continuation_tag().cont_tag_fr())
+            })?;
+
+            let hash =
+                AllocatedNum::alloc(cs.namespace(|| "continuation hash"), || Ok(cont.get_hash()))?;
+
+            (tag, hash)
+        } else {
+            (
+                AllocatedNum::alloc(cs.namespace(|| "continuation tag"), || Ok(Fr::zero()))?,
+                AllocatedNum::alloc(cs.namespace(|| "continuation hash"), || Ok(Fr::zero()))?,
+            )
+        };
+
+        ////////////////////////////////////////////////////////////////////////////////
+        // invoke_continuation Continuation type
+        let invoke_continuation_cont_is_outermost =
+            equal!(cs, &invoke_continuation_cont_tag, &outermost_cont_tag)?;
+        let invoke_continuation_cont_is_simple =
+            equal!(cs, &invoke_continuation_cont_tag, &simple_cont_tag)?;
+        let invoke_continuation_cont_is_call =
+            equal!(cs, &invoke_continuation_cont_tag, &call_cont_tag)?;
+        let invoke_continuation_cont_is_call2 =
+            equal!(cs, &invoke_continuation_cont_tag, &call2_cont_tag)?;
+        let invoke_continuation_cont_is_tail =
+            equal!(cs, &invoke_continuation_cont_tag, &tail_cont_tag)?;
+        let invoke_continuation_cont_is_error =
+            equal!(cs, &invoke_continuation_cont_tag, &error_cont_tag)?;
+        let invoke_continuation_cont_is_lookup =
+            equal!(cs, &invoke_continuation_cont_tag, &lookup_cont_tag)?;
+        let invoke_continuation_cont_is_binop =
+            equal!(cs, &invoke_continuation_cont_tag, &binop_cont_tag)?;
+        let invoke_continuation_cont_is_binop2 =
+            equal!(cs, &invoke_continuation_cont_tag, &binop2_cont_tag)?;
+        let invoke_continuation_cont_is_relop =
+            equal!(cs, &invoke_continuation_cont_tag, &relop_cont_tag)?;
+        let invoke_continuation_cont_is_relop2 =
+            equal!(cs, &invoke_continuation_cont_tag, &relop2_cont_tag)?;
+        let invoke_continuation_cont_is_if =
+            equal!(cs, &invoke_continuation_cont_tag, &if_cont_tag)?;
+        let invoke_continuation_cont_is_let_star =
+            equal!(cs, &invoke_continuation_cont_tag, &let_star_cont_tag)?;
+        let invoke_continuation_cont_is_let_rec_star =
+            equal!(cs, &invoke_continuation_cont_tag, &let_rec_star_cont_tag)?;
+        let invoke_continuation_cont_is_dummy =
+            equal!(cs, &invoke_continuation_cont_tag, &dummy_cont_tag)?;
+        let invoke_continuation_cont_is_terminal =
+            equal!(cs, &invoke_continuation_cont_tag, &terminal_cont_tag)?;
+
         // True if make_thunk was called when evaluating (according to the prover's witness).
         let make_thunk_was_called = Boolean::Is(AllocatedBit::alloc(
-            cs.namespace(|| "make_thunk_called"),
+            cs.namespace(|| "make_thunk_was_called"),
             Some(witness.make_thunk_was_called),
         )?);
 
@@ -368,7 +465,7 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
         )?;
 
         let (make_thunk_tail_continuation_cont_hash, make_thunk_tail_continuation_cont_components) =
-            if let Some(c) = witness.make_thunk_tail_continuation_cont {
+            if let Some(c) = &witness.make_thunk_tail_continuation_cont {
                 c.allocate_components(
                     cs.namespace(|| "make_thunk tail continuation cont components"),
                 )?
@@ -378,25 +475,35 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
                 )?
             };
 
-        let (make_thunk_tail_continuation_thunk, make_thunk_tail_continuation_thunk_components) =
-            if let Some(thunk) = witness.make_thunk_tail_continuation_thunk {
-                thunk.allocate_components(cs.namespace(|| "make_thunk_tail_continuation_thunk"))?
-            } else {
-                Thunk::allocate_dummy_components(
-                    cs.namespace(|| "make_thunk_tail_continuation_thunk"),
-                )?
-            };
-        let (
-            make_thunk_tail_continuation_thunk_value_tag,
-            make_thunk_tail_continuation_thunk_value_hash,
-            make_thunk_tail_continuation_thunk_cont_tag,
-            make_thunk_tail_continuation_thunk_cont_hash,
-        ) = (
-            make_thunk_tail_continuation_thunk_components[0].clone(),
-            make_thunk_tail_continuation_thunk_components[1].clone(),
-            make_thunk_tail_continuation_thunk_components[2].clone(),
-            make_thunk_tail_continuation_thunk_components[3].clone(),
+        let make_thunk_actual_thunk = witness
+            .clone()
+            .make_thunk_tail_continuation_thunk
+            .or(witness.make_thunk_thunk.clone());
+
+        let the_thunk = make_thunk_actual_thunk.or(witness.clone().invoke_continuation_thunk);
+
+        let (the_thunk_hash, the_thunk_components) = if let Some(thunk) = &the_thunk {
+            thunk.allocate_components(cs.namespace(|| "make_thunk_tail_continuation_thunk"))?
+        } else {
+            Thunk::allocate_dummy_components(cs.namespace(|| "make_thunk_tail_continuation_thunk"))?
+        };
+        let (the_thunk_value_tag, the_thunk_value_hash, the_thunk_cont_tag, the_thunk_cont_hash) = (
+            the_thunk_components[0].clone(),
+            the_thunk_components[1].clone(),
+            the_thunk_components[2].clone(),
+            the_thunk_components[3].clone(),
         );
+
+        let make_thunk_output_result_is_thunk = tag_and_hash_equal!(
+            cs,
+            &make_thunk_output_result_tag,
+            &thunk_tag,
+            &make_thunk_output_result_hash,
+            &the_thunk_hash
+        )?;
+
+        let thunk_thunk_value_is_make_thunk_result =
+            equal!(cs, &make_thunk_result_hash, &the_thunk_hash)?;
 
         let make_thunk_tail_continuation_cont_saved_env_tag =
             make_thunk_tail_continuation_cont_components[1].clone();
@@ -404,7 +511,7 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
             make_thunk_tail_continuation_cont_components[2].clone();
 
         let (make_thunk_cont_hash, make_thunk_cont_components) =
-            if let Some(c) = witness.make_thunk_cont {
+            if let Some(c) = &witness.make_thunk_cont {
                 c.allocate_components(cs.namespace(|| "make_thunk cont components"))?
             } else {
                 Continuation::allocate_dummy_components(
@@ -413,7 +520,7 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
             };
 
         let (make_thunk_output_cont_hash, make_thunk_output_cont_components) =
-            if let Some(c) = witness.make_thunk_output_cont {
+            if let Some(c) = &witness.make_thunk_output_cont {
                 c.allocate_components(cs.namespace(|| "make_thunk output cont components"))?
             } else {
                 Continuation::allocate_dummy_components(
@@ -423,6 +530,41 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
 
         let make_thunk_cont_tag = make_thunk_cont_components[0].clone();
         let make_thunk_output_cont_tag = make_thunk_output_cont_components[0].clone();
+
+        ////////////////////////////////////////////////////////////////////////////////
+        // invoke_continuation
+        let invoke_continuation_was_called = Boolean::Is(AllocatedBit::alloc(
+            cs.namespace(|| "invoke_continuation_was_called"),
+            Some(witness.invoke_continuation_was_called),
+        )?);
+
+        let (invoke_continuation_result_tag, invoke_continuation_result_hash) = bind_tag_hash(
+            &mut cs.namespace(|| "invoke_continuation result"),
+            witness.clone().invoke_continuation_result,
+        )?;
+
+        let (invoke_continuation_env_tag, invoke_continuation_env_hash) = bind_tag_hash(
+            &mut cs.namespace(|| "invoke_continuation env"),
+            witness.clone().invoke_continuation_env,
+        )?;
+
+        let (invoke_continuation_output_result_tag, invoke_continuation_output_result_hash) =
+            bind_tag_hash(
+                &mut cs.namespace(|| "invoke_continuation output result"),
+                witness.clone().invoke_continuation_output_result,
+            )?;
+
+        let (invoke_continuation_output_env_tag, invoke_continuation_output_env_hash) =
+            bind_tag_hash(
+                &mut cs.namespace(|| "invoke_continuation output env"),
+                witness.clone().invoke_continuation_output_env,
+            )?;
+
+        let (invoke_continuation_output_cont_tag, invoke_continuation_output_cont_hash) =
+            bind_continuation_tag_hash(
+                &mut cs.namespace(|| "invoke_continuation cont env"),
+                witness.clone().invoke_continuation_output_cont,
+            )?;
 
         {
             // Begin make_thunk handling.
@@ -453,12 +595,6 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
             let make_thunk_tail_continuation_cont_is_lookup =
                 equal!(cs, &make_thunk_tail_continuation_cont_tag, &lookup_cont_tag)?;
 
-            let make_thunk_tail_continuation_cont_is_terminal = equal!(
-                cs,
-                &make_thunk_tail_continuation_cont_tag,
-                &terminal_cont_tag
-            )?;
-
             let make_thunk_tail_continuation_cont_is_outermost = equal!(
                 cs,
                 &make_thunk_tail_continuation_cont_tag,
@@ -467,30 +603,20 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
 
             let thunk_cont_has_saved_env = or!(cs, &thunk_cont_is_lookup, &thunk_cont_is_tail)?;
 
-            let make_thunk_effective_env_tag_is_cont_saved_env_tag = equal!(
+            let make_thunk_effective_env_is_cont_saved_env = tag_and_hash_equal!(
                 cs,
                 &make_thunk_effective_env_tag,
-                &make_thunk_cont_saved_env_tag
-            )?;
-            let make_thunk_effective_env_hash_is_cont_saved_env_hash = equal!(
-                cs,
+                &make_thunk_cont_saved_env_tag,
                 &make_thunk_effective_env_hash,
                 &make_thunk_cont_saved_env_hash
             )?;
-            let make_thunk_effective_env_is_cont_saved_env = and!(
-                cs,
-                &make_thunk_effective_env_tag_is_cont_saved_env_tag,
-                &make_thunk_effective_env_hash_is_cont_saved_env_hash
-            )?;
 
-            let make_thunk_effective_env_tag_is_env_tag =
-                equal!(cs, &make_thunk_effective_env_tag, &make_thunk_env_tag)?;
-            let make_thunk_effective_env_hash_is_env_hash =
-                equal!(cs, &make_thunk_effective_env_hash, &make_thunk_env_hash)?;
-            let make_thunk_effective_env_is_env = and!(
+            let make_thunk_effective_env_is_env = tag_and_hash_equal!(
                 cs,
-                &make_thunk_effective_env_tag_is_env_tag,
-                &make_thunk_effective_env_hash_is_env_hash
+                &make_thunk_effective_env_tag,
+                &make_thunk_env_tag,
+                &make_thunk_effective_env_hash,
+                &make_thunk_env_hash
             )?;
 
             if_then_else!(
@@ -500,50 +626,36 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
                 &make_thunk_effective_env_is_env
             )?;
 
-            let make_thunk_output_result_tag_is_make_thunk_result_tag =
-                equal!(cs, &make_thunk_output_result_tag, &make_thunk_result_tag)?;
-            let make_thunk_output_result_hash_is_make_thunk_result_hash =
-                equal!(cs, &make_thunk_output_result_hash, &make_thunk_result_hash)?; // uiop
-            let make_thunk_output_result_is_make_thunk_result = and!(
+            let make_thunk_output_result_is_make_thunk_result = tag_and_hash_equal!(
                 cs,
-                &make_thunk_output_result_tag_is_make_thunk_result_tag,
-                &make_thunk_output_result_hash_is_make_thunk_result_hash
+                &make_thunk_output_result_tag,
+                &make_thunk_result_tag,
+                &make_thunk_output_result_hash,
+                &make_thunk_result_hash
             )?;
 
-            let make_thunk_output_env_tag_is_effective_env_tag = equal!(
+            let make_thunk_output_env_is_effective_env = tag_and_hash_equal!(
                 cs,
                 &make_thunk_output_env_tag,
-                &make_thunk_effective_env_tag
-            )?;
-            let make_thunk_output_env_hash_is_effective_env_hash = equal!(
-                cs,
+                &make_thunk_effective_env_tag,
                 &make_thunk_output_env_hash,
                 &make_thunk_effective_env_hash
             )?;
-            let make_thunk_output_env_is_effective_env = and!(
-                cs,
-                &make_thunk_output_env_tag_is_effective_env_tag,
-                &make_thunk_output_env_hash_is_effective_env_hash
-            )?;
 
-            let make_thunk_output_env_tag_is_effective_env2_tag = equal!(
+            let make_thunk_output_env_is_effective_env2 = tag_and_hash_equal!(
                 cs,
                 &make_thunk_output_env_tag,
-                &make_thunk_effective_env2_tag
-            )?;
-            let make_thunk_output_env_hash_is_effective_env2_hash = equal!(
-                cs,
+                &make_thunk_effective_env2_tag,
                 &make_thunk_output_env_hash,
                 &make_thunk_effective_env2_hash
-            )?;
-            let make_thunk_output_env_is_effective_env2 = and!(
-                cs,
-                &make_thunk_output_env_tag_is_effective_env2_tag,
-                &make_thunk_output_env_hash_is_effective_env2_hash
             )?;
 
             let make_thunk_output_cont_is_terminal =
                 equal!(cs, &make_thunk_output_cont_tag, &terminal_cont_tag)?;
+
+            // FIXME: We still have to check hashes and values of Terminal/Dummy continuations to ensure
+            // they have the expected values. Otherwise, results will not be deterministic, and the proof will
+            // be unsound.
 
             let make_thunk_output_cont_is_dummy =
                 equal!(cs, &make_thunk_output_cont_tag, &dummy_cont_tag)?;
@@ -551,39 +663,23 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
             {
                 // When make_thunk continuation is Tail:
 
-                let make_thunk_was_called_and_cont_is_tail =
+                let make_thunk_was_called_with_tail_continuation =
                     and!(cs, &make_thunk_was_called, &thunk_cont_is_tail)?;
 
-                let make_thunk_effective_env2_tag_is_tail_continuation_cont_saved_env_tag = equal!(
+                let make_thunk_effective_env2_is_tail_continuation_cont_saved_env = tag_and_hash_equal!(
                     cs,
                     &make_thunk_effective_env_tag,
-                    &make_thunk_tail_continuation_cont_saved_env_tag
-                )?;
-                let make_thunk_effective_env2_hash_is_tail_continuation_cont_saved_env_hash = equal!(
-                    cs,
+                    &make_thunk_tail_continuation_cont_saved_env_tag,
                     &make_thunk_effective_env_hash,
                     &make_thunk_tail_continuation_cont_saved_env_hash
                 )?;
-                let make_thunk_effective_env2_is_tail_continuation_cont_saved_env = and!(
-                    cs,
-                    &make_thunk_effective_env2_tag_is_tail_continuation_cont_saved_env_tag,
-                    &make_thunk_effective_env2_hash_is_tail_continuation_cont_saved_env_hash
-                )?;
 
-                let make_thunk_effective_env2_tag_is_effective_env_tag = equal!(
+                let make_thunk_effective_env2_is_effective_env = tag_and_hash_equal!(
                     cs,
                     &make_thunk_effective_env2_tag,
-                    &make_thunk_effective_env_tag
-                )?;
-                let make_thunk_effective_env2_hash_is_effective_env_hash = equal!(
-                    cs,
+                    &make_thunk_effective_env_tag,
                     &make_thunk_effective_env2_hash,
                     &make_thunk_effective_env_hash
-                )?;
-                let make_thunk_effective_env2_is_effective_env = and!(
-                    cs,
-                    &make_thunk_effective_env2_tag_is_effective_env_tag,
-                    &make_thunk_effective_env2_hash_is_effective_env_hash
                 )?;
 
                 // Check effective_env2.
@@ -602,26 +698,33 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
                     &cont_is_tail_and_its_cont_is_lookup,
                     &make_thunk_effective_env2_is_tail_continuation_cont_saved_env
                 )?;
-
-                // Check make_thunk output result is make_thunk input result.
-
-                if_then!(
+                let cont_is_tail_and_its_cont_is_not_lookup = and!(
                     cs,
-                    &make_thunk_was_called_and_cont_is_tail,
-                    &make_thunk_output_result_is_make_thunk_result
+                    &thunk_cont_is_tail,
+                    &Boolean::not(&make_thunk_tail_continuation_cont_is_lookup)
                 )?;
 
-                // Check make_thunk output env is effective_env.
-                if_then!(
-                    cs,
-                    &make_thunk_was_called_and_cont_is_tail,
-                    &make_thunk_output_env_is_effective_env
-                )?;
+                is_true!(cs, &Boolean::not(&cont_is_tail_and_its_cont_is_not_lookup));
 
                 let make_thunk_was_called_and_tail_continuation_cont_is_outermost = and!(
                     cs,
                     &make_thunk_was_called,
                     &make_thunk_tail_continuation_cont_is_outermost
+                )?;
+
+                // Check make_thunk output result is make_thunk input result.
+
+                if_then!(
+                    cs,
+                    &make_thunk_was_called_and_tail_continuation_cont_is_outermost,
+                    &make_thunk_output_result_is_make_thunk_result
+                )?;
+
+                if_then_else!(
+                    cs,
+                    &make_thunk_was_called_and_tail_continuation_cont_is_outermost,
+                    &make_thunk_output_env_is_effective_env,
+                    &make_thunk_output_env_is_effective_env2
                 )?;
 
                 // This could be optimized, for example, by creating a variable that is true
@@ -631,6 +734,50 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
                     cs,
                     &make_thunk_was_called_and_tail_continuation_cont_is_outermost,
                     &make_thunk_output_cont_is_terminal
+                )?;
+
+                let make_thunk_was_called_with_tail_continuation_whose_cont_is_not_outermost = and!(
+                    cs,
+                    &make_thunk_was_called_with_tail_continuation,
+                    &Boolean::not(&make_thunk_tail_continuation_cont_is_outermost)
+                )?;
+
+                if_then!(
+                    cs,
+                    &make_thunk_was_called_with_tail_continuation_whose_cont_is_not_outermost,
+                    &make_thunk_output_result_is_thunk
+                )?;
+
+                if_then!(
+                    cs,
+                    &make_thunk_was_called_with_tail_continuation_whose_cont_is_not_outermost,
+                    &thunk_thunk_value_is_make_thunk_result
+                )?;
+
+                let thunk_thunk_continuation_is_tail_continuation_cont = tag_and_hash_equal!(
+                    cs,
+                    &the_thunk_cont_tag,
+                    &make_thunk_tail_continuation_cont_tag,
+                    &the_thunk_cont_hash,
+                    &make_thunk_tail_continuation_cont_hash
+                )?;
+
+                if_then!(
+                    cs,
+                    &make_thunk_was_called_with_tail_continuation_whose_cont_is_not_outermost,
+                    &thunk_thunk_continuation_is_tail_continuation_cont
+                )?;
+
+                if_then!(
+                    cs,
+                    &make_thunk_was_called_with_tail_continuation_whose_cont_is_not_outermost,
+                    &make_thunk_output_env_is_effective_env2
+                )?;
+
+                if_then!(
+                    cs,
+                    &make_thunk_was_called_with_tail_continuation_whose_cont_is_not_outermost,
+                    &make_thunk_output_cont_is_dummy
                 )?;
             }
             {
@@ -651,7 +798,7 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
                     cs,
                     &make_thunk_was_called_and_cont_is_outermost,
                     &make_thunk_output_env_is_effective_env
-                );
+                )?;
 
                 // Check make_thunk output cont
                 if_then!(
@@ -659,68 +806,210 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
                     &make_thunk_was_called_and_cont_is_outermost,
                     &make_thunk_output_cont_is_terminal
                 )?;
-            }
 
-            // I think this is defunct and subsumed by the logic above.
-            // {
-            //     let make_thunk_output_env_tag_is_make_thunk_env_tag =
-            //         equal!(cs, &make_thunk_output_env_tag, &make_thunk_env_tag)?;
-            //     let make_thunk_output_env_hash_is_make_thunk_env_hash =
-            //         equal!(cs, &make_thunk_output_env_hash, &make_thunk_env_hash)?;
-            //     let make_thunk_output_env_is_make_thunk_env = and!(
-            //         cs,
-            //         &make_thunk_output_env_tag_is_make_thunk_env_tag,
-            //         &make_thunk_output_env_hash_is_make_thunk_env_hash
-            //     )?;
+                let thunk_cont_is_neither_outermost_nor_tail = and!(
+                    cs,
+                    &Boolean::not(&thunk_cont_is_outermost),
+                    &Boolean::not(&thunk_cont_is_tail)
+                )?;
 
-            //     if_then!(
-            //         cs,
-            //         &thunk_cont_is_outermost,
-            //         &make_thunk_output_env_is_make_thunk_env
-            //     )?;
-            // }
-            {
-                // When make_thunk continution is not Outermost
-
-                let make_thunk_was_called_and_cont_is_not_outermost = and!(
+                let make_thunk_was_called_and_cont_is_neither_outermost_nor_tail = and!(
                     cs,
                     &make_thunk_was_called,
-                    &Boolean::not(&thunk_cont_is_outermost)
-                )?;
-
-                let make_thunk_output_result_tag_is_thunk =
-                    equal!(cs, &make_thunk_output_result_hash, &thunk_tag)?;
-
-                let make_thunk_output_result_hash_is_tail_continuation_thunk_hash = equal!(
-                    cs,
-                    &make_thunk_output_result_hash,
-                    &make_thunk_tail_continuation_thunk
-                )?;
-
-                let make_thunk_output_result_is_tail_continuation_thunk = and!(
-                    cs,
-                    &make_thunk_output_result_tag_is_thunk,
-                    &make_thunk_output_result_hash_is_tail_continuation_thunk_hash
+                    &thunk_cont_is_neither_outermost_nor_tail
                 )?;
 
                 if_then!(
                     cs,
-                    &make_thunk_was_called_and_cont_is_not_outermost,
-                    &make_thunk_output_result_is_tail_continuation_thunk
-                );
+                    &make_thunk_was_called_and_cont_is_neither_outermost_nor_tail,
+                    &make_thunk_output_result_is_thunk
+                )?;
+
                 if_then!(
                     cs,
-                    &make_thunk_was_called_and_cont_is_not_outermost,
-                    &make_thunk_output_env_is_effective_env2
-                );
+                    &make_thunk_was_called_and_cont_is_neither_outermost_nor_tail,
+                    &thunk_thunk_value_is_make_thunk_result
+                )?;
+
+                let thunk_thunk_continuation_is_make_thunk_cont = tag_and_hash_equal!(
+                    cs,
+                    &the_thunk_cont_tag,
+                    &make_thunk_cont_tag,
+                    &the_thunk_cont_hash,
+                    &make_thunk_cont_hash
+                )?;
+
                 if_then!(
                     cs,
-                    &make_thunk_was_called_and_cont_is_not_outermost,
+                    &make_thunk_was_called_and_cont_is_neither_outermost_nor_tail,
+                    &thunk_thunk_continuation_is_make_thunk_cont
+                )?;
+
+                if_then!(
+                    cs,
+                    &make_thunk_was_called_and_cont_is_neither_outermost_nor_tail,
+                    &make_thunk_output_env_is_effective_env
+                )?;
+
+                if_then!(
+                    cs,
+                    &make_thunk_was_called_and_cont_is_neither_outermost_nor_tail,
                     &make_thunk_output_cont_is_dummy
                 );
             }
-
             // End make_thunk handling
+        }
+        {
+            // invoke_continuation
+
+            let (invoke_continuation_cont_hash, invoke_continuation_cont_components) =
+                if let Some(c) = &witness.invoke_continuation_cont {
+                    c.allocate_components(cs.namespace(|| "invoke_continuation cont components"))?
+                } else {
+                    Continuation::allocate_dummy_components(
+                        cs.namespace(|| "invoke_continuation output components"),
+                    )?
+                };
+            ////////////////////////////////////////////////////////////
+
+            let invoke_continuation_was_called_and_cont_is_terminal =
+                and!(cs, &invoke_continuation_was_called, &input_cont_is_terminal)?;
+
+            // invoke_continuation must never be called on a Terminal continuation.
+            is_true!(
+                cs,
+                &Boolean::not(&invoke_continuation_was_called_and_cont_is_terminal)
+            );
+
+            ////////////////////////////////////////////////////////////
+            let invoke_continuation_was_called_and_cont_is_dummy =
+                and!(cs, &invoke_continuation_was_called, &input_cont_is_dummy)?;
+
+            // invoke_continuation must never be called on a Dummy continuation.
+            is_true!(
+                cs,
+                &Boolean::not(&invoke_continuation_was_called_and_cont_is_dummy)
+            );
+
+            ////////////////////////////////////////////////////////////
+            let invoke_continuation_was_called_and_cont_is_simple =
+                and!(cs, &invoke_continuation_was_called, &input_cont_is_simple)?;
+
+            // invoke_continuation must never be called on a Simple continuation.
+            is_true!(
+                cs,
+                &Boolean::not(&invoke_continuation_was_called_and_cont_is_simple)
+            );
+
+            ////////////////////////////////////////////////////////////
+            let invoke_continuation_was_called_and_cont_is_outermost = and!(
+                cs,
+                &invoke_continuation_was_called,
+                &input_cont_is_outermost
+            )?;
+
+            // TODO: If outermost and result is Thunk.
+            let invoke_continuation_result_is_thunk =
+                equal!(cs, &invoke_continuation_result_tag, &thunk_tag)?;
+
+            let invoke_continuation_was_called_and_is_outermost_and_result_is_thunk = and!(
+                cs,
+                &invoke_continuation_was_called_and_cont_is_outermost,
+                &invoke_continuation_result_is_thunk
+            )?;
+
+            let invoke_continuation_output_result_is_thunk =
+                equal!(cs, &invoke_continuation_output_result_tag, &thunk_tag)?;
+
+            if_then!(
+                cs,
+                &invoke_continuation_was_called_and_is_outermost_and_result_is_thunk,
+                &invoke_continuation_output_result_is_thunk
+            )?;
+
+            let invoke_continuation_output_result_value_is_thunk_value = equal!(
+                cs,
+                &invoke_continuation_output_result_hash,
+                &the_thunk_value_hash
+            )?;
+
+            if_then!(
+                cs,
+                &invoke_continuation_was_called_and_is_outermost_and_result_is_thunk,
+                &invoke_continuation_output_result_value_is_thunk_value
+            )?;
+
+            ////////////////////////////////////////////////////////////
+            let outermost_otherwise = and!(
+                cs,
+                &invoke_continuation_was_called_and_cont_is_outermost,
+                &Boolean::not(&invoke_continuation_result_is_thunk)
+            )?;
+
+            let invoke_continuation_output_env_is_invoke_continuation_env = tag_and_hash_equal!(
+                cs,
+                &invoke_continuation_output_env_tag,
+                &invoke_continuation_env_tag,
+                &invoke_continuation_output_env_hash,
+                &invoke_continuation_env_hash
+            )?;
+
+            if_then!(
+                cs,
+                &invoke_continuation_was_called_and_cont_is_outermost,
+                &invoke_continuation_output_env_is_invoke_continuation_env
+            )?;
+
+            let invoke_continuation_output_cont_is_terminal =
+                equal!(cs, &invoke_continuation_output_cont_tag, &terminal_cont_tag)?;
+
+            if_then!(
+                cs,
+                &invoke_continuation_was_called_and_cont_is_outermost,
+                &invoke_continuation_output_cont_is_terminal
+            )?;
+
+            ////////////////////////////////////////////////////////////
+            let invoke_continuation_was_called_and_cont_is_call =
+                and!(cs, &invoke_continuation_was_called, &input_cont_is_call)?;
+
+            let invoke_continuation_was_called_and_cont_is_call_and_input_is_thunk = and!(
+                cs,
+                &invoke_continuation_was_called_and_cont_is_call,
+                &input_is_thunk
+            )?;
+
+            // if_then!(
+            //     cs,
+            //     &invoke_continuation_was_called_and_cont_is_call_and_input_is_thunk,
+            // )?;
+
+            let invoke_continuation_was_called_and_cont_is_call2 =
+                and!(cs, &invoke_continuation_was_called, &input_cont_is_call2)?;
+
+            let invoke_continuation_was_called_and_cont_is_let_star =
+                and!(cs, &invoke_continuation_was_called, &input_cont_is_let_star)?;
+
+            let invoke_continuation_was_called_and_cont_is_let_rec_star = and!(
+                cs,
+                &invoke_continuation_was_called,
+                &input_cont_is_let_rec_star
+            )?;
+
+            let invoke_continuation_was_called_and_cont_is_binop =
+                and!(cs, &invoke_continuation_was_called, &input_cont_is_binop)?;
+
+            let invoke_continuation_was_called_and_cont_is_binop2 =
+                and!(cs, &invoke_continuation_was_called, &input_cont_is_binop2)?;
+
+            let invoke_continuation_was_called_and_cont_is_relop =
+                and!(cs, &invoke_continuation_was_called, &input_cont_is_relop)?;
+
+            let invoke_continuation_was_called_and_cont_is_relop2 =
+                and!(cs, &invoke_continuation_was_called, &input_cont_is_relop2)?;
+
+            let invoke_continuation_was_called_and_cont_is_if =
+                and!(cs, &invoke_continuation_was_called, &input_cont_is_if)?;
         }
 
         ////////////////////////////////////////////////////////////////////////////////
