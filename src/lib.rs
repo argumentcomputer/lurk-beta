@@ -1,3 +1,4 @@
+mod case;
 pub mod circuit;
 mod constraints;
 pub mod data;
