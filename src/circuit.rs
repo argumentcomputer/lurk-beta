@@ -1270,7 +1270,16 @@ impl Continuation {
                 || Ok(Fr::zero()),
             )?);
         }
-        let dummy_hash = AllocatedNum::alloc(cs.namespace(|| "Continuation"), || Ok(Fr::zero()))?;
+
+        // We need to create these constraints, but eventually we can avoid doing any calculation.
+        // We just need a precomputed dummy witness.
+        let dummy_hash = poseidon_hash(
+            cs.namespace(|| "Continuation"),
+            result.clone(),
+            &POSEIDON_CONSTANTS_9,
+        )?;
+
+        // let dummy_hash = AllocatedNum::alloc(cs.namespace(|| "Continuation"), || Ok(Fr::zero()))?;
 
         Ok((dummy_hash, result))
     }
@@ -1306,16 +1315,18 @@ impl Thunk {
     ) -> Result<(AllocatedNum<Bls12>, Vec<AllocatedNum<Bls12>>), SynthesisError> {
         let length = 4;
         let mut result = Vec::with_capacity(length);
-        for i in 0..=length {
+        for i in 0..length {
             result.push(AllocatedNum::alloc(
                 cs.namespace(|| format!("Continuation component {}", i)),
                 || Ok(Fr::zero()),
             )?);
         }
-        let dummy_hash = AllocatedNum::alloc(
+        let dummy_hash = poseidon_hash(
             cs.namespace(|| "make_thunk_tail_continuation_thunk"),
-            || Ok(Fr::zero()),
+            result.clone(),
+            &POSEIDON_CONSTANTS_4,
         )?;
+
         Ok((dummy_hash, result))
     }
 }
@@ -1450,6 +1461,8 @@ mod tests {
             } else {
                 assert!(!cs.is_satisfied());
             }
+
+            assert_eq!(3116, cs.num_constraints());
         };
 
         // Success
