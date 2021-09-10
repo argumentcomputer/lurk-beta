@@ -1,0 +1,5 @@
+if [[ $(which rlwrap) ]]; then
+    rlwrap cargo run --example repl
+else
+    cargo run --example repl
+fi
