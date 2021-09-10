@@ -7,15 +7,15 @@ use bellperson::{
     groth16::{self, verify_proof},
     Circuit, ConstraintSystem, SynthesisError,
 };
-use ff::{Field, ScalarEngine};
+use ff::Field;
 use neptune::circuit::poseidon_hash;
 
-use crate::constraints::{self, equal};
+use crate::constraints::{self};
 use crate::data::{
-    fr_from_u64, BaseContinuationTag, Continuation, Expression, Store, Tag, Tagged, Thunk,
+    fr_from_u64, BaseContinuationTag, Continuation, Expression, Tag, Tagged, Thunk,
     POSEIDON_CONSTANTS_4, POSEIDON_CONSTANTS_9,
 };
-use crate::eval::{empty_sym_env, Frame, Witness, IO};
+use crate::eval::{Frame, Witness, IO};
 
 pub trait Provable {
     fn public_inputs(&self) -> Vec<Fr>;
@@ -54,6 +54,7 @@ impl<W> IO<W> {
 
 pub fn verify<F: Provable>(p: Proof<F>, f: F) -> Result<bool, SynthesisError> {
     let inputs = f.public_inputs();
+
     let vk = todo!();
 
     verify_proof(vk, &p.groth16_proof, &inputs)
@@ -169,7 +170,7 @@ macro_rules! equal {
             $cs.namespace(|| format!("{} equals {}", stringify!($a), stringify!($b))),
             $a,
             $b,
-        );
+        )
     };
 }
 
@@ -180,7 +181,7 @@ macro_rules! and {
             $cs.namespace(|| format!("{} and {}", stringify!($a), stringify!($b))),
             $a,
             $b,
-        );
+        )
     };
 }
 
@@ -208,7 +209,7 @@ macro_rules! or {
             $cs.namespace(|| format!("{} or {}", stringify!($a), stringify!($b))),
             $a,
             $b,
-        );
+        )
     };
 }
 
@@ -265,7 +266,7 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
             bind_input_cont(&mut cs.namespace(|| "output cont"), &self.output.cont)?;
 
         // The initial input to the IVC computation.
-        let (initial_tag, initial_hash) = bind_input(
+        let (_initial_tag, _initial_hash) = bind_input(
             &mut cs.namespace(|| "initial expression"),
             &self.initial.expr,
         )?;
@@ -1409,7 +1410,7 @@ fn alloc_equal<CS: ConstraintSystem<E>, E: Engine>(
     cs.enforce(
         || "(diff + result) * q = 1",
         |lc| lc + diff.get_variable() + result.get_variable(),
-        |lc| Boolean::Constant(true).lc(CS::one(), q),
+        |_| Boolean::Constant(true).lc(CS::one(), q),
         |lc| lc + CS::one(),
     );
 
@@ -1425,7 +1426,8 @@ fn alloc_equal<CS: ConstraintSystem<E>, E: Engine>(
 
 mod tests {
     use super::*;
-
+    use crate::data::Store;
+    use crate::eval::empty_sym_env;
     use bellperson::util_cs::test_cs::TestConstraintSystem;
 
     #[test]

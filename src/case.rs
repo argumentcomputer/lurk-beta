@@ -1,8 +1,6 @@
 use bellperson::{
-    bls::Engine,
-    gadgets::boolean::{AllocatedBit, Boolean},
-    gadgets::num::AllocatedNum,
-    Circuit, ConstraintSystem, LinearCombination, SynthesisError,
+    bls::Engine, gadgets::boolean::AllocatedBit, gadgets::num::AllocatedNum, ConstraintSystem,
+    SynthesisError,
 };
 use ff::Field;
 

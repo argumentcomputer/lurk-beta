@@ -693,7 +693,6 @@ fn invoke_continuation(
                         }
                     }
                 },
-                _ => unimplemented!("Relop2"),
             };
             make_thunk(continuation, &result, env, store, witness)
         }

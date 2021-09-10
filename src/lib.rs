@@ -1,3 +1,5 @@
+#![allow(unused)] // TODO: Eventually remove this.
+
 mod case;
 pub mod circuit;
 mod constraints;
