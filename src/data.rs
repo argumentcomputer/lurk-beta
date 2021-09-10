@@ -696,18 +696,33 @@ impl Store {
             }
             Num(fr) => format!("{}", fr),
             Thunk(f) => format!(
-                "Cont value {:?}; cont: {:?}",
-                self.print_expr(&f.value),
-                f.continuation
+                "Thunk for cont {:?} with value: {:?}",
+                f.continuation,
+                self.print_expr(&f.value)
             ),
+            Cons(_, _) => {
+                format!("({}", self.print_tail(&expr))
+            }
+        }
+    }
+
+    pub fn print_tail(&self, expr: &Expression) -> String {
+        match expr {
+            Nil => ")".to_string(),
             Cons(car, cdr) => {
                 let car = self.fetch(*car).unwrap();
                 let cdr = self.fetch(*cdr).unwrap();
                 match cdr {
-                    Expression::Nil => format!("({})", self.print_expr(&car)),
-                    _ => format!("({} . {})", self.print_expr(&car), self.print_expr(&cdr)),
+                    Expression::Nil => {
+                        format!("{})", self.print_expr(&car))
+                    }
+                    Expression::Cons(_, _) => {
+                        format!("{} {}", self.print_expr(&car), self.print_tail(&cdr))
+                    }
+                    _ => format!("{} . {})", self.print_expr(&car), self.print_expr(&cdr)),
                 }
             }
+            _ => unreachable!(),
         }
     }
 
@@ -780,6 +795,9 @@ impl Store {
                 '.' => {
                     chars.next();
                     let cdr = self.read_next(chars).unwrap();
+                    let remaining_tail = self.read_tail(chars).unwrap();
+                    assert_eq!(Expression::Nil, remaining_tail);
+
                     Some(cdr)
                 }
                 _ => {
@@ -1140,6 +1158,10 @@ asdf(", "ASDF",
 
         let expected6 = store.cons(&expected2, &expected3);
         test(&mut store, "((321 123) pumpkin 321 123)", &expected6);
+
+        let pair = store.cons(&Expression::num(1), &Expression::num(2));
+        let expected7 = store.list(vec![pair, Expression::num(3)]);
+        test(&mut store, "((1 . 2) 3)", &expected7);
     }
 
     #[test]
@@ -1154,5 +1176,22 @@ asdf(", "ASDF",
         test(&mut store, "(123 . 321)", &expected);
 
         assert_eq!(store.read("(123 321)"), store.read("(123 . ( 321 ))"))
+    }
+    #[test]
+    fn read_print_expr() {
+        let mut store = Store::default();
+        let test = |store: &mut Store, input| {
+            let expr = store.read(input).unwrap();
+            let output = store.print_expr(&expr);
+            assert_eq!(input, output);
+        };
+
+        test(&mut store, "A");
+        test(&mut store, "(A . B)");
+        test(&mut store, "(A B C)");
+        test(&mut store, "(A (B) C)");
+        test(&mut store, "(A (B . C) (D E (F)) G)");
+        // test(&mut store, "'A");
+        // test(&mut store, "'(A B)");
     }
 }
