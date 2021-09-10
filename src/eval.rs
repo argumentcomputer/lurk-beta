@@ -1,4 +1,4 @@
-use crate::data::{Continuation, Expression, Op2, Rel2, Store, Tag, Tagged, Thunk};
+use crate::data::{Continuation, Expression, Op1, Op2, Rel2, Store, Tag, Tagged, Thunk};
 use ff::Field;
 use std::cmp::PartialEq;
 use std::iter::Iterator;
@@ -452,6 +452,22 @@ fn eval_expr_with_witness(
                     env.clone(),
                     Continuation::Binop(Op2::Cons, more, Box::new(cont.clone())),
                 )
+            } else if head == store.intern("car") {
+                let (arg1, end) = store.car_cdr(&rest);
+                assert_eq!(Expression::Nil, end);
+                (
+                    arg1,
+                    env.clone(),
+                    Continuation::Unop(Op1::Car, Box::new(cont.clone())),
+                )
+            } else if head == store.intern("cdr") {
+                let (arg1, end) = store.car_cdr(&rest);
+                assert_eq!(Expression::Nil, end);
+                (
+                    arg1,
+                    env.clone(),
+                    Continuation::Unop(Op1::Cdr, Box::new(cont.clone())),
+                )
             } else if head == store.intern("+") {
                 let (arg1, more) = store.car_cdr(&rest);
                 (
@@ -594,6 +610,13 @@ fn invoke_continuation(
             let c = make_tail_continuation(saved_env, continuation);
 
             (body.clone(), extended_env, c)
+        }
+        Continuation::Unop(op1, continuation) => {
+            let val = match op1 {
+                Op1::Car => store.car(&result),
+                Op1::Cdr => store.cdr(&result),
+            };
+            make_thunk(continuation, &val, env, store, witness)
         }
         Continuation::Binop(op2, more_args, continuation) => {
             let (arg2, rest) = store.car_cdr(&more_args);

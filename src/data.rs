@@ -53,6 +53,7 @@ pub enum BaseContinuationTag {
     Tail,
     Error,
     Lookup,
+    Unop,
     Binop,
     Binop2,
     Relop,
@@ -139,6 +140,18 @@ pub enum Expression {
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+pub enum Op1 {
+    Car,
+    Cdr,
+}
+
+impl Op1 {
+    fn fr(&self) -> Fr {
+        fr_from_u64(self.clone() as u64)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
 pub enum Op2 {
     Sum,
     Diff,
@@ -177,12 +190,13 @@ pub enum Continuation {
     Call2(Expression, Expression, Box<Continuation>), // The function and the saved env.
     Tail(Expression, Box<Continuation>),             // The saved env
     Error,
-    Lookup(Expression, Box<Continuation>),      // The saved env
-    Binop(Op2, Expression, Box<Continuation>),  // Unevaluated arguments
+    Lookup(Expression, Box<Continuation>), // The saved env
+    Unop(Op1, Box<Continuation>),
+    Binop(Op2, Expression, Box<Continuation>), // Unevaluated arguments
     Binop2(Op2, Expression, Box<Continuation>), // The first argument
     Relop(Rel2, Expression, Box<Continuation>), // Unevaluated arguments
     Relop2(Rel2, Expression, Box<Continuation>), //The first argument
-    If(Expression, Box<Continuation>),          //Unevaluated arguments
+    If(Expression, Box<Continuation>),         //Unevaluated arguments
     LetStar(Expression, Expression, Expression, Box<Continuation>), // The var, the body, and the saved env.
     LetRecStar(Expression, Expression, Expression, Box<Continuation>), // The var, the saved env, and the body.
     Dummy,
@@ -244,6 +258,13 @@ impl Continuation {
             Continuation::Lookup(saved_env, continuation) => tagged_4_hash_components(
                 &BaseContinuationTag::Lookup.cont_tag_fr(),
                 &saved_env.tagged_hash(),
+                &continuation.continuation_tagged_hash(),
+                &TaggedHash::default(),
+                &TaggedHash::default(),
+            ),
+            Continuation::Unop(op1, continuation) => tagged_4_hash_x_components(
+                &BaseContinuationTag::Unop.cont_tag_fr(),
+                &op1.fr(),
                 &continuation.continuation_tagged_hash(),
                 &TaggedHash::default(),
                 &TaggedHash::default(),
@@ -325,6 +346,7 @@ impl Continuation {
             Continuation::Tail(_, _) => BaseContinuationTag::Tail,
             Continuation::Error => BaseContinuationTag::Error,
             Continuation::Lookup(_, _) => BaseContinuationTag::Lookup,
+            Continuation::Unop(_, _) => BaseContinuationTag::Unop,
             Continuation::Binop(_, _, _) => BaseContinuationTag::Binop,
             Continuation::Binop2(_, _, _) => BaseContinuationTag::Binop2,
             Continuation::Relop(_, _, _) => BaseContinuationTag::Relop,
