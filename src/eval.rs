@@ -257,6 +257,7 @@ pub struct Witness {
     pub invoke_continuation_thunk: Option<Thunk>,
 }
 
+// TODO: Implement ATOM predicate.
 fn eval_expr(
     expr: &Expression,
     env: &Expression,
@@ -362,6 +363,7 @@ fn eval_expr_with_witness(
             let head = store.fetch(*head_t).unwrap();
             let rest = store.fetch(*rest_t).unwrap();
             let lambda = store.intern("LAMBDA");
+            let quote = store.intern("QUOTE");
 
             if head == lambda {
                 let (args, body) = store.car_cdr(&rest);
@@ -379,6 +381,10 @@ fn eval_expr_with_witness(
                 let function = store.fun(&arg, &inner_body, &env);
 
                 make_thunk(cont, &function, env, store, witness)
+            } else if head == quote {
+                let (quoted, end) = store.car_cdr(&rest);
+                assert_eq!(Expression::Nil, end);
+                make_thunk(cont, &quoted, env, store, witness)
             } else if head == Expression::Sym("LET*".to_string()) {
                 let (bindings, body) = store.car_cdr(&rest);
                 let (body1, rest_body) = store.car_cdr(&body);
@@ -439,10 +445,14 @@ fn eval_expr_with_witness(
                         ),
                     )
                 }
-            }
-            // TODO: CONS
-            // TODO: EQ
-            else if head == store.intern("+") {
+            } else if head == store.intern("cons") {
+                let (arg1, more) = store.car_cdr(&rest);
+                (
+                    arg1,
+                    env.clone(),
+                    Continuation::Binop(Op2::Cons, more, Box::new(cont.clone())),
+                )
+            } else if head == store.intern("+") {
                 let (arg1, more) = store.car_cdr(&rest);
                 (
                     arg1,
@@ -471,6 +481,13 @@ fn eval_expr_with_witness(
                     Continuation::Binop(Op2::Quotient, more, Box::new(cont.clone())),
                 )
             } else if head == store.intern("=") {
+                let (arg1, more) = store.car_cdr(&rest);
+                (
+                    arg1,
+                    env.clone(),
+                    Continuation::Relop(Rel2::NumEqual, more, Box::new(cont.clone())),
+                )
+            } else if head == store.intern("eq") {
                 let (arg1, more) = store.car_cdr(&rest);
                 (
                     arg1,
@@ -613,8 +630,12 @@ fn invoke_continuation(
                         tmp.mul_assign(&b.inverse().unwrap());
                         Expression::Num(tmp)
                     }
+                    Op2::Cons => store.cons(arg1, arg2),
                 },
-                _ => unimplemented!("Binop2"),
+                _ => match op2 {
+                    Op2::Cons => store.cons(arg1, arg2),
+                    _ => unimplemented!("Binop2"),
+                },
             };
             make_thunk(continuation, &result, env, store, witness)
         }
@@ -631,9 +652,19 @@ fn invoke_continuation(
             let arg2 = result;
             let result = match (arg1, arg2) {
                 (Expression::Num(a), Expression::Num(b)) => match rel2 {
-                    Rel2::Equal => {
+                    Rel2::NumEqual | Rel2::Equal => {
                         if a == b {
                             store.intern("T") // TODO: maybe explicit boolean.
+                        } else {
+                            Expression::Nil
+                        }
+                    }
+                },
+                (a_expr, b_expr) => match rel2 {
+                    Rel2::NumEqual => Expression::Nil, // FIXME: This should be a type error.
+                    Rel2::Equal => {
+                        if a_expr == b_expr {
+                            store.intern("T")
                         } else {
                             Expression::Nil
                         }
@@ -1453,5 +1484,31 @@ mod test {
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
         assert_eq!(143, iterations); // FIXME: Should be 140
         assert_eq!(Expression::num(125), result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_eq() {
+        {
+            let mut s = Store::default();
+            let limit = 20;
+            let expr = s.read("(eq 'a 'a)").unwrap();
+
+            let (result_expr, _new_env, iterations, _continuation) =
+                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+            assert_eq!(5, iterations);
+            assert_eq!(s.intern("T"), result_expr);
+        }
+        {
+            let mut s = Store::default();
+            let limit = 20;
+            let expr = s.read("(eq 'a 1)").unwrap();
+
+            let (result_expr, _new_env, iterations, _continuation) =
+                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+            assert_eq!(5, iterations);
+            assert_eq!(Expression::Nil, result_expr);
+        }
     }
 }

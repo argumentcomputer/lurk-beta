@@ -20,13 +20,14 @@ fn main() {
         let line = it.next().unwrap();
         let expr = s.read(&line.unwrap()).unwrap();
 
-        println!("{}", s.print_expr(&expr.clone()));
+        // println!("{}", s.print_expr(&expr.clone()));
 
         let (result, _next_env, limit, next_cont) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
         println!("[{} iterations] => {}", limit, s.print_expr(&result));
         match next_cont {
             Continuation::Outermost => (),
+            Continuation::Terminal => (),
             _ => println!("Computation incomplete after limit: {}", limit),
         }
     }

@@ -144,6 +144,7 @@ pub enum Op2 {
     Diff,
     Product,
     Quotient,
+    Cons,
 }
 
 impl Op2 {
@@ -155,6 +156,7 @@ impl Op2 {
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
 pub enum Rel2 {
     Equal,
+    NumEqual,
 }
 
 impl Rel2 {
@@ -705,6 +707,13 @@ impl Store {
                     // Skip whitespace.
                     chars.next();
                     None
+                }
+                '\'' => {
+                    chars.next();
+                    let quote = self.intern("quote");
+                    let quoted = self.read_next(chars)?;
+                    let inner = self.list(vec![quoted]);
+                    Some(self.cons(&quote, &inner))
                 }
                 x if is_symbol_char(&x) => self.read_symbol(chars),
                 _ => {
