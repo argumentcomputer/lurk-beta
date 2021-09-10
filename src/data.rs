@@ -915,24 +915,24 @@ mod test {
         assert_eq!(11, Error.thunk_tag_val());
         assert_eq!(12, Lookup.cont_tag_val());
         assert_eq!(13, Lookup.thunk_tag_val());
-        assert_eq!(14, Binop.cont_tag_val());
-        assert_eq!(15, Binop.thunk_tag_val());
-        assert_eq!(16, Binop2.cont_tag_val());
-        assert_eq!(17, Binop2.thunk_tag_val());
-        assert_eq!(18, Relop.cont_tag_val());
-        assert_eq!(19, Relop.thunk_tag_val());
-        assert_eq!(20, Relop2.cont_tag_val());
-        assert_eq!(21, Relop2.thunk_tag_val());
-        assert_eq!(22, If.cont_tag_val());
-        assert_eq!(23, If.thunk_tag_val());
-        assert_eq!(24, LetStar.cont_tag_val());
-        assert_eq!(25, LetStar.thunk_tag_val());
-        assert_eq!(26, LetRecStar.cont_tag_val());
-        assert_eq!(27, LetRecStar.thunk_tag_val());
-        assert_eq!(28, Dummy.cont_tag_val());
-        assert_eq!(29, Dummy.thunk_tag_val());
-        assert_eq!(30, Terminal.cont_tag_val());
-        assert_eq!(31, Terminal.thunk_tag_val());
+        assert_eq!(16, Binop.cont_tag_val());
+        assert_eq!(17, Binop.thunk_tag_val());
+        assert_eq!(18, Binop2.cont_tag_val());
+        assert_eq!(19, Binop2.thunk_tag_val());
+        assert_eq!(20, Relop.cont_tag_val());
+        assert_eq!(21, Relop.thunk_tag_val());
+        assert_eq!(22, Relop2.cont_tag_val());
+        assert_eq!(23, Relop2.thunk_tag_val());
+        assert_eq!(24, If.cont_tag_val());
+        assert_eq!(25, If.thunk_tag_val());
+        assert_eq!(26, LetStar.cont_tag_val());
+        assert_eq!(27, LetStar.thunk_tag_val());
+        assert_eq!(28, LetRecStar.cont_tag_val());
+        assert_eq!(29, LetRecStar.thunk_tag_val());
+        assert_eq!(30, Dummy.cont_tag_val());
+        assert_eq!(31, Dummy.thunk_tag_val());
+        assert_eq!(32, Terminal.cont_tag_val());
+        assert_eq!(33, Terminal.thunk_tag_val());
     }
 
     #[test]
