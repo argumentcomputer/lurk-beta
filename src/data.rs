@@ -143,6 +143,7 @@ pub enum Expression {
 pub enum Op1 {
     Car,
     Cdr,
+    Atom,
 }
 
 impl Op1 {

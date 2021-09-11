@@ -477,6 +477,14 @@ fn eval_expr_with_witness(
                     env.clone(),
                     Continuation::Unop(Op1::Cdr, Box::new(cont.clone())),
                 )
+            } else if head == store.intern("atom") {
+                let (arg1, end) = store.car_cdr(&rest);
+                assert_eq!(Expression::Nil, end);
+                (
+                    arg1,
+                    env.clone(),
+                    Continuation::Unop(Op1::Atom, Box::new(cont.clone())),
+                )
             } else if head == store.intern("+") {
                 let (arg1, more) = store.car_cdr(&rest);
                 (
@@ -629,6 +637,10 @@ fn invoke_continuation(
             let val = match op1 {
                 Op1::Car => store.car(&result),
                 Op1::Cdr => store.cdr(&result),
+                Op1::Atom => match result.tag() {
+                    Tag::Cons => Expression::Nil,
+                    _ => store.intern("T"),
+                },
             };
             make_thunk(continuation, &val, env, store, witness)
         }
@@ -1616,7 +1628,7 @@ mod test {
     fn outer_evaluate_make_tree() {
         {
             let mut s = Store::default();
-            let limit = 500;
+            let limit = 800;
             let expr = s.read("(letrec* ((mapcar (lambda (f list)
                                                              (if (eq list nil)
                                                                  nil
@@ -1639,13 +1651,13 @@ mod test {
                                                              tree
                                                              (cons (reverse-tree (cdr tree))
                                                                    (reverse-tree (car tree)))))))
-                                (make-tree '(a b c d e f g h)))").unwrap();
+                                (reverse-tree (make-tree '(a b c d e f g h))))").unwrap();
             let (result_expr, _new_env, iterations, _continuation) =
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-            assert_eq!(384, iterations); // FIXME: Reconcile with reference (extra tail thunk).
+            assert_eq!(618, iterations); // FIXME: Reconcile with reference (extra tail thunk).
             assert_eq!(
-                s.read("(((a . b) . (c . d)) . ((e . f) . (g . h)))")
+                s.read("(((h . g) . (f . e)) . ((d . c) . (b . a)))")
                     .unwrap(),
                 result_expr
             );
