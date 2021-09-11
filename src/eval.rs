@@ -510,7 +510,7 @@ fn eval_expr_with_witness(
                     env.clone(),
                     Continuation::Relop(Rel2::Equal, more, Box::new(cont.clone())),
                 )
-            } else if head == store.intern("IF") {
+            } else if head == store.intern("if") {
                 let (condition, more) = store.car_cdr(&rest);
 
                 (
@@ -518,6 +518,9 @@ fn eval_expr_with_witness(
                     env.clone(),
                     Continuation::If(more, Box::new(cont.clone())),
                 )
+            } else if head == store.intern("current-env") {
+                assert_eq!(Expression::Nil, rest);
+                make_thunk(cont, &env, env, store, witness)
             } else {
                 // (fn . args)
                 let fun_form = head;
