@@ -752,7 +752,7 @@ impl Store {
                     let inner = self.list(vec![quoted]);
                     Some(self.cons(&quote, &inner))
                 }
-                x if is_symbol_char(&x) => self.read_symbol(chars),
+                x if is_symbol_char(&x, true) => self.read_symbol(chars),
                 _ => {
                     panic!("bad input character: {}", c);
                 }
@@ -841,13 +841,15 @@ impl Store {
         chars: &mut Peekable<T>,
     ) -> Option<Expression> {
         let mut name_chars: Vec<char> = Vec::new();
+        let mut is_initial = true;
         while let Some(&c) = chars.peek() {
-            if is_symbol_char(&c) {
+            if is_symbol_char(&c, is_initial) {
                 let c = chars.next().unwrap();
                 name_chars.push(c);
             } else {
                 break;
             }
+            is_initial = false;
         }
         let name: String = name_chars.into_iter().collect();
         let sym = self.intern(&name);
@@ -859,11 +861,20 @@ impl Store {
     }
 }
 
-fn is_symbol_char(c: &char) -> bool {
+fn is_symbol_char(c: &char, initial: bool) -> bool {
     match c {
         // FIXME: suppport more than just alpha.
         'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' | '=' => true,
-        _ => false,
+        _ => {
+            if initial {
+                false
+            } else {
+                match c {
+                    '0'..='9' => true,
+                    _ => false,
+                }
+            }
+        }
     }
 }
 

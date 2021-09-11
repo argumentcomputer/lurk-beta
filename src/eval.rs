@@ -287,6 +287,7 @@ fn eval_expr_with_witness(
             if expr == &store.intern("NIL") || (expr == &store.intern("T")) {
                 make_thunk(cont, expr, env, store, witness)
             } else {
+                dbg!(store.print_expr(&expr), store.print_expr(&env));
                 assert!(Expression::Nil != *env, "Unbound variable: {:?}", expr);
                 let (binding, smaller_env) = store.car_cdr(&env);
 
@@ -318,9 +319,9 @@ fn eval_expr_with_witness(
                         // Start of a recursive_env.
                         Expression::Cons(_, _) => {
                             let rec_env = binding;
-                            let smaller_rec_env = var_or_rec_binding;
+                            let smaller_rec_env = val_or_more_rec_env;
 
-                            let (v, val) = store.car_cdr(&smaller_rec_env);
+                            let (v, val) = store.car_cdr(&var_or_rec_binding);
                             if v == *expr {
                                 let val_to_use = {
                                     match val {
@@ -415,7 +416,7 @@ fn eval_expr_with_witness(
                         ),
                     )
                 }
-            } else if head == Expression::Sym("LETREC*".to_string()) {
+            } else if head == store.intern("LETREC*") {
                 let (bindings, body) = store.car_cdr(&rest);
                 let (body1, rest_body) = store.car_cdr(&body);
                 // Only a single body form allowed for now.
@@ -426,6 +427,11 @@ fn eval_expr_with_witness(
                     let (binding1, rest_bindings) = store.car_cdr(&bindings);
                     let (var, more_vals) = store.car_cdr(&binding1);
                     let (val, end) = store.car_cdr(&more_vals);
+                    dbg!(
+                        store.print_expr(&val),
+                        store.print_expr(&binding1),
+                        store.print_expr(&end)
+                    );
                     assert_eq!(Expression::Nil, end);
 
                     let expanded = if rest_bindings == Expression::Nil {
@@ -532,6 +538,7 @@ fn eval_expr_with_witness(
                     todo!("implement zero-arg functions");
                 }
                 let (arg, more_args) = store.car_cdr(&args);
+                dbg!(format!("CALLING {}", store.print_expr(&fun_form)));
                 match &more_args {
                     // FIXME: Handle QUOTE, CAR, and CDR.
                     // (fn arg1)
@@ -623,6 +630,12 @@ fn invoke_continuation(
         }
         Continuation::Binop(op2, more_args, continuation) => {
             let (arg2, rest) = store.car_cdr(&more_args);
+            dbg!(
+                &op2,
+                store.print_expr(&more_args),
+                store.print_expr(&arg2),
+                store.print_expr(&rest)
+            );
             assert_eq!(Expression::Nil, rest);
             (
                 arg2,
@@ -868,7 +881,15 @@ fn extend_rec(
 fn extend_closure(fun: &Expression, rec_env: &Expression, store: &mut Store) -> Expression {
     match fun {
         Expression::Fun(arg, body, closed_env) => {
-            let extended = store.cons(&rec_env, &store.fetch(closed_env.clone()).clone().unwrap());
+            let closed_env = store.fetch(closed_env.clone()).clone().unwrap();
+            let extended = store.cons(&rec_env, &closed_env);
+            dbg!(
+                "extending-closure",
+                store.print_expr(&fun),
+                store.print_expr(&closed_env),
+                store.print_expr(&rec_env),
+                store.print_expr(&extended)
+            );
             store.fun(
                 &store.fetch(*arg).unwrap(),
                 &store.fetch(*body).unwrap(),
@@ -1461,7 +1482,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(103, iterations); // FIXME: Should be 100
+        assert_eq!(100, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
 
@@ -1507,8 +1528,73 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(143, iterations); // FIXME: Should be 140
+        assert_eq!(140, iterations);
         assert_eq!(Expression::num(125), result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_multiple_letrecstar_bindings() {
+        let mut s = Store::default();
+        let limit = 300;
+        let expr = s
+            .read(
+                "(letrec* ((double (lambda (x) (* 2 x)))
+                           (square (lambda (x) (* x x))))
+                   (+ (square 3) (double 2)))",
+            )
+            .unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+        assert_eq!(32, iterations);
+        assert_eq!(Expression::num(13), result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_multiple_letrecstar_bindings_referencing() {
+        let mut s = Store::default();
+        let limit = 300;
+        let expr = s
+            .read(
+                "(letrec* ((double (lambda (x) (* 2 x)))
+                           (double-inc (lambda (x) (+ 1 (double x)))))
+                   (+ (double 3) (double-inc 2)))",
+            )
+            .unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+        assert_eq!(44, iterations);
+        assert_eq!(Expression::num(11), result_expr);
+    }
+
+    #[test]
+    fn outer_evaluate_multiple_letrecstar_bindings_recursive() {
+        let mut s = Store::default();
+        let limit = 500;
+        let expr = s
+            .read(
+                "(letrec* ((exp (lambda (base exponent)
+                                  (if (= 0 exponent)
+                                      1
+                                      (* base (exp base (- exponent 1))))))
+                           (exp2 (lambda (base exponent)
+                                  (if (= 0 exponent)
+                                      1
+                                      (* base (exp2 base (- exponent 1))))))
+                           (exp3 (lambda (base exponent)
+                                  (if (= 0 exponent)
+                                      1
+                                      (* base (exp3 base (- exponent 1)))))))
+                   (+ (+ (exp 3 2) (exp2 2 3))
+                      (exp3 4 2)))",
+            )
+            .unwrap();
+
+        let (result_expr, _new_env, iterations, _continuation) =
+            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+        assert_eq!(309, iterations);
+        assert_eq!(Expression::num(33), result_expr);
     }
 
     #[test]
@@ -1534,6 +1620,65 @@ mod test {
 
             assert_eq!(5, iterations);
             assert_eq!(Expression::Nil, result_expr);
+        }
+    }
+
+    #[test]
+    fn outer_evaluate_make_tree() {
+        {
+            let mut s = Store::default();
+            let limit = 500;
+            let expr = s.read("(letrec* ((mapcar (lambda (f list)
+                                                             (if (eq list nil)
+                                                                 nil
+                                                                 (cons (f (car list)) (mapcar f (cdr list))))))
+                                         (make-row (lambda (list)
+                                                     (if (eq list nil)
+                                                         nil
+                                                         (let* ((cdr (cdr list)))
+                                                           (cons (cons (car list) (car cdr))
+                                                                 (make-row (cdr cdr)))))))
+                                         (make-tree-aux (lambda (list)
+                                                          (let* ((row (make-row list)))
+                                                            (if (eq (cdr row) nil)
+                                                                row
+                                                                (make-tree-aux row)))))
+                                         (make-tree (lambda (list)
+                                                      (car (make-tree-aux list))))
+                                         (reverse-tree (lambda (tree)
+                                                         (if (atom tree)
+                                                             tree
+                                                             (cons (reverse-tree (cdr tree))
+                                                                   (reverse-tree (car tree)))))))
+                                (make-tree '(a b c d e f g h)))").unwrap();
+            let (result_expr, _new_env, iterations, _continuation) =
+                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+            assert_eq!(338, iterations);
+            assert_eq!(s.intern("T"), result_expr);
+        }
+    }
+
+    #[test]
+    fn outer_evaluate_make_tree_minimal_regression() {
+        {
+            let mut s = Store::default();
+            let limit = 1000;
+            let expr = s
+                .read(
+                    "(letrec* ((fn-1 (lambda (x)
+                                    (let* ((y x))
+                                       y)))
+                               (fn-2 (lambda (list)
+                                       (let* ((z (fn-1 list)))
+                                         (fn-2 z)))))
+                                 (fn-2 '(a b c d e f g h)))",
+                )
+                .unwrap();
+            let (result_expr, _new_env, iterations, _continuation) =
+                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+            assert_eq!(1000, iterations);
         }
     }
 }
