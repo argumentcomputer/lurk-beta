@@ -7,6 +7,7 @@ use lazy_static::lazy_static;
 use neptune::{hash_type::HashType, poseidon::Poseidon, poseidon::PoseidonConstants, Strength};
 use std::collections::HashMap;
 use std::hash::Hasher;
+use std::io::{self, Write};
 use std::iter::Peekable;
 use std::string::ToString;
 
@@ -684,45 +685,59 @@ impl Store {
         self.car_cdr(expr).1
     }
 
-    pub fn print_expr(&self, expr: &Expression) -> String {
+    pub fn write_expr_str(&self, expr: &Expression) -> String {
+        let mut out = Vec::new();
+        self.print_expr(expr, &mut out).expect("preallocated");
+        String::from_utf8(out).expect("I know it")
+    }
+
+    pub fn print_expr(&self, expr: &Expression, w: &mut impl Write) -> io::Result<()> {
         match expr {
-            Nil => "NIL".to_string(),
-            Sym(s) => s.clone(),
+            Nil => write!(w, "NIL"),
+            Sym(s) => write!(w, "{}", s),
             Fun(arg, body, _closed_env) => {
                 let arg = self.fetch(*arg).unwrap();
                 let body = self.fetch(*body).unwrap();
-                format!(
-                    "<FUNCTION ({}) . {}>",
-                    self.print_expr(&arg),
-                    self.print_expr(&body)
-                )
+                write!(w, "<FUNCTION (")?;
+                self.print_expr(&arg, w)?;
+                write!(w, ") . ")?;
+                self.print_expr(&body, w)?;
+                write!(w, ">")
             }
-            Num(fr) => format!("{}", fr),
-            Thunk(f) => format!(
-                "Thunk for cont {:?} with value: {:?}",
-                f.continuation,
-                self.print_expr(&f.value)
-            ),
+            Num(fr) => print_num(fr, w),
+            Thunk(f) => {
+                write!(w, "Thunk for cont {:?} with value: ", f.continuation)?;
+                self.print_expr(&f.value, w)
+            }
             Cons(_, _) => {
-                format!("({}", self.print_tail(&expr))
+                write!(w, "(")?;
+                self.print_tail(&expr, w)
             }
         }
     }
 
-    pub fn print_tail(&self, expr: &Expression) -> String {
+    pub fn print_tail(&self, expr: &Expression, w: &mut impl Write) -> io::Result<()> {
         match expr {
-            Nil => ")".to_string(),
+            Nil => write!(w, ")"),
             Cons(car, cdr) => {
                 let car = self.fetch(*car).unwrap();
                 let cdr = self.fetch(*cdr).unwrap();
                 match cdr {
                     Expression::Nil => {
-                        format!("{})", self.print_expr(&car))
+                        self.print_expr(&car, w)?;
+                        write!(w, ")")
                     }
                     Expression::Cons(_, _) => {
-                        format!("{} {}", self.print_expr(&car), self.print_tail(&cdr))
+                        self.print_expr(&car, w)?;
+                        write!(w, " ")?;
+                        self.print_tail(&cdr, w)
                     }
-                    _ => format!("{} . {})", self.print_expr(&car), self.print_expr(&cdr)),
+                    _ => {
+                        self.print_expr(&car, w)?;
+                        write!(w, " . ")?;
+                        self.print_expr(&cdr, w)?;
+                        write!(w, ")")
+                    }
                 }
             }
             _ => unreachable!(),
@@ -915,9 +930,21 @@ fn skip_whitespace_and_peek<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -
     None
 }
 
+fn print_num(fr: &Fr, w: &mut impl Write) -> io::Result<()> {
+    write!(w, "Fr(0x{}", fr.to_string()[5..].trim_start_matches('0'))
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_print_num() {
+        let fr = fr_from_u64(5);
+        let mut res = Vec::new();
+        print_num(&fr, &mut res).unwrap();
+        assert_eq!(&res[..], &b"Fr(0x5)"[..]);
+    }
 
     #[test]
     fn tag_vals() {
@@ -1196,7 +1223,7 @@ asdf(", "ASDF",
         let mut store = Store::default();
         let test = |store: &mut Store, input| {
             let expr = store.read(input).unwrap();
-            let output = store.print_expr(&expr);
+            let output = store.write_expr_str(&expr);
             assert_eq!(input, output);
         };
 

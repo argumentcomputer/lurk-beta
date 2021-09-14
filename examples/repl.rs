@@ -28,10 +28,10 @@ fn main() {
 
     let stdin = io::stdin();
     let mut it = stdin.lock().lines();
-
+    let mut stdout = io::stdout();
     loop {
         print!("{}", prompt);
-        io::stdout().flush().unwrap();
+        stdout.flush().unwrap();
 
         let line = it.next().unwrap().unwrap();
 
@@ -52,7 +52,10 @@ fn main() {
 
         let (result, _next_env, limit, next_cont) =
             outer_evaluate(expr, state.env.clone(), &mut s, limit);
-        println!("[{} iterations] => {}", limit, s.print_expr(&result));
+        print!("[{} iterations] => ", limit);
+        let mut handle = stdout.lock();
+        s.print_expr(&result, &mut handle).unwrap();
+        println!();
 
         match next_cont {
             Continuation::Outermost | Continuation::Terminal => (),

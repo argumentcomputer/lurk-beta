@@ -1016,8 +1016,9 @@ mod test {
         let whole_lambda = s.cons(&lambda, &rest);
         let lambda_arguments = s.cons(&val, &nil);
         let expr = s.cons(&whole_lambda, &lambda_arguments);
+        let output = s.write_expr_str(&expr);
 
-        assert_eq!("((LAMBDA (X) X) Fr(0x000000000000000000000000000000000000000000000000000000000000007b))".to_string(), s.print_expr(&expr));
+        assert_eq!("((LAMBDA (X) X) Fr(0x7b))".to_string(), output);
     }
 
     #[test]
