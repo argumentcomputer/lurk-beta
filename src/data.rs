@@ -697,7 +697,7 @@ impl Store {
                     self.print_expr(&body)
                 )
             }
-            Num(fr) => format!("{}", fr),
+            Num(fr) => print_num(fr),
             Thunk(f) => format!(
                 "Thunk for cont {:?} with value: {:?}",
                 f.continuation,
@@ -915,9 +915,19 @@ fn skip_whitespace_and_peek<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -
     None
 }
 
+fn print_num(fr: &Fr) -> String {
+    format!("Fr(0x{}", fr.to_string()[5..].trim_start_matches('0'))
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_print_num() {
+        let fr = fr_from_u64(5);
+        assert_eq!(print_num(&fr), "Fr(0x5)");
+    }
 
     #[test]
     fn tag_vals() {
