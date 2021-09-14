@@ -1,5 +1,5 @@
 if [[ $(which rlwrap) ]]; then
-    rlwrap cargo run --example repl
+    rlwrap cargo run --release --example repl
 else
-    cargo run --example repl
+    cargo run --release --example repl
 fi

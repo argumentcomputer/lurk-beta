@@ -459,7 +459,7 @@ fn eval_expr_with_witness(
                 (
                     arg1,
                     env.clone(),
-                    Continuation::Binop(Op2::Cons, more, Box::new(cont.clone())),
+                    Continuation::Binop(Op2::Cons, env.clone(), more, Box::new(cont.clone())),
                 )
             } else if head == store.intern("car") {
                 let (arg1, end) = store.car_cdr(&rest);
@@ -490,28 +490,28 @@ fn eval_expr_with_witness(
                 (
                     arg1,
                     env.clone(),
-                    Continuation::Binop(Op2::Sum, more, Box::new(cont.clone())),
+                    Continuation::Binop(Op2::Sum, env.clone(), more, Box::new(cont.clone())),
                 )
             } else if head == store.intern("-") {
                 let (arg1, more) = store.car_cdr(&rest);
                 (
                     arg1,
                     env.clone(),
-                    Continuation::Binop(Op2::Diff, more, Box::new(cont.clone())),
+                    Continuation::Binop(Op2::Diff, env.clone(), more, Box::new(cont.clone())),
                 )
             } else if head == store.intern("*") {
                 let (arg1, more) = store.car_cdr(&rest);
                 (
                     arg1,
                     env.clone(),
-                    Continuation::Binop(Op2::Product, more, Box::new(cont.clone())),
+                    Continuation::Binop(Op2::Product, env.clone(), more, Box::new(cont.clone())),
                 )
             } else if head == store.intern("/") {
                 let (arg1, more) = store.car_cdr(&rest);
                 (
                     arg1,
                     env.clone(),
-                    Continuation::Binop(Op2::Quotient, more, Box::new(cont.clone())),
+                    Continuation::Binop(Op2::Quotient, env.clone(), more, Box::new(cont.clone())),
                 )
             } else if head == store.intern("=") {
                 let (arg1, more) = store.car_cdr(&rest);
@@ -644,12 +644,12 @@ fn invoke_continuation(
             };
             make_thunk(continuation, &val, env, store, witness)
         }
-        Continuation::Binop(op2, more_args, continuation) => {
+        Continuation::Binop(op2, saved_env, more_args, continuation) => {
             let (arg2, rest) = store.car_cdr(&more_args);
             assert_eq!(Expression::Nil, rest);
             (
                 arg2,
-                env.clone(),
+                saved_env.clone(),
                 Continuation::Binop2(op2.clone(), result.clone(), continuation.clone()),
             )
         }
@@ -1684,6 +1684,29 @@ mod test {
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
             assert_eq!(1000, iterations);
+        }
+    }
+    #[test]
+    fn outer_evaluate_map_tree_bug() {
+        {
+            let mut s = Store::default();
+            let limit = 1000;
+            let expr = s
+                .read(
+                    "(letrec* ((map-tree (lambda (f tree)
+                      (if (atom tree)
+                          (f tree)
+                          (cons (map-tree f (car tree))
+                                (map-tree f (cdr tree)))))))
+         (map-tree (lambda (x) (+ 1 x)) '((1 . 2) . (3 . 4))))",
+                )
+                .unwrap();
+            let (result_expr, _new_env, iterations, _continuation) =
+                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+            assert_eq!(s.read("((2 . 3) . (4 . 5))").unwrap(), result_expr);
+
+            assert_eq!(215, iterations);
         }
     }
 }
