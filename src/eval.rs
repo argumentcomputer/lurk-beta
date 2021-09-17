@@ -518,14 +518,14 @@ fn eval_expr_with_witness(
                 (
                     arg1,
                     env.clone(),
-                    Continuation::Relop(Rel2::NumEqual, more, Box::new(cont.clone())),
+                    Continuation::Relop(Rel2::NumEqual, env.clone(), more, Box::new(cont.clone())),
                 )
             } else if head == store.intern("eq") {
                 let (arg1, more) = store.car_cdr(&rest);
                 (
                     arg1,
                     env.clone(),
-                    Continuation::Relop(Rel2::Equal, more, Box::new(cont.clone())),
+                    Continuation::Relop(Rel2::Equal, env.clone(), more, Box::new(cont.clone())),
                 )
             } else if head == store.intern("if") {
                 let (condition, more) = store.car_cdr(&rest);
@@ -688,12 +688,12 @@ fn invoke_continuation(
             };
             make_thunk(continuation, &result, env, store, witness)
         }
-        Continuation::Relop(rel2, more_args, continuation) => {
+        Continuation::Relop(rel2, saved_env, more_args, continuation) => {
             let (arg2, rest) = store.car_cdr(&more_args);
             assert_eq!(Expression::Nil, rest);
             (
                 arg2,
-                env.clone(),
+                saved_env.clone(),
                 Continuation::Relop2(rel2.clone(), result.clone(), continuation.clone()),
             )
         }
@@ -1706,6 +1706,31 @@ mod test {
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
             assert_eq!(s.read("((2 . 3) . (4 . 5))").unwrap(), result_expr);
+
+            assert_eq!(215, iterations);
+        }
+    }
+    #[test]
+    fn outer_evaluate_map_tree_relop_bug() {
+        {
+            // Reuse map-tree failure case to test Relop behavior.
+            // This failed initially and tests regression.
+            let mut s = Store::default();
+            let limit = 1000;
+            let expr = s
+                .read(
+                    "(letrec* ((map-tree (lambda (f tree)
+                                           (if (atom tree)
+                                             (f tree)
+                                               (= (map-tree f (car tree))
+                                                  (map-tree f (cdr tree)))))))
+                       (map-tree (lambda (x) (+ 1 x)) '((1 . 2) . (3 . 4))))",
+                )
+                .unwrap();
+            let (result_expr, _new_env, iterations, _continuation) =
+                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+            assert_eq!(Expression::Nil, result_expr);
 
             assert_eq!(215, iterations);
         }

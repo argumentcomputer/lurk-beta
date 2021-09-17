@@ -196,9 +196,9 @@ pub enum Continuation {
     Unop(Op1, Box<Continuation>),
     Binop(Op2, Expression, Expression, Box<Continuation>), // The saved env and unevaluated argument
     Binop2(Op2, Expression, Box<Continuation>),            // First argument.
-    Relop(Rel2, Expression, Box<Continuation>),            // Unevaluated arguments
-    Relop2(Rel2, Expression, Box<Continuation>),           //The first argument
-    If(Expression, Box<Continuation>),                     //Unevaluated arguments
+    Relop(Rel2, Expression, Expression, Box<Continuation>), // The saved env and unevaluated arguments
+    Relop2(Rel2, Expression, Box<Continuation>),            //The first argument
+    If(Expression, Box<Continuation>),                      //Unevaluated arguments
     LetStar(Expression, Expression, Expression, Box<Continuation>), // The var, the body, and the saved env.
     LetRecStar(Expression, Expression, Expression, Box<Continuation>), // The var, the saved env, and the body.
     Dummy,
@@ -287,13 +287,15 @@ impl Continuation {
                 &continuation.continuation_tagged_hash(),
                 &TaggedHash::default(),
             ),
-            Continuation::Relop(rel2, unevaled_args, continuation) => tagged_4_hash_x_components(
-                &BaseContinuationTag::Relop.cont_tag_fr(),
-                &rel2.fr(),
-                &unevaled_args.tagged_hash(),
-                &continuation.continuation_tagged_hash(),
-                &TaggedHash::default(),
-            ),
+            Continuation::Relop(rel2, saved_env, unevaled_args, continuation) => {
+                tagged_4_hash_x_components(
+                    &BaseContinuationTag::Relop.cont_tag_fr(),
+                    &rel2.fr(),
+                    &saved_env.tagged_hash(),
+                    &unevaled_args.tagged_hash(),
+                    &continuation.continuation_tagged_hash(),
+                )
+            }
             Continuation::Relop2(rel2, arg1, continuation) => tagged_4_hash_x_components(
                 &BaseContinuationTag::Relop2.cont_tag_fr(),
                 &rel2.fr(),
@@ -353,7 +355,7 @@ impl Continuation {
             Continuation::Unop(_, _) => BaseContinuationTag::Unop,
             Continuation::Binop(_, _, _, _) => BaseContinuationTag::Binop,
             Continuation::Binop2(_, _, _) => BaseContinuationTag::Binop2,
-            Continuation::Relop(_, _, _) => BaseContinuationTag::Relop,
+            Continuation::Relop(_, _, _, _) => BaseContinuationTag::Relop,
             Continuation::Relop2(_, _, _) => BaseContinuationTag::Relop2,
             Continuation::If(_, _) => BaseContinuationTag::If,
             Continuation::LetStar(_, _, _, _) => BaseContinuationTag::LetStar,
