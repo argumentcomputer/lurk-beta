@@ -19,14 +19,14 @@ pub struct Frame<T> {
     pub i: usize,
 }
 
-pub trait Evaluable {
-    fn eval(&self, store: &mut Store) -> Self;
+pub trait Evaluable: std::fmt::Debug {
+    fn eval(&mut self, store: &mut Store) -> Self;
 
     fn is_terminal(&self) -> bool;
 }
 
 impl Evaluable for IO<Witness> {
-    fn eval(&self, store: &mut Store) -> Self {
+    fn eval(&mut self, store: &mut Store) -> Self {
         let (new_expr, new_env, new_cont, witness) =
             eval_expr(&self.expr, &self.env, &self.cont, store);
 
@@ -57,27 +57,22 @@ impl IO<Witness> {
 }
 
 impl<T: Evaluable + Clone + PartialEq> Frame<T> {
-    fn next(&self, store: &mut Store) -> Self {
-        let input = self.output.clone();
-        let output = input.eval(store);
-        let i = self.i + 1;
-        Self {
-            input,
-            output,
-            initial: self.initial.clone(),
-            i,
-        }
+    fn next(&mut self, store: &mut Store) {
+        let output = self.output.eval(store);
+        self.input = std::mem::replace(&mut self.output, output);
+        self.i += 1;
     }
 }
 
 impl<T: Evaluable + Clone + PartialEq> Frame<T> {
-    fn from_initial_input(input: T, store: &mut Store) -> Self {
+    fn from_initial_input(mut input: T, store: &mut Store) -> Self {
+        let initial = input.clone();
         let output = input.eval(store);
 
         Self {
-            input: input.clone(),
+            input,
             output,
-            initial: input.clone(),
+            initial,
             i: 0,
         }
     }
@@ -85,41 +80,32 @@ impl<T: Evaluable + Clone + PartialEq> Frame<T> {
 
 struct FrameIt<'a, T> {
     initial_input: T,
-    frame: Option<Frame<T>>,
     store: &'a mut Store,
 }
 
-impl<'a, T> FrameIt<'a, T> {
+impl<'a, T: Evaluable + Clone + PartialEq> FrameIt<'a, T> {
     fn new(initial_input: T, store: &'a mut Store) -> Self {
         Self {
             initial_input,
-            frame: None,
             store,
         }
     }
-}
 
-impl<'a, T: Evaluable + Clone + PartialEq> Iterator for FrameIt<'a, T> {
-    type Item = Frame<T>;
+    pub fn at(mut self, n: usize) -> Frame<T> {
+        let Self {
+            initial_input,
+            store,
+        } = self;
 
-    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        if let Some(next_frame) = if let Some(frame) = &self.frame {
-            if frame.output.is_terminal() {
-                None
-            } else {
-                Some(frame.next(self.store))
+        let mut current_frame = Frame::from_initial_input(initial_input, store);
+
+        for i in 0..n - 1 {
+            if current_frame.output.is_terminal() {
+                return current_frame;
             }
-        } else {
-            Some(Frame::from_initial_input(
-                self.initial_input.clone(),
-                self.store,
-            ))
-        } {
-            self.frame = Some(next_frame);
-            self.frame.clone()
-        } else {
-            None
+            current_frame.next(store);
         }
+        current_frame
     }
 }
 
@@ -838,16 +824,12 @@ pub fn outer_evaluate(
         witness: None,
     };
 
-    let frame_iterator: std::iter::Take<FrameIt<'_, IO<Witness>>> =
-        FrameIt::new(initial_input, store).take(limit);
-
     // FIXME: Handle limit.
-    if let Some(last_frame) = frame_iterator.last() {
-        let output = last_frame.output;
-        (output.expr, output.env, last_frame.i + 1, output.cont)
-    } else {
-        panic!("xxx")
-    }
+
+    let last_frame = FrameIt::new(initial_input, store).at(limit);
+
+    let output = last_frame.output;
+    (output.expr, output.env, last_frame.i + 1, output.cont)
 }
 
 pub fn empty_sym_env(_store: &Store) -> Expression {
