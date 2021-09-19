@@ -20,22 +20,19 @@ pub struct Frame<T> {
 }
 
 pub trait Evaluable: std::fmt::Debug {
-    fn eval(&mut self, store: &mut Store) -> Self;
+    fn eval(&mut self, store: &mut Store);
 
     fn is_terminal(&self) -> bool;
 }
 
 impl Evaluable for IO<Witness> {
-    fn eval(&mut self, store: &mut Store) -> Self {
+    fn eval(&mut self, store: &mut Store) {
         let (new_expr, new_env, new_cont, witness) =
             eval_expr(&self.expr, &self.env, &self.cont, store);
-
-        Self {
-            expr: new_expr,
-            env: new_env,
-            cont: new_cont,
-            witness: Some(witness),
-        }
+        self.expr = new_expr;
+        self.env = new_env;
+        self.cont = new_cont;
+        self.witness = Some(witness);
     }
 
     fn is_terminal(&self) -> bool {
@@ -46,17 +43,17 @@ impl Evaluable for IO<Witness> {
 impl IO<Witness> {
     pub fn ensure_witness(&mut self, store: &mut Store) {
         if self.witness.is_none() {
-            let evaled = self.eval(store);
-            assert!(evaled.witness.is_some());
-            self.witness = evaled.witness;
+            let (_, _, _, witness) = eval_expr(&self.expr, &self.env, &self.cont, store);
+            self.witness = Some(witness);
         }
     }
 }
 
 impl<T: Evaluable + Clone + PartialEq> Frame<T> {
-    fn from_initial_input(mut input: T, store: &mut Store) -> Self {
+    fn from_initial_input(input: T, store: &mut Store) -> Self {
         let initial = input.clone();
-        let output = input.eval(store);
+        let mut output = input.clone();
+        output.eval(store);
 
         Self {
             input,
@@ -67,8 +64,8 @@ impl<T: Evaluable + Clone + PartialEq> Frame<T> {
     }
 
     fn next(&mut self, store: &mut Store) {
-        let output = self.output.eval(store);
-        self.input = std::mem::replace(&mut self.output, output);
+        self.input = self.output.clone();
+        self.output.eval(store);
         self.i += 1;
     }
 }
@@ -608,7 +605,7 @@ fn invoke_continuation(
             (body.clone(), extended_env, c)
         }
         Continuation::LetRecStar(var, body, saved_env, continuation) => {
-            let extended_env = extend_rec(&env, var, result, store);
+            let extended_env = extend_rec(env, var, result, store);
             //let c = make_tail_continuation(saved_env, continuation);
             let c = Continuation::Tail(saved_env.clone(), Box::new(*continuation.clone()));
 
@@ -639,7 +636,7 @@ fn invoke_continuation(
             let result = match (arg1, arg2) {
                 (Expression::Num(a), Expression::Num(b)) => match op2 {
                     Op2::Sum => {
-                        let mut tmp = a.clone();
+                        let mut tmp = *a;
                         tmp.add_assign(b);
                         Expression::Num(tmp)
                     }
