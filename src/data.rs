@@ -45,6 +45,7 @@ pub enum Tag {
 /// Order of these tag variants is significant, since it will be concretely
 /// encoded into content-addressable data structures.
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+#[repr(u8)]
 pub enum BaseContinuationTag {
     //
     Outermost,
@@ -71,7 +72,7 @@ pub enum BaseContinuationTag {
 // We will likely want both if we ever make continuations (including
 // thunks) first-class expressions, though.
 impl BaseContinuationTag {
-    pub fn cont_tag_val(&self) -> u64 {
+    pub const fn cont_tag_val(&self) -> u64 {
         2 * *self as u64
     }
 
@@ -79,7 +80,7 @@ impl BaseContinuationTag {
         fr_from_u64(self.cont_tag_val())
     }
 
-    fn thunk_tag_val(&self) -> u64 {
+    const fn thunk_tag_val(&self) -> u64 {
         1 + self.cont_tag_val()
     }
 
@@ -388,17 +389,17 @@ impl Thunk {
 }
 
 fn binary_hash(a: &TaggedHash, b: &TaggedHash) -> Fr {
-    let preimage = vec![a.tag, a.hash, b.tag, b.hash];
+    let preimage = [a.tag, a.hash, b.tag, b.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_4).hash()
 }
 
 fn tri_hash(a: &TaggedHash, b: &TaggedHash, c: &TaggedHash) -> Fr {
-    let preimage = vec![a.tag, a.hash, b.tag, b.hash, c.tag, c.hash];
+    let preimage = [a.tag, a.hash, b.tag, b.hash, c.tag, c.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_6).hash()
 }
 
 fn quad_hash(a: &TaggedHash, b: &TaggedHash, c: &TaggedHash, d: &TaggedHash) -> Fr {
-    let preimage = vec![a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash];
+    let preimage = [a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_8).hash()
 }
 
@@ -407,17 +408,17 @@ fn oct_hash(preimage: &[Fr]) -> Fr {
 }
 
 fn simple_binary_hash(a: Fr, b: Fr) -> Fr {
-    let preimage = vec![a, b];
+    let preimage = [a, b];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_2).hash()
 }
 
 fn tagged_1_hash(tag_fr: &Fr, a: &TaggedHash) -> Fr {
-    let preimage = vec![*tag_fr, a.tag, a.hash];
+    let preimage = [*tag_fr, a.tag, a.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_3).hash()
 }
 
 fn tagged_2_hash(tag_fr: &Fr, a: &TaggedHash, b: &TaggedHash) -> Fr {
-    let preimage = vec![*tag_fr, a.tag, a.hash, b.tag, b.hash];
+    let preimage = [*tag_fr, a.tag, a.hash, b.tag, b.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_5).hash()
 }
 fn tagged_4_hash(
@@ -427,7 +428,7 @@ fn tagged_4_hash(
     c: &TaggedHash,
     d: &TaggedHash,
 ) -> Fr {
-    let preimage = vec![
+    let preimage = [
         *tag_fr, a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash,
     ];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_9).hash()
@@ -451,7 +452,7 @@ fn tagged_4_hash_x(
     b: &TaggedHash,
     c: &TaggedHash,
 ) -> Fr {
-    let preimage = vec![
+    let preimage = [
         *tag_fr,
         *inner_tag_fr,
         Fr::zero(),
@@ -493,7 +494,7 @@ fn tagged_5_hash(
     d: &TaggedHash,
     e: &TaggedHash,
 ) -> Fr {
-    let preimage = vec![
+    let preimage = [
         *tag_fr, a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash, e.tag, e.hash,
     ];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_11).hash()
@@ -507,7 +508,7 @@ fn tagged_5_hash_x(
     c: &TaggedHash,
     d: &TaggedHash,
 ) -> Fr {
-    let preimage = vec![
+    let preimage = [
         *tag_fr,
         *inner_tag_fr,
         Fr::zero(),
@@ -526,7 +527,7 @@ fn tagged_5_hash_x(
 fn hash_string(s: &str) -> Fr {
     // We should use HashType::VariableLength, once supported.
     // The following is just quick and dirty, but should be unique.
-    let mut preimage = vec![Fr::zero(); 8];
+    let mut preimage = [Fr::zero(); 8];
     let mut x = fr_from_u64(s.len() as u64);
     s.chars()
         .map(|c| fr_from_u64(c.into()))

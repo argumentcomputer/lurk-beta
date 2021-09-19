@@ -57,14 +57,6 @@ impl IO<Witness> {
 }
 
 impl<T: Evaluable + Clone + PartialEq> Frame<T> {
-    fn next(&mut self, store: &mut Store) {
-        let output = self.output.eval(store);
-        self.input = std::mem::replace(&mut self.output, output);
-        self.i += 1;
-    }
-}
-
-impl<T: Evaluable + Clone + PartialEq> Frame<T> {
     fn from_initial_input(mut input: T, store: &mut Store) -> Self {
         let initial = input.clone();
         let output = input.eval(store);
@@ -75,6 +67,12 @@ impl<T: Evaluable + Clone + PartialEq> Frame<T> {
             initial,
             i: 0,
         }
+    }
+
+    fn next(&mut self, store: &mut Store) {
+        let output = self.output.eval(store);
+        self.input = std::mem::replace(&mut self.output, output);
+        self.i += 1;
     }
 }
 
