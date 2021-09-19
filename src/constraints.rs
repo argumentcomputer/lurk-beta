@@ -59,7 +59,7 @@ pub fn add<E: Engine, CS: ConstraintSystem<E>>(
     })?;
 
     // a + b = res
-    sum(&mut cs, || "sum constraint", &a, &b, &res);
+    sum(&mut cs, || "sum constraint", a, b, &res);
 
     Ok(res)
 }
@@ -77,7 +77,7 @@ pub fn sub<E: Engine, CS: ConstraintSystem<E>>(
     })?;
 
     // a - b = res
-    difference(&mut cs, || "subtraction constraint", &a, &b, &res);
+    difference(&mut cs, || "subtraction constraint", a, b, &res);
 
     Ok(res)
 }

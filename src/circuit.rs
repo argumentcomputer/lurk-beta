@@ -479,7 +479,7 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
         let make_thunk_actual_thunk = witness
             .clone()
             .make_thunk_tail_continuation_thunk
-            .or(witness.make_thunk_thunk.clone());
+            .or_else(|| witness.make_thunk_thunk.clone());
 
         let the_thunk = make_thunk_actual_thunk.or(witness.clone().invoke_continuation_thunk);
 
@@ -1343,7 +1343,7 @@ fn enforce_implication<CS: ConstraintSystem<E>, E: Engine>(
 }
 
 fn enforce_true<CS: ConstraintSystem<E>, E: Engine>(cs: CS, prop: &Boolean) {
-    Boolean::enforce_equal(cs, &Boolean::Constant(true), &prop).unwrap(); // FIXME: unwrap
+    Boolean::enforce_equal(cs, &Boolean::Constant(true), prop).unwrap(); // FIXME: unwrap
 }
 
 // a => b
@@ -1384,7 +1384,7 @@ fn alloc_equal<CS: ConstraintSystem<E>, E: Engine>(
     let equal = a.get_value() == b.get_value();
 
     // Difference between `a` and `b`. This will be zero if `a` and `b` are equal.
-    let diff = constraints::sub(cs.namespace(|| "a - b"), &a, &b)?;
+    let diff = constraints::sub(cs.namespace(|| "a - b"), a, b)?;
 
     // result = (a == b)
     let result = AllocatedBit::alloc(cs.namespace(|| "a = b"), Some(equal))?;

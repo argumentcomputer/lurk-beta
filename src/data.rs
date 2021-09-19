@@ -138,7 +138,7 @@ pub enum Expression {
     Sym(String),
     Fun(TaggedHash, TaggedHash, TaggedHash), // arg, body, closed env
     Num(Fr),
-    Thunk(Thunk),
+    Thunk(Box<Thunk>),
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
@@ -376,14 +376,14 @@ impl Continuation {
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
 pub struct Thunk {
-    pub value: Box<Expression>,
-    pub continuation: Box<Continuation>,
+    pub value: Expression,
+    pub continuation: Continuation,
 }
 
 impl Thunk {
     pub fn get_hash_components(&self) -> Vec<Fr> {
         let value = self.value.tagged_hash();
-        let continuation = (*self.continuation).continuation_tagged_hash();
+        let continuation = self.continuation.continuation_tagged_hash();
         vec![value.tag, value.hash, continuation.tag, continuation.hash]
     }
 }
@@ -535,8 +535,10 @@ fn hash_string(s: &str) -> Fr {
         .into_iter()
         .for_each(|mut chunk| {
             preimage[0] = x;
-            for i in 1..7 {
-                chunk.next().map(|c| preimage[i] = c);
+            for p in preimage.iter_mut().take(7).skip(1) {
+                if let Some(c) = chunk.next() {
+                    *p = c;
+                }
             }
             x = oct_hash(&preimage);
         });
@@ -575,7 +577,7 @@ impl Expression {
             Num(fr) => *fr, // Nums are immediate.
             Thunk(thunk) => {
                 let value = thunk.value.tagged_hash();
-                let continuation = (*thunk.continuation).continuation_tagged_hash();
+                let continuation = thunk.continuation.continuation_tagged_hash();
 
                 binary_hash(&value, &continuation)
             }
@@ -628,12 +630,14 @@ impl Store {
             tag if tag == Tag::Nil.fr() => Some(Expression::Nil),
             // Nums are immediate so not looked up in map.
             tag if tag == Tag::Num.fr() => Some(Expression::Num(t.hash)),
-            _ => self.map.get(&t).map(|x| x.clone()),
+            _ => self.map.get(&t).cloned(),
         }
     }
 
     pub fn store(&mut self, exp: &Expression) {
-        self.map.entry(exp.tagged_hash()).or_insert(exp.clone());
+        self.map
+            .entry(exp.tagged_hash())
+            .or_insert_with(|| exp.clone());
     }
 
     // Consider a secondary map/index on symbol names, which would be proper
@@ -672,8 +676,8 @@ impl Store {
     pub fn car_cdr(&self, expr: &Expression) -> (Expression, Expression) {
         match expr {
             Cons(car, cdr) => (
-                self.fetch(*car).expect("Car not found!").clone(),
-                self.fetch(*cdr).expect("Cdr not found!").clone(),
+                self.fetch(*car).expect("Car not found!"),
+                self.fetch(*cdr).expect("Cdr not found!"),
             ),
             Nil => (Nil, Nil),
             _ => panic!("Can only extract car_cdr from a Cons."),
@@ -714,7 +718,7 @@ impl Store {
             }
             Cons(_, _) => {
                 write!(w, "(")?;
-                self.print_tail(&expr, w)
+                self.print_tail(expr, w)
             }
         }
     }
@@ -854,7 +858,7 @@ impl Store {
                 break;
             }
         }
-        return Some(Expression::Num(acc));
+        Some(Expression::Num(acc))
     }
 
     fn read_symbol<T: Iterator<Item = char>>(
@@ -890,36 +894,24 @@ fn is_symbol_char(c: &char, initial: bool) -> bool {
             if initial {
                 false
             } else {
-                match c {
-                    '0'..='9' => true,
-                    _ => false,
-                }
+                is_digit_char(c)
             }
         }
     }
 }
 
 fn is_digit_char(c: &char) -> bool {
-    match c {
-        '0'..='9' => true,
-        _ => false,
-    }
+    matches!(c, '0'..='9')
 }
 
 #[allow(dead_code)]
 fn is_reserved_char(c: &char) -> bool {
-    match c {
-        '(' | ')' | '.' => true,
-        _ => false,
-    }
+    matches!(c, '(' | ')' | '.')
 }
 
 #[allow(dead_code)]
 fn is_whitespace_char(c: &char) -> bool {
-    match c {
-        ' ' | '\t' | '\n' | '\r' => true,
-        _ => false,
-    }
+    matches!(c, ' ' | '\t' | '\n' | '\r')
 }
 
 fn skip_whitespace_and_peek<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> Option<char> {
