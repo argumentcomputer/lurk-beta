@@ -2,8 +2,11 @@
 #![allow(clippy::single_match)]
 
 mod case;
-pub mod circuit;
 mod constraints;
+mod gadgets;
+mod macros;
+
+pub mod circuit;
 pub mod data;
 pub mod eval;
 

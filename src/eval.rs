@@ -171,54 +171,54 @@ fn make_thunk(
                     continuation: previous_cont.clone(),
                 };
                 witness.make_thunk_tail_continuation_thunk = Some(thunk.clone());
-                return (
+                (
                     Expression::Thunk(thunk),
                     saved_env.clone(),
                     Continuation::Dummy,
-                );
-            };
+                )
+            } else {
+                witness.make_thunk_tail_continuation_cont = Some(*continuation.clone());
+                // There is no risk of a recursive loop here, so the self-call below
+                // is just convenience. It can be unrolled in the circuit. That
+                // said, it' a pain to deal with in circuit and would probably be
+                // easier if it were done here instead, then copied.
 
-            witness.make_thunk_tail_continuation_cont = Some(*continuation.clone());
-            // There is no risk of a recursive loop here, so the self-call below
-            // is just convenience. It can be unrolled in the circuit. That
-            // said, it' a pain to deal with in circuit and would probably be
-            // easier if it were done here instead, then copied.
+                //return make_thunk(continuation, result, effective_env, store, witness);
 
-            //return make_thunk(continuation, result, effective_env, store, witness);
+                // Yes, we are unrolling it. Original code and comment left above to
+                // clarify what we are doing below and why.
 
-            // Yes, we are unrolling it. Original code and comment left above to
-            // clarify what we are doing below and why.
+                // We know:
+                // - effective_env = saved_env.
+                // - continuation is not a tail continuation.
 
-            // We know:
-            // - effective_env = saved_env.
-            // - continuation is not a tail continuation.
+                // So, expanding the recursive call, we get:
 
-            // So, expanding the recursive call, we get:
+                let effective_env2 = match &**continuation {
+                    Continuation::Lookup(saved_env2, _) => saved_env2,
+                    Continuation::Tail(_, _) => unreachable!(),
+                    _ => effective_env,
+                };
+                witness.make_thunk_effective_env2 = Some(effective_env2.clone());
 
-            let effective_env2 = match &**continuation {
-                Continuation::Lookup(saved_env2, _) => saved_env2,
-                Continuation::Tail(_, _) => unreachable!(),
-                _ => effective_env,
-            };
-            witness.make_thunk_effective_env2 = Some(effective_env2.clone());
-
-            match &**continuation {
-                Continuation::Outermost => (
-                    result.clone(),
-                    effective_env.clone(),
-                    Continuation::Terminal,
-                ),
-                _ => {
-                    let thunk = Thunk {
-                        value: Box::new(result.clone()),
-                        continuation: continuation.clone(),
-                    };
-                    witness.make_thunk_tail_continuation_thunk = Some(thunk.clone());
-                    (
-                        Expression::Thunk(thunk),
-                        effective_env2.clone(),
-                        Continuation::Dummy,
-                    )
+                match &**continuation {
+                    Continuation::Outermost => (
+                        result.clone(),
+                        effective_env.clone(),
+                        Continuation::Terminal,
+                    ),
+                    _ => {
+                        let thunk = Thunk {
+                            value: Box::new(result.clone()),
+                            continuation: continuation.clone(),
+                        };
+                        witness.make_thunk_tail_continuation_thunk = Some(thunk.clone());
+                        (
+                            Expression::Thunk(thunk),
+                            effective_env2.clone(),
+                            Continuation::Dummy,
+                        )
+                    }
                 }
             }
         }
@@ -595,6 +595,7 @@ fn invoke_continuation(
             Expression::Thunk(thunk) => (*thunk.value.clone(), env.clone(), Continuation::Terminal),
             _ => (result.clone(), env.clone(), Continuation::Terminal),
         },
+        /// BOOKMARK: Completed in circuit.
         Continuation::Call(arg, saved_env, continuation) => match result.tag() {
             Tag::Fun => {
                 let function = result;
