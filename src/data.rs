@@ -115,6 +115,7 @@ pub struct TaggedHash {
     pub hash: Fr,
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for TaggedHash {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.hash.into_repr().0.hash(state);
@@ -485,6 +486,7 @@ fn tagged_4_hash_x_components(
     ]
 }
 
+#[allow(clippy::many_single_char_names)]
 fn tagged_5_hash(
     tag_fr: &Fr,
     a: &TaggedHash,
@@ -534,8 +536,10 @@ fn hash_string(s: &str) -> Fr {
         .into_iter()
         .for_each(|mut chunk| {
             preimage[0] = x;
-            for i in 1..7 {
-                chunk.next().map(|c| preimage[i] = c);
+            for item in preimage.iter_mut().take(7).skip(1) {
+                if let Some(c) = chunk.next() {
+                    *item = c
+                };
             }
             x = oct_hash(&preimage);
         });
@@ -627,12 +631,14 @@ impl Store {
             tag if tag == Tag::Nil.fr() => Some(Expression::Nil),
             // Nums are immediate so not looked up in map.
             tag if tag == Tag::Num.fr() => Some(Expression::Num(t.hash)),
-            _ => self.map.get(&t).map(|x| x.clone()),
+            _ => self.map.get(&t).cloned(),
         }
     }
 
     pub fn store(&mut self, exp: &Expression) {
-        self.map.entry(exp.tagged_hash()).or_insert(exp.clone());
+        self.map
+            .entry(exp.tagged_hash())
+            .or_insert_with(|| exp.clone());
     }
 
     // Consider a secondary map/index on symbol names, which would be proper
@@ -663,7 +669,7 @@ impl Store {
         body: &Expression,
         closed_env: &Expression,
     ) -> Expression {
-        let fun = Expression::fun(&arg, body, closed_env);
+        let fun = Expression::fun(arg, body, closed_env);
         self.store(&fun);
         fun
     }
@@ -671,8 +677,8 @@ impl Store {
     pub fn car_cdr(&self, expr: &Expression) -> (Expression, Expression) {
         match expr {
             Cons(car, cdr) => (
-                self.fetch(*car).expect("Car not found!").clone(),
-                self.fetch(*cdr).expect("Cdr not found!").clone(),
+                self.fetch(*car).expect("Car not found!"),
+                self.fetch(*cdr).expect("Cdr not found!"),
             ),
             Nil => (Nil, Nil),
             _ => panic!("Can only extract car_cdr from a Cons."),
@@ -713,7 +719,7 @@ impl Store {
             }
             Cons(_, _) => {
                 write!(w, "(")?;
-                self.print_tail(&expr, w)
+                self.print_tail(expr, w)
             }
         }
     }
@@ -853,7 +859,7 @@ impl Store {
                 break;
             }
         }
-        return Some(Expression::Num(acc));
+        Some(Expression::Num(acc))
     }
 
     fn read_symbol<T: Iterator<Item = char>>(
@@ -889,36 +895,24 @@ fn is_symbol_char(c: &char, initial: bool) -> bool {
             if initial {
                 false
             } else {
-                match c {
-                    '0'..='9' => true,
-                    _ => false,
-                }
+                matches!(c, '0'..='9')
             }
         }
     }
 }
 
 fn is_digit_char(c: &char) -> bool {
-    match c {
-        '0'..='9' => true,
-        _ => false,
-    }
+    matches!(c, '0'..='9')
 }
 
 #[allow(dead_code)]
 fn is_reserved_char(c: &char) -> bool {
-    match c {
-        '(' | ')' | '.' => true,
-        _ => false,
-    }
+    matches!(c, '(' | ')' | '.')
 }
 
 #[allow(dead_code)]
 fn is_whitespace_char(c: &char) -> bool {
-    match c {
-        ' ' | '\t' | '\n' | '\r' => true,
-        _ => false,
-    }
+    matches!(c, ' ' | '\t' | '\n' | '\r')
 }
 
 fn skip_whitespace_and_peek<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> Option<char> {

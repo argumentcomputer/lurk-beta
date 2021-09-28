@@ -1,4 +1,5 @@
 #![allow(unused)] // TODO: Eventually remove this.
+#![allow(clippy::single_match)]
 
 mod case;
 pub mod circuit;

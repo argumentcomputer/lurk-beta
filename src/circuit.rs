@@ -55,9 +55,10 @@ impl<W> IO<W> {
 pub fn verify<F: Provable>(p: Proof<F>, f: F) -> Result<bool, SynthesisError> {
     let inputs = f.public_inputs();
 
-    let vk = todo!();
+    todo!();
+    // let vk = todo!();
 
-    verify_proof(vk, &p.groth16_proof, &inputs)
+    // verify_proof(vk, &p.groth16_proof, &inputs)
 }
 
 fn bind_input<CS: ConstraintSystem<Bls12>>(
@@ -479,9 +480,10 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
         let make_thunk_actual_thunk = witness
             .clone()
             .make_thunk_tail_continuation_thunk
-            .or(witness.make_thunk_thunk.clone());
+            .or_else(|| witness.make_thunk_thunk.clone());
 
-        let the_thunk = make_thunk_actual_thunk.or(witness.clone().invoke_continuation_thunk);
+        let the_thunk =
+            make_thunk_actual_thunk.or_else(|| witness.clone().invoke_continuation_thunk);
 
         let (the_thunk_hash, the_thunk_components) = if let Some(thunk) = &the_thunk {
             thunk.allocate_components(cs.namespace(|| "make_thunk_tail_continuation_thunk"))?
@@ -1343,7 +1345,7 @@ fn enforce_implication<CS: ConstraintSystem<E>, E: Engine>(
 }
 
 fn enforce_true<CS: ConstraintSystem<E>, E: Engine>(cs: CS, prop: &Boolean) {
-    Boolean::enforce_equal(cs, &Boolean::Constant(true), &prop).unwrap(); // FIXME: unwrap
+    Boolean::enforce_equal(cs, &Boolean::Constant(true), prop).unwrap(); // FIXME: unwrap
 }
 
 // a => b
@@ -1384,7 +1386,7 @@ fn alloc_equal<CS: ConstraintSystem<E>, E: Engine>(
     let equal = a.get_value() == b.get_value();
 
     // Difference between `a` and `b`. This will be zero if `a` and `b` are equal.
-    let diff = constraints::sub(cs.namespace(|| "a - b"), &a, &b)?;
+    let diff = constraints::sub(cs.namespace(|| "a - b"), a, b)?;
 
     // result = (a == b)
     let result = AllocatedBit::alloc(cs.namespace(|| "a = b"), Some(equal))?;

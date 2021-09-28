@@ -43,10 +43,7 @@ impl Evaluable for IO<Witness> {
     }
 
     fn is_terminal(&self) -> bool {
-        match self.cont {
-            Continuation::Error | Continuation::Terminal => true,
-            _ => false,
-        }
+        matches!(self.cont, Continuation::Error | Continuation::Terminal)
     }
 }
 
@@ -306,7 +303,7 @@ fn eval_expr_with_witness(
                 make_thunk(cont, expr, env, store, witness)
             } else {
                 assert!(Expression::Nil != *env, "Unbound variable: {:?}", expr);
-                let (binding, smaller_env) = store.car_cdr(&env);
+                let (binding, smaller_env) = store.car_cdr(env);
 
                 if binding == Expression::Nil {
                     (expr.clone(), env.clone(), Continuation::Error)
@@ -396,7 +393,7 @@ fn eval_expr_with_witness(
                     let l = store.cons(&lambda, &inner);
                     store.list(vec![l])
                 };
-                let function = store.fun(&arg, &inner_body, &env);
+                let function = store.fun(&arg, &inner_body, env);
 
                 make_thunk(cont, &function, env, store, witness)
             } else if head == quote {
@@ -546,7 +543,7 @@ fn eval_expr_with_witness(
                 )
             } else if head == store.intern("current-env") {
                 assert_eq!(Expression::Nil, rest);
-                make_thunk(cont, &env, env, store, witness)
+                make_thunk(cont, env, env, store, witness)
             } else {
                 // (fn . args)
                 let fun_form = head;
@@ -621,7 +618,7 @@ fn invoke_continuation(
                 let closed_env = store.fetch(*closed_env_t).unwrap();
                 let arg = store.fetch(*arg_t).unwrap();
                 let newer_env = extend(&closed_env, &arg, result, store);
-                let cont = make_tail_continuation(&saved_env, continuation);
+                let cont = make_tail_continuation(saved_env, continuation);
                 (body_form, newer_env, cont)
             }
             _ => {
@@ -629,14 +626,14 @@ fn invoke_continuation(
             }
         },
         Continuation::LetStar(var, body, saved_env, continuation) => {
-            let extended_env = extend(&env, var, result, store);
+            let extended_env = extend(env, var, result, store);
             //let c = make_tail_continuation(saved_env, continuation);
             let c = Continuation::Tail(saved_env.clone(), Box::new(*continuation.clone()));
 
             (body.clone(), extended_env, c)
         }
         Continuation::LetRecStar(var, body, saved_env, continuation) => {
-            let extended_env = extend_rec(&env, var, result, store);
+            let extended_env = extend_rec(env, var, result, store);
             //let c = make_tail_continuation(saved_env, continuation);
             let c = Continuation::Tail(saved_env.clone(), Box::new(*continuation.clone()));
 
@@ -644,8 +641,8 @@ fn invoke_continuation(
         }
         Continuation::Unop(op1, continuation) => {
             let val = match op1 {
-                Op1::Car => store.car(&result),
-                Op1::Cdr => store.cdr(&result),
+                Op1::Car => store.car(result),
+                Op1::Cdr => store.cdr(result),
                 Op1::Atom => match result.tag() {
                     Tag::Cons => Expression::Nil,
                     _ => store.intern("T"),
@@ -654,7 +651,7 @@ fn invoke_continuation(
             make_thunk(continuation, &val, env, store, witness)
         }
         Continuation::Binop(op2, saved_env, more_args, continuation) => {
-            let (arg2, rest) = store.car_cdr(&more_args);
+            let (arg2, rest) = store.car_cdr(more_args);
             assert_eq!(Expression::Nil, rest);
             (
                 arg2,
@@ -667,22 +664,22 @@ fn invoke_continuation(
             let result = match (arg1, arg2) {
                 (Expression::Num(a), Expression::Num(b)) => match op2 {
                     Op2::Sum => {
-                        let mut tmp = a.clone();
+                        let mut tmp = *a;
                         tmp.add_assign(b);
                         Expression::Num(tmp)
                     }
                     Op2::Diff => {
-                        let mut tmp = a.clone();
+                        let mut tmp = *a;
                         tmp.sub_assign(b);
                         Expression::Num(tmp)
                     }
                     Op2::Product => {
-                        let mut tmp = a.clone();
+                        let mut tmp = *a;
                         tmp.mul_assign(b);
                         Expression::Num(tmp)
                     }
                     Op2::Quotient => {
-                        let mut tmp = a.clone();
+                        let mut tmp = *a;
                         // TODO: Return error continuation.
                         assert!(!b.is_zero(), "Division by zero error.");
                         tmp.mul_assign(&b.inverse().unwrap());
@@ -698,7 +695,7 @@ fn invoke_continuation(
             make_thunk(continuation, &result, env, store, witness)
         }
         Continuation::Relop(rel2, saved_env, more_args, continuation) => {
-            let (arg2, rest) = store.car_cdr(&more_args);
+            let (arg2, rest) = store.car_cdr(more_args);
             assert_eq!(Expression::Nil, rest);
             (
                 arg2,
@@ -789,12 +786,12 @@ fn invoke_continuation(
     (output_result, output_env, output_cont)
 }
 
-fn make_tail_continuation(env: &Expression, continuation: &Box<Continuation>) -> Continuation {
-    match &**continuation {
-        Continuation::Outermost => *continuation.clone(),
+fn make_tail_continuation(env: &Expression, continuation: &Continuation) -> Continuation {
+    match &*continuation {
+        Continuation::Outermost => continuation.clone(),
         // Match all tail continuations here.
         Continuation::Tail(env, c) => *c.clone(),
-        _ => Continuation::Tail(env.clone(), Box::new(*continuation.clone())),
+        _ => Continuation::Tail(env.clone(), Box::new(continuation.clone())),
     }
 }
 
@@ -898,8 +895,8 @@ fn extend_rec(
 fn extend_closure(fun: &Expression, rec_env: &Expression, store: &mut Store) -> Expression {
     match fun {
         Expression::Fun(arg, body, closed_env) => {
-            let closed_env = store.fetch(closed_env.clone()).clone().unwrap();
-            let extended = store.cons(&rec_env, &closed_env);
+            let closed_env = store.fetch(*closed_env).unwrap();
+            let extended = store.cons(rec_env, &closed_env);
             store.fun(
                 &store.fetch(*arg).unwrap(),
                 &store.fetch(*body).unwrap(),
@@ -916,7 +913,7 @@ fn lookup(env: &Expression, var: &Expression, store: &Store) -> Expression {
     match &*env {
         Expression::Nil => Expression::Nil,
         Expression::Cons(_, _) => {
-            let (binding, smaller_env) = store.car_cdr(&env);
+            let (binding, smaller_env) = store.car_cdr(env);
             let (v, val) = store.car_cdr(&binding);
             if v == *var {
                 val
