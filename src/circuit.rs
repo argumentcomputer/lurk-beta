@@ -26,7 +26,7 @@ pub struct Proof<F: Provable> {
     groth16_proof: groth16::Proof<Bls12>,
 }
 
-impl<W> Provable for Frame<IO<W>> {
+impl<W: Copy> Provable for Frame<IO<W>> {
     fn public_inputs(&self) -> Vec<Fr> {
         let mut inputs = Vec::with_capacity(10);
 
@@ -240,7 +240,7 @@ macro_rules! allocate_continuation_tag {
 
 impl Circuit<Bls12> for Frame<IO<Witness>> {
     fn synthesize<CS: ConstraintSystem<Bls12>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
-        let witness = self.input.witness.clone().unwrap();
+        let witness = self.output.witness.clone().unwrap();
 
         ////////////////////////////////////////////////////////////////////////////////
         // Bind public inputs.
@@ -1427,7 +1427,7 @@ fn alloc_equal<CS: ConstraintSystem<E>, E: Engine>(
 mod tests {
     use super::*;
     use crate::data::Store;
-    use crate::eval::empty_sym_env;
+    use crate::eval::{empty_sym_env, Evaluable, Witness, IO};
     use bellperson::util_cs::test_cs::TestConstraintSystem;
 
     #[test]
@@ -1444,7 +1444,7 @@ mod tests {
         };
 
         let initial = input.clone();
-        input.ensure_witness(&mut store.clone());
+        let witness = input.compute_witness(&mut store);
 
         let test_with_output = |output, expect_success| {
             let mut cs = TestConstraintSystem::new();
@@ -1473,7 +1473,7 @@ mod tests {
                 expr: num.clone(),
                 env: env.clone(),
                 cont: Continuation::Terminal,
-                witness: None,
+                witness: witness.clone(),
             };
 
             test_with_output(output, true);
@@ -1487,18 +1487,19 @@ mod tests {
                     expr: store.intern("SYMBOL"),
                     env: env.clone(),
                     cont: Continuation::Terminal,
-                    witness: None,
+                    witness: witness.clone(),
                 };
 
                 test_with_output(bad_output_tag, false);
             }
+
             {
                 // Wrong value, so hash should differ.
                 let bad_output_value = IO {
                     expr: Expression::num(999),
                     env: env.clone(),
                     cont: Continuation::Terminal,
-                    witness: None,
+                    witness: witness.clone(),
                 };
 
                 test_with_output(bad_output_value, false);
@@ -1520,7 +1521,7 @@ mod tests {
         };
 
         let initial = input.clone();
-        input.ensure_witness(&mut store.clone());
+        let witness = input.compute_witness(&mut store);
 
         let mut test_with_output = |output, expect_success| {
             let mut cs = TestConstraintSystem::new();
@@ -1547,7 +1548,7 @@ mod tests {
                 expr: nil.clone(),
                 env: env.clone(),
                 cont: Continuation::Terminal,
-                witness: None,
+                witness: witness.clone(),
             };
 
             test_with_output(output, true);
@@ -1561,7 +1562,7 @@ mod tests {
                     expr: store.intern("SYMBOL"),
                     env: env.clone(),
                     cont: Continuation::Terminal,
-                    witness: None,
+                    witness: witness.clone(),
                 };
 
                 test_with_output(bad_output_tag, false);
@@ -1572,7 +1573,7 @@ mod tests {
                     expr: Expression::num(999),
                     env: env.clone(),
                     cont: Continuation::Terminal,
-                    witness: None,
+                    witness: witness.clone(),
                 };
 
                 test_with_output(bad_output_value, false);
@@ -1594,7 +1595,7 @@ mod tests {
         };
 
         let initial = input.clone();
-        input.ensure_witness(&mut store.clone());
+        let witness = input.compute_witness(&mut store);
 
         let test_with_output = |output, expect_success| {
             let mut cs = TestConstraintSystem::new();
@@ -1621,7 +1622,7 @@ mod tests {
                 expr: t.clone(),
                 env: env.clone(),
                 cont: Continuation::Terminal,
-                witness: None,
+                witness: witness.clone(),
             };
 
             test_with_output(output, true);
@@ -1635,7 +1636,7 @@ mod tests {
                     expr: Expression::num(999),
                     env: env.clone(),
                     cont: Continuation::Terminal,
-                    witness: None,
+                    witness: witness.clone(),
                 };
 
                 test_with_output(bad_output_tag, false);
@@ -1646,7 +1647,7 @@ mod tests {
                     expr: store.intern("S"),
                     env: env.clone(),
                     cont: Continuation::Terminal,
-                    witness: None,
+                    witness: witness.clone(),
                 };
 
                 test_with_output(bad_output_value, false);
@@ -1670,7 +1671,7 @@ mod tests {
         };
 
         let initial = input.clone();
-        input.ensure_witness(&mut store.clone());
+        let witness = input.compute_witness(&mut store);
 
         let test_with_output = |output, expect_success| {
             let mut cs = TestConstraintSystem::new();
@@ -1697,7 +1698,7 @@ mod tests {
                 expr: fun.clone(),
                 env: env.clone(),
                 cont: Continuation::Terminal,
-                witness: None,
+                witness: witness.clone(),
             };
 
             test_with_output(output, true);
@@ -1711,7 +1712,7 @@ mod tests {
                     expr: store.intern("SYMBOL"),
                     env: env.clone(),
                     cont: Continuation::Terminal,
-                    witness: None,
+                    witness: witness.clone(),
                 };
 
                 test_with_output(bad_output_tag, false);
@@ -1722,7 +1723,7 @@ mod tests {
                     expr: Expression::num(999),
                     env: env.clone(),
                     cont: Continuation::Terminal,
-                    witness: None,
+                    witness: witness.clone(),
                 };
 
                 test_with_output(bad_output_value, false);
@@ -1745,7 +1746,7 @@ mod tests {
         };
 
         let initial = input.clone();
-        input.ensure_witness(&mut store.clone());
+        let witness = input.compute_witness(&mut store);
 
         let test_with_output = |output, expect_success| {
             let mut cs = TestConstraintSystem::new();
@@ -1775,7 +1776,7 @@ mod tests {
                     expr: Expression::num(987),
                     env: env.clone(),
                     cont: Continuation::Terminal,
-                    witness: None,
+                    witness: witness.clone(),
                 };
 
                 test_with_output(output, true);
@@ -1788,7 +1789,7 @@ mod tests {
                     expr: expr.clone(),
                     env: env.clone(),
                     cont: Continuation::Terminal,
-                    witness: None,
+                    witness: witness.clone(),
                 };
 
                 test_with_output(output, true);

@@ -3,6 +3,10 @@ use ff::Field;
 use std::cmp::PartialEq;
 use std::iter::Iterator;
 
+pub trait Witnessed {
+    fn reset_witness(&mut self);
+}
+
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
 pub struct IO<W> {
     pub expr: Expression,
@@ -46,19 +50,25 @@ impl Evaluable for IO<Witness> {
     }
 }
 
-impl IO<Witness> {
-    pub fn ensure_witness(&mut self, store: &mut Store) {
-        if self.witness.is_none() {
-            let evaled = self.eval(store);
-            assert!(evaled.witness.is_some());
-            self.witness = evaled.witness;
-        }
+impl Witnessed for IO<Witness> {
+    fn reset_witness(&mut self) {
+        self.witness = None;
     }
 }
 
-impl<T: Evaluable + Clone + PartialEq> Frame<T> {
+impl IO<Witness> {
+    pub(crate) fn compute_witness(&mut self, store: &mut Store) -> Option<Witness> {
+        let evaled = self.eval(store);
+        assert!(evaled.witness.is_some(), "failed to create witness");
+        evaled.witness
+    }
+}
+
+impl<T: Evaluable + Clone + PartialEq + Witnessed> Frame<T> {
     fn next(&self, store: &mut Store) -> Self {
-        let input = self.output.clone();
+        let mut input = self.output.clone();
+        input.reset_witness();
+
         let output = input.eval(store);
         let i = self.i + 1;
         Self {
@@ -99,7 +109,7 @@ impl<'a, T> FrameIt<'a, T> {
     }
 }
 
-impl<'a, T: Evaluable + Clone + PartialEq> Iterator for FrameIt<'a, T> {
+impl<'a, T: Evaluable + Clone + PartialEq + Witnessed> Iterator for FrameIt<'a, T> {
     type Item = Frame<T>;
 
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
@@ -266,7 +276,6 @@ pub struct Witness {
     pub invoke_continuation_thunk: Option<Thunk>,
 }
 
-// TODO: Implement ATOM predicate.
 fn eval_expr(
     expr: &Expression,
     env: &Expression,
