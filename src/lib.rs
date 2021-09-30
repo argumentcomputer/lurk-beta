@@ -1,10 +1,12 @@
 #![allow(unused)] // TODO: Eventually remove this.
 #![allow(clippy::single_match)]
 
+#[macro_use]
+mod macros;
+
 mod case;
 mod constraints;
 mod gadgets;
-mod macros;
 
 pub mod circuit;
 pub mod data;

@@ -177,14 +177,14 @@ fn eval_expr(
     (new_expr, new_env, new_cont, witness)
 }
 
-enum Control {
-    Return(Expression, Expression, Continuation),
-    MakeThunk(Expression, Expression, Continuation),
-    InvokeContinuation(Expression, Expression, Continuation),
+pub enum Control<Expr, Cont> {
+    Return(Expr, Expr, Cont),
+    MakeThunk(Expr, Expr, Cont),
+    InvokeContinuation(Expr, Expr, Cont),
 }
 
-impl Control {
-    fn results(&self) -> (Expression, Expression, Continuation) {
+impl<E: Clone, C: Clone> Control<E, C> {
+    pub fn results(&self) -> (E, E, C) {
         match self {
             Self::Return(expr, env, cont) => (expr.clone(), env.clone(), cont.clone()),
             Self::MakeThunk(expr, env, cont) => (expr.clone(), env.clone(), cont.clone()),
@@ -192,21 +192,21 @@ impl Control {
         }
     }
 
-    fn is_return(&self) -> bool {
+    pub fn is_return(&self) -> bool {
         if let Self::Return(_, _, _) = self {
             true
         } else {
             false
         }
     }
-    fn is_make_thunk(&self) -> bool {
+    pub fn is_make_thunk(&self) -> bool {
         if let Self::MakeThunk(_, _, _) = self {
             true
         } else {
             false
         }
     }
-    fn is_invoke_continuation(&self) -> bool {
+    pub fn is_invoke_continuation(&self) -> bool {
         if let Self::InvokeContinuation(_, _, _) = self {
             true
         } else {
@@ -221,7 +221,7 @@ fn eval_expr_with_witness(
     cont: &Continuation,
     store: &mut Store,
     witness: &mut Witness,
-) -> Control {
+) -> Control<Expression, Continuation> {
     let control = match expr {
         Expression::Thunk(thunk) => Control::InvokeContinuation(
             *thunk.value.clone(),
@@ -513,7 +513,11 @@ fn eval_expr_with_witness(
     make_thunk(control, store, witness)
 }
 
-fn invoke_continuation(control: Control, store: &mut Store, witness: &mut Witness) -> Control {
+fn invoke_continuation(
+    control: Control<Expression, Continuation>,
+    store: &mut Store,
+    witness: &mut Witness,
+) -> Control<Expression, Continuation> {
     if !control.is_invoke_continuation() {
         return control;
     }
@@ -733,7 +737,11 @@ fn invoke_continuation(control: Control, store: &mut Store, witness: &mut Witnes
 }
 
 // Returns (Expression::Thunk, Expression::Env, Continuation)
-fn make_thunk(control: Control, store: &mut Store, witness: &mut Witness) -> Control {
+fn make_thunk(
+    control: Control<Expression, Continuation>,
+    store: &mut Store,
+    witness: &mut Witness,
+) -> Control<Expression, Continuation> {
     if !control.is_make_thunk() {
         return control;
     }

@@ -1,5 +1,5 @@
-use crate::constraints::equal;
-use crate::data::Continuation;
+use crate::constraints::{equal, pick};
+use crate::data::{BaseContinuationTag, Continuation, Tag};
 use bellperson::{
     bls::{Bls12, Engine, Fr},
     gadgets::{
@@ -47,7 +47,7 @@ impl Continuation {
     }
 }
 
-fn allocate_constant<CS: ConstraintSystem<Bls12>>(
+pub fn allocate_constant<CS: ConstraintSystem<Bls12>>(
     cs: &mut CS,
     val: Fr,
 ) -> Result<AllocatedNum<Bls12>, SynthesisError> {
@@ -62,4 +62,40 @@ fn allocate_constant<CS: ConstraintSystem<Bls12>>(
     );
 
     Ok(allocated)
+}
+
+impl Tag {
+    pub fn allocate_constant<CS: ConstraintSystem<Bls12>>(
+        &self,
+        cs: &mut CS,
+    ) -> Result<AllocatedNum<Bls12>, SynthesisError> {
+        allocate_constant(&mut cs.namespace(|| format!("{:?} tag", self)), self.fr())
+    }
+}
+
+impl BaseContinuationTag {
+    pub fn allocate_constant<CS: ConstraintSystem<Bls12>>(
+        &self,
+        cs: &mut CS,
+    ) -> Result<AllocatedNum<Bls12>, SynthesisError> {
+        allocate_constant(
+            &mut cs.namespace(|| format!("{:?} base continuation tag", self)),
+            self.cont_tag_fr(),
+        )
+    }
+}
+
+/// Takes two allocated numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.
+pub fn pick_tagged_hash<E: Engine, CS: ConstraintSystem<E>>(
+    mut cs: CS,
+    condition: &Boolean,
+    a: &AllocatedTaggedHash<E>,
+    b: &AllocatedTaggedHash<E>,
+) -> Result<AllocatedTaggedHash<E>, SynthesisError>
+where
+    CS: ConstraintSystem<E>,
+{
+    let tag = pick(cs.namespace(|| "tag"), condition, &a.tag, &b.tag)?;
+    let hash = pick(cs.namespace(|| "hash"), condition, &a.hash, &b.hash)?;
+    Ok(AllocatedTaggedHash::<E>::from_tag_and_hash(tag, hash))
 }

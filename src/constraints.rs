@@ -307,7 +307,7 @@ pub fn alloc_is_zero<CS: ConstraintSystem<E>, E: Engine>(
     Ok(Boolean::Is(result))
 }
 
-fn enforce_implication<CS: ConstraintSystem<E>, E: Engine>(
+pub fn enforce_implication<CS: ConstraintSystem<E>, E: Engine>(
     mut cs: CS,
     a: &Boolean,
     b: &Boolean,
@@ -317,17 +317,17 @@ fn enforce_implication<CS: ConstraintSystem<E>, E: Engine>(
     Ok(())
 }
 
-fn enforce_true<CS: ConstraintSystem<E>, E: Engine>(cs: CS, prop: &Boolean) {
+pub fn enforce_true<CS: ConstraintSystem<E>, E: Engine>(cs: CS, prop: &Boolean) {
     Boolean::enforce_equal(cs, &Boolean::Constant(true), prop).unwrap(); // FIXME: unwrap
 }
 
-fn enforce_false<CS: ConstraintSystem<E>, E: Engine>(cs: CS, prop: &Boolean) {
+pub fn enforce_false<CS: ConstraintSystem<E>, E: Engine>(cs: CS, prop: &Boolean) {
     Boolean::enforce_equal(cs, &Boolean::Constant(false), prop).unwrap(); // FIXME: unwrap
 }
 
 // a => b
 // not (a and (not b))
-fn implies<CS: ConstraintSystem<E>, E: Engine>(
+pub fn implies<CS: ConstraintSystem<E>, E: Engine>(
     cs: CS,
     a: &Boolean,
     b: &Boolean,
@@ -335,7 +335,7 @@ fn implies<CS: ConstraintSystem<E>, E: Engine>(
     Ok(Boolean::and(cs, a, &b.not())?.not())
 }
 
-fn or<CS: ConstraintSystem<E>, E: Engine>(
+pub fn or<CS: ConstraintSystem<E>, E: Engine>(
     mut cs: CS,
     a: &Boolean,
     b: &Boolean,
@@ -347,7 +347,7 @@ fn or<CS: ConstraintSystem<E>, E: Engine>(
     )?))
 }
 
-fn must_be_simple_bit(x: &Boolean) -> AllocatedBit {
+pub fn must_be_simple_bit(x: &Boolean) -> AllocatedBit {
     match x {
         Boolean::Constant(_) => panic!("Expected a non-constant Boolean."),
         Boolean::Is(b) => b.clone(),

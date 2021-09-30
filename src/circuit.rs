@@ -12,13 +12,13 @@ use neptune::circuit::poseidon_hash;
 
 use crate::case::{case, multi_case, CaseClause, CaseConstraint};
 
-use crate::constraints::{self, alloc_equal};
+use crate::constraints::{self, alloc_equal, alloc_is_zero, equal, or, pick};
 use crate::data::{
     fr_from_u64, BaseContinuationTag, Continuation, Expression, Tag, Tagged, Thunk,
     POSEIDON_CONSTANTS_4, POSEIDON_CONSTANTS_9,
 };
-use crate::eval::{Frame, Witness, IO};
-use crate::gadgets::data::AllocatedTaggedHash;
+use crate::eval::{Control, Frame, Witness, IO};
+use crate::gadgets::data::{allocate_constant, pick_tagged_hash, AllocatedTaggedHash};
 
 pub trait Provable {
     fn public_inputs(&self) -> Vec<Fr>;
@@ -170,6 +170,7 @@ impl Circuit<Bls12> for Frame<IO<Witness>> {
         // End public inputs.
         ////////////////////////////////////////////////////////////////////////////////
 
+        //        let (new_expr, new_env, new_cont) = evaluate_expression(
         let (new_expr, new_env, new_cont) = evaluate_expression(
             &mut cs.namespace(|| "evaluate expression"),
             &input_expr,
@@ -206,12 +207,14 @@ fn evaluate_expression<CS: ConstraintSystem<Bls12>>(
     let mut result_env_hash_clauses: Vec<CaseClause<Bls12>> = Vec::new();
     let mut result_cont_tag_clauses: Vec<CaseClause<Bls12>> = Vec::new();
     let mut result_cont_hash_clauses: Vec<CaseClause<Bls12>> = Vec::new();
+    let mut result_make_thunk_clauses: Vec<CaseClause<Bls12>> = Vec::new();
 
     let mut add_clauses = |key,
-                           (result_expr, result_env, result_cont): (
+                           (result_expr, result_env, result_cont, result_make_thunk): (
         AllocatedTaggedHash<Bls12>,
         AllocatedTaggedHash<Bls12>,
         AllocatedTaggedHash<Bls12>,
+        AllocatedNum<Bls12>,
     )| {
         let add_clause = |mut clauses: &mut Vec<CaseClause<Bls12>>, value| {
             clauses.push(CaseClause { key, value })
@@ -225,43 +228,32 @@ fn evaluate_expression<CS: ConstraintSystem<Bls12>>(
 
         add_clause(&mut result_cont_tag_clauses, result_cont.tag);
         add_clause(&mut result_cont_hash_clauses, result_cont.hash);
+
+        add_clause(&mut result_make_thunk_clauses, result_make_thunk);
     };
 
     // add_clauses(Tag::Thunk.fr(), todo!());
 
+    let true_num = allocate_constant(&mut cs.namespace(|| "true"), Fr::one())?;
+
     add_clauses(
         Tag::Nil.fr(),
-        make_thunk(
-            &mut cs.namespace(|| "make_thunk for nil"),
-            cont,
-            expr,
-            env,
-            witness,
-        )?,
+        // make_thunk = true
+        (cont.clone(), expr.clone(), env.clone(), true_num.clone()),
     );
 
     // add_clauses(Tag::Sym.fr(), todo!());
 
     add_clauses(
         Tag::Num.fr(),
-        make_thunk(
-            &mut cs.namespace(|| "make_thunk for num"),
-            cont,
-            expr,
-            env,
-            witness,
-        )?,
+        // make_thunk = true
+        (cont.clone(), expr.clone(), env.clone(), true_num.clone()),
     );
 
     add_clauses(
         Tag::Fun.fr(),
-        make_thunk(
-            &mut cs.namespace(|| "make_thunk for fun"),
-            cont,
-            expr,
-            env,
-            witness,
-        )?,
+        // make_thunk = true
+        (cont.clone(), expr.clone(), env.clone(), true_num.clone()),
     );
 
     // add_clauses(Tag::Cons.fr(), todo!());
@@ -273,6 +265,7 @@ fn evaluate_expression<CS: ConstraintSystem<Bls12>>(
         result_env_hash_clauses.as_slice(),
         result_cont_tag_clauses.as_slice(),
         result_cont_hash_clauses.as_slice(),
+        result_make_thunk_clauses.as_slice(),
     ];
 
     // TODO: This might not be the right default for all cases below.
@@ -289,12 +282,49 @@ fn evaluate_expression<CS: ConstraintSystem<Bls12>>(
             default.clone(),
             default.clone(),
             default.clone(),
+            default.clone(), // This does have to be zero = false.
         ],
     )?;
 
-    let result_expr = tagged_hash_by_index(0, &case_results);
-    let result_env = tagged_hash_by_index(1, &case_results);
-    let result_cont = tagged_hash_by_index(2, &case_results);
+    let first_result_expr = tagged_hash_by_index(0, &case_results);
+    let first_result_env = tagged_hash_by_index(1, &case_results);
+    let first_result_cont = tagged_hash_by_index(2, &case_results);
+    let first_result_make_thunk = &case_results[6];
+
+    let make_thunk_boolean = Boolean::not(&alloc_is_zero(
+        &mut cs.namespace(|| "make_thunk_is_zero"),
+        first_result_make_thunk,
+    )?);
+
+    let thunk_results = make_thunk(
+        &mut cs.namespace(|| "make_thunk"),
+        &first_result_expr,
+        &first_result_env,
+        &first_result_cont,
+        witness,
+        // make_thunk_boolean.get_value().unwrap(),
+    )?;
+
+    let result_expr = pick_tagged_hash(
+        &mut cs.namespace(|| "pick maybe make_thunk expr"),
+        &make_thunk_boolean,
+        &thunk_results.0,
+        &first_result_expr,
+    )?;
+
+    let result_env = pick_tagged_hash(
+        &mut cs.namespace(|| "pick maybe make_thunk env"),
+        &make_thunk_boolean,
+        &thunk_results.1,
+        &first_result_env,
+    )?;
+
+    let result_cont = pick_tagged_hash(
+        &mut cs.namespace(|| "pick maybe make_thunk cont"),
+        &make_thunk_boolean,
+        &thunk_results.2,
+        &first_result_cont,
+    )?;
 
     Ok((result_expr, result_env, result_cont))
 }
@@ -305,6 +335,7 @@ fn make_thunk<CS: ConstraintSystem<Bls12>>(
     result: &AllocatedTaggedHash<Bls12>,
     env: &AllocatedTaggedHash<Bls12>,
     witness: &Witness,
+    // dummy: bool,
 ) -> Result<
     (
         AllocatedTaggedHash<Bls12>,
@@ -313,8 +344,6 @@ fn make_thunk<CS: ConstraintSystem<Bls12>>(
     ),
     SynthesisError,
 > {
-    let is_dummy = !witness.make_thunk_was_called;
-
     let mut result_expr_tag_clauses: Vec<CaseClause<Bls12>> = Vec::new();
     let mut result_expr_hash_clauses: Vec<CaseClause<Bls12>> = Vec::new();
     let mut result_env_tag_clauses: Vec<CaseClause<Bls12>> = Vec::new();
@@ -342,12 +371,37 @@ fn make_thunk<CS: ConstraintSystem<Bls12>>(
         add_clause(&mut result_cont_hash_clauses, result_cont.hash);
     };
 
+    // TODO: This will also be needed in invoke_continuation, so to save allocating there also,
+    // we can do at top-level and pass in -- perhaps along with any other such constants.
     let terminal_tagged_hash = Continuation::Terminal
         .allocate_constant_tagged_hash(&mut cs.namespace(|| "terminal continuation"))?;
 
+    let dummy_tagged_hash = Continuation::Dummy
+        .allocate_constant_tagged_hash(&mut cs.namespace(|| "dummy continuation"))?;
+
+    let dummy_value = allocate_constant(&mut cs.namespace(|| "arbitrary dummy"), Fr::zero())?;
+
+    let thunk_tag = Tag::Thunk.allocate_constant(&mut cs.namespace(|| "thunk_tag"))?;
+    let cons_tag = Tag::Cons.allocate_constant(&mut cs.namespace(|| "cons_tag"))?;
+
+    let lookup_cont_tag =
+        BaseContinuationTag::Lookup.allocate_constant(&mut cs.namespace(|| "lookup_cont_tag"))?;
+
+    let tail_cont_tag =
+        BaseContinuationTag::Tail.allocate_constant(&mut cs.namespace(|| "tail_cont_tag"))?;
+
+    let (thunk_hash, thunk_components) = if let Some(thunk) = &witness.make_thunk_thunk {
+        thunk.allocate_components(&mut cs.namespace(|| "thunk_components"))?
+    } else {
+        Thunk::allocate_dummy_components(&mut cs.namespace(|| "thunk_components"))?
+    };
+    let thunk_value_tag = &thunk_components[0];
+    let thunk_value_hash = &thunk_components[1];
+    let thunk_cont_tag = &thunk_components[2];
+    let thunk_cont_hash = &thunk_components[3];
+
     add_clauses(
         BaseContinuationTag::Outermost.cont_tag_fr(),
-        // FIXME: need to return a Terminal continuation.
         ((*result).clone(), (*env).clone(), terminal_tagged_hash),
     );
 
@@ -360,15 +414,89 @@ fn make_thunk<CS: ConstraintSystem<Bls12>>(
         result_cont_hash_clauses.as_slice(),
     ];
 
-    // TODO: Implement the default clause here.
-    let defaults = [
-        AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::zero()))?,
-        AllocatedNum::alloc(cs.namespace(|| "default2"), || Ok(Fr::zero()))?,
-        AllocatedNum::alloc(cs.namespace(|| "default3"), || Ok(Fr::zero()))?,
-        AllocatedNum::alloc(cs.namespace(|| "default4"), || Ok(Fr::zero()))?,
-        AllocatedNum::alloc(cs.namespace(|| "default5"), || Ok(Fr::zero()))?,
-        AllocatedNum::alloc(cs.namespace(|| "default6"), || Ok(Fr::zero()))?,
-    ];
+    // BOOKMARK/TODO: Continuation::Tail case.
+
+    let defaults = {
+        let thunk_hash = Thunk::hash_components(
+            &mut cs.namespace(|| "thunk_hash"),
+            &[
+                result.tag.clone(),
+                result.hash.clone(),
+                cont.tag.clone(),
+                cont.hash.clone(),
+            ],
+        )?;
+
+        let result_expr_tag = thunk_tag;
+        let result_expr_hash = thunk_hash;
+
+        let effective_env = {
+            let (witnessed_cont_hash, witnessed_cont_components) = if let Some(cont) =
+                &witness.make_thunk_cont
+            {
+                cont.allocate_components(&mut cs.namespace(|| "cont components"))?
+            } else {
+                // If make_thunk was not effectivelycalled when evaluating, we need to have passed the relevant dummy values
+                // generated here. So this allocation will need to move outside to the caller.
+                Continuation::allocate_dummy_components(&mut cs.namespace(|| "cont components"))?
+            };
+
+            let witnessed_cont_tag = &witnessed_cont_components[0];
+
+            equal(
+                cs,
+                || "witnessed cont tag equals cont tag",
+                &witnessed_cont_tag,
+                &cont.tag,
+            );
+            equal(
+                cs,
+                || "witnessed cont hash equals cont hash",
+                &witnessed_cont_hash,
+                &cont.hash,
+            );
+
+            let saved_env = AllocatedTaggedHash::from_tag_and_hash(
+                witnessed_cont_components[1].clone(),
+                witnessed_cont_components[2].clone(),
+            );
+
+            let cont_tag_is_lookup = alloc_equal(
+                &mut cs.namespace(|| "cont_tag_is_lookup"),
+                &witnessed_cont_tag,
+                &lookup_cont_tag,
+            )?;
+
+            let cont_tag_is_tail = alloc_equal(
+                &mut cs.namespace(|| "cont_tag_is_tail"),
+                &witnessed_cont_tag,
+                &tail_cont_tag,
+            )?;
+
+            let cont_tag_is_lookup_or_tail = or!(cs, &cont_tag_is_lookup, &cont_tag_is_tail)?;
+
+            let effective_env = pick_tagged_hash(
+                &mut cs.namespace(|| "effective_env"),
+                &cont_tag_is_lookup_or_tail,
+                &saved_env,
+                env,
+            )?;
+
+            effective_env
+        };
+
+        let result_cont_tag = dummy_tagged_hash.tag;
+        let result_cont_hash = dummy_tagged_hash.hash;
+        let defaults = [
+            result_expr_tag,
+            result_expr_hash,
+            effective_env.tag,
+            effective_env.hash,
+            result_cont_tag,
+            result_cont_hash,
+        ];
+        defaults
+    };
 
     let case_results = multi_case(
         &mut cs.namespace(|| "make_thunk continuation case"),
@@ -475,13 +603,26 @@ impl Thunk {
             )?);
         }
 
+        let hash =
+            Self::hash_components(cs.namespace(|| "Thunk Continuation"), &components.clone())?;
+
+        Ok((hash, components))
+    }
+
+    fn hash_components<CS: ConstraintSystem<Bls12>>(
+        mut cs: CS,
+        components: &[AllocatedNum<Bls12>],
+    ) -> Result<AllocatedNum<Bls12>, SynthesisError> {
+        assert_eq!(4, components.len());
+
+        // This is a 'binary' hash but has arity 4 because of tag and hash components for each item.
         let hash = poseidon_hash(
-            cs.namespace(|| "make_thunk_tail_continuation_thunk"),
-            components.clone(),
+            cs.namespace(|| "Thunk Continuation"),
+            components.to_vec(),
             &POSEIDON_CONSTANTS_4,
         )?;
 
-        Ok((hash, components))
+        Ok(hash)
     }
 
     fn allocate_dummy_components<CS: ConstraintSystem<Bls12>>(
@@ -496,7 +637,7 @@ impl Thunk {
             )?);
         }
         let dummy_hash = poseidon_hash(
-            cs.namespace(|| "make_thunk_tail_continuation_thunk"),
+            cs.namespace(|| "Thunk Continuation"),
             result.clone(),
             &POSEIDON_CONSTANTS_4,
         )?;
