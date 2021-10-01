@@ -2,10 +2,6 @@
 #![allow(clippy::single_match)]
 
 #[macro_use]
-mod macros;
-
-mod case;
-mod constraints;
 mod gadgets;
 
 pub mod circuit;

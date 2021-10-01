@@ -1,5 +1,5 @@
-use crate::constraints::{equal, pick};
 use crate::data::{BaseContinuationTag, Continuation, Tag};
+use crate::gadgets::constraints::{equal, pick};
 use bellperson::{
     bls::{Bls12, Engine, Fr},
     gadgets::{

@@ -1,4 +1,4 @@
-use crate::constraints::{alloc_is_zero, equal, pick, select};
+use super::constraints::{alloc_is_zero, equal, pick, select};
 use bellperson::{
     bls::Engine,
     gadgets::boolean::{AllocatedBit, Boolean},

@@ -10,14 +10,14 @@ use bellperson::{
 use ff::Field;
 use neptune::circuit::poseidon_hash;
 
-use crate::case::{case, multi_case, CaseClause, CaseConstraint};
+use crate::gadgets::case::{case, multi_case, CaseClause, CaseConstraint};
 
-use crate::constraints::{self, alloc_equal, alloc_is_zero, equal, or, pick};
 use crate::data::{
     fr_from_u64, BaseContinuationTag, Continuation, Expression, Tag, Tagged, Thunk,
     POSEIDON_CONSTANTS_4, POSEIDON_CONSTANTS_9,
 };
 use crate::eval::{Control, Frame, Witness, IO};
+use crate::gadgets::constraints::{self, alloc_equal, alloc_is_zero, equal, or, pick};
 use crate::gadgets::data::{allocate_constant, pick_tagged_hash, AllocatedTaggedHash};
 
 pub trait Provable {
@@ -581,8 +581,6 @@ impl Continuation {
             &POSEIDON_CONSTANTS_9,
         )?;
 
-        // let dummy_hash = AllocatedNum::alloc(cs.namespace(|| "Continuation"), || Ok(Fr::zero()))?;
-
         Ok((dummy_hash, result))
     }
 }
@@ -609,22 +607,6 @@ impl Thunk {
         Ok((hash, components))
     }
 
-    fn hash_components<CS: ConstraintSystem<Bls12>>(
-        mut cs: CS,
-        components: &[AllocatedNum<Bls12>],
-    ) -> Result<AllocatedNum<Bls12>, SynthesisError> {
-        assert_eq!(4, components.len());
-
-        // This is a 'binary' hash but has arity 4 because of tag and hash components for each item.
-        let hash = poseidon_hash(
-            cs.namespace(|| "Thunk Continuation"),
-            components.to_vec(),
-            &POSEIDON_CONSTANTS_4,
-        )?;
-
-        Ok(hash)
-    }
-
     fn allocate_dummy_components<CS: ConstraintSystem<Bls12>>(
         mut cs: CS,
     ) -> Result<(AllocatedNum<Bls12>, Vec<AllocatedNum<Bls12>>), SynthesisError> {
@@ -643,6 +625,22 @@ impl Thunk {
         )?;
 
         Ok((dummy_hash, result))
+    }
+
+    fn hash_components<CS: ConstraintSystem<Bls12>>(
+        mut cs: CS,
+        components: &[AllocatedNum<Bls12>],
+    ) -> Result<AllocatedNum<Bls12>, SynthesisError> {
+        assert_eq!(4, components.len());
+
+        // This is a 'binary' hash but has arity 4 because of tag and hash components for each item.
+        let hash = poseidon_hash(
+            cs.namespace(|| "Thunk Continuation"),
+            components.to_vec(),
+            &POSEIDON_CONSTANTS_4,
+        )?;
+
+        Ok(hash)
     }
 }
 
@@ -682,13 +680,13 @@ mod tests {
 
             frame.synthesize(&mut cs).expect("failed to synthesize");
 
+            assert_eq!(1518, cs.num_constraints());
+
             if expect_success {
                 assert!(cs.is_satisfied());
             } else {
                 assert!(!cs.is_satisfied());
             }
-
-            //assert_eq!(3116, cs.num_constraints());
         };
 
         // Success
