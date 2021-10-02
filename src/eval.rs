@@ -537,7 +537,6 @@ fn invoke_continuation(
             }
             _ => Control::Return(result.clone(), env.clone(), Continuation::Terminal),
         },
-        /// BOOKMARK: Completed in circuit.
         Continuation::Call(arg, saved_env, continuation) => match result.tag() {
             Tag::Fun => {
                 let function = result;
@@ -767,6 +766,7 @@ fn make_thunk(
     let control = match cont {
         // These are the tail-continuations.
         Continuation::Tail(_, continuation) => {
+            witness.make_thunk_tail_continuation_cont = Some(*continuation.clone());
             if let Continuation::Tail(saved_env, previous_cont) = &*continuation {
                 let thunk = Thunk {
                     value: Box::new(result.clone()),
@@ -779,7 +779,6 @@ fn make_thunk(
                     Continuation::Dummy,
                 )
             } else {
-                witness.make_thunk_tail_continuation_cont = Some(*continuation.clone());
                 // There is no risk of a recursive loop here, so the self-call below
                 // is just convenience. It can be unrolled in the circuit. That
                 // said, it' a pain to deal with in circuit and would probably be
