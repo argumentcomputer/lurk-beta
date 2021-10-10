@@ -856,7 +856,7 @@ fn make_tail_continuation(env: &Expression, continuation: &Continuation) -> Cont
     match &*continuation {
         Continuation::Outermost => continuation.clone(),
         // Match all tail continuations here.
-        Continuation::Tail(env, c) => *c.clone(),
+        Continuation::Tail(env, c) => make_tail_continuation(env, c),
         _ => Continuation::Tail(env.clone(), Box::new(continuation.clone())),
     }
 }
@@ -1728,7 +1728,7 @@ mod test {
             let (result_expr, _new_env, iterations, _continuation) =
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-            assert_eq!(618, iterations); // FIXME: Reconcile with reference (extra tail thunk).
+            assert_eq!(617, iterations); // FIXME: Reconcile with reference (extra tail thunk).
             assert_eq!(
                 s.read("(((h . g) . (f . e)) . ((d . c) . (b . a)))")
                     .unwrap(),
@@ -1805,6 +1805,40 @@ mod test {
             assert_eq!(Expression::Nil, result_expr);
 
             assert_eq!(215, iterations);
+        }
+    }
+
+    #[test]
+    fn env_lost_bug() {
+        {
+            // previously, an unbound variable `u` error
+            let mut s = Store::default();
+            let limit = 1000;
+            let expr = s
+                .read(
+"
+(letrec*
+    (
+     (id
+      (lambda (x) x))
+     (id2
+      (lambda (x) (id x)))
+     (foo
+      (lambda (u)
+        (if (id2 0)
+            u
+            0)))
+     )
+  (foo '()))
+",
+                )
+                .unwrap();
+            let (result_expr, _new_env, iterations, _continuation) =
+                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+            assert_eq!(Expression::Nil, result_expr);
+
+            assert_eq!(35, iterations);
         }
     }
 }
