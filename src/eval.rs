@@ -308,6 +308,8 @@ fn eval_expr_with_witness(
             if head == lambda {
                 let (args, body) = store.car_cdr(&rest);
                 let (arg, _rest) = if args == Expression::Nil {
+                    // (LAMBDA () STUFF)
+                    // becomes (LAMBDA (DUMMY) STUFF)
                     (dummy_arg, Expression::Nil)
                 } else {
                     store.car_cdr(&args)
