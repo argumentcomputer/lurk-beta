@@ -130,13 +130,6 @@ impl<'a, T: Evaluable + Clone + PartialEq + Witnessed> Iterator for FrameIt<'a, 
     }
 }
 
-fn maybe_wrap_continuation(cont: Continuation) -> Continuation {
-    match cont {
-        Continuation::Outermost => Continuation::Simple(Box::new(cont)),
-        _ => cont,
-    }
-}
-
 #[derive(Clone, Debug, Default, PartialEq, PartialOrd, std::cmp::Eq)]
 pub struct Witness {
     pub make_thunk_was_called: bool,
@@ -337,7 +330,7 @@ fn eval_expr_with_witness(
                 // Only a single body form allowed for now.
                 assert_eq!(Expression::Nil, rest_body);
                 if bindings == Expression::Nil {
-                    Control::Return(body1, env.clone(), maybe_wrap_continuation(cont.clone()))
+                    Control::Return(body1, env.clone(), cont.clone())
                 } else {
                     let (binding1, rest_bindings) = store.car_cdr(&bindings);
                     let (var, more_vals) = store.car_cdr(&binding1);
@@ -353,12 +346,7 @@ fn eval_expr_with_witness(
                     Control::Return(
                         val,
                         env.clone(),
-                        Continuation::LetStar(
-                            var,
-                            expanded,
-                            env.clone(),
-                            Box::new(maybe_wrap_continuation(cont.clone())),
-                        ),
+                        Continuation::LetStar(var, expanded, env.clone(), Box::new(cont.clone())),
                     )
                 }
             } else if head == store.intern("LETREC*") {
@@ -367,7 +355,7 @@ fn eval_expr_with_witness(
                 // Only a single body form allowed for now.
                 assert_eq!(Expression::Nil, rest_body);
                 if bindings == Expression::Nil {
-                    Control::Return(body1, env.clone(), maybe_wrap_continuation(cont.clone()))
+                    Control::Return(body1, env.clone(), cont.clone())
                 } else {
                     let (binding1, rest_bindings) = store.car_cdr(&bindings);
                     let (var, more_vals) = store.car_cdr(&binding1);
@@ -387,7 +375,7 @@ fn eval_expr_with_witness(
                             var,
                             expanded,
                             env.clone(),
-                            Box::new(maybe_wrap_continuation(cont.clone())),
+                            Box::new(cont.clone()),
                         ),
                     )
                 }
@@ -498,11 +486,7 @@ fn eval_expr_with_witness(
                         // Interpreting as multi-arg call.
                         let expanded_inner = store.list(vec![fun_form, arg]);
                         let expanded = store.cons(&expanded_inner, &more_args);
-                        Control::Return(
-                            expanded,
-                            env.clone(),
-                            maybe_wrap_continuation(cont.clone()),
-                        )
+                        Control::Return(expanded, env.clone(), cont.clone())
                     }
                 }
             }
@@ -544,7 +528,7 @@ fn invoke_continuation(
                 let newer_cont = Continuation::Call2(
                     function.clone(),
                     saved_env.clone(),
-                    Box::new(maybe_wrap_continuation(*continuation.clone())),
+                    Box::new(*continuation.clone()),
                 );
                 Control::Return(next_expr.clone(), env.clone(), newer_cont)
             }
@@ -1106,7 +1090,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(7, iterations);
+        assert_eq!(6, iterations);
         assert_eq!(val, result_expr);
     }
 
@@ -1120,7 +1104,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(14, iterations);
+        assert_eq!(13, iterations);
         assert_eq!(val, result_expr);
     }
 
@@ -1136,7 +1120,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(17, iterations);
+        assert_eq!(16, iterations);
         assert_eq!(val, result_expr);
     }
 
@@ -1154,7 +1138,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(17, iterations);
+        assert_eq!(16, iterations);
         assert_eq!(val2, result_expr);
     }
 
@@ -1171,7 +1155,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(19, iterations);
+        assert_eq!(18, iterations);
         assert_eq!(val, result_expr);
     }
 
@@ -1280,7 +1264,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(18, iterations);
+        assert_eq!(17, iterations);
         assert_eq!(Expression::num(5), result_expr);
     }
 
@@ -1299,7 +1283,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(21, iterations);
+        assert_eq!(20, iterations);
         assert_eq!(Expression::num(5), result_expr);
     }
 
@@ -1312,7 +1296,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(5, iterations);
+        assert_eq!(4, iterations);
         assert_eq!(Expression::num(1), result_expr);
     }
 
@@ -1325,7 +1309,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(7, iterations);
+        assert_eq!(6, iterations);
         assert_eq!(Expression::num(3), result_expr);
     }
 
@@ -1344,7 +1328,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(14, iterations);
+        assert_eq!(13, iterations);
         assert_eq!(Expression::num(3), result_expr);
     }
 
@@ -1379,7 +1363,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(24, iterations);
+        assert_eq!(23, iterations);
         assert_eq!(Expression::num(6), result_expr);
     }
 
@@ -1408,7 +1392,7 @@ mod test {
             let (result_expr, _new_env, iterations, _continuation) =
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-            assert_eq!(46, iterations);
+            assert_eq!(45, iterations);
             assert_eq!(Expression::num(5), result_expr);
         }
         {
@@ -1432,7 +1416,7 @@ mod test {
             let (result_expr, _new_env, iterations, _continuation) =
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-            assert_eq!(43, iterations);
+            assert_eq!(42, iterations);
             assert_eq!(Expression::num(6), result_expr);
         }
     }
@@ -1494,7 +1478,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(118, iterations);
+        assert_eq!(117, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
 
@@ -1516,7 +1500,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(249, iterations);
+        assert_eq!(248, iterations);
         assert_eq!(Expression::num(3125), result_expr);
     }
 
@@ -1536,7 +1520,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(122, iterations);
+        assert_eq!(121, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
 
@@ -1559,7 +1543,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(100, iterations);
+        assert_eq!(99, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
 
@@ -1581,7 +1565,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(161, iterations);
+        assert_eq!(160, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
 
@@ -1605,7 +1589,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(140, iterations);
+        assert_eq!(139, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
 
@@ -1623,7 +1607,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(32, iterations);
+        assert_eq!(31, iterations);
         assert_eq!(Expression::num(13), result_expr);
     }
 
@@ -1641,7 +1625,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(44, iterations);
+        assert_eq!(43, iterations);
         assert_eq!(Expression::num(11), result_expr);
     }
 
@@ -1670,7 +1654,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(309, iterations);
+        assert_eq!(308, iterations);
         assert_eq!(Expression::num(33), result_expr);
     }
 
@@ -1731,7 +1715,7 @@ mod test {
             let (result_expr, _new_env, iterations, _continuation) =
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-            assert_eq!(617, iterations);
+            assert_eq!(616, iterations);
             assert_eq!(
                 s.read("(((h . g) . (f . e)) . ((d . c) . (b . a)))")
                     .unwrap(),
@@ -1782,7 +1766,7 @@ mod test {
 
             assert_eq!(s.read("((2 . 3) . (4 . 5))").unwrap(), result_expr);
 
-            assert_eq!(215, iterations);
+            assert_eq!(214, iterations);
         }
     }
     #[test]
@@ -1807,7 +1791,7 @@ mod test {
 
             assert_eq!(Expression::Nil, result_expr);
 
-            assert_eq!(215, iterations);
+            assert_eq!(214, iterations);
         }
     }
 
@@ -1841,7 +1825,7 @@ mod test {
 
             assert_eq!(Expression::Nil, result_expr);
 
-            assert_eq!(35, iterations);
+            assert_eq!(34, iterations);
         }
     }
 }
