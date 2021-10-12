@@ -303,10 +303,17 @@ fn eval_expr_with_witness(
             let rest = store.fetch(*rest_t).unwrap();
             let lambda = store.intern("LAMBDA");
             let quote = store.intern("QUOTE");
+            let dummy_arg = store.intern("_");
 
             if head == lambda {
                 let (args, body) = store.car_cdr(&rest);
-                let (arg, _rest) = store.car_cdr(&args);
+                let (arg, _rest) = if args == Expression::Nil {
+                    // (LAMBDA () STUFF)
+                    // becomes (LAMBDA (DUMMY) STUFF)
+                    (dummy_arg, Expression::Nil)
+                } else {
+                    store.car_cdr(&args)
+                };
                 let cdr_args = store.cdr(&args);
                 let inner_body = if cdr_args == Expression::Nil {
                     body
@@ -466,13 +473,11 @@ fn eval_expr_with_witness(
                 // (fn . args)
                 let fun_form = head;
                 let args = rest;
-                if args == Expression::Nil {
-                    // The reference impl has a list of args in the Call
-                    // continuation, allowing to specify zero. We will need
-                    // something different (and possibly to change the reference.
-                    todo!("implement zero-arg functions");
-                }
-                let (arg, more_args) = store.car_cdr(&args);
+                let (arg, more_args) = if args == Expression::Nil {
+                    (Expression::Nil, Expression::Nil)
+                } else {
+                    store.car_cdr(&args)
+                };
                 match &more_args {
                     // FIXME: Handle QUOTE, CAR, and CDR.
                     // (fn arg1)
@@ -532,7 +537,6 @@ fn invoke_continuation(
                 );
                 Control::Return(next_expr.clone(), env.clone(), newer_cont)
             }
-            // TODO: Add a way to specify zero-arg functions, then handle it here.
             _ => {
                 Control::Return(result.clone(), env.clone(), Continuation::Error)
                 // Bad function
@@ -1681,6 +1685,32 @@ mod test {
 
             assert_eq!(5, iterations);
             assert_eq!(Expression::Nil, result_expr);
+        }
+    }
+
+    #[test]
+    fn outer_evaluate_zero_arg_lambda() {
+        {
+            let mut s = Store::default();
+            let limit = 20;
+            let expr = s.read("((lambda () 123))").unwrap();
+
+            let (result_expr, _new_env, iterations, _continuation) =
+                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+            assert_eq!(6, iterations);
+            assert_eq!(Expression::num(123), result_expr);
+        }
+        {
+            let mut s = Store::default();
+            let limit = 20;
+            let expr = s.read("(letrec* ((x 9) (f (lambda () (+ x 1)))) (f))").unwrap();
+
+            let (result_expr, _new_env, iterations, _continuation) =
+                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+            assert_eq!(19, iterations);
+            assert_eq!(Expression::num(10), result_expr);
         }
     }
 
