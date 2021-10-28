@@ -1,5 +1,0 @@
-if [[ $(which rlwrap) ]]; then
-    rlwrap cargo run --release --example repl
-else
-    cargo run --release --example repl
-fi

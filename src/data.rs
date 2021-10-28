@@ -40,6 +40,7 @@ pub enum Tag {
     Fun,
     Num,
     Thunk,
+    Str,
 }
 
 /// Order of these tag variants is significant, since it will be concretely
@@ -136,6 +137,7 @@ pub enum Expression {
     Nil,
     Cons(TaggedHash, TaggedHash),
     Sym(String),
+    Str(String),
     Fun(TaggedHash, TaggedHash, TaggedHash), // arg, body, closed env
     Num(Fr),
     Thunk(Thunk),
@@ -561,6 +563,7 @@ impl Tagged for Expression {
             Nil => Tag::Nil,
             Cons(_, _) => Tag::Cons,
             Sym(_) => Tag::Sym,
+            Str(_) => Tag::Str,
             Fun(_, _, _) => Tag::Fun,
             Num(_) => Tag::Num,
             Thunk(_) => Tag::Thunk,
@@ -574,6 +577,7 @@ impl Expression {
             Nil => hash_string("NIL"),
             Cons(car, cdr) => binary_hash(car, cdr),
             Sym(s) => hash_string(s),
+            Str(s) => hash_string(s),
             Fun(arg, body, closed_env) => tri_hash(arg, body, closed_env),
             Num(fr) => *fr, // Nums are immediate.
             Thunk(thunk) => {
@@ -617,6 +621,14 @@ impl Expression {
             }
         }
     }
+
+    pub fn is_keyword_sym(&self) -> bool {
+        if let Self::Sym(s) = self {
+            s.chars().next() == Some(':')
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -648,6 +660,12 @@ impl Store {
         let sym = Expression::read_sym(s);
         self.store(&sym);
         sym
+    }
+
+    pub fn intern_string(&mut self, s: &str) -> Expression {
+        let str = Expression::Str(s.to_string());
+        self.store(&str);
+        str
     }
 
     pub fn cons(&mut self, car: &Expression, cdr: &Expression) -> Expression {
@@ -703,6 +721,7 @@ impl Store {
         match expr {
             Nil => write!(w, "NIL"),
             Sym(s) => write!(w, "{}", s),
+            Str(s) => write!(w, "\"{}\"", s),
             Fun(arg, body, _closed_env) => {
                 let arg = self.fetch(*arg).unwrap();
                 let body = self.fetch(*body).unwrap();
@@ -758,7 +777,33 @@ impl Store {
         self.read_next(&mut chars)
     }
 
-    fn read_next<T: Iterator<Item = char>>(
+    pub fn read_maybe_meta<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut Peekable<T>,
+    ) -> Option<(Expression, bool)> {
+        if let Some(c) = skip_whitespace_and_peek(chars) {
+            match c {
+                '!' => {
+                    chars.next();
+                    if let Some(s) = self.read_string(chars) {
+                        Some((s, true))
+                    } else {
+                        if let Some((e, is_meta)) = self.read_maybe_meta(chars) {
+                            assert!(!is_meta);
+                            Some((e, true))
+                        } else {
+                            None
+                        }
+                    }
+                }
+                _ => self.read_next(chars).map(|expr| (expr, false)),
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn read_next<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut Peekable<T>,
     ) -> Option<Expression> {
@@ -778,6 +823,7 @@ impl Store {
                     let inner = self.list(vec![quoted]);
                     Some(self.cons(&quote, &inner))
                 }
+                '\"' => self.read_string(chars),
                 x if is_symbol_char(&x, true) => self.read_symbol(chars),
                 _ => {
                     panic!("bad input character: {}", c);
@@ -885,12 +931,44 @@ impl Store {
             _ => Some(sym),
         }
     }
+
+    // For now, this is only used for REPL/CLI commands.
+    pub fn read_string<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut Peekable<T>,
+    ) -> Option<Expression> {
+        let mut result = String::new();
+
+        if let Some(c) = skip_whitespace_and_peek(chars) {
+            match c {
+                '"' => {
+                    chars.next();
+                    while let Some(&c) = chars.peek() {
+                        chars.next();
+                        // TODO: This does not handle any escaping, so strings containing " cannot be read.
+                        if c == '"' {
+                            let str = self.intern_string(&result);
+                            return Some(str);
+                        } else {
+                            result.push(c);
+                        }
+                    }
+                    return None;
+                }
+                _ => return None,
+            }
+        } else {
+            return None;
+        };
+
+        unreachable!();
+    }
 }
 
 fn is_symbol_char(c: &char, initial: bool) -> bool {
     match c {
         // FIXME: suppport more than just alpha.
-        'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' | '=' => true,
+        'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' | '=' | ':' => true,
         _ => {
             if initial {
                 false
@@ -950,6 +1028,7 @@ mod test {
         assert_eq!(3, Tag::Fun as u64);
         assert_eq!(4, Tag::Num as u64);
         assert_eq!(5, Tag::Thunk as u64);
+        assert_eq!(6, Tag::Str as u64);
     }
 
     #[test]
@@ -1230,5 +1309,66 @@ asdf(", "ASDF",
         test(&mut store, "(A (B . C) (D E (F)) G)");
         // test(&mut store, "'A");
         // test(&mut store, "'(A B)");
+    }
+
+    #[test]
+    fn read_maybe_meta() {
+        let mut store = Store::default();
+        let test =
+            |store: &mut Store, input: &str, expected_expr: Expression, expected_meta: bool| {
+                let mut chars = input.chars().peekable();
+
+                match store.read_maybe_meta(&mut chars).unwrap() {
+                    (expr, meta) => {
+                        assert_eq!(expected_expr, expr);
+                        assert_eq!(expected_meta, meta);
+                    }
+                    _ => panic!("bad input"),
+                };
+            };
+
+        test(&mut store, "123", Expression::num(123), false);
+
+        {
+            let l = store.list(vec![Expression::num(123), Expression::num(321)]);
+            test(&mut store, " (123 321)", l, false);
+        }
+        {
+            let l = store.list(vec![Expression::num(123), Expression::num(321)]);
+            test(&mut store, " !(123 321)", l, true);
+        }
+        {
+            let l = store.list(vec![Expression::num(123), Expression::num(321)]);
+            test(&mut store, " ! (123 321)", l, true);
+        }
+        {
+            let s = store.intern(&"asdf");
+            test(&mut store, "!asdf", s, true);
+        }
+        {
+            let s = store.intern(":assert");
+            let l = store.list(vec![s]);
+            test(&mut store, "!(:assert)", l, true);
+        }
+    }
+    #[test]
+    fn is_meta() {
+        assert!(Expression::Sym(":UIOP".to_string()).is_keyword_sym());
+    }
+    #[test]
+    fn read_string() {
+        let mut store = Store::default();
+        let test = |store: &mut Store, input: &str, expected: Option<Expression>| {
+            let maybe_string = store.read_string(&mut input.chars().peekable());
+            assert_eq!(expected, maybe_string);
+        };
+
+        test(
+            &mut store,
+            "\"asdf\"",
+            Some(Expression::Str("asdf".to_string())),
+        );
+        test(&mut store, "\"asdf", None);
+        test(&mut store, "asdf", None);
     }
 }
