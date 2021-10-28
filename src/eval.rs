@@ -296,6 +296,7 @@ fn eval_expr_with_witness(
                 }
             }
         }
+        Expression::Str(_) => unimplemented!(),
         Expression::Num(_) => Control::MakeThunk(expr.clone(), env.clone(), cont.clone()),
         Expression::Fun(_, _, _) => Control::MakeThunk(expr.clone(), env.clone(), cont.clone()),
         Expression::Cons(head_t, rest_t) => {
@@ -1704,7 +1705,9 @@ mod test {
         {
             let mut s = Store::default();
             let limit = 20;
-            let expr = s.read("(letrec* ((x 9) (f (lambda () (+ x 1)))) (f))").unwrap();
+            let expr = s
+                .read("(letrec* ((x 9) (f (lambda () (+ x 1)))) (f))")
+                .unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
