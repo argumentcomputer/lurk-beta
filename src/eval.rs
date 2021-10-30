@@ -929,7 +929,7 @@ fn extend_rec(
     val: &Expression,
     store: &mut Store,
 ) -> Expression {
-    let (binding_or_env, _rest) = store.car_cdr(env);
+    let (binding_or_env, rest) = store.car_cdr(env);
     let (var_or_binding, _val_or_more_bindings) = store.car_cdr(&binding_or_env);
     match var_or_binding {
         // It's a var, so we are extending a simple env with a recursive env.
@@ -942,7 +942,7 @@ fn extend_rec(
         Expression::Cons(_, _) => {
             let cons = store.cons(var, val);
             let cons2 = store.cons(&cons, &binding_or_env);
-            store.list(vec![cons2])
+            store.cons(&cons2, &rest)
         }
         _ => {
             panic!("Bad input form.")
@@ -1859,6 +1859,30 @@ mod test {
             assert_eq!(Expression::Nil, result_expr);
 
             assert_eq!(34, iterations);
+        }
+    }
+
+    #[test]
+    fn dont_discard_rest_env() {
+        {
+            // previously: Unbound variable: Sym("Z")
+            let mut s = Store::default();
+            let limit = 1000;
+            let expr = s
+                .read(
+                    "(let* ((z 9))
+                       (letrec* ((a 1)
+                                 (b 2)
+                                 (l (lambda (x) (+ z x))))
+                         (l 9)))",
+                )
+                .unwrap();
+            let (result_expr, _new_env, iterations, _continuation) =
+                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+
+            assert_eq!(Expression::num(18), result_expr);
+
+            assert_eq!(29, iterations);
         }
     }
 }
