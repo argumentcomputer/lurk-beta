@@ -1352,8 +1352,9 @@ asdf(", "ASDF",
         }
     }
     #[test]
-    fn is_meta() {
+    fn is_keyword() {
         assert!(Expression::Sym(":UIOP".to_string()).is_keyword_sym());
+        assert!(!Expression::Sym("UIOP".to_string()).is_keyword_sym());
     }
     #[test]
     fn read_string() {

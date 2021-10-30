@@ -161,7 +161,7 @@ fn handle_run<P: AsRef<Path> + Copy>(
                                         p.as_ref().parent().unwrap().join(Path::new(&path));
                                     handle_load(state, store, &joined)?
                                 }
-                                _ => unimplemented!(),
+                                _ => panic!("Argument to :LOAD must be a string."),
                             }
                         } else if s == ":RUN" {
                             match store.car(&store.fetch(rest).unwrap()) {
@@ -170,7 +170,7 @@ fn handle_run<P: AsRef<Path> + Copy>(
                                         p.as_ref().parent().unwrap().join(Path::new(&path));
                                     handle_run(state, store, &joined)?
                                 }
-                                _ => unimplemented!(),
+                                _ => panic!("Argument to :RUN must be a string."),
                             }
                         } else if s == ":ASSERT-EQ" {
                             let (first, rest) = store.car_cdr(&store.fetch(rest).unwrap());
@@ -188,9 +188,9 @@ fn handle_run<P: AsRef<Path> + Copy>(
                             state.env = empty_sym_env(&store);
                         }
                     }
-                    _ => todo!(),
+                    _ => panic!("!(<COMMAND> ...) must be a (:keyword) symbol."),
                 },
-                _ => todo!(),
+                _ => panic!("!<COMMAND> form is unsupported."),
             }
         } else {
             let (result, _limit, _next_cont) = eval_expr(expr, state, store);
