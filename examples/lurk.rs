@@ -27,6 +27,16 @@ fn main() {
     let limit = 1000000;
     let mut state = ReplState::new(&mut s, limit);
 
+    {
+        // If an argument is passed, treat is as a Lurk file to run.
+        let mut args = std::env::args();
+        if args.len() > 1 {
+            let lurk_file = args.nth(1).expect("Lurk file missing");
+            handle_run(&mut state, &mut s, &lurk_file).unwrap();
+            return;
+        }
+    }
+
     let stdin = io::stdin();
     let mut it = stdin.lock().lines();
     let mut stdout = io::stdout();
