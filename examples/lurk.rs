@@ -4,6 +4,7 @@ use std::fs::read_to_string;
 use std::io::{self, BufRead, Error, Write};
 use std::path::Path;
 
+#[derive(Clone)]
 struct ReplState {
     env: Expression,
     limit: usize,
@@ -55,18 +56,18 @@ fn main() {
             }
         };
 
-        let expr = s.read(&line).unwrap();
+        if let Some(expr) = s.read(&line) {
+            let (result, _next_env, iterations, next_cont) =
+                outer_evaluate(expr, state.env.clone(), &mut s, limit);
+            print!("[{} iterations] => ", iterations);
+            let mut handle = stdout.lock();
+            s.print_expr(&result, &mut handle).unwrap();
+            println!();
 
-        let (result, _next_env, iterations, next_cont) =
-            outer_evaluate(expr, state.env.clone(), &mut s, limit);
-        print!("[{} iterations] => ", iterations);
-        let mut handle = stdout.lock();
-        s.print_expr(&result, &mut handle).unwrap();
-        println!();
-
-        match next_cont {
-            Continuation::Outermost | Continuation::Terminal => (),
-            _ => println!("Computation incomplete after limit: {}", limit),
+            match next_cont {
+                Continuation::Outermost | Continuation::Terminal => (),
+                _ => println!("Computation incomplete after limit: {}", limit),
+            }
         }
     }
 }
@@ -186,6 +187,21 @@ fn handle_run<P: AsRef<Path> + Copy>(
                             assert!(first_evaled != Expression::Nil);
                         } else if s == ":CLEAR" {
                             state.env = empty_sym_env(&store);
+                        } else if s == ":ASSERT-ERROR" {
+                            let (first, rest) = store.car_cdr(&store.fetch(rest).unwrap());
+
+                            assert_eq!(Expression::Nil, rest);
+                            if let Ok((_, _, continuation)) = std::panic::catch_unwind(|| {
+                                eval_expr(first, &mut state.clone(), &mut store.clone())
+                            }) {
+                                assert_eq!(Continuation::Error, continuation);
+                            } else {
+                                // There was a panic, so this is okay.
+                                // FIXME: Never panic. Instead return Continuation::Error when evaluating.
+                                ()
+                            }
+                        } else {
+                            panic!("!({} ...) is unsupported.", s);
                         }
                     }
                     _ => panic!("!(<COMMAND> ...) must be a (:keyword) symbol."),
