@@ -814,7 +814,7 @@ impl Store {
                 ' ' | '\t' | '\n' | '\r' => {
                     // Skip whitespace.
                     chars.next();
-                    None
+                    continue;
                 }
                 '\'' => {
                     chars.next();
@@ -824,6 +824,14 @@ impl Store {
                     Some(self.cons(&quote, &inner))
                 }
                 '\"' => self.read_string(chars),
+                ';' => {
+                    chars.next();
+                    if skip_line_comment(chars) {
+                        continue;
+                    } else {
+                        None
+                    }
+                }
                 x if is_symbol_char(&x, true) => self.read_symbol(chars),
                 _ => {
                     panic!("bad input character: {}", c);
@@ -988,20 +996,47 @@ fn is_reserved_char(c: &char) -> bool {
     matches!(c, '(' | ')' | '.')
 }
 
-#[allow(dead_code)]
 fn is_whitespace_char(c: &char) -> bool {
     matches!(c, ' ' | '\t' | '\n' | '\r')
 }
 
+fn is_comment_char(c: &char) -> bool {
+    matches!(c, ';')
+}
+
+fn is_line_end_char(c: &char) -> bool {
+    matches!(c, '\n' | '\r')
+}
+
+// Skips whitespace and comments, returning the next character, if any.
 fn skip_whitespace_and_peek<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> Option<char> {
     while let Some(&c) = chars.peek() {
         if is_whitespace_char(&c) {
             chars.next();
+        } else if is_comment_char(&c) {
+            skip_line_comment(chars);
         } else {
             return Some(c);
         }
     }
     None
+}
+
+// Returns true if comment ends with a line end character.
+// If false, this comment is unterminated and is the end of input.
+fn skip_line_comment<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> bool {
+    while let Some(&c) = chars.peek() {
+        if !is_line_end_char(&c) {
+            chars.next();
+        } else {
+            return true;
+        }
+    }
+    false
+
+    //chars.skip_while(|c| *c != '\n' && *c != '\r');
+    //     }
+    // };
 }
 
 fn print_num(fr: &Fr, w: &mut impl Write) -> io::Result<()> {
@@ -1350,6 +1385,16 @@ asdf(", "ASDF",
             let l = store.list(vec![s]);
             test(&mut store, "!(:assert)", l, true);
         }
+        {
+            let s = store.intern(&"asdf");
+            test(
+                &mut store,
+                ";; comment
+!asdf",
+                s,
+                true,
+            );
+        }
     }
     #[test]
     fn is_keyword() {
@@ -1371,5 +1416,20 @@ asdf(", "ASDF",
         );
         test(&mut store, "\"asdf", None);
         test(&mut store, "asdf", None);
+    }
+    #[test]
+    fn read_with_comments() {
+        let mut store = Store::default();
+        let test = |store: &mut Store, input: &str, expected: Option<Expression>| {
+            let res = store.read(input);
+            assert_eq!(expected, res);
+        };
+
+        test(
+            &mut store,
+            ";123
+321",
+            Some(Expression::num(321)),
+        );
     }
 }
