@@ -1,22 +1,21 @@
 // Initially taken from: rust-fil-proofs/storage-proofs-core/src/gadgets/
 
 use bellperson::{
-    bls::Engine,
     gadgets::boolean::{AllocatedBit, Boolean},
     gadgets::num::AllocatedNum,
     ConstraintSystem, SynthesisError,
 };
-
-use ff::Field;
+use blstrs::Scalar as Fr;
+use ff::{Field, PrimeField};
 
 /// Adds a constraint to CS, enforcing an equality relationship between the allocated numbers a and b.
 ///
 /// a == b
-pub fn equal<E: Engine, A, AR, CS: ConstraintSystem<E>>(
+pub fn equal<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
-    a: &AllocatedNum<E>,
-    b: &AllocatedNum<E>,
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
 ) where
     A: FnOnce() -> AR,
     AR: Into<String>,
@@ -33,12 +32,12 @@ pub fn equal<E: Engine, A, AR, CS: ConstraintSystem<E>>(
 /// Adds a constraint to CS, enforcing a add relationship between the allocated numbers a, b, and sum.
 ///
 /// a + b = sum
-pub fn sum<E: Engine, A, AR, CS: ConstraintSystem<E>>(
+pub fn sum<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
-    a: &AllocatedNum<E>,
-    b: &AllocatedNum<E>,
-    sum: &AllocatedNum<E>,
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
+    sum: &AllocatedNum<F>,
 ) where
     A: FnOnce() -> AR,
     AR: Into<String>,
@@ -52,11 +51,11 @@ pub fn sum<E: Engine, A, AR, CS: ConstraintSystem<E>>(
     );
 }
 
-pub fn add<E: Engine, CS: ConstraintSystem<E>>(
+pub fn add<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    a: &AllocatedNum<E>,
-    b: &AllocatedNum<E>,
-) -> Result<AllocatedNum<E>, SynthesisError> {
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
+) -> Result<AllocatedNum<F>, SynthesisError> {
     let res = AllocatedNum::alloc(cs.namespace(|| "add_num"), || {
         let mut tmp = a.get_value().ok_or(SynthesisError::AssignmentMissing)?;
         tmp.add_assign(&b.get_value().ok_or(SynthesisError::AssignmentMissing)?);
@@ -73,12 +72,12 @@ pub fn add<E: Engine, CS: ConstraintSystem<E>>(
 /// Adds a constraint to CS, enforcing a difference relationship between the allocated numbers a, b, and difference.
 ///
 /// a - b = difference
-pub fn difference<E: Engine, A, AR, CS: ConstraintSystem<E>>(
+pub fn difference<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
-    a: &AllocatedNum<E>,
-    b: &AllocatedNum<E>,
-    difference: &AllocatedNum<E>,
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
+    difference: &AllocatedNum<F>,
 ) where
     A: FnOnce() -> AR,
     AR: Into<String>,
@@ -94,11 +93,11 @@ pub fn difference<E: Engine, A, AR, CS: ConstraintSystem<E>>(
     );
 }
 
-pub fn sub<E: Engine, CS: ConstraintSystem<E>>(
+pub fn sub<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    a: &AllocatedNum<E>,
-    b: &AllocatedNum<E>,
-) -> Result<AllocatedNum<E>, SynthesisError> {
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
+) -> Result<AllocatedNum<F>, SynthesisError> {
     let res = AllocatedNum::alloc(cs.namespace(|| "sub_num"), || {
         let mut tmp = a.get_value().ok_or(SynthesisError::AssignmentMissing)?;
         tmp.sub_assign(&b.get_value().ok_or(SynthesisError::AssignmentMissing)?);
@@ -115,12 +114,12 @@ pub fn sub<E: Engine, CS: ConstraintSystem<E>>(
 /// Adds a constraint to CS, enforcing a product relationship between the allocated numbers a, b, and product.
 ///
 /// a * b = product
-pub fn product<E: Engine, A, AR, CS: ConstraintSystem<E>>(
+pub fn product<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
-    a: &AllocatedNum<E>,
-    b: &AllocatedNum<E>,
-    product: &AllocatedNum<E>,
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
+    product: &AllocatedNum<F>,
 ) where
     A: FnOnce() -> AR,
     AR: Into<String>,
@@ -134,14 +133,14 @@ pub fn product<E: Engine, A, AR, CS: ConstraintSystem<E>>(
     );
 }
 
-pub fn mul<E: Engine, CS: ConstraintSystem<E>>(
+pub fn mul<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    a: &AllocatedNum<E>,
-    b: &AllocatedNum<E>,
-) -> Result<AllocatedNum<E>, SynthesisError> {
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
+) -> Result<AllocatedNum<F>, SynthesisError> {
     let res = AllocatedNum::alloc(cs.namespace(|| "mul_num"), || {
         let mut tmp = a.get_value().ok_or(SynthesisError::AssignmentMissing)?;
-        tmp.sub_assign(&b.get_value().ok_or(SynthesisError::AssignmentMissing)?);
+        tmp.mul_assign(&b.get_value().ok_or(SynthesisError::AssignmentMissing)?);
 
         Ok(tmp)
     })?;
@@ -152,14 +151,38 @@ pub fn mul<E: Engine, CS: ConstraintSystem<E>>(
     Ok(res)
 }
 
+pub fn div<F: PrimeField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
+) -> Result<AllocatedNum<F>, SynthesisError> {
+    let res = AllocatedNum::alloc(cs.namespace(|| "div_num"), || {
+        let mut tmp = a.get_value().ok_or(SynthesisError::AssignmentMissing)?;
+        let inv = (&b.get_value().ok_or(SynthesisError::AssignmentMissing)?).invert();
+
+        let inv = if inv.is_some().into() {
+            Ok(inv)
+        } else {
+            Err(SynthesisError::DivisionByZero)
+        }?;
+
+        Ok(tmp)
+    })?;
+
+    // a = b * res
+    product(&mut cs, || "division constraint", &res, b, a);
+
+    Ok(res)
+}
+
 /// Select the nth element of `from`, where `path_bits` represents n, least-significant bit first.
 /// The returned result contains the selected element, and constraints are enforced.
 /// `from.len()` must be a power of two.
-pub fn select<E: Engine, CS: ConstraintSystem<E>>(
+pub fn select<CS: ConstraintSystem<Fr>>(
     mut cs: CS,
-    from: &[AllocatedNum<E>],
+    from: &[AllocatedNum<Fr>],
     path_bits: &[Boolean],
-) -> Result<AllocatedNum<E>, SynthesisError> {
+) -> Result<AllocatedNum<Fr>, SynthesisError> {
     let pathlen = path_bits.len();
     assert_eq!(1 << pathlen, from.len());
 
@@ -188,14 +211,14 @@ pub fn select<E: Engine, CS: ConstraintSystem<E>>(
 }
 
 /// Takes two allocated numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.
-pub fn pick<E: Engine, CS: ConstraintSystem<E>>(
+pub fn pick<CS: ConstraintSystem<Fr>>(
     mut cs: CS,
     condition: &Boolean,
-    a: &AllocatedNum<E>,
-    b: &AllocatedNum<E>,
-) -> Result<AllocatedNum<E>, SynthesisError>
+    a: &AllocatedNum<Fr>,
+    b: &AllocatedNum<Fr>,
+) -> Result<AllocatedNum<Fr>, SynthesisError>
 where
-    CS: ConstraintSystem<E>,
+    CS: ConstraintSystem<Fr>,
 {
     let c = AllocatedNum::alloc(cs.namespace(|| "pick result"), || {
         if condition
@@ -213,7 +236,7 @@ where
     cs.enforce(
         || "pick",
         |lc| lc + b.get_variable() - a.get_variable(),
-        |_| condition.lc(CS::one(), E::Fr::one()),
+        |_| condition.lc(CS::one(), Fr::one()),
         |lc| lc + b.get_variable() - c.get_variable(),
     );
 
@@ -221,10 +244,10 @@ where
 }
 
 // This could now use alloc_is_zero to avoid duplication.
-pub fn alloc_equal<CS: ConstraintSystem<E>, E: Engine>(
+pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
-    a: &AllocatedNum<E>,
-    b: &AllocatedNum<E>,
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
 ) -> Result<Boolean, SynthesisError> {
     let equal = a.get_value() == b.get_value();
 
@@ -244,10 +267,10 @@ pub fn alloc_equal<CS: ConstraintSystem<E>, E: Engine>(
     );
 
     // Inverse of `diff`, if it exists, otherwise one.
-    let q = if let Some(inv) = diff.get_value().unwrap().inverse() {
+    let q = if let Some(inv) = diff.get_value().unwrap().invert().into() {
         inv
     } else {
-        E::Fr::one()
+        F::one()
     };
 
     // (diff + result) * q = 1.
@@ -267,11 +290,11 @@ pub fn alloc_equal<CS: ConstraintSystem<E>, E: Engine>(
     Ok(Boolean::Is(result))
 }
 
-pub fn alloc_is_zero<CS: ConstraintSystem<E>, E: Engine>(
+pub fn alloc_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
-    x: &AllocatedNum<E>,
+    x: &AllocatedNum<F>,
 ) -> Result<Boolean, SynthesisError> {
-    let is_zero = x.get_value().unwrap() == E::Fr::zero();
+    let is_zero = x.get_value().unwrap() == F::zero();
 
     // result = (x == 0)
     let result = AllocatedBit::alloc(cs.namespace(|| "x = 0"), Some(is_zero))?;
@@ -286,10 +309,10 @@ pub fn alloc_is_zero<CS: ConstraintSystem<E>, E: Engine>(
     );
 
     // Inverse of `x`, if it exists, otherwise one.
-    let q = if let Some(inv) = x.get_value().unwrap().inverse() {
+    let q = if let Some(inv) = x.get_value().unwrap().invert().into() {
         inv
     } else {
-        E::Fr::one()
+        F::one()
     };
 
     // (x + result) * q = 1.
@@ -307,7 +330,7 @@ pub fn alloc_is_zero<CS: ConstraintSystem<E>, E: Engine>(
     Ok(Boolean::Is(result))
 }
 
-pub fn enforce_implication<CS: ConstraintSystem<E>, E: Engine>(
+pub fn enforce_implication<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     a: &Boolean,
     b: &Boolean,
@@ -317,17 +340,17 @@ pub fn enforce_implication<CS: ConstraintSystem<E>, E: Engine>(
     Ok(())
 }
 
-pub fn enforce_true<CS: ConstraintSystem<E>, E: Engine>(cs: CS, prop: &Boolean) {
+pub fn enforce_true<CS: ConstraintSystem<F>, F: PrimeField>(cs: CS, prop: &Boolean) {
     Boolean::enforce_equal(cs, &Boolean::Constant(true), prop).unwrap(); // FIXME: unwrap
 }
 
-pub fn enforce_false<CS: ConstraintSystem<E>, E: Engine>(cs: CS, prop: &Boolean) {
+pub fn enforce_false<CS: ConstraintSystem<F>, F: PrimeField>(cs: CS, prop: &Boolean) {
     Boolean::enforce_equal(cs, &Boolean::Constant(false), prop).unwrap(); // FIXME: unwrap
 }
 
 // a => b
 // not (a and (not b))
-pub fn implies<CS: ConstraintSystem<E>, E: Engine>(
+pub fn implies<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: CS,
     a: &Boolean,
     b: &Boolean,
@@ -335,7 +358,7 @@ pub fn implies<CS: ConstraintSystem<E>, E: Engine>(
     Ok(Boolean::and(cs, a, &b.not())?.not())
 }
 
-pub fn or<CS: ConstraintSystem<E>, E: Engine>(
+pub fn or<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     a: &Boolean,
     b: &Boolean,
@@ -359,25 +382,24 @@ pub fn must_be_simple_bit(x: &Boolean) -> AllocatedBit {
 mod tests {
     use super::*;
 
-    use bellperson::{
-        bls::{Bls12, Fr},
-        util_cs::test_cs::TestConstraintSystem,
-    };
+    use bellperson::util_cs::test_cs::TestConstraintSystem;
+    use blstrs::Scalar as Fr;
     use rand::SeedableRng;
     use rand_xorshift::XorShiftRng;
+    use std::ops::{AddAssign, SubAssign};
 
     use crate::TEST_SEED;
 
     #[test]
     fn add_constraint() {
-        let rng = &mut XorShiftRng::from_seed(TEST_SEED);
+        let mut rng = &mut XorShiftRng::from_seed(TEST_SEED);
 
         for _ in 0..100 {
-            let mut cs = TestConstraintSystem::<Bls12>::new();
+            let mut cs = TestConstraintSystem::<Fr>::new();
 
-            let a = AllocatedNum::alloc(cs.namespace(|| "a"), || Ok(Fr::random(rng)))
+            let a = AllocatedNum::alloc(cs.namespace(|| "a"), || Ok(Fr::random(&mut rng)))
                 .expect("alloc failed");
-            let b = AllocatedNum::alloc(cs.namespace(|| "b"), || Ok(Fr::random(rng)))
+            let b = AllocatedNum::alloc(cs.namespace(|| "b"), || Ok(Fr::random(&mut rng)))
                 .expect("alloc failed");
 
             let res = add(cs.namespace(|| "a+b"), &a, &b).expect("add failed");
@@ -392,14 +414,14 @@ mod tests {
 
     #[test]
     fn sub_constraint() {
-        let rng = &mut XorShiftRng::from_seed(TEST_SEED);
+        let mut rng = &mut XorShiftRng::from_seed(TEST_SEED);
 
         for _ in 0..100 {
-            let mut cs = TestConstraintSystem::<Bls12>::new();
+            let mut cs = TestConstraintSystem::<Fr>::new();
 
-            let a = AllocatedNum::alloc(cs.namespace(|| "a"), || Ok(Fr::random(rng)))
+            let a = AllocatedNum::alloc(cs.namespace(|| "a"), || Ok(Fr::random(&mut rng)))
                 .expect("alloc failed");
-            let b = AllocatedNum::alloc(cs.namespace(|| "b"), || Ok(Fr::random(rng)))
+            let b = AllocatedNum::alloc(cs.namespace(|| "b"), || Ok(Fr::random(&mut rng)))
                 .expect("alloc failed");
 
             let res = sub(cs.namespace(|| "a-b"), &a, &b).expect("subtraction failed");

@@ -225,10 +225,10 @@ impl ReplState {
         while let Some((expr, is_meta)) = store.read_maybe_meta(&mut chars) {
             if is_meta {
                 match expr {
-                    Expression::Cons(car, rest) => match &store.fetch(car).unwrap() {
+                    Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
                         Expression::Sym(s) => {
                             if s == ":LOAD" {
-                                match store.car(&store.fetch(rest).unwrap()) {
+                                match store.car(&store.fetch(&rest).unwrap()) {
                                     Expression::Str(path) => {
                                         let joined =
                                             p.as_ref().parent().unwrap().join(Path::new(&path));
@@ -237,7 +237,7 @@ impl ReplState {
                                     _ => panic!("Argument to :LOAD must be a string."),
                                 }
                             } else if s == ":RUN" {
-                                match store.car(&store.fetch(rest).unwrap()) {
+                                match store.car(&store.fetch(&rest).unwrap()) {
                                     Expression::Str(path) => {
                                         let joined =
                                             p.as_ref().parent().unwrap().join(Path::new(&path));
@@ -246,21 +246,21 @@ impl ReplState {
                                     _ => panic!("Argument to :RUN must be a string."),
                                 }
                             } else if s == ":ASSERT-EQ" {
-                                let (first, rest) = store.car_cdr(&store.fetch(rest).unwrap());
+                                let (first, rest) = store.car_cdr(&store.fetch(&rest).unwrap());
                                 let (second, rest) = store.car_cdr(&rest);
                                 assert_eq!(Expression::Nil, rest);
                                 let (first_evaled, _, _) = self.eval_expr(first, store);
                                 let (second_evaled, _, _) = self.eval_expr(second, store);
                                 assert_eq!(first_evaled, second_evaled);
                             } else if s == ":ASSERT" {
-                                let (first, rest) = store.car_cdr(&store.fetch(rest).unwrap());
+                                let (first, rest) = store.car_cdr(&store.fetch(&rest).unwrap());
                                 assert_eq!(Expression::Nil, rest);
                                 let (first_evaled, _, _) = self.eval_expr(first, store);
                                 assert!(first_evaled != Expression::Nil);
                             } else if s == ":CLEAR" {
                                 self.env = empty_sym_env(&store);
                             } else if s == ":ASSERT-ERROR" {
-                                let (first, rest) = store.car_cdr(&store.fetch(rest).unwrap());
+                                let (first, rest) = store.car_cdr(&store.fetch(&rest).unwrap());
 
                                 assert_eq!(Expression::Nil, rest);
                                 if let Ok((_, _, continuation)) = std::panic::catch_unwind(|| {
