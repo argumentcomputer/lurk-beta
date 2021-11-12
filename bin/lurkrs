@@ -1,5 +1,2 @@
-if [[ $(which rlwrap) ]]; then
-    rlwrap cargo run --release --example lurk -- $@
-else
-    cargo run --release --example lurk -- $@
-fi
+cargo run --release --example lurk -- $@
+
