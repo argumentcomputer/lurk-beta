@@ -9,13 +9,17 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.45"
 bellperson = { version = "0.14", default-features = false }
+dirs = "4.0.0"
 ff = { version = "0.3.1", package = "fff" }
 generic-array = "0.14.4"
 itertools = "0.9"
 lazy_static = { version = "1.4.0" }
 neptune = { version = "^3.0", default-features = false }
 rand = "0.7"
+rustyline = "9.0.0"
+rustyline-derive = "0.5.0"
 
 [dev-dependencies]
 rand_xorshift = "0.2.0"
