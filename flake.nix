@@ -24,7 +24,16 @@
     , utils
     , naersk
     }:
-    flake-utils.lib.eachDefaultSystem (system:
+    let
+      supportedSystems = [
+        # "aarch64-linux"
+        # "aarch64-darwin"
+        "i686-linux"
+        "x86_64-darwin"
+        "x86_64-linux"
+      ];
+    in
+    flake-utils.lib.eachSystem supportedSystems (system:
     let
       lib = utils.lib.${system};
       pkgs = nixpkgs.legacyPackages.${system};
@@ -32,7 +41,7 @@
       rust = rustDefault;
       crateName = "lurk";
       src = ./.;
-      buildInputs = with pkgs; [ opencl-clhpp opencl-clang mesa ];
+      buildInputs = with pkgs; [ libclc ];
       project = buildRustProject {
         inherit src buildInputs;
         copyLibs = true;
