@@ -43,11 +43,13 @@
       src = ./.;
       buildInputs = with pkgs; [ ocl-icd ];
       project = buildRustProject {
+        root = ./.;
         inherit src buildInputs;
         copyLibs = true;
       };
       lurk-example = project.override {
-        cargoBuildOptions = d: d ++ [ "--example lurk" "--no-default-features" ];
+        cargoBuildOptions = d: d ++ [ "--example lurk" ];
+        copySources = [ "examples" "src" ];
         copyBins = true;
       };
     in
@@ -63,6 +65,7 @@
       # To run with `nix run`
       apps.lurk-example = flake-utils.lib.mkApp {
         drv = lurk-example;
+        name = "lurk";
       };
 
       defaultApp = self.apps.${system}.lurk-example;
