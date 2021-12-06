@@ -23,8 +23,8 @@ jobs:
         name: yatima
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     - name: Nix build
-      run: nix build $NIX_BUILD_ARGS
-    # - name: Nix check
-    #   run: nix flake check $NIX_BUILD_ARGS
+      run: nix build $NIX_BUILD_ARGS .# .#lurk-example
+    - name: Nix check
+      run: nix flake check $NIX_BUILD_ARGS
     - name: Nix shell
       run: nix shell $NIX_BUILD_ARGS --command echo OK
