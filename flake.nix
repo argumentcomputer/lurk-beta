@@ -41,7 +41,7 @@
       rust = rustDefault;
       crateName = "lurk";
       src = ./.;
-      buildInputs = with pkgs; [ libclc ];
+      buildInputs = with pkgs; [ ocl-icd ];
       project = buildRustProject {
         inherit src buildInputs;
         copyLibs = true;
@@ -72,6 +72,7 @@
         inputsFrom = builtins.attrValues self.packages.${system};
         nativeBuildInputs = [ rust ];
         buildInputs = with pkgs; buildInputs ++ [
+          ocl-icd
           rust-analyzer
           clippy
           rustfmt
