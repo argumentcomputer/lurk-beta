@@ -1,8 +1,11 @@
 // Initially taken from: rust-fil-proofs/storage-proofs-core/src/gadgets/
 
 use bellperson::{
-    gadgets::boolean::{AllocatedBit, Boolean},
-    gadgets::num::AllocatedNum,
+    gadgets::{
+        boolean::{AllocatedBit, Boolean},
+        num::AllocatedNum,
+        Assignment,
+    },
     ConstraintSystem, SynthesisError,
 };
 use blstrs::Scalar as Fr;
@@ -267,18 +270,28 @@ pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     );
 
     // Inverse of `diff`, if it exists, otherwise one.
-    let q = if let Some(inv) = diff.get_value().unwrap().invert().into() {
-        inv
-    } else {
-        F::one()
-    };
+    let q = cs.alloc(
+        || "q",
+        || {
+            if let Some(tmp0) = diff.get_value() {
+                let tmp1 = tmp0.invert();
+                if tmp1.is_some().into() {
+                    Ok(tmp1.unwrap())
+                } else {
+                    Ok(F::one())
+                }
+            } else {
+                Err(SynthesisError::AssignmentMissing)
+            }
+        },
+    )?;
 
     // (diff + result) * q = 1.
     // This enforces that diff and result are not both 0.
     cs.enforce(
         || "(diff + result) * q = 1",
         |lc| lc + diff.get_variable() + result.get_variable(),
-        |_| Boolean::Constant(true).lc(CS::one(), q),
+        |lc| lc + q,
         |lc| lc + CS::one(),
     );
 
@@ -294,10 +307,10 @@ pub fn alloc_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     x: &AllocatedNum<F>,
 ) -> Result<Boolean, SynthesisError> {
-    let is_zero = x.get_value().unwrap() == F::zero();
+    let is_zero = x.get_value().map(|x| x == F::zero());
 
     // result = (x == 0)
-    let result = AllocatedBit::alloc(cs.namespace(|| "x = 0"), Some(is_zero))?;
+    let result = AllocatedBit::alloc(cs.namespace(|| "x = 0"), is_zero)?;
 
     // result * x = 0
     // This means that at least one of result or x is zero.
@@ -309,18 +322,28 @@ pub fn alloc_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     );
 
     // Inverse of `x`, if it exists, otherwise one.
-    let q = if let Some(inv) = x.get_value().unwrap().invert().into() {
-        inv
-    } else {
-        F::one()
-    };
+    let q = cs.alloc(
+        || "q",
+        || {
+            if let Some(tmp0) = x.get_value() {
+                let tmp1 = tmp0.invert();
+                if tmp1.is_some().into() {
+                    Ok(tmp1.unwrap())
+                } else {
+                    Ok(F::one())
+                }
+            } else {
+                Err(SynthesisError::AssignmentMissing)
+            }
+        },
+    )?;
 
     // (x + result) * q = 1.
     // This enforces that x and result are not both 0.
     cs.enforce(
         || "(x + result) * q = 1",
         |lc| lc + x.get_variable() + result.get_variable(),
-        |_| Boolean::Constant(true).lc(CS::one(), q),
+        |lc| lc + q,
         |lc| lc + CS::one(),
     );
 

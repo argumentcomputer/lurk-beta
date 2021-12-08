@@ -1,4 +1,4 @@
-use super::constraints::{alloc_is_zero, equal, pick, select};
+use super::constraints::{add, alloc_is_zero, equal, mul, pick, select, sub};
 use bellperson::{
     gadgets::boolean::{AllocatedBit, Boolean},
     gadgets::num::AllocatedNum,
@@ -19,11 +19,11 @@ pub struct CaseConstraint<'a, F: PrimeField> {
     clauses: &'a [CaseClause<F>],
 }
 
-impl<F: PrimeField> CaseConstraint<'_, F> {
-    fn enforce_selection<CS: ConstraintSystem<F>>(
+impl CaseConstraint<'_, Fr> {
+    fn enforce_selection<CS: ConstraintSystem<Fr>>(
         self,
         cs: &mut CS,
-    ) -> Result<AllocatedNum<F>, SynthesisError> {
+    ) -> Result<AllocatedNum<Fr>, SynthesisError> {
         // Allocate one bit per clause, the selector. This creates constraints enforcing that each bit is 0 or 1.
         // In fact, the 'selected' clause will have selector = 1 while the others = 0.
         // This will be confirmed/enforced by later constraints.
@@ -74,43 +74,41 @@ impl<F: PrimeField> CaseConstraint<'_, F> {
             .map(|c| c.value.clone())
             .collect::<Vec<_>>();
 
-        let result = bit_dot_product(&mut cs.namespace(|| "extract result"), &selectors, &values)?;
+        let result = bit_dot_product(
+            &mut cs.namespace(|| "extract result"),
+            &selectors,
+            values.as_slice(),
+        )?;
 
         Ok(result)
     }
 }
 
-fn bit_dot_product<F: PrimeField, CS: ConstraintSystem<F>>(
+fn bit_dot_product<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
     bit_vector: &[AllocatedBit],
-    value_vector: &[AllocatedNum<F>],
-) -> Result<AllocatedNum<F>, SynthesisError> {
-    let mut computed_result = F::zero();
+    value_vector: &[AllocatedNum<Fr>],
+) -> Result<AllocatedNum<Fr>, SynthesisError> {
+    let mut computed_result = Fr::zero();
 
     let mut all_products = Vec::new();
+    let zero = AllocatedNum::alloc(&mut cs.namespace(|| "zero"), || Ok(Fr::zero()))?;
 
     for (i, (bit, value)) in bit_vector.iter().zip(value_vector).enumerate() {
-        let prod = if bit.get_value().unwrap() {
-            value.get_value().unwrap()
-        } else {
-            F::zero()
+        let allocated_prod = pick(
+            &mut cs.namespace(|| format!("allocated_prod {}", i)),
+            &Boolean::Is(bit.clone()),
+            value,
+            &zero,
+        )?;
+
+        all_products.push(allocated_prod.clone());
+
+        if let Some(prod) = allocated_prod.get_value() {
+            computed_result += prod;
         };
-
-        let allocated_prod =
-            AllocatedNum::<F>::alloc(&mut cs.namespace(|| format!("product-{}", i)), || Ok(prod))?;
-
-        cs.enforce(
-            || format!("bit product {}", i),
-            |lc| lc + bit.get_variable(),
-            |lc| lc + value.get_variable(),
-            |lc| lc + allocated_prod.get_variable(),
-        );
-
-        all_products.push(allocated_prod);
-        computed_result.add_assign(&prod);
     }
-
-    let result = AllocatedNum::<F>::alloc(&mut cs.namespace(|| "result"), || Ok(computed_result))?;
+    let result = AllocatedNum::<Fr>::alloc(&mut cs.namespace(|| "result"), || Ok(computed_result))?;
 
     cs.enforce(
         || "sum of products",
@@ -134,20 +132,34 @@ pub fn case<CS: ConstraintSystem<Fr>>(
 ) -> Result<AllocatedNum<Fr>, SynthesisError> {
     assert!(!clauses.is_empty());
 
-    let mut maybe_selected = None;
+    let mut any_selected = false;
 
     let mut acc = AllocatedNum::alloc(cs.namespace(|| "acc"), || Ok(Fr::one()))?;
 
     for (i, clause) in clauses.iter().enumerate() {
         if Some(clause.key) == selected.get_value() {
-            maybe_selected = Some(selected.clone());
+            any_selected = true;
         }
 
         let mut x = clause.key;
-        x.sub_assign(&selected.get_value().unwrap());
-        x.mul_assign(&acc.get_value().unwrap());
+        let mut selected_present = false;
 
-        let new_acc = AllocatedNum::alloc(cs.namespace(|| format!("acc {})", i + 1)), || Ok(x))?;
+        if let Some(s) = selected.get_value() {
+            selected_present = true;
+            x.sub_assign(&s);
+        };
+
+        if let Some(a) = acc.get_value() {
+            x.mul_assign(&a)
+        };
+
+        let new_acc = AllocatedNum::alloc(&mut cs.namespace(|| format!("acc {}", i + 1)), || {
+            if selected_present {
+                Ok(x)
+            } else {
+                Err(SynthesisError::AssignmentMissing)
+            }
+        })?;
 
         // acc * clause.key - selected = new_acc
         cs.enforce(
@@ -162,10 +174,18 @@ pub fn case<CS: ConstraintSystem<Fr>>(
     let is_selected = alloc_is_zero(cs.namespace(|| "is_selected"), &acc)?;
     // If no selection matched, use a dummy key so constraints are met.
     // We will actually return the default value, though.
-    let dummy_key = AllocatedNum::alloc(cs.namespace(|| "default key"), || Ok(clauses[0].key))?;
-    let selected = maybe_selected.unwrap_or(dummy_key);
+    let dummy_key = clauses[0].key;
+    let selected = AllocatedNum::alloc(cs.namespace(|| "default key"), || {
+        if any_selected {
+            selected
+                .get_value()
+                .ok_or(SynthesisError::AssignmentMissing)
+        } else {
+            Ok(dummy_key)
+        }
+    })?;
 
-    // TODO: Ensure cases contain no duplicate keys.
+    // FIXME: Ensure cases contain no duplicate keys.
     let cc = CaseConstraint { selected, clauses };
 
     // If no selection matched, choose the default value.
@@ -202,7 +222,9 @@ pub fn multi_case<CS: ConstraintSystem<Fr>>(
 }
 mod tests {
     use super::*;
-    use bellperson::util_cs::test_cs::TestConstraintSystem;
+    use bellperson::util_cs::{
+        metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta,
+    };
     use ff::PrimeField;
 
     use crate::data::fr_from_u64;
@@ -260,5 +282,81 @@ mod tests {
             assert_eq!(default.get_value(), result.get_value());
             assert!(cs.is_satisfied());
         }
+    }
+    #[test]
+    fn groth_case() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+        let mut cs_blank = MetricCS::<Fr>::new();
+
+        let x = fr_from_u64(123);
+        let y = fr_from_u64(124);
+        let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
+        let selected_blank = AllocatedNum::alloc(cs_blank.namespace(|| "selected"), || {
+            Err(SynthesisError::AssignmentMissing)
+        })
+        .unwrap();
+        let val = AllocatedNum::alloc(cs.namespace(|| "val"), || Ok(fr_from_u64(666))).unwrap();
+        let val_blank = AllocatedNum::alloc(cs_blank.namespace(|| "val"), || {
+            Err(SynthesisError::AssignmentMissing)
+        })
+        .unwrap();
+        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(fr_from_u64(777))).unwrap();
+        let val2_blank = AllocatedNum::alloc(cs_blank.namespace(|| "val2"), || {
+            Err(SynthesisError::AssignmentMissing)
+        })
+        .unwrap();
+        let default =
+            AllocatedNum::alloc(cs.namespace(|| "default"), || Ok(fr_from_u64(999))).unwrap();
+        let default_blank =
+            AllocatedNum::alloc(cs_blank.namespace(|| "default"), || Ok(fr_from_u64(999))).unwrap();
+
+        {
+            let clauses = [
+                CaseClause {
+                    key: x,
+                    value: val.clone(),
+                },
+                CaseClause {
+                    key: y,
+                    value: val2.clone(),
+                },
+            ];
+
+            let result = case(
+                &mut cs.namespace(|| "selected case"),
+                &selected,
+                &clauses,
+                &default,
+            )
+            .unwrap();
+
+            assert_eq!(val.get_value(), result.get_value());
+            assert!(cs.is_satisfied());
+        }
+        {
+            let clauses_blank = [
+                CaseClause {
+                    key: x,
+                    value: val_blank.clone(),
+                },
+                CaseClause {
+                    key: y,
+                    value: val2_blank.clone(),
+                },
+            ];
+
+            let result = case(
+                &mut cs_blank.namespace(|| "selected case"),
+                &selected,
+                &clauses_blank,
+                &default_blank,
+            )
+            .unwrap();
+
+            assert!(cs.is_satisfied());
+        }
+
+        let delta = cs.delta(&cs_blank);
+        assert!(delta == Delta::Equal);
     }
 }
