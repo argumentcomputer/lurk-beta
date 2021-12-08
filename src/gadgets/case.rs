@@ -132,7 +132,7 @@ pub fn case<CS: ConstraintSystem<Fr>>(
     clauses: &[CaseClause<Fr>],
     default: &AllocatedNum<Fr>,
 ) -> Result<AllocatedNum<Fr>, SynthesisError> {
-    assert!(clauses.len() > 0);
+    assert!(!clauses.is_empty());
 
     let mut maybe_selected = None;
 
@@ -166,10 +166,7 @@ pub fn case<CS: ConstraintSystem<Fr>>(
     let selected = maybe_selected.unwrap_or(dummy_key);
 
     // TODO: Ensure cases contain no duplicate keys.
-    let cc = CaseConstraint {
-        selected: selected.clone(),
-        clauses,
-    };
+    let cc = CaseConstraint { selected, clauses };
 
     // If no selection matched, choose the default value.
     let is_default = is_selected.not();

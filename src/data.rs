@@ -647,7 +647,7 @@ impl Expression {
 
     pub fn is_keyword_sym(&self) -> bool {
         if let Self::Sym(s) = self {
-            s.chars().next() == Some(':')
+            s.starts_with(':')
         } else {
             false
         }
@@ -666,7 +666,7 @@ impl Store {
             tag if tag == Tag::Nil.fr() => Some(Expression::Nil),
             // Nums are immediate so not looked up in map.
             tag if tag == Tag::Num.fr() => Some(Expression::Num(t.hash)),
-            _ => self.map.get(&t).cloned(),
+            _ => self.map.get(t).cloned(),
         }
     }
 
@@ -810,13 +810,11 @@ impl Store {
                     chars.next();
                     if let Some(s) = self.read_string(chars) {
                         Some((s, true))
+                    } else if let Some((e, is_meta)) = self.read_maybe_meta(chars) {
+                        assert!(!is_meta);
+                        Some((e, true))
                     } else {
-                        if let Some((e, is_meta)) = self.read_maybe_meta(chars) {
-                            assert!(!is_meta);
-                            Some((e, true))
-                        } else {
-                            None
-                        }
+                        None
                     }
                 }
                 _ => self.read_next(chars).map(|expr| (expr, false)),
@@ -970,24 +968,19 @@ impl Store {
     ) -> Option<Expression> {
         let mut result = String::new();
 
-        if let Some(c) = skip_whitespace_and_peek(chars) {
-            match c {
-                '"' => {
-                    chars.next();
-                    while let Some(&c) = chars.peek() {
-                        chars.next();
-                        // TODO: This does not handle any escaping, so strings containing " cannot be read.
-                        if c == '"' {
-                            let str = self.intern_string(&result);
-                            return Some(str);
-                        } else {
-                            result.push(c);
-                        }
-                    }
-                    return None;
+        if let Some('"') = skip_whitespace_and_peek(chars) {
+            chars.next();
+            while let Some(&c) = chars.peek() {
+                chars.next();
+                // TODO: This does not handle any escaping, so strings containing " cannot be read.
+                if c == '"' {
+                    let str = self.intern_string(&result);
+                    return Some(str);
+                } else {
+                    result.push(c);
                 }
-                _ => return None,
             }
+            return None;
         } else {
             return None;
         };

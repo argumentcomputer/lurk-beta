@@ -209,25 +209,13 @@ impl<E: Clone, C: Clone> Control<E, C> {
     }
 
     pub fn is_return(&self) -> bool {
-        if let Self::Return(_, _, _) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::Return(_, _, _))
     }
     pub fn is_make_thunk(&self) -> bool {
-        if let Self::MakeThunk(_, _, _) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::MakeThunk(_, _, _))
     }
     pub fn is_invoke_continuation(&self) -> bool {
-        if let Self::InvokeContinuation(_, _, _) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::InvokeContinuation(_, _, _))
     }
 }
 
@@ -563,9 +551,9 @@ fn eval_expr_with_witness(
     {
         let (new_expr, new_env, new_cont) = control.results();
 
-        witness.prethunk_output_expr = Some(new_expr.clone());
-        witness.prethunk_output_env = Some(new_env.clone());
-        witness.prethunk_output_cont = Some(new_cont.clone());
+        witness.prethunk_output_expr = Some(new_expr);
+        witness.prethunk_output_env = Some(new_env);
+        witness.prethunk_output_cont = Some(new_cont);
     }
     let control = invoke_continuation(control, store, witness);
     make_thunk(control, store, witness)
@@ -601,7 +589,7 @@ fn invoke_continuation(
                 let function = result;
                 let next_expr = arg;
                 let newer_cont = Continuation::Call2(
-                    function.clone(),
+                    function,
                     saved_env.clone(),
                     Box::new(*continuation.clone()),
                 );
@@ -629,13 +617,13 @@ fn invoke_continuation(
         },
         Continuation::LetStar(var, body, saved_env, continuation) => {
             let extended_env = extend(&env, var, &result, store);
-            let c = make_tail_continuation(&saved_env, &continuation);
+            let c = make_tail_continuation(saved_env, continuation);
 
             Control::Return(body.clone(), extended_env, c)
         }
         Continuation::LetRecStar(var, body, saved_env, continuation) => {
             let extended_env = extend_rec(&env, var, &result, store);
-            let c = make_tail_continuation(&saved_env, &continuation);
+            let c = make_tail_continuation(saved_env, continuation);
 
             Control::Return(body.clone(), extended_env, c)
         }
@@ -784,9 +772,9 @@ fn invoke_continuation(
 
     let (output_result, output_env, output_cont) = control.results();
 
-    witness.invoke_continuation_output_result = Some(output_result.clone());
-    witness.invoke_continuation_output_env = Some(output_env.clone());
-    witness.invoke_continuation_output_cont = Some(output_cont.clone());
+    witness.invoke_continuation_output_result = Some(output_result);
+    witness.invoke_continuation_output_env = Some(output_env);
+    witness.invoke_continuation_output_cont = Some(output_cont);
 
     if let Control::InvokeContinuation(_, _, _) = control {
         unreachable!();
@@ -833,7 +821,7 @@ fn make_thunk(
             witness.make_thunk_tail_continuation_cont = Some(*continuation.clone());
             if let Continuation::Tail(saved_env, previous_cont) = &*continuation {
                 let thunk = Thunk {
-                    value: Box::new(result.clone()),
+                    value: Box::new(result),
                     continuation: previous_cont.clone(),
                 };
                 witness.make_thunk_tail_continuation_thunk = Some(thunk.clone());
@@ -868,14 +856,12 @@ fn make_thunk(
                 witness.make_thunk_effective_env2 = Some(effective_env2.clone());
 
                 match &*continuation {
-                    Continuation::Outermost => Control::Return(
-                        result.clone(),
-                        effective_env.clone(),
-                        Continuation::Terminal,
-                    ),
+                    Continuation::Outermost => {
+                        Control::Return(result, effective_env.clone(), Continuation::Terminal)
+                    }
                     _ => {
                         let thunk = Thunk {
-                            value: Box::new(result.clone()),
+                            value: Box::new(result),
                             continuation: continuation.clone(),
                         };
                         witness.make_thunk_tail_continuation_thunk = Some(thunk.clone());
@@ -891,30 +877,24 @@ fn make_thunk(
         }
         // If continuation is outermost, we don't actually make a thunk. Instead, we signal
         // that this is the terminal result by returning a Terminal continuation.
-        Continuation::Outermost => {
-            Control::Return(result.clone(), env.clone(), Continuation::Terminal)
-        }
+        Continuation::Outermost => Control::Return(result, env, Continuation::Terminal),
         _ => {
             let thunk = Thunk {
-                value: Box::new(result.clone()),
+                value: Box::new(result),
                 continuation: Box::new(cont.clone()),
             };
             witness.make_thunk_thunk = Some(thunk.clone());
             witness.witness_destructured_thunk(&thunk);
-            Control::Return(
-                Expression::Thunk(thunk),
-                effective_env.clone(),
-                Continuation::Dummy,
-            )
+            Control::Return(Expression::Thunk(thunk), effective_env, Continuation::Dummy)
         }
     };
 
     {
         let (output_result, output_env, output_cont) = control.results();
 
-        witness.make_thunk_output_result = Some(output_result.clone());
-        witness.make_thunk_output_env = Some(output_env.clone());
-        witness.make_thunk_output_cont = Some(output_cont.clone());
+        witness.make_thunk_output_result = Some(output_result);
+        witness.make_thunk_output_env = Some(output_env);
+        witness.make_thunk_output_cont = Some(output_cont);
     }
     control
 }
