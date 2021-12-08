@@ -6,11 +6,12 @@ use bellperson::{
     groth16::{self, verify_proof},
     Circuit, ConstraintSystem, SynthesisError,
 };
-use blstrs::Scalar as Fr;
+use blstrs::{Bls12, Scalar as Fr};
 use ff::{Field, PrimeField};
 use generic_array::typenum::private::IsLessOrEqualPrivate;
 use neptune::circuit::poseidon_hash;
 use pairing_lib::Engine;
+use rand::RngCore;
 
 use crate::gadgets::case::{case, multi_case, CaseClause, CaseConstraint};
 
@@ -59,13 +60,18 @@ impl<W> IO<W> {
     }
 }
 
-pub fn verify<F: Provable, E: Engine>(p: Proof<F, E>, f: F) -> Result<bool, SynthesisError> {
+fn dummy_frame<W>() -> Frame<IO<W>> {
+    todo!()
+}
+
+pub fn verify<F: Provable>(p: Proof<F, Bls12>, f: F) -> Result<bool, SynthesisError> {
     let inputs = f.public_inputs();
+    let circuit = dummy_frame();
+    let groth_params = groth16::generate_random_parameters::<Bls12, _, _>(circuit, rng)?;
+    let vk = groth_params.vk;
+    let pvk = groth16::prepare_verifying_key(&vk);
 
-    todo!();
-    // let vk = todo!();
-
-    // verify_proof(vk, &p.groth16_proof, &inputs)
+    verify_proof(&pvk, &p.groth16_proof, &inputs)
 }
 
 fn bind_input<CS: ConstraintSystem<Fr>>(
