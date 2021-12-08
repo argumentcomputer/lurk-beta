@@ -2,6 +2,7 @@ use crate::data::{Continuation, Expression, Op1, Op2, Rel2, Store, Tag, Tagged, 
 use ff::Field;
 use std::cmp::PartialEq;
 use std::iter::Iterator;
+use std::ops::{AddAssign, MulAssign, SubAssign};
 
 pub trait Witnessed {
     fn reset_witness(&mut self);
@@ -11,7 +12,7 @@ pub trait Witnessed {
 pub struct IO<W> {
     pub expr: Expression,
     pub env: Expression,
-    pub cont: Continuation, // FIXME: This needs to be an Expression too.
+    pub cont: Continuation, // This could be an Expression too, if we want Continuations to be first class.
     pub witness: Option<W>,
 }
 
@@ -130,31 +131,31 @@ impl<'a, T: Evaluable + Clone + PartialEq + Witnessed> Iterator for FrameIt<'a, 
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, PartialOrd, std::cmp::Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Witness {
-    pub make_thunk_was_called: bool,
-    pub make_thunk_result: Option<Expression>,
-    pub make_thunk_env: Option<Expression>,
+    // TODO: Many of these fields ended up not being used.
+    // once circuit is done, remove the excess.
+    pub store: Option<Store>,
+    pub prethunk_output_expr: Option<Expression>,
+    pub prethunk_output_env: Option<Expression>,
+    pub prethunk_output_cont: Option<Continuation>,
+    pub destructured_thunk: Option<Thunk>,
+    pub extended_closure: Option<Expression>,
     pub make_thunk_cont: Option<Continuation>,
-    pub make_thunk_effective_env: Option<Expression>,
     pub make_thunk_tail_continuation_cont: Option<Continuation>,
-    pub make_thunk_effective_env2: Option<Expression>,
-    pub make_thunk_tail_continuation_thunk: Option<Thunk>,
-    pub make_thunk_thunk: Option<Thunk>,
-    pub make_thunk_output_result: Option<Expression>,
-    pub make_thunk_output_env: Option<Expression>,
-    pub make_thunk_output_cont: Option<Continuation>,
-
-    pub invoke_continuation_was_called: bool,
-    pub invoke_continuation_result: Option<Expression>,
-    pub invoke_continuation_env: Option<Expression>,
     pub invoke_continuation_cont: Option<Continuation>,
 
     pub invoke_continuation_output_result: Option<Expression>,
-    pub invoke_continuation_output_env: Option<Expression>,
-    pub invoke_continuation_output_cont: Option<Continuation>,
+}
 
-    pub invoke_continuation_thunk: Option<Thunk>,
+impl Witness {
+    fn witness_destructured_thunk(&mut self, thunk: &Thunk) {
+        assert!(
+            !self.destructured_thunk.is_some(),
+            "Only one thunk should be destructured per evaluation step."
+        );
+        self.destructured_thunk = Some(thunk.clone());
+    }
 }
 
 fn eval_expr(
@@ -167,6 +168,7 @@ fn eval_expr(
 
     let (new_expr, new_env, new_cont) =
         eval_expr_with_witness(expr, env, cont, store, &mut witness).results();
+
     (new_expr, new_env, new_cont, witness)
 }
 
@@ -186,25 +188,13 @@ impl<E: Clone, C: Clone> Control<E, C> {
     }
 
     pub fn is_return(&self) -> bool {
-        if let Self::Return(_, _, _) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::Return(_, _, _))
     }
     pub fn is_make_thunk(&self) -> bool {
-        if let Self::MakeThunk(_, _, _) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::MakeThunk(_, _, _))
     }
     pub fn is_invoke_continuation(&self) -> bool {
-        if let Self::InvokeContinuation(_, _, _) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::InvokeContinuation(_, _, _))
     }
 }
 
@@ -215,6 +205,7 @@ fn eval_expr_with_witness(
     store: &mut Store,
     witness: &mut Witness,
 ) -> Control<Expression, Continuation> {
+    witness.store = Some(store.clone());
     let control = match expr {
         Expression::Thunk(thunk) => Control::InvokeContinuation(
             *thunk.value.clone(),
@@ -224,63 +215,97 @@ fn eval_expr_with_witness(
         Expression::Nil => Control::MakeThunk(expr.clone(), env.clone(), cont.clone()),
         Expression::Sym(_) => {
             if expr == &store.intern("NIL") || (expr == &store.intern("T")) {
+                // CIRCUIT: sym_is_self_evaluating
                 Control::MakeThunk(expr.clone(), env.clone(), cont.clone())
             } else {
+                // CIRCUIT: sym_otherwise
                 assert!(Expression::Nil != *env, "Unbound variable: {:?}", expr);
                 let (binding, smaller_env) = store.car_cdr(env);
-
                 if binding == Expression::Nil {
+                    // CIRCUIT: binding_is_nil
+                    //          otherwise_and_binding_is_nil
                     Control::Return(expr.clone(), env.clone(), Continuation::Error)
                 } else {
+                    // CIRCUIT: binding_not_nil
                     let (var_or_rec_binding, val_or_more_rec_env) = store.car_cdr(&binding);
                     match &var_or_rec_binding {
                         // In a simple_env.
                         Expression::Sym(_) => {
+                            // CIRCUIT: var_or_rec_binding_is_sym
                             let v = var_or_rec_binding;
                             let val = val_or_more_rec_env;
 
                             if v == *expr {
+                                // CIRCUIT: v_is_expr1
+                                //          v_is_expr1_real
                                 Control::MakeThunk(val, env.clone(), cont.clone())
                             } else {
+                                // CIRCUIT: otherwise_and_v_not_expr
+
                                 match cont {
                                     Continuation::Lookup(_, _) => {
+                                        // CIRCUIT: cont_is_lookup
+                                        //          cont_is_lookup_real
+                                        //          cont_is_lookup_sym
                                         Control::Return(expr.clone(), smaller_env, cont.clone())
                                     }
-                                    _ => Control::Return(
-                                        expr.clone(),
-                                        smaller_env,
-                                        Continuation::Lookup(env.clone(), Box::new(cont.clone())),
-                                    ),
+                                    _ =>
+                                    // CIRCUIT: cont_not_lookup_real
+                                    {
+                                        Control::Return(
+                                            expr.clone(),
+                                            smaller_env,
+                                            Continuation::Lookup(
+                                                env.clone(),
+                                                Box::new(cont.clone()),
+                                            ),
+                                        )
+                                    }
                                 }
                             }
                         }
                         // Start of a recursive_env.
                         Expression::Cons(_, _) => {
+                            // CIRCUIT: var_or_rec_binding_is_cons
                             let rec_env = binding;
                             let smaller_rec_env = val_or_more_rec_env;
 
-                            let (v, val) = store.car_cdr(&var_or_rec_binding);
-                            if v == *expr {
+                            let (v2, val2) = store.car_cdr(&var_or_rec_binding);
+                            if v2 == *expr {
+                                // CIRCUIT: v2_is_expr
+                                //          v2_is_expr_real
                                 let val_to_use = {
-                                    match val {
+                                    // CIRCUIT: val_to_use
+                                    //          val_to_use_real
+                                    match val2 {
                                         Expression::Fun(_, _, _) => {
+                                            witness.extended_closure = Some(val2.clone());
+                                            // CIRCUIT: val2_is_fun
+
                                             // We just found a closure in a recursive env.
                                             // We need to extend its environment to include that recursive env.
 
-                                            extend_closure(&val, &rec_env, store)
+                                            extend_closure(&val2, &rec_env, store)
                                         }
-                                        _ => val,
+                                        _ => {
+                                            witness.extended_closure = None;
+                                            val2
+                                        }
                                     }
                                 };
                                 Control::MakeThunk(val_to_use, env.clone(), cont.clone())
                             } else {
+                                // CIRCUIT: otherwise_and_v2_not_expr
+                                // CIRCUIT: env_to_use
                                 let env_to_use = if smaller_rec_env == Expression::Nil {
                                     smaller_env
                                 } else {
+                                    // CIRCUIT: with_smaller_rec_env
                                     store.cons(&smaller_rec_env, &smaller_env)
                                 };
                                 match cont {
                                     Continuation::Lookup(_, _) => {
+                                        // CIRCUIT: continuation_is_lookup (indicates this branch)
                                         Control::Return(expr.clone(), env_to_use, cont.clone())
                                     }
                                     _ => Control::Return(
@@ -300,8 +325,8 @@ fn eval_expr_with_witness(
         Expression::Num(_) => Control::MakeThunk(expr.clone(), env.clone(), cont.clone()),
         Expression::Fun(_, _, _) => Control::MakeThunk(expr.clone(), env.clone(), cont.clone()),
         Expression::Cons(head_t, rest_t) => {
-            let head = store.fetch(*head_t).unwrap();
-            let rest = store.fetch(*rest_t).unwrap();
+            let head = store.fetch(head_t).unwrap();
+            let rest = store.fetch(rest_t).unwrap();
             let lambda = store.intern("LAMBDA");
             let quote = store.intern("QUOTE");
             let dummy_arg = store.intern("_");
@@ -480,8 +505,7 @@ fn eval_expr_with_witness(
                     store.car_cdr(&args)
                 };
                 match &more_args {
-                    // FIXME: Handle QUOTE, CAR, and CDR.
-                    // (fn arg1)
+                    // (fn arg)
                     // Interpreting as call.
                     Expression::Nil => Control::Return(
                         fun_form,
@@ -490,6 +514,7 @@ fn eval_expr_with_witness(
                     ),
                     _ => {
                         // Interpreting as multi-arg call.
+                        // (fn arg . more_args) => ((fn arg) . more_args)
                         let expanded_inner = store.list(vec![fun_form, arg]);
                         let expanded = store.cons(&expanded_inner, &more_args);
                         Control::Return(expanded, env.clone(), cont.clone())
@@ -499,6 +524,13 @@ fn eval_expr_with_witness(
         }
     };
 
+    {
+        let (new_expr, new_env, new_cont) = control.results();
+
+        witness.prethunk_output_expr = Some(new_expr);
+        witness.prethunk_output_env = Some(new_env);
+        witness.prethunk_output_cont = Some(new_cont);
+    }
     let control = invoke_continuation(control, store, witness);
     make_thunk(control, store, witness)
 }
@@ -513,16 +545,14 @@ fn invoke_continuation(
     }
     let (result, env, cont) = control.results();
 
-    witness.invoke_continuation_was_called = true;
     witness.invoke_continuation_cont = Some(cont.clone());
-    witness.invoke_continuation_result = Some(result.clone());
-    witness.invoke_continuation_env = Some(env.clone());
 
     let control = match &cont {
         Continuation::Terminal => unreachable!("Terminal Continuation should never be invoked."),
         Continuation::Dummy => unreachable!("Dummy Continuation should never be invoked."),
         Continuation::Outermost => match result {
             Expression::Thunk(thunk) => {
+                witness.witness_destructured_thunk(&thunk);
                 Control::Return(*thunk.value.clone(), env.clone(), Continuation::Terminal)
             }
             _ => Control::Return(result.clone(), env.clone(), Continuation::Terminal),
@@ -532,7 +562,7 @@ fn invoke_continuation(
                 let function = result;
                 let next_expr = arg;
                 let newer_cont = Continuation::Call2(
-                    function.clone(),
+                    function,
                     saved_env.clone(),
                     Box::new(*continuation.clone()),
                 );
@@ -545,27 +575,28 @@ fn invoke_continuation(
         },
         Continuation::Call2(function, saved_env, continuation) => match function {
             Expression::Fun(arg_t, body_t, closed_env_t) => {
-                let body = store.fetch(*body_t).unwrap();
+                let body = store.fetch(body_t).unwrap();
                 let body_form = store.car(&body);
-                let closed_env = store.fetch(*closed_env_t).unwrap();
-                let arg = store.fetch(*arg_t).unwrap();
+                let closed_env = store.fetch(closed_env_t).unwrap();
+                let arg = store.fetch(arg_t).unwrap();
                 let newer_env = extend(&closed_env, &arg, &result, store);
                 let cont = make_tail_continuation(saved_env, continuation);
                 Control::Return(body_form, newer_env, cont)
             }
             _ => {
-                panic!("Call2 continuation contains a non-function: {:?}", function);
+                Control::Return(result.clone(), env.clone(), Continuation::Error)
+                // panic!("Call2 continuation contains a non-function: {:?}", function);
             }
         },
         Continuation::LetStar(var, body, saved_env, continuation) => {
             let extended_env = extend(&env, var, &result, store);
-            let c = make_tail_continuation(&saved_env, &continuation);
+            let c = make_tail_continuation(saved_env, continuation);
 
             Control::Return(body.clone(), extended_env, c)
         }
         Continuation::LetRecStar(var, body, saved_env, continuation) => {
             let extended_env = extend_rec(&env, var, &result, store);
-            let c = make_tail_continuation(&saved_env, &continuation);
+            let c = make_tail_continuation(saved_env, continuation);
 
             Control::Return(body.clone(), extended_env, c)
         }
@@ -580,8 +611,8 @@ fn invoke_continuation(
             };
             Control::MakeThunk(val, env.clone(), *continuation.clone())
         }
-        Continuation::Binop(op2, saved_env, more_args, continuation) => {
-            let (arg2, rest) = store.car_cdr(more_args);
+        Continuation::Binop(op2, saved_env, unevaled_args, continuation) => {
+            let (arg2, rest) = store.car_cdr(unevaled_args);
             assert_eq!(Expression::Nil, rest);
             Control::Return(
                 arg2,
@@ -595,24 +626,25 @@ fn invoke_continuation(
                 (Expression::Num(a), Expression::Num(b)) => match op2 {
                     Op2::Sum => {
                         let mut tmp = *a;
-                        tmp.add_assign(&b);
+                        tmp.add_assign(b);
                         Expression::Num(tmp)
                     }
                     Op2::Diff => {
                         let mut tmp = *a;
-                        tmp.sub_assign(&b);
+                        tmp.sub_assign(b);
                         Expression::Num(tmp)
                     }
                     Op2::Product => {
                         let mut tmp = *a;
-                        tmp.mul_assign(&b);
+                        tmp.mul_assign(b);
                         Expression::Num(tmp)
                     }
                     Op2::Quotient => {
                         let mut tmp = *a;
                         // TODO: Return error continuation.
-                        assert!(!b.is_zero(), "Division by zero error.");
-                        tmp.mul_assign(&b.inverse().unwrap());
+                        let b_is_zero: bool = b.is_zero().into();
+                        assert!(!b_is_zero, "Division by zero error.");
+                        tmp.mul_assign(&b.invert().unwrap());
                         Expression::Num(tmp)
                     }
                     Op2::Cons => store.cons(arg1, &arg2),
@@ -713,9 +745,7 @@ fn invoke_continuation(
 
     let (output_result, output_env, output_cont) = control.results();
 
-    witness.invoke_continuation_output_result = Some(output_result.clone());
-    witness.invoke_continuation_output_env = Some(output_env.clone());
-    witness.invoke_continuation_output_cont = Some(output_cont.clone());
+    witness.invoke_continuation_output_result = Some(output_result);
 
     if let Control::InvokeContinuation(_, _, _) = control {
         unreachable!();
@@ -735,10 +765,9 @@ fn make_thunk(
     }
     let (result, env, cont) = control.results();
 
-    witness.make_thunk_was_called = true;
-    witness.make_thunk_result = Some(result.clone());
-    witness.make_thunk_env = Some(env.clone());
-    witness.make_thunk_cont = Some(cont.clone());
+    if let Expression::Thunk(_) = result {
+        unreachable!("make_thunk should never be called with a thunk");
+    };
 
     let effective_env = match &cont {
         // These are the restore-env continuations.
@@ -746,8 +775,6 @@ fn make_thunk(
         Continuation::Tail(saved_env, _) => saved_env.clone(),
         _ => env.clone(),
     };
-
-    witness.make_thunk_effective_env = Some(effective_env.clone());
 
     // This structure is in case we have other tail continuations in the future.
     // I think we should not have, though -- since by definition we should be able
@@ -758,10 +785,11 @@ fn make_thunk(
             witness.make_thunk_tail_continuation_cont = Some(*continuation.clone());
             if let Continuation::Tail(saved_env, previous_cont) = &*continuation {
                 let thunk = Thunk {
-                    value: Box::new(result.clone()),
+                    value: Box::new(result),
                     continuation: previous_cont.clone(),
                 };
-                witness.make_thunk_tail_continuation_thunk = Some(thunk.clone());
+                // witness.make_thunk_tail_continuation_thunk = Some(thunk.clone());
+                witness.witness_destructured_thunk(&thunk);
                 Control::Return(
                     Expression::Thunk(thunk),
                     saved_env.clone(),
@@ -789,20 +817,17 @@ fn make_thunk(
                     Continuation::Tail(_, _) => unreachable!(),
                     _ => &effective_env,
                 };
-                witness.make_thunk_effective_env2 = Some(effective_env2.clone());
 
                 match &*continuation {
-                    Continuation::Outermost => Control::Return(
-                        result.clone(),
-                        effective_env.clone(),
-                        Continuation::Terminal,
-                    ),
+                    Continuation::Outermost => {
+                        Control::Return(result, effective_env.clone(), Continuation::Terminal)
+                    }
                     _ => {
                         let thunk = Thunk {
-                            value: Box::new(result.clone()),
+                            value: Box::new(result),
                             continuation: continuation.clone(),
                         };
-                        witness.make_thunk_tail_continuation_thunk = Some(thunk.clone());
+                        witness.witness_destructured_thunk(&thunk);
                         Control::Return(
                             Expression::Thunk(thunk),
                             effective_env2.clone(),
@@ -814,29 +839,19 @@ fn make_thunk(
         }
         // If continuation is outermost, we don't actually make a thunk. Instead, we signal
         // that this is the terminal result by returning a Terminal continuation.
-        Continuation::Outermost => {
-            Control::Return(result.clone(), env.clone(), Continuation::Terminal)
-        }
+        Continuation::Outermost => Control::Return(result, env, Continuation::Terminal),
         _ => {
             let thunk = Thunk {
-                value: Box::new(result.clone()),
+                value: Box::new(result),
                 continuation: Box::new(cont.clone()),
             };
-            witness.make_thunk_thunk = Some(thunk.clone());
-            Control::Return(
-                Expression::Thunk(thunk),
-                effective_env.clone(),
-                Continuation::Dummy,
-            )
+            witness.witness_destructured_thunk(&thunk);
+            Control::Return(Expression::Thunk(thunk), effective_env, Continuation::Dummy)
         }
     };
 
     {
         let (output_result, output_env, output_cont) = control.results();
-
-        witness.make_thunk_output_result = Some(output_result.clone());
-        witness.make_thunk_output_env = Some(output_env.clone());
-        witness.make_thunk_output_cont = Some(output_cont.clone());
     }
     control
 }
@@ -851,42 +866,6 @@ fn make_tail_continuation(env: &Expression, continuation: &Continuation) -> Cont
     }
     // Since this is the only place Tail continuation are created, this ensures Tail continuations never
     // point to one another: they can only be nested one deep.
-}
-
-pub fn outer_evaluate_old(
-    expr: Expression,
-    env: Expression,
-    mut store: &mut Store,
-    limit: usize,
-) -> (Expression, Expression, usize, Continuation) {
-    let mut next_cont = Continuation::Outermost;
-    let mut next_expr = expr;
-    let mut next_env = env;
-
-    for i in 1..=limit {
-        let (new_expr, new_env, new_cont, _witness) =
-            eval_expr(&next_expr, &next_env, &next_cont, &mut store);
-
-        if let Expression::Thunk(f) = &new_expr {
-            match *f.continuation {
-                Continuation::Outermost => return (*f.value.clone(), new_env, i, new_cont),
-                _ => (),
-            }
-        }
-        match &new_cont {
-            // Eventually, we probably want error results to be first class so shouldn't panic.
-            // For example, it would be useful to have a proof that some input yields an error.
-            // Leave for now to simplify testing and development.
-            Continuation::Error => panic!("Error when evaluating."),
-            _ => (),
-        }
-
-        next_expr = new_expr;
-        next_cont = new_cont;
-        next_env = new_env;
-    }
-
-    (next_expr.clone(), next_env, limit, next_cont)
 }
 
 pub fn outer_evaluate(
@@ -953,11 +932,11 @@ fn extend_rec(
 fn extend_closure(fun: &Expression, rec_env: &Expression, store: &mut Store) -> Expression {
     match fun {
         Expression::Fun(arg, body, closed_env) => {
-            let closed_env = store.fetch(*closed_env).unwrap();
+            let closed_env = store.fetch(closed_env).unwrap();
             let extended = store.cons(rec_env, &closed_env);
             store.fun(
-                &store.fetch(*arg).unwrap(),
-                &store.fetch(*body).unwrap(),
+                &store.fetch(arg).unwrap(),
+                &store.fetch(body).unwrap(),
                 &extended,
             )
         }

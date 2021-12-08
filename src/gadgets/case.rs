@@ -1,27 +1,29 @@
 use super::constraints::{alloc_is_zero, equal, pick, select};
 use bellperson::{
-    bls::Engine,
     gadgets::boolean::{AllocatedBit, Boolean},
     gadgets::num::AllocatedNum,
     ConstraintSystem, LinearCombination, SynthesisError,
 };
-use ff::Field;
+use blstrs::Scalar as Fr;
+use ff::{Field, PrimeField};
 
-pub struct CaseClause<E: Engine> {
-    pub key: E::Fr,
-    pub value: AllocatedNum<E>,
+use std::ops::{MulAssign, SubAssign};
+
+pub struct CaseClause<F: PrimeField> {
+    pub key: F,
+    pub value: AllocatedNum<F>,
 }
 
-pub struct CaseConstraint<'a, E: Engine> {
-    selected: AllocatedNum<E>,
-    clauses: &'a [CaseClause<E>],
+pub struct CaseConstraint<'a, F: PrimeField> {
+    selected: AllocatedNum<F>,
+    clauses: &'a [CaseClause<F>],
 }
 
-impl<E: Engine> CaseConstraint<'_, E> {
-    fn enforce_selection<CS: ConstraintSystem<E>>(
+impl<F: PrimeField> CaseConstraint<'_, F> {
+    fn enforce_selection<CS: ConstraintSystem<F>>(
         self,
         cs: &mut CS,
-    ) -> Result<AllocatedNum<E>, SynthesisError> {
+    ) -> Result<AllocatedNum<F>, SynthesisError> {
         // Allocate one bit per clause, the selector. This creates constraints enforcing that each bit is 0 or 1.
         // In fact, the 'selected' clause will have selector = 1 while the others = 0.
         // This will be confirmed/enforced by later constraints.
@@ -78,12 +80,12 @@ impl<E: Engine> CaseConstraint<'_, E> {
     }
 }
 
-fn bit_dot_product<E: Engine, CS: ConstraintSystem<E>>(
+fn bit_dot_product<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     bit_vector: &[AllocatedBit],
-    value_vector: &[AllocatedNum<E>],
-) -> Result<AllocatedNum<E>, SynthesisError> {
-    let mut computed_result = E::Fr::zero();
+    value_vector: &[AllocatedNum<F>],
+) -> Result<AllocatedNum<F>, SynthesisError> {
+    let mut computed_result = F::zero();
 
     let mut all_products = Vec::new();
 
@@ -91,11 +93,11 @@ fn bit_dot_product<E: Engine, CS: ConstraintSystem<E>>(
         let prod = if bit.get_value().unwrap() {
             value.get_value().unwrap()
         } else {
-            E::Fr::zero()
+            F::zero()
         };
 
         let allocated_prod =
-            AllocatedNum::<E>::alloc(&mut cs.namespace(|| format!("product-{}", i)), || Ok(prod))?;
+            AllocatedNum::<F>::alloc(&mut cs.namespace(|| format!("product-{}", i)), || Ok(prod))?;
 
         cs.enforce(
             || format!("bit product {}", i),
@@ -108,7 +110,7 @@ fn bit_dot_product<E: Engine, CS: ConstraintSystem<E>>(
         computed_result.add_assign(&prod);
     }
 
-    let result = AllocatedNum::<E>::alloc(&mut cs.namespace(|| "result"), || Ok(computed_result))?;
+    let result = AllocatedNum::<F>::alloc(&mut cs.namespace(|| "result"), || Ok(computed_result))?;
 
     cs.enforce(
         || "sum of products",
@@ -124,17 +126,17 @@ fn bit_dot_product<E: Engine, CS: ConstraintSystem<E>>(
     Ok(result)
 }
 
-pub fn case<E: Engine, CS: ConstraintSystem<E>>(
+pub fn case<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
-    selected: &AllocatedNum<E>,
-    clauses: &[CaseClause<E>],
-    default: &AllocatedNum<E>,
-) -> Result<AllocatedNum<E>, SynthesisError> {
-    assert!(clauses.len() > 0);
+    selected: &AllocatedNum<Fr>,
+    clauses: &[CaseClause<Fr>],
+    default: &AllocatedNum<Fr>,
+) -> Result<AllocatedNum<Fr>, SynthesisError> {
+    assert!(!clauses.is_empty());
 
     let mut maybe_selected = None;
 
-    let mut acc = AllocatedNum::alloc(cs.namespace(|| "acc"), || Ok(E::Fr::one()))?;
+    let mut acc = AllocatedNum::alloc(cs.namespace(|| "acc"), || Ok(Fr::one()))?;
 
     for (i, clause) in clauses.iter().enumerate() {
         if Some(clause.key) == selected.get_value() {
@@ -164,10 +166,7 @@ pub fn case<E: Engine, CS: ConstraintSystem<E>>(
     let selected = maybe_selected.unwrap_or(dummy_key);
 
     // TODO: Ensure cases contain no duplicate keys.
-    let cc = CaseConstraint {
-        selected: selected.clone(),
-        clauses,
-    };
+    let cc = CaseConstraint { selected, clauses };
 
     // If no selection matched, choose the default value.
     let is_default = is_selected.not();
@@ -177,18 +176,18 @@ pub fn case<E: Engine, CS: ConstraintSystem<E>>(
     pick(
         &mut cs.namespace(|| "maybe default"),
         &is_default,
-        &default,
+        default,
         &enforced_result,
     )
 }
 
 // TODO: This can be optimized to minimize work duplicated between the inner case calls.
-pub fn multi_case<E: Engine, CS: ConstraintSystem<E>>(
+pub fn multi_case<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
-    selected: &AllocatedNum<E>,
-    cases: &[&[CaseClause<E>]],
-    defaults: &[AllocatedNum<E>],
-) -> Result<Vec<AllocatedNum<E>>, SynthesisError> {
+    selected: &AllocatedNum<Fr>,
+    cases: &[&[CaseClause<Fr>]],
+    defaults: &[AllocatedNum<Fr>],
+) -> Result<Vec<AllocatedNum<Fr>>, SynthesisError> {
     let mut result = Vec::new();
 
     for (i, (c, default)) in cases.iter().zip(defaults).enumerate() {
@@ -203,29 +202,22 @@ pub fn multi_case<E: Engine, CS: ConstraintSystem<E>>(
 }
 mod tests {
     use super::*;
-    use bellperson::bls::{Bls12, Fr, FrRepr};
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use ff::PrimeField;
 
+    use crate::data::fr_from_u64;
+
     #[test]
     fn simple_case() {
-        let mut cs = TestConstraintSystem::<Bls12>::new();
+        let mut cs = TestConstraintSystem::<Fr>::new();
 
-        let x = Fr::from_repr(FrRepr::from(123)).unwrap();
-        let y = Fr::from_repr(FrRepr::from(124)).unwrap();
+        let x = fr_from_u64(123);
+        let y = fr_from_u64(124);
         let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
-        let val = AllocatedNum::alloc(cs.namespace(|| "val"), || {
-            Ok(Fr::from_repr(FrRepr::from(666)).unwrap())
-        })
-        .unwrap();
-        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || {
-            Ok(Fr::from_repr(FrRepr::from(777)).unwrap())
-        })
-        .unwrap();
-        let default = AllocatedNum::alloc(cs.namespace(|| "default"), || {
-            Ok(Fr::from_repr(FrRepr::from(999)).unwrap())
-        })
-        .unwrap();
+        let val = AllocatedNum::alloc(cs.namespace(|| "val"), || Ok(fr_from_u64(666))).unwrap();
+        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(fr_from_u64(777))).unwrap();
+        let default =
+            AllocatedNum::alloc(cs.namespace(|| "default"), || Ok(fr_from_u64(999))).unwrap();
 
         {
             let clauses = [

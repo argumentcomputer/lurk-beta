@@ -9,7 +9,7 @@ macro_rules! if_then {
     };
 }
 
-// Enforces constraint that a implies b and that (not a) implices c.
+// Enforces constraint that a implies b and that (not a) implies c.
 macro_rules! if_then_else {
     ($cs:ident, $a:expr, $b:expr, $c:expr) => {
         enforce_implication(
@@ -34,6 +34,41 @@ macro_rules! if_then_else {
     };
 }
 
+// If expression.
+macro_rules! ifx {
+    ($cs:ident, $a:expr, $b:expr, $c:expr) => {{
+        let a = $a;
+        let b = $b;
+        let c = $c;
+        let cs = $cs.namespace(|| {
+            format!(
+                "ifx {} {} {}",
+                stringify!($a),
+                stringify!($b),
+                stringify!($c)
+            )
+        });
+        pick(cs, a, b, c)
+    }};
+}
+
+macro_rules! ifx_t {
+    ($cs:ident, $a:expr, $b:expr, $c:expr) => {{
+        let a = $a;
+        let b = $b;
+        let c = $c;
+        let cs = $cs.namespace(|| {
+            format!(
+                "ifx_t {} {} {}",
+                stringify!($a),
+                stringify!($b),
+                stringify!($c)
+            )
+        });
+        pick_tagged_hash(cs, a, b, c)
+    }};
+}
+
 // Allocates a bit (returned as Boolean) which is true if a and b are equal.
 macro_rules! equal {
     ($cs:ident, $a:expr, $b:expr) => {
@@ -42,6 +77,39 @@ macro_rules! equal {
             $a,
             $b,
         )
+    };
+}
+
+// Like equal! but a and b are AllocatedTaggedHashes.
+macro_rules! equal_t {
+    ($cs:ident, $a:expr, $b:expr) => {
+        $a.alloc_equal(
+            $cs.namespace(|| format!("{} equals {}", stringify!($a), stringify!($b))),
+            $b,
+        )
+    };
+}
+
+macro_rules! implies_equal {
+    ($cs:ident, $condition:expr, $a: expr, $b: expr) => {
+        let equal = equal!($cs, $a, $b)?;
+        enforce_implication(
+            $cs.namespace(|| format!("enforce_implication {} {}", stringify!($a), stringify!($b))),
+            $condition,
+            &equal,
+        );
+    };
+}
+
+macro_rules! implies_equal_t {
+    ($cs:ident, $condition:expr, $a: expr, $b: expr) => {
+        let equal = equal_t!($cs, $a, $b)?;
+
+        enforce_implication(
+            $cs.namespace(|| format!("enforce_implication {} {}", stringify!($a), stringify!($b))),
+            $condition,
+            &equal,
+        );
     };
 }
 
@@ -67,6 +135,23 @@ macro_rules! tag_and_hash_equal {
                 stringify!($b_tag),
                 stringify!($a_hash),
                 stringify!($b_hash)
+            )
+        });
+        and!(cs, &tags_equal, &hashes_equal)
+    }};
+}
+
+macro_rules! equal_t {
+    ($cs:ident, $a:expr, $b:expr) => {{
+        let tags_equal = equal!($cs, &$a.tag, &$b.tag)?;
+        let hashes_equal = equal!($cs, &$a.hash, &$b.hash)?;
+        let mut cs = $cs.namespace(|| {
+            format!(
+                "({} equals {}) and ({} equals {})",
+                stringify!($a.tag),
+                stringify!($b.tag),
+                stringify!($a.hash),
+                stringify!($b.hash)
             )
         });
         and!(cs, &tags_equal, &hashes_equal)
