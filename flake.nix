@@ -27,9 +27,9 @@
     let
       supportedSystems = [
         "aarch64-linux"
-        # "aarch64-darwin"
+        "aarch64-darwin"
         "i686-linux"
-        # "x86_64-darwin"
+        "x86_64-darwin"
         "x86_64-linux"
       ];
     in
@@ -41,7 +41,12 @@
       rust = rustDefault;
       crateName = "lurk";
       src = ./.;
-      buildInputs = with pkgs; [ ocl-icd ];
+      buildInputs = with pkgs;
+        if !stdenv.isDarwin
+        then [ ocl-icd ]
+        else [
+          darwin.apple_sdk.frameworks.OpenCL
+        ];
       project = buildRustProject {
         root = ./.;
         inherit src buildInputs;
@@ -59,7 +64,9 @@
     in
     {
       inherit packages;
-      checks.${crateName} = project.override { doCheck = true; };
+      checks = {
+        ${crateName} = project.override { doCheck = true; };
+      };
 
       defaultPackage = self.packages.${system}.${crateName};
 
