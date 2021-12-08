@@ -136,37 +136,16 @@ pub struct Witness {
     // TODO: Many of these fields ended up not being used.
     // once circuit is done, remove the excess.
     pub store: Option<Store>,
-    pub expr: Option<Expression>,
-
     pub prethunk_output_expr: Option<Expression>,
     pub prethunk_output_env: Option<Expression>,
     pub prethunk_output_cont: Option<Continuation>,
-    pub expr_is_sym: Option<bool>,
     pub destructured_thunk: Option<Thunk>,
     pub extended_closure: Option<Expression>,
-    pub make_thunk_was_called: bool,
-    pub make_thunk_result: Option<Expression>,
-    pub make_thunk_env: Option<Expression>,
     pub make_thunk_cont: Option<Continuation>,
-    pub make_thunk_effective_env: Option<Expression>,
     pub make_thunk_tail_continuation_cont: Option<Continuation>,
-    pub make_thunk_effective_env2: Option<Expression>,
-    pub make_thunk_tail_continuation_thunk: Option<Thunk>,
-    pub make_thunk_thunk: Option<Thunk>,
-    pub make_thunk_output_result: Option<Expression>,
-    pub make_thunk_output_env: Option<Expression>,
-    pub make_thunk_output_cont: Option<Continuation>,
-
-    pub invoke_continuation_was_called: bool,
-    pub invoke_continuation_result: Option<Expression>,
-    pub invoke_continuation_env: Option<Expression>,
     pub invoke_continuation_cont: Option<Continuation>,
 
     pub invoke_continuation_output_result: Option<Expression>,
-    pub invoke_continuation_output_env: Option<Expression>,
-    pub invoke_continuation_output_cont: Option<Continuation>,
-
-    pub invoke_continuation_thunk: Option<Thunk>,
 }
 
 impl Witness {
@@ -227,8 +206,6 @@ fn eval_expr_with_witness(
     witness: &mut Witness,
 ) -> Control<Expression, Continuation> {
     witness.store = Some(store.clone());
-    witness.expr = Some(expr.clone());
-    witness.expr_is_sym = Some(false);
     let control = match expr {
         Expression::Thunk(thunk) => Control::InvokeContinuation(
             *thunk.value.clone(),
@@ -237,7 +214,6 @@ fn eval_expr_with_witness(
         ),
         Expression::Nil => Control::MakeThunk(expr.clone(), env.clone(), cont.clone()),
         Expression::Sym(_) => {
-            witness.expr_is_sym = Some(true);
             if expr == &store.intern("NIL") || (expr == &store.intern("T")) {
                 // CIRCUIT: sym_is_self_evaluating
                 Control::MakeThunk(expr.clone(), env.clone(), cont.clone())
@@ -569,10 +545,7 @@ fn invoke_continuation(
     }
     let (result, env, cont) = control.results();
 
-    witness.invoke_continuation_was_called = true;
     witness.invoke_continuation_cont = Some(cont.clone());
-    witness.invoke_continuation_result = Some(result.clone());
-    witness.invoke_continuation_env = Some(env.clone());
 
     let control = match &cont {
         Continuation::Terminal => unreachable!("Terminal Continuation should never be invoked."),
@@ -773,8 +746,6 @@ fn invoke_continuation(
     let (output_result, output_env, output_cont) = control.results();
 
     witness.invoke_continuation_output_result = Some(output_result);
-    witness.invoke_continuation_output_env = Some(output_env);
-    witness.invoke_continuation_output_cont = Some(output_cont);
 
     if let Control::InvokeContinuation(_, _, _) = control {
         unreachable!();
@@ -798,19 +769,12 @@ fn make_thunk(
         unreachable!("make_thunk should never be called with a thunk");
     };
 
-    witness.make_thunk_was_called = true;
-    witness.make_thunk_result = Some(result.clone());
-    witness.make_thunk_env = Some(env.clone());
-    witness.make_thunk_cont = Some(cont.clone());
-
     let effective_env = match &cont {
         // These are the restore-env continuations.
         Continuation::Lookup(saved_env, _) => saved_env.clone(),
         Continuation::Tail(saved_env, _) => saved_env.clone(),
         _ => env.clone(),
     };
-
-    witness.make_thunk_effective_env = Some(effective_env.clone());
 
     // This structure is in case we have other tail continuations in the future.
     // I think we should not have, though -- since by definition we should be able
@@ -824,7 +788,7 @@ fn make_thunk(
                     value: Box::new(result),
                     continuation: previous_cont.clone(),
                 };
-                witness.make_thunk_tail_continuation_thunk = Some(thunk.clone());
+                // witness.make_thunk_tail_continuation_thunk = Some(thunk.clone());
                 witness.witness_destructured_thunk(&thunk);
                 Control::Return(
                     Expression::Thunk(thunk),
@@ -853,7 +817,6 @@ fn make_thunk(
                     Continuation::Tail(_, _) => unreachable!(),
                     _ => &effective_env,
                 };
-                witness.make_thunk_effective_env2 = Some(effective_env2.clone());
 
                 match &*continuation {
                     Continuation::Outermost => {
@@ -864,7 +827,6 @@ fn make_thunk(
                             value: Box::new(result),
                             continuation: continuation.clone(),
                         };
-                        witness.make_thunk_tail_continuation_thunk = Some(thunk.clone());
                         witness.witness_destructured_thunk(&thunk);
                         Control::Return(
                             Expression::Thunk(thunk),
@@ -883,7 +845,6 @@ fn make_thunk(
                 value: Box::new(result),
                 continuation: Box::new(cont.clone()),
             };
-            witness.make_thunk_thunk = Some(thunk.clone());
             witness.witness_destructured_thunk(&thunk);
             Control::Return(Expression::Thunk(thunk), effective_env, Continuation::Dummy)
         }
@@ -891,10 +852,6 @@ fn make_thunk(
 
     {
         let (output_result, output_env, output_cont) = control.results();
-
-        witness.make_thunk_output_result = Some(output_result);
-        witness.make_thunk_output_env = Some(output_env);
-        witness.make_thunk_output_cont = Some(output_cont);
     }
     control
 }
