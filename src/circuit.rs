@@ -11,7 +11,8 @@ use ff::{Field, PrimeField};
 use generic_array::typenum::private::IsLessOrEqualPrivate;
 use neptune::circuit::poseidon_hash;
 use pairing_lib::Engine;
-use rand::RngCore;
+use rand::{RngCore, SeedableRng};
+use rand_xorshift::XorShiftRng;
 
 use crate::gadgets::case::{case, multi_case, CaseClause, CaseConstraint};
 
@@ -25,6 +26,10 @@ use crate::gadgets::constraints::{
 };
 use crate::gadgets::data::{allocate_constant, pick_tagged_hash, AllocatedTaggedHash};
 
+pub const DUMMY_RNG_SEED: [u8; 16] = [
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+];
+
 pub trait Provable {
     fn public_inputs(&self) -> Vec<Fr>;
 }
@@ -34,7 +39,7 @@ pub struct Proof<F: Provable, E: Engine> {
     groth16_proof: groth16::Proof<E>,
 }
 
-impl<W: Copy> Provable for Frame<IO<W>> {
+impl<W> Provable for Frame<IO<W>> {
     fn public_inputs(&self) -> Vec<Fr> {
         let mut inputs: Vec<Fr> = Vec::with_capacity(10);
 
@@ -60,18 +65,42 @@ impl<W> IO<W> {
     }
 }
 
-fn dummy_frame<W>() -> Frame<IO<W>> {
-    todo!()
+impl Frame<IO<Witness>> {
+    fn dummy() -> Self {
+        todo!()
+    }
+
+    fn frame_groth_params(self) -> Result<groth16::Parameters<Bls12>, SynthesisError> {
+        let rng = &mut XorShiftRng::from_seed(DUMMY_RNG_SEED);
+        groth16::generate_random_parameters::<Bls12, _, _>(self, rng)
+    }
+
+    fn groth_params() -> Result<groth16::Parameters<Bls12>, SynthesisError> {
+        Self::dummy().frame_groth_params()
+    }
 }
 
-pub fn verify<F: Provable>(p: Proof<F, Bls12>, f: F) -> Result<bool, SynthesisError> {
-    let inputs = f.public_inputs();
-    let circuit = dummy_frame();
-    let groth_params = groth16::generate_random_parameters::<Bls12, _, _>(circuit, rng)?;
-    let vk = groth_params.vk;
-    let pvk = groth16::prepare_verifying_key(&vk);
+impl Frame<IO<Witness>> {
+    pub fn generate_groth16_proof<R: RngCore>(
+        self,
+        rng: &mut R,
+    ) -> Result<groth16::Proof<Bls12>, SynthesisError> {
+        let params = Frame::<IO<Witness>>::groth_params()?;
 
-    verify_proof(&pvk, &p.groth16_proof, &inputs)
+        groth16::create_random_proof(self, &params, rng)
+    }
+
+    pub fn verify_groth16_proof(
+        p: Proof<Frame<IO<Witness>>, Bls12>,
+        f: Frame<IO<Witness>>,
+    ) -> Result<bool, SynthesisError> {
+        let groth_params = Frame::groth_params()?;
+        let vk = groth_params.vk;
+        let pvk = groth16::prepare_verifying_key(&vk);
+        let inputs = f.public_inputs();
+
+        verify_proof(&pvk, &p.groth16_proof, &inputs)
+    }
 }
 
 fn bind_input<CS: ConstraintSystem<Fr>>(
@@ -1207,22 +1236,6 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
                 val,
                 env.clone(),
                 continuation_letrecstar,
-                g.false_num.clone(),
-            ),
-        );
-    }
-    {
-        // head == LETREC*
-
-        // let val = todo!();
-        // let continuation = todo!();
-
-        add_clauses(
-            letrecstar_hash,
-            (
-                env.clone(), //val
-                env.clone(),
-                cont.clone(),
                 g.false_num.clone(),
             ),
         );
@@ -3241,15 +3254,20 @@ mod tests {
                 i: 0,
             };
 
-            frame.synthesize(&mut cs).expect("failed to synthesize");
+            frame
+                .clone()
+                .synthesize(&mut cs)
+                .expect("failed to synthesize");
 
-            assert_eq!(29400, cs.num_constraints());
+            assert_eq!(29379, cs.num_constraints());
 
             if expect_success {
                 assert!(cs.is_satisfied());
             } else {
                 assert!(!cs.is_satisfied());
             }
+            let mut rng = rand::thread_rng();
+            let proof = frame.generate_groth16_proof(&mut rng);
         };
 
         // Success
