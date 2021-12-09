@@ -43,10 +43,18 @@ impl<W> Provable for Frame<IO<W>> {
     fn public_inputs(&self) -> Vec<Fr> {
         let mut inputs: Vec<Fr> = Vec::with_capacity(10);
 
-        inputs.extend(self.input.public_inputs());
-        inputs.extend(self.output.public_inputs());
-        inputs.extend(self.initial.public_inputs());
-        inputs.push(fr_from_u64(self.i as u64));
+        if let Some(input) = self.input {
+            inputs.extend(input.public_inputs());
+        }
+        if let Some(output) = self.output {
+            inputs.extend(output.public_inputs());
+        }
+        if let Some(initial) = self.initial {
+            inputs.extend(initial.public_inputs());
+        }
+        if let Some(i) = self.i {
+            inputs.push(fr_from_u64(i as u64));
+        }
 
         inputs
     }
@@ -67,7 +75,12 @@ impl<W> IO<W> {
 
 impl Frame<IO<Witness>> {
     fn dummy() -> Self {
-        todo!()
+        Self {
+            input: None,
+            output: None,
+            initial: None,
+            i: None,
+        }
     }
 
     fn frame_groth_params(self) -> Result<groth16::Parameters<Bls12>, SynthesisError> {
@@ -105,13 +118,21 @@ impl Frame<IO<Witness>> {
 
 fn bind_input<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
-    expr: &Expression,
+    expr: &Option<Expression>,
 ) -> Result<AllocatedTaggedHash, SynthesisError> {
-    let tagged_hash = expr.tagged_hash();
-    let tag = AllocatedNum::alloc(cs.namespace(|| "tag"), || Ok(tagged_hash.tag))?;
+    let tagged_hash = expr.map(|e| e.tagged_hash());
+    let tag = AllocatedNum::alloc(cs.namespace(|| "tag"), || {
+        tagged_hash
+            .map(|th| th.tag)
+            .ok_or(SynthesisError::AssignmentMissing)
+    })?;
     tag.inputize(cs.namespace(|| "tag input"))?;
 
-    let hash = AllocatedNum::alloc(cs.namespace(|| "hash"), || Ok(tagged_hash.hash))?;
+    let hash = AllocatedNum::alloc(cs.namespace(|| "hash"), || {
+        tagged_hash
+            .map(|th| th.hash)
+            .ok_or(SynthesisError::AssignmentMissing)
+    })?;
     hash.inputize(cs.namespace(|| "hash input"))?;
 
     Ok(AllocatedTaggedHash::from_tag_and_hash(tag, hash))
@@ -119,14 +140,18 @@ fn bind_input<CS: ConstraintSystem<Fr>>(
 
 fn bind_input_cont<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
-    cont: &Continuation,
+    cont: &Option<Continuation>,
 ) -> Result<AllocatedTaggedHash, SynthesisError> {
     let tag = AllocatedNum::alloc(cs.namespace(|| "continuation tag"), || {
-        Ok(cont.get_continuation_tag().cont_tag_fr())
+        cont.map(|c| c.get_continuation_tag().cont_tag_fr())
+            .ok_or(SynthesisError::AssignmentMissing)
     })?;
     tag.inputize(cs.namespace(|| "continuation tag input"))?;
 
-    let hash = AllocatedNum::alloc(cs.namespace(|| "continuation hash"), || Ok(cont.get_hash()))?;
+    let hash = AllocatedNum::alloc(cs.namespace(|| "continuation hash"), || {
+        cont.map(|c| c.get_hash())
+            .ok_or(SynthesisError::AssignmentMissing)
+    })?;
     hash.inputize(cs.namespace(|| "continuation hash input"))?;
 
     Ok(AllocatedTaggedHash::from_tag_and_hash(tag, hash))
@@ -172,50 +197,83 @@ fn bind_continuation_tag_hash<CS: ConstraintSystem<Fr>>(
 
 impl Circuit<Fr> for Frame<IO<Witness>> {
     fn synthesize<CS: ConstraintSystem<Fr>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
-        let witness = self.output.witness.clone().unwrap();
+        let witness = if let Some(output) = self.output {
+            output.witness.clone().unwrap()
+        } else {
+            Witness::default()
+        };
 
         ////////////////////////////////////////////////////////////////////////////////
         // Bind public inputs.
         //
         // The frame's input:
-        let input_expr = bind_input(&mut cs.namespace(|| "input expression"), &self.input.expr)?;
+        let input_expr = bind_input(
+            &mut cs.namespace(|| "input expression"),
+            &self.input.map(|input| input.expr),
+        )?;
 
-        let input_env = bind_input(&mut cs.namespace(|| "input env"), &self.input.env)?;
+        let input_env = bind_input(
+            &mut cs.namespace(|| "input env"),
+            &self.input.map(|input| input.env),
+        )?;
 
-        let input_cont = bind_input_cont(&mut cs.namespace(|| "input cont"), &self.input.cont)?;
+        let input_cont = bind_input_cont(
+            &mut cs.namespace(|| "input cont"),
+            &self.input.map(|input| input.cont),
+        )?;
 
         // The frame's output:
-        let output_expr = bind_input(&mut cs.namespace(|| "output expression"), &self.output.expr)?;
+        let output_expr = bind_input(
+            &mut cs.namespace(|| "output expression"),
+            &self.output.map(|output| output.expr),
+        )?;
 
-        let output_env = bind_input(&mut cs.namespace(|| "output env"), &self.output.env)?;
+        let output_env = bind_input(
+            &mut cs.namespace(|| "output env"),
+            &self.output.map(|output| output.env),
+        )?;
 
-        let output_cont = bind_input_cont(&mut cs.namespace(|| "output cont"), &self.output.cont)?;
+        let output_cont = bind_input_cont(
+            &mut cs.namespace(|| "output cont"),
+            &self.output.map(|output| output.cont),
+        )?;
 
         // The initial input to the IVC computation.
         let initial_expr = bind_input(
             &mut cs.namespace(|| "initial expression"),
-            &self.initial.expr,
+            &self.initial.map(|initial| initial.expr),
         )?;
 
-        let initial_env = bind_input(&mut cs.namespace(|| "initial env"), &self.initial.env)?;
+        let initial_env = bind_input(
+            &mut cs.namespace(|| "initial env"),
+            &self.initial.map(|initial| initial.env),
+        )?;
 
-        let initial_cont =
-            bind_input_cont(&mut cs.namespace(|| "initial cont"), &self.initial.cont)?;
+        let initial_cont = bind_input_cont(
+            &mut cs.namespace(|| "initial cont"),
+            &self.initial.map(|initial| initial.cont),
+        )?;
 
         // We don't currently need this, but we could expose access to it for logging, etc.
         // The frame counter:
-        let frame_counter = cs.alloc_input(|| "frame counter", || Ok(fr_from_u64(self.i as u64)));
+        let frame_counter = cs.alloc_input(
+            || "frame counter",
+            || {
+                self.i
+                    .map(|i| fr_from_u64(i as u64))
+                    .ok_or(SynthesisError::AssignmentMissing)
+            },
+        );
         //
         // End public inputs.
         ////////////////////////////////////////////////////////////////////////////////
 
-        //        let (new_expr, new_env, new_cont) = evaluate_expression(
         let (new_expr, new_env, new_cont) = evaluate_expression(
             &mut cs.namespace(|| "evaluate expression"),
             &input_expr,
             &input_env,
             &input_cont,
-            &self.output.witness.expect("witness missing"),
+            &self.output.and_then(|output| output.witness),
         )?;
 
         output_expr.enforce_equal(&mut cs.namespace(|| "output expr is correct"), &new_expr);
@@ -278,7 +336,7 @@ struct GlobalAllocations {
 impl GlobalAllocations {
     fn new<CS: ConstraintSystem<Fr>>(
         cs: &mut CS,
-        witness: &Witness,
+        witness: &Option<Witness>,
     ) -> Result<Self, SynthesisError> {
         let terminal_tagged_hash = Continuation::Terminal
             .allocate_constant_tagged_hash(&mut cs.namespace(|| "terminal continuation"))?;
@@ -364,7 +422,7 @@ impl GlobalAllocations {
         // For example, TaggedHash::default() has both tag and hash of zero.
         let default = allocate_constant(&mut cs.namespace(|| "default"), Fr::zero())?;
 
-        let maybe_thunk = witness.destructured_thunk.clone();
+        let maybe_thunk = witness.and_then(|w| w.destructured_thunk.clone());
         let (destructured_thunk_hash, destructured_thunk_value, destructured_thunk_continuation) =
             allocate_thunk_components(
                 &mut cs.namespace(|| "allocate thunk components"),
@@ -426,7 +484,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     expr: &AllocatedTaggedHash,
     env: &AllocatedTaggedHash,
     cont: &AllocatedTaggedHash,
-    witness: &Witness,
+    witness: &Option<Witness>,
 ) -> Result<
     (
         AllocatedTaggedHash,
@@ -729,7 +787,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     env: &AllocatedTaggedHash,
     cont: &AllocatedTaggedHash,
     not_dummy: &Boolean,
-    witness: &Witness,
+    witness: &Option<Witness>,
     g: &GlobalAllocations,
 ) -> Result<
     (
@@ -740,7 +798,11 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     ),
     SynthesisError,
 > {
-    let store = witness.store.as_ref().expect("Store missing.");
+    let store = if let Some(w) = witness {
+        w.store.as_ref().expect("Store missing.")
+    } else {
+        &Store::default()
+    };
 
     let output_expr = witness
         .prethunk_output_expr
@@ -987,7 +1049,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     env: &AllocatedTaggedHash,
     cont: &AllocatedTaggedHash,
     not_dummy: &Boolean,
-    witness: &Witness,
+    witness: &Option<Witness>,
     g: &GlobalAllocations,
 ) -> Result<
     (
@@ -1610,7 +1672,7 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
     cont: &AllocatedTaggedHash,
     result: &AllocatedTaggedHash,
     env: &AllocatedTaggedHash,
-    witness: &Witness,
+    witness: &Option<Witness>,
     global_allocations: &GlobalAllocations,
 ) -> Result<
     (
@@ -1957,7 +2019,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
     cont: &AllocatedTaggedHash,
     result: &AllocatedTaggedHash,
     env: &AllocatedTaggedHash,
-    witness: &Witness,
+    witness: &Option<Witness>,
     global_allocations: &GlobalAllocations,
 ) -> Result<
     (

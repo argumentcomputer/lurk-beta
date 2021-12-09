@@ -18,10 +18,10 @@ pub struct IO<W> {
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
 pub struct Frame<T> {
-    pub input: T,
-    pub output: T,
-    pub initial: T,
-    pub i: usize,
+    pub input: Option<T>,
+    pub output: Option<T>,
+    pub initial: Option<T>,
+    pub i: Option<usize>,
 }
 
 pub trait Evaluable {
