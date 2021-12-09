@@ -65,10 +65,13 @@ impl IO<Witness> {
 impl<T: Evaluable + Clone + PartialEq + Witnessed> Frame<T> {
     fn next(&self, store: &mut Store) -> Self {
         let mut input = self.output.clone();
-        input.reset_witness();
+        if let Some(ref mut input) = input {
+            input.reset_witness();
+        };
+        // input.map(|i| i.reset_witness());
 
-        let output = input.eval(store);
-        let i = self.i + 1;
+        let output = input.clone().map(|i| i.eval(store));
+        let i = self.i.map(|i| i + 1);
         Self {
             input,
             output,
@@ -83,10 +86,10 @@ impl<T: Evaluable + Clone + PartialEq> Frame<T> {
         let output = input.eval(store);
 
         Self {
-            input: input.clone(),
-            output,
-            initial: input.clone(),
-            i: 0,
+            input: Some(input.clone()),
+            output: Some(output),
+            initial: Some(input.clone()),
+            i: Some(0),
         }
     }
 }
@@ -112,7 +115,7 @@ impl<'a, T: Evaluable + Clone + PartialEq + Witnessed> Iterator for FrameIt<'a, 
 
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         if let Some(next_frame) = if let Some(frame) = &self.frame {
-            if frame.output.is_terminal() {
+            if frame.output.as_ref().unwrap().is_terminal() {
                 None
             } else {
                 Some(frame.next(self.store))
@@ -886,8 +889,13 @@ pub fn outer_evaluate(
 
     // FIXME: Handle limit.
     if let Some(last_frame) = frame_iterator.last() {
-        let output = last_frame.output;
-        (output.expr, output.env, last_frame.i + 1, output.cont)
+        let output = last_frame.output.unwrap();
+        (
+            output.expr,
+            output.env,
+            last_frame.i.map(|i| i + 1).unwrap(),
+            output.cont,
+        )
     } else {
         panic!("xxx")
     }

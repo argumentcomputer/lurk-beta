@@ -267,11 +267,28 @@ pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     );
 
     // Inverse of `diff`, if it exists, otherwise one.
-    let q = if let Some(inv) = diff.get_value().unwrap().invert().into() {
-        inv
+    let q = if let Some(xxx) = diff.get_value() {
+        if let Some(inv) = xxx.invert().into() {
+            inv
+        } else {
+            F::one()
+        }
     } else {
         F::one()
+        // panic!("uiop");
     };
+
+    // let q = if let Some(inv) = diff.get_value().expect("qqq").invert().into() {
+    //     inv
+    // } else {
+    //     F::one()
+    // };
+
+    // if let Some(xxx) = diff.get_value() {
+
+    //     } else {
+
+    // }
 
     // (diff + result) * q = 1.
     // This enforces that diff and result are not both 0.
@@ -294,7 +311,7 @@ pub fn alloc_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     x: &AllocatedNum<F>,
 ) -> Result<Boolean, SynthesisError> {
-    let is_zero = x.get_value().unwrap() == F::zero();
+    let is_zero = x.get_value().unwrap_or(F::one()) == F::zero();
 
     // result = (x == 0)
     let result = AllocatedBit::alloc(cs.namespace(|| "x = 0"), Some(is_zero))?;
@@ -309,7 +326,8 @@ pub fn alloc_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     );
 
     // Inverse of `x`, if it exists, otherwise one.
-    let q = if let Some(inv) = x.get_value().unwrap().invert().into() {
+    // NOTE: this also returns one if x has no value, which may not be a good idea.
+    let q = if let Some(inv) = x.get_value().unwrap_or(F::one()).invert().into() {
         inv
     } else {
         F::one()
