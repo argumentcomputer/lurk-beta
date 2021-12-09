@@ -57,9 +57,15 @@
         copySources = [ "examples" "src" ];
         copyBins = true;
       };
+      clippy = project.override {
+        buildInputs = buildInputs ++ [ pkgs.clippy ];
+        override = def: {
+          cargoBuild = "cargo $cargo_options clippy $cargo_build_options";
+        };
+      };
       packages = {
         ${crateName} = project;
-        inherit lurk-example;
+        inherit lurk-example clippy;
       };
     in
     {
@@ -80,7 +86,6 @@
 
       # `nix develop`
       devShell = pkgs.mkShell {
-        inputsFrom = builtins.attrValues self.packages.${system};
         nativeBuildInputs = [ rust ];
         buildInputs = with pkgs; buildInputs ++ [
           rust-analyzer
