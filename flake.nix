@@ -83,7 +83,6 @@
         inputsFrom = builtins.attrValues self.packages.${system};
         nativeBuildInputs = [ rust ];
         buildInputs = with pkgs; buildInputs ++ [
-          ocl-icd
           rust-analyzer
           clippy
           rustfmt
