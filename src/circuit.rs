@@ -635,6 +635,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
             &expr.tag,
             &global_allocations.sym_tag,
         )?;
+
         let (result, env, cont, make_thunk) = eval_sym(
             &mut cs.namespace(|| "eval Sym"),
             expr,
@@ -988,77 +989,102 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
         &with_smaller_rec_env
     )?;
 
-    let cs = &mut cs.namespace(|| "a");
-    {
-        let cond = and!(cs, &sym_is_self_evaluating, not_dummy)?;
-        implies_equal_t!(cs, &cond, &output_expr, &expr);
-        implies_equal_t!(cs, &cond, &output_env, &env);
-        implies_equal_t!(cs, &cond, &output_cont, &cont);
-    }
-
-    let cs = &mut cs.namespace(|| "b");
-    {
-        let cond = and!(cs, &otherwise_and_binding_is_nil, not_dummy)?;
-        implies_equal_t!(cs, &cond, &output_expr, &expr);
-        implies_equal_t!(cs, &cond, &output_env, &env);
-        implies_equal_t!(cs, &cond, &output_cont, &g.error_tagged_hash);
-    }
-    let cs = &mut cs.namespace(|| "c");
+    let cs = &mut cs.namespace(|| "sym_is_self_evaluating");
+    let cond1 = and!(cs, &sym_is_self_evaluating, not_dummy)?;
 
     {
-        let cond = and!(cs, &v_is_expr1_real, not_dummy)?;
-        implies_equal_t!(cs, &cond, &output_expr, &val);
-        implies_equal_t!(cs, &cond, &output_env, &env);
-        implies_equal_t!(cs, &cond, &output_cont, &cont);
-    }
-    let cs = &mut cs.namespace(|| "d");
+        // implies_equal_t!(cs, &cond1, &output_expr, &expr);
+        // implies_equal_t!(cs, &cond1, &output_env, &env);
+        // implies_equal_t!(cs, &cond1, &output_cont, &cont);
 
-    {
-        let cond = and!(cs, &cont_is_lookup_sym, not_dummy)?;
-        implies_equal_t!(cs, &cond, &output_expr, &expr);
-        implies_equal_t!(cs, &cond, &output_env, &smaller_env);
-        implies_equal_t!(cs, &cond, &output_cont, &cont);
-    }
-    let cs = &mut cs.namespace(|| "e");
-
-    {
-        let cond = and!(cs, &cont_not_lookup_sym, not_dummy)?;
-        implies_equal_t!(cs, &cond, &output_expr, &expr);
-        implies_equal_t!(cs, &cond, &output_env, &smaller_env);
-        implies_equal_t!(cs, &cond, &output_cont, &lookup_continuation);
+        implies_equal_t!(cs, &cond1, &output_cont, &cont);
     }
 
-    let cs = &mut cs.namespace(|| "f");
+    let cs = &mut cs.namespace(|| "otherwise_and_binding_is_nil");
+    let cond2 = and!(cs, &otherwise_and_binding_is_nil, not_dummy)?;
     {
-        let cond = and!(cs, &v2_is_expr_real, not_dummy)?;
-        implies_equal_t!(cs, &cond, &output_expr, &val_to_use);
-        implies_equal_t!(cs, &cond, &output_env, &env);
-        implies_equal_t!(cs, &cond, &output_cont, &cont);
+        // let cond = and!(cs, &otherwise_and_binding_is_nil, not_dummy)?;
+
+        // implies_equal_t!(cs, &cond2, &output_expr, &expr);
+        // implies_equal_t!(cs, &cond2, &output_env, &env);
+        implies_equal_t!(cs, &cond2, &output_cont, &g.error_tagged_hash);
+    }
+    let cs = &mut cs.namespace(|| "v_is_expr1_real");
+
+    let cond3 = and!(cs, &v_is_expr1_real, not_dummy)?;
+    {
+        implies_equal_t!(cs, &cond3, &output_expr, &val);
+        // implies_equal_t!(cs, &cond3, &output_env, &env);
+        // implies_equal_t!(cs, &cond3, &output_cont, &cont);
+    }
+    let cs = &mut cs.namespace(|| "cont_is_lookup_sym");
+    let cond4 = and!(cs, &cont_is_lookup_sym, not_dummy)?;
+    {
+        // implies_equal_t!(cs, &cond4, &output_expr, &expr);
+        implies_equal_t!(cs, &cond4, &output_env, &smaller_env);
+
+        //implies_equal_t!(cs, &cond, &output_cont, &cont);
+    }
+    let cs = &mut cs.namespace(|| "cont_not_lookup_sym");
+    let cond5 = and!(cs, &cont_not_lookup_sym, not_dummy)?;
+    {
+        // implies_equal_t!(cs, &cond5, &output_expr, &expr);
+        implies_equal_t!(cs, &cond5, &output_env, &smaller_env);
+        implies_equal_t!(cs, &cond5, &output_cont, &lookup_continuation);
     }
 
-    let cs = &mut cs.namespace(|| "g");
+    let cs = &mut cs.namespace(|| "v2_is_expr_real");
+    let cond6 = and!(cs, &v2_is_expr_real, not_dummy)?;
     {
-        let cond = and!(cs, &otherwise_and_v2_not_expr, not_dummy)?;
-        implies_equal_t!(cs, &cond, &output_expr, &expr);
-        implies_equal_t!(cs, &cond, &output_env, &env_to_use);
-    }
-    let cs = &mut cs.namespace(|| "h");
-
-    {
-        let cond = and!(cs, &cont_is_lookup_cons, not_dummy)?;
-        implies_equal_t!(cs, &cond, &output_cont, &cont);
-    }
-    let cs = &mut cs.namespace(|| "i");
-    {
-        let cond = and!(cs, &cont_not_lookup_cons, not_dummy)?;
-        implies_equal_t!(cs, &cond, &output_cont, &lookup_continuation);
+        implies_equal_t!(cs, &cond6, &output_expr, &val_to_use);
+        // implies_equal_t!(cs, &cond6, &output_env, &env);
+        // implies_equal_t!(cs, &cond6, &output_cont, &cont);
     }
 
+    let cs = &mut cs.namespace(|| "otherwise_and_v2_not_expr");
+    let cond7 = and!(cs, &otherwise_and_v2_not_expr, not_dummy)?;
     {
-        let cond = and!(cs, &otherwise_cons_neither, not_dummy)?;
+        // implies_equal_t!(cs, &cond7, &output_expr, &expr);
+        implies_equal_t!(cs, &cond7, &output_env, &env_to_use);
+    }
+
+    let cs = &mut cs.namespace(|| "cont_is_lookup_cons");
+    let cond8 = and!(cs, &cont_is_lookup_cons, not_dummy)?;
+    // {
+    //     // implies_equal_t!(cs, &cond8, &output_cont, &cont);
+    // }
+
+    let cs = &mut cs.namespace(|| "cont_not_lookup_cons");
+    let cond9 = and!(cs, &cont_not_lookup_cons, not_dummy)?;
+    {
+        implies_equal_t!(cs, &cond9, &output_cont, &lookup_continuation);
+    }
+
+    let cs = &mut cs.namespace(|| "otherwise_cons_neither");
+    let cond10 = and!(cs, &otherwise_cons_neither, not_dummy)?;
+    {
         // "Bad form"
-        implies_equal_t!(cs, &cond, &output_cont, &g.error_tagged_hash);
+        implies_equal_t!(cs, &cond10, &output_cont, &g.error_tagged_hash);
     }
+
+    let conda = or!(cs, &cond1, &cond2)?; // cond1, cond2
+    let condb = or!(cs, &cond4, &cond6)?; // cond4, cond6
+    let condc = or!(cs, &conda, &cond8)?; // cond1, cond2, cond8
+
+    let condx = or!(cs, &cond4, &cond5)?; // cond4, cond5
+    let condy = or!(cs, &cond3, &cond6)?; // cond3, cond6
+
+    // cond1, cond2, cond4, cond5 // cond_expr
+    let cond_expr = or!(cs, &conda, &condx)?; // cond1, cond2, cond4, cond5
+    implies_equal_t!(cs, &cond_expr, &output_expr, &expr);
+
+    // cond1, cond2, cond3, cond6 // cond_env
+    let cond_env = or!(cs, &conda, &condy)?; // cond1, cond2, cond3, cond6
+    implies_equal_t!(cs, &cond_env, &output_env, &env);
+
+    // cond1, cond3, cond4, cond6, cond // cond_cont
+    let cond_cont = or!(cs, &condb, &condc)?; // cond1, cond2, cond4, cond6, cond8
+    implies_equal_t!(cs, &cond_cont, &output_cont, &cont);
 
     Ok((output_expr, output_env, output_cont, make_thunk))
 }
@@ -3359,7 +3385,7 @@ mod tests {
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
-            assert_eq!(29379, cs.num_constraints());
+            assert_eq!(29277, cs.num_constraints());
 
             if expect_success {
                 assert!(cs.is_satisfied());
