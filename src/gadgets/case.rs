@@ -144,8 +144,8 @@ pub fn case<CS: ConstraintSystem<Fr>>(
         }
 
         let mut x = clause.key;
-        x.sub_assign(&selected.get_value().unwrap_or(Fr::one()));
-        x.mul_assign(&acc.get_value().unwrap_or(Fr::one()));
+        x.sub_assign(&selected.get_value().unwrap_or_else(Fr::one));
+        x.mul_assign(&acc.get_value().unwrap_or_else(Fr::one));
 
         let new_acc = AllocatedNum::alloc(cs.namespace(|| format!("acc {})", i + 1)), || Ok(x))?;
 

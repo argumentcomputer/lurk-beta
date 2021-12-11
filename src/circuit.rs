@@ -212,12 +212,6 @@ fn bind_continuation_tag_hash<CS: ConstraintSystem<Fr>>(
 
 impl Circuit<Fr> for Frame<IO<Witness>> {
     fn synthesize<CS: ConstraintSystem<Fr>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
-        let witness = if let Some(output) = self.output.clone() {
-            output.witness.clone().unwrap()
-        } else {
-            Witness::default()
-        };
-
         ////////////////////////////////////////////////////////////////////////////////
         // Bind public inputs.
         //
@@ -307,9 +301,7 @@ struct GlobalAllocations {
     nil_tagged_hash: AllocatedTaggedHash,
     t_tagged_hash: AllocatedTaggedHash,
     lambda_tagged_hash: AllocatedTaggedHash,
-    quote_tagged_hash: AllocatedTaggedHash,
     dummy_arg_tagged_hash: AllocatedTaggedHash,
-    dummy_value: AllocatedNum<Fr>,
     nil_tag: AllocatedNum<Fr>,
     sym_tag: AllocatedNum<Fr>,
     thunk_tag: AllocatedNum<Fr>,
@@ -374,13 +366,8 @@ impl GlobalAllocations {
         let lambda_tagged_hash = Expression::read_sym("LAMBDA")
             .allocate_constant_tagged_hash(&mut cs.namespace(|| "LAMBDA"))?;
 
-        let quote_tagged_hash = Expression::read_sym("QUOTE")
-            .allocate_constant_tagged_hash(&mut cs.namespace(|| "QUOTE"))?;
-
         let dummy_arg_tagged_hash =
             Expression::read_sym("_").allocate_constant_tagged_hash(&mut cs.namespace(|| "_"))?;
-
-        let dummy_value = allocate_constant(&mut cs.namespace(|| "arbitrary dummy"), Fr::zero())?;
 
         let nil_tag = Tag::Sym.allocate_constant(&mut cs.namespace(|| "nil_tag"))?;
         let sym_tag = Tag::Sym.allocate_constant(&mut cs.namespace(|| "sym_tag"))?;
@@ -454,11 +441,9 @@ impl GlobalAllocations {
             error_tagged_hash,
             dummy_tagged_hash,
             nil_tagged_hash,
-            dummy_value,
             nil_tag,
             t_tagged_hash,
             lambda_tagged_hash,
-            quote_tagged_hash,
             dummy_arg_tagged_hash,
             sym_tag,
             thunk_tag,
@@ -514,7 +499,6 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
 > {
     let global_allocations =
         GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), witness)?;
-
     let mut result_expr_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
     let mut result_expr_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
     let mut result_env_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
@@ -944,7 +928,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
 
     let (fun_hash, fun_arg, fun_body, fun_closed_env) = Expression::allocate_maybe_fun(
         &mut cs.namespace(|| "extend closure"),
-        witness.clone().and_then(|w| w.extended_closure.clone()),
+        witness.clone().and_then(|w| w.extended_closure),
     )?;
 
     let extended_env = Expression::construct_cons(
@@ -992,6 +976,11 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     let cs = &mut cs.namespace(|| "sym_is_self_evaluating");
     let cond1 = and!(cs, &sym_is_self_evaluating, not_dummy)?;
 
+    // NOTE: The commented-out implies_equal lines in the rest of this function
+    // indicate the natural structure of this translation from eval.rs.
+    // In order to reduce constraints, duplicated results are factored out below,
+    // but the original structure is left intact so it can be checked against
+    // the manual optimization.
     {
         // implies_equal_t!(cs, &cond1, &output_expr, &expr);
         // implies_equal_t!(cs, &cond1, &output_env, &env);
@@ -2259,14 +2248,11 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let fun = tagged_hash_by_index(1, &continuation_components);
         let cont = tagged_hash_by_index(2, &continuation_components);
         {
-            // An alternate way to do this would be to have just a single allocate_fun()
-            // function, and extract either real or dummy values from the witness.
-            // That's probably better and cleaner.
             let (hash, arg_t, body_t, closed_env) = Expression::allocate_maybe_fun(
                 &mut cs.namespace(|| "allocate Call2 fun"),
                 witness
                     .clone()
-                    .and_then(|w| w.invoke_continuation_output_result.clone()),
+                    .and_then(|w| w.invoke_continuation_output_result),
             )?;
 
             let fun_is_correct = constraints::alloc_equal(
@@ -2920,76 +2906,51 @@ fn extend_rec<CS: ConstraintSystem<Fr>>(
     val: &AllocatedTaggedHash,
     store: &Store,
 ) -> Result<AllocatedTaggedHash, SynthesisError> {
-    if let Some(fetched_env) = store.fetch(&env.tagged_hash()) {
-        let (binding_or_env, rest) = store.car_cdr(&fetched_env);
-        let (var_or_binding, val_or_more_bindings) = store.car_cdr(&binding_or_env);
+    let (binding_or_env, rest) = car_cdr(&mut cs.namespace(|| "car_cdr env"), g, &env, store)?;
+    let (var_or_binding, val_or_more_bindings) = car_cdr(
+        &mut cs.namespace(|| "car_cdr binding_or_env"),
+        g,
+        &binding_or_env,
+        store,
+    )?;
 
-        let a = var_or_binding.allocated_tagged_hash(&mut cs.namespace(|| "var_or_binding"))?;
-        let b =
-            var_or_binding.allocated_tagged_hash(&mut cs.namespace(|| "val_or_more_bindings"))?;
+    let cons = Expression::construct_cons(&mut cs.namespace(|| "cons var val"), g, var, val)?;
+    let list = Expression::construct_list(&mut cs.namespace(|| "list cons"), g, &[cons.clone()])?;
 
-        let is_sym = constraints::alloc_equal(
-            &mut cs.namespace(|| "var_or_binding is sym"),
-            &a.tag,
-            &g.sym_tag,
-        )?;
-        let is_nil = constraints::alloc_equal(
-            &mut cs.namespace(|| "var_or_binding is nil"),
-            &a.tag,
-            &g.nil_tag,
-        )?;
-        let is_sym_or_nil = constraints::or(
-            &mut cs.namespace(|| "var_or_binding is sym or nil"),
-            &is_sym,
-            &is_nil,
-        )?;
+    let cons2 = Expression::construct_cons(
+        &mut cs.namespace(|| "cons cons binding_or_env"),
+        g,
+        &cons,
+        &binding_or_env,
+    )?;
 
-        let binding = Expression::construct_cons(&mut cs.namespace(|| "binding"), g, var, val)?;
-        let extended_env = Expression::construct_cons(
-            &mut cs.namespace(|| "extended env"),
-            g,
-            &binding,
-            &g.nil_tagged_hash,
-        )?;
+    let cons3 =
+        Expression::construct_cons(&mut cs.namespace(|| "cons cons2 rest"), g, &cons2, &rest)?;
 
-        let is_cons = constraints::alloc_equal(
-            &mut cs.namespace(|| "var_or_binding is cons"),
-            &a.tag,
-            &g.cons_tag,
-        )?;
+    let is_sym = constraints::alloc_equal(
+        &mut cs.namespace(|| "var_or_binding is sym"),
+        &var_or_binding.tag,
+        &g.sym_tag,
+    )?;
 
-        let binding_or_env_allocated =
-            binding_or_env.allocated_tagged_hash(&mut cs.namespace(|| "binding_or_env"))?;
+    let is_cons = constraints::alloc_equal(
+        &mut cs.namespace(|| "var_or_binding is cons"),
+        &var_or_binding.tag,
+        &g.cons_tag,
+    )?;
 
-        let extended_rec_env = Expression::construct_cons(
-            &mut cs.namespace(|| "extended rec env"),
-            g,
-            &binding,
-            &binding_or_env_allocated,
-        )?;
-
-        let is_bad_input = Boolean::not(&constraints::or(
-            &mut cs.namespace(|| "is sym or nil or cons"),
-            &is_sym_or_nil,
-            &is_cons,
-        )?);
-
-        let if_good = pick_tagged_hash(
-            &mut cs.namespace(|| "pick env or rec env"),
-            &is_sym_or_nil,
-            &extended_env,
-            &extended_rec_env,
-        )?;
-
-        Ok(pick_tagged_hash(
-            &mut cs.namespace(|| "error if bad input to extend_rec"),
-            &is_bad_input,
-            &g.error_tagged_hash,
-            &if_good,
-        )?)
-    } else {
-        panic!("extend_rec env missing from store");
-    }
+    let extend_rec_pre = pick_tagged_hash(
+        &mut cs.namespace(|| "extend_rec pre-result"),
+        &is_cons,
+        &cons3,
+        &g.error_tagged_hash,
+    )?;
+    pick_tagged_hash(
+        &mut cs.namespace(|| "extend_rec result"),
+        &is_sym,
+        &cons,
+        &extend_rec_pre,
+    )
 }
 
 fn make_tail_continuation<CS: ConstraintSystem<Fr>>(
@@ -3252,6 +3213,8 @@ impl Expression {
             Fr::zero(),
         )?;
 
+        implies_equal_t!(cs, &Boolean::Constant(true), &closed_env_t, &closed_env_t);
+
         let preimage = vec![];
         let hash = poseidon_hash(cs.namespace(|| "Fun hash"), preimage, &POSEIDON_CONSTANTS_6)?;
 
@@ -3385,7 +3348,7 @@ mod tests {
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
-            assert_eq!(29277, cs.num_constraints());
+            assert_eq!(30439, cs.num_constraints());
 
             if expect_success {
                 assert!(cs.is_satisfied());
@@ -3400,7 +3363,12 @@ mod tests {
 
             let proof = frame.clone().prove(Some(&groth_params), &mut rng).unwrap();
 
-            assert!(Frame::verify_groth16_proof(pvk, proof, frame).unwrap());
+            let verified = Frame::verify_groth16_proof(pvk, proof, frame).unwrap();
+            if expect_success {
+                assert!(verified)
+            } else {
+                assert!(!verified)
+            };
         };
 
         // Success
@@ -3708,7 +3676,6 @@ mod tests {
             {
                 // Output is not required to equal input.
                 let output = IO {
-                    //                expr: expr.clone(),
                     expr: Expression::num(987),
                     env: env.clone(),
                     cont: Continuation::Terminal,

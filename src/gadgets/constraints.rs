@@ -311,7 +311,7 @@ pub fn alloc_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     x: &AllocatedNum<F>,
 ) -> Result<Boolean, SynthesisError> {
-    let is_zero = x.get_value().unwrap_or(F::one()) == F::zero();
+    let is_zero = x.get_value().unwrap_or_else(F::one) == F::zero();
 
     // result = (x == 0)
     let result = AllocatedBit::alloc(cs.namespace(|| "x = 0"), Some(is_zero))?;
@@ -327,7 +327,7 @@ pub fn alloc_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
 
     // Inverse of `x`, if it exists, otherwise one.
     // NOTE: this also returns one if x has no value, which may not be a good idea.
-    let q = if let Some(inv) = x.get_value().unwrap_or(F::one()).invert().into() {
+    let q = if let Some(inv) = x.get_value().unwrap_or_else(F::one).invert().into() {
         inv
     } else {
         F::one()

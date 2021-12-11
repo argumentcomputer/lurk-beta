@@ -76,8 +76,8 @@ impl AllocatedTaggedHash {
 
     pub fn tagged_hash(&self) -> TaggedHash {
         TaggedHash {
-            tag: self.tag.get_value().unwrap_or(Fr::zero()),
-            hash: self.hash.get_value().unwrap_or(Fr::zero()),
+            tag: self.tag.get_value().unwrap_or_else(Fr::zero),
+            hash: self.hash.get_value().unwrap_or_else(Fr::zero),
         }
     }
 }
