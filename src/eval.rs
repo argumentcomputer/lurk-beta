@@ -4,43 +4,43 @@ use std::cmp::PartialEq;
 use std::iter::Iterator;
 use std::ops::{AddAssign, MulAssign, SubAssign};
 
-pub trait Witnessed {
-    fn reset_witness(&mut self);
-}
-
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
-pub struct IO<W> {
+pub struct IO {
     pub expr: Expression,
     pub env: Expression,
     pub cont: Continuation, // This could be an Expression too, if we want Continuations to be first class.
-    pub witness: Option<W>,
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
-pub struct Frame<T> {
+pub struct Frame<T, W> {
     pub input: Option<T>,
     pub output: Option<T>,
     pub initial: Option<T>,
     pub i: Option<usize>,
+    pub witness: Option<W>,
 }
 
-pub trait Evaluable {
-    fn eval(&self, store: &mut Store) -> Self;
+pub trait Evaluable<W> {
+    fn eval(&self, store: &mut Store) -> (Self, W)
+    where
+        Self: Sized;
 
     fn is_terminal(&self) -> bool;
 }
 
-impl Evaluable for IO<Witness> {
-    fn eval(&self, store: &mut Store) -> Self {
+impl Evaluable<Witness> for IO {
+    fn eval(&self, store: &mut Store) -> (Self, Witness) {
         let (new_expr, new_env, new_cont, witness) =
             eval_expr(&self.expr, &self.env, &self.cont, store);
 
-        Self {
-            expr: new_expr,
-            env: new_env,
-            cont: new_cont,
-            witness: Some(witness),
-        }
+        (
+            Self {
+                expr: new_expr,
+                env: new_env,
+                cont: new_cont,
+            },
+            witness,
+        )
     }
 
     fn is_terminal(&self) -> bool {
@@ -48,59 +48,46 @@ impl Evaluable for IO<Witness> {
     }
 }
 
-impl Witnessed for IO<Witness> {
-    fn reset_witness(&mut self) {
-        self.witness = None;
-    }
-}
-
-impl IO<Witness> {
-    pub(crate) fn compute_witness(&mut self, store: &mut Store) -> Option<Witness> {
-        let evaled = self.eval(store);
-        assert!(evaled.witness.is_some(), "failed to create witness");
-        evaled.witness
-    }
-}
-
-impl<T: Evaluable + Clone + PartialEq + Witnessed> Frame<T> {
+impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
     fn next(&self, store: &mut Store) -> Self {
         let mut input = self.output.clone();
-        if let Some(ref mut input) = input {
-            input.reset_witness();
-        };
-        // input.map(|i| i.reset_witness());
 
-        let output = input.clone().map(|i| i.eval(store));
-        let i = self.i.map(|i| i + 1);
-        Self {
-            input,
-            output,
-            initial: self.initial.clone(),
-            i,
+        if let Some((output, witness)) = input.clone().map(|i| i.eval(store)) {
+            let i = self.i.map(|i| i + 1);
+            Self {
+                input,
+                output: Some(output),
+                initial: self.initial.clone(),
+                i,
+                witness: Some(witness),
+            }
+        } else {
+            panic!("Frame has no output, so cannot produce next().");
         }
     }
 }
 
-impl<T: Evaluable + Clone + PartialEq> Frame<T> {
+impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
     fn from_initial_input(input: T, store: &mut Store) -> Self {
-        let output = input.eval(store);
+        let (output, witness) = input.eval(store);
 
         Self {
             input: Some(input.clone()),
             output: Some(output),
             initial: Some(input.clone()),
             i: Some(0),
+            witness: Some(witness),
         }
     }
 }
 
-struct FrameIt<'a, T> {
+struct FrameIt<'a, T, W> {
     initial_input: T,
-    frame: Option<Frame<T>>,
+    frame: Option<Frame<T, W>>,
     store: &'a mut Store,
 }
 
-impl<'a, T> FrameIt<'a, T> {
+impl<'a, T, W> FrameIt<'a, T, W> {
     fn new(initial_input: T, store: &'a mut Store) -> Self {
         Self {
             initial_input,
@@ -110,8 +97,8 @@ impl<'a, T> FrameIt<'a, T> {
     }
 }
 
-impl<'a, T: Evaluable + Clone + PartialEq + Witnessed> Iterator for FrameIt<'a, T> {
-    type Item = Frame<T>;
+impl<'a, T: Evaluable<Witness> + Clone + PartialEq> Iterator for FrameIt<'a, T, Witness> {
+    type Item = Frame<T, Witness>;
 
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         if let Some(next_frame) = if let Some(frame) = &self.frame {
@@ -881,10 +868,9 @@ pub fn outer_evaluate(
         expr,
         env,
         cont: Continuation::Outermost,
-        witness: None,
     };
 
-    let frame_iterator: std::iter::Take<FrameIt<'_, IO<Witness>>> =
+    let frame_iterator: std::iter::Take<FrameIt<'_, IO, Witness>> =
         FrameIt::new(initial_input, store).take(limit);
 
     // FIXME: Handle limit.
