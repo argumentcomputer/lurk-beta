@@ -2852,12 +2852,14 @@ fn car_cdr<CS: ConstraintSystem<Fr>>(
     )?;
 
     let (car, cdr) = if not_dummy.get_value().expect("not_dummy missing") {
-        let (car, cdr) = store.car_cdr(
-            &store
-                .fetch(&maybe_cons.tagged_hash())
-                .expect("Cons missing from store"),
-        );
-        (car, cdr)
+        if let Some(tagged_hash) = &maybe_cons.tagged_hash() {
+            let (car, cdr) =
+                store.car_cdr(&store.fetch(tagged_hash).expect("Cons missing from store"));
+            (car, cdr)
+        } else {
+            // Dummy
+            (Expression::Nil, Expression::Nil)
+        }
     } else {
         // Dummy
         (Expression::Nil, Expression::Nil)
@@ -2907,7 +2909,7 @@ fn extend_rec<CS: ConstraintSystem<Fr>>(
     val: &AllocatedTaggedHash,
     store: &Store,
 ) -> Result<AllocatedTaggedHash, SynthesisError> {
-    let (binding_or_env, rest) = car_cdr(&mut cs.namespace(|| "car_cdr env"), g, &env, store)?;
+    let (binding_or_env, rest) = car_cdr(&mut cs.namespace(|| "car_cdr env"), g, env, store)?;
     let (var_or_binding, val_or_more_bindings) = car_cdr(
         &mut cs.namespace(|| "car_cdr binding_or_env"),
         g,
@@ -3333,7 +3335,10 @@ mod tests {
         let initial = input.clone();
         let (_, witness) = input.eval(&mut store);
 
-        let test_with_output = |output, expect_success| {
+        let groth_params = Frame::groth_params().unwrap();
+        let vk = &groth_params.vk;
+
+        let test_with_output = |output, expect_success, pvk| {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
@@ -3349,7 +3354,7 @@ mod tests {
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
-            assert_eq!(30439, cs.num_constraints());
+            assert_eq!(31015, cs.num_constraints());
 
             if expect_success {
                 assert!(cs.is_satisfied());
@@ -3358,16 +3363,16 @@ mod tests {
             }
             let mut rng = rand::thread_rng();
 
-            let groth_params = Frame::groth_params().unwrap();
-            let vk = &groth_params.vk;
-            let pvk = groth16::prepare_verifying_key(vk);
-
             let proof = frame.clone().prove(Some(&groth_params), &mut rng).unwrap();
 
+            let cs_satisfied = cs.is_satisfied();
             let verified = Frame::verify_groth16_proof(pvk, proof, frame).unwrap();
+
             if expect_success {
-                assert!(verified)
+                assert!(cs_satisfied);
+                assert!(verified);
             } else {
+                assert!(!cs_satisfied);
                 assert!(!verified)
             };
         };
@@ -3380,7 +3385,7 @@ mod tests {
                 cont: Continuation::Terminal,
             };
 
-            test_with_output(output, true);
+            test_with_output(output, true, groth16::prepare_verifying_key(vk));
         }
 
         // Failure
@@ -3393,7 +3398,7 @@ mod tests {
                     cont: Continuation::Terminal,
                 };
 
-                test_with_output(bad_output_tag, false);
+                test_with_output(bad_output_tag, false, groth16::prepare_verifying_key(vk));
             }
 
             {
@@ -3404,7 +3409,7 @@ mod tests {
                     cont: Continuation::Terminal,
                 };
 
-                test_with_output(bad_output_value, false);
+                test_with_output(bad_output_value, false, groth16::prepare_verifying_key(vk));
             }
         }
     }

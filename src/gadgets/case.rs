@@ -1,4 +1,4 @@
-use super::constraints::{alloc_is_zero, equal, pick, select};
+use super::constraints::{alloc_is_zero, equal, mul, pick, select, sub};
 use bellperson::{
     gadgets::boolean::{AllocatedBit, Boolean},
     gadgets::num::AllocatedNum,
@@ -143,11 +143,21 @@ pub fn case<CS: ConstraintSystem<Fr>>(
             maybe_selected = Some(selected.clone());
         }
 
-        let mut x = clause.key;
-        x.sub_assign(&selected.get_value().unwrap_or_else(Fr::one));
-        x.mul_assign(&acc.get_value().unwrap_or_else(Fr::one));
+        let tmp = AllocatedNum::alloc(&mut cs.namespace(|| format!("clause.key {}", i)), || {
+            Ok(clause.key)
+        })?;
 
-        let new_acc = AllocatedNum::alloc(cs.namespace(|| format!("acc {})", i + 1)), || Ok(x))?;
+        let tmp1 = sub(
+            &mut cs.namespace(|| format!("key - selected {}", i)),
+            &tmp,
+            selected,
+        )?;
+
+        let new_acc = mul(
+            &mut cs.namespace(|| format!("acc * tmp1 {}", i)),
+            &tmp1,
+            &acc,
+        )?;
 
         // acc * clause.key - selected = new_acc
         cs.enforce(

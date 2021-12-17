@@ -74,10 +74,10 @@ impl AllocatedTaggedHash {
         )
     }
 
-    pub fn tagged_hash(&self) -> TaggedHash {
-        TaggedHash {
-            tag: self.tag.get_value().unwrap_or_else(Fr::zero),
-            hash: self.hash.get_value().unwrap_or_else(Fr::zero),
+    pub fn tagged_hash(&self) -> Option<TaggedHash> {
+        match (self.tag.get_value(), self.hash.get_value()) {
+            (Some(tag), Some(hash)) => Some(TaggedHash { tag, hash }),
+            _ => None,
         }
     }
 }
