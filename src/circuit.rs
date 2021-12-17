@@ -3318,10 +3318,13 @@ mod tests {
     use super::*;
     use crate::data::Store;
     use crate::eval::{empty_sym_env, Evaluable, Witness, IO};
+    use bellperson::util_cs::metric_cs::MetricCS;
     use bellperson::util_cs::test_cs::TestConstraintSystem;
 
-    #[test]
-    fn num_self_evaluating() {
+    fn test_with_output<F: FnOnce(&Expression, &Expression, &mut Store) -> IO>(
+        output: F,
+        expect_success: bool,
+    ) {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
         let num = Expression::num(123);
@@ -3338,80 +3341,99 @@ mod tests {
         let groth_params = Frame::groth_params().unwrap();
         let vk = &groth_params.vk;
 
-        let test_with_output = |output, expect_success, pvk| {
-            let mut cs = TestConstraintSystem::new();
+        let pvk = groth16::prepare_verifying_key(vk);
+        let mut cs = TestConstraintSystem::new();
+        let output = output(&num, &env, &mut store);
 
-            let frame = Frame {
-                input: Some(input.clone()),
-                output: Some(output),
-                initial: Some(initial.clone()),
-                i: Some(0),
-                witness: Some(witness.clone()),
-            };
-
-            frame
-                .clone()
-                .synthesize(&mut cs)
-                .expect("failed to synthesize");
-
-            assert_eq!(31015, cs.num_constraints());
-
-            if expect_success {
-                assert!(cs.is_satisfied());
-            } else {
-                assert!(!cs.is_satisfied());
-            }
-            let mut rng = rand::thread_rng();
-
-            let proof = frame.clone().prove(Some(&groth_params), &mut rng).unwrap();
-
-            let cs_satisfied = cs.is_satisfied();
-            let verified = Frame::verify_groth16_proof(pvk, proof, frame).unwrap();
-
-            if expect_success {
-                assert!(cs_satisfied);
-                assert!(verified);
-            } else {
-                assert!(!cs_satisfied);
-                assert!(!verified)
-            };
+        let frame = Frame {
+            input: Some(input.clone()),
+            output: Some(output),
+            initial: Some(initial.clone()),
+            i: Some(0),
+            witness: Some(witness.clone()),
         };
 
-        // Success
+        frame
+            .clone()
+            .synthesize(&mut cs)
+            .expect("failed to synthesize");
+
+        assert_eq!(31015, cs.num_constraints());
+        assert_eq!(cs.is_satisfied(), expect_success);
+
+        // Use this to debug differences between blank and regular circuit generation.
         {
-            let output = IO {
+            let blank_frame = Frame {
+                input: None,
+                output: None,
+                initial: None,
+                i: None,
+                witness: None,
+            };
+
+            let mut cs_blank = MetricCS::new();
+            blank_frame
+                .synthesize(&mut cs_blank)
+                .expect("failed to synthesize");
+
+            let a = cs_blank.pretty_print_list();
+
+            let mut cs1 = TestConstraintSystem::new();
+            frame
+                .clone()
+                .synthesize(&mut cs1)
+                .expect("failed to synthesize");
+            let b = cs1.pretty_print_list();
+
+            for (i, (a, b)) in a.chunks(100).zip(b.chunks(100)).enumerate() {
+                assert_eq!(a, b, "failed at chunk {}", i);
+            }
+        }
+
+        let mut rng = rand::thread_rng();
+        let proof = frame.clone().prove(Some(&groth_params), &mut rng).unwrap();
+
+        let verified = Frame::verify_groth16_proof(pvk, proof, frame).unwrap();
+        assert_eq!(verified, expect_success);
+    }
+
+    #[test]
+    fn test_selv_evaluating_success() {
+        test_with_output(
+            |num, env, _store| IO {
                 expr: num.clone(),
                 env: env.clone(),
                 cont: Continuation::Terminal,
-            };
+            },
+            true,
+        );
+    }
 
-            test_with_output(output, true, groth16::prepare_verifying_key(vk));
-        }
+    #[test]
+    fn test_selv_evaluating_failure_type() {
+        // Wrong type, so tag should differ.
+        test_with_output(
+            |num, env, store| IO {
+                expr: store.intern("SYMBOL"),
+                env: env.clone(),
+                cont: Continuation::Terminal,
+            },
+            false,
+        );
+    }
 
-        // Failure
-        {
-            {
-                // Wrong type, so tag should differ.
-                let bad_output_tag = IO {
-                    expr: store.intern("SYMBOL"),
-                    env: env.clone(),
-                    cont: Continuation::Terminal,
-                };
+    #[test]
+    fn test_selv_evaluating_failure_value() {
+        // Wrong value, so hash should differ.
 
-                test_with_output(bad_output_tag, false, groth16::prepare_verifying_key(vk));
-            }
-
-            {
-                // Wrong value, so hash should differ.
-                let bad_output_value = IO {
-                    expr: Expression::num(999),
-                    env: env.clone(),
-                    cont: Continuation::Terminal,
-                };
-
-                test_with_output(bad_output_value, false, groth16::prepare_verifying_key(vk));
-            }
-        }
+        test_with_output(
+            |num, env, _store| IO {
+                expr: Expression::num(999),
+                env: env.clone(),
+                cont: Continuation::Terminal,
+            },
+            false,
+        );
     }
 
     #[test]
