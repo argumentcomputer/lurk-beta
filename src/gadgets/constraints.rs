@@ -163,13 +163,12 @@ pub fn div<F: PrimeField, CS: ConstraintSystem<F>>(
         let mut tmp = a.get_value().ok_or(SynthesisError::AssignmentMissing)?;
         let inv = (&b.get_value().ok_or(SynthesisError::AssignmentMissing)?).invert();
 
-        let inv = if inv.is_some().into() {
-            Ok(inv)
+        Ok(if inv.is_some().into() {
+            inv.map(|i| tmp.mul_assign(i));
+            Ok(tmp)
         } else {
             Err(SynthesisError::DivisionByZero)
-        }?;
-
-        Ok(tmp)
+        }?)
     })?;
 
     // a = b * res
