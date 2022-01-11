@@ -35,12 +35,17 @@ impl AllocatedTaggedHash {
 
     pub fn from_tagged_hash<CS: ConstraintSystem<Fr>>(
         cs: &mut CS,
-        tagged_hash: TaggedHash,
+        tagged_hash: Option<TaggedHash>,
     ) -> Result<Self, SynthesisError> {
-        let tag =
-            AllocatedNum::alloc(&mut cs.namespace(|| "allocate tag"), || Ok(tagged_hash.tag))?;
+        let tag = AllocatedNum::alloc(&mut cs.namespace(|| "allocate tag"), || {
+            tagged_hash
+                .map(|x| x.tag)
+                .ok_or(SynthesisError::AssignmentMissing)
+        })?;
         let hash = AllocatedNum::alloc(&mut cs.namespace(|| "allocate hash"), || {
-            Ok(tagged_hash.hash)
+            tagged_hash
+                .map(|x| x.hash)
+                .ok_or(SynthesisError::AssignmentMissing)
         })?;
         Ok(Self::from_tag_and_hash(tag, hash))
     }
@@ -69,20 +74,27 @@ impl AllocatedTaggedHash {
         )
     }
 
-    pub fn tagged_hash(&self) -> TaggedHash {
-        TaggedHash {
-            tag: self.tag.get_value().unwrap(),
-            hash: self.hash.get_value().unwrap(),
+    pub fn tagged_hash(&self) -> Option<TaggedHash> {
+        match (self.tag.get_value(), self.hash.get_value()) {
+            (Some(tag), Some(hash)) => Some(TaggedHash { tag, hash }),
+            _ => None,
         }
     }
 }
 
 impl Expression {
+    pub fn allocate_tagged_hash<CS: ConstraintSystem<Fr>>(
+        cs: &mut CS,
+        expr: Option<Self>,
+    ) -> Result<AllocatedTaggedHash, SynthesisError> {
+        AllocatedTaggedHash::from_tagged_hash(cs, expr.map(|e| e.tagged_hash()))
+    }
+
     pub fn allocated_tagged_hash<CS: ConstraintSystem<Fr>>(
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, self.tagged_hash())
+        AllocatedTaggedHash::from_tagged_hash(cs, Some(self.tagged_hash()))
     }
 
     pub fn allocate_constant_tagged_hash<CS: ConstraintSystem<Fr>>(
@@ -107,7 +119,7 @@ impl Continuation {
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, self.continuation_tagged_hash())
+        AllocatedTaggedHash::from_tagged_hash(cs, Some(self.continuation_tagged_hash()))
     }
 
     pub fn allocate_constant_tagged_hash<CS: ConstraintSystem<Fr>>(
