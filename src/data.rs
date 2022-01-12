@@ -152,10 +152,10 @@ pub enum Expression {
     Nil,
     Cons(TaggedHash, TaggedHash),
     Sym(String),
-    Str(String),
     Fun(TaggedHash, TaggedHash, TaggedHash), // arg, body, closed env
     Num(Fr),
     Thunk(Thunk),
+    Str(String),
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
@@ -171,6 +171,17 @@ impl Op1 {
     }
 }
 
+impl ToString for Op1 {
+    fn to_string(&self) -> String {
+        match self {
+            Op1::Car => "Car",
+            Op1::Cdr => "Cdr",
+            Op1::Atom => "Atom",
+        }
+        .into()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
 pub enum Op2 {
     Sum,
@@ -180,9 +191,23 @@ pub enum Op2 {
     Cons,
 }
 
+impl ToString for Op2 {
+    fn to_string(&self) -> String {
+        match self {
+            Op2::Sum => "Sum",
+            Op2::Diff => "Diff",
+            Op2::Product => "Product",
+            Op2::Quotient => "Quotient",
+            Op2::Cons => "Cons",
+        }
+        .into()
+    }
+}
+
 impl Op2 {
     pub fn fr(&self) -> Fr {
-        fr_from_u64(self.clone() as u64)
+        // Add 2 so no Op2 has the same tag as Cons.
+        fr_from_u64(self.clone() as u64 + 2)
     }
 }
 
@@ -192,9 +217,20 @@ pub enum Rel2 {
     NumEqual,
 }
 
+impl ToString for Rel2 {
+    fn to_string(&self) -> String {
+        match self {
+            Rel2::Equal => "Equal",
+            Rel2::NumEqual => "NumEqual",
+        }
+        .into()
+    }
+}
+
 impl Rel2 {
     pub fn fr(&self) -> Fr {
-        fr_from_u64(self.clone() as u64)
+        // Add 2 so no Rel2 has the same tag as Cons.
+        fr_from_u64(self.clone() as u64 + 2)
     }
 }
 
@@ -561,7 +597,7 @@ fn hash_string(s: &str) -> Fr {
         .into_iter()
         .for_each(|mut chunk| {
             preimage[0] = x;
-            for item in preimage.iter_mut().take(7).skip(1) {
+            for item in preimage.iter_mut().skip(1).take(7) {
                 if let Some(c) = chunk.next() {
                     *item = c
                 };
@@ -645,6 +681,13 @@ impl Expression {
         }
     }
 
+    pub fn thunk(value: Expression, continuation: Continuation) -> Expression {
+        Expression::Thunk(Thunk {
+            value: Box::new(value),
+            continuation: Box::new(continuation),
+        })
+    }
+
     pub fn is_keyword_sym(&self) -> bool {
         if let Self::Sym(s) = self {
             s.starts_with(':')
@@ -656,7 +699,8 @@ impl Expression {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Store {
-    map: HashMap<TaggedHash, Expression>,
+    pub map: HashMap<TaggedHash, Expression>,
+    pub continuation_map: HashMap<TaggedHash, Continuation>,
 }
 
 impl Store {
@@ -674,6 +718,16 @@ impl Store {
         self.map
             .entry(exp.tagged_hash())
             .or_insert_with(|| exp.clone());
+    }
+
+    pub fn fetch_continuation(&self, t: &TaggedHash) -> Option<Continuation> {
+        self.continuation_map.get(t).cloned()
+    }
+
+    pub fn store_continuation(&mut self, cont: &Continuation) {
+        self.continuation_map
+            .entry(cont.continuation_tagged_hash())
+            .or_insert_with(|| cont.clone());
     }
 
     // Consider a secondary map/index on symbol names, which would be proper
@@ -713,6 +767,12 @@ impl Store {
         let fun = Expression::fun(arg, body, closed_env);
         self.store(&fun);
         fun
+    }
+
+    pub fn thunk(&mut self, value: Expression, continuation: Continuation) -> Expression {
+        let t = Expression::thunk(value, continuation);
+        self.store(&t);
+        t
     }
 
     pub fn car_cdr(&self, expr: &Expression) -> (Expression, Expression) {
@@ -756,13 +816,146 @@ impl Store {
             }
             Num(fr) => print_num(fr, w),
             Thunk(f) => {
-                write!(w, "Thunk for cont {:?} with value: ", f.continuation)?;
+                write!(
+                    w,
+                    "Thunk for cont {} with value: ",
+                    self.write_cont_str(&f.continuation)
+                )?;
                 self.print_expr(&f.value, w)
             }
             Cons(_, _) => {
                 write!(w, "(")?;
                 self.print_tail(expr, w)
             }
+        }
+    }
+
+    pub fn write_cont_str(&self, cont: &Continuation) -> String {
+        let mut out = Vec::new();
+        self.print_cont(cont, &mut out).expect("preallocated");
+        String::from_utf8(out).expect("I know it")
+    }
+
+    pub fn print_cont(&self, cont: &Continuation, w: &mut impl Write) -> io::Result<()> {
+        match cont {
+            Continuation::Outermost => write!(w, "Outermost"),
+            Continuation::Simple(cont) => {
+                write!(w, "Simple(");
+                self.print_cont(cont, w);
+                write!(w, ")")
+            }
+            Continuation::Call(expr1, expr2, cont) => {
+                write!(w, "Call(");
+                self.print_expr(expr1, w);
+                write!(w, ", ");
+                self.print_expr(expr2, w);
+                write!(w, ", ");
+                self.print_cont(cont, w);
+                write!(w, ")")
+            }
+            Continuation::Call2(expr1, expr2, cont) => {
+                write!(w, "Call2(");
+                self.print_expr(expr1, w);
+                write!(w, ", ");
+                self.print_expr(expr2, w);
+                write!(w, ", ");
+                self.print_cont(cont, w);
+                write!(w, ")")
+            }
+            Continuation::Tail(expr, cont) => {
+                write!(w, "Tail(");
+                self.print_expr(expr, w);
+                write!(w, ", ");
+                self.print_cont(cont, w);
+                write!(w, ")")
+            }
+            Continuation::Error => write!(w, "Error"),
+            Continuation::Lookup(expr, cont) => {
+                write!(w, "Lookup(");
+                self.print_expr(expr, w);
+                write!(w, ", ");
+                self.print_cont(cont, w);
+                write!(w, ")")
+            }
+            Continuation::Unop(op1, cont) => {
+                write!(w, "Unop(");
+                write!(w, "{}", op1.to_string());
+                write!(w, ", ");
+                self.print_cont(cont, w);
+                write!(w, ")")
+            }
+            Continuation::Binop(op2, expr1, expr2, cont) => {
+                write!(w, "Binop(");
+                write!(w, "{}", op2.to_string());
+                write!(w, ", ");
+                self.print_expr(expr1, w);
+                write!(w, ", ");
+                self.print_expr(expr2, w);
+                write!(w, ", ");
+                self.print_cont(cont, w);
+                write!(w, ")")
+            }
+            Continuation::Binop2(op2, expr, cont) => {
+                write!(w, "Binop2(");
+                write!(w, "{}", op2.to_string());
+                write!(w, ", ");
+                self.print_expr(expr, w);
+                write!(w, ", ");
+                self.print_cont(cont, w);
+                write!(w, ")")
+            }
+            Continuation::Relop(rel2, expr1, expr2, cont) => {
+                write!(w, "Relop(");
+                write!(w, "{}", rel2.to_string());
+                write!(w, ", ");
+                self.print_expr(expr1, w);
+                write!(w, ", ");
+                self.print_expr(expr2, w);
+                write!(w, ", ");
+                self.print_cont(cont, w);
+                write!(w, ")")
+            }
+            Continuation::Relop2(rel2, expr, cont) => {
+                write!(w, "Relop2(");
+                write!(w, "{}", rel2.to_string());
+                write!(w, ", ");
+                self.print_expr(expr, w);
+                write!(w, ", ");
+                self.print_cont(cont, w);
+                write!(w, ")")
+            }
+            Continuation::If(expr, cont) => {
+                write!(w, "If(");
+                self.print_expr(expr, w);
+                write!(w, ", ");
+                self.print_cont(cont, w);
+                write!(w, ")")
+            }
+            Continuation::LetStar(expr1, expr2, expr3, cont) => {
+                write!(w, "LetStar(");
+                self.print_expr(expr1, w);
+                write!(w, ", ");
+                self.print_expr(expr2, w);
+                write!(w, ", ");
+                self.print_expr(expr3, w);
+                write!(w, ", ");
+                self.print_cont(cont, w);
+                write!(w, ")")
+            }
+            Continuation::LetRecStar(expr1, expr2, expr3, cont) => {
+                write!(w, "LetRecStar(");
+                self.print_expr(expr1, w);
+                write!(w, ", ");
+                self.print_expr(expr2, w);
+                write!(w, ", ");
+                self.print_expr(expr3, w);
+                write!(w, ", ");
+                self.print_cont(cont, w);
+                write!(w, ")")
+            }
+            Continuation::Dummy => write!(w, "Dummy"),
+            Continuation::Terminal => write!(w, "Terminal"),
+            _ => write!(w, "<unprintable continuation>"),
         }
     }
 

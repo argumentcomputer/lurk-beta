@@ -23,112 +23,11 @@ use crate::data::{
 };
 use crate::eval::{Control, Frame, Witness, IO};
 use crate::gadgets::constraints::{
-    self, alloc_equal, alloc_is_zero, enforce_implication, equal, or, pick,
+    self, alloc_equal, alloc_is_zero, enforce_implication, equal, implies, or, pick,
 };
-use crate::gadgets::data::{allocate_constant, pick_tagged_hash, AllocatedTaggedHash};
-
-pub const DUMMY_RNG_SEED: [u8; 16] = [
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-];
-
-pub trait Provable {
-    fn public_inputs(&self) -> Vec<Fr>;
-}
-
-pub struct Proof<E: Engine> {
-    groth16_proof: groth16::Proof<E>,
-}
-
-impl<W> Provable for Frame<IO, W> {
-    fn public_inputs(&self) -> Vec<Fr> {
-        let mut inputs: Vec<Fr> = Vec::with_capacity(10);
-
-        if let Some(input) = &self.input {
-            inputs.extend(input.public_inputs());
-        }
-        if let Some(output) = &self.output {
-            inputs.extend(output.public_inputs());
-        }
-        if let Some(initial) = &self.initial {
-            inputs.extend(initial.public_inputs());
-        }
-        if let Some(i) = self.i {
-            inputs.push(fr_from_u64(i as u64));
-        }
-
-        inputs
-    }
-}
-
-impl IO {
-    fn public_inputs(&self) -> Vec<Fr> {
-        vec![
-            self.expr.tag_fr(),
-            self.expr.get_hash(),
-            self.env.tag_fr(),
-            self.env.get_hash(),
-            self.cont.get_continuation_tag().cont_tag_fr(),
-            self.cont.get_hash(),
-        ]
-    }
-}
-
-impl Frame<IO, Witness> {
-    fn blank() -> Self {
-        Self {
-            input: None,
-            output: None,
-            initial: None,
-            i: None,
-            witness: None,
-        }
-    }
-
-    fn frame_groth_params(self) -> Result<groth16::Parameters<Bls12>, SynthesisError> {
-        let rng = &mut XorShiftRng::from_seed(DUMMY_RNG_SEED);
-        groth16::generate_random_parameters::<Bls12, _, _>(self, rng)
-    }
-
-    fn groth_params() -> Result<groth16::Parameters<Bls12>, SynthesisError> {
-        Self::blank().frame_groth_params()
-    }
-
-    fn prove<R: RngCore>(
-        self,
-        params: Option<&groth16::Parameters<Bls12>>,
-        mut rng: R,
-    ) -> Result<Proof<Bls12>, SynthesisError> {
-        Ok(Proof {
-            groth16_proof: Self::generate_groth16_proof(self, params, &mut rng)?,
-        })
-    }
-}
-
-impl Frame<IO, Witness> {
-    pub fn generate_groth16_proof<R: RngCore>(
-        self,
-        groth_params: Option<&groth16::Parameters<Bls12>>,
-        rng: &mut R,
-    ) -> Result<groth16::Proof<Bls12>, SynthesisError> {
-        let create_proof = |p| groth16::create_random_proof(self, p, rng);
-
-        if let Some(params) = groth_params {
-            create_proof(params)
-        } else {
-            create_proof(&Frame::<IO, Witness>::groth_params()?)
-        }
-    }
-
-    pub fn verify_groth16_proof(
-        pvk: groth16::PreparedVerifyingKey<Bls12>,
-        p: Proof<Bls12>,
-        f: Frame<IO, Witness>,
-    ) -> Result<bool, SynthesisError> {
-        let inputs = f.public_inputs();
-
-        verify_proof(&pvk, &p.groth16_proof, &inputs)
-    }
-}
+use crate::gadgets::data::{
+    allocate_constant, pick_tagged_hash, AllocatedTaggedHash, GlobalAllocations,
+};
 
 fn bind_input<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
@@ -213,55 +112,65 @@ fn bind_continuation_tag_hash<CS: ConstraintSystem<Fr>>(
 
 impl Circuit<Fr> for Frame<IO, Witness> {
     fn synthesize<CS: ConstraintSystem<Fr>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
+        if let Some(w) = &self.witness {
+            if let Some(s) = &w.store {
+                if let Some(o) = &self.output {
+                    dbg!(&s.write_expr_str(&o.expr));
+                }
+                if let Some(i) = &self.input {
+                    dbg!(&s.write_expr_str(&i.expr));
+                }
+            }
+        };
         ////////////////////////////////////////////////////////////////////////////////
         // Bind public inputs.
         //
         // The frame's input:
         let input_expr = bind_input(
             &mut cs.namespace(|| "input expression"),
-            &self.input.clone().map(|input| input.expr),
+            &self.input.as_ref().map(|input| input.expr.clone()),
         )?;
 
         let input_env = bind_input(
             &mut cs.namespace(|| "input env"),
-            &self.input.clone().map(|input| input.env),
+            &self.input.as_ref().map(|input| input.env.clone()),
         )?;
 
         let input_cont = bind_input_cont(
             &mut cs.namespace(|| "input cont"),
-            &self.input.clone().map(|input| input.cont),
+            &self.input.as_ref().map(|input| input.cont.clone()),
         )?;
 
         // The frame's output:
         let output_expr = bind_input(
             &mut cs.namespace(|| "output expression"),
-            &self.output.clone().map(|output| output.expr),
+            &self.output.as_ref().map(|output| output.expr.clone()),
         )?;
 
         let output_env = bind_input(
             &mut cs.namespace(|| "output env"),
-            &self.output.clone().map(|output| output.env),
+            &self.output.as_ref().map(|output| output.env.clone()),
         )?;
 
         let output_cont = bind_input_cont(
             &mut cs.namespace(|| "output cont"),
-            &self.output.clone().map(|output| output.cont),
+            &self.output.as_ref().map(|output| output.cont.clone()),
         )?;
 
         // The initial input to the IVC computation.
         let initial_expr = bind_input(
             &mut cs.namespace(|| "initial expression"),
-            &self.initial.clone().map(|initial| initial.expr),
+            &self.initial.as_ref().map(|initial| initial.expr.clone()),
         )?;
 
         let initial_env = bind_input(
             &mut cs.namespace(|| "initial env"),
-            &self.initial.clone().map(|initial| initial.env),
+            &self.initial.as_ref().map(|initial| initial.env.clone()),
         )?;
 
         let initial_cont = bind_input_cont(
             &mut cs.namespace(|| "initial cont"),
-            &self.initial.clone().map(|initial| initial.cont),
+            &self.initial.as_ref().map(|initial| initial.cont.clone()),
         )?;
 
         // We don't currently need this, but we could expose access to it for logging, etc.
@@ -289,198 +198,26 @@ impl Circuit<Fr> for Frame<IO, Witness> {
         output_expr.enforce_equal(&mut cs.namespace(|| "output expr is correct"), &new_expr);
         output_env.enforce_equal(&mut cs.namespace(|| "output env is correct"), &new_env);
         output_cont.enforce_equal(&mut cs.namespace(|| "output cont is correct"), &new_cont);
+        dbg!(
+            output_expr.tag.get_value(),
+            output_expr.hash.get_value(),
+            new_expr.tag.get_value(),
+            new_expr.hash.get_value()
+        );
+        dbg!(
+            output_env.tag.get_value(),
+            output_env.hash.get_value(),
+            new_env.tag.get_value(),
+            new_env.hash.get_value()
+        );
+        dbg!(
+            output_cont.tag.get_value(),
+            output_cont.hash.get_value(),
+            new_cont.tag.get_value(),
+            new_cont.hash.get_value(),
+        );
 
         Ok(())
-    }
-}
-
-struct GlobalAllocations {
-    terminal_tagged_hash: AllocatedTaggedHash,
-    outermost_tagged_hash: AllocatedTaggedHash,
-    error_tagged_hash: AllocatedTaggedHash,
-    dummy_tagged_hash: AllocatedTaggedHash,
-    nil_tagged_hash: AllocatedTaggedHash,
-    t_tagged_hash: AllocatedTaggedHash,
-    lambda_tagged_hash: AllocatedTaggedHash,
-    dummy_arg_tagged_hash: AllocatedTaggedHash,
-    nil_tag: AllocatedNum<Fr>,
-    sym_tag: AllocatedNum<Fr>,
-    thunk_tag: AllocatedNum<Fr>,
-    cons_tag: AllocatedNum<Fr>,
-    num_tag: AllocatedNum<Fr>,
-    fun_tag: AllocatedNum<Fr>,
-    letstar_cont_tag: AllocatedNum<Fr>,
-    letrecstar_cont_tag: AllocatedNum<Fr>,
-    lookup_cont_tag: AllocatedNum<Fr>,
-    tail_cont_tag: AllocatedNum<Fr>,
-    call_cont_tag: AllocatedNum<Fr>,
-    call2_cont_tag: AllocatedNum<Fr>,
-    unop_cont_tag: AllocatedNum<Fr>,
-    binop_cont_tag: AllocatedNum<Fr>,
-    relop_cont_tag: AllocatedNum<Fr>,
-    binop2_cont_tag: AllocatedNum<Fr>,
-    relop2_cont_tag: AllocatedNum<Fr>,
-    if_cont_tag: AllocatedNum<Fr>,
-    op1_car_tag: AllocatedNum<Fr>,
-    op1_cdr_tag: AllocatedNum<Fr>,
-    op1_atom_tag: AllocatedNum<Fr>,
-    op2_cons_tag: AllocatedNum<Fr>,
-    op2_sum_tag: AllocatedNum<Fr>,
-    op2_diff_tag: AllocatedNum<Fr>,
-    op2_product_tag: AllocatedNum<Fr>,
-    op2_quotient_tag: AllocatedNum<Fr>,
-    rel2_equal_tag: AllocatedNum<Fr>,
-    rel2_numequal_tag: AllocatedNum<Fr>,
-    true_num: AllocatedNum<Fr>,
-    false_num: AllocatedNum<Fr>,
-
-    default: AllocatedNum<Fr>,
-
-    destructured_thunk_hash: AllocatedNum<Fr>,
-    destructured_thunk_value: AllocatedTaggedHash,
-    destructured_thunk_continuation: AllocatedTaggedHash,
-}
-
-impl GlobalAllocations {
-    fn new<CS: ConstraintSystem<Fr>>(
-        cs: &mut CS,
-        witness: &Option<Witness>,
-    ) -> Result<Self, SynthesisError> {
-        let terminal_tagged_hash = Continuation::Terminal
-            .allocate_constant_tagged_hash(&mut cs.namespace(|| "terminal continuation"))?;
-
-        let outermost_tagged_hash = Continuation::Outermost
-            .allocate_constant_tagged_hash(&mut cs.namespace(|| "outermost continuation"))?;
-
-        let error_tagged_hash = Continuation::Error
-            .allocate_constant_tagged_hash(&mut cs.namespace(|| "error continuation"))?;
-
-        let dummy_tagged_hash = Continuation::Dummy
-            .allocate_constant_tagged_hash(&mut cs.namespace(|| "dummy continuation"))?;
-
-        let nil_tagged_hash =
-            Expression::Nil.allocate_constant_tagged_hash(&mut cs.namespace(|| "nil"))?;
-
-        let t_tagged_hash =
-            Expression::read_sym("T").allocate_constant_tagged_hash(&mut cs.namespace(|| "T"))?;
-
-        let lambda_tagged_hash = Expression::read_sym("LAMBDA")
-            .allocate_constant_tagged_hash(&mut cs.namespace(|| "LAMBDA"))?;
-
-        let dummy_arg_tagged_hash =
-            Expression::read_sym("_").allocate_constant_tagged_hash(&mut cs.namespace(|| "_"))?;
-
-        let nil_tag = Tag::Sym.allocate_constant(&mut cs.namespace(|| "nil_tag"))?;
-        let sym_tag = Tag::Sym.allocate_constant(&mut cs.namespace(|| "sym_tag"))?;
-        let thunk_tag = Tag::Thunk.allocate_constant(&mut cs.namespace(|| "thunk_tag"))?;
-        let cons_tag = Tag::Cons.allocate_constant(&mut cs.namespace(|| "cons_tag"))?;
-        let num_tag = Tag::Num.allocate_constant(&mut cs.namespace(|| "num_tag"))?;
-        let fun_tag = Tag::Fun.allocate_constant(&mut cs.namespace(|| "fun_tag"))?;
-
-        let lookup_cont_tag = BaseContinuationTag::Lookup
-            .allocate_constant(&mut cs.namespace(|| "lookup_cont_tag"))?;
-        let letstar_cont_tag = BaseContinuationTag::LetStar
-            .allocate_constant(&mut cs.namespace(|| "letstar_cont_tag"))?;
-        let letrecstar_cont_tag = BaseContinuationTag::LetStar
-            .allocate_constant(&mut cs.namespace(|| "letrecstar_cont_tag"))?;
-        let tail_cont_tag =
-            BaseContinuationTag::Tail.allocate_constant(&mut cs.namespace(|| "tail_cont_tag"))?;
-        let call_cont_tag =
-            BaseContinuationTag::Call.allocate_constant(&mut cs.namespace(|| "call_cont_tag"))?;
-        let call2_cont_tag =
-            BaseContinuationTag::Call2.allocate_constant(&mut cs.namespace(|| "call2_cont_tag"))?;
-        let unop_cont_tag =
-            BaseContinuationTag::Unop.allocate_constant(&mut cs.namespace(|| "unop_cont_tag"))?;
-        let binop_cont_tag =
-            BaseContinuationTag::Binop.allocate_constant(&mut cs.namespace(|| "binop_cont_tag"))?;
-        let relop_cont_tag =
-            BaseContinuationTag::Relop.allocate_constant(&mut cs.namespace(|| "relop_cont_tag"))?;
-        let binop2_cont_tag = BaseContinuationTag::Binop2
-            .allocate_constant(&mut cs.namespace(|| "binop2_cont_tag"))?;
-        let relop2_cont_tag = BaseContinuationTag::Relop2
-            .allocate_constant(&mut cs.namespace(|| "relop2_cont_tag"))?;
-        let if_cont_tag =
-            BaseContinuationTag::If.allocate_constant(&mut cs.namespace(|| "if_cont_tag"))?;
-        let op1_car_tag = Op1::Car.allocate_constant(&mut cs.namespace(|| "op1_car_tag"))?;
-        let op1_cdr_tag = Op1::Cdr.allocate_constant(&mut cs.namespace(|| "op1_cdr_tag"))?;
-        let op1_atom_tag = Op1::Atom.allocate_constant(&mut cs.namespace(|| "op1_atom_tag"))?;
-        let op2_cons_tag = Op2::Cons.allocate_constant(&mut cs.namespace(|| "op2_cons_tag"))?;
-        let op2_sum_tag = Op2::Sum.allocate_constant(&mut cs.namespace(|| "op2_sum_tag"))?;
-        let op2_diff_tag = Op2::Diff.allocate_constant(&mut cs.namespace(|| "op2_diff_tag"))?;
-        let op2_product_tag =
-            Op2::Product.allocate_constant(&mut cs.namespace(|| "op2_product_tag"))?;
-        let op2_quotient_tag =
-            Op2::Quotient.allocate_constant(&mut cs.namespace(|| "op2_quotient_tag"))?;
-        let rel2_numequal_tag =
-            AllocatedNum::alloc(&mut cs.namespace(|| "relop2_numequal_tag"), || {
-                Ok(Rel2::NumEqual.fr())
-            })?;
-        let rel2_equal_tag = AllocatedNum::alloc(&mut cs.namespace(|| "relop2_equal_tag"), || {
-            Ok(Rel2::Equal.fr())
-        })?;
-        let true_num = allocate_constant(&mut cs.namespace(|| "true"), Fr::one())?;
-        let false_num = allocate_constant(&mut cs.namespace(|| "false"), Fr::zero())?;
-
-        // NOTE: The choice of zero is significant.
-        // For example, TaggedHash::default() has both tag and hash of zero.
-        let default = allocate_constant(&mut cs.namespace(|| "default"), Fr::zero())?;
-
-        let maybe_thunk = if let Some(w) = witness {
-            w.destructured_thunk.clone()
-        } else {
-            None
-        };
-        let (destructured_thunk_hash, destructured_thunk_value, destructured_thunk_continuation) =
-            allocate_thunk_components(
-                &mut cs.namespace(|| "allocate thunk components"),
-                &maybe_thunk,
-            )?;
-
-        Ok(Self {
-            terminal_tagged_hash,
-            outermost_tagged_hash,
-            error_tagged_hash,
-            dummy_tagged_hash,
-            nil_tagged_hash,
-            nil_tag,
-            t_tagged_hash,
-            lambda_tagged_hash,
-            dummy_arg_tagged_hash,
-            sym_tag,
-            thunk_tag,
-            cons_tag,
-            num_tag,
-            fun_tag,
-            lookup_cont_tag,
-            letstar_cont_tag,
-            letrecstar_cont_tag,
-            tail_cont_tag,
-            call_cont_tag,
-            call2_cont_tag,
-            unop_cont_tag,
-            binop_cont_tag,
-            relop_cont_tag,
-            binop2_cont_tag,
-            relop2_cont_tag,
-            if_cont_tag,
-            op1_car_tag,
-            op1_cdr_tag,
-            op1_atom_tag,
-            op2_cons_tag,
-            op2_sum_tag,
-            op2_diff_tag,
-            op2_product_tag,
-            op2_quotient_tag,
-            rel2_equal_tag,
-            rel2_numequal_tag,
-            true_num,
-            false_num,
-            default,
-
-            destructured_thunk_hash,
-            destructured_thunk_value,
-            destructured_thunk_continuation,
-        })
     }
 }
 
@@ -498,6 +235,21 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     ),
     SynthesisError,
 > {
+    dbg!("evaluate_expression");
+    let store = if let Some(w) = witness {
+        w.store.clone().expect("Store missing.")
+    } else {
+        Store::default()
+    };
+    dbg!(&expr.fetch_and_write_str(&store));
+    dbg!(&env.fetch_and_write_str(&store));
+    dbg!(
+        &expr.tagged_hash().map(|x| x.tag),
+        &expr.tagged_hash().map(|x| x.hash),
+        &cont.tagged_hash().map(|x| x.tag),
+        &cont.tagged_hash().map(|x| x.hash)
+    );
+
     let global_allocations =
         GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), witness)?;
     let mut result_expr_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
@@ -548,9 +300,9 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         add_clauses(
             Tag::Nil.fr(),
             (
-                cont.clone(),
                 expr.clone(),
                 env.clone(),
+                cont.clone(),
                 global_allocations.true_num.clone(),
                 global_allocations.false_num.clone(),
             ),
@@ -559,9 +311,9 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         add_clauses(
             Tag::Num.fr(),
             (
-                cont.clone(),
                 expr.clone(),
                 env.clone(),
+                cont.clone(),
                 global_allocations.true_num.clone(),
                 global_allocations.false_num.clone(),
             ),
@@ -570,9 +322,9 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         add_clauses(
             Tag::Fun.fr(),
             (
-                cont.clone(),
                 expr.clone(),
                 env.clone(),
+                cont.clone(),
                 global_allocations.true_num.clone(),
                 global_allocations.false_num.clone(),
             ),
@@ -580,11 +332,10 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     }
 
     {
-        let thunk_continuation = global_allocations.destructured_thunk_continuation.clone();
-        let thunk_value = global_allocations.destructured_thunk_value.clone();
-        let thunk_hash = global_allocations.destructured_thunk_hash.clone();
+        let (expr_thunk_hash, expr_thunk_value, expr_thunk_continuation) = expr
+            .allocate_thunk_components(&mut cs.namespace(|| "allocate thunk components"), &store)?;
 
-        // Enforce (expr.tag == thunk_tag) implies (thunk_hash == expr.hash).
+        // Enforce (expr.tag == thunk_tag) implies (expr_thunk_hash == expr.hash).
         let expr_is_a_thunk = constraints::alloc_equal(
             &mut cs.namespace(|| "expr.tag == thunk_tag"),
             &expr.tag,
@@ -592,7 +343,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         )?;
         let expr_is_the_thunk = constraints::alloc_equal(
             &mut cs.namespace(|| "thunk_hash == expr.hash"),
-            &thunk_hash,
+            &expr_thunk_hash,
             &expr.hash,
         )?;
 
@@ -606,10 +357,10 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         add_clauses(
             Tag::Thunk.fr(),
             (
-                thunk_continuation,
-                thunk_value,
+                expr_thunk_value,
                 env.clone(),
-                global_allocations.false_num.clone(), // Is this okay? Make sure the case of make_thunk called by invoke_continuation works.
+                expr_thunk_continuation,
+                global_allocations.false_num.clone(), // FIXME: Is this okay? Make sure the case of make_thunk called by invoke_continuation works.
                 global_allocations.true_num.clone(),
             ),
         );
@@ -630,7 +381,6 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
             witness,
             &global_allocations,
         )?;
-
         add_clauses(
             Tag::Sym.fr(),
             (
@@ -649,6 +399,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
             &expr.tag,
             &global_allocations.cons_tag,
         )?;
+
         let (result, env, cont, make_thunk) = eval_cons(
             &mut cs.namespace(|| "eval Cons"),
             expr,
@@ -699,6 +450,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     )?;
 
     let first_result_expr = tagged_hash_by_index(0, &case_results);
+
     let first_result_env = tagged_hash_by_index(1, &case_results);
     let first_result_cont = tagged_hash_by_index(2, &case_results);
     let first_result_make_thunk: &AllocatedNum<Fr> = &case_results[6];
@@ -711,9 +463,10 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
 
     let invoke_continuation_results = invoke_continuation(
         &mut cs.namespace(|| "invoke_continuation-make_thunk"),
+        &first_result_cont,
         &first_result_expr,
         &first_result_env,
-        &first_result_cont,
+        &invoke_continuation_boolean,
         witness,
         &global_allocations,
     )?;
@@ -748,6 +501,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         first_result_make_thunk,
     )?;
 
+    // True if make_thunk is called.
     let make_thunk_boolean = Boolean::not(&alloc_is_zero(
         &mut cs.namespace(|| "make_thunk_num is zero"),
         &make_thunk_num,
@@ -755,13 +509,19 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
 
     let thunk_results = make_thunk(
         &mut cs.namespace(|| "make_thunk"),
-        &first_result_expr,
-        &first_result_env,
-        &first_result_cont,
+        &result_cont0,
+        &result_expr0,
+        &result_env0,
+        &make_thunk_boolean,
         witness,
         &global_allocations,
     )?;
 
+    dbg!(
+        &expr.tag.get_value(),
+        &invoke_continuation_boolean.get_value(),
+        &make_thunk_boolean.get_value(),
+    );
     let result_expr = pick_tagged_hash(
         &mut cs.namespace(|| "pick maybe make_thunk expr"),
         &make_thunk_boolean,
@@ -810,15 +570,19 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     };
     let output_expr = Expression::allocate_tagged_hash(
         &mut cs.namespace(|| "output_expr"),
-        witness.clone().and_then(|w| w.prethunk_output_expr),
+        witness
+            .as_ref()
+            .and_then(|w| w.prethunk_output_expr.clone()),
     )?;
     let output_env = Expression::allocate_tagged_hash(
         &mut cs.namespace(|| "output_env"),
-        witness.clone().and_then(|w| w.prethunk_output_env),
+        witness.as_ref().and_then(|w| w.prethunk_output_env.clone()),
     )?;
-    let output_cont = Expression::allocate_tagged_hash(
+    let output_cont = Continuation::allocate_tagged_hash(
         &mut cs.namespace(|| "output_cont"),
-        witness.clone().and_then(|w| w.prethunk_output_env),
+        witness
+            .as_ref()
+            .and_then(|w| w.prethunk_output_cont.clone()),
     )?;
 
     let sym_is_nil = expr.alloc_equal(&mut cs.namespace(|| "sym is nil"), &g.nil_tagged_hash)?;
@@ -856,10 +620,10 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     let v_is_expr1 = expr.alloc_equal(&mut cs.namespace(|| "v_is_expr1"), &v)?;
     let v_not_expr1 = Boolean::not(&v_is_expr1);
 
-    let otherwise_and_v_not_expr = and!(cs, &otherwise_and_binding_not_nil, &v_not_expr1)?;
-    let otherwise_and_sym = and!(cs, &otherwise_and_v_not_expr, &var_or_rec_binding_is_sym)?;
+    let otherwise_and_sym = and!(cs, &v_not_expr1, &var_or_rec_binding_is_sym)?;
+    let otherwise_and_v_expr_and_sym = and!(cs, &v_is_expr1, &var_or_rec_binding_is_sym)?;
 
-    let v_is_expr1_real = and!(cs, &v_is_expr1, &otherwise_and_sym)?;
+    let v_is_expr1_real = and!(cs, &v_is_expr1, &otherwise_and_v_expr_and_sym)?;
 
     let var_or_rec_binding_is_cons = alloc_equal(
         &mut cs.namespace(|| "var_or_rec_binding_is_cons"),
@@ -867,7 +631,11 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
         &g.cons_tag,
     )?;
 
-    let otherwise_and_cons = and!(cs, &otherwise_and_v_not_expr, &var_or_rec_binding_is_cons)?;
+    let otherwise_and_cons = and!(
+        cs,
+        &otherwise_and_binding_not_nil,
+        &var_or_rec_binding_is_cons
+    )?;
 
     let (v2, val2) = car_cdr(
         &mut cs.namespace(|| "car_cdr var_or_rec_binding"),
@@ -889,12 +657,16 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
         &var_or_rec_binding_is_cons
     )?);
 
-    let otherwise_cons_neither = and!(cs, &var_or_rec_binding_is_neither, &otherwise_and_cons)?;
+    let otherwise_neither = and!(
+        cs,
+        &var_or_rec_binding_is_neither,
+        &otherwise_and_binding_not_nil
+    )?;
 
     let make_thunk_bool0 = or!(cs, &sym_is_self_evaluating, &v_is_expr1_real)?;
     let make_thunk_bool = or!(cs, &make_thunk_bool0, &v2_is_expr_real)?;
 
-    let make_thunk = ifx!(cs, &make_thunk_bool, &g.true_num, &g.false_num)?;
+    let make_thunk_num = ifx!(cs, &make_thunk_bool, &g.true_num, &g.false_num)?;
 
     let cont_is_lookup = alloc_equal(
         &mut cs.namespace(|| "cont_is_lookup"),
@@ -905,8 +677,12 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     let cont_is_lookup_sym = and!(cs, &cont_is_lookup, &otherwise_and_sym)?;
     let cont_not_lookup_sym = and!(cs, &Boolean::not(&cont_is_lookup), &otherwise_and_sym)?;
 
-    let cont_is_lookup_cons = and!(cs, &cont_is_lookup, &otherwise_and_cons)?;
-    let cont_not_lookup_cons = and!(cs, &Boolean::not(&cont_is_lookup), &otherwise_and_cons)?;
+    let cont_is_lookup_cons = and!(cs, &cont_is_lookup, &otherwise_and_v2_not_expr)?;
+    let cont_not_lookup_cons = and!(
+        cs,
+        &Boolean::not(&cont_is_lookup),
+        &otherwise_and_v2_not_expr
+    )?;
 
     let lookup_continuation = Continuation::construct(
         &mut cs.namespace(|| "lookup_continuation"),
@@ -1020,6 +796,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     {
         // implies_equal_t!(cs, &cond5, &output_expr, &expr);
         implies_equal_t!(cs, &cond5, &output_env, &smaller_env);
+
         implies_equal_t!(cs, &cond5, &output_cont, &lookup_continuation);
     }
 
@@ -1050,8 +827,8 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
         implies_equal_t!(cs, &cond9, &output_cont, &lookup_continuation);
     }
 
-    let cs = &mut cs.namespace(|| "otherwise_cons_neither");
-    let cond10 = and!(cs, &otherwise_cons_neither, not_dummy)?;
+    let cs = &mut cs.namespace(|| "otherwise_neither");
+    let cond10 = and!(cs, &otherwise_neither, not_dummy)?;
     {
         // "Bad form"
         implies_equal_t!(cs, &cond10, &output_cont, &g.error_tagged_hash);
@@ -1076,7 +853,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     let cond_cont = or!(cs, &condb, &condc)?; // cond1, cond2, cond4, cond6, cond8
     implies_equal_t!(cs, &cond_cont, &output_cont, &cont);
 
-    Ok((output_expr, output_env, output_cont, make_thunk))
+    Ok((output_expr, output_env, output_cont, make_thunk_num))
 }
 
 fn eval_cons<CS: ConstraintSystem<Fr>>(
@@ -1103,7 +880,6 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     };
 
     let lambda = g.lambda_tagged_hash.clone();
-    // let quote = g.quote_tagged_hash.clone();
     let dummy_arg = g.dummy_arg_tagged_hash.clone();
 
     let lambda_hash = Expression::read_sym("LAMBDA").get_hash();
@@ -1127,7 +903,6 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let equal_hash = Expression::read_sym("EQ").get_hash();
     let current_env_hash = Expression::read_sym("CURRENT-ENV").get_hash();
     let if_hash = Expression::read_sym("IF").get_hash();
-    let fun_hash = Expression::read_sym("FUN").get_hash();
 
     let (head, rest) = car_cdr(&mut cs.namespace(|| "eval_cons expr"), g, expr, &store)?;
 
@@ -1237,7 +1012,6 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
 
         let (bindings, body) = (arg1.clone(), more.clone());
         let (body1, rest_body) = car_cdr(&mut cs.namespace(|| "car_cdr body"), g, &body, &store)?;
-
         let (binding1, rest_bindings) = car_cdr(
             &mut cs.namespace(|| "car_cdr bindings"),
             g,
@@ -1256,6 +1030,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &more_vals,
             &store,
         )?;
+
         // FIXME: assert end == NIL
         let expanded1 = Expression::construct_list(
             &mut cs.namespace(|| ""),
@@ -1282,8 +1057,8 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             vec![
                 var.tag.clone(),
                 var.hash.clone(),
-                expanded.clone().tag,
-                expanded.clone().hash,
+                expanded.tag.clone(),
+                expanded.hash.clone(),
                 env.tag.clone(),
                 env.hash.clone(),
                 cont.tag.clone(),
@@ -1304,7 +1079,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             vec![
                 var.tag.clone(),
                 var.hash,
-                expanded.clone().tag,
+                expanded.tag.clone(),
                 expanded.hash,
                 env.tag.clone(),
                 env.hash.clone(),
@@ -1331,7 +1106,6 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
                 g.false_num.clone(),
             ),
         );
-
         add_clauses(
             letrecstar_hash,
             (
@@ -1350,13 +1124,13 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &g.binop_cont_tag,
             vec![
                 g.op2_cons_tag.clone(),
+                g.default.clone(),
                 env.tag.clone(),
                 env.hash.clone(),
-                more.clone().tag,
-                more.clone().hash,
+                more.tag.clone(),
+                more.hash.clone(),
                 cont.tag.clone(),
                 cont.hash.clone(),
-                g.default.clone(),
             ],
         )?;
 
@@ -1377,11 +1151,11 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &g.unop_cont_tag,
             vec![
                 g.op1_car_tag.clone(),
-                arg1.clone().tag,
-                arg1.clone().hash,
+                g.default.clone(),
+                arg1.tag.clone(),
+                arg1.hash.clone(),
                 env.tag.clone(),
                 env.hash.clone(),
-                g.default.clone(),
                 g.default.clone(),
                 g.default.clone(),
             ],
@@ -1401,11 +1175,11 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &g.unop_cont_tag,
             vec![
                 g.op1_cdr_tag.clone(),
-                arg1.clone().tag,
-                arg1.clone().hash,
+                g.default.clone(),
+                arg1.tag.clone(),
+                arg1.hash.clone(),
                 env.tag.clone(),
                 env.hash.clone(),
-                g.default.clone(),
                 g.default.clone(),
                 g.default.clone(),
             ],
@@ -1425,11 +1199,11 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &g.unop_cont_tag,
             vec![
                 g.op1_atom_tag.clone(),
-                arg1.clone().tag,
-                arg1.clone().hash,
+                g.default.clone(),
+                arg1.tag.clone(),
+                arg1.hash.clone(),
                 env.tag.clone(),
                 env.hash.clone(),
-                g.default.clone(),
                 g.default.clone(),
                 g.default.clone(),
             ],
@@ -1448,13 +1222,13 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &g.binop_cont_tag,
             vec![
                 g.op2_sum_tag.clone(),
+                g.default.clone(),
                 env.tag.clone(),
                 env.hash.clone(),
-                more.clone().tag,
-                more.clone().hash,
+                more.tag.clone(),
+                more.hash.clone(),
                 cont.tag.clone(),
                 cont.hash.clone(),
-                g.default.clone(),
             ],
         )?;
 
@@ -1471,13 +1245,13 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &g.binop_cont_tag,
             vec![
                 g.op2_diff_tag.clone(),
+                g.default.clone(),
                 env.tag.clone(),
                 env.hash.clone(),
-                more.clone().tag,
-                more.clone().hash,
+                more.tag.clone(),
+                more.hash.clone(),
                 cont.tag.clone(),
                 cont.hash.clone(),
-                g.default.clone(),
             ],
         )?;
 
@@ -1493,13 +1267,13 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &g.binop_cont_tag,
             vec![
                 g.op2_product_tag.clone(),
+                g.default.clone(),
                 env.tag.clone(),
                 env.hash.clone(),
-                more.clone().tag,
-                more.clone().hash,
+                more.tag.clone(),
+                more.hash.clone(),
                 cont.tag.clone(),
                 cont.hash.clone(),
-                g.default.clone(),
             ],
         )?;
 
@@ -1516,13 +1290,13 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &g.binop_cont_tag,
             vec![
                 g.op2_quotient_tag.clone(),
+                g.default.clone(),
                 env.tag.clone(),
                 env.hash.clone(),
-                more.clone().tag,
-                more.clone().hash,
+                more.tag.clone(),
+                more.hash.clone(),
                 cont.tag.clone(),
                 cont.hash.clone(),
-                g.default.clone(),
             ],
         )?;
 
@@ -1539,13 +1313,13 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &g.relop_cont_tag,
             vec![
                 g.rel2_numequal_tag.clone(),
+                g.default.clone(),
                 env.tag.clone(),
                 env.hash.clone(),
-                more.clone().tag,
-                more.clone().hash,
+                more.tag.clone(),
+                more.hash.clone(),
                 cont.tag.clone(),
                 cont.hash.clone(),
-                g.default.clone(),
             ],
         )?;
 
@@ -1561,14 +1335,14 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &mut cs.namespace(|| "Relop Equal"),
             &g.relop_cont_tag,
             vec![
-                g.rel2_numequal_tag.clone(),
+                g.rel2_equal_tag.clone(),
+                g.default.clone(),
                 env.tag.clone(),
                 env.hash.clone(),
-                more.clone().tag,
-                more.clone().hash,
+                more.tag.clone(),
+                more.hash.clone(),
                 cont.tag.clone(),
                 cont.hash.clone(),
-                g.default.clone(),
             ],
         )?;
 
@@ -1587,11 +1361,11 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &mut cs.namespace(|| "If"),
             &g.if_cont_tag,
             vec![
-                g.rel2_numequal_tag.clone(),
-                unevaled_args.clone().tag,
+                unevaled_args.tag.clone(),
                 unevaled_args.hash,
                 cont.tag.clone(),
                 cont.hash.clone(),
+                g.default.clone(),
                 g.default.clone(),
                 g.default.clone(),
                 g.default.clone(),
@@ -1612,20 +1386,20 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             (env.clone(), env.clone(), cont.clone(), g.true_num.clone()),
         );
     }
-    {
+    let defaults = {
         // head == (FN . ARGS)
 
-        let fun_form = head;
+        let fun_form = head.clone();
         let args = rest;
 
         let call_continuation = Continuation::construct(
             &mut cs.namespace(|| "Call"),
             &g.call_cont_tag,
             vec![
-                arg1.tag.clone(),
-                arg1.hash.clone(),
                 env.tag.clone(),
                 env.hash.clone(),
+                arg1.tag.clone(),
+                arg1.hash.clone(),
                 cont.tag.clone(),
                 cont.hash.clone(),
                 g.default.clone(),
@@ -1663,11 +1437,17 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             cont,
         )?;
 
-        add_clauses(
-            fun_hash,
-            (res, env.clone(), continuation, g.false_num.clone()),
-        );
-    }
+        let env = env.clone();
+        &[
+            res.tag,
+            res.hash,
+            env.tag,
+            env.hash,
+            continuation.tag,
+            continuation.hash,
+            g.false_num.clone(),
+        ]
+    };
 
     let mut all_clauses = vec![
         result_expr_tag_clauses.as_slice(),
@@ -1680,18 +1460,10 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     ];
 
     let case_results = multi_case(
-        &mut cs.namespace(|| "input expr tag case"),
-        &expr.tag,
+        &mut cs.namespace(|| "input expr hash case"),
+        &head.hash,
         &all_clauses,
-        &[
-            g.default.clone(),
-            g.default.clone(),
-            g.default.clone(),
-            g.default.clone(),
-            g.default.clone(),
-            g.default.clone(),
-            g.false_num.clone(),
-        ],
+        defaults,
     )?;
 
     let result_expr = tagged_hash_by_index(0, &case_results);
@@ -1712,6 +1484,7 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
     cont: &AllocatedTaggedHash,
     result: &AllocatedTaggedHash,
     env: &AllocatedTaggedHash,
+    not_dummy: &Boolean,
     witness: &Option<Witness>,
     global_allocations: &GlobalAllocations,
 ) -> Result<
@@ -1722,6 +1495,12 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
     ),
     SynthesisError,
 > {
+    let store = if let Some(w) = witness {
+        w.store.clone().expect("Store missing")
+    } else {
+        Store::default()
+    };
+
     let mut result_expr_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
     let mut result_expr_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
     let mut result_env_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
@@ -1761,46 +1540,49 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
         );
     };
 
-    let (witnessed_cont_hash, witnessed_cont_components) = allocate_continuation_components(
+    let (computed_cont_hash, cont_components) = Continuation::allocate_maybe_dummy_components(
         &mut cs.namespace(|| "cont components"),
         &witness.clone().and_then(|w| w.make_thunk_cont),
+        // FIXME AAA: It would be better if the following (commented-out) code worked.
+        // For some reason, sometimes the relevant continuation disappears from the store,
+        // even though having been observably added during evaluation.
+        //
+        // &if let Some(c) = cont.tagged_hash() {
+        //     dbg!(&c);
+        //     dbg!(store.fetch_continuation(&c))
+        // } else {
+        //     None
+        // },
     )?;
+
     {
-        equal(
-            cs,
-            || "witnessed cont hash equals cont hash",
-            &witnessed_cont_hash,
-            &cont.hash,
-        );
+        implies_equal!(cs, not_dummy, &computed_cont_hash, &cont.hash);
     }
-    let witnessed_cont_continuation = AllocatedTaggedHash::from_tag_and_hash(
-        witnessed_cont_components[3].clone(),
-        witnessed_cont_components[4].clone(),
-    );
+
+    // Applies to Tail continuations only.
+    let continuation = tagged_hash_by_index(1, &cont_components);
+
+    let cont_is_lookup = alloc_equal(
+        &mut cs.namespace(|| "cont_is_lookup"),
+        &cont.tag,
+        &global_allocations.lookup_cont_tag,
+    )?;
+
+    let cont_is_tail = alloc_equal(
+        &mut cs.namespace(|| "cont_is_tail"),
+        &cont.tag,
+        &global_allocations.tail_cont_tag,
+    )?;
+
+    let cont_is_lookup_or_tail = or!(cs, &cont_is_lookup, &cont_is_tail)?;
 
     let effective_env = {
-        let saved_env = AllocatedTaggedHash::from_tag_and_hash(
-            witnessed_cont_components[1].clone(),
-            witnessed_cont_components[2].clone(),
-        );
-
-        let cont_tag_is_lookup = alloc_equal(
-            &mut cs.namespace(|| "cont_tag_is_lookup"),
-            &cont.tag,
-            &global_allocations.lookup_cont_tag,
-        )?;
-
-        let cont_tag_is_tail = alloc_equal(
-            &mut cs.namespace(|| "cont_tag_is_tail"),
-            &cont.tag,
-            &global_allocations.tail_cont_tag,
-        )?;
-
-        let cont_tag_is_lookup_or_tail = or!(cs, &cont_tag_is_lookup, &cont_tag_is_tail)?;
+        // Applies to Tail and Lookup continuations only.
+        let saved_env = tagged_hash_by_index(0, &cont_components);
 
         let effective_env = pick_tagged_hash(
             &mut cs.namespace(|| "effective_env"),
-            &cont_tag_is_lookup_or_tail,
+            &cont_is_lookup_or_tail,
             &saved_env,
             env,
         )?;
@@ -1810,53 +1592,25 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
 
     let tail_clause_results = {
         // If this is true,
-        let tail_cont_cont_is_tail = alloc_equal(
-            &mut cs.namespace(|| "tail_cont_cont_is_tail"),
-            &cont.tag,
+        let continuation_is_tail = alloc_equal(
+            &mut cs.namespace(|| "continuation_is_tail"),
+            &continuation.tag,
             &global_allocations.tail_cont_tag,
         )?;
 
-        let (witnessed_tail_cont_cont_hash, witnessed_tail_cont_cont_components) =
-            allocate_continuation_components(
-                &mut cs.namespace(|| "tail_cont cont components"),
+        // continuation is cont's continuation when that is a tail continuation. Otherwise dummy.
+        let (continuation_hash, continuation_components) =
+            Continuation::allocate_maybe_dummy_components(
+                &mut cs.namespace(|| "continuation_cont components"),
                 &witness
-                    .clone()
-                    .and_then(|w| w.make_thunk_tail_continuation_cont),
+                    .as_ref()
+                    .and_then(|w| w.make_thunk_tail_continuation_cont.clone()),
             )?;
 
         // Then these are the results.
         let inner_cont_tail_results = {
-            {
-                {
-                    let witnessed_cont_tag_is_tail = &alloc_equal(
-                        &mut cs.namespace(|| "witnessed_cont_tag_is_tail"),
-                        &cont.tag,
-                        &global_allocations.tail_cont_tag,
-                    )?;
-                    let actual_continuation_or_no_op = pick(
-                        &mut cs.namespace(|| "maybe witnessed_cont_continuation.hash"),
-                        witnessed_cont_tag_is_tail,
-                        &witnessed_cont_continuation.hash,
-                        &witnessed_tail_cont_cont_hash, // This branch will make the following equality constraint never fail.
-                    )?;
-                    equal(
-                        cs,
-                        || "witnessed tail cont cont hash equals cont hash",
-                        &witnessed_tail_cont_cont_hash,
-                        &actual_continuation_or_no_op,
-                    );
-                }
-            }
-
-            let saved_env = AllocatedTaggedHash::from_tag_and_hash(
-                witnessed_tail_cont_cont_components[0].clone(),
-                witnessed_tail_cont_cont_components[1].clone(),
-            );
-
-            let previous_cont = AllocatedTaggedHash::from_tag_and_hash(
-                witnessed_tail_cont_cont_components[2].clone(),
-                witnessed_tail_cont_cont_components[3].clone(),
-            );
+            let saved_env = tagged_hash_by_index(0, &continuation_components);
+            let previous_cont = tagged_hash_by_index(1, &continuation_components);
 
             let thunk_hash = Thunk::hash_components(
                 &mut cs.namespace(|| "tail_thunk_hash"),
@@ -1886,33 +1640,22 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
         ) = {
             let effective_env2 = {
                 let saved_env2 = AllocatedTaggedHash::from_tag_and_hash(
-                    witnessed_tail_cont_cont_components[1].clone(),
-                    witnessed_tail_cont_cont_components[2].clone(),
+                    continuation_components[1].clone(),
+                    continuation_components[2].clone(),
                 );
 
-                let tail_cont_cont_tag_is_lookup = alloc_equal(
-                    &mut cs.namespace(|| "tail_cont_cont_tag_is_lookup"),
-                    &witnessed_cont_continuation.tag,
+                let continuation_is_lookup = alloc_equal(
+                    &mut cs.namespace(|| "continuation_is_lookup"),
+                    &continuation.tag,
                     &global_allocations.lookup_cont_tag,
                 )?;
-                // dbg!(
-                //     &witnessed_cont_continuation.tag.get_value(),
-                //     &global_allocations.tail_cont_tag.get_value()
-                // );
-                // FIXME: Why does this make the test fail?
-                // assert!(
-                //     witnessed_cont_continuation.tag.get_value()
-                //         != global_allocations.tail_cont_tag.get_value()
-                // );
 
-                let effective_env2 = pick_tagged_hash(
+                pick_tagged_hash(
                     &mut cs.namespace(|| "effective_env2"),
-                    &tail_cont_cont_tag_is_lookup,
+                    &continuation_is_lookup,
                     &saved_env2,
                     &effective_env,
-                )?;
-
-                effective_env2
+                )?
             };
 
             let outermost_result = (
@@ -1931,8 +1674,8 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
                     &[
                         result.tag.clone(),
                         result.hash.clone(),
-                        witnessed_cont_continuation.tag.clone(),
-                        witnessed_tail_cont_cont_hash.clone(),
+                        continuation.tag.clone(),
+                        continuation.hash.clone(),
                     ],
                 )?;
 
@@ -1948,27 +1691,27 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
                 )
             };
 
-            let witnessed_tail_cont_cont_is_outermost = alloc_equal(
+            let continuation_is_outermost = alloc_equal(
                 &mut cs.namespace(|| "witnessed_tail_cont_cont_is_outermost"),
-                &witnessed_cont_continuation.tag,
+                &continuation.tag,
                 &global_allocations.outermost_tagged_hash.tag,
             )?;
 
             let inner_result_expr = pick_tagged_hash(
                 &mut cs.namespace(|| "inner_result_expr"),
-                &witnessed_tail_cont_cont_is_outermost,
+                &continuation_is_outermost,
                 &outermost_result.0,
                 &otherwise_result.0,
             )?;
             let inner_result_env = pick_tagged_hash(
                 &mut cs.namespace(|| "inner_result_env"),
-                &witnessed_tail_cont_cont_is_outermost,
+                &continuation_is_outermost,
                 &outermost_result.1,
                 &otherwise_result.1,
             )?;
             let inner_result_cont = pick_tagged_hash(
                 &mut cs.namespace(|| "inner_result_cont"),
-                &witnessed_tail_cont_cont_is_outermost,
+                &continuation_is_outermost,
                 &outermost_result.2,
                 &otherwise_result.2,
             )?;
@@ -1979,21 +1722,21 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
         // Assign results based on the condition.
         let the_result_expr = pick_tagged_hash(
             &mut cs.namespace(|| "the_result_expr"),
-            &tail_cont_cont_is_tail,
+            &continuation_is_tail,
             &inner_cont_tail_results.0,
             &otherwise_results.0,
         )?;
 
         let the_result_env = pick_tagged_hash(
             &mut cs.namespace(|| "the_result_env"),
-            &tail_cont_cont_is_tail,
+            &continuation_is_tail,
             &inner_cont_tail_results.1,
             &otherwise_results.1,
         )?;
 
         let the_result_cont = pick_tagged_hash(
             &mut cs.namespace(|| "the_result_cont"),
-            &tail_cont_cont_is_tail,
+            &continuation_is_tail,
             &inner_cont_tail_results.2,
             &otherwise_results.2,
         )?;
@@ -2022,19 +1765,13 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
                 cont.hash.clone(),
             ],
         )?;
-
-        let result_expr_tag = global_allocations.thunk_tag.clone();
-        let result_expr_hash = thunk_hash;
-
-        let result_cont_tag = global_allocations.dummy_tagged_hash.tag.clone();
-        let result_cont_hash = global_allocations.dummy_tagged_hash.hash.clone();
         [
-            result_expr_tag,
-            result_expr_hash,
+            global_allocations.thunk_tag.clone(),
+            thunk_hash,
             effective_env.tag,
             effective_env.hash,
-            result_cont_tag,
-            result_cont_hash,
+            global_allocations.dummy_tagged_hash.tag.clone(),
+            global_allocations.dummy_tagged_hash.hash.clone(),
         ]
     };
 
@@ -2057,7 +1794,6 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
     let result_expr = tagged_hash_by_index(0, &case_results);
     let result_env = tagged_hash_by_index(1, &case_results);
     let result_cont = tagged_hash_by_index(2, &case_results);
-
     Ok((result_expr, result_env, result_cont))
 }
 
@@ -2066,6 +1802,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
     cont: &AllocatedTaggedHash,
     result: &AllocatedTaggedHash,
     env: &AllocatedTaggedHash,
+    not_dummy: &Boolean,
     witness: &Option<Witness>,
     global_allocations: &GlobalAllocations,
 ) -> Result<
@@ -2182,10 +1919,13 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         );
     }
 
-    let (continuation_hash, continuation_components) = allocate_continuation_components(
-        &mut cs.namespace(|| "allocate_continuation_components"),
-        &witness.clone().and_then(|w| w.invoke_continuation_cont),
-    )?;
+    let (continuation_hash, continuation_components) =
+        Continuation::allocate_maybe_dummy_components(
+            &mut cs.namespace(|| "allocate_continuation_components"),
+            &witness
+                .clone()
+                .and_then(|w| dbg!(w.invoke_continuation_cont)),
+        )?;
 
     {
         // Continuation::Call
@@ -2202,10 +1942,10 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &global_allocations.call2_cont_tag.clone(),
             // Mirrors Continuation::get_hash_components()
             vec![
-                function.tag.clone(),
-                function.hash.clone(),
                 saved_env.tag,
                 saved_env.hash,
+                function.tag.clone(),
+                function.hash.clone(),
                 continuation.tag,
                 continuation.hash,
                 global_allocations.default.clone(),
@@ -2247,13 +1987,22 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         // Continuation::Call2
         let saved_env = tagged_hash_by_index(0, &continuation_components);
         let fun = tagged_hash_by_index(1, &continuation_components);
-        let cont = tagged_hash_by_index(2, &continuation_components);
+        let continuation = tagged_hash_by_index(2, &continuation_components);
         {
             let (hash, arg_t, body_t, closed_env) = Expression::allocate_maybe_fun(
                 &mut cs.namespace(|| "allocate Call2 fun"),
-                witness
-                    .clone()
-                    .and_then(|w| w.invoke_continuation_output_result),
+                fun.tagged_hash()
+                    .as_ref()
+                    .and_then(|t| dbg!(store.fetch(t))),
+            )?;
+
+            // BOOKMARK: WHy does this cause unconstrainted variable?
+            // Something about the overloaded Options?
+            let (body_form, _) = car_cdr(
+                &mut cs.namespace(|| "body_form"),
+                global_allocations,
+                &body_t,
+                &store,
             )?;
 
             let fun_is_correct = constraints::alloc_equal(
@@ -2262,15 +2011,17 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
                 &hash,
             )?;
 
-            let call2_branch_taken = constraints::alloc_equal(
+            let cont_is_call2 = constraints::alloc_equal(
                 &mut cs.namespace(|| "Call2 branch taken"),
-                &global_allocations.call2_cont_tag,
                 &cont.tag,
+                &global_allocations.call2_cont_tag,
             )?;
+
+            let cont_is_call2_and_not_dummy = and!(cs, &cont_is_call2, not_dummy)?;
 
             enforce_implication(
                 &mut cs.namespace(|| "Call2 implies non-dummy fun"),
-                &call2_branch_taken,
+                &cont_is_call2_and_not_dummy,
                 &fun_is_correct,
             );
 
@@ -2287,13 +2038,13 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
                 &mut cs.namespace(|| "Call2 make_tail_continuation"),
                 global_allocations,
                 &saved_env,
-                &cont,
+                &continuation,
             )?;
 
             add_clauses(
                 BaseContinuationTag::Call2.cont_tag_fr(),
                 (
-                    body_t,
+                    body_form,
                     newer_env,
                     tail_cont,
                     global_allocations.false_num.clone(),
@@ -2351,6 +2102,11 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &store,
         )?;
 
+        let is_error = extended_env.alloc_equal(
+            &mut cs.namespace(|| "is_error"),
+            &global_allocations.error_tagged_hash,
+        )?;
+
         let tail_cont = make_tail_continuation(
             &mut cs.namespace(|| "LetRecStar make_tail_continuation"),
             global_allocations,
@@ -2358,12 +2114,19 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &cont,
         )?;
 
+        let return_cont = pick_tagged_hash(
+            &mut cs.namespace(|| "return_cont"),
+            &is_error,
+            &global_allocations.error_tagged_hash,
+            &tail_cont,
+        )?;
+
         add_clauses(
             BaseContinuationTag::LetRecStar.cont_tag_fr(),
             (
                 body,
                 extended_env,
-                cont,
+                return_cont,
                 global_allocations.false_num.clone(),
             ),
         );
@@ -2458,8 +2221,8 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
     {
         // Continuation::Binop
         let op2 = continuation_components[0].clone();
-        let saved_env = tagged_hash_by_index(0, &continuation_components[1..]);
-        let unevaled_args = tagged_hash_by_index(1, &continuation_components[1..]);
+        let saved_env = tagged_hash_by_index(1, &continuation_components);
+        let unevaled_args = tagged_hash_by_index(2, &continuation_components);
         let continuation = tagged_hash_by_index(3, &continuation_components);
 
         let not_dummy = alloc_equal(
@@ -2475,18 +2238,20 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &store,
         )?;
 
+        let binop2_components = vec![
+            op2,
+            global_allocations.default.clone(),
+            result.tag.clone(),
+            result.hash.clone(),
+            continuation.tag,
+            continuation.hash,
+            global_allocations.default.clone(),
+            global_allocations.default.clone(),
+        ];
         let binop2_cont = Continuation::construct(
             &mut cs.namespace(|| "Binop2"),
             &global_allocations.binop2_cont_tag,
-            vec![
-                op2,
-                result.tag.clone(),
-                result.hash.clone(),
-                continuation.tag,
-                continuation.hash,
-                global_allocations.default.clone(),
-                global_allocations.default.clone(),
-            ],
+            binop2_components,
         )?;
 
         // FIXME: If allocated_rest != Nil, then error.
@@ -2526,10 +2291,27 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
 
         let (a, b) = (arg1.hash.clone(), arg2.hash.clone()); // For Nums, the 'hash' is an immediate value.
 
+        let not_dummy = alloc_equal(
+            &mut cs.namespace(|| "Binop2 not dummy"),
+            &cont.tag,
+            &global_allocations.binop2_cont_tag,
+        )?;
+
         let sum = constraints::add(&mut cs.namespace(|| "sum"), &a, &b)?;
         let diff = constraints::sub(&mut cs.namespace(|| "difference"), &a, &b)?;
         let product = constraints::mul(&mut cs.namespace(|| "product"), &a, &b)?;
-        let quotient = constraints::div(&mut cs.namespace(|| "quotient"), &a, &b)?;
+
+        // FIXME: We need to check that b is not zero, returning an error if so.
+
+        // In dummy paths, we need to use a non-zero dummy value for b.
+        let divisor = //if dummy then 1 otherwise b.
+            pick(&mut cs.namespace(||"maybe-dummy divisor"),
+                 &not_dummy,
+                 &b,
+                 &global_allocations.true_num,
+                 )?;
+
+        let quotient = constraints::div(&mut cs.namespace(|| "quotient"), &a, &divisor)?;
 
         let cons = Expression::construct_cons(
             &mut cs.namespace(|| "cons"),
@@ -2608,9 +2390,9 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
     {
         // Continuation::Relop
         let relop2 = continuation_components[0].clone();
-        let saved_env = tagged_hash_by_index(0, &continuation_components[1..]);
-        let unevaled_args = tagged_hash_by_index(1, &continuation_components[1..]);
-        let continuation = tagged_hash_by_index(2, &continuation_components[1..]);
+        let saved_env = tagged_hash_by_index(1, &continuation_components);
+        let unevaled_args = tagged_hash_by_index(2, &continuation_components);
+        let continuation = tagged_hash_by_index(3, &continuation_components);
 
         let not_dummy = alloc_equal(
             &mut cs.namespace(|| "Relop not dummy"),
@@ -2631,6 +2413,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &global_allocations.relop2_cont_tag,
             vec![
                 relop2,
+                global_allocations.default.clone(),
                 result.tag.clone(),
                 result.hash.clone(),
                 continuation.tag,
@@ -2732,6 +2515,13 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &global_allocations.if_cont_tag,
         )?;
 
+        // NOTE: There was a tricky bug here.
+        // When the actual continuation was Relop, and the operation is Numequal (for example),
+        // Then this appears to be an invalid but not dummy continuation, since Numequal has a Relop tag value of 1,
+        // the same as Cons.
+        //
+        // We address this by adding 2 to the tags returned by Op2 and Rel2 fr() methods, so this collision cannot happen.
+        // TODO: It might make even more sense to make all disjoint.
         let (arg1, more) = car_cdr(
             &mut cs.namespace(|| "If unevaled_args cons"),
             global_allocations,
@@ -2752,7 +2542,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         )?;
 
         let res = pick_tagged_hash(
-            &mut cs.namespace(|| "pick1 arg1 or arg2"),
+            &mut cs.namespace(|| "pick arg1 or arg2"),
             &condition_is_nil,
             &arg2,
             &arg1,
@@ -2829,13 +2619,12 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         &all_clauses,
         &defaults,
     )?;
-
+    dbg!(&cont.tag.get_value());
     let result_expr = tagged_hash_by_index(0, &case_results);
     let result_env = tagged_hash_by_index(1, &case_results);
     let result_cont = tagged_hash_by_index(2, &case_results);
-
     let make_thunk_num = case_results[6].clone();
-
+    dbg!(&result_expr.tagged_hash());
     Ok((result_expr, result_env, result_cont, make_thunk_num))
 }
 
@@ -2845,6 +2634,7 @@ fn car_cdr<CS: ConstraintSystem<Fr>>(
     maybe_cons: &AllocatedTaggedHash,
     store: &Store,
 ) -> Result<(AllocatedTaggedHash, AllocatedTaggedHash), SynthesisError> {
+    // A dummy value will never have the cons tag.
     let not_dummy = alloc_equal(
         &mut cs.namespace(|| "not_dummy"),
         &maybe_cons.tag,
@@ -2853,9 +2643,12 @@ fn car_cdr<CS: ConstraintSystem<Fr>>(
 
     let (car, cdr) = if not_dummy.get_value().expect("not_dummy missing") {
         if let Some(tagged_hash) = &maybe_cons.tagged_hash() {
-            let (car, cdr) =
-                store.car_cdr(&store.fetch(tagged_hash).expect("Cons missing from store"));
-            (car, cdr)
+            let found = store.fetch(tagged_hash);
+            if let Some(found) = found {
+                store.car_cdr(&found)
+            } else {
+                (Expression::Nil, Expression::Nil)
+            }
         } else {
             // Dummy
             (Expression::Nil, Expression::Nil)
@@ -2877,10 +2670,23 @@ fn car_cdr<CS: ConstraintSystem<Fr>>(
 
     let real_cons = alloc_equal(
         &mut cs.namespace(|| "cons is real"),
-        &g.cons_tag,
-        &constructed_cons.tag,
+        &maybe_cons.hash,
+        &constructed_cons.hash,
     )?;
 
+    if not_dummy.get_value() == Some(true) {
+        dbg!(
+            "!!!!!!!!!!!!!!!!!",
+            &maybe_cons.tag.get_value(),
+            &maybe_cons.hash.get_value(),
+            &constructed_cons.hash.get_value(),
+            &allocated_car.tagged_hash(),
+            &allocated_cdr.tagged_hash(),
+        );
+        if real_cons.get_value() != Some(true) {
+            panic!("UIOP");
+        }
+    }
     enforce_implication(
         &mut cs.namespace(|| "not dummy implies real cons"),
         &not_dummy,
@@ -2898,7 +2704,9 @@ fn extend<CS: ConstraintSystem<Fr>>(
     val: &AllocatedTaggedHash,
     store: &Store,
 ) -> Result<AllocatedTaggedHash, SynthesisError> {
-    Expression::construct_cons(cs, g, var, val)
+    let new_binding =
+        Expression::construct_cons(&mut cs.namespace(|| "extend binding"), g, var, val)?;
+    Expression::construct_cons(cs, g, &new_binding, env)
 }
 
 fn extend_rec<CS: ConstraintSystem<Fr>>(
@@ -2920,6 +2728,9 @@ fn extend_rec<CS: ConstraintSystem<Fr>>(
     let cons = Expression::construct_cons(&mut cs.namespace(|| "cons var val"), g, var, val)?;
     let list = Expression::construct_list(&mut cs.namespace(|| "list cons"), g, &[cons.clone()])?;
 
+    let new_env_if_sym_or_nil =
+        Expression::construct_cons(&mut cs.namespace(|| "new_env_if_sym_or_nil"), g, &list, env)?;
+
     let cons2 = Expression::construct_cons(
         &mut cs.namespace(|| "cons cons binding_or_env"),
         g,
@@ -2936,23 +2747,32 @@ fn extend_rec<CS: ConstraintSystem<Fr>>(
         &g.sym_tag,
     )?;
 
+    let is_nil = constraints::alloc_equal(
+        &mut cs.namespace(|| "var_or_binding is nil"),
+        &var_or_binding.tag,
+        &g.nil_tag,
+    )?;
+
+    let is_sym_or_nil = or!(cs, &is_sym, &is_nil)?;
+
     let is_cons = constraints::alloc_equal(
         &mut cs.namespace(|| "var_or_binding is cons"),
         &var_or_binding.tag,
         &g.cons_tag,
     )?;
 
-    let extend_rec_pre = pick_tagged_hash(
-        &mut cs.namespace(|| "extend_rec pre-result"),
+    let new_env_if_cons = pick_tagged_hash(
+        &mut cs.namespace(|| "new_env_if_cons"),
         &is_cons,
         &cons3,
-        &g.error_tagged_hash,
+        &g.error_tagged_hash, // This is being used as a signal, since extend_rec is expected to return a valid env.
     )?;
+
     pick_tagged_hash(
         &mut cs.namespace(|| "extend_rec result"),
-        &is_sym,
-        &cons,
-        &extend_rec_pre,
+        &is_sym_or_nil,
+        &new_env_if_sym_or_nil,
+        &new_env_if_cons,
     )
 }
 
@@ -3009,315 +2829,13 @@ fn tagged_hash_by_index(n: usize, case_results: &[AllocatedNum<Fr>]) -> Allocate
     )
 }
 
-impl Continuation {
-    fn allocate_components<CS: ConstraintSystem<Fr>>(
-        &self,
-        mut cs: CS,
-    ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
-        let component_frs = self.get_hash_components();
-        let mut components = Vec::with_capacity(8);
-
-        for (i, fr) in component_frs.iter().enumerate() {
-            components.push(AllocatedNum::alloc(
-                cs.namespace(|| format!("Continuation component {}", i)),
-                || Ok(*fr),
-            )?);
-        }
-
-        let hash = poseidon_hash(
-            cs.namespace(|| "Continuation"),
-            components.clone(),
-            &POSEIDON_CONSTANTS_8,
-        )?;
-
-        Ok((hash, components))
-    }
-
-    fn allocate_dummy_components<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-    ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
-        let length = 8;
-        let mut result = Vec::with_capacity(length);
-        for i in 0..length {
-            result.push(AllocatedNum::alloc(
-                cs.namespace(|| format!("Continuation component {}", i)),
-                || Ok(Fr::zero()),
-            )?);
-        }
-
-        // We need to create these constraints, but eventually we can avoid doing any calculation.
-        // We just need a precomputed dummy witness.
-        let dummy_hash = poseidon_hash(
-            cs.namespace(|| "Continuation"),
-            result.clone(),
-            &POSEIDON_CONSTANTS_8,
-        )?;
-
-        Ok((dummy_hash, result))
-    }
-
-    fn construct<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-        cont_tag: &AllocatedNum<Fr>,
-        components: Vec<AllocatedNum<Fr>>,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        let hash = poseidon_hash(
-            cs.namespace(|| "Continuation"),
-            components,
-            &POSEIDON_CONSTANTS_8,
-        )?;
-
-        let cont = AllocatedTaggedHash::from_tag_and_hash(cont_tag.clone(), hash);
-        Ok(cont)
-    }
-}
-
-impl Thunk {
-    // First component is the hash, which is wrong.
-    fn allocate_components<CS: ConstraintSystem<Fr>>(
-        &self,
-        mut cs: CS,
-    ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
-        let component_frs = self.get_hash_components();
-        let mut components = Vec::with_capacity(4);
-
-        for (i, fr) in component_frs.iter().enumerate() {
-            components.push(AllocatedNum::alloc(
-                cs.namespace(|| format!("Continuation component {}", i)),
-                || Ok(*fr),
-            )?);
-        }
-
-        let hash =
-            Self::hash_components(cs.namespace(|| "Thunk Continuation"), &components.clone())?;
-
-        Ok((hash, components))
-    }
-
-    fn allocate_dummy_components<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-    ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
-        let length = 4;
-        let mut result = Vec::with_capacity(length);
-        for i in 0..length {
-            result.push(AllocatedNum::alloc(
-                cs.namespace(|| format!("Continuation component {}", i)),
-                || Ok(Fr::zero()),
-            )?);
-        }
-        let dummy_hash = poseidon_hash(
-            cs.namespace(|| "Thunk Continuation"),
-            result.clone(),
-            &POSEIDON_CONSTANTS_4,
-        )?;
-
-        Ok((dummy_hash, result))
-    }
-
-    fn hash_components<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-        components: &[AllocatedNum<Fr>],
-    ) -> Result<AllocatedNum<Fr>, SynthesisError> {
-        assert_eq!(4, components.len());
-
-        // This is a 'binary' hash but has arity 4 because of tag and hash components for each item.
-        let hash = poseidon_hash(
-            cs.namespace(|| "Thunk Continuation"),
-            components.to_vec(),
-            &POSEIDON_CONSTANTS_4,
-        )?;
-
-        Ok(hash)
-    }
-}
-
-impl Expression {
-    fn allocate_maybe_fun<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-        maybe_fun: Option<Expression>,
-    ) -> Result<
-        (
-            AllocatedNum<Fr>,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-        ),
-        SynthesisError,
-    > {
-        match maybe_fun {
-            Some(f) => f.allocate_fun(cs),
-            _ => Self::allocate_dummy_fun(cs),
-        }
-    }
-
-    fn allocate_fun<CS: ConstraintSystem<Fr>>(
-        &self,
-        mut cs: CS,
-    ) -> Result<
-        (
-            AllocatedNum<Fr>,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-        ),
-        SynthesisError,
-    > {
-        match self {
-            Expression::Fun(arg, body, closed_env) => {
-                let arg_t = AllocatedTaggedHash::from_tagged_hash(
-                    &mut cs.namespace(|| "allocate arg"),
-                    Some(*arg),
-                )?;
-                let body_t = AllocatedTaggedHash::from_tagged_hash(
-                    &mut cs.namespace(|| "allocate body"),
-                    Some(*body),
-                )?;
-                let closed_env_t = AllocatedTaggedHash::from_tagged_hash(
-                    &mut cs.namespace(|| "allocate closed_env"),
-                    Some(*closed_env),
-                )?;
-
-                let preimage = vec![];
-                let hash =
-                    poseidon_hash(cs.namespace(|| "Fun hash"), preimage, &POSEIDON_CONSTANTS_6)?;
-
-                Ok((hash, arg_t, body_t, closed_env_t))
-            }
-            _ => Err(SynthesisError::AssignmentMissing),
-        }
-    }
-
-    fn allocate_dummy_fun<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-    ) -> Result<
-        (
-            AllocatedNum<Fr>,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-        ),
-        SynthesisError,
-    > {
-        let arg_t = AllocatedTaggedHash::from_unallocated_tag_and_hash(
-            &mut cs.namespace(|| "dummy arg_t"),
-            Fr::zero(),
-            Fr::zero(),
-        )?;
-
-        let body_t = AllocatedTaggedHash::from_unallocated_tag_and_hash(
-            &mut cs.namespace(|| "dummy body_t"),
-            Fr::zero(),
-            Fr::zero(),
-        )?;
-
-        let closed_env_t = AllocatedTaggedHash::from_unallocated_tag_and_hash(
-            &mut cs.namespace(|| "dummy closed_env_t"),
-            Fr::zero(),
-            Fr::zero(),
-        )?;
-
-        implies_equal_t!(cs, &Boolean::Constant(true), &closed_env_t, &closed_env_t);
-
-        let preimage = vec![];
-        let hash = poseidon_hash(cs.namespace(|| "Fun hash"), preimage, &POSEIDON_CONSTANTS_6)?;
-
-        Ok((hash, arg_t, body_t, closed_env_t))
-    }
-
-    fn construct_cons<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-        g: &GlobalAllocations,
-        a: &AllocatedTaggedHash,
-        b: &AllocatedTaggedHash,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        // This is actually binary_hash, considering creating that helper for use elsewhere.
-        let preimage = vec![a.tag.clone(), a.hash.clone(), b.tag.clone(), b.hash.clone()];
-
-        let hash = poseidon_hash(
-            cs.namespace(|| "Cons hash"),
-            preimage,
-            &POSEIDON_CONSTANTS_4,
-        )?;
-        Ok(AllocatedTaggedHash::from_tag_and_hash(
-            g.cons_tag.clone(),
-            hash,
-        ))
-    }
-
-    fn construct_list<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-        g: &GlobalAllocations,
-        elts: &[AllocatedTaggedHash],
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        if elts.is_empty() {
-            Ok(g.nil_tagged_hash.clone())
-        } else {
-            let tail = Self::construct_list(&mut cs.namespace(|| "Cons tail"), g, &elts[1..])?;
-            Self::construct_cons(&mut cs.namespace(|| "Cons"), g, &elts[0], &tail)
-        }
-    }
-
-    fn construct_fun<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-        g: &GlobalAllocations,
-        arg: &AllocatedTaggedHash,
-        body: &AllocatedTaggedHash,
-        closed_env: &AllocatedTaggedHash,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        let preimage = vec![
-            arg.tag.clone(),
-            arg.hash.clone(),
-            body.tag.clone(),
-            body.hash.clone(),
-            closed_env.tag.clone(),
-            closed_env.hash.clone(),
-        ];
-
-        let hash = poseidon_hash(cs.namespace(|| "Fun hash"), preimage, &POSEIDON_CONSTANTS_6)?;
-        Ok(AllocatedTaggedHash::from_tag_and_hash(
-            g.cons_tag.clone(),
-            hash,
-        ))
-    }
-}
-
-fn allocate_continuation_components<CS: ConstraintSystem<Fr>>(
-    mut cs: CS,
-    cont: &Option<Continuation>,
-) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
-    if let Some(cont) = cont {
-        cont.allocate_components(cs)
-    } else {
-        Continuation::allocate_dummy_components(cs)
-    }
-}
-
-fn allocate_thunk_components<CS: ConstraintSystem<Fr>>(
-    mut cs: CS,
-    thunk: &Option<Thunk>,
-) -> Result<(AllocatedNum<Fr>, AllocatedTaggedHash, AllocatedTaggedHash), SynthesisError> {
-    let (hash, components) = if let Some(thunk) = thunk {
-        thunk.allocate_components(cs)
-    } else {
-        Thunk::allocate_dummy_components(cs)
-    }?;
-
-    // allocate_thunk_components should probably returned AllocatedTaggedHashes.
-    let thunk_value =
-        AllocatedTaggedHash::from_tag_and_hash(components[0].clone(), components[1].clone());
-
-    let thunk_continuation =
-        AllocatedTaggedHash::from_tag_and_hash(components[2].clone(), components[3].clone());
-
-    Ok((hash, thunk_value, thunk_continuation))
-}
-
 #[cfg(test)]
 
 mod tests {
     use super::*;
     use crate::data::Store;
     use crate::eval::{empty_sym_env, Evaluable, Witness, IO};
+    use crate::proof::Provable;
     use bellperson::util_cs::{
         metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta,
     };
@@ -3362,12 +2880,12 @@ mod tests {
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
-            let delta = cs.delta(&cs_blank);
+            let delta = cs.delta(&cs_blank, false);
             assert!(delta == Delta::Equal);
 
-            assert_eq!(30439, cs.num_constraints());
+            assert_eq!(32356, cs.num_constraints());
             assert_eq!(20, cs.num_inputs());
-            assert_eq!(30380, cs.aux().len());
+            assert_eq!(32305, cs.aux().len());
 
             let public_inputs = frame.public_inputs();
             let mut rng = rand::thread_rng();

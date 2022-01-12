@@ -1,7 +1,7 @@
 use crate::data::{Continuation, Expression, Op1, Op2, Rel2, Store, Tag, Tagged, Thunk};
 use ff::Field;
 use std::cmp::PartialEq;
-use std::iter::Iterator;
+use std::iter::{Iterator, Take};
 use std::ops::{AddAssign, MulAssign, SubAssign};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
@@ -18,6 +18,22 @@ pub struct Frame<T, W> {
     pub initial: Option<T>,
     pub i: Option<usize>,
     pub witness: Option<W>,
+}
+
+impl<T: PartialEq + std::fmt::Debug, W> Frame<T, W> {
+    pub fn precedes(&self, maybe_next: &Self) -> bool {
+        let sequential = match (self.i, maybe_next.i) {
+            (Some(i), Some(j)) => j == i + 1,
+            _ => false,
+        };
+
+        let io_match = match (&self.output, &maybe_next.input) {
+            (Some(output), Some(input)) => output == input,
+            _ => false,
+        };
+
+        sequential && io_match
+    }
 }
 
 pub trait Evaluable<W> {
@@ -81,7 +97,7 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
     }
 }
 
-struct FrameIt<'a, T, W> {
+pub struct FrameIt<'a, T, W> {
     initial_input: T,
     frame: Option<Frame<T, W>>,
     store: &'a mut Store,
@@ -136,6 +152,7 @@ pub struct Witness {
     pub invoke_continuation_cont: Option<Continuation>,
 
     pub invoke_continuation_output_result: Option<Expression>,
+    pub invoke_continuation_output_cont: Option<Continuation>,
 }
 
 impl Witness {
@@ -206,6 +223,7 @@ fn eval_expr_with_witness(
         Expression::Sym(_) => {
             if expr == &store.intern("NIL") || (expr == &store.intern("T")) {
                 // CIRCUIT: sym_is_self_evaluating
+                //          cond1
                 Control::MakeThunk(expr.clone(), env.clone(), cont.clone())
             } else {
                 // CIRCUIT: sym_otherwise
@@ -214,20 +232,25 @@ fn eval_expr_with_witness(
                 if binding == Expression::Nil {
                     // CIRCUIT: binding_is_nil
                     //          otherwise_and_binding_is_nil
+                    //          cond2
                     Control::Return(expr.clone(), env.clone(), Continuation::Error)
                 } else {
                     // CIRCUIT: binding_not_nil
+                    //          otherwise_and_binding_not_nil
                     let (var_or_rec_binding, val_or_more_rec_env) = store.car_cdr(&binding);
                     match &var_or_rec_binding {
                         // In a simple_env.
                         Expression::Sym(_) => {
                             // CIRCUIT: var_or_rec_binding_is_sym
+                            //          otherwise_and_sym
                             let v = var_or_rec_binding;
                             let val = val_or_more_rec_env;
 
                             if v == *expr {
                                 // CIRCUIT: v_is_expr1
                                 //          v_is_expr1_real
+                                //          otherwise_and_v_expr_and_sym
+                                //          cond3
                                 Control::MakeThunk(val, env.clone(), cont.clone())
                             } else {
                                 // CIRCUIT: otherwise_and_v_not_expr
@@ -235,12 +258,13 @@ fn eval_expr_with_witness(
                                 match cont {
                                     Continuation::Lookup(_, _) => {
                                         // CIRCUIT: cont_is_lookup
-                                        //          cont_is_lookup_real
                                         //          cont_is_lookup_sym
+                                        //          cond4
                                         Control::Return(expr.clone(), smaller_env, cont.clone())
                                     }
                                     _ =>
-                                    // CIRCUIT: cont_not_lookup_real
+                                    // CIRCUIT: cont_not_lookup_sym
+                                    //          cond5
                                     {
                                         Control::Return(
                                             expr.clone(),
@@ -257,6 +281,7 @@ fn eval_expr_with_witness(
                         // Start of a recursive_env.
                         Expression::Cons(_, _) => {
                             // CIRCUIT: var_or_rec_binding_is_cons
+                            //          otherwise_and_cons
                             let rec_env = binding;
                             let smaller_rec_env = val_or_more_rec_env;
 
@@ -264,11 +289,12 @@ fn eval_expr_with_witness(
                             if v2 == *expr {
                                 // CIRCUIT: v2_is_expr
                                 //          v2_is_expr_real
+                                //          cond6
                                 let val_to_use = {
                                     // CIRCUIT: val_to_use
-                                    //          val_to_use_real
                                     match val2 {
                                         Expression::Fun(_, _, _) => {
+                                            // TODO: This is a misnomer. It's actually the closure *to be extended*.
                                             witness.extended_closure = Some(val2.clone());
                                             // CIRCUIT: val2_is_fun
 
@@ -285,9 +311,11 @@ fn eval_expr_with_witness(
                                 };
                                 Control::MakeThunk(val_to_use, env.clone(), cont.clone())
                             } else {
-                                // CIRCUIT: otherwise_and_v2_not_expr
-                                // CIRCUIT: env_to_use
+                                // CIRCUIT: v2_not_expr
+                                //          otherwise_and_v2_not_expr
+                                //          cond7
                                 let env_to_use = if smaller_rec_env == Expression::Nil {
+                                    // CIRCUIT: smaller_rec_env_is_nil
                                     smaller_env
                                 } else {
                                     // CIRCUIT: with_smaller_rec_env
@@ -295,10 +323,14 @@ fn eval_expr_with_witness(
                                 };
                                 match cont {
                                     Continuation::Lookup(_, _) => {
-                                        // CIRCUIT: continuation_is_lookup (indicates this branch)
+                                        // CIRCUIT: cont_is_lookup
+                                        //          cont_is_lookup_cons
+                                        //          cond8
                                         Control::Return(expr.clone(), env_to_use, cont.clone())
                                     }
                                     _ => Control::Return(
+                                        // CIRCUIT: cont_not_lookup_cons
+                                        //          cond9
                                         expr.clone(),
                                         env_to_use,
                                         Continuation::Lookup(env.clone(), Box::new(cont.clone())),
@@ -516,11 +548,13 @@ fn eval_expr_with_witness(
 
     {
         let (new_expr, new_env, new_cont) = control.results();
+        store.store_continuation(&new_cont);
 
         witness.prethunk_output_expr = Some(new_expr);
         witness.prethunk_output_env = Some(new_env);
         witness.prethunk_output_cont = Some(new_cont);
     }
+
     let control = invoke_continuation(control, store, witness);
     make_thunk(control, store, witness)
 }
@@ -581,7 +615,6 @@ fn invoke_continuation(
         Continuation::LetStar(var, body, saved_env, continuation) => {
             let extended_env = extend(&env, var, &result, store);
             let c = make_tail_continuation(saved_env, continuation);
-
             Control::Return(body.clone(), extended_env, c)
         }
         Continuation::LetRecStar(var, body, saved_env, continuation) => {
@@ -646,8 +679,8 @@ fn invoke_continuation(
             };
             Control::MakeThunk(result, env.clone(), *continuation.clone())
         }
-        Continuation::Relop(rel2, saved_env, more_args, continuation) => {
-            let (arg2, rest) = store.car_cdr(more_args);
+        Continuation::Relop(rel2, saved_env, unevaled_args, continuation) => {
+            let (arg2, rest) = store.car_cdr(unevaled_args);
             assert_eq!(Expression::Nil, rest);
             Control::Return(
                 arg2,
@@ -736,6 +769,7 @@ fn invoke_continuation(
     let (output_result, output_env, output_cont) = control.results();
 
     witness.invoke_continuation_output_result = Some(output_result);
+    witness.invoke_continuation_output_cont = Some(output_cont);
 
     if let Control::InvokeContinuation(_, _, _) = control {
         unreachable!();
@@ -753,7 +787,10 @@ fn make_thunk(
     if !control.is_make_thunk() {
         return control;
     }
+
     let (result, env, cont) = control.results();
+    witness.make_thunk_cont = Some(cont.clone());
+    store.store_continuation(&cont); // NOTE: see FIXME AAA in circuit.rs
 
     if let Expression::Thunk(_) = result {
         unreachable!("make_thunk should never be called with a thunk");
@@ -774,17 +811,9 @@ fn make_thunk(
         Continuation::Tail(_, continuation) => {
             witness.make_thunk_tail_continuation_cont = Some(*continuation.clone());
             if let Continuation::Tail(saved_env, previous_cont) = &*continuation {
-                let thunk = Thunk {
-                    value: Box::new(result),
-                    continuation: previous_cont.clone(),
-                };
-                // witness.make_thunk_tail_continuation_thunk = Some(thunk.clone());
-                witness.witness_destructured_thunk(&thunk);
-                Control::Return(
-                    Expression::Thunk(thunk),
-                    saved_env.clone(),
-                    Continuation::Dummy,
-                )
+                let thunk = store.thunk(result, *previous_cont.clone());
+
+                Control::Return(thunk, saved_env.clone(), Continuation::Dummy)
             } else {
                 // There is no risk of a recursive loop here, so the self-call below
                 // is just convenience. It can be unrolled in the circuit. That
@@ -813,16 +842,8 @@ fn make_thunk(
                         Control::Return(result, effective_env.clone(), Continuation::Terminal)
                     }
                     _ => {
-                        let thunk = Thunk {
-                            value: Box::new(result),
-                            continuation: continuation.clone(),
-                        };
-                        witness.witness_destructured_thunk(&thunk);
-                        Control::Return(
-                            Expression::Thunk(thunk),
-                            effective_env2.clone(),
-                            Continuation::Dummy,
-                        )
+                        let thunk = store.thunk(result, *continuation.clone());
+                        Control::Return(thunk, effective_env2.clone(), Continuation::Dummy)
                     }
                 }
             }
@@ -831,12 +852,8 @@ fn make_thunk(
         // that this is the terminal result by returning a Terminal continuation.
         Continuation::Outermost => Control::Return(result, env, Continuation::Terminal),
         _ => {
-            let thunk = Thunk {
-                value: Box::new(result),
-                continuation: Box::new(cont.clone()),
-            };
-            witness.witness_destructured_thunk(&thunk);
-            Control::Return(Expression::Thunk(thunk), effective_env, Continuation::Dummy)
+            let thunk = store.thunk(result, cont.clone());
+            Control::Return(thunk, effective_env, Continuation::Dummy)
         }
     };
 
@@ -864,16 +881,8 @@ pub fn outer_evaluate(
     store: &mut Store,
     limit: usize,
 ) -> (Expression, Expression, usize, Continuation) {
-    let initial_input = IO {
-        expr,
-        env,
-        cont: Continuation::Outermost,
-    };
+    let frame_iterator = outer_evaluate_iterator(expr, env, store, limit);
 
-    let frame_iterator: std::iter::Take<FrameIt<'_, IO, Witness>> =
-        FrameIt::new(initial_input, store).take(limit);
-
-    // FIXME: Handle limit.
     if let Some(last_frame) = frame_iterator.last() {
         let output = last_frame.output.unwrap();
         (
@@ -885,6 +894,21 @@ pub fn outer_evaluate(
     } else {
         panic!("xxx")
     }
+}
+
+pub fn outer_evaluate_iterator(
+    expr: Expression,
+    env: Expression,
+    store: &mut Store,
+    limit: usize,
+) -> Take<FrameIt<'_, IO, Witness>> {
+    let initial_input = IO {
+        expr,
+        env,
+        cont: Continuation::Outermost,
+    };
+
+    FrameIt::new(initial_input, store).take(limit)
 }
 
 pub fn empty_sym_env(_store: &Store) -> Expression {
@@ -1331,10 +1355,10 @@ mod test {
         let limit = 100;
         let expr = s
             .read(
-                "(let* ((a 1)
-                        (b 2)
-                        (c 3))
-                   (+ a (+ b c)))",
+                "(let* ((a 5)
+                        (b 1)
+                        (c 2))
+                   (/ (+ a b) c))",
             )
             .unwrap();
 
@@ -1342,7 +1366,7 @@ mod test {
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
         assert_eq!(23, iterations);
-        assert_eq!(Expression::num(6), result_expr);
+        assert_eq!(Expression::num(3), result_expr);
     }
 
     #[test]

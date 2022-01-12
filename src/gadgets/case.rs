@@ -356,7 +356,7 @@ mod tests {
             assert!(cs.is_satisfied());
         }
 
-        let delta = cs.delta(&cs_blank);
+        let delta = cs.delta(&cs_blank, false);
         assert!(delta == Delta::Equal);
     }
 }
