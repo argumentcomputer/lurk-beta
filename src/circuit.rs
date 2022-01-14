@@ -262,17 +262,10 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     let mut result_invoke_continuation_clauses: Vec<CaseClause<Fr>> = Vec::new();
 
     let mut add_clauses = |key,
-                           (
-        result_expr,
-        result_env,
-        result_cont,
-        result_make_thunk,
-        result_invoke_continuation,
-    ): (
+                           (result_expr, result_env, result_cont, result_invoke_continuation): (
         AllocatedTaggedHash,
         AllocatedTaggedHash,
         AllocatedTaggedHash,
-        AllocatedNum<Fr>,
         AllocatedNum<Fr>,
     )| {
         let add_clause =
@@ -287,7 +280,6 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         add_clause(&mut result_cont_tag_clauses, result_cont.tag);
         add_clause(&mut result_cont_hash_clauses, result_cont.hash);
 
-        add_clause(&mut result_make_thunk_clauses, result_make_thunk);
         add_clause(
             &mut result_invoke_continuation_clauses,
             result_invoke_continuation,
@@ -304,7 +296,6 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
                 env.clone(),
                 cont.clone(),
                 global_allocations.true_num.clone(),
-                global_allocations.false_num.clone(),
             ),
         );
 
@@ -315,7 +306,6 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
                 env.clone(),
                 cont.clone(),
                 global_allocations.true_num.clone(),
-                global_allocations.false_num.clone(),
             ),
         );
 
@@ -326,7 +316,6 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
                 env.clone(),
                 cont.clone(),
                 global_allocations.true_num.clone(),
-                global_allocations.false_num.clone(),
             ),
         );
     }
@@ -360,7 +349,6 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
                 expr_thunk_value,
                 env.clone(),
                 expr_thunk_continuation,
-                global_allocations.false_num.clone(), // FIXME: Is this okay? Make sure the case of make_thunk called by invoke_continuation works.
                 global_allocations.true_num.clone(),
             ),
         );
@@ -372,7 +360,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
             &global_allocations.sym_tag,
         )?;
 
-        let (result, env, cont, make_thunk) = eval_sym(
+        let (result, env, cont, make_cont) = eval_sym(
             &mut cs.namespace(|| "eval Sym"),
             expr,
             env,
@@ -381,16 +369,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
             witness,
             &global_allocations,
         )?;
-        add_clauses(
-            Tag::Sym.fr(),
-            (
-                result,
-                env,
-                cont,
-                make_thunk,
-                global_allocations.false_num.clone(),
-            ),
-        );
+        add_clauses(Tag::Sym.fr(), (result, env, cont, make_cont));
     }
 
     {
@@ -400,7 +379,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
             &global_allocations.cons_tag,
         )?;
 
-        let (result, env, cont, make_thunk) = eval_cons(
+        let (result, env, cont, make_cont) = eval_cons(
             &mut cs.namespace(|| "eval Cons"),
             expr,
             env,
@@ -410,16 +389,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
             &global_allocations,
         )?;
 
-        add_clauses(
-            Tag::Cons.fr(),
-            (
-                result,
-                env,
-                cont,
-                make_thunk,
-                global_allocations.false_num.clone(),
-            ),
-        );
+        add_clauses(Tag::Cons.fr(), (result, env, cont, make_cont));
     }
 
     let mut all_clauses = vec![
@@ -429,7 +399,6 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         result_env_hash_clauses.as_slice(),
         result_cont_tag_clauses.as_slice(),
         result_cont_hash_clauses.as_slice(),
-        result_make_thunk_clauses.as_slice(),
         result_invoke_continuation_clauses.as_slice(),
     ];
 
@@ -445,7 +414,6 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
             global_allocations.default.clone(),
             global_allocations.default.clone(),
             global_allocations.false_num.clone(),
-            global_allocations.false_num.clone(),
         ],
     )?;
 
@@ -453,8 +421,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
 
     let first_result_env = tagged_hash_by_index(1, &case_results);
     let first_result_cont = tagged_hash_by_index(2, &case_results);
-    let first_result_make_thunk: &AllocatedNum<Fr> = &case_results[6];
-    let first_result_invoke_continuation: &AllocatedNum<Fr> = &case_results[7];
+    let first_result_invoke_continuation: &AllocatedNum<Fr> = &case_results[6];
 
     let invoke_continuation_boolean = Boolean::not(&alloc_is_zero(
         &mut cs.namespace(|| "invoke_continuation_is_zero"),
@@ -498,7 +465,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         &mut cs.namespace(|| "pick make_thunk_boolean"),
         &invoke_continuation_boolean,
         &invoke_continuation_make_thunk,
-        first_result_make_thunk,
+        &global_allocations.false_num,
     )?;
 
     // True if make_thunk is called.
@@ -2883,9 +2850,9 @@ mod tests {
             let delta = cs.delta(&cs_blank, false);
             assert!(delta == Delta::Equal);
 
-            assert_eq!(32356, cs.num_constraints());
+            assert_eq!(32331, cs.num_constraints());
             assert_eq!(20, cs.num_inputs());
-            assert_eq!(32305, cs.aux().len());
+            assert_eq!(32280, cs.aux().len());
 
             let public_inputs = frame.public_inputs();
             let mut rng = rand::thread_rng();

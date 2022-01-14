@@ -323,7 +323,7 @@ mod tests {
                      (c 2))
                 (/ (+ a b) c))",
             Expression::num(3),
-            23,
+            17,
             true, // Always check Groth16 in at least one test.
             true,
             100,
@@ -336,7 +336,7 @@ mod tests {
         outer_prove_aux(
             &"(+ 1 2)",
             Expression::num(3),
-            5,
+            3,
             DEFAULT_CHECK_GROTH16,
             true,
             100,
@@ -349,7 +349,7 @@ mod tests {
         outer_prove_aux(
             &"(eq 5 5)",
             Expression::Sym("T".to_string()),
-            5,
+            3,
             DEFAULT_CHECK_GROTH16,
             true,
             100,
@@ -364,7 +364,7 @@ mod tests {
         outer_prove_aux(
             &"(= 5 5)",
             Expression::Sym("T".to_string()),
-            5,
+            3,
             DEFAULT_CHECK_GROTH16,
             true,
             100,
@@ -373,7 +373,7 @@ mod tests {
         outer_prove_aux(
             &"(= 5 6)",
             Expression::Nil,
-            5,
+            3,
             DEFAULT_CHECK_GROTH16,
             true,
             100,
@@ -386,7 +386,7 @@ mod tests {
         outer_prove_aux(
             &"(if t 5 6)",
             Expression::num(5),
-            4,
+            3,
             DEFAULT_CHECK_GROTH16,
             true,
             100,
@@ -396,7 +396,7 @@ mod tests {
         outer_prove_aux(
             &"(if t 5 6)",
             Expression::num(5),
-            4,
+            3,
             DEFAULT_CHECK_GROTH16,
             true,
             100,
@@ -408,7 +408,7 @@ mod tests {
         outer_prove_aux(
             &"(if t (+ 5 5) 6)",
             Expression::num(10),
-            8,
+            5,
             DEFAULT_CHECK_GROTH16,
             true,
             100,
@@ -427,7 +427,7 @@ mod tests {
                                      (* base ((exp base) (- exponent 1))))))))
                 ((exp 5) 3))",
             Expression::num(125),
-            117,
+            90,
             DEFAULT_CHECK_GROTH16,
             true,
             200,
@@ -447,7 +447,7 @@ mod tests {
                                           (((exp base) (- exponent 1)) (* acc base))))))))
                 (((exp 5) 5) 1))",
             Expression::num(3125),
-            248,
+            201,
             DEFAULT_CHECK_GROTH16,
             true,
             300,
