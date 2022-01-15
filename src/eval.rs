@@ -46,17 +46,8 @@ pub trait Evaluable<W> {
 
 impl Evaluable<Witness> for IO {
     fn eval(&self, store: &mut Store) -> (Self, Witness) {
-        let (new_expr, new_env, new_cont, witness) =
-            eval_expr(&self.expr, &self.env, &self.cont, store);
-
-        (
-            Self {
-                expr: new_expr,
-                env: new_env,
-                cont: new_cont,
-            },
-            witness,
-        )
+        let (expr, env, cont, witness) = eval_expr(&self.expr, &self.env, &self.cont, store);
+        (Self { expr, env, cont }, witness)
     }
 
     fn is_terminal(&self) -> bool {
@@ -179,6 +170,7 @@ fn eval_expr(
     (new_expr, new_env, new_cont, witness)
 }
 
+#[derive(Debug)]
 pub enum Control<Expr, Cont> {
     Return(Expr, Expr, Cont),
     MakeThunk(Expr, Expr, Cont),
@@ -222,47 +214,67 @@ fn eval_expr_with_witness(
         Expression::Nil => Control::MakeThunk(expr.clone(), env.clone(), cont.clone()),
         Expression::Sym(_) => {
             if expr == &store.intern("NIL") || (expr == &store.intern("T")) {
+                // NIL and T are self-evaluating symbols, pass them to the continuation in a thunk.
+
                 // CIRCUIT: sym_is_self_evaluating
                 //          cond1
                 Control::MakeThunk(expr.clone(), env.clone(), cont.clone())
             } else {
+                // Otherwise, look for a matching binding in env.
+
                 // CIRCUIT: sym_otherwise
                 assert!(Expression::Nil != *env, "Unbound variable: {:?}", expr);
                 let (binding, smaller_env) = store.car_cdr(env);
                 if binding == Expression::Nil {
+                    // If binding is NIL, it's empty. There is no match. Return an error due to unbound variable.
+
                     // CIRCUIT: binding_is_nil
                     //          otherwise_and_binding_is_nil
                     //          cond2
                     Control::Return(expr.clone(), env.clone(), Continuation::Error)
                 } else {
+                    // Binding is not NIL, so it is either a normal binding or a recursive environment.
+
                     // CIRCUIT: binding_not_nil
                     //          otherwise_and_binding_not_nil
                     let (var_or_rec_binding, val_or_more_rec_env) = store.car_cdr(&binding);
                     match &var_or_rec_binding {
-                        // In a simple_env.
                         Expression::Sym(_) => {
+                            // We are in a simple env (not a recursive env),
+                            // looking at a binding's variable.
+
                             // CIRCUIT: var_or_rec_binding_is_sym
                             //          otherwise_and_sym
                             let v = var_or_rec_binding;
                             let val = val_or_more_rec_env;
 
                             if v == *expr {
+                                // expr matches the binding's var.
+
                                 // CIRCUIT: v_is_expr1
                                 //          v_is_expr1_real
                                 //          otherwise_and_v_expr_and_sym
                                 //          cond3
+
+                                // Pass the binding's value to the continuation in a thunk.
                                 Control::MakeThunk(val, env.clone(), cont.clone())
                             } else {
-                                // CIRCUIT: otherwise_and_v_not_expr
+                                // expr does not match the binding's var.
 
+                                // CIRCUIT: otherwise_and_v_not_expr
                                 match cont {
                                     Continuation::Lookup(_, _) => {
+                                        // If performing a lookup, continue with remaining env.
+
                                         // CIRCUIT: cont_is_lookup
                                         //          cont_is_lookup_sym
                                         //          cond4
                                         Control::Return(expr.clone(), smaller_env, cont.clone())
                                     }
                                     _ =>
+                                    // Otherwise, create a lookup continuation, packaging current env
+                                    // to be restored later.
+
                                     // CIRCUIT: cont_not_lookup_sym
                                     //          cond5
                                     {
@@ -615,6 +627,7 @@ fn invoke_continuation(
         Continuation::LetStar(var, body, saved_env, continuation) => {
             let extended_env = extend(&env, var, &result, store);
             let c = make_tail_continuation(saved_env, continuation);
+
             Control::Return(body.clone(), extended_env, c)
         }
         Continuation::LetRecStar(var, body, saved_env, continuation) => {
@@ -755,9 +768,6 @@ fn invoke_continuation(
         Continuation::Lookup(saved_env, continuation) => {
             Control::MakeThunk(result.clone(), saved_env.clone(), *continuation.clone())
         }
-        Continuation::Simple(continuation) => {
-            Control::MakeThunk(result.clone(), env.clone(), *continuation.clone())
-        }
         Continuation::Tail(saved_env, continuation) => {
             Control::MakeThunk(result.clone(), saved_env.clone(), *continuation.clone())
         }
@@ -796,64 +806,18 @@ fn make_thunk(
         unreachable!("make_thunk should never be called with a thunk");
     };
 
-    let effective_env = match &cont {
-        // These are the restore-env continuations.
-        Continuation::Lookup(saved_env, _) => saved_env.clone(),
-        Continuation::Tail(saved_env, _) => saved_env.clone(),
-        _ => env.clone(),
-    };
-
-    // This structure is in case we have other tail continuations in the future.
-    // I think we should not have, though -- since by definition we should be able
-    // to use Tail for any such need.
     let control = match cont {
-        // These are the tail-continuations.
-        Continuation::Tail(_, continuation) => {
+        Continuation::Tail(saved_env, continuation) => {
             witness.make_thunk_tail_continuation_cont = Some(*continuation.clone());
-            if let Continuation::Tail(saved_env, previous_cont) = &*continuation {
-                let thunk = store.thunk(result, *previous_cont.clone());
-
-                Control::Return(thunk, saved_env.clone(), Continuation::Dummy)
-            } else {
-                // There is no risk of a recursive loop here, so the self-call below
-                // is just convenience. It can be unrolled in the circuit. That
-                // said, it' a pain to deal with in circuit and would probably be
-                // easier if it were done here instead, then copied.
-
-                //return make_thunk(continuation, result, effective_env, store, witness);
-
-                // Yes, we are unrolling it. Original code and comment left above to
-                // clarify what we are doing below and why.
-
-                // We know:
-                // - effective_env = saved_env.
-                // - continuation is not a tail continuation.
-
-                // So, expanding the recursive call, we get:
-
-                let effective_env2 = match &*continuation {
-                    Continuation::Lookup(saved_env2, _) => saved_env2,
-                    Continuation::Tail(_, _) => unreachable!(),
-                    _ => &effective_env,
-                };
-
-                match &*continuation {
-                    Continuation::Outermost => {
-                        Control::Return(result, effective_env.clone(), Continuation::Terminal)
-                    }
-                    _ => {
-                        let thunk = store.thunk(result, *continuation.clone());
-                        Control::Return(thunk, effective_env2.clone(), Continuation::Dummy)
-                    }
-                }
-            }
+            let thunk = store.thunk(result, *continuation);
+            Control::Return(thunk, saved_env, Continuation::Dummy)
         }
         // If continuation is outermost, we don't actually make a thunk. Instead, we signal
         // that this is the terminal result by returning a Terminal continuation.
         Continuation::Outermost => Control::Return(result, env, Continuation::Terminal),
         _ => {
             let thunk = store.thunk(result, cont.clone());
-            Control::Return(thunk, effective_env, Continuation::Dummy)
+            Control::Return(thunk, env, Continuation::Dummy)
         }
     };
 
@@ -866,8 +830,8 @@ fn make_thunk(
 fn make_tail_continuation(env: &Expression, continuation: &Continuation) -> Continuation {
     // Result must be either a Tail or Outermost continuation.
     match &*continuation {
-        // If continuation is already one of these, just return it.
-        Continuation::Outermost | Continuation::Tail(_, _) => continuation.clone(),
+        // If continuation is already tail, just return it.
+        Continuation::Tail(_, _) => continuation.clone(),
         // Otherwise, package it along with supplied env as a new Tail continuation.
         _ => Continuation::Tail(env.clone(), Box::new(continuation.clone())),
     }
@@ -1092,7 +1056,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(6, iterations);
+        assert_eq!(7, iterations);
         assert_eq!(val, result_expr);
     }
 
@@ -1106,7 +1070,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(13, iterations);
+        assert_eq!(14, iterations);
         assert_eq!(val, result_expr);
     }
 
@@ -1122,7 +1086,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(16, iterations);
+        assert_eq!(17, iterations);
         assert_eq!(val, result_expr);
     }
 
@@ -1140,7 +1104,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(16, iterations);
+        assert_eq!(17, iterations);
         assert_eq!(val2, result_expr);
     }
 
@@ -1157,7 +1121,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(18, iterations);
+        assert_eq!(19, iterations);
         assert_eq!(val, result_expr);
     }
 
@@ -1266,7 +1230,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(17, iterations);
+        assert_eq!(18, iterations);
         assert_eq!(Expression::num(5), result_expr);
     }
 
@@ -1285,7 +1249,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(20, iterations);
+        assert_eq!(21, iterations);
         assert_eq!(Expression::num(5), result_expr);
     }
 
@@ -1298,7 +1262,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(4, iterations);
+        assert_eq!(5, iterations);
         assert_eq!(Expression::num(1), result_expr);
     }
 
@@ -1330,14 +1294,12 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(13, iterations);
+        assert_eq!(14, iterations);
         assert_eq!(Expression::num(3), result_expr);
     }
 
-    //#[test]
-    // TODO: Remember to backport this to Lisp implementation when fixed.
-    // Actually, this is almost not a bug. It's just that LET as implemented is LET*.
-    fn outer_evaluate_let_bug() {
+    #[test]
+    fn outer_evaluate_letstar_parallel_binding() {
         let mut s = Store::default();
         let limit = 20;
         let expr = s.read("(let* ((a 1) (b a)) b)").unwrap();
@@ -1345,8 +1307,8 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(10, iterations); // Expected 7
-        assert_eq!(s.intern("A"), result_expr);
+        assert_eq!(8, iterations);
+        assert_eq!(Expression::num(1), result_expr);
     }
 
     #[test]
@@ -1362,11 +1324,13 @@ mod test {
             )
             .unwrap();
 
-        let (result_expr, _new_env, iterations, _continuation) =
+        let (result_expr, new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-        assert_eq!(23, iterations);
+        assert_eq!(24, iterations);
         assert_eq!(Expression::num(3), result_expr);
+
+        assert_eq!(Expression::Nil, new_env);
     }
 
     #[test]
@@ -1394,7 +1358,7 @@ mod test {
             let (result_expr, _new_env, iterations, _continuation) =
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-            assert_eq!(45, iterations);
+            assert_eq!(46, iterations);
             assert_eq!(Expression::num(5), result_expr);
         }
         {
@@ -1418,7 +1382,7 @@ mod test {
             let (result_expr, _new_env, iterations, _continuation) =
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-            assert_eq!(42, iterations);
+            assert_eq!(43, iterations);
             assert_eq!(Expression::num(6), result_expr);
         }
     }
@@ -1480,7 +1444,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(117, iterations);
+        assert_eq!(118, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
 
@@ -1502,7 +1466,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(248, iterations);
+        assert_eq!(249, iterations);
         assert_eq!(Expression::num(3125), result_expr);
     }
 
@@ -1522,7 +1486,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(121, iterations);
+        assert_eq!(122, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
 
@@ -1545,7 +1509,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(99, iterations);
+        assert_eq!(100, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
 
@@ -1567,7 +1531,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(160, iterations);
+        assert_eq!(161, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
 
@@ -1591,7 +1555,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(139, iterations);
+        assert_eq!(140, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
 
@@ -1609,7 +1573,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(31, iterations);
+        assert_eq!(32, iterations);
         assert_eq!(Expression::num(13), result_expr);
     }
 
@@ -1627,7 +1591,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(43, iterations);
+        assert_eq!(44, iterations);
         assert_eq!(Expression::num(11), result_expr);
     }
 
@@ -1656,7 +1620,7 @@ mod test {
 
         let (result_expr, _new_env, iterations, _continuation) =
             outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-        assert_eq!(308, iterations);
+        assert_eq!(309, iterations);
         assert_eq!(Expression::num(33), result_expr);
     }
 
@@ -1696,7 +1660,7 @@ mod test {
             let (result_expr, _new_env, iterations, _continuation) =
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-            assert_eq!(6, iterations);
+            assert_eq!(7, iterations);
             assert_eq!(Expression::num(123), result_expr);
         }
         {
@@ -1709,7 +1673,7 @@ mod test {
             let (result_expr, _new_env, iterations, _continuation) =
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-            assert_eq!(19, iterations);
+            assert_eq!(20, iterations);
             assert_eq!(Expression::num(10), result_expr);
         }
     }
@@ -1745,7 +1709,7 @@ mod test {
             let (result_expr, _new_env, iterations, _continuation) =
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
-            assert_eq!(616, iterations);
+            assert_eq!(617, iterations);
             assert_eq!(
                 s.read("(((h . g) . (f . e)) . ((d . c) . (b . a)))")
                     .unwrap(),
@@ -1796,7 +1760,7 @@ mod test {
 
             assert_eq!(s.read("((2 . 3) . (4 . 5))").unwrap(), result_expr);
 
-            assert_eq!(214, iterations);
+            assert_eq!(215, iterations);
         }
     }
     #[test]
@@ -1821,7 +1785,7 @@ mod test {
 
             assert_eq!(Expression::Nil, result_expr);
 
-            assert_eq!(214, iterations);
+            assert_eq!(215, iterations);
         }
     }
 
@@ -1855,7 +1819,7 @@ mod test {
 
             assert_eq!(Expression::Nil, result_expr);
 
-            assert_eq!(34, iterations);
+            assert_eq!(35, iterations);
         }
     }
 
@@ -1874,12 +1838,11 @@ mod test {
                          (l 9)))",
                 )
                 .unwrap();
-            let (result_expr, _new_env, iterations, _continuation) =
+            let (result_expr, new_env, iterations, _continuation) =
                 outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
 
             assert_eq!(Expression::num(18), result_expr);
-
-            assert_eq!(29, iterations);
+            assert_eq!(30, iterations);
         }
     }
 }
