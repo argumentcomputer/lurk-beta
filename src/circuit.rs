@@ -1555,196 +1555,51 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
         // },
     )?;
 
-    {
-        implies_equal!(cs, not_dummy, &computed_cont_hash, &cont.hash);
-    }
+    implies_equal!(cs, not_dummy, &computed_cont_hash, &cont.hash);
 
-    // Applies to Tail continuations only.
-    let continuation = tagged_hash_by_index(1, &cont_components);
+    dbg!(&cont.tagged_hash());
 
-    let cont_is_lookup = alloc_equal(
-        &mut cs.namespace(|| "cont_is_lookup"),
-        &cont.tag,
-        &global_allocations.lookup_cont_tag,
-    )?;
-
-    let cont_is_tail = alloc_equal(
-        &mut cs.namespace(|| "cont_is_tail"),
-        &cont.tag,
-        &global_allocations.tail_cont_tag,
-    )?;
-
-    let cont_is_lookup_or_tail = or!(cs, &cont_is_lookup, &cont_is_tail)?;
-
-    let effective_env = {
-        // Applies to Tail and Lookup continuations only.
+    // Otherwise, these are the results.
+    let tail_results: (
+        AllocatedTaggedHash,
+        AllocatedTaggedHash,
+        AllocatedTaggedHash,
+    ) = {
+        // Applies to Tail continuations only.
         let saved_env = tagged_hash_by_index(0, &cont_components);
 
-        let effective_env = pick_tagged_hash(
-            &mut cs.namespace(|| "effective_env"),
-            &cont_is_lookup_or_tail,
-            &saved_env,
-            env,
-        )?;
+        // Applies to Tail continuations
+        let continuation = tagged_hash_by_index(1, &cont_components);
 
-        effective_env
-    };
-
-    let tail_clause_results = {
-        // If this is true,
-        let continuation_is_tail = alloc_equal(
-            &mut cs.namespace(|| "continuation_is_tail"),
-            &continuation.tag,
+        let cont_is_tail = alloc_equal(
+            &mut cs.namespace(|| "cont_is_tail"),
+            &cont.tag,
             &global_allocations.tail_cont_tag,
         )?;
 
-        // continuation is cont's continuation when that is a tail continuation. Otherwise dummy.
-        let (continuation_hash, continuation_components) =
-            Continuation::allocate_maybe_dummy_components(
-                &mut cs.namespace(|| "continuation_cont components"),
-                &witness
-                    .as_ref()
-                    .and_then(|w| w.make_thunk_tail_continuation_cont.clone()),
-            )?;
-
-        // Then these are the results.
-        let inner_cont_tail_results = {
-            let saved_env = tagged_hash_by_index(0, &continuation_components);
-            let previous_cont = tagged_hash_by_index(1, &continuation_components);
-
-            let thunk_hash = Thunk::hash_components(
-                &mut cs.namespace(|| "tail_thunk_hash"),
-                &[
-                    result.tag.clone(),
-                    result.hash.clone(),
-                    previous_cont.tag.clone(),
-                    previous_cont.hash,
-                ],
-            )?;
-
-            let result_expr = AllocatedTaggedHash::from_tag_and_hash(
-                global_allocations.thunk_tag.clone(),
-                thunk_hash,
-            );
-            let result_env = saved_env;
-            let result_cont = global_allocations.dummy_tagged_hash.clone();
-
-            (result_expr, result_env, result_cont)
-        };
-
-        // Otherwise, these are the results.
-        let otherwise_results: (
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-        ) = {
-            let effective_env2 = {
-                let saved_env2 = AllocatedTaggedHash::from_tag_and_hash(
-                    continuation_components[1].clone(),
-                    continuation_components[2].clone(),
-                );
-
-                let continuation_is_lookup = alloc_equal(
-                    &mut cs.namespace(|| "continuation_is_lookup"),
-                    &continuation.tag,
-                    &global_allocations.lookup_cont_tag,
-                )?;
-
-                pick_tagged_hash(
-                    &mut cs.namespace(|| "effective_env2"),
-                    &continuation_is_lookup,
-                    &saved_env2,
-                    &effective_env,
-                )?
-            };
-
-            let outermost_result = (
-                result.clone(),
-                effective_env.clone(),
-                global_allocations.terminal_tagged_hash.clone(),
-            );
-
-            let otherwise_result: (
-                AllocatedTaggedHash,
-                AllocatedTaggedHash,
-                AllocatedTaggedHash,
-            ) = {
-                let thunk_hash = Thunk::hash_components(
-                    &mut cs.namespace(|| "tail thunk_hash"),
-                    &[
-                        result.tag.clone(),
-                        result.hash.clone(),
-                        continuation.tag.clone(),
-                        continuation.hash.clone(),
-                    ],
-                )?;
-
-                let result_expr = AllocatedTaggedHash::from_tag_and_hash(
-                    global_allocations.thunk_tag.clone(),
-                    thunk_hash,
-                );
-
-                (
-                    result_expr,
-                    effective_env2,
-                    global_allocations.dummy_tagged_hash.clone(),
-                )
-            };
-
-            let continuation_is_outermost = alloc_equal(
-                &mut cs.namespace(|| "witnessed_tail_cont_cont_is_outermost"),
-                &continuation.tag,
-                &global_allocations.outermost_tagged_hash.tag,
-            )?;
-
-            let inner_result_expr = pick_tagged_hash(
-                &mut cs.namespace(|| "inner_result_expr"),
-                &continuation_is_outermost,
-                &outermost_result.0,
-                &otherwise_result.0,
-            )?;
-            let inner_result_env = pick_tagged_hash(
-                &mut cs.namespace(|| "inner_result_env"),
-                &continuation_is_outermost,
-                &outermost_result.1,
-                &otherwise_result.1,
-            )?;
-            let inner_result_cont = pick_tagged_hash(
-                &mut cs.namespace(|| "inner_result_cont"),
-                &continuation_is_outermost,
-                &outermost_result.2,
-                &otherwise_result.2,
-            )?;
-
-            (inner_result_expr, inner_result_env, inner_result_cont)
-        };
-
-        // Assign results based on the condition.
-        let the_result_expr = pick_tagged_hash(
-            &mut cs.namespace(|| "the_result_expr"),
-            &continuation_is_tail,
-            &inner_cont_tail_results.0,
-            &otherwise_results.0,
+        let thunk_hash = Thunk::hash_components(
+            &mut cs.namespace(|| "tail thunk_hash"),
+            &[
+                result.tag.clone(),
+                result.hash.clone(),
+                continuation.tag.clone(),
+                continuation.hash,
+            ],
         )?;
 
-        let the_result_env = pick_tagged_hash(
-            &mut cs.namespace(|| "the_result_env"),
-            &continuation_is_tail,
-            &inner_cont_tail_results.1,
-            &otherwise_results.1,
-        )?;
+        let result_expr = AllocatedTaggedHash::from_tag_and_hash(
+            global_allocations.thunk_tag.clone(),
+            thunk_hash,
+        );
 
-        let the_result_cont = pick_tagged_hash(
-            &mut cs.namespace(|| "the_result_cont"),
-            &continuation_is_tail,
-            &inner_cont_tail_results.2,
-            &otherwise_results.2,
-        )?;
-
-        (the_result_expr, the_result_env, the_result_cont)
+        (
+            result_expr,
+            saved_env,
+            global_allocations.dummy_tagged_hash.clone(),
+        )
     };
 
-    add_clauses(BaseContinuationTag::Tail.cont_tag_fr(), tail_clause_results);
+    add_clauses(BaseContinuationTag::Tail.cont_tag_fr(), tail_results);
 
     add_clauses(
         BaseContinuationTag::Outermost.cont_tag_fr(),
@@ -1768,8 +1623,8 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
         [
             global_allocations.thunk_tag.clone(),
             thunk_hash,
-            effective_env.tag,
-            effective_env.hash,
+            env.tag.clone(),
+            env.hash.clone(),
             global_allocations.dummy_tagged_hash.tag.clone(),
             global_allocations.dummy_tagged_hash.hash.clone(),
         ]
@@ -1794,6 +1649,7 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
     let result_expr = tagged_hash_by_index(0, &case_results);
     let result_env = tagged_hash_by_index(1, &case_results);
     let result_cont = tagged_hash_by_index(2, &case_results);
+
     Ok((result_expr, result_env, result_cont))
 }
 
@@ -2081,7 +1937,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             (
                 body,
                 extended_env,
-                cont,
+                tail_cont,
                 global_allocations.false_num.clone(),
             ),
         );
@@ -2787,11 +2643,6 @@ fn make_tail_continuation<CS: ConstraintSystem<Fr>>(
         &continuation.tag,
         &g.tail_cont_tag,
     )?;
-    let continuation_is_outermost = alloc_equal(
-        &mut cs.namespace(|| "continuation is outermost"),
-        &continuation.tag,
-        &g.outermost_tagged_hash.tag, // FIXME: Technically should check hash also.
-    )?;
 
     let new_tail = Continuation::construct(
         &mut cs.namespace(|| "new tail continuation"),
@@ -2808,15 +2659,9 @@ fn make_tail_continuation<CS: ConstraintSystem<Fr>>(
         ],
     )?;
 
-    let tail_or_outermost = constraints::or(
-        &mut cs.namespace(|| "tail_or_outermost"),
-        &continuation_is_tail,
-        &continuation_is_outermost,
-    )?;
-
     pick_tagged_hash(
         &mut cs.namespace(|| "the tail continuation"),
-        &tail_or_outermost,
+        &continuation_is_tail,
         continuation,
         &new_tail,
     )
@@ -2883,9 +2728,9 @@ mod tests {
             let delta = cs.delta(&cs_blank, false);
             assert!(delta == Delta::Equal);
 
-            assert_eq!(32356, cs.num_constraints());
+            assert_eq!(31426, cs.num_constraints());
             assert_eq!(20, cs.num_inputs());
-            assert_eq!(32305, cs.aux().len());
+            assert_eq!(31374, cs.aux().len());
 
             let public_inputs = frame.public_inputs();
             let mut rng = rand::thread_rng();

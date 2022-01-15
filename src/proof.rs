@@ -323,7 +323,7 @@ mod tests {
                      (c 2))
                 (/ (+ a b) c))",
             Expression::num(3),
-            23,
+            24,
             true, // Always check Groth16 in at least one test.
             true,
             100,
