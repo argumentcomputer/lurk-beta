@@ -26,10 +26,8 @@ lazy_static! {
     pub static ref POSEIDON_CONSTANTS_16: PoseidonConstants::<Fr, U16> = PoseidonConstants::new();
     pub static ref POSEIDON_CONSTANTS_VARIABLE: PoseidonConstants::<Fr, U16> =
         PoseidonConstants::new_with_strength_and_type(Strength::Standard, HashType::VariableLength);
-    pub static ref TAGGED_HASHES: chashmap::CHashMap<Expression, TaggedHash> =
-        chashmap::CHashMap::new();
-    pub static ref CONT_TAGGED_HASHES: chashmap::CHashMap<Continuation, TaggedHash> =
-        chashmap::CHashMap::new();
+    pub static ref EXP_HASHES: chashmap::CHashMap<Expression, Fr> = chashmap::CHashMap::new();
+    pub static ref CONT_HASHES: chashmap::CHashMap<Continuation, Fr> = chashmap::CHashMap::new();
 }
 
 /// Order of these tag variants is significant, since it will be concretely
@@ -302,10 +300,18 @@ pub enum Continuation {
 }
 
 impl Continuation {
-    // Consider making Continuation a first-class Expression.
     pub fn get_hash(&self) -> Fr {
+        if !CONT_HASHES.contains_key(self) {
+            let h = self.calculate_hash();
+            CONT_HASHES.insert(self.clone(), h);
+        }
+        *CONT_HASHES.get(self).unwrap()
+    }
+
+    // Consider making Continuation a first-class Expression.
+    fn calculate_hash(&self) -> Fr {
         let preimage = self.get_hash_components();
-        assert_eq!(8, preimage.len());
+        debug_assert_eq!(8, preimage.len());
         Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_8).hash()
     }
 
@@ -442,21 +448,11 @@ impl Continuation {
         }
     }
 
-    fn calculate_continuation_tagged_hash(&self) -> TaggedHash {
+    pub fn continuation_tagged_hash(&self) -> TaggedHash {
         TaggedHash {
             tag: self.get_continuation_tag().cont_tag_fr(),
             hash: self.get_hash(),
         }
-    }
-
-    pub fn continuation_tagged_hash(
-        &self,
-    ) -> chashmap::ReadGuard<'static, Continuation, TaggedHash> {
-        if !CONT_TAGGED_HASHES.contains_key(self) {
-            let th = self.calculate_continuation_tagged_hash();
-            CONT_TAGGED_HASHES.insert(self.clone(), th);
-        }
-        CONT_TAGGED_HASHES.get(self).unwrap()
     }
 }
 
@@ -684,6 +680,14 @@ impl Tagged for Expression {
 
 impl Expression {
     pub fn get_hash(&self) -> Fr {
+        if !EXP_HASHES.contains_key(self) {
+            let h = self.calculate_hash();
+            EXP_HASHES.insert(self.clone(), h);
+        }
+        *EXP_HASHES.get(self).unwrap()
+    }
+
+    fn calculate_hash(&self) -> Fr {
         match self {
             Nil => hash_string("NIL"),
             Cons(car, cdr) => binary_hash(car, cdr),
@@ -700,19 +704,11 @@ impl Expression {
         }
     }
 
-    fn calculate_tagged_hash(&self) -> TaggedHash {
-        let tag = self.tag().fr();
-        let hash = self.get_hash();
-
-        TaggedHash { tag, hash }
-    }
-
-    pub fn tagged_hash(&self) -> chashmap::ReadGuard<'static, Expression, TaggedHash> {
-        if !TAGGED_HASHES.contains_key(self) {
-            let th = self.calculate_tagged_hash();
-            TAGGED_HASHES.insert(self.clone(), th);
+    pub fn tagged_hash(&self) -> TaggedHash {
+        TaggedHash {
+            tag: self.tag().fr(),
+            hash: self.get_hash(),
         }
-        TAGGED_HASHES.get(self).unwrap()
     }
 
     pub fn read_sym(s: &str) -> Expression {
@@ -776,7 +772,7 @@ impl Store {
 
     pub fn store(&mut self, exp: &Expression) {
         self.map
-            .entry(*exp.tagged_hash())
+            .entry(exp.tagged_hash())
             .or_insert_with(|| exp.clone());
     }
 
@@ -786,7 +782,7 @@ impl Store {
 
     pub fn store_continuation(&mut self, cont: &Continuation) {
         self.continuation_map
-            .entry(*cont.continuation_tagged_hash())
+            .entry(cont.continuation_tagged_hash())
             .or_insert_with(|| cont.clone());
     }
 

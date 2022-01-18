@@ -326,14 +326,14 @@ impl Expression {
         cs: &mut CS,
         expr: Option<Self>,
     ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, expr.map(|e| *e.tagged_hash()))
+        AllocatedTaggedHash::from_tagged_hash(cs, expr.map(|e| e.tagged_hash()))
     }
 
     pub fn allocated_tagged_hash<CS: ConstraintSystem<Fr>>(
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, Some(*self.tagged_hash()))
+        AllocatedTaggedHash::from_tagged_hash(cs, Some(self.tagged_hash()))
     }
 
     pub fn allocate_constant_tagged_hash<CS: ConstraintSystem<Fr>>(
@@ -575,14 +575,14 @@ impl Continuation {
         cs: &mut CS,
         expr: Option<Self>,
     ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, expr.map(|c| *c.continuation_tagged_hash()))
+        AllocatedTaggedHash::from_tagged_hash(cs, expr.map(|c| c.continuation_tagged_hash()))
     }
 
     pub fn allocated_tagged_hash<CS: ConstraintSystem<Fr>>(
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, Some(*self.continuation_tagged_hash()))
+        AllocatedTaggedHash::from_tagged_hash(cs, Some(self.continuation_tagged_hash()))
     }
 
     pub fn allocate_constant_tagged_hash<CS: ConstraintSystem<Fr>>(
