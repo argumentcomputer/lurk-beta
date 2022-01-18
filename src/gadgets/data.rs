@@ -326,14 +326,14 @@ impl Expression {
         cs: &mut CS,
         expr: Option<Self>,
     ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, expr.map(|e| e.tagged_hash()))
+        AllocatedTaggedHash::from_tagged_hash(cs, expr.map(|e| *e.tagged_hash()))
     }
 
     pub fn allocated_tagged_hash<CS: ConstraintSystem<Fr>>(
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, Some(self.tagged_hash()))
+        AllocatedTaggedHash::from_tagged_hash(cs, Some(*self.tagged_hash()))
     }
 
     pub fn allocate_constant_tagged_hash<CS: ConstraintSystem<Fr>>(
@@ -441,7 +441,7 @@ impl Expression {
     > {
         match maybe_fun {
             Some(Expression::Fun(arg, body, closed_env)) => {
-                Self::allocate_fun(cs, arg, body, closed_env)
+                Self::allocate_fun(cs, &arg, &body, &closed_env)
             }
             _ => Self::allocate_dummy_fun(cs),
         }
@@ -449,9 +449,9 @@ impl Expression {
 
     fn allocate_fun<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
-        arg: TaggedHash,
-        body: TaggedHash,
-        closed_env: TaggedHash,
+        arg: &TaggedHash,
+        body: &TaggedHash,
+        closed_env: &TaggedHash,
     ) -> Result<
         (
             AllocatedNum<Fr>,
@@ -461,17 +461,19 @@ impl Expression {
         ),
         SynthesisError,
     > {
-        let arg_t =
-            AllocatedTaggedHash::from_tagged_hash(&mut cs.namespace(|| "allocate arg"), Some(arg))?;
+        let arg_t = AllocatedTaggedHash::from_tagged_hash(
+            &mut cs.namespace(|| "allocate arg"),
+            Some(*arg),
+        )?;
 
         let body_t = AllocatedTaggedHash::from_tagged_hash(
             &mut cs.namespace(|| "allocate body"),
-            Some(body),
+            Some(*body),
         )?;
 
         let closed_env_t = AllocatedTaggedHash::from_tagged_hash(
             &mut cs.namespace(|| "allocate closed_env"),
-            Some(closed_env),
+            Some(*closed_env),
         )?;
 
         let preimage = {
@@ -508,7 +510,7 @@ impl Expression {
             hash: Fr::zero(),
         };
 
-        Self::allocate_fun(cs, default, default, default)
+        Self::allocate_fun(cs, &default, &default, &default)
     }
 
     pub fn construct_cons<CS: ConstraintSystem<Fr>>(
@@ -573,14 +575,14 @@ impl Continuation {
         cs: &mut CS,
         expr: Option<Self>,
     ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, expr.map(|c| c.continuation_tagged_hash()))
+        AllocatedTaggedHash::from_tagged_hash(cs, expr.map(|c| *c.continuation_tagged_hash()))
     }
 
     pub fn allocated_tagged_hash<CS: ConstraintSystem<Fr>>(
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, Some(self.continuation_tagged_hash()))
+        AllocatedTaggedHash::from_tagged_hash(cs, Some(*self.continuation_tagged_hash()))
     }
 
     pub fn allocate_constant_tagged_hash<CS: ConstraintSystem<Fr>>(

@@ -26,11 +26,16 @@ lazy_static! {
     pub static ref POSEIDON_CONSTANTS_16: PoseidonConstants::<Fr, U16> = PoseidonConstants::new();
     pub static ref POSEIDON_CONSTANTS_VARIABLE: PoseidonConstants::<Fr, U16> =
         PoseidonConstants::new_with_strength_and_type(Strength::Standard, HashType::VariableLength);
+    pub static ref TAGGED_HASHES: chashmap::CHashMap<Expression, TaggedHash> =
+        chashmap::CHashMap::new();
+    pub static ref CONT_TAGGED_HASHES: chashmap::CHashMap<Continuation, TaggedHash> =
+        chashmap::CHashMap::new();
 }
 
 /// Order of these tag variants is significant, since it will be concretely
 /// encoded into content-addressable data structures.
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+#[repr(u8)] // TODO: is this large enough?
 pub enum Tag {
     Nil,
     Cons,
@@ -158,7 +163,44 @@ pub enum Expression {
     Str(String),
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+impl Hash for Expression {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Expression::Nil => {
+                b"NIL".hash(state);
+            }
+            Expression::Cons(a, b) => {
+                b"CONS".hash(state);
+                a.hash(state);
+                b.hash(state);
+            }
+            Expression::Sym(sym) => {
+                b"SYM".hash(state);
+                sym.hash(state);
+            }
+            Expression::Fun(arg, body, closed) => {
+                b"FUN".hash(state);
+                arg.hash(state);
+                body.hash(state);
+                closed.hash(state);
+            }
+            Expression::Num(n) => {
+                b"NUM".hash(state);
+                n.to_repr().hash(state);
+            }
+            Expression::Thunk(t) => {
+                b"THUNK".hash(state);
+                t.hash(state);
+            }
+            Expression::Str(s) => {
+                b"STR".hash(state);
+                s.hash(state);
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq, Hash)]
 pub enum Op1 {
     Car,
     Cdr,
@@ -182,7 +224,7 @@ impl ToString for Op1 {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq, Hash)]
 pub enum Op2 {
     Sum,
     Diff,
@@ -211,7 +253,7 @@ impl Op2 {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq, Hash)]
 pub enum Rel2 {
     Equal,
     NumEqual,
@@ -238,7 +280,7 @@ impl Rel2 {
 // This separateness means that Expression and Continuation have separate namespaces.
 // In practice, this means they have distinct tags, and the containing code must know
 // statically which is expected.
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq, Hash)]
 pub enum Continuation {
     Outermost,
     Simple(Box<Continuation>),
@@ -400,15 +442,25 @@ impl Continuation {
         }
     }
 
-    pub fn continuation_tagged_hash(&self) -> TaggedHash {
+    fn calculate_continuation_tagged_hash(&self) -> TaggedHash {
         TaggedHash {
             tag: self.get_continuation_tag().cont_tag_fr(),
             hash: self.get_hash(),
         }
     }
+
+    pub fn continuation_tagged_hash(
+        &self,
+    ) -> chashmap::ReadGuard<'static, Continuation, TaggedHash> {
+        if !CONT_TAGGED_HASHES.contains_key(self) {
+            let th = self.calculate_continuation_tagged_hash();
+            CONT_TAGGED_HASHES.insert(self.clone(), th);
+        }
+        CONT_TAGGED_HASHES.get(self).unwrap()
+    }
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq, Hash)]
 pub struct Thunk {
     pub value: Box<Expression>,
     pub continuation: Box<Continuation>,
@@ -648,11 +700,19 @@ impl Expression {
         }
     }
 
-    pub fn tagged_hash(&self) -> TaggedHash {
+    fn calculate_tagged_hash(&self) -> TaggedHash {
         let tag = self.tag().fr();
         let hash = self.get_hash();
 
         TaggedHash { tag, hash }
+    }
+
+    pub fn tagged_hash(&self) -> chashmap::ReadGuard<'static, Expression, TaggedHash> {
+        if !TAGGED_HASHES.contains_key(self) {
+            let th = self.calculate_tagged_hash();
+            TAGGED_HASHES.insert(self.clone(), th);
+        }
+        TAGGED_HASHES.get(self).unwrap()
     }
 
     pub fn read_sym(s: &str) -> Expression {
@@ -660,7 +720,7 @@ impl Expression {
     }
 
     pub fn cons(a: &Expression, b: &Expression) -> Expression {
-        Cons(a.tagged_hash(), b.tagged_hash())
+        Cons(a.tagged_hash().clone(), b.tagged_hash().clone())
     }
 
     pub fn num(n: u64) -> Expression {
@@ -671,9 +731,9 @@ impl Expression {
         match arg {
             // TODO: closed_env must be an env.
             Expression::Sym(_) => Fun(
-                arg.tagged_hash(),
-                body.tagged_hash(),
-                closed_env.tagged_hash(),
+                arg.tagged_hash().clone(),
+                body.tagged_hash().clone(),
+                closed_env.tagged_hash().clone(),
             ),
             _ => {
                 panic!("ARG must be a symbol.");
@@ -716,7 +776,7 @@ impl Store {
 
     pub fn store(&mut self, exp: &Expression) {
         self.map
-            .entry(exp.tagged_hash())
+            .entry(*exp.tagged_hash())
             .or_insert_with(|| exp.clone());
     }
 
@@ -726,7 +786,7 @@ impl Store {
 
     pub fn store_continuation(&mut self, cont: &Continuation) {
         self.continuation_map
-            .entry(cont.continuation_tagged_hash())
+            .entry(*cont.continuation_tagged_hash())
             .or_insert_with(|| cont.clone());
     }
 
@@ -1387,7 +1447,7 @@ mod test {
     fn cons_tagged_hash() {
         let nil = Expression::Nil;
         let apple = Expression::read_sym("apple");
-        let cons = Expression::Cons(apple.tagged_hash(), nil.tagged_hash());
+        let cons = Expression::Cons(apple.tagged_hash().clone(), nil.tagged_hash().clone());
         assert_eq!(cons, Expression::cons(&apple, &nil));
         let t = cons.tagged_hash();
         assert_eq!(Tag::Cons.fr(), t.tag);

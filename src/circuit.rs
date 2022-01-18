@@ -36,6 +36,7 @@ fn bind_input<CS: ConstraintSystem<Fr>>(
     let tagged_hash = expr.as_ref().map(|e| e.tagged_hash());
     let tag = AllocatedNum::alloc(cs.namespace(|| "tag"), || {
         tagged_hash
+            .as_ref()
             .map(|th| th.tag)
             .ok_or(SynthesisError::AssignmentMissing)
     })?;
@@ -43,6 +44,7 @@ fn bind_input<CS: ConstraintSystem<Fr>>(
 
     let hash = AllocatedNum::alloc(cs.namespace(|| "hash"), || {
         tagged_hash
+            .as_ref()
             .map(|th| th.hash)
             .ok_or(SynthesisError::AssignmentMissing)
     })?;
@@ -1509,12 +1511,9 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
         // For some reason, sometimes the relevant continuation disappears from the store,
         // even though having been observably added during evaluation.
         //
-        // &if let Some(c) = cont.tagged_hash() {
-        //     dbg!(&c);
-        //     dbg!(store.fetch_continuation(&c))
-        // } else {
-        //     None
-        // },
+        // &cont
+        // .tagged_hash()
+        // .and_then(|c| store.fetch_continuation(&c)),
     )?;
 
     implies_equal!(cs, not_dummy, &computed_cont_hash, &cont.hash);
@@ -2888,7 +2887,11 @@ mod tests {
         let env = empty_sym_env(&store);
         let var = store.intern("a");
         let body = store.list(vec![var.clone()]);
-        let fun = Expression::Fun(var.tagged_hash(), body.tagged_hash(), env.tagged_hash());
+        let fun = Expression::Fun(
+            var.tagged_hash().clone(),
+            body.tagged_hash().clone(),
+            env.tagged_hash().clone(),
+        );
 
         let mut input = IO {
             expr: fun.clone(),
