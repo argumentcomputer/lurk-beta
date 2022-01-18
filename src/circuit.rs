@@ -394,7 +394,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         add_clauses(Tag::Cons.fr(), (result, env, cont, invoke_cont));
     }
 
-    let mut all_clauses = vec![
+    let all_clauses = [
         result_expr_tag_clauses.as_slice(),
         result_expr_hash_clauses.as_slice(),
         result_env_tag_clauses.as_slice(),
@@ -652,7 +652,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
         &mut cs.namespace(|| "lookup_continuation"),
         &g.lookup_cont_tag.clone(),
         // Mirrors Continuation::get_hash_components()
-        vec![
+        &[
             env.tag.clone(),
             env.hash.clone(),
             cont.tag.clone(),
@@ -1018,7 +1018,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let continuation1_letstar = Continuation::construct(
             &mut cs.namespace(|| "let* continuation"),
             &g.letstar_cont_tag,
-            vec![
+            &[
                 var.tag.clone(),
                 var.hash.clone(),
                 expanded.tag.clone(),
@@ -1040,7 +1040,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let continuation1_letrecstar = Continuation::construct(
             &mut cs.namespace(|| "letrec* continuation"),
             &g.letrecstar_cont_tag,
-            vec![
+            &[
                 var.tag.clone(),
                 var.hash,
                 expanded.tag.clone(),
@@ -1086,7 +1086,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let continuation = Continuation::construct(
             &mut cs.namespace(|| "binop cons"),
             &g.binop_cont_tag,
-            vec![
+            &[
                 g.op2_cons_tag.clone(),
                 g.default.clone(),
                 env.tag.clone(),
@@ -1113,7 +1113,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let continuation = Continuation::construct(
             &mut cs.namespace(|| "unop car"),
             &g.unop_cont_tag,
-            vec![
+            &[
                 g.op1_car_tag.clone(),
                 g.default.clone(),
                 arg1.tag.clone(),
@@ -1137,7 +1137,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let continuation = Continuation::construct(
             &mut cs.namespace(|| "unop cdr"),
             &g.unop_cont_tag,
-            vec![
+            &[
                 g.op1_cdr_tag.clone(),
                 g.default.clone(),
                 arg1.tag.clone(),
@@ -1161,7 +1161,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let continuation = Continuation::construct(
             &mut cs.namespace(|| "unop atom"),
             &g.unop_cont_tag,
-            vec![
+            &[
                 g.op1_atom_tag.clone(),
                 g.default.clone(),
                 arg1.tag.clone(),
@@ -1184,7 +1184,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let continuation = Continuation::construct(
             &mut cs.namespace(|| "binop sum"),
             &g.binop_cont_tag,
-            vec![
+            &[
                 g.op2_sum_tag.clone(),
                 g.default.clone(),
                 env.tag.clone(),
@@ -1207,7 +1207,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let continuation = Continuation::construct(
             &mut cs.namespace(|| "binop diff"),
             &g.binop_cont_tag,
-            vec![
+            &[
                 g.op2_diff_tag.clone(),
                 g.default.clone(),
                 env.tag.clone(),
@@ -1229,7 +1229,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let continuation = Continuation::construct(
             &mut cs.namespace(|| "binop product"),
             &g.binop_cont_tag,
-            vec![
+            &[
                 g.op2_product_tag.clone(),
                 g.default.clone(),
                 env.tag.clone(),
@@ -1252,7 +1252,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let continuation = Continuation::construct(
             &mut cs.namespace(|| "binop quotient"),
             &g.binop_cont_tag,
-            vec![
+            &[
                 g.op2_quotient_tag.clone(),
                 g.default.clone(),
                 env.tag.clone(),
@@ -1275,7 +1275,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let continuation = Continuation::construct(
             &mut cs.namespace(|| "Relop NumEqual"),
             &g.relop_cont_tag,
-            vec![
+            &[
                 g.rel2_numequal_tag.clone(),
                 g.default.clone(),
                 env.tag.clone(),
@@ -1298,7 +1298,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let continuation = Continuation::construct(
             &mut cs.namespace(|| "Relop Equal"),
             &g.relop_cont_tag,
-            vec![
+            &[
                 g.rel2_equal_tag.clone(),
                 g.default.clone(),
                 env.tag.clone(),
@@ -1324,7 +1324,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let continuation = Continuation::construct(
             &mut cs.namespace(|| "If"),
             &g.if_cont_tag,
-            vec![
+            &[
                 unevaled_args.tag.clone(),
                 unevaled_args.hash,
                 cont.tag.clone(),
@@ -1359,7 +1359,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let call_continuation = Continuation::construct(
             &mut cs.namespace(|| "Call"),
             &g.call_cont_tag,
-            vec![
+            &[
                 env.tag.clone(),
                 env.hash.clone(),
                 arg1.tag.clone(),
@@ -1413,7 +1413,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         ]
     };
 
-    let mut all_clauses = vec![
+    let all_clauses = [
         result_expr_tag_clauses.as_slice(),
         result_expr_hash_clauses.as_slice(),
         result_env_tag_clauses.as_slice(),
@@ -1589,7 +1589,7 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
         ]
     };
 
-    let all_clauses = vec![
+    let all_clauses = [
         result_expr_tag_clauses.as_slice(),
         result_expr_hash_clauses.as_slice(),
         result_env_tag_clauses.as_slice(),
@@ -1749,12 +1749,12 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let function = result;
         let next_expr = arg;
 
-        let call2_components = vec![global_allocations.call2_cont_tag.clone()];
+        let call2_components = [global_allocations.call2_cont_tag.clone()];
         let newer_cont = Continuation::construct(
             &mut cs.namespace(|| "construct newer_cont"),
             &global_allocations.call2_cont_tag.clone(),
             // Mirrors Continuation::get_hash_components()
-            vec![
+            &[
                 saved_env.tag,
                 saved_env.hash,
                 function.tag.clone(),
@@ -2049,7 +2049,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &store,
         )?;
 
-        let binop2_components = vec![
+        let binop2_components = [
             op2,
             global_allocations.default.clone(),
             result.tag.clone(),
@@ -2062,7 +2062,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let binop2_cont = Continuation::construct(
             &mut cs.namespace(|| "Binop2"),
             &global_allocations.binop2_cont_tag,
-            binop2_components,
+            &binop2_components,
         )?;
 
         // FIXME: If allocated_rest != Nil, then error.
@@ -2222,7 +2222,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let relop2_cont = Continuation::construct(
             &mut cs.namespace(|| "Relop2"),
             &global_allocations.relop2_cont_tag,
-            vec![
+            &[
                 relop2,
                 global_allocations.default.clone(),
                 result.tag.clone(),
@@ -2414,7 +2414,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         );
     }
 
-    let all_clauses = vec![
+    let all_clauses = [
         result_expr_tag_clauses.as_slice(),
         result_expr_hash_clauses.as_slice(),
         result_env_tag_clauses.as_slice(),
@@ -2589,7 +2589,7 @@ fn make_tail_continuation<CS: ConstraintSystem<Fr>>(
     let new_tail = Continuation::construct(
         &mut cs.namespace(|| "new tail continuation"),
         &g.tail_cont_tag,
-        vec![
+        &[
             env.tag.clone(),
             env.hash.clone(),
             continuation.tag.clone(),
@@ -2886,7 +2886,7 @@ mod tests {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
         let var = store.intern("a");
-        let body = store.list(vec![var.clone()]);
+        let body = store.list(&mut [var.clone()]);
         let fun = Expression::Fun(
             var.tagged_hash().clone(),
             body.tagged_hash().clone(),

@@ -413,11 +413,11 @@ impl Continuation {
     pub fn construct<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
         cont_tag: &AllocatedNum<Fr>,
-        components: Vec<AllocatedNum<Fr>>,
+        components: &[AllocatedNum<Fr>; 8],
     ) -> Result<AllocatedTaggedHash, SynthesisError> {
         let hash = poseidon_hash(
             cs.namespace(|| "Continuation"),
-            components,
+            components.to_vec(), // FIXME: add slice based api to neptune
             &POSEIDON_CONSTANTS_8,
         )?;
 

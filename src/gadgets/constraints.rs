@@ -188,15 +188,12 @@ pub fn select<CS: ConstraintSystem<Fr>>(
     let pathlen = path_bits.len();
     assert_eq!(1 << pathlen, from.len());
 
-    let mut state = Vec::new();
-    for elt in from {
-        state.push(elt.clone())
-    }
+    let mut state = from.to_vec();
     let mut half_size = from.len() / 2;
 
     // We reverse the path bits because the contained algorithm consumes most significant bit first.
     for (i, bit) in path_bits.iter().rev().enumerate() {
-        let mut new_state = Vec::new();
+        let mut new_state = Vec::with_capacity(half_size);
         for j in 0..half_size {
             new_state.push(pick(
                 cs.namespace(|| format!("pick {}, {}", i, j)),

@@ -384,7 +384,7 @@ fn eval_expr_with_witness(
                     // becomes (LAMBDA (A) (LAMBDA (B) STUFF))
                     let inner = store.cons(&cdr_args, &body);
                     let l = store.cons(&lambda, &inner);
-                    store.list(vec![l])
+                    store.list(&mut [l])
                 };
                 let function = store.fun(&arg, &inner_body, env);
 
@@ -410,7 +410,7 @@ fn eval_expr_with_witness(
                         body1
                     } else {
                         let lt = store.intern("LET*");
-                        store.list(vec![lt, rest_bindings, body1])
+                        store.list(&mut [lt, rest_bindings, body1])
                     };
                     Control::Return(
                         val,
@@ -435,7 +435,7 @@ fn eval_expr_with_witness(
                         body1
                     } else {
                         let lt = store.intern("LETREC*");
-                        store.list(vec![lt, rest_bindings, body1])
+                        store.list(&mut [lt, rest_bindings, body1])
                     };
                     Control::Return(
                         val,
@@ -551,7 +551,7 @@ fn eval_expr_with_witness(
                     _ => {
                         // Interpreting as multi-arg call.
                         // (fn arg . more_args) => ((fn arg) . more_args)
-                        let expanded_inner = store.list(vec![fun_form, arg]);
+                        let expanded_inner = store.list(&mut [fun_form, arg]);
                         let expanded = store.cons(&expanded_inner, &more_args);
                         Control::Return(expanded, env.clone(), cont.clone())
                     }
@@ -899,7 +899,7 @@ fn extend_rec(
         // It's a var, so we are extending a simple env with a recursive env.
         Expression::Sym(_) | Expression::Nil => {
             let cons = store.cons(var, val);
-            let list = store.list(vec![cons]);
+            let list = store.list(&mut [cons]);
             store.cons(&list, env)
         }
         // It's a binding, so we are extending a recursive env.

@@ -311,11 +311,10 @@ impl Continuation {
     // Consider making Continuation a first-class Expression.
     fn calculate_hash(&self) -> Fr {
         let preimage = self.get_hash_components();
-        debug_assert_eq!(8, preimage.len());
         Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_8).hash()
     }
 
-    pub fn get_hash_components(&self) -> Vec<Fr> {
+    pub fn get_hash_components(&self) -> [Fr; 8] {
         match self {
             Continuation::Outermost => quad_hash_components(
                 &TaggedHash::default(),
@@ -463,25 +462,25 @@ pub struct Thunk {
 }
 
 impl Thunk {
-    pub fn get_hash_components(&self) -> Vec<Fr> {
+    pub fn get_hash_components(&self) -> [Fr; 4] {
         let value = self.value.tagged_hash();
         let continuation = (*self.continuation).continuation_tagged_hash();
-        vec![value.tag, value.hash, continuation.tag, continuation.hash]
+        [value.tag, value.hash, continuation.tag, continuation.hash]
     }
 }
 
 fn binary_hash(a: &TaggedHash, b: &TaggedHash) -> Fr {
-    let preimage = vec![a.tag, a.hash, b.tag, b.hash];
+    let preimage = [a.tag, a.hash, b.tag, b.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_4).hash()
 }
 
 fn tri_hash(a: &TaggedHash, b: &TaggedHash, c: &TaggedHash) -> Fr {
-    let preimage = vec![a.tag, a.hash, b.tag, b.hash, c.tag, c.hash];
+    let preimage = [a.tag, a.hash, b.tag, b.hash, c.tag, c.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_6).hash()
 }
 
 fn quad_hash(a: &TaggedHash, b: &TaggedHash, c: &TaggedHash, d: &TaggedHash) -> Fr {
-    let preimage = vec![a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash];
+    let preimage = [a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_8).hash()
 }
 
@@ -490,17 +489,17 @@ fn oct_hash(preimage: &[Fr]) -> Fr {
 }
 
 fn simple_binary_hash(a: Fr, b: Fr) -> Fr {
-    let preimage = vec![a, b];
+    let preimage = [a, b];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_2).hash()
 }
 
 fn tagged_1_hash(tag_fr: &Fr, a: &TaggedHash) -> Fr {
-    let preimage = vec![*tag_fr, a.tag, a.hash];
+    let preimage = [*tag_fr, a.tag, a.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_3).hash()
 }
 
 fn tagged_2_hash(tag_fr: &Fr, a: &TaggedHash, b: &TaggedHash) -> Fr {
-    let preimage = vec![*tag_fr, a.tag, a.hash, b.tag, b.hash];
+    let preimage = [*tag_fr, a.tag, a.hash, b.tag, b.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_5).hash()
 }
 fn tagged_4_hash(
@@ -510,19 +509,20 @@ fn tagged_4_hash(
     c: &TaggedHash,
     d: &TaggedHash,
 ) -> Fr {
-    let preimage = vec![
+    let preimage = [
         *tag_fr, a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash,
     ];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_9).hash()
 }
 
-pub fn quad_hash_components(
+#[inline]
+pub const fn quad_hash_components(
     a: &TaggedHash,
     b: &TaggedHash,
     c: &TaggedHash,
     d: &TaggedHash,
-) -> Vec<Fr> {
-    vec![a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash]
+) -> [Fr; 8] {
+    [a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash]
 }
 
 fn quad_hash_x_components(
@@ -530,8 +530,8 @@ fn quad_hash_x_components(
     a: &TaggedHash,
     b: &TaggedHash,
     c: &TaggedHash,
-) -> Vec<Fr> {
-    vec![
+) -> [Fr; 8] {
+    [
         *inner_tag_fr,
         Fr::zero(),
         a.tag,
@@ -543,14 +543,14 @@ fn quad_hash_x_components(
     ]
 }
 
-fn tagged_4_hash_components(
+const fn tagged_4_hash_components(
     tag_fr: &Fr,
     a: &TaggedHash,
     b: &TaggedHash,
     c: &TaggedHash,
     d: &TaggedHash,
-) -> Vec<Fr> {
-    vec![
+) -> [Fr; 9] {
+    [
         *tag_fr, a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash,
     ]
 }
@@ -561,7 +561,7 @@ fn tagged_4_hash_x(
     b: &TaggedHash,
     c: &TaggedHash,
 ) -> Fr {
-    let preimage = vec![
+    let preimage = [
         *tag_fr,
         *inner_tag_fr,
         Fr::zero(),
@@ -575,14 +575,15 @@ fn tagged_4_hash_x(
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_9).hash()
 }
 
+#[inline]
 fn tagged_4_hash_x_components(
     tag_fr: &Fr,
     inner_tag_fr: &Fr,
     a: &TaggedHash,
     b: &TaggedHash,
     c: &TaggedHash,
-) -> Vec<Fr> {
-    vec![
+) -> [Fr; 9] {
+    [
         *tag_fr,
         *inner_tag_fr,
         Fr::zero(),
@@ -604,7 +605,7 @@ fn tagged_5_hash(
     d: &TaggedHash,
     e: &TaggedHash,
 ) -> Fr {
-    let preimage = vec![
+    let preimage = [
         *tag_fr, a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash, e.tag, e.hash,
     ];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_11).hash()
@@ -618,7 +619,7 @@ fn tagged_5_hash_x(
     c: &TaggedHash,
     d: &TaggedHash,
 ) -> Fr {
-    let preimage = vec![
+    let preimage = [
         *tag_fr,
         *inner_tag_fr,
         Fr::zero(),
@@ -637,7 +638,7 @@ fn tagged_5_hash_x(
 fn hash_string(s: &str) -> Fr {
     // We should use HashType::VariableLength, once supported.
     // The following is just quick and dirty, but should be unique.
-    let mut preimage = vec![Fr::zero(); 8];
+    let mut preimage = [Fr::zero(); 8];
     let mut x = fr_from_u64(s.len() as u64);
     s.chars()
         .map(|c| fr_from_u64(c.into()))
@@ -807,7 +808,7 @@ impl Store {
         cons
     }
 
-    pub fn list(&mut self, elts: Vec<Expression>) -> Expression {
+    pub fn list(&mut self, elts: &mut [Expression]) -> Expression {
         let mut elts = elts;
         elts.reverse();
         elts.iter()
@@ -1090,7 +1091,7 @@ impl Store {
                     chars.next();
                     let quote = self.intern("quote");
                     let quoted = self.read_next(chars)?;
-                    let inner = self.list(vec![quoted]);
+                    let inner = self.list(&mut [quoted]);
                     Some(self.cons(&quote, &inner))
                 }
                 '\"' => self.read_string(chars),
@@ -1190,18 +1191,17 @@ impl Store {
         &mut self,
         chars: &mut Peekable<T>,
     ) -> Option<Expression> {
-        let mut name_chars: Vec<char> = Vec::new();
+        let mut name = String::new();
         let mut is_initial = true;
         while let Some(&c) = chars.peek() {
             if is_symbol_char(&c, is_initial) {
                 let c = chars.next().unwrap();
-                name_chars.push(c);
+                name.push(c);
             } else {
                 break;
             }
             is_initial = false;
         }
-        let name: String = name_chars.into_iter().collect();
         let sym = self.intern(&name);
 
         match sym {
@@ -1579,7 +1579,7 @@ asdf(", "ASDF",
         test(&mut store, "((321 123) pumpkin 321 123)", &expected6);
 
         let pair = store.cons(&Expression::num(1), &Expression::num(2));
-        let expected7 = store.list(vec![pair, Expression::num(3)]);
+        let expected7 = store.list(&mut [pair, Expression::num(3)]);
         test(&mut store, "((1 . 2) 3)", &expected7);
     }
 
@@ -1633,15 +1633,15 @@ asdf(", "ASDF",
         test(&mut store, "123", Expression::num(123), false);
 
         {
-            let l = store.list(vec![Expression::num(123), Expression::num(321)]);
+            let l = store.list(&mut [Expression::num(123), Expression::num(321)]);
             test(&mut store, " (123 321)", l, false);
         }
         {
-            let l = store.list(vec![Expression::num(123), Expression::num(321)]);
+            let l = store.list(&mut [Expression::num(123), Expression::num(321)]);
             test(&mut store, " !(123 321)", l, true);
         }
         {
-            let l = store.list(vec![Expression::num(123), Expression::num(321)]);
+            let l = store.list(&mut [Expression::num(123), Expression::num(321)]);
             test(&mut store, " ! (123 321)", l, true);
         }
         {
@@ -1650,7 +1650,7 @@ asdf(", "ASDF",
         }
         {
             let s = store.intern(":assert");
-            let l = store.list(vec![s]);
+            let l = store.list(&mut [s]);
             test(&mut store, "!(:assert)", l, true);
         }
         {
