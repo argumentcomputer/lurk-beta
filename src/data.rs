@@ -26,7 +26,7 @@ lazy_static! {
     pub static ref POSEIDON_CONSTANTS_16: PoseidonConstants::<Fr, U16> = PoseidonConstants::new();
     pub static ref POSEIDON_CONSTANTS_VARIABLE: PoseidonConstants::<Fr, U16> =
         PoseidonConstants::new_with_strength_and_type(Strength::Standard, HashType::VariableLength);
-    pub static ref EXP_HASHES: chashmap::CHashMap<Expression, Fr> = chashmap::CHashMap::new();
+    pub static ref EXPR_HASHES: chashmap::CHashMap<Expression, Fr> = chashmap::CHashMap::new();
     pub static ref CONT_HASHES: chashmap::CHashMap<Continuation, Fr> = chashmap::CHashMap::new();
 }
 
@@ -172,9 +172,9 @@ impl Hash for Expression {
                 a.hash(state);
                 b.hash(state);
             }
-            Expression::Sym(sym) => {
+            Expression::Sym(name) => {
                 b"SYM".hash(state);
-                sym.hash(state);
+                name.hash(state);
             }
             Expression::Fun(arg, body, closed) => {
                 b"FUN".hash(state);
@@ -681,11 +681,11 @@ impl Tagged for Expression {
 
 impl Expression {
     pub fn get_hash(&self) -> Fr {
-        if !EXP_HASHES.contains_key(self) {
+        if !EXPR_HASHES.contains_key(self) {
             let h = self.calculate_hash();
-            EXP_HASHES.insert(self.clone(), h);
+            EXPR_HASHES.insert(self.clone(), h);
         }
-        *EXP_HASHES.get(self).unwrap()
+        *EXPR_HASHES.get(self).unwrap()
     }
 
     fn calculate_hash(&self) -> Fr {
