@@ -1512,14 +1512,9 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
 
     let (computed_cont_hash, cont_components) = Continuation::allocate_maybe_dummy_components(
         &mut cs.namespace(|| "cont components"),
-        &witness.clone().and_then(|w| w.make_thunk_cont),
-        // FIXME AAA: It would be better if the following (commented-out) code worked.
-        // For some reason, sometimes the relevant continuation disappears from the store,
-        // even though having been observably added during evaluation.
-        //
-        // &cont
-        // .tagged_hash()
-        // .and_then(|c| store.fetch_continuation(&c)),
+        &cont
+            .tagged_hash()
+            .and_then(|c| store.fetch_continuation(&c)),
     )?;
 
     implies_equal!(cs, not_dummy, &computed_cont_hash, &cont.hash);

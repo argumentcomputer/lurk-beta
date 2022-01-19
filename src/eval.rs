@@ -802,7 +802,7 @@ fn make_thunk(
 
     let (result, env, cont) = control.results();
     witness.make_thunk_cont = Some(cont.clone());
-    store.store_continuation(&cont); // NOTE: see FIXME AAA in circuit.rs
+    store.store_continuation(&cont);
 
     if let Expression::Thunk(_) = result {
         unreachable!("make_thunk should never be called with a thunk");
