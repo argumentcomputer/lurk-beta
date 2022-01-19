@@ -180,9 +180,7 @@ fn verify_sequential_css(css: &SequentialCS<IO, Witness>) -> Result<bool, Synthe
         let w = &frame.witness;
         let input = &frame.input;
 
-        if let Some(ref store) = frame.witness.store {
-            dbg!(store.write_expr_str(&input.expr));
-        }
+        dbg!(frame.witness.store.write_expr_str(&input.expr));
 
         if let Some(prev) = previous_frame {
             if !prev.precedes(frame) {

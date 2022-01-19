@@ -136,13 +136,12 @@ impl<T, W> CircuitFrame<T, W> {
 impl Circuit<Fr> for CircuitFrame<IO, Witness> {
     fn synthesize<CS: ConstraintSystem<Fr>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         if let Some(w) = &self.witness {
-            if let Some(s) = &w.store {
-                if let Some(o) = &self.output {
-                    dbg!(&s.write_expr_str(&o.expr));
-                }
-                if let Some(i) = &self.input {
-                    dbg!(&s.write_expr_str(&i.expr));
-                }
+            let s = &w.store;
+            if let Some(o) = &self.output {
+                dbg!(&s.write_expr_str(&o.expr));
+            }
+            if let Some(i) = &self.input {
+                dbg!(&s.write_expr_str(&i.expr));
             }
         };
         ////////////////////////////////////////////////////////////////////////////////
@@ -260,7 +259,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
 > {
     dbg!("evaluate_expression");
     let store = if let Some(w) = witness {
-        w.store.clone().expect("Store missing.")
+        w.store.clone()
     } else {
         Store::default()
     };
@@ -549,25 +548,21 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     SynthesisError,
 > {
     let store = if let Some(w) = witness {
-        w.store.clone().expect("Store missing.")
+        w.store.clone()
     } else {
         Store::default()
     };
     let output_expr = Expression::allocate_tagged_hash(
         &mut cs.namespace(|| "output_expr"),
-        witness
-            .as_ref()
-            .and_then(|w| w.prethunk_output_expr.clone()),
+        witness.as_ref().map(|w| w.prethunk_output_expr.clone()),
     )?;
     let output_env = Expression::allocate_tagged_hash(
         &mut cs.namespace(|| "output_env"),
-        witness.as_ref().and_then(|w| w.prethunk_output_env.clone()),
+        witness.as_ref().map(|w| w.prethunk_output_env.clone()),
     )?;
     let output_cont = Continuation::allocate_tagged_hash(
         &mut cs.namespace(|| "output_cont"),
-        witness
-            .as_ref()
-            .and_then(|w| w.prethunk_output_cont.clone()),
+        witness.as_ref().map(|w| w.prethunk_output_cont.clone()),
     )?;
 
     let sym_is_nil = expr.alloc_equal(&mut cs.namespace(|| "sym is nil"), &g.nil_tagged_hash)?;
@@ -859,7 +854,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     SynthesisError,
 > {
     let store = if let Some(w) = witness {
-        w.store.clone().expect("Store missing.")
+        w.store.clone()
     } else {
         Store::default()
     };
@@ -1481,7 +1476,7 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
     SynthesisError,
 > {
     let store = if let Some(w) = witness {
-        w.store.clone().expect("Store missing")
+        w.store.clone()
     } else {
         Store::default()
     };
@@ -1651,7 +1646,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
     SynthesisError,
 > {
     let store = if let Some(w) = witness {
-        w.store.clone().expect("Store missing")
+        w.store.clone()
     } else {
         Store::default()
     };

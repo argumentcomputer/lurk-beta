@@ -1,5 +1,6 @@
 use crate::data::{Continuation, Expression, Op1, Op2, Rel2, Store, Tag, Tagged, Thunk};
 use ff::Field;
+use itertools::WithPosition;
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
 use std::ops::{AddAssign, MulAssign, SubAssign};
@@ -118,14 +119,15 @@ impl<'a, T: Evaluable<Witness> + Clone + PartialEq> Iterator for FrameIt<'a, T, 
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Witness {
     // TODO: Many of these fields ended up not being used.
     // once circuit is done, remove the excess.
-    pub store: Option<Store>,
-    pub prethunk_output_expr: Option<Expression>,
-    pub prethunk_output_env: Option<Expression>,
-    pub prethunk_output_cont: Option<Continuation>,
+    pub store: Store,
+    pub prethunk_output_expr: Expression,
+    pub prethunk_output_env: Expression,
+    pub prethunk_output_cont: Continuation,
+
     pub destructured_thunk: Option<Thunk>,
     pub extended_closure: Option<Expression>,
     pub make_thunk_cont: Option<Continuation>,
@@ -152,10 +154,8 @@ fn eval_expr(
     cont: &Continuation,
     store: &mut Store,
 ) -> (Expression, Expression, Continuation, Witness) {
-    let mut witness = Witness::default();
-
-    let (new_expr, new_env, new_cont) =
-        eval_expr_with_witness(expr, env, cont, store, &mut witness).results();
+    let (ctrl, witness) = eval_expr_with_witness(expr, env, cont, store);
+    let (new_expr, new_env, new_cont) = ctrl.results();
 
     (new_expr, new_env, new_cont, witness)
 }
@@ -192,9 +192,8 @@ fn eval_expr_with_witness(
     env: &Expression,
     cont: &Continuation,
     store: &mut Store,
-    witness: &mut Witness,
-) -> Control<Expression, Continuation> {
-    witness.store = Some(store.clone());
+) -> (Control<Expression, Continuation>, Witness) {
+    let mut extended_closure = None;
     let control = match expr {
         Expression::Thunk(thunk) => Control::InvokeContinuation(
             *thunk.value.clone(),
@@ -297,7 +296,7 @@ fn eval_expr_with_witness(
                                     match val2 {
                                         Expression::Fun(_, _, _) => {
                                             // TODO: This is a misnomer. It's actually the closure *to be extended*.
-                                            witness.extended_closure = Some(val2.clone());
+                                            extended_closure = Some(val2.clone());
                                             // CIRCUIT: val2_is_fun
 
                                             // We just found a closure in a recursive env.
@@ -306,7 +305,7 @@ fn eval_expr_with_witness(
                                             extend_closure(&val2, &rec_env, store)
                                         }
                                         _ => {
-                                            witness.extended_closure = None;
+                                            extended_closure = None;
                                             val2
                                         }
                                     }
@@ -550,17 +549,29 @@ fn eval_expr_with_witness(
         }
     };
 
-    {
-        let (new_expr, new_env, new_cont) = control.results();
-        store.store_continuation(&new_cont);
+    let (new_expr, new_env, new_cont) = control.results();
+    store.store_continuation(&new_cont);
 
-        witness.prethunk_output_expr = Some(new_expr);
-        witness.prethunk_output_env = Some(new_env);
-        witness.prethunk_output_cont = Some(new_cont);
-    }
+    let mut witness = Witness {
+        store: store.clone(),
+        prethunk_output_expr: new_expr,
+        prethunk_output_env: new_env,
+        prethunk_output_cont: new_cont,
 
-    let control = invoke_continuation(control, store, witness);
-    make_thunk(control, store, witness)
+        destructured_thunk: None,
+        extended_closure,
+        make_thunk_cont: None,
+        make_thunk_tail_continuation_cont: None,
+        invoke_continuation_cont: None,
+
+        invoke_continuation_output_result: None,
+        invoke_continuation_output_cont: None,
+    };
+
+    let control = invoke_continuation(control, store, &mut witness);
+    let ctrl = make_thunk(control, store, &mut witness);
+
+    (ctrl, witness)
 }
 
 fn invoke_continuation(
