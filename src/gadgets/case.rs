@@ -9,14 +9,14 @@ use ff::{Field, PrimeField};
 
 use std::ops::{MulAssign, SubAssign};
 
-pub struct CaseClause<F: PrimeField> {
+pub struct CaseClause<'a, F: PrimeField> {
     pub key: F,
-    pub value: AllocatedNum<F>,
+    pub value: &'a AllocatedNum<F>,
 }
 
 pub struct CaseConstraint<'a, F: PrimeField> {
     selected: AllocatedNum<F>,
-    clauses: &'a [CaseClause<F>],
+    clauses: &'a [CaseClause<'a, F>],
 }
 
 impl CaseConstraint<'_, Fr> {
@@ -206,7 +206,7 @@ pub fn multi_case<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
     selected: &AllocatedNum<Fr>,
     cases: &[&[CaseClause<Fr>]],
-    defaults: &[AllocatedNum<Fr>],
+    defaults: &[&AllocatedNum<Fr>],
 ) -> Result<Vec<AllocatedNum<Fr>>, SynthesisError> {
     let mut result = Vec::new();
 
@@ -245,11 +245,11 @@ mod tests {
             let clauses = [
                 CaseClause {
                     key: x,
-                    value: val.clone(),
+                    value: &val,
                 },
                 CaseClause {
                     key: y,
-                    value: val2.clone(),
+                    value: &val2,
                 },
             ];
 
@@ -268,7 +268,7 @@ mod tests {
         {
             let clauses = [CaseClause {
                 key: y,
-                value: val.clone(),
+                value: &val,
             }];
 
             let result = case(
@@ -314,11 +314,11 @@ mod tests {
             let clauses = [
                 CaseClause {
                     key: x,
-                    value: val.clone(),
+                    value: &val,
                 },
                 CaseClause {
                     key: y,
-                    value: val2.clone(),
+                    value: &val2,
                 },
             ];
 
@@ -337,11 +337,11 @@ mod tests {
             let clauses_blank = [
                 CaseClause {
                     key: x,
-                    value: val_blank.clone(),
+                    value: &val_blank,
                 },
                 CaseClause {
                     key: y,
-                    value: val2_blank.clone(),
+                    value: &val2_blank,
                 },
             ];
 

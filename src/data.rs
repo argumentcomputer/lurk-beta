@@ -161,6 +161,7 @@ pub enum Expression {
     Str(String),
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Expression {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
@@ -717,7 +718,7 @@ impl Expression {
     }
 
     pub fn cons(a: &Expression, b: &Expression) -> Expression {
-        Cons(a.tagged_hash().clone(), b.tagged_hash().clone())
+        Cons(a.tagged_hash(), b.tagged_hash())
     }
 
     pub fn num(n: u64) -> Expression {
@@ -728,9 +729,9 @@ impl Expression {
         match arg {
             // TODO: closed_env must be an env.
             Expression::Sym(_) => Fun(
-                arg.tagged_hash().clone(),
-                body.tagged_hash().clone(),
-                closed_env.tagged_hash().clone(),
+                arg.tagged_hash(),
+                body.tagged_hash(),
+                closed_env.tagged_hash(),
             ),
             _ => {
                 panic!("ARG must be a symbol.");

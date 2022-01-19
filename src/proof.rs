@@ -164,6 +164,7 @@ fn verify_sequential_groth16_proofs(
     store: &Store,
 ) -> Result<bool, SynthesisError> {
     let mut previous_frame: Option<&Frame<IO, Witness>> = None;
+    let pvk = groth16::prepare_verifying_key(&vk);
 
     for (i, (frame, proof)) in proofs.into_iter().enumerate() {
         dbg!(i);
@@ -173,7 +174,6 @@ fn verify_sequential_groth16_proofs(
             }
         }
 
-        let pvk = groth16::prepare_verifying_key(&vk);
         if !CircuitFrame::from_frame(frame, store).verify_groth16_proof(&pvk, proof.clone())? {
             return Ok(false);
         }

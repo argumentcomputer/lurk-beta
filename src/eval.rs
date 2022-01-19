@@ -140,7 +140,7 @@ pub struct Witness {
 impl Witness {
     fn witness_destructured_thunk(&mut self, thunk: &Thunk) {
         assert!(
-            !self.destructured_thunk.is_some(),
+            self.destructured_thunk.is_none(),
             "Only one thunk should be destructured per evaluation step."
         );
         self.destructured_thunk = Some(thunk.clone());

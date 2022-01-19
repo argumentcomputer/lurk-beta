@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use bellperson::{
     gadgets::{
         boolean::{AllocatedBit, Boolean},
@@ -31,7 +33,7 @@ use crate::gadgets::data::{
 
 fn bind_input<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
-    expr: &Option<Expression>,
+    expr: Option<&Expression>,
 ) -> Result<AllocatedTaggedHash, SynthesisError> {
     let tagged_hash = expr.as_ref().map(|e| e.tagged_hash());
     let tag = AllocatedNum::alloc(cs.namespace(|| "tag"), || {
@@ -55,7 +57,7 @@ fn bind_input<CS: ConstraintSystem<Fr>>(
 
 fn bind_input_cont<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
-    cont: &Option<Continuation>,
+    cont: Option<&Continuation>,
 ) -> Result<AllocatedTaggedHash, SynthesisError> {
     let tag = AllocatedNum::alloc(cs.namespace(|| "continuation tag"), || {
         cont.as_ref()
@@ -152,49 +154,49 @@ impl Circuit<Fr> for CircuitFrame<'_, IO, Witness> {
         // The frame's input:
         let input_expr = bind_input(
             &mut cs.namespace(|| "input expression"),
-            &self.input.as_ref().map(|input| input.expr.clone()),
+            self.input.as_ref().map(|input| &input.expr),
         )?;
 
         let input_env = bind_input(
             &mut cs.namespace(|| "input env"),
-            &self.input.as_ref().map(|input| input.env.clone()),
+            self.input.as_ref().map(|input| &input.env),
         )?;
 
         let input_cont = bind_input_cont(
             &mut cs.namespace(|| "input cont"),
-            &self.input.as_ref().map(|input| input.cont.clone()),
+            self.input.as_ref().map(|input| &input.cont),
         )?;
 
         // The frame's output:
         let output_expr = bind_input(
             &mut cs.namespace(|| "output expression"),
-            &self.output.as_ref().map(|output| output.expr.clone()),
+            self.output.as_ref().map(|output| &output.expr),
         )?;
 
         let output_env = bind_input(
             &mut cs.namespace(|| "output env"),
-            &self.output.as_ref().map(|output| output.env.clone()),
+            self.output.as_ref().map(|output| &output.env),
         )?;
 
         let output_cont = bind_input_cont(
             &mut cs.namespace(|| "output cont"),
-            &self.output.as_ref().map(|output| output.cont.clone()),
+            self.output.as_ref().map(|output| &output.cont),
         )?;
 
         // The initial input to the IVC computation.
         let initial_expr = bind_input(
             &mut cs.namespace(|| "initial expression"),
-            &self.initial.as_ref().map(|initial| initial.expr.clone()),
+            self.initial.as_ref().map(|initial| &initial.expr),
         )?;
 
         let initial_env = bind_input(
             &mut cs.namespace(|| "initial env"),
-            &self.initial.as_ref().map(|initial| initial.env.clone()),
+            self.initial.as_ref().map(|initial| &initial.env),
         )?;
 
         let initial_cont = bind_input_cont(
             &mut cs.namespace(|| "initial cont"),
-            &self.initial.as_ref().map(|initial| initial.cont.clone()),
+            self.initial.as_ref().map(|initial| &initial.cont),
         )?;
 
         // We don't currently need this, but we could expose access to it for logging, etc.
@@ -217,7 +219,7 @@ impl Circuit<Fr> for CircuitFrame<'_, IO, Witness> {
             &input_env,
             &input_cont,
             &self.witness,
-            &self.store,
+            self.store,
         )?;
 
         output_expr.enforce_equal(&mut cs.namespace(|| "output expr is correct"), &new_expr);
@@ -246,6 +248,168 @@ impl Circuit<Fr> for CircuitFrame<'_, IO, Witness> {
     }
 }
 
+#[derive(Default)]
+struct Results<'a> {
+    expr_tag_clauses: Vec<CaseClause<'a, Fr>>,
+    expr_hash_clauses: Vec<CaseClause<'a, Fr>>,
+    env_tag_clauses: Vec<CaseClause<'a, Fr>>,
+    env_hash_clauses: Vec<CaseClause<'a, Fr>>,
+    cont_tag_clauses: Vec<CaseClause<'a, Fr>>,
+    cont_hash_clauses: Vec<CaseClause<'a, Fr>>,
+    invoke_continuation_clauses: Vec<CaseClause<'a, Fr>>,
+    make_thunk_num_clauses: Vec<CaseClause<'a, Fr>>,
+}
+
+fn add_clause<'a>(
+    tag_clauses: &mut Vec<CaseClause<'a, Fr>>,
+    hash_clauses: &mut Vec<CaseClause<'a, Fr>>,
+    key: Fr,
+    expr: &'a AllocatedTaggedHash,
+) {
+    add_clause_single(tag_clauses, key, &expr.tag);
+    add_clause_single(hash_clauses, key, &expr.hash);
+}
+
+fn add_clause_single<'a>(
+    clauses: &mut Vec<CaseClause<'a, Fr>>,
+    key: Fr,
+    value: &'a AllocatedNum<Fr>,
+) {
+    clauses.push(CaseClause { key, value });
+}
+
+impl<'a> Results<'a> {
+    fn add_clauses_expr(
+        &mut self,
+
+        key: Fr,
+        (result_expr, result_env, result_cont, result_invoke_continuation): (
+            &'a AllocatedTaggedHash,
+            &'a AllocatedTaggedHash,
+            &'a AllocatedTaggedHash,
+            &'a AllocatedNum<Fr>,
+        ),
+    ) {
+        add_clause(
+            &mut self.expr_tag_clauses,
+            &mut self.expr_hash_clauses,
+            key,
+            &result_expr,
+        );
+
+        add_clause(
+            &mut self.env_tag_clauses,
+            &mut self.env_hash_clauses,
+            key,
+            &result_env,
+        );
+
+        add_clause(
+            &mut self.cont_tag_clauses,
+            &mut self.cont_hash_clauses,
+            key,
+            &result_cont,
+        );
+
+        add_clause_single(
+            &mut self.invoke_continuation_clauses,
+            key,
+            result_invoke_continuation,
+        );
+    }
+
+    fn add_clauses_cons(
+        &mut self,
+        key: Fr,
+        (result_expr, result_env, result_cont, invoke_cont): (
+            &'a AllocatedTaggedHash,
+            &'a AllocatedTaggedHash,
+            &'a AllocatedTaggedHash,
+            &'a AllocatedNum<Fr>,
+        ),
+    ) {
+        add_clause(
+            &mut self.expr_tag_clauses,
+            &mut self.expr_hash_clauses,
+            key,
+            result_expr,
+        );
+        add_clause(
+            &mut self.env_tag_clauses,
+            &mut self.env_hash_clauses,
+            key,
+            result_env,
+        );
+        add_clause(
+            &mut self.cont_tag_clauses,
+            &mut self.cont_hash_clauses,
+            key,
+            result_cont,
+        );
+        add_clause_single(&mut self.invoke_continuation_clauses, key, invoke_cont);
+    }
+
+    fn add_clauses_thunk(
+        &mut self,
+        key: Fr,
+        (result_expr, result_env, result_cont): (
+            &'a AllocatedTaggedHash,
+            &'a AllocatedTaggedHash,
+            &'a AllocatedTaggedHash,
+        ),
+    ) {
+        add_clause(
+            &mut self.expr_tag_clauses,
+            &mut self.expr_hash_clauses,
+            key,
+            result_expr,
+        );
+        add_clause(
+            &mut self.env_tag_clauses,
+            &mut self.env_hash_clauses,
+            key,
+            result_env,
+        );
+        add_clause(
+            &mut self.cont_tag_clauses,
+            &mut self.cont_hash_clauses,
+            key,
+            result_cont,
+        );
+    }
+
+    fn add_clauses_cont(
+        &mut self,
+        key: Fr,
+        (result_expr, result_env, result_cont, make_thunk_num): (
+            &'a AllocatedTaggedHash,
+            &'a AllocatedTaggedHash,
+            &'a AllocatedTaggedHash,
+            &'a AllocatedNum<Fr>,
+        ),
+    ) {
+        add_clause(
+            &mut self.expr_tag_clauses,
+            &mut self.expr_hash_clauses,
+            key,
+            result_expr,
+        );
+        add_clause(
+            &mut self.env_tag_clauses,
+            &mut self.env_hash_clauses,
+            key,
+            result_env,
+        );
+        add_clause(
+            &mut self.cont_tag_clauses,
+            &mut self.cont_hash_clauses,
+            key,
+            result_cont,
+        );
+        add_clause_single(&mut self.make_thunk_num_clauses, key, make_thunk_num);
+    }
+}
+
 fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
     expr: &AllocatedTaggedHash,
@@ -263,8 +427,8 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
 > {
     dbg!("evaluate_expression");
 
-    dbg!(&expr.fetch_and_write_str(&store));
-    dbg!(&env.fetch_and_write_str(&store));
+    dbg!(&expr.fetch_and_write_str(store));
+    dbg!(&env.fetch_and_write_str(store));
     dbg!(
         &expr.tagged_hash().map(|x| x.tag),
         &expr.tagged_hash().map(|x| x.hash),
@@ -274,77 +438,30 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
 
     let global_allocations =
         GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), witness)?;
-    let mut result_expr_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_expr_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_env_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_env_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_cont_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_cont_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_invoke_continuation_clauses: Vec<CaseClause<Fr>> = Vec::new();
 
-    let mut add_clauses = |key,
-                           (result_expr, result_env, result_cont, result_invoke_continuation): (
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-        AllocatedNum<Fr>,
-    )| {
-        let add_clause =
-            |mut clauses: &mut Vec<CaseClause<Fr>>, value| clauses.push(CaseClause { key, value });
-
-        add_clause(&mut result_expr_tag_clauses, result_expr.tag);
-        add_clause(&mut result_expr_hash_clauses, result_expr.hash);
-
-        add_clause(&mut result_env_tag_clauses, result_env.tag);
-        add_clause(&mut result_env_hash_clauses, result_env.hash);
-
-        add_clause(&mut result_cont_tag_clauses, result_cont.tag);
-        add_clause(&mut result_cont_hash_clauses, result_cont.hash);
-
-        add_clause(
-            &mut result_invoke_continuation_clauses,
-            result_invoke_continuation,
-        );
-    };
-
+    let mut results = Results::default();
     {
         // Self-evaluating expressions
 
-        add_clauses(
+        results.add_clauses_expr(
             Tag::Nil.fr(),
-            (
-                expr.clone(),
-                env.clone(),
-                cont.clone(),
-                global_allocations.true_num.clone(),
-            ),
+            (expr, env, cont, &global_allocations.true_num),
         );
 
-        add_clauses(
+        results.add_clauses_expr(
             Tag::Num.fr(),
-            (
-                expr.clone(),
-                env.clone(),
-                cont.clone(),
-                global_allocations.true_num.clone(),
-            ),
+            (expr, env, cont, &global_allocations.true_num),
         );
 
-        add_clauses(
+        results.add_clauses_expr(
             Tag::Fun.fr(),
-            (
-                expr.clone(),
-                env.clone(),
-                cont.clone(),
-                global_allocations.true_num.clone(),
-            ),
+            (expr, env, cont, &global_allocations.true_num),
         );
     }
 
+    let (expr_thunk_hash, expr_thunk_value, expr_thunk_continuation) =
+        expr.allocate_thunk_components(&mut cs.namespace(|| "allocate thunk components"), store)?;
     {
-        let (expr_thunk_hash, expr_thunk_value, expr_thunk_continuation) = expr
-            .allocate_thunk_components(&mut cs.namespace(|| "allocate thunk components"), &store)?;
-
         // Enforce (expr.tag == thunk_tag) implies (expr_thunk_hash == expr.hash).
         let expr_is_a_thunk = constraints::alloc_equal(
             &mut cs.namespace(|| "expr.tag == thunk_tag"),
@@ -364,66 +481,73 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
             &expr_is_the_thunk,
         );
 
-        add_clauses(
+        results.add_clauses_expr(
             Tag::Thunk.fr(),
             (
-                expr_thunk_value,
-                env.clone(),
-                expr_thunk_continuation,
-                global_allocations.true_num.clone(),
+                &expr_thunk_value,
+                env,
+                &expr_thunk_continuation,
+                &global_allocations.true_num,
             ),
         );
     }
-    {
-        let eval_sym_not_dummy = alloc_equal(
-            &mut cs.namespace(|| "eval_sym_not_dummy"),
-            &expr.tag,
-            &global_allocations.sym_tag,
-        )?;
 
-        let (result, env, cont, invoke_cont) = eval_sym(
-            &mut cs.namespace(|| "eval Sym"),
-            expr,
-            env,
-            cont,
-            &eval_sym_not_dummy,
-            witness,
-            store,
-            &global_allocations,
-        )?;
+    // --
+    let eval_sym_not_dummy = alloc_equal(
+        &mut cs.namespace(|| "eval_sym_not_dummy"),
+        &expr.tag,
+        &global_allocations.sym_tag,
+    )?;
 
-        add_clauses(Tag::Sym.fr(), (result, env, cont, invoke_cont));
-    }
+    let (sym_result, sym_env, sym_cont, sym_invoke_cont) = eval_sym(
+        &mut cs.namespace(|| "eval Sym"),
+        expr,
+        env,
+        cont,
+        &eval_sym_not_dummy,
+        witness,
+        store,
+        &global_allocations,
+    )?;
 
-    {
-        let eval_cons_not_dummy = alloc_equal(
-            &mut cs.namespace(|| "eval_cons_not_dummy"),
-            &expr.tag,
-            &global_allocations.cons_tag,
-        )?;
+    results.add_clauses_expr(
+        Tag::Sym.fr(),
+        (&sym_result, &sym_env, &sym_cont, &sym_invoke_cont),
+    );
+    // --
 
-        let (result, env, cont, invoke_cont) = eval_cons(
-            &mut cs.namespace(|| "eval Cons"),
-            expr,
-            env,
-            cont,
-            &eval_cons_not_dummy,
-            witness,
-            store,
-            &global_allocations,
-        )?;
+    // --
+    let eval_cons_not_dummy = alloc_equal(
+        &mut cs.namespace(|| "eval_cons_not_dummy"),
+        &expr.tag,
+        &global_allocations.cons_tag,
+    )?;
 
-        add_clauses(Tag::Cons.fr(), (result, env, cont, invoke_cont));
-    }
+    let (cons_result, cons_env, cons_cont, cons_invoke_cont) = eval_cons(
+        &mut cs.namespace(|| "eval Cons"),
+        expr,
+        &env,
+        &cont,
+        &eval_cons_not_dummy,
+        witness,
+        store,
+        &global_allocations,
+    )?;
+
+    results.add_clauses_expr(
+        Tag::Cons.fr(),
+        (&cons_result, &cons_env, &cons_cont, &cons_invoke_cont),
+    );
+    // --
 
     let all_clauses = [
-        result_expr_tag_clauses.as_slice(),
-        result_expr_hash_clauses.as_slice(),
-        result_env_tag_clauses.as_slice(),
-        result_env_hash_clauses.as_slice(),
-        result_cont_tag_clauses.as_slice(),
-        result_cont_hash_clauses.as_slice(),
-        result_invoke_continuation_clauses.as_slice(),
+        &results.expr_tag_clauses[..],
+        &results.expr_hash_clauses[..],
+        &results.env_tag_clauses[..],
+        &results.env_hash_clauses[..],
+        &results.cont_tag_clauses[..],
+        &results.cont_hash_clauses[..],
+        &results.invoke_continuation_clauses[..],
     ];
 
     let case_results = multi_case(
@@ -431,13 +555,13 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         &expr.tag,
         &all_clauses,
         &[
-            global_allocations.default.clone(),
-            global_allocations.default.clone(),
-            global_allocations.default.clone(),
-            global_allocations.default.clone(),
-            global_allocations.default.clone(),
-            global_allocations.default.clone(),
-            global_allocations.false_num.clone(),
+            &global_allocations.default,
+            &global_allocations.default,
+            &global_allocations.default,
+            &global_allocations.default,
+            &global_allocations.default,
+            &global_allocations.default,
+            &global_allocations.false_num,
         ],
     )?;
 
@@ -571,12 +695,8 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     let sym_is_self_evaluating = or!(cs, &sym_is_nil, &sym_is_t)?;
     let sym_otherwise = Boolean::not(&sym_is_self_evaluating);
 
-    let (binding, smaller_env) = car_cdr(
-        &mut cs.namespace(|| "If unevaled_args cons"),
-        g,
-        env,
-        &store,
-    )?;
+    let (binding, smaller_env) =
+        car_cdr(&mut cs.namespace(|| "If unevaled_args cons"), g, env, store)?;
 
     let binding_is_nil =
         binding.alloc_equal(&mut cs.namespace(|| "binding is nil"), &g.nil_tagged_hash)?;
@@ -587,7 +707,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     let otherwise_and_binding_not_nil = and!(cs, &sym_otherwise, &binding_not_nil)?;
 
     let (var_or_rec_binding, val_or_more_rec_env) =
-        car_cdr(&mut cs.namespace(|| "car_cdr binding"), g, &binding, &store)?;
+        car_cdr(&mut cs.namespace(|| "car_cdr binding"), g, &binding, store)?;
 
     let var_or_rec_binding_is_sym = alloc_equal(
         &mut cs.namespace(|| "var_or_rec_binding_is_sym"),
@@ -621,7 +741,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
         &mut cs.namespace(|| "car_cdr var_or_rec_binding"),
         g,
         &var_or_rec_binding,
-        &store,
+        store,
     )?;
 
     let val2_is_fun = alloc_equal(cs.namespace(|| "val2_is_fun"), &val2.tag, &g.fun_tag)?;
@@ -743,7 +863,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
         // implies_equal_t!(cs, &cond1, &output_env, &env);
         // implies_equal_t!(cs, &cond1, &output_cont, &cont);
 
-        implies_equal_t!(cs, &cond1, &output_cont, &cont);
+        implies_equal_t!(cs, &cond1, &output_cont, cont);
     }
 
     let cs = &mut cs.namespace(|| "otherwise_and_binding_is_nil");
@@ -823,15 +943,15 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
 
     // cond1, cond2, cond4, cond5 // cond_expr
     let cond_expr = or!(cs, &conda, &condx)?; // cond1, cond2, cond4, cond5
-    implies_equal_t!(cs, &cond_expr, &output_expr, &expr);
+    implies_equal_t!(cs, &cond_expr, &output_expr, expr);
 
     // cond1, cond2, cond3, cond6 // cond_env
     let cond_env = or!(cs, &conda, &condy)?; // cond1, cond2, cond3, cond6
-    implies_equal_t!(cs, &cond_env, &output_env, &env);
+    implies_equal_t!(cs, &cond_env, &output_env, env);
 
     // cond1, cond3, cond4, cond6, cond // cond_cont
     let cond_cont = or!(cs, &condb, &condc)?; // cond1, cond2, cond4, cond6, cond8
-    implies_equal_t!(cs, &cond_cont, &output_cont, &cont);
+    implies_equal_t!(cs, &cond_cont, &output_cont, cont);
 
     Ok((output_expr, output_env, output_cont, invoke_cont_num))
 }
@@ -879,57 +999,16 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let current_env_hash = Expression::read_sym("CURRENT-ENV").get_hash();
     let if_hash = Expression::read_sym("IF").get_hash();
 
-    let (head, rest) = car_cdr(&mut cs.namespace(|| "eval_cons expr"), g, expr, &store)?;
+    let (head, rest) = car_cdr(&mut cs.namespace(|| "eval_cons expr"), g, expr, store)?;
 
     let not_dummy = alloc_equal(&mut cs.namespace(|| "rest is cons"), &rest.tag, &g.cons_tag)?;
 
-    let (arg1, more) = car_cdr(&mut cs.namespace(|| "car_cdr(rest)"), g, &rest, &store)?;
+    let (arg1, more) = car_cdr(&mut cs.namespace(|| "car_cdr(rest)"), g, &rest, store)?;
 
-    let mut result_expr_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_expr_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_env_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_env_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_cont_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_cont_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_invoke_cont_clauses: Vec<CaseClause<Fr>> = Vec::new();
+    let mut results = Results::default();
 
-    let mut add_clauses = |key,
-                           (result_expr, result_env, result_cont, invoke_cont): (
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-        AllocatedNum<Fr>,
-    )| {
-        let add_clause_aux =
-            |mut clauses: &mut Vec<CaseClause<Fr>>, value| clauses.push(CaseClause { key, value });
-
-        let add_clause = |mut tag_clauses: &mut Vec<CaseClause<Fr>>,
-                          mut hash_clauses: &mut Vec<CaseClause<Fr>>,
-
-                          expr: AllocatedTaggedHash| {
-            add_clause_aux(tag_clauses, expr.tag);
-            add_clause_aux(hash_clauses, expr.hash);
-        };
-
-        add_clause(
-            &mut result_expr_tag_clauses,
-            &mut result_expr_hash_clauses,
-            result_expr,
-        );
-        add_clause(
-            &mut result_env_tag_clauses,
-            &mut result_env_hash_clauses,
-            result_env,
-        );
-        add_clause(
-            &mut result_cont_tag_clauses,
-            &mut result_cont_hash_clauses,
-            result_cont,
-        );
-        add_clause_aux(&mut result_invoke_cont_clauses, invoke_cont);
-    };
-
-    {
+    // --
+    let function = {
         // head == LAMBDA
         let (args, body) = (arg1.clone(), more.clone());
         let args_is_nil =
@@ -938,7 +1017,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let not_dummy1 = Boolean::not(&args_is_nil);
         let not_dummy2 = Boolean::and(&mut cs.namespace(|| "not_dummy2"), &not_dummy, &not_dummy1)?;
 
-        let (car_args, cdr_args) = car_cdr(&mut cs.namespace(|| "car_cdr args"), g, &args, &store)?;
+        let (car_args, cdr_args) = car_cdr(&mut cs.namespace(|| "car_cdr args"), g, &args, store)?;
 
         // FIXME: There maybe some cases where cdr_args is wrong/differs from eval.rs.
 
@@ -962,72 +1041,68 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &list,
         )?;
 
-        let function =
-            Expression::construct_fun(&mut cs.namespace(|| "function"), g, &arg, &inner_body, env)?;
+        Expression::construct_fun(&mut cs.namespace(|| "function"), g, &arg, &inner_body, env)?
+    };
 
-        add_clauses(
-            lambda_hash,
-            (function, env.clone(), cont.clone(), g.true_num.clone()),
-        );
-    }
+    results.add_clauses_cons(lambda_hash, (&function, env, cont, &g.true_num));
+
     {
         // head == QUOTE
-        let (quoted, end) = (arg1.clone(), more.clone());
-
-        add_clauses(
-            quote_hash,
-            (quoted, env.clone(), cont.clone(), g.true_num.clone()),
-        );
+        results.add_clauses_cons(quote_hash, (&arg1, env, cont, &g.true_num));
     }
-    {
+
+    let (val, continuation_letstar, continuation_letrecstar) = {
         // head == LET*
         // or head == LETREC*
 
-        let cs = &mut cs.namespace(|| "LET(REC)*");
+        let mut cs_letrec = cs.namespace(|| "LET(REC)*");
 
         let (bindings, body) = (arg1.clone(), more.clone());
-        let (body1, rest_body) = car_cdr(&mut cs.namespace(|| "car_cdr body"), g, &body, &store)?;
+        let (body1, rest_body) =
+            car_cdr(&mut cs_letrec.namespace(|| "car_cdr body"), g, &body, store)?;
         let (binding1, rest_bindings) = car_cdr(
-            &mut cs.namespace(|| "car_cdr bindings"),
+            &mut cs_letrec.namespace(|| "car_cdr bindings"),
             g,
             &bindings,
-            &store,
+            store,
         )?;
         let (var, more_vals) = car_cdr(
-            &mut cs.namespace(|| "car_cdr binding1"),
+            &mut cs_letrec.namespace(|| "car_cdr binding1"),
             g,
             &binding1,
-            &store,
+            store,
         )?;
         let (val, end) = car_cdr(
-            &mut cs.namespace(|| "car_cdr more_vals"),
+            &mut cs_letrec.namespace(|| "car_cdr more_vals"),
             g,
             &more_vals,
-            &store,
+            store,
         )?;
 
         // FIXME: assert end == NIL
         let expanded1 = Expression::construct_list(
-            &mut cs.namespace(|| ""),
+            &mut cs_letrec.namespace(|| ""),
             g,
             &[letstar_t, rest_bindings.clone(), body1.clone()],
         )?;
-        let bindings_is_nil =
-            bindings.alloc_equal(&mut cs.namespace(|| "bindings_is_nil"), &g.nil_tagged_hash)?;
+        let bindings_is_nil = bindings.alloc_equal(
+            &mut cs_letrec.namespace(|| "bindings_is_nil"),
+            &g.nil_tagged_hash,
+        )?;
 
         let rest_bindings_is_nil = rest_bindings.alloc_equal(
-            &mut cs.namespace(|| "rest_bindings_is_nil"),
+            &mut cs_letrec.namespace(|| "rest_bindings_is_nil"),
             &g.nil_tagged_hash,
         )?;
         let expanded = pick_tagged_hash(
-            &mut cs.namespace(|| "expanded"),
+            &mut cs_letrec.namespace(|| "expanded"),
             &rest_bindings_is_nil,
             &body1,
             &expanded1,
         )?;
 
         let continuation1_letstar = Continuation::construct(
-            &mut cs.namespace(|| "let* continuation"),
+            &mut cs_letrec.namespace(|| "let* continuation"),
             &g.letstar_cont_tag,
             &[
                 var.tag.clone(),
@@ -1042,14 +1117,14 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         )?;
 
         let continuation_letstar = pick_tagged_hash(
-            &mut cs.namespace(|| "continuation let*"),
+            &mut cs_letrec.namespace(|| "continuation let*"),
             &bindings_is_nil,
             cont,
             &continuation1_letstar,
         )?;
 
         let continuation1_letrecstar = Continuation::construct(
-            &mut cs.namespace(|| "letrec* continuation"),
+            &mut cs_letrec.namespace(|| "letrec* continuation"),
             &g.letrecstar_cont_tag,
             &[
                 var.tag.clone(),
@@ -1064,275 +1139,221 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         )?;
 
         let continuation_letrecstar = pick_tagged_hash(
-            &mut cs.namespace(|| "continuation letrec*"),
+            &mut cs_letrec.namespace(|| "continuation letrec*"),
             &bindings_is_nil,
             cont,
             &continuation1_letrecstar,
         )?;
 
-        let ret = pick_tagged_hash(&mut cs.namespace(|| "ret"), &bindings_is_nil, &body1, &val)?;
-
-        add_clauses(
-            letstar_hash,
-            (
-                val.clone(),
-                env.clone(),
-                continuation_letstar,
-                g.false_num.clone(),
-            ),
-        );
-        add_clauses(
-            letrecstar_hash,
-            (
-                val,
-                env.clone(),
-                continuation_letrecstar,
-                g.false_num.clone(),
-            ),
-        );
-    }
-    {
-        // head == CONS
-
-        let continuation = Continuation::construct(
-            &mut cs.namespace(|| "binop cons"),
-            &g.binop_cont_tag,
-            &[
-                g.op2_cons_tag.clone(),
-                g.default.clone(),
-                env.tag.clone(),
-                env.hash.clone(),
-                more.tag.clone(),
-                more.hash.clone(),
-                cont.tag.clone(),
-                cont.hash.clone(),
-            ],
+        let ret = pick_tagged_hash(
+            &mut cs_letrec.namespace(|| "ret"),
+            &bindings_is_nil,
+            &body1,
+            &val,
         )?;
+        (val, continuation_letstar, continuation_letrecstar)
+    };
 
-        add_clauses(
-            cons_hash,
-            (arg1.clone(), env.clone(), continuation, g.false_num.clone()),
-        );
-    }
-    {
-        // head == CAR
-        let end = more.clone();
-        // FIXME: Error if end != NIL.
+    results.add_clauses_cons(
+        letstar_hash,
+        (&val, env, &continuation_letstar, &g.false_num),
+    );
+    results.add_clauses_cons(
+        letrecstar_hash,
+        (&val, env, &continuation_letrecstar, &g.false_num),
+    );
 
-        // TODO: Factor out the hashing involved in constructing the continuation,
-        // since it happens in many of the branches here.
-        let continuation = Continuation::construct(
-            &mut cs.namespace(|| "unop car"),
-            &g.unop_cont_tag,
-            &[
-                g.op1_car_tag.clone(),
-                g.default.clone(),
-                arg1.tag.clone(),
-                arg1.hash.clone(),
-                env.tag.clone(),
-                env.hash.clone(),
-                g.default.clone(),
-                g.default.clone(),
-            ],
-        )?;
+    // head == CONS
+    let continuation = Continuation::construct(
+        &mut cs.namespace(|| "binop cons"),
+        &g.binop_cont_tag,
+        &[
+            g.op2_cons_tag.clone(),
+            g.default.clone(),
+            env.tag.clone(),
+            env.hash.clone(),
+            more.tag.clone(),
+            more.hash.clone(),
+            cont.tag.clone(),
+            cont.hash.clone(),
+        ],
+    )?;
 
-        add_clauses(
-            car_hash,
-            (arg1.clone(), env.clone(), continuation, g.false_num.clone()),
-        );
-    }
-    {
-        // head == CDR
-        // FIXME: Error if end != NIL.
+    results.add_clauses_cons(cons_hash, (&arg1, env, &continuation, &g.false_num));
 
-        let continuation = Continuation::construct(
-            &mut cs.namespace(|| "unop cdr"),
-            &g.unop_cont_tag,
-            &[
-                g.op1_cdr_tag.clone(),
-                g.default.clone(),
-                arg1.tag.clone(),
-                arg1.hash.clone(),
-                env.tag.clone(),
-                env.hash.clone(),
-                g.default.clone(),
-                g.default.clone(),
-            ],
-        )?;
+    // head == CAR
+    // let end = more.clone();
+    // FIXME: Error if end != NIL.
 
-        add_clauses(
-            cdr_hash,
-            (arg1.clone(), env.clone(), continuation, g.false_num.clone()),
-        );
-    }
-    {
-        // head == ATOM
-        // FIXME: Error if end != NIL.
+    // TODO: Factor out the hashing involved in constructing the continuation,
+    // since it happens in many of the branches here.
+    let continuation = Continuation::construct(
+        &mut cs.namespace(|| "unop car"),
+        &g.unop_cont_tag,
+        &[
+            g.op1_car_tag.clone(),
+            g.default.clone(),
+            arg1.tag.clone(),
+            arg1.hash.clone(),
+            env.tag.clone(),
+            env.hash.clone(),
+            g.default.clone(),
+            g.default.clone(),
+        ],
+    )?;
 
-        let continuation = Continuation::construct(
-            &mut cs.namespace(|| "unop atom"),
-            &g.unop_cont_tag,
-            &[
-                g.op1_atom_tag.clone(),
-                g.default.clone(),
-                arg1.tag.clone(),
-                arg1.hash.clone(),
-                env.tag.clone(),
-                env.hash.clone(),
-                g.default.clone(),
-                g.default.clone(),
-            ],
-        )?;
+    results.add_clauses_cons(car_hash, (&arg1, env, &continuation, &g.false_num));
 
-        add_clauses(
-            atom_hash,
-            (arg1.clone(), env.clone(), continuation, g.false_num.clone()),
-        );
-    }
-    {
-        // head == +
+    // head == CDR
+    // FIXME: Error if end != NIL.
+    let continuation = Continuation::construct(
+        &mut cs.namespace(|| "unop cdr"),
+        &g.unop_cont_tag,
+        &[
+            g.op1_cdr_tag.clone(),
+            g.default.clone(),
+            arg1.tag.clone(),
+            arg1.hash.clone(),
+            env.tag.clone(),
+            env.hash.clone(),
+            g.default.clone(),
+            g.default.clone(),
+        ],
+    )?;
 
-        let continuation = Continuation::construct(
-            &mut cs.namespace(|| "binop sum"),
-            &g.binop_cont_tag,
-            &[
-                g.op2_sum_tag.clone(),
-                g.default.clone(),
-                env.tag.clone(),
-                env.hash.clone(),
-                more.tag.clone(),
-                more.hash.clone(),
-                cont.tag.clone(),
-                cont.hash.clone(),
-            ],
-        )?;
+    results.add_clauses_cons(cdr_hash, (&arg1, env, &continuation, &g.false_num));
 
-        add_clauses(
-            sum_hash,
-            (arg1.clone(), env.clone(), continuation, g.false_num.clone()),
-        );
-    }
-    {
-        // head == -
+    // head == ATOM
+    // FIXME: Error if end != NIL.
+    let continuation = Continuation::construct(
+        &mut cs.namespace(|| "unop atom"),
+        &g.unop_cont_tag,
+        &[
+            g.op1_atom_tag.clone(),
+            g.default.clone(),
+            arg1.tag.clone(),
+            arg1.hash.clone(),
+            env.tag.clone(),
+            env.hash.clone(),
+            g.default.clone(),
+            g.default.clone(),
+        ],
+    )?;
 
-        let continuation = Continuation::construct(
-            &mut cs.namespace(|| "binop diff"),
-            &g.binop_cont_tag,
-            &[
-                g.op2_diff_tag.clone(),
-                g.default.clone(),
-                env.tag.clone(),
-                env.hash.clone(),
-                more.tag.clone(),
-                more.hash.clone(),
-                cont.tag.clone(),
-                cont.hash.clone(),
-            ],
-        )?;
+    results.add_clauses_cons(atom_hash, (&arg1, env, &continuation, &g.false_num));
 
-        add_clauses(
-            diff_hash,
-            (arg1.clone(), env.clone(), continuation, g.false_num.clone()),
-        );
-    }
-    {
-        // head == *
-        let continuation = Continuation::construct(
-            &mut cs.namespace(|| "binop product"),
-            &g.binop_cont_tag,
-            &[
-                g.op2_product_tag.clone(),
-                g.default.clone(),
-                env.tag.clone(),
-                env.hash.clone(),
-                more.tag.clone(),
-                more.hash.clone(),
-                cont.tag.clone(),
-                cont.hash.clone(),
-            ],
-        )?;
+    // head == +
+    let continuation = Continuation::construct(
+        &mut cs.namespace(|| "binop sum"),
+        &g.binop_cont_tag,
+        &[
+            g.op2_sum_tag.clone(),
+            g.default.clone(),
+            env.tag.clone(),
+            env.hash.clone(),
+            more.tag.clone(),
+            more.hash.clone(),
+            cont.tag.clone(),
+            cont.hash.clone(),
+        ],
+    )?;
 
-        add_clauses(
-            product_hash,
-            (arg1.clone(), env.clone(), continuation, g.false_num.clone()),
-        );
-    }
-    {
-        // head == /
+    results.add_clauses_cons(sum_hash, (&arg1, env, &continuation, &g.false_num));
 
-        let continuation = Continuation::construct(
-            &mut cs.namespace(|| "binop quotient"),
-            &g.binop_cont_tag,
-            &[
-                g.op2_quotient_tag.clone(),
-                g.default.clone(),
-                env.tag.clone(),
-                env.hash.clone(),
-                more.tag.clone(),
-                more.hash.clone(),
-                cont.tag.clone(),
-                cont.hash.clone(),
-            ],
-        )?;
+    // head == -
+    let continuation = Continuation::construct(
+        &mut cs.namespace(|| "binop diff"),
+        &g.binop_cont_tag,
+        &[
+            g.op2_diff_tag.clone(),
+            g.default.clone(),
+            env.tag.clone(),
+            env.hash.clone(),
+            more.tag.clone(),
+            more.hash.clone(),
+            cont.tag.clone(),
+            cont.hash.clone(),
+        ],
+    )?;
 
-        add_clauses(
-            quotient_hash,
-            (arg1.clone(), env.clone(), continuation, g.false_num.clone()),
-        );
-    }
-    {
-        // head == =
+    results.add_clauses_cons(diff_hash, (&arg1, env, &continuation, &g.false_num));
 
-        let continuation = Continuation::construct(
-            &mut cs.namespace(|| "Relop NumEqual"),
-            &g.relop_cont_tag,
-            &[
-                g.rel2_numequal_tag.clone(),
-                g.default.clone(),
-                env.tag.clone(),
-                env.hash.clone(),
-                more.tag.clone(),
-                more.hash.clone(),
-                cont.tag.clone(),
-                cont.hash.clone(),
-            ],
-        )?;
+    // head == *
+    let continuation = Continuation::construct(
+        &mut cs.namespace(|| "binop product"),
+        &g.binop_cont_tag,
+        &[
+            g.op2_product_tag.clone(),
+            g.default.clone(),
+            env.tag.clone(),
+            env.hash.clone(),
+            more.tag.clone(),
+            more.hash.clone(),
+            cont.tag.clone(),
+            cont.hash.clone(),
+        ],
+    )?;
 
-        add_clauses(
-            numequal_hash,
-            (arg1.clone(), env.clone(), continuation, g.false_num.clone()),
-        );
-    }
-    {
-        // head == EQ
+    results.add_clauses_cons(product_hash, (&arg1, env, &continuation, &g.false_num));
 
-        let continuation = Continuation::construct(
-            &mut cs.namespace(|| "Relop Equal"),
-            &g.relop_cont_tag,
-            &[
-                g.rel2_equal_tag.clone(),
-                g.default.clone(),
-                env.tag.clone(),
-                env.hash.clone(),
-                more.tag.clone(),
-                more.hash.clone(),
-                cont.tag.clone(),
-                cont.hash.clone(),
-            ],
-        )?;
+    // head == /
+    let continuation = Continuation::construct(
+        &mut cs.namespace(|| "binop quotient"),
+        &g.binop_cont_tag,
+        &[
+            g.op2_quotient_tag.clone(),
+            g.default.clone(),
+            env.tag.clone(),
+            env.hash.clone(),
+            more.tag.clone(),
+            more.hash.clone(),
+            cont.tag.clone(),
+            cont.hash.clone(),
+        ],
+    )?;
 
-        add_clauses(
-            equal_hash,
-            (arg1.clone(), env.clone(), continuation, g.false_num.clone()),
-        );
-    }
-    {
-        // head == IF
+    results.add_clauses_cons(quotient_hash, (&arg1, env, &continuation, &g.false_num));
 
-        let condition = arg1.clone();
+    // head == =
+    let continuation = Continuation::construct(
+        &mut cs.namespace(|| "Relop NumEqual"),
+        &g.relop_cont_tag,
+        &[
+            g.rel2_numequal_tag.clone(),
+            g.default.clone(),
+            env.tag.clone(),
+            env.hash.clone(),
+            more.tag.clone(),
+            more.hash.clone(),
+            cont.tag.clone(),
+            cont.hash.clone(),
+        ],
+    )?;
+
+    results.add_clauses_cons(numequal_hash, (&arg1, env, &continuation, &g.false_num));
+
+    // head == EQ
+    let continuation = Continuation::construct(
+        &mut cs.namespace(|| "Relop Equal"),
+        &g.relop_cont_tag,
+        &[
+            g.rel2_equal_tag.clone(),
+            g.default.clone(),
+            env.tag.clone(),
+            env.hash.clone(),
+            more.tag.clone(),
+            more.hash.clone(),
+            cont.tag.clone(),
+            cont.hash.clone(),
+        ],
+    )?;
+
+    results.add_clauses_cons(equal_hash, (&arg1, env, &continuation, &g.false_num));
+
+    // head == IF
+    let continuation = {
         let unevaled_args = more.clone();
-
-        let continuation = Continuation::construct(
+        Continuation::construct(
             &mut cs.namespace(|| "If"),
             &g.if_cont_tag,
             &[
@@ -1345,25 +1366,20 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
                 g.default.clone(),
                 g.default.clone(),
             ],
-        )?;
+        )?
+    };
 
-        add_clauses(
-            if_hash,
-            (condition, env.clone(), continuation, g.false_num.clone()),
-        );
-    }
+    results.add_clauses_cons(if_hash, (&arg1, env, &continuation, &g.false_num));
+
     {
         // head == CURRENT-ENV
         // FIXME: Error if rest != NIL.
 
-        add_clauses(
-            current_env_hash,
-            (env.clone(), env.clone(), cont.clone(), g.true_num.clone()),
-        );
+        results.add_clauses_cons(current_env_hash, (env, env, cont, &g.true_num));
     }
-    let defaults = {
-        // head == (FN . ARGS)
 
+    let (res, continuation) = {
+        // head == (FN . ARGS)
         let fun_form = head.clone();
         let args = rest;
 
@@ -1385,7 +1401,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let expanded_inner = Expression::construct_list(
             &mut cs.namespace(|| "expanded_inner"),
             g,
-            &[fun_form.clone(), arg1],
+            &[fun_form.clone(), arg1.clone()],
         )?;
 
         let expanded = Expression::construct_cons(
@@ -1412,33 +1428,34 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             cont,
         )?;
 
-        let env = env.clone();
-        &[
-            res.tag,
-            res.hash,
-            env.tag,
-            env.hash,
-            continuation.tag,
-            continuation.hash,
-            g.false_num.clone(),
-        ]
+        (res, continuation)
     };
 
+    let defaults = [
+        &res.tag,
+        &res.hash,
+        &env.tag,
+        &env.hash,
+        &continuation.tag,
+        &continuation.hash,
+        &g.false_num,
+    ];
+
     let all_clauses = [
-        result_expr_tag_clauses.as_slice(),
-        result_expr_hash_clauses.as_slice(),
-        result_env_tag_clauses.as_slice(),
-        result_env_hash_clauses.as_slice(),
-        result_cont_tag_clauses.as_slice(),
-        result_cont_hash_clauses.as_slice(),
-        result_invoke_cont_clauses.as_slice(),
+        &results.expr_tag_clauses[..],
+        &results.expr_hash_clauses[..],
+        &results.env_tag_clauses[..],
+        &results.env_hash_clauses[..],
+        &results.cont_tag_clauses[..],
+        &results.cont_hash_clauses[..],
+        &results.invoke_continuation_clauses[..],
     ];
 
     let case_results = multi_case(
         &mut cs.namespace(|| "input expr hash case"),
         &head.hash,
         &all_clauses,
-        defaults,
+        &defaults,
     )?;
 
     let result_expr = tagged_hash_by_index(0, &case_results);
@@ -1471,44 +1488,7 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
     ),
     SynthesisError,
 > {
-    let mut result_expr_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_expr_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_env_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_env_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_cont_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_cont_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
-
-    let mut add_clauses = |key,
-                           (result_expr, result_env, result_cont): (
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-    )| {
-        let add_clause_aux =
-            |mut clauses: &mut Vec<CaseClause<Fr>>, value| clauses.push(CaseClause { key, value });
-        let add_clause = |mut tag_clauses: &mut Vec<CaseClause<Fr>>,
-                          mut hash_clauses: &mut Vec<CaseClause<Fr>>,
-                          expr: AllocatedTaggedHash| {
-            add_clause_aux(tag_clauses, expr.tag);
-            add_clause_aux(hash_clauses, expr.hash);
-        };
-
-        add_clause(
-            &mut result_expr_tag_clauses,
-            &mut result_expr_hash_clauses,
-            result_expr,
-        );
-        add_clause(
-            &mut result_env_tag_clauses,
-            &mut result_env_hash_clauses,
-            result_env,
-        );
-        add_clause(
-            &mut result_cont_tag_clauses,
-            &mut result_cont_hash_clauses,
-            result_cont,
-        );
-    };
+    let mut results = Results::default();
 
     let (computed_cont_hash, cont_components) = Continuation::allocate_maybe_dummy_components(
         &mut cs.namespace(|| "cont components"),
@@ -1519,12 +1499,8 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
 
     implies_equal!(cs, not_dummy, &computed_cont_hash, &cont.hash);
 
-    // Otherwise, these are the results.
-    let tail_results: (
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-    ) = {
+    let (result_expr, saved_env) = {
+        // Otherwise, these are the results.
         // Applies to Tail continuations only.
         let saved_env = tagged_hash_by_index(0, &cont_components);
 
@@ -1552,51 +1528,48 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
             thunk_hash,
         );
 
-        (
-            result_expr,
-            saved_env,
-            global_allocations.dummy_tagged_hash.clone(),
-        )
+        (result_expr, saved_env)
     };
 
-    add_clauses(BaseContinuationTag::Tail.cont_tag_fr(), tail_results);
-
-    add_clauses(
-        BaseContinuationTag::Outermost.cont_tag_fr(),
+    results.add_clauses_thunk(
+        BaseContinuationTag::Tail.cont_tag_fr(),
         (
-            (*result).clone(),
-            (*env).clone(),
-            global_allocations.terminal_tagged_hash.clone(),
+            &result_expr,
+            &saved_env,
+            &global_allocations.dummy_tagged_hash,
         ),
     );
 
-    let defaults = {
-        let thunk_hash = Thunk::hash_components(
-            &mut cs.namespace(|| "thunk_hash"),
-            &[
-                result.tag.clone(),
-                result.hash.clone(),
-                cont.tag.clone(),
-                cont.hash.clone(),
-            ],
-        )?;
-        [
-            global_allocations.thunk_tag.clone(),
-            thunk_hash,
-            env.tag.clone(),
-            env.hash.clone(),
-            global_allocations.dummy_tagged_hash.tag.clone(),
-            global_allocations.dummy_tagged_hash.hash.clone(),
-        ]
-    };
+    results.add_clauses_thunk(
+        BaseContinuationTag::Outermost.cont_tag_fr(),
+        (result, env, &global_allocations.terminal_tagged_hash),
+    );
+
+    let thunk_hash = Thunk::hash_components(
+        &mut cs.namespace(|| "thunk_hash"),
+        &[
+            result.tag.clone(),
+            result.hash.clone(),
+            cont.tag.clone(),
+            cont.hash.clone(),
+        ],
+    )?;
+    let defaults = [
+        &global_allocations.thunk_tag,
+        &thunk_hash,
+        &env.tag,
+        &env.hash,
+        &global_allocations.dummy_tagged_hash.tag,
+        &global_allocations.dummy_tagged_hash.hash,
+    ];
 
     let all_clauses = [
-        result_expr_tag_clauses.as_slice(),
-        result_expr_hash_clauses.as_slice(),
-        result_env_tag_clauses.as_slice(),
-        result_env_hash_clauses.as_slice(),
-        result_cont_tag_clauses.as_slice(),
-        result_cont_hash_clauses.as_slice(),
+        &results.expr_tag_clauses[..],
+        &results.expr_hash_clauses[..],
+        &results.env_tag_clauses[..],
+        &results.env_hash_clauses[..],
+        &results.cont_tag_clauses[..],
+        &results.cont_hash_clauses[..],
     ];
 
     let case_results = multi_case(
@@ -1631,64 +1604,23 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
     ),
     SynthesisError,
 > {
-    let mut result_expr_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_expr_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_env_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_env_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_cont_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_cont_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
-    let mut result_make_thunk_num_clauses: Vec<CaseClause<Fr>> = Vec::new();
-
     let defaults = [
-        global_allocations.default.clone(),
-        global_allocations.default.clone(),
-        global_allocations.default.clone(),
-        global_allocations.default.clone(),
-        global_allocations.default.clone(),
-        global_allocations.default.clone(),
-        global_allocations.false_num.clone(),
+        &global_allocations.default,
+        &global_allocations.default,
+        &global_allocations.default,
+        &global_allocations.default,
+        &global_allocations.default,
+        &global_allocations.default,
+        &global_allocations.false_num,
     ];
 
-    let mut add_clauses = |key,
-                           (result_expr, result_env, result_cont, make_thunk_num): (
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-        AllocatedNum<Fr>,
-    )| {
-        let add_clause_aux =
-            |mut clauses: &mut Vec<CaseClause<Fr>>, value| clauses.push(CaseClause { key, value });
-
-        let add_clause = |mut tag_clauses: &mut Vec<CaseClause<Fr>>,
-                          mut hash_clauses: &mut Vec<CaseClause<Fr>>,
-                          expr: AllocatedTaggedHash| {
-            add_clause_aux(tag_clauses, expr.tag);
-            add_clause_aux(hash_clauses, expr.hash);
-        };
-
-        add_clause(
-            &mut result_expr_tag_clauses,
-            &mut result_expr_hash_clauses,
-            result_expr,
-        );
-        add_clause(
-            &mut result_env_tag_clauses,
-            &mut result_env_hash_clauses,
-            result_env,
-        );
-        add_clause(
-            &mut result_cont_tag_clauses,
-            &mut result_cont_hash_clauses,
-            result_cont,
-        );
-        add_clause_aux(&mut result_make_thunk_num_clauses, make_thunk_num);
-    };
+    let mut results = Results::default();
 
     // FIXME: Handle Terminal and Dummy continuations,
     // which should return Error continuations, but what else?
     // We need to specify this.
 
-    {
+    let picked = {
         let thunk_continuation = global_allocations.destructured_thunk_continuation.clone();
         let thunk_value = global_allocations.destructured_thunk_value.clone();
         let thunk_hash = global_allocations.destructured_thunk_hash.clone();
@@ -1712,23 +1644,23 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &result_is_the_thunk,
         );
 
-        let picked = pick_tagged_hash(
+        pick_tagged_hash(
             &mut cs.namespace(|| "pick result or thunk"),
             &result_is_a_thunk,
             &thunk_value,
             result,
-        )?;
+        )?
+    };
 
-        add_clauses(
-            BaseContinuationTag::Outermost.cont_tag_fr(),
-            (
-                picked,
-                env.clone(),
-                global_allocations.terminal_tagged_hash.clone(),
-                global_allocations.false_num.clone(),
-            ),
-        );
-    }
+    results.add_clauses_cont(
+        BaseContinuationTag::Outermost.cont_tag_fr(),
+        (
+            &picked,
+            env,
+            &global_allocations.terminal_tagged_hash,
+            &global_allocations.false_num,
+        ),
+    );
 
     let (continuation_hash, continuation_components) =
         Continuation::allocate_maybe_dummy_components(
@@ -1736,7 +1668,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &witness.clone().and_then(|w| w.invoke_continuation_cont),
         )?;
 
-    {
+    let (next, the_cont) = {
         // Continuation::Call
         let saved_env = tagged_hash_by_index(0, &continuation_components);
         let arg = tagged_hash_by_index(1, &continuation_components);
@@ -1781,22 +1713,19 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &newer_cont,
             &global_allocations.error_tagged_hash,
         )?;
+        (next, the_cont)
+    };
+    results.add_clauses_cont(
+        BaseContinuationTag::Call.cont_tag_fr(),
+        (&next, env, &the_cont, &global_allocations.false_num),
+    );
 
-        add_clauses(
-            BaseContinuationTag::Call.cont_tag_fr(),
-            (
-                next,
-                env.clone(),
-                the_cont,
-                global_allocations.false_num.clone(),
-            ),
-        );
-    }
-    {
+    let (body_form, newer_env, tail_cont) = {
         // Continuation::Call2
         let saved_env = tagged_hash_by_index(0, &continuation_components);
         let fun = tagged_hash_by_index(1, &continuation_components);
         let continuation = tagged_hash_by_index(2, &continuation_components);
+
         {
             let (hash, arg_t, body_t, closed_env) = Expression::allocate_maybe_fun(
                 &mut cs.namespace(|| "allocate Call2 fun"),
@@ -1809,7 +1738,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
                 &mut cs.namespace(|| "body_form"),
                 global_allocations,
                 &body_t,
-                &store,
+                store,
             )?;
 
             let fun_is_correct = constraints::alloc_equal(
@@ -1838,7 +1767,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
                 &closed_env,
                 &arg_t,
                 result,
-                &store,
+                store,
             )?;
 
             let tail_cont = make_tail_continuation(
@@ -1848,19 +1777,21 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
                 &continuation,
             )?;
 
-            add_clauses(
-                BaseContinuationTag::Call2.cont_tag_fr(),
-                (
-                    body_form,
-                    newer_env,
-                    tail_cont,
-                    global_allocations.false_num.clone(),
-                ),
-            );
+            (body_form, newer_env, tail_cont)
         }
-    }
+    };
 
-    {
+    results.add_clauses_cont(
+        BaseContinuationTag::Call2.cont_tag_fr(),
+        (
+            &body_form,
+            &newer_env,
+            &tail_cont,
+            &global_allocations.false_num,
+        ),
+    );
+
+    let (body, extended_env, tail_cont) = {
         // Continuation::LetStar
         let var = tagged_hash_by_index(0, &continuation_components);
         let body = tagged_hash_by_index(1, &continuation_components);
@@ -1873,7 +1804,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             env,
             &var,
             result,
-            &store,
+            store,
         )?;
 
         let tail_cont = make_tail_continuation(
@@ -1883,17 +1814,19 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &cont,
         )?;
 
-        add_clauses(
-            BaseContinuationTag::LetStar.cont_tag_fr(),
-            (
-                body,
-                extended_env,
-                tail_cont,
-                global_allocations.false_num.clone(),
-            ),
-        );
-    }
-    {
+        (body, extended_env, tail_cont)
+    };
+    results.add_clauses_cont(
+        BaseContinuationTag::LetStar.cont_tag_fr(),
+        (
+            &body,
+            &extended_env,
+            &tail_cont,
+            &global_allocations.false_num,
+        ),
+    );
+
+    let (body, extended_env, return_cont) = {
         // Continuation::LetRecStar
         let var = tagged_hash_by_index(0, &continuation_components);
         let body = tagged_hash_by_index(1, &continuation_components);
@@ -1906,7 +1839,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             env,
             &var,
             result,
-            &store,
+            store,
         )?;
 
         let is_error = extended_env.alloc_equal(
@@ -1928,17 +1861,20 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &tail_cont,
         )?;
 
-        add_clauses(
-            BaseContinuationTag::LetRecStar.cont_tag_fr(),
-            (
-                body,
-                extended_env,
-                return_cont,
-                global_allocations.false_num.clone(),
-            ),
-        );
-    }
-    {
+        (body, extended_env, return_cont)
+    };
+
+    results.add_clauses_cont(
+        BaseContinuationTag::LetRecStar.cont_tag_fr(),
+        (
+            &body,
+            &extended_env,
+            &return_cont,
+            &global_allocations.false_num,
+        ),
+    );
+
+    let index_hash = {
         // Continuation::Unop
         let op1 = tagged_hash_by_index(0, &continuation_components);
         let continuation = tagged_hash_by_index(1, &continuation_components);
@@ -1953,7 +1889,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &mut cs.namespace(|| "Unop cons"),
             global_allocations,
             result,
-            &store,
+            store,
         )?;
 
         let result_is_cons = alloc_equal(
@@ -1982,50 +1918,50 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
                 &[
                     CaseClause {
                         key: Op1::Car.fr(),
-                        value: allocated_car.tag,
+                        value: &allocated_car.tag,
                     },
                     CaseClause {
                         key: Op1::Cdr.fr(),
-                        value: allocated_cdr.tag,
+                        value: &allocated_cdr.tag,
                     },
                     CaseClause {
                         key: Op1::Atom.fr(),
-                        value: atom_tagged_hash.tag,
+                        value: &atom_tagged_hash.tag,
                     },
                 ],
                 &[
                     CaseClause {
                         key: Op1::Car.fr(),
-                        value: allocated_car.hash,
+                        value: &allocated_car.hash,
                     },
                     CaseClause {
                         key: Op1::Cdr.fr(),
-                        value: allocated_cdr.hash,
+                        value: &allocated_cdr.hash,
                     },
                     CaseClause {
                         key: Op1::Atom.fr(),
-                        value: atom_tagged_hash.hash,
+                        value: &atom_tagged_hash.hash,
                     },
                 ],
             ],
             &[
-                global_allocations.default.clone(),
-                global_allocations.default.clone(),
-                global_allocations.default.clone(),
+                &global_allocations.default,
+                &global_allocations.default,
+                &global_allocations.default,
             ],
         )?;
 
-        add_clauses(
-            BaseContinuationTag::Unop.cont_tag_fr(),
-            (
-                tagged_hash_by_index(0, &val),
-                env.clone(),
-                cont.clone(),
-                global_allocations.true_num.clone(),
-            ),
-        );
-    }
-    {
+        let index_hash = tagged_hash_by_index(0, &val);
+
+        index_hash
+    };
+
+    results.add_clauses_cont(
+        BaseContinuationTag::Unop.cont_tag_fr(),
+        (&index_hash, env, &cont, &global_allocations.true_num),
+    );
+
+    let (allocated_arg2, saved_env, binop2_cont) = {
         // Continuation::Binop
         let op2 = continuation_components[0].clone();
         let saved_env = tagged_hash_by_index(1, &continuation_components);
@@ -2042,7 +1978,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &mut cs.namespace(|| "Binop cons"),
             global_allocations,
             &unevaled_args,
-            &store,
+            store,
         )?;
 
         let binop2_components = [
@@ -2061,18 +1997,21 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &binop2_components,
         )?;
 
-        // FIXME: If allocated_rest != Nil, then error.
-        add_clauses(
-            BaseContinuationTag::Binop.cont_tag_fr(),
-            (
-                allocated_arg2,
-                saved_env,
-                binop2_cont,
-                global_allocations.false_num.clone(),
-            ),
-        );
-    }
-    {
+        (allocated_arg2, saved_env, binop2_cont)
+    };
+
+    // FIXME: If allocated_rest != Nil, then error.
+    results.add_clauses_cont(
+        BaseContinuationTag::Binop.cont_tag_fr(),
+        (
+            &allocated_arg2,
+            &saved_env,
+            &binop2_cont,
+            &global_allocations.false_num,
+        ),
+    );
+
+    let (res, c) = {
         // Continuation::Binop2
         let op2 = tagged_hash_by_index(0, &continuation_components);
         let arg1 = tagged_hash_by_index(1, &continuation_components);
@@ -2133,23 +2072,23 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &[
                 CaseClause {
                     key: Op2::Sum.fr(),
-                    value: sum,
+                    value: &sum,
                 },
                 CaseClause {
                     key: Op2::Diff.fr(),
-                    value: diff,
+                    value: &diff,
                 },
                 CaseClause {
                     key: Op2::Product.fr(),
-                    value: product,
+                    value: &product,
                 },
                 CaseClause {
                     key: Op2::Quotient.fr(),
-                    value: quotient,
+                    value: &quotient,
                 },
                 CaseClause {
                     key: Op2::Cons.fr(),
-                    value: cons.hash,
+                    value: &cons.hash,
                 },
             ],
             &global_allocations.default.clone(),
@@ -2189,12 +2128,15 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &global_allocations.error_tagged_hash,
         )?;
 
-        add_clauses(
-            BaseContinuationTag::Binop2.cont_tag_fr(),
-            (res, env.clone(), c, global_allocations.true_num.clone()),
-        );
-    }
-    {
+        (res, c)
+    };
+
+    results.add_clauses_cont(
+        BaseContinuationTag::Binop2.cont_tag_fr(),
+        (&res, env, &c, &global_allocations.true_num),
+    );
+
+    let (allocated_arg2, saved_env, relop2_cont) = {
         // Continuation::Relop
         let relop2 = continuation_components[0].clone();
         let saved_env = tagged_hash_by_index(1, &continuation_components);
@@ -2211,7 +2153,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &mut cs.namespace(|| "Relops cons"),
             global_allocations,
             &unevaled_args,
-            &store,
+            store,
         )?;
 
         // FIXME: If allocated_rest != Nil, then error.
@@ -2230,17 +2172,20 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             ],
         )?;
 
-        add_clauses(
-            BaseContinuationTag::Relop.cont_tag_fr(),
-            (
-                allocated_arg2,
-                saved_env,
-                relop2_cont,
-                global_allocations.false_num.clone(),
-            ),
-        );
-    }
-    {
+        (allocated_arg2, saved_env, relop2_cont)
+    };
+
+    results.add_clauses_cont(
+        BaseContinuationTag::Relop.cont_tag_fr(),
+        (
+            &allocated_arg2,
+            &saved_env,
+            &relop2_cont,
+            &global_allocations.false_num,
+        ),
+    );
+
+    let (res, continuation) = {
         // Continuation::Relop2
         let rel2 = tagged_hash_by_index(0, &continuation_components);
         let arg1 = tagged_hash_by_index(1, &continuation_components);
@@ -2298,18 +2243,14 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         // FIXME: Still need to handle:
         // - bad rel2 value (bad input)
         // - NumEqual rel2 without both args being Num (type error).
+        (res, continuation)
+    };
+    results.add_clauses_cont(
+        BaseContinuationTag::Relop2.cont_tag_fr(),
+        (&res, env, &continuation, &global_allocations.true_num),
+    );
 
-        add_clauses(
-            BaseContinuationTag::Relop2.cont_tag_fr(),
-            (
-                res,
-                env.clone(),
-                continuation,
-                global_allocations.true_num.clone(),
-            ),
-        );
-    }
-    {
+    let (res, continuation) = {
         // Continuation::If
         let unevaled_args = tagged_hash_by_index(0, &continuation_components);
         let continuation = tagged_hash_by_index(1, &continuation_components);
@@ -2333,7 +2274,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &mut cs.namespace(|| "If unevaled_args cons"),
             global_allocations,
             &unevaled_args,
-            &store,
+            store,
         )?;
 
         let condition_is_nil = condition.alloc_equal(
@@ -2345,7 +2286,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &mut cs.namespace(|| "If more cons"),
             global_allocations,
             &more,
-            &store,
+            store,
         )?;
 
         let res = pick_tagged_hash(
@@ -2354,70 +2295,58 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &arg2,
             &arg1,
         )?;
+        (res, continuation)
+    };
 
-        add_clauses(
-            BaseContinuationTag::If.cont_tag_fr(),
-            (
-                res,
-                env.clone(),
-                continuation,
-                global_allocations.false_num.clone(),
-            ),
-        );
-    }
-    {
-        // Continuation::Lookup
-        let saved_env = tagged_hash_by_index(0, &continuation_components);
-        let continuation = tagged_hash_by_index(1, &continuation_components);
+    results.add_clauses_cont(
+        BaseContinuationTag::If.cont_tag_fr(),
+        (&res, env, &continuation, &global_allocations.false_num),
+    );
 
-        add_clauses(
-            BaseContinuationTag::Lookup.cont_tag_fr(),
-            (
-                result.clone(),
-                saved_env,
-                continuation,
-                global_allocations.true_num.clone(),
-            ),
-        );
-    }
-    {
-        // Continuation::Simple
-        let continuation = tagged_hash_by_index(0, &continuation_components);
+    // Continuation::Lookup
+    let saved_env = tagged_hash_by_index(0, &continuation_components);
+    let continuation = tagged_hash_by_index(1, &continuation_components);
 
-        add_clauses(
-            BaseContinuationTag::Simple.cont_tag_fr(),
-            (
-                result.clone(),
-                env.clone(),
-                continuation,
-                global_allocations.true_num.clone(),
-            ),
-        );
-    }
-    {
-        // Continuation::Tail
-        let saved_env = tagged_hash_by_index(0, &continuation_components);
-        let continuation = tagged_hash_by_index(1, &continuation_components);
+    results.add_clauses_cont(
+        BaseContinuationTag::Lookup.cont_tag_fr(),
+        (
+            result,
+            &saved_env,
+            &continuation,
+            &global_allocations.true_num,
+        ),
+    );
 
-        add_clauses(
-            BaseContinuationTag::Tail.cont_tag_fr(),
-            (
-                result.clone(),
-                saved_env,
-                continuation,
-                global_allocations.true_num.clone(),
-            ),
-        );
-    }
+    // Continuation::Simple
+    let continuation = tagged_hash_by_index(0, &continuation_components);
+
+    results.add_clauses_cont(
+        BaseContinuationTag::Simple.cont_tag_fr(),
+        (result, env, &continuation, &global_allocations.true_num),
+    );
+
+    // Continuation::Tail
+    let saved_env = tagged_hash_by_index(0, &continuation_components);
+    let continuation = tagged_hash_by_index(1, &continuation_components);
+
+    results.add_clauses_cont(
+        BaseContinuationTag::Tail.cont_tag_fr(),
+        (
+            result,
+            &saved_env,
+            &continuation,
+            &global_allocations.true_num,
+        ),
+    );
 
     let all_clauses = [
-        result_expr_tag_clauses.as_slice(),
-        result_expr_hash_clauses.as_slice(),
-        result_env_tag_clauses.as_slice(),
-        result_env_hash_clauses.as_slice(),
-        result_cont_tag_clauses.as_slice(),
-        result_cont_hash_clauses.as_slice(),
-        result_make_thunk_num_clauses.as_slice(),
+        &results.expr_tag_clauses[..],
+        &results.expr_hash_clauses[..],
+        &results.env_tag_clauses[..],
+        &results.env_hash_clauses[..],
+        &results.cont_tag_clauses[..],
+        &results.cont_hash_clauses[..],
+        &results.make_thunk_num_clauses[..],
     ];
 
     let case_results = multi_case(
