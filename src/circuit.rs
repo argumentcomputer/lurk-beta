@@ -112,7 +112,28 @@ fn bind_continuation_tag_hash<CS: ConstraintSystem<Fr>>(
     Ok((tag, hash))
 }
 
-impl Circuit<Fr> for Frame<IO, Witness> {
+#[derive(Default, Clone, PartialEq, PartialOrd, Eq)]
+pub struct CircuitFrame<T, W> {
+    pub input: Option<T>,
+    pub output: Option<T>,
+    pub initial: Option<T>,
+    pub i: Option<usize>,
+    pub witness: Option<W>,
+}
+
+impl<T, W> CircuitFrame<T, W> {
+    pub fn from_frame(frame: Frame<T, W>) -> Self {
+        CircuitFrame {
+            input: Some(frame.input),
+            output: Some(frame.output),
+            initial: Some(frame.initial),
+            i: Some(frame.i),
+            witness: Some(frame.witness),
+        }
+    }
+}
+
+impl Circuit<Fr> for CircuitFrame<IO, Witness> {
     fn synthesize<CS: ConstraintSystem<Fr>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         if let Some(w) = &self.witness {
             if let Some(s) = &w.store {
@@ -2642,25 +2663,25 @@ mod tests {
         let initial = input.clone();
         let (_, witness) = input.eval(&mut store);
 
-        let groth_params = Frame::groth_params().unwrap();
+        let groth_params = CircuitFrame::groth_params().unwrap();
         let vk = &groth_params.vk;
 
         let test_with_output = |output, expect_success, pvk| {
             let mut cs = TestConstraintSystem::new();
 
             let mut cs_blank = MetricCS::<Fr>::new();
-            let blank_frame = Frame::blank();
+            let blank_frame = CircuitFrame::blank();
             blank_frame
                 .synthesize(&mut cs_blank)
                 .expect("failed to synthesize");
 
-            let frame = Frame {
-                input: Some(input.clone()),
-                output: Some(output),
-                initial: Some(initial.clone()),
-                i: Some(0),
-                witness: Some(witness.clone()),
-            };
+            let frame = CircuitFrame::from_frame(Frame {
+                input: input.clone(),
+                output,
+                initial: initial.clone(),
+                i: 0,
+                witness: witness.clone(),
+            });
 
             frame
                 .clone()
@@ -2679,7 +2700,7 @@ mod tests {
 
             let proof = frame.clone().prove(Some(&groth_params), &mut rng).unwrap();
             let cs_verified = cs.is_satisfied() && cs.verify(&public_inputs);
-            let verified = Frame::verify_groth16_proof(pvk, proof, frame).unwrap();
+            let verified = frame.verify_groth16_proof(pvk, proof).unwrap();
 
             if expect_success {
                 assert!(cs_verified);
@@ -2756,14 +2777,16 @@ mod tests {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
-                input: Some(input.clone()),
-                output: Some(output),
-                initial: Some(initial.clone()),
-                i: Some(0),
-                witness: Some(witness.clone()),
+                input: input.clone(),
+                output,
+                initial: initial.clone(),
+                i: 0,
+                witness: witness.clone(),
             };
 
-            frame.synthesize(&mut cs).expect("failed to synthesize");
+            CircuitFrame::from_frame(frame)
+                .synthesize(&mut cs)
+                .expect("failed to synthesize");
 
             if expect_success {
                 assert!(cs.is_satisfied());
@@ -2829,14 +2852,16 @@ mod tests {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
-                input: Some(input.clone()),
-                output: Some(output),
-                initial: Some(initial.clone()),
-                i: Some(0),
-                witness: Some(witness.clone()),
+                input: input.clone(),
+                output,
+                initial: initial.clone(),
+                i: 0,
+                witness: witness.clone(),
             };
 
-            frame.synthesize(&mut cs).expect("failed to synthesize");
+            CircuitFrame::from_frame(frame)
+                .synthesize(&mut cs)
+                .expect("failed to synthesize");
 
             if expect_success {
                 assert!(cs.is_satisfied());
@@ -2906,14 +2931,16 @@ mod tests {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
-                input: Some(input.clone()),
-                output: Some(output),
-                initial: Some(initial.clone()),
-                i: Some(0),
-                witness: Some(witness.clone()),
+                input: input.clone(),
+                output,
+                initial: initial.clone(),
+                i: 0,
+                witness: witness.clone(),
             };
 
-            frame.synthesize(&mut cs).expect("failed to synthesize");
+            CircuitFrame::from_frame(frame)
+                .synthesize(&mut cs)
+                .expect("failed to synthesize");
 
             if expect_success {
                 assert!(cs.is_satisfied());
@@ -2978,14 +3005,16 @@ mod tests {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
-                input: Some(input.clone()),
-                output: Some(output),
-                initial: Some(initial.clone()),
-                i: Some(0),
-                witness: Some(witness.clone()),
+                input: input.clone(),
+                output,
+                initial: initial.clone(),
+                i: 0,
+                witness: witness.clone(),
             };
 
-            frame.synthesize(&mut cs).expect("failed to synthesize");
+            CircuitFrame::from_frame(frame)
+                .synthesize(&mut cs)
+                .expect("failed to synthesize");
 
             if expect_success {
                 assert!(cs.is_satisfied());

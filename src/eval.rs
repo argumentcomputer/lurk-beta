@@ -4,33 +4,26 @@ use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
 use std::ops::{AddAssign, MulAssign, SubAssign};
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq)]
 pub struct IO {
     pub expr: Expression,
     pub env: Expression,
     pub cont: Continuation, // This could be an Expression too, if we want Continuations to be first class.
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq)]
 pub struct Frame<T, W> {
-    pub input: Option<T>,
-    pub output: Option<T>,
-    pub initial: Option<T>,
-    pub i: Option<usize>,
-    pub witness: Option<W>,
+    pub input: T,
+    pub output: T,
+    pub initial: T,
+    pub i: usize,
+    pub witness: W,
 }
 
 impl<T: PartialEq + std::fmt::Debug, W> Frame<T, W> {
     pub fn precedes(&self, maybe_next: &Self) -> bool {
-        let sequential = match (self.i, maybe_next.i) {
-            (Some(i), Some(j)) => j == i + 1,
-            _ => false,
-        };
-
-        let io_match = match (&self.output, &maybe_next.input) {
-            (Some(output), Some(input)) => output == input,
-            _ => false,
-        };
+        let sequential = self.i + 1 == maybe_next.i;
+        let io_match = self.output == maybe_next.input;
 
         sequential && io_match
     }
@@ -59,17 +52,14 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
     fn next(&self, store: &mut Store) -> Self {
         let mut input = self.output.clone();
 
-        if let Some((output, witness)) = input.clone().map(|i| i.eval(store)) {
-            let i = self.i.map(|i| i + 1);
-            Self {
-                input,
-                output: Some(output),
-                initial: self.initial.clone(),
-                i,
-                witness: Some(witness),
-            }
-        } else {
-            panic!("Frame has no output, so cannot produce next().");
+        let (output, witness) = input.clone().eval(store);
+        let i = self.i + 1;
+        Self {
+            input,
+            output,
+            initial: self.initial.clone(),
+            i,
+            witness,
         }
     }
 }
@@ -79,11 +69,11 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
         let (output, witness) = input.eval(store);
 
         Self {
-            input: Some(input.clone()),
-            output: Some(output),
-            initial: Some(input.clone()),
-            i: Some(0),
-            witness: Some(witness),
+            input: input.clone(),
+            output,
+            initial: input.clone(),
+            i: 0,
+            witness,
         }
     }
 }
@@ -109,7 +99,7 @@ impl<'a, T: Evaluable<Witness> + Clone + PartialEq> Iterator for FrameIt<'a, T, 
 
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         if let Some(next_frame) = if let Some(frame) = &self.frame {
-            if frame.output.as_ref().unwrap().is_terminal() {
+            if frame.output.is_terminal() {
                 None
             } else {
                 Some(frame.next(self.store))
@@ -842,40 +832,43 @@ fn make_tail_continuation(env: &Expression, continuation: &Continuation) -> Cont
     // point to one another: they can only be nested one deep.
 }
 
-pub fn outer_evaluate(
+pub struct Evaluator<'a> {
     expr: Expression,
     env: Expression,
-    store: &mut Store,
+    store: &'a mut Store,
     limit: usize,
-) -> (Expression, Expression, usize, Continuation) {
-    let frame_iterator = outer_evaluate_iterator(expr, env, store, limit);
-
-    if let Some(last_frame) = frame_iterator.last() {
-        let output = last_frame.output.unwrap();
-        (
-            output.expr,
-            output.env,
-            last_frame.i.map(|i| i + 1).unwrap(),
-            output.cont,
-        )
-    } else {
-        panic!("xxx")
-    }
 }
 
-pub fn outer_evaluate_iterator(
-    expr: Expression,
-    env: Expression,
-    store: &mut Store,
-    limit: usize,
-) -> Take<FrameIt<'_, IO, Witness>> {
-    let initial_input = IO {
-        expr,
-        env,
-        cont: Continuation::Outermost,
-    };
+impl<'a> Evaluator<'a> {
+    pub fn new(expr: Expression, env: Expression, store: &'a mut Store, limit: usize) -> Self {
+        Evaluator {
+            expr,
+            env,
+            store,
+            limit,
+        }
+    }
 
-    FrameIt::new(initial_input, store).take(limit)
+    pub fn eval(&mut self) -> (Expression, Expression, usize, Continuation) {
+        let frame_iterator = self.iter();
+
+        if let Some(last_frame) = frame_iterator.last() {
+            let output = last_frame.output;
+            (output.expr, output.env, last_frame.i + 1, output.cont)
+        } else {
+            panic!("xxx")
+        }
+    }
+
+    pub fn iter(&mut self) -> Take<FrameIt<'_, IO, Witness>> {
+        let initial_input = IO {
+            expr: self.expr.clone(),
+            env: self.env.clone(),
+            cont: Continuation::Outermost,
+        };
+
+        FrameIt::new(initial_input, self.store).take(self.limit)
+    }
 }
 
 pub fn empty_sym_env(_store: &Store) -> Expression {
@@ -997,7 +990,7 @@ mod test {
         let limit = 20;
         let val = Expression::num(999);
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(val.clone(), empty_sym_env(&store), &mut store, limit);
+            Evaluator::new(val.clone(), empty_sym_env(&store), &mut store, limit).eval();
 
         assert_eq!(1, iterations);
         assert_eq!(&result_expr, &val);
@@ -1016,7 +1009,7 @@ mod test {
 
         {
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(var.clone(), env.clone(), &mut store, limit);
+                Evaluator::new(var.clone(), env.clone(), &mut store, limit).eval();
 
             assert_eq!(1, iterations);
             assert_eq!(&result_expr, &val);
@@ -1024,7 +1017,7 @@ mod test {
         {
             let env2 = extend(&env, &var2, &val2, &mut store);
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(var, env2, &mut store, limit);
+                Evaluator::new(var, env2, &mut store, limit).eval();
 
             assert_eq!(2, iterations);
             assert_eq!(&result_expr, &val);
@@ -1057,7 +1050,7 @@ mod test {
         let expr = s.read("((lambda (x) x) 123)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(4, iterations);
         assert_eq!(val, result_expr);
@@ -1071,7 +1064,7 @@ mod test {
         let expr = s.read("((lambda (y) ((lambda (x) y) 321)) 123)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(9, iterations);
         assert_eq!(val, result_expr);
@@ -1087,7 +1080,7 @@ mod test {
             .unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(10, iterations);
         assert_eq!(val, result_expr);
@@ -1105,7 +1098,7 @@ mod test {
             .unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(10, iterations);
         assert_eq!(val2, result_expr);
@@ -1122,7 +1115,7 @@ mod test {
             .unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(13, iterations);
         assert_eq!(val, result_expr);
@@ -1135,7 +1128,7 @@ mod test {
         let expr = s.read("(+ 2 (+ 3 4))").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(6, iterations);
         assert_eq!(Expression::num(9), result_expr);
@@ -1148,7 +1141,7 @@ mod test {
         let expr = s.read("(- 9 5)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(3, iterations);
         assert_eq!(Expression::num(4), result_expr);
@@ -1161,7 +1154,7 @@ mod test {
         let expr = s.read("(* 9 5)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(3, iterations);
         assert_eq!(Expression::num(45), result_expr);
@@ -1174,7 +1167,7 @@ mod test {
         let expr = s.read("(/ 21 7)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(3, iterations);
         assert_eq!(Expression::num(3), result_expr);
@@ -1190,7 +1183,7 @@ mod test {
         let expr = s.read("(/ 21 0)").unwrap();
 
         let (_result_expr, _new_env, _iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
     }
 
     #[test]
@@ -1202,7 +1195,7 @@ mod test {
             let expr = s.read("(= 5 5)").unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(3, iterations);
             // TODO: Consider special-casing T, like NIL, and force it to the
@@ -1217,7 +1210,7 @@ mod test {
             let expr = s.read("(= 5 6)").unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(3, iterations);
             assert_eq!(Expression::Nil, result_expr);
@@ -1231,7 +1224,7 @@ mod test {
         let expr = s.read("(((lambda (x) (lambda (y) (+ x y))) 2) 3)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(13, iterations);
         assert_eq!(Expression::num(5), result_expr);
@@ -1250,7 +1243,7 @@ mod test {
             .unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(15, iterations);
         assert_eq!(Expression::num(5), result_expr);
@@ -1263,7 +1256,7 @@ mod test {
         let expr = s.read("(let* ((a 1)) a)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(3, iterations);
         assert_eq!(Expression::num(1), result_expr);
@@ -1276,7 +1269,7 @@ mod test {
         let expr = s.read("(let* () (+ 1 2))").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(4, iterations);
         assert_eq!(Expression::num(3), result_expr);
@@ -1295,7 +1288,7 @@ mod test {
             .unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(10, iterations);
         assert_eq!(Expression::num(3), result_expr);
@@ -1308,8 +1301,7 @@ mod test {
         let expr = s.read("(let* ((a 1) (b a)) b)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
-
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(5, iterations);
         assert_eq!(Expression::num(1), result_expr);
     }
@@ -1328,7 +1320,7 @@ mod test {
             .unwrap();
 
         let (result_expr, new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(18, iterations);
         assert_eq!(Expression::num(3), result_expr);
@@ -1359,7 +1351,7 @@ mod test {
                 .unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(35, iterations);
             assert_eq!(Expression::num(5), result_expr);
@@ -1383,7 +1375,7 @@ mod test {
                 .unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(32, iterations);
             assert_eq!(Expression::num(6), result_expr);
@@ -1398,7 +1390,7 @@ mod test {
             let expr = s.read("(if t 5 6)").unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(3, iterations);
             assert_eq!(Expression::num(5), result_expr);
@@ -1408,7 +1400,7 @@ mod test {
             let expr = s.read("(if nil 5 6)").unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(3, iterations);
             assert_eq!(Expression::num(6), result_expr);
@@ -1423,7 +1415,7 @@ mod test {
             let expr = s.read("(if t (+ 5 5) 6)").unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(5, iterations);
             assert_eq!(Expression::num(10), result_expr);
@@ -1446,7 +1438,7 @@ mod test {
             .unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(91, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
@@ -1468,7 +1460,7 @@ mod test {
             .unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(201, iterations);
         assert_eq!(Expression::num(3125), result_expr);
     }
@@ -1488,7 +1480,7 @@ mod test {
             .unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(95, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
@@ -1511,7 +1503,7 @@ mod test {
             .unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(75, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
@@ -1533,7 +1525,7 @@ mod test {
             .unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(129, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
@@ -1557,7 +1549,7 @@ mod test {
             .unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(110, iterations);
         assert_eq!(Expression::num(125), result_expr);
     }
@@ -1575,7 +1567,7 @@ mod test {
             .unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(22, iterations);
         assert_eq!(Expression::num(13), result_expr);
     }
@@ -1593,7 +1585,7 @@ mod test {
             .unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(31, iterations);
         assert_eq!(Expression::num(11), result_expr);
     }
@@ -1622,7 +1614,7 @@ mod test {
             .unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
-            outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(242, iterations);
         assert_eq!(Expression::num(33), result_expr);
     }
@@ -1635,7 +1627,7 @@ mod test {
             let expr = s.read("(eq 'a 'a)").unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(3, iterations);
             assert_eq!(s.intern("T"), result_expr);
@@ -1646,7 +1638,7 @@ mod test {
             let expr = s.read("(eq 'a 1)").unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(3, iterations);
             assert_eq!(Expression::Nil, result_expr);
@@ -1661,7 +1653,7 @@ mod test {
             let expr = s.read("((lambda () 123))").unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(4, iterations);
             assert_eq!(Expression::num(123), result_expr);
@@ -1674,7 +1666,7 @@ mod test {
                 .unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(14, iterations);
             assert_eq!(Expression::num(10), result_expr);
@@ -1710,7 +1702,7 @@ mod test {
                                                                    (reverse-tree (car tree)))))))
                                 (reverse-tree (make-tree '(a b c d e f g h))))").unwrap();
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(493, iterations);
             assert_eq!(
@@ -1738,7 +1730,7 @@ mod test {
                 )
                 .unwrap();
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(1000, iterations);
         }
@@ -1759,7 +1751,7 @@ mod test {
                 )
                 .unwrap();
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(s.read("((2 . 3) . (4 . 5))").unwrap(), result_expr);
 
@@ -1784,7 +1776,7 @@ mod test {
                 )
                 .unwrap();
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(Expression::Nil, result_expr);
 
@@ -1818,7 +1810,7 @@ mod test {
                 )
                 .unwrap();
             let (result_expr, _new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(Expression::Nil, result_expr);
 
@@ -1842,7 +1834,7 @@ mod test {
                 )
                 .unwrap();
             let (result_expr, new_env, iterations, _continuation) =
-                outer_evaluate(expr, empty_sym_env(&s), &mut s, limit);
+                Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(Expression::num(18), result_expr);
             assert_eq!(22, iterations);

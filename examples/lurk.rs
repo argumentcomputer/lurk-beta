@@ -1,6 +1,6 @@
 use anyhow::Result;
 use lurk::data::{Continuation, Expression, Store};
-use lurk::eval::{empty_sym_env, outer_evaluate};
+use lurk::eval::{empty_sym_env, Evaluator};
 use rustyline::error::ReadlineError;
 use rustyline::validate::{
     MatchingBracketValidator, ValidationContext, ValidationResult, Validator,
@@ -108,7 +108,7 @@ fn main() -> Result<()> {
 
                 if let Some(expr) = s.read(&line) {
                     let (result, _next_env, iterations, next_cont) =
-                        outer_evaluate(expr, repl.state.env.clone(), &mut s, limit);
+                        Evaluator::new(expr, repl.state.env.clone(), &mut s, limit).eval();
                     print!("[{} iterations] => ", iterations);
                     let mut handle = stdout.lock();
                     s.print_expr(&result, &mut handle)?;
@@ -149,7 +149,7 @@ impl ReplState {
         store: &mut Store,
     ) -> (Expression, usize, Continuation) {
         let (result, _next_env, limit, next_cont) =
-            outer_evaluate(expr, self.env.clone(), store, self.limit);
+            Evaluator::new(expr, self.env.clone(), store, self.limit).eval();
 
         (result, limit, next_cont)
     }
