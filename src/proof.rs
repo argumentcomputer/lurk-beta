@@ -32,7 +32,7 @@ pub struct Proof<E: Engine> {
     groth16_proof: groth16::Proof<E>,
 }
 
-impl<W> Provable for CircuitFrame<IO, W> {
+impl<W> Provable for CircuitFrame<'_, IO, W> {
     fn public_inputs(&self) -> Vec<Fr> {
         let mut inputs: Vec<Fr> = Vec::with_capacity(10);
 
@@ -66,10 +66,10 @@ impl IO {
     }
 }
 
-impl CircuitFrame<IO, Witness> {
-    pub fn blank() -> Self {
+impl<'a> CircuitFrame<'a, IO, Witness> {
+    pub fn blank(store: &'a Store) -> Self {
         Self {
-            store: Store::default(),
+            store,
             input: None,
             output: None,
             initial: None,
@@ -90,7 +90,8 @@ impl CircuitFrame<IO, Witness> {
     }
 
     pub fn groth_params() -> Result<groth16::Parameters<Bls12>, SynthesisError> {
-        Self::blank().frame_groth_params()
+        let store = Store::default();
+        CircuitFrame::<IO, Witness>::blank(&store).frame_groth_params()
     }
 
     pub fn prove<R: RngCore>(
@@ -213,7 +214,7 @@ fn verify_sequential_css(
     Ok(true)
 }
 
-impl CircuitFrame<IO, Witness> {
+impl CircuitFrame<'_, IO, Witness> {
     pub fn generate_groth16_proof<R: RngCore>(
         self,
         groth_params: Option<&groth16::Parameters<Bls12>>,
@@ -310,7 +311,8 @@ mod tests {
 
     pub fn check_cs_deltas(constraint_systems: &SequentialCS<IO, Witness>, limit: usize) -> () {
         let mut cs_blank = MetricCS::<Fr>::new();
-        let blank_frame = CircuitFrame::blank();
+        let store = Store::default();
+        let blank_frame = CircuitFrame::blank(&store);
         blank_frame
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize");

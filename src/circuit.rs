@@ -112,9 +112,9 @@ fn bind_continuation_tag_hash<CS: ConstraintSystem<Fr>>(
     Ok((tag, hash))
 }
 
-#[derive(Default, Clone, PartialEq)]
-pub struct CircuitFrame<T, W> {
-    pub store: Store,
+#[derive(Clone, PartialEq)]
+pub struct CircuitFrame<'a, T, W> {
+    pub store: &'a Store,
     pub input: Option<T>,
     pub output: Option<T>,
     pub initial: Option<T>,
@@ -122,10 +122,10 @@ pub struct CircuitFrame<T, W> {
     pub witness: Option<W>,
 }
 
-impl<T, W> CircuitFrame<T, W> {
-    pub fn from_frame(frame: Frame<T, W>, store: &Store) -> Self {
+impl<'a, T, W> CircuitFrame<'a, T, W> {
+    pub fn from_frame(frame: Frame<T, W>, store: &'a Store) -> Self {
         CircuitFrame {
-            store: store.clone(), // TODO: store reference instead
+            store,
             input: Some(frame.input),
             output: Some(frame.output),
             initial: Some(frame.initial),
@@ -135,7 +135,7 @@ impl<T, W> CircuitFrame<T, W> {
     }
 }
 
-impl Circuit<Fr> for CircuitFrame<IO, Witness> {
+impl Circuit<Fr> for CircuitFrame<'_, IO, Witness> {
     fn synthesize<CS: ConstraintSystem<Fr>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         if let Some(w) = &self.witness {
             let s = &self.store;
@@ -2652,7 +2652,7 @@ mod tests {
             let mut cs = TestConstraintSystem::new();
 
             let mut cs_blank = MetricCS::<Fr>::new();
-            let blank_frame = CircuitFrame::blank();
+            let blank_frame = CircuitFrame::blank(store);
             blank_frame
                 .synthesize(&mut cs_blank)
                 .expect("failed to synthesize");
