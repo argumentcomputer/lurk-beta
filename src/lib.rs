@@ -1,4 +1,3 @@
-#![allow(unused)] // TODO: Eventually remove this.
 #![allow(clippy::single_match)]
 
 #[macro_use]

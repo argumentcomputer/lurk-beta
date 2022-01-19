@@ -1,3 +1,5 @@
+#![allow(unused_macros)]
+
 // Enforces constraint that a implies b.
 macro_rules! if_then {
     ($cs:ident, $a:expr, $b:expr) => {
@@ -97,7 +99,7 @@ macro_rules! implies_equal {
             $cs.namespace(|| format!("enforce_implication {} {}", stringify!($a), stringify!($b))),
             $condition,
             &equal,
-        );
+        )?;
     };
 }
 
@@ -109,7 +111,7 @@ macro_rules! implies_equal_t {
             $cs.namespace(|| format!("enforce_implication {} {}", stringify!($a), stringify!($b))),
             $condition,
             &equal,
-        );
+        )?;
     };
 }
 

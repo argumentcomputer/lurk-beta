@@ -4,7 +4,6 @@ use bellperson::{
     gadgets::{
         boolean::{AllocatedBit, Boolean},
         num::AllocatedNum,
-        Assignment,
     },
     ConstraintSystem, SynthesisError,
 };
@@ -180,6 +179,7 @@ pub fn div<F: PrimeField, CS: ConstraintSystem<F>>(
 /// Select the nth element of `from`, where `path_bits` represents n, least-significant bit first.
 /// The returned result contains the selected element, and constraints are enforced.
 /// `from.len()` must be a power of two.
+#[allow(dead_code)]
 pub fn select<CS: ConstraintSystem<Fr>>(
     mut cs: CS,
     from: &[AllocatedNum<Fr>],
@@ -363,6 +363,7 @@ pub fn enforce_true<CS: ConstraintSystem<F>, F: PrimeField>(cs: CS, prop: &Boole
     Boolean::enforce_equal(cs, &Boolean::Constant(true), prop).unwrap(); // FIXME: unwrap
 }
 
+#[allow(dead_code)]
 pub fn enforce_false<CS: ConstraintSystem<F>, F: PrimeField>(cs: CS, prop: &Boolean) {
     Boolean::enforce_equal(cs, &Boolean::Constant(false), prop).unwrap(); // FIXME: unwrap
 }
@@ -389,6 +390,7 @@ pub fn or<CS: ConstraintSystem<F>, F: PrimeField>(
     )?))
 }
 
+#[allow(dead_code)]
 pub fn must_be_simple_bit(x: &Boolean) -> AllocatedBit {
     match x {
         Boolean::Constant(_) => panic!("Expected a non-constant Boolean."),

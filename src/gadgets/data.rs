@@ -2,18 +2,14 @@ use crate::data::{
     BaseContinuationTag, Continuation, Expression, Op1, Op2, Rel2, Store, Tag, TaggedHash, Thunk,
     POSEIDON_CONSTANTS_4, POSEIDON_CONSTANTS_6, POSEIDON_CONSTANTS_8,
 };
-use crate::eval::{Control, Frame, Witness, IO};
-use crate::gadgets::constraints::{alloc_equal, enforce_implication, equal, pick};
+use crate::eval::Witness;
+use crate::gadgets::constraints::{alloc_equal, equal, pick};
 use bellperson::{
-    gadgets::{
-        boolean::{AllocatedBit, Boolean},
-        num::AllocatedNum,
-    },
-    groth16::{self, verify_proof},
-    Circuit, ConstraintSystem, SynthesisError,
+    gadgets::{boolean::Boolean, num::AllocatedNum},
+    ConstraintSystem, SynthesisError,
 };
 use blstrs::Scalar as Fr;
-use ff::{Field, PrimeField};
+use ff::Field;
 use neptune::circuit::poseidon_hash;
 
 #[derive(Clone)]
@@ -110,7 +106,7 @@ impl AllocatedTaggedHash {
 
     pub fn allocate_thunk_components<CS: ConstraintSystem<Fr>>(
         &self,
-        mut cs: CS,
+        cs: CS,
         store: &Store,
     ) -> Result<(AllocatedNum<Fr>, AllocatedTaggedHash, AllocatedTaggedHash), SynthesisError> {
         let maybe_thunk = if let Some(tagged_hash) = self.tagged_hash() {
@@ -355,7 +351,7 @@ impl Expression {
 
 impl Continuation {
     pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
+        cs: CS,
         cont: &Option<Continuation>,
     ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
         if let Some(cont) = cont {
@@ -428,7 +424,7 @@ impl Continuation {
 
 impl Expression {
     pub fn allocate_maybe_fun<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
+        cs: CS,
         maybe_fun: Option<&Expression>,
     ) -> Result<
         (
@@ -495,7 +491,7 @@ impl Expression {
     }
 
     fn allocate_dummy_fun<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
+        cs: CS,
     ) -> Result<
         (
             AllocatedNum<Fr>,
@@ -669,7 +665,7 @@ impl Rel2 {
 
 impl Thunk {
     pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
+        cs: CS,
         thunk: &Option<Thunk>,
     ) -> Result<(AllocatedNum<Fr>, AllocatedTaggedHash, AllocatedTaggedHash), SynthesisError> {
         let (hash, components) = if let Some(thunk) = thunk {

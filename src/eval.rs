@@ -1,6 +1,5 @@
 use crate::data::{Continuation, Expression, Op1, Op2, Rel2, Store, Tag, Tagged, Thunk};
 use ff::Field;
-use itertools::WithPosition;
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
 use std::ops::{AddAssign, MulAssign, SubAssign};
@@ -51,7 +50,7 @@ impl Evaluable<Witness> for IO {
 
 impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
     fn next(&self, store: &mut Store) -> Self {
-        let mut input = self.output.clone();
+        let input = self.output.clone();
 
         let (output, witness) = input.clone().eval(store);
         let i = self.i + 1;
@@ -762,9 +761,9 @@ fn invoke_continuation(
             if condition == Expression::Nil {
                 let (arg2, end) = store.car_cdr(&more);
                 assert_eq!(end, Expression::Nil);
-                Control::Return(arg2, env.clone(), (*continuation.clone()))
+                Control::Return(arg2, env.clone(), *continuation.clone())
             } else {
-                Control::Return(arg1, env.clone(), (*continuation.clone()))
+                Control::Return(arg1, env.clone(), *continuation.clone())
             }
         }
         Continuation::Lookup(saved_env, continuation) => {
@@ -778,7 +777,7 @@ fn invoke_continuation(
         }
     };
 
-    let (output_result, output_env, output_cont) = control.results();
+    let (output_result, _output_env, output_cont) = control.results();
 
     witness.invoke_continuation_output_result = Some(output_result);
     witness.invoke_continuation_output_cont = Some(output_cont);
@@ -824,7 +823,8 @@ fn make_thunk(
     };
 
     {
-        let (output_result, output_env, output_cont) = control.results();
+        // FIXME: use?
+        let (_output_result, _output_env, _output_cont) = control.results();
     }
     control
 }
@@ -1738,7 +1738,7 @@ mod test {
                                  (fn-2 '(a b c d e f g h)))",
                 )
                 .unwrap();
-            let (result_expr, _new_env, iterations, _continuation) =
+            let (_result_expr, _new_env, iterations, _continuation) =
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(1000, iterations);
@@ -1842,7 +1842,7 @@ mod test {
                          (l 9)))",
                 )
                 .unwrap();
-            let (result_expr, new_env, iterations, _continuation) =
+            let (result_expr, _new_env, iterations, _continuation) =
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(Expression::num(18), result_expr);

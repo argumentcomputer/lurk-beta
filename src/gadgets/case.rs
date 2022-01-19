@@ -1,8 +1,8 @@
-use super::constraints::{add, alloc_is_zero, equal, mul, pick, select, sub};
+use super::constraints::{alloc_is_zero, pick};
 use bellperson::{
     gadgets::boolean::{AllocatedBit, Boolean},
     gadgets::num::AllocatedNum,
-    ConstraintSystem, LinearCombination, SynthesisError,
+    ConstraintSystem, SynthesisError,
 };
 use blstrs::Scalar as Fr;
 use ff::{Field, PrimeField};
@@ -220,12 +220,13 @@ pub fn multi_case<CS: ConstraintSystem<Fr>>(
     }
     Ok(result)
 }
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use bellperson::util_cs::{
         metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta,
     };
-    use ff::PrimeField;
 
     use crate::data::fr_from_u64;
 
@@ -283,6 +284,7 @@ mod tests {
             assert!(cs.is_satisfied());
         }
     }
+
     #[test]
     fn groth_case() {
         let mut cs = TestConstraintSystem::<Fr>::new();
@@ -291,7 +293,7 @@ mod tests {
         let x = fr_from_u64(123);
         let y = fr_from_u64(124);
         let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
-        let selected_blank = AllocatedNum::alloc(cs_blank.namespace(|| "selected"), || {
+        let _selected_blank = AllocatedNum::alloc(cs_blank.namespace(|| "selected"), || {
             Err(SynthesisError::AssignmentMissing)
         })
         .unwrap();
@@ -345,7 +347,7 @@ mod tests {
                 },
             ];
 
-            let result = case(
+            let _result = case(
                 &mut cs_blank.namespace(|| "selected case"),
                 &selected,
                 &clauses_blank,
