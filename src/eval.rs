@@ -123,7 +123,6 @@ impl<'a, T: Evaluable<Witness> + Clone + PartialEq> Iterator for FrameIt<'a, T, 
 pub struct Witness {
     // TODO: Many of these fields ended up not being used.
     // once circuit is done, remove the excess.
-    pub store: Store,
     pub prethunk_output_expr: Expression,
     pub prethunk_output_env: Expression,
     pub prethunk_output_cont: Continuation,
@@ -553,7 +552,6 @@ fn eval_expr_with_witness(
     store.store_continuation(&new_cont);
 
     let mut witness = Witness {
-        store: store.clone(),
         prethunk_output_expr: new_expr,
         prethunk_output_env: new_env,
         prethunk_output_cont: new_cont,

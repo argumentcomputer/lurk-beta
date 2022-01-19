@@ -69,6 +69,7 @@ impl IO {
 impl CircuitFrame<IO, Witness> {
     pub fn blank() -> Self {
         Self {
+            store: Store::default(),
             input: None,
             output: None,
             initial: None,
@@ -110,18 +111,24 @@ impl CircuitFrame<IO, Witness> {
         limit: usize,
         mut rng: R,
     ) -> Result<SequentialProofs<Bls12, IO, Witness>, SynthesisError> {
-        Ok(Evaluator::new(expr, env, store, limit)
+        // FIXME: optimize execution order
+        let frames = Evaluator::new(expr, env, store, limit)
             .iter()
-            // FIXME: Don't clone the RNG.
+            .collect::<Vec<_>>();
+
+        // FIXME: Don't clone the RNG.
+        let res = frames
+            .into_iter()
             .map(|frame| {
                 (
                     frame.clone(),
-                    CircuitFrame::from_frame(frame)
+                    CircuitFrame::from_frame(frame, store)
                         .prove(Some(params), rng.clone())
                         .unwrap(),
                 )
             })
-            .collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        Ok(res)
     }
 
     pub fn outer_synthesize(
@@ -130,16 +137,20 @@ impl CircuitFrame<IO, Witness> {
         store: &mut Store,
         limit: usize,
     ) -> Result<SequentialCS<IO, Witness>, SynthesisError> {
-        Ok(Evaluator::new(expr, env, store, limit)
+        let frames = Evaluator::new(expr, env, store, limit)
             .iter()
+            .collect::<Vec<_>>();
+        let res = frames
+            .into_iter()
             .map(|frame| {
                 let mut cs = TestConstraintSystem::new();
-                CircuitFrame::from_frame(frame.clone())
+                CircuitFrame::from_frame(frame.clone(), store)
                     .synthesize(&mut cs)
                     .unwrap();
                 (frame, cs)
             })
-            .collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        Ok(res)
     }
 }
 
@@ -149,6 +160,7 @@ type SequentialCS<IO, Witness> = Vec<(Frame<IO, Witness>, TestConstraintSystem<F
 fn verify_sequential_groth16_proofs(
     proofs: SequentialProofs<Bls12, IO, Witness>,
     vk: groth16::VerifyingKey<Bls12>,
+    store: &Store,
 ) -> Result<bool, SynthesisError> {
     let mut previous_frame: Option<&Frame<IO, Witness>> = None;
 
@@ -161,7 +173,7 @@ fn verify_sequential_groth16_proofs(
         }
 
         let pvk = groth16::prepare_verifying_key(&vk);
-        if !CircuitFrame::from_frame(frame).verify_groth16_proof(pvk, proof.clone())? {
+        if !CircuitFrame::from_frame(frame, store).verify_groth16_proof(&pvk, proof.clone())? {
             return Ok(false);
         }
     }
@@ -172,7 +184,10 @@ fn verify_sequential_groth16_proofs(
 }
 
 #[allow(clippy::ptr_arg)]
-fn verify_sequential_css(css: &SequentialCS<IO, Witness>) -> Result<bool, SynthesisError> {
+fn verify_sequential_css(
+    css: &SequentialCS<IO, Witness>,
+    store: &Store,
+) -> Result<bool, SynthesisError> {
     let mut previous_frame: Option<&Frame<IO, Witness>> = None;
 
     for (i, (frame, cs)) in css.iter().enumerate() {
@@ -180,7 +195,7 @@ fn verify_sequential_css(css: &SequentialCS<IO, Witness>) -> Result<bool, Synthe
         let w = &frame.witness;
         let input = &frame.input;
 
-        dbg!(frame.witness.store.write_expr_str(&input.expr));
+        dbg!(store.write_expr_str(&input.expr));
 
         if let Some(prev) = previous_frame {
             if !prev.precedes(frame) {
@@ -188,7 +203,7 @@ fn verify_sequential_css(css: &SequentialCS<IO, Witness>) -> Result<bool, Synthe
             }
         }
 
-        let public_inputs = CircuitFrame::from_frame(frame.clone()).public_inputs();
+        let public_inputs = CircuitFrame::from_frame(frame.clone(), store).public_inputs();
 
         if !(cs.is_satisfied() && cs.verify(&public_inputs)) {
             return Ok(false);
@@ -215,12 +230,12 @@ impl CircuitFrame<IO, Witness> {
 
     pub fn verify_groth16_proof(
         self,
-        pvk: groth16::PreparedVerifyingKey<Bls12>,
+        pvk: &groth16::PreparedVerifyingKey<Bls12>,
         p: Proof<Bls12>,
     ) -> Result<bool, SynthesisError> {
         let inputs = self.public_inputs();
 
-        verify_proof(&pvk, &p.groth16_proof, &inputs)
+        verify_proof(pvk, &p.groth16_proof, &inputs)
     }
 }
 
@@ -277,7 +292,7 @@ mod tests {
                 assert_eq!(expected_result, proofs[proofs.len() - 1].0.output.expr);
             }
             let proofs_verified =
-                verify_sequential_groth16_proofs(proofs, groth_params.vk).unwrap();
+                verify_sequential_groth16_proofs(proofs, groth_params.vk, &s).unwrap();
             assert!(proofs_verified);
         };
 
@@ -286,7 +301,7 @@ mod tests {
                 assert_eq!(expected_iterations, cs.len());
                 assert_eq!(expected_result, cs[cs.len() - 1].0.output.expr);
             }
-            let constraint_systems_verified = verify_sequential_css(&cs).unwrap();
+            let constraint_systems_verified = verify_sequential_css(&cs, &s).unwrap();
             assert!(constraint_systems_verified);
 
             check_cs_deltas(&cs, limit);

@@ -112,8 +112,9 @@ fn bind_continuation_tag_hash<CS: ConstraintSystem<Fr>>(
     Ok((tag, hash))
 }
 
-#[derive(Default, Clone, PartialEq, PartialOrd, Eq)]
+#[derive(Default, Clone, PartialEq)]
 pub struct CircuitFrame<T, W> {
+    pub store: Store,
     pub input: Option<T>,
     pub output: Option<T>,
     pub initial: Option<T>,
@@ -122,8 +123,9 @@ pub struct CircuitFrame<T, W> {
 }
 
 impl<T, W> CircuitFrame<T, W> {
-    pub fn from_frame(frame: Frame<T, W>) -> Self {
+    pub fn from_frame(frame: Frame<T, W>, store: &Store) -> Self {
         CircuitFrame {
+            store: store.clone(), // TODO: store reference instead
             input: Some(frame.input),
             output: Some(frame.output),
             initial: Some(frame.initial),
@@ -136,7 +138,7 @@ impl<T, W> CircuitFrame<T, W> {
 impl Circuit<Fr> for CircuitFrame<IO, Witness> {
     fn synthesize<CS: ConstraintSystem<Fr>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         if let Some(w) = &self.witness {
-            let s = &w.store;
+            let s = &self.store;
             if let Some(o) = &self.output {
                 dbg!(&s.write_expr_str(&o.expr));
             }
@@ -215,6 +217,7 @@ impl Circuit<Fr> for CircuitFrame<IO, Witness> {
             &input_env,
             &input_cont,
             &self.witness,
+            &self.store,
         )?;
 
         output_expr.enforce_equal(&mut cs.namespace(|| "output expr is correct"), &new_expr);
@@ -249,6 +252,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     env: &AllocatedTaggedHash,
     cont: &AllocatedTaggedHash,
     witness: &Option<Witness>,
+    store: &Store,
 ) -> Result<
     (
         AllocatedTaggedHash,
@@ -258,11 +262,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     SynthesisError,
 > {
     dbg!("evaluate_expression");
-    let store = if let Some(w) = witness {
-        w.store.clone()
-    } else {
-        Store::default()
-    };
+
     dbg!(&expr.fetch_and_write_str(&store));
     dbg!(&env.fetch_and_write_str(&store));
     dbg!(
@@ -388,6 +388,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
             cont,
             &eval_sym_not_dummy,
             witness,
+            store,
             &global_allocations,
         )?;
 
@@ -408,6 +409,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
             cont,
             &eval_cons_not_dummy,
             witness,
+            store,
             &global_allocations,
         )?;
 
@@ -457,6 +459,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         &first_result_env,
         &invoke_continuation_boolean,
         witness,
+        store,
         &global_allocations,
     )?;
 
@@ -503,6 +506,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         &result_env0,
         &make_thunk_boolean,
         witness,
+        store,
         &global_allocations,
     )?;
 
@@ -537,6 +541,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     cont: &AllocatedTaggedHash,
     not_dummy: &Boolean,
     witness: &Option<Witness>,
+    store: &Store,
     g: &GlobalAllocations,
 ) -> Result<
     (
@@ -547,11 +552,6 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     ),
     SynthesisError,
 > {
-    let store = if let Some(w) = witness {
-        w.store.clone()
-    } else {
-        Store::default()
-    };
     let output_expr = Expression::allocate_tagged_hash(
         &mut cs.namespace(|| "output_expr"),
         witness.as_ref().map(|w| w.prethunk_output_expr.clone()),
@@ -843,6 +843,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     cont: &AllocatedTaggedHash,
     not_dummy: &Boolean,
     witness: &Option<Witness>,
+    store: &Store,
     g: &GlobalAllocations,
 ) -> Result<
     (
@@ -853,12 +854,6 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     ),
     SynthesisError,
 > {
-    let store = if let Some(w) = witness {
-        w.store.clone()
-    } else {
-        Store::default()
-    };
-
     let lambda = g.lambda_tagged_hash.clone();
     let dummy_arg = g.dummy_arg_tagged_hash.clone();
 
@@ -1466,6 +1461,7 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
     env: &AllocatedTaggedHash,
     not_dummy: &Boolean,
     witness: &Option<Witness>,
+    store: &Store,
     global_allocations: &GlobalAllocations,
 ) -> Result<
     (
@@ -1475,12 +1471,6 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
     ),
     SynthesisError,
 > {
-    let store = if let Some(w) = witness {
-        w.store.clone()
-    } else {
-        Store::default()
-    };
-
     let mut result_expr_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
     let mut result_expr_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
     let mut result_env_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
@@ -1635,6 +1625,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
     env: &AllocatedTaggedHash,
     not_dummy: &Boolean,
     witness: &Option<Witness>,
+    store: &Store,
     global_allocations: &GlobalAllocations,
 ) -> Result<
     (
@@ -1645,12 +1636,6 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
     ),
     SynthesisError,
 > {
-    let store = if let Some(w) = witness {
-        w.store.clone()
-    } else {
-        Store::default()
-    };
-
     let mut result_expr_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
     let mut result_expr_hash_clauses: Vec<CaseClause<Fr>> = Vec::new();
     let mut result_env_tag_clauses: Vec<CaseClause<Fr>> = Vec::new();
@@ -2639,6 +2624,7 @@ mod tests {
     use crate::data::Store;
     use crate::eval::{empty_sym_env, Evaluable, Witness, IO};
     use crate::proof::Provable;
+    use bellperson::groth16::{PreparedVerifyingKey, VerifyingKey};
     use bellperson::util_cs::{
         metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta,
     };
@@ -2660,8 +2646,9 @@ mod tests {
 
         let groth_params = CircuitFrame::groth_params().unwrap();
         let vk = &groth_params.vk;
+        let pvk = groth16::prepare_verifying_key(vk);
 
-        let test_with_output = |output, expect_success, pvk| {
+        let test_with_output = |output: IO, expect_success: bool, store: &Store| {
             let mut cs = TestConstraintSystem::new();
 
             let mut cs_blank = MetricCS::<Fr>::new();
@@ -2670,13 +2657,16 @@ mod tests {
                 .synthesize(&mut cs_blank)
                 .expect("failed to synthesize");
 
-            let frame = CircuitFrame::from_frame(Frame {
-                input: input.clone(),
-                output,
-                initial: initial.clone(),
-                i: 0,
-                witness: witness.clone(),
-            });
+            let frame = CircuitFrame::from_frame(
+                Frame {
+                    input: input.clone(),
+                    output,
+                    initial: initial.clone(),
+                    i: 0,
+                    witness: witness.clone(),
+                },
+                store,
+            );
 
             frame
                 .clone()
@@ -2695,7 +2685,7 @@ mod tests {
 
             let proof = frame.clone().prove(Some(&groth_params), &mut rng).unwrap();
             let cs_verified = cs.is_satisfied() && cs.verify(&public_inputs);
-            let verified = frame.verify_groth16_proof(pvk, proof).unwrap();
+            let verified = frame.verify_groth16_proof(&pvk, proof).unwrap();
 
             if expect_success {
                 assert!(cs_verified);
@@ -2714,11 +2704,10 @@ mod tests {
                 cont: Continuation::Terminal,
             };
 
-            test_with_output(output, true, groth16::prepare_verifying_key(vk));
+            test_with_output(output, true, &store);
         }
 
         // Failure
-        {}
         {
             // Wrong type, so tag should differ.
             let bad_output_tag = IO {
@@ -2727,7 +2716,7 @@ mod tests {
                 cont: Continuation::Terminal,
             };
 
-            test_with_output(bad_output_tag, false, groth16::prepare_verifying_key(vk));
+            test_with_output(bad_output_tag, false, &store);
         }
 
         {
@@ -2738,7 +2727,7 @@ mod tests {
                 cont: Continuation::Terminal,
             };
 
-            test_with_output(bad_output_value, false, groth16::prepare_verifying_key(vk));
+            test_with_output(bad_output_value, false, &store);
         }
 
         {
@@ -2749,7 +2738,7 @@ mod tests {
                 cont: Continuation::Terminal,
             };
 
-            test_with_output(bad_output_tag, false, groth16::prepare_verifying_key(vk));
+            test_with_output(bad_output_tag, false, &store);
         }
     }
 
@@ -2768,7 +2757,7 @@ mod tests {
         let initial = input.clone();
         let (_, witness) = input.eval(&mut store);
 
-        let mut test_with_output = |output, expect_success| {
+        let test_with_output = |output: IO, expect_success: bool, store: &Store| {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
@@ -2779,7 +2768,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(frame)
+            CircuitFrame::from_frame(frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2798,7 +2787,7 @@ mod tests {
                 cont: Continuation::Terminal,
             };
 
-            test_with_output(output, true);
+            test_with_output(output, true, &store);
         }
 
         // Failure
@@ -2811,7 +2800,7 @@ mod tests {
                     cont: Continuation::Terminal,
                 };
 
-                test_with_output(bad_output_tag, false);
+                test_with_output(bad_output_tag, false, &store);
             }
             {
                 // Wrong value, so hash should differ.
@@ -2821,7 +2810,7 @@ mod tests {
                     cont: Continuation::Terminal,
                 };
 
-                test_with_output(bad_output_value, false);
+                test_with_output(bad_output_value, false, &store);
             }
         }
     }
@@ -2843,7 +2832,7 @@ mod tests {
 
         let (_, witness) = input.eval(&mut store);
 
-        let test_with_output = |output, expect_success| {
+        let test_with_output = |output: IO, expect_success: bool, store: &Store| {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
@@ -2854,7 +2843,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(frame)
+            CircuitFrame::from_frame(frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2873,7 +2862,7 @@ mod tests {
                 cont: Continuation::Terminal,
             };
 
-            test_with_output(output, true);
+            test_with_output(output, true, &store);
         }
 
         // Failure
@@ -2886,7 +2875,7 @@ mod tests {
                     cont: Continuation::Terminal,
                 };
 
-                test_with_output(bad_output_tag, false);
+                test_with_output(bad_output_tag, false, &store);
             }
             {
                 // Wrong symbol, so hash should differ.
@@ -2895,8 +2884,7 @@ mod tests {
                     env: env.clone(),
                     cont: Continuation::Terminal,
                 };
-
-                test_with_output(bad_output_value, false);
+                test_with_output(bad_output_value, false, &store);
             }
         }
     }
@@ -2922,7 +2910,7 @@ mod tests {
         let initial = input.clone();
         let (_, witness) = input.eval(&mut store);
 
-        let test_with_output = |output, expect_success| {
+        let test_with_output = |output: IO, expect_success: bool, store: &Store| {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
@@ -2933,7 +2921,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(frame)
+            CircuitFrame::from_frame(frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2952,7 +2940,7 @@ mod tests {
                 cont: Continuation::Terminal,
             };
 
-            test_with_output(output, true);
+            test_with_output(output, true, &store);
         }
 
         // Failure
@@ -2965,7 +2953,7 @@ mod tests {
                     cont: Continuation::Terminal,
                 };
 
-                test_with_output(bad_output_tag, false);
+                test_with_output(bad_output_tag, false, &store);
             }
             {
                 // Wrong value, so hash should differ.
@@ -2975,7 +2963,7 @@ mod tests {
                     cont: Continuation::Terminal,
                 };
 
-                test_with_output(bad_output_value, false);
+                test_with_output(bad_output_value, false, &store);
             }
         }
     }
@@ -3007,7 +2995,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(frame)
+            CircuitFrame::from_frame(frame, &store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
