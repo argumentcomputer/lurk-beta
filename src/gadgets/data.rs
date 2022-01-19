@@ -324,7 +324,7 @@ impl GlobalAllocations {
 impl Expression {
     pub fn allocate_tagged_hash<CS: ConstraintSystem<Fr>>(
         cs: &mut CS,
-        expr: Option<Self>,
+        expr: Option<&Self>,
     ) -> Result<AllocatedTaggedHash, SynthesisError> {
         AllocatedTaggedHash::from_tagged_hash(cs, expr.map(|e| e.tagged_hash()))
     }
@@ -429,7 +429,7 @@ impl Continuation {
 impl Expression {
     pub fn allocate_maybe_fun<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
-        maybe_fun: Option<Expression>,
+        maybe_fun: Option<&Expression>,
     ) -> Result<
         (
             AllocatedNum<Fr>,
@@ -536,7 +536,7 @@ impl Expression {
     pub fn construct_list<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
         g: &GlobalAllocations,
-        elts: &[AllocatedTaggedHash],
+        elts: &[&AllocatedTaggedHash],
     ) -> Result<AllocatedTaggedHash, SynthesisError> {
         if elts.is_empty() {
             Ok(g.nil_tagged_hash.clone())
@@ -573,7 +573,7 @@ impl Expression {
 impl Continuation {
     pub fn allocate_tagged_hash<CS: ConstraintSystem<Fr>>(
         cs: &mut CS,
-        expr: Option<Self>,
+        expr: Option<&Self>,
     ) -> Result<AllocatedTaggedHash, SynthesisError> {
         AllocatedTaggedHash::from_tagged_hash(cs, expr.map(|c| c.continuation_tagged_hash()))
     }

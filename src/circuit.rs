@@ -678,15 +678,15 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
 > {
     let output_expr = Expression::allocate_tagged_hash(
         &mut cs.namespace(|| "output_expr"),
-        witness.as_ref().map(|w| w.prethunk_output_expr.clone()),
+        witness.as_ref().map(|w| &w.prethunk_output_expr),
     )?;
     let output_env = Expression::allocate_tagged_hash(
         &mut cs.namespace(|| "output_env"),
-        witness.as_ref().map(|w| w.prethunk_output_env.clone()),
+        witness.as_ref().map(|w| &w.prethunk_output_env),
     )?;
     let output_cont = Continuation::allocate_tagged_hash(
         &mut cs.namespace(|| "output_cont"),
-        witness.as_ref().map(|w| w.prethunk_output_cont.clone()),
+        witness.as_ref().map(|w| &w.prethunk_output_cont),
     )?;
 
     let sym_is_nil = expr.alloc_equal(&mut cs.namespace(|| "sym is nil"), &g.nil_tagged_hash)?;
@@ -786,7 +786,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
 
     let lookup_continuation = Continuation::construct(
         &mut cs.namespace(|| "lookup_continuation"),
-        &g.lookup_cont_tag.clone(),
+        &g.lookup_cont_tag,
         // Mirrors Continuation::get_hash_components()
         &[
             env.tag.clone(),
@@ -805,7 +805,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
 
     let (fun_hash, fun_arg, fun_body, fun_closed_env) = Expression::allocate_maybe_fun(
         &mut cs.namespace(|| "extend closure"),
-        witness.clone().and_then(|w| w.extended_closure),
+        witness.as_ref().and_then(|w| w.extended_closure.as_ref()),
     )?;
 
     let extended_env = Expression::construct_cons(
@@ -1033,7 +1033,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let cdr_args_is_nil =
             cdr_args.alloc_equal(&mut cs.namespace(|| "cdr_args_is_nil"), &g.nil_tagged_hash)?;
 
-        let list = Expression::construct_list(&mut cs.namespace(|| "list"), g, &[l])?;
+        let list = Expression::construct_list(&mut cs.namespace(|| "list"), g, &[&l])?;
         let inner_body = pick_tagged_hash(
             &mut cs.namespace(|| "inner_body"),
             &cdr_args_is_nil,
@@ -1083,7 +1083,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let expanded1 = Expression::construct_list(
             &mut cs_letrec.namespace(|| ""),
             g,
-            &[letstar_t, rest_bindings.clone(), body1.clone()],
+            &[&letstar_t, &rest_bindings, &body1],
         )?;
         let bindings_is_nil = bindings.alloc_equal(
             &mut cs_letrec.namespace(|| "bindings_is_nil"),
@@ -1380,7 +1380,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
 
     let (res, continuation) = {
         // head == (FN . ARGS)
-        let fun_form = head.clone();
+        let fun_form = &head;
         let args = rest;
 
         let call_continuation = Continuation::construct(
@@ -1401,7 +1401,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let expanded_inner = Expression::construct_list(
             &mut cs.namespace(|| "expanded_inner"),
             g,
-            &[fun_form.clone(), arg1.clone()],
+            &[fun_form, &arg1],
         )?;
 
         let expanded = Expression::construct_cons(
@@ -1417,7 +1417,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let res = pick_tagged_hash(
             &mut cs.namespace(|| "pick res"),
             &more_args_is_nil,
-            &fun_form,
+            fun_form,
             &expanded,
         )?;
 
@@ -1677,10 +1677,10 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let function = result;
         let next_expr = arg;
 
-        let call2_components = [global_allocations.call2_cont_tag.clone()];
+        // let call2_components = [global_allocations.call2_cont_tag.clone()];
         let newer_cont = Continuation::construct(
             &mut cs.namespace(|| "construct newer_cont"),
-            &global_allocations.call2_cont_tag.clone(),
+            &global_allocations.call2_cont_tag,
             // Mirrors Continuation::get_hash_components()
             &[
                 saved_env.tag,
@@ -1729,7 +1729,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         {
             let (hash, arg_t, body_t, closed_env) = Expression::allocate_maybe_fun(
                 &mut cs.namespace(|| "allocate Call2 fun"),
-                fun.tagged_hash().as_ref().and_then(|t| store.fetch(t)),
+                fun.tagged_hash().and_then(|t| store.fetch(&t)).as_ref(),
             )?;
 
             // BOOKMARK: WHy does this cause unconstrainted variable?
@@ -2035,7 +2035,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &arg2_is_num,
         )?;
 
-        let (a, b) = (arg1.hash.clone(), arg2.hash.clone()); // For Nums, the 'hash' is an immediate value.
+        let (a, b) = (&arg1.hash, &arg2.hash); // For Nums, the 'hash' is an immediate value.
 
         let not_dummy = alloc_equal(
             &mut cs.namespace(|| "Binop2 not dummy"),
@@ -2043,9 +2043,9 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &global_allocations.binop2_cont_tag,
         )?;
 
-        let sum = constraints::add(&mut cs.namespace(|| "sum"), &a, &b)?;
-        let diff = constraints::sub(&mut cs.namespace(|| "difference"), &a, &b)?;
-        let product = constraints::mul(&mut cs.namespace(|| "product"), &a, &b)?;
+        let sum = constraints::add(&mut cs.namespace(|| "sum"), a, b)?;
+        let diff = constraints::sub(&mut cs.namespace(|| "difference"), a, b)?;
+        let product = constraints::mul(&mut cs.namespace(|| "product"), a, b)?;
 
         // FIXME: We need to check that b is not zero, returning an error if so.
 
@@ -2091,7 +2091,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
                     value: &cons.hash,
                 },
             ],
-            &global_allocations.default.clone(),
+            &global_allocations.default,
         )?;
 
         let is_cons = alloc_equal(
@@ -2449,7 +2449,7 @@ fn extend_rec<CS: ConstraintSystem<Fr>>(
     )?;
 
     let cons = Expression::construct_cons(&mut cs.namespace(|| "cons var val"), g, var, val)?;
-    let list = Expression::construct_list(&mut cs.namespace(|| "list cons"), g, &[cons.clone()])?;
+    let list = Expression::construct_list(&mut cs.namespace(|| "list cons"), g, &[&cons])?;
 
     let new_env_if_sym_or_nil =
         Expression::construct_cons(&mut cs.namespace(|| "new_env_if_sym_or_nil"), g, &list, env)?;
