@@ -100,6 +100,7 @@ impl<'a> CircuitFrame<'a, IO, Witness> {
         })
     }
 
+    #[allow(clippy::needless_collect)]
     pub fn outer_prove<R: RngCore + Clone>(
         params: &groth16::Parameters<Bls12>,
         expr: Expression,
@@ -128,6 +129,7 @@ impl<'a> CircuitFrame<'a, IO, Witness> {
         Ok(res)
     }
 
+    #[allow(clippy::needless_collect)]
     pub fn outer_synthesize(
         expr: Expression,
         env: Expression,

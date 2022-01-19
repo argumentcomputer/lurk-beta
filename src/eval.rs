@@ -52,7 +52,7 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
     fn next(&self, store: &mut Store) -> Self {
         let input = self.output.clone();
 
-        let (output, witness) = input.clone().eval(store);
+        let (output, witness) = input.eval(store);
         let i = self.i + 1;
         Self {
             input,

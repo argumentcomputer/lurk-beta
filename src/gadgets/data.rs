@@ -437,7 +437,7 @@ impl Expression {
     > {
         match maybe_fun {
             Some(Expression::Fun(arg, body, closed_env)) => {
-                Self::allocate_fun(cs, &arg, &body, &closed_env)
+                Self::allocate_fun(cs, arg, body, closed_env)
             }
             _ => Self::allocate_dummy_fun(cs),
         }
@@ -538,7 +538,7 @@ impl Expression {
             Ok(g.nil_tagged_hash.clone())
         } else {
             let tail = Self::construct_list(&mut cs.namespace(|| "Cons tail"), g, &elts[1..])?;
-            Self::construct_cons(&mut cs.namespace(|| "Cons"), g, &elts[0], &tail)
+            Self::construct_cons(&mut cs.namespace(|| "Cons"), g, elts[0], &tail)
         }
     }
 

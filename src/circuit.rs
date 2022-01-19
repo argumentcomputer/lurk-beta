@@ -286,21 +286,21 @@ impl<'a> Results<'a> {
             &mut self.expr_tag_clauses,
             &mut self.expr_hash_clauses,
             key,
-            &result_expr,
+            result_expr,
         );
 
         add_clause(
             &mut self.env_tag_clauses,
             &mut self.env_hash_clauses,
             key,
-            &result_env,
+            result_env,
         );
 
         add_clause(
             &mut self.cont_tag_clauses,
             &mut self.cont_hash_clauses,
             key,
-            &result_cont,
+            result_cont,
         );
 
         add_clause_single(
@@ -518,8 +518,8 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     let (cons_result, cons_env, cons_cont, cons_invoke_cont) = eval_cons(
         &mut cs.namespace(|| "eval Cons"),
         expr,
-        &env,
-        &cont,
+        env,
+        cont,
         &eval_cons_not_dummy,
         witness,
         store,
@@ -1947,14 +1947,12 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             ],
         )?;
 
-        let index_hash = tagged_hash_by_index(0, &val);
-
-        index_hash
+        tagged_hash_by_index(0, &val)
     };
 
     results.add_clauses_cont(
         BaseContinuationTag::Unop.cont_tag_fr(),
-        (&index_hash, env, &cont, &global_allocations.true_num),
+        (&index_hash, env, cont, &global_allocations.true_num),
     );
 
     let (allocated_arg2, saved_env, binop2_cont) = {
@@ -2050,11 +2048,11 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let divisor = //if dummy then 1 otherwise b.
             pick(&mut cs.namespace(||"maybe-dummy divisor"),
                  &not_dummy,
-                 &b,
+                 b,
                  &global_allocations.true_num,
                  )?;
 
-        let quotient = constraints::div(&mut cs.namespace(|| "quotient"), &a, &divisor)?;
+        let quotient = constraints::div(&mut cs.namespace(|| "quotient"), a, &divisor)?;
 
         let cons = Expression::construct_cons(
             &mut cs.namespace(|| "cons"),
