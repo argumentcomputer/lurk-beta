@@ -26,11 +26,14 @@ lazy_static! {
     pub static ref POSEIDON_CONSTANTS_16: PoseidonConstants::<Fr, U16> = PoseidonConstants::new();
     pub static ref POSEIDON_CONSTANTS_VARIABLE: PoseidonConstants::<Fr, U16> =
         PoseidonConstants::new_with_strength_and_type(Strength::Standard, HashType::VariableLength);
+    pub static ref EXPR_HASHES: chashmap::CHashMap<Expression, Fr> = chashmap::CHashMap::new();
+    pub static ref CONT_HASHES: chashmap::CHashMap<Continuation, Fr> = chashmap::CHashMap::new();
 }
 
 /// Order of these tag variants is significant, since it will be concretely
 /// encoded into content-addressable data structures.
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+#[repr(u8)] // TODO: is this large enough?
 pub enum Tag {
     Nil,
     Cons,
@@ -158,7 +161,44 @@ pub enum Expression {
     Str(String),
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+impl Hash for Expression {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Expression::Nil => {
+                b"NIL".hash(state);
+            }
+            Expression::Cons(a, b) => {
+                b"CONS".hash(state);
+                a.hash(state);
+                b.hash(state);
+            }
+            Expression::Sym(name) => {
+                b"SYM".hash(state);
+                name.hash(state);
+            }
+            Expression::Fun(arg, body, closed) => {
+                b"FUN".hash(state);
+                arg.hash(state);
+                body.hash(state);
+                closed.hash(state);
+            }
+            Expression::Num(n) => {
+                b"NUM".hash(state);
+                n.to_repr().hash(state);
+            }
+            Expression::Thunk(t) => {
+                b"THUNK".hash(state);
+                t.hash(state);
+            }
+            Expression::Str(s) => {
+                b"STR".hash(state);
+                s.hash(state);
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq, Hash)]
 pub enum Op1 {
     Car,
     Cdr,
@@ -182,7 +222,7 @@ impl ToString for Op1 {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq, Hash)]
 pub enum Op2 {
     Sum,
     Diff,
@@ -211,7 +251,7 @@ impl Op2 {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq, Hash)]
 pub enum Rel2 {
     Equal,
     NumEqual,
@@ -238,7 +278,7 @@ impl Rel2 {
 // This separateness means that Expression and Continuation have separate namespaces.
 // In practice, this means they have distinct tags, and the containing code must know
 // statically which is expected.
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq, Hash)]
 pub enum Continuation {
     Outermost,
     Simple(Box<Continuation>),
@@ -260,14 +300,21 @@ pub enum Continuation {
 }
 
 impl Continuation {
-    // Consider making Continuation a first-class Expression.
     pub fn get_hash(&self) -> Fr {
+        if !CONT_HASHES.contains_key(self) {
+            let h = self.calculate_hash();
+            CONT_HASHES.insert(self.clone(), h);
+        }
+        *CONT_HASHES.get(self).unwrap()
+    }
+
+    // Consider making Continuation a first-class Expression.
+    fn calculate_hash(&self) -> Fr {
         let preimage = self.get_hash_components();
-        assert_eq!(8, preimage.len());
         Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_8).hash()
     }
 
-    pub fn get_hash_components(&self) -> Vec<Fr> {
+    pub fn get_hash_components(&self) -> [Fr; 8] {
         match self {
             Continuation::Outermost => quad_hash_components(
                 &TaggedHash::default(),
@@ -408,32 +455,32 @@ impl Continuation {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq, Hash)]
 pub struct Thunk {
     pub value: Box<Expression>,
     pub continuation: Box<Continuation>,
 }
 
 impl Thunk {
-    pub fn get_hash_components(&self) -> Vec<Fr> {
+    pub fn get_hash_components(&self) -> [Fr; 4] {
         let value = self.value.tagged_hash();
         let continuation = (*self.continuation).continuation_tagged_hash();
-        vec![value.tag, value.hash, continuation.tag, continuation.hash]
+        [value.tag, value.hash, continuation.tag, continuation.hash]
     }
 }
 
 fn binary_hash(a: &TaggedHash, b: &TaggedHash) -> Fr {
-    let preimage = vec![a.tag, a.hash, b.tag, b.hash];
+    let preimage = [a.tag, a.hash, b.tag, b.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_4).hash()
 }
 
 fn tri_hash(a: &TaggedHash, b: &TaggedHash, c: &TaggedHash) -> Fr {
-    let preimage = vec![a.tag, a.hash, b.tag, b.hash, c.tag, c.hash];
+    let preimage = [a.tag, a.hash, b.tag, b.hash, c.tag, c.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_6).hash()
 }
 
 fn quad_hash(a: &TaggedHash, b: &TaggedHash, c: &TaggedHash, d: &TaggedHash) -> Fr {
-    let preimage = vec![a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash];
+    let preimage = [a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_8).hash()
 }
 
@@ -442,17 +489,17 @@ fn oct_hash(preimage: &[Fr]) -> Fr {
 }
 
 fn simple_binary_hash(a: Fr, b: Fr) -> Fr {
-    let preimage = vec![a, b];
+    let preimage = [a, b];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_2).hash()
 }
 
 fn tagged_1_hash(tag_fr: &Fr, a: &TaggedHash) -> Fr {
-    let preimage = vec![*tag_fr, a.tag, a.hash];
+    let preimage = [*tag_fr, a.tag, a.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_3).hash()
 }
 
 fn tagged_2_hash(tag_fr: &Fr, a: &TaggedHash, b: &TaggedHash) -> Fr {
-    let preimage = vec![*tag_fr, a.tag, a.hash, b.tag, b.hash];
+    let preimage = [*tag_fr, a.tag, a.hash, b.tag, b.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_5).hash()
 }
 fn tagged_4_hash(
@@ -462,19 +509,20 @@ fn tagged_4_hash(
     c: &TaggedHash,
     d: &TaggedHash,
 ) -> Fr {
-    let preimage = vec![
+    let preimage = [
         *tag_fr, a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash,
     ];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_9).hash()
 }
 
-pub fn quad_hash_components(
+#[inline]
+pub const fn quad_hash_components(
     a: &TaggedHash,
     b: &TaggedHash,
     c: &TaggedHash,
     d: &TaggedHash,
-) -> Vec<Fr> {
-    vec![a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash]
+) -> [Fr; 8] {
+    [a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash]
 }
 
 fn quad_hash_x_components(
@@ -482,8 +530,8 @@ fn quad_hash_x_components(
     a: &TaggedHash,
     b: &TaggedHash,
     c: &TaggedHash,
-) -> Vec<Fr> {
-    vec![
+) -> [Fr; 8] {
+    [
         *inner_tag_fr,
         Fr::zero(),
         a.tag,
@@ -495,14 +543,14 @@ fn quad_hash_x_components(
     ]
 }
 
-fn tagged_4_hash_components(
+const fn tagged_4_hash_components(
     tag_fr: &Fr,
     a: &TaggedHash,
     b: &TaggedHash,
     c: &TaggedHash,
     d: &TaggedHash,
-) -> Vec<Fr> {
-    vec![
+) -> [Fr; 9] {
+    [
         *tag_fr, a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash,
     ]
 }
@@ -513,7 +561,7 @@ fn tagged_4_hash_x(
     b: &TaggedHash,
     c: &TaggedHash,
 ) -> Fr {
-    let preimage = vec![
+    let preimage = [
         *tag_fr,
         *inner_tag_fr,
         Fr::zero(),
@@ -527,14 +575,15 @@ fn tagged_4_hash_x(
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_9).hash()
 }
 
+#[inline]
 fn tagged_4_hash_x_components(
     tag_fr: &Fr,
     inner_tag_fr: &Fr,
     a: &TaggedHash,
     b: &TaggedHash,
     c: &TaggedHash,
-) -> Vec<Fr> {
-    vec![
+) -> [Fr; 9] {
+    [
         *tag_fr,
         *inner_tag_fr,
         Fr::zero(),
@@ -556,7 +605,7 @@ fn tagged_5_hash(
     d: &TaggedHash,
     e: &TaggedHash,
 ) -> Fr {
-    let preimage = vec![
+    let preimage = [
         *tag_fr, a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash, e.tag, e.hash,
     ];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_11).hash()
@@ -570,7 +619,7 @@ fn tagged_5_hash_x(
     c: &TaggedHash,
     d: &TaggedHash,
 ) -> Fr {
-    let preimage = vec![
+    let preimage = [
         *tag_fr,
         *inner_tag_fr,
         Fr::zero(),
@@ -589,7 +638,7 @@ fn tagged_5_hash_x(
 fn hash_string(s: &str) -> Fr {
     // We should use HashType::VariableLength, once supported.
     // The following is just quick and dirty, but should be unique.
-    let mut preimage = vec![Fr::zero(); 8];
+    let mut preimage = [Fr::zero(); 8];
     let mut x = fr_from_u64(s.len() as u64);
     s.chars()
         .map(|c| fr_from_u64(c.into()))
@@ -632,6 +681,14 @@ impl Tagged for Expression {
 
 impl Expression {
     pub fn get_hash(&self) -> Fr {
+        if !EXPR_HASHES.contains_key(self) {
+            let h = self.calculate_hash();
+            EXPR_HASHES.insert(self.clone(), h);
+        }
+        *EXPR_HASHES.get(self).unwrap()
+    }
+
+    fn calculate_hash(&self) -> Fr {
         match self {
             Nil => hash_string("NIL"),
             Cons(car, cdr) => binary_hash(car, cdr),
@@ -649,10 +706,10 @@ impl Expression {
     }
 
     pub fn tagged_hash(&self) -> TaggedHash {
-        let tag = self.tag().fr();
-        let hash = self.get_hash();
-
-        TaggedHash { tag, hash }
+        TaggedHash {
+            tag: self.tag().fr(),
+            hash: self.get_hash(),
+        }
     }
 
     pub fn read_sym(s: &str) -> Expression {
@@ -660,7 +717,7 @@ impl Expression {
     }
 
     pub fn cons(a: &Expression, b: &Expression) -> Expression {
-        Cons(a.tagged_hash(), b.tagged_hash())
+        Cons(a.tagged_hash().clone(), b.tagged_hash().clone())
     }
 
     pub fn num(n: u64) -> Expression {
@@ -671,9 +728,9 @@ impl Expression {
         match arg {
             // TODO: closed_env must be an env.
             Expression::Sym(_) => Fun(
-                arg.tagged_hash(),
-                body.tagged_hash(),
-                closed_env.tagged_hash(),
+                arg.tagged_hash().clone(),
+                body.tagged_hash().clone(),
+                closed_env.tagged_hash().clone(),
             ),
             _ => {
                 panic!("ARG must be a symbol.");
@@ -751,7 +808,7 @@ impl Store {
         cons
     }
 
-    pub fn list(&mut self, elts: Vec<Expression>) -> Expression {
+    pub fn list(&mut self, elts: &mut [Expression]) -> Expression {
         let mut elts = elts;
         elts.reverse();
         elts.iter()
@@ -1034,7 +1091,7 @@ impl Store {
                     chars.next();
                     let quote = self.intern("quote");
                     let quoted = self.read_next(chars)?;
-                    let inner = self.list(vec![quoted]);
+                    let inner = self.list(&mut [quoted]);
                     Some(self.cons(&quote, &inner))
                 }
                 '\"' => self.read_string(chars),
@@ -1134,18 +1191,17 @@ impl Store {
         &mut self,
         chars: &mut Peekable<T>,
     ) -> Option<Expression> {
-        let mut name_chars: Vec<char> = Vec::new();
+        let mut name = String::new();
         let mut is_initial = true;
         while let Some(&c) = chars.peek() {
             if is_symbol_char(&c, is_initial) {
                 let c = chars.next().unwrap();
-                name_chars.push(c);
+                name.push(c);
             } else {
                 break;
             }
             is_initial = false;
         }
-        let name: String = name_chars.into_iter().collect();
         let sym = self.intern(&name);
 
         match sym {
@@ -1387,7 +1443,7 @@ mod test {
     fn cons_tagged_hash() {
         let nil = Expression::Nil;
         let apple = Expression::read_sym("apple");
-        let cons = Expression::Cons(apple.tagged_hash(), nil.tagged_hash());
+        let cons = Expression::Cons(apple.tagged_hash().clone(), nil.tagged_hash().clone());
         assert_eq!(cons, Expression::cons(&apple, &nil));
         let t = cons.tagged_hash();
         assert_eq!(Tag::Cons.fr(), t.tag);
@@ -1523,7 +1579,7 @@ asdf(", "ASDF",
         test(&mut store, "((321 123) pumpkin 321 123)", &expected6);
 
         let pair = store.cons(&Expression::num(1), &Expression::num(2));
-        let expected7 = store.list(vec![pair, Expression::num(3)]);
+        let expected7 = store.list(&mut [pair, Expression::num(3)]);
         test(&mut store, "((1 . 2) 3)", &expected7);
     }
 
@@ -1577,15 +1633,15 @@ asdf(", "ASDF",
         test(&mut store, "123", Expression::num(123), false);
 
         {
-            let l = store.list(vec![Expression::num(123), Expression::num(321)]);
+            let l = store.list(&mut [Expression::num(123), Expression::num(321)]);
             test(&mut store, " (123 321)", l, false);
         }
         {
-            let l = store.list(vec![Expression::num(123), Expression::num(321)]);
+            let l = store.list(&mut [Expression::num(123), Expression::num(321)]);
             test(&mut store, " !(123 321)", l, true);
         }
         {
-            let l = store.list(vec![Expression::num(123), Expression::num(321)]);
+            let l = store.list(&mut [Expression::num(123), Expression::num(321)]);
             test(&mut store, " ! (123 321)", l, true);
         }
         {
@@ -1594,7 +1650,7 @@ asdf(", "ASDF",
         }
         {
             let s = store.intern(":assert");
-            let l = store.list(vec![s]);
+            let l = store.list(&mut [s]);
             test(&mut store, "!(:assert)", l, true);
         }
         {
