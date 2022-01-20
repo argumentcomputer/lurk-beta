@@ -153,12 +153,12 @@ fn eval_expr(
     store: &mut Store,
 ) -> (Expression, Expression, Continuation, Witness) {
     let (ctrl, witness) = eval_expr_with_witness(expr, env, cont, store);
-    let (new_expr, new_env, new_cont) = ctrl.results();
+    let (new_expr, new_env, new_cont) = ctrl.into_results();
 
     (new_expr, new_env, new_cont, witness)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Control<Expr, Cont> {
     Return(Expr, Expr, Cont),
     MakeThunk(Expr, Expr, Cont),
@@ -166,11 +166,19 @@ pub enum Control<Expr, Cont> {
 }
 
 impl<E: Clone, C: Clone> Control<E, C> {
-    pub fn results(&self) -> (E, E, C) {
+    pub fn as_results(&self) -> (&E, &E, &C) {
         match self {
-            Self::Return(expr, env, cont) => (expr.clone(), env.clone(), cont.clone()),
-            Self::MakeThunk(expr, env, cont) => (expr.clone(), env.clone(), cont.clone()),
-            Self::InvokeContinuation(expr, env, cont) => (expr.clone(), env.clone(), cont.clone()),
+            Self::Return(expr, env, cont) => (expr, env, cont),
+            Self::MakeThunk(expr, env, cont) => (expr, env, cont),
+            Self::InvokeContinuation(expr, env, cont) => (expr, env, cont),
+        }
+    }
+
+    pub fn into_results(self) -> (E, E, C) {
+        match self {
+            Self::Return(expr, env, cont) => (expr, env, cont),
+            Self::MakeThunk(expr, env, cont) => (expr, env, cont),
+            Self::InvokeContinuation(expr, env, cont) => (expr, env, cont),
         }
     }
 
@@ -547,13 +555,13 @@ fn eval_expr_with_witness(
         }
     };
 
-    let (new_expr, new_env, new_cont) = control.results();
+    let (new_expr, new_env, new_cont) = control.as_results();
     store.store_continuation(&new_cont);
 
     let mut witness = Witness {
-        prethunk_output_expr: new_expr,
-        prethunk_output_env: new_env,
-        prethunk_output_cont: new_cont,
+        prethunk_output_expr: new_expr.clone(),
+        prethunk_output_env: new_env.clone(),
+        prethunk_output_cont: new_cont.clone(),
 
         destructured_thunk: None,
         extended_closure,
@@ -580,7 +588,7 @@ fn invoke_continuation(
         return control;
     }
 
-    let (result, env, cont) = control.results();
+    let (result, env, cont) = control.as_results();
 
     witness.invoke_continuation_cont = Some(cont.clone());
 
@@ -599,7 +607,7 @@ fn invoke_continuation(
                 let function = result;
                 let next_expr = arg;
                 let newer_cont = Continuation::Call2(
-                    function,
+                    function.clone(),
                     saved_env.clone(),
                     Box::new(*continuation.clone()),
                 );
@@ -707,7 +715,7 @@ fn invoke_continuation(
             let result = match (arg1, arg2) {
                 (Expression::Num(a), Expression::Num(b)) => match rel2 {
                     Rel2::NumEqual | Rel2::Equal => {
-                        if *a == b {
+                        if a == b {
                             store.intern("T") // TODO: maybe explicit boolean.
                         } else {
                             Expression::Nil
@@ -717,7 +725,7 @@ fn invoke_continuation(
                 (a_expr, b_expr) => match rel2 {
                     Rel2::NumEqual => Expression::Nil, // FIXME: This should be a type error.
                     Rel2::Equal => {
-                        if *a_expr == b_expr {
+                        if a_expr == b_expr {
                             store.intern("T")
                         } else {
                             Expression::Nil
@@ -758,7 +766,7 @@ fn invoke_continuation(
             // value being checked against is not zero, so that value should
             // first be subtracted from the value being checked.
 
-            if condition == Expression::Nil {
+            if condition == &Expression::Nil {
                 let (arg2, end) = store.car_cdr(&more);
                 assert_eq!(end, Expression::Nil);
                 Control::Return(arg2, env.clone(), *continuation.clone())
@@ -777,12 +785,12 @@ fn invoke_continuation(
         }
     };
 
-    let (output_result, _output_env, output_cont) = control.results();
+    let (output_result, _output_env, output_cont) = control.as_results();
 
-    witness.invoke_continuation_output_result = Some(output_result);
-    witness.invoke_continuation_output_cont = Some(output_cont);
+    witness.invoke_continuation_output_result = Some(output_result.clone());
+    witness.invoke_continuation_output_cont = Some(output_cont.clone());
 
-    if let Control::InvokeContinuation(_, _, _) = control {
+    if control.is_invoke_continuation() {
         unreachable!();
     }
 
@@ -799,7 +807,7 @@ fn make_thunk(
         return control;
     }
 
-    let (result, env, cont) = control.results();
+    let (result, env, cont) = control.into_results();
     witness.make_thunk_cont = Some(cont.clone());
     store.store_continuation(&cont);
 
