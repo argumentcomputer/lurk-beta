@@ -51,13 +51,12 @@ impl Evaluable<Witness> for IO {
 impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
     fn next(&self, store: &mut Store) -> Self {
         let input = self.output.clone();
-
         let (output, witness) = input.eval(store);
-        let i = self.i + 1;
+
         Self {
             input,
             output: Rc::new(output),
-            i,
+            i: self.i + 1,
             witness,
         }
     }
@@ -77,18 +76,38 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
 }
 
 pub struct FrameIt<'a, T, W> {
-    initial_input: T,
-    frame: Option<Frame<T, W>>,
+    first: bool,
+    frame: Frame<T, W>,
     store: &'a mut Store,
 }
 
-impl<'a, T, W> FrameIt<'a, T, W> {
+impl<'a, 'b, T: Evaluable<Witness> + Clone + PartialEq> FrameIt<'a, T, Witness> {
     fn new(initial_input: T, store: &'a mut Store) -> Self {
+        let frame = Frame::from_initial_input(initial_input, store);
         Self {
-            initial_input,
-            frame: None,
+            first: true,
+            frame,
             store,
         }
+    }
+
+    /// Like `.iter().take(n).last()`, but skips intermediary stages, to optimize
+    /// for evaluation.
+    fn next_n(mut self, n: usize) -> Option<Frame<T, Witness>> {
+        for _i in 0..n {
+            // skip first iteration, as one evlatuation happens on construction
+            if self.first {
+                self.first = false;
+                continue;
+            }
+
+            if self.frame.output.is_terminal() {
+                break;
+            }
+
+            self.frame = self.frame.next(self.store);
+        }
+        Some(self.frame)
     }
 }
 
@@ -96,23 +115,18 @@ impl<'a, 'b, T: Evaluable<Witness> + Clone + PartialEq> Iterator for FrameIt<'a,
     type Item = Frame<T, Witness>;
 
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        if let Some(next_frame) = if let Some(frame) = &self.frame {
-            if frame.output.is_terminal() {
-                None
-            } else {
-                Some(frame.next(self.store))
-            }
-        } else {
-            Some(Frame::from_initial_input(
-                self.initial_input.clone(),
-                self.store,
-            ))
-        } {
-            self.frame = Some(next_frame);
-            self.frame.clone()
-        } else {
-            None
+        // skip first iteration, as one evlatuation happens on construction
+        if self.first {
+            self.first = false;
+            return Some(self.frame.clone());
         }
+
+        if self.frame.output.is_terminal() {
+            return None;
+        }
+
+        self.frame = self.frame.next(self.store);
+        Some(self.frame.clone())
     }
 }
 
@@ -859,9 +873,10 @@ impl<'a> Evaluator<'a> {
     }
 
     pub fn eval(&mut self) -> (Expression, Expression, usize, Continuation) {
-        let frame_iterator = self.iter();
+        let initial_input = self.initial();
+        let frame_iterator = FrameIt::new(initial_input, self.store);
 
-        if let Some(last_frame) = frame_iterator.last() {
+        if let Some(last_frame) = frame_iterator.next_n(self.limit) {
             let output = Rc::try_unwrap(last_frame.output).unwrap();
             (output.expr, output.env, last_frame.i + 1, output.cont)
         } else {
