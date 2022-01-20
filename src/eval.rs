@@ -15,7 +15,6 @@ pub struct IO {
 pub struct Frame<T, W> {
     pub input: T,
     pub output: T,
-    pub initial: T,
     pub i: usize,
     pub witness: W,
 }
@@ -57,7 +56,6 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
         Self {
             input,
             output,
-            initial: self.initial.clone(),
             i,
             witness,
         }
@@ -71,7 +69,6 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
         Self {
             input: input.clone(),
             output,
-            initial: input.clone(),
             i: 0,
             witness,
         }
@@ -94,7 +91,7 @@ impl<'a, T, W> FrameIt<'a, T, W> {
     }
 }
 
-impl<'a, T: Evaluable<Witness> + Clone + PartialEq> Iterator for FrameIt<'a, T, Witness> {
+impl<'a, 'b, T: Evaluable<Witness> + Clone + PartialEq> Iterator for FrameIt<'a, T, Witness> {
     type Item = Frame<T, Witness>;
 
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
@@ -871,12 +868,16 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    pub fn iter(&mut self) -> Take<FrameIt<'_, IO, Witness>> {
-        let initial_input = IO {
+    pub fn initial(&self) -> IO {
+        IO {
             expr: self.expr.clone(),
             env: self.env.clone(),
             cont: Continuation::Outermost,
-        };
+        }
+    }
+
+    pub fn iter(&mut self) -> Take<FrameIt<'_, IO, Witness>> {
+        let initial_input = self.initial();
 
         FrameIt::new(initial_input, self.store).take(self.limit)
     }

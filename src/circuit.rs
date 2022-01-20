@@ -113,13 +113,13 @@ pub struct CircuitFrame<'a, T, W> {
     pub witness: Option<W>,
 }
 
-impl<'a, T, W> CircuitFrame<'a, T, W> {
-    pub fn from_frame(frame: Frame<T, W>, store: &'a Store) -> Self {
+impl<'a, T: Clone, W> CircuitFrame<'a, T, W> {
+    pub fn from_frame(initial: T, frame: Frame<T, W>, store: &'a Store) -> Self {
         CircuitFrame {
             store,
             input: Some(frame.input),
             output: Some(frame.output),
-            initial: Some(frame.initial),
+            initial: Some(initial),
             i: Some(frame.i),
             witness: Some(frame.witness),
         }
@@ -2541,10 +2541,10 @@ mod tests {
                 .expect("failed to synthesize");
 
             let frame = CircuitFrame::from_frame(
+                initial.clone(),
                 Frame {
                     input: input.clone(),
                     output,
-                    initial: initial.clone(),
                     i: 0,
                     witness: witness.clone(),
                 },
@@ -2646,12 +2646,11 @@ mod tests {
             let frame = Frame {
                 input: input.clone(),
                 output,
-                initial: initial.clone(),
                 i: 0,
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(frame, store)
+            CircuitFrame::from_frame(initial.clone(), frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2722,12 +2721,11 @@ mod tests {
             let frame = Frame {
                 input: input.clone(),
                 output,
-                initial: initial.clone(),
                 i: 0,
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(frame, store)
+            CircuitFrame::from_frame(initial.clone(), frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2800,12 +2798,11 @@ mod tests {
             let frame = Frame {
                 input: input.clone(),
                 output,
-                initial: initial.clone(),
                 i: 0,
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(frame, store)
+            CircuitFrame::from_frame(initial.clone(), frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2875,12 +2872,11 @@ mod tests {
             let frame = Frame {
                 input: input.clone(),
                 output,
-                initial: initial.clone(),
                 i: 0,
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(frame, &store)
+            CircuitFrame::from_frame(initial.clone(), frame, &store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 

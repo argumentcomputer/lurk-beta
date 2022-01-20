@@ -101,7 +101,7 @@ impl<'a> CircuitFrame<'a, IO, Witness> {
     }
 
     #[allow(clippy::needless_collect)]
-    pub fn outer_prove<R: RngCore + Clone>(
+    pub fn outer_prove<'b, R: RngCore + Clone>(
         params: &groth16::Parameters<Bls12>,
         expr: Expression,
         env: Expression,
@@ -110,9 +110,9 @@ impl<'a> CircuitFrame<'a, IO, Witness> {
         rng: R,
     ) -> Result<SequentialProofs<Bls12, IO, Witness>, SynthesisError> {
         // FIXME: optimize execution order
-        let frames = Evaluator::new(expr, env, store, limit)
-            .iter()
-            .collect::<Vec<_>>();
+        let mut evaluator = Evaluator::new(expr, env, store, limit);
+        let initial = evaluator.initial();
+        let frames = evaluator.iter().collect::<Vec<_>>();
 
         // FIXME: Don't clone the RNG.
         let res = frames
@@ -120,7 +120,7 @@ impl<'a> CircuitFrame<'a, IO, Witness> {
             .map(|frame| {
                 (
                     frame.clone(),
-                    CircuitFrame::from_frame(frame, store)
+                    CircuitFrame::from_frame(initial.clone(), frame, store)
                         .prove(Some(params), rng.clone())
                         .unwrap(),
                 )
@@ -136,14 +136,14 @@ impl<'a> CircuitFrame<'a, IO, Witness> {
         store: &mut Store,
         limit: usize,
     ) -> Result<SequentialCS<IO, Witness>, SynthesisError> {
-        let frames = Evaluator::new(expr, env, store, limit)
-            .iter()
-            .collect::<Vec<_>>();
+        let mut evaluator = Evaluator::new(expr, env, store, limit);
+        let initial = evaluator.initial();
+        let frames = evaluator.iter().collect::<Vec<_>>();
         let res = frames
             .into_iter()
             .map(|frame| {
                 let mut cs = TestConstraintSystem::new();
-                CircuitFrame::from_frame(frame.clone(), store)
+                CircuitFrame::from_frame(initial.clone(), frame.clone(), store)
                     .synthesize(&mut cs)
                     .unwrap();
                 (frame, cs)
@@ -164,6 +164,8 @@ fn verify_sequential_groth16_proofs(
 ) -> Result<bool, SynthesisError> {
     let previous_frame: Option<&Frame<IO, Witness>> = None;
     let pvk = groth16::prepare_verifying_key(vk);
+    let initial = proofs[0].0.input.clone();
+
     for (i, (frame, proof)) in proofs.into_iter().enumerate() {
         dbg!(i);
         if let Some(prev) = previous_frame {
@@ -172,7 +174,9 @@ fn verify_sequential_groth16_proofs(
             }
         }
 
-        if !CircuitFrame::from_frame(frame, store).verify_groth16_proof(&pvk, proof.clone())? {
+        if !CircuitFrame::from_frame(initial.clone(), frame, store)
+            .verify_groth16_proof(&pvk, proof.clone())?
+        {
             return Ok(false);
         }
     }
@@ -188,6 +192,7 @@ fn verify_sequential_css(
     store: &Store,
 ) -> Result<bool, SynthesisError> {
     let mut previous_frame: Option<&Frame<IO, Witness>> = None;
+    let initial = css[0].0.input.clone();
 
     for (i, (frame, cs)) in css.iter().enumerate() {
         dbg!(i);
@@ -201,7 +206,8 @@ fn verify_sequential_css(
             }
         }
 
-        let public_inputs = CircuitFrame::from_frame(frame.clone(), store).public_inputs();
+        let public_inputs =
+            CircuitFrame::from_frame(initial.clone(), frame.clone(), store).public_inputs();
 
         if !(cs.is_satisfied() && cs.verify(&public_inputs)) {
             return Ok(false);
