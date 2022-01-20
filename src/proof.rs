@@ -101,7 +101,7 @@ impl<'a> CircuitFrame<'a, IO, Witness> {
     }
 
     #[allow(clippy::needless_collect)]
-    pub fn outer_prove<'b, R: RngCore + Clone>(
+    pub fn outer_prove<R: RngCore + Clone>(
         params: &groth16::Parameters<Bls12>,
         expr: Expression,
         env: Expression,

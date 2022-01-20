@@ -554,7 +554,7 @@ fn eval_expr_with_witness(
     };
 
     let (new_expr, new_env, new_cont) = control.as_results();
-    store.store_continuation(&new_cont);
+    store.store_continuation(new_cont);
 
     let mut witness = Witness {
         prethunk_output_expr: new_expr.clone(),
@@ -595,7 +595,7 @@ fn invoke_continuation(
         Continuation::Dummy => unreachable!("Dummy Continuation should never be invoked."),
         Continuation::Outermost => match result {
             Expression::Thunk(thunk) => {
-                witness.witness_destructured_thunk(&thunk);
+                witness.witness_destructured_thunk(thunk);
                 Control::Return(*thunk.value.clone(), env.clone(), Continuation::Terminal)
             }
             _ => Control::Return(result.clone(), env.clone(), Continuation::Terminal),
@@ -622,7 +622,7 @@ fn invoke_continuation(
                 let body_form = store.car(&body);
                 let closed_env = store.fetch(closed_env_t).unwrap();
                 let arg = store.fetch(arg_t).unwrap();
-                let newer_env = extend(&closed_env, &arg, &result, store);
+                let newer_env = extend(&closed_env, &arg, result, store);
                 let cont = make_tail_continuation(saved_env, continuation);
                 Control::Return(body_form, newer_env, cont)
             }
@@ -632,21 +632,21 @@ fn invoke_continuation(
             }
         },
         Continuation::LetStar(var, body, saved_env, continuation) => {
-            let extended_env = extend(&env, var, &result, store);
+            let extended_env = extend(env, var, result, store);
             let c = make_tail_continuation(saved_env, continuation);
 
             Control::Return(body.clone(), extended_env, c)
         }
         Continuation::LetRecStar(var, body, saved_env, continuation) => {
-            let extended_env = extend_rec(&env, var, &result, store);
+            let extended_env = extend_rec(env, var, result, store);
             let c = make_tail_continuation(saved_env, continuation);
 
             Control::Return(body.clone(), extended_env, c)
         }
         Continuation::Unop(op1, continuation) => {
             let val = match op1 {
-                Op1::Car => store.car(&result),
-                Op1::Cdr => store.cdr(&result),
+                Op1::Car => store.car(result),
+                Op1::Cdr => store.cdr(result),
                 Op1::Atom => match result.tag() {
                     Tag::Cons => Expression::Nil,
                     _ => store.intern("T"),
@@ -690,10 +690,10 @@ fn invoke_continuation(
                         tmp.mul_assign(&b.invert().unwrap());
                         Expression::Num(tmp)
                     }
-                    Op2::Cons => store.cons(arg1, &arg2),
+                    Op2::Cons => store.cons(arg1, arg2),
                 },
                 _ => match op2 {
-                    Op2::Cons => store.cons(arg1, &arg2),
+                    Op2::Cons => store.cons(arg1, arg2),
                     _ => unimplemented!("Binop2"),
                 },
             };
