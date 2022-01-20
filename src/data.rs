@@ -1,39 +1,18 @@
-use blstrs::Scalar as Fr;
+use crate::{PtrValue, Tagged, TaggedPtr};
+
 use core::hash::Hash;
-use ff::{Field, PrimeField};
-use generic_array::typenum::{U10, U11, U16, U2, U3, U4, U5, U6, U7, U8, U9};
-use itertools::Itertools;
-use lazy_static::lazy_static;
-use neptune::{hash_type::HashType, poseidon::Poseidon, poseidon::PoseidonConstants, Strength};
 use std::collections::HashMap;
 use std::hash::Hasher;
 use std::io::{self, Write};
 use std::iter::Peekable;
-use std::ops::{AddAssign, MulAssign};
 use std::string::ToString;
 
-lazy_static! {
-    pub static ref POSEIDON_CONSTANTS_2: PoseidonConstants::<Fr, U2> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_3: PoseidonConstants::<Fr, U3> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_4: PoseidonConstants::<Fr, U4> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_5: PoseidonConstants::<Fr, U5> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_6: PoseidonConstants::<Fr, U6> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_7: PoseidonConstants::<Fr, U7> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_8: PoseidonConstants::<Fr, U8> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_9: PoseidonConstants::<Fr, U9> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_10: PoseidonConstants::<Fr, U10> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_11: PoseidonConstants::<Fr, U11> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_16: PoseidonConstants::<Fr, U16> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_VARIABLE: PoseidonConstants::<Fr, U16> =
-        PoseidonConstants::new_with_strength_and_type(Strength::Standard, HashType::VariableLength);
-    pub static ref EXPR_HASHES: chashmap::CHashMap<Expression, Fr> = chashmap::CHashMap::new();
-    pub static ref CONT_HASHES: chashmap::CHashMap<Continuation, Fr> = chashmap::CHashMap::new();
-}
+use Expression::*;
 
 /// Order of these tag variants is significant, since it will be concretely
 /// encoded into content-addressable data structures.
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
-#[repr(u8)] // TODO: is this large enough?
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq)]
+#[repr(u64)]
 pub enum Tag {
     Nil,
     Cons,
@@ -44,9 +23,22 @@ pub enum Tag {
     Str,
 }
 
+impl PartialEq<u64> for Tag {
+    fn eq(&self, other: &u64) -> bool {
+        *self as u64 == *other
+    }
+}
+
+impl From<Tag> for u64 {
+    fn from(t: Tag) -> Self {
+        t as u64
+    }
+}
+
 /// Order of these tag variants is significant, since it will be concretely
 /// encoded into content-addressable data structures.
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq)]
+#[repr(u64)]
 pub enum BaseContinuationTag {
     //
     Outermost,
@@ -68,6 +60,18 @@ pub enum BaseContinuationTag {
     Terminal,
 }
 
+impl PartialEq<u64> for BaseContinuationTag {
+    fn eq(&self, other: &u64) -> bool {
+        *self as u64 == *other
+    }
+}
+
+impl From<BaseContinuationTag> for u64 {
+    fn from(t: BaseContinuationTag) -> Self {
+        t as u64
+    }
+}
+
 // For now, partition ContinuationTags into thunks and conts.
 // If never used, we can collapse.
 // We will likely want both if we ever make continuations (including
@@ -77,88 +81,19 @@ impl BaseContinuationTag {
         2 * *self as u64
     }
 
-    pub fn cont_tag_fr(&self) -> Fr {
-        fr_from_u64(self.cont_tag_val())
-    }
-
     #[allow(dead_code)]
     fn thunk_tag_val(&self) -> u64 {
         1 + self.cont_tag_val()
     }
-
-    #[allow(dead_code)]
-    fn thunk_tag_fr(&self) -> Fr {
-        fr_from_u64(self.thunk_tag_val())
-    }
 }
 
-pub fn fr_from_u64(i: u64) -> Fr {
-    fr_from_u64s([i, 0, 0, 0])
-}
-
-pub fn fr_from_u64s(parts: [u64; 4]) -> Fr {
-    let mut le_bytes = [0u8; 32];
-    le_bytes[0..8].copy_from_slice(&parts[0].to_le_bytes());
-    le_bytes[8..16].copy_from_slice(&parts[1].to_le_bytes());
-    le_bytes[16..24].copy_from_slice(&parts[2].to_le_bytes());
-    le_bytes[24..32].copy_from_slice(&parts[3].to_le_bytes());
-    let mut repr = <Fr as PrimeField>::Repr::default();
-    repr.as_mut().copy_from_slice(&le_bytes[..]);
-    Fr::from_repr_vartime(repr).expect("u64s exceed BLS12-381 scalar field modulus")
-}
-
-pub fn fr_to_hex(fr: &Fr) -> String {
-    let mut res = String::new();
-    for byte in &fr.to_bytes_be() {
-        res.push_str(&format!("{:x}", byte));
-    }
-
-    res
-}
-
-impl Tag {
-    pub fn fr(self) -> Fr {
-        fr_from_u64(self as u64)
-    }
-}
-
-impl From<Fr> for Tag {
-    fn from(_fr: Fr) -> Self {
-        unimplemented!();
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
-// This should probably be TaggedPointer, or something.
-pub struct TaggedHash {
-    pub tag: Fr,
-    // Hash is misnamed. It could be a hash, or it could be an immediate value.
-    pub hash: Fr,
-}
-
-#[allow(clippy::derive_hash_xor_eq)]
-impl Hash for TaggedHash {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.hash.to_repr().hash(state);
-    }
-}
-
-impl Default for TaggedHash {
-    fn default() -> Self {
-        Self {
-            tag: Fr::zero(),
-            hash: Fr::zero(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq)]
 pub enum Expression {
     Nil,
-    Cons(TaggedHash, TaggedHash),
+    Cons(TaggedPtr, TaggedPtr),
     Sym(String),
-    Fun(TaggedHash, TaggedHash, TaggedHash), // arg, body, closed env
-    Num(Fr),
+    Fun(TaggedPtr, TaggedPtr, TaggedPtr), // arg, body, closed env
+    Num(u64),                             // TODO: support larger than 64bit numbers
     Thunk(Thunk),
     Str(String),
 }
@@ -166,42 +101,36 @@ pub enum Expression {
 #[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Expression {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        (self.tag() as u64).hash(state);
+
         match self {
-            Expression::Nil => {
-                b"NIL".hash(state);
-            }
+            Expression::Nil => {}
             Expression::Cons(a, b) => {
-                b"CONS".hash(state);
                 a.hash(state);
                 b.hash(state);
             }
             Expression::Sym(name) => {
-                b"SYM".hash(state);
                 name.hash(state);
             }
             Expression::Fun(arg, body, closed) => {
-                b"FUN".hash(state);
                 arg.hash(state);
                 body.hash(state);
                 closed.hash(state);
             }
             Expression::Num(n) => {
-                b"NUM".hash(state);
-                n.to_repr().hash(state);
+                n.hash(state);
             }
             Expression::Thunk(t) => {
-                b"THUNK".hash(state);
                 t.hash(state);
             }
             Expression::Str(s) => {
-                b"STR".hash(state);
                 s.hash(state);
             }
         }
     }
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
 pub enum Op1 {
     Car,
     Cdr,
@@ -209,8 +138,8 @@ pub enum Op1 {
 }
 
 impl Op1 {
-    pub fn fr(&self) -> Fr {
-        fr_from_u64(self.clone() as u64)
+    pub fn tagged_ptr(&self) -> TaggedPtr {
+        TaggedPtr::from_tag(*self as u64)
     }
 }
 
@@ -225,13 +154,19 @@ impl ToString for Op1 {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
 pub enum Op2 {
     Sum,
     Diff,
     Product,
     Quotient,
     Cons,
+}
+
+impl Op2 {
+    pub fn tagged_ptr(&self) -> TaggedPtr {
+        TaggedPtr::from_tag(*self as u64)
+    }
 }
 
 impl ToString for Op2 {
@@ -247,17 +182,16 @@ impl ToString for Op2 {
     }
 }
 
-impl Op2 {
-    pub fn fr(&self) -> Fr {
-        // Add 2 so no Op2 has the same tag as Cons.
-        fr_from_u64(self.clone() as u64 + 2)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
 pub enum Rel2 {
     Equal,
     NumEqual,
+}
+
+impl Rel2 {
+    pub fn tagged_ptr(&self) -> TaggedPtr {
+        TaggedPtr::from_tag(*self as u64)
+    }
 }
 
 impl ToString for Rel2 {
@@ -270,18 +204,11 @@ impl ToString for Rel2 {
     }
 }
 
-impl Rel2 {
-    pub fn fr(&self) -> Fr {
-        // Add 2 so no Rel2 has the same tag as Cons.
-        fr_from_u64(self.clone() as u64 + 2)
-    }
-}
-
 // TODO: Unify this with Expression::Thunk. For simplicity, keep separate for now.
 // This separateness means that Expression and Continuation have separate namespaces.
 // In practice, this means they have distinct tags, and the containing code must know
 // statically which is expected.
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
 pub enum Continuation {
     Outermost,
     Simple(Box<Continuation>),
@@ -303,132 +230,118 @@ pub enum Continuation {
 }
 
 impl Continuation {
-    pub fn get_hash(&self) -> Fr {
-        if !CONT_HASHES.contains_key(self) {
-            let h = self.calculate_hash();
-            CONT_HASHES.insert(self.clone(), h);
-        }
-        *CONT_HASHES.get(self).unwrap()
-    }
-
-    // Consider making Continuation a first-class Expression.
-    fn calculate_hash(&self) -> Fr {
-        let preimage = self.get_hash_components();
-        Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_8).hash()
-    }
-
-    pub fn get_hash_components(&self) -> [Fr; 8] {
+    fn get_hash_components(&self) -> [TaggedPtr; 4] {
         match self {
-            Continuation::Outermost => quad_hash_components(
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-            ),
-            Continuation::Simple(continuation) => quad_hash_components(
-                &continuation.continuation_tagged_hash(),
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-            ),
-            Continuation::Call(arg, saved_env, continuation) => quad_hash_components(
-                &saved_env.tagged_hash(),
-                &arg.tagged_hash(),
-                &continuation.continuation_tagged_hash(),
-                &TaggedHash::default(),
-            ),
-            Continuation::Call2(fun, saved_env, continuation) => quad_hash_components(
-                &saved_env.tagged_hash(),
-                &fun.tagged_hash(),
-                &continuation.continuation_tagged_hash(),
-                &TaggedHash::default(),
-            ),
-            Continuation::Tail(saved_env, continuation) => quad_hash_components(
-                &saved_env.tagged_hash(),
-                &continuation.continuation_tagged_hash(),
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-            ),
-            Continuation::Error => quad_hash_components(
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-            ),
-            Continuation::Lookup(saved_env, continuation) => quad_hash_components(
-                &saved_env.tagged_hash(),
-                &continuation.continuation_tagged_hash(),
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-            ),
-            Continuation::Unop(op1, continuation) => quad_hash_x_components(
-                &op1.fr(),
-                &continuation.continuation_tagged_hash(),
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-            ),
-            Continuation::Binop(op2, saved_env, unevaled_args, continuation) => {
-                quad_hash_x_components(
-                    &op2.fr(),
-                    &saved_env.tagged_hash(),
-                    &unevaled_args.tagged_hash(),
-                    &continuation.continuation_tagged_hash(),
-                )
-            }
-            Continuation::Binop2(op2, arg1, continuation) => quad_hash_x_components(
-                &op2.fr(),
-                &arg1.tagged_hash(),
-                &continuation.continuation_tagged_hash(),
-                &TaggedHash::default(),
-            ),
-            Continuation::Relop(rel2, saved_env, unevaled_args, continuation) => {
-                quad_hash_x_components(
-                    &rel2.fr(),
-                    &saved_env.tagged_hash(),
-                    &unevaled_args.tagged_hash(),
-                    &continuation.continuation_tagged_hash(),
-                )
-            }
-            Continuation::Relop2(rel2, arg1, continuation) => quad_hash_x_components(
-                &rel2.fr(),
-                &arg1.tagged_hash(),
-                &continuation.continuation_tagged_hash(),
-                &TaggedHash::default(),
-            ),
-            Continuation::If(unevaled_args, continuation) => quad_hash_components(
-                &unevaled_args.tagged_hash(),
-                &continuation.continuation_tagged_hash(),
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-            ),
-            Continuation::LetStar(var, body, saved_env, continuation) => quad_hash_components(
-                &var.tagged_hash(),
-                &body.tagged_hash(),
-                &saved_env.tagged_hash(),
-                &continuation.continuation_tagged_hash(),
-            ),
-            Continuation::LetRecStar(var, body, saved_env, continuation) => quad_hash_components(
-                &var.tagged_hash(),
-                &body.tagged_hash(),
-                &saved_env.tagged_hash(),
-                &continuation.continuation_tagged_hash(),
-            ),
-            Continuation::Dummy => quad_hash_components(
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-            ),
-            Continuation::Terminal => quad_hash_components(
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-                &TaggedHash::default(),
-            ),
+            Continuation::Outermost => [
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+            ],
+            Continuation::Simple(continuation) => [
+                continuation.tagged_ptr(),
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+            ],
+            Continuation::Call(arg, saved_env, continuation) => [
+                saved_env.tagged_ptr(),
+                arg.tagged_ptr(),
+                continuation.tagged_ptr(),
+                TaggedPtr::null(),
+            ],
+            Continuation::Call2(fun, saved_env, continuation) => [
+                saved_env.tagged_ptr(),
+                fun.tagged_ptr(),
+                continuation.tagged_ptr(),
+                TaggedPtr::null(),
+            ],
+            Continuation::Tail(saved_env, continuation) => [
+                saved_env.tagged_ptr(),
+                continuation.tagged_ptr(),
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+            ],
+            Continuation::Error => [
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+            ],
+            Continuation::Lookup(saved_env, continuation) => [
+                saved_env.tagged_ptr(),
+                continuation.tagged_ptr(),
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+            ],
+            Continuation::Unop(op1, continuation) => [
+                op1.tagged_ptr(),
+                continuation.tagged_ptr(),
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+            ],
+            Continuation::Binop(op2, saved_env, unevaled_args, continuation) => [
+                op2.tagged_ptr(),
+                saved_env.tagged_ptr(),
+                unevaled_args.tagged_ptr(),
+                continuation.tagged_ptr(),
+            ],
+            Continuation::Binop2(op2, arg1, continuation) => [
+                op2.tagged_ptr(),
+                arg1.tagged_ptr(),
+                continuation.tagged_ptr(),
+                TaggedPtr::null(),
+            ],
+            Continuation::Relop(rel2, saved_env, unevaled_args, continuation) => [
+                rel2.tagged_ptr(),
+                saved_env.tagged_ptr(),
+                unevaled_args.tagged_ptr(),
+                continuation.tagged_ptr(),
+            ],
+            Continuation::Relop2(rel2, arg1, continuation) => [
+                rel2.tagged_ptr(),
+                arg1.tagged_ptr(),
+                continuation.tagged_ptr(),
+                TaggedPtr::null(),
+            ],
+            Continuation::If(unevaled_args, continuation) => [
+                unevaled_args.tagged_ptr(),
+                continuation.tagged_ptr(),
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+            ],
+            Continuation::LetStar(var, body, saved_env, continuation) => [
+                var.tagged_ptr(),
+                body.tagged_ptr(),
+                saved_env.tagged_ptr(),
+                continuation.tagged_ptr(),
+            ],
+            Continuation::LetRecStar(var, body, saved_env, continuation) => [
+                var.tagged_ptr(),
+                body.tagged_ptr(),
+                saved_env.tagged_ptr(),
+                continuation.tagged_ptr(),
+            ],
+            Continuation::Dummy => [
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+            ],
+            Continuation::Terminal => [
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+                TaggedPtr::null(),
+            ],
         }
     }
+}
 
-    pub fn get_continuation_tag(&self) -> BaseContinuationTag {
+impl Tagged for Continuation {
+    type Tag = BaseContinuationTag;
+
+    fn tag(&self) -> Self::Tag {
         match self {
             Continuation::Outermost => BaseContinuationTag::Outermost,
             Continuation::Simple(_) => BaseContinuationTag::Simple,
@@ -450,238 +363,30 @@ impl Continuation {
         }
     }
 
-    pub fn continuation_tagged_hash(&self) -> TaggedHash {
-        TaggedHash {
-            tag: self.get_continuation_tag().cont_tag_fr(),
-            hash: self.get_hash(),
-        }
+    fn tagged_hash(&self) -> PtrValue {
+        TaggedPtr::hash_many(&self.get_hash_components())
     }
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, std::cmp::Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
 pub struct Thunk {
     pub value: Box<Expression>,
     pub continuation: Box<Continuation>,
 }
 
 impl Thunk {
-    pub fn get_hash_components(&self) -> [Fr; 4] {
-        let value = self.value.tagged_hash();
-        let continuation = (*self.continuation).continuation_tagged_hash();
-        [value.tag, value.hash, continuation.tag, continuation.hash]
-    }
-}
+    pub fn get_hash_components(&self) -> [TaggedPtr; 2] {
+        let value = self.value.tagged_ptr();
+        let continuation = self.continuation.tagged_ptr();
 
-fn binary_hash(a: &TaggedHash, b: &TaggedHash) -> Fr {
-    let preimage = [a.tag, a.hash, b.tag, b.hash];
-    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_4).hash()
-}
-
-fn tri_hash(a: &TaggedHash, b: &TaggedHash, c: &TaggedHash) -> Fr {
-    let preimage = [a.tag, a.hash, b.tag, b.hash, c.tag, c.hash];
-    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_6).hash()
-}
-
-#[allow(dead_code)]
-fn quad_hash(a: &TaggedHash, b: &TaggedHash, c: &TaggedHash, d: &TaggedHash) -> Fr {
-    let preimage = [a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash];
-    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_8).hash()
-}
-
-fn oct_hash(preimage: &[Fr]) -> Fr {
-    Poseidon::new_with_preimage(preimage, &POSEIDON_CONSTANTS_8).hash()
-}
-
-#[allow(dead_code)]
-fn simple_binary_hash(a: Fr, b: Fr) -> Fr {
-    let preimage = [a, b];
-    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_2).hash()
-}
-
-#[allow(dead_code)]
-fn tagged_1_hash(tag_fr: &Fr, a: &TaggedHash) -> Fr {
-    let preimage = [*tag_fr, a.tag, a.hash];
-    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_3).hash()
-}
-
-#[allow(dead_code)]
-fn tagged_2_hash(tag_fr: &Fr, a: &TaggedHash, b: &TaggedHash) -> Fr {
-    let preimage = [*tag_fr, a.tag, a.hash, b.tag, b.hash];
-    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_5).hash()
-}
-
-#[allow(dead_code)]
-fn tagged_4_hash(
-    tag_fr: &Fr,
-    a: &TaggedHash,
-    b: &TaggedHash,
-    c: &TaggedHash,
-    d: &TaggedHash,
-) -> Fr {
-    let preimage = [
-        *tag_fr, a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash,
-    ];
-    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_9).hash()
-}
-
-#[inline]
-pub const fn quad_hash_components(
-    a: &TaggedHash,
-    b: &TaggedHash,
-    c: &TaggedHash,
-    d: &TaggedHash,
-) -> [Fr; 8] {
-    [a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash]
-}
-
-fn quad_hash_x_components(
-    inner_tag_fr: &Fr,
-    a: &TaggedHash,
-    b: &TaggedHash,
-    c: &TaggedHash,
-) -> [Fr; 8] {
-    [
-        *inner_tag_fr,
-        Fr::zero(),
-        a.tag,
-        a.hash,
-        b.tag,
-        b.hash,
-        c.tag,
-        c.hash,
-    ]
-}
-
-#[allow(dead_code)]
-const fn tagged_4_hash_components(
-    tag_fr: &Fr,
-    a: &TaggedHash,
-    b: &TaggedHash,
-    c: &TaggedHash,
-    d: &TaggedHash,
-) -> [Fr; 9] {
-    [
-        *tag_fr, a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash,
-    ]
-}
-
-#[allow(dead_code)]
-fn tagged_4_hash_x(
-    tag_fr: &Fr,
-    inner_tag_fr: &Fr,
-    a: &TaggedHash,
-    b: &TaggedHash,
-    c: &TaggedHash,
-) -> Fr {
-    let preimage = [
-        *tag_fr,
-        *inner_tag_fr,
-        Fr::zero(),
-        a.tag,
-        a.hash,
-        b.tag,
-        b.hash,
-        c.tag,
-        c.hash,
-    ];
-    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_9).hash()
-}
-
-#[inline]
-#[allow(dead_code)]
-fn tagged_4_hash_x_components(
-    tag_fr: &Fr,
-    inner_tag_fr: &Fr,
-    a: &TaggedHash,
-    b: &TaggedHash,
-    c: &TaggedHash,
-) -> [Fr; 9] {
-    [
-        *tag_fr,
-        *inner_tag_fr,
-        Fr::zero(),
-        a.tag,
-        a.hash,
-        b.tag,
-        b.hash,
-        c.tag,
-        c.hash,
-    ]
-}
-
-#[allow(dead_code)]
-#[allow(clippy::many_single_char_names)]
-fn tagged_5_hash(
-    tag_fr: &Fr,
-    a: &TaggedHash,
-    b: &TaggedHash,
-    c: &TaggedHash,
-    d: &TaggedHash,
-    e: &TaggedHash,
-) -> Fr {
-    let preimage = [
-        *tag_fr, a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash, e.tag, e.hash,
-    ];
-    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_11).hash()
-}
-
-#[allow(dead_code)]
-fn tagged_5_hash_x(
-    tag_fr: &Fr,
-    inner_tag_fr: &Fr,
-    a: &TaggedHash,
-    b: &TaggedHash,
-    c: &TaggedHash,
-    d: &TaggedHash,
-) -> Fr {
-    let preimage = [
-        *tag_fr,
-        *inner_tag_fr,
-        Fr::zero(),
-        a.tag,
-        a.hash,
-        b.tag,
-        b.hash,
-        c.tag,
-        c.hash,
-        d.tag,
-        d.hash,
-    ];
-    Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_11).hash()
-}
-
-fn hash_string(s: &str) -> Fr {
-    // We should use HashType::VariableLength, once supported.
-    // The following is just quick and dirty, but should be unique.
-    let mut preimage = [Fr::zero(); 8];
-    let mut x = fr_from_u64(s.len() as u64);
-    s.chars()
-        .map(|c| fr_from_u64(c.into()))
-        .chunks(7)
-        .into_iter()
-        .for_each(|mut chunk| {
-            preimage[0] = x;
-            for item in preimage.iter_mut().skip(1).take(7) {
-                if let Some(c) = chunk.next() {
-                    *item = c
-                };
-            }
-            x = oct_hash(&preimage);
-        });
-    x
-}
-
-use Expression::*;
-
-pub trait Tagged {
-    fn tag(&self) -> Tag;
-    fn tag_fr(&self) -> Fr {
-        self.tag().fr()
+        [value, continuation]
     }
 }
 
 impl Tagged for Expression {
-    fn tag(&self) -> Tag {
+    type Tag = Tag;
+
+    fn tag(&self) -> Self::Tag {
         match self {
             Nil => Tag::Nil,
             Cons(_, _) => Tag::Cons,
@@ -692,61 +397,45 @@ impl Tagged for Expression {
             Thunk(_) => Tag::Thunk,
         }
     }
-}
 
-impl Expression {
-    pub fn get_hash(&self) -> Fr {
-        if !EXPR_HASHES.contains_key(self) {
-            let h = self.calculate_hash();
-            EXPR_HASHES.insert(self.clone(), h);
-        }
-        *EXPR_HASHES.get(self).unwrap()
-    }
-
-    fn calculate_hash(&self) -> Fr {
+    fn tagged_hash(&self) -> PtrValue {
         match self {
-            Nil => hash_string("NIL"),
-            Cons(car, cdr) => binary_hash(car, cdr),
-            Sym(s) => hash_string(s),
-            Str(s) => hash_string(s),
-            Fun(arg, body, closed_env) => tri_hash(arg, body, closed_env),
-            Num(fr) => *fr, // Nums are immediate.
+            Nil => TaggedPtr::hash_string("NIL"),
+            Cons(car, cdr) => TaggedPtr::hash_many(&[*car, *cdr]),
+            Sym(s) => TaggedPtr::hash_string(s),
+            Str(s) => TaggedPtr::hash_string(s),
+            Fun(arg, body, closed_env) => TaggedPtr::hash_many(&[*arg, *body, *closed_env]),
+            Num(num) => {
+                // Nums are immediate.
+                TaggedPtr::hash_num(*num)
+            }
             Thunk(thunk) => {
-                let value = thunk.value.tagged_hash();
-                let continuation = (*thunk.continuation).continuation_tagged_hash();
+                let value = thunk.value.tagged_ptr();
+                let continuation = (*thunk.continuation).tagged_ptr();
 
-                binary_hash(&value, &continuation)
+                TaggedPtr::hash_many(&[value, continuation])
             }
         }
     }
+}
 
-    pub fn tagged_hash(&self) -> TaggedHash {
-        TaggedHash {
-            tag: self.tag().fr(),
-            hash: self.get_hash(),
-        }
-    }
-
+impl Expression {
     pub fn read_sym(s: &str) -> Expression {
         Sym(s.to_uppercase())
     }
 
     pub fn cons(a: &Expression, b: &Expression) -> Expression {
-        Cons(a.tagged_hash(), b.tagged_hash())
+        Cons(a.tagged_ptr(), b.tagged_ptr())
     }
 
     pub fn num(n: u64) -> Expression {
-        Num(fr_from_u64(n))
+        Num(n)
     }
 
     pub fn fun(arg: &Expression, body: &Expression, closed_env: &Expression) -> Expression {
         match arg {
             // TODO: closed_env must be an env.
-            Expression::Sym(_) => Fun(
-                arg.tagged_hash(),
-                body.tagged_hash(),
-                closed_env.tagged_hash(),
-            ),
+            Expression::Sym(_) => Fun(arg.tagged_ptr(), body.tagged_ptr(), closed_env.tagged_ptr()),
             _ => {
                 panic!("ARG must be a symbol.");
             }
@@ -771,34 +460,34 @@ impl Expression {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Store {
-    pub map: HashMap<TaggedHash, Expression>,
-    pub continuation_map: HashMap<TaggedHash, Continuation>,
+    pub map: HashMap<TaggedPtr, Expression>,
+    pub continuation_map: HashMap<TaggedPtr, Continuation>,
 }
 
 impl Store {
-    pub fn fetch(&self, t: &TaggedHash) -> Option<Expression> {
-        match t.tag {
+    pub fn fetch(&self, t: &TaggedPtr) -> Option<Expression> {
+        match t.tag() {
             // Nil has a unique identity.
-            tag if tag == Tag::Nil.fr() => Some(Expression::Nil),
+            tag if Tag::Nil == tag => Some(Expression::Nil),
             // Nums are immediate so not looked up in map.
-            tag if tag == Tag::Num.fr() => Some(Expression::Num(t.hash)),
+            tag if Tag::Num == tag => Some(Expression::Num(t.value_as_num())),
             _ => self.map.get(t).cloned(),
         }
     }
 
     pub fn store(&mut self, exp: &Expression) {
         self.map
-            .entry(exp.tagged_hash())
+            .entry(exp.tagged_ptr())
             .or_insert_with(|| exp.clone());
     }
 
-    pub fn fetch_continuation(&self, t: &TaggedHash) -> Option<Continuation> {
+    pub fn fetch_continuation(&self, t: &TaggedPtr) -> Option<Continuation> {
         self.continuation_map.get(t).cloned()
     }
 
     pub fn store_continuation(&mut self, cont: &Continuation) {
         self.continuation_map
-            .entry(cont.continuation_tagged_hash())
+            .entry(cont.tagged_ptr())
             .or_insert_with(|| cont.clone());
     }
 
@@ -1181,18 +870,18 @@ impl Store {
     ) -> Option<Expression> {
         // As written, read_number assumes the next char is known to be a digit.
         // So it will never return None.
-        let mut acc = Fr::zero();
-        let ten: Fr = fr_from_u64(10);
+        let mut acc = 0;
+        let ten = 10;
 
         while let Some(&c) = chars.peek() {
             if is_digit_char(&c) {
-                if acc != Fr::zero() {
-                    acc.mul_assign(&ten);
+                if acc != 0 {
+                    acc *= ten;
                 }
                 let digit_char = chars.next().unwrap();
                 let digit = digit_char.to_digit(10).unwrap();
-                let fr = fr_from_u64(digit.into());
-                acc.add_assign(&fr);
+                let n: u64 = digit.into();
+                acc += n;
             } else {
                 break;
             }
@@ -1315,9 +1004,8 @@ fn skip_line_comment<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> bool 
     // };
 }
 
-fn print_num(fr: &Fr, w: &mut impl Write) -> io::Result<()> {
-    let x = fr_to_hex(fr);
-    write!(w, "Fr(0x{})", x[5..].trim_start_matches('0'))
+fn print_num(n: &u64, w: &mut impl Write) -> io::Result<()> {
+    write!(w, "Fr(0x{:x})", n)
 }
 
 #[cfg(test)]
@@ -1326,9 +1014,9 @@ mod test {
 
     #[test]
     fn test_print_num() {
-        let fr = fr_from_u64(5);
+        let n = 5;
         let mut res = Vec::new();
-        print_num(&fr, &mut res).unwrap();
+        print_num(&n, &mut res).unwrap();
         assert_eq!(&res[..], &b"Fr(0x5)"[..]);
     }
 
@@ -1384,106 +1072,73 @@ mod test {
     }
 
     #[test]
-    fn test_hash_string() {
-        assert_eq!(
-            fr_from_u64s([
-                0x5c03e517bec087a0,
-                0xc22861c4b56986b2,
-                0x730bf8397a7a2cf2,
-                0x4bb2bffada9d35a2
-            ]),
-            hash_string(&"Test"),
-        );
-
-        assert_eq!(
-            fr_from_u64s([
-                0xaece3618ecf6d992,
-                0xfccb6c0141aff847,
-                0xc19882347797fbab,
-                0x33e4e3e92bc14968
-            ]),
-            hash_string(&"NIL")
-        );
-
-        assert_eq!(
-            fr_from_u64s([
-                0xcd414517f70c8562,
-                0x8df95fcf0e22705a,
-                0xf14f6ff8429ddea0,
-                0x6e952ecf9358ff3e
-            ]),
-            hash_string(&"RANDOM")
-        );
-    }
-
-    #[test]
-    fn sym_tagged_hash() {
+    fn sym_tagged_ptr() {
         let s = Expression::read_sym("bubba");
-        let t = s.tagged_hash();
+        let t = s.tagged_ptr();
         assert_eq!(Sym("BUBBA".to_string()), s);
-        assert_eq!(Tag::Sym.fr(), t.tag);
-        assert_eq!(
-            fr_from_u64s([
-                0x1c3939f30194d3b9,
-                0x8e7208d4f2e73ed6,
-                0x455900037c586565,
-                0x638cabd52a433562
-            ]),
-            s.get_hash()
-        );
+        assert_eq!(Tag::Sym, t.tag());
+        // assert_eq!(
+        //     fr_from_u64s([
+        //         0x1c3939f30194d3b9,
+        //         0x8e7208d4f2e73ed6,
+        //         0x455900037c586565,
+        //         0x638cabd52a433562
+        //     ]),
+        //     s.get_hash()
+        // );
     }
 
     #[test]
-    fn nil_tagged_hash() {
+    fn nil_tagged_ptr() {
         let nil = Expression::Nil;
-        let t = nil.tagged_hash();
-        assert_eq!(Tag::Nil.fr(), t.tag);
-        assert_eq!(hash_string(&"NIL"), nil.get_hash());
-        assert_eq!(
-            fr_from_u64s([
-                0xaece3618ecf6d992,
-                0xfccb6c0141aff847,
-                0xc19882347797fbab,
-                0x33e4e3e92bc14968
-            ]),
-            nil.get_hash()
-        );
+        let t = nil.tagged_ptr();
+        assert_eq!(Tag::Nil, t.tag());
+        assert_eq!(TaggedPtr::hash_string(&"NIL"), nil.tagged_hash());
+        // assert_eq!(
+        //     fr_from_u64s([
+        //         0xaece3618ecf6d992,
+        //         0xfccb6c0141aff847,
+        //         0xc19882347797fbab,
+        //         0x33e4e3e92bc14968
+        //     ]),
+        //     nil.get_hash()
+        // );
     }
 
     #[test]
-    fn cons_tagged_hash() {
+    fn cons_tagged_ptr() {
         let nil = Expression::Nil;
         let apple = Expression::read_sym("apple");
-        let cons = Expression::Cons(apple.tagged_hash().clone(), nil.tagged_hash().clone());
+        let cons = Expression::Cons(apple.tagged_ptr().clone(), nil.tagged_ptr().clone());
         assert_eq!(cons, Expression::cons(&apple, &nil));
-        let t = cons.tagged_hash();
-        assert_eq!(Tag::Cons.fr(), t.tag);
-        assert_eq!(
-            fr_from_u64s([
-                0x3c0321b1e4d826b4,
-                0x478de3220a74033e,
-                0xcb314ea6d44ae65f,
-                0x05c60d24e14cf749
-            ]),
-            cons.get_hash(),
-        );
+        let t = cons.tagged_ptr();
+        assert_eq!(Tag::Cons, t.tag());
+        // assert_eq!(
+        //     fr_from_u64s([
+        //         0x3c0321b1e4d826b4,
+        //         0x478de3220a74033e,
+        //         0xcb314ea6d44ae65f,
+        //         0x05c60d24e14cf749
+        //     ]),
+        //     cons.get_hash(),
+        // );
     }
 
     #[test]
-    fn num_tagged_hash() {
+    fn num_tagged_ptr() {
         let num = Expression::num(123);
-        let t = num.tagged_hash();
-        assert_eq!(Expression::Num(fr_from_u64(123)), num);
-        assert_eq!(Tag::Num.fr(), t.tag);
-        assert_eq!(
-            fr_from_u64s([
-                0x000000000000007b,
-                0x0000000000000000,
-                0x0000000000000000,
-                0x0000000000000000
-            ]),
-            num.get_hash()
-        );
+        let t = num.tagged_ptr();
+        assert_eq!(Expression::Num(123), num);
+        assert_eq!(Tag::Num, t.tag());
+        // assert_eq!(
+        //     fr_from_u64s([
+        //         0x000000000000007b,
+        //         0x0000000000000000,
+        //         0x0000000000000000,
+        //         0x0000000000000000
+        //     ]),
+        //     num.get_hash()
+        // );
     }
 
     #[test]
@@ -1491,7 +1146,7 @@ mod test {
         let mut store = Store::default();
 
         let num = Expression::num(123);
-        let num_t = num.tagged_hash();
+        let num_t = num.tagged_ptr();
         store.store(&num);
         let num_again = store.fetch(&num_t).unwrap();
 

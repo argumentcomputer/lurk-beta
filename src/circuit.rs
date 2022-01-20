@@ -16,12 +16,12 @@ use crate::eval::{Frame, Witness, IO};
 use crate::gadgets::constraints::{
     self, alloc_equal, alloc_is_zero, enforce_implication, or, pick,
 };
-use crate::gadgets::data::{pick_tagged_hash, AllocatedTaggedHash, GlobalAllocations};
+use crate::gadgets::data::{pick_tagged_hash, AllocatedTaggedPtr, GlobalAllocations};
 
 fn bind_input<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
     expr: Option<&Expression>,
-) -> Result<AllocatedTaggedHash, SynthesisError> {
+) -> Result<AllocatedTaggedPtr, SynthesisError> {
     let tagged_hash = expr.as_ref().map(|e| e.tagged_hash());
     let tag = AllocatedNum::alloc(cs.namespace(|| "tag"), || {
         tagged_hash
@@ -39,13 +39,13 @@ fn bind_input<CS: ConstraintSystem<Fr>>(
     })?;
     hash.inputize(cs.namespace(|| "hash input"))?;
 
-    Ok(AllocatedTaggedHash::from_tag_and_hash(tag, hash))
+    Ok(AllocatedTaggedPtr::from_tag_and_hash(tag, hash))
 }
 
 fn bind_input_cont<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
     cont: Option<&Continuation>,
-) -> Result<AllocatedTaggedHash, SynthesisError> {
+) -> Result<AllocatedTaggedPtr, SynthesisError> {
     let tag = AllocatedNum::alloc(cs.namespace(|| "continuation tag"), || {
         cont.as_ref()
             .map(|c| c.get_continuation_tag().cont_tag_fr())
@@ -60,7 +60,7 @@ fn bind_input_cont<CS: ConstraintSystem<Fr>>(
     })?;
     hash.inputize(cs.namespace(|| "continuation hash input"))?;
 
-    Ok(AllocatedTaggedHash::from_tag_and_hash(tag, hash))
+    Ok(AllocatedTaggedPtr::from_tag_and_hash(tag, hash))
 }
 
 #[allow(dead_code)]
@@ -256,7 +256,7 @@ fn add_clause<'a>(
     tag_clauses: &mut Vec<CaseClause<'a, Fr>>,
     hash_clauses: &mut Vec<CaseClause<'a, Fr>>,
     key: Fr,
-    expr: &'a AllocatedTaggedHash,
+    expr: &'a AllocatedTaggedPtr,
 ) {
     add_clause_single(tag_clauses, key, &expr.tag);
     add_clause_single(hash_clauses, key, &expr.hash);
@@ -276,9 +276,9 @@ impl<'a> Results<'a> {
 
         key: Fr,
         (result_expr, result_env, result_cont, result_invoke_continuation): (
-            &'a AllocatedTaggedHash,
-            &'a AllocatedTaggedHash,
-            &'a AllocatedTaggedHash,
+            &'a AllocatedTaggedPtr,
+            &'a AllocatedTaggedPtr,
+            &'a AllocatedTaggedPtr,
             &'a AllocatedNum<Fr>,
         ),
     ) {
@@ -314,9 +314,9 @@ impl<'a> Results<'a> {
         &mut self,
         key: Fr,
         (result_expr, result_env, result_cont, invoke_cont): (
-            &'a AllocatedTaggedHash,
-            &'a AllocatedTaggedHash,
-            &'a AllocatedTaggedHash,
+            &'a AllocatedTaggedPtr,
+            &'a AllocatedTaggedPtr,
+            &'a AllocatedTaggedPtr,
             &'a AllocatedNum<Fr>,
         ),
     ) {
@@ -345,9 +345,9 @@ impl<'a> Results<'a> {
         &mut self,
         key: Fr,
         (result_expr, result_env, result_cont): (
-            &'a AllocatedTaggedHash,
-            &'a AllocatedTaggedHash,
-            &'a AllocatedTaggedHash,
+            &'a AllocatedTaggedPtr,
+            &'a AllocatedTaggedPtr,
+            &'a AllocatedTaggedPtr,
         ),
     ) {
         add_clause(
@@ -374,9 +374,9 @@ impl<'a> Results<'a> {
         &mut self,
         key: Fr,
         (result_expr, result_env, result_cont, make_thunk_num): (
-            &'a AllocatedTaggedHash,
-            &'a AllocatedTaggedHash,
-            &'a AllocatedTaggedHash,
+            &'a AllocatedTaggedPtr,
+            &'a AllocatedTaggedPtr,
+            &'a AllocatedTaggedPtr,
             &'a AllocatedNum<Fr>,
         ),
     ) {
@@ -404,19 +404,12 @@ impl<'a> Results<'a> {
 
 fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
-    expr: &AllocatedTaggedHash,
-    env: &AllocatedTaggedHash,
-    cont: &AllocatedTaggedHash,
+    expr: &AllocatedTaggedPtr,
+    env: &AllocatedTaggedPtr,
+    cont: &AllocatedTaggedPtr,
     witness: &Option<Witness>,
     store: &Store,
-) -> Result<
-    (
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-    ),
-    SynthesisError,
-> {
+) -> Result<(AllocatedTaggedPtr, AllocatedTaggedPtr, AllocatedTaggedPtr), SynthesisError> {
     dbg!("evaluate_expression");
 
     dbg!(&expr.fetch_and_write_str(store));
@@ -652,18 +645,18 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
 
 fn eval_sym<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
-    expr: &AllocatedTaggedHash,
-    env: &AllocatedTaggedHash,
-    cont: &AllocatedTaggedHash,
+    expr: &AllocatedTaggedPtr,
+    env: &AllocatedTaggedPtr,
+    cont: &AllocatedTaggedPtr,
     not_dummy: &Boolean,
     witness: &Option<Witness>,
     store: &Store,
     g: &GlobalAllocations,
 ) -> Result<
     (
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
+        AllocatedTaggedPtr,
+        AllocatedTaggedPtr,
+        AllocatedTaggedPtr,
         AllocatedNum<Fr>,
     ),
     SynthesisError,
@@ -949,18 +942,18 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
 
 fn eval_cons<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
-    expr: &AllocatedTaggedHash,
-    env: &AllocatedTaggedHash,
-    cont: &AllocatedTaggedHash,
+    expr: &AllocatedTaggedPtr,
+    env: &AllocatedTaggedPtr,
+    cont: &AllocatedTaggedPtr,
     _not_dummy: &Boolean,
     _witness: &Option<Witness>,
     store: &Store,
     g: &GlobalAllocations,
 ) -> Result<
     (
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
+        AllocatedTaggedPtr,
+        AllocatedTaggedPtr,
+        AllocatedTaggedPtr,
         AllocatedNum<Fr>,
     ),
     SynthesisError,
@@ -1470,21 +1463,14 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
 
 fn make_thunk<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
-    cont: &AllocatedTaggedHash,
-    result: &AllocatedTaggedHash,
-    env: &AllocatedTaggedHash,
+    cont: &AllocatedTaggedPtr,
+    result: &AllocatedTaggedPtr,
+    env: &AllocatedTaggedPtr,
     not_dummy: &Boolean,
     _witness: &Option<Witness>,
     store: &Store,
     global_allocations: &GlobalAllocations,
-) -> Result<
-    (
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-    ),
-    SynthesisError,
-> {
+) -> Result<(AllocatedTaggedPtr, AllocatedTaggedPtr, AllocatedTaggedPtr), SynthesisError> {
     let mut results = Results::default();
 
     let (computed_cont_hash, cont_components) = Continuation::allocate_maybe_dummy_components(
@@ -1514,10 +1500,8 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
             ],
         )?;
 
-        let result_expr = AllocatedTaggedHash::from_tag_and_hash(
-            global_allocations.thunk_tag.clone(),
-            thunk_hash,
-        );
+        let result_expr =
+            AllocatedTaggedPtr::from_tag_and_hash(global_allocations.thunk_tag.clone(), thunk_hash);
 
         (result_expr, saved_env)
     };
@@ -1579,18 +1563,18 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
 
 fn invoke_continuation<CS: ConstraintSystem<Fr>>(
     mut cs: CS,
-    cont: &AllocatedTaggedHash,
-    result: &AllocatedTaggedHash,
-    env: &AllocatedTaggedHash,
+    cont: &AllocatedTaggedPtr,
+    result: &AllocatedTaggedPtr,
+    env: &AllocatedTaggedPtr,
     not_dummy: &Boolean,
     witness: &Option<Witness>,
     store: &Store,
     global_allocations: &GlobalAllocations,
 ) -> Result<
     (
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
-        AllocatedTaggedHash,
+        AllocatedTaggedPtr,
+        AllocatedTaggedPtr,
+        AllocatedTaggedPtr,
         AllocatedNum<Fr>,
     ),
     SynthesisError,
@@ -2079,7 +2063,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &global_allocations.num_tag,
         )?;
 
-        let res = AllocatedTaggedHash {
+        let res = AllocatedTaggedPtr {
             tag: res_tag,
             hash: val,
         };
@@ -2327,9 +2311,9 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
 fn car_cdr<CS: ConstraintSystem<Fr>>(
     mut cs: CS,
     g: &GlobalAllocations,
-    maybe_cons: &AllocatedTaggedHash,
+    maybe_cons: &AllocatedTaggedPtr,
     store: &Store,
-) -> Result<(AllocatedTaggedHash, AllocatedTaggedHash), SynthesisError> {
+) -> Result<(AllocatedTaggedPtr, AllocatedTaggedPtr), SynthesisError> {
     // A dummy value will never have the cons tag.
     let not_dummy = alloc_equal(
         &mut cs.namespace(|| "not_dummy"),
@@ -2382,11 +2366,11 @@ fn car_cdr<CS: ConstraintSystem<Fr>>(
 fn extend<CS: ConstraintSystem<Fr>>(
     mut cs: CS,
     g: &GlobalAllocations,
-    env: &AllocatedTaggedHash,
-    var: &AllocatedTaggedHash,
-    val: &AllocatedTaggedHash,
+    env: &AllocatedTaggedPtr,
+    var: &AllocatedTaggedPtr,
+    val: &AllocatedTaggedPtr,
     _store: &Store,
-) -> Result<AllocatedTaggedHash, SynthesisError> {
+) -> Result<AllocatedTaggedPtr, SynthesisError> {
     let new_binding =
         Expression::construct_cons(&mut cs.namespace(|| "extend binding"), g, var, val)?;
     Expression::construct_cons(cs, g, &new_binding, env)
@@ -2395,11 +2379,11 @@ fn extend<CS: ConstraintSystem<Fr>>(
 fn extend_rec<CS: ConstraintSystem<Fr>>(
     mut cs: CS,
     g: &GlobalAllocations,
-    env: &AllocatedTaggedHash,
-    var: &AllocatedTaggedHash,
-    val: &AllocatedTaggedHash,
+    env: &AllocatedTaggedPtr,
+    var: &AllocatedTaggedPtr,
+    val: &AllocatedTaggedPtr,
     store: &Store,
-) -> Result<AllocatedTaggedHash, SynthesisError> {
+) -> Result<AllocatedTaggedPtr, SynthesisError> {
     let (binding_or_env, rest) = car_cdr(&mut cs.namespace(|| "car_cdr env"), g, env, store)?;
     let (var_or_binding, _val_or_more_bindings) = car_cdr(
         &mut cs.namespace(|| "car_cdr binding_or_env"),
@@ -2462,9 +2446,9 @@ fn extend_rec<CS: ConstraintSystem<Fr>>(
 fn make_tail_continuation<CS: ConstraintSystem<Fr>>(
     mut cs: CS,
     g: &GlobalAllocations,
-    env: &AllocatedTaggedHash,
-    continuation: &AllocatedTaggedHash,
-) -> Result<AllocatedTaggedHash, SynthesisError> {
+    env: &AllocatedTaggedPtr,
+    continuation: &AllocatedTaggedPtr,
+) -> Result<AllocatedTaggedPtr, SynthesisError> {
     let continuation_is_tail = alloc_equal(
         &mut cs.namespace(|| "continuation is tail"),
         &continuation.tag,
@@ -2494,8 +2478,8 @@ fn make_tail_continuation<CS: ConstraintSystem<Fr>>(
     )
 }
 
-fn tagged_hash_by_index(n: usize, case_results: &[AllocatedNum<Fr>]) -> AllocatedTaggedHash {
-    AllocatedTaggedHash::from_tag_and_hash(
+fn tagged_hash_by_index(n: usize, case_results: &[AllocatedNum<Fr>]) -> AllocatedTaggedPtr {
+    AllocatedTaggedPtr::from_tag_and_hash(
         case_results[n * 2].clone(),
         case_results[1 + n * 2].clone(),
     )

@@ -1,5 +1,5 @@
 use crate::data::{
-    BaseContinuationTag, Continuation, Expression, Op1, Op2, Rel2, Store, Tag, TaggedHash, Thunk,
+    BaseContinuationTag, Continuation, Expression, Op1, Op2, Rel2, Store, Tag, TaggedPtr, Thunk,
     POSEIDON_CONSTANTS_4, POSEIDON_CONSTANTS_6, POSEIDON_CONSTANTS_8,
 };
 use crate::eval::Witness;
@@ -13,12 +13,12 @@ use ff::Field;
 use neptune::circuit::poseidon_hash;
 
 #[derive(Clone)]
-pub struct AllocatedTaggedHash {
+pub struct AllocatedTaggedPtr {
     pub tag: AllocatedNum<Fr>,
     pub hash: AllocatedNum<Fr>,
 }
 
-impl AllocatedTaggedHash {
+impl AllocatedTaggedPtr {
     pub fn from_tag_and_hash(tag: AllocatedNum<Fr>, hash: AllocatedNum<Fr>) -> Self {
         Self { tag, hash }
     }
@@ -35,7 +35,7 @@ impl AllocatedTaggedHash {
 
     pub fn from_tagged_hash<CS: ConstraintSystem<Fr>>(
         cs: &mut CS,
-        tagged_hash: Option<TaggedHash>,
+        tagged_hash: Option<TaggedPtr>,
     ) -> Result<Self, SynthesisError> {
         let tag = AllocatedNum::alloc(&mut cs.namespace(|| "allocate tag"), || {
             tagged_hash
@@ -74,9 +74,9 @@ impl AllocatedTaggedHash {
         )
     }
 
-    pub fn tagged_hash(&self) -> Option<TaggedHash> {
+    pub fn tagged_hash(&self) -> Option<TaggedPtr> {
         match (self.tag.get_value(), self.hash.get_value()) {
-            (Some(tag), Some(hash)) => Some(TaggedHash { tag, hash }),
+            (Some(tag), Some(hash)) => Some(TaggedPtr { tag, hash }),
             _ => None,
         }
     }
@@ -89,7 +89,7 @@ impl AllocatedTaggedHash {
                 format!("expression not found in store: {:?}", aaa)
             }
         } else {
-            "no TaggedHash".to_string()
+            "no TaggedPtr".to_string()
         }
     }
     pub fn fetch_and_write_cont_str(&self, store: &Store) -> String {
@@ -100,7 +100,7 @@ impl AllocatedTaggedHash {
                 format!("continuation not found in store: {:?}", aaa)
             }
         } else {
-            "no TaggedHash".to_string()
+            "no TaggedPtr".to_string()
         }
     }
 
@@ -108,7 +108,7 @@ impl AllocatedTaggedHash {
         &self,
         cs: CS,
         store: &Store,
-    ) -> Result<(AllocatedNum<Fr>, AllocatedTaggedHash, AllocatedTaggedHash), SynthesisError> {
+    ) -> Result<(AllocatedNum<Fr>, AllocatedTaggedPtr, AllocatedTaggedPtr), SynthesisError> {
         let maybe_thunk = if let Some(tagged_hash) = self.tagged_hash() {
             if let Some(Expression::Thunk(thunk)) = store.fetch(&tagged_hash) {
                 Some(thunk)
@@ -124,14 +124,14 @@ impl AllocatedTaggedHash {
 }
 
 pub struct GlobalAllocations {
-    pub terminal_tagged_hash: AllocatedTaggedHash,
-    pub outermost_tagged_hash: AllocatedTaggedHash,
-    pub error_tagged_hash: AllocatedTaggedHash,
-    pub dummy_tagged_hash: AllocatedTaggedHash,
-    pub nil_tagged_hash: AllocatedTaggedHash,
-    pub t_tagged_hash: AllocatedTaggedHash,
-    pub lambda_tagged_hash: AllocatedTaggedHash,
-    pub dummy_arg_tagged_hash: AllocatedTaggedHash,
+    pub terminal_tagged_hash: AllocatedTaggedPtr,
+    pub outermost_tagged_hash: AllocatedTaggedPtr,
+    pub error_tagged_hash: AllocatedTaggedPtr,
+    pub dummy_tagged_hash: AllocatedTaggedPtr,
+    pub nil_tagged_hash: AllocatedTaggedPtr,
+    pub t_tagged_hash: AllocatedTaggedPtr,
+    pub lambda_tagged_hash: AllocatedTaggedPtr,
+    pub dummy_arg_tagged_hash: AllocatedTaggedPtr,
     pub nil_tag: AllocatedNum<Fr>,
     pub sym_tag: AllocatedNum<Fr>,
     pub thunk_tag: AllocatedNum<Fr>,
@@ -167,8 +167,8 @@ pub struct GlobalAllocations {
     pub default: AllocatedNum<Fr>,
 
     pub destructured_thunk_hash: AllocatedNum<Fr>,
-    pub destructured_thunk_value: AllocatedTaggedHash,
-    pub destructured_thunk_continuation: AllocatedTaggedHash,
+    pub destructured_thunk_value: AllocatedTaggedPtr,
+    pub destructured_thunk_continuation: AllocatedTaggedPtr,
 }
 
 impl GlobalAllocations {
@@ -254,7 +254,7 @@ impl GlobalAllocations {
         let false_num = allocate_constant(&mut cs.namespace(|| "false"), Fr::zero())?;
 
         // NOTE: The choice of zero is significant.
-        // For example, TaggedHash::default() has both tag and hash of zero.
+        // For example, TaggedPtr::default() has both tag and hash of zero.
         let default = allocate_constant(&mut cs.namespace(|| "default"), Fr::zero())?;
 
         let maybe_thunk = if let Some(w) = witness {
@@ -321,28 +321,28 @@ impl Expression {
     pub fn allocate_tagged_hash<CS: ConstraintSystem<Fr>>(
         cs: &mut CS,
         expr: Option<&Self>,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, expr.map(|e| e.tagged_hash()))
+    ) -> Result<AllocatedTaggedPtr, SynthesisError> {
+        AllocatedTaggedPtr::from_tagged_hash(cs, expr.map(|e| e.tagged_hash()))
     }
 
     pub fn allocated_tagged_hash<CS: ConstraintSystem<Fr>>(
         &self,
         cs: &mut CS,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, Some(self.tagged_hash()))
+    ) -> Result<AllocatedTaggedPtr, SynthesisError> {
+        AllocatedTaggedPtr::from_tagged_hash(cs, Some(self.tagged_hash()))
     }
 
     pub fn allocate_constant_tagged_hash<CS: ConstraintSystem<Fr>>(
         &self,
         cs: &mut CS,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
+    ) -> Result<AllocatedTaggedPtr, SynthesisError> {
         // TODO: This actually hashes, so when possible we should cache.
         // When this is constant, we should not hash on every circuit synthesis.
         let tagged_hash = self.tagged_hash();
         let allocated_tag = allocate_constant(&mut cs.namespace(|| "tag"), tagged_hash.tag)?;
         let allocated_hash = allocate_constant(&mut cs.namespace(|| "hash"), tagged_hash.hash)?;
 
-        Ok(AllocatedTaggedHash::from_tag_and_hash(
+        Ok(AllocatedTaggedPtr::from_tag_and_hash(
             allocated_tag,
             allocated_hash,
         ))
@@ -410,14 +410,14 @@ impl Continuation {
         mut cs: CS,
         cont_tag: &AllocatedNum<Fr>,
         components: &[AllocatedNum<Fr>; 8],
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
+    ) -> Result<AllocatedTaggedPtr, SynthesisError> {
         let hash = poseidon_hash(
             cs.namespace(|| "Continuation"),
             components.to_vec(), // FIXME: add slice based api to neptune
             &POSEIDON_CONSTANTS_8,
         )?;
 
-        let cont = AllocatedTaggedHash::from_tag_and_hash(cont_tag.clone(), hash);
+        let cont = AllocatedTaggedPtr::from_tag_and_hash(cont_tag.clone(), hash);
         Ok(cont)
     }
 }
@@ -429,9 +429,9 @@ impl Expression {
     ) -> Result<
         (
             AllocatedNum<Fr>,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
+            AllocatedTaggedPtr,
+            AllocatedTaggedPtr,
+            AllocatedTaggedPtr,
         ),
         SynthesisError,
     > {
@@ -445,29 +445,27 @@ impl Expression {
 
     fn allocate_fun<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
-        arg: &TaggedHash,
-        body: &TaggedHash,
-        closed_env: &TaggedHash,
+        arg: &TaggedPtr,
+        body: &TaggedPtr,
+        closed_env: &TaggedPtr,
     ) -> Result<
         (
             AllocatedNum<Fr>,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
+            AllocatedTaggedPtr,
+            AllocatedTaggedPtr,
+            AllocatedTaggedPtr,
         ),
         SynthesisError,
     > {
-        let arg_t = AllocatedTaggedHash::from_tagged_hash(
-            &mut cs.namespace(|| "allocate arg"),
-            Some(*arg),
-        )?;
+        let arg_t =
+            AllocatedTaggedPtr::from_tagged_hash(&mut cs.namespace(|| "allocate arg"), Some(*arg))?;
 
-        let body_t = AllocatedTaggedHash::from_tagged_hash(
+        let body_t = AllocatedTaggedPtr::from_tagged_hash(
             &mut cs.namespace(|| "allocate body"),
             Some(*body),
         )?;
 
-        let closed_env_t = AllocatedTaggedHash::from_tagged_hash(
+        let closed_env_t = AllocatedTaggedPtr::from_tagged_hash(
             &mut cs.namespace(|| "allocate closed_env"),
             Some(*closed_env),
         )?;
@@ -495,13 +493,13 @@ impl Expression {
     ) -> Result<
         (
             AllocatedNum<Fr>,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
+            AllocatedTaggedPtr,
+            AllocatedTaggedPtr,
+            AllocatedTaggedPtr,
         ),
         SynthesisError,
     > {
-        let default = TaggedHash {
+        let default = TaggedPtr {
             tag: Fr::zero(),
             hash: Fr::zero(),
         };
@@ -512,9 +510,9 @@ impl Expression {
     pub fn construct_cons<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
         g: &GlobalAllocations,
-        a: &AllocatedTaggedHash,
-        b: &AllocatedTaggedHash,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
+        a: &AllocatedTaggedPtr,
+        b: &AllocatedTaggedPtr,
+    ) -> Result<AllocatedTaggedPtr, SynthesisError> {
         // This is actually binary_hash, considering creating that helper for use elsewhere.
         let preimage = vec![a.tag.clone(), a.hash.clone(), b.tag.clone(), b.hash.clone()];
 
@@ -523,7 +521,7 @@ impl Expression {
             preimage,
             &POSEIDON_CONSTANTS_4,
         )?;
-        Ok(AllocatedTaggedHash::from_tag_and_hash(
+        Ok(AllocatedTaggedPtr::from_tag_and_hash(
             g.cons_tag.clone(),
             hash,
         ))
@@ -532,8 +530,8 @@ impl Expression {
     pub fn construct_list<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
         g: &GlobalAllocations,
-        elts: &[&AllocatedTaggedHash],
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
+        elts: &[&AllocatedTaggedPtr],
+    ) -> Result<AllocatedTaggedPtr, SynthesisError> {
         if elts.is_empty() {
             Ok(g.nil_tagged_hash.clone())
         } else {
@@ -545,10 +543,10 @@ impl Expression {
     pub fn construct_fun<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
         g: &GlobalAllocations,
-        arg: &AllocatedTaggedHash,
-        body: &AllocatedTaggedHash,
-        closed_env: &AllocatedTaggedHash,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
+        arg: &AllocatedTaggedPtr,
+        body: &AllocatedTaggedPtr,
+        closed_env: &AllocatedTaggedPtr,
+    ) -> Result<AllocatedTaggedPtr, SynthesisError> {
         let preimage = vec![
             arg.tag.clone(),
             arg.hash.clone(),
@@ -559,7 +557,7 @@ impl Expression {
         ];
 
         let hash = poseidon_hash(cs.namespace(|| "Fun hash"), preimage, &POSEIDON_CONSTANTS_6)?;
-        Ok(AllocatedTaggedHash::from_tag_and_hash(
+        Ok(AllocatedTaggedPtr::from_tag_and_hash(
             g.fun_tag.clone(),
             hash,
         ))
@@ -570,28 +568,28 @@ impl Continuation {
     pub fn allocate_tagged_hash<CS: ConstraintSystem<Fr>>(
         cs: &mut CS,
         expr: Option<&Self>,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, expr.map(|c| c.continuation_tagged_hash()))
+    ) -> Result<AllocatedTaggedPtr, SynthesisError> {
+        AllocatedTaggedPtr::from_tagged_hash(cs, expr.map(|c| c.continuation_tagged_hash()))
     }
 
     pub fn allocated_tagged_hash<CS: ConstraintSystem<Fr>>(
         &self,
         cs: &mut CS,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, Some(self.continuation_tagged_hash()))
+    ) -> Result<AllocatedTaggedPtr, SynthesisError> {
+        AllocatedTaggedPtr::from_tagged_hash(cs, Some(self.continuation_tagged_hash()))
     }
 
     pub fn allocate_constant_tagged_hash<CS: ConstraintSystem<Fr>>(
         &self,
         cs: &mut CS,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
+    ) -> Result<AllocatedTaggedPtr, SynthesisError> {
         // TODO: This actually hashes, so when possible we should cache.
         // When this is constant, we should not hash on every circuit synthesis.
         let tagged_hash = self.continuation_tagged_hash();
         let allocated_tag = allocate_constant(&mut cs.namespace(|| "tag"), tagged_hash.tag)?;
         let allocated_hash = allocate_constant(&mut cs.namespace(|| "hash"), tagged_hash.hash)?;
 
-        Ok(AllocatedTaggedHash::from_tag_and_hash(
+        Ok(AllocatedTaggedPtr::from_tag_and_hash(
             allocated_tag,
             allocated_hash,
         ))
@@ -667,19 +665,19 @@ impl Thunk {
     pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<Fr>>(
         cs: CS,
         thunk: &Option<Thunk>,
-    ) -> Result<(AllocatedNum<Fr>, AllocatedTaggedHash, AllocatedTaggedHash), SynthesisError> {
+    ) -> Result<(AllocatedNum<Fr>, AllocatedTaggedPtr, AllocatedTaggedPtr), SynthesisError> {
         let (hash, components) = if let Some(thunk) = thunk {
             thunk.allocate_components(cs)
         } else {
             Thunk::allocate_dummy_components(cs)
         }?;
 
-        // allocate_thunk_components should probably returned AllocatedTaggedHashes.
+        // allocate_thunk_components should probably returned AllocatedTaggedPtres.
         let thunk_value =
-            AllocatedTaggedHash::from_tag_and_hash(components[0].clone(), components[1].clone());
+            AllocatedTaggedPtr::from_tag_and_hash(components[0].clone(), components[1].clone());
 
         let thunk_continuation =
-            AllocatedTaggedHash::from_tag_and_hash(components[2].clone(), components[3].clone());
+            AllocatedTaggedPtr::from_tag_and_hash(components[2].clone(), components[3].clone());
 
         Ok((hash, thunk_value, thunk_continuation))
     }
@@ -742,13 +740,13 @@ impl Thunk {
 pub fn pick_tagged_hash<CS>(
     mut cs: CS,
     condition: &Boolean,
-    a: &AllocatedTaggedHash,
-    b: &AllocatedTaggedHash,
-) -> Result<AllocatedTaggedHash, SynthesisError>
+    a: &AllocatedTaggedPtr,
+    b: &AllocatedTaggedPtr,
+) -> Result<AllocatedTaggedPtr, SynthesisError>
 where
     CS: ConstraintSystem<Fr>,
 {
     let tag = pick(cs.namespace(|| "tag"), condition, &a.tag, &b.tag)?;
     let hash = pick(cs.namespace(|| "hash"), condition, &a.hash, &b.hash)?;
-    Ok(AllocatedTaggedHash::from_tag_and_hash(tag, hash))
+    Ok(AllocatedTaggedPtr::from_tag_and_hash(tag, hash))
 }

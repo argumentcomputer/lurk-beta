@@ -1901,7 +1901,6 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
-        // TODO: why is this not 304?
         assert_eq!(Expression::num(0x1044), result_expr);
         assert_eq!(1114, iterations);
     }
