@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::hash::Hasher;
 use std::io::{self, Write};
 use std::iter::Peekable;
-use std::ops::{AddAssign, MulAssign, SubAssign};
+use std::ops::{AddAssign, MulAssign};
 use std::string::ToString;
 
 lazy_static! {
@@ -81,10 +81,12 @@ impl BaseContinuationTag {
         fr_from_u64(self.cont_tag_val())
     }
 
+    #[allow(dead_code)]
     fn thunk_tag_val(&self) -> u64 {
         1 + self.cont_tag_val()
     }
 
+    #[allow(dead_code)]
     fn thunk_tag_fr(&self) -> Fr {
         fr_from_u64(self.thunk_tag_val())
     }
@@ -107,7 +109,7 @@ pub fn fr_from_u64s(parts: [u64; 4]) -> Fr {
 
 pub fn fr_to_hex(fr: &Fr) -> String {
     let mut res = String::new();
-    for mut byte in &fr.to_bytes_be() {
+    for byte in &fr.to_bytes_be() {
         res.push_str(&format!("{:x}", byte));
     }
 
@@ -161,6 +163,7 @@ pub enum Expression {
     Str(String),
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Expression {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
@@ -479,6 +482,7 @@ fn tri_hash(a: &TaggedHash, b: &TaggedHash, c: &TaggedHash) -> Fr {
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_6).hash()
 }
 
+#[allow(dead_code)]
 fn quad_hash(a: &TaggedHash, b: &TaggedHash, c: &TaggedHash, d: &TaggedHash) -> Fr {
     let preimage = [a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_8).hash()
@@ -488,20 +492,25 @@ fn oct_hash(preimage: &[Fr]) -> Fr {
     Poseidon::new_with_preimage(preimage, &POSEIDON_CONSTANTS_8).hash()
 }
 
+#[allow(dead_code)]
 fn simple_binary_hash(a: Fr, b: Fr) -> Fr {
     let preimage = [a, b];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_2).hash()
 }
 
+#[allow(dead_code)]
 fn tagged_1_hash(tag_fr: &Fr, a: &TaggedHash) -> Fr {
     let preimage = [*tag_fr, a.tag, a.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_3).hash()
 }
 
+#[allow(dead_code)]
 fn tagged_2_hash(tag_fr: &Fr, a: &TaggedHash, b: &TaggedHash) -> Fr {
     let preimage = [*tag_fr, a.tag, a.hash, b.tag, b.hash];
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_5).hash()
 }
+
+#[allow(dead_code)]
 fn tagged_4_hash(
     tag_fr: &Fr,
     a: &TaggedHash,
@@ -543,6 +552,7 @@ fn quad_hash_x_components(
     ]
 }
 
+#[allow(dead_code)]
 const fn tagged_4_hash_components(
     tag_fr: &Fr,
     a: &TaggedHash,
@@ -554,6 +564,8 @@ const fn tagged_4_hash_components(
         *tag_fr, a.tag, a.hash, b.tag, b.hash, c.tag, c.hash, d.tag, d.hash,
     ]
 }
+
+#[allow(dead_code)]
 fn tagged_4_hash_x(
     tag_fr: &Fr,
     inner_tag_fr: &Fr,
@@ -576,6 +588,7 @@ fn tagged_4_hash_x(
 }
 
 #[inline]
+#[allow(dead_code)]
 fn tagged_4_hash_x_components(
     tag_fr: &Fr,
     inner_tag_fr: &Fr,
@@ -596,6 +609,7 @@ fn tagged_4_hash_x_components(
     ]
 }
 
+#[allow(dead_code)]
 #[allow(clippy::many_single_char_names)]
 fn tagged_5_hash(
     tag_fr: &Fr,
@@ -611,6 +625,7 @@ fn tagged_5_hash(
     Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_11).hash()
 }
 
+#[allow(dead_code)]
 fn tagged_5_hash_x(
     tag_fr: &Fr,
     inner_tag_fr: &Fr,
@@ -717,7 +732,7 @@ impl Expression {
     }
 
     pub fn cons(a: &Expression, b: &Expression) -> Expression {
-        Cons(a.tagged_hash().clone(), b.tagged_hash().clone())
+        Cons(a.tagged_hash(), b.tagged_hash())
     }
 
     pub fn num(n: u64) -> Expression {
@@ -728,9 +743,9 @@ impl Expression {
         match arg {
             // TODO: closed_env must be an env.
             Expression::Sym(_) => Fun(
-                arg.tagged_hash().clone(),
-                body.tagged_hash().clone(),
-                closed_env.tagged_hash().clone(),
+                arg.tagged_hash(),
+                body.tagged_hash(),
+                closed_env.tagged_hash(),
             ),
             _ => {
                 panic!("ARG must be a symbol.");
@@ -809,7 +824,6 @@ impl Store {
     }
 
     pub fn list(&mut self, elts: &mut [Expression]) -> Expression {
-        let mut elts = elts;
         elts.reverse();
         elts.iter()
             .fold(Expression::Nil, |acc, elt| self.cons(elt, &acc))
@@ -897,122 +911,121 @@ impl Store {
         match cont {
             Continuation::Outermost => write!(w, "Outermost"),
             Continuation::Simple(cont) => {
-                write!(w, "Simple(");
-                self.print_cont(cont, w);
+                write!(w, "Simple(")?;
+                self.print_cont(cont, w)?;
                 write!(w, ")")
             }
             Continuation::Call(expr1, expr2, cont) => {
-                write!(w, "Call(");
-                self.print_expr(expr1, w);
-                write!(w, ", ");
-                self.print_expr(expr2, w);
-                write!(w, ", ");
-                self.print_cont(cont, w);
+                write!(w, "Call(")?;
+                self.print_expr(expr1, w)?;
+                write!(w, ", ")?;
+                self.print_expr(expr2, w)?;
+                write!(w, ", ")?;
+                self.print_cont(cont, w)?;
                 write!(w, ")")
             }
             Continuation::Call2(expr1, expr2, cont) => {
-                write!(w, "Call2(");
-                self.print_expr(expr1, w);
-                write!(w, ", ");
-                self.print_expr(expr2, w);
-                write!(w, ", ");
-                self.print_cont(cont, w);
+                write!(w, "Call2(")?;
+                self.print_expr(expr1, w)?;
+                write!(w, ", ")?;
+                self.print_expr(expr2, w)?;
+                write!(w, ", ")?;
+                self.print_cont(cont, w)?;
                 write!(w, ")")
             }
             Continuation::Tail(expr, cont) => {
-                write!(w, "Tail(");
-                self.print_expr(expr, w);
-                write!(w, ", ");
-                self.print_cont(cont, w);
+                write!(w, "Tail(")?;
+                self.print_expr(expr, w)?;
+                write!(w, ", ")?;
+                self.print_cont(cont, w)?;
                 write!(w, ")")
             }
             Continuation::Error => write!(w, "Error"),
             Continuation::Lookup(expr, cont) => {
-                write!(w, "Lookup(");
-                self.print_expr(expr, w);
-                write!(w, ", ");
-                self.print_cont(cont, w);
+                write!(w, "Lookup(")?;
+                self.print_expr(expr, w)?;
+                write!(w, ", ")?;
+                self.print_cont(cont, w)?;
                 write!(w, ")")
             }
             Continuation::Unop(op1, cont) => {
-                write!(w, "Unop(");
-                write!(w, "{}", op1.to_string());
-                write!(w, ", ");
-                self.print_cont(cont, w);
+                write!(w, "Unop(")?;
+                write!(w, "{}", op1.to_string())?;
+                write!(w, ", ")?;
+                self.print_cont(cont, w)?;
                 write!(w, ")")
             }
             Continuation::Binop(op2, expr1, expr2, cont) => {
-                write!(w, "Binop(");
-                write!(w, "{}", op2.to_string());
-                write!(w, ", ");
-                self.print_expr(expr1, w);
-                write!(w, ", ");
-                self.print_expr(expr2, w);
-                write!(w, ", ");
-                self.print_cont(cont, w);
+                write!(w, "Binop(")?;
+                write!(w, "{}", op2.to_string())?;
+                write!(w, ", ")?;
+                self.print_expr(expr1, w)?;
+                write!(w, ", ")?;
+                self.print_expr(expr2, w)?;
+                write!(w, ", ")?;
+                self.print_cont(cont, w)?;
                 write!(w, ")")
             }
             Continuation::Binop2(op2, expr, cont) => {
-                write!(w, "Binop2(");
-                write!(w, "{}", op2.to_string());
-                write!(w, ", ");
-                self.print_expr(expr, w);
-                write!(w, ", ");
-                self.print_cont(cont, w);
+                write!(w, "Binop2(")?;
+                write!(w, "{}", op2.to_string())?;
+                write!(w, ", ")?;
+                self.print_expr(expr, w)?;
+                write!(w, ", ")?;
+                self.print_cont(cont, w)?;
                 write!(w, ")")
             }
             Continuation::Relop(rel2, expr1, expr2, cont) => {
-                write!(w, "Relop(");
-                write!(w, "{}", rel2.to_string());
-                write!(w, ", ");
-                self.print_expr(expr1, w);
-                write!(w, ", ");
-                self.print_expr(expr2, w);
-                write!(w, ", ");
-                self.print_cont(cont, w);
+                write!(w, "Relop(")?;
+                write!(w, "{}", rel2.to_string())?;
+                write!(w, ", ")?;
+                self.print_expr(expr1, w)?;
+                write!(w, ", ")?;
+                self.print_expr(expr2, w)?;
+                write!(w, ", ")?;
+                self.print_cont(cont, w)?;
                 write!(w, ")")
             }
             Continuation::Relop2(rel2, expr, cont) => {
-                write!(w, "Relop2(");
-                write!(w, "{}", rel2.to_string());
-                write!(w, ", ");
-                self.print_expr(expr, w);
-                write!(w, ", ");
-                self.print_cont(cont, w);
+                write!(w, "Relop2(")?;
+                write!(w, "{}", rel2.to_string())?;
+                write!(w, ", ")?;
+                self.print_expr(expr, w)?;
+                write!(w, ", ")?;
+                self.print_cont(cont, w)?;
                 write!(w, ")")
             }
             Continuation::If(expr, cont) => {
-                write!(w, "If(");
-                self.print_expr(expr, w);
-                write!(w, ", ");
-                self.print_cont(cont, w);
+                write!(w, "If(")?;
+                self.print_expr(expr, w)?;
+                write!(w, ", ")?;
+                self.print_cont(cont, w)?;
                 write!(w, ")")
             }
             Continuation::LetStar(expr1, expr2, expr3, cont) => {
-                write!(w, "LetStar(");
-                self.print_expr(expr1, w);
-                write!(w, ", ");
-                self.print_expr(expr2, w);
-                write!(w, ", ");
-                self.print_expr(expr3, w);
-                write!(w, ", ");
-                self.print_cont(cont, w);
+                write!(w, "LetStar(")?;
+                self.print_expr(expr1, w)?;
+                write!(w, ", ")?;
+                self.print_expr(expr2, w)?;
+                write!(w, ", ")?;
+                self.print_expr(expr3, w)?;
+                write!(w, ", ")?;
+                self.print_cont(cont, w)?;
                 write!(w, ")")
             }
             Continuation::LetRecStar(expr1, expr2, expr3, cont) => {
-                write!(w, "LetRecStar(");
-                self.print_expr(expr1, w);
-                write!(w, ", ");
-                self.print_expr(expr2, w);
-                write!(w, ", ");
-                self.print_expr(expr3, w);
-                write!(w, ", ");
-                self.print_cont(cont, w);
+                write!(w, "LetRecStar(")?;
+                self.print_expr(expr1, w)?;
+                write!(w, ", ")?;
+                self.print_expr(expr2, w)?;
+                write!(w, ", ")?;
+                self.print_expr(expr3, w)?;
+                write!(w, ", ")?;
+                self.print_cont(cont, w)?;
                 write!(w, ")")
             }
             Continuation::Dummy => write!(w, "Dummy"),
             Continuation::Terminal => write!(w, "Terminal"),
-            _ => write!(w, "<unprintable continuation>"),
         }
     }
 
@@ -1229,12 +1242,10 @@ impl Store {
                     result.push(c);
                 }
             }
-            return None;
+            None
         } else {
-            return None;
-        };
-
-        unreachable!();
+            None
+        }
     }
 }
 
@@ -1626,7 +1637,6 @@ asdf(", "ASDF",
                         assert_eq!(expected_expr, expr);
                         assert_eq!(expected_meta, meta);
                     }
-                    _ => panic!("bad input"),
                 };
             };
 

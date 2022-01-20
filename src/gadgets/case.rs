@@ -1,22 +1,22 @@
-use super::constraints::{add, alloc_is_zero, equal, mul, pick, select, sub};
+use super::constraints::{alloc_is_zero, pick};
 use bellperson::{
     gadgets::boolean::{AllocatedBit, Boolean},
     gadgets::num::AllocatedNum,
-    ConstraintSystem, LinearCombination, SynthesisError,
+    ConstraintSystem, SynthesisError,
 };
 use blstrs::Scalar as Fr;
 use ff::{Field, PrimeField};
 
 use std::ops::{MulAssign, SubAssign};
 
-pub struct CaseClause<F: PrimeField> {
+pub struct CaseClause<'a, F: PrimeField> {
     pub key: F,
-    pub value: AllocatedNum<F>,
+    pub value: &'a AllocatedNum<F>,
 }
 
 pub struct CaseConstraint<'a, F: PrimeField> {
     selected: AllocatedNum<F>,
-    clauses: &'a [CaseClause<F>],
+    clauses: &'a [CaseClause<'a, F>],
 }
 
 impl CaseConstraint<'_, Fr> {
@@ -206,7 +206,7 @@ pub fn multi_case<CS: ConstraintSystem<Fr>>(
     cs: &mut CS,
     selected: &AllocatedNum<Fr>,
     cases: &[&[CaseClause<Fr>]],
-    defaults: &[AllocatedNum<Fr>],
+    defaults: &[&AllocatedNum<Fr>],
 ) -> Result<Vec<AllocatedNum<Fr>>, SynthesisError> {
     let mut result = Vec::new();
 
@@ -220,12 +220,13 @@ pub fn multi_case<CS: ConstraintSystem<Fr>>(
     }
     Ok(result)
 }
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use bellperson::util_cs::{
         metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta,
     };
-    use ff::PrimeField;
 
     use crate::data::fr_from_u64;
 
@@ -245,11 +246,11 @@ mod tests {
             let clauses = [
                 CaseClause {
                     key: x,
-                    value: val.clone(),
+                    value: &val,
                 },
                 CaseClause {
                     key: y,
-                    value: val2.clone(),
+                    value: &val2,
                 },
             ];
 
@@ -268,7 +269,7 @@ mod tests {
         {
             let clauses = [CaseClause {
                 key: y,
-                value: val.clone(),
+                value: &val,
             }];
 
             let result = case(
@@ -283,6 +284,7 @@ mod tests {
             assert!(cs.is_satisfied());
         }
     }
+
     #[test]
     fn groth_case() {
         let mut cs = TestConstraintSystem::<Fr>::new();
@@ -291,7 +293,7 @@ mod tests {
         let x = fr_from_u64(123);
         let y = fr_from_u64(124);
         let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
-        let selected_blank = AllocatedNum::alloc(cs_blank.namespace(|| "selected"), || {
+        let _selected_blank = AllocatedNum::alloc(cs_blank.namespace(|| "selected"), || {
             Err(SynthesisError::AssignmentMissing)
         })
         .unwrap();
@@ -314,11 +316,11 @@ mod tests {
             let clauses = [
                 CaseClause {
                     key: x,
-                    value: val.clone(),
+                    value: &val,
                 },
                 CaseClause {
                     key: y,
-                    value: val2.clone(),
+                    value: &val2,
                 },
             ];
 
@@ -337,15 +339,15 @@ mod tests {
             let clauses_blank = [
                 CaseClause {
                     key: x,
-                    value: val_blank.clone(),
+                    value: &val_blank,
                 },
                 CaseClause {
                     key: y,
-                    value: val2_blank.clone(),
+                    value: &val2_blank,
                 },
             ];
 
-            let result = case(
+            let _result = case(
                 &mut cs_blank.namespace(|| "selected case"),
                 &selected,
                 &clauses_blank,
