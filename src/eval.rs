@@ -1843,4 +1843,41 @@ mod test {
             assert_eq!(22, iterations);
         }
     }
+
+    #[test]
+    fn go_translate() {
+        // func Foo(a int, b int) int {
+        //     x := a * b + 4
+        //     for i := 0; i < b; i++ {
+        //         x += a
+        //         a += b * 2
+        //    }
+        //    return x
+        // }
+
+        let mut s = Store::default();
+        let limit = 1000000;
+        let expr = s
+            .read(
+                r#"
+(let* ((foo (lambda (a b)
+              (letrec* ((aux (lambda (i a x)
+                               (if (= i b)
+                                     x
+                                     (let* ((x (+ x a))
+                                            (a (+ a (* b 2))))
+                                       (aux (+ i 1) a x))))))
+                       (let* ((x (+ (* a b) 4)))
+                         (aux 0 a x))))))
+  (foo 10 16))
+"#,
+            )
+            .unwrap();
+        let (result_expr, _new_env, iterations, _continuation) =
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+        // TODO: why is this not 304?
+        assert_eq!(Expression::num(0x1044), result_expr);
+        assert_eq!(1114, iterations);
+    }
 }

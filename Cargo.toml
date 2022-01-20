@@ -30,3 +30,11 @@ chashmap = "2.2.2"
 default = ["gpu"]
 
 gpu = ["neptune/opencl"]
+
+[dev-dependencies]
+criterion = "0.3.5"
+
+
+[[bench]]
+name = "eval"
+harness = false
