@@ -174,7 +174,7 @@ fn verify_sequential_groth16_proofs(
             }
         }
 
-        if !CircuitFrame::from_frame(initial.clone(), frame, store)
+        if !CircuitFrame::from_frame(initial.as_ref().clone(), frame, store)
             .verify_groth16_proof(&pvk, proof.clone())?
         {
             return Ok(false);
@@ -207,7 +207,8 @@ fn verify_sequential_css(
         }
 
         let public_inputs =
-            CircuitFrame::from_frame(initial.clone(), frame.clone(), store).public_inputs();
+            CircuitFrame::from_frame(initial.as_ref().clone(), frame.clone(), store)
+                .public_inputs();
 
         if !(cs.is_satisfied() && cs.verify(&public_inputs)) {
             return Ok(false);

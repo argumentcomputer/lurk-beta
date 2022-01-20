@@ -117,8 +117,8 @@ impl<'a, T: Clone, W> CircuitFrame<'a, T, W> {
     pub fn from_frame(initial: T, frame: Frame<T, W>, store: &'a Store) -> Self {
         CircuitFrame {
             store,
-            input: Some(frame.input),
-            output: Some(frame.output),
+            input: Some(frame.input.as_ref().clone()),
+            output: Some(frame.output.as_ref().clone()),
             initial: Some(initial),
             i: Some(frame.i),
             witness: Some(frame.witness),
@@ -2503,6 +2503,8 @@ fn tagged_hash_by_index(n: usize, case_results: &[AllocatedNum<Fr>]) -> Allocate
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use super::*;
     use crate::data::Store;
     use crate::eval::{empty_sym_env, Evaluable, IO};
@@ -2543,8 +2545,8 @@ mod tests {
             let frame = CircuitFrame::from_frame(
                 initial.clone(),
                 Frame {
-                    input: input.clone(),
-                    output,
+                    input: Rc::new(input.clone()),
+                    output: Rc::new(output),
                     i: 0,
                     witness: witness.clone(),
                 },
@@ -2644,8 +2646,8 @@ mod tests {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
-                input: input.clone(),
-                output,
+                input: Rc::new(input.clone()),
+                output: Rc::new(output),
                 i: 0,
                 witness: witness.clone(),
             };
@@ -2719,8 +2721,8 @@ mod tests {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
-                input: input.clone(),
-                output,
+                input: Rc::new(input.clone()),
+                output: Rc::new(output),
                 i: 0,
                 witness: witness.clone(),
             };
@@ -2796,8 +2798,8 @@ mod tests {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
-                input: input.clone(),
-                output,
+                input: Rc::new(input.clone()),
+                output: Rc::new(output),
                 i: 0,
                 witness: witness.clone(),
             };
@@ -2870,8 +2872,8 @@ mod tests {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
-                input: input.clone(),
-                output,
+                input: Rc::new(input.clone()),
+                output: Rc::new(output),
                 i: 0,
                 witness: witness.clone(),
             };

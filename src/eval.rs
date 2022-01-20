@@ -3,6 +3,7 @@ use ff::Field;
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
 use std::ops::{AddAssign, MulAssign, SubAssign};
+use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq)]
 pub struct IO {
@@ -13,8 +14,8 @@ pub struct IO {
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq)]
 pub struct Frame<T, W> {
-    pub input: T,
-    pub output: T,
+    pub input: Rc<T>,
+    pub output: Rc<T>,
     pub i: usize,
     pub witness: W,
 }
@@ -55,7 +56,7 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
         let i = self.i + 1;
         Self {
             input,
-            output,
+            output: Rc::new(output),
             i,
             witness,
         }
@@ -67,8 +68,8 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
         let (output, witness) = input.eval(store);
 
         Self {
-            input: input.clone(),
-            output,
+            input: Rc::new(input),
+            output: Rc::new(output),
             i: 0,
             witness,
         }
@@ -861,7 +862,7 @@ impl<'a> Evaluator<'a> {
         let frame_iterator = self.iter();
 
         if let Some(last_frame) = frame_iterator.last() {
-            let output = last_frame.output;
+            let output = Rc::try_unwrap(last_frame.output).unwrap();
             (output.expr, output.env, last_frame.i + 1, output.cont)
         } else {
             panic!("xxx")
