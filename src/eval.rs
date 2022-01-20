@@ -807,7 +807,7 @@ fn make_thunk(
         unreachable!("make_thunk should never be called with a thunk");
     };
 
-    let control = match cont {
+    match cont {
         Continuation::Tail(saved_env, continuation) => {
             witness.make_thunk_tail_continuation_cont = Some(*continuation.clone());
             let thunk = store.thunk(result, *continuation);
@@ -820,13 +820,7 @@ fn make_thunk(
             let thunk = store.thunk(result, cont.clone());
             Control::Return(thunk, env, Continuation::Dummy)
         }
-    };
-
-    {
-        // FIXME: use?
-        let (_output_result, _output_env, _output_cont) = control.results();
     }
-    control
 }
 
 fn make_tail_continuation(env: &Expression, continuation: &Continuation) -> Continuation {

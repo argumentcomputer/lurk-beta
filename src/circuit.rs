@@ -736,7 +736,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
         store,
     )?;
 
-    // let val2_is_fun = alloc_equal(cs.namespace(|| "val2_is_fun"), &val2.tag, &g.fun_tag)?;
+    let val2_is_fun = alloc_equal(cs.namespace(|| "val2_is_fun"), &val2.tag, &g.fun_tag)?;
     let v2_is_expr = v2.alloc_equal(&mut cs.namespace(|| "v2_is_expr"), expr)?;
     let v2_is_expr_real = and!(cs, &v2_is_expr, &otherwise_and_cons)?;
 
@@ -793,7 +793,6 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     )?;
 
     let rec_env = binding;
-    let val2_is_fun = equal!(cs, &val2.tag, &g.fun_tag)?;
 
     let (_fun_hash, fun_arg, fun_body, fun_closed_env) = Expression::allocate_maybe_fun(
         &mut cs.namespace(|| "extend closure"),
@@ -967,7 +966,6 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     SynthesisError,
 > {
     let lambda = g.lambda_tagged_hash.clone();
-    // let dummy_arg = g.dummy_arg_tagged_hash.clone();
 
     let lambda_hash = Expression::read_sym("LAMBDA").get_hash();
     let quote_hash = Expression::read_sym("QUOTE").get_hash();
@@ -975,8 +973,8 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let letstar_t = letstar.allocate_constant_tagged_hash(&mut cs.namespace(|| "letstar_t"))?;
     let letstar_hash = letstar.get_hash();
     let letrecstar = Expression::read_sym("LETREC*");
-    // let letrecstar_t =
-    letrecstar.allocate_constant_tagged_hash(&mut cs.namespace(|| "letrecstar"))?;
+    let letrecstar_t =
+        letrecstar.allocate_constant_tagged_hash(&mut cs.namespace(|| "letrecstar"))?;
     let letrecstar_hash = letrecstar.get_hash();
     let cons_hash = Expression::read_sym("CAR").get_hash();
     let car_hash = Expression::read_sym("CAR").get_hash();
@@ -1073,7 +1071,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
 
         // FIXME: assert end == NIL
         let expanded1 = Expression::construct_list(
-            &mut cs_letrec.namespace(|| ""),
+            &mut cs_letrec.namespace(|| "expanded1"),
             g,
             &[&letstar_t, &rest_bindings, &body1],
         )?;
@@ -1086,6 +1084,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &mut cs_letrec.namespace(|| "rest_bindings_is_nil"),
             &g.nil_tagged_hash,
         )?;
+
         let expanded = pick_tagged_hash(
             &mut cs_letrec.namespace(|| "expanded"),
             &rest_bindings_is_nil,
@@ -1100,7 +1099,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
                 var.tag.clone(),
                 var.hash.clone(),
                 expanded.tag.clone(),
-                expanded.hash.clone(),
+                expanded.hash,
                 env.tag.clone(),
                 env.hash.clone(),
                 cont.tag.clone(),
@@ -1115,14 +1114,27 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &continuation1_letstar,
         )?;
 
+        let expanded2 = Expression::construct_list(
+            &mut cs_letrec.namespace(|| "expanded2"),
+            g,
+            &[&letrecstar_t, &rest_bindings, &body1],
+        )?;
+
+        let expanded_star = pick_tagged_hash(
+            &mut cs_letrec.namespace(|| "expanded_star"),
+            &rest_bindings_is_nil,
+            &body1,
+            &expanded2,
+        )?;
+
         let continuation1_letrecstar = Continuation::construct(
             &mut cs_letrec.namespace(|| "letrec* continuation"),
             &g.letrecstar_cont_tag,
             &[
                 var.tag.clone(),
                 var.hash,
-                expanded.tag.clone(),
-                expanded.hash,
+                expanded_star.tag.clone(),
+                expanded_star.hash,
                 env.tag.clone(),
                 env.hash.clone(),
                 cont.tag.clone(),
@@ -1137,13 +1149,6 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &continuation1_letrecstar,
         )?;
 
-        // FIXME: use?
-        let _ret = pick_tagged_hash(
-            &mut cs_letrec.namespace(|| "ret"),
-            &bindings_is_nil,
-            &body1,
-            &val,
-        )?;
         (val, continuation_letstar, continuation_letrecstar)
     };
 
@@ -1374,7 +1379,6 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let (res, continuation) = {
         // head == (FN . ARGS)
         let fun_form = &head;
-        // let args = rest;
 
         let call_continuation = Continuation::construct(
             &mut cs.namespace(|| "Call"),
@@ -1499,13 +1503,6 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
 
         // Applies to Tail continuations
         let continuation = tagged_hash_by_index(1, &cont_components);
-
-        // FIXME: use?
-        let _cont_is_tail = alloc_equal(
-            &mut cs.namespace(|| "cont_is_tail"),
-            &cont.tag,
-            &global_allocations.tail_cont_tag,
-        )?;
 
         let thunk_hash = Thunk::hash_components(
             &mut cs.namespace(|| "tail thunk_hash"),
@@ -1868,17 +1865,9 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         ),
     );
 
-    let index_hash = {
+    let unop_val = {
         // Continuation::Unop
         let op1 = tagged_hash_by_index(0, &continuation_components);
-        let continuation = tagged_hash_by_index(1, &continuation_components);
-
-        // FIXME: use?
-        let _not_dummy = alloc_equal(
-            &mut cs.namespace(|| "Unop not dummy"),
-            &cont.tag,
-            &global_allocations.unop_cont_tag,
-        )?;
 
         let (allocated_car, allocated_cdr) = car_cdr(
             &mut cs.namespace(|| "Unop cons"),
@@ -1900,14 +1889,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &global_allocations.t_tagged_hash,
         )?;
 
-        // FIXME: use?
-        let _cont_is_unop = alloc_equal(
-            &mut cs.namespace(|| "cont is Unop"),
-            &global_allocations.unop_cont_tag,
-            &continuation.tag,
-        );
-
-        let val = multi_case(
+        let res = multi_case(
             &mut cs.namespace(|| "Unop case"),
             &op1.tag,
             &[
@@ -1947,12 +1929,14 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             ],
         )?;
 
-        tagged_hash_by_index(0, &val)
+        tagged_hash_by_index(0, &res)
     };
+
+    let continuation = tagged_hash_by_index(1, &continuation_components);
 
     results.add_clauses_cont(
         BaseContinuationTag::Unop.cont_tag_fr(),
-        (&index_hash, env, cont, &global_allocations.true_num),
+        (&unop_val, env, &continuation, &global_allocations.true_num),
     );
 
     let (allocated_arg2, saved_env, binop2_cont) = {
@@ -1961,13 +1945,6 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let saved_env = tagged_hash_by_index(1, &continuation_components);
         let unevaled_args = tagged_hash_by_index(2, &continuation_components);
         let continuation = tagged_hash_by_index(3, &continuation_components);
-
-        // FIXME: use?
-        let _not_dummy = alloc_equal(
-            &mut cs.namespace(|| "Binop not dummy"),
-            &cont.tag,
-            &global_allocations.binop_cont_tag,
-        )?;
 
         let (allocated_arg2, _allocated_rest) = car_cdr(
             &mut cs.namespace(|| "Binop cons"),
@@ -2138,13 +2115,6 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let unevaled_args = tagged_hash_by_index(2, &continuation_components);
         let continuation = tagged_hash_by_index(3, &continuation_components);
 
-        // FIXME: use?
-        let _not_dummy = alloc_equal(
-            &mut cs.namespace(|| "Relop not dummy"),
-            &continuation.tag,
-            &global_allocations.binop_cont_tag,
-        )?;
-
         let (allocated_arg2, _allocated_rest) = car_cdr(
             &mut cs.namespace(|| "Relops cons"),
             global_allocations,
@@ -2252,13 +2222,6 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let continuation = tagged_hash_by_index(1, &continuation_components);
 
         let condition = result;
-
-        // FIXME: use?
-        let _not_dummy = alloc_equal(
-            &mut cs.namespace(|| "If not dummy"),
-            &continuation.tag,
-            &global_allocations.if_cont_tag,
-        )?;
 
         // NOTE: There was a tricky bug here.
         // When the actual continuation was Relop, and the operation is Numequal (for example),
@@ -2596,14 +2559,9 @@ mod tests {
             let delta = cs.delta(&cs_blank, false);
             assert!(delta == Delta::Equal);
 
-            // TODO: is this change coorect?
-            //assert_eq!(31401, cs.num_constraints());
-            assert_eq!(31392, cs.num_constraints());
-
+            assert_eq!(32499, cs.num_constraints());
             assert_eq!(20, cs.num_inputs());
-            // TODO is this change correct?
-            // assert_eq!(31349, cs.aux().len());
-            assert_eq!(31342, cs.aux().len());
+            assert_eq!(32455, cs.aux().len());
 
             let public_inputs = frame.public_inputs();
             let mut rng = rand::thread_rng();
