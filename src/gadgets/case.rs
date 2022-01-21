@@ -228,19 +228,17 @@ mod tests {
         metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta,
     };
 
-    use crate::data::fr_from_u64;
-
     #[test]
     fn simple_case() {
         let mut cs = TestConstraintSystem::<Fr>::new();
 
-        let x = fr_from_u64(123);
-        let y = fr_from_u64(124);
+        let x = Fr::from(123);
+        let y = Fr::from(124);
         let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
-        let val = AllocatedNum::alloc(cs.namespace(|| "val"), || Ok(fr_from_u64(666))).unwrap();
-        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(fr_from_u64(777))).unwrap();
+        let val = AllocatedNum::alloc(cs.namespace(|| "val"), || Ok(Fr::from(666))).unwrap();
+        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(777))).unwrap();
         let default =
-            AllocatedNum::alloc(cs.namespace(|| "default"), || Ok(fr_from_u64(999))).unwrap();
+            AllocatedNum::alloc(cs.namespace(|| "default"), || Ok(Fr::from(999))).unwrap();
 
         {
             let clauses = [
@@ -290,27 +288,27 @@ mod tests {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let mut cs_blank = MetricCS::<Fr>::new();
 
-        let x = fr_from_u64(123);
-        let y = fr_from_u64(124);
+        let x = Fr::from(123);
+        let y = Fr::from(124);
         let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
         let _selected_blank = AllocatedNum::alloc(cs_blank.namespace(|| "selected"), || {
             Err(SynthesisError::AssignmentMissing)
         })
         .unwrap();
-        let val = AllocatedNum::alloc(cs.namespace(|| "val"), || Ok(fr_from_u64(666))).unwrap();
+        let val = AllocatedNum::alloc(cs.namespace(|| "val"), || Ok(Fr::from(666))).unwrap();
         let val_blank = AllocatedNum::alloc(cs_blank.namespace(|| "val"), || {
             Err(SynthesisError::AssignmentMissing)
         })
         .unwrap();
-        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(fr_from_u64(777))).unwrap();
+        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(777))).unwrap();
         let val2_blank = AllocatedNum::alloc(cs_blank.namespace(|| "val2"), || {
             Err(SynthesisError::AssignmentMissing)
         })
         .unwrap();
         let default =
-            AllocatedNum::alloc(cs.namespace(|| "default"), || Ok(fr_from_u64(999))).unwrap();
+            AllocatedNum::alloc(cs.namespace(|| "default"), || Ok(Fr::from(999))).unwrap();
         let default_blank =
-            AllocatedNum::alloc(cs_blank.namespace(|| "default"), || Ok(fr_from_u64(999))).unwrap();
+            AllocatedNum::alloc(cs_blank.namespace(|| "default"), || Ok(Fr::from(999))).unwrap();
 
         {
             let clauses = [

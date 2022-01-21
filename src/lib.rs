@@ -1,7 +1,7 @@
 #![allow(clippy::single_match)]
 
-// #[macro_use]
-// mod gadgets;
+#[macro_use]
+mod gadgets;
 
 pub mod parser;
 pub mod pool;

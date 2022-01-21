@@ -1,5 +1,5 @@
 use blstrs::Scalar;
-use ff::Field;
+use ff::{Field, PrimeField};
 use indexmap::Equivalent;
 use itertools::Itertools;
 use neptune::Poseidon;
@@ -51,6 +51,11 @@ pub struct Pool {
     if_pool: IndexSet<(Ptr, ContPtr)>,
     let_star_pool: IndexSet<(Ptr, Ptr, Ptr, ContPtr)>,
     let_rec_star_pool: IndexSet<(Ptr, Ptr, Ptr, ContPtr)>,
+
+    /// Holds a mapping of ScalarPtr -> Ptr for reverese lookups
+    scalar_ptr_map: ahash::AHashMap<ScalarPtr, Ptr>,
+    /// Holds a mapping of ScalarPtr -> ContPtr for reverese lookups
+    scalar_ptr_cont_map: ahash::AHashMap<ScalarPtr, ContPtr>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -72,6 +77,28 @@ impl Ptr {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ScalarPtr(Scalar, Scalar);
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for ScalarPtr {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.to_repr().hash(state);
+        self.1.to_repr().hash(state);
+    }
+}
+
+impl ScalarPtr {
+    pub(crate) const fn tag(&self) -> &Scalar {
+        &self.0
+    }
+
+    pub(crate) const fn value(&self) -> &Scalar {
+        &self.1
+    }
+
+    pub(crate) const fn from_parts(tag: Scalar, value: Scalar) -> Self {
+        ScalarPtr(tag, value)
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ContPtr(ContTag, RawPtr);
@@ -352,6 +379,10 @@ impl Pool {
         NIL_PTR
     }
 
+    pub const fn get_nil(&self) -> Ptr {
+        NIL_PTR
+    }
+
     pub fn alloc_cons(&mut self, car: Ptr, cdr: Ptr) -> Ptr {
         let (ptr, _) = self.cons_pool.insert_full((car, cdr));
         Ptr(Tag::Cons, RawPtr(ptr))
@@ -375,6 +406,18 @@ impl Pool {
 
         let (ptr, _) = self.sym_pool.insert_full(name);
         Ptr(Tag::Sym, RawPtr(ptr))
+    }
+
+    pub fn get_sym(&self, name: impl ToStr) -> Ptr {
+        // TODO: avoid allocation
+        let mut name = name.to_str();
+        if name.as_ref().eq_ignore_ascii_case("NIL") {
+            return NIL_PTR;
+        }
+
+        // symbols are upper case
+        Rc::get_mut(&mut name.0).unwrap().make_ascii_uppercase();
+        self.find_sym(&name).expect("sym not found")
     }
 
     pub fn alloc_num(&mut self, num: u64) -> Ptr {
@@ -404,6 +447,10 @@ impl Pool {
         OUTERMOST_PTR
     }
 
+    pub const fn get_cont_outermost(&self) -> ContPtr {
+        OUTERMOST_PTR
+    }
+
     pub fn alloc_cont_call(&mut self, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
         let (ptr, _) = self.call_pool.insert_full((a, b, c));
         ContPtr(ContTag::Call, RawPtr(ptr))
@@ -418,11 +465,23 @@ impl Pool {
         ERROR_PTR
     }
 
+    pub const fn get_cont_error(&self) -> ContPtr {
+        ERROR_PTR
+    }
+
     pub const fn alloc_cont_terminal(&self) -> ContPtr {
         TERMINAL_PTR
     }
 
+    pub const fn get_cont_terminal(&self) -> ContPtr {
+        TERMINAL_PTR
+    }
+
     pub const fn alloc_cont_dummy(&self) -> ContPtr {
+        DUMMY_PTR
+    }
+
+    pub const fn get_cont_dummy(&self) -> ContPtr {
         DUMMY_PTR
     }
 
@@ -528,6 +587,18 @@ impl Pool {
         self.thunk_pool
             .get_index_of(thunk)
             .map(|raw| Ptr(Tag::Thunk, RawPtr(raw)))
+    }
+
+    pub fn fetch_scalar(&self, scalar_ptr: &ScalarPtr) -> Option<Expression> {
+        // TODO: insert values into the scalar_ptr_map on hashing!
+        let ptr = self.scalar_ptr_map.get(scalar_ptr)?;
+        self.fetch(ptr)
+    }
+
+    pub fn fetch_scalar_cont(&self, scalar_ptr: &ScalarPtr) -> Option<Continuation> {
+        // TODO: insert values into the scalar_ptr_map on hashing!
+        let ptr = self.scalar_ptr_cont_map.get(scalar_ptr)?;
+        self.fetch_cont(ptr)
     }
 
     pub fn fetch(&self, ptr: &Ptr) -> Option<Expression> {
@@ -657,91 +728,105 @@ impl Pool {
     }
 
     pub fn hash_cont(&self, ptr: &ContPtr) -> Option<ScalarPtr> {
+        let components = self.get_hash_components_cont(ptr)?;
+        let hash = self.hash_scalar_ptrs_4(&components);
+
+        Some(ScalarPtr(ptr.tag_field(), hash))
+    }
+
+    pub fn get_hash_components_cont(&self, ptr: &ContPtr) -> Option<[ScalarPtr; 4]> {
         use Continuation::*;
 
         let cont = self.fetch_cont(ptr)?;
         let nil = self.hash_nil();
 
         let hash = match cont {
-            Outermost | Dummy | Terminal | Error => self.hash_scalar_ptrs_4(&[nil, nil, nil, nil]),
+            Outermost | Dummy | Terminal | Error => [nil, nil, nil, nil],
             Simple(cont) => {
                 let cont = self.hash_cont(&cont)?;
-                self.hash_scalar_ptrs_4(&[cont, nil, nil, nil])
+                [cont, nil, nil, nil]
             }
             Call(arg, saved_env, cont) => {
                 let arg = self.hash_expr(&arg)?;
                 let saved_env = self.hash_expr(&saved_env)?;
                 let cont = self.hash_cont(&cont)?;
-                self.hash_scalar_ptrs_4(&[saved_env, arg, cont, nil])
+                [saved_env, arg, cont, nil]
             }
             Call2(fun, saved_env, cont) => {
                 let fun = self.hash_expr(&fun)?;
                 let saved_env = self.hash_expr(&saved_env)?;
                 let cont = self.hash_cont(&cont)?;
-                self.hash_scalar_ptrs_4(&[saved_env, fun, cont, nil])
+                [saved_env, fun, cont, nil]
             }
             Tail(saved_env, cont) => {
                 let saved_env = self.hash_expr(&saved_env)?;
                 let cont = self.hash_cont(&cont)?;
-                self.hash_scalar_ptrs_4(&[saved_env, cont, nil, nil])
+                [saved_env, cont, nil, nil]
             }
             Lookup(saved_env, cont) => {
                 let saved_env = self.hash_expr(&saved_env)?;
                 let cont = self.hash_cont(&cont)?;
-                self.hash_scalar_ptrs_4(&[saved_env, cont, nil, nil])
+                [saved_env, cont, nil, nil]
             }
             Unop(op, cont) => {
                 let op = self.hash_op1(&op);
                 let cont = self.hash_cont(&cont)?;
-                self.hash_scalar_ptrs_4(&[op, cont, nil, nil])
+                [op, cont, nil, nil]
             }
             Binop(op, saved_env, unevaled_args, cont) => {
                 let op = self.hash_op2(&op);
                 let saved_env = self.hash_expr(&saved_env)?;
                 let unevaled_args = self.hash_expr(&unevaled_args)?;
                 let cont = self.hash_cont(&cont)?;
-                self.hash_scalar_ptrs_4(&[op, saved_env, unevaled_args, cont])
+                [op, saved_env, unevaled_args, cont]
             }
             Binop2(op, arg1, cont) => {
                 let op = self.hash_op2(&op);
                 let arg1 = self.hash_expr(&arg1)?;
                 let cont = self.hash_cont(&cont)?;
-                self.hash_scalar_ptrs_4(&[op, arg1, cont, nil])
+                [op, arg1, cont, nil]
             }
             Relop(rel, saved_env, unevaled_args, cont) => {
                 let rel = self.hash_rel2(&rel);
                 let saved_env = self.hash_expr(&saved_env)?;
                 let unevaled_args = self.hash_expr(&unevaled_args)?;
                 let cont = self.hash_cont(&cont)?;
-                self.hash_scalar_ptrs_4(&[rel, saved_env, unevaled_args, cont])
+                [rel, saved_env, unevaled_args, cont]
             }
             Relop2(rel, arg1, cont) => {
                 let rel = self.hash_rel2(&rel);
                 let arg1 = self.hash_expr(&arg1)?;
                 let cont = self.hash_cont(&cont)?;
-                self.hash_scalar_ptrs_4(&[rel, arg1, cont, nil])
+                [rel, arg1, cont, nil]
             }
             If(unevaled_args, cont) => {
                 let unevaled_args = self.hash_expr(&unevaled_args)?;
                 let cont = self.hash_cont(&cont)?;
-                self.hash_scalar_ptrs_4(&[unevaled_args, cont, nil, nil])
+                [unevaled_args, cont, nil, nil]
             }
             LetStar(var, body, saved_env, cont) => {
                 let var = self.hash_expr(&var)?;
                 let body = self.hash_expr(&body)?;
                 let saved_env = self.hash_expr(&saved_env)?;
                 let cont = self.hash_cont(&cont)?;
-                self.hash_scalar_ptrs_4(&[var, body, saved_env, cont])
+                [var, body, saved_env, cont]
             }
             LetRecStar(var, body, saved_env, cont) => {
                 let var = self.hash_expr(&var)?;
                 let body = self.hash_expr(&body)?;
                 let saved_env = self.hash_expr(&saved_env)?;
                 let cont = self.hash_cont(&cont)?;
-                self.hash_scalar_ptrs_4(&[var, body, saved_env, cont])
+                [var, body, saved_env, cont]
             }
         };
-        Some(ScalarPtr(ptr.tag_field(), hash))
+        Some(hash)
+    }
+
+    pub fn get_hash_components_thunk(&self, thunk: &Thunk) -> Option<[ScalarPtr; 2]> {
+        let value_hash = self.hash_expr(&thunk.value)?;
+        let continuation_hash = self.hash_cont(&thunk.continuation)?;
+
+        Some([value_hash, continuation_hash])
     }
 
     fn hash_sym(&self, sym: &str) -> Option<ScalarPtr> {
@@ -767,11 +852,10 @@ impl Pool {
     }
 
     fn hash_thunk(&self, thunk: &Thunk) -> Option<ScalarPtr> {
-        let value_hash = self.hash_expr(&thunk.value)?;
-        let continuation_hash = self.hash_cont(&thunk.continuation)?;
+        let components = self.get_hash_components_thunk(thunk)?;
         Some(ScalarPtr(
             Tag::Thunk.as_field(),
-            self.hash_scalar_ptrs_2(&[value_hash, continuation_hash]),
+            self.hash_scalar_ptrs_2(&components),
         ))
     }
 
@@ -833,7 +917,7 @@ impl Pool {
         Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_8).hash()
     }
 
-    fn hash_nil(&self) -> ScalarPtr {
+    pub fn hash_nil(&self) -> ScalarPtr {
         ScalarPtr(Tag::Nil.as_field(), Scalar::zero())
     }
 
