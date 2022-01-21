@@ -3,12 +3,10 @@
 // #[macro_use]
 // mod gadgets;
 
-mod pointer;
-
-pub use pointer::{PtrHasher, PtrValue, Tagged, TaggedPtr};
-
+pub mod parser;
+pub mod pool;
+pub mod writer;
 // pub mod circuit;
-pub mod data;
 // pub mod eval;
 // pub mod proof;
 
