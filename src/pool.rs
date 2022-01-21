@@ -555,15 +555,7 @@ impl Pool {
         }
     }
 
-    pub fn car_cdr(&self, ptr: &Ptr) -> (Expression, Expression) {
-        let (car, cdr) = self.car_cdr_ptr(ptr);
-        (
-            self.fetch(&car).expect("Invalid CONS: missing Car"),
-            self.fetch(&cdr).expect("Invalid CONS: missing Cdr"),
-        )
-    }
-
-    pub fn car_cdr_ptr(&self, ptr: &Ptr) -> (Ptr, Ptr) {
+    pub fn car_cdr(&self, ptr: &Ptr) -> (Ptr, Ptr) {
         match ptr.0 {
             Tag::Nil => (NIL_PTR, NIL_PTR),
             Tag::Cons => match self.fetch(ptr) {
@@ -574,20 +566,12 @@ impl Pool {
         }
     }
 
-    pub fn car(&self, expr: &Ptr) -> Expression {
+    pub fn car(&self, expr: &Ptr) -> Ptr {
         self.car_cdr(expr).0
     }
 
-    pub fn cdr(&self, expr: &Ptr) -> Expression {
+    pub fn cdr(&self, expr: &Ptr) -> Ptr {
         self.car_cdr(expr).1
-    }
-
-    pub fn car_ptr(&self, expr: &Ptr) -> Ptr {
-        self.car_cdr_ptr(expr).0
-    }
-
-    pub fn cdr_ptr(&self, expr: &Ptr) -> Ptr {
-        self.car_cdr_ptr(expr).1
     }
 }
 

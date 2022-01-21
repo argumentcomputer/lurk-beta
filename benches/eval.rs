@@ -1,10 +1,10 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lurk::{
-    data::{Expression, Store},
     eval::{empty_sym_env, Evaluator},
+    pool::{Pool, Ptr},
 };
 
-fn go_base(store: &mut Store, a: u64, b: u64) -> Expression {
+fn go_base(pool: &mut Pool, a: u64, b: u64) -> Ptr {
     let limit = 1000000;
     let program = format!(
         r#"
@@ -22,22 +22,22 @@ fn go_base(store: &mut Store, a: u64, b: u64) -> Expression {
         a, b
     );
 
-    let expr = store.read(&program).unwrap();
-    let (result_expr, _new_env, _iterations, _continuation) =
-        Evaluator::new(expr, empty_sym_env(&*store), store, limit).eval();
+    let ptr = pool.read(&program).unwrap();
+    let (result, _new_env, _iterations, _continuation) =
+        Evaluator::new(ptr, empty_sym_env(&*pool), pool, limit).eval();
 
-    result_expr
+    result
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("go_base_10_16", |b| {
-        let mut store = Store::default();
-        b.iter(|| go_base(&mut store, black_box(10), black_box(16)))
+        let mut pool = Pool::default();
+        b.iter(|| go_base(&mut pool, black_box(10), black_box(16)))
     });
 
     c.bench_function("go_base_10_160", |b| {
-        let mut store = Store::default();
-        b.iter(|| go_base(&mut store, black_box(10), black_box(160)))
+        let mut pool = Pool::default();
+        b.iter(|| go_base(&mut pool, black_box(10), black_box(160)))
     });
 }
 

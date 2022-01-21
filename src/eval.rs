@@ -3,7 +3,6 @@ use crate::pool::{
 };
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
-use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IO {
@@ -14,8 +13,8 @@ pub struct IO {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Frame<T, W> {
-    pub input: Rc<T>,
-    pub output: Rc<T>,
+    pub input: T,
+    pub output: T,
     pub i: usize,
     pub witness: W,
 }
@@ -55,7 +54,7 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
 
         Self {
             input,
-            output: Rc::new(output),
+            output,
             i: self.i + 1,
             witness,
         }
@@ -67,8 +66,8 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
         let (output, witness) = input.eval(pool);
 
         Self {
-            input: Rc::new(input),
-            output: Rc::new(output),
+            input,
+            output,
             i: 0,
             witness,
         }
@@ -154,7 +153,7 @@ impl Witness {
             self.destructured_thunk.is_none(),
             "Only one thunk should be destructured per evaluation step."
         );
-        self.destructured_thunk = Some(thunk.clone());
+        self.destructured_thunk = Some(*thunk);
     }
 }
 
@@ -227,7 +226,7 @@ fn eval_expr_with_witness(
 
                 // CIRCUIT: sym_otherwise
                 assert!(!env.is_nil(), "Unbound variable: {:?}", expr);
-                let (binding, smaller_env) = pool.car_cdr_ptr(&env);
+                let (binding, smaller_env) = pool.car_cdr(&env);
                 if binding.is_nil() {
                     // If binding is NIL, it's empty. There is no match. Return an error due to unbound variable.
 
@@ -240,7 +239,7 @@ fn eval_expr_with_witness(
 
                     // CIRCUIT: binding_not_nil
                     //          otherwise_and_binding_not_nil
-                    let (var_or_rec_binding, val_or_more_rec_env) = pool.car_cdr_ptr(&binding);
+                    let (var_or_rec_binding, val_or_more_rec_env) = pool.car_cdr(&binding);
                     match var_or_rec_binding.tag() {
                         Tag::Sym => {
                             // We are in a simple env (not a recursive env),
@@ -297,7 +296,7 @@ fn eval_expr_with_witness(
                             let rec_env = binding;
                             let smaller_rec_env = val_or_more_rec_env;
 
-                            let (v2, val2) = pool.car_cdr_ptr(&var_or_rec_binding);
+                            let (v2, val2) = pool.car_cdr(&var_or_rec_binding);
                             if v2 == expr {
                                 // CIRCUIT: v2_is_expr
                                 //          v2_is_expr_real
@@ -359,21 +358,21 @@ fn eval_expr_with_witness(
         Tag::Num => Control::InvokeContinuation(expr, env, cont),
         Tag::Fun => Control::InvokeContinuation(expr, env, cont),
         Tag::Cons => {
-            let (head, rest) = pool.car_cdr_ptr(&expr);
+            let (head, rest) = pool.car_cdr(&expr);
             let lambda = pool.alloc_sym("LAMBDA");
             let quote = pool.alloc_sym("QUOTE");
             let dummy_arg = pool.alloc_sym("_");
 
             if head == lambda {
-                let (args, body) = pool.car_cdr_ptr(&rest);
+                let (args, body) = pool.car_cdr(&rest);
                 let (arg, _rest) = if args.is_nil() {
                     // (LAMBDA () STUFF)
                     // becomes (LAMBDA (DUMMY) STUFF)
                     (dummy_arg, pool.alloc_nil())
                 } else {
-                    pool.car_cdr_ptr(&args)
+                    pool.car_cdr(&args)
                 };
-                let cdr_args = pool.cdr_ptr(&args);
+                let cdr_args = pool.cdr(&args);
                 let inner_body = if cdr_args.is_nil() {
                     body
                 } else {
@@ -387,21 +386,21 @@ fn eval_expr_with_witness(
 
                 Control::InvokeContinuation(function, env, cont)
             } else if head == quote {
-                let (quoted, end) = pool.car_cdr_ptr(&rest);
+                let (quoted, end) = pool.car_cdr(&rest);
                 assert!(end.is_nil());
                 Control::InvokeContinuation(quoted, env, cont)
             } else if head == pool.alloc_sym("LET*") {
-                let (bindings, body) = pool.car_cdr_ptr(&rest);
-                let (body1, rest_body) = pool.car_cdr_ptr(&body);
+                let (bindings, body) = pool.car_cdr(&rest);
+                let (body1, rest_body) = pool.car_cdr(&body);
                 // Only a single body form allowed for now.
                 assert!(rest_body.is_nil());
 
                 if bindings.is_nil() {
                     Control::Return(body1, env, cont)
                 } else {
-                    let (binding1, rest_bindings) = pool.car_cdr_ptr(&bindings);
-                    let (var, more_vals) = pool.car_cdr_ptr(&binding1);
-                    let (val, end) = pool.car_cdr_ptr(&more_vals);
+                    let (binding1, rest_bindings) = pool.car_cdr(&bindings);
+                    let (var, more_vals) = pool.car_cdr(&binding1);
+                    let (val, end) = pool.car_cdr(&more_vals);
                     assert!(end.is_nil());
 
                     let expanded = if rest_bindings.is_nil() {
@@ -413,16 +412,16 @@ fn eval_expr_with_witness(
                     Control::Return(val, env, pool.alloc_cont_let_star(var, expanded, env, cont))
                 }
             } else if head == pool.alloc_sym("LETREC*") {
-                let (bindings, body) = pool.car_cdr_ptr(&rest);
-                let (body1, rest_body) = pool.car_cdr_ptr(&body);
+                let (bindings, body) = pool.car_cdr(&rest);
+                let (body1, rest_body) = pool.car_cdr(&body);
                 // Only a single body form allowed for now.
                 assert!(rest_body.is_nil());
                 if bindings.is_nil() {
                     Control::Return(body1, env, cont)
                 } else {
-                    let (binding1, rest_bindings) = pool.car_cdr_ptr(&bindings);
-                    let (var, more_vals) = pool.car_cdr_ptr(&binding1);
-                    let (val, end) = pool.car_cdr_ptr(&more_vals);
+                    let (binding1, rest_bindings) = pool.car_cdr(&bindings);
+                    let (var, more_vals) = pool.car_cdr(&binding1);
+                    let (val, end) = pool.car_cdr(&more_vals);
                     assert!(end.is_nil());
 
                     let expanded = if rest_bindings.is_nil() {
@@ -438,56 +437,56 @@ fn eval_expr_with_witness(
                     )
                 }
             } else if head == pool.alloc_sym("cons") {
-                let (arg1, more) = pool.car_cdr_ptr(&rest);
+                let (arg1, more) = pool.car_cdr(&rest);
                 Control::Return(arg1, env, pool.alloc_cont_binop(Op2::Cons, env, more, cont))
             } else if head == pool.alloc_sym("car") {
-                let (arg1, end) = pool.car_cdr_ptr(&rest);
+                let (arg1, end) = pool.car_cdr(&rest);
                 assert!(end.is_nil());
                 Control::Return(arg1, env, pool.alloc_cont_unop(Op1::Car, cont))
             } else if head == pool.alloc_sym("cdr") {
-                let (arg1, end) = pool.car_cdr_ptr(&rest);
+                let (arg1, end) = pool.car_cdr(&rest);
                 assert!(end.is_nil());
                 Control::Return(arg1, env, pool.alloc_cont_unop(Op1::Cdr, cont))
             } else if head == pool.alloc_sym("atom") {
-                let (arg1, end) = pool.car_cdr_ptr(&rest);
+                let (arg1, end) = pool.car_cdr(&rest);
                 assert!(end.is_nil());
                 Control::Return(arg1, env, pool.alloc_cont_unop(Op1::Atom, cont))
             } else if head == pool.alloc_sym("+") {
-                let (arg1, more) = pool.car_cdr_ptr(&rest);
+                let (arg1, more) = pool.car_cdr(&rest);
                 Control::Return(arg1, env, pool.alloc_cont_binop(Op2::Sum, env, more, cont))
             } else if head == pool.alloc_sym("-") {
-                let (arg1, more) = pool.car_cdr_ptr(&rest);
+                let (arg1, more) = pool.car_cdr(&rest);
                 Control::Return(arg1, env, pool.alloc_cont_binop(Op2::Diff, env, more, cont))
             } else if head == pool.alloc_sym("*") {
-                let (arg1, more) = pool.car_cdr_ptr(&rest);
+                let (arg1, more) = pool.car_cdr(&rest);
                 Control::Return(
                     arg1,
                     env,
                     pool.alloc_cont_binop(Op2::Product, env, more, cont),
                 )
             } else if head == pool.alloc_sym("/") {
-                let (arg1, more) = pool.car_cdr_ptr(&rest);
+                let (arg1, more) = pool.car_cdr(&rest);
                 Control::Return(
                     arg1,
                     env,
                     pool.alloc_cont_binop(Op2::Quotient, env, more, cont),
                 )
             } else if head == pool.alloc_sym("=") {
-                let (arg1, more) = pool.car_cdr_ptr(&rest);
+                let (arg1, more) = pool.car_cdr(&rest);
                 Control::Return(
                     arg1,
                     env,
                     pool.alloc_cont_relop(Rel2::NumEqual, env, more, cont),
                 )
             } else if head == pool.alloc_sym("eq") {
-                let (arg1, more) = pool.car_cdr_ptr(&rest);
+                let (arg1, more) = pool.car_cdr(&rest);
                 Control::Return(
                     arg1,
                     env,
                     pool.alloc_cont_relop(Rel2::Equal, env, more, cont),
                 )
             } else if head == pool.alloc_sym("if") {
-                let (condition, more) = pool.car_cdr_ptr(&rest);
+                let (condition, more) = pool.car_cdr(&rest);
                 Control::Return(condition, env, pool.alloc_cont_if(more, cont))
             } else if head == pool.alloc_sym("current-env") {
                 assert!(rest.is_nil());
@@ -499,7 +498,7 @@ fn eval_expr_with_witness(
                 let (arg, more_args) = if args.is_nil() {
                     (pool.alloc_nil(), pool.alloc_nil())
                 } else {
-                    pool.car_cdr_ptr(&args)
+                    pool.car_cdr(&args)
                 };
                 match more_args.tag() {
                     // (fn arg)
@@ -584,7 +583,7 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
             Continuation::Call2(function, saved_env, continuation) => match function.tag() {
                 Tag::Fun => match pool.fetch(&function).unwrap() {
                     Expression::Fun(arg, body, closed_env) => {
-                        let body_form = pool.car_ptr(&body);
+                        let body_form = pool.car(&body);
                         let newer_env = extend(closed_env, arg, *result, pool);
                         let cont = make_tail_continuation(saved_env, continuation, pool);
                         Control::Return(body_form, newer_env, cont)
@@ -598,7 +597,7 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
             },
             _ => unreachable!(),
         },
-        ContTag::LetStar => match pool.fetch_cont(dbg!(cont)).unwrap() {
+        ContTag::LetStar => match pool.fetch_cont(cont).unwrap() {
             Continuation::LetStar(var, body, saved_env, continuation) => {
                 let extended_env = extend(*env, var, *result, pool);
                 let c = make_tail_continuation(saved_env, continuation, pool);
@@ -619,8 +618,8 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
         ContTag::Unop => match pool.fetch_cont(cont).unwrap() {
             Continuation::Unop(op1, continuation) => {
                 let val = match op1 {
-                    Op1::Car => pool.car_ptr(result),
-                    Op1::Cdr => pool.cdr_ptr(result),
+                    Op1::Car => pool.car(result),
+                    Op1::Cdr => pool.cdr(result),
                     Op1::Atom => match result.tag() {
                         Tag::Cons => pool.alloc_nil(),
                         _ => pool.alloc_sym("T"),
@@ -632,7 +631,7 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
         },
         ContTag::Binop => match pool.fetch_cont(cont).unwrap() {
             Continuation::Binop(op2, saved_env, unevaled_args, continuation) => {
-                let (arg2, rest) = pool.car_cdr_ptr(&unevaled_args);
+                let (arg2, rest) = pool.car_cdr(&unevaled_args);
                 assert!(rest.is_nil());
                 Control::Return(
                     arg2,
@@ -645,7 +644,7 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
         ContTag::Binop2 => match pool.fetch_cont(cont).unwrap() {
             Continuation::Binop2(op2, arg1, continuation) => {
                 let arg2 = result;
-                let result = match (pool.fetch(&arg1).unwrap(), pool.fetch(&arg2).unwrap()) {
+                let result = match (pool.fetch(&arg1).unwrap(), pool.fetch(arg2).unwrap()) {
                     (Expression::Num(a), Expression::Num(b)) => match op2 {
                         Op2::Sum => {
                             let mut tmp = a;
@@ -683,7 +682,7 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
         },
         ContTag::Relop => match pool.fetch_cont(cont).unwrap() {
             Continuation::Relop(rel2, saved_env, unevaled_args, continuation) => {
-                let (arg2, rest) = pool.car_cdr_ptr(&unevaled_args);
+                let (arg2, rest) = pool.car_cdr(&unevaled_args);
                 assert!(rest.is_nil());
                 Control::Return(
                     arg2,
@@ -724,7 +723,7 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
         ContTag::If => match pool.fetch_cont(cont).unwrap() {
             Continuation::If(more_args, continuation) => {
                 let condition = result;
-                let (arg1, more) = pool.car_cdr_ptr(&more_args);
+                let (arg1, more) = pool.car_cdr(&more_args);
                 // NOTE: as formulated here, IF operates on any condition. Every
                 // value but NIL is considered true.
                 //
@@ -754,7 +753,7 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
                 // first be subtracted from the value being checked.
 
                 if condition.is_nil() {
-                    let (arg2, end) = pool.car_cdr_ptr(&more);
+                    let (arg2, end) = pool.car_cdr(&more);
                     assert!(end.is_nil());
                     Control::Return(arg2, *env, continuation)
                 } else {
@@ -864,7 +863,7 @@ impl<'a> Evaluator<'a> {
         let frame_iterator = FrameIt::new(initial_input, self.pool);
 
         if let Some(last_frame) = frame_iterator.next_n(self.limit) {
-            let output = Rc::try_unwrap(last_frame.output).unwrap();
+            let output = last_frame.output;
             (output.expr, output.env, last_frame.i + 1, output.cont)
         } else {
             panic!("xxx")
@@ -896,8 +895,8 @@ fn extend(env: Ptr, var: Ptr, val: Ptr, pool: &mut Pool) -> Ptr {
 }
 
 fn extend_rec(env: Ptr, var: Ptr, val: Ptr, pool: &mut Pool) -> Ptr {
-    let (binding_or_env, rest) = pool.car_cdr_ptr(&env);
-    let (var_or_binding, _val_or_more_bindings) = pool.car_cdr_ptr(&binding_or_env);
+    let (binding_or_env, rest) = pool.car_cdr(&env);
+    let (var_or_binding, _val_or_more_bindings) = pool.car_cdr(&binding_or_env);
     match var_or_binding.tag() {
         // It's a var, so we are extending a simple env with a recursive env.
         Tag::Sym | Tag::Nil => {
@@ -936,8 +935,8 @@ fn lookup(env: &Ptr, var: &Ptr, pool: &Pool) -> Ptr {
     match env.tag() {
         Tag::Nil => pool.alloc_nil(),
         Tag::Cons => {
-            let (binding, smaller_env) = pool.car_cdr_ptr(env);
-            let (v, val) = pool.car_cdr_ptr(&binding);
+            let (binding, smaller_env) = pool.car_cdr(env);
+            let (v, val) = pool.car_cdr(&binding);
             if v == *var {
                 val
             } else {
