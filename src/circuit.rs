@@ -1303,7 +1303,7 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
 
     let (computed_cont_hash, cont_components) = ContPtr::allocate_maybe_dummy_components(
         &mut cs.namespace(|| "cont components"),
-        cont.ptr().and_then(|c| pool.fetch_scalar_cont(&c)),
+        cont.ptr().and_then(|c| pool.fetch_scalar_cont(&c)).as_ref(),
         pool,
     )?;
 
@@ -1518,7 +1518,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             let (hash, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
                 &mut cs.namespace(|| "allocate Call2 fun"),
                 pool,
-                fun.ptr().and_then(|t| pool.fetch_scalar(&t)),
+                fun.ptr().and_then(|t| pool.fetch_scalar(&t)).as_ref(),
             )?;
 
             // BOOKMARK: WHy does this cause unconstrainted variable?
@@ -2116,7 +2116,7 @@ fn car_cdr<CS: ConstraintSystem<Fr>>(
             .as_ref()
             .and_then(|ptr| pool.fetch_scalar(ptr))
         {
-            pool.car_cdr(ptr)
+            pool.car_cdr(&ptr)
         } else {
             // Dummy
             (pool.alloc_nil(), pool.alloc_nil())

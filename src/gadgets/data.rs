@@ -150,7 +150,7 @@ impl AllocatedPtr {
         let maybe_thunk = self
             .ptr()
             .and_then(|ptr| pool.fetch_scalar(&ptr))
-            .and_then(|ptr| pool.fetch(ptr))
+            .and_then(|ptr| pool.fetch(&ptr))
             .and_then(|expr| {
                 if let Expression::Thunk(thunk) = expr {
                     Some(thunk)

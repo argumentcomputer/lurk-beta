@@ -1,12 +1,12 @@
 use blstrs::Scalar;
 use ff::{Field, PrimeField};
-use indexmap::Equivalent;
 use itertools::Itertools;
 use neptune::Poseidon;
 use std::borrow::Borrow;
 use std::fmt::{self, Display};
 use std::hash::Hash;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use string_interner::symbol::{Symbol, SymbolUsize};
 
 use generic_array::typenum::{U10, U11, U16, U2, U3, U4, U5, U6, U7, U8, U9};
 use neptune::{hash_type::HashType, poseidon::PoseidonConstants, Strength};
@@ -28,14 +28,28 @@ lazy_static::lazy_static! {
 
 type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
 
+#[derive(Debug)]
+struct StringSet(
+    string_interner::StringInterner<
+        string_interner::backend::BufferBackend<SymbolUsize>,
+        ahash::RandomState,
+    >,
+);
+
+impl Default for StringSet {
+    fn default() -> Self {
+        StringSet(string_interner::StringInterner::new())
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Pool {
     cons_pool: IndexSet<(Ptr, Ptr)>,
-    sym_pool: IndexSet<Str>,
+    sym_pool: StringSet,
     // Other sparse storage format without hashing is likely more efficient
     num_pool: IndexSet<u64>,
     fun_pool: IndexSet<(Ptr, Ptr, Ptr)>,
-    str_pool: IndexSet<Str>,
+    str_pool: StringSet,
     thunk_pool: IndexSet<Thunk>,
 
     simple_pool: IndexSet<ContPtr>,
@@ -53,9 +67,9 @@ pub struct Pool {
     let_rec_star_pool: IndexSet<(Ptr, Ptr, Ptr, ContPtr)>,
 
     /// Holds a mapping of ScalarPtr -> Ptr for reverese lookups
-    scalar_ptr_map: ahash::AHashMap<ScalarPtr, Ptr>,
+    scalar_ptr_map: Mutex<ahash::AHashMap<ScalarPtr, Ptr>>,
     /// Holds a mapping of ScalarPtr -> ContPtr for reverese lookups
-    scalar_ptr_cont_map: ahash::AHashMap<ScalarPtr, ContPtr>,
+    scalar_ptr_cont_map: Mutex<ahash::AHashMap<ScalarPtr, ContPtr>>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -125,10 +139,10 @@ pub struct RawPtr(usize);
 pub enum Expression {
     Nil,
     Cons(Ptr, Ptr),
-    Sym(Str),
+    Sym(String),
     Fun(Ptr, Ptr, Ptr),
     Num(u64),
-    Str(Str),
+    Str(String),
     Thunk(Thunk),
 }
 
@@ -395,19 +409,17 @@ impl Pool {
             .fold(NIL_PTR, |acc, elt| self.alloc_cons(*elt, acc))
     }
 
-    pub fn alloc_sym(&mut self, name: impl ToStr) -> Ptr {
-        let mut name = name.to_str();
+    pub fn alloc_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr {
         if name.as_ref().eq_ignore_ascii_case("NIL") {
             return NIL_PTR;
         }
 
         // symbols are upper case
-        if let Some(val) = Arc::get_mut(&mut name.0) {
-            val.make_ascii_uppercase();
-        }
+        let mut name = name.as_ref().to_string();
+        name.make_ascii_uppercase();
 
-        let (ptr, _) = self.sym_pool.insert_full(name);
-        Ptr(Tag::Sym, RawPtr(ptr))
+        let ptr = self.sym_pool.0.get_or_intern(name);
+        Ptr(Tag::Sym, RawPtr(ptr.to_usize()))
     }
 
     pub fn get_sym(&self, name: impl ToStr) -> Ptr {
@@ -429,9 +441,9 @@ impl Pool {
         Ptr(Tag::Num, RawPtr(ptr))
     }
 
-    pub fn alloc_str(&mut self, name: impl ToStr) -> Ptr {
-        let (ptr, _) = self.str_pool.insert_full(name.to_str());
-        Ptr(Tag::Str, RawPtr(ptr))
+    pub fn alloc_str<T: AsRef<str>>(&mut self, name: T) -> Ptr {
+        let ptr = self.sym_pool.0.get_or_intern(name);
+        Ptr(Tag::Str, RawPtr(ptr.to_usize()))
     }
 
     pub fn alloc_fun(&mut self, arg: Ptr, body: Ptr, closed_env: Ptr) -> Ptr {
@@ -557,22 +569,18 @@ impl Pool {
             .map(|raw| Ptr(Tag::Cons, RawPtr(raw)))
     }
 
-    fn find_sym<Q: ?Sized>(&self, name: &Q) -> Option<Ptr>
-    where
-        Q: Hash + Equivalent<Str>,
-    {
+    fn find_sym<T: AsRef<str>>(&self, name: T) -> Option<Ptr> {
         self.sym_pool
-            .get_index_of(name)
-            .map(|raw| Ptr(Tag::Sym, RawPtr(raw)))
+            .0
+            .get(name)
+            .map(|raw| Ptr(Tag::Sym, RawPtr(raw.to_usize())))
     }
 
-    fn find_str<Q: ?Sized>(&self, name: &Q) -> Option<Ptr>
-    where
-        Q: Hash + Equivalent<Str>,
-    {
+    fn find_str<T: AsRef<str>>(&self, name: T) -> Option<Ptr> {
         self.str_pool
-            .get_index_of(name)
-            .map(|raw| Ptr(Tag::Str, RawPtr(raw)))
+            .0
+            .get(name)
+            .map(|raw| Ptr(Tag::Str, RawPtr(raw.to_usize())))
     }
 
     fn find_num(&self, num: &u64) -> Option<Ptr> {
@@ -593,14 +601,18 @@ impl Pool {
             .map(|raw| Ptr(Tag::Thunk, RawPtr(raw)))
     }
 
-    pub fn fetch_scalar(&self, scalar_ptr: &ScalarPtr) -> Option<&Ptr> {
+    pub fn fetch_scalar(&self, scalar_ptr: &ScalarPtr) -> Option<Ptr> {
         // TODO: insert values into the scalar_ptr_map on hashing!
-        self.scalar_ptr_map.get(scalar_ptr)
+        self.scalar_ptr_map.lock().unwrap().get(scalar_ptr).cloned()
     }
 
-    pub fn fetch_scalar_cont(&self, scalar_ptr: &ScalarPtr) -> Option<&ContPtr> {
+    pub fn fetch_scalar_cont(&self, scalar_ptr: &ScalarPtr) -> Option<ContPtr> {
         // TODO: insert values into the scalar_ptr_map on hashing!
-        self.scalar_ptr_cont_map.get(scalar_ptr)
+        self.scalar_ptr_cont_map
+            .lock()
+            .unwrap()
+            .get(scalar_ptr)
+            .cloned()
     }
 
     pub fn fetch(&self, ptr: &Ptr) -> Option<Expression> {
@@ -612,8 +624,9 @@ impl Pool {
                 .map(|(a, b)| Expression::Cons(*a, *b)),
             Tag::Sym => self
                 .sym_pool
-                .get_index(ptr.1 .0)
-                .map(|name| Expression::Sym(name.clone())),
+                .0
+                .resolve(SymbolUsize::try_from_usize(ptr.1 .0).unwrap())
+                .map(|name| Expression::Sym(name.to_string())),
             Tag::Num => self
                 .num_pool
                 .get_index(ptr.1 .0)
@@ -628,8 +641,9 @@ impl Pool {
                 .map(|thunk| Expression::Thunk(*thunk)),
             Tag::Str => self
                 .str_pool
-                .get_index(ptr.1 .0)
-                .map(|name| Expression::Str(name.clone())),
+                .0
+                .resolve(SymbolUsize::try_from_usize(ptr.1 .0).unwrap())
+                .map(|name| Expression::Str(name.to_string())),
         }
     }
 
@@ -939,7 +953,7 @@ impl Pool {
 impl Expression {
     pub fn is_keyword_sym(&self) -> bool {
         match self {
-            Expression::Sym(s) => s.as_ref().starts_with(':'),
+            Expression::Sym(s) => s.starts_with(':'),
             _ => false,
         }
     }

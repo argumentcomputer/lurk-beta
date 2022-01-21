@@ -234,15 +234,11 @@ impl ReplState {
                 match expr {
                     Expression::Cons(car, rest) => match &pool.fetch(&car).unwrap() {
                         Expression::Sym(s) => {
-                            let s = s.as_ref();
                             if s == ":LOAD" {
                                 match pool.fetch(&pool.car(&rest)).unwrap() {
                                     Expression::Str(path) => {
-                                        let joined = p
-                                            .as_ref()
-                                            .parent()
-                                            .unwrap()
-                                            .join(Path::new(path.as_ref()));
+                                        let joined =
+                                            p.as_ref().parent().unwrap().join(Path::new(&path));
                                         self.handle_load(pool, &joined)?
                                     }
                                     _ => panic!("Argument to :LOAD must be a string."),
@@ -250,11 +246,8 @@ impl ReplState {
                             } else if s == ":RUN" {
                                 match pool.fetch(&pool.car(&rest)).unwrap() {
                                     Expression::Str(path) => {
-                                        let joined = p
-                                            .as_ref()
-                                            .parent()
-                                            .unwrap()
-                                            .join(Path::new(path.as_ref()));
+                                        let joined =
+                                            p.as_ref().parent().unwrap().join(Path::new(&path));
                                         self.handle_run(pool, &joined)?
                                     }
                                     _ => panic!("Argument to :RUN must be a string."),
