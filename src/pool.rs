@@ -1,8 +1,10 @@
-use indexmap::{Equivalent, IndexSet};
+use indexmap::Equivalent;
 use std::borrow::Borrow;
 use std::fmt::{self, Display};
 use std::hash::Hash;
 use std::rc::Rc;
+
+type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
 
 #[derive(Debug, Default)]
 pub struct Pool {
@@ -278,7 +280,7 @@ const TERMINAL_PTR: ContPtr = ContPtr(ContTag::Terminal, RawPtr(0));
 
 impl Pool {
     pub fn new() -> Self {
-        Self::default()
+        Pool::default()
     }
 
     pub const fn alloc_nil(&self) -> Ptr {
