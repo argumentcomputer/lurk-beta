@@ -299,12 +299,12 @@ impl Pool {
 
     pub fn alloc_sym(&mut self, name: impl ToStr) -> Ptr {
         let mut name = name.to_str();
-        // symbols are upper case
-        *Rc::get_mut(&mut name.0).unwrap() = name.0.as_ref().to_uppercase();
-
-        if name.as_ref() == "NIL" {
+        if name.as_ref().eq_ignore_ascii_case("NIL") {
             return NIL_PTR;
         }
+
+        // symbols are upper case
+        Rc::get_mut(&mut name.0).unwrap().make_ascii_uppercase();
 
         let (ptr, _) = self.sym_pool.insert_full(name);
         Ptr(Tag::Sym, RawPtr(ptr))
