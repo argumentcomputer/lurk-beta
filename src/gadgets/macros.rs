@@ -67,7 +67,7 @@ macro_rules! ifx_t {
                 stringify!($c)
             )
         });
-        pick_tagged_hash(cs, a, b, c)
+        pick_ptr(cs, a, b, c)
     }};
 }
 
@@ -145,8 +145,8 @@ macro_rules! tag_and_hash_equal {
 
 macro_rules! equal_t {
     ($cs:ident, $a:expr, $b:expr) => {{
-        let tags_equal = equal!($cs, &$a.tag, &$b.tag)?;
-        let hashes_equal = equal!($cs, &$a.hash, &$b.hash)?;
+        let tags_equal = equal!($cs, &$a.tag(), &$b.tag())?;
+        let hashes_equal = equal!($cs, &$a.hash(), &$b.hash())?;
         let mut cs = $cs.namespace(|| {
             format!(
                 "({} equals {}) and ({} equals {})",

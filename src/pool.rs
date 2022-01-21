@@ -6,7 +6,7 @@ use neptune::Poseidon;
 use std::borrow::Borrow;
 use std::fmt::{self, Display};
 use std::hash::Hash;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use generic_array::typenum::{U10, U11, U16, U2, U3, U4, U5, U6, U7, U8, U9};
 use neptune::{hash_type::HashType, poseidon::PoseidonConstants, Strength};
@@ -232,7 +232,7 @@ impl fmt::Display for Rel2 {
 
 /// Custom String type, that has cheap clone, to avoid duplicating strings.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Str(Rc<String>);
+pub struct Str(Arc<String>);
 
 impl Display for Str {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -242,13 +242,13 @@ impl Display for Str {
 
 impl From<String> for Str {
     fn from(s: String) -> Str {
-        Str(Rc::new(s))
+        Str(Arc::new(s))
     }
 }
 
 impl From<&str> for Str {
     fn from(s: &str) -> Self {
-        Str(Rc::new(s.to_string()))
+        Str(Arc::new(s.to_string()))
     }
 }
 
@@ -282,13 +282,13 @@ impl ToStr for &Str {
 
 impl ToStr for &str {
     fn to_str(self) -> Str {
-        Str(Rc::new(self.to_string()))
+        Str(Arc::new(self.to_string()))
     }
 }
 
 impl ToStr for String {
     fn to_str(self) -> Str {
-        Str(Rc::new(self))
+        Str(Arc::new(self))
     }
 }
 
@@ -402,7 +402,9 @@ impl Pool {
         }
 
         // symbols are upper case
-        Rc::get_mut(&mut name.0).unwrap().make_ascii_uppercase();
+        if let Some(val) = Arc::get_mut(&mut name.0) {
+            val.make_ascii_uppercase();
+        }
 
         let (ptr, _) = self.sym_pool.insert_full(name);
         Ptr(Tag::Sym, RawPtr(ptr))
@@ -416,7 +418,9 @@ impl Pool {
         }
 
         // symbols are upper case
-        Rc::get_mut(&mut name.0).unwrap().make_ascii_uppercase();
+        if let Some(val) = Arc::get_mut(&mut name.0) {
+            val.make_ascii_uppercase();
+        }
         self.find_sym(&name).expect("sym not found")
     }
 
@@ -589,16 +593,14 @@ impl Pool {
             .map(|raw| Ptr(Tag::Thunk, RawPtr(raw)))
     }
 
-    pub fn fetch_scalar(&self, scalar_ptr: &ScalarPtr) -> Option<Expression> {
+    pub fn fetch_scalar(&self, scalar_ptr: &ScalarPtr) -> Option<&Ptr> {
         // TODO: insert values into the scalar_ptr_map on hashing!
-        let ptr = self.scalar_ptr_map.get(scalar_ptr)?;
-        self.fetch(ptr)
+        self.scalar_ptr_map.get(scalar_ptr)
     }
 
-    pub fn fetch_scalar_cont(&self, scalar_ptr: &ScalarPtr) -> Option<Continuation> {
+    pub fn fetch_scalar_cont(&self, scalar_ptr: &ScalarPtr) -> Option<&ContPtr> {
         // TODO: insert values into the scalar_ptr_map on hashing!
-        let ptr = self.scalar_ptr_cont_map.get(scalar_ptr)?;
-        self.fetch_cont(ptr)
+        self.scalar_ptr_cont_map.get(scalar_ptr)
     }
 
     pub fn fetch(&self, ptr: &Ptr) -> Option<Expression> {
@@ -829,7 +831,7 @@ impl Pool {
         Some([value_hash, continuation_hash])
     }
 
-    fn hash_sym(&self, sym: &str) -> Option<ScalarPtr> {
+    pub fn hash_sym(&self, sym: &str) -> Option<ScalarPtr> {
         Some(ScalarPtr(Tag::Sym.as_field(), self.hash_string(sym)))
     }
 
@@ -925,7 +927,7 @@ impl Pool {
         ScalarPtr(op.as_field(), Scalar::zero())
     }
 
-    fn hash_op2(&self, op: &Op2) -> ScalarPtr {
+    pub fn hash_op2(&self, op: &Op2) -> ScalarPtr {
         ScalarPtr(op.as_field(), Scalar::zero())
     }
 

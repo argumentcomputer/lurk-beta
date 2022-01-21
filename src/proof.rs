@@ -6,14 +6,13 @@ use bellperson::{
 use blstrs::{Bls12, Scalar as Fr};
 use once_cell::sync::OnceCell;
 use pairing_lib::Engine;
-
-use crate::data::{fr_from_u64, Expression, Store, Tagged};
+use rand::{RngCore, SeedableRng};
+use rand_xorshift::XorShiftRng;
 
 use crate::circuit::CircuitFrame;
 use crate::eval::{Evaluator, Frame, Witness, IO};
-
-use rand::{RngCore, SeedableRng};
-use rand_xorshift::XorShiftRng;
+use crate::pool::{Pool, Ptr};
+use crate::writer::Write;
 
 pub const DUMMY_RNG_SEED: [u8; 16] = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -22,7 +21,7 @@ pub const DUMMY_RNG_SEED: [u8; 16] = [
 static FRAME_GROTH_PARAMS: OnceCell<groth16::Parameters<Bls12>> = OnceCell::new();
 
 pub trait Provable {
-    fn public_inputs(&self) -> Vec<Fr>;
+    fn public_inputs(&self, pool: &Pool) -> Vec<Fr>;
 }
 
 #[derive(Clone)]
@@ -31,20 +30,20 @@ pub struct Proof<E: Engine> {
 }
 
 impl<W> Provable for CircuitFrame<'_, IO, W> {
-    fn public_inputs(&self) -> Vec<Fr> {
+    fn public_inputs(&self, pool: &Pool) -> Vec<Fr> {
         let mut inputs: Vec<Fr> = Vec::with_capacity(10);
 
         if let Some(input) = &self.input {
-            inputs.extend(input.public_inputs());
+            inputs.extend(input.public_inputs(pool));
         }
         if let Some(output) = &self.output {
-            inputs.extend(output.public_inputs());
+            inputs.extend(output.public_inputs(pool));
         }
         if let Some(initial) = &self.initial {
-            inputs.extend(initial.public_inputs());
+            inputs.extend(initial.public_inputs(pool));
         }
         if let Some(i) = self.i {
-            inputs.push(fr_from_u64(i as u64));
+            inputs.push(Fr::from(i as u64));
         }
 
         inputs
@@ -52,22 +51,25 @@ impl<W> Provable for CircuitFrame<'_, IO, W> {
 }
 
 impl IO {
-    fn public_inputs(&self) -> Vec<Fr> {
+    fn public_inputs(&self, pool: &Pool) -> Vec<Fr> {
+        let expr = pool.hash_expr(&self.expr).unwrap();
+        let env = pool.hash_expr(&self.env).unwrap();
+        let cont = pool.hash_cont(&self.cont).unwrap();
         vec![
-            self.expr.tag_fr(),
-            self.expr.get_hash(),
-            self.env.tag_fr(),
-            self.env.get_hash(),
-            self.cont.get_continuation_tag().cont_tag_fr(),
-            self.cont.get_hash(),
+            *expr.tag(),
+            *expr.value(),
+            *env.tag(),
+            *env.value(),
+            *cont.tag(),
+            *cont.value(),
         ]
     }
 }
 
 impl<'a> CircuitFrame<'a, IO, Witness> {
-    pub fn blank(store: &'a Store) -> Self {
+    pub fn blank(pool: &'a Pool) -> Self {
         Self {
-            store,
+            pool,
             input: None,
             output: None,
             initial: None,
@@ -86,8 +88,8 @@ impl<'a> CircuitFrame<'a, IO, Witness> {
     }
 
     pub fn groth_params() -> Result<&'static groth16::Parameters<Bls12>, SynthesisError> {
-        let store = Store::default();
-        CircuitFrame::<IO, Witness>::blank(&store).frame_groth_params()
+        let pool = Pool::default();
+        CircuitFrame::<IO, Witness>::blank(&pool).frame_groth_params()
     }
 
     pub fn prove<R: RngCore>(
@@ -103,14 +105,14 @@ impl<'a> CircuitFrame<'a, IO, Witness> {
     #[allow(clippy::needless_collect)]
     pub fn outer_prove<R: RngCore + Clone>(
         params: &groth16::Parameters<Bls12>,
-        expr: Expression,
-        env: Expression,
-        store: &mut Store,
+        expr: Ptr,
+        env: Ptr,
+        pool: &mut Pool,
         limit: usize,
         rng: R,
     ) -> Result<SequentialProofs<Bls12, IO, Witness>, SynthesisError> {
         // FIXME: optimize execution order
-        let mut evaluator = Evaluator::new(expr, env, store, limit);
+        let mut evaluator = Evaluator::new(expr, env, pool, limit);
         let initial = evaluator.initial();
         let frames = evaluator.iter().collect::<Vec<_>>();
 
@@ -120,7 +122,7 @@ impl<'a> CircuitFrame<'a, IO, Witness> {
             .map(|frame| {
                 (
                     frame.clone(),
-                    CircuitFrame::from_frame(initial.clone(), frame, store)
+                    CircuitFrame::from_frame(initial.clone(), frame, pool)
                         .prove(Some(params), rng.clone())
                         .unwrap(),
                 )
@@ -131,19 +133,19 @@ impl<'a> CircuitFrame<'a, IO, Witness> {
 
     #[allow(clippy::needless_collect)]
     pub fn outer_synthesize(
-        expr: Expression,
-        env: Expression,
-        store: &mut Store,
+        expr: Ptr,
+        env: Ptr,
+        pool: &mut Pool,
         limit: usize,
     ) -> Result<SequentialCS<IO, Witness>, SynthesisError> {
-        let mut evaluator = Evaluator::new(expr, env, store, limit);
+        let mut evaluator = Evaluator::new(expr, env, pool, limit);
         let initial = evaluator.initial();
         let frames = evaluator.iter().collect::<Vec<_>>();
         let res = frames
             .into_iter()
             .map(|frame| {
                 let mut cs = TestConstraintSystem::new();
-                CircuitFrame::from_frame(initial.clone(), frame.clone(), store)
+                CircuitFrame::from_frame(initial.clone(), frame.clone(), pool)
                     .synthesize(&mut cs)
                     .unwrap();
                 (frame, cs)
@@ -160,7 +162,7 @@ type SequentialCS<IO, Witness> = Vec<(Frame<IO, Witness>, TestConstraintSystem<F
 fn verify_sequential_groth16_proofs(
     proofs: SequentialProofs<Bls12, IO, Witness>,
     vk: &groth16::VerifyingKey<Bls12>,
-    store: &Store,
+    pool: &Pool,
 ) -> Result<bool, SynthesisError> {
     let previous_frame: Option<&Frame<IO, Witness>> = None;
     let pvk = groth16::prepare_verifying_key(vk);
@@ -174,7 +176,7 @@ fn verify_sequential_groth16_proofs(
             }
         }
 
-        if !CircuitFrame::from_frame(initial.as_ref().clone(), frame, store)
+        if !CircuitFrame::from_frame(initial.clone(), frame, pool)
             .verify_groth16_proof(&pvk, proof.clone())?
         {
             return Ok(false);
@@ -189,7 +191,7 @@ fn verify_sequential_groth16_proofs(
 #[allow(dead_code)]
 fn verify_sequential_css(
     css: &SequentialCS<IO, Witness>,
-    store: &Store,
+    pool: &Pool,
 ) -> Result<bool, SynthesisError> {
     let mut previous_frame: Option<&Frame<IO, Witness>> = None;
     let initial = css[0].0.input.clone();
@@ -198,7 +200,7 @@ fn verify_sequential_css(
         dbg!(i);
         let input = &frame.input;
 
-        dbg!(store.write_expr_str(&input.expr));
+        dbg!(input.expr.fmt_to_string(pool));
 
         if let Some(prev) = previous_frame {
             if !prev.precedes(frame) {
@@ -207,8 +209,7 @@ fn verify_sequential_css(
         }
 
         let public_inputs =
-            CircuitFrame::from_frame(initial.as_ref().clone(), frame.clone(), store)
-                .public_inputs();
+            CircuitFrame::from_frame(initial.clone(), frame.clone(), pool).public_inputs(pool);
 
         if !(cs.is_satisfied() && cs.verify(&public_inputs)) {
             return Ok(false);
@@ -238,7 +239,7 @@ impl CircuitFrame<'_, IO, Witness> {
         pvk: &groth16::PreparedVerifyingKey<Bls12>,
         p: Proof<Bls12>,
     ) -> Result<bool, SynthesisError> {
-        let inputs = self.public_inputs();
+        let inputs = self.public_inputs(self.pool);
 
         verify_proof(pvk, &p.groth16_proof, &inputs)
     }
@@ -252,9 +253,9 @@ mod tests {
 
     const DEFAULT_CHECK_GROTH16: bool = false;
 
-    fn outer_prove_aux(
+    fn outer_prove_aux<F: Fn(&'_ mut Pool) -> Ptr>(
         source: &str,
-        expected_result: Expression,
+        expected_result: F,
         expected_iterations: usize,
         check_groth16: bool,
         check_constraint_systems: bool,
@@ -263,7 +264,7 @@ mod tests {
     ) {
         let rng = rand::thread_rng();
 
-        let mut s = Store::default();
+        let mut s = Pool::default();
         let expr = s.read(source).unwrap();
 
         let groth_params = CircuitFrame::groth_params().unwrap();
@@ -284,6 +285,7 @@ mod tests {
             None
         };
 
+        let expected_result = expected_result(&mut s);
         let constraint_systems = if check_constraint_systems {
             Some(CircuitFrame::outer_synthesize(expr, empty_sym_env(&s), &mut s, limit).unwrap())
         } else {
@@ -314,8 +316,8 @@ mod tests {
 
     pub fn check_cs_deltas(constraint_systems: &SequentialCS<IO, Witness>, limit: usize) -> () {
         let mut cs_blank = MetricCS::<Fr>::new();
-        let store = Store::default();
-        let blank_frame = CircuitFrame::blank(&store);
+        let pool = Pool::default();
+        let blank_frame = CircuitFrame::blank(&pool);
         blank_frame
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize");
@@ -334,7 +336,7 @@ mod tests {
                      (b 1)
                      (c 2))
                 (/ (+ a b) c))",
-            Expression::num(3),
+            |pool| pool.alloc_num(3),
             18,
             true, // Always check Groth16 in at least one test.
             true,
@@ -347,7 +349,7 @@ mod tests {
     fn outer_prove_binop() {
         outer_prove_aux(
             &"(+ 1 2)",
-            Expression::num(3),
+            |pool| pool.alloc_num(3),
             3,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -360,7 +362,7 @@ mod tests {
     fn outer_prove_eq() {
         outer_prove_aux(
             &"(eq 5 5)",
-            Expression::Sym("T".to_string()),
+            |pool| pool.alloc_sym("T"),
             3,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -375,7 +377,7 @@ mod tests {
     fn outer_prove_num_equal() {
         outer_prove_aux(
             &"(= 5 5)",
-            Expression::Sym("T".to_string()),
+            |pool| pool.alloc_sym("T"),
             3,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -384,7 +386,7 @@ mod tests {
         );
         outer_prove_aux(
             &"(= 5 6)",
-            Expression::Nil,
+            |pool| pool.alloc_nil(),
             3,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -397,7 +399,7 @@ mod tests {
     fn outer_prove_if() {
         outer_prove_aux(
             &"(if t 5 6)",
-            Expression::num(5),
+            |pool| pool.alloc_num(5),
             3,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -407,7 +409,7 @@ mod tests {
 
         outer_prove_aux(
             &"(if t 5 6)",
-            Expression::num(5),
+            |pool| pool.alloc_num(5),
             3,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -419,7 +421,7 @@ mod tests {
     fn outer_prove_if_fully_evaluates() {
         outer_prove_aux(
             &"(if t (+ 5 5) 6)",
-            Expression::num(10),
+            |pool| pool.alloc_num(10),
             5,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -438,7 +440,7 @@ mod tests {
                                      1
                                      (* base ((exp base) (- exponent 1))))))))
                 ((exp 5) 3))",
-            Expression::num(125),
+            |pool| pool.alloc_num(125),
             // 117, // FIXME: is this change correct?
             91,
             DEFAULT_CHECK_GROTH16,
@@ -459,7 +461,7 @@ mod tests {
                                           acc
                                           (((exp base) (- exponent 1)) (* acc base))))))))
                 (((exp 5) 5) 1))",
-            Expression::num(3125),
+            |pool| pool.alloc_num(3125),
             // 248, // FIXME: is this change correct?
             201,
             DEFAULT_CHECK_GROTH16,

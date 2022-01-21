@@ -23,6 +23,22 @@ pub struct AllocatedPtr {
 }
 
 impl AllocatedPtr {
+    pub fn tag(&self) -> &AllocatedNum<Fr> {
+        &self.tag
+    }
+
+    pub fn hash(&self) -> &AllocatedNum<Fr> {
+        &self.hash
+    }
+
+    pub fn get_tag_value(&self) -> Option<Fr> {
+        self.tag.get_value()
+    }
+
+    pub fn get_hash_value(&self) -> Option<Fr> {
+        self.hash.get_value()
+    }
+
     pub fn from_allocated_parts(tag: AllocatedNum<Fr>, hash: AllocatedNum<Fr>) -> Self {
         Self { tag, hash }
     }
@@ -37,7 +53,27 @@ impl AllocatedPtr {
         Ok(Self { tag, hash })
     }
 
-    pub fn from_ptr<CS: ConstraintSystem<Fr>>(
+    pub fn from_ptr<CS>(cs: &mut CS, pool: &Pool, ptr: Option<&Ptr>) -> Result<Self, SynthesisError>
+    where
+        CS: ConstraintSystem<Fr>,
+    {
+        let scalar_ptr = ptr.and_then(|ptr| pool.hash_expr(ptr));
+        Self::from_scalar_ptr(cs, scalar_ptr.as_ref())
+    }
+
+    pub fn from_cont_ptr<CS>(
+        cs: &mut CS,
+        pool: &Pool,
+        ptr: Option<&ContPtr>,
+    ) -> Result<Self, SynthesisError>
+    where
+        CS: ConstraintSystem<Fr>,
+    {
+        let scalar_ptr = ptr.and_then(|ptr| pool.hash_cont(ptr));
+        Self::from_scalar_ptr(cs, scalar_ptr.as_ref())
+    }
+
+    pub fn from_scalar_ptr<CS: ConstraintSystem<Fr>>(
         cs: &mut CS,
         ptr: Option<&ScalarPtr>,
     ) -> Result<Self, SynthesisError> {
@@ -111,16 +147,17 @@ impl AllocatedPtr {
         cs: CS,
         pool: &Pool,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr), SynthesisError> {
-        let maybe_thunk = if let Some(ptr) = self.ptr() {
-            if let Some(Expression::Thunk(thunk)) = pool.fetch_scalar(&ptr) {
-                Some(thunk)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
+        let maybe_thunk = self
+            .ptr()
+            .and_then(|ptr| pool.fetch_scalar(&ptr))
+            .and_then(|ptr| pool.fetch(ptr))
+            .and_then(|expr| {
+                if let Expression::Thunk(thunk) = expr {
+                    Some(thunk)
+                } else {
+                    None
+                }
+            });
         Thunk::allocate_maybe_dummy_components(cs, maybe_thunk.as_ref(), pool)
     }
 }
@@ -134,7 +171,7 @@ pub struct GlobalAllocations {
     pub t_ptr: AllocatedPtr,
     pub lambda_ptr: AllocatedPtr,
     pub dummy_arg_ptr: AllocatedPtr,
-    pub nil_tag: AllocatedNum<Fr>,
+
     pub sym_tag: AllocatedNum<Fr>,
     pub thunk_tag: AllocatedNum<Fr>,
     pub cons_tag: AllocatedNum<Fr>,
@@ -153,16 +190,18 @@ pub struct GlobalAllocations {
     pub binop2_cont_tag: AllocatedNum<Fr>,
     pub relop2_cont_tag: AllocatedNum<Fr>,
     pub if_cont_tag: AllocatedNum<Fr>,
-    pub op1_car_tag: AllocatedNum<Fr>,
-    pub op1_cdr_tag: AllocatedNum<Fr>,
-    pub op1_atom_tag: AllocatedNum<Fr>,
-    pub op2_cons_tag: AllocatedNum<Fr>,
-    pub op2_sum_tag: AllocatedNum<Fr>,
-    pub op2_diff_tag: AllocatedNum<Fr>,
-    pub op2_product_tag: AllocatedNum<Fr>,
-    pub op2_quotient_tag: AllocatedNum<Fr>,
-    pub rel2_equal_tag: AllocatedNum<Fr>,
-    pub rel2_numequal_tag: AllocatedNum<Fr>,
+
+    pub op1_car_ptr: AllocatedPtr,
+    pub op1_cdr_ptr: AllocatedPtr,
+    pub op1_atom_ptr: AllocatedPtr,
+    pub op2_cons_ptr: AllocatedPtr,
+    pub op2_sum_ptr: AllocatedPtr,
+    pub op2_diff_ptr: AllocatedPtr,
+    pub op2_product_ptr: AllocatedPtr,
+    pub op2_quotient_ptr: AllocatedPtr,
+    pub rel2_equal_ptr: AllocatedPtr,
+    pub rel2_numequal_ptr: AllocatedPtr,
+
     pub true_num: AllocatedNum<Fr>,
     pub false_num: AllocatedNum<Fr>,
 
@@ -243,23 +282,46 @@ impl GlobalAllocations {
         let relop2_cont_tag =
             ContTag::Relop2.allocate_constant(&mut cs.namespace(|| "relop2_cont_tag"))?;
         let if_cont_tag = ContTag::If.allocate_constant(&mut cs.namespace(|| "if_cont_tag"))?;
+
         let op1_car_tag = Op1::Car.allocate_constant(&mut cs.namespace(|| "op1_car_tag"))?;
+        let op1_car_ptr = AllocatedPtr::from_allocated_parts(op1_car_tag, nil_tag.clone());
+
         let op1_cdr_tag = Op1::Cdr.allocate_constant(&mut cs.namespace(|| "op1_cdr_tag"))?;
+        let op1_cdr_ptr = AllocatedPtr::from_allocated_parts(op1_cdr_tag, nil_tag.clone());
+
         let op1_atom_tag = Op1::Atom.allocate_constant(&mut cs.namespace(|| "op1_atom_tag"))?;
+        let op1_atom_ptr = AllocatedPtr::from_allocated_parts(op1_atom_tag, nil_tag.clone());
+
         let op2_cons_tag = Op2::Cons.allocate_constant(&mut cs.namespace(|| "op2_cons_tag"))?;
+        let op2_cons_ptr = AllocatedPtr::from_allocated_parts(op2_cons_tag, nil_tag.clone());
+
         let op2_sum_tag = Op2::Sum.allocate_constant(&mut cs.namespace(|| "op2_sum_tag"))?;
+        let op2_sum_ptr = AllocatedPtr::from_allocated_parts(op2_sum_tag, nil_tag.clone());
+
         let op2_diff_tag = Op2::Diff.allocate_constant(&mut cs.namespace(|| "op2_diff_tag"))?;
+        let op2_diff_ptr = AllocatedPtr::from_allocated_parts(op2_diff_tag, nil_tag.clone());
+
         let op2_product_tag =
             Op2::Product.allocate_constant(&mut cs.namespace(|| "op2_product_tag"))?;
+        let op2_product_ptr = AllocatedPtr::from_allocated_parts(op2_product_tag, nil_tag.clone());
+
         let op2_quotient_tag =
             Op2::Quotient.allocate_constant(&mut cs.namespace(|| "op2_quotient_tag"))?;
+        let op2_quotient_ptr =
+            AllocatedPtr::from_allocated_parts(op2_quotient_tag, nil_tag.clone());
+
         let rel2_numequal_tag =
             AllocatedNum::alloc(&mut cs.namespace(|| "relop2_numequal_tag"), || {
                 Ok(Rel2::NumEqual.as_field())
             })?;
+        let rel2_numequal_ptr =
+            AllocatedPtr::from_allocated_parts(rel2_numequal_tag, nil_tag.clone());
+
         let rel2_equal_tag = AllocatedNum::alloc(&mut cs.namespace(|| "relop2_equal_tag"), || {
             Ok(Rel2::Equal.as_field())
         })?;
+        let rel2_equal_ptr = AllocatedPtr::from_allocated_parts(rel2_equal_tag, nil_tag);
+
         let true_num = allocate_constant(&mut cs.namespace(|| "true"), Fr::one())?;
         let false_num = allocate_constant(&mut cs.namespace(|| "false"), Fr::zero())?;
 
@@ -285,7 +347,6 @@ impl GlobalAllocations {
             error_ptr,
             dummy_ptr,
             nil_ptr,
-            nil_tag,
             t_ptr,
             lambda_ptr,
             dummy_arg_ptr,
@@ -307,16 +368,16 @@ impl GlobalAllocations {
             binop2_cont_tag,
             relop2_cont_tag,
             if_cont_tag,
-            op1_car_tag,
-            op1_cdr_tag,
-            op1_atom_tag,
-            op2_cons_tag,
-            op2_sum_tag,
-            op2_diff_tag,
-            op2_product_tag,
-            op2_quotient_tag,
-            rel2_equal_tag,
-            rel2_numequal_tag,
+            op1_car_ptr,
+            op1_cdr_ptr,
+            op1_atom_ptr,
+            op2_cons_ptr,
+            op2_sum_ptr,
+            op2_diff_ptr,
+            op2_product_ptr,
+            op2_quotient_ptr,
+            rel2_equal_ptr,
+            rel2_numequal_ptr,
             true_num,
             false_num,
             default,
@@ -353,7 +414,7 @@ impl ScalarPtr {
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedPtr, SynthesisError> {
-        AllocatedPtr::from_ptr(cs, Some(self))
+        AllocatedPtr::from_scalar_ptr(cs, Some(self))
     }
 
     pub fn allocate_constant_ptr<CS: ConstraintSystem<Fr>>(
@@ -375,7 +436,7 @@ impl ContPtr {
         cs: CS,
         cont: Option<&ContPtr>,
         pool: &Pool,
-    ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
+    ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedPtr>), SynthesisError> {
         if let Some(cont) = cont {
             cont.allocate_components(cs, pool)
         } else {
@@ -387,37 +448,38 @@ impl ContPtr {
         &self,
         mut cs: CS,
         pool: &Pool,
-    ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
-        let component_ptrs = pool
+    ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedPtr>), SynthesisError> {
+        let component_ptrs: Vec<_> = pool
             .get_hash_components_cont(self)
-            .expect("missing hash components");
+            .expect("missing hash components")
+            .iter()
+            .enumerate()
+            .map(|(i, ptr)| {
+                AllocatedPtr::from_scalar_ptr(
+                    &mut cs.namespace(|| format!("Continuation support {}", i)),
+                    Some(ptr),
+                )
+            })
+            .collect::<Result<_, _>>()?;
+
         let mut components = Vec::with_capacity(8);
 
-        let mut i = 0;
         for ptr in component_ptrs.iter() {
-            components.push(AllocatedNum::alloc(
-                cs.namespace(|| format!("Continuation component {}", i)),
-                || Ok(*ptr.tag()),
-            )?);
-            i += 1;
-            components.push(AllocatedNum::alloc(
-                cs.namespace(|| format!("Continuation component {}", i)),
-                || Ok(*ptr.value()),
-            )?);
-            i += 1;
+            components.push(ptr.tag().clone());
+            components.push(ptr.hash().clone());
         }
 
         let hash = poseidon_hash(
             cs.namespace(|| "Continuation"),
-            components.clone(),
+            components,
             &POSEIDON_CONSTANTS_8,
         )?;
-        Ok((hash, components))
+        Ok((hash, component_ptrs))
     }
 
     fn allocate_dummy_components<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
-    ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
+    ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedPtr>), SynthesisError> {
         let length = 8;
         let mut result = Vec::with_capacity(length);
         for i in 0..length {
@@ -426,26 +488,38 @@ impl ContPtr {
                 || Ok(Fr::zero()),
             )?);
         }
+        let mut result_ptrs = Vec::with_capacity(4);
+        for chunk in result.chunks(2) {
+            result_ptrs.push(AllocatedPtr::from_allocated_parts(
+                chunk[0].clone(),
+                chunk[1].clone(),
+            ));
+        }
 
         // We need to create these constraints, but eventually we can avoid doing any calculation.
         // We just need a precomputed dummy witness.
         let dummy_hash = poseidon_hash(
             cs.namespace(|| "Continuation"),
-            result.clone(),
+            result,
             &POSEIDON_CONSTANTS_8,
         )?;
 
-        Ok((dummy_hash, result))
+        Ok((dummy_hash, result_ptrs))
     }
 
     pub fn construct<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
         cont_tag: &AllocatedNum<Fr>,
-        components: &[AllocatedNum<Fr>; 8],
+        ptrs: &[&AllocatedPtr; 4],
     ) -> Result<AllocatedPtr, SynthesisError> {
+        let mut components = Vec::with_capacity(8);
+        for ptr in ptrs {
+            components.push(ptr.tag().clone());
+            components.push(ptr.hash().clone());
+        }
         let hash = poseidon_hash(
             cs.namespace(|| "Continuation"),
-            components.to_vec(), // FIXME: add slice based api to neptune
+            components,
             &POSEIDON_CONSTANTS_8,
         )?;
 
@@ -454,19 +528,25 @@ impl ContPtr {
     }
 }
 
-impl Expression {
+impl Ptr {
     pub fn allocate_maybe_fun<CS: ConstraintSystem<Fr>>(
         cs: CS,
-        maybe_fun: Option<&Expression>,
         pool: &Pool,
+        maybe_fun: Option<&Ptr>,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr, AllocatedPtr), SynthesisError> {
         match maybe_fun {
-            Some(Expression::Fun(arg, body, closed_env)) => {
-                let arg = pool.hash_expr(arg).expect("missing arg");
-                let body = pool.hash_expr(body).expect("missing body");
-                let closed_env = pool.hash_expr(closed_env).expect("missing closed env");
-                Self::allocate_fun(cs, &arg, &body, &closed_env)
-            }
+            Some(ptr) => match ptr.tag() {
+                Tag::Fun => match pool.fetch(ptr).expect("missing fun") {
+                    Expression::Fun(arg, body, closed_env) => {
+                        let arg = pool.hash_expr(&arg).expect("missing arg");
+                        let body = pool.hash_expr(&body).expect("missing body");
+                        let closed_env = pool.hash_expr(&closed_env).expect("missing closed env");
+                        Self::allocate_fun(cs, &arg, &body, &closed_env)
+                    }
+                    _ => unreachable!(),
+                },
+                _ => Self::allocate_dummy_fun(cs, pool),
+            },
             _ => Self::allocate_dummy_fun(cs, pool),
         }
     }
@@ -477,11 +557,10 @@ impl Expression {
         body: &ScalarPtr,
         closed_env: &ScalarPtr,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr, AllocatedPtr), SynthesisError> {
-        let arg_t = AllocatedPtr::from_ptr(&mut cs.namespace(|| "allocate arg"), Some(arg))?;
-
-        let body_t = AllocatedPtr::from_ptr(&mut cs.namespace(|| "allocate body"), Some(body))?;
-
-        let closed_env_t = AllocatedPtr::from_ptr(
+        let arg_t = AllocatedPtr::from_scalar_ptr(&mut cs.namespace(|| "allocate arg"), Some(arg))?;
+        let body_t =
+            AllocatedPtr::from_scalar_ptr(&mut cs.namespace(|| "allocate body"), Some(body))?;
+        let closed_env_t = AllocatedPtr::from_scalar_ptr(
             &mut cs.namespace(|| "allocate closed_env"),
             Some(closed_env),
         )?;
