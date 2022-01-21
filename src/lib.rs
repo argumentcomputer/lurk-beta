@@ -7,7 +7,7 @@ pub mod parser;
 pub mod pool;
 pub mod writer;
 // pub mod circuit;
-// pub mod eval;
+pub mod eval;
 // pub mod proof;
 
 pub const TEST_SEED: [u8; 16] = [

@@ -136,9 +136,7 @@ impl Write for Continuation {
                 write!(w, ")")
             }
             Continuation::Unop(op1, cont) => {
-                write!(w, "Unop(")?;
-                write!(w, "{}", op1)?;
-                write!(w, ", ")?;
+                write!(w, "Unop({}, ", op1)?;
                 cont.fmt(pool, w)?;
                 write!(w, ")")
             }
@@ -154,18 +152,14 @@ impl Write for Continuation {
                 write!(w, ")")
             }
             Continuation::Binop2(op2, expr, cont) => {
-                write!(w, "Binop2(")?;
-                write!(w, "{}", op2)?;
-                write!(w, ", ")?;
+                write!(w, "Binop2({}, ", op2)?;
                 expr.fmt(pool, w)?;
                 write!(w, ", ")?;
                 cont.fmt(pool, w)?;
                 write!(w, ")")
             }
             Continuation::Relop(rel2, expr1, expr2, cont) => {
-                write!(w, "Relop(")?;
-                write!(w, "{}", rel2)?;
-                write!(w, ", ")?;
+                write!(w, "Relop({}, ", rel2)?;
                 expr1.fmt(pool, w)?;
                 write!(w, ", ")?;
                 expr2.fmt(pool, w)?;
@@ -174,9 +168,7 @@ impl Write for Continuation {
                 write!(w, ")")
             }
             Continuation::Relop2(rel2, expr, cont) => {
-                write!(w, "Relop2(")?;
-                write!(w, "{}", rel2)?;
-                write!(w, ", ")?;
+                write!(w, "Relop2({}, ", rel2)?;
                 expr.fmt(pool, w)?;
                 write!(w, ", ")?;
                 cont.fmt(pool, w)?;

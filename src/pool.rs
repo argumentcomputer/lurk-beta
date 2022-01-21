@@ -33,13 +33,23 @@ pub struct Pool {
 pub struct Ptr(Tag, RawPtr);
 
 impl Ptr {
-    pub fn is_nil(&self) -> bool {
+    pub const fn is_nil(&self) -> bool {
         matches!(self.0, Tag::Nil)
+    }
+
+    pub const fn tag(&self) -> Tag {
+        self.0
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ContPtr(ContTag, RawPtr);
+
+impl ContPtr {
+    pub const fn tag(&self) -> ContTag {
+        self.0
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
@@ -332,6 +342,73 @@ impl Pool {
         ContPtr(ContTag::Call, RawPtr(ptr))
     }
 
+    pub fn alloc_cont_call2(&mut self, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
+        let (ptr, _) = self.call2_pool.insert_full((a, b, c));
+        ContPtr(ContTag::Call2, RawPtr(ptr))
+    }
+
+    pub const fn alloc_cont_error(&self) -> ContPtr {
+        ERROR_PTR
+    }
+
+    pub const fn alloc_cont_terminal(&self) -> ContPtr {
+        TERMINAL_PTR
+    }
+
+    pub const fn alloc_cont_dummy(&self) -> ContPtr {
+        DUMMY_PTR
+    }
+
+    pub fn alloc_cont_lookup(&mut self, a: Ptr, b: ContPtr) -> ContPtr {
+        let (ptr, _) = self.lookup_pool.insert_full((a, b));
+        ContPtr(ContTag::Lookup, RawPtr(ptr))
+    }
+
+    pub fn alloc_cont_let_star(&mut self, a: Ptr, b: Ptr, c: Ptr, d: ContPtr) -> ContPtr {
+        let (ptr, _) = self.let_star_pool.insert_full((a, b, c, d));
+        ContPtr(ContTag::LetStar, RawPtr(ptr))
+    }
+
+    pub fn alloc_cont_let_rec_star(&mut self, a: Ptr, b: Ptr, c: Ptr, d: ContPtr) -> ContPtr {
+        let (ptr, _) = self.let_rec_star_pool.insert_full((a, b, c, d));
+        ContPtr(ContTag::LetRecStar, RawPtr(ptr))
+    }
+
+    pub fn alloc_cont_unop(&mut self, op: Op1, a: ContPtr) -> ContPtr {
+        let (ptr, _) = self.unop_pool.insert_full((op, a));
+        ContPtr(ContTag::Unop, RawPtr(ptr))
+    }
+
+    pub fn alloc_cont_binop(&mut self, op: Op2, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
+        let (ptr, _) = self.binop_pool.insert_full((op, a, b, c));
+        ContPtr(ContTag::Binop, RawPtr(ptr))
+    }
+
+    pub fn alloc_cont_binop2(&mut self, op: Op2, a: Ptr, b: ContPtr) -> ContPtr {
+        let (ptr, _) = self.binop2_pool.insert_full((op, a, b));
+        ContPtr(ContTag::Binop2, RawPtr(ptr))
+    }
+
+    pub fn alloc_cont_relop(&mut self, op: Rel2, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
+        let (ptr, _) = self.relop_pool.insert_full((op, a, b, c));
+        ContPtr(ContTag::Relop, RawPtr(ptr))
+    }
+
+    pub fn alloc_cont_relop2(&mut self, op: Rel2, a: Ptr, b: ContPtr) -> ContPtr {
+        let (ptr, _) = self.relop2_pool.insert_full((op, a, b));
+        ContPtr(ContTag::Relop2, RawPtr(ptr))
+    }
+
+    pub fn alloc_cont_if(&mut self, a: Ptr, b: ContPtr) -> ContPtr {
+        let (ptr, _) = self.if_pool.insert_full((a, b));
+        ContPtr(ContTag::If, RawPtr(ptr))
+    }
+
+    pub fn alloc_cont_tail(&mut self, a: Ptr, b: ContPtr) -> ContPtr {
+        let (ptr, _) = self.tail_pool.insert_full((a, b));
+        ContPtr(ContTag::Tail, RawPtr(ptr))
+    }
+
     pub fn find(&self, expr: &Expression) -> Option<Ptr> {
         match expr {
             Expression::Nil => Some(NIL_PTR),
@@ -479,13 +556,18 @@ impl Pool {
     }
 
     pub fn car_cdr(&self, ptr: &Ptr) -> (Expression, Expression) {
+        let (car, cdr) = self.car_cdr_ptr(ptr);
+        (
+            self.fetch(&car).expect("Invalid CONS: missing Car"),
+            self.fetch(&cdr).expect("Invalid CONS: missing Cdr"),
+        )
+    }
+
+    pub fn car_cdr_ptr(&self, ptr: &Ptr) -> (Ptr, Ptr) {
         match ptr.0 {
-            Tag::Nil => (NIL, NIL),
+            Tag::Nil => (NIL_PTR, NIL_PTR),
             Tag::Cons => match self.fetch(ptr) {
-                Some(Expression::Cons(car, cdr)) => (
-                    self.fetch(&car).expect("Invalid CONS: missing Car"),
-                    self.fetch(&cdr).expect("Invalid CONS: missing Cdr"),
-                ),
+                Some(Expression::Cons(car, cdr)) => (car, cdr),
                 _ => unreachable!(),
             },
             _ => panic!("Can only extract car_cdr from Cons"),
@@ -498,6 +580,14 @@ impl Pool {
 
     pub fn cdr(&self, expr: &Ptr) -> Expression {
         self.car_cdr(expr).1
+    }
+
+    pub fn car_ptr(&self, expr: &Ptr) -> Ptr {
+        self.car_cdr_ptr(expr).0
+    }
+
+    pub fn cdr_ptr(&self, expr: &Ptr) -> Ptr {
+        self.car_cdr_ptr(expr).1
     }
 }
 
