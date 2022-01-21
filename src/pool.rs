@@ -1,8 +1,30 @@
+use blstrs::Scalar;
+use ff::Field;
 use indexmap::Equivalent;
+use itertools::Itertools;
+use neptune::Poseidon;
 use std::borrow::Borrow;
 use std::fmt::{self, Display};
 use std::hash::Hash;
 use std::rc::Rc;
+
+use generic_array::typenum::{U10, U11, U16, U2, U3, U4, U5, U6, U7, U8, U9};
+use neptune::{hash_type::HashType, poseidon::PoseidonConstants, Strength};
+lazy_static::lazy_static! {
+    pub static ref POSEIDON_CONSTANTS_2: PoseidonConstants::<Scalar, U2> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_3: PoseidonConstants::<Scalar, U3> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_4: PoseidonConstants::<Scalar, U4> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_5: PoseidonConstants::<Scalar, U5> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_6: PoseidonConstants::<Scalar, U6> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_7: PoseidonConstants::<Scalar, U7> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_8: PoseidonConstants::<Scalar, U8> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_9: PoseidonConstants::<Scalar, U9> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_10: PoseidonConstants::<Scalar, U10> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_11: PoseidonConstants::<Scalar, U11> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_16: PoseidonConstants::<Scalar, U16> = PoseidonConstants::new();
+    pub static ref POSEIDON_CONSTANTS_VARIABLE: PoseidonConstants::<Scalar, U16> =
+        PoseidonConstants::new_with_strength_and_type(Strength::Standard, HashType::VariableLength);
+}
 
 type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
 
@@ -42,14 +64,29 @@ impl Ptr {
     pub const fn tag(&self) -> Tag {
         self.0
     }
+
+    pub fn tag_field<F: From<u64> + ff::Field>(&self) -> F {
+        self.0.as_field()
+    }
 }
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct ScalarPtr(Scalar, Scalar);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ContPtr(ContTag, RawPtr);
 
 impl ContPtr {
+    pub const fn is_error(&self) -> bool {
+        matches!(self.0, ContTag::Error)
+    }
+
     pub const fn tag(&self) -> ContTag {
         self.0
+    }
+
+    pub fn tag_field<F: From<u64> + ff::Field>(&self) -> F {
+        self.0.as_field()
     }
 }
 
@@ -112,6 +149,12 @@ impl fmt::Display for Op1 {
     }
 }
 
+impl Op1 {
+    pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
+        F::from(*self as u64)
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
 pub enum Op2 {
     Sum,
@@ -119,6 +162,12 @@ pub enum Op2 {
     Product,
     Quotient,
     Cons,
+}
+
+impl Op2 {
+    pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
+        F::from(*self as u64)
+    }
 }
 
 impl fmt::Display for Op2 {
@@ -137,6 +186,12 @@ impl fmt::Display for Op2 {
 pub enum Rel2 {
     Equal,
     NumEqual,
+}
+
+impl Rel2 {
+    pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
+        F::from(*self as u64)
+    }
 }
 
 impl fmt::Display for Rel2 {
@@ -222,6 +277,12 @@ pub enum Tag {
     Str,
 }
 
+impl Tag {
+    pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
+        F::from(*self as u64)
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum ContTag {
@@ -256,6 +317,10 @@ impl ContTag {
     #[allow(dead_code)]
     fn thunk_tag_val(&self) -> u64 {
         1 + self.cont_tag_val()
+    }
+
+    pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
+        F::from(*self as u64)
     }
 }
 
@@ -574,6 +639,214 @@ impl Pool {
 
     pub fn cdr(&self, expr: &Ptr) -> Ptr {
         self.car_cdr(expr).1
+    }
+
+    pub fn hash_expr(&self, ptr: &Ptr) -> Option<ScalarPtr> {
+        use Expression::*;
+
+        let expr = self.fetch(ptr)?;
+        match expr {
+            Nil => self.hash_sym("NIL"),
+            Cons(car, cdr) => self.hash_cons(car, cdr),
+            Sym(name) => self.hash_str(name.as_ref()),
+            Fun(arg, body, closed_env) => self.hash_fun(arg, body, closed_env),
+            Num(n) => self.hash_num(n),
+            Str(name) => self.hash_str(name.as_ref()),
+            Thunk(thunk) => self.hash_thunk(&thunk),
+        }
+    }
+
+    pub fn hash_cont(&self, ptr: &ContPtr) -> Option<ScalarPtr> {
+        use Continuation::*;
+
+        let cont = self.fetch_cont(ptr)?;
+        let nil = self.hash_nil();
+
+        let hash = match cont {
+            Outermost | Dummy | Terminal | Error => self.hash_scalar_ptrs_4(&[nil, nil, nil, nil]),
+            Simple(cont) => {
+                let cont = self.hash_cont(&cont)?;
+                self.hash_scalar_ptrs_4(&[cont, nil, nil, nil])
+            }
+            Call(arg, saved_env, cont) => {
+                let arg = self.hash_expr(&arg)?;
+                let saved_env = self.hash_expr(&saved_env)?;
+                let cont = self.hash_cont(&cont)?;
+                self.hash_scalar_ptrs_4(&[saved_env, arg, cont, nil])
+            }
+            Call2(fun, saved_env, cont) => {
+                let fun = self.hash_expr(&fun)?;
+                let saved_env = self.hash_expr(&saved_env)?;
+                let cont = self.hash_cont(&cont)?;
+                self.hash_scalar_ptrs_4(&[saved_env, fun, cont, nil])
+            }
+            Tail(saved_env, cont) => {
+                let saved_env = self.hash_expr(&saved_env)?;
+                let cont = self.hash_cont(&cont)?;
+                self.hash_scalar_ptrs_4(&[saved_env, cont, nil, nil])
+            }
+            Lookup(saved_env, cont) => {
+                let saved_env = self.hash_expr(&saved_env)?;
+                let cont = self.hash_cont(&cont)?;
+                self.hash_scalar_ptrs_4(&[saved_env, cont, nil, nil])
+            }
+            Unop(op, cont) => {
+                let op = self.hash_op1(&op);
+                let cont = self.hash_cont(&cont)?;
+                self.hash_scalar_ptrs_4(&[op, cont, nil, nil])
+            }
+            Binop(op, saved_env, unevaled_args, cont) => {
+                let op = self.hash_op2(&op);
+                let saved_env = self.hash_expr(&saved_env)?;
+                let unevaled_args = self.hash_expr(&unevaled_args)?;
+                let cont = self.hash_cont(&cont)?;
+                self.hash_scalar_ptrs_4(&[op, saved_env, unevaled_args, cont])
+            }
+            Binop2(op, arg1, cont) => {
+                let op = self.hash_op2(&op);
+                let arg1 = self.hash_expr(&arg1)?;
+                let cont = self.hash_cont(&cont)?;
+                self.hash_scalar_ptrs_4(&[op, arg1, cont, nil])
+            }
+            Relop(rel, saved_env, unevaled_args, cont) => {
+                let rel = self.hash_rel2(&rel);
+                let saved_env = self.hash_expr(&saved_env)?;
+                let unevaled_args = self.hash_expr(&unevaled_args)?;
+                let cont = self.hash_cont(&cont)?;
+                self.hash_scalar_ptrs_4(&[rel, saved_env, unevaled_args, cont])
+            }
+            Relop2(rel, arg1, cont) => {
+                let rel = self.hash_rel2(&rel);
+                let arg1 = self.hash_expr(&arg1)?;
+                let cont = self.hash_cont(&cont)?;
+                self.hash_scalar_ptrs_4(&[rel, arg1, cont, nil])
+            }
+            If(unevaled_args, cont) => {
+                let unevaled_args = self.hash_expr(&unevaled_args)?;
+                let cont = self.hash_cont(&cont)?;
+                self.hash_scalar_ptrs_4(&[unevaled_args, cont, nil, nil])
+            }
+            LetStar(var, body, saved_env, cont) => {
+                let var = self.hash_expr(&var)?;
+                let body = self.hash_expr(&body)?;
+                let saved_env = self.hash_expr(&saved_env)?;
+                let cont = self.hash_cont(&cont)?;
+                self.hash_scalar_ptrs_4(&[var, body, saved_env, cont])
+            }
+            LetRecStar(var, body, saved_env, cont) => {
+                let var = self.hash_expr(&var)?;
+                let body = self.hash_expr(&body)?;
+                let saved_env = self.hash_expr(&saved_env)?;
+                let cont = self.hash_cont(&cont)?;
+                self.hash_scalar_ptrs_4(&[var, body, saved_env, cont])
+            }
+        };
+        Some(ScalarPtr(ptr.tag_field(), hash))
+    }
+
+    fn hash_sym(&self, sym: &str) -> Option<ScalarPtr> {
+        Some(ScalarPtr(Tag::Sym.as_field(), self.hash_string(sym)))
+    }
+
+    fn hash_str(&self, s: &str) -> Option<ScalarPtr> {
+        Some(ScalarPtr(Tag::Str.as_field(), self.hash_string(s)))
+    }
+
+    fn hash_fun(&self, arg: Ptr, body: Ptr, closed_env: Ptr) -> Option<ScalarPtr> {
+        Some(ScalarPtr(
+            Tag::Fun.as_field(),
+            self.hash_ptrs_3(&[arg, body, closed_env])?,
+        ))
+    }
+
+    fn hash_cons(&self, car: Ptr, cdr: Ptr) -> Option<ScalarPtr> {
+        Some(ScalarPtr(
+            Tag::Cons.as_field(),
+            self.hash_ptrs_2(&[car, cdr])?,
+        ))
+    }
+
+    fn hash_thunk(&self, thunk: &Thunk) -> Option<ScalarPtr> {
+        let value_hash = self.hash_expr(&thunk.value)?;
+        let continuation_hash = self.hash_cont(&thunk.continuation)?;
+        Some(ScalarPtr(
+            Tag::Thunk.as_field(),
+            self.hash_scalar_ptrs_2(&[value_hash, continuation_hash]),
+        ))
+    }
+
+    fn hash_num(&self, n: u64) -> Option<ScalarPtr> {
+        Some(ScalarPtr(Tag::Num.as_field(), Scalar::from(n)))
+    }
+
+    fn hash_string(&self, s: &str) -> Scalar {
+        // We should use HashType::VariableLength, once supported.
+        // The following is just quick and dirty, but should be unique.
+        let mut preimage = [Scalar::zero(); 8];
+        let mut x = Scalar::from(s.len() as u64);
+        s.chars()
+            .map(|c| Scalar::from(c as u64))
+            .chunks(7)
+            .into_iter()
+            .for_each(|mut chunk| {
+                preimage[0] = x;
+                for item in preimage.iter_mut().skip(1).take(7) {
+                    if let Some(c) = chunk.next() {
+                        *item = c
+                    };
+                }
+                x = Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_8).hash()
+            });
+        x
+    }
+
+    fn hash_ptrs_2(&self, ptrs: &[Ptr; 2]) -> Option<Scalar> {
+        let scalar_ptrs = [self.hash_expr(&ptrs[0])?, self.hash_expr(&ptrs[1])?];
+        Some(self.hash_scalar_ptrs_2(&scalar_ptrs))
+    }
+
+    fn hash_ptrs_3(&self, ptrs: &[Ptr; 3]) -> Option<Scalar> {
+        let scalar_ptrs = [
+            self.hash_expr(&ptrs[0])?,
+            self.hash_expr(&ptrs[1])?,
+            self.hash_expr(&ptrs[2])?,
+        ];
+        Some(self.hash_scalar_ptrs_3(&scalar_ptrs))
+    }
+
+    fn hash_scalar_ptrs_2(&self, ptrs: &[ScalarPtr; 2]) -> Scalar {
+        let preimage = [ptrs[0].0, ptrs[0].1, ptrs[1].0, ptrs[1].1];
+        Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_4).hash()
+    }
+
+    fn hash_scalar_ptrs_3(&self, ptrs: &[ScalarPtr; 3]) -> Scalar {
+        let preimage = [
+            ptrs[0].0, ptrs[0].1, ptrs[1].0, ptrs[1].1, ptrs[2].0, ptrs[2].1,
+        ];
+        Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_6).hash()
+    }
+
+    fn hash_scalar_ptrs_4(&self, ptrs: &[ScalarPtr; 4]) -> Scalar {
+        let preimage = [
+            ptrs[0].0, ptrs[0].1, ptrs[1].0, ptrs[1].1, ptrs[2].0, ptrs[2].1, ptrs[3].0, ptrs[3].1,
+        ];
+        Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_8).hash()
+    }
+
+    fn hash_nil(&self) -> ScalarPtr {
+        ScalarPtr(Tag::Nil.as_field(), Scalar::zero())
+    }
+
+    fn hash_op1(&self, op: &Op1) -> ScalarPtr {
+        ScalarPtr(op.as_field(), Scalar::zero())
+    }
+
+    fn hash_op2(&self, op: &Op2) -> ScalarPtr {
+        ScalarPtr(op.as_field(), Scalar::zero())
+    }
+
+    fn hash_rel2(&self, op: &Rel2) -> ScalarPtr {
+        ScalarPtr(op.as_field(), Scalar::zero())
     }
 }
 

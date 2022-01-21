@@ -34,7 +34,7 @@ impl Pool {
         }
     }
 
-    fn read_maybe_meta<T: Iterator<Item = char>>(
+    pub fn read_maybe_meta<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut Peekable<T>,
     ) -> Option<(Ptr, bool)> {
@@ -58,7 +58,7 @@ impl Pool {
         }
     }
 
-    fn read_next<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr> {
+    pub fn read_next<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr> {
         while let Some(&c) = chars.peek() {
             if let Some(next_expr) = match c {
                 '(' => self.read_list(chars),
