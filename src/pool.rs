@@ -2,10 +2,9 @@ use blstrs::Scalar;
 use ff::{Field, PrimeField};
 use itertools::Itertools;
 use neptune::Poseidon;
-use std::borrow::Borrow;
-use std::fmt::{self, Display};
+use std::fmt;
 use std::hash::Hash;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use string_interner::symbol::{Symbol, SymbolUsize};
 
 use generic_array::typenum::{U10, U11, U16, U2, U3, U4, U5, U6, U7, U8, U9};
@@ -136,13 +135,13 @@ impl ContPtr {
 pub struct RawPtr(usize);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Expression {
+pub enum Expression<'a> {
     Nil,
     Cons(Ptr, Ptr),
-    Sym(String),
+    Sym(&'a str),
     Fun(Ptr, Ptr, Ptr),
     Num(u64),
-    Str(String),
+    Str(&'a str),
     Thunk(Thunk),
 }
 
@@ -241,68 +240,6 @@ impl fmt::Display for Rel2 {
             Rel2::Equal => write!(f, "Equal"),
             Rel2::NumEqual => write!(f, "NumEqual"),
         }
-    }
-}
-
-/// Custom String type, that has cheap clone, to avoid duplicating strings.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Str(Arc<String>);
-
-impl Display for Str {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.as_ref().fmt(f)
-    }
-}
-
-impl From<String> for Str {
-    fn from(s: String) -> Str {
-        Str(Arc::new(s))
-    }
-}
-
-impl From<&str> for Str {
-    fn from(s: &str) -> Self {
-        Str(Arc::new(s.to_string()))
-    }
-}
-
-impl AsRef<str> for Str {
-    fn as_ref(&self) -> &str {
-        &self.0
-    }
-}
-
-impl Borrow<str> for Str {
-    fn borrow(&self) -> &str {
-        self.0.as_ref()
-    }
-}
-
-pub trait ToStr {
-    fn to_str(self) -> Str;
-}
-
-impl ToStr for Str {
-    fn to_str(self) -> Str {
-        self
-    }
-}
-
-impl ToStr for &Str {
-    fn to_str(self) -> Str {
-        self.clone()
-    }
-}
-
-impl ToStr for &str {
-    fn to_str(self) -> Str {
-        Str(Arc::new(self.to_string()))
-    }
-}
-
-impl ToStr for String {
-    fn to_str(self) -> Str {
-        Str(Arc::new(self))
     }
 }
 
@@ -422,17 +359,16 @@ impl Pool {
         Ptr(Tag::Sym, RawPtr(ptr.to_usize()))
     }
 
-    pub fn get_sym(&self, name: impl ToStr) -> Ptr {
-        // TODO: avoid allocation
-        let mut name = name.to_str();
-        if name.as_ref().eq_ignore_ascii_case("NIL") {
+    pub fn get_sym<T: AsRef<str>>(&self, name: T) -> Ptr {
+        let name = name.as_ref();
+        if name.eq_ignore_ascii_case("NIL") {
             return NIL_PTR;
         }
 
         // symbols are upper case
-        if let Some(val) = Arc::get_mut(&mut name.0) {
-            val.make_ascii_uppercase();
-        }
+        // TODO: avoid allocation
+        let mut name = name.to_string();
+        name.make_ascii_uppercase();
         self.find_sym(&name).expect("sym not found")
     }
 
@@ -626,7 +562,7 @@ impl Pool {
                 .sym_pool
                 .0
                 .resolve(SymbolUsize::try_from_usize(ptr.1 .0).unwrap())
-                .map(|name| Expression::Sym(name.to_string())),
+                .map(|name| Expression::Sym(name)),
             Tag::Num => self
                 .num_pool
                 .get_index(ptr.1 .0)
@@ -643,7 +579,7 @@ impl Pool {
                 .str_pool
                 .0
                 .resolve(SymbolUsize::try_from_usize(ptr.1 .0).unwrap())
-                .map(|name| Expression::Str(name.to_string())),
+                .map(|name| Expression::Str(name)),
         }
     }
 
@@ -950,7 +886,7 @@ impl Pool {
     }
 }
 
-impl Expression {
+impl Expression<'_> {
     pub fn is_keyword_sym(&self) -> bool {
         match self {
             Expression::Sym(s) => s.starts_with(':'),

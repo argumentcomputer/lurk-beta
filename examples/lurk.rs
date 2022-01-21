@@ -166,7 +166,8 @@ impl ReplState {
                         Some(s) => match s.tag() {
                             Tag::Str => {
                                 let path = pool.fetch(&s).unwrap();
-                                self.handle_load(pool, Path::new(path.as_sym_str().unwrap()))?;
+                                let path = PathBuf::from(path.as_sym_str().unwrap());
+                                self.handle_load(pool, path)?;
                                 (true, true)
                             }
                             other => {
@@ -181,7 +182,8 @@ impl ReplState {
                         if let Some(s) = pool.read_string(&mut chars) {
                             if s.tag() == Tag::Str {
                                 let path = pool.fetch(&s).unwrap();
-                                self.handle_run(pool, Path::new(path.as_sym_str().unwrap()))?;
+                                let path = PathBuf::from(path.as_sym_str().unwrap());
+                                self.handle_run(pool, &path)?;
                             }
                         }
                         (true, true)
@@ -234,7 +236,7 @@ impl ReplState {
                 match expr {
                     Expression::Cons(car, rest) => match &pool.fetch(&car).unwrap() {
                         Expression::Sym(s) => {
-                            if s == ":LOAD" {
+                            if s == &":LOAD" {
                                 match pool.fetch(&pool.car(&rest)).unwrap() {
                                     Expression::Str(path) => {
                                         let joined =
@@ -243,7 +245,7 @@ impl ReplState {
                                     }
                                     _ => panic!("Argument to :LOAD must be a string."),
                                 }
-                            } else if s == ":RUN" {
+                            } else if s == &":RUN" {
                                 match pool.fetch(&pool.car(&rest)).unwrap() {
                                     Expression::Str(path) => {
                                         let joined =
@@ -252,21 +254,21 @@ impl ReplState {
                                     }
                                     _ => panic!("Argument to :RUN must be a string."),
                                 }
-                            } else if s == ":ASSERT-EQ" {
+                            } else if s == &":ASSERT-EQ" {
                                 let (first, rest) = pool.car_cdr(&rest);
                                 let (second, rest) = pool.car_cdr(&rest);
                                 assert!(rest.is_nil());
                                 let (first_evaled, _, _) = self.eval_expr(first, pool);
                                 let (second_evaled, _, _) = self.eval_expr(second, pool);
                                 assert_eq!(first_evaled, second_evaled);
-                            } else if s == ":ASSERT" {
+                            } else if s == &":ASSERT" {
                                 let (first, rest) = pool.car_cdr(&rest);
                                 assert!(rest.is_nil());
                                 let (first_evaled, _, _) = self.eval_expr(first, pool);
                                 assert!(!first_evaled.is_nil());
-                            } else if s == ":CLEAR" {
+                            } else if s == &":CLEAR" {
                                 self.env = empty_sym_env(&pool);
-                            } else if s == ":ASSERT-ERROR" {
+                            } else if s == &":ASSERT-ERROR" {
                                 let (first, rest) = pool.car_cdr(&rest);
 
                                 assert!(rest.is_nil());

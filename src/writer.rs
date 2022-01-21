@@ -31,7 +31,7 @@ impl Write for ContPtr {
     }
 }
 
-impl Write for Expression {
+impl Write for Expression<'_> {
     fn fmt<W: io::Write>(&self, pool: &Pool, w: &mut W) -> io::Result<()> {
         use Expression::*;
 
@@ -63,7 +63,7 @@ impl Write for Expression {
     }
 }
 
-impl Expression {
+impl Expression<'_> {
     fn print_tail<W: io::Write>(&self, pool: &Pool, w: &mut W) -> io::Result<()> {
         match self {
             Expression::Nil => write!(w, ")"),
