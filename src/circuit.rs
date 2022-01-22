@@ -1588,7 +1588,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
                 &saved_env,
                 function,
                 &continuation,
-                &global_allocations.nil_ptr,
+                &global_allocations.default_ptr,
             ],
             pool,
         )?;
@@ -1872,7 +1872,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let binop2_cont = ContPtr::construct(
             &mut cs.namespace(|| "Binop2"),
             &global_allocations.binop2_cont_tag,
-            &[&op2, result, &continuation, &global_allocations.nil_ptr],
+            &[&op2, result, &continuation, &global_allocations.default_ptr],
             pool,
         )?;
 
@@ -2032,7 +2032,12 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let relop2_cont = ContPtr::construct(
             &mut cs.namespace(|| "Relop2"),
             &global_allocations.relop2_cont_tag,
-            &[&relop2, result, &continuation, &global_allocations.nil_ptr],
+            &[
+                &relop2,
+                result,
+                &continuation,
+                &global_allocations.default_ptr,
+            ],
             pool,
         )?;
 
