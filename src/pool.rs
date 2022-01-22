@@ -167,6 +167,19 @@ impl ContPtr {
 #[repr(transparent)]
 pub struct RawPtr(usize);
 
+// Expressions, Continuations, Op1, Op2, and Rel2 occupy the same namespace in
+// their encoding.
+// As a 16bit integer their representation is as follows
+//    [typ] [value       ]
+// 0b 0000_ 0000_0000_0000
+//
+// where typ is
+// - `0b0000` for Tag
+// - `0b0001` for ContTag
+// - `0b0010` for Op1
+// - `0b0011` for Op2
+// - `0b0100` for Rel2
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expression<'a> {
     Nil,
@@ -206,8 +219,9 @@ pub enum Continuation {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
+#[repr(u16)]
 pub enum Op1 {
-    Car,
+    Car = 0b0010_0000_0000_0000,
     Cdr,
     Atom,
 }
@@ -216,7 +230,7 @@ impl fmt::Display for Op1 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Op1::Car => write!(f, "Car"),
-            Op1::Cdr => write!(f, "Cddr"),
+            Op1::Cdr => write!(f, "Cdr"),
             Op1::Atom => write!(f, "Atom"),
         }
     }
@@ -229,8 +243,9 @@ impl Op1 {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
+#[repr(u16)]
 pub enum Op2 {
-    Sum,
+    Sum = 0b0011_0000_0000_0000,
     Diff,
     Product,
     Quotient,
@@ -256,8 +271,9 @@ impl fmt::Display for Op2 {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
+#[repr(u16)]
 pub enum Rel2 {
-    Equal,
+    Equal = 0b0100_0000_0000_0000,
     NumEqual,
 }
 
@@ -277,9 +293,9 @@ impl fmt::Display for Rel2 {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[repr(u8)]
+#[repr(u16)]
 pub enum Tag {
-    Nil,
+    Nil = 0b0000_0000_0000_0000,
     Cons,
     Sym,
     Fun,
@@ -295,9 +311,9 @@ impl Tag {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[repr(u8)]
+#[repr(u16)]
 pub enum ContTag {
-    Outermost,
+    Outermost = 0b0001_0000_0000_0000,
     Simple,
     Call,
     Call2,
@@ -321,15 +337,6 @@ pub enum ContTag {
 // We will likely want both if we ever make continuations (including
 // thunks) first-class expressions, though.
 impl ContTag {
-    pub fn cont_tag_val(&self) -> u64 {
-        2 * *self as u64
-    }
-
-    #[allow(dead_code)]
-    fn thunk_tag_val(&self) -> u64 {
-        1 + self.cont_tag_val()
-    }
-
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
@@ -668,6 +675,18 @@ impl Pool {
 
     pub fn fetch_scalar(&self, scalar_ptr: &ScalarPtr) -> Option<Ptr> {
         self.scalar_ptr_map.lock().unwrap().get(scalar_ptr).cloned()
+    }
+
+    pub fn verify_scalar_ptr(&self, tag: Scalar, hash: Scalar) -> bool {
+        let sp = ScalarPtr(tag, hash);
+        self.scalar_ptr_map.lock().unwrap().contains_key(&sp)
+    }
+
+    pub fn verify_scalar_cont_ptr(&self, tag: Scalar, hash: Scalar) -> bool {
+        self.scalar_ptr_cont_map
+            .lock()
+            .unwrap()
+            .contains_key(&ScalarContPtr(tag, hash))
     }
 
     pub fn fetch_scalar_cont(&self, scalar_ptr: &ScalarContPtr) -> Option<ContPtr> {
@@ -1110,40 +1129,23 @@ mod test {
     fn cont_tag_vals() {
         use super::ContTag::*;
 
-        assert_eq!(0, Outermost.cont_tag_val());
-        assert_eq!(1, Outermost.thunk_tag_val());
-        assert_eq!(2, Simple.cont_tag_val());
-        assert_eq!(3, Simple.thunk_tag_val());
-        assert_eq!(4, Call.cont_tag_val());
-        assert_eq!(5, Call.thunk_tag_val());
-        assert_eq!(6, Call2.cont_tag_val());
-        assert_eq!(7, Call2.thunk_tag_val());
-        assert_eq!(8, Tail.cont_tag_val());
-        assert_eq!(9, Tail.thunk_tag_val());
-        assert_eq!(10, Error.cont_tag_val());
-        assert_eq!(11, Error.thunk_tag_val());
-        assert_eq!(12, Lookup.cont_tag_val());
-        assert_eq!(13, Lookup.thunk_tag_val());
-        assert_eq!(14, Unop.cont_tag_val());
-        assert_eq!(15, Unop.thunk_tag_val());
-        assert_eq!(16, Binop.cont_tag_val());
-        assert_eq!(17, Binop.thunk_tag_val());
-        assert_eq!(18, Binop2.cont_tag_val());
-        assert_eq!(19, Binop2.thunk_tag_val());
-        assert_eq!(20, Relop.cont_tag_val());
-        assert_eq!(21, Relop.thunk_tag_val());
-        assert_eq!(22, Relop2.cont_tag_val());
-        assert_eq!(23, Relop2.thunk_tag_val());
-        assert_eq!(24, If.cont_tag_val());
-        assert_eq!(25, If.thunk_tag_val());
-        assert_eq!(26, LetStar.cont_tag_val());
-        assert_eq!(27, LetStar.thunk_tag_val());
-        assert_eq!(28, LetRecStar.cont_tag_val());
-        assert_eq!(29, LetRecStar.thunk_tag_val());
-        assert_eq!(30, Dummy.cont_tag_val());
-        assert_eq!(31, Dummy.thunk_tag_val());
-        assert_eq!(32, Terminal.cont_tag_val());
-        assert_eq!(33, Terminal.thunk_tag_val());
+        assert_eq!(0b0001_0000_0000_0000, Outermost as u16);
+        assert_eq!(0b0001_0000_0000_0001, Simple as u16);
+        assert_eq!(0b0001_0000_0000_0010, Call as u16);
+        assert_eq!(0b0001_0000_0000_0011, Call2 as u16);
+        assert_eq!(0b0001_0000_0000_0100, Tail as u16);
+        assert_eq!(0b0001_0000_0000_0101, Error as u16);
+        assert_eq!(0b0001_0000_0000_0110, Lookup as u16);
+        assert_eq!(0b0001_0000_0000_0111, Unop as u16);
+        assert_eq!(0b0001_0000_0000_1000, Binop as u16);
+        assert_eq!(0b0001_0000_0000_1001, Binop2 as u16);
+        assert_eq!(0b0001_0000_0000_1010, Relop as u16);
+        assert_eq!(0b0001_0000_0000_1011, Relop2 as u16);
+        assert_eq!(0b0001_0000_0000_1100, If as u16);
+        assert_eq!(0b0001_0000_0000_1101, LetStar as u16);
+        assert_eq!(0b0001_0000_0000_1110, LetRecStar as u16);
+        assert_eq!(0b0001_0000_0000_1111, Dummy as u16);
+        assert_eq!(0b0001_0000_0001_0000, Terminal as u16);
     }
 
     #[test]

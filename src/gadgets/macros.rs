@@ -55,7 +55,7 @@ macro_rules! ifx {
 }
 
 macro_rules! ifx_t {
-    ($cs:ident, $a:expr, $b:expr, $c:expr) => {{
+    ($cs:ident, $a:expr, $b:expr, $c:expr, $pool:expr) => {{
         let a = $a;
         let b = $b;
         let c = $c;
@@ -67,7 +67,7 @@ macro_rules! ifx_t {
                 stringify!($c)
             )
         });
-        pick_ptr(cs, a, b, c)
+        pick_ptr(cs, a, b, c, $pool)
     }};
 }
 
