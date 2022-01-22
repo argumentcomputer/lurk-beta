@@ -48,6 +48,7 @@ fn bind_input_cont<CS: ConstraintSystem<Fr>>(
     pool: &Pool,
 ) -> Result<AllocatedContPtr, SynthesisError> {
     let ptr = cont.and_then(|c| pool.hash_cont(c));
+
     let tag = AllocatedNum::alloc(cs.namespace(|| "continuation tag"), || {
         ptr.map(|c| *c.tag())
             .ok_or(SynthesisError::AssignmentMissing)
@@ -185,6 +186,12 @@ impl Circuit<Fr> for CircuitFrame<'_, IO, Witness> {
         dbg!(&output_expr, &new_expr,);
         dbg!(&output_env, &new_env,);
         dbg!(&output_cont, &new_cont,);
+
+        dbg!(output_expr.fetch_and_write_str(self.pool),);
+        dbg!(new_expr.fetch_and_write_str(self.pool));
+
+        dbg!(output_env.fetch_and_write_str(self.pool),);
+        dbg!(new_env.fetch_and_write_str(self.pool));
 
         dbg!(output_cont.fetch_and_write_cont_str(self.pool),);
         dbg!(new_cont.fetch_and_write_cont_str(self.pool));
@@ -504,12 +511,12 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         expr.tag(),
         &all_clauses,
         &[
-            &global_allocations.default,
-            &global_allocations.default,
-            &global_allocations.default,
-            &global_allocations.default,
-            &global_allocations.default,
-            &global_allocations.default,
+            global_allocations.default_ptr.tag(),
+            global_allocations.default_ptr.tag(),
+            global_allocations.default_ptr.tag(),
+            global_allocations.default_ptr.tag(),
+            global_allocations.default_ptr.tag(),
+            global_allocations.default_ptr.tag(),
             &global_allocations.false_num,
         ],
     )?;
@@ -745,7 +752,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
         &mut cs.namespace(|| "lookup_continuation"),
         &g.lookup_cont_tag,
         // Mirrors Continuation::get_hash_components()
-        &[env, cont, &g.nil_ptr, &g.nil_ptr],
+        &[env, cont, &g.default_ptr, &g.default_ptr],
         pool,
     )?;
 
@@ -1123,7 +1130,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let continuation = ContPtr::construct(
         &mut cs.namespace(|| "binop cons"),
         &g.binop_cont_tag,
-        &[&[&g.op2_cons_tag, &g.default], env, &more, cont],
+        &[&[&g.op2_cons_tag, g.default_ptr.tag()], env, &more, cont],
         pool,
     )?;
 
@@ -1141,7 +1148,12 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let continuation = ContPtr::construct(
         &mut cs.namespace(|| "unop car"),
         &g.unop_cont_tag,
-        &[&[&g.op1_car_tag, &g.default], &arg1, env, &g.nil_ptr],
+        &[
+            &[&g.op1_car_tag, g.default_ptr.tag()],
+            &arg1,
+            env,
+            &g.default_ptr,
+        ],
         pool,
     )?;
 
@@ -1152,7 +1164,12 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let continuation = ContPtr::construct(
         &mut cs.namespace(|| "unop cdr"),
         &g.unop_cont_tag,
-        &[&[&g.op1_cdr_tag, &g.default], &arg1, env, &g.nil_ptr],
+        &[
+            &[&g.op1_cdr_tag, g.default_ptr.tag()],
+            &arg1,
+            env,
+            &g.default_ptr,
+        ],
         pool,
     )?;
 
@@ -1163,7 +1180,12 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let continuation = ContPtr::construct(
         &mut cs.namespace(|| "unop atom"),
         &g.unop_cont_tag,
-        &[&[&g.op1_atom_tag, &g.default], &arg1, env, &g.nil_ptr],
+        &[
+            &[&g.op1_atom_tag, g.default_ptr.tag()],
+            &arg1,
+            env,
+            &g.default_ptr,
+        ],
         pool,
     )?;
 
@@ -1176,7 +1198,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let continuation = ContPtr::construct(
         &mut cs.namespace(|| "binop sum"),
         &g.binop_cont_tag,
-        &[&[&g.op2_sum_tag, &g.default], env, &more, cont],
+        &[&[&g.op2_sum_tag, g.default_ptr.tag()], env, &more, cont],
         pool,
     )?;
 
@@ -1186,7 +1208,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let continuation = ContPtr::construct(
         &mut cs.namespace(|| "binop diff"),
         &g.binop_cont_tag,
-        &[&[&g.op2_diff_tag, &g.default], env, &more, cont],
+        &[&[&g.op2_diff_tag, g.default_ptr.tag()], env, &more, cont],
         pool,
     )?;
 
@@ -1199,7 +1221,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let continuation = ContPtr::construct(
         &mut cs.namespace(|| "binop product"),
         &g.binop_cont_tag,
-        &[&[&g.op2_product_tag, &g.default], env, &more, cont],
+        &[&[&g.op2_product_tag, g.default_ptr.tag()], env, &more, cont],
         pool,
     )?;
 
@@ -1212,7 +1234,12 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let continuation = ContPtr::construct(
         &mut cs.namespace(|| "binop quotient"),
         &g.binop_cont_tag,
-        &[&[&g.op2_quotient_tag, &g.default], env, &more, cont],
+        &[
+            &[&g.op2_quotient_tag, g.default_ptr.tag()],
+            env,
+            &more,
+            cont,
+        ],
         pool,
     )?;
 
@@ -1225,7 +1252,12 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let continuation = ContPtr::construct(
         &mut cs.namespace(|| "Relop NumEqual"),
         &g.relop_cont_tag,
-        &[&[&g.rel2_numequal_tag, &g.default], env, &more, cont],
+        &[
+            &[&g.rel2_numequal_tag, g.default_ptr.tag()],
+            env,
+            &more,
+            cont,
+        ],
         pool,
     )?;
 
@@ -1238,7 +1270,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let continuation = ContPtr::construct(
         &mut cs.namespace(|| "Relop Equal"),
         &g.relop_cont_tag,
-        &[&[&g.rel2_equal_tag, &g.default], env, &more, cont],
+        &[&[&g.rel2_equal_tag, g.default_ptr.tag()], env, &more, cont],
         pool,
     )?;
 
@@ -1253,7 +1285,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         ContPtr::construct(
             &mut cs.namespace(|| "If"),
             &g.if_cont_tag,
-            &[&unevaled_args, cont, &g.nil_ptr, &g.nil_ptr],
+            &[&unevaled_args, cont, &g.default_ptr, &g.default_ptr],
             pool,
         )?
     };
@@ -1274,7 +1306,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let call_continuation = ContPtr::construct(
             &mut cs.namespace(|| "Call"),
             &g.call_cont_tag,
-            &[env, &arg1, cont, &g.nil_ptr],
+            &[env, &arg1, cont, &g.default_ptr],
             pool,
         )?;
 
@@ -1472,12 +1504,12 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
     SynthesisError,
 > {
     let defaults = [
-        &global_allocations.default,
-        &global_allocations.default,
-        &global_allocations.default,
-        &global_allocations.default,
-        &global_allocations.default,
-        &global_allocations.default,
+        global_allocations.default_ptr.tag(),
+        global_allocations.default_ptr.tag(),
+        global_allocations.default_ptr.tag(),
+        global_allocations.default_ptr.tag(),
+        global_allocations.default_ptr.tag(),
+        global_allocations.default_ptr.tag(),
         &global_allocations.false_num,
     ];
 
@@ -1807,9 +1839,9 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
                 ],
             ],
             &[
-                &global_allocations.default,
-                &global_allocations.default,
-                &global_allocations.default,
+                global_allocations.default_ptr.tag(),
+                global_allocations.default_ptr.tag(),
+                global_allocations.default_ptr.tag(),
             ],
         )?;
 
@@ -1939,7 +1971,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
                     value: cons.hash(),
                 },
             ],
-            &global_allocations.default,
+            global_allocations.default_ptr.tag(),
         )?;
 
         let is_cons = alloc_equal(
@@ -2352,7 +2384,7 @@ fn make_tail_continuation<CS: ConstraintSystem<Fr>>(
     let new_tail = ContPtr::construct(
         &mut cs.namespace(|| "new tail continuation"),
         &g.tail_cont_tag,
-        &[env, continuation, &g.nil_ptr, &g.nil_ptr],
+        &[env, continuation, &g.default_ptr, &g.default_ptr],
         pool,
     )?;
 

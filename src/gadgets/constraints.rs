@@ -22,7 +22,7 @@ pub fn equal<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     A: FnOnce() -> AR,
     AR: Into<String>,
 {
-    debug_assert_eq!(a.get_value(), b.get_value());
+    // debug_assert_eq!(a.get_value(), b.get_value());
     // a * 1 = b
     cs.enforce(
         annotation,

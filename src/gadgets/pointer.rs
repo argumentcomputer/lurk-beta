@@ -337,9 +337,9 @@ impl AllocatedContPtr {
     }
 
     pub fn enforce_equal<CS: ConstraintSystem<Fr>>(&self, cs: &mut CS, other: &Self) {
-        debug_assert_eq!(self.tag.get_value(), other.tag.get_value());
+        // debug_assert_eq!(self.tag.get_value(), other.tag.get_value());
         equal(cs, || "tags equal", &self.tag, &other.tag);
-        debug_assert_eq!(self.hash.get_value(), other.hash.get_value());
+        // debug_assert_eq!(self.hash.get_value(), other.hash.get_value());
         equal(cs, || "hashes equal", &self.hash, &other.hash);
     }
 

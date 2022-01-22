@@ -59,7 +59,7 @@ pub struct GlobalAllocations {
     pub true_num: AllocatedNum<Fr>,
     pub false_num: AllocatedNum<Fr>,
 
-    pub default: AllocatedNum<Fr>,
+    pub default_ptr: AllocatedPtr,
 
     pub destructured_thunk_hash: AllocatedNum<Fr>,
     pub destructured_thunk_value: AllocatedPtr,
@@ -176,7 +176,9 @@ impl GlobalAllocations {
 
         // NOTE: The choice of zero is significant.
         // For example, Ptr::default() has both tag and hash of zero.
-        let default = allocate_constant(&mut cs.namespace(|| "default"), Fr::zero())?;
+        let default_ptr = pool
+            .hash_default()
+            .allocate_constant_ptr(&mut cs.namespace(|| "default"))?;
 
         let maybe_thunk = if let Some(w) = witness {
             w.destructured_thunk
@@ -230,7 +232,7 @@ impl GlobalAllocations {
             rel2_numequal_tag,
             true_num,
             false_num,
-            default,
+            default_ptr,
 
             destructured_thunk_hash,
             destructured_thunk_value,

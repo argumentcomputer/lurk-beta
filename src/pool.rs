@@ -875,40 +875,40 @@ impl Pool {
         use Continuation::*;
 
         let cont = self.fetch_cont(ptr)?;
-        let nil = self.hash_nil().into_hash_components();
+        let def = [Scalar::zero(), Scalar::zero()];
 
         let hash = match cont {
-            Outermost | Dummy | Terminal | Error => [nil, nil, nil, nil],
+            Outermost | Dummy | Terminal | Error => [def, def, def, def],
             Simple(cont) => {
                 let cont = self.hash_cont(&cont)?.into_hash_components();
-                [cont, nil, nil, nil]
+                [cont, def, def, def]
             }
             Call(arg, saved_env, cont) => {
                 let arg = self.hash_expr(&arg)?.into_hash_components();
                 let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
                 let cont = self.hash_cont(&cont)?.into_hash_components();
-                [saved_env, arg, cont, nil]
+                [saved_env, arg, cont, def]
             }
             Call2(fun, saved_env, cont) => {
                 let fun = self.hash_expr(&fun)?.into_hash_components();
                 let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
                 let cont = self.hash_cont(&cont)?.into_hash_components();
-                [saved_env, fun, cont, nil]
+                [saved_env, fun, cont, def]
             }
             Tail(saved_env, cont) => {
                 let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
                 let cont = self.hash_cont(&cont)?.into_hash_components();
-                [saved_env, cont, nil, nil]
+                [saved_env, cont, def, def]
             }
             Lookup(saved_env, cont) => {
                 let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
                 let cont = self.hash_cont(&cont)?.into_hash_components();
-                [saved_env, cont, nil, nil]
+                [saved_env, cont, def, def]
             }
             Unop(op, cont) => {
                 let op = self.hash_op1(&op).into_hash_components();
                 let cont = self.hash_cont(&cont)?.into_hash_components();
-                [op, cont, nil, nil]
+                [op, cont, def, def]
             }
             Binop(op, saved_env, unevaled_args, cont) => {
                 let op = self.hash_op2(&op).into_hash_components();
@@ -921,7 +921,7 @@ impl Pool {
                 let op = self.hash_op2(&op).into_hash_components();
                 let arg1 = self.hash_expr(&arg1)?.into_hash_components();
                 let cont = self.hash_cont(&cont)?.into_hash_components();
-                [op, arg1, cont, nil]
+                [op, arg1, cont, def]
             }
             Relop(rel, saved_env, unevaled_args, cont) => {
                 let rel = self.hash_rel2(&rel).into_hash_components();
@@ -934,12 +934,12 @@ impl Pool {
                 let rel = self.hash_rel2(&rel).into_hash_components();
                 let arg1 = self.hash_expr(&arg1)?.into_hash_components();
                 let cont = self.hash_cont(&cont)?.into_hash_components();
-                [rel, arg1, cont, nil]
+                [rel, arg1, cont, def]
             }
             If(unevaled_args, cont) => {
                 let unevaled_args = self.hash_expr(&unevaled_args)?.into_hash_components();
                 let cont = self.hash_cont(&cont)?.into_hash_components();
-                [unevaled_args, cont, nil, nil]
+                [unevaled_args, cont, def, def]
             }
             LetStar(var, body, saved_env, cont) => {
                 let var = self.hash_expr(&var)?.into_hash_components();
@@ -1069,6 +1069,10 @@ impl Pool {
 
     pub fn hash_nil(&self) -> ScalarPtr {
         self.create_scalar_ptr(NIL_PTR, Scalar::zero())
+    }
+
+    pub fn hash_default(&self) -> ScalarPtr {
+        ScalarPtr(Scalar::zero(), Scalar::zero())
     }
 
     fn hash_op1(&self, op: &Op1) -> ScalarPtr {
