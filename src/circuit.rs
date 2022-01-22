@@ -901,26 +901,28 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
 ) -> Result<(AllocatedPtr, AllocatedPtr, AllocatedPtr, AllocatedNum<Fr>), SynthesisError> {
     let lambda = g.lambda_ptr.clone();
 
-    let lambda_hash = pool.hash_sym("LAMBDA").unwrap();
-    let quote_hash = pool.hash_sym("QUOTE").unwrap();
-    let letstar = pool.hash_sym("LET*").unwrap();
+    let hash_sym = |sym: &str| pool.get_sym(sym).and_then(|s| pool.hash_sym(s)).unwrap();
+
+    let lambda_hash = hash_sym("LAMBDA");
+    let quote_hash = hash_sym("QUOTE");
+    let letstar = hash_sym("LET*");
     let letstar_t = letstar.allocate_constant_ptr(&mut cs.namespace(|| "letstar_t"))?;
     let letstar_hash = letstar.value();
-    let letrecstar = pool.hash_sym("LETREC*").unwrap();
+    let letrecstar = hash_sym("LETREC*");
     let letrecstar_t = letrecstar.allocate_constant_ptr(&mut cs.namespace(|| "letrecstar"))?;
     let letrecstar_hash = letrecstar.value();
-    let cons_hash = pool.hash_sym("CAR").unwrap();
-    let car_hash = pool.hash_sym("CAR").unwrap();
-    let cdr_hash = pool.hash_sym("CDR").unwrap();
-    let atom_hash = pool.hash_sym("ATOM").unwrap();
-    let sum_hash = pool.hash_sym("+").unwrap();
-    let diff_hash = pool.hash_sym("-").unwrap();
-    let product_hash = pool.hash_sym("*").unwrap();
-    let quotient_hash = pool.hash_sym("/").unwrap();
-    let numequal_hash = pool.hash_sym("=").unwrap();
-    let equal_hash = pool.hash_sym("EQ").unwrap();
-    let current_env_hash = pool.hash_sym("CURRENT-ENV").unwrap();
-    let if_hash = pool.hash_sym("IF").unwrap();
+    let cons_hash = hash_sym("CAR");
+    let car_hash = hash_sym("CAR");
+    let cdr_hash = hash_sym("CDR");
+    let atom_hash = hash_sym("ATOM");
+    let sum_hash = hash_sym("+");
+    let diff_hash = hash_sym("-");
+    let product_hash = hash_sym("*");
+    let quotient_hash = hash_sym("/");
+    let numequal_hash = hash_sym("=");
+    let equal_hash = hash_sym("EQ");
+    let current_env_hash = hash_sym("CURRENT-ENV");
+    let if_hash = hash_sym("IF");
 
     let (head, rest) = car_cdr(&mut cs.namespace(|| "eval_cons expr"), g, expr, pool)?;
 

@@ -41,7 +41,7 @@ impl Default for StringSet {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Pool {
     cons_pool: IndexSet<(Ptr, Ptr)>,
     sym_pool: StringSet,
@@ -321,6 +321,59 @@ const DUMMY_PTR: ContPtr = ContPtr(ContTag::Dummy, RawPtr(0));
 const TERMINAL: Continuation = Continuation::Terminal;
 const TERMINAL_PTR: ContPtr = ContPtr(ContTag::Terminal, RawPtr(0));
 
+impl Default for Pool {
+    fn default() -> Self {
+        let mut pool = Pool {
+            cons_pool: Default::default(),
+            sym_pool: Default::default(),
+            num_pool: Default::default(),
+            fun_pool: Default::default(),
+            str_pool: Default::default(),
+            thunk_pool: Default::default(),
+            simple_pool: Default::default(),
+            call_pool: Default::default(),
+            call2_pool: Default::default(),
+            tail_pool: Default::default(),
+            lookup_pool: Default::default(),
+            unop_pool: Default::default(),
+            binop_pool: Default::default(),
+            binop2_pool: Default::default(),
+            relop_pool: Default::default(),
+            relop2_pool: Default::default(),
+            if_pool: Default::default(),
+            let_star_pool: Default::default(),
+            let_rec_star_pool: Default::default(),
+            scalar_ptr_map: Default::default(),
+            scalar_ptr_cont_map: Default::default(),
+        };
+
+        // insert some well known symbols
+        for sym in &[
+            "NIL",
+            "T",
+            "QUOTE",
+            "LAMBDA",
+            "_",
+            "LET*",
+            "LETREC*",
+            "CAR",
+            "CDR",
+            "ATOM",
+            "+",
+            "-",
+            "*",
+            "/",
+            "=",
+            "EQ",
+            "CURRENT-ENV",
+            "IF",
+        ] {
+            pool.alloc_sym(sym);
+        }
+        pool
+    }
+}
+
 impl Pool {
     pub fn new() -> Self {
         Pool::default()
@@ -359,17 +412,18 @@ impl Pool {
         Ptr(Tag::Sym, RawPtr(ptr.to_usize()))
     }
 
-    pub fn get_sym<T: AsRef<str>>(&self, name: T) -> Ptr {
+    pub fn get_sym<T: AsRef<str>>(&self, name: T) -> Option<Ptr> {
         let name = name.as_ref();
         if name.eq_ignore_ascii_case("NIL") {
-            return NIL_PTR;
+            return Some(NIL_PTR);
         }
 
         // symbols are upper case
         // TODO: avoid allocation
         let mut name = name.to_string();
         name.make_ascii_uppercase();
-        self.find_sym(&name).expect("sym not found")
+        dbg!(&name);
+        self.find_sym(&name)
     }
 
     pub fn alloc_num(&mut self, num: u64) -> Ptr {
@@ -380,6 +434,11 @@ impl Pool {
     pub fn alloc_str<T: AsRef<str>>(&mut self, name: T) -> Ptr {
         let ptr = self.sym_pool.0.get_or_intern(name);
         Ptr(Tag::Str, RawPtr(ptr.to_usize()))
+    }
+
+    pub fn get_str<T: AsRef<str>>(&self, name: T) -> Option<Ptr> {
+        let ptr = self.str_pool.0.get(name)?;
+        Some(Ptr(Tag::Str, RawPtr(ptr.to_usize())))
     }
 
     pub fn alloc_fun(&mut self, arg: Ptr, body: Ptr, closed_env: Ptr) -> Ptr {
@@ -551,35 +610,55 @@ impl Pool {
             .cloned()
     }
 
+    fn fetch_sym(&self, ptr: &Ptr) -> Option<&str> {
+        debug_assert!(matches!(ptr.0, Tag::Sym) | matches!(ptr.0, Tag::Nil));
+        if ptr.0 == Tag::Nil {
+            return Some("NIL");
+        }
+
+        self.sym_pool
+            .0
+            .resolve(SymbolUsize::try_from_usize(ptr.1 .0).unwrap())
+    }
+
+    fn fetch_str(&self, ptr: &Ptr) -> Option<&str> {
+        debug_assert!(matches!(ptr.0, Tag::Str));
+        self.str_pool
+            .0
+            .resolve(SymbolUsize::try_from_usize(ptr.1 .0).unwrap())
+    }
+
+    fn fetch_fun(&self, ptr: &Ptr) -> Option<&(Ptr, Ptr, Ptr)> {
+        debug_assert!(matches!(ptr.0, Tag::Fun));
+        self.fun_pool.get_index(ptr.1 .0)
+    }
+
+    fn fetch_cons(&self, ptr: &Ptr) -> Option<&(Ptr, Ptr)> {
+        debug_assert!(matches!(ptr.0, Tag::Cons));
+        self.cons_pool.get_index(ptr.1 .0)
+    }
+
+    fn fetch_num(&self, ptr: &Ptr) -> Option<&u64> {
+        debug_assert!(matches!(ptr.0, Tag::Num));
+        self.num_pool.get_index(ptr.1 .0)
+    }
+
+    fn fetch_thunk(&self, ptr: &Ptr) -> Option<&Thunk> {
+        debug_assert!(matches!(ptr.0, Tag::Thunk));
+        self.thunk_pool.get_index(ptr.1 .0)
+    }
+
     pub fn fetch(&self, ptr: &Ptr) -> Option<Expression> {
         match ptr.0 {
             Tag::Nil => Some(NIL),
-            Tag::Cons => self
-                .cons_pool
-                .get_index(ptr.1 .0)
-                .map(|(a, b)| Expression::Cons(*a, *b)),
-            Tag::Sym => self
-                .sym_pool
-                .0
-                .resolve(SymbolUsize::try_from_usize(ptr.1 .0).unwrap())
-                .map(|name| Expression::Sym(name)),
-            Tag::Num => self
-                .num_pool
-                .get_index(ptr.1 .0)
-                .map(|num| Expression::Num(*num)),
+            Tag::Cons => self.fetch_cons(ptr).map(|(a, b)| Expression::Cons(*a, *b)),
+            Tag::Sym => self.fetch_sym(ptr).map(Expression::Sym),
+            Tag::Num => self.fetch_num(ptr).map(|num| Expression::Num(*num)),
             Tag::Fun => self
-                .fun_pool
-                .get_index(ptr.1 .0)
+                .fetch_fun(ptr)
                 .map(|(a, b, c)| Expression::Fun(*a, *b, *c)),
-            Tag::Thunk => self
-                .thunk_pool
-                .get_index(ptr.1 .0)
-                .map(|thunk| Expression::Thunk(*thunk)),
-            Tag::Str => self
-                .str_pool
-                .0
-                .resolve(SymbolUsize::try_from_usize(ptr.1 .0).unwrap())
-                .map(|name| Expression::Str(name)),
+            Tag::Thunk => self.fetch_thunk(ptr).map(|thunk| Expression::Thunk(*thunk)),
+            Tag::Str => self.fetch_str(ptr).map(Expression::Str),
         }
     }
 
@@ -665,17 +744,16 @@ impl Pool {
     }
 
     pub fn hash_expr(&self, ptr: &Ptr) -> Option<ScalarPtr> {
-        use Expression::*;
+        use Tag::*;
 
-        let expr = self.fetch(ptr)?;
-        match expr {
-            Nil => self.hash_sym("NIL"),
-            Cons(car, cdr) => self.hash_cons(car, cdr),
-            Sym(name) => self.hash_str(name.as_ref()),
-            Fun(arg, body, closed_env) => self.hash_fun(arg, body, closed_env),
-            Num(n) => self.hash_num(n),
-            Str(name) => self.hash_str(name.as_ref()),
-            Thunk(thunk) => self.hash_thunk(&thunk),
+        match ptr.0 {
+            Nil => self.hash_sym(NIL_PTR),
+            Cons => self.hash_cons(*ptr),
+            Sym => self.hash_sym(*ptr),
+            Fun => self.hash_fun(*ptr),
+            Num => self.hash_num(*ptr),
+            Str => self.hash_str(*ptr),
+            Thunk => self.hash_thunk(*ptr),
         }
     }
 
@@ -683,7 +761,27 @@ impl Pool {
         let components = self.get_hash_components_cont(ptr)?;
         let hash = self.hash_scalar_ptrs_4(&components);
 
-        Some(ScalarPtr(ptr.tag_field(), hash))
+        Some(self.create_cont_scalar_ptr(*ptr, hash))
+    }
+
+    /// The only places that `ScalarPtr`s for `Ptr`s should be crated, to
+    /// ensure that they are cached properly
+    fn create_scalar_ptr(&self, ptr: Ptr, hash: Scalar) -> ScalarPtr {
+        let scalar_ptr = ScalarPtr(ptr.tag_field(), hash);
+        let map = &mut self.scalar_ptr_map.lock().unwrap();
+        map.entry(scalar_ptr).or_insert(ptr);
+
+        scalar_ptr
+    }
+
+    /// The only places that `ScalarPtr`s for `ContPtr`s should be crated, to
+    /// ensure that they are cached properly
+    fn create_cont_scalar_ptr(&self, ptr: ContPtr, hash: Scalar) -> ScalarPtr {
+        let scalar_ptr = ScalarPtr(ptr.tag_field(), hash);
+        let map = &mut self.scalar_ptr_cont_map.lock().unwrap();
+        map.entry(scalar_ptr).or_insert(ptr);
+
+        scalar_ptr
     }
 
     pub fn get_hash_components_cont(&self, ptr: &ContPtr) -> Option<[ScalarPtr; 4]> {
@@ -781,38 +879,37 @@ impl Pool {
         Some([value_hash, continuation_hash])
     }
 
-    pub fn hash_sym(&self, sym: &str) -> Option<ScalarPtr> {
-        Some(ScalarPtr(Tag::Sym.as_field(), self.hash_string(sym)))
+    pub fn hash_sym(&self, sym: Ptr) -> Option<ScalarPtr> {
+        let s = self.fetch_sym(&sym)?;
+        Some(self.create_scalar_ptr(sym, self.hash_string(s)))
     }
 
-    fn hash_str(&self, s: &str) -> Option<ScalarPtr> {
-        Some(ScalarPtr(Tag::Str.as_field(), self.hash_string(s)))
+    fn hash_str(&self, sym: Ptr) -> Option<ScalarPtr> {
+        let s = self.fetch_str(&sym)?;
+        Some(self.create_scalar_ptr(sym, self.hash_string(s)))
     }
 
-    fn hash_fun(&self, arg: Ptr, body: Ptr, closed_env: Ptr) -> Option<ScalarPtr> {
-        Some(ScalarPtr(
-            Tag::Fun.as_field(),
-            self.hash_ptrs_3(&[arg, body, closed_env])?,
-        ))
+    fn hash_fun(&self, fun: Ptr) -> Option<ScalarPtr> {
+        let (arg, body, closed_env) = self.fetch_fun(&fun)?;
+        Some(self.create_scalar_ptr(fun, self.hash_ptrs_3(&[*arg, *body, *closed_env])?))
     }
 
-    fn hash_cons(&self, car: Ptr, cdr: Ptr) -> Option<ScalarPtr> {
-        Some(ScalarPtr(
-            Tag::Cons.as_field(),
-            self.hash_ptrs_2(&[car, cdr])?,
-        ))
+    fn hash_cons(&self, cons: Ptr) -> Option<ScalarPtr> {
+        let (car, cdr) = self.fetch_cons(&cons)?;
+
+        Some(self.create_scalar_ptr(cons, self.hash_ptrs_2(&[*car, *cdr])?))
     }
 
-    fn hash_thunk(&self, thunk: &Thunk) -> Option<ScalarPtr> {
+    fn hash_thunk(&self, ptr: Ptr) -> Option<ScalarPtr> {
+        let thunk = self.fetch_thunk(&ptr)?;
         let components = self.get_hash_components_thunk(thunk)?;
-        Some(ScalarPtr(
-            Tag::Thunk.as_field(),
-            self.hash_scalar_ptrs_2(&components),
-        ))
+
+        Some(self.create_scalar_ptr(ptr, self.hash_scalar_ptrs_2(&components)))
     }
 
-    fn hash_num(&self, n: u64) -> Option<ScalarPtr> {
-        Some(ScalarPtr(Tag::Num.as_field(), Scalar::from(n)))
+    fn hash_num(&self, ptr: Ptr) -> Option<ScalarPtr> {
+        let n = self.fetch_num(&ptr)?;
+        Some(self.create_scalar_ptr(ptr, Scalar::from(*n)))
     }
 
     fn hash_string(&self, s: &str) -> Scalar {
@@ -870,7 +967,7 @@ impl Pool {
     }
 
     pub fn hash_nil(&self) -> ScalarPtr {
-        ScalarPtr(Tag::Nil.as_field(), Scalar::zero())
+        self.create_scalar_ptr(NIL_PTR, Scalar::zero())
     }
 
     fn hash_op1(&self, op: &Op1) -> ScalarPtr {
@@ -896,7 +993,7 @@ impl Expression<'_> {
 
     pub fn as_sym_str(&self) -> Option<&str> {
         match self {
-            Expression::Sym(s) => Some(s.as_ref()),
+            Expression::Sym(s) => Some(s),
             _ => None,
         }
     }

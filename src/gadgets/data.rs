@@ -61,6 +61,18 @@ impl AllocatedPtr {
         Self::from_scalar_ptr(cs, scalar_ptr.as_ref())
     }
 
+    pub fn constant_from_ptr<CS>(
+        cs: &mut CS,
+        pool: &Pool,
+        ptr: &Ptr,
+    ) -> Result<Self, SynthesisError>
+    where
+        CS: ConstraintSystem<Fr>,
+    {
+        let scalar_ptr = pool.hash_expr(ptr).expect("missing constant ptr");
+        Self::constant_from_scalar_ptr(cs, &scalar_ptr)
+    }
+
     pub fn from_cont_ptr<CS>(
         cs: &mut CS,
         pool: &Pool,
@@ -71,6 +83,18 @@ impl AllocatedPtr {
     {
         let scalar_ptr = ptr.and_then(|ptr| pool.hash_cont(ptr));
         Self::from_scalar_ptr(cs, scalar_ptr.as_ref())
+    }
+
+    pub fn constant_from_cont_ptr<CS>(
+        cs: &mut CS,
+        pool: &Pool,
+        ptr: &ContPtr,
+    ) -> Result<Self, SynthesisError>
+    where
+        CS: ConstraintSystem<Fr>,
+    {
+        let scalar_ptr = pool.hash_cont(ptr).expect("missing const cont ptr");
+        Self::constant_from_scalar_ptr(cs, &scalar_ptr)
     }
 
     pub fn from_scalar_ptr<CS: ConstraintSystem<Fr>>(
@@ -85,6 +109,15 @@ impl AllocatedPtr {
             ptr.map(|x| *x.value())
                 .ok_or(SynthesisError::AssignmentMissing)
         })?;
+        Ok(Self::from_allocated_parts(tag, hash))
+    }
+
+    pub fn constant_from_scalar_ptr<CS: ConstraintSystem<Fr>>(
+        cs: &mut CS,
+        ptr: &ScalarPtr,
+    ) -> Result<Self, SynthesisError> {
+        let tag = allocate_constant(&mut cs.namespace(|| "allocate tag"), *ptr.tag())?;
+        let hash = allocate_constant(&mut cs.namespace(|| "allocate hash"), *ptr.value())?;
         Ok(Self::from_allocated_parts(tag, hash))
     }
 
@@ -218,37 +251,47 @@ impl GlobalAllocations {
         pool: &Pool,
         witness: &Option<Witness>,
     ) -> Result<Self, SynthesisError> {
-        let terminal_ptr = pool
-            .get_cont_terminal()
-            .allocate_constant_ptr(&mut cs.namespace(|| "terminal continuation"), pool)?;
+        let terminal_ptr = AllocatedPtr::constant_from_cont_ptr(
+            &mut cs.namespace(|| "terminal continuation"),
+            pool,
+            &pool.get_cont_terminal(),
+        )?;
 
-        let outermost_ptr = pool
-            .get_cont_outermost()
-            .allocate_constant_ptr(&mut cs.namespace(|| "outermost continuation"), pool)?;
+        let outermost_ptr = AllocatedPtr::constant_from_cont_ptr(
+            &mut cs.namespace(|| "outermost continuation"),
+            pool,
+            &pool.get_cont_outermost(),
+        )?;
 
-        let error_ptr = pool
-            .get_cont_error()
-            .allocate_constant_ptr(&mut cs.namespace(|| "error continuation"), pool)?;
+        let error_ptr = AllocatedPtr::constant_from_cont_ptr(
+            &mut cs.namespace(|| "error continuation"),
+            pool,
+            &pool.get_cont_error(),
+        )?;
 
-        let dummy_ptr = pool
-            .get_cont_dummy()
-            .allocate_constant_ptr(&mut cs.namespace(|| "dummy continuation"), pool)?;
+        let dummy_ptr = AllocatedPtr::constant_from_cont_ptr(
+            &mut cs.namespace(|| "dummy continuation"),
+            pool,
+            &pool.get_cont_dummy(),
+        )?;
 
-        let nil_ptr = pool
-            .get_nil()
-            .allocate_constant_ptr(&mut cs.namespace(|| "nil"), pool)?;
-
-        let t_ptr = pool
-            .get_sym("T")
-            .allocate_constant_ptr(&mut cs.namespace(|| "T"), pool)?;
-
-        let lambda_ptr = pool
-            .get_sym("LAMBDA")
-            .allocate_constant_ptr(&mut cs.namespace(|| "LAMBDA"), pool)?;
-
-        let dummy_arg_ptr = pool
-            .get_sym("_")
-            .allocate_constant_ptr(&mut cs.namespace(|| "_"), pool)?;
+        let nil_ptr =
+            AllocatedPtr::constant_from_ptr(&mut cs.namespace(|| "nil"), pool, &pool.get_nil())?;
+        let t_ptr = AllocatedPtr::constant_from_ptr(
+            &mut cs.namespace(|| "T"),
+            pool,
+            &pool.get_sym("T").unwrap(),
+        )?;
+        let lambda_ptr = AllocatedPtr::constant_from_ptr(
+            &mut cs.namespace(|| "LAMBDA"),
+            pool,
+            &pool.get_sym("LAMBDA").unwrap(),
+        )?;
+        let dummy_arg_ptr = AllocatedPtr::constant_from_ptr(
+            &mut cs.namespace(|| "_"),
+            pool,
+            &pool.get_sym("_").unwrap(),
+        )?;
 
         let nil_tag = nil_ptr.tag.clone(); //Tag::Nil.allocate_constant(&mut cs.namespace(|| "nil_tag"))?;
         let sym_tag = Tag::Sym.allocate_constant(&mut cs.namespace(|| "sym_tag"))?;
@@ -404,6 +447,7 @@ impl Ptr {
         cs: &mut CS,
         pool: &Pool,
     ) -> Result<AllocatedPtr, SynthesisError> {
+        dbg!(self);
         let scalar_ptr = pool.hash_expr(self).expect("missing ptr");
         scalar_ptr.allocate_constant_ptr(cs)
     }
