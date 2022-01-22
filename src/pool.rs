@@ -68,7 +68,7 @@ pub struct Pool {
     /// Holds a mapping of ScalarPtr -> Ptr for reverese lookups
     scalar_ptr_map: Mutex<ahash::AHashMap<ScalarPtr, Ptr>>,
     /// Holds a mapping of ScalarPtr -> ContPtr for reverese lookups
-    scalar_ptr_cont_map: Mutex<ahash::AHashMap<ScalarPtr, ContPtr>>,
+    scalar_ptr_cont_map: Mutex<ahash::AHashMap<ScalarContPtr, ContPtr>>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -106,6 +106,43 @@ impl ScalarPtr {
 
     pub(crate) const fn value(&self) -> &Scalar {
         &self.1
+    }
+}
+
+pub trait IntoHashComponents {
+    fn into_hash_components(self) -> [Scalar; 2];
+}
+
+impl IntoHashComponents for ScalarPtr {
+    fn into_hash_components(self) -> [Scalar; 2] {
+        [self.0, self.1]
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct ScalarContPtr(Scalar, Scalar);
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for ScalarContPtr {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.to_repr().hash(state);
+        self.1.to_repr().hash(state);
+    }
+}
+
+impl ScalarContPtr {
+    pub(crate) const fn tag(&self) -> &Scalar {
+        &self.0
+    }
+
+    pub(crate) const fn value(&self) -> &Scalar {
+        &self.1
+    }
+}
+
+impl IntoHashComponents for ScalarContPtr {
+    fn into_hash_components(self) -> [Scalar; 2] {
+        [self.0, self.1]
     }
 }
 
@@ -474,6 +511,14 @@ impl Pool {
         ContPtr(ContTag::Error, RawPtr(ptr.to_usize()))
     }
 
+    // FIXME: remove usage of error ass Ptr
+    pub fn get_scalar_ptr_error(&self) -> ScalarPtr {
+        let ptr = self.get_cont_error();
+        let hash = self.hash_cont(&ptr).unwrap();
+
+        ScalarPtr(ContTag::Error.as_field(), hash.1)
+    }
+
     pub fn alloc_cont_terminal(&self) -> ContPtr {
         self.get_cont_terminal()
     }
@@ -607,8 +652,8 @@ impl Pool {
         None
     }
 
-    pub fn scalar_from_parts_cont(&self, tag: Scalar, value: Scalar) -> Option<ScalarPtr> {
-        let scalar_ptr = ScalarPtr(tag, value);
+    pub fn scalar_from_parts_cont(&self, tag: Scalar, value: Scalar) -> Option<ScalarContPtr> {
+        let scalar_ptr = ScalarContPtr(tag, value);
         if self
             .scalar_ptr_cont_map
             .lock()
@@ -625,7 +670,7 @@ impl Pool {
         self.scalar_ptr_map.lock().unwrap().get(scalar_ptr).cloned()
     }
 
-    pub fn fetch_scalar_cont(&self, scalar_ptr: &ScalarPtr) -> Option<ContPtr> {
+    pub fn fetch_scalar_cont(&self, scalar_ptr: &ScalarContPtr) -> Option<ContPtr> {
         self.scalar_ptr_cont_map
             .lock()
             .unwrap()
@@ -780,9 +825,9 @@ impl Pool {
         }
     }
 
-    pub fn hash_cont(&self, ptr: &ContPtr) -> Option<ScalarPtr> {
+    pub fn hash_cont(&self, ptr: &ContPtr) -> Option<ScalarContPtr> {
         let components = self.get_hash_components_cont(ptr)?;
-        let hash = self.hash_scalar_ptrs_4(&components);
+        let hash = self.hash_scalars_8(&components);
 
         Some(self.create_cont_scalar_ptr(*ptr, hash))
     }
@@ -797,109 +842,118 @@ impl Pool {
         scalar_ptr
     }
 
-    /// The only places that `ScalarPtr`s for `ContPtr`s should be crated, to
+    /// The only places that `ScalarContPtr`s for `ContPtr`s should be crated, to
     /// ensure that they are cached properly
-    fn create_cont_scalar_ptr(&self, ptr: ContPtr, hash: Scalar) -> ScalarPtr {
-        let scalar_ptr = ScalarPtr(ptr.tag_field(), hash);
+    fn create_cont_scalar_ptr(&self, ptr: ContPtr, hash: Scalar) -> ScalarContPtr {
+        let scalar_ptr = ScalarContPtr(ptr.tag_field(), hash);
         let map = &mut self.scalar_ptr_cont_map.lock().unwrap();
         map.entry(scalar_ptr).or_insert(ptr);
 
         scalar_ptr
     }
 
-    pub fn get_hash_components_cont(&self, ptr: &ContPtr) -> Option<[ScalarPtr; 4]> {
+    pub fn get_hash_components_cont(&self, ptr: &ContPtr) -> Option<[Scalar; 8]> {
         use Continuation::*;
 
         let cont = self.fetch_cont(ptr)?;
-        let nil = self.hash_nil();
+        let nil = self.hash_nil().into_hash_components();
 
         let hash = match cont {
             Outermost | Dummy | Terminal | Error => [nil, nil, nil, nil],
             Simple(cont) => {
-                let cont = self.hash_cont(&cont)?;
+                let cont = self.hash_cont(&cont)?.into_hash_components();
                 [cont, nil, nil, nil]
             }
             Call(arg, saved_env, cont) => {
-                let arg = self.hash_expr(&arg)?;
-                let saved_env = self.hash_expr(&saved_env)?;
-                let cont = self.hash_cont(&cont)?;
+                let arg = self.hash_expr(&arg)?.into_hash_components();
+                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
+                let cont = self.hash_cont(&cont)?.into_hash_components();
                 [saved_env, arg, cont, nil]
             }
             Call2(fun, saved_env, cont) => {
-                let fun = self.hash_expr(&fun)?;
-                let saved_env = self.hash_expr(&saved_env)?;
-                let cont = self.hash_cont(&cont)?;
+                let fun = self.hash_expr(&fun)?.into_hash_components();
+                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
+                let cont = self.hash_cont(&cont)?.into_hash_components();
                 [saved_env, fun, cont, nil]
             }
             Tail(saved_env, cont) => {
-                let saved_env = self.hash_expr(&saved_env)?;
-                let cont = self.hash_cont(&cont)?;
+                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
+                let cont = self.hash_cont(&cont)?.into_hash_components();
                 [saved_env, cont, nil, nil]
             }
             Lookup(saved_env, cont) => {
-                let saved_env = self.hash_expr(&saved_env)?;
-                let cont = self.hash_cont(&cont)?;
+                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
+                let cont = self.hash_cont(&cont)?.into_hash_components();
                 [saved_env, cont, nil, nil]
             }
             Unop(op, cont) => {
-                let op = self.hash_op1(&op);
-                let cont = self.hash_cont(&cont)?;
+                let op = self.hash_op1(&op).into_hash_components();
+                let cont = self.hash_cont(&cont)?.into_hash_components();
                 [op, cont, nil, nil]
             }
             Binop(op, saved_env, unevaled_args, cont) => {
-                let op = self.hash_op2(&op);
-                let saved_env = self.hash_expr(&saved_env)?;
-                let unevaled_args = self.hash_expr(&unevaled_args)?;
-                let cont = self.hash_cont(&cont)?;
+                let op = self.hash_op2(&op).into_hash_components();
+                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
+                let unevaled_args = self.hash_expr(&unevaled_args)?.into_hash_components();
+                let cont = self.hash_cont(&cont)?.into_hash_components();
                 [op, saved_env, unevaled_args, cont]
             }
             Binop2(op, arg1, cont) => {
-                let op = self.hash_op2(&op);
-                let arg1 = self.hash_expr(&arg1)?;
-                let cont = self.hash_cont(&cont)?;
+                let op = self.hash_op2(&op).into_hash_components();
+                let arg1 = self.hash_expr(&arg1)?.into_hash_components();
+                let cont = self.hash_cont(&cont)?.into_hash_components();
                 [op, arg1, cont, nil]
             }
             Relop(rel, saved_env, unevaled_args, cont) => {
-                let rel = self.hash_rel2(&rel);
-                let saved_env = self.hash_expr(&saved_env)?;
-                let unevaled_args = self.hash_expr(&unevaled_args)?;
-                let cont = self.hash_cont(&cont)?;
+                let rel = self.hash_rel2(&rel).into_hash_components();
+                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
+                let unevaled_args = self.hash_expr(&unevaled_args)?.into_hash_components();
+                let cont = self.hash_cont(&cont)?.into_hash_components();
                 [rel, saved_env, unevaled_args, cont]
             }
             Relop2(rel, arg1, cont) => {
-                let rel = self.hash_rel2(&rel);
-                let arg1 = self.hash_expr(&arg1)?;
-                let cont = self.hash_cont(&cont)?;
+                let rel = self.hash_rel2(&rel).into_hash_components();
+                let arg1 = self.hash_expr(&arg1)?.into_hash_components();
+                let cont = self.hash_cont(&cont)?.into_hash_components();
                 [rel, arg1, cont, nil]
             }
             If(unevaled_args, cont) => {
-                let unevaled_args = self.hash_expr(&unevaled_args)?;
-                let cont = self.hash_cont(&cont)?;
+                let unevaled_args = self.hash_expr(&unevaled_args)?.into_hash_components();
+                let cont = self.hash_cont(&cont)?.into_hash_components();
                 [unevaled_args, cont, nil, nil]
             }
             LetStar(var, body, saved_env, cont) => {
-                let var = self.hash_expr(&var)?;
-                let body = self.hash_expr(&body)?;
-                let saved_env = self.hash_expr(&saved_env)?;
-                let cont = self.hash_cont(&cont)?;
+                let var = self.hash_expr(&var)?.into_hash_components();
+                let body = self.hash_expr(&body)?.into_hash_components();
+                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
+                let cont = self.hash_cont(&cont)?.into_hash_components();
                 [var, body, saved_env, cont]
             }
             LetRecStar(var, body, saved_env, cont) => {
-                let var = self.hash_expr(&var)?;
-                let body = self.hash_expr(&body)?;
-                let saved_env = self.hash_expr(&saved_env)?;
-                let cont = self.hash_cont(&cont)?;
+                let var = self.hash_expr(&var)?.into_hash_components();
+                let body = self.hash_expr(&body)?.into_hash_components();
+                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
+                let cont = self.hash_cont(&cont)?.into_hash_components();
                 [var, body, saved_env, cont]
             }
         };
-        Some(hash)
+
+        Some([
+            hash[0][0], hash[0][1], hash[1][0], hash[1][1], hash[2][0], hash[2][1], hash[3][0],
+            hash[3][1],
+        ])
     }
 
-    pub fn get_hash_components_thunk(&self, thunk: &Thunk) -> Option<[ScalarPtr; 2]> {
-        let value_hash = self.hash_expr(&thunk.value)?;
-        let continuation_hash = self.hash_cont(&thunk.continuation)?;
+    pub fn get_hash_components_thunk(&self, thunk: &Thunk) -> Option<[Scalar; 4]> {
+        let value_hash = self.hash_expr(&thunk.value)?.into_hash_components();
+        let continuation_hash = self.hash_cont(&thunk.continuation)?.into_hash_components();
 
-        Some([value_hash, continuation_hash])
+        Some([
+            value_hash[0],
+            value_hash[1],
+            continuation_hash[0],
+            continuation_hash[1],
+        ])
     }
 
     pub fn hash_sym(&self, sym: Ptr) -> Option<ScalarPtr> {
@@ -927,7 +981,7 @@ impl Pool {
         let thunk = self.fetch_thunk(&ptr)?;
         let components = self.get_hash_components_thunk(thunk)?;
 
-        Some(self.create_scalar_ptr(ptr, self.hash_scalar_ptrs_2(&components)))
+        Some(self.create_scalar_ptr(ptr, self.hash_scalars_4(&components)))
     }
 
     fn hash_num(&self, ptr: Ptr) -> Option<ScalarPtr> {
@@ -970,23 +1024,28 @@ impl Pool {
         Some(self.hash_scalar_ptrs_3(&scalar_ptrs))
     }
 
+    fn hash_scalars_4(&self, preimage: &[Scalar; 4]) -> Scalar {
+        Poseidon::new_with_preimage(preimage, &POSEIDON_CONSTANTS_4).hash()
+    }
+
+    fn hash_scalars_6(&self, preimage: &[Scalar; 6]) -> Scalar {
+        Poseidon::new_with_preimage(preimage, &POSEIDON_CONSTANTS_6).hash()
+    }
+
+    fn hash_scalars_8(&self, preimage: &[Scalar; 8]) -> Scalar {
+        Poseidon::new_with_preimage(preimage, &POSEIDON_CONSTANTS_8).hash()
+    }
+
     fn hash_scalar_ptrs_2(&self, ptrs: &[ScalarPtr; 2]) -> Scalar {
         let preimage = [ptrs[0].0, ptrs[0].1, ptrs[1].0, ptrs[1].1];
-        Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_4).hash()
+        self.hash_scalars_4(&preimage)
     }
 
     fn hash_scalar_ptrs_3(&self, ptrs: &[ScalarPtr; 3]) -> Scalar {
         let preimage = [
             ptrs[0].0, ptrs[0].1, ptrs[1].0, ptrs[1].1, ptrs[2].0, ptrs[2].1,
         ];
-        Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_6).hash()
-    }
-
-    fn hash_scalar_ptrs_4(&self, ptrs: &[ScalarPtr; 4]) -> Scalar {
-        let preimage = [
-            ptrs[0].0, ptrs[0].1, ptrs[1].0, ptrs[1].1, ptrs[2].0, ptrs[2].1, ptrs[3].0, ptrs[3].1,
-        ];
-        Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_8).hash()
+        self.hash_scalars_6(&preimage)
     }
 
     pub fn hash_nil(&self) -> ScalarPtr {
