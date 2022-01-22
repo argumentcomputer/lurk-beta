@@ -179,27 +179,16 @@ impl Circuit<Fr> for CircuitFrame<'_, IO, Witness> {
             self.pool,
         )?;
 
+        dbg!(&output_expr, &new_expr,);
+        dbg!(&output_env, &new_env,);
+        dbg!(&output_cont, &new_cont,);
+
+        dbg!(output_cont.fetch_and_write_cont_str(self.pool),);
+        dbg!(new_cont.fetch_and_write_cont_str(self.pool));
+
         output_expr.enforce_equal(&mut cs.namespace(|| "output expr is correct"), &new_expr);
         output_env.enforce_equal(&mut cs.namespace(|| "output env is correct"), &new_env);
         output_cont.enforce_equal(&mut cs.namespace(|| "output cont is correct"), &new_cont);
-        dbg!(
-            output_expr.get_tag_value(),
-            output_expr.get_hash_value(),
-            new_expr.get_tag_value(),
-            new_expr.get_hash_value()
-        );
-        dbg!(
-            output_env.get_tag_value(),
-            output_env.get_hash_value(),
-            new_env.get_tag_value(),
-            new_env.get_hash_value()
-        );
-        dbg!(
-            output_cont.get_tag_value(),
-            output_cont.get_hash_value(),
-            new_cont.get_tag_value(),
-            new_cont.get_hash_value(),
-        );
 
         Ok(())
     }
@@ -379,15 +368,12 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
 
     dbg!(&expr.fetch_and_write_str(pool));
     dbg!(&env.fetch_and_write_str(pool));
-    dbg!(
-        expr.ptr().map(|x| *x.tag()),
-        expr.ptr().map(|x| *x.value()),
-        cont.ptr().map(|x| *x.tag()),
-        cont.ptr().map(|x| *x.value()),
-    );
+    dbg!(expr, cont);
 
     let global_allocations =
         GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), pool, witness)?;
+
+    dbg!(&global_allocations.terminal_ptr);
 
     let mut results = Results::default();
     {
@@ -1305,7 +1291,7 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
 
     let (computed_cont_hash, cont_components) = ContPtr::allocate_maybe_dummy_components(
         &mut cs.namespace(|| "cont components"),
-        cont.ptr().and_then(|c| pool.fetch_scalar_cont(&c)).as_ref(),
+        cont.cont_ptr(pool).as_ref(),
         pool,
     )?;
 
@@ -1520,7 +1506,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             let (hash, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
                 &mut cs.namespace(|| "allocate Call2 fun"),
                 pool,
-                fun.ptr().and_then(|t| pool.fetch_scalar(&t)).as_ref(),
+                fun.ptr(pool).as_ref(),
             )?;
 
             // BOOKMARK: WHy does this cause unconstrainted variable?
@@ -2113,11 +2099,7 @@ fn car_cdr<CS: ConstraintSystem<Fr>>(
     )?;
 
     let (car, cdr) = if not_dummy.get_value().expect("not_dummy missing") {
-        if let Some(ptr) = maybe_cons
-            .ptr()
-            .as_ref()
-            .and_then(|ptr| pool.fetch_scalar(ptr))
-        {
+        if let Some(ptr) = maybe_cons.ptr(pool).as_ref() {
             pool.car_cdr(&ptr)
         } else {
             // Dummy

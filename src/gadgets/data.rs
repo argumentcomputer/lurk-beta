@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem, SynthesisError,
@@ -20,6 +22,25 @@ use crate::{
 pub struct AllocatedPtr {
     tag: AllocatedNum<Fr>,
     hash: AllocatedNum<Fr>,
+}
+
+impl Debug for AllocatedPtr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let tag = format!(
+            "AllocatedNum {{ value: {:?}, variable: {:?} }}",
+            self.tag.get_value(),
+            self.tag.get_variable()
+        );
+        let hash = format!(
+            "AllocatedNum {{ value: {:?}, variable: {:?} }}",
+            self.hash.get_value(),
+            self.hash.get_variable()
+        );
+        f.debug_struct("AllocatedPtr")
+            .field("tag", &tag)
+            .field("hash", &hash)
+            .finish()
+    }
 }
 
 impl AllocatedPtr {
@@ -145,31 +166,41 @@ impl AllocatedPtr {
         )
     }
 
-    pub fn ptr(&self) -> Option<ScalarPtr> {
-        match (self.tag.get_value(), self.hash.get_value()) {
-            (Some(tag), Some(value)) => Some(ScalarPtr::from_parts(tag, value)),
-            _ => None,
-        }
+    pub fn expr<'a>(&self, pool: &'a Pool) -> Option<Expression<'a>> {
+        let ptr = self.ptr(pool)?;
+        pool.fetch(&ptr)
+    }
+
+    pub fn ptr(&self, pool: &Pool) -> Option<Ptr> {
+        let scalar_ptr = self.scalar_ptr(pool)?;
+        pool.fetch_scalar(&scalar_ptr)
+    }
+
+    pub fn cont_ptr(&self, pool: &Pool) -> Option<ContPtr> {
+        let scalar_ptr = self.scalar_ptr_cont(pool)?;
+        pool.fetch_scalar_cont(&scalar_ptr)
+    }
+
+    pub fn scalar_ptr(&self, pool: &Pool) -> Option<ScalarPtr> {
+        let (tag, value) = (self.tag.get_value()?, self.hash.get_value()?);
+        pool.scalar_from_parts(tag, value)
+    }
+
+    pub fn scalar_ptr_cont(&self, pool: &Pool) -> Option<ScalarPtr> {
+        let (tag, value) = (self.tag.get_value()?, self.hash.get_value()?);
+        pool.scalar_from_parts_cont(tag, value)
     }
 
     pub fn fetch_and_write_str(&self, pool: &Pool) -> String {
-        if let Some(aaa) = &self.ptr() {
-            if let Some(bbb) = pool.fetch_scalar(aaa) {
-                bbb.fmt_to_string(pool)
-            } else {
-                format!("expression not found in pool: {:?}", aaa)
-            }
+        if let Some(aaa) = &self.ptr(pool) {
+            aaa.fmt_to_string(pool)
         } else {
             "no Ptr".to_string()
         }
     }
     pub fn fetch_and_write_cont_str(&self, pool: &Pool) -> String {
-        if let Some(aaa) = &self.ptr() {
-            if let Some(bbb) = pool.fetch_scalar_cont(aaa) {
-                bbb.fmt_to_string(pool)
-            } else {
-                format!("continuation not found in pool: {:?}", aaa)
-            }
+        if let Some(aaa) = &self.cont_ptr(pool) {
+            aaa.fmt_to_string(pool)
         } else {
             "no Ptr".to_string()
         }
@@ -180,17 +211,13 @@ impl AllocatedPtr {
         cs: CS,
         pool: &Pool,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr), SynthesisError> {
-        let maybe_thunk = self
-            .ptr()
-            .and_then(|ptr| pool.fetch_scalar(&ptr))
-            .and_then(|ptr| pool.fetch(&ptr))
-            .and_then(|expr| {
-                if let Expression::Thunk(thunk) = expr {
-                    Some(thunk)
-                } else {
-                    None
-                }
-            });
+        let maybe_thunk = self.expr(pool).and_then(|expr| {
+            if let Expression::Thunk(thunk) = expr {
+                Some(thunk)
+            } else {
+                None
+            }
+        });
         Thunk::allocate_maybe_dummy_components(cs, maybe_thunk.as_ref(), pool)
     }
 }
@@ -256,6 +283,11 @@ impl GlobalAllocations {
             pool,
             &pool.get_cont_terminal(),
         )?;
+        dbg!(
+            &terminal_ptr,
+            pool.get_cont_terminal(),
+            pool.get_cont_terminal().tag_field::<Fr>()
+        );
 
         let outermost_ptr = AllocatedPtr::constant_from_cont_ptr(
             &mut cs.namespace(|| "outermost continuation"),

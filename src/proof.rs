@@ -204,6 +204,7 @@ fn verify_sequential_css(
 
         if let Some(prev) = previous_frame {
             if !prev.precedes(frame) {
+                dbg!("not preceeding frame");
                 return Ok(false);
             }
         }
@@ -211,7 +212,12 @@ fn verify_sequential_css(
         let public_inputs =
             CircuitFrame::from_frame(initial.clone(), frame.clone(), pool).public_inputs(pool);
 
-        if !(cs.is_satisfied() && cs.verify(&public_inputs)) {
+        if !cs.is_satisfied() {
+            dbg!("cs not satisfied");
+            return Ok(false);
+        }
+        if !cs.verify(&public_inputs) {
+            dbg!("cs not verified");
             return Ok(false);
         }
         previous_frame = Some(frame);

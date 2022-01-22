@@ -107,10 +107,6 @@ impl ScalarPtr {
     pub(crate) const fn value(&self) -> &Scalar {
         &self.1
     }
-
-    pub(crate) const fn from_parts(tag: Scalar, value: Scalar) -> Self {
-        ScalarPtr(tag, value)
-    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -310,16 +306,9 @@ const NIL_PTR: Ptr = Ptr(Tag::Nil, RawPtr(0));
 // Continuations
 
 const OUTERMOST: Continuation = Continuation::Outermost;
-const OUTERMOST_PTR: ContPtr = ContPtr(ContTag::Outermost, RawPtr(0));
-
 const ERROR: Continuation = Continuation::Error;
-const ERROR_PTR: ContPtr = ContPtr(ContTag::Error, RawPtr(0));
-
 const DUMMY: Continuation = Continuation::Dummy;
-const DUMMY_PTR: ContPtr = ContPtr(ContTag::Dummy, RawPtr(0));
-
 const TERMINAL: Continuation = Continuation::Terminal;
-const TERMINAL_PTR: ContPtr = ContPtr(ContTag::Terminal, RawPtr(0));
 
 impl Default for Pool {
     fn default() -> Self {
@@ -367,6 +356,10 @@ impl Default for Pool {
             "EQ",
             "CURRENT-ENV",
             "IF",
+            "TERMINAL",
+            "DUMMY",
+            "OUTERMOST",
+            "ERROR",
         ] {
             pool.alloc_sym(sym);
         }
@@ -422,7 +415,6 @@ impl Pool {
         // TODO: avoid allocation
         let mut name = name.to_string();
         name.make_ascii_uppercase();
-        dbg!(&name);
         self.find_sym(&name)
     }
 
@@ -454,12 +446,13 @@ impl Pool {
         Ptr(Tag::Thunk, RawPtr(ptr))
     }
 
-    pub const fn alloc_cont_outermost(&self) -> ContPtr {
-        OUTERMOST_PTR
+    pub fn alloc_cont_outermost(&self) -> ContPtr {
+        self.get_cont_outermost()
     }
 
-    pub const fn get_cont_outermost(&self) -> ContPtr {
-        OUTERMOST_PTR
+    pub fn get_cont_outermost(&self) -> ContPtr {
+        let ptr = self.sym_pool.0.get("OUTERMOST").expect("pre stored");
+        ContPtr(ContTag::Outermost, RawPtr(ptr.to_usize()))
     }
 
     pub fn alloc_cont_call(&mut self, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
@@ -472,28 +465,31 @@ impl Pool {
         ContPtr(ContTag::Call2, RawPtr(ptr))
     }
 
-    pub const fn alloc_cont_error(&self) -> ContPtr {
-        ERROR_PTR
+    pub fn alloc_cont_error(&self) -> ContPtr {
+        self.get_cont_error()
     }
 
-    pub const fn get_cont_error(&self) -> ContPtr {
-        ERROR_PTR
+    pub fn get_cont_error(&self) -> ContPtr {
+        let ptr = self.sym_pool.0.get("ERROR").expect("pre stored");
+        ContPtr(ContTag::Error, RawPtr(ptr.to_usize()))
     }
 
-    pub const fn alloc_cont_terminal(&self) -> ContPtr {
-        TERMINAL_PTR
+    pub fn alloc_cont_terminal(&self) -> ContPtr {
+        self.get_cont_terminal()
     }
 
-    pub const fn get_cont_terminal(&self) -> ContPtr {
-        TERMINAL_PTR
+    pub fn get_cont_terminal(&self) -> ContPtr {
+        let ptr = self.sym_pool.0.get("TERMINAL").expect("pre stored");
+        ContPtr(ContTag::Terminal, RawPtr(ptr.to_usize()))
     }
 
-    pub const fn alloc_cont_dummy(&self) -> ContPtr {
-        DUMMY_PTR
+    pub fn alloc_cont_dummy(&self) -> ContPtr {
+        self.get_cont_dummy()
     }
 
-    pub const fn get_cont_dummy(&self) -> ContPtr {
-        DUMMY_PTR
+    pub fn get_cont_dummy(&self) -> ContPtr {
+        let ptr = self.sym_pool.0.get("DUMMY").expect("pre stored");
+        ContPtr(ContTag::Dummy, RawPtr(ptr.to_usize()))
     }
 
     pub fn alloc_cont_lookup(&mut self, a: Ptr, b: ContPtr) -> ContPtr {
@@ -596,13 +592,40 @@ impl Pool {
             .map(|raw| Ptr(Tag::Thunk, RawPtr(raw)))
     }
 
+    pub fn scalar_from_parts(&self, tag: Scalar, value: Scalar) -> Option<ScalarPtr> {
+        let scalar_ptr = ScalarPtr(tag, value);
+        if self
+            .scalar_ptr_map
+            .lock()
+            .unwrap()
+            .get(&scalar_ptr)
+            .is_some()
+        {
+            return Some(scalar_ptr);
+        }
+
+        None
+    }
+
+    pub fn scalar_from_parts_cont(&self, tag: Scalar, value: Scalar) -> Option<ScalarPtr> {
+        let scalar_ptr = ScalarPtr(tag, value);
+        if self
+            .scalar_ptr_cont_map
+            .lock()
+            .unwrap()
+            .get(&scalar_ptr)
+            .is_some()
+        {
+            return Some(scalar_ptr);
+        }
+        None
+    }
+
     pub fn fetch_scalar(&self, scalar_ptr: &ScalarPtr) -> Option<Ptr> {
-        // TODO: insert values into the scalar_ptr_map on hashing!
         self.scalar_ptr_map.lock().unwrap().get(scalar_ptr).cloned()
     }
 
     pub fn fetch_scalar_cont(&self, scalar_ptr: &ScalarPtr) -> Option<ContPtr> {
-        // TODO: insert values into the scalar_ptr_map on hashing!
         self.scalar_ptr_cont_map
             .lock()
             .unwrap()
@@ -974,7 +997,7 @@ impl Pool {
         ScalarPtr(op.as_field(), Scalar::zero())
     }
 
-    pub fn hash_op2(&self, op: &Op2) -> ScalarPtr {
+    fn hash_op2(&self, op: &Op2) -> ScalarPtr {
         ScalarPtr(op.as_field(), Scalar::zero())
     }
 
