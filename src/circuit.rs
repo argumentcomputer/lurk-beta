@@ -1857,7 +1857,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
 
     let (allocated_arg2, saved_env, binop2_cont) = {
         // Continuation::Binop
-        let op2 = ptr_by_index(0, &continuation_components, pool);
+        let op2 = &continuation_components[0];
         let saved_env = ptr_by_index(1, &continuation_components, pool);
         let unevaled_args = ptr_by_index(2, &continuation_components, pool);
         let continuation = cont_ptr_by_index(3, &continuation_components, pool);
@@ -1872,7 +1872,12 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let binop2_cont = ContPtr::construct(
             &mut cs.namespace(|| "Binop2"),
             &global_allocations.binop2_cont_tag,
-            &[&op2, result, &continuation, &global_allocations.default_ptr],
+            &[
+                &[op2, global_allocations.default_ptr.tag()],
+                result,
+                &continuation,
+                &global_allocations.default_ptr,
+            ],
             pool,
         )?;
 
@@ -2016,7 +2021,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
 
     let (allocated_arg2, saved_env, relop2_cont) = {
         // Continuation::Relop
-        let relop2 = ptr_by_index(0, &continuation_components, pool);
+        let relop2 = &continuation_components[0];
         let saved_env = ptr_by_index(1, &continuation_components, pool);
         let unevaled_args = ptr_by_index(2, &continuation_components, pool);
         let continuation = cont_ptr_by_index(3, &continuation_components, pool);
@@ -2033,7 +2038,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &mut cs.namespace(|| "Relop2"),
             &global_allocations.relop2_cont_tag,
             &[
-                &relop2,
+                &[relop2, global_allocations.default_ptr.tag()],
                 result,
                 &continuation,
                 &global_allocations.default_ptr,
