@@ -11,7 +11,7 @@ use rand_xorshift::XorShiftRng;
 
 use crate::circuit::CircuitFrame;
 use crate::eval::{Evaluator, Frame, Witness, IO};
-use crate::pool::{Pool, Ptr};
+use crate::pool::{Pool, Ptr, ScalarPointer};
 use crate::writer::Write;
 
 pub const DUMMY_RNG_SEED: [u8; 16] = [
@@ -197,10 +197,9 @@ fn verify_sequential_css(
     let initial = css[0].0.input.clone();
 
     for (i, (frame, cs)) in css.iter().enumerate() {
-        dbg!(i);
-        let input = &frame.input;
-
-        dbg!(input.expr.fmt_to_string(pool));
+        println!("{} --", i);
+        println!("  {}", frame.input.fmt_to_string(pool));
+        println!("  {}", frame.output.fmt_to_string(pool));
 
         if let Some(prev) = previous_frame {
             if !prev.precedes(frame) {
@@ -208,14 +207,14 @@ fn verify_sequential_css(
                 return Ok(false);
             }
         }
-
-        let public_inputs =
-            CircuitFrame::from_frame(initial.clone(), frame.clone(), pool).public_inputs(pool);
-
         if !cs.is_satisfied() {
             dbg!("cs not satisfied");
             return Ok(false);
         }
+
+        let public_inputs =
+            CircuitFrame::from_frame(initial.clone(), frame.clone(), pool).public_inputs(pool);
+
         if !cs.verify(&public_inputs) {
             dbg!("cs not verified");
             return Ok(false);

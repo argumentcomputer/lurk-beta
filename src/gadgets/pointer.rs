@@ -7,7 +7,10 @@ use bellperson::{
 use blstrs::Scalar as Fr;
 
 use crate::{
-    pool::{ContPtr, Continuation, Expression, Pool, Ptr, ScalarContPtr, ScalarPtr, Thunk},
+    pool::{
+        ContPtr, Continuation, Expression, Pool, Ptr, ScalarContPtr, ScalarPointer, ScalarPtr,
+        Thunk,
+    },
     writer::Write,
 };
 
@@ -61,7 +64,7 @@ impl AllocatedPtr {
     pub fn from_allocated_parts(
         tag: AllocatedNum<Fr>,
         hash: AllocatedNum<Fr>,
-        pool: &Pool,
+        _pool: &Pool,
     ) -> Self {
         // if let (Some(tag), Some(hash)) = (tag.get_value(), hash.get_value()) {
         //     assert!(
@@ -80,7 +83,7 @@ impl AllocatedPtr {
         cs: &mut CS,
         unallocated_tag: Fr,
         unallocated_hash: Fr,
-        pool: &Pool,
+        _pool: &Pool,
     ) -> Result<Self, SynthesisError> {
         // assert!(
         //     pool.verify_scalar_ptr(unallocated_tag, unallocated_hash),
@@ -180,7 +183,10 @@ impl AllocatedPtr {
 
     pub fn scalar_ptr(&self, pool: &Pool) -> Option<ScalarPtr> {
         let (tag, value) = (self.tag.get_value()?, self.hash.get_value()?);
-        pool.scalar_from_parts(tag, value)
+        match pool.scalar_from_parts(tag, value) {
+            Some(ptr) => Some(ptr),
+            None => panic!("Missing ScalarPtr for {:?}", self),
+        }
     }
 
     pub fn fetch_and_write_str(&self, pool: &Pool) -> String {
@@ -194,13 +200,26 @@ impl AllocatedPtr {
         cs: CS,
         pool: &Pool,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedContPtr), SynthesisError> {
-        let maybe_thunk = self.expr(pool).and_then(|expr| {
-            if let Expression::Thunk(thunk) = expr {
+        let maybe_thunk = if let Some(ptr) = self.scalar_ptr(pool) {
+            if let Some(Expression::Thunk(thunk)) =
+                pool.fetch_scalar(&ptr).and_then(|ptr| pool.fetch(&ptr))
+            {
                 Some(thunk)
             } else {
                 None
             }
-        });
+        } else {
+            None
+        };
+        dbg!(&maybe_thunk, self);
+
+        // self.expr(pool).and_then(|expr| {
+        //             if let Expression::Thunk(thunk) = expr {
+        //                 Some(thunk)
+        //             } else {
+        //                 None
+        //             }
+        //         });
         Thunk::allocate_maybe_dummy_components(cs, maybe_thunk.as_ref(), pool)
     }
 }
@@ -254,7 +273,7 @@ impl AllocatedContPtr {
     pub fn from_allocated_parts(
         tag: AllocatedNum<Fr>,
         hash: AllocatedNum<Fr>,
-        pool: &Pool,
+        _pool: &Pool,
     ) -> Self {
         // if let (Some(tag), Some(hash)) = (tag.get_value(), hash.get_value()) {
         //     assert!(
@@ -279,7 +298,7 @@ impl AllocatedContPtr {
         cs: &mut CS,
         unallocated_tag: Fr,
         unallocated_hash: Fr,
-        pool: &Pool,
+        _pool: &Pool,
     ) -> Result<Self, SynthesisError> {
         // assert!(
         //     pool.verify_scalar_cont_ptr(unallocated_tag, unallocated_hash),
@@ -374,7 +393,11 @@ impl AllocatedContPtr {
 
     pub fn scalar_ptr_cont(&self, pool: &Pool) -> Option<ScalarContPtr> {
         let (tag, value) = (self.tag.get_value()?, self.hash.get_value()?);
-        pool.scalar_from_parts_cont(tag, value)
+
+        match pool.scalar_from_parts_cont(tag, value) {
+            Some(ptr) => Some(ptr),
+            None => panic!("Missing ScalarContPtr for {:?}", self),
+        }
     }
 
     pub fn fetch_and_write_cont_str(&self, pool: &Pool) -> String {
@@ -383,6 +406,7 @@ impl AllocatedContPtr {
             .unwrap_or("no cont ptr".to_string())
     }
 }
+
 pub trait AsAllocatedHashComponents {
     fn as_allocated_hash_components(&self) -> [&AllocatedNum<Fr>; 2];
 }

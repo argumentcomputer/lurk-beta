@@ -7,11 +7,30 @@ use bellperson::{
 use blstrs::Scalar as Fr;
 use ff::{Field, PrimeField};
 
-use std::ops::{MulAssign, SubAssign};
+use std::{
+    fmt::Debug,
+    ops::{MulAssign, SubAssign},
+};
 
 pub struct CaseClause<'a, F: PrimeField> {
     pub key: F,
     pub value: &'a AllocatedNum<F>,
+}
+
+impl<F: PrimeField + Debug> Debug for CaseClause<'_, F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CaseClause")
+            .field("key", &self.key)
+            .field(
+                "value",
+                &format!(
+                    "AllocatedNum {{ value: {:?}, variable: {:?} }}",
+                    self.value.get_value(),
+                    self.value.get_variable()
+                ),
+            )
+            .finish()
+    }
 }
 
 pub struct CaseConstraint<'a, F: PrimeField> {

@@ -6,12 +6,12 @@ use blstrs::Scalar as Fr;
 use ff::Field;
 use neptune::circuit::poseidon_hash;
 
-use crate::gadgets::constraints::pick;
 use crate::pool::{
-    ContPtr, ContTag, Expression, Op1, Op2, Pool, Ptr, Rel2, ScalarContPtr, Tag, Thunk,
+    ContPtr, ContTag, Expression, Op1, Op2, Pointer, Pool, Ptr, Rel2, ScalarContPtr, Tag, Thunk,
     POSEIDON_CONSTANTS_4, POSEIDON_CONSTANTS_6, POSEIDON_CONSTANTS_8,
 };
 use crate::{eval::Witness, pool::ScalarPtr};
+use crate::{gadgets::constraints::pick, pool::ScalarPointer};
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents};
 
@@ -58,8 +58,7 @@ pub struct GlobalAllocations {
 
     pub true_num: AllocatedNum<Fr>,
     pub false_num: AllocatedNum<Fr>,
-
-    pub default_ptr: AllocatedPtr,
+    pub default_num: AllocatedNum<Fr>,
 
     pub destructured_thunk_hash: AllocatedNum<Fr>,
     pub destructured_thunk_value: AllocatedPtr,
@@ -176,9 +175,16 @@ impl GlobalAllocations {
 
         // NOTE: The choice of zero is significant.
         // For example, Ptr::default() has both tag and hash of zero.
-        let default_ptr = pool
-            .hash_default()
-            .allocate_constant_ptr(&mut cs.namespace(|| "default"))?;
+        // let default_num = allocate_constant(, Fr::zero())?;
+        let default_ptr = AllocatedPtr::constant_from_scalar_ptr(
+            &mut cs.namespace(|| "default"),
+            &pool.hash_default(),
+        )?;
+        let default_num = default_ptr.hash().clone();
+        let _default_cont_ptr = AllocatedContPtr::constant_from_scalar_ptr(
+            &mut cs.namespace(|| "default cont"),
+            &pool.hash_default_cont(),
+        )?;
 
         let maybe_thunk = if let Some(w) = witness {
             w.destructured_thunk
@@ -232,7 +238,7 @@ impl GlobalAllocations {
             rel2_numequal_tag,
             true_num,
             false_num,
-            default_ptr,
+            default_num,
 
             destructured_thunk_hash,
             destructured_thunk_value,
@@ -313,7 +319,11 @@ impl ContPtr {
         pool: &Pool,
     ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
         if let Some(cont) = cont {
-            cont.allocate_components(cs, pool)
+            if cont.is_default() {
+                ContPtr::allocate_dummy_components(cs)
+            } else {
+                cont.allocate_components(cs, pool)
+            }
         } else {
             ContPtr::allocate_dummy_components(cs)
         }
@@ -367,6 +377,8 @@ impl ContPtr {
             result.clone(),
             &POSEIDON_CONSTANTS_8,
         )?;
+
+        dbg!(dummy_hash.get_value());
 
         Ok((dummy_hash, result))
     }
@@ -450,9 +462,9 @@ impl Ptr {
         cs: CS,
         pool: &Pool,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr, AllocatedPtr), SynthesisError> {
-        let nil = pool.hash_nil();
+        let def = pool.hash_default();
 
-        Self::allocate_fun(cs, &nil, &nil, &nil)
+        Self::allocate_fun(cs, &def, &def, &def)
     }
 
     pub fn construct_cons<CS: ConstraintSystem<Fr>>(
@@ -634,7 +646,7 @@ impl Thunk {
             Thunk::allocate_dummy_components(cs)
         }?;
 
-        // allocate_thunk_components should probably returned AllocatedPtres.
+        // allocate_thunk_components should probably returned AllocatedPtrs.
         let thunk_value =
             AllocatedPtr::from_allocated_parts(components[0].clone(), components[1].clone(), pool);
 
@@ -683,6 +695,8 @@ impl Thunk {
         }
 
         let dummy_hash = Self::hash_components(cs.namespace(|| "Thunk"), &result)?;
+
+        dbg!(dummy_hash.get_value());
 
         Ok((dummy_hash, result))
     }

@@ -9,6 +9,7 @@ use string_interner::symbol::{Symbol, SymbolUsize};
 
 use generic_array::typenum::{U10, U11, U16, U2, U3, U4, U5, U6, U7, U8, U9};
 use neptune::{hash_type::HashType, poseidon::PoseidonConstants, Strength};
+
 lazy_static::lazy_static! {
     pub static ref POSEIDON_CONSTANTS_2: PoseidonConstants::<Scalar, U2> = PoseidonConstants::new();
     pub static ref POSEIDON_CONSTANTS_3: PoseidonConstants::<Scalar, U3> = PoseidonConstants::new();
@@ -71,6 +72,29 @@ pub struct Pool {
     scalar_ptr_cont_map: Mutex<ahash::AHashMap<ScalarContPtr, ContPtr>>,
 }
 
+pub trait Object: fmt::Debug + Copy + Clone + PartialEq + Hash {
+    type Pointer: Pointer;
+}
+
+pub trait Pointer: fmt::Debug + Copy + Clone + PartialEq + Hash {
+    type Tag: Into<u64>;
+    type ScalarPointer: ScalarPointer;
+
+    fn tag(&self) -> Self::Tag;
+    fn tag_field<F: From<u64> + ff::Field>(&self) -> F {
+        F::from(self.tag().into())
+    }
+}
+
+pub trait ScalarPointer: fmt::Debug + Copy + Clone + PartialEq + Hash {
+    fn from_parts(tag: Scalar, value: Scalar) -> Self;
+    fn tag(&self) -> &Scalar;
+    fn value(&self) -> &Scalar;
+    fn is_default(&self) -> bool {
+        self.tag().is_zero_vartime() && self.value().is_zero_vartime()
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Ptr(Tag, RawPtr);
 
@@ -78,13 +102,14 @@ impl Ptr {
     pub const fn is_nil(&self) -> bool {
         matches!(self.0, Tag::Nil)
     }
+}
 
-    pub const fn tag(&self) -> Tag {
+impl Pointer for Ptr {
+    type Tag = Tag;
+    type ScalarPointer = ScalarPtr;
+
+    fn tag(&self) -> Tag {
         self.0
-    }
-
-    pub fn tag_field<F: From<u64> + ff::Field>(&self) -> F {
-        self.0.as_field()
     }
 }
 
@@ -99,12 +124,16 @@ impl Hash for ScalarPtr {
     }
 }
 
-impl ScalarPtr {
-    pub(crate) const fn tag(&self) -> &Scalar {
+impl ScalarPointer for ScalarPtr {
+    fn from_parts(tag: Scalar, value: Scalar) -> Self {
+        ScalarPtr(tag, value)
+    }
+
+    fn tag(&self) -> &Scalar {
         &self.0
     }
 
-    pub(crate) const fn value(&self) -> &Scalar {
+    fn value(&self) -> &Scalar {
         &self.1
     }
 }
@@ -130,12 +159,15 @@ impl Hash for ScalarContPtr {
     }
 }
 
-impl ScalarContPtr {
-    pub(crate) const fn tag(&self) -> &Scalar {
+impl ScalarPointer for ScalarContPtr {
+    fn from_parts(tag: Scalar, value: Scalar) -> Self {
+        ScalarContPtr(tag, value)
+    }
+    fn tag(&self) -> &Scalar {
         &self.0
     }
 
-    pub(crate) const fn value(&self) -> &Scalar {
+    fn value(&self) -> &Scalar {
         &self.1
     }
 }
@@ -149,17 +181,22 @@ impl IntoHashComponents for ScalarContPtr {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ContPtr(ContTag, RawPtr);
 
+impl Pointer for ContPtr {
+    type Tag = ContTag;
+    type ScalarPointer = ScalarContPtr;
+
+    fn tag(&self) -> Self::Tag {
+        self.0
+    }
+}
+
 impl ContPtr {
     pub const fn is_error(&self) -> bool {
         matches!(self.0, ContTag::Error)
     }
 
-    pub const fn tag(&self) -> ContTag {
-        self.0
-    }
-
-    pub fn tag_field<F: From<u64> + ff::Field>(&self) -> F {
-        self.0.as_field()
+    pub const fn is_default(&self) -> bool {
+        matches!(self.0, ContTag::_DEFAULT)
     }
 }
 
@@ -180,7 +217,7 @@ pub struct RawPtr(usize);
 // - `0b0011` for Op2
 // - `0b0100` for Rel2
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Expression<'a> {
     Nil,
     Cons(Ptr, Ptr),
@@ -190,6 +227,9 @@ pub enum Expression<'a> {
     Str(&'a str),
     Thunk(Thunk),
 }
+impl Object for Expression<'_> {
+    type Pointer = Ptr;
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Thunk {
@@ -197,7 +237,7 @@ pub struct Thunk {
     pub(crate) continuation: ContPtr,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Continuation {
     Outermost,
     Simple(ContPtr),
@@ -216,6 +256,10 @@ pub enum Continuation {
     LetRecStar(Ptr, Ptr, Ptr, ContPtr),
     Dummy,
     Terminal,
+}
+
+impl Object for Continuation {
+    type Pointer = ContPtr;
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
@@ -304,6 +348,12 @@ pub enum Tag {
     Str,
 }
 
+impl From<Tag> for u64 {
+    fn from(t: Tag) -> Self {
+        t as u64
+    }
+}
+
 impl Tag {
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
@@ -313,6 +363,8 @@ impl Tag {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u16)]
 pub enum ContTag {
+    /// This is only used to construct a default ptr, do not use for anything else!
+    _DEFAULT = 0,
     Outermost = 0b0001_0000_0000_0000,
     Simple,
     Call,
@@ -332,6 +384,12 @@ pub enum ContTag {
     Terminal,
 }
 
+impl From<ContTag> for u64 {
+    fn from(t: ContTag) -> Self {
+        t as u64
+    }
+}
+
 // For now, partition ContinuationTags into thunks and conts.
 // If never used, we can collapse.
 // We will likely want both if we ever make continuations (including
@@ -344,10 +402,13 @@ impl ContTag {
 
 // Expressions
 
+const DEFAULT_PTR: Ptr = Ptr(Tag::Nil, RawPtr(0));
 const NIL: Expression = Expression::Nil;
-const NIL_PTR: Ptr = Ptr(Tag::Nil, RawPtr(0));
+const NIL_PTR: Ptr = Ptr(Tag::Nil, RawPtr(1));
 
 // Continuations
+
+const DEFAULT_CONT_PTR: ContPtr = ContPtr(ContTag::_DEFAULT, RawPtr(0));
 
 const OUTERMOST: Continuation = Continuation::Outermost;
 const ERROR: Continuation = Continuation::Error;
@@ -382,7 +443,6 @@ impl Default for Pool {
 
         // insert some well known symbols
         for sym in &[
-            "NIL",
             "T",
             "QUOTE",
             "LAMBDA",
@@ -407,6 +467,7 @@ impl Default for Pool {
         ] {
             pool.alloc_sym(sym);
         }
+
         pool
     }
 }
@@ -518,7 +579,7 @@ impl Pool {
         ContPtr(ContTag::Error, RawPtr(ptr.to_usize()))
     }
 
-    // FIXME: remove usage of error ass Ptr
+    // FIXME: remove usage of error as Ptr
     pub fn get_scalar_ptr_error(&self) -> ScalarPtr {
         let ptr = self.get_cont_error();
         let hash = self.hash_cont(&ptr).unwrap();
@@ -752,6 +813,7 @@ impl Pool {
     pub fn fetch_cont(&self, ptr: &ContPtr) -> Option<Continuation> {
         use ContTag::*;
         match ptr.0 {
+            _DEFAULT => unreachable!(),
             Outermost => Some(OUTERMOST),
             Simple => self
                 .simple_pool
@@ -832,8 +894,7 @@ impl Pool {
 
     pub fn hash_expr(&self, ptr: &Ptr) -> Option<ScalarPtr> {
         use Tag::*;
-
-        match ptr.0 {
+        match ptr.tag() {
             Nil => self.hash_sym(NIL_PTR),
             Cons => self.hash_cons(*ptr),
             Sym => self.hash_sym(*ptr),
@@ -1072,7 +1133,11 @@ impl Pool {
     }
 
     pub fn hash_default(&self) -> ScalarPtr {
-        ScalarPtr(Scalar::zero(), Scalar::zero())
+        self.create_scalar_ptr(DEFAULT_PTR, Scalar::zero())
+    }
+
+    pub fn hash_default_cont(&self) -> ScalarContPtr {
+        self.create_cont_scalar_ptr(DEFAULT_CONT_PTR, Scalar::zero())
     }
 
     fn hash_op1(&self, op: &Op1) -> ScalarPtr {

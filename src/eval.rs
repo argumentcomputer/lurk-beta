@@ -1,6 +1,7 @@
 use crate::pool::{
-    ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pool, Ptr, Rel2, Tag, Thunk,
+    ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Pool, Ptr, Rel2, Tag, Thunk,
 };
+use crate::writer::Write;
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
 
@@ -9,6 +10,18 @@ pub struct IO {
     pub expr: Ptr,
     pub env: Ptr,
     pub cont: ContPtr, // This could be an Expression too, if we want Continuations to be first class.
+}
+
+impl Write for IO {
+    fn fmt<W: std::io::Write>(&self, pool: &Pool, w: &mut W) -> std::io::Result<()> {
+        write!(w, "IO {{ expr: ")?;
+        self.expr.fmt(pool, w)?;
+        write!(w, ", env: ")?;
+        self.env.fmt(pool, w)?;
+        write!(w, ", cont: ")?;
+        self.cont.fmt(pool, w)?;
+        write!(w, " }}")
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -133,18 +146,17 @@ impl<'a, 'b, T: Evaluable<Witness> + Clone + PartialEq> Iterator for FrameIt<'a,
 pub struct Witness {
     // TODO: Many of these fields ended up not being used.
     // once circuit is done, remove the excess.
-    pub prethunk_output_expr: Ptr,
-    pub prethunk_output_env: Ptr,
-    pub prethunk_output_cont: ContPtr,
+    pub(crate) prethunk_output_expr: Ptr,
+    pub(crate) prethunk_output_env: Ptr,
+    pub(crate) prethunk_output_cont: ContPtr,
 
-    pub destructured_thunk: Option<Thunk>,
-    pub extended_closure: Option<Ptr>,
-    pub make_thunk_cont: Option<ContPtr>,
-    pub make_thunk_tail_continuation_cont: Option<ContPtr>,
-    pub invoke_continuation_cont: Option<ContPtr>,
-
-    pub invoke_continuation_output_result: Option<Ptr>,
-    pub invoke_continuation_output_cont: Option<ContPtr>,
+    pub(crate) destructured_thunk: Option<Thunk>,
+    pub(crate) extended_closure: Option<Ptr>,
+    // pub(crate) make_thunk_cont: Option<ContPtr>,
+    // pub(crate) make_thunk_tail_continuation_cont: Option<ContPtr>,
+    pub(crate) invoke_continuation_cont: Option<ContPtr>,
+    // pub(crate) invoke_continuation_output_result: Option<Ptr>,
+    // pub(crate) invoke_continuation_output_cont: Option<ContPtr>,
 }
 
 impl Witness {
@@ -527,12 +539,11 @@ fn eval_expr_with_witness(
 
         destructured_thunk: None,
         extended_closure,
-        make_thunk_cont: None,
-        make_thunk_tail_continuation_cont: None,
+        // make_thunk_cont: None,
+        // make_thunk_tail_continuation_cont: None,
         invoke_continuation_cont: None,
-
-        invoke_continuation_output_result: None,
-        invoke_continuation_output_cont: None,
+        // invoke_continuation_output_result: None,
+        // invoke_continuation_output_cont: None,
     };
 
     let control = invoke_continuation(control, pool, &mut witness);
@@ -776,13 +787,12 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
                 unreachable!();
             }
         },
-        ContTag::Simple | ContTag::Error => unreachable!(),
+        ContTag::Simple | ContTag::Error | ContTag::_DEFAULT => unreachable!(),
     };
 
-    let (output_result, _output_env, output_cont) = control.as_results();
-
-    witness.invoke_continuation_output_result = Some(*output_result);
-    witness.invoke_continuation_output_cont = Some(*output_cont);
+    // let (output_result, _output_env, output_cont) = control.as_results();
+    // witness.invoke_continuation_output_result = Some(*output_result);
+    // witness.invoke_continuation_output_cont = Some(*output_cont);
 
     if control.is_invoke_continuation() {
         unreachable!();
@@ -792,13 +802,13 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
 }
 
 // Returns (Expression::Thunk, Expression::Env, Continuation)
-fn make_thunk(control: Control, pool: &mut Pool, witness: &mut Witness) -> Control {
+fn make_thunk(control: Control, pool: &mut Pool, _witness: &mut Witness) -> Control {
     if !control.is_make_thunk() {
         return control;
     }
 
     let (result, env, cont) = control.into_results();
-    witness.make_thunk_cont = Some(cont);
+    // witness.make_thunk_cont = Some(cont);
 
     if let Tag::Thunk = result.tag() {
         unreachable!("make_thunk should never be called with a thunk");
@@ -807,7 +817,7 @@ fn make_thunk(control: Control, pool: &mut Pool, witness: &mut Witness) -> Contr
     match cont.tag() {
         ContTag::Tail => match pool.fetch_cont(&cont).unwrap() {
             Continuation::Tail(saved_env, continuation) => {
-                witness.make_thunk_tail_continuation_cont = Some(continuation);
+                // witness.make_thunk_tail_continuation_cont = Some(continuation);
                 let thunk = pool.alloc_thunk(Thunk {
                     value: result,
                     continuation,
