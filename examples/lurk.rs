@@ -166,7 +166,7 @@ impl ReplState {
                         Some(s) => match s.tag() {
                             Tag::Str => {
                                 let path = pool.fetch(&s).unwrap();
-                                let path = PathBuf::from(path.as_sym_str().unwrap());
+                                let path = PathBuf::from(path.as_str().unwrap());
                                 self.handle_load(pool, path)?;
                                 (true, true)
                             }

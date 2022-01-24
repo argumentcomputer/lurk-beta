@@ -516,7 +516,7 @@ impl Pool {
     }
 
     pub fn alloc_str<T: AsRef<str>>(&mut self, name: T) -> Ptr {
-        let ptr = self.sym_pool.0.get_or_intern(name);
+        let ptr = self.str_pool.0.get_or_intern(name);
         Ptr(Tag::Str, RawPtr(ptr.to_usize()))
     }
 
@@ -743,9 +743,8 @@ impl Pool {
 
     fn fetch_str(&self, ptr: &Ptr) -> Option<&str> {
         debug_assert!(matches!(ptr.0, Tag::Str));
-        self.str_pool
-            .0
-            .resolve(SymbolUsize::try_from_usize(ptr.1 .0).unwrap())
+        let symbol = SymbolUsize::try_from_usize(ptr.1 .0).expect("invalid pointer");
+        self.str_pool.0.resolve(symbol)
     }
 
     fn fetch_fun(&self, ptr: &Ptr) -> Option<&(Ptr, Ptr, Ptr)> {
@@ -1122,6 +1121,13 @@ impl Expression<'_> {
         match self {
             Expression::Sym(s) => s.starts_with(':'),
             _ => false,
+        }
+    }
+
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Expression::Str(s) => Some(s),
+            _ => None,
         }
     }
 

@@ -432,16 +432,33 @@ asdf(", "ASDF",
     #[test]
     fn read_string() {
         let mut pool = Pool::default();
-        let test = |pool: &mut Pool, input: &str, expected: Option<Ptr>| {
+
+        let test = |pool: &mut Pool, input: &str, expected: Option<Ptr>, expr: Option<&str>| {
             let maybe_string = pool.read_string(&mut input.chars().peekable());
             assert_eq!(expected, maybe_string);
+            if let Some(ptr) = maybe_string {
+                let res = pool
+                    .fetch(&ptr)
+                    .expect(&format!("failed to fetch: {:?}", input));
+                assert_eq!(res.as_str(), expr);
+            }
         };
 
         let s = pool.alloc_str("asdf");
-        test(&mut pool, "\"asdf\"", Some(s));
-        test(&mut pool, "\"asdf", None);
-        test(&mut pool, "asdf", None);
+        test(&mut pool, "\"asdf\"", Some(s), Some("asdf"));
+        test(&mut pool, "\"asdf", None, None);
+        test(&mut pool, "asdf", None, None);
+
+        {
+            let input = "\"foo/bar/baz\"";
+            let ptr = pool.read_string(&mut input.chars().peekable()).unwrap();
+            let res = pool
+                .fetch(&ptr)
+                .expect(&format!("failed to fetch: {:?}", input));
+            assert_eq!(res.as_str().unwrap(), "foo/bar/baz");
+        }
     }
+
     #[test]
     fn read_with_comments() {
         let mut pool = Pool::default();
