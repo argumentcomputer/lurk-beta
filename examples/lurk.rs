@@ -1,6 +1,6 @@
 use anyhow::Result;
 use lurk::eval::{empty_sym_env, Evaluator};
-use lurk::pool::{ContPtr, ContTag, Expression, Pool, Ptr, Tag};
+use lurk::pool::{ContPtr, ContTag, Expression, Pointer, Pool, Ptr, Tag};
 use lurk::writer::Write;
 use rustyline::error::ReadlineError;
 use rustyline::validate::{

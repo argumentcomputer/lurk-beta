@@ -739,11 +739,19 @@ impl Pool {
     }
 
     pub fn verify_scalar_ptr(&self, tag: Scalar, hash: Scalar) -> bool {
+        let nil = self.hash_nil();
+        if &tag == nil.tag() && &hash == nil.value() {
+            return true;
+        }
         let sp = ScalarPtr(tag, hash);
         self.scalar_ptr_map.lock().unwrap().contains_key(&sp)
     }
 
     pub fn verify_scalar_cont_ptr(&self, tag: Scalar, hash: Scalar) -> bool {
+        let nil = self.hash_nil();
+        if &tag == nil.tag() && &hash == nil.value() {
+            return true;
+        }
         self.scalar_ptr_cont_map
             .lock()
             .unwrap()
@@ -895,7 +903,7 @@ impl Pool {
     pub fn hash_expr(&self, ptr: &Ptr) -> Option<ScalarPtr> {
         use Tag::*;
         match ptr.tag() {
-            Nil => self.hash_sym(NIL_PTR),
+            Nil => Some(self.hash_nil()),
             Cons => self.hash_cons(*ptr),
             Sym => self.hash_sym(*ptr),
             Fun => self.hash_fun(*ptr),
@@ -1129,7 +1137,7 @@ impl Pool {
     }
 
     pub fn hash_nil(&self) -> ScalarPtr {
-        self.create_scalar_ptr(NIL_PTR, Scalar::zero())
+        self.hash_sym(NIL_PTR).expect("nil is always hashable")
     }
 
     pub fn hash_default(&self) -> ScalarPtr {

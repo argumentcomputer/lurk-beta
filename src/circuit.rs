@@ -9,7 +9,7 @@ use blstrs::Scalar as Fr;
 use crate::{
     gadgets::{
         case::{case, multi_case, CaseClause},
-        data::{pick_ptr, pick_ptr_cont, GlobalAllocations},
+        data::{pick_ptr, GlobalAllocations},
         pointer::{AllocatedContPtr, AllocatedPtr},
     },
     pool::ScalarPointer,
@@ -44,28 +44,6 @@ fn bind_input<CS: ConstraintSystem<Fr>>(
     hash.inputize(cs.namespace(|| "hash input"))?;
 
     Ok(AllocatedPtr::from_allocated_parts_unchecked(tag, hash))
-}
-
-fn bind_input_cont<CS: ConstraintSystem<Fr>>(
-    cs: &mut CS,
-    cont: Option<&ContPtr>,
-    pool: &Pool,
-) -> Result<AllocatedContPtr, SynthesisError> {
-    let ptr = cont.and_then(|c| pool.hash_cont(c));
-
-    let tag = AllocatedNum::alloc(cs.namespace(|| "continuation tag"), || {
-        ptr.map(|c| *c.tag())
-            .ok_or(SynthesisError::AssignmentMissing)
-    })?;
-    tag.inputize(cs.namespace(|| "continuation tag input"))?;
-
-    let hash = AllocatedNum::alloc(cs.namespace(|| "continuation hash"), || {
-        ptr.map(|c| *c.value())
-            .ok_or(SynthesisError::AssignmentMissing)
-    })?;
-    hash.inputize(cs.namespace(|| "continuation hash input"))?;
-
-    Ok(AllocatedContPtr::from_allocated_parts_unchecked(tag, hash))
 }
 
 #[derive(Clone)]
@@ -116,7 +94,7 @@ impl Circuit<Fr> for CircuitFrame<'_, IO, Witness> {
             self.pool,
         )?;
 
-        let input_cont = bind_input_cont(
+        let input_cont = AllocatedContPtr::bind_input(
             &mut cs.namespace(|| "input cont"),
             self.input.as_ref().map(|input| &input.cont),
             self.pool,
@@ -135,7 +113,7 @@ impl Circuit<Fr> for CircuitFrame<'_, IO, Witness> {
             self.pool,
         )?;
 
-        let output_cont = bind_input_cont(
+        let output_cont = AllocatedContPtr::bind_input(
             &mut cs.namespace(|| "output cont"),
             self.output.as_ref().map(|output| &output.cont),
             self.pool,
@@ -157,7 +135,7 @@ impl Circuit<Fr> for CircuitFrame<'_, IO, Witness> {
         )?;
 
         // FIXME: use?
-        let _initial_cont = bind_input_cont(
+        let _initial_cont = AllocatedContPtr::bind_input(
             &mut cs.namespace(|| "initial cont"),
             self.initial.as_ref().map(|initial| &initial.cont),
             self.pool,
@@ -507,7 +485,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     let first_result_expr = ptr_by_index(0, &case_results, pool);
 
     let first_result_env = ptr_by_index(1, &case_results, pool);
-    let first_result_cont = cont_ptr_by_index(2, &case_results, pool);
+    let first_result_cont = AllocatedContPtr::by_index(2, &case_results);
     let first_result_invoke_continuation: &AllocatedNum<Fr> = &case_results[6];
 
     let invoke_continuation_boolean = Boolean::not(&alloc_is_zero(
@@ -544,12 +522,11 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         pool,
     )?;
 
-    let result_cont0 = pick_ptr_cont(
+    let result_cont0 = AllocatedContPtr::pick(
         &mut cs.namespace(|| "pick maybe invoke_continuation cont"),
         &invoke_continuation_boolean,
         dbg!(&invoke_continuation_results.2),
         dbg!(&first_result_cont),
-        pool,
     )?;
 
     let make_thunk_num = pick(
@@ -592,12 +569,11 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         pool,
     )?;
 
-    let result_cont = pick_ptr_cont(
+    let result_cont = AllocatedContPtr::pick(
         &mut cs.namespace(|| "pick maybe make_thunk cont"),
         &make_thunk_boolean,
         &thunk_results.2,
         &result_cont0,
-        pool,
     )?;
 
     Ok((result_expr, result_env, result_cont))
@@ -631,11 +607,13 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
         pool,
         witness.as_ref().map(|w| &w.prethunk_output_env),
     )?;
-    let output_cont = AllocatedContPtr::from_cont_ptr(
-        &mut cs.namespace(|| "output_cont"),
-        pool,
-        witness.as_ref().map(|w| &w.prethunk_output_cont),
-    )?;
+    let output_cont =
+        AllocatedContPtr::alloc_cont_ptr(&mut cs.namespace(|| "output_cont"), pool, || {
+            witness
+                .as_ref()
+                .map(|w| &w.prethunk_output_cont)
+                .ok_or(SynthesisError::AssignmentMissing)
+        })?;
 
     let sym_is_nil = expr.alloc_equal(&mut cs.namespace(|| "sym is nil"), &g.nil_ptr)?;
     let sym_is_t = expr.alloc_equal(&mut cs.namespace(|| "sym is t"), &g.t_ptr)?;
@@ -731,7 +709,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
         &otherwise_and_v2_not_expr
     )?;
 
-    let lookup_continuation = ContPtr::construct(
+    let lookup_continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "lookup_continuation"),
         &g.lookup_cont_tag,
         // Mirrors Continuation::get_hash_components()
@@ -1057,19 +1035,18 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             pool,
         )?;
 
-        let continuation1_letstar = ContPtr::construct(
+        let continuation1_letstar = AllocatedContPtr::construct(
             &mut cs_letrec.namespace(|| "let* continuation"),
             &g.letstar_cont_tag,
             &[&var, &expanded, env, cont],
             pool,
         )?;
 
-        let continuation_letstar = pick_ptr_cont(
+        let continuation_letstar = AllocatedContPtr::pick(
             &mut cs_letrec.namespace(|| "continuation let*"),
             &bindings_is_nil,
             cont,
             &continuation1_letstar,
-            pool,
         )?;
 
         let expanded2 = Ptr::construct_list(
@@ -1087,19 +1064,18 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             pool,
         )?;
 
-        let continuation1_letrecstar = ContPtr::construct(
+        let continuation1_letrecstar = AllocatedContPtr::construct(
             &mut cs_letrec.namespace(|| "letrec* continuation"),
             &g.letrecstar_cont_tag,
             &[&var, &expanded_star, env, cont],
             pool,
         )?;
 
-        let continuation_letrecstar = pick_ptr_cont(
+        let continuation_letrecstar = AllocatedContPtr::pick(
             &mut cs_letrec.namespace(|| "continuation letrec*"),
             &bindings_is_nil,
             cont,
             &continuation1_letrecstar,
-            pool,
         )?;
 
         (val, continuation_letstar, continuation_letrecstar)
@@ -1121,7 +1097,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     );
 
     // head == CONS
-    let continuation = ContPtr::construct(
+    let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "binop cons"),
         &g.binop_cont_tag,
         &[&[&g.op2_cons_tag, &g.default_num], env, &more, cont],
@@ -1136,7 +1112,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
 
     // TODO: Factor out the hashing involved in constructing the continuation,
     // since it happens in many of the branches here.
-    let continuation = ContPtr::construct(
+    let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "unop car"),
         &g.unop_cont_tag,
         &[
@@ -1152,7 +1128,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
 
     // head == CDR
     // FIXME: Error if end != NIL.
-    let continuation = ContPtr::construct(
+    let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "unop cdr"),
         &g.unop_cont_tag,
         &[
@@ -1168,7 +1144,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
 
     // head == ATOM
     // FIXME: Error if end != NIL.
-    let continuation = ContPtr::construct(
+    let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "unop atom"),
         &g.unop_cont_tag,
         &[
@@ -1183,7 +1159,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     results.add_clauses_cons(*atom_hash.value(), &arg1, env, &continuation, &g.false_num);
 
     // head == +
-    let continuation = ContPtr::construct(
+    let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "binop sum"),
         &g.binop_cont_tag,
         &[&[&g.op2_sum_tag, &g.default_num], env, &more, cont],
@@ -1193,7 +1169,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     results.add_clauses_cons(*sum_hash.value(), &arg1, env, &continuation, &g.false_num);
 
     // head == -
-    let continuation = ContPtr::construct(
+    let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "binop diff"),
         &g.binop_cont_tag,
         &[&[&g.op2_diff_tag, &g.default_num], env, &more, cont],
@@ -1203,7 +1179,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     results.add_clauses_cons(*diff_hash.value(), &arg1, env, &continuation, &g.false_num);
 
     // head == *
-    let continuation = ContPtr::construct(
+    let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "binop product"),
         &g.binop_cont_tag,
         &[&[&g.op2_product_tag, &g.default_num], env, &more, cont],
@@ -1219,7 +1195,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     );
 
     // head == /
-    let continuation = ContPtr::construct(
+    let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "binop quotient"),
         &g.binop_cont_tag,
         &[&[&g.op2_quotient_tag, &g.default_num], env, &more, cont],
@@ -1235,7 +1211,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     );
 
     // head == =
-    let continuation = ContPtr::construct(
+    let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "Relop NumEqual"),
         &g.relop_cont_tag,
         &[&[&g.rel2_numequal_tag, &g.default_num], env, &more, cont],
@@ -1251,7 +1227,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     );
 
     // head == EQ
-    let continuation = ContPtr::construct(
+    let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "Relop Equal"),
         &g.relop_cont_tag,
         &[&[&g.rel2_equal_tag, &g.default_num], env, &more, cont],
@@ -1263,7 +1239,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     // head == IF
     let continuation = {
         let unevaled_args = more.clone();
-        ContPtr::construct(
+        AllocatedContPtr::construct(
             &mut cs.namespace(|| "If"),
             &g.if_cont_tag,
             &[
@@ -1289,7 +1265,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         // head == (FN . ARGS)
         let fun_form = &head;
 
-        let call_continuation = ContPtr::construct(
+        let call_continuation = AllocatedContPtr::construct(
             &mut cs.namespace(|| "Call"),
             &g.call_cont_tag,
             &[env, &arg1, cont, &[&g.default_num, &g.default_num]],
@@ -1322,12 +1298,11 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             pool,
         )?;
 
-        let continuation = pick_ptr_cont(
+        let continuation = AllocatedContPtr::pick(
             &mut cs.namespace(|| "pick continuation"),
             &more_args_is_nil,
             &call_continuation,
             cont,
-            pool,
         )?;
 
         (res, continuation)
@@ -1362,7 +1337,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
 
     let result_expr = ptr_by_index(0, &case_results, pool);
     let result_env = ptr_by_index(1, &case_results, pool);
-    let result_cont = cont_ptr_by_index(2, &case_results, pool);
+    let result_cont = AllocatedContPtr::by_index(2, &case_results);
     let result_invoke_cont: &AllocatedNum<Fr> = &case_results[6];
 
     Ok((
@@ -1387,11 +1362,11 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
 
     let (computed_cont_hash, cont_components) = ContPtr::allocate_maybe_dummy_components(
         &mut cs.namespace(|| "cont components"),
-        cont.cont_ptr(pool).as_ref(),
+        cont.get_cont_ptr(pool).as_ref(),
         pool,
     )?;
 
-    let ptr = cont.cont_ptr(pool);
+    let ptr = cont.get_cont_ptr(pool);
     dbg!(
         ptr,
         ptr.map(|p| p.fmt_to_string(pool)),
@@ -1408,16 +1383,12 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
         let saved_env = ptr_by_index(0, &cont_components, pool);
 
         // Applies to Tail continuations
-        let continuation = cont_ptr_by_index(1, &cont_components, pool);
+        let continuation = AllocatedContPtr::by_index(1, &cont_components);
 
         let thunk_hash = Thunk::hash_components(
             &mut cs.namespace(|| "tail thunk_hash"),
-            &[
-                result.tag().clone(),
-                result.hash().clone(),
-                continuation.tag().clone(),
-                continuation.hash().clone(),
-            ],
+            result,
+            &continuation,
         )?;
 
         let result_expr = AllocatedPtr::from_allocated_parts(g.thunk_tag.clone(), thunk_hash, pool);
@@ -1429,15 +1400,7 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
 
     results.add_clauses_thunk(ContTag::Outermost, result, env, &g.terminal_ptr);
 
-    let thunk_hash = Thunk::hash_components(
-        &mut cs.namespace(|| "thunk_hash"),
-        &[
-            result.tag().clone(),
-            result.hash().clone(),
-            cont.tag().clone(),
-            cont.hash().clone(),
-        ],
-    )?;
+    let thunk_hash = Thunk::hash_components(&mut cs.namespace(|| "thunk_hash"), result, cont)?;
     let defaults = [
         &g.thunk_tag,
         &thunk_hash,
@@ -1465,7 +1428,7 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
 
     let result_expr = ptr_by_index(0, &case_results, pool);
     let result_env = ptr_by_index(1, &case_results, pool);
-    let result_cont = cont_ptr_by_index(2, &case_results, pool);
+    let result_cont = AllocatedContPtr::by_index(2, &case_results);
 
     Ok((result_expr, result_env, result_cont))
 }
@@ -1547,13 +1510,13 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         // Continuation::Call
         let saved_env = ptr_by_index(0, &continuation_components, pool);
         let arg = ptr_by_index(1, &continuation_components, pool);
-        let continuation = cont_ptr_by_index(2, &continuation_components, pool);
+        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
 
         let function = result;
         let next_expr = arg;
 
         // let call2_components = [g.call2_cont_tag.clone()];
-        let newer_cont = ContPtr::construct(
+        let newer_cont = AllocatedContPtr::construct(
             &mut cs.namespace(|| "construct newer_cont"),
             &g.call2_cont_tag,
             // Mirrors Continuation::get_hash_components()
@@ -1577,12 +1540,11 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             pool,
         )?;
 
-        let the_cont = pick_ptr_cont(
+        let the_cont = AllocatedContPtr::pick(
             &mut cs.namespace(|| "call_cont"),
             &result_is_fun,
             &newer_cont,
             &g.error_ptr_cont,
-            pool,
         )?;
         (next, the_cont)
     };
@@ -1592,7 +1554,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         // Continuation::Call2
         let saved_env = ptr_by_index(0, &continuation_components, pool);
         let fun = ptr_by_index(1, &continuation_components, pool);
-        let continuation = cont_ptr_by_index(2, &continuation_components, pool);
+        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
 
         {
             let (hash, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
@@ -1659,7 +1621,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let var = ptr_by_index(0, &continuation_components, pool);
         let body = ptr_by_index(1, &continuation_components, pool);
         let saved_env = ptr_by_index(2, &continuation_components, pool);
-        let cont = cont_ptr_by_index(3, &continuation_components, pool);
+        let cont = AllocatedContPtr::by_index(3, &continuation_components);
 
         let extended_env = extend(
             &mut cs.namespace(|| "LetStar extend env"),
@@ -1693,7 +1655,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let var = ptr_by_index(0, &continuation_components, pool);
         let body = ptr_by_index(1, &continuation_components, pool);
         let saved_env = ptr_by_index(2, &continuation_components, pool);
-        let cont = cont_ptr_by_index(3, &continuation_components, pool);
+        let cont = AllocatedContPtr::by_index(3, &continuation_components);
 
         let extended_env = extend_rec(
             &mut cs.namespace(|| "LetRecStar extend_rec env"),
@@ -1714,12 +1676,11 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             pool,
         )?;
 
-        let return_cont = pick_ptr_cont(
+        let return_cont = AllocatedContPtr::pick(
             &mut cs.namespace(|| "return_cont"),
             &is_error,
             &g.error_ptr_cont,
             &tail_cont,
-            pool,
         )?;
 
         (body, extended_env, return_cont)
@@ -1793,7 +1754,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         ptr_by_index(0, &res, pool)
     };
 
-    let continuation = cont_ptr_by_index(1, &continuation_components, pool);
+    let continuation = AllocatedContPtr::by_index(1, &continuation_components);
 
     results.add_clauses_cont(ContTag::Unop, &unop_val, env, &continuation, &g.true_num);
 
@@ -1802,12 +1763,12 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let op2 = &continuation_components[0];
         let saved_env = ptr_by_index(1, &continuation_components, pool);
         let unevaled_args = ptr_by_index(2, &continuation_components, pool);
-        let continuation = cont_ptr_by_index(3, &continuation_components, pool);
+        let continuation = AllocatedContPtr::by_index(3, &continuation_components);
 
         let (allocated_arg2, _allocated_rest) =
             car_cdr(&mut cs.namespace(|| "Binop cons"), g, &unevaled_args, pool)?;
 
-        let binop2_cont = ContPtr::construct(
+        let binop2_cont = AllocatedContPtr::construct(
             &mut cs.namespace(|| "Binop2"),
             &g.binop2_cont_tag,
             &[
@@ -1835,7 +1796,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         // Continuation::Binop2
         let op2 = ptr_by_index(0, &continuation_components, pool);
         let arg1 = ptr_by_index(1, &continuation_components, pool);
-        let continuation = cont_ptr_by_index(3, &continuation_components, pool);
+        let continuation = AllocatedContPtr::by_index(3, &continuation_components);
 
         let arg2 = result;
 
@@ -1925,12 +1886,11 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         // FIXME: error if op2 is not actually an Op2.
         // Currently, this will return the default value, treated as Num.
 
-        let c = pick_ptr_cont(
+        let c = AllocatedContPtr::pick(
             &mut cs.namespace(|| "maybe type error"),
             &valid_types,
             &continuation,
             &g.error_ptr_cont,
-            pool,
         )?;
 
         (res, c)
@@ -1943,13 +1903,13 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let relop2 = &continuation_components[0];
         let saved_env = ptr_by_index(1, &continuation_components, pool);
         let unevaled_args = ptr_by_index(2, &continuation_components, pool);
-        let continuation = cont_ptr_by_index(3, &continuation_components, pool);
+        let continuation = AllocatedContPtr::by_index(3, &continuation_components);
 
         let (allocated_arg2, _allocated_rest) =
             car_cdr(&mut cs.namespace(|| "Relops cons"), g, &unevaled_args, pool)?;
 
         // FIXME: If allocated_rest != Nil, then error.
-        let relop2_cont = ContPtr::construct(
+        let relop2_cont = AllocatedContPtr::construct(
             &mut cs.namespace(|| "Relop2"),
             &g.relop2_cont_tag,
             &[
@@ -1976,7 +1936,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         // Continuation::Relop2
         let rel2 = ptr_by_index(0, &continuation_components, pool);
         let arg1 = ptr_by_index(1, &continuation_components, pool);
-        let continuation = cont_ptr_by_index(2, &continuation_components, pool);
+        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
         let arg2 = result;
 
         let tags_equal = alloc_equal(
@@ -2038,7 +1998,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
     let (res, continuation) = {
         // Continuation::If
         let unevaled_args = ptr_by_index(0, &continuation_components, pool);
-        let continuation = cont_ptr_by_index(1, &continuation_components, pool);
+        let continuation = AllocatedContPtr::by_index(1, &continuation_components);
 
         let condition = result;
 
@@ -2075,7 +2035,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
 
     // Continuation::Lookup
     let saved_env = ptr_by_index(0, &continuation_components, pool);
-    let continuation = cont_ptr_by_index(1, &continuation_components, pool);
+    let continuation = AllocatedContPtr::by_index(1, &continuation_components);
     results.add_clauses_cont(
         ContTag::Lookup,
         result,
@@ -2085,12 +2045,12 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
     );
 
     // Continuation::Simple
-    let continuation = cont_ptr_by_index(0, &continuation_components, pool);
+    let continuation = AllocatedContPtr::by_index(0, &continuation_components);
     results.add_clauses_cont(ContTag::Simple, result, env, &continuation, &g.true_num);
 
     // Continuation::Tail
     let saved_env = ptr_by_index(0, &continuation_components, pool);
-    let continuation = cont_ptr_by_index(1, &continuation_components, pool);
+    let continuation = AllocatedContPtr::by_index(1, &continuation_components);
 
     results.add_clauses_cont(
         ContTag::Tail,
@@ -2135,7 +2095,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
 
     let result_expr = ptr_by_index(0, &case_results, pool);
     let result_env = ptr_by_index(1, &case_results, pool);
-    let result_cont = cont_ptr_by_index(2, &case_results, pool);
+    let result_cont = AllocatedContPtr::by_index(2, &case_results);
     let make_thunk_num = case_results[6].clone();
 
     Ok((result_expr, result_env, result_cont, make_thunk_num))
@@ -2166,8 +2126,10 @@ fn car_cdr<CS: ConstraintSystem<Fr>>(
         (pool.alloc_nil(), pool.alloc_nil())
     };
 
+    dbg!(maybe_cons, &car, &cdr);
     let allocated_car = car.allocate_ptr(&mut cs.namespace(|| "car"), pool)?;
     let allocated_cdr = cdr.allocate_ptr(&mut cs.namespace(|| "cdr"), pool)?;
+    dbg!(&allocated_car, &allocated_cdr);
 
     let constructed_cons = Ptr::construct_cons(
         &mut cs.namespace(|| "cons"),
@@ -2298,7 +2260,7 @@ fn make_tail_continuation<CS: ConstraintSystem<Fr>>(
         &g.tail_cont_tag,
     )?;
 
-    let new_tail = ContPtr::construct(
+    let new_tail = AllocatedContPtr::construct(
         &mut cs.namespace(|| "new tail continuation"),
         &g.tail_cont_tag,
         &[
@@ -2310,25 +2272,16 @@ fn make_tail_continuation<CS: ConstraintSystem<Fr>>(
         pool,
     )?;
 
-    pick_ptr_cont(
+    AllocatedContPtr::pick(
         &mut cs.namespace(|| "the tail continuation"),
         &continuation_is_tail,
         &continuation,
         &new_tail,
-        pool,
     )
 }
 
 fn ptr_by_index(n: usize, case_results: &[AllocatedNum<Fr>], pool: &Pool) -> AllocatedPtr {
     AllocatedPtr::from_allocated_parts(
-        case_results[n * 2].clone(),
-        case_results[1 + n * 2].clone(),
-        pool,
-    )
-}
-
-fn cont_ptr_by_index(n: usize, case_results: &[AllocatedNum<Fr>], pool: &Pool) -> AllocatedContPtr {
-    AllocatedContPtr::from_allocated_parts(
         case_results[n * 2].clone(),
         case_results[1 + n * 2].clone(),
         pool,
