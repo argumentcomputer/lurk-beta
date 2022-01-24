@@ -23,9 +23,7 @@ impl Write for Ptr {
 
 impl Write for ContPtr {
     fn fmt<W: io::Write>(&self, pool: &Pool, w: &mut W) -> io::Result<()> {
-        if self.is_default() {
-            write!(w, "_DEFAULT")
-        } else if let Some(cont) = pool.fetch_cont(self) {
+        if let Some(cont) = pool.fetch_cont(self) {
             cont.fmt(pool, w)
         } else {
             Ok(())

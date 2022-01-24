@@ -6,7 +6,10 @@ use blstrs::Scalar as Fr;
 use ff::Field;
 use neptune::circuit::poseidon_hash;
 
-use crate::{eval::Witness, pool::ScalarPtr};
+use crate::{
+    eval::Witness,
+    pool::{IntoHashComponents, ScalarPtr},
+};
 use crate::{
     gadgets::constraints::pick,
     pool::{ScalarContPtr, ScalarPointer},
@@ -24,7 +27,6 @@ use super::pointer::{AllocatedContPtr, AllocatedPtr};
 pub struct GlobalAllocations {
     pub terminal_ptr: AllocatedContPtr,
     pub outermost_ptr: AllocatedContPtr,
-    pub error_ptr: AllocatedPtr,
     pub error_ptr_cont: AllocatedContPtr,
     pub dummy_ptr: AllocatedContPtr,
     pub nil_ptr: AllocatedPtr,
@@ -87,12 +89,6 @@ impl GlobalAllocations {
             &mut cs.namespace(|| "outermost continuation"),
             pool,
             &pool.get_cont_outermost(),
-        )?;
-
-        // EVIL: fix usage of error
-        let error_ptr = AllocatedPtr::constant_from_scalar_ptr(
-            &mut cs.namespace(|| "error continuation (fake)"),
-            &pool.get_scalar_ptr_error(),
         )?;
 
         let error_ptr_cont = AllocatedContPtr::alloc_constant_cont_ptr(
@@ -178,19 +174,7 @@ impl GlobalAllocations {
 
         let true_num = allocate_constant(&mut cs.namespace(|| "true"), Fr::one())?;
         let false_num = allocate_constant(&mut cs.namespace(|| "false"), Fr::zero())?;
-
-        // NOTE: The choice of zero is significant.
-        // For example, Ptr::default() has both tag and hash of zero.
-        // let default_num = allocate_constant(, Fr::zero())?;
-        let default_ptr = AllocatedPtr::constant_from_scalar_ptr(
-            &mut cs.namespace(|| "default"),
-            &pool.hash_default(),
-        )?;
-        let default_num = default_ptr.hash().clone();
-        let _default_cont_ptr = AllocatedContPtr::alloc_constant(
-            &mut cs.namespace(|| "default cont"),
-            pool.hash_default_cont(),
-        )?;
+        let default_num = allocate_constant(&mut cs.namespace(|| "default"), Fr::zero())?;
 
         let maybe_thunk = if let Some(w) = witness {
             w.destructured_thunk
@@ -207,7 +191,6 @@ impl GlobalAllocations {
         Ok(Self {
             terminal_ptr,
             outermost_ptr,
-            error_ptr,
             error_ptr_cont,
             dummy_ptr,
             nil_ptr,
@@ -260,11 +243,7 @@ impl ContPtr {
         pool: &Pool,
     ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
         if let Some(cont) = cont {
-            if cont.is_default() {
-                ContPtr::allocate_dummy_components(cs)
-            } else {
-                cont.allocate_components(cs, pool)
-            }
+            cont.allocate_components(cs, pool)
         } else {
             ContPtr::allocate_dummy_components(cs)
         }
@@ -331,35 +310,33 @@ impl Ptr {
         pool: &Pool,
         maybe_fun: Option<&Ptr>,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr, AllocatedPtr), SynthesisError> {
-        match maybe_fun {
-            Some(ptr) => match ptr.tag() {
-                Tag::Fun => match pool.fetch(ptr).expect("missing fun") {
-                    Expression::Fun(arg, body, closed_env) => {
-                        let arg = pool.hash_expr(&arg).expect("missing arg");
-                        let body = pool.hash_expr(&body).expect("missing body");
-                        let closed_env = pool.hash_expr(&closed_env).expect("missing closed env");
-                        Self::allocate_fun(cs, &arg, &body, &closed_env)
-                    }
-                    _ => unreachable!(),
-                },
-                _ => Self::allocate_dummy_fun(cs, pool),
+        match maybe_fun.map(|ptr| (ptr, ptr.tag())) {
+            Some((ptr, Tag::Fun)) => match pool.fetch(ptr).expect("missing fun") {
+                Expression::Fun(arg, body, closed_env) => {
+                    let arg = pool.hash_expr(&arg).expect("missing arg");
+                    let body = pool.hash_expr(&body).expect("missing body");
+                    let closed_env = pool.hash_expr(&closed_env).expect("missing closed env");
+                    Self::allocate_fun(cs, arg, body, closed_env)
+                }
+                _ => unreachable!(),
             },
             _ => Self::allocate_dummy_fun(cs, pool),
         }
     }
 
-    fn allocate_fun<CS: ConstraintSystem<Fr>>(
+    fn allocate_fun<CS: ConstraintSystem<Fr>, T: IntoHashComponents>(
         mut cs: CS,
-        arg: &ScalarPtr,
-        body: &ScalarPtr,
-        closed_env: &ScalarPtr,
+        arg: T,
+        body: T,
+        closed_env: T,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr, AllocatedPtr), SynthesisError> {
-        let arg_t = AllocatedPtr::from_scalar_ptr(&mut cs.namespace(|| "allocate arg"), Some(arg))?;
+        let arg_t =
+            AllocatedPtr::alloc_hash_components(&mut cs.namespace(|| "allocate arg tag"), arg)?;
         let body_t =
-            AllocatedPtr::from_scalar_ptr(&mut cs.namespace(|| "allocate body"), Some(body))?;
-        let closed_env_t = AllocatedPtr::from_scalar_ptr(
-            &mut cs.namespace(|| "allocate closed_env"),
-            Some(closed_env),
+            AllocatedPtr::alloc_hash_components(&mut cs.namespace(|| "allocate body tag"), body)?;
+        let closed_env_t = AllocatedPtr::alloc_hash_components(
+            &mut cs.namespace(|| "allocate closed_env tag"),
+            closed_env,
         )?;
 
         let preimage = vec![
@@ -378,11 +355,14 @@ impl Ptr {
 
     fn allocate_dummy_fun<CS: ConstraintSystem<Fr>>(
         cs: CS,
-        pool: &Pool,
+        _pool: &Pool,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr, AllocatedPtr), SynthesisError> {
-        let def = pool.hash_default();
-
-        Self::allocate_fun(cs, &def, &def, &def)
+        Self::allocate_fun(
+            cs,
+            [Fr::zero(), Fr::zero()],
+            [Fr::zero(), Fr::zero()],
+            [Fr::zero(), Fr::zero()],
+        )
     }
 
     pub fn construct_cons<CS: ConstraintSystem<Fr>>(

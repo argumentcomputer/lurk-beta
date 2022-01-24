@@ -787,7 +787,7 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
                 unreachable!();
             }
         },
-        ContTag::Simple | ContTag::Error | ContTag::_DEFAULT => unreachable!(),
+        ContTag::Simple | ContTag::Error => unreachable!(),
     };
 
     // let (output_result, _output_env, output_cont) = control.as_results();
@@ -896,7 +896,7 @@ impl<'a> Evaluator<'a> {
 }
 
 pub fn empty_sym_env(pool: &Pool) -> Ptr {
-    pool.alloc_nil()
+    pool.get_nil()
 }
 
 fn extend(env: Ptr, var: Ptr, val: Ptr, pool: &mut Pool) -> Ptr {
@@ -943,7 +943,7 @@ fn extend_closure(fun: &Ptr, rec_env: &Ptr, pool: &mut Pool) -> Ptr {
 fn lookup(env: &Ptr, var: &Ptr, pool: &Pool) -> Ptr {
     assert!(matches!(var.tag(), Tag::Sym));
     match env.tag() {
-        Tag::Nil => pool.alloc_nil(),
+        Tag::Nil => pool.get_nil(),
         Tag::Cons => {
             let (binding, smaller_env) = pool.car_cdr(env);
             let (v, val) = pool.car_cdr(&binding);

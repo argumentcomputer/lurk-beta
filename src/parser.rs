@@ -317,7 +317,7 @@ asdf(", "ASDF",
         let expected3 = pool.alloc_cons(a, expected2);
         test(&mut pool, "(pumpkin 321 123)", &expected3);
 
-        let expected4 = pool.alloc_cons(expected, pool.alloc_nil());
+        let expected4 = pool.alloc_cons(expected, pool.get_nil());
         test(&mut pool, "((123))", &expected4);
 
         let (a, b) = (pool.alloc_num(321), pool.alloc_nil());

@@ -2,6 +2,7 @@
 
 use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
+    util_cs::Comparable,
     Circuit, ConstraintSystem, SynthesisError,
 };
 use blstrs::Scalar as Fr;
@@ -798,7 +799,16 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
 
         // implies_equal_t!(cs, &cond2, &output_expr, &expr);
         // implies_equal_t!(cs, &cond2, &output_env, &env);
-        implies_equal_t!(cs, &cond2, &output_cont, &g.error_ptr);
+        implies_equal_t!(
+            cs,
+            &cond2,
+            &output_cont,
+            &AllocatedPtr::from_allocated_parts(
+                g.error_ptr_cont.tag().clone(),
+                g.error_ptr_cont.hash().clone(),
+                pool
+            )
+        );
     }
     let cs = &mut cs.namespace(|| "v_is_expr1_real");
 
@@ -856,7 +866,16 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     let cond10 = and!(cs, &otherwise_neither, not_dummy)?;
     {
         // "Bad form"
-        implies_equal_t!(cs, &cond10, &output_cont, &g.error_ptr);
+        implies_equal_t!(
+            cs,
+            &cond10,
+            &output_cont,
+            &AllocatedPtr::from_allocated_parts(
+                g.error_ptr_cont.tag().clone(),
+                g.error_ptr_cont.hash().clone(),
+                pool
+            )
+        );
     }
 
     let conda = or!(cs, &cond1, &cond2)?; // cond1, cond2
@@ -1502,7 +1521,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         &mut cs.namespace(|| "allocate_continuation_components"),
         witness
             .as_ref()
-            .and_then(|w| w.invoke_continuation_cont.as_ref()),
+            .and_then(|w| dbg!(w.invoke_continuation_cont.as_ref())),
         pool,
     )?;
 
@@ -1510,7 +1529,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         // Continuation::Call
         let saved_env = ptr_by_index(0, &continuation_components, pool);
         let arg = ptr_by_index(1, &continuation_components, pool);
-        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
+        // let continuation = AllocatedContPtr::by_index(2, &continuation_components);
 
         let function = result;
         let next_expr = arg;
@@ -1523,7 +1542,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &[
                 &saved_env,
                 function,
-                &continuation,
+                &[&continuation_components[4], &continuation_components[5]],
                 &[&g.default_num, &g.default_num],
             ],
             pool,
@@ -1666,7 +1685,14 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             pool,
         )?;
 
-        let is_error = extended_env.alloc_equal(&mut cs.namespace(|| "is_error"), &g.error_ptr)?;
+        let is_error = extended_env.alloc_equal(
+            &mut cs.namespace(|| "is_error"),
+            &&AllocatedPtr::from_allocated_parts(
+                g.error_ptr_cont.tag().clone(),
+                g.error_ptr_cont.hash().clone(),
+                pool,
+            ),
+        )?;
 
         let tail_cont = make_tail_continuation(
             &mut cs.namespace(|| "LetRecStar make_tail_continuation"),
@@ -1796,7 +1822,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         // Continuation::Binop2
         let op2 = ptr_by_index(0, &continuation_components, pool);
         let arg1 = ptr_by_index(1, &continuation_components, pool);
-        let continuation = AllocatedContPtr::by_index(3, &continuation_components);
+        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
 
         let arg2 = result;
 
@@ -2119,11 +2145,11 @@ fn car_cdr<CS: ConstraintSystem<Fr>>(
             pool.car_cdr(&ptr)
         } else {
             // Dummy
-            (pool.alloc_nil(), pool.alloc_nil())
+            (pool.get_nil(), pool.get_nil())
         }
     } else {
         // Dummy
-        (pool.alloc_nil(), pool.alloc_nil())
+        (pool.get_nil(), pool.get_nil())
     };
 
     dbg!(maybe_cons, &car, &cdr);
@@ -2234,7 +2260,11 @@ fn extend_rec<CS: ConstraintSystem<Fr>>(
         &mut cs.namespace(|| "new_env_if_cons"),
         &is_cons,
         &cons3,
-        &g.error_ptr, // This is being used as a signal, since extend_rec is expected to return a valid env.
+        &AllocatedPtr::from_allocated_parts(
+            g.error_ptr_cont.tag().clone(),
+            g.error_ptr_cont.hash().clone(),
+            pool,
+        ), // This is being used as a signal, since extend_rec is expected to return a valid env.
         pool,
     )?;
 
@@ -2286,6 +2316,31 @@ fn ptr_by_index(n: usize, case_results: &[AllocatedNum<Fr>], pool: &Pool) -> All
         case_results[1 + n * 2].clone(),
         pool,
     )
+}
+
+/// Prints out the full CS for debugging purposes
+#[allow(dead_code)]
+pub(crate) fn print_cs<C: Comparable<Fr>>(this: &C) -> String {
+    let mut out = String::new();
+    out += &format!("num_inputs: {}\n", this.num_inputs());
+    out += &format!("num_constraints: {}\n", this.num_constraints());
+    out += "\ninputs:\n";
+    for (i, input) in this.inputs().iter().enumerate() {
+        out += &format!("{}: {}\n", i, input);
+    }
+    out += "\nconstraints:\n";
+    for (i, cs) in this.constraints().iter().enumerate() {
+        out += &format!(
+            "{}: {}:\n  {:?}\n  {:?}\n  {:?}\n",
+            i,
+            cs.3,
+            cs.0.iter().collect::<Vec<_>>(),
+            cs.1.iter().collect::<Vec<_>>(),
+            cs.2.iter().collect::<Vec<_>>()
+        );
+    }
+
+    out
 }
 
 #[cfg(test)]
@@ -2346,6 +2401,7 @@ mod tests {
             let delta = cs.delta(&cs_blank, false);
             assert!(delta == Delta::Equal);
 
+            // println!("{}", print_cs(&cs));
             assert_eq!(32499, cs.num_constraints());
             assert_eq!(20, cs.num_inputs());
             assert_eq!(32455, cs.aux().len());

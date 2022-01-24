@@ -9,8 +9,8 @@ use neptune::circuit::poseidon_hash;
 
 use crate::{
     pool::{
-        ContPtr, Continuation, Expression, Pool, Ptr, ScalarContPtr, ScalarPointer, ScalarPtr,
-        Thunk, POSEIDON_CONSTANTS_8,
+        ContPtr, Continuation, Expression, IntoHashComponents, Pool, Ptr, ScalarContPtr,
+        ScalarPointer, ScalarPtr, Thunk, POSEIDON_CONSTANTS_8,
     },
     writer::Write,
 };
@@ -65,16 +65,8 @@ impl AllocatedPtr {
     pub fn from_allocated_parts(
         tag: AllocatedNum<Fr>,
         hash: AllocatedNum<Fr>,
-        pool: &Pool,
+        _pool: &Pool,
     ) -> Self {
-        if let (Some(tag), Some(hash)) = (tag.get_value(), hash.get_value()) {
-            assert!(
-                pool.verify_scalar_ptr(tag, hash),
-                "trying to allocate invalid AllocatedPtr: {:?}, {:?}",
-                tag,
-                hash,
-            );
-        }
         Self::from_allocated_parts_unchecked(tag, hash)
     }
 
@@ -86,13 +78,8 @@ impl AllocatedPtr {
         cs: &mut CS,
         unallocated_tag: Fr,
         unallocated_hash: Fr,
-        pool: &Pool,
+        _pool: &Pool,
     ) -> Result<Self, SynthesisError> {
-        assert!(
-            pool.verify_scalar_ptr(unallocated_tag, unallocated_hash),
-            "trying to allocate invalid AllocatedContPtr"
-        );
-
         Self::from_unallocated_parts_unchecked(cs, unallocated_tag, unallocated_hash)
     }
 
@@ -186,10 +173,7 @@ impl AllocatedPtr {
 
     pub fn scalar_ptr(&self, pool: &Pool) -> Option<ScalarPtr> {
         let (tag, value) = (self.tag.get_value()?, self.hash.get_value()?);
-        match pool.scalar_from_parts(tag, value) {
-            Some(ptr) => Some(ptr),
-            None => panic!("Missing ScalarPtr for {:?}", self),
-        }
+        pool.scalar_from_parts(tag, value)
     }
 
     pub fn fetch_and_write_str(&self, pool: &Pool) -> String {
@@ -224,6 +208,18 @@ impl AllocatedPtr {
         //             }
         //         });
         Thunk::allocate_maybe_dummy_components(cs, maybe_thunk.as_ref(), pool)
+    }
+
+    pub fn alloc_hash_components<CS: ConstraintSystem<Fr>, T: IntoHashComponents>(
+        cs: &mut CS,
+        t: T,
+    ) -> Result<Self, SynthesisError> {
+        let [tag, hash] = t.into_hash_components();
+
+        let tag = AllocatedNum::alloc(&mut cs.namespace(|| "tag"), || Ok(tag))?;
+        let hash = AllocatedNum::alloc(&mut cs.namespace(|| "hash"), || Ok(hash))?;
+
+        Ok(Self { tag, hash })
     }
 }
 
@@ -402,11 +398,7 @@ impl AllocatedContPtr {
 
     pub fn get_scalar_ptr_cont(&self, pool: &Pool) -> Option<ScalarContPtr> {
         let (tag, value) = (self.tag.get_value()?, self.hash.get_value()?);
-
-        match pool.scalar_from_parts_cont(tag, value) {
-            Some(ptr) => Some(ptr),
-            None => panic!("Missing ScalarContPtr for {:?}", self),
-        }
+        pool.scalar_from_parts_cont(tag, value)
     }
 
     pub fn fetch_and_write_cont_str(&self, pool: &Pool) -> String {

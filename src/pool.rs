@@ -90,9 +90,6 @@ pub trait ScalarPointer: fmt::Debug + Copy + Clone + PartialEq + Hash {
     fn from_parts(tag: Scalar, value: Scalar) -> Self;
     fn tag(&self) -> &Scalar;
     fn value(&self) -> &Scalar;
-    fn is_default(&self) -> bool {
-        self.tag().is_zero_vartime() && self.value().is_zero_vartime()
-    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -140,6 +137,12 @@ impl ScalarPointer for ScalarPtr {
 
 pub trait IntoHashComponents {
     fn into_hash_components(self) -> [Scalar; 2];
+}
+
+impl IntoHashComponents for [Scalar; 2] {
+    fn into_hash_components(self) -> [Scalar; 2] {
+        self
+    }
 }
 
 impl IntoHashComponents for ScalarPtr {
@@ -193,10 +196,6 @@ impl Pointer for ContPtr {
 impl ContPtr {
     pub const fn is_error(&self) -> bool {
         matches!(self.0, ContTag::Error)
-    }
-
-    pub const fn is_default(&self) -> bool {
-        matches!(self.0, ContTag::_DEFAULT)
     }
 }
 
@@ -363,8 +362,6 @@ impl Tag {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u16)]
 pub enum ContTag {
-    /// This is only used to construct a default ptr, do not use for anything else!
-    _DEFAULT = 0,
     Outermost = 0b0001_0000_0000_0000,
     Simple,
     Call,
@@ -402,13 +399,9 @@ impl ContTag {
 
 // Expressions
 
-const DEFAULT_PTR: Ptr = Ptr(Tag::Nil, RawPtr(0));
 const NIL: Expression = Expression::Nil;
-const NIL_PTR: Ptr = Ptr(Tag::Nil, RawPtr(1));
 
 // Continuations
-
-const DEFAULT_CONT_PTR: ContPtr = ContPtr(ContTag::_DEFAULT, RawPtr(0));
 
 const OUTERMOST: Continuation = Continuation::Outermost;
 const ERROR: Continuation = Continuation::Error;
@@ -443,6 +436,7 @@ impl Default for Pool {
 
         // insert some well known symbols
         for sym in &[
+            "NIL",
             "T",
             "QUOTE",
             "LAMBDA",
@@ -477,12 +471,12 @@ impl Pool {
         Pool::default()
     }
 
-    pub const fn alloc_nil(&self) -> Ptr {
-        NIL_PTR
+    pub fn alloc_nil(&mut self) -> Ptr {
+        self.alloc_sym("NIL")
     }
 
-    pub const fn get_nil(&self) -> Ptr {
-        NIL_PTR
+    pub fn get_nil(&self) -> Ptr {
+        self.get_sym("NIL").expect("missing NIL")
     }
 
     pub fn alloc_cons(&mut self, car: Ptr, cdr: Ptr) -> Ptr {
@@ -494,31 +488,24 @@ impl Pool {
     pub fn alloc_list(&mut self, elts: &[Ptr]) -> Ptr {
         elts.iter()
             .rev()
-            .fold(NIL_PTR, |acc, elt| self.alloc_cons(*elt, acc))
+            .fold(self.alloc_sym("NIL"), |acc, elt| self.alloc_cons(*elt, acc))
     }
 
     pub fn alloc_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr {
-        if name.as_ref().eq_ignore_ascii_case("NIL") {
-            return NIL_PTR;
-        }
-
         // symbols are upper case
         let mut name = name.as_ref().to_string();
         name.make_ascii_uppercase();
 
+        let tag = if name == "NIL" { Tag::Nil } else { Tag::Sym };
         let ptr = self.sym_pool.0.get_or_intern(name);
-        Ptr(Tag::Sym, RawPtr(ptr.to_usize()))
+
+        Ptr(tag, RawPtr(ptr.to_usize()))
     }
 
     pub fn get_sym<T: AsRef<str>>(&self, name: T) -> Option<Ptr> {
-        let name = name.as_ref();
-        if name.eq_ignore_ascii_case("NIL") {
-            return Some(NIL_PTR);
-        }
-
         // symbols are upper case
         // TODO: avoid allocation
-        let mut name = name.to_string();
+        let mut name = name.as_ref().to_string();
         name.make_ascii_uppercase();
         self.find_sym(&name)
     }
@@ -577,14 +564,6 @@ impl Pool {
     pub fn get_cont_error(&self) -> ContPtr {
         let ptr = self.sym_pool.0.get("ERROR").expect("pre stored");
         ContPtr(ContTag::Error, RawPtr(ptr.to_usize()))
-    }
-
-    // FIXME: remove usage of error as Ptr
-    pub fn get_scalar_ptr_error(&self) -> ScalarPtr {
-        let ptr = self.get_cont_error();
-        let hash = self.hash_cont(&ptr).unwrap();
-
-        ScalarPtr(ContTag::Error.as_field(), hash.1)
     }
 
     pub fn alloc_cont_terminal(&self) -> ContPtr {
@@ -657,7 +636,7 @@ impl Pool {
 
     pub fn find(&self, expr: &Expression) -> Option<Ptr> {
         match expr {
-            Expression::Nil => Some(NIL_PTR),
+            Expression::Nil => self.find_sym("NIL"),
             Expression::Cons(a, b) => self.find_cons(a, b),
             Expression::Sym(name) => self.find_sym(name),
             Expression::Str(name) => self.find_str(name),
@@ -674,10 +653,15 @@ impl Pool {
     }
 
     fn find_sym<T: AsRef<str>>(&self, name: T) -> Option<Ptr> {
+        let tag = if name.as_ref().eq_ignore_ascii_case("NIL") {
+            Tag::Nil
+        } else {
+            Tag::Sym
+        };
         self.sym_pool
             .0
             .get(name)
-            .map(|raw| Ptr(Tag::Sym, RawPtr(raw.to_usize())))
+            .map(|raw| Ptr(tag, RawPtr(raw.to_usize())))
     }
 
     fn find_str<T: AsRef<str>>(&self, name: T) -> Option<Ptr> {
@@ -736,26 +720,6 @@ impl Pool {
 
     pub fn fetch_scalar(&self, scalar_ptr: &ScalarPtr) -> Option<Ptr> {
         self.scalar_ptr_map.lock().unwrap().get(scalar_ptr).cloned()
-    }
-
-    pub fn verify_scalar_ptr(&self, tag: Scalar, hash: Scalar) -> bool {
-        let nil = self.hash_nil();
-        if &tag == nil.tag() && &hash == nil.value() {
-            return true;
-        }
-        let sp = ScalarPtr(tag, hash);
-        self.scalar_ptr_map.lock().unwrap().contains_key(&sp)
-    }
-
-    pub fn verify_scalar_cont_ptr(&self, tag: Scalar, hash: Scalar) -> bool {
-        let nil = self.hash_nil();
-        if &tag == nil.tag() && &hash == nil.value() {
-            return true;
-        }
-        self.scalar_ptr_cont_map
-            .lock()
-            .unwrap()
-            .contains_key(&ScalarContPtr(tag, hash))
     }
 
     pub fn fetch_scalar_cont(&self, scalar_ptr: &ScalarContPtr) -> Option<ContPtr> {
@@ -821,7 +785,6 @@ impl Pool {
     pub fn fetch_cont(&self, ptr: &ContPtr) -> Option<Continuation> {
         use ContTag::*;
         match ptr.0 {
-            _DEFAULT => unreachable!(),
             Outermost => Some(OUTERMOST),
             Simple => self
                 .simple_pool
@@ -883,7 +846,7 @@ impl Pool {
 
     pub fn car_cdr(&self, ptr: &Ptr) -> (Ptr, Ptr) {
         match ptr.0 {
-            Tag::Nil => (NIL_PTR, NIL_PTR),
+            Tag::Nil => (self.get_nil(), self.get_nil()),
             Tag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => (car, cdr),
                 _ => unreachable!(),
@@ -903,7 +866,7 @@ impl Pool {
     pub fn hash_expr(&self, ptr: &Ptr) -> Option<ScalarPtr> {
         use Tag::*;
         match ptr.tag() {
-            Nil => Some(self.hash_nil()),
+            Nil => self.hash_nil(),
             Cons => self.hash_cons(*ptr),
             Sym => self.hash_sym(*ptr),
             Fun => self.hash_fun(*ptr),
@@ -1136,16 +1099,9 @@ impl Pool {
         self.hash_scalars_6(&preimage)
     }
 
-    pub fn hash_nil(&self) -> ScalarPtr {
-        self.hash_sym(NIL_PTR).expect("nil is always hashable")
-    }
-
-    pub fn hash_default(&self) -> ScalarPtr {
-        self.create_scalar_ptr(DEFAULT_PTR, Scalar::zero())
-    }
-
-    pub fn hash_default_cont(&self) -> ScalarContPtr {
-        self.create_cont_scalar_ptr(DEFAULT_CONT_PTR, Scalar::zero())
+    pub fn hash_nil(&self) -> Option<ScalarPtr> {
+        let nil = self.get_nil();
+        self.hash_sym(nil)
     }
 
     fn hash_op1(&self, op: &Op1) -> ScalarPtr {
