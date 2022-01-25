@@ -6,13 +6,10 @@ use blstrs::Scalar as Fr;
 use ff::Field;
 use neptune::circuit::poseidon_hash;
 
+use crate::pool::{ScalarContPtr, ScalarPointer};
 use crate::{
     eval::Witness,
     pool::{IntoHashComponents, ScalarPtr},
-};
-use crate::{
-    gadgets::constraints::pick,
-    pool::{ScalarContPtr, ScalarPointer},
 };
 use crate::{
     gadgets::pointer::AsAllocatedHashComponents,
@@ -28,6 +25,7 @@ pub struct GlobalAllocations {
     pub terminal_ptr: AllocatedContPtr,
     pub outermost_ptr: AllocatedContPtr,
     pub error_ptr_cont: AllocatedContPtr,
+    pub error_ptr: AllocatedPtr,
     pub dummy_ptr: AllocatedContPtr,
     pub nil_ptr: AllocatedPtr,
     pub t_ptr: AllocatedPtr,
@@ -96,6 +94,8 @@ impl GlobalAllocations {
             pool,
             &pool.get_cont_error(),
         )?;
+        let error_ptr =
+            AllocatedPtr::from_parts(error_ptr_cont.tag().clone(), error_ptr_cont.hash().clone());
 
         let dummy_ptr = AllocatedContPtr::alloc_constant_cont_ptr(
             &mut cs.namespace(|| "dummy continuation"),
@@ -104,18 +104,18 @@ impl GlobalAllocations {
         )?;
 
         let nil_ptr =
-            AllocatedPtr::constant_from_ptr(&mut cs.namespace(|| "nil"), pool, &pool.get_nil())?;
-        let t_ptr = AllocatedPtr::constant_from_ptr(
+            AllocatedPtr::alloc_constant_ptr(&mut cs.namespace(|| "nil"), pool, &pool.get_nil())?;
+        let t_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "T"),
             pool,
             &pool.get_sym("T").unwrap(),
         )?;
-        let lambda_ptr = AllocatedPtr::constant_from_ptr(
+        let lambda_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "LAMBDA"),
             pool,
             &pool.get_sym("LAMBDA").unwrap(),
         )?;
-        let dummy_arg_ptr = AllocatedPtr::constant_from_ptr(
+        let dummy_arg_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "_"),
             pool,
             &pool.get_sym("_").unwrap(),
@@ -192,6 +192,7 @@ impl GlobalAllocations {
             terminal_ptr,
             outermost_ptr,
             error_ptr_cont,
+            error_ptr,
             dummy_ptr,
             nil_ptr,
             t_ptr,
@@ -320,7 +321,7 @@ impl Ptr {
                 }
                 _ => unreachable!(),
             },
-            _ => Self::allocate_dummy_fun(cs, pool),
+            _ => Self::allocate_dummy_fun(cs),
         }
     }
 
@@ -355,7 +356,6 @@ impl Ptr {
 
     fn allocate_dummy_fun<CS: ConstraintSystem<Fr>>(
         cs: CS,
-        _pool: &Pool,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr, AllocatedPtr), SynthesisError> {
         Self::allocate_fun(
             cs,
@@ -363,75 +363,6 @@ impl Ptr {
             [Fr::zero(), Fr::zero()],
             [Fr::zero(), Fr::zero()],
         )
-    }
-
-    pub fn construct_cons<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-        g: &GlobalAllocations,
-        car: &AllocatedPtr,
-        cdr: &AllocatedPtr,
-        _pool: &Pool,
-    ) -> Result<AllocatedPtr, SynthesisError> {
-        // This is actually binary_hash, considering creating that helper for use elsewhere.
-        let preimage = vec![
-            car.tag().clone(),
-            car.hash().clone(),
-            cdr.tag().clone(),
-            cdr.hash().clone(),
-        ];
-
-        let hash = poseidon_hash(
-            cs.namespace(|| "Cons hash"),
-            preimage,
-            &POSEIDON_CONSTANTS_4,
-        )?;
-
-        Ok(AllocatedPtr::from_allocated_parts_unchecked(
-            g.cons_tag.clone(),
-            hash,
-            // pool,
-        ))
-    }
-
-    pub fn construct_list<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-        g: &GlobalAllocations,
-        elts: &[&AllocatedPtr],
-        pool: &Pool,
-    ) -> Result<AllocatedPtr, SynthesisError> {
-        if elts.is_empty() {
-            Ok(g.nil_ptr.clone())
-        } else {
-            let tail =
-                Self::construct_list(&mut cs.namespace(|| "Cons tail"), g, &elts[1..], pool)?;
-            Self::construct_cons(&mut cs.namespace(|| "Cons"), g, elts[0], &tail, pool)
-        }
-    }
-
-    pub fn construct_fun<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-        g: &GlobalAllocations,
-        arg: &AllocatedPtr,
-        body: &AllocatedPtr,
-        closed_env: &AllocatedPtr,
-        pool: &Pool,
-    ) -> Result<AllocatedPtr, SynthesisError> {
-        let preimage = vec![
-            arg.tag().clone(),
-            arg.hash().clone(),
-            body.tag().clone(),
-            body.hash().clone(),
-            closed_env.tag().clone(),
-            closed_env.hash().clone(),
-        ];
-
-        let hash = poseidon_hash(cs.namespace(|| "Fun hash"), preimage, &POSEIDON_CONSTANTS_6)?;
-
-        Ok(AllocatedPtr::from_allocated_parts(
-            g.fun_tag.clone(),
-            hash,
-            pool,
-        ))
     }
 }
 
@@ -557,13 +488,12 @@ impl Thunk {
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedContPtr), SynthesisError> {
         let component_frs = pool.get_hash_components_thunk(self);
 
-        let value = AllocatedPtr::from_scalar_ptr(
-            &mut cs.namespace(|| "Thunk component: value"),
+        let value = AllocatedPtr::alloc(&mut cs.namespace(|| "Thunk component: value"), || {
             component_frs
                 .as_ref()
                 .map(|frs| ScalarPtr::from_parts(frs[0], frs[1]))
-                .as_ref(),
-        )?;
+                .ok_or(SynthesisError::AssignmentMissing)
+        })?;
 
         let cont = AllocatedContPtr::alloc(
             &mut cs.namespace(|| "Thunk component: continuation"),
@@ -583,10 +513,9 @@ impl Thunk {
     pub fn allocate_dummy_components<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedContPtr), SynthesisError> {
-        let value = AllocatedPtr::from_scalar_ptr(
-            &mut cs.namespace(|| "Thunk component: value"),
-            Some(&ScalarPtr::from_parts(Fr::zero(), Fr::zero())),
-        )?;
+        let value = AllocatedPtr::alloc(&mut cs.namespace(|| "Thunk component: value"), || {
+            Ok(ScalarPtr::from_parts(Fr::zero(), Fr::zero()))
+        })?;
 
         let cont = AllocatedContPtr::alloc(
             &mut cs.namespace(|| "Thunk component: continuation"),
@@ -619,20 +548,4 @@ impl Thunk {
 
         Ok(hash)
     }
-}
-
-/// Takes two allocated numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.
-pub fn pick_ptr<CS>(
-    mut cs: CS,
-    condition: &Boolean,
-    a: &AllocatedPtr,
-    b: &AllocatedPtr,
-    pool: &Pool,
-) -> Result<AllocatedPtr, SynthesisError>
-where
-    CS: ConstraintSystem<Fr>,
-{
-    let tag = pick(cs.namespace(|| "tag"), condition, a.tag(), b.tag())?;
-    let hash = pick(cs.namespace(|| "hash"), condition, a.hash(), b.hash())?;
-    Ok(AllocatedPtr::from_allocated_parts(tag, hash, pool))
 }
