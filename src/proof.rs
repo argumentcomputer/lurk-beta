@@ -12,9 +12,8 @@ use rand_xorshift::XorShiftRng;
 use crate::circuit::CircuitFrame;
 use crate::eval::{Evaluator, Frame, Witness, IO};
 use crate::pool::{Pool, Ptr, ScalarPointer};
-use crate::writer::Write;
 
-pub const DUMMY_RNG_SEED: [u8; 16] = [
+const DUMMY_RNG_SEED: [u8; 16] = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 ];
 
@@ -115,6 +114,7 @@ impl<'a> CircuitFrame<'a, IO, Witness> {
         let mut evaluator = Evaluator::new(expr, env, pool, limit);
         let initial = evaluator.initial();
         let frames = evaluator.iter().collect::<Vec<_>>();
+        pool.hydrate_scalar_cache();
 
         // FIXME: Don't clone the RNG.
         let res = frames
@@ -141,6 +141,9 @@ impl<'a> CircuitFrame<'a, IO, Witness> {
         let mut evaluator = Evaluator::new(expr, env, pool, limit);
         let initial = evaluator.initial();
         let frames = evaluator.iter().collect::<Vec<_>>();
+
+        pool.hydrate_scalar_cache();
+
         let res = frames
             .into_iter()
             .map(|frame| {
@@ -196,11 +199,7 @@ fn verify_sequential_css(
     let mut previous_frame: Option<&Frame<IO, Witness>> = None;
     let initial = css[0].0.input.clone();
 
-    for (i, (frame, cs)) in css.iter().enumerate() {
-        println!("{} --", i);
-        println!("  {}", frame.input.fmt_to_string(pool));
-        println!("  {}", frame.output.fmt_to_string(pool));
-
+    for (_i, (frame, cs)) in css.iter().enumerate() {
         if let Some(prev) = previous_frame {
             if !prev.precedes(frame) {
                 dbg!("not preceeding frame");

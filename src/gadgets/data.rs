@@ -299,8 +299,6 @@ impl ContPtr {
             &POSEIDON_CONSTANTS_8,
         )?;
 
-        dbg!(dummy_hash.get_value());
-
         Ok((dummy_hash, result))
     }
 }

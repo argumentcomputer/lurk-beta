@@ -21,7 +21,6 @@ use crate::gadgets::constraints::{
     self, alloc_equal, alloc_is_zero, enforce_implication, or, pick,
 };
 use crate::pool::{ContPtr, ContTag, Op1, Op2, Pool, Ptr, Tag, Thunk};
-use crate::writer::Write;
 
 #[derive(Clone)]
 pub struct CircuitFrame<'a, T, W> {
@@ -48,12 +47,12 @@ impl<'a, T: Clone, W> CircuitFrame<'a, T, W> {
 
 impl Circuit<Fr> for CircuitFrame<'_, IO, Witness> {
     fn synthesize<CS: ConstraintSystem<Fr>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
-        if let Some(o) = &self.output {
-            dbg!(o.expr.fmt_to_string(self.pool));
-        }
-        if let Some(i) = &self.input {
-            dbg!(i.expr.fmt_to_string(self.pool));
-        }
+        // if let Some(o) = &self.output {
+        //     dbg!(o.expr.fmt_to_string(self.pool));
+        // }
+        // if let Some(i) = &self.input {
+        //     dbg!(i.expr.fmt_to_string(self.pool));
+        // }
 
         ////////////////////////////////////////////////////////////////////////////////
         // Bind public inputs.
@@ -141,19 +140,6 @@ impl Circuit<Fr> for CircuitFrame<'_, IO, Witness> {
             &self.witness,
             self.pool,
         )?;
-
-        dbg!(&output_expr, &new_expr,);
-        dbg!(&output_env, &new_env,);
-        dbg!(&output_cont, &new_cont,);
-
-        dbg!(output_expr.fetch_and_write_str(self.pool),);
-        dbg!(new_expr.fetch_and_write_str(self.pool));
-
-        dbg!(output_env.fetch_and_write_str(self.pool),);
-        dbg!(new_env.fetch_and_write_str(self.pool));
-
-        dbg!(output_cont.fetch_and_write_cont_str(self.pool),);
-        dbg!(new_cont.fetch_and_write_cont_str(self.pool));
 
         output_expr.enforce_equal(&mut cs.namespace(|| "output expr is correct"), &new_expr);
         output_env.enforce_equal(&mut cs.namespace(|| "output env is correct"), &new_env);
@@ -337,11 +323,10 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     witness: &Option<Witness>,
     pool: &Pool,
 ) -> Result<(AllocatedPtr, AllocatedPtr, AllocatedContPtr), SynthesisError> {
-    dbg!("evaluate_expression");
-
-    dbg!(&expr.fetch_and_write_str(pool));
-    dbg!(&env.fetch_and_write_str(pool));
-    dbg!(expr, cont);
+    // dbg!("evaluate_expression");
+    // dbg!(&expr.fetch_and_write_str(pool));
+    // dbg!(&env.fetch_and_write_str(pool));
+    // dbg!(expr, cont);
 
     let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), pool, witness)?;
 
@@ -500,8 +485,8 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     let result_cont0 = AllocatedContPtr::pick(
         &mut cs.namespace(|| "pick maybe invoke_continuation cont"),
         &invoke_continuation_boolean,
-        dbg!(&invoke_continuation_results.2),
-        dbg!(&first_result_cont),
+        &invoke_continuation_results.2,
+        &first_result_cont,
     )?;
 
     let make_thunk_num = pick(
@@ -1307,15 +1292,6 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
         pool,
     )?;
 
-    let ptr = cont.get_cont_ptr(pool);
-    dbg!(
-        ptr,
-        ptr.map(|p| p.fmt_to_string(pool)),
-        not_dummy.get_value(),
-        computed_cont_hash.get_value(),
-        cont.tag().get_value(),
-        cont.hash().get_value(),
-    );
     implies_equal!(cs, not_dummy, &computed_cont_hash, cont.hash());
 
     let (result_expr, saved_env) = {
@@ -1441,7 +1417,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         &mut cs.namespace(|| "allocate_continuation_components"),
         witness
             .as_ref()
-            .and_then(|w| dbg!(w.invoke_continuation_cont.as_ref())),
+            .and_then(|w| w.invoke_continuation_cont.as_ref()),
         pool,
     )?;
 
@@ -2013,13 +1989,6 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         &all_clauses,
         &defaults,
     )?;
-
-    for i in 0..7 {
-        dbg!(i);
-        dbg!(&all_clauses[i]);
-        dbg!(defaults[i].get_value());
-        dbg!(case_results[i].get_value());
-    }
 
     let result_expr = AllocatedPtr::by_index(0, &case_results);
     let result_env = AllocatedPtr::by_index(1, &case_results);

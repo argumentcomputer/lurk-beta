@@ -4,11 +4,11 @@ use itertools::Itertools;
 use neptune::Poseidon;
 use std::fmt;
 use std::hash::Hash;
-use std::sync::Mutex;
 use string_interner::symbol::{Symbol, SymbolUsize};
 
 use generic_array::typenum::{U10, U11, U16, U2, U3, U4, U5, U6, U7, U8, U9};
 use neptune::{hash_type::HashType, poseidon::PoseidonConstants, Strength};
+use rayon::prelude::*;
 
 lazy_static::lazy_static! {
     pub static ref POSEIDON_CONSTANTS_2: PoseidonConstants::<Scalar, U2> = PoseidonConstants::new();
@@ -67,9 +67,57 @@ pub struct Pool {
     let_rec_star_pool: IndexSet<(Ptr, Ptr, Ptr, ContPtr)>,
 
     /// Holds a mapping of ScalarPtr -> Ptr for reverese lookups
-    scalar_ptr_map: Mutex<ahash::AHashMap<ScalarPtr, Ptr>>,
+    scalar_ptr_map: dashmap::DashMap<ScalarPtr, Ptr, ahash::RandomState>,
     /// Holds a mapping of ScalarPtr -> ContPtr for reverese lookups
-    scalar_ptr_cont_map: Mutex<ahash::AHashMap<ScalarContPtr, ContPtr>>,
+    scalar_ptr_cont_map: dashmap::DashMap<ScalarContPtr, ContPtr, ahash::RandomState>,
+
+    /// Caches poseidon hashes
+    poseidon_cache: PoseidonCache,
+}
+
+#[derive(Default, Debug)]
+struct PoseidonCache {
+    a4: dashmap::DashMap<CacheKey<4>, Scalar, ahash::RandomState>,
+    a6: dashmap::DashMap<CacheKey<6>, Scalar, ahash::RandomState>,
+    a8: dashmap::DashMap<CacheKey<8>, Scalar, ahash::RandomState>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+struct CacheKey<const N: usize>([Scalar; N]);
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl<const N: usize> Hash for CacheKey<N> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for el in &self.0 {
+            el.to_repr().hash(state);
+        }
+    }
+}
+
+impl PoseidonCache {
+    fn hash4(&self, preimage: &[Scalar; 4]) -> Scalar {
+        let hash = self
+            .a4
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, &POSEIDON_CONSTANTS_4).hash());
+        *hash
+    }
+
+    fn hash6(&self, preimage: &[Scalar; 6]) -> Scalar {
+        let hash = self
+            .a6
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, &POSEIDON_CONSTANTS_6).hash());
+        *hash
+    }
+
+    fn hash8(&self, preimage: &[Scalar; 8]) -> Scalar {
+        let hash = self
+            .a8
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, &POSEIDON_CONSTANTS_8).hash());
+        *hash
+    }
 }
 
 pub trait Object: fmt::Debug + Copy + Clone + PartialEq + Hash {
@@ -432,6 +480,7 @@ impl Default for Pool {
             let_rec_star_pool: Default::default(),
             scalar_ptr_map: Default::default(),
             scalar_ptr_cont_map: Default::default(),
+            poseidon_cache: Default::default(),
         };
 
         // insert some well known symbols
@@ -691,13 +740,7 @@ impl Pool {
 
     pub fn scalar_from_parts(&self, tag: Scalar, value: Scalar) -> Option<ScalarPtr> {
         let scalar_ptr = ScalarPtr(tag, value);
-        if self
-            .scalar_ptr_map
-            .lock()
-            .unwrap()
-            .get(&scalar_ptr)
-            .is_some()
-        {
+        if self.scalar_ptr_map.contains_key(&scalar_ptr) {
             return Some(scalar_ptr);
         }
 
@@ -706,28 +749,18 @@ impl Pool {
 
     pub fn scalar_from_parts_cont(&self, tag: Scalar, value: Scalar) -> Option<ScalarContPtr> {
         let scalar_ptr = ScalarContPtr(tag, value);
-        if self
-            .scalar_ptr_cont_map
-            .lock()
-            .unwrap()
-            .get(&scalar_ptr)
-            .is_some()
-        {
+        if self.scalar_ptr_cont_map.contains_key(&scalar_ptr) {
             return Some(scalar_ptr);
         }
         None
     }
 
     pub fn fetch_scalar(&self, scalar_ptr: &ScalarPtr) -> Option<Ptr> {
-        self.scalar_ptr_map.lock().unwrap().get(scalar_ptr).cloned()
+        self.scalar_ptr_map.get(scalar_ptr).map(|p| *p)
     }
 
     pub fn fetch_scalar_cont(&self, scalar_ptr: &ScalarContPtr) -> Option<ContPtr> {
-        self.scalar_ptr_cont_map
-            .lock()
-            .unwrap()
-            .get(scalar_ptr)
-            .cloned()
+        self.scalar_ptr_cont_map.get(scalar_ptr).map(|p| *p)
     }
 
     fn fetch_sym(&self, ptr: &Ptr) -> Option<&str> {
@@ -877,7 +910,7 @@ impl Pool {
 
     pub fn hash_cont(&self, ptr: &ContPtr) -> Option<ScalarContPtr> {
         let components = self.get_hash_components_cont(ptr)?;
-        let hash = self.hash_scalars_8(&components);
+        let hash = self.poseidon_cache.hash8(&components);
 
         Some(self.create_cont_scalar_ptr(*ptr, hash))
     }
@@ -886,9 +919,7 @@ impl Pool {
     /// ensure that they are cached properly
     fn create_scalar_ptr(&self, ptr: Ptr, hash: Scalar) -> ScalarPtr {
         let scalar_ptr = ScalarPtr(ptr.tag_field(), hash);
-        let map = &mut self.scalar_ptr_map.lock().unwrap();
-        map.entry(scalar_ptr).or_insert(ptr);
-
+        self.scalar_ptr_map.entry(scalar_ptr).or_insert(ptr);
         scalar_ptr
     }
 
@@ -896,95 +927,49 @@ impl Pool {
     /// ensure that they are cached properly
     fn create_cont_scalar_ptr(&self, ptr: ContPtr, hash: Scalar) -> ScalarContPtr {
         let scalar_ptr = ScalarContPtr(ptr.tag_field(), hash);
-        let map = &mut self.scalar_ptr_cont_map.lock().unwrap();
-        map.entry(scalar_ptr).or_insert(ptr);
+        self.scalar_ptr_cont_map.entry(scalar_ptr).or_insert(ptr);
 
         scalar_ptr
+    }
+
+    fn get_hash_components_default(&self) -> [[Scalar; 2]; 4] {
+        let def = [Scalar::zero(), Scalar::zero()];
+        [def, def, def, def]
+    }
+
+    fn get_hash_components_simple(&self, cont: &ContPtr) -> Option<[[Scalar; 2]; 4]> {
+        let def = [Scalar::zero(), Scalar::zero()];
+        let cont = self.hash_cont(cont)?.into_hash_components();
+        Some([cont, def, def, def])
     }
 
     pub fn get_hash_components_cont(&self, ptr: &ContPtr) -> Option<[Scalar; 8]> {
         use Continuation::*;
 
         let cont = self.fetch_cont(ptr)?;
-        let def = [Scalar::zero(), Scalar::zero()];
 
-        let hash = match cont {
-            Outermost | Dummy | Terminal | Error => [def, def, def, def],
-            Simple(cont) => {
-                let cont = self.hash_cont(&cont)?.into_hash_components();
-                [cont, def, def, def]
-            }
-            Call(arg, saved_env, cont) => {
-                let arg = self.hash_expr(&arg)?.into_hash_components();
-                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
-                let cont = self.hash_cont(&cont)?.into_hash_components();
-                [saved_env, arg, cont, def]
-            }
-            Call2(fun, saved_env, cont) => {
-                let fun = self.hash_expr(&fun)?.into_hash_components();
-                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
-                let cont = self.hash_cont(&cont)?.into_hash_components();
-                [saved_env, fun, cont, def]
-            }
-            Tail(saved_env, cont) => {
-                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
-                let cont = self.hash_cont(&cont)?.into_hash_components();
-                [saved_env, cont, def, def]
-            }
-            Lookup(saved_env, cont) => {
-                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
-                let cont = self.hash_cont(&cont)?.into_hash_components();
-                [saved_env, cont, def, def]
-            }
-            Unop(op, cont) => {
-                let op = self.hash_op1(&op).into_hash_components();
-                let cont = self.hash_cont(&cont)?.into_hash_components();
-                [op, cont, def, def]
-            }
+        let hash = match &cont {
+            Outermost | Dummy | Terminal | Error => self.get_hash_components_default(),
+            Simple(ref cont) => self.get_hash_components_simple(cont)?,
+            Call(arg, saved_env, cont) => self.get_hash_components_call(arg, saved_env, cont)?,
+            Call2(fun, saved_env, cont) => self.get_hash_components_call2(fun, saved_env, cont)?,
+            Tail(saved_env, cont) => self.get_hash_components_tail(saved_env, cont)?,
+            Lookup(saved_env, cont) => self.get_hash_components_lookup(saved_env, cont)?,
+            Unop(op, cont) => self.get_hash_components_unop(op, cont)?,
             Binop(op, saved_env, unevaled_args, cont) => {
-                let op = self.hash_op2(&op).into_hash_components();
-                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
-                let unevaled_args = self.hash_expr(&unevaled_args)?.into_hash_components();
-                let cont = self.hash_cont(&cont)?.into_hash_components();
-                [op, saved_env, unevaled_args, cont]
+                self.get_hash_components_binop(op, saved_env, unevaled_args, cont)?
             }
-            Binop2(op, arg1, cont) => {
-                let op = self.hash_op2(&op).into_hash_components();
-                let arg1 = self.hash_expr(&arg1)?.into_hash_components();
-                let cont = self.hash_cont(&cont)?.into_hash_components();
-                [op, arg1, cont, def]
-            }
+            Binop2(op, arg1, cont) => self.get_hash_components_binop2(op, arg1, cont)?,
             Relop(rel, saved_env, unevaled_args, cont) => {
-                let rel = self.hash_rel2(&rel).into_hash_components();
-                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
-                let unevaled_args = self.hash_expr(&unevaled_args)?.into_hash_components();
-                let cont = self.hash_cont(&cont)?.into_hash_components();
-                [rel, saved_env, unevaled_args, cont]
+                self.get_hash_components_relop(rel, saved_env, unevaled_args, cont)?
             }
-            Relop2(rel, arg1, cont) => {
-                let rel = self.hash_rel2(&rel).into_hash_components();
-                let arg1 = self.hash_expr(&arg1)?.into_hash_components();
-                let cont = self.hash_cont(&cont)?.into_hash_components();
-                [rel, arg1, cont, def]
-            }
-            If(unevaled_args, cont) => {
-                let unevaled_args = self.hash_expr(&unevaled_args)?.into_hash_components();
-                let cont = self.hash_cont(&cont)?.into_hash_components();
-                [unevaled_args, cont, def, def]
-            }
+            Relop2(rel, arg1, cont) => self.get_hash_components_relop2(rel, arg1, cont)?,
+            If(unevaled_args, cont) => self.get_hash_components_if(unevaled_args, cont)?,
             LetStar(var, body, saved_env, cont) => {
-                let var = self.hash_expr(&var)?.into_hash_components();
-                let body = self.hash_expr(&body)?.into_hash_components();
-                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
-                let cont = self.hash_cont(&cont)?.into_hash_components();
-                [var, body, saved_env, cont]
+                self.get_hash_components_let_star(var, body, saved_env, cont)?
             }
             LetRecStar(var, body, saved_env, cont) => {
-                let var = self.hash_expr(&var)?.into_hash_components();
-                let body = self.hash_expr(&body)?.into_hash_components();
-                let saved_env = self.hash_expr(&saved_env)?.into_hash_components();
-                let cont = self.hash_cont(&cont)?.into_hash_components();
-                [var, body, saved_env, cont]
+                self.get_hash_components_let_rec_star(var, body, saved_env, cont)?
             }
         };
 
@@ -992,6 +977,156 @@ impl Pool {
             hash[0][0], hash[0][1], hash[1][0], hash[1][1], hash[2][0], hash[2][1], hash[3][0],
             hash[3][1],
         ])
+    }
+
+    fn get_hash_components_let_rec_star(
+        &self,
+        var: &Ptr,
+        body: &Ptr,
+        saved_env: &Ptr,
+        cont: &ContPtr,
+    ) -> Option<[[Scalar; 2]; 4]> {
+        let var = self.hash_expr(var)?.into_hash_components();
+        let body = self.hash_expr(body)?.into_hash_components();
+        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+        let cont = self.hash_cont(cont)?.into_hash_components();
+        Some([var, body, saved_env, cont])
+    }
+
+    fn get_hash_components_let_star(
+        &self,
+        var: &Ptr,
+        body: &Ptr,
+        saved_env: &Ptr,
+        cont: &ContPtr,
+    ) -> Option<[[Scalar; 2]; 4]> {
+        let var = self.hash_expr(var)?.into_hash_components();
+        let body = self.hash_expr(body)?.into_hash_components();
+        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+        let cont = self.hash_cont(cont)?.into_hash_components();
+        Some([var, body, saved_env, cont])
+    }
+
+    fn get_hash_components_if(
+        &self,
+        unevaled_args: &Ptr,
+        cont: &ContPtr,
+    ) -> Option<[[Scalar; 2]; 4]> {
+        let def = [Scalar::zero(), Scalar::zero()];
+        let unevaled_args = self.hash_expr(unevaled_args)?.into_hash_components();
+        let cont = self.hash_cont(cont)?.into_hash_components();
+        Some([unevaled_args, cont, def, def])
+    }
+
+    fn get_hash_components_relop2(
+        &self,
+        rel: &Rel2,
+        arg1: &Ptr,
+        cont: &ContPtr,
+    ) -> Option<[[Scalar; 2]; 4]> {
+        let def = [Scalar::zero(), Scalar::zero()];
+        let rel = self.hash_rel2(rel).into_hash_components();
+        let arg1 = self.hash_expr(arg1)?.into_hash_components();
+        let cont = self.hash_cont(cont)?.into_hash_components();
+        Some([rel, arg1, cont, def])
+    }
+
+    fn get_hash_components_relop(
+        &self,
+        rel: &Rel2,
+        saved_env: &Ptr,
+        unevaled_args: &Ptr,
+        cont: &ContPtr,
+    ) -> Option<[[Scalar; 2]; 4]> {
+        let rel = self.hash_rel2(rel).into_hash_components();
+        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+        let unevaled_args = self.hash_expr(unevaled_args)?.into_hash_components();
+        let cont = self.hash_cont(cont)?.into_hash_components();
+        Some([rel, saved_env, unevaled_args, cont])
+    }
+
+    fn get_hash_components_binop2(
+        &self,
+        op: &Op2,
+        arg1: &Ptr,
+        cont: &ContPtr,
+    ) -> Option<[[Scalar; 2]; 4]> {
+        let def = [Scalar::zero(), Scalar::zero()];
+        let op = self.hash_op2(op).into_hash_components();
+        let arg1 = self.hash_expr(arg1)?.into_hash_components();
+        let cont = self.hash_cont(cont)?.into_hash_components();
+        Some([op, arg1, cont, def])
+    }
+
+    fn get_hash_components_binop(
+        &self,
+        op: &Op2,
+        saved_env: &Ptr,
+        unevaled_args: &Ptr,
+        cont: &ContPtr,
+    ) -> Option<[[Scalar; 2]; 4]> {
+        let op = self.hash_op2(op).into_hash_components();
+        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+        let unevaled_args = self.hash_expr(unevaled_args)?.into_hash_components();
+        let cont = self.hash_cont(cont)?.into_hash_components();
+        Some([op, saved_env, unevaled_args, cont])
+    }
+
+    fn get_hash_components_unop(&self, op: &Op1, cont: &ContPtr) -> Option<[[Scalar; 2]; 4]> {
+        let def = [Scalar::zero(), Scalar::zero()];
+        let op = self.hash_op1(op).into_hash_components();
+        let cont = self.hash_cont(cont)?.into_hash_components();
+        Some([op, cont, def, def])
+    }
+
+    fn get_hash_components_lookup(
+        &self,
+        saved_env: &Ptr,
+        cont: &ContPtr,
+    ) -> Option<[[Scalar; 2]; 4]> {
+        let def = [Scalar::zero(), Scalar::zero()];
+        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+        let cont = self.hash_cont(cont)?.into_hash_components();
+        Some([saved_env, cont, def, def])
+    }
+
+    fn get_hash_components_tail(
+        &self,
+        saved_env: &Ptr,
+        cont: &ContPtr,
+    ) -> Option<[[Scalar; 2]; 4]> {
+        let def = [Scalar::zero(), Scalar::zero()];
+        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+        let cont = self.hash_cont(cont)?.into_hash_components();
+        Some([saved_env, cont, def, def])
+    }
+
+    fn get_hash_components_call2(
+        &self,
+        fun: &Ptr,
+        saved_env: &Ptr,
+        cont: &ContPtr,
+    ) -> Option<[[Scalar; 2]; 4]> {
+        let def = [Scalar::zero(), Scalar::zero()];
+        let fun = self.hash_expr(fun)?.into_hash_components();
+        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+        let cont = self.hash_cont(cont)?.into_hash_components();
+        Some([saved_env, fun, cont, def])
+    }
+
+    fn get_hash_components_call(
+        &self,
+        arg: &Ptr,
+        saved_env: &Ptr,
+        cont: &ContPtr,
+    ) -> Option<[[Scalar; 2]; 4]> {
+        let def = [Scalar::zero(), Scalar::zero()];
+
+        let arg = self.hash_expr(arg)?.into_hash_components();
+        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+        let cont = self.hash_cont(cont)?.into_hash_components();
+
+        Some([saved_env, arg, cont, def])
     }
 
     pub fn get_hash_components_thunk(&self, thunk: &Thunk) -> Option<[Scalar; 4]> {
@@ -1023,7 +1158,6 @@ impl Pool {
 
     fn hash_cons(&self, cons: Ptr) -> Option<ScalarPtr> {
         let (car, cdr) = self.fetch_cons(&cons)?;
-
         Some(self.create_scalar_ptr(cons, self.hash_ptrs_2(&[*car, *cdr])?))
     }
 
@@ -1031,7 +1165,7 @@ impl Pool {
         let thunk = self.fetch_thunk(&ptr)?;
         let components = self.get_hash_components_thunk(thunk)?;
 
-        Some(self.create_scalar_ptr(ptr, self.hash_scalars_4(&components)))
+        Some(self.create_scalar_ptr(ptr, self.poseidon_cache.hash4(&components)))
     }
 
     fn hash_num(&self, ptr: Ptr) -> Option<ScalarPtr> {
@@ -1055,7 +1189,7 @@ impl Pool {
                         *item = c
                     };
                 }
-                x = Poseidon::new_with_preimage(&preimage, &POSEIDON_CONSTANTS_8).hash()
+                x = self.poseidon_cache.hash8(&preimage)
             });
         x
     }
@@ -1074,28 +1208,16 @@ impl Pool {
         Some(self.hash_scalar_ptrs_3(&scalar_ptrs))
     }
 
-    fn hash_scalars_4(&self, preimage: &[Scalar; 4]) -> Scalar {
-        Poseidon::new_with_preimage(preimage, &POSEIDON_CONSTANTS_4).hash()
-    }
-
-    fn hash_scalars_6(&self, preimage: &[Scalar; 6]) -> Scalar {
-        Poseidon::new_with_preimage(preimage, &POSEIDON_CONSTANTS_6).hash()
-    }
-
-    fn hash_scalars_8(&self, preimage: &[Scalar; 8]) -> Scalar {
-        Poseidon::new_with_preimage(preimage, &POSEIDON_CONSTANTS_8).hash()
-    }
-
     fn hash_scalar_ptrs_2(&self, ptrs: &[ScalarPtr; 2]) -> Scalar {
         let preimage = [ptrs[0].0, ptrs[0].1, ptrs[1].0, ptrs[1].1];
-        self.hash_scalars_4(&preimage)
+        self.poseidon_cache.hash4(&preimage)
     }
 
     fn hash_scalar_ptrs_3(&self, ptrs: &[ScalarPtr; 3]) -> Scalar {
         let preimage = [
             ptrs[0].0, ptrs[0].1, ptrs[1].0, ptrs[1].1, ptrs[2].0, ptrs[2].1,
         ];
-        self.hash_scalars_6(&preimage)
+        self.poseidon_cache.hash6(&preimage)
     }
 
     pub fn hash_nil(&self) -> Option<ScalarPtr> {
@@ -1113,6 +1235,123 @@ impl Pool {
 
     fn hash_rel2(&self, op: &Rel2) -> ScalarPtr {
         ScalarPtr(op.as_field(), Scalar::zero())
+    }
+
+    /// Fill the cache for Scalars.
+    pub fn hydrate_scalar_cache(&self) {
+        println!("hydrating scalar cache");
+
+        self.cons_pool.par_iter().for_each(|(car, cdr)| {
+            self.hash_ptrs_2(&[*car, *cdr]);
+        });
+
+        self.sym_pool.0.into_iter().for_each(|(_, sym)| {
+            self.hash_string(sym);
+        });
+
+        // Nums are not hashed, they are their own hash.
+
+        self.fun_pool
+            .par_iter()
+            .for_each(|(arg, body, closed_env)| {
+                self.hash_ptrs_3(&[*arg, *body, *closed_env]);
+            });
+
+        self.str_pool.0.into_iter().for_each(|(_, name)| {
+            self.hash_string(name);
+        });
+
+        self.thunk_pool.par_iter().for_each(|thunk| {
+            if let Some(components) = self.get_hash_components_thunk(thunk) {
+                self.poseidon_cache.hash4(&components);
+            }
+        });
+
+        // Continuations are all 8 components
+        let simple = self
+            .simple_pool
+            .par_iter()
+            .filter_map(|c| self.get_hash_components_simple(c));
+        let call = self
+            .call_pool
+            .par_iter()
+            .filter_map(|(a, b, c)| self.get_hash_components_call(a, b, c));
+        let call2 = self
+            .call2_pool
+            .par_iter()
+            .filter_map(|(a, b, c)| self.get_hash_components_call2(a, b, c));
+
+        let tail = self
+            .tail_pool
+            .par_iter()
+            .filter_map(|(a, b)| self.get_hash_components_tail(a, b));
+
+        let lookup = self
+            .lookup_pool
+            .par_iter()
+            .filter_map(|(a, b)| self.get_hash_components_lookup(a, b));
+
+        let unop = self
+            .unop_pool
+            .par_iter()
+            .filter_map(|(a, b)| self.get_hash_components_unop(a, b));
+
+        let binop = self
+            .binop_pool
+            .par_iter()
+            .filter_map(|(a, b, c, d)| self.get_hash_components_binop(a, b, c, d));
+
+        let binop2 = self
+            .binop2_pool
+            .par_iter()
+            .filter_map(|(a, b, c)| self.get_hash_components_binop2(a, b, c));
+
+        let relop = self
+            .relop_pool
+            .par_iter()
+            .filter_map(|(a, b, c, d)| self.get_hash_components_relop(a, b, c, d));
+
+        let relop2 = self
+            .relop2_pool
+            .par_iter()
+            .filter_map(|(a, b, c)| self.get_hash_components_relop2(a, b, c));
+
+        let ifi = self
+            .if_pool
+            .par_iter()
+            .filter_map(|(a, b)| self.get_hash_components_if(a, b));
+
+        let let_star = self
+            .let_star_pool
+            .par_iter()
+            .filter_map(|(a, b, c, d)| self.get_hash_components_let_star(a, b, c, d));
+
+        let let_rec_star = self
+            .let_rec_star_pool
+            .par_iter()
+            .filter_map(|(a, b, c, d)| self.get_hash_components_let_rec_star(a, b, c, d));
+
+        let chain = simple
+            .chain(call)
+            .chain(call2)
+            .chain(tail)
+            .chain(lookup)
+            .chain(unop)
+            .chain(binop)
+            .chain(binop2)
+            .chain(relop)
+            .chain(relop2)
+            .chain(ifi)
+            .chain(let_star)
+            .chain(let_rec_star);
+
+        chain.for_each(|el| {
+            self.poseidon_cache.hash8(&[
+                el[0][0], el[0][1], el[1][0], el[1][1], el[2][0], el[2][1], el[3][0], el[3][1],
+            ]);
+        });
+
+        println!("cache hydrated");
     }
 }
 

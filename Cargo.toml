@@ -24,10 +24,11 @@ rand = "0.8"
 rustyline = "9.0.0"
 rustyline-derive = "0.5.0"
 rand_xorshift = "0.3.0"
-chashmap = "2.2.2"
-indexmap = "1.8.0"
+indexmap = { version = "1.8.0", features = ["rayon"] }
 ahash = "0.7.6"
 string-interner = "0.14.0"
+rayon = "1.5.1"
+dashmap = "5.0.0"
 
 [features]
 default = ["gpu"]
