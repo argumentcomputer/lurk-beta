@@ -182,7 +182,7 @@ impl ReplState {
                         if let Some(s) = store.read_string(&mut chars) {
                             if s.tag() == Tag::Str {
                                 let path = store.fetch(&s).unwrap();
-                                let path = PathBuf::from(path.as_sym_str().unwrap());
+                                let path = PathBuf::from(path.as_str().unwrap());
                                 self.handle_run(store, &path)?;
                             }
                         }
