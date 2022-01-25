@@ -242,131 +242,135 @@ fn eval_expr_with_witness(
                 // Otherwise, look for a matching binding in env.
 
                 // CIRCUIT: sym_otherwise
-                assert!(!env.is_nil(), "Unbound variable: {:?}", expr);
-                let (binding, smaller_env) = store.car_cdr(&env);
-                if binding.is_nil() {
-                    // If binding is NIL, it's empty. There is no match. Return an error due to unbound variable.
-
-                    // CIRCUIT: binding_is_nil
-                    //          otherwise_and_binding_is_nil
-                    //          cond2
+                if env.is_nil() {
+                    //     //assert!(!env.is_nil(), "Unbound variable: {:?}", expr);
                     Control::Return(expr, env, store.alloc_cont_error())
                 } else {
-                    // Binding is not NIL, so it is either a normal binding or a recursive environment.
+                    let (binding, smaller_env) = store.car_cdr(&env);
+                    if binding.is_nil() {
+                        // If binding is NIL, it's empty. There is no match. Return an error due to unbound variable.
 
-                    // CIRCUIT: binding_not_nil
-                    //          otherwise_and_binding_not_nil
-                    let (var_or_rec_binding, val_or_more_rec_env) = store.car_cdr(&binding);
-                    match var_or_rec_binding.tag() {
-                        Tag::Sym => {
-                            // We are in a simple env (not a recursive env),
-                            // looking at a binding's variable.
+                        // CIRCUIT: binding_is_nil
+                        //          otherwise_and_binding_is_nil
+                        //          cond2
+                        Control::Return(expr, env, store.alloc_cont_error())
+                    } else {
+                        // Binding is not NIL, so it is either a normal binding or a recursive environment.
 
-                            // CIRCUIT: var_or_rec_binding_is_sym
-                            //          otherwise_and_sym
-                            let v = var_or_rec_binding;
-                            let val = val_or_more_rec_env;
+                        // CIRCUIT: binding_not_nil
+                        //          otherwise_and_binding_not_nil
+                        let (var_or_rec_binding, val_or_more_rec_env) = store.car_cdr(&binding);
+                        match var_or_rec_binding.tag() {
+                            Tag::Sym => {
+                                // We are in a simple env (not a recursive env),
+                                // looking at a binding's variable.
 
-                            if v == expr {
-                                // expr matches the binding's var.
+                                // CIRCUIT: var_or_rec_binding_is_sym
+                                //          otherwise_and_sym
+                                let v = var_or_rec_binding;
+                                let val = val_or_more_rec_env;
 
-                                // CIRCUIT: v_is_expr1
-                                //          v_is_expr1_real
-                                //          otherwise_and_v_expr_and_sym
-                                //          cond3
+                                if v == expr {
+                                    // expr matches the binding's var.
 
-                                // Pass the binding's value to the continuation in a thunk.
-                                Control::InvokeContinuation(val, env, cont)
-                            } else {
-                                // expr does not match the binding's var.
+                                    // CIRCUIT: v_is_expr1
+                                    //          v_is_expr1_real
+                                    //          otherwise_and_v_expr_and_sym
+                                    //          cond3
 
-                                // CIRCUIT: otherwise_and_v_not_expr
-                                match cont.tag() {
-                                    ContTag::Lookup => {
-                                        // If performing a lookup, continue with remaining env.
-
-                                        // CIRCUIT: cont_is_lookup
-                                        //          cont_is_lookup_sym
-                                        //          cond4
-                                        Control::Return(expr, smaller_env, cont)
-                                    }
-                                    _ =>
-                                    // Otherwise, create a lookup continuation, packaging current env
-                                    // to be restored later.
-
-                                    // CIRCUIT: cont_not_lookup_sym
-                                    //          cond5
-                                    {
-                                        Control::Return(
-                                            expr,
-                                            smaller_env,
-                                            store.alloc_cont_lookup(env, cont),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        // Start of a recursive_env.
-                        Tag::Cons => {
-                            // CIRCUIT: var_or_rec_binding_is_cons
-                            //          otherwise_and_cons
-                            let rec_env = binding;
-                            let smaller_rec_env = val_or_more_rec_env;
-
-                            let (v2, val2) = store.car_cdr(&var_or_rec_binding);
-                            if v2 == expr {
-                                // CIRCUIT: v2_is_expr
-                                //          v2_is_expr_real
-                                //          cond6
-                                let val_to_use = {
-                                    // CIRCUIT: val_to_use
-                                    match val2.tag() {
-                                        Tag::Fun => {
-                                            // TODO: This is a misnomer. It's actually the closure *to be extended*.
-                                            extended_closure = Some(val2);
-                                            // CIRCUIT: val2_is_fun
-
-                                            // We just found a closure in a recursive env.
-                                            // We need to extend its environment to include that recursive env.
-
-                                            extend_closure(&val2, &rec_env, store)
-                                        }
-                                        _ => {
-                                            extended_closure = None;
-                                            val2
-                                        }
-                                    }
-                                };
-                                Control::InvokeContinuation(val_to_use, env, cont)
-                            } else {
-                                // CIRCUIT: v2_not_expr
-                                //          otherwise_and_v2_not_expr
-                                //          cond7
-                                let env_to_use = if smaller_rec_env.is_nil() {
-                                    // CIRCUIT: smaller_rec_env_is_nil
-                                    smaller_env
+                                    // Pass the binding's value to the continuation in a thunk.
+                                    Control::InvokeContinuation(val, env, cont)
                                 } else {
-                                    // CIRCUIT: with_smaller_rec_env
-                                    store.alloc_cons(smaller_rec_env, smaller_env)
-                                };
-                                match cont.tag() {
-                                    ContTag::Lookup => {
-                                        // CIRCUIT: cont_is_lookup
-                                        //          cont_is_lookup_cons
-                                        //          cond8
-                                        Control::Return(expr, env_to_use, cont)
+                                    // expr does not match the binding's var.
+
+                                    // CIRCUIT: otherwise_and_v_not_expr
+                                    match cont.tag() {
+                                        ContTag::Lookup => {
+                                            // If performing a lookup, continue with remaining env.
+
+                                            // CIRCUIT: cont_is_lookup
+                                            //          cont_is_lookup_sym
+                                            //          cond4
+                                            Control::Return(expr, smaller_env, cont)
+                                        }
+                                        _ =>
+                                        // Otherwise, create a lookup continuation, packaging current env
+                                        // to be restored later.
+
+                                        // CIRCUIT: cont_not_lookup_sym
+                                        //          cond5
+                                        {
+                                            Control::Return(
+                                                expr,
+                                                smaller_env,
+                                                store.alloc_cont_lookup(env, cont),
+                                            )
+                                        }
                                     }
-                                    _ => Control::Return(
-                                        // CIRCUIT: cont_not_lookup_cons
-                                        //          cond9
-                                        expr,
-                                        env_to_use,
-                                        store.alloc_cont_lookup(env, cont),
-                                    ),
                                 }
                             }
+                            // Start of a recursive_env.
+                            Tag::Cons => {
+                                // CIRCUIT: var_or_rec_binding_is_cons
+                                //          otherwise_and_cons
+                                let rec_env = binding;
+                                let smaller_rec_env = val_or_more_rec_env;
+
+                                let (v2, val2) = store.car_cdr(&var_or_rec_binding);
+                                if v2 == expr {
+                                    // CIRCUIT: v2_is_expr
+                                    //          v2_is_expr_real
+                                    //          cond6
+                                    let val_to_use = {
+                                        // CIRCUIT: val_to_use
+                                        match val2.tag() {
+                                            Tag::Fun => {
+                                                // TODO: This is a misnomer. It's actually the closure *to be extended*.
+                                                extended_closure = Some(val2);
+                                                // CIRCUIT: val2_is_fun
+
+                                                // We just found a closure in a recursive env.
+                                                // We need to extend its environment to include that recursive env.
+
+                                                extend_closure(&val2, &rec_env, store)
+                                            }
+                                            _ => {
+                                                extended_closure = None;
+                                                val2
+                                            }
+                                        }
+                                    };
+                                    Control::InvokeContinuation(val_to_use, env, cont)
+                                } else {
+                                    // CIRCUIT: v2_not_expr
+                                    //          otherwise_and_v2_not_expr
+                                    //          cond7
+                                    let env_to_use = if smaller_rec_env.is_nil() {
+                                        // CIRCUIT: smaller_rec_env_is_nil
+                                        smaller_env
+                                    } else {
+                                        // CIRCUIT: with_smaller_rec_env
+                                        store.alloc_cons(smaller_rec_env, smaller_env)
+                                    };
+                                    match cont.tag() {
+                                        ContTag::Lookup => {
+                                            // CIRCUIT: cont_is_lookup
+                                            //          cont_is_lookup_cons
+                                            //          cond8
+                                            Control::Return(expr, env_to_use, cont)
+                                        }
+                                        _ => Control::Return(
+                                            // CIRCUIT: cont_not_lookup_cons
+                                            //          cond9
+                                            expr,
+                                            env_to_use,
+                                            store.alloc_cont_lookup(env, cont),
+                                        ),
+                                    }
+                                }
+                            }
+                            _ => panic!("Bad form."),
                         }
-                        _ => panic!("Bad form."),
                     }
                 }
             }
