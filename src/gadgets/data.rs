@@ -6,15 +6,15 @@ use blstrs::Scalar as Fr;
 use ff::Field;
 use neptune::circuit::poseidon_hash;
 
-use crate::pool::{ScalarContPtr, ScalarPointer};
+use crate::store::{ScalarContPtr, ScalarPointer};
 use crate::{
     eval::Witness,
-    pool::{IntoHashComponents, ScalarPtr},
+    store::{IntoHashComponents, ScalarPtr},
 };
 use crate::{
     gadgets::pointer::AsAllocatedHashComponents,
-    pool::{
-        ContPtr, ContTag, Expression, Op1, Op2, Pointer, Pool, Ptr, Rel2, Tag, Thunk,
+    store::{
+        ContPtr, ContTag, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk,
         POSEIDON_CONSTANTS_4, POSEIDON_CONSTANTS_6, POSEIDON_CONSTANTS_8,
     },
 };
@@ -74,51 +74,51 @@ pub struct GlobalAllocations {
 impl GlobalAllocations {
     pub fn new<CS: ConstraintSystem<Fr>>(
         cs: &mut CS,
-        pool: &Pool,
+        store: &Store,
         witness: &Option<Witness>,
     ) -> Result<Self, SynthesisError> {
         let terminal_ptr = AllocatedContPtr::alloc_constant_cont_ptr(
             &mut cs.namespace(|| "terminal continuation"),
-            pool,
-            &pool.get_cont_terminal(),
+            store,
+            &store.get_cont_terminal(),
         )?;
 
         let outermost_ptr = AllocatedContPtr::alloc_constant_cont_ptr(
             &mut cs.namespace(|| "outermost continuation"),
-            pool,
-            &pool.get_cont_outermost(),
+            store,
+            &store.get_cont_outermost(),
         )?;
 
         let error_ptr_cont = AllocatedContPtr::alloc_constant_cont_ptr(
             &mut cs.namespace(|| "error continuation"),
-            pool,
-            &pool.get_cont_error(),
+            store,
+            &store.get_cont_error(),
         )?;
         let error_ptr =
             AllocatedPtr::from_parts(error_ptr_cont.tag().clone(), error_ptr_cont.hash().clone());
 
         let dummy_ptr = AllocatedContPtr::alloc_constant_cont_ptr(
             &mut cs.namespace(|| "dummy continuation"),
-            pool,
-            &pool.get_cont_dummy(),
+            store,
+            &store.get_cont_dummy(),
         )?;
 
         let nil_ptr =
-            AllocatedPtr::alloc_constant_ptr(&mut cs.namespace(|| "nil"), pool, &pool.get_nil())?;
+            AllocatedPtr::alloc_constant_ptr(&mut cs.namespace(|| "nil"), store, &store.get_nil())?;
         let t_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "T"),
-            pool,
-            &pool.get_sym("T").unwrap(),
+            store,
+            &store.get_sym("T").unwrap(),
         )?;
         let lambda_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "LAMBDA"),
-            pool,
-            &pool.get_sym("LAMBDA").unwrap(),
+            store,
+            &store.get_sym("LAMBDA").unwrap(),
         )?;
         let dummy_arg_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "_"),
-            pool,
-            &pool.get_sym("_").unwrap(),
+            store,
+            &store.get_sym("_").unwrap(),
         )?;
 
         let sym_tag = Tag::Sym.allocate_constant(&mut cs.namespace(|| "sym_tag"))?;
@@ -185,7 +185,7 @@ impl GlobalAllocations {
             Thunk::allocate_maybe_dummy_components(
                 &mut cs.namespace(|| "allocate thunk components"),
                 maybe_thunk.as_ref(),
-                pool,
+                store,
             )?;
 
         Ok(Self {
@@ -241,10 +241,10 @@ impl ContPtr {
     pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<Fr>>(
         cs: CS,
         cont: Option<&ContPtr>,
-        pool: &Pool,
+        store: &Store,
     ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
         if let Some(cont) = cont {
-            cont.allocate_components(cs, pool)
+            cont.allocate_components(cs, store)
         } else {
             ContPtr::allocate_dummy_components(cs)
         }
@@ -253,9 +253,9 @@ impl ContPtr {
     fn allocate_components<CS: ConstraintSystem<Fr>>(
         &self,
         mut cs: CS,
-        pool: &Pool,
+        store: &Store,
     ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
-        let component_frs = pool
+        let component_frs = store
             .get_hash_components_cont(self)
             .expect("missing hash components");
 
@@ -306,15 +306,15 @@ impl ContPtr {
 impl Ptr {
     pub fn allocate_maybe_fun<CS: ConstraintSystem<Fr>>(
         cs: CS,
-        pool: &Pool,
+        store: &Store,
         maybe_fun: Option<&Ptr>,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr, AllocatedPtr), SynthesisError> {
         match maybe_fun.map(|ptr| (ptr, ptr.tag())) {
-            Some((ptr, Tag::Fun)) => match pool.fetch(ptr).expect("missing fun") {
+            Some((ptr, Tag::Fun)) => match store.fetch(ptr).expect("missing fun") {
                 Expression::Fun(arg, body, closed_env) => {
-                    let arg = pool.hash_expr(&arg).expect("missing arg");
-                    let body = pool.hash_expr(&body).expect("missing body");
-                    let closed_env = pool.hash_expr(&closed_env).expect("missing closed env");
+                    let arg = store.hash_expr(&arg).expect("missing arg");
+                    let body = store.hash_expr(&body).expect("missing body");
+                    let closed_env = store.hash_expr(&closed_env).expect("missing closed env");
                     Self::allocate_fun(cs, arg, body, closed_env)
                 }
                 _ => unreachable!(),
@@ -368,10 +368,11 @@ impl ContPtr {
     pub fn allocate_ptr<CS: ConstraintSystem<Fr>>(
         &self,
         cs: &mut CS,
-        pool: &Pool,
+        store: &Store,
     ) -> Result<AllocatedContPtr, SynthesisError> {
         AllocatedContPtr::alloc(cs, || {
-            pool.hash_cont(self)
+            store
+                .hash_cont(self)
                 .ok_or(SynthesisError::AssignmentMissing)
         })
     }
@@ -379,9 +380,9 @@ impl ContPtr {
     pub fn allocate_constant_ptr<CS: ConstraintSystem<Fr>>(
         &self,
         cs: &mut CS,
-        pool: &Pool,
+        store: &Store,
     ) -> Result<AllocatedContPtr, SynthesisError> {
-        let ptr = pool
+        let ptr = store
             .hash_cont(self)
             .ok_or(SynthesisError::AssignmentMissing)?;
         AllocatedContPtr::alloc_constant(cs, ptr)
@@ -469,10 +470,10 @@ impl Thunk {
     pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<Fr>>(
         cs: CS,
         thunk: Option<&Thunk>,
-        pool: &Pool,
+        store: &Store,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedContPtr), SynthesisError> {
         if let Some(thunk) = thunk {
-            thunk.allocate_components(cs, pool)
+            thunk.allocate_components(cs, store)
         } else {
             Thunk::allocate_dummy_components(cs)
         }
@@ -482,9 +483,9 @@ impl Thunk {
     pub fn allocate_components<CS: ConstraintSystem<Fr>>(
         &self,
         mut cs: CS,
-        pool: &Pool,
+        store: &Store,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedContPtr), SynthesisError> {
-        let component_frs = pool.get_hash_components_thunk(self);
+        let component_frs = store.get_hash_components_thunk(self);
 
         let value = AllocatedPtr::alloc(&mut cs.namespace(|| "Thunk component: value"), || {
             component_frs

@@ -13,18 +13,18 @@ use crate::{
         data::GlobalAllocations,
         pointer::{AllocatedContPtr, AllocatedPtr},
     },
-    pool::ScalarPointer,
+    store::ScalarPointer,
 };
 
 use crate::eval::{Frame, Witness, IO};
 use crate::gadgets::constraints::{
     self, alloc_equal, alloc_is_zero, enforce_implication, or, pick,
 };
-use crate::pool::{ContPtr, ContTag, Op1, Op2, Pool, Ptr, Tag, Thunk};
+use crate::store::{ContPtr, ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
 
 #[derive(Clone)]
 pub struct CircuitFrame<'a, T, W> {
-    pub pool: &'a Pool,
+    pub store: &'a Store,
     pub input: Option<T>,
     pub output: Option<T>,
     pub initial: Option<T>,
@@ -33,9 +33,9 @@ pub struct CircuitFrame<'a, T, W> {
 }
 
 impl<'a, T: Clone, W> CircuitFrame<'a, T, W> {
-    pub fn from_frame(initial: T, frame: Frame<T, W>, pool: &'a Pool) -> Self {
+    pub fn from_frame(initial: T, frame: Frame<T, W>, store: &'a Store) -> Self {
         CircuitFrame {
-            pool,
+            store,
             input: Some(frame.input),
             output: Some(frame.output),
             initial: Some(initial),
@@ -48,10 +48,10 @@ impl<'a, T: Clone, W> CircuitFrame<'a, T, W> {
 impl Circuit<Fr> for CircuitFrame<'_, IO, Witness> {
     fn synthesize<CS: ConstraintSystem<Fr>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         // if let Some(o) = &self.output {
-        //     dbg!(o.expr.fmt_to_string(self.pool));
+        //     dbg!(o.expr.fmt_to_string(self.store));
         // }
         // if let Some(i) = &self.input {
-        //     dbg!(i.expr.fmt_to_string(self.pool));
+        //     dbg!(i.expr.fmt_to_string(self.store));
         // }
 
         ////////////////////////////////////////////////////////////////////////////////
@@ -61,38 +61,38 @@ impl Circuit<Fr> for CircuitFrame<'_, IO, Witness> {
         let input_expr = AllocatedPtr::bind_input(
             &mut cs.namespace(|| "input expression"),
             self.input.as_ref().map(|input| &input.expr),
-            self.pool,
+            self.store,
         )?;
 
         let input_env = AllocatedPtr::bind_input(
             &mut cs.namespace(|| "input env"),
             self.input.as_ref().map(|input| &input.env),
-            self.pool,
+            self.store,
         )?;
 
         let input_cont = AllocatedContPtr::bind_input(
             &mut cs.namespace(|| "input cont"),
             self.input.as_ref().map(|input| &input.cont),
-            self.pool,
+            self.store,
         )?;
 
         // The frame's output:
         let output_expr = AllocatedPtr::bind_input(
             &mut cs.namespace(|| "output expression"),
             self.output.as_ref().map(|output| &output.expr),
-            self.pool,
+            self.store,
         )?;
 
         let output_env = AllocatedPtr::bind_input(
             &mut cs.namespace(|| "output env"),
             self.output.as_ref().map(|output| &output.env),
-            self.pool,
+            self.store,
         )?;
 
         let output_cont = AllocatedContPtr::bind_input(
             &mut cs.namespace(|| "output cont"),
             self.output.as_ref().map(|output| &output.cont),
-            self.pool,
+            self.store,
         )?;
 
         // The initial input to the IVC computation.
@@ -100,21 +100,21 @@ impl Circuit<Fr> for CircuitFrame<'_, IO, Witness> {
         let _initial_expr = AllocatedPtr::bind_input(
             &mut cs.namespace(|| "initial expression"),
             self.initial.as_ref().map(|initial| &initial.expr),
-            self.pool,
+            self.store,
         )?;
 
         // FIXME: use?
         let _initial_env = AllocatedPtr::bind_input(
             &mut cs.namespace(|| "initial env"),
             self.initial.as_ref().map(|initial| &initial.env),
-            self.pool,
+            self.store,
         )?;
 
         // FIXME: use?
         let _initial_cont = AllocatedContPtr::bind_input(
             &mut cs.namespace(|| "initial cont"),
             self.initial.as_ref().map(|initial| &initial.cont),
-            self.pool,
+            self.store,
         )?;
 
         // We don't currently need this, but we could expose access to it for logging, etc.
@@ -138,7 +138,7 @@ impl Circuit<Fr> for CircuitFrame<'_, IO, Witness> {
             &input_env,
             &input_cont,
             &self.witness,
-            self.pool,
+            self.store,
         )?;
 
         output_expr.enforce_equal(&mut cs.namespace(|| "output expr is correct"), &new_expr);
@@ -321,14 +321,14 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     env: &AllocatedPtr,
     cont: &AllocatedContPtr,
     witness: &Option<Witness>,
-    pool: &Pool,
+    store: &Store,
 ) -> Result<(AllocatedPtr, AllocatedPtr, AllocatedContPtr), SynthesisError> {
     // dbg!("evaluate_expression");
-    // dbg!(&expr.fetch_and_write_str(pool));
-    // dbg!(&env.fetch_and_write_str(pool));
+    // dbg!(&expr.fetch_and_write_str(store));
+    // dbg!(&env.fetch_and_write_str(store));
     // dbg!(expr, cont);
 
-    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), pool, witness)?;
+    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store, witness)?;
 
     let mut results = Results::default();
     {
@@ -339,7 +339,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     }
 
     let (expr_thunk_hash, expr_thunk_value, expr_thunk_continuation) =
-        expr.allocate_thunk_components(&mut cs.namespace(|| "allocate thunk components"), pool)?;
+        expr.allocate_thunk_components(&mut cs.namespace(|| "allocate thunk components"), store)?;
     {
         // Enforce (expr.tag == thunk_tag) implies (expr_thunk_hash == expr.hash).
         let expr_is_a_thunk = constraints::alloc_equal(
@@ -383,7 +383,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         cont,
         &eval_sym_not_dummy,
         witness,
-        pool,
+        store,
         &g,
     )?;
 
@@ -404,7 +404,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         cont,
         &eval_cons_not_dummy,
         witness,
-        pool,
+        store,
         &g,
     )?;
 
@@ -462,7 +462,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         &first_result_env,
         &invoke_continuation_boolean,
         witness,
-        pool,
+        store,
         &g,
     )?;
 
@@ -509,7 +509,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         &result_env0,
         &make_thunk_boolean,
         witness,
-        pool,
+        store,
         &g,
     )?;
 
@@ -544,7 +544,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     cont: &AllocatedContPtr,
     not_dummy: &Boolean,
     witness: &Option<Witness>,
-    pool: &Pool,
+    store: &Store,
     g: &GlobalAllocations,
 ) -> Result<
     (
@@ -555,20 +555,20 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     ),
     SynthesisError,
 > {
-    let output_expr = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "output_expr"), pool, || {
+    let output_expr = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "output_expr"), store, || {
         witness
             .as_ref()
             .map(|w| &w.prethunk_output_expr)
             .ok_or(SynthesisError::AssignmentMissing)
     })?;
-    let output_env = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "output_env"), pool, || {
+    let output_env = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "output_env"), store, || {
         witness
             .as_ref()
             .map(|w| &w.prethunk_output_env)
             .ok_or(SynthesisError::AssignmentMissing)
     })?;
     let output_cont =
-        AllocatedContPtr::alloc_cont_ptr(&mut cs.namespace(|| "output_cont"), pool, || {
+        AllocatedContPtr::alloc_cont_ptr(&mut cs.namespace(|| "output_cont"), store, || {
             witness
                 .as_ref()
                 .map(|w| &w.prethunk_output_cont)
@@ -582,7 +582,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     let sym_otherwise = Boolean::not(&sym_is_self_evaluating);
 
     let (binding, smaller_env) =
-        car_cdr(&mut cs.namespace(|| "If unevaled_args cons"), g, env, pool)?;
+        car_cdr(&mut cs.namespace(|| "If unevaled_args cons"), g, env, store)?;
 
     let binding_is_nil = binding.alloc_equal(&mut cs.namespace(|| "binding is nil"), &g.nil_ptr)?;
 
@@ -592,7 +592,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     let otherwise_and_binding_not_nil = and!(cs, &sym_otherwise, &binding_not_nil)?;
 
     let (var_or_rec_binding, val_or_more_rec_env) =
-        car_cdr(&mut cs.namespace(|| "car_cdr binding"), g, &binding, pool)?;
+        car_cdr(&mut cs.namespace(|| "car_cdr binding"), g, &binding, store)?;
 
     let var_or_rec_binding_is_sym = alloc_equal(
         &mut cs.namespace(|| "var_or_rec_binding_is_sym"),
@@ -626,7 +626,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
         &mut cs.namespace(|| "car_cdr var_or_rec_binding"),
         g,
         &var_or_rec_binding,
-        pool,
+        store,
     )?;
 
     let val2_is_fun = alloc_equal(cs.namespace(|| "val2_is_fun"), val2.tag(), &g.fun_tag)?;
@@ -685,7 +685,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
 
     let (_fun_hash, fun_arg, fun_body, fun_closed_env) = Ptr::allocate_maybe_fun(
         &mut cs.namespace(|| "extend closure"),
-        pool,
+        store,
         witness.as_ref().and_then(|w| w.extended_closure.as_ref()),
     )?;
 
@@ -842,7 +842,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     cont: &AllocatedContPtr,
     _not_dummy: &Boolean,
     _witness: &Option<Witness>,
-    pool: &Pool,
+    store: &Store,
     g: &GlobalAllocations,
 ) -> Result<
     (
@@ -855,7 +855,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
 > {
     let lambda = g.lambda_ptr.clone();
 
-    let hash_sym = |sym: &str| pool.get_sym(sym).and_then(|s| pool.hash_sym(s)).unwrap();
+    let hash_sym = |sym: &str| store.get_sym(sym).and_then(|s| store.hash_sym(s)).unwrap();
 
     let lambda_hash = hash_sym("LAMBDA");
     let quote_hash = hash_sym("QUOTE");
@@ -879,11 +879,11 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let current_env_hash = hash_sym("CURRENT-ENV");
     let if_hash = hash_sym("IF");
 
-    let (head, rest) = car_cdr(&mut cs.namespace(|| "eval_cons expr"), g, expr, pool)?;
+    let (head, rest) = car_cdr(&mut cs.namespace(|| "eval_cons expr"), g, expr, store)?;
 
     // let not_dummy = alloc_equal(&mut cs.namespace(|| "rest is cons"), &rest.tag, &g.cons_tag)?;
 
-    let (arg1, more) = car_cdr(&mut cs.namespace(|| "car_cdr(rest)"), g, &rest, pool)?;
+    let (arg1, more) = car_cdr(&mut cs.namespace(|| "car_cdr(rest)"), g, &rest, store)?;
 
     let mut results = Results::default();
 
@@ -896,7 +896,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         // let not_dummy1 = Boolean::not(&args_is_nil);
         // let not_dummy2 = Boolean::and(&mut cs.namespace(|| "not_dummy2"), &not_dummy, &not_dummy1)?;
 
-        let (car_args, cdr_args) = car_cdr(&mut cs.namespace(|| "car_cdr args"), g, &args, pool)?;
+        let (car_args, cdr_args) = car_cdr(&mut cs.namespace(|| "car_cdr args"), g, &args, store)?;
 
         // FIXME: There maybe some cases where cdr_args is wrong/differs from eval.rs.
 
@@ -939,24 +939,24 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
 
         let (bindings, body) = (arg1.clone(), more.clone());
         let (body1, _rest_body) =
-            car_cdr(&mut cs_letrec.namespace(|| "car_cdr body"), g, &body, pool)?;
+            car_cdr(&mut cs_letrec.namespace(|| "car_cdr body"), g, &body, store)?;
         let (binding1, rest_bindings) = car_cdr(
             &mut cs_letrec.namespace(|| "car_cdr bindings"),
             g,
             &bindings,
-            pool,
+            store,
         )?;
         let (var, more_vals) = car_cdr(
             &mut cs_letrec.namespace(|| "car_cdr binding1"),
             g,
             &binding1,
-            pool,
+            store,
         )?;
         let (val, _end) = car_cdr(
             &mut cs_letrec.namespace(|| "car_cdr more_vals"),
             g,
             &more_vals,
-            pool,
+            store,
         )?;
 
         // FIXME: assert end == NIL
@@ -1281,15 +1281,15 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
     env: &AllocatedPtr,
     not_dummy: &Boolean,
     _witness: &Option<Witness>,
-    pool: &Pool,
+    store: &Store,
     g: &GlobalAllocations,
 ) -> Result<(AllocatedPtr, AllocatedPtr, AllocatedContPtr), SynthesisError> {
     let mut results = Results::default();
 
     let (computed_cont_hash, cont_components) = ContPtr::allocate_maybe_dummy_components(
         &mut cs.namespace(|| "cont components"),
-        cont.get_cont_ptr(pool).as_ref(),
-        pool,
+        cont.get_cont_ptr(store).as_ref(),
+        store,
     )?;
 
     implies_equal!(cs, not_dummy, &computed_cont_hash, cont.hash());
@@ -1356,7 +1356,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
     env: &AllocatedPtr,
     not_dummy: &Boolean,
     witness: &Option<Witness>,
-    pool: &Pool,
+    store: &Store,
     g: &GlobalAllocations,
 ) -> Result<
     (
@@ -1418,7 +1418,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         witness
             .as_ref()
             .and_then(|w| w.invoke_continuation_cont.as_ref()),
-        pool,
+        store,
     )?;
 
     let (next, the_cont) = {
@@ -1472,13 +1472,13 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         {
             let (hash, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
                 &mut cs.namespace(|| "allocate Call2 fun"),
-                pool,
-                fun.ptr(pool).as_ref(),
+                store,
+                fun.ptr(store).as_ref(),
             )?;
 
             // BOOKMARK: WHy does this cause unconstrainted variable?
             // Something about the overloaded Options?
-            let (body_form, _) = car_cdr(&mut cs.namespace(|| "body_form"), g, &body_t, pool)?;
+            let (body_form, _) = car_cdr(&mut cs.namespace(|| "body_form"), g, &body_t, store)?;
 
             let fun_is_correct = constraints::alloc_equal(
                 &mut cs.namespace(|| "fun hash is correct"),
@@ -1572,7 +1572,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             env,
             &var,
             result,
-            pool,
+            store,
         )?;
 
         let is_error = extended_env.alloc_equal(&mut cs.namespace(|| "is_error"), &g.error_ptr)?;
@@ -1607,7 +1607,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let op1 = AllocatedPtr::by_index(0, &continuation_components);
 
         let (allocated_car, allocated_cdr) =
-            car_cdr(&mut cs.namespace(|| "Unop cons"), g, result, pool)?;
+            car_cdr(&mut cs.namespace(|| "Unop cons"), g, result, store)?;
 
         let result_is_cons = alloc_equal(
             &mut cs.namespace(|| "result_is_cons"),
@@ -1673,7 +1673,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let continuation = AllocatedContPtr::by_index(3, &continuation_components);
 
         let (allocated_arg2, _allocated_rest) =
-            car_cdr(&mut cs.namespace(|| "Binop cons"), g, &unevaled_args, pool)?;
+            car_cdr(&mut cs.namespace(|| "Binop cons"), g, &unevaled_args, store)?;
 
         let binop2_cont = AllocatedContPtr::construct(
             &mut cs.namespace(|| "Binop2"),
@@ -1812,8 +1812,12 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
         let continuation = AllocatedContPtr::by_index(3, &continuation_components);
 
-        let (allocated_arg2, _allocated_rest) =
-            car_cdr(&mut cs.namespace(|| "Relops cons"), g, &unevaled_args, pool)?;
+        let (allocated_arg2, _allocated_rest) = car_cdr(
+            &mut cs.namespace(|| "Relops cons"),
+            g,
+            &unevaled_args,
+            store,
+        )?;
 
         // FIXME: If allocated_rest != Nil, then error.
         let relop2_cont = AllocatedContPtr::construct(
@@ -1918,13 +1922,13 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &mut cs.namespace(|| "If unevaled_args cons"),
             g,
             &unevaled_args,
-            pool,
+            store,
         )?;
 
         let condition_is_nil =
             condition.alloc_equal(&mut cs.namespace(|| "condition is nil"), &g.nil_ptr)?;
 
-        let (arg2, _end) = car_cdr(&mut cs.namespace(|| "If more cons"), g, &more, pool)?;
+        let (arg2, _end) = car_cdr(&mut cs.namespace(|| "If more cons"), g, &more, store)?;
 
         let res = AllocatedPtr::pick(
             &mut cs.namespace(|| "pick arg1 or arg2"),
@@ -2002,7 +2006,7 @@ fn car_cdr<CS: ConstraintSystem<Fr>>(
     mut cs: CS,
     g: &GlobalAllocations,
     maybe_cons: &AllocatedPtr,
-    pool: &Pool,
+    store: &Store,
 ) -> Result<(AllocatedPtr, AllocatedPtr), SynthesisError> {
     // A dummy value will never have the cons tag.
     let not_dummy = alloc_equal(
@@ -2012,19 +2016,19 @@ fn car_cdr<CS: ConstraintSystem<Fr>>(
     )?;
 
     let (car, cdr) = if not_dummy.get_value().expect("not_dummy missing") {
-        if let Some(ptr) = maybe_cons.ptr(pool).as_ref() {
-            pool.car_cdr(ptr)
+        if let Some(ptr) = maybe_cons.ptr(store).as_ref() {
+            store.car_cdr(ptr)
         } else {
             // Dummy
-            (pool.get_nil(), pool.get_nil())
+            (store.get_nil(), store.get_nil())
         }
     } else {
         // Dummy
-        (pool.get_nil(), pool.get_nil())
+        (store.get_nil(), store.get_nil())
     };
 
-    let allocated_car = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "car"), pool, || Ok(&car))?;
-    let allocated_cdr = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "cdr"), pool, || Ok(&cdr))?;
+    let allocated_car = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "car"), store, || Ok(&car))?;
+    let allocated_cdr = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "cdr"), store, || Ok(&cdr))?;
 
     let constructed_cons = AllocatedPtr::construct_cons(
         &mut cs.namespace(|| "cons"),
@@ -2066,14 +2070,14 @@ fn extend_rec<CS: ConstraintSystem<Fr>>(
     env: &AllocatedPtr,
     var: &AllocatedPtr,
     val: &AllocatedPtr,
-    pool: &Pool,
+    store: &Store,
 ) -> Result<AllocatedPtr, SynthesisError> {
-    let (binding_or_env, rest) = car_cdr(&mut cs.namespace(|| "car_cdr env"), g, env, pool)?;
+    let (binding_or_env, rest) = car_cdr(&mut cs.namespace(|| "car_cdr env"), g, env, store)?;
     let (var_or_binding, _val_or_more_bindings) = car_cdr(
         &mut cs.namespace(|| "car_cdr binding_or_env"),
         g,
         &binding_or_env,
-        pool,
+        store,
     )?;
 
     let cons = AllocatedPtr::construct_cons(&mut cs.namespace(|| "cons var val"), g, var, val)?;
@@ -2187,8 +2191,8 @@ pub(crate) fn print_cs<C: Comparable<Fr>>(this: &C) -> String {
 mod tests {
     use super::*;
     use crate::eval::{empty_sym_env, Evaluable, IO};
-    use crate::pool::Pool;
     use crate::proof::Provable;
+    use crate::store::Store;
     use bellperson::groth16;
     use bellperson::util_cs::{
         metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta,
@@ -2196,28 +2200,28 @@ mod tests {
 
     #[test]
     fn num_self_evaluating() {
-        let mut pool = Pool::default();
-        let env = empty_sym_env(&pool);
-        let num = pool.alloc_num(123);
+        let mut store = Store::default();
+        let env = empty_sym_env(&store);
+        let num = store.alloc_num(123);
 
         let input = IO {
             expr: num,
             env,
-            cont: pool.alloc_cont_outermost(),
+            cont: store.alloc_cont_outermost(),
         };
 
         let initial = input.clone();
-        let (_, witness) = input.eval(&mut pool);
+        let (_, witness) = input.eval(&mut store);
 
         let groth_params = CircuitFrame::groth_params().unwrap();
         let vk = &groth_params.vk;
         let pvk = groth16::prepare_verifying_key(vk);
 
-        let test_with_output = |output: IO, expect_success: bool, pool: &Pool| {
+        let test_with_output = |output: IO, expect_success: bool, store: &Store| {
             let mut cs = TestConstraintSystem::new();
 
             let mut cs_blank = MetricCS::<Fr>::new();
-            let blank_frame = CircuitFrame::blank(pool);
+            let blank_frame = CircuitFrame::blank(store);
             blank_frame
                 .synthesize(&mut cs_blank)
                 .expect("failed to synthesize");
@@ -2230,7 +2234,7 @@ mod tests {
                     i: 0,
                     witness: witness.clone(),
                 },
-                pool,
+                store,
             );
 
             frame
@@ -2246,7 +2250,7 @@ mod tests {
             assert_eq!(20, cs.num_inputs());
             assert_eq!(32455, cs.aux().len());
 
-            let public_inputs = frame.public_inputs(pool);
+            let public_inputs = frame.public_inputs(store);
             let mut rng = rand::thread_rng();
 
             let proof = frame.clone().prove(Some(&groth_params), &mut rng).unwrap();
@@ -2267,63 +2271,63 @@ mod tests {
             let output = IO {
                 expr: num.clone(),
                 env: env.clone(),
-                cont: pool.alloc_cont_terminal(),
+                cont: store.alloc_cont_terminal(),
             };
 
-            test_with_output(output, true, &pool);
+            test_with_output(output, true, &store);
         }
 
         // Failure
         {
             // Wrong type, so tag should differ.
             let bad_output_tag = IO {
-                expr: pool.alloc_sym("SYMBOL"),
+                expr: store.alloc_sym("SYMBOL"),
                 env,
-                cont: pool.alloc_cont_terminal(),
+                cont: store.alloc_cont_terminal(),
             };
 
-            test_with_output(bad_output_tag, false, &pool);
+            test_with_output(bad_output_tag, false, &store);
         }
 
         {
             // Wrong value, so hash should differ.
             let bad_output_value = IO {
-                expr: pool.alloc_num(999),
+                expr: store.alloc_num(999),
                 env,
-                cont: pool.alloc_cont_terminal(),
+                cont: store.alloc_cont_terminal(),
             };
 
-            test_with_output(bad_output_value, false, &pool);
+            test_with_output(bad_output_value, false, &store);
         }
 
         {
             // Wrong new env.
             let bad_output_tag = IO {
                 expr: num,
-                env: pool.alloc_sym("not-an-env"),
-                cont: pool.alloc_cont_terminal(),
+                env: store.alloc_sym("not-an-env"),
+                cont: store.alloc_cont_terminal(),
             };
 
-            test_with_output(bad_output_tag, false, &pool);
+            test_with_output(bad_output_tag, false, &store);
         }
     }
 
     #[test]
     fn nil_self_evaluating() {
-        let mut pool = Pool::default();
-        let env = empty_sym_env(&pool);
-        let nil = pool.alloc_nil();
+        let mut store = Store::default();
+        let env = empty_sym_env(&store);
+        let nil = store.alloc_nil();
 
         let input = IO {
             expr: nil,
             env,
-            cont: pool.alloc_cont_outermost(),
+            cont: store.alloc_cont_outermost(),
         };
 
         let initial = input.clone();
-        let (_, witness) = input.eval(&mut pool);
+        let (_, witness) = input.eval(&mut store);
 
-        let test_with_output = |output: IO, expect_success: bool, pool: &Pool| {
+        let test_with_output = |output: IO, expect_success: bool, store: &Store| {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
@@ -2333,7 +2337,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(initial.clone(), frame, pool)
+            CircuitFrame::from_frame(initial.clone(), frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2349,10 +2353,10 @@ mod tests {
             let output = IO {
                 expr: nil.clone(),
                 env: env.clone(),
-                cont: pool.alloc_cont_terminal(),
+                cont: store.alloc_cont_terminal(),
             };
 
-            test_with_output(output, true, &pool);
+            test_with_output(output, true, &store);
         }
 
         // Failure
@@ -2360,22 +2364,22 @@ mod tests {
             {
                 // Wrong type, so tag should differ.
                 let bad_output_tag = IO {
-                    expr: pool.alloc_sym("SYMBOL"),
+                    expr: store.alloc_sym("SYMBOL"),
                     env,
-                    cont: pool.alloc_cont_terminal(),
+                    cont: store.alloc_cont_terminal(),
                 };
 
-                test_with_output(bad_output_tag, false, &pool);
+                test_with_output(bad_output_tag, false, &store);
             }
             {
                 // Wrong value, so hash should differ.
                 let bad_output_value = IO {
-                    expr: pool.alloc_num(999),
+                    expr: store.alloc_num(999),
                     env: env.clone(),
-                    cont: pool.alloc_cont_terminal(),
+                    cont: store.alloc_cont_terminal(),
                 };
 
-                test_with_output(bad_output_value, false, &pool);
+                test_with_output(bad_output_value, false, &store);
             }
         }
     }
@@ -2383,22 +2387,22 @@ mod tests {
     //#[test]
     #[allow(dead_code)]
     fn t_self_evaluating() {
-        let mut pool = Pool::default();
-        let env = empty_sym_env(&pool);
-        let t = pool.alloc_sym("T");
+        let mut store = Store::default();
+        let env = empty_sym_env(&store);
+        let t = store.alloc_sym("T");
 
         let input = IO {
             expr: t,
             env,
-            cont: pool.alloc_cont_outermost(),
+            cont: store.alloc_cont_outermost(),
         };
 
         let initial = input.clone();
-        // let witness = input.compute_witness(&mut pool);
+        // let witness = input.compute_witness(&mut store);
 
-        let (_, witness) = input.eval(&mut pool);
+        let (_, witness) = input.eval(&mut store);
 
-        let test_with_output = |output: IO, expect_success: bool, pool: &Pool| {
+        let test_with_output = |output: IO, expect_success: bool, store: &Store| {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
@@ -2408,7 +2412,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(initial.clone(), frame, pool)
+            CircuitFrame::from_frame(initial.clone(), frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2424,10 +2428,10 @@ mod tests {
             let output = IO {
                 expr: t.clone(),
                 env: env.clone(),
-                cont: pool.alloc_cont_terminal(),
+                cont: store.alloc_cont_terminal(),
             };
 
-            test_with_output(output, true, &pool);
+            test_with_output(output, true, &store);
         }
 
         // Failure
@@ -2435,43 +2439,43 @@ mod tests {
             {
                 // Wrong type, so tag should differ.
                 let bad_output_tag = IO {
-                    expr: pool.alloc_num(999),
+                    expr: store.alloc_num(999),
                     env,
-                    cont: pool.alloc_cont_terminal(),
+                    cont: store.alloc_cont_terminal(),
                 };
 
-                test_with_output(bad_output_tag, false, &pool);
+                test_with_output(bad_output_tag, false, &store);
             }
             {
                 // Wrong symbol, so hash should differ.
                 let bad_output_value = IO {
-                    expr: pool.alloc_sym("S"),
+                    expr: store.alloc_sym("S"),
                     env: env.clone(),
-                    cont: pool.alloc_cont_terminal(),
+                    cont: store.alloc_cont_terminal(),
                 };
-                test_with_output(bad_output_value, false, &pool);
+                test_with_output(bad_output_value, false, &store);
             }
         }
     }
 
     #[test]
     fn fun_self_evaluating() {
-        let mut pool = Pool::default();
-        let env = empty_sym_env(&pool);
-        let var = pool.alloc_sym("a");
-        let body = pool.alloc_list(&[var]);
-        let fun = pool.alloc_fun(var, body, env);
+        let mut store = Store::default();
+        let env = empty_sym_env(&store);
+        let var = store.alloc_sym("a");
+        let body = store.alloc_list(&[var]);
+        let fun = store.alloc_fun(var, body, env);
 
         let input = IO {
             expr: fun.clone(),
             env: env.clone(),
-            cont: pool.alloc_cont_outermost(),
+            cont: store.alloc_cont_outermost(),
         };
 
         let initial = input.clone();
-        let (_, witness) = input.eval(&mut pool);
+        let (_, witness) = input.eval(&mut store);
 
-        let test_with_output = |output: IO, expect_success: bool, pool: &Pool| {
+        let test_with_output = |output: IO, expect_success: bool, store: &Store| {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
@@ -2481,7 +2485,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(initial.clone(), frame, pool)
+            CircuitFrame::from_frame(initial.clone(), frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2497,10 +2501,10 @@ mod tests {
             let output = IO {
                 expr: fun.clone(),
                 env: env.clone(),
-                cont: pool.alloc_cont_terminal(),
+                cont: store.alloc_cont_terminal(),
             };
 
-            test_with_output(output, true, &pool);
+            test_with_output(output, true, &store);
         }
 
         // Failure
@@ -2508,22 +2512,22 @@ mod tests {
             {
                 // Wrong type, so tag should differ.
                 let bad_output_tag = IO {
-                    expr: pool.alloc_sym("SYMBOL"),
+                    expr: store.alloc_sym("SYMBOL"),
                     env: env.clone(),
-                    cont: pool.alloc_cont_terminal(),
+                    cont: store.alloc_cont_terminal(),
                 };
 
-                test_with_output(bad_output_tag, false, &pool);
+                test_with_output(bad_output_tag, false, &store);
             }
             {
                 // Wrong value, so hash should differ.
                 let bad_output_value = IO {
-                    expr: pool.alloc_num(999),
+                    expr: store.alloc_num(999),
                     env: env.clone(),
-                    cont: pool.alloc_cont_terminal(),
+                    cont: store.alloc_cont_terminal(),
                 };
 
-                test_with_output(bad_output_value, false, &pool);
+                test_with_output(bad_output_value, false, &store);
             }
         }
     }
@@ -2531,21 +2535,21 @@ mod tests {
     //#[test]
     #[allow(dead_code)]
     fn non_self_evaluating() {
-        let mut pool = Pool::default();
-        let env = empty_sym_env(&pool);
+        let mut store = Store::default();
+        let env = empty_sym_env(&store);
 
         // Input is not self-evaluating.
-        let expr = pool.read("(+ 1 2)").unwrap();
+        let expr = store.read("(+ 1 2)").unwrap();
         let input = IO {
             expr: expr.clone(),
             env: env.clone(),
-            cont: pool.alloc_cont_outermost(),
+            cont: store.alloc_cont_outermost(),
         };
 
         let initial = input.clone();
-        let (_, witness) = input.eval(&mut pool);
+        let (_, witness) = input.eval(&mut store);
 
-        let test_with_output = |output, expect_success, pool: &mut Pool| {
+        let test_with_output = |output, expect_success, store: &mut Store| {
             let mut cs = TestConstraintSystem::new();
 
             let frame = Frame {
@@ -2555,7 +2559,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(initial.clone(), frame, &pool)
+            CircuitFrame::from_frame(initial.clone(), frame, &store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2571,12 +2575,12 @@ mod tests {
             {
                 // Output is not required to equal input.
                 let output = IO {
-                    expr: pool.alloc_num(987),
+                    expr: store.alloc_num(987),
                     env,
-                    cont: pool.alloc_cont_terminal(),
+                    cont: store.alloc_cont_terminal(),
                 };
 
-                test_with_output(output, true, &mut pool);
+                test_with_output(output, true, &mut store);
             }
             {
                 // However, output is permitted to equal input.
@@ -2585,10 +2589,10 @@ mod tests {
                 let output = IO {
                     expr: expr.clone(),
                     env: env.clone(),
-                    cont: pool.alloc_cont_terminal(),
+                    cont: store.alloc_cont_terminal(),
                 };
 
-                test_with_output(output, true, &mut pool);
+                test_with_output(output, true, &mut store);
             }
         }
     }

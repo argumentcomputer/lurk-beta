@@ -8,10 +8,9 @@ use blstrs::Scalar as Fr;
 use neptune::circuit::poseidon_hash;
 
 use crate::{
-    pool::{
-        ContPtr, Continuation, Expression, IntoHashComponents, Pool, Ptr, ScalarContPtr,
-        ScalarPointer, ScalarPtr, Thunk, POSEIDON_CONSTANTS_4, POSEIDON_CONSTANTS_6,
-        POSEIDON_CONSTANTS_8,
+    store::{
+        ContPtr, Continuation, Expression, IntoHashComponents, Ptr, ScalarContPtr, ScalarPointer,
+        ScalarPtr, Store, Thunk, POSEIDON_CONSTANTS_4, POSEIDON_CONSTANTS_6, POSEIDON_CONSTANTS_8,
     },
     writer::Write,
 };
@@ -82,23 +81,29 @@ impl AllocatedPtr {
         })
     }
 
-    pub fn alloc_ptr<'a, CS, F>(cs: &mut CS, pool: &Pool, value: F) -> Result<Self, SynthesisError>
+    pub fn alloc_ptr<'a, CS, F>(
+        cs: &mut CS,
+        store: &Store,
+        value: F,
+    ) -> Result<Self, SynthesisError>
     where
         CS: ConstraintSystem<Fr>,
         F: FnOnce() -> Result<&'a Ptr, SynthesisError>,
     {
         AllocatedPtr::alloc(cs, || {
             let ptr = value()?;
-            pool.hash_expr(ptr).ok_or(SynthesisError::AssignmentMissing)
+            store
+                .hash_expr(ptr)
+                .ok_or(SynthesisError::AssignmentMissing)
         })
     }
 
     pub fn alloc_constant_ptr<CS: ConstraintSystem<Fr>>(
         cs: &mut CS,
-        pool: &Pool,
+        store: &Store,
         value: &Ptr,
     ) -> Result<Self, SynthesisError> {
-        let ptr = pool
+        let ptr = store
             .hash_expr(value)
             .ok_or(SynthesisError::AssignmentMissing)?;
         AllocatedPtr::alloc_constant(cs, ptr)
@@ -142,30 +147,30 @@ impl AllocatedPtr {
         )
     }
 
-    pub fn ptr(&self, pool: &Pool) -> Option<Ptr> {
-        let scalar_ptr = self.scalar_ptr(pool)?;
-        pool.fetch_scalar(&scalar_ptr)
+    pub fn ptr(&self, store: &Store) -> Option<Ptr> {
+        let scalar_ptr = self.scalar_ptr(store)?;
+        store.fetch_scalar(&scalar_ptr)
     }
 
-    pub fn scalar_ptr(&self, pool: &Pool) -> Option<ScalarPtr> {
+    pub fn scalar_ptr(&self, store: &Store) -> Option<ScalarPtr> {
         let (tag, value) = (self.tag.get_value()?, self.hash.get_value()?);
-        pool.scalar_from_parts(tag, value)
+        store.scalar_from_parts(tag, value)
     }
 
-    pub fn fetch_and_write_str(&self, pool: &Pool) -> String {
-        self.ptr(pool)
-            .map(|a| a.fmt_to_string(pool))
+    pub fn fetch_and_write_str(&self, store: &Store) -> String {
+        self.ptr(store)
+            .map(|a| a.fmt_to_string(store))
             .unwrap_or_else(|| "no ptr".to_string())
     }
 
     pub fn allocate_thunk_components<CS: ConstraintSystem<Fr>>(
         &self,
         cs: CS,
-        pool: &Pool,
+        store: &Store,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedContPtr), SynthesisError> {
-        let maybe_thunk = if let Some(ptr) = self.scalar_ptr(pool) {
+        let maybe_thunk = if let Some(ptr) = self.scalar_ptr(store) {
             if let Some(Expression::Thunk(thunk)) =
-                pool.fetch_scalar(&ptr).and_then(|ptr| pool.fetch(&ptr))
+                store.fetch_scalar(&ptr).and_then(|ptr| store.fetch(&ptr))
             {
                 Some(thunk)
             } else {
@@ -175,7 +180,7 @@ impl AllocatedPtr {
             None
         };
 
-        Thunk::allocate_maybe_dummy_components(cs, maybe_thunk.as_ref(), pool)
+        Thunk::allocate_maybe_dummy_components(cs, maybe_thunk.as_ref(), store)
     }
 
     pub fn alloc_hash_components<CS: ConstraintSystem<Fr>, T: IntoHashComponents>(
@@ -293,9 +298,9 @@ impl AllocatedPtr {
     pub fn bind_input<CS: ConstraintSystem<Fr>>(
         cs: &mut CS,
         expr: Option<&Ptr>,
-        pool: &Pool,
+        store: &Store,
     ) -> Result<Self, SynthesisError> {
-        let ptr = expr.and_then(|e| pool.hash_expr(e));
+        let ptr = expr.and_then(|e| store.hash_expr(e));
 
         let tag = AllocatedNum::alloc(cs.namespace(|| "tag"), || {
             ptr.as_ref()
@@ -386,7 +391,7 @@ impl AllocatedContPtr {
 
     pub fn alloc_cont_ptr<'a, CS, F>(
         cs: &mut CS,
-        pool: &Pool,
+        store: &Store,
         value: F,
     ) -> Result<Self, SynthesisError>
     where
@@ -395,16 +400,18 @@ impl AllocatedContPtr {
     {
         AllocatedContPtr::alloc(cs, || {
             let ptr = value()?;
-            pool.hash_cont(ptr).ok_or(SynthesisError::AssignmentMissing)
+            store
+                .hash_cont(ptr)
+                .ok_or(SynthesisError::AssignmentMissing)
         })
     }
 
     pub fn alloc_constant_cont_ptr<CS: ConstraintSystem<Fr>>(
         cs: &mut CS,
-        pool: &Pool,
+        store: &Store,
         value: &ContPtr,
     ) -> Result<Self, SynthesisError> {
-        let ptr = pool
+        let ptr = store
             .hash_cont(value)
             .ok_or(SynthesisError::AssignmentMissing)?;
         AllocatedContPtr::alloc_constant(cs, ptr)
@@ -436,24 +443,24 @@ impl AllocatedContPtr {
         )
     }
 
-    pub fn get_cont(&self, pool: &Pool) -> Option<Continuation> {
-        let ptr = self.get_cont_ptr(pool)?;
-        pool.fetch_cont(&ptr)
+    pub fn get_cont(&self, store: &Store) -> Option<Continuation> {
+        let ptr = self.get_cont_ptr(store)?;
+        store.fetch_cont(&ptr)
     }
 
-    pub fn get_cont_ptr(&self, pool: &Pool) -> Option<ContPtr> {
-        let scalar_ptr = self.get_scalar_ptr_cont(pool)?;
-        pool.fetch_scalar_cont(&scalar_ptr)
+    pub fn get_cont_ptr(&self, store: &Store) -> Option<ContPtr> {
+        let scalar_ptr = self.get_scalar_ptr_cont(store)?;
+        store.fetch_scalar_cont(&scalar_ptr)
     }
 
-    pub fn get_scalar_ptr_cont(&self, pool: &Pool) -> Option<ScalarContPtr> {
+    pub fn get_scalar_ptr_cont(&self, store: &Store) -> Option<ScalarContPtr> {
         let (tag, value) = (self.tag.get_value()?, self.hash.get_value()?);
-        pool.scalar_from_parts_cont(tag, value)
+        store.scalar_from_parts_cont(tag, value)
     }
 
-    pub fn fetch_and_write_cont_str(&self, pool: &Pool) -> String {
-        self.get_cont_ptr(pool)
-            .map(|a| a.fmt_to_string(pool))
+    pub fn fetch_and_write_cont_str(&self, store: &Store) -> String {
+        self.get_cont_ptr(store)
+            .map(|a| a.fmt_to_string(store))
             .unwrap_or_else(|| "no cont ptr".to_string())
     }
 
@@ -476,9 +483,9 @@ impl AllocatedContPtr {
     pub fn bind_input<CS: ConstraintSystem<Fr>>(
         cs: &mut CS,
         cont: Option<&ContPtr>,
-        pool: &Pool,
+        store: &Store,
     ) -> Result<AllocatedContPtr, SynthesisError> {
-        let ptr = cont.and_then(|c| pool.hash_cont(c));
+        let ptr = cont.and_then(|c| store.hash_cont(c));
 
         let tag = AllocatedNum::alloc(cs.namespace(|| "continuation tag"), || {
             ptr.map(|c| *c.tag())

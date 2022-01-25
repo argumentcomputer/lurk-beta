@@ -1,5 +1,5 @@
-use crate::pool::{
-    ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Pool, Ptr, Rel2, Tag, Thunk,
+use crate::store::{
+    ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk,
 };
 use crate::writer::Write;
 use std::cmp::PartialEq;
@@ -13,13 +13,13 @@ pub struct IO {
 }
 
 impl Write for IO {
-    fn fmt<W: std::io::Write>(&self, pool: &Pool, w: &mut W) -> std::io::Result<()> {
+    fn fmt<W: std::io::Write>(&self, store: &Store, w: &mut W) -> std::io::Result<()> {
         write!(w, "IO {{ expr: ")?;
-        self.expr.fmt(pool, w)?;
+        self.expr.fmt(store, w)?;
         write!(w, ", env: ")?;
-        self.env.fmt(pool, w)?;
+        self.env.fmt(store, w)?;
         write!(w, ", cont: ")?;
-        self.cont.fmt(pool, w)?;
+        self.cont.fmt(store, w)?;
         write!(w, " }}")
     }
 }
@@ -42,7 +42,7 @@ impl<T: PartialEq + std::fmt::Debug, W> Frame<T, W> {
 }
 
 pub trait Evaluable<W> {
-    fn eval(&self, pool: &mut Pool) -> (Self, W)
+    fn eval(&self, store: &mut Store) -> (Self, W)
     where
         Self: Sized;
 
@@ -50,8 +50,8 @@ pub trait Evaluable<W> {
 }
 
 impl Evaluable<Witness> for IO {
-    fn eval(&self, pool: &mut Pool) -> (Self, Witness) {
-        let (expr, env, cont, witness) = eval_expr(self.expr, self.env, self.cont, pool);
+    fn eval(&self, store: &mut Store) -> (Self, Witness) {
+        let (expr, env, cont, witness) = eval_expr(self.expr, self.env, self.cont, store);
         (Self { expr, env, cont }, witness)
     }
 
@@ -61,9 +61,9 @@ impl Evaluable<Witness> for IO {
 }
 
 impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
-    fn next(&self, pool: &mut Pool) -> Self {
+    fn next(&self, store: &mut Store) -> Self {
         let input = self.output.clone();
-        let (output, witness) = input.eval(pool);
+        let (output, witness) = input.eval(store);
 
         Self {
             input,
@@ -75,8 +75,8 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
 }
 
 impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
-    fn from_initial_input(input: T, pool: &mut Pool) -> Self {
-        let (output, witness) = input.eval(pool);
+    fn from_initial_input(input: T, store: &mut Store) -> Self {
+        let (output, witness) = input.eval(store);
 
         Self {
             input,
@@ -90,16 +90,16 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
 pub struct FrameIt<'a, T, W> {
     first: bool,
     frame: Frame<T, W>,
-    pool: &'a mut Pool,
+    store: &'a mut Store,
 }
 
 impl<'a, 'b, T: Evaluable<Witness> + Clone + PartialEq> FrameIt<'a, T, Witness> {
-    fn new(initial_input: T, pool: &'a mut Pool) -> Self {
-        let frame = Frame::from_initial_input(initial_input, pool);
+    fn new(initial_input: T, store: &'a mut Store) -> Self {
+        let frame = Frame::from_initial_input(initial_input, store);
         Self {
             first: true,
             frame,
-            pool,
+            store,
         }
     }
 
@@ -117,7 +117,7 @@ impl<'a, 'b, T: Evaluable<Witness> + Clone + PartialEq> FrameIt<'a, T, Witness> 
                 break;
             }
 
-            self.frame = self.frame.next(self.pool);
+            self.frame = self.frame.next(self.store);
         }
         Some(self.frame)
     }
@@ -137,7 +137,7 @@ impl<'a, 'b, T: Evaluable<Witness> + Clone + PartialEq> Iterator for FrameIt<'a,
             return None;
         }
 
-        self.frame = self.frame.next(self.pool);
+        self.frame = self.frame.next(self.store);
         Some(self.frame.clone())
     }
 }
@@ -169,8 +169,13 @@ impl Witness {
     }
 }
 
-fn eval_expr(expr: Ptr, env: Ptr, cont: ContPtr, pool: &mut Pool) -> (Ptr, Ptr, ContPtr, Witness) {
-    let (ctrl, witness) = eval_expr_with_witness(expr, env, cont, pool);
+fn eval_expr(
+    expr: Ptr,
+    env: Ptr,
+    cont: ContPtr,
+    store: &mut Store,
+) -> (Ptr, Ptr, ContPtr, Witness) {
+    let (ctrl, witness) = eval_expr_with_witness(expr, env, cont, store);
     let (new_expr, new_env, new_cont) = ctrl.into_results();
 
     (new_expr, new_env, new_cont, witness)
@@ -215,11 +220,11 @@ fn eval_expr_with_witness(
     expr: Ptr,
     env: Ptr,
     cont: ContPtr,
-    pool: &mut Pool,
+    store: &mut Store,
 ) -> (Control, Witness) {
     let mut extended_closure = None;
     let control = match expr.tag() {
-        Tag::Thunk => match pool.fetch(&expr).unwrap() {
+        Tag::Thunk => match store.fetch(&expr).unwrap() {
             Expression::Thunk(thunk) => {
                 Control::InvokeContinuation(thunk.value, env, thunk.continuation)
             }
@@ -227,7 +232,7 @@ fn eval_expr_with_witness(
         },
         Tag::Nil => Control::InvokeContinuation(expr, env, cont),
         Tag::Sym => {
-            if expr == pool.alloc_sym("NIL") || (expr == pool.alloc_sym("T")) {
+            if expr == store.alloc_sym("NIL") || (expr == store.alloc_sym("T")) {
                 // NIL and T are self-evaluating symbols, pass them to the continuation in a thunk.
 
                 // CIRCUIT: sym_is_self_evaluating
@@ -238,20 +243,20 @@ fn eval_expr_with_witness(
 
                 // CIRCUIT: sym_otherwise
                 assert!(!env.is_nil(), "Unbound variable: {:?}", expr);
-                let (binding, smaller_env) = pool.car_cdr(&env);
+                let (binding, smaller_env) = store.car_cdr(&env);
                 if binding.is_nil() {
                     // If binding is NIL, it's empty. There is no match. Return an error due to unbound variable.
 
                     // CIRCUIT: binding_is_nil
                     //          otherwise_and_binding_is_nil
                     //          cond2
-                    Control::Return(expr, env, pool.alloc_cont_error())
+                    Control::Return(expr, env, store.alloc_cont_error())
                 } else {
                     // Binding is not NIL, so it is either a normal binding or a recursive environment.
 
                     // CIRCUIT: binding_not_nil
                     //          otherwise_and_binding_not_nil
-                    let (var_or_rec_binding, val_or_more_rec_env) = pool.car_cdr(&binding);
+                    let (var_or_rec_binding, val_or_more_rec_env) = store.car_cdr(&binding);
                     match var_or_rec_binding.tag() {
                         Tag::Sym => {
                             // We are in a simple env (not a recursive env),
@@ -287,7 +292,7 @@ fn eval_expr_with_witness(
                                     }
                                     _ =>
                                     // Otherwise, create a lookup continuation, packaging current env
-                                    // to be repoold later.
+                                    // to be restored later.
 
                                     // CIRCUIT: cont_not_lookup_sym
                                     //          cond5
@@ -295,7 +300,7 @@ fn eval_expr_with_witness(
                                         Control::Return(
                                             expr,
                                             smaller_env,
-                                            pool.alloc_cont_lookup(env, cont),
+                                            store.alloc_cont_lookup(env, cont),
                                         )
                                     }
                                 }
@@ -308,7 +313,7 @@ fn eval_expr_with_witness(
                             let rec_env = binding;
                             let smaller_rec_env = val_or_more_rec_env;
 
-                            let (v2, val2) = pool.car_cdr(&var_or_rec_binding);
+                            let (v2, val2) = store.car_cdr(&var_or_rec_binding);
                             if v2 == expr {
                                 // CIRCUIT: v2_is_expr
                                 //          v2_is_expr_real
@@ -324,7 +329,7 @@ fn eval_expr_with_witness(
                                             // We just found a closure in a recursive env.
                                             // We need to extend its environment to include that recursive env.
 
-                                            extend_closure(&val2, &rec_env, pool)
+                                            extend_closure(&val2, &rec_env, store)
                                         }
                                         _ => {
                                             extended_closure = None;
@@ -342,7 +347,7 @@ fn eval_expr_with_witness(
                                     smaller_env
                                 } else {
                                     // CIRCUIT: with_smaller_rec_env
-                                    pool.alloc_cons(smaller_rec_env, smaller_env)
+                                    store.alloc_cons(smaller_rec_env, smaller_env)
                                 };
                                 match cont.tag() {
                                     ContTag::Lookup => {
@@ -356,7 +361,7 @@ fn eval_expr_with_witness(
                                         //          cond9
                                         expr,
                                         env_to_use,
-                                        pool.alloc_cont_lookup(env, cont),
+                                        store.alloc_cont_lookup(env, cont),
                                     ),
                                 }
                             }
@@ -370,137 +375,149 @@ fn eval_expr_with_witness(
         Tag::Num => Control::InvokeContinuation(expr, env, cont),
         Tag::Fun => Control::InvokeContinuation(expr, env, cont),
         Tag::Cons => {
-            let (head, rest) = pool.car_cdr(&expr);
-            let lambda = pool.alloc_sym("LAMBDA");
-            let quote = pool.alloc_sym("QUOTE");
-            let dummy_arg = pool.alloc_sym("_");
+            let (head, rest) = store.car_cdr(&expr);
+            let lambda = store.alloc_sym("LAMBDA");
+            let quote = store.alloc_sym("QUOTE");
+            let dummy_arg = store.alloc_sym("_");
 
             if head == lambda {
-                let (args, body) = pool.car_cdr(&rest);
+                let (args, body) = store.car_cdr(&rest);
                 let (arg, _rest) = if args.is_nil() {
                     // (LAMBDA () STUFF)
                     // becomes (LAMBDA (DUMMY) STUFF)
-                    (dummy_arg, pool.alloc_nil())
+                    (dummy_arg, store.alloc_nil())
                 } else {
-                    pool.car_cdr(&args)
+                    store.car_cdr(&args)
                 };
-                let cdr_args = pool.cdr(&args);
+                let cdr_args = store.cdr(&args);
                 let inner_body = if cdr_args.is_nil() {
                     body
                 } else {
                     // (LAMBDA (A B) STUFF)
                     // becomes (LAMBDA (A) (LAMBDA (B) STUFF))
-                    let inner = pool.alloc_cons(cdr_args, body);
-                    let l = pool.alloc_cons(lambda, inner);
-                    pool.alloc_list(&[l])
+                    let inner = store.alloc_cons(cdr_args, body);
+                    let l = store.alloc_cons(lambda, inner);
+                    store.alloc_list(&[l])
                 };
-                let function = pool.alloc_fun(arg, inner_body, env);
+                let function = store.alloc_fun(arg, inner_body, env);
 
                 Control::InvokeContinuation(function, env, cont)
             } else if head == quote {
-                let (quoted, end) = pool.car_cdr(&rest);
+                let (quoted, end) = store.car_cdr(&rest);
                 assert!(end.is_nil());
                 Control::InvokeContinuation(quoted, env, cont)
-            } else if head == pool.alloc_sym("LET*") {
-                let (bindings, body) = pool.car_cdr(&rest);
-                let (body1, rest_body) = pool.car_cdr(&body);
+            } else if head == store.alloc_sym("LET*") {
+                let (bindings, body) = store.car_cdr(&rest);
+                let (body1, rest_body) = store.car_cdr(&body);
                 // Only a single body form allowed for now.
                 assert!(rest_body.is_nil());
 
                 if bindings.is_nil() {
                     Control::Return(body1, env, cont)
                 } else {
-                    let (binding1, rest_bindings) = pool.car_cdr(&bindings);
-                    let (var, more_vals) = pool.car_cdr(&binding1);
-                    let (val, end) = pool.car_cdr(&more_vals);
+                    let (binding1, rest_bindings) = store.car_cdr(&bindings);
+                    let (var, more_vals) = store.car_cdr(&binding1);
+                    let (val, end) = store.car_cdr(&more_vals);
                     assert!(end.is_nil());
 
                     let expanded = if rest_bindings.is_nil() {
                         body1
                     } else {
-                        let lt = pool.alloc_sym("LET*");
-                        pool.alloc_list(&[lt, rest_bindings, body1])
-                    };
-                    Control::Return(val, env, pool.alloc_cont_let_star(var, expanded, env, cont))
-                }
-            } else if head == pool.alloc_sym("LETREC*") {
-                let (bindings, body) = pool.car_cdr(&rest);
-                let (body1, rest_body) = pool.car_cdr(&body);
-                // Only a single body form allowed for now.
-                assert!(rest_body.is_nil());
-                if bindings.is_nil() {
-                    Control::Return(body1, env, cont)
-                } else {
-                    let (binding1, rest_bindings) = pool.car_cdr(&bindings);
-                    let (var, more_vals) = pool.car_cdr(&binding1);
-                    let (val, end) = pool.car_cdr(&more_vals);
-                    assert!(end.is_nil());
-
-                    let expanded = if rest_bindings.is_nil() {
-                        body1
-                    } else {
-                        let lt = pool.alloc_sym("LETREC*");
-                        pool.alloc_list(&[lt, rest_bindings, body1])
+                        let lt = store.alloc_sym("LET*");
+                        store.alloc_list(&[lt, rest_bindings, body1])
                     };
                     Control::Return(
                         val,
                         env,
-                        pool.alloc_cont_let_rec_star(var, expanded, env, cont),
+                        store.alloc_cont_let_star(var, expanded, env, cont),
                     )
                 }
-            } else if head == pool.alloc_sym("cons") {
-                let (arg1, more) = pool.car_cdr(&rest);
-                Control::Return(arg1, env, pool.alloc_cont_binop(Op2::Cons, env, more, cont))
-            } else if head == pool.alloc_sym("car") {
-                let (arg1, end) = pool.car_cdr(&rest);
+            } else if head == store.alloc_sym("LETREC*") {
+                let (bindings, body) = store.car_cdr(&rest);
+                let (body1, rest_body) = store.car_cdr(&body);
+                // Only a single body form allowed for now.
+                assert!(rest_body.is_nil());
+                if bindings.is_nil() {
+                    Control::Return(body1, env, cont)
+                } else {
+                    let (binding1, rest_bindings) = store.car_cdr(&bindings);
+                    let (var, more_vals) = store.car_cdr(&binding1);
+                    let (val, end) = store.car_cdr(&more_vals);
+                    assert!(end.is_nil());
+
+                    let expanded = if rest_bindings.is_nil() {
+                        body1
+                    } else {
+                        let lt = store.alloc_sym("LETREC*");
+                        store.alloc_list(&[lt, rest_bindings, body1])
+                    };
+                    Control::Return(
+                        val,
+                        env,
+                        store.alloc_cont_let_rec_star(var, expanded, env, cont),
+                    )
+                }
+            } else if head == store.alloc_sym("cons") {
+                let (arg1, more) = store.car_cdr(&rest);
+                Control::Return(
+                    arg1,
+                    env,
+                    store.alloc_cont_binop(Op2::Cons, env, more, cont),
+                )
+            } else if head == store.alloc_sym("car") {
+                let (arg1, end) = store.car_cdr(&rest);
                 assert!(end.is_nil());
-                Control::Return(arg1, env, pool.alloc_cont_unop(Op1::Car, cont))
-            } else if head == pool.alloc_sym("cdr") {
-                let (arg1, end) = pool.car_cdr(&rest);
+                Control::Return(arg1, env, store.alloc_cont_unop(Op1::Car, cont))
+            } else if head == store.alloc_sym("cdr") {
+                let (arg1, end) = store.car_cdr(&rest);
                 assert!(end.is_nil());
-                Control::Return(arg1, env, pool.alloc_cont_unop(Op1::Cdr, cont))
-            } else if head == pool.alloc_sym("atom") {
-                let (arg1, end) = pool.car_cdr(&rest);
+                Control::Return(arg1, env, store.alloc_cont_unop(Op1::Cdr, cont))
+            } else if head == store.alloc_sym("atom") {
+                let (arg1, end) = store.car_cdr(&rest);
                 assert!(end.is_nil());
-                Control::Return(arg1, env, pool.alloc_cont_unop(Op1::Atom, cont))
-            } else if head == pool.alloc_sym("+") {
-                let (arg1, more) = pool.car_cdr(&rest);
-                Control::Return(arg1, env, pool.alloc_cont_binop(Op2::Sum, env, more, cont))
-            } else if head == pool.alloc_sym("-") {
-                let (arg1, more) = pool.car_cdr(&rest);
-                Control::Return(arg1, env, pool.alloc_cont_binop(Op2::Diff, env, more, cont))
-            } else if head == pool.alloc_sym("*") {
-                let (arg1, more) = pool.car_cdr(&rest);
+                Control::Return(arg1, env, store.alloc_cont_unop(Op1::Atom, cont))
+            } else if head == store.alloc_sym("+") {
+                let (arg1, more) = store.car_cdr(&rest);
+                Control::Return(arg1, env, store.alloc_cont_binop(Op2::Sum, env, more, cont))
+            } else if head == store.alloc_sym("-") {
+                let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
                     env,
-                    pool.alloc_cont_binop(Op2::Product, env, more, cont),
+                    store.alloc_cont_binop(Op2::Diff, env, more, cont),
                 )
-            } else if head == pool.alloc_sym("/") {
-                let (arg1, more) = pool.car_cdr(&rest);
+            } else if head == store.alloc_sym("*") {
+                let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
                     env,
-                    pool.alloc_cont_binop(Op2::Quotient, env, more, cont),
+                    store.alloc_cont_binop(Op2::Product, env, more, cont),
                 )
-            } else if head == pool.alloc_sym("=") {
-                let (arg1, more) = pool.car_cdr(&rest);
+            } else if head == store.alloc_sym("/") {
+                let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
                     env,
-                    pool.alloc_cont_relop(Rel2::NumEqual, env, more, cont),
+                    store.alloc_cont_binop(Op2::Quotient, env, more, cont),
                 )
-            } else if head == pool.alloc_sym("eq") {
-                let (arg1, more) = pool.car_cdr(&rest);
+            } else if head == store.alloc_sym("=") {
+                let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
                     env,
-                    pool.alloc_cont_relop(Rel2::Equal, env, more, cont),
+                    store.alloc_cont_relop(Rel2::NumEqual, env, more, cont),
                 )
-            } else if head == pool.alloc_sym("if") {
-                let (condition, more) = pool.car_cdr(&rest);
-                Control::Return(condition, env, pool.alloc_cont_if(more, cont))
-            } else if head == pool.alloc_sym("current-env") {
+            } else if head == store.alloc_sym("eq") {
+                let (arg1, more) = store.car_cdr(&rest);
+                Control::Return(
+                    arg1,
+                    env,
+                    store.alloc_cont_relop(Rel2::Equal, env, more, cont),
+                )
+            } else if head == store.alloc_sym("if") {
+                let (condition, more) = store.car_cdr(&rest);
+                Control::Return(condition, env, store.alloc_cont_if(more, cont))
+            } else if head == store.alloc_sym("current-env") {
                 assert!(rest.is_nil());
                 Control::InvokeContinuation(env, env, cont)
             } else {
@@ -508,21 +525,21 @@ fn eval_expr_with_witness(
                 let fun_form = head;
                 let args = rest;
                 let (arg, more_args) = if args.is_nil() {
-                    (pool.alloc_nil(), pool.alloc_nil())
+                    (store.alloc_nil(), store.alloc_nil())
                 } else {
-                    pool.car_cdr(&args)
+                    store.car_cdr(&args)
                 };
                 match more_args.tag() {
                     // (fn arg)
                     // Interpreting as call.
                     Tag::Nil => {
-                        Control::Return(fun_form, env, pool.alloc_cont_call(arg, env, cont))
+                        Control::Return(fun_form, env, store.alloc_cont_call(arg, env, cont))
                     }
                     _ => {
                         // Interpreting as multi-arg call.
                         // (fn arg . more_args) => ((fn arg) . more_args)
-                        let expanded_inner = pool.alloc_list(&[fun_form, arg]);
-                        let expanded = pool.alloc_cons(expanded_inner, more_args);
+                        let expanded_inner = store.alloc_list(&[fun_form, arg]);
+                        let expanded = store.alloc_cons(expanded_inner, more_args);
                         Control::Return(expanded, env, cont)
                     }
                 }
@@ -546,13 +563,13 @@ fn eval_expr_with_witness(
         // invoke_continuation_output_cont: None,
     };
 
-    let control = invoke_continuation(control, pool, &mut witness);
-    let ctrl = make_thunk(control, pool, &mut witness);
+    let control = invoke_continuation(control, store, &mut witness);
+    let ctrl = make_thunk(control, store, &mut witness);
 
     (ctrl, witness)
 }
 
-fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness) -> Control {
+fn invoke_continuation(control: Control, store: &mut Store, witness: &mut Witness) -> Control {
     if !control.is_invoke_continuation() {
         return control;
     }
@@ -565,112 +582,112 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
         ContTag::Terminal => unreachable!("Terminal Continuation should never be invoked."),
         ContTag::Dummy => unreachable!("Dummy Continuation should never be invoked."),
         ContTag::Outermost => match result.tag() {
-            Tag::Thunk => match pool.fetch(result).unwrap() {
+            Tag::Thunk => match store.fetch(result).unwrap() {
                 Expression::Thunk(thunk) => {
                     witness.witness_destructured_thunk(&thunk);
-                    Control::Return(thunk.value, *env, pool.alloc_cont_terminal())
+                    Control::Return(thunk.value, *env, store.alloc_cont_terminal())
                 }
                 _ => unreachable!(),
             },
-            _ => Control::Return(*result, *env, pool.alloc_cont_terminal()),
+            _ => Control::Return(*result, *env, store.alloc_cont_terminal()),
         },
         ContTag::Call => match result.tag() {
             // (arg, saved_env, continuation)
-            Tag::Fun => match pool.fetch_cont(cont).unwrap() {
+            Tag::Fun => match store.fetch_cont(cont).unwrap() {
                 Continuation::Call(arg, saved_env, continuation) => {
                     let function = result;
                     let next_expr = arg;
-                    let newer_cont = pool.alloc_cont_call2(*function, saved_env, continuation);
+                    let newer_cont = store.alloc_cont_call2(*function, saved_env, continuation);
                     Control::Return(next_expr, *env, newer_cont)
                 }
                 _ => unreachable!(),
             },
             _ => {
-                Control::Return(*result, *env, pool.alloc_cont_error())
+                Control::Return(*result, *env, store.alloc_cont_error())
                 // Bad function
             }
         },
-        ContTag::Call2 => match pool.fetch_cont(cont).unwrap() {
+        ContTag::Call2 => match store.fetch_cont(cont).unwrap() {
             Continuation::Call2(function, saved_env, continuation) => match function.tag() {
-                Tag::Fun => match pool.fetch(&function).unwrap() {
+                Tag::Fun => match store.fetch(&function).unwrap() {
                     Expression::Fun(arg, body, closed_env) => {
-                        let body_form = pool.car(&body);
-                        let newer_env = extend(closed_env, arg, *result, pool);
-                        let cont = make_tail_continuation(saved_env, continuation, pool);
+                        let body_form = store.car(&body);
+                        let newer_env = extend(closed_env, arg, *result, store);
+                        let cont = make_tail_continuation(saved_env, continuation, store);
                         Control::Return(body_form, newer_env, cont)
                     }
                     _ => unreachable!(),
                 },
                 _ => {
-                    Control::Return(*result, *env, pool.alloc_cont_error())
+                    Control::Return(*result, *env, store.alloc_cont_error())
                     // panic!("Call2 continuation contains a non-function: {:?}", function);
                 }
             },
             _ => unreachable!(),
         },
-        ContTag::LetStar => match pool.fetch_cont(cont).unwrap() {
+        ContTag::LetStar => match store.fetch_cont(cont).unwrap() {
             Continuation::LetStar(var, body, saved_env, continuation) => {
-                let extended_env = extend(*env, var, *result, pool);
-                let c = make_tail_continuation(saved_env, continuation, pool);
+                let extended_env = extend(*env, var, *result, store);
+                let c = make_tail_continuation(saved_env, continuation, store);
 
                 Control::Return(body, extended_env, c)
             }
             _ => unreachable!(),
         },
-        ContTag::LetRecStar => match pool.fetch_cont(cont).unwrap() {
+        ContTag::LetRecStar => match store.fetch_cont(cont).unwrap() {
             Continuation::LetRecStar(var, body, saved_env, continuation) => {
-                let extended_env = extend_rec(*env, var, *result, pool);
-                let c = make_tail_continuation(saved_env, continuation, pool);
+                let extended_env = extend_rec(*env, var, *result, store);
+                let c = make_tail_continuation(saved_env, continuation, store);
 
                 Control::Return(body, extended_env, c)
             }
             _ => unreachable!(),
         },
-        ContTag::Unop => match pool.fetch_cont(cont).unwrap() {
+        ContTag::Unop => match store.fetch_cont(cont).unwrap() {
             Continuation::Unop(op1, continuation) => {
                 let val = match op1 {
-                    Op1::Car => pool.car(result),
-                    Op1::Cdr => pool.cdr(result),
+                    Op1::Car => store.car(result),
+                    Op1::Cdr => store.cdr(result),
                     Op1::Atom => match result.tag() {
-                        Tag::Cons => pool.alloc_nil(),
-                        _ => pool.alloc_sym("T"),
+                        Tag::Cons => store.alloc_nil(),
+                        _ => store.alloc_sym("T"),
                     },
                 };
                 Control::MakeThunk(val, *env, continuation)
             }
             _ => unreachable!(),
         },
-        ContTag::Binop => match pool.fetch_cont(cont).unwrap() {
+        ContTag::Binop => match store.fetch_cont(cont).unwrap() {
             Continuation::Binop(op2, saved_env, unevaled_args, continuation) => {
-                let (arg2, rest) = pool.car_cdr(&unevaled_args);
+                let (arg2, rest) = store.car_cdr(&unevaled_args);
                 assert!(rest.is_nil());
                 Control::Return(
                     arg2,
                     saved_env,
-                    pool.alloc_cont_binop2(op2, *result, continuation),
+                    store.alloc_cont_binop2(op2, *result, continuation),
                 )
             }
             _ => unreachable!(),
         },
-        ContTag::Binop2 => match pool.fetch_cont(cont).unwrap() {
+        ContTag::Binop2 => match store.fetch_cont(cont).unwrap() {
             Continuation::Binop2(op2, arg1, continuation) => {
                 let arg2 = result;
-                let result = match (pool.fetch(&arg1).unwrap(), pool.fetch(arg2).unwrap()) {
+                let result = match (store.fetch(&arg1).unwrap(), store.fetch(arg2).unwrap()) {
                     (Expression::Num(a), Expression::Num(b)) => match op2 {
                         Op2::Sum => {
                             let mut tmp = a;
                             tmp += b;
-                            pool.alloc_num(tmp)
+                            store.alloc_num(tmp)
                         }
                         Op2::Diff => {
                             let mut tmp = a;
                             tmp -= b;
-                            pool.alloc_num(tmp)
+                            store.alloc_num(tmp)
                         }
                         Op2::Product => {
                             let mut tmp = a;
                             tmp *= b;
-                            pool.alloc_num(tmp)
+                            store.alloc_num(tmp)
                         }
                         Op2::Quotient => {
                             let mut tmp = a;
@@ -678,12 +695,12 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
                             let b_is_zero: bool = b.is_zero();
                             assert!(!b_is_zero, "Division by zero error.");
                             tmp /= b;
-                            pool.alloc_num(tmp)
+                            store.alloc_num(tmp)
                         }
-                        Op2::Cons => pool.alloc_cons(arg1, *arg2),
+                        Op2::Cons => store.alloc_cons(arg1, *arg2),
                     },
                     _ => match op2 {
-                        Op2::Cons => pool.alloc_cons(arg1, *arg2),
+                        Op2::Cons => store.alloc_cons(arg1, *arg2),
                         _ => unimplemented!("Binop2"),
                     },
                 };
@@ -691,38 +708,38 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
             }
             _ => unreachable!(),
         },
-        ContTag::Relop => match pool.fetch_cont(cont).unwrap() {
+        ContTag::Relop => match store.fetch_cont(cont).unwrap() {
             Continuation::Relop(rel2, saved_env, unevaled_args, continuation) => {
-                let (arg2, rest) = pool.car_cdr(&unevaled_args);
+                let (arg2, rest) = store.car_cdr(&unevaled_args);
                 assert!(rest.is_nil());
                 Control::Return(
                     arg2,
                     saved_env,
-                    pool.alloc_cont_relop2(rel2, *result, continuation),
+                    store.alloc_cont_relop2(rel2, *result, continuation),
                 )
             }
             _ => unreachable!(),
         },
-        ContTag::Relop2 => match pool.fetch_cont(cont).unwrap() {
+        ContTag::Relop2 => match store.fetch_cont(cont).unwrap() {
             Continuation::Relop2(rel2, arg1, continuation) => {
                 let arg2 = result;
                 let result = match (arg1.tag(), arg2.tag()) {
                     (Tag::Num, Tag::Num) => match rel2 {
                         Rel2::NumEqual | Rel2::Equal => {
                             if &arg1 == arg2 {
-                                pool.alloc_sym("T") // TODO: maybe explicit boolean.
+                                store.alloc_sym("T") // TODO: maybe explicit boolean.
                             } else {
-                                pool.alloc_nil()
+                                store.alloc_nil()
                             }
                         }
                     },
                     (_, _) => match rel2 {
-                        Rel2::NumEqual => pool.alloc_nil(), // FIXME: This should be a type error.
+                        Rel2::NumEqual => store.alloc_nil(), // FIXME: This should be a type error.
                         Rel2::Equal => {
                             if &arg1 == arg2 {
-                                pool.alloc_sym("T")
+                                store.alloc_sym("T")
                             } else {
-                                pool.alloc_nil()
+                                store.alloc_nil()
                             }
                         }
                     },
@@ -731,10 +748,10 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
             }
             _ => unreachable!(),
         },
-        ContTag::If => match pool.fetch_cont(cont).unwrap() {
+        ContTag::If => match store.fetch_cont(cont).unwrap() {
             Continuation::If(more_args, continuation) => {
                 let condition = result;
-                let (arg1, more) = pool.car_cdr(&more_args);
+                let (arg1, more) = store.car_cdr(&more_args);
                 // NOTE: as formulated here, IF operates on any condition. Every
                 // value but NIL is considered true.
                 //
@@ -764,7 +781,7 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
                 // first be subtracted from the value being checked.
 
                 if condition.is_nil() {
-                    let (arg2, end) = pool.car_cdr(&more);
+                    let (arg2, end) = store.car_cdr(&more);
                     assert!(end.is_nil());
                     Control::Return(arg2, *env, continuation)
                 } else {
@@ -773,13 +790,13 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
             }
             _ => unreachable!(),
         },
-        ContTag::Lookup => match pool.fetch_cont(cont).unwrap() {
+        ContTag::Lookup => match store.fetch_cont(cont).unwrap() {
             Continuation::Lookup(saved_env, continuation) => {
                 Control::MakeThunk(*result, saved_env, continuation)
             }
             _ => unreachable!(),
         },
-        ContTag::Tail => match pool.fetch_cont(cont).unwrap() {
+        ContTag::Tail => match store.fetch_cont(cont).unwrap() {
             Continuation::Tail(saved_env, continuation) => {
                 Control::MakeThunk(*result, saved_env, continuation)
             }
@@ -802,7 +819,7 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
 }
 
 // Returns (Expression::Thunk, Expression::Env, Continuation)
-fn make_thunk(control: Control, pool: &mut Pool, _witness: &mut Witness) -> Control {
+fn make_thunk(control: Control, store: &mut Store, _witness: &mut Witness) -> Control {
     if !control.is_make_thunk() {
         return control;
     }
@@ -815,37 +832,37 @@ fn make_thunk(control: Control, pool: &mut Pool, _witness: &mut Witness) -> Cont
     };
 
     match cont.tag() {
-        ContTag::Tail => match pool.fetch_cont(&cont).unwrap() {
+        ContTag::Tail => match store.fetch_cont(&cont).unwrap() {
             Continuation::Tail(saved_env, continuation) => {
                 // witness.make_thunk_tail_continuation_cont = Some(continuation);
-                let thunk = pool.alloc_thunk(Thunk {
+                let thunk = store.alloc_thunk(Thunk {
                     value: result,
                     continuation,
                 });
-                Control::Return(thunk, saved_env, pool.alloc_cont_dummy())
+                Control::Return(thunk, saved_env, store.alloc_cont_dummy())
             }
             _ => unreachable!(),
         },
         // If continuation is outermost, we don't actually make a thunk. Instead, we signal
         // that this is the terminal result by returning a Terminal continuation.
-        ContTag::Outermost => Control::Return(result, env, pool.alloc_cont_terminal()),
+        ContTag::Outermost => Control::Return(result, env, store.alloc_cont_terminal()),
         _ => {
-            let thunk = pool.alloc_thunk(Thunk {
+            let thunk = store.alloc_thunk(Thunk {
                 value: result,
                 continuation: cont,
             });
-            Control::Return(thunk, env, pool.alloc_cont_dummy())
+            Control::Return(thunk, env, store.alloc_cont_dummy())
         }
     }
 }
 
-fn make_tail_continuation(env: Ptr, continuation: ContPtr, pool: &mut Pool) -> ContPtr {
+fn make_tail_continuation(env: Ptr, continuation: ContPtr, store: &mut Store) -> ContPtr {
     // Result must be either a Tail or Outermost continuation.
     match continuation.tag() {
         // If continuation is already tail, just return it.
         ContTag::Tail => continuation,
         // Otherwise, package it along with supplied env as a new Tail continuation.
-        _ => pool.alloc_cont_tail(env, continuation),
+        _ => store.alloc_cont_tail(env, continuation),
     }
     // Since this is the only place Tail continuation are created, this ensures Tail continuations never
     // point to one another: they can only be nested one deep.
@@ -854,23 +871,23 @@ fn make_tail_continuation(env: Ptr, continuation: ContPtr, pool: &mut Pool) -> C
 pub struct Evaluator<'a> {
     expr: Ptr,
     env: Ptr,
-    pool: &'a mut Pool,
+    store: &'a mut Store,
     limit: usize,
 }
 
 impl<'a> Evaluator<'a> {
-    pub fn new(expr: Ptr, env: Ptr, pool: &'a mut Pool, limit: usize) -> Self {
+    pub fn new(expr: Ptr, env: Ptr, store: &'a mut Store, limit: usize) -> Self {
         Evaluator {
             expr,
             env,
-            pool,
+            store,
             limit,
         }
     }
 
     pub fn eval(&mut self) -> (Ptr, Ptr, usize, ContPtr) {
         let initial_input = self.initial();
-        let frame_iterator = FrameIt::new(initial_input, self.pool);
+        let frame_iterator = FrameIt::new(initial_input, self.store);
 
         if let Some(last_frame) = frame_iterator.next_n(self.limit) {
             let output = last_frame.output;
@@ -884,41 +901,41 @@ impl<'a> Evaluator<'a> {
         IO {
             expr: self.expr,
             env: self.env,
-            cont: self.pool.alloc_cont_outermost(),
+            cont: self.store.alloc_cont_outermost(),
         }
     }
 
     pub fn iter(&mut self) -> Take<FrameIt<'_, IO, Witness>> {
         let initial_input = self.initial();
 
-        FrameIt::new(initial_input, self.pool).take(self.limit)
+        FrameIt::new(initial_input, self.store).take(self.limit)
     }
 }
 
-pub fn empty_sym_env(pool: &Pool) -> Ptr {
-    pool.get_nil()
+pub fn empty_sym_env(store: &Store) -> Ptr {
+    store.get_nil()
 }
 
-fn extend(env: Ptr, var: Ptr, val: Ptr, pool: &mut Pool) -> Ptr {
-    let cons = pool.alloc_cons(var, val);
-    pool.alloc_cons(cons, env)
+fn extend(env: Ptr, var: Ptr, val: Ptr, store: &mut Store) -> Ptr {
+    let cons = store.alloc_cons(var, val);
+    store.alloc_cons(cons, env)
 }
 
-fn extend_rec(env: Ptr, var: Ptr, val: Ptr, pool: &mut Pool) -> Ptr {
-    let (binding_or_env, rest) = pool.car_cdr(&env);
-    let (var_or_binding, _val_or_more_bindings) = pool.car_cdr(&binding_or_env);
+fn extend_rec(env: Ptr, var: Ptr, val: Ptr, store: &mut Store) -> Ptr {
+    let (binding_or_env, rest) = store.car_cdr(&env);
+    let (var_or_binding, _val_or_more_bindings) = store.car_cdr(&binding_or_env);
     match var_or_binding.tag() {
         // It's a var, so we are extending a simple env with a recursive env.
         Tag::Sym | Tag::Nil => {
-            let cons = pool.alloc_cons(var, val);
-            let list = pool.alloc_list(&[cons]);
-            pool.alloc_cons(list, env)
+            let cons = store.alloc_cons(var, val);
+            let list = store.alloc_list(&[cons]);
+            store.alloc_cons(list, env)
         }
         // It's a binding, so we are extending a recursive env.
         Tag::Cons => {
-            let cons = pool.alloc_cons(var, val);
-            let cons2 = pool.alloc_cons(cons, binding_or_env);
-            pool.alloc_cons(cons2, rest)
+            let cons = store.alloc_cons(var, val);
+            let cons2 = store.alloc_cons(cons, binding_or_env);
+            store.alloc_cons(cons2, rest)
         }
         _ => {
             panic!("Bad input form.")
@@ -926,12 +943,12 @@ fn extend_rec(env: Ptr, var: Ptr, val: Ptr, pool: &mut Pool) -> Ptr {
     }
 }
 
-fn extend_closure(fun: &Ptr, rec_env: &Ptr, pool: &mut Pool) -> Ptr {
+fn extend_closure(fun: &Ptr, rec_env: &Ptr, store: &mut Store) -> Ptr {
     match fun.tag() {
-        Tag::Fun => match pool.fetch(fun).unwrap() {
+        Tag::Fun => match store.fetch(fun).unwrap() {
             Expression::Fun(arg, body, closed_env) => {
-                let extended = pool.alloc_cons(*rec_env, closed_env);
-                pool.alloc_fun(arg, body, extended)
+                let extended = store.alloc_cons(*rec_env, closed_env);
+                store.alloc_fun(arg, body, extended)
             }
             _ => unreachable!(),
         },
@@ -940,17 +957,17 @@ fn extend_closure(fun: &Ptr, rec_env: &Ptr, pool: &mut Pool) -> Ptr {
 }
 
 #[allow(dead_code)]
-fn lookup(env: &Ptr, var: &Ptr, pool: &Pool) -> Ptr {
+fn lookup(env: &Ptr, var: &Ptr, store: &Store) -> Ptr {
     assert!(matches!(var.tag(), Tag::Sym));
     match env.tag() {
-        Tag::Nil => pool.get_nil(),
+        Tag::Nil => store.get_nil(),
         Tag::Cons => {
-            let (binding, smaller_env) = pool.car_cdr(env);
-            let (v, val) = pool.car_cdr(&binding);
+            let (binding, smaller_env) = store.car_cdr(env);
+            let (v, val) = store.car_cdr(&binding);
             if v == *var {
                 val
             } else {
-                lookup(&smaller_env, var, pool)
+                lookup(&smaller_env, var, store)
             }
         }
         _ => panic!("Env must be a list."),
@@ -964,38 +981,38 @@ mod test {
 
     #[test]
     fn test_lookup() {
-        let mut pool = Pool::default();
-        let env = empty_sym_env(&pool);
-        let var = pool.alloc_sym("variable");
-        let val = pool.alloc_num(123);
+        let mut store = Store::default();
+        let env = empty_sym_env(&store);
+        let var = store.alloc_sym("variable");
+        let val = store.alloc_num(123);
 
-        assert!(lookup(&env, &var, &pool).is_nil());
+        assert!(lookup(&env, &var, &store).is_nil());
 
-        let new_env = extend(env, var, val, &mut pool);
-        assert_eq!(val, lookup(&new_env, &var, &pool));
+        let new_env = extend(env, var, val, &mut store);
+        assert_eq!(val, lookup(&new_env, &var, &store));
     }
 
     #[test]
     fn test_eval_expr_simple() {
-        let mut pool = Pool::default();
+        let mut store = Store::default();
 
         {
-            let num = pool.alloc_num(123);
+            let num = store.alloc_num(123);
             let (result, _new_env, _cont, _witness) = eval_expr(
                 num,
-                empty_sym_env(&pool),
-                pool.alloc_cont_outermost(),
-                &mut pool,
+                empty_sym_env(&store),
+                store.alloc_cont_outermost(),
+                &mut store,
             );
             assert_eq!(num, result);
         }
 
         {
             let (result, _new_env, _cont, _witness) = eval_expr(
-                pool.alloc_nil(),
-                empty_sym_env(&pool),
-                pool.alloc_cont_outermost(),
-                &mut pool,
+                store.alloc_nil(),
+                empty_sym_env(&store),
+                store.alloc_cont_outermost(),
+                &mut store,
             );
             assert!(result.is_nil());
         }
@@ -1003,12 +1020,12 @@ mod test {
 
     #[test]
     fn outer_evaluate_simple() {
-        let mut pool = Pool::default();
+        let mut store = Store::default();
 
         let limit = 20;
-        let val = pool.alloc_num(999);
+        let val = store.alloc_num(999);
         let (result_expr, _new_env, iterations, _continuation) =
-            Evaluator::new(val, empty_sym_env(&pool), &mut pool, limit).eval();
+            Evaluator::new(val, empty_sym_env(&store), &mut store, limit).eval();
 
         assert_eq!(1, iterations);
         assert_eq!(&result_expr, &val);
@@ -1016,26 +1033,26 @@ mod test {
 
     #[test]
     fn outer_evaluate_lookup() {
-        let mut pool = Pool::default();
+        let mut store = Store::default();
 
         let limit = 20;
-        let val = pool.alloc_num(999);
-        let var = pool.alloc_sym("apple");
-        let val2 = pool.alloc_num(888);
-        let var2 = pool.alloc_sym("banana");
-        let env = extend(empty_sym_env(&pool), var, val, &mut pool);
+        let val = store.alloc_num(999);
+        let var = store.alloc_sym("apple");
+        let val2 = store.alloc_num(888);
+        let var2 = store.alloc_sym("banana");
+        let env = extend(empty_sym_env(&store), var, val, &mut store);
 
         {
             let (result_expr, _new_env, iterations, _continuation) =
-                Evaluator::new(var, env, &mut pool, limit).eval();
+                Evaluator::new(var, env, &mut store, limit).eval();
 
             assert_eq!(1, iterations);
             assert_eq!(&result_expr, &val);
         }
         {
-            let env2 = extend(env, var2, val2, &mut pool);
+            let env2 = extend(env, var2, val2, &mut store);
             let (result_expr, _new_env, iterations, _continuation) =
-                Evaluator::new(var, env2, &mut pool, limit).eval();
+                Evaluator::new(var, env2, &mut store, limit).eval();
 
             assert_eq!(2, iterations);
             assert_eq!(&result_expr, &val);
@@ -1044,7 +1061,7 @@ mod test {
 
     #[test]
     fn print_expr() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let nil = s.alloc_nil();
         let x = s.alloc_sym("x");
         let lambda = s.alloc_sym("lambda");
@@ -1062,7 +1079,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_lambda() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
         let val = s.alloc_num(123);
         let expr = s.read("((lambda (x) x) 123)").unwrap();
@@ -1076,7 +1093,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_lambda2() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
         let val = s.alloc_num(123);
         let expr = s.read("((lambda (y) ((lambda (x) y) 321)) 123)").unwrap();
@@ -1090,7 +1107,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_lambda3() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
         let val = s.alloc_num(123);
         let expr = s
@@ -1106,7 +1123,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_lambda4() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
         let _val = s.alloc_num(999);
         let val2 = s.alloc_num(888);
@@ -1124,7 +1141,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_lambda5() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
         let val = s.alloc_num(999);
         let expr = s
@@ -1141,7 +1158,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_sum() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
         let expr = s.read("(+ 2 (+ 3 4))").unwrap();
 
@@ -1154,7 +1171,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_diff() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
         let expr = s.read("(- 9 5)").unwrap();
 
@@ -1167,7 +1184,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_product() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
         let expr = s.read("(* 9 5)").unwrap();
 
@@ -1180,7 +1197,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_quotient() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
         let expr = s.read("(/ 21 7)").unwrap();
 
@@ -1196,7 +1213,7 @@ mod test {
     // This shouldn't actually panic, it should return an error continuation.
     // But for now document the handling.
     fn outer_evaluate_quotient_divide_by_zero() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
         let expr = s.read("(/ 21 0)").unwrap();
 
@@ -1206,7 +1223,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_num_equal() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
 
         {
@@ -1237,7 +1254,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_adder1() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
         let expr = s.read("(((lambda (x) (lambda (y) (+ x y))) 2) 3)").unwrap();
 
@@ -1251,7 +1268,7 @@ mod test {
     // Enable this when we have LET.
     #[test]
     fn outer_evaluate_adder2() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 25;
         let expr = s
             .read(
@@ -1269,7 +1286,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_let_simple() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
         let expr = s.read("(let* ((a 1)) a)").unwrap();
 
@@ -1282,7 +1299,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_empty_let_bug() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
         let expr = s.read("(let* () (+ 1 2))").unwrap();
 
@@ -1295,7 +1312,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_let() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
         let expr = s
             .read(
@@ -1314,7 +1331,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_letstar_parallel_binding() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 20;
         let expr = s.read("(let* ((a 1) (b a)) b)").unwrap();
 
@@ -1326,7 +1343,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_arithmetic_let() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 100;
         let expr = s
             .read(
@@ -1351,7 +1368,7 @@ mod test {
     fn outer_evaluate_fundamental_conditional() {
         let limit = 100;
         {
-            let mut s = Pool::default();
+            let mut s = Store::default();
             let expr = s
                 .read(
                     "(let* ((true (lambda (a)
@@ -1375,7 +1392,7 @@ mod test {
             assert_eq!(s.alloc_num(5), result_expr);
         }
         {
-            let mut s = Pool::default();
+            let mut s = Store::default();
             let expr = s
                 .read(
                     "(let* ((true (lambda (a)
@@ -1404,7 +1421,7 @@ mod test {
     fn outer_evaluate_if() {
         let limit = 100;
         {
-            let mut s = Pool::default();
+            let mut s = Store::default();
             let expr = s.read("(if t 5 6)").unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
@@ -1414,7 +1431,7 @@ mod test {
             assert_eq!(s.alloc_num(5), result_expr);
         }
         {
-            let mut s = Pool::default();
+            let mut s = Store::default();
             let expr = s.read("(if nil 5 6)").unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
@@ -1429,7 +1446,7 @@ mod test {
     fn outer_evaluate_fully_evaluates() {
         let limit = 100;
         {
-            let mut s = Pool::default();
+            let mut s = Store::default();
             let expr = s.read("(if t (+ 5 5) 6)").unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
@@ -1442,7 +1459,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_recursion1() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 200;
         let expr = s
             .read(
@@ -1463,7 +1480,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_recursion2() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 300;
         let expr = s
             .read(
@@ -1485,7 +1502,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_recursion_multiarg() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 300;
         let expr = s
             .read(
@@ -1505,7 +1522,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_recursion_optimized() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 300;
         let expr = s
             .read(
@@ -1528,7 +1545,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_tail_recursion() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 300;
         let expr = s
             .read(
@@ -1550,7 +1567,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_tail_recursion_somewhat_optimized() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 300;
         let expr = s
             .read(
@@ -1574,7 +1591,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_multiple_letrecstar_bindings() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 300;
         let expr = s
             .read(
@@ -1592,7 +1609,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_multiple_letrecstar_bindings_referencing() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 300;
         let expr = s
             .read(
@@ -1610,7 +1627,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_multiple_letrecstar_bindings_recursive() {
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 500;
         let expr = s
             .read(
@@ -1640,7 +1657,7 @@ mod test {
     #[test]
     fn outer_evaluate_eq() {
         {
-            let mut s = Pool::default();
+            let mut s = Store::default();
             let limit = 20;
             let expr = s.read("(eq 'a 'a)").unwrap();
 
@@ -1651,7 +1668,7 @@ mod test {
             assert_eq!(s.alloc_sym("T"), result_expr);
         }
         {
-            let mut s = Pool::default();
+            let mut s = Store::default();
             let limit = 20;
             let expr = s.read("(eq 'a 1)").unwrap();
 
@@ -1666,7 +1683,7 @@ mod test {
     #[test]
     fn outer_evaluate_zero_arg_lambda() {
         {
-            let mut s = Pool::default();
+            let mut s = Store::default();
             let limit = 20;
             let expr = s.read("((lambda () 123))").unwrap();
 
@@ -1677,7 +1694,7 @@ mod test {
             assert_eq!(s.alloc_num(123), result_expr);
         }
         {
-            let mut s = Pool::default();
+            let mut s = Store::default();
             let limit = 20;
             let expr = s
                 .read("(letrec* ((x 9) (f (lambda () (+ x 1)))) (f))")
@@ -1694,7 +1711,7 @@ mod test {
     #[test]
     fn outer_evaluate_make_tree() {
         {
-            let mut s = Pool::default();
+            let mut s = Store::default();
             let limit = 800;
             let expr = s.read("(letrec* ((mapcar (lambda (f list)
                                                              (if (eq list nil)
@@ -1734,7 +1751,7 @@ mod test {
     #[test]
     fn outer_evaluate_make_tree_minimal_regression() {
         {
-            let mut s = Pool::default();
+            let mut s = Store::default();
             let limit = 1000;
             let expr = s
                 .read(
@@ -1756,7 +1773,7 @@ mod test {
     #[test]
     fn outer_evaluate_map_tree_bug() {
         {
-            let mut s = Pool::default();
+            let mut s = Store::default();
             let limit = 1000;
             let expr = s
                 .read(
@@ -1781,7 +1798,7 @@ mod test {
         {
             // Reuse map-tree failure case to test Relop behavior.
             // This failed initially and tests regression.
-            let mut s = Pool::default();
+            let mut s = Store::default();
             let limit = 1000;
             let expr = s
                 .read(
@@ -1806,7 +1823,7 @@ mod test {
     fn env_lost_bug() {
         {
             // previously, an unbound variable `u` error
-            let mut s = Pool::default();
+            let mut s = Store::default();
             let limit = 1000;
             let expr = s
                 .read(
@@ -1839,7 +1856,7 @@ mod test {
     fn dont_discard_rest_env() {
         {
             // previously: Unbound variable: Sym("Z")
-            let mut s = Pool::default();
+            let mut s = Store::default();
             let limit = 1000;
             let expr = s
                 .read(
@@ -1869,7 +1886,7 @@ mod test {
         //    return x
         // }
 
-        let mut s = Pool::default();
+        let mut s = Store::default();
         let limit = 1000000;
         let expr = s
             .read(

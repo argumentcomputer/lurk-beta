@@ -1,6 +1,6 @@
 use anyhow::Result;
 use lurk::eval::{empty_sym_env, Evaluator};
-use lurk::pool::{ContPtr, ContTag, Expression, Pointer, Pool, Ptr, Tag};
+use lurk::store::{ContPtr, ContTag, Expression, Pointer, Ptr, Store, Tag};
 use lurk::writer::Write;
 use rustyline::error::ReadlineError;
 use rustyline::validate::{
@@ -36,7 +36,7 @@ struct Repl {
 }
 
 impl Repl {
-    fn new(s: &mut Pool, limit: usize) -> Result<Self> {
+    fn new(s: &mut Store, limit: usize) -> Result<Self> {
         let history_path = dirs::home_dir()
             .expect("missing home directory")
             .join(".lurk-history");
@@ -71,7 +71,7 @@ impl Repl {
 fn main() -> Result<()> {
     println!("Lurk REPL welcomes you.");
 
-    let mut s = Pool::default();
+    let mut s = Store::default();
     let limit = 1000000;
     let mut repl = Repl::new(&mut s, limit)?;
 
@@ -138,15 +138,15 @@ fn main() -> Result<()> {
 }
 
 impl ReplState {
-    fn new(s: &mut Pool, limit: usize) -> Self {
+    fn new(s: &mut Store, limit: usize) -> Self {
         Self {
             env: empty_sym_env(&s),
             limit,
         }
     }
-    fn eval_expr(&mut self, expr: Ptr, pool: &mut Pool) -> (Ptr, usize, ContPtr) {
+    fn eval_expr(&mut self, expr: Ptr, store: &mut Store) -> (Ptr, usize, ContPtr) {
         let (result, _next_env, limit, next_cont) =
-            Evaluator::new(expr, self.env.clone(), pool, self.limit).eval();
+            Evaluator::new(expr, self.env.clone(), store, self.limit).eval();
 
         (result, limit, next_cont)
     }
@@ -154,20 +154,20 @@ impl ReplState {
     /// Returns two bools.
     /// First bool is true if input is a command.
     /// Second bool is true if processing should continue.
-    fn maybe_handle_command(&mut self, pool: &mut Pool, line: &str) -> Result<(bool, bool)> {
+    fn maybe_handle_command(&mut self, store: &mut Store, line: &str) -> Result<(bool, bool)> {
         let mut chars = line.chars().peekable();
-        let maybe_command = pool.read_next(&mut chars);
+        let maybe_command = store.read_next(&mut chars);
 
         let result = match &maybe_command {
             Some(maybe_command) => match maybe_command.tag() {
-                Tag::Sym => match pool.fetch(&maybe_command).unwrap().as_sym_str().unwrap() {
+                Tag::Sym => match store.fetch(&maybe_command).unwrap().as_sym_str().unwrap() {
                     ":QUIT" => (true, false),
-                    ":LOAD" => match pool.read_string(&mut chars) {
+                    ":LOAD" => match store.read_string(&mut chars) {
                         Some(s) => match s.tag() {
                             Tag::Str => {
-                                let path = pool.fetch(&s).unwrap();
+                                let path = store.fetch(&s).unwrap();
                                 let path = PathBuf::from(path.as_str().unwrap());
-                                self.handle_load(pool, path)?;
+                                self.handle_load(store, path)?;
                                 (true, true)
                             }
                             other => {
@@ -179,17 +179,17 @@ impl ReplState {
                         }
                     },
                     ":RUN" => {
-                        if let Some(s) = pool.read_string(&mut chars) {
+                        if let Some(s) = store.read_string(&mut chars) {
                             if s.tag() == Tag::Str {
-                                let path = pool.fetch(&s).unwrap();
+                                let path = store.fetch(&s).unwrap();
                                 let path = PathBuf::from(path.as_sym_str().unwrap());
-                                self.handle_run(pool, &path)?;
+                                self.handle_run(store, &path)?;
                             }
                         }
                         (true, true)
                     }
                     ":CLEAR" => {
-                        self.env = empty_sym_env(&pool);
+                        self.env = empty_sym_env(&store);
                         (true, true)
                     }
                     s => {
@@ -209,12 +209,12 @@ impl ReplState {
         Ok(result)
     }
 
-    fn handle_load<P: AsRef<Path>>(&mut self, pool: &mut Pool, path: P) -> Result<()> {
+    fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store, path: P) -> Result<()> {
         println!("Loading from {}.", path.as_ref().to_str().unwrap());
         let input = read_to_string(path)?;
 
-        let expr = pool.read(&input).unwrap();
-        let (result, _limit, _next_cont) = self.eval_expr(expr, pool);
+        let expr = store.read(&input).unwrap();
+        let (result, _limit, _next_cont) = self.eval_expr(expr, store);
 
         self.env = result;
 
@@ -223,56 +223,56 @@ impl ReplState {
         Ok(())
     }
 
-    fn handle_run<P: AsRef<Path> + Copy>(&mut self, pool: &mut Pool, path: P) -> Result<()> {
+    fn handle_run<P: AsRef<Path> + Copy>(&mut self, store: &mut Store, path: P) -> Result<()> {
         println!("Running from {}.", path.as_ref().to_str().unwrap());
         let p = path;
 
         let input = read_to_string(path)?;
         let mut chars = input.chars().peekable();
 
-        while let Some((ptr, is_meta)) = pool.read_maybe_meta(&mut chars) {
-            let expr = pool.fetch(&ptr).unwrap();
+        while let Some((ptr, is_meta)) = store.read_maybe_meta(&mut chars) {
+            let expr = store.fetch(&ptr).unwrap();
             if is_meta {
                 match expr {
-                    Expression::Cons(car, rest) => match &pool.fetch(&car).unwrap() {
+                    Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
                         Expression::Sym(s) => {
                             if s == &":LOAD" {
-                                match pool.fetch(&pool.car(&rest)).unwrap() {
+                                match store.fetch(&store.car(&rest)).unwrap() {
                                     Expression::Str(path) => {
                                         let joined =
                                             p.as_ref().parent().unwrap().join(Path::new(&path));
-                                        self.handle_load(pool, &joined)?
+                                        self.handle_load(store, &joined)?
                                     }
                                     _ => panic!("Argument to :LOAD must be a string."),
                                 }
                             } else if s == &":RUN" {
-                                match pool.fetch(&pool.car(&rest)).unwrap() {
+                                match store.fetch(&store.car(&rest)).unwrap() {
                                     Expression::Str(path) => {
                                         let joined =
                                             p.as_ref().parent().unwrap().join(Path::new(&path));
-                                        self.handle_run(pool, &joined)?
+                                        self.handle_run(store, &joined)?
                                     }
                                     _ => panic!("Argument to :RUN must be a string."),
                                 }
                             } else if s == &":ASSERT-EQ" {
-                                let (first, rest) = pool.car_cdr(&rest);
-                                let (second, rest) = pool.car_cdr(&rest);
+                                let (first, rest) = store.car_cdr(&rest);
+                                let (second, rest) = store.car_cdr(&rest);
                                 assert!(rest.is_nil());
-                                let (first_evaled, _, _) = self.eval_expr(first, pool);
-                                let (second_evaled, _, _) = self.eval_expr(second, pool);
+                                let (first_evaled, _, _) = self.eval_expr(first, store);
+                                let (second_evaled, _, _) = self.eval_expr(second, store);
                                 assert_eq!(first_evaled, second_evaled);
                             } else if s == &":ASSERT" {
-                                let (first, rest) = pool.car_cdr(&rest);
+                                let (first, rest) = store.car_cdr(&rest);
                                 assert!(rest.is_nil());
-                                let (first_evaled, _, _) = self.eval_expr(first, pool);
+                                let (first_evaled, _, _) = self.eval_expr(first, store);
                                 assert!(!first_evaled.is_nil());
                             } else if s == &":CLEAR" {
-                                self.env = empty_sym_env(&pool);
+                                self.env = empty_sym_env(&store);
                             } else if s == &":ASSERT-ERROR" {
-                                let (first, rest) = pool.car_cdr(&rest);
+                                let (first, rest) = store.car_cdr(&rest);
 
                                 assert!(rest.is_nil());
-                                let (_, _, continuation) = self.clone().eval_expr(first, pool);
+                                let (_, _, continuation) = self.clone().eval_expr(first, store);
                                 assert!(continuation.is_error());
                                 // FIXME: bring back catching, or solve otherwise
                                 // std::panic::catch_unwind(||
@@ -290,10 +290,10 @@ impl ReplState {
                     _ => panic!("!<COMMAND> form is unsupported."),
                 }
             } else {
-                let (result, _limit, _next_cont) = self.eval_expr(ptr, pool);
+                let (result, _limit, _next_cont) = self.eval_expr(ptr, store);
 
                 println!("Read: {}", input);
-                println!("Evaled: {}", result.fmt_to_string(&pool));
+                println!("Evaled: {}", result.fmt_to_string(&store));
                 io::stdout().flush().unwrap();
             }
         }

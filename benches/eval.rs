@@ -1,10 +1,10 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lurk::{
     eval::{empty_sym_env, Evaluator},
-    pool::{Pool, Ptr},
+    store::{Ptr, Store},
 };
 
-fn go_base(pool: &mut Pool, a: u64, b: u64) -> Ptr {
+fn go_base(store: &mut Store, a: u64, b: u64) -> Ptr {
     let program = format!(
         r#"
 (let* ((foo (lambda (a b)
@@ -21,38 +21,38 @@ fn go_base(pool: &mut Pool, a: u64, b: u64) -> Ptr {
         a, b
     );
 
-    pool.read(&program).unwrap()
+    store.read(&program).unwrap()
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
     let limit = 1_000_000_000;
 
     c.bench_function("go_base_10_16", |b| {
-        let mut pool = Pool::default();
-        let ptr = go_base(&mut pool, black_box(10), black_box(16));
+        let mut store = Store::default();
+        let ptr = go_base(&mut store, black_box(10), black_box(16));
 
         b.iter(|| {
-            let result = Evaluator::new(ptr, empty_sym_env(&pool), &mut pool, limit).eval();
+            let result = Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit).eval();
             black_box(result)
         })
     });
 
     c.bench_function("go_base_10_160", |b| {
-        let mut pool = Pool::default();
-        let ptr = go_base(&mut pool, black_box(10), black_box(160));
+        let mut store = Store::default();
+        let ptr = go_base(&mut store, black_box(10), black_box(160));
 
         b.iter(|| {
-            let result = Evaluator::new(ptr, empty_sym_env(&pool), &mut pool, limit).eval();
+            let result = Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit).eval();
             black_box(result)
         })
     });
 
     c.bench_function("go_base_10_320", |b| {
-        let mut pool = Pool::default();
-        let ptr = go_base(&mut pool, black_box(10), black_box(320));
+        let mut store = Store::default();
+        let ptr = go_base(&mut store, black_box(10), black_box(320));
 
         b.iter(|| {
-            let result = Evaluator::new(ptr, empty_sym_env(&pool), &mut pool, limit).eval();
+            let result = Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit).eval();
             black_box(result)
         })
     });

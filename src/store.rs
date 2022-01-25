@@ -45,28 +45,28 @@ impl Default for StringSet {
 }
 
 #[derive(Debug)]
-pub struct Pool {
-    cons_pool: IndexSet<(Ptr, Ptr)>,
-    sym_pool: StringSet,
+pub struct Store {
+    cons_store: IndexSet<(Ptr, Ptr)>,
+    sym_store: StringSet,
     // Other sparse storage format without hashing is likely more efficient
-    num_pool: IndexSet<Num>,
-    fun_pool: IndexSet<(Ptr, Ptr, Ptr)>,
-    str_pool: StringSet,
-    thunk_pool: IndexSet<Thunk>,
+    num_store: IndexSet<Num>,
+    fun_store: IndexSet<(Ptr, Ptr, Ptr)>,
+    str_store: StringSet,
+    thunk_store: IndexSet<Thunk>,
 
-    simple_pool: IndexSet<ContPtr>,
-    call_pool: IndexSet<(Ptr, Ptr, ContPtr)>,
-    call2_pool: IndexSet<(Ptr, Ptr, ContPtr)>,
-    tail_pool: IndexSet<(Ptr, ContPtr)>,
-    lookup_pool: IndexSet<(Ptr, ContPtr)>,
-    unop_pool: IndexSet<(Op1, ContPtr)>,
-    binop_pool: IndexSet<(Op2, Ptr, Ptr, ContPtr)>,
-    binop2_pool: IndexSet<(Op2, Ptr, ContPtr)>,
-    relop_pool: IndexSet<(Rel2, Ptr, Ptr, ContPtr)>,
-    relop2_pool: IndexSet<(Rel2, Ptr, ContPtr)>,
-    if_pool: IndexSet<(Ptr, ContPtr)>,
-    let_star_pool: IndexSet<(Ptr, Ptr, Ptr, ContPtr)>,
-    let_rec_star_pool: IndexSet<(Ptr, Ptr, Ptr, ContPtr)>,
+    simple_store: IndexSet<ContPtr>,
+    call_store: IndexSet<(Ptr, Ptr, ContPtr)>,
+    call2_store: IndexSet<(Ptr, Ptr, ContPtr)>,
+    tail_store: IndexSet<(Ptr, ContPtr)>,
+    lookup_store: IndexSet<(Ptr, ContPtr)>,
+    unop_store: IndexSet<(Op1, ContPtr)>,
+    binop_store: IndexSet<(Op2, Ptr, Ptr, ContPtr)>,
+    binop2_store: IndexSet<(Op2, Ptr, ContPtr)>,
+    relop_store: IndexSet<(Rel2, Ptr, Ptr, ContPtr)>,
+    relop2_store: IndexSet<(Rel2, Ptr, ContPtr)>,
+    if_store: IndexSet<(Ptr, ContPtr)>,
+    let_star_store: IndexSet<(Ptr, Ptr, Ptr, ContPtr)>,
+    let_rec_star_store: IndexSet<(Ptr, Ptr, Ptr, ContPtr)>,
 
     /// Holds a mapping of ScalarPtr -> Ptr for reverese lookups
     scalar_ptr_map: dashmap::DashMap<ScalarPtr, Ptr, ahash::RandomState>,
@@ -458,28 +458,28 @@ const ERROR: Continuation = Continuation::Error;
 const DUMMY: Continuation = Continuation::Dummy;
 const TERMINAL: Continuation = Continuation::Terminal;
 
-impl Default for Pool {
+impl Default for Store {
     fn default() -> Self {
-        let mut pool = Pool {
-            cons_pool: Default::default(),
-            sym_pool: Default::default(),
-            num_pool: Default::default(),
-            fun_pool: Default::default(),
-            str_pool: Default::default(),
-            thunk_pool: Default::default(),
-            simple_pool: Default::default(),
-            call_pool: Default::default(),
-            call2_pool: Default::default(),
-            tail_pool: Default::default(),
-            lookup_pool: Default::default(),
-            unop_pool: Default::default(),
-            binop_pool: Default::default(),
-            binop2_pool: Default::default(),
-            relop_pool: Default::default(),
-            relop2_pool: Default::default(),
-            if_pool: Default::default(),
-            let_star_pool: Default::default(),
-            let_rec_star_pool: Default::default(),
+        let mut store = Store {
+            cons_store: Default::default(),
+            sym_store: Default::default(),
+            num_store: Default::default(),
+            fun_store: Default::default(),
+            str_store: Default::default(),
+            thunk_store: Default::default(),
+            simple_store: Default::default(),
+            call_store: Default::default(),
+            call2_store: Default::default(),
+            tail_store: Default::default(),
+            lookup_store: Default::default(),
+            unop_store: Default::default(),
+            binop_store: Default::default(),
+            binop2_store: Default::default(),
+            relop_store: Default::default(),
+            relop2_store: Default::default(),
+            if_store: Default::default(),
+            let_star_store: Default::default(),
+            let_rec_star_store: Default::default(),
             scalar_ptr_map: Default::default(),
             scalar_ptr_cont_map: Default::default(),
             poseidon_cache: Default::default(),
@@ -510,16 +510,16 @@ impl Default for Pool {
             "OUTERMOST",
             "ERROR",
         ] {
-            pool.alloc_sym(sym);
+            store.alloc_sym(sym);
         }
 
-        pool
+        store
     }
 }
 
-impl Pool {
+impl Store {
     pub fn new() -> Self {
-        Pool::default()
+        Store::default()
     }
 
     pub fn alloc_nil(&mut self) -> Ptr {
@@ -531,7 +531,7 @@ impl Pool {
     }
 
     pub fn alloc_cons(&mut self, car: Ptr, cdr: Ptr) -> Ptr {
-        let (ptr, _) = self.cons_pool.insert_full((car, cdr));
+        let (ptr, _) = self.cons_store.insert_full((car, cdr));
         Ptr(Tag::Cons, RawPtr(ptr))
     }
 
@@ -548,7 +548,7 @@ impl Pool {
         name.make_ascii_uppercase();
 
         let tag = if name == "NIL" { Tag::Nil } else { Tag::Sym };
-        let ptr = self.sym_pool.0.get_or_intern(name);
+        let ptr = self.sym_store.0.get_or_intern(name);
 
         Ptr(tag, RawPtr(ptr.to_usize()))
     }
@@ -562,17 +562,17 @@ impl Pool {
     }
 
     pub fn alloc_num<T: Into<Num>>(&mut self, num: T) -> Ptr {
-        let (ptr, _) = self.num_pool.insert_full(num.into());
+        let (ptr, _) = self.num_store.insert_full(num.into());
         Ptr(Tag::Num, RawPtr(ptr))
     }
 
     pub fn alloc_str<T: AsRef<str>>(&mut self, name: T) -> Ptr {
-        let ptr = self.str_pool.0.get_or_intern(name);
+        let ptr = self.str_store.0.get_or_intern(name);
         Ptr(Tag::Str, RawPtr(ptr.to_usize()))
     }
 
     pub fn get_str<T: AsRef<str>>(&self, name: T) -> Option<Ptr> {
-        let ptr = self.str_pool.0.get(name)?;
+        let ptr = self.str_store.0.get(name)?;
         Some(Ptr(Tag::Str, RawPtr(ptr.to_usize())))
     }
 
@@ -580,12 +580,12 @@ impl Pool {
         // TODO: closed_env must be an env
         assert!(matches!(arg.0, Tag::Sym), "ARG must be a symbol");
 
-        let (ptr, _) = self.fun_pool.insert_full((arg, body, closed_env));
+        let (ptr, _) = self.fun_store.insert_full((arg, body, closed_env));
         Ptr(Tag::Fun, RawPtr(ptr))
     }
 
     pub fn alloc_thunk(&mut self, thunk: Thunk) -> Ptr {
-        let (ptr, _) = self.thunk_pool.insert_full(thunk);
+        let (ptr, _) = self.thunk_store.insert_full(thunk);
         Ptr(Tag::Thunk, RawPtr(ptr))
     }
 
@@ -594,17 +594,17 @@ impl Pool {
     }
 
     pub fn get_cont_outermost(&self) -> ContPtr {
-        let ptr = self.sym_pool.0.get("OUTERMOST").expect("pre stored");
+        let ptr = self.sym_store.0.get("OUTERMOST").expect("pre stored");
         ContPtr(ContTag::Outermost, RawPtr(ptr.to_usize()))
     }
 
     pub fn alloc_cont_call(&mut self, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
-        let (ptr, _) = self.call_pool.insert_full((a, b, c));
+        let (ptr, _) = self.call_store.insert_full((a, b, c));
         ContPtr(ContTag::Call, RawPtr(ptr))
     }
 
     pub fn alloc_cont_call2(&mut self, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
-        let (ptr, _) = self.call2_pool.insert_full((a, b, c));
+        let (ptr, _) = self.call2_store.insert_full((a, b, c));
         ContPtr(ContTag::Call2, RawPtr(ptr))
     }
 
@@ -613,7 +613,7 @@ impl Pool {
     }
 
     pub fn get_cont_error(&self) -> ContPtr {
-        let ptr = self.sym_pool.0.get("ERROR").expect("pre stored");
+        let ptr = self.sym_store.0.get("ERROR").expect("pre stored");
         ContPtr(ContTag::Error, RawPtr(ptr.to_usize()))
     }
 
@@ -622,7 +622,7 @@ impl Pool {
     }
 
     pub fn get_cont_terminal(&self) -> ContPtr {
-        let ptr = self.sym_pool.0.get("TERMINAL").expect("pre stored");
+        let ptr = self.sym_store.0.get("TERMINAL").expect("pre stored");
         ContPtr(ContTag::Terminal, RawPtr(ptr.to_usize()))
     }
 
@@ -631,57 +631,57 @@ impl Pool {
     }
 
     pub fn get_cont_dummy(&self) -> ContPtr {
-        let ptr = self.sym_pool.0.get("DUMMY").expect("pre stored");
+        let ptr = self.sym_store.0.get("DUMMY").expect("pre stored");
         ContPtr(ContTag::Dummy, RawPtr(ptr.to_usize()))
     }
 
     pub fn alloc_cont_lookup(&mut self, a: Ptr, b: ContPtr) -> ContPtr {
-        let (ptr, _) = self.lookup_pool.insert_full((a, b));
+        let (ptr, _) = self.lookup_store.insert_full((a, b));
         ContPtr(ContTag::Lookup, RawPtr(ptr))
     }
 
     pub fn alloc_cont_let_star(&mut self, a: Ptr, b: Ptr, c: Ptr, d: ContPtr) -> ContPtr {
-        let (ptr, _) = self.let_star_pool.insert_full((a, b, c, d));
+        let (ptr, _) = self.let_star_store.insert_full((a, b, c, d));
         ContPtr(ContTag::LetStar, RawPtr(ptr))
     }
 
     pub fn alloc_cont_let_rec_star(&mut self, a: Ptr, b: Ptr, c: Ptr, d: ContPtr) -> ContPtr {
-        let (ptr, _) = self.let_rec_star_pool.insert_full((a, b, c, d));
+        let (ptr, _) = self.let_rec_star_store.insert_full((a, b, c, d));
         ContPtr(ContTag::LetRecStar, RawPtr(ptr))
     }
 
     pub fn alloc_cont_unop(&mut self, op: Op1, a: ContPtr) -> ContPtr {
-        let (ptr, _) = self.unop_pool.insert_full((op, a));
+        let (ptr, _) = self.unop_store.insert_full((op, a));
         ContPtr(ContTag::Unop, RawPtr(ptr))
     }
 
     pub fn alloc_cont_binop(&mut self, op: Op2, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
-        let (ptr, _) = self.binop_pool.insert_full((op, a, b, c));
+        let (ptr, _) = self.binop_store.insert_full((op, a, b, c));
         ContPtr(ContTag::Binop, RawPtr(ptr))
     }
 
     pub fn alloc_cont_binop2(&mut self, op: Op2, a: Ptr, b: ContPtr) -> ContPtr {
-        let (ptr, _) = self.binop2_pool.insert_full((op, a, b));
+        let (ptr, _) = self.binop2_store.insert_full((op, a, b));
         ContPtr(ContTag::Binop2, RawPtr(ptr))
     }
 
     pub fn alloc_cont_relop(&mut self, op: Rel2, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
-        let (ptr, _) = self.relop_pool.insert_full((op, a, b, c));
+        let (ptr, _) = self.relop_store.insert_full((op, a, b, c));
         ContPtr(ContTag::Relop, RawPtr(ptr))
     }
 
     pub fn alloc_cont_relop2(&mut self, op: Rel2, a: Ptr, b: ContPtr) -> ContPtr {
-        let (ptr, _) = self.relop2_pool.insert_full((op, a, b));
+        let (ptr, _) = self.relop2_store.insert_full((op, a, b));
         ContPtr(ContTag::Relop2, RawPtr(ptr))
     }
 
     pub fn alloc_cont_if(&mut self, a: Ptr, b: ContPtr) -> ContPtr {
-        let (ptr, _) = self.if_pool.insert_full((a, b));
+        let (ptr, _) = self.if_store.insert_full((a, b));
         ContPtr(ContTag::If, RawPtr(ptr))
     }
 
     pub fn alloc_cont_tail(&mut self, a: Ptr, b: ContPtr) -> ContPtr {
-        let (ptr, _) = self.tail_pool.insert_full((a, b));
+        let (ptr, _) = self.tail_store.insert_full((a, b));
         ContPtr(ContTag::Tail, RawPtr(ptr))
     }
 
@@ -698,7 +698,7 @@ impl Pool {
     }
 
     fn find_cons(&self, a: &Ptr, b: &Ptr) -> Option<Ptr> {
-        self.cons_pool
+        self.cons_store
             .get_index_of(&(*a, *b))
             .map(|raw| Ptr(Tag::Cons, RawPtr(raw)))
     }
@@ -709,33 +709,33 @@ impl Pool {
         } else {
             Tag::Sym
         };
-        self.sym_pool
+        self.sym_store
             .0
             .get(name)
             .map(|raw| Ptr(tag, RawPtr(raw.to_usize())))
     }
 
     fn find_str<T: AsRef<str>>(&self, name: T) -> Option<Ptr> {
-        self.str_pool
+        self.str_store
             .0
             .get(name)
             .map(|raw| Ptr(Tag::Str, RawPtr(raw.to_usize())))
     }
 
     fn find_num(&self, num: &Num) -> Option<Ptr> {
-        self.num_pool
+        self.num_store
             .get_index_of(num)
             .map(|raw| Ptr(Tag::Num, RawPtr(raw)))
     }
 
     fn find_fun(&self, a: &Ptr, b: &Ptr, c: &Ptr) -> Option<Ptr> {
-        self.fun_pool
+        self.fun_store
             .get_index_of(&(*a, *b, *c))
             .map(|raw| Ptr(Tag::Fun, RawPtr(raw)))
     }
 
     fn find_thunk(&self, thunk: &Thunk) -> Option<Ptr> {
-        self.thunk_pool
+        self.thunk_store
             .get_index_of(thunk)
             .map(|raw| Ptr(Tag::Thunk, RawPtr(raw)))
     }
@@ -771,7 +771,7 @@ impl Pool {
             return Some("NIL");
         }
 
-        self.sym_pool
+        self.sym_store
             .0
             .resolve(SymbolUsize::try_from_usize(ptr.1 .0).unwrap())
     }
@@ -779,27 +779,27 @@ impl Pool {
     fn fetch_str(&self, ptr: &Ptr) -> Option<&str> {
         debug_assert!(matches!(ptr.0, Tag::Str));
         let symbol = SymbolUsize::try_from_usize(ptr.1 .0).expect("invalid pointer");
-        self.str_pool.0.resolve(symbol)
+        self.str_store.0.resolve(symbol)
     }
 
     fn fetch_fun(&self, ptr: &Ptr) -> Option<&(Ptr, Ptr, Ptr)> {
         debug_assert!(matches!(ptr.0, Tag::Fun));
-        self.fun_pool.get_index(ptr.1 .0)
+        self.fun_store.get_index(ptr.1 .0)
     }
 
     fn fetch_cons(&self, ptr: &Ptr) -> Option<&(Ptr, Ptr)> {
         debug_assert!(matches!(ptr.0, Tag::Cons));
-        self.cons_pool.get_index(ptr.1 .0)
+        self.cons_store.get_index(ptr.1 .0)
     }
 
     fn fetch_num(&self, ptr: &Ptr) -> Option<&Num> {
         debug_assert!(matches!(ptr.0, Tag::Num));
-        self.num_pool.get_index(ptr.1 .0)
+        self.num_store.get_index(ptr.1 .0)
     }
 
     fn fetch_thunk(&self, ptr: &Ptr) -> Option<&Thunk> {
         debug_assert!(matches!(ptr.0, Tag::Thunk));
-        self.thunk_pool.get_index(ptr.1 .0)
+        self.thunk_store.get_index(ptr.1 .0)
     }
 
     pub fn fetch(&self, ptr: &Ptr) -> Option<Expression> {
@@ -821,56 +821,56 @@ impl Pool {
         match ptr.0 {
             Outermost => Some(OUTERMOST),
             Simple => self
-                .simple_pool
+                .simple_store
                 .get_index(ptr.1 .0)
                 .map(|a| Continuation::Simple(*a)),
             Call => self
-                .call_pool
+                .call_store
                 .get_index(ptr.1 .0)
                 .map(|(a, b, c)| Continuation::Call(*a, *b, *c)),
             Call2 => self
-                .call2_pool
+                .call2_store
                 .get_index(ptr.1 .0)
                 .map(|(a, b, c)| Continuation::Call2(*a, *b, *c)),
             Tail => self
-                .tail_pool
+                .tail_store
                 .get_index(ptr.1 .0)
                 .map(|(a, b)| Continuation::Tail(*a, *b)),
             Error => Some(ERROR),
             Lookup => self
-                .lookup_pool
+                .lookup_store
                 .get_index(ptr.1 .0)
                 .map(|(a, b)| Continuation::Lookup(*a, *b)),
             Unop => self
-                .unop_pool
+                .unop_store
                 .get_index(ptr.1 .0)
                 .map(|(a, b)| Continuation::Unop(*a, *b)),
             Binop => self
-                .binop_pool
+                .binop_store
                 .get_index(ptr.1 .0)
                 .map(|(a, b, c, d)| Continuation::Binop(*a, *b, *c, *d)),
             Binop2 => self
-                .binop2_pool
+                .binop2_store
                 .get_index(ptr.1 .0)
                 .map(|(a, b, c)| Continuation::Binop2(*a, *b, *c)),
             Relop => self
-                .relop_pool
+                .relop_store
                 .get_index(ptr.1 .0)
                 .map(|(a, b, c, d)| Continuation::Relop(*a, *b, *c, *d)),
             Relop2 => self
-                .relop2_pool
+                .relop2_store
                 .get_index(ptr.1 .0)
                 .map(|(a, b, c)| Continuation::Relop2(*a, *b, *c)),
             If => self
-                .if_pool
+                .if_store
                 .get_index(ptr.1 .0)
                 .map(|(a, b)| Continuation::If(*a, *b)),
             LetStar => self
-                .let_star_pool
+                .let_star_store
                 .get_index(ptr.1 .0)
                 .map(|(a, b, c, d)| Continuation::LetStar(*a, *b, *c, *d)),
             LetRecStar => self
-                .let_rec_star_pool
+                .let_rec_star_store
                 .get_index(ptr.1 .0)
                 .map(|(a, b, c, d)| Continuation::LetRecStar(*a, *b, *c, *d)),
             Dummy => Some(DUMMY),
@@ -1243,27 +1243,27 @@ impl Pool {
     pub fn hydrate_scalar_cache(&self) {
         println!("hydrating scalar cache");
 
-        self.cons_pool.par_iter().for_each(|(car, cdr)| {
+        self.cons_store.par_iter().for_each(|(car, cdr)| {
             self.hash_ptrs_2(&[*car, *cdr]);
         });
 
-        self.sym_pool.0.into_iter().for_each(|(_, sym)| {
+        self.sym_store.0.into_iter().for_each(|(_, sym)| {
             self.hash_string(sym);
         });
 
         // Nums are not hashed, they are their own hash.
 
-        self.fun_pool
+        self.fun_store
             .par_iter()
             .for_each(|(arg, body, closed_env)| {
                 self.hash_ptrs_3(&[*arg, *body, *closed_env]);
             });
 
-        self.str_pool.0.into_iter().for_each(|(_, name)| {
+        self.str_store.0.into_iter().for_each(|(_, name)| {
             self.hash_string(name);
         });
 
-        self.thunk_pool.par_iter().for_each(|thunk| {
+        self.thunk_store.par_iter().for_each(|thunk| {
             if let Some(components) = self.get_hash_components_thunk(thunk) {
                 self.poseidon_cache.hash4(&components);
             }
@@ -1271,65 +1271,65 @@ impl Pool {
 
         // Continuations are all 8 components
         let simple = self
-            .simple_pool
+            .simple_store
             .par_iter()
             .filter_map(|c| self.get_hash_components_simple(c));
         let call = self
-            .call_pool
+            .call_store
             .par_iter()
             .filter_map(|(a, b, c)| self.get_hash_components_call(a, b, c));
         let call2 = self
-            .call2_pool
+            .call2_store
             .par_iter()
             .filter_map(|(a, b, c)| self.get_hash_components_call2(a, b, c));
 
         let tail = self
-            .tail_pool
+            .tail_store
             .par_iter()
             .filter_map(|(a, b)| self.get_hash_components_tail(a, b));
 
         let lookup = self
-            .lookup_pool
+            .lookup_store
             .par_iter()
             .filter_map(|(a, b)| self.get_hash_components_lookup(a, b));
 
         let unop = self
-            .unop_pool
+            .unop_store
             .par_iter()
             .filter_map(|(a, b)| self.get_hash_components_unop(a, b));
 
         let binop = self
-            .binop_pool
+            .binop_store
             .par_iter()
             .filter_map(|(a, b, c, d)| self.get_hash_components_binop(a, b, c, d));
 
         let binop2 = self
-            .binop2_pool
+            .binop2_store
             .par_iter()
             .filter_map(|(a, b, c)| self.get_hash_components_binop2(a, b, c));
 
         let relop = self
-            .relop_pool
+            .relop_store
             .par_iter()
             .filter_map(|(a, b, c, d)| self.get_hash_components_relop(a, b, c, d));
 
         let relop2 = self
-            .relop2_pool
+            .relop2_store
             .par_iter()
             .filter_map(|(a, b, c)| self.get_hash_components_relop2(a, b, c));
 
         let ifi = self
-            .if_pool
+            .if_store
             .par_iter()
             .filter_map(|(a, b)| self.get_hash_components_if(a, b));
 
         let let_star = self
-            .let_star_pool
+            .let_star_store
             .par_iter()
             .filter_map(|(a, b, c, d)| self.get_hash_components_let_star(a, b, c, d));
 
         let let_rec_star = self
-            .let_rec_star_pool
+            .let_rec_star_store
             .par_iter()
             .filter_map(|(a, b, c, d)| self.get_hash_components_let_rec_star(a, b, c, d));
 
@@ -1388,9 +1388,9 @@ mod test {
 
     #[test]
     fn test_print_num() {
-        let mut pool = Pool::default();
-        let num = pool.alloc_num(5);
-        let res = num.fmt_to_string(&pool);
+        let mut store = Store::default();
+        let num = store.alloc_num(5);
+        let res = num.fmt_to_string(&store);
         assert_eq!(&res, &"Num(0x5)");
     }
 
@@ -1429,31 +1429,31 @@ mod test {
     }
 
     #[test]
-    fn pool() {
-        let mut pool = Pool::default();
+    fn store() {
+        let mut store = Store::default();
 
-        let num_ptr = pool.alloc_num(123);
-        let num = pool.fetch(&num_ptr).unwrap();
-        let num_again = pool.fetch(&num_ptr).unwrap();
+        let num_ptr = store.alloc_num(123);
+        let num = store.fetch(&num_ptr).unwrap();
+        let num_again = store.fetch(&num_ptr).unwrap();
 
         assert_eq!(num, num_again);
     }
 
     #[test]
     fn equality() {
-        let mut pool = Pool::default();
+        let mut store = Store::default();
 
-        let (a, b) = (pool.alloc_num(123), pool.alloc_sym("pumpkin"));
-        let cons1 = pool.alloc_cons(a, b);
-        let (a, b) = (pool.alloc_num(123), pool.alloc_sym("pumpkin"));
-        let cons2 = pool.alloc_cons(a, b);
+        let (a, b) = (store.alloc_num(123), store.alloc_sym("pumpkin"));
+        let cons1 = store.alloc_cons(a, b);
+        let (a, b) = (store.alloc_num(123), store.alloc_sym("pumpkin"));
+        let cons2 = store.alloc_cons(a, b);
 
         assert_eq!(cons1, cons2);
-        assert_eq!(pool.car(&cons1), pool.car(&cons2));
-        assert_eq!(pool.cdr(&cons1), pool.cdr(&cons2));
+        assert_eq!(store.car(&cons1), store.car(&cons2));
+        assert_eq!(store.cdr(&cons1), store.cdr(&cons2));
 
-        let (a, d) = pool.car_cdr(&cons1);
-        assert_eq!(pool.car(&cons1), a);
-        assert_eq!(pool.cdr(&cons1), d);
+        let (a, d) = store.car_cdr(&cons1);
+        assert_eq!(store.car(&cons1), a);
+        assert_eq!(store.cdr(&cons1), d);
     }
 }

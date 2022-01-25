@@ -1,8 +1,8 @@
 use std::iter::Peekable;
 
-use crate::pool::{Pool, Ptr};
+use crate::store::{Ptr, Store};
 
-impl Pool {
+impl Store {
     pub fn read(&mut self, input: &str) -> Option<Ptr> {
         let mut chars = input.chars().peekable();
 
@@ -251,9 +251,9 @@ mod test {
     #[test]
     fn read_sym() {
         let test = |input, expected: &str| {
-            let mut pool = Pool::default();
-            let ptr = &pool.read(input).unwrap();
-            let expr = pool.fetch(&ptr).unwrap();
+            let mut store = Store::default();
+            let ptr = &store.read(input).unwrap();
+            let expr = store.fetch(&ptr).unwrap();
 
             assert_eq!(expected, expr.as_sym_str().unwrap());
         };
@@ -271,17 +271,17 @@ asdf(", "ASDF",
 
     #[test]
     fn read_nil() {
-        let mut pool = Pool::default();
-        let expr = pool.read("nil").unwrap();
+        let mut store = Store::default();
+        let expr = store.read("nil").unwrap();
         assert!(expr.is_nil());
     }
 
     #[test]
     fn read_num() {
         let test = |input, expected: u64| {
-            let mut pool = Pool::default();
-            let expr = pool.read(input).unwrap();
-            assert_eq!(pool.alloc_num(expected), expr);
+            let mut store = Store::default();
+            let expr = store.read(input).unwrap();
+            assert_eq!(store.alloc_num(expected), expr);
         };
         test("123", 123);
         test("0987654321", 987654321);
@@ -298,82 +298,82 @@ asdf(", "ASDF",
 
     #[test]
     fn read_list() {
-        let mut pool = Pool::default();
-        let test = |pool: &mut Pool, input, expected| {
-            let expr = pool.read(input).unwrap();
+        let mut store = Store::default();
+        let test = |store: &mut Store, input, expected| {
+            let expr = store.read(input).unwrap();
             assert_eq!(expected, &expr);
         };
 
-        let a = pool.alloc_num(123);
-        let b = pool.alloc_nil();
-        let expected = pool.alloc_cons(a, b);
-        test(&mut pool, "(123)", &expected);
+        let a = store.alloc_num(123);
+        let b = store.alloc_nil();
+        let expected = store.alloc_cons(a, b);
+        test(&mut store, "(123)", &expected);
 
-        let a = pool.alloc_num(321);
-        let expected2 = pool.alloc_cons(a, expected);
-        test(&mut pool, "(321 123)", &expected2);
+        let a = store.alloc_num(321);
+        let expected2 = store.alloc_cons(a, expected);
+        test(&mut store, "(321 123)", &expected2);
 
-        let a = pool.alloc_sym("PUMPKIN");
-        let expected3 = pool.alloc_cons(a, expected2);
-        test(&mut pool, "(pumpkin 321 123)", &expected3);
+        let a = store.alloc_sym("PUMPKIN");
+        let expected3 = store.alloc_cons(a, expected2);
+        test(&mut store, "(pumpkin 321 123)", &expected3);
 
-        let expected4 = pool.alloc_cons(expected, pool.get_nil());
-        test(&mut pool, "((123))", &expected4);
+        let expected4 = store.alloc_cons(expected, store.get_nil());
+        test(&mut store, "((123))", &expected4);
 
-        let (a, b) = (pool.alloc_num(321), pool.alloc_nil());
-        let alt = pool.alloc_cons(a, b);
-        let expected5 = pool.alloc_cons(alt, expected4);
-        test(&mut pool, "((321) (123))", &expected5);
+        let (a, b) = (store.alloc_num(321), store.alloc_nil());
+        let alt = store.alloc_cons(a, b);
+        let expected5 = store.alloc_cons(alt, expected4);
+        test(&mut store, "((321) (123))", &expected5);
 
-        let expected6 = pool.alloc_cons(expected2, expected3);
-        test(&mut pool, "((321 123) pumpkin 321 123)", &expected6);
+        let expected6 = store.alloc_cons(expected2, expected3);
+        test(&mut store, "((321 123) pumpkin 321 123)", &expected6);
 
-        let (a, b) = (pool.alloc_num(1), pool.alloc_num(2));
-        let pair = pool.alloc_cons(a, b);
-        let list = [pair, pool.alloc_num(3)];
-        let expected7 = pool.alloc_list(&list);
-        test(&mut pool, "((1 . 2) 3)", &expected7);
+        let (a, b) = (store.alloc_num(1), store.alloc_num(2));
+        let pair = store.alloc_cons(a, b);
+        let list = [pair, store.alloc_num(3)];
+        let expected7 = store.alloc_list(&list);
+        test(&mut store, "((1 . 2) 3)", &expected7);
     }
 
     #[test]
     fn read_improper_list() {
-        let mut pool = Pool::default();
-        let test = |pool: &mut Pool, input, expected| {
-            let expr = pool.read(input).unwrap();
+        let mut store = Store::default();
+        let test = |store: &mut Store, input, expected| {
+            let expr = store.read(input).unwrap();
             assert_eq!(expected, &expr);
         };
 
-        let (a, b) = (pool.alloc_num(123), pool.alloc_num(321));
-        let expected = pool.alloc_cons(a, b);
-        test(&mut pool, "(123 . 321)", &expected);
+        let (a, b) = (store.alloc_num(123), store.alloc_num(321));
+        let expected = store.alloc_cons(a, b);
+        test(&mut store, "(123 . 321)", &expected);
 
-        assert_eq!(pool.read("(123 321)"), pool.read("(123 . ( 321 ))"))
+        assert_eq!(store.read("(123 321)"), store.read("(123 . ( 321 ))"))
     }
     #[test]
     fn read_print_expr() {
-        let mut pool = Pool::default();
-        let test = |pool: &mut Pool, input| {
-            let expr = pool.read(input).unwrap();
-            let output = expr.fmt_to_string(pool);
+        let mut store = Store::default();
+        let test = |store: &mut Store, input| {
+            let expr = store.read(input).unwrap();
+            let output = expr.fmt_to_string(store);
             assert_eq!(input, output);
         };
 
-        test(&mut pool, "A");
-        test(&mut pool, "(A . B)");
-        test(&mut pool, "(A B C)");
-        test(&mut pool, "(A (B) C)");
-        test(&mut pool, "(A (B . C) (D E (F)) G)");
-        // test(&mut pool, "'A");
-        // test(&mut pool, "'(A B)");
+        test(&mut store, "A");
+        test(&mut store, "(A . B)");
+        test(&mut store, "(A B C)");
+        test(&mut store, "(A (B) C)");
+        test(&mut store, "(A (B . C) (D E (F)) G)");
+        // test(&mut store, "'A");
+        // test(&mut store, "'(A B)");
     }
 
     #[test]
     fn read_maybe_meta() {
-        let mut pool = Pool::default();
-        let test = |pool: &mut Pool, input: &str, expected_ptr: Ptr, expected_meta: bool| {
+        let mut store = Store::default();
+        let test = |store: &mut Store, input: &str, expected_ptr: Ptr, expected_meta: bool| {
             let mut chars = input.chars().peekable();
 
-            match pool.read_maybe_meta(&mut chars).unwrap() {
+            match store.read_maybe_meta(&mut chars).unwrap() {
                 (ptr, meta) => {
                     assert_eq!(expected_ptr, ptr);
                     assert_eq!(expected_meta, meta);
@@ -381,37 +381,37 @@ asdf(", "ASDF",
             };
         };
 
-        let num = pool.alloc_num(123);
-        test(&mut pool, "123", num, false);
+        let num = store.alloc_num(123);
+        test(&mut store, "123", num, false);
 
         {
-            let list = [pool.alloc_num(123), pool.alloc_num(321)];
-            let l = pool.alloc_list(&list);
-            test(&mut pool, " (123 321)", l, false);
+            let list = [store.alloc_num(123), store.alloc_num(321)];
+            let l = store.alloc_list(&list);
+            test(&mut store, " (123 321)", l, false);
         }
         {
-            let list = [pool.alloc_num(123), pool.alloc_num(321)];
-            let l = pool.alloc_list(&list);
-            test(&mut pool, " !(123 321)", l, true);
+            let list = [store.alloc_num(123), store.alloc_num(321)];
+            let l = store.alloc_list(&list);
+            test(&mut store, " !(123 321)", l, true);
         }
         {
-            let list = [pool.alloc_num(123), pool.alloc_num(321)];
-            let l = pool.alloc_list(&list);
-            test(&mut pool, " ! (123 321)", l, true);
+            let list = [store.alloc_num(123), store.alloc_num(321)];
+            let l = store.alloc_list(&list);
+            test(&mut store, " ! (123 321)", l, true);
         }
         {
-            let s = pool.alloc_sym("asdf");
-            test(&mut pool, "!asdf", s, true);
+            let s = store.alloc_sym("asdf");
+            test(&mut store, "!asdf", s, true);
         }
         {
-            let s = pool.alloc_sym(":assert");
-            let l = pool.alloc_list(&[s]);
-            test(&mut pool, "!(:assert)", l, true);
+            let s = store.alloc_sym(":assert");
+            let l = store.alloc_list(&[s]);
+            test(&mut store, "!(:assert)", l, true);
         }
         {
-            let s = pool.alloc_sym("asdf");
+            let s = store.alloc_sym("asdf");
             test(
-                &mut pool,
+                &mut store,
                 ";; comment
 !asdf",
                 s,
@@ -421,38 +421,38 @@ asdf(", "ASDF",
     }
     #[test]
     fn is_keyword() {
-        let mut pool = Pool::default();
-        let kw = pool.alloc_sym(":UIOP");
-        let not_kw = pool.alloc_sym("UIOP");
+        let mut store = Store::default();
+        let kw = store.alloc_sym(":UIOP");
+        let not_kw = store.alloc_sym("UIOP");
 
-        assert!(pool.fetch(&kw).unwrap().is_keyword_sym());
-        assert!(!pool.fetch(&not_kw).unwrap().is_keyword_sym());
+        assert!(store.fetch(&kw).unwrap().is_keyword_sym());
+        assert!(!store.fetch(&not_kw).unwrap().is_keyword_sym());
     }
 
     #[test]
     fn read_string() {
-        let mut pool = Pool::default();
+        let mut store = Store::default();
 
-        let test = |pool: &mut Pool, input: &str, expected: Option<Ptr>, expr: Option<&str>| {
-            let maybe_string = pool.read_string(&mut input.chars().peekable());
+        let test = |store: &mut Store, input: &str, expected: Option<Ptr>, expr: Option<&str>| {
+            let maybe_string = store.read_string(&mut input.chars().peekable());
             assert_eq!(expected, maybe_string);
             if let Some(ptr) = maybe_string {
-                let res = pool
+                let res = store
                     .fetch(&ptr)
                     .expect(&format!("failed to fetch: {:?}", input));
                 assert_eq!(res.as_str(), expr);
             }
         };
 
-        let s = pool.alloc_str("asdf");
-        test(&mut pool, "\"asdf\"", Some(s), Some("asdf"));
-        test(&mut pool, "\"asdf", None, None);
-        test(&mut pool, "asdf", None, None);
+        let s = store.alloc_str("asdf");
+        test(&mut store, "\"asdf\"", Some(s), Some("asdf"));
+        test(&mut store, "\"asdf", None, None);
+        test(&mut store, "asdf", None, None);
 
         {
             let input = "\"foo/bar/baz\"";
-            let ptr = pool.read_string(&mut input.chars().peekable()).unwrap();
-            let res = pool
+            let ptr = store.read_string(&mut input.chars().peekable()).unwrap();
+            let res = store
                 .fetch(&ptr)
                 .expect(&format!("failed to fetch: {:?}", input));
             assert_eq!(res.as_str().unwrap(), "foo/bar/baz");
@@ -461,16 +461,16 @@ asdf(", "ASDF",
 
     #[test]
     fn read_with_comments() {
-        let mut pool = Pool::default();
+        let mut store = Store::default();
 
-        let test = |pool: &mut Pool, input: &str, expected: Option<Ptr>| {
-            let res = pool.read(input);
+        let test = |store: &mut Store, input: &str, expected: Option<Ptr>| {
+            let res = store.read(input);
             assert_eq!(expected, res);
         };
 
-        let num = pool.alloc_num(321);
+        let num = store.alloc_num(321);
         test(
-            &mut pool,
+            &mut store,
             ";123
 321",
             Some(num),

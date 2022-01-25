@@ -6,8 +6,8 @@ mod gadgets;
 pub mod circuit;
 pub mod eval;
 pub mod parser;
-pub mod pool;
 pub mod proof;
+pub mod store;
 pub mod writer;
 
 mod num;

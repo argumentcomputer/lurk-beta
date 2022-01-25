@@ -1,20 +1,20 @@
 use std::io;
 
-use crate::pool::{ContPtr, Continuation, Expression, Pool, Ptr};
+use crate::store::{ContPtr, Continuation, Expression, Ptr, Store};
 
 pub trait Write {
-    fn fmt<W: io::Write>(&self, pool: &Pool, w: &mut W) -> io::Result<()>;
-    fn fmt_to_string(&self, pool: &Pool) -> String {
+    fn fmt<W: io::Write>(&self, store: &Store, w: &mut W) -> io::Result<()>;
+    fn fmt_to_string(&self, store: &Store) -> String {
         let mut out = Vec::new();
-        self.fmt(pool, &mut out).expect("preallocated");
+        self.fmt(store, &mut out).expect("preallocated");
         String::from_utf8(out).expect("I know it")
     }
 }
 
 impl Write for Ptr {
-    fn fmt<W: io::Write>(&self, pool: &Pool, w: &mut W) -> io::Result<()> {
-        if let Some(expr) = pool.fetch(self) {
-            expr.fmt(pool, w)
+    fn fmt<W: io::Write>(&self, store: &Store, w: &mut W) -> io::Result<()> {
+        if let Some(expr) = store.fetch(self) {
+            expr.fmt(store, w)
         } else {
             Ok(())
         }
@@ -22,9 +22,9 @@ impl Write for Ptr {
 }
 
 impl Write for ContPtr {
-    fn fmt<W: io::Write>(&self, pool: &Pool, w: &mut W) -> io::Result<()> {
-        if let Some(cont) = pool.fetch_cont(self) {
-            cont.fmt(pool, w)
+    fn fmt<W: io::Write>(&self, store: &Store, w: &mut W) -> io::Result<()> {
+        if let Some(cont) = store.fetch_cont(self) {
+            cont.fmt(store, w)
         } else {
             Ok(())
         }
@@ -32,7 +32,7 @@ impl Write for ContPtr {
 }
 
 impl Write for Expression<'_> {
-    fn fmt<W: io::Write>(&self, pool: &Pool, w: &mut W) -> io::Result<()> {
+    fn fmt<W: io::Write>(&self, store: &Store, w: &mut W) -> io::Result<()> {
         use Expression::*;
 
         match self {
@@ -40,50 +40,50 @@ impl Write for Expression<'_> {
             Sym(s) => write!(w, "{}", s),
             Str(s) => write!(w, "\"{}\"", s),
             Fun(arg, body, _closed_env) => {
-                let arg = pool.fetch(arg).unwrap();
-                let body = pool.fetch(body).unwrap();
+                let arg = store.fetch(arg).unwrap();
+                let body = store.fetch(body).unwrap();
                 write!(w, "<FUNCTION (")?;
-                arg.fmt(pool, w)?;
+                arg.fmt(store, w)?;
                 write!(w, ") . ")?;
-                body.fmt(pool, w)?;
+                body.fmt(store, w)?;
                 write!(w, ">")
             }
             Num(n) => write!(w, "{}", n),
             Thunk(f) => {
                 write!(w, "Thunk for cont ")?;
-                f.continuation.fmt(pool, w)?;
+                f.continuation.fmt(store, w)?;
                 write!(w, " with value: ")?;
-                f.value.fmt(pool, w)
+                f.value.fmt(store, w)
             }
             Cons(_, _) => {
                 write!(w, "(")?;
-                self.print_tail(pool, w)
+                self.print_tail(store, w)
             }
         }
     }
 }
 
 impl Expression<'_> {
-    fn print_tail<W: io::Write>(&self, pool: &Pool, w: &mut W) -> io::Result<()> {
+    fn print_tail<W: io::Write>(&self, store: &Store, w: &mut W) -> io::Result<()> {
         match self {
             Expression::Nil => write!(w, ")"),
             Expression::Cons(car, cdr) => {
-                let car = pool.fetch(car).unwrap();
-                let cdr = pool.fetch(cdr).unwrap();
+                let car = store.fetch(car).unwrap();
+                let cdr = store.fetch(cdr).unwrap();
                 match cdr {
                     Expression::Nil => {
-                        car.fmt(pool, w)?;
+                        car.fmt(store, w)?;
                         write!(w, ")")
                     }
                     Expression::Cons(_, _) => {
-                        car.fmt(pool, w)?;
+                        car.fmt(store, w)?;
                         write!(w, " ")?;
-                        cdr.print_tail(pool, w)
+                        cdr.print_tail(store, w)
                     }
                     _ => {
-                        car.fmt(pool, w)?;
+                        car.fmt(store, w)?;
                         write!(w, " . ")?;
-                        cdr.fmt(pool, w)?;
+                        cdr.fmt(store, w)?;
                         write!(w, ")")
                     }
                 }
@@ -94,113 +94,113 @@ impl Expression<'_> {
 }
 
 impl Write for Continuation {
-    fn fmt<W: io::Write>(&self, pool: &Pool, w: &mut W) -> io::Result<()> {
+    fn fmt<W: io::Write>(&self, store: &Store, w: &mut W) -> io::Result<()> {
         match self {
             Continuation::Outermost => write!(w, "Outermost"),
             Continuation::Simple(cont) => {
                 write!(w, "Simple(")?;
-                cont.fmt(pool, w)?;
+                cont.fmt(store, w)?;
                 write!(w, ")")
             }
             Continuation::Call(expr1, expr2, cont) => {
                 write!(w, "Call(")?;
-                expr1.fmt(pool, w)?;
+                expr1.fmt(store, w)?;
                 write!(w, ", ")?;
-                expr2.fmt(pool, w)?;
+                expr2.fmt(store, w)?;
                 write!(w, ", ")?;
-                cont.fmt(pool, w)?;
+                cont.fmt(store, w)?;
                 write!(w, ")")
             }
             Continuation::Call2(expr1, expr2, cont) => {
                 write!(w, "Call2(")?;
-                expr1.fmt(pool, w)?;
+                expr1.fmt(store, w)?;
                 write!(w, ", ")?;
-                expr2.fmt(pool, w)?;
+                expr2.fmt(store, w)?;
                 write!(w, ", ")?;
-                cont.fmt(pool, w)?;
+                cont.fmt(store, w)?;
                 write!(w, ")")
             }
             Continuation::Tail(expr, cont) => {
                 write!(w, "Tail(")?;
-                expr.fmt(pool, w)?;
+                expr.fmt(store, w)?;
                 write!(w, ", ")?;
-                cont.fmt(pool, w)?;
+                cont.fmt(store, w)?;
                 write!(w, ")")
             }
             Continuation::Error => write!(w, "Error"),
             Continuation::Lookup(expr, cont) => {
                 write!(w, "Lookup(")?;
-                expr.fmt(pool, w)?;
+                expr.fmt(store, w)?;
                 write!(w, ", ")?;
-                cont.fmt(pool, w)?;
+                cont.fmt(store, w)?;
                 write!(w, ")")
             }
             Continuation::Unop(op1, cont) => {
                 write!(w, "Unop({}, ", op1)?;
-                cont.fmt(pool, w)?;
+                cont.fmt(store, w)?;
                 write!(w, ")")
             }
             Continuation::Binop(op2, expr1, expr2, cont) => {
                 write!(w, "Binop(")?;
                 write!(w, "{}", op2)?;
                 write!(w, ", ")?;
-                expr1.fmt(pool, w)?;
+                expr1.fmt(store, w)?;
                 write!(w, ", ")?;
-                expr2.fmt(pool, w)?;
+                expr2.fmt(store, w)?;
                 write!(w, ", ")?;
-                cont.fmt(pool, w)?;
+                cont.fmt(store, w)?;
                 write!(w, ")")
             }
             Continuation::Binop2(op2, expr, cont) => {
                 write!(w, "Binop2({}, ", op2)?;
-                expr.fmt(pool, w)?;
+                expr.fmt(store, w)?;
                 write!(w, ", ")?;
-                cont.fmt(pool, w)?;
+                cont.fmt(store, w)?;
                 write!(w, ")")
             }
             Continuation::Relop(rel2, expr1, expr2, cont) => {
                 write!(w, "Relop({}, ", rel2)?;
-                expr1.fmt(pool, w)?;
+                expr1.fmt(store, w)?;
                 write!(w, ", ")?;
-                expr2.fmt(pool, w)?;
+                expr2.fmt(store, w)?;
                 write!(w, ", ")?;
-                cont.fmt(pool, w)?;
+                cont.fmt(store, w)?;
                 write!(w, ")")
             }
             Continuation::Relop2(rel2, expr, cont) => {
                 write!(w, "Relop2({}, ", rel2)?;
-                expr.fmt(pool, w)?;
+                expr.fmt(store, w)?;
                 write!(w, ", ")?;
-                cont.fmt(pool, w)?;
+                cont.fmt(store, w)?;
                 write!(w, ")")
             }
             Continuation::If(expr, cont) => {
                 write!(w, "If(")?;
-                expr.fmt(pool, w)?;
+                expr.fmt(store, w)?;
                 write!(w, ", ")?;
-                cont.fmt(pool, w)?;
+                cont.fmt(store, w)?;
                 write!(w, ")")
             }
             Continuation::LetStar(expr1, expr2, expr3, cont) => {
                 write!(w, "LetStar(")?;
-                expr1.fmt(pool, w)?;
+                expr1.fmt(store, w)?;
                 write!(w, ", ")?;
-                expr2.fmt(pool, w)?;
+                expr2.fmt(store, w)?;
                 write!(w, ", ")?;
-                expr3.fmt(pool, w)?;
+                expr3.fmt(store, w)?;
                 write!(w, ", ")?;
-                cont.fmt(pool, w)?;
+                cont.fmt(store, w)?;
                 write!(w, ")")
             }
             Continuation::LetRecStar(expr1, expr2, expr3, cont) => {
                 write!(w, "LetRecStar(")?;
-                expr1.fmt(pool, w)?;
+                expr1.fmt(store, w)?;
                 write!(w, ", ")?;
-                expr2.fmt(pool, w)?;
+                expr2.fmt(store, w)?;
                 write!(w, ", ")?;
-                expr3.fmt(pool, w)?;
+                expr3.fmt(store, w)?;
                 write!(w, ", ")?;
-                cont.fmt(pool, w)?;
+                cont.fmt(store, w)?;
                 write!(w, ")")
             }
             Continuation::Dummy => write!(w, "Dummy"),
