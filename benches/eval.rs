@@ -5,7 +5,6 @@ use lurk::{
 };
 
 fn go_base(pool: &mut Pool, a: u64, b: u64) -> Ptr {
-    let limit = 1000000;
     let program = format!(
         r#"
 (let* ((foo (lambda (a b)
@@ -22,22 +21,40 @@ fn go_base(pool: &mut Pool, a: u64, b: u64) -> Ptr {
         a, b
     );
 
-    let ptr = pool.read(&program).unwrap();
-    let (result, _new_env, _iterations, _continuation) =
-        Evaluator::new(ptr, empty_sym_env(&*pool), pool, limit).eval();
-
-    result
+    pool.read(&program).unwrap()
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
+    let limit = 1_000_000_000;
+
     c.bench_function("go_base_10_16", |b| {
         let mut pool = Pool::default();
-        b.iter(|| go_base(&mut pool, black_box(10), black_box(16)))
+        let ptr = go_base(&mut pool, black_box(10), black_box(16));
+
+        b.iter(|| {
+            let result = Evaluator::new(ptr, empty_sym_env(&pool), &mut pool, limit).eval();
+            black_box(result)
+        })
     });
 
     c.bench_function("go_base_10_160", |b| {
         let mut pool = Pool::default();
-        b.iter(|| go_base(&mut pool, black_box(10), black_box(160)))
+        let ptr = go_base(&mut pool, black_box(10), black_box(160));
+
+        b.iter(|| {
+            let result = Evaluator::new(ptr, empty_sym_env(&pool), &mut pool, limit).eval();
+            black_box(result)
+        })
+    });
+
+    c.bench_function("go_base_10_320", |b| {
+        let mut pool = Pool::default();
+        let ptr = go_base(&mut pool, black_box(10), black_box(320));
+
+        b.iter(|| {
+            let result = Evaluator::new(ptr, empty_sym_env(&pool), &mut pool, limit).eval();
+            black_box(result)
+        })
     });
 }
 
