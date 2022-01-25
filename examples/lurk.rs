@@ -72,7 +72,7 @@ fn main() -> Result<()> {
     println!("Lurk REPL welcomes you.");
 
     let mut s = Store::default();
-    let limit = 1000000;
+    let limit = 1000_000_000;
     let mut repl = Repl::new(&mut s, limit)?;
 
     {
