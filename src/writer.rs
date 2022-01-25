@@ -48,7 +48,7 @@ impl Write for Expression<'_> {
                 body.fmt(pool, w)?;
                 write!(w, ">")
             }
-            Num(n) => write!(w, "Fr(0x{:x})", n),
+            Num(n) => write!(w, "{}", n),
             Thunk(f) => {
                 write!(w, "Thunk for cont ")?;
                 f.continuation.fmt(pool, w)?;

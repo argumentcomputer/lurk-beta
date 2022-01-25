@@ -10,6 +10,8 @@ use generic_array::typenum::{U10, U11, U16, U2, U3, U4, U5, U6, U7, U8, U9};
 use neptune::{hash_type::HashType, poseidon::PoseidonConstants, Strength};
 use rayon::prelude::*;
 
+use crate::Num;
+
 lazy_static::lazy_static! {
     pub static ref POSEIDON_CONSTANTS_2: PoseidonConstants::<Scalar, U2> = PoseidonConstants::new();
     pub static ref POSEIDON_CONSTANTS_3: PoseidonConstants::<Scalar, U3> = PoseidonConstants::new();
@@ -47,7 +49,7 @@ pub struct Pool {
     cons_pool: IndexSet<(Ptr, Ptr)>,
     sym_pool: StringSet,
     // Other sparse storage format without hashing is likely more efficient
-    num_pool: IndexSet<u64>,
+    num_pool: IndexSet<Num>,
     fun_pool: IndexSet<(Ptr, Ptr, Ptr)>,
     str_pool: StringSet,
     thunk_pool: IndexSet<Thunk>,
@@ -120,7 +122,7 @@ impl PoseidonCache {
     }
 }
 
-pub trait Object: fmt::Debug + Copy + Clone + PartialEq + Hash {
+pub trait Object: fmt::Debug + Copy + Clone + PartialEq {
     type Pointer: Pointer;
 }
 
@@ -264,13 +266,13 @@ pub struct RawPtr(usize);
 // - `0b0011` for Op2
 // - `0b0100` for Rel2
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Expression<'a> {
     Nil,
     Cons(Ptr, Ptr),
     Sym(&'a str),
     Fun(Ptr, Ptr, Ptr),
-    Num(u64),
+    Num(Num),
     Str(&'a str),
     Thunk(Thunk),
 }
@@ -559,8 +561,8 @@ impl Pool {
         self.find_sym(&name)
     }
 
-    pub fn alloc_num(&mut self, num: u64) -> Ptr {
-        let (ptr, _) = self.num_pool.insert_full(num);
+    pub fn alloc_num<T: Into<Num>>(&mut self, num: T) -> Ptr {
+        let (ptr, _) = self.num_pool.insert_full(num.into());
         Ptr(Tag::Num, RawPtr(ptr))
     }
 
@@ -720,7 +722,7 @@ impl Pool {
             .map(|raw| Ptr(Tag::Str, RawPtr(raw.to_usize())))
     }
 
-    fn find_num(&self, num: &u64) -> Option<Ptr> {
+    fn find_num(&self, num: &Num) -> Option<Ptr> {
         self.num_pool
             .get_index_of(num)
             .map(|raw| Ptr(Tag::Num, RawPtr(raw)))
@@ -790,7 +792,7 @@ impl Pool {
         self.cons_pool.get_index(ptr.1 .0)
     }
 
-    fn fetch_num(&self, ptr: &Ptr) -> Option<&u64> {
+    fn fetch_num(&self, ptr: &Ptr) -> Option<&Num> {
         debug_assert!(matches!(ptr.0, Tag::Num));
         self.num_pool.get_index(ptr.1 .0)
     }
@@ -1389,7 +1391,7 @@ mod test {
         let mut pool = Pool::default();
         let num = pool.alloc_num(5);
         let res = num.fmt_to_string(&pool);
-        assert_eq!(&res, &"Fr(0x5)");
+        assert_eq!(&res, &"Num(0x5)");
     }
 
     #[test]

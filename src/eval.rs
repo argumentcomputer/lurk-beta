@@ -675,7 +675,7 @@ fn invoke_continuation(control: Control, pool: &mut Pool, witness: &mut Witness)
                         Op2::Quotient => {
                             let mut tmp = a;
                             // TODO: Return error continuation.
-                            let b_is_zero: bool = b == 0;
+                            let b_is_zero: bool = b.is_zero();
                             assert!(!b_is_zero, "Division by zero error.");
                             tmp /= b;
                             pool.alloc_num(tmp)
@@ -1057,7 +1057,7 @@ mod test {
         let expr = s.alloc_cons(whole_lambda, lambda_arguments);
         let output = expr.fmt_to_string(&s);
 
-        assert_eq!("((LAMBDA (X) X) Fr(0x7b))".to_string(), output);
+        assert_eq!("((LAMBDA (X) X) Num(0x7b))".to_string(), output);
     }
 
     #[test]
