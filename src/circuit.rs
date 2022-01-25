@@ -2044,7 +2044,7 @@ fn car_cdr<CS: ConstraintSystem<Fr>>(
 
     let (car, cdr) = if not_dummy.get_value().expect("not_dummy missing") {
         if let Some(ptr) = maybe_cons.ptr(pool).as_ref() {
-            pool.car_cdr(&ptr)
+            pool.car_cdr(ptr)
         } else {
             // Dummy
             (pool.get_nil(), pool.get_nil())
@@ -2184,7 +2184,7 @@ fn make_tail_continuation<CS: ConstraintSystem<Fr>>(
     AllocatedContPtr::pick(
         &mut cs.namespace(|| "the tail continuation"),
         &continuation_is_tail,
-        &continuation,
+        continuation,
         &new_tail,
     )
 }

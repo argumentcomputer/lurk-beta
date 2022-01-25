@@ -155,7 +155,7 @@ impl AllocatedPtr {
     pub fn fetch_and_write_str(&self, pool: &Pool) -> String {
         self.ptr(pool)
             .map(|a| a.fmt_to_string(pool))
-            .unwrap_or("no ptr".to_string())
+            .unwrap_or_else(|| "no ptr".to_string())
     }
 
     pub fn allocate_thunk_components<CS: ConstraintSystem<Fr>>(
@@ -436,7 +436,7 @@ impl AllocatedContPtr {
         )
     }
 
-    pub fn get_cont<'a>(&self, pool: &Pool) -> Option<Continuation> {
+    pub fn get_cont(&self, pool: &Pool) -> Option<Continuation> {
         let ptr = self.get_cont_ptr(pool)?;
         pool.fetch_cont(&ptr)
     }
@@ -454,7 +454,7 @@ impl AllocatedContPtr {
     pub fn fetch_and_write_cont_str(&self, pool: &Pool) -> String {
         self.get_cont_ptr(pool)
             .map(|a| a.fmt_to_string(pool))
-            .unwrap_or("no cont ptr".to_string())
+            .unwrap_or_else(|| "no cont ptr".to_string())
     }
 
     /// Takes two allocated numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.
@@ -509,9 +509,8 @@ impl AllocatedContPtr {
     ) -> Result<Self, SynthesisError> {
         let components = components
             .iter()
-            .map(|c| c.as_allocated_hash_components())
-            .flatten()
-            .map(|p| p.clone())
+            .flat_map(|c| c.as_allocated_hash_components())
+            .cloned()
             .collect();
 
         let hash = poseidon_hash(
