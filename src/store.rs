@@ -68,9 +68,9 @@ pub struct Store {
     let_star_store: IndexSet<(Ptr, Ptr, Ptr, ContPtr)>,
     let_rec_star_store: IndexSet<(Ptr, Ptr, Ptr, ContPtr)>,
 
-    /// Holds a mapping of ScalarPtr -> Ptr for reverese lookups
+    /// Holds a mapping of ScalarPtr -> Ptr for reverse lookups
     scalar_ptr_map: dashmap::DashMap<ScalarPtr, Ptr, ahash::RandomState>,
-    /// Holds a mapping of ScalarPtr -> ContPtr for reverese lookups
+    /// Holds a mapping of ScalarPtr -> ContPtr for reverse lookups
     scalar_ptr_cont_map: dashmap::DashMap<ScalarContPtr, ContPtr, ahash::RandomState>,
 
     /// Caches poseidon hashes
@@ -271,6 +271,7 @@ pub enum Expression<'a> {
     Nil,
     Cons(Ptr, Ptr),
     Sym(&'a str),
+    /// arg, body, closed env
     Fun(Ptr, Ptr, Ptr),
     Num(Num),
     Str(&'a str),
@@ -290,18 +291,29 @@ pub struct Thunk {
 pub enum Continuation {
     Outermost,
     Simple(ContPtr),
+    /// The unevaluated argument and the saved env.
     Call(Ptr, Ptr, ContPtr),
+    /// The function and the saved env.
     Call2(Ptr, Ptr, ContPtr),
+    /// The saved env.
     Tail(Ptr, ContPtr),
     Error,
+    /// The saved env.
     Lookup(Ptr, ContPtr),
     Unop(Op1, ContPtr),
+    /// The saved env and unevaluated argument.
     Binop(Op2, Ptr, Ptr, ContPtr),
+    /// First argument.
     Binop2(Op2, Ptr, ContPtr),
+    /// The saved env and unevaluated arguments.
     Relop(Rel2, Ptr, Ptr, ContPtr),
+    /// The first argument.
     Relop2(Rel2, Ptr, ContPtr),
+    /// Unevaluated arguments.
     If(Ptr, ContPtr),
+    /// The var, the body, and the saved env.
     LetStar(Ptr, Ptr, Ptr, ContPtr),
+    /// The var, the saved env, and the body.
     LetRecStar(Ptr, Ptr, Ptr, ContPtr),
     Dummy,
     Terminal,
@@ -437,10 +449,6 @@ impl From<ContTag> for u64 {
     }
 }
 
-// For now, partition ContinuationTags into thunks and conts.
-// If never used, we can collapse.
-// We will likely want both if we ever make continuations (including
-// thunks) first-class expressions, though.
 impl ContTag {
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
@@ -558,7 +566,15 @@ impl Store {
         // TODO: avoid allocation
         let mut name = name.as_ref().to_string();
         name.make_ascii_uppercase();
-        self.find_sym(&name)
+        let tag = if name.eq_ignore_ascii_case("NIL") {
+            Tag::Nil
+        } else {
+            Tag::Sym
+        };
+        self.sym_store
+            .0
+            .get(name)
+            .map(|raw| Ptr(tag, RawPtr(raw.to_usize())))
     }
 
     pub fn alloc_num<T: Into<Num>>(&mut self, num: T) -> Ptr {
@@ -683,61 +699,6 @@ impl Store {
     pub fn alloc_cont_tail(&mut self, a: Ptr, b: ContPtr) -> ContPtr {
         let (ptr, _) = self.tail_store.insert_full((a, b));
         ContPtr(ContTag::Tail, RawPtr(ptr))
-    }
-
-    pub fn find(&self, expr: &Expression) -> Option<Ptr> {
-        match expr {
-            Expression::Nil => self.find_sym("NIL"),
-            Expression::Cons(a, b) => self.find_cons(a, b),
-            Expression::Sym(name) => self.find_sym(name),
-            Expression::Str(name) => self.find_str(name),
-            Expression::Thunk(thunk) => self.find_thunk(thunk),
-            Expression::Fun(a, b, c) => self.find_fun(a, b, c),
-            Expression::Num(num) => self.find_num(num),
-        }
-    }
-
-    fn find_cons(&self, a: &Ptr, b: &Ptr) -> Option<Ptr> {
-        self.cons_store
-            .get_index_of(&(*a, *b))
-            .map(|raw| Ptr(Tag::Cons, RawPtr(raw)))
-    }
-
-    fn find_sym<T: AsRef<str>>(&self, name: T) -> Option<Ptr> {
-        let tag = if name.as_ref().eq_ignore_ascii_case("NIL") {
-            Tag::Nil
-        } else {
-            Tag::Sym
-        };
-        self.sym_store
-            .0
-            .get(name)
-            .map(|raw| Ptr(tag, RawPtr(raw.to_usize())))
-    }
-
-    fn find_str<T: AsRef<str>>(&self, name: T) -> Option<Ptr> {
-        self.str_store
-            .0
-            .get(name)
-            .map(|raw| Ptr(Tag::Str, RawPtr(raw.to_usize())))
-    }
-
-    fn find_num(&self, num: &Num) -> Option<Ptr> {
-        self.num_store
-            .get_index_of(num)
-            .map(|raw| Ptr(Tag::Num, RawPtr(raw)))
-    }
-
-    fn find_fun(&self, a: &Ptr, b: &Ptr, c: &Ptr) -> Option<Ptr> {
-        self.fun_store
-            .get_index_of(&(*a, *b, *c))
-            .map(|raw| Ptr(Tag::Fun, RawPtr(raw)))
-    }
-
-    fn find_thunk(&self, thunk: &Thunk) -> Option<Ptr> {
-        self.thunk_store
-            .get_index_of(thunk)
-            .map(|raw| Ptr(Tag::Thunk, RawPtr(raw)))
     }
 
     pub fn scalar_from_parts(&self, tag: Scalar, value: Scalar) -> Option<ScalarPtr> {
@@ -917,7 +878,7 @@ impl Store {
         Some(self.create_cont_scalar_ptr(*ptr, hash))
     }
 
-    /// The only places that `ScalarPtr`s for `Ptr`s should be crated, to
+    /// The only places that `ScalarPtr`s for `Ptr`s should be created, to
     /// ensure that they are cached properly
     fn create_scalar_ptr(&self, ptr: Ptr, hash: Scalar) -> ScalarPtr {
         let scalar_ptr = ScalarPtr(ptr.tag_field(), hash);
@@ -925,7 +886,7 @@ impl Store {
         scalar_ptr
     }
 
-    /// The only places that `ScalarContPtr`s for `ContPtr`s should be crated, to
+    /// The only places that `ScalarContPtr`s for `ContPtr`s should be created, to
     /// ensure that they are cached properly
     fn create_cont_scalar_ptr(&self, ptr: ContPtr, hash: Scalar) -> ScalarContPtr {
         let scalar_ptr = ScalarContPtr(ptr.tag_field(), hash);
@@ -1166,7 +1127,6 @@ impl Store {
     fn hash_thunk(&self, ptr: Ptr) -> Option<ScalarPtr> {
         let thunk = self.fetch_thunk(&ptr)?;
         let components = self.get_hash_components_thunk(thunk)?;
-
         Some(self.create_scalar_ptr(ptr, self.poseidon_cache.hash4(&components)))
     }
 

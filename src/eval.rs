@@ -9,7 +9,7 @@ use std::iter::{Iterator, Take};
 pub struct IO {
     pub expr: Ptr,
     pub env: Ptr,
-    pub cont: ContPtr, // This could be an Expression too, if we want Continuations to be first class.
+    pub cont: ContPtr, // This could be a Ptr too, if we want Continuations to be first class.
 }
 
 impl Write for IO {
@@ -152,11 +152,7 @@ pub struct Witness {
 
     pub(crate) destructured_thunk: Option<Thunk>,
     pub(crate) extended_closure: Option<Ptr>,
-    // pub(crate) make_thunk_cont: Option<ContPtr>,
-    // pub(crate) make_thunk_tail_continuation_cont: Option<ContPtr>,
     pub(crate) invoke_continuation_cont: Option<ContPtr>,
-    // pub(crate) invoke_continuation_output_result: Option<Ptr>,
-    // pub(crate) invoke_continuation_output_cont: Option<ContPtr>,
 }
 
 impl Witness {
@@ -560,11 +556,7 @@ fn eval_expr_with_witness(
 
         destructured_thunk: None,
         extended_closure,
-        // make_thunk_cont: None,
-        // make_thunk_tail_continuation_cont: None,
         invoke_continuation_cont: None,
-        // invoke_continuation_output_result: None,
-        // invoke_continuation_output_cont: None,
     };
 
     let control = invoke_continuation(control, store, &mut witness);
@@ -811,10 +803,6 @@ fn invoke_continuation(control: Control, store: &mut Store, witness: &mut Witnes
         ContTag::Simple | ContTag::Error => unreachable!(),
     };
 
-    // let (output_result, _output_env, output_cont) = control.as_results();
-    // witness.invoke_continuation_output_result = Some(*output_result);
-    // witness.invoke_continuation_output_cont = Some(*output_cont);
-
     if control.is_invoke_continuation() {
         unreachable!();
     }
@@ -829,7 +817,6 @@ fn make_thunk(control: Control, store: &mut Store, _witness: &mut Witness) -> Co
     }
 
     let (result, env, cont) = control.into_results();
-    // witness.make_thunk_cont = Some(cont);
 
     if let Tag::Thunk = result.tag() {
         unreachable!("make_thunk should never be called with a thunk");
@@ -838,7 +825,6 @@ fn make_thunk(control: Control, store: &mut Store, _witness: &mut Witness) -> Co
     match cont.tag() {
         ContTag::Tail => match store.fetch_cont(&cont).unwrap() {
             Continuation::Tail(saved_env, continuation) => {
-                // witness.make_thunk_tail_continuation_cont = Some(continuation);
                 let thunk = store.alloc_thunk(Thunk {
                     value: result,
                     continuation,

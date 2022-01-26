@@ -1374,7 +1374,6 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
     // We need to specify this.
 
     let picked = {
-        // let thunk_continuation = g.destructured_thunk_continuation.clone();
         let thunk_value = g.destructured_thunk_value.clone();
         let thunk_hash = g.destructured_thunk_hash.clone();
 
@@ -1425,7 +1424,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         // Continuation::Call
         let saved_env = AllocatedPtr::by_index(0, &continuation_components);
         let arg = AllocatedPtr::by_index(1, &continuation_components);
-        // let continuation = AllocatedContPtr::by_index(2, &continuation_components);
+        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
 
         let function = result;
         let next_expr = arg;
@@ -1438,7 +1437,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             &[
                 &saved_env,
                 function,
-                &[&continuation_components[4], &continuation_components[5]],
+                &continuation,
                 &[&g.default_num, &g.default_num],
             ],
         )?;
@@ -1729,7 +1728,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         // FIXME: We need to check that b is not zero, returning an error if so.
 
         // In dummy paths, we need to use a non-zero dummy value for b.
-        //if dummy then 1 otherwise b.//if dummy then 1 otherwise b.
+        // if dummy then 1 otherwise b.
         let divisor = pick(
             &mut cs.namespace(|| "maybe-dummy divisor"),
             &not_dummy,
