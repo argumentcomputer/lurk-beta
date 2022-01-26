@@ -518,7 +518,7 @@ impl Default for Store {
             "OUTERMOST",
             "ERROR",
         ] {
-            store.alloc_sym(sym);
+            store.intern_sym(sym);
         }
 
         store
@@ -530,27 +530,27 @@ impl Store {
         Store::default()
     }
 
-    pub fn alloc_nil(&mut self) -> Ptr {
-        self.alloc_sym("NIL")
+    pub fn intern_nil(&mut self) -> Ptr {
+        self.intern_sym("NIL")
     }
 
     pub fn get_nil(&self) -> Ptr {
         self.get_sym("NIL").expect("missing NIL")
     }
 
-    pub fn alloc_cons(&mut self, car: Ptr, cdr: Ptr) -> Ptr {
+    pub fn intern_cons(&mut self, car: Ptr, cdr: Ptr) -> Ptr {
         let (ptr, _) = self.cons_store.insert_full((car, cdr));
         Ptr(Tag::Cons, RawPtr(ptr))
     }
 
     /// Helper to allocate a list, instead of manually using `cons`.
-    pub fn alloc_list(&mut self, elts: &[Ptr]) -> Ptr {
-        elts.iter()
-            .rev()
-            .fold(self.alloc_sym("NIL"), |acc, elt| self.alloc_cons(*elt, acc))
+    pub fn intern_list(&mut self, elts: &[Ptr]) -> Ptr {
+        elts.iter().rev().fold(self.intern_sym("NIL"), |acc, elt| {
+            self.intern_cons(*elt, acc)
+        })
     }
 
-    pub fn alloc_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr {
+    pub fn intern_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr {
         // symbols are upper case
         let mut name = name.as_ref().to_string();
         name.make_ascii_uppercase();
@@ -577,12 +577,12 @@ impl Store {
             .map(|raw| Ptr(tag, RawPtr(raw.to_usize())))
     }
 
-    pub fn alloc_num<T: Into<Num>>(&mut self, num: T) -> Ptr {
+    pub fn intern_num<T: Into<Num>>(&mut self, num: T) -> Ptr {
         let (ptr, _) = self.num_store.insert_full(num.into());
         Ptr(Tag::Num, RawPtr(ptr))
     }
 
-    pub fn alloc_str<T: AsRef<str>>(&mut self, name: T) -> Ptr {
+    pub fn intern_str<T: AsRef<str>>(&mut self, name: T) -> Ptr {
         let ptr = self.str_store.0.get_or_intern(name);
         Ptr(Tag::Str, RawPtr(ptr.to_usize()))
     }
@@ -592,7 +592,7 @@ impl Store {
         Some(Ptr(Tag::Str, RawPtr(ptr.to_usize())))
     }
 
-    pub fn alloc_fun(&mut self, arg: Ptr, body: Ptr, closed_env: Ptr) -> Ptr {
+    pub fn intern_fun(&mut self, arg: Ptr, body: Ptr, closed_env: Ptr) -> Ptr {
         // TODO: closed_env must be an env
         assert!(matches!(arg.0, Tag::Sym), "ARG must be a symbol");
 
@@ -600,12 +600,12 @@ impl Store {
         Ptr(Tag::Fun, RawPtr(ptr))
     }
 
-    pub fn alloc_thunk(&mut self, thunk: Thunk) -> Ptr {
+    pub fn intern_thunk(&mut self, thunk: Thunk) -> Ptr {
         let (ptr, _) = self.thunk_store.insert_full(thunk);
         Ptr(Tag::Thunk, RawPtr(ptr))
     }
 
-    pub fn alloc_cont_outermost(&self) -> ContPtr {
+    pub fn intern_cont_outermost(&self) -> ContPtr {
         self.get_cont_outermost()
     }
 
@@ -614,17 +614,17 @@ impl Store {
         ContPtr(ContTag::Outermost, RawPtr(ptr.to_usize()))
     }
 
-    pub fn alloc_cont_call(&mut self, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
+    pub fn intern_cont_call(&mut self, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
         let (ptr, _) = self.call_store.insert_full((a, b, c));
         ContPtr(ContTag::Call, RawPtr(ptr))
     }
 
-    pub fn alloc_cont_call2(&mut self, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
+    pub fn intern_cont_call2(&mut self, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
         let (ptr, _) = self.call2_store.insert_full((a, b, c));
         ContPtr(ContTag::Call2, RawPtr(ptr))
     }
 
-    pub fn alloc_cont_error(&self) -> ContPtr {
+    pub fn intern_cont_error(&self) -> ContPtr {
         self.get_cont_error()
     }
 
@@ -633,7 +633,7 @@ impl Store {
         ContPtr(ContTag::Error, RawPtr(ptr.to_usize()))
     }
 
-    pub fn alloc_cont_terminal(&self) -> ContPtr {
+    pub fn intern_cont_terminal(&self) -> ContPtr {
         self.get_cont_terminal()
     }
 
@@ -642,7 +642,7 @@ impl Store {
         ContPtr(ContTag::Terminal, RawPtr(ptr.to_usize()))
     }
 
-    pub fn alloc_cont_dummy(&self) -> ContPtr {
+    pub fn intern_cont_dummy(&self) -> ContPtr {
         self.get_cont_dummy()
     }
 
@@ -651,52 +651,52 @@ impl Store {
         ContPtr(ContTag::Dummy, RawPtr(ptr.to_usize()))
     }
 
-    pub fn alloc_cont_lookup(&mut self, a: Ptr, b: ContPtr) -> ContPtr {
+    pub fn intern_cont_lookup(&mut self, a: Ptr, b: ContPtr) -> ContPtr {
         let (ptr, _) = self.lookup_store.insert_full((a, b));
         ContPtr(ContTag::Lookup, RawPtr(ptr))
     }
 
-    pub fn alloc_cont_let_star(&mut self, a: Ptr, b: Ptr, c: Ptr, d: ContPtr) -> ContPtr {
+    pub fn intern_cont_let_star(&mut self, a: Ptr, b: Ptr, c: Ptr, d: ContPtr) -> ContPtr {
         let (ptr, _) = self.let_star_store.insert_full((a, b, c, d));
         ContPtr(ContTag::LetStar, RawPtr(ptr))
     }
 
-    pub fn alloc_cont_let_rec_star(&mut self, a: Ptr, b: Ptr, c: Ptr, d: ContPtr) -> ContPtr {
+    pub fn intern_cont_let_rec_star(&mut self, a: Ptr, b: Ptr, c: Ptr, d: ContPtr) -> ContPtr {
         let (ptr, _) = self.let_rec_star_store.insert_full((a, b, c, d));
         ContPtr(ContTag::LetRecStar, RawPtr(ptr))
     }
 
-    pub fn alloc_cont_unop(&mut self, op: Op1, a: ContPtr) -> ContPtr {
+    pub fn intern_cont_unop(&mut self, op: Op1, a: ContPtr) -> ContPtr {
         let (ptr, _) = self.unop_store.insert_full((op, a));
         ContPtr(ContTag::Unop, RawPtr(ptr))
     }
 
-    pub fn alloc_cont_binop(&mut self, op: Op2, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
+    pub fn intern_cont_binop(&mut self, op: Op2, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
         let (ptr, _) = self.binop_store.insert_full((op, a, b, c));
         ContPtr(ContTag::Binop, RawPtr(ptr))
     }
 
-    pub fn alloc_cont_binop2(&mut self, op: Op2, a: Ptr, b: ContPtr) -> ContPtr {
+    pub fn intern_cont_binop2(&mut self, op: Op2, a: Ptr, b: ContPtr) -> ContPtr {
         let (ptr, _) = self.binop2_store.insert_full((op, a, b));
         ContPtr(ContTag::Binop2, RawPtr(ptr))
     }
 
-    pub fn alloc_cont_relop(&mut self, op: Rel2, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
+    pub fn intern_cont_relop(&mut self, op: Rel2, a: Ptr, b: Ptr, c: ContPtr) -> ContPtr {
         let (ptr, _) = self.relop_store.insert_full((op, a, b, c));
         ContPtr(ContTag::Relop, RawPtr(ptr))
     }
 
-    pub fn alloc_cont_relop2(&mut self, op: Rel2, a: Ptr, b: ContPtr) -> ContPtr {
+    pub fn intern_cont_relop2(&mut self, op: Rel2, a: Ptr, b: ContPtr) -> ContPtr {
         let (ptr, _) = self.relop2_store.insert_full((op, a, b));
         ContPtr(ContTag::Relop2, RawPtr(ptr))
     }
 
-    pub fn alloc_cont_if(&mut self, a: Ptr, b: ContPtr) -> ContPtr {
+    pub fn intern_cont_if(&mut self, a: Ptr, b: ContPtr) -> ContPtr {
         let (ptr, _) = self.if_store.insert_full((a, b));
         ContPtr(ContTag::If, RawPtr(ptr))
     }
 
-    pub fn alloc_cont_tail(&mut self, a: Ptr, b: ContPtr) -> ContPtr {
+    pub fn intern_cont_tail(&mut self, a: Ptr, b: ContPtr) -> ContPtr {
         let (ptr, _) = self.tail_store.insert_full((a, b));
         ContPtr(ContTag::Tail, RawPtr(ptr))
     }
@@ -1349,7 +1349,7 @@ mod test {
     #[test]
     fn test_print_num() {
         let mut store = Store::default();
-        let num = store.alloc_num(5);
+        let num = store.intern_num(5);
         let res = num.fmt_to_string(&store);
         assert_eq!(&res, &"Num(0x5)");
     }
@@ -1392,7 +1392,7 @@ mod test {
     fn store() {
         let mut store = Store::default();
 
-        let num_ptr = store.alloc_num(123);
+        let num_ptr = store.intern_num(123);
         let num = store.fetch(&num_ptr).unwrap();
         let num_again = store.fetch(&num_ptr).unwrap();
 
@@ -1403,10 +1403,10 @@ mod test {
     fn equality() {
         let mut store = Store::default();
 
-        let (a, b) = (store.alloc_num(123), store.alloc_sym("pumpkin"));
-        let cons1 = store.alloc_cons(a, b);
-        let (a, b) = (store.alloc_num(123), store.alloc_sym("pumpkin"));
-        let cons2 = store.alloc_cons(a, b);
+        let (a, b) = (store.intern_num(123), store.intern_sym("pumpkin"));
+        let cons1 = store.intern_cons(a, b);
+        let (a, b) = (store.intern_num(123), store.intern_sym("pumpkin"));
+        let cons2 = store.intern_cons(a, b);
 
         assert_eq!(cons1, cons2);
         assert_eq!(store.car(&cons1), store.car(&cons2));

@@ -22,7 +22,7 @@ impl Store {
                 chars.next();
                 // TODO: This does not handle any escaping, so strings containing " cannot be read.
                 if c == '"' {
-                    let str = self.alloc_str(result);
+                    let str = self.intern_str(result);
                     return Some(str);
                 } else {
                     result.push(c);
@@ -70,10 +70,10 @@ impl Store {
                 }
                 '\'' => {
                     chars.next();
-                    let quote = self.alloc_sym("quote");
+                    let quote = self.intern_sym("quote");
                     let quoted = self.read_next(chars)?;
-                    let inner = self.alloc_list(&[quoted]);
-                    Some(self.alloc_cons(quote, inner))
+                    let inner = self.intern_list(&[quoted]);
+                    Some(self.intern_cons(quote, inner))
                 }
                 '\"' => self.read_string(chars),
                 ';' => {
@@ -116,7 +116,7 @@ impl Store {
             match c {
                 ')' => {
                     chars.next();
-                    Some(self.alloc_nil())
+                    Some(self.intern_nil())
                 }
                 '.' => {
                     chars.next();
@@ -129,7 +129,7 @@ impl Store {
                 _ => {
                     let car = self.read_next(chars).unwrap();
                     let rest = self.read_tail(chars).unwrap();
-                    Some(self.alloc_cons(car, rest))
+                    Some(self.intern_cons(car, rest))
                 }
             }
         } else {
@@ -156,7 +156,7 @@ impl Store {
                 break;
             }
         }
-        Some(self.alloc_num(acc))
+        Some(self.intern_num(acc))
     }
 
     fn read_symbol<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr> {
@@ -172,7 +172,7 @@ impl Store {
             is_initial = false;
         }
 
-        Some(self.alloc_sym(name))
+        Some(self.intern_sym(name))
     }
 }
 
@@ -281,7 +281,7 @@ asdf(", "ASDF",
         let test = |input, expected: u64| {
             let mut store = Store::default();
             let expr = store.read(input).unwrap();
-            assert_eq!(store.alloc_num(expected), expr);
+            assert_eq!(store.intern_num(expected), expr);
         };
         test("123", 123);
         test("0987654321", 987654321);
@@ -304,34 +304,34 @@ asdf(", "ASDF",
             assert_eq!(expected, &expr);
         };
 
-        let a = store.alloc_num(123);
-        let b = store.alloc_nil();
-        let expected = store.alloc_cons(a, b);
+        let a = store.intern_num(123);
+        let b = store.intern_nil();
+        let expected = store.intern_cons(a, b);
         test(&mut store, "(123)", &expected);
 
-        let a = store.alloc_num(321);
-        let expected2 = store.alloc_cons(a, expected);
+        let a = store.intern_num(321);
+        let expected2 = store.intern_cons(a, expected);
         test(&mut store, "(321 123)", &expected2);
 
-        let a = store.alloc_sym("PUMPKIN");
-        let expected3 = store.alloc_cons(a, expected2);
+        let a = store.intern_sym("PUMPKIN");
+        let expected3 = store.intern_cons(a, expected2);
         test(&mut store, "(pumpkin 321 123)", &expected3);
 
-        let expected4 = store.alloc_cons(expected, store.get_nil());
+        let expected4 = store.intern_cons(expected, store.get_nil());
         test(&mut store, "((123))", &expected4);
 
-        let (a, b) = (store.alloc_num(321), store.alloc_nil());
-        let alt = store.alloc_cons(a, b);
-        let expected5 = store.alloc_cons(alt, expected4);
+        let (a, b) = (store.intern_num(321), store.intern_nil());
+        let alt = store.intern_cons(a, b);
+        let expected5 = store.intern_cons(alt, expected4);
         test(&mut store, "((321) (123))", &expected5);
 
-        let expected6 = store.alloc_cons(expected2, expected3);
+        let expected6 = store.intern_cons(expected2, expected3);
         test(&mut store, "((321 123) pumpkin 321 123)", &expected6);
 
-        let (a, b) = (store.alloc_num(1), store.alloc_num(2));
-        let pair = store.alloc_cons(a, b);
-        let list = [pair, store.alloc_num(3)];
-        let expected7 = store.alloc_list(&list);
+        let (a, b) = (store.intern_num(1), store.intern_num(2));
+        let pair = store.intern_cons(a, b);
+        let list = [pair, store.intern_num(3)];
+        let expected7 = store.intern_list(&list);
         test(&mut store, "((1 . 2) 3)", &expected7);
     }
 
@@ -343,8 +343,8 @@ asdf(", "ASDF",
             assert_eq!(expected, &expr);
         };
 
-        let (a, b) = (store.alloc_num(123), store.alloc_num(321));
-        let expected = store.alloc_cons(a, b);
+        let (a, b) = (store.intern_num(123), store.intern_num(321));
+        let expected = store.intern_cons(a, b);
         test(&mut store, "(123 . 321)", &expected);
 
         assert_eq!(store.read("(123 321)"), store.read("(123 . ( 321 ))"))
@@ -381,35 +381,35 @@ asdf(", "ASDF",
             };
         };
 
-        let num = store.alloc_num(123);
+        let num = store.intern_num(123);
         test(&mut store, "123", num, false);
 
         {
-            let list = [store.alloc_num(123), store.alloc_num(321)];
-            let l = store.alloc_list(&list);
+            let list = [store.intern_num(123), store.intern_num(321)];
+            let l = store.intern_list(&list);
             test(&mut store, " (123 321)", l, false);
         }
         {
-            let list = [store.alloc_num(123), store.alloc_num(321)];
-            let l = store.alloc_list(&list);
+            let list = [store.intern_num(123), store.intern_num(321)];
+            let l = store.intern_list(&list);
             test(&mut store, " !(123 321)", l, true);
         }
         {
-            let list = [store.alloc_num(123), store.alloc_num(321)];
-            let l = store.alloc_list(&list);
+            let list = [store.intern_num(123), store.intern_num(321)];
+            let l = store.intern_list(&list);
             test(&mut store, " ! (123 321)", l, true);
         }
         {
-            let s = store.alloc_sym("asdf");
+            let s = store.intern_sym("asdf");
             test(&mut store, "!asdf", s, true);
         }
         {
-            let s = store.alloc_sym(":assert");
-            let l = store.alloc_list(&[s]);
+            let s = store.intern_sym(":assert");
+            let l = store.intern_list(&[s]);
             test(&mut store, "!(:assert)", l, true);
         }
         {
-            let s = store.alloc_sym("asdf");
+            let s = store.intern_sym("asdf");
             test(
                 &mut store,
                 ";; comment
@@ -422,8 +422,8 @@ asdf(", "ASDF",
     #[test]
     fn is_keyword() {
         let mut store = Store::default();
-        let kw = store.alloc_sym(":UIOP");
-        let not_kw = store.alloc_sym("UIOP");
+        let kw = store.intern_sym(":UIOP");
+        let not_kw = store.intern_sym("UIOP");
 
         assert!(store.fetch(&kw).unwrap().is_keyword_sym());
         assert!(!store.fetch(&not_kw).unwrap().is_keyword_sym());
@@ -444,7 +444,7 @@ asdf(", "ASDF",
             }
         };
 
-        let s = store.alloc_str("asdf");
+        let s = store.intern_str("asdf");
         test(&mut store, "\"asdf\"", Some(s), Some("asdf"));
         test(&mut store, "\"asdf", None, None);
         test(&mut store, "asdf", None, None);
@@ -468,7 +468,7 @@ asdf(", "ASDF",
             assert_eq!(expected, res);
         };
 
-        let num = store.alloc_num(321);
+        let num = store.intern_num(321);
         test(
             &mut store,
             ";123

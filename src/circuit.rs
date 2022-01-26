@@ -2201,12 +2201,12 @@ mod tests {
     fn num_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
-        let num = store.alloc_num(123);
+        let num = store.intern_num(123);
 
         let input = IO {
             expr: num,
             env,
-            cont: store.alloc_cont_outermost(),
+            cont: store.intern_cont_outermost(),
         };
 
         let initial = input.clone();
@@ -2270,7 +2270,7 @@ mod tests {
             let output = IO {
                 expr: num.clone(),
                 env: env.clone(),
-                cont: store.alloc_cont_terminal(),
+                cont: store.intern_cont_terminal(),
             };
 
             test_with_output(output, true, &store);
@@ -2280,9 +2280,9 @@ mod tests {
         {
             // Wrong type, so tag should differ.
             let bad_output_tag = IO {
-                expr: store.alloc_sym("SYMBOL"),
+                expr: store.intern_sym("SYMBOL"),
                 env,
-                cont: store.alloc_cont_terminal(),
+                cont: store.intern_cont_terminal(),
             };
 
             test_with_output(bad_output_tag, false, &store);
@@ -2291,9 +2291,9 @@ mod tests {
         {
             // Wrong value, so hash should differ.
             let bad_output_value = IO {
-                expr: store.alloc_num(999),
+                expr: store.intern_num(999),
                 env,
-                cont: store.alloc_cont_terminal(),
+                cont: store.intern_cont_terminal(),
             };
 
             test_with_output(bad_output_value, false, &store);
@@ -2303,8 +2303,8 @@ mod tests {
             // Wrong new env.
             let bad_output_tag = IO {
                 expr: num,
-                env: store.alloc_sym("not-an-env"),
-                cont: store.alloc_cont_terminal(),
+                env: store.intern_sym("not-an-env"),
+                cont: store.intern_cont_terminal(),
             };
 
             test_with_output(bad_output_tag, false, &store);
@@ -2315,12 +2315,12 @@ mod tests {
     fn nil_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
-        let nil = store.alloc_nil();
+        let nil = store.intern_nil();
 
         let input = IO {
             expr: nil,
             env,
-            cont: store.alloc_cont_outermost(),
+            cont: store.intern_cont_outermost(),
         };
 
         let initial = input.clone();
@@ -2352,7 +2352,7 @@ mod tests {
             let output = IO {
                 expr: nil.clone(),
                 env: env.clone(),
-                cont: store.alloc_cont_terminal(),
+                cont: store.intern_cont_terminal(),
             };
 
             test_with_output(output, true, &store);
@@ -2363,9 +2363,9 @@ mod tests {
             {
                 // Wrong type, so tag should differ.
                 let bad_output_tag = IO {
-                    expr: store.alloc_sym("SYMBOL"),
+                    expr: store.intern_sym("SYMBOL"),
                     env,
-                    cont: store.alloc_cont_terminal(),
+                    cont: store.intern_cont_terminal(),
                 };
 
                 test_with_output(bad_output_tag, false, &store);
@@ -2373,9 +2373,9 @@ mod tests {
             {
                 // Wrong value, so hash should differ.
                 let bad_output_value = IO {
-                    expr: store.alloc_num(999),
+                    expr: store.intern_num(999),
                     env: env.clone(),
-                    cont: store.alloc_cont_terminal(),
+                    cont: store.intern_cont_terminal(),
                 };
 
                 test_with_output(bad_output_value, false, &store);
@@ -2388,12 +2388,12 @@ mod tests {
     fn t_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
-        let t = store.alloc_sym("T");
+        let t = store.intern_sym("T");
 
         let input = IO {
             expr: t,
             env,
-            cont: store.alloc_cont_outermost(),
+            cont: store.intern_cont_outermost(),
         };
 
         let initial = input.clone();
@@ -2427,7 +2427,7 @@ mod tests {
             let output = IO {
                 expr: t.clone(),
                 env: env.clone(),
-                cont: store.alloc_cont_terminal(),
+                cont: store.intern_cont_terminal(),
             };
 
             test_with_output(output, true, &store);
@@ -2438,9 +2438,9 @@ mod tests {
             {
                 // Wrong type, so tag should differ.
                 let bad_output_tag = IO {
-                    expr: store.alloc_num(999),
+                    expr: store.intern_num(999),
                     env,
-                    cont: store.alloc_cont_terminal(),
+                    cont: store.intern_cont_terminal(),
                 };
 
                 test_with_output(bad_output_tag, false, &store);
@@ -2448,9 +2448,9 @@ mod tests {
             {
                 // Wrong symbol, so hash should differ.
                 let bad_output_value = IO {
-                    expr: store.alloc_sym("S"),
+                    expr: store.intern_sym("S"),
                     env: env.clone(),
-                    cont: store.alloc_cont_terminal(),
+                    cont: store.intern_cont_terminal(),
                 };
                 test_with_output(bad_output_value, false, &store);
             }
@@ -2461,14 +2461,14 @@ mod tests {
     fn fun_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
-        let var = store.alloc_sym("a");
-        let body = store.alloc_list(&[var]);
-        let fun = store.alloc_fun(var, body, env);
+        let var = store.intern_sym("a");
+        let body = store.intern_list(&[var]);
+        let fun = store.intern_fun(var, body, env);
 
         let input = IO {
             expr: fun.clone(),
             env: env.clone(),
-            cont: store.alloc_cont_outermost(),
+            cont: store.intern_cont_outermost(),
         };
 
         let initial = input.clone();
@@ -2500,7 +2500,7 @@ mod tests {
             let output = IO {
                 expr: fun.clone(),
                 env: env.clone(),
-                cont: store.alloc_cont_terminal(),
+                cont: store.intern_cont_terminal(),
             };
 
             test_with_output(output, true, &store);
@@ -2511,9 +2511,9 @@ mod tests {
             {
                 // Wrong type, so tag should differ.
                 let bad_output_tag = IO {
-                    expr: store.alloc_sym("SYMBOL"),
+                    expr: store.intern_sym("SYMBOL"),
                     env: env.clone(),
-                    cont: store.alloc_cont_terminal(),
+                    cont: store.intern_cont_terminal(),
                 };
 
                 test_with_output(bad_output_tag, false, &store);
@@ -2521,9 +2521,9 @@ mod tests {
             {
                 // Wrong value, so hash should differ.
                 let bad_output_value = IO {
-                    expr: store.alloc_num(999),
+                    expr: store.intern_num(999),
                     env: env.clone(),
-                    cont: store.alloc_cont_terminal(),
+                    cont: store.intern_cont_terminal(),
                 };
 
                 test_with_output(bad_output_value, false, &store);
@@ -2542,7 +2542,7 @@ mod tests {
         let input = IO {
             expr: expr.clone(),
             env: env.clone(),
-            cont: store.alloc_cont_outermost(),
+            cont: store.intern_cont_outermost(),
         };
 
         let initial = input.clone();
@@ -2574,9 +2574,9 @@ mod tests {
             {
                 // Output is not required to equal input.
                 let output = IO {
-                    expr: store.alloc_num(987),
+                    expr: store.intern_num(987),
                     env,
-                    cont: store.alloc_cont_terminal(),
+                    cont: store.intern_cont_terminal(),
                 };
 
                 test_with_output(output, true, &mut store);
@@ -2588,7 +2588,7 @@ mod tests {
                 let output = IO {
                     expr: expr.clone(),
                     env: env.clone(),
-                    cont: store.alloc_cont_terminal(),
+                    cont: store.intern_cont_terminal(),
                 };
 
                 test_with_output(output, true, &mut store);
