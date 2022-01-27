@@ -42,3 +42,6 @@ criterion = "0.3.5"
 [[bench]]
 name = "eval"
 harness = false
+
+[patch.crates-io]
+blst = { git = "https://github.com/supranational/blst", branch = "master" }
