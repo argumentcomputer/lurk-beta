@@ -175,7 +175,7 @@ impl Store {
             is_initial = false;
         }
         Self::convert_sym_case(&mut name);
-        Some(self.intern_sym(name, false))
+        Some(self.intern_sym(name))
     }
 
     pub(crate) fn convert_sym_case(raw_name: &mut String) {

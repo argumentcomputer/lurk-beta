@@ -551,7 +551,7 @@ impl Store {
     }
 
     pub fn sym<T: AsRef<str>>(&mut self, name: T) -> Ptr {
-        self.intern_sym(name, true)
+        self.intern_sym_with_case_conversion(name)
     }
 
     pub fn car(&self, expr: &Ptr) -> Ptr {
@@ -592,11 +592,15 @@ impl Store {
             .fold(self.sym("nil"), |acc, elt| self.cons(*elt, acc))
     }
 
-    pub fn intern_sym<T: AsRef<str>>(&mut self, name: T, convert_case: bool) -> Ptr {
+    pub fn intern_sym_with_case_conversion<T: AsRef<str>>(&mut self, name: T) -> Ptr {
         let mut name = name.as_ref().to_string();
-        if convert_case {
-            Self::convert_sym_case(&mut name);
-        }
+        Self::convert_sym_case(&mut name);
+
+        self.intern_sym(name)
+    }
+
+    pub fn intern_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr {
+        let name = name.as_ref().to_string();
 
         let tag = if name == "NIL" { Tag::Nil } else { Tag::Sym };
         let ptr = self.sym_store.0.get_or_intern(name);
