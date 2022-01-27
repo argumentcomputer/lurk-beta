@@ -177,12 +177,6 @@ impl Store {
         Self::convert_sym_case(&mut name);
         Some(self.intern_sym(name))
     }
-
-    pub(crate) fn convert_sym_case(raw_name: &mut String) {
-        // In the future, we could support optional alternate case conventions,
-        // so all case conversion should be performed here.
-        raw_name.make_ascii_uppercase();
-    }
 }
 
 fn is_symbol_char(c: &char, initial: bool) -> bool {

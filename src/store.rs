@@ -592,6 +592,12 @@ impl Store {
             .fold(self.sym("nil"), |acc, elt| self.cons(*elt, acc))
     }
 
+    pub(crate) fn convert_sym_case(raw_name: &mut String) {
+        // In the future, we could support optional alternate case conventions,
+        // so all case conversion should be performed here.
+        raw_name.make_ascii_uppercase();
+    }
+
     pub fn intern_sym_with_case_conversion<T: AsRef<str>>(&mut self, name: T) -> Ptr {
         let mut name = name.as_ref().to_string();
         Self::convert_sym_case(&mut name);
