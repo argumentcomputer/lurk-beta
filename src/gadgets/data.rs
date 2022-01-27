@@ -1,9 +1,3 @@
-use crate::data::{
-    BaseContinuationTag, Continuation, Expression, Op1, Op2, Rel2, Store, Tag, TaggedHash, Thunk,
-    POSEIDON_CONSTANTS_4, POSEIDON_CONSTANTS_6, POSEIDON_CONSTANTS_8,
-};
-use crate::eval::Witness;
-use crate::gadgets::constraints::{alloc_equal, equal, pick};
 use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem, SynthesisError,
@@ -12,127 +6,32 @@ use blstrs::Scalar as Fr;
 use ff::Field;
 use neptune::circuit::poseidon_hash;
 
-#[derive(Clone)]
-pub struct AllocatedTaggedHash {
-    pub tag: AllocatedNum<Fr>,
-    pub hash: AllocatedNum<Fr>,
-}
+use crate::store::{ScalarContPtr, ScalarPointer};
+use crate::{
+    eval::Witness,
+    store::{IntoHashComponents, ScalarPtr},
+};
+use crate::{
+    gadgets::pointer::AsAllocatedHashComponents,
+    store::{
+        ContPtr, ContTag, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk,
+        POSEIDON_CONSTANTS_4, POSEIDON_CONSTANTS_6, POSEIDON_CONSTANTS_8,
+    },
+};
 
-impl AllocatedTaggedHash {
-    pub fn from_tag_and_hash(tag: AllocatedNum<Fr>, hash: AllocatedNum<Fr>) -> Self {
-        Self { tag, hash }
-    }
-
-    pub fn from_unallocated_tag_and_hash<CS: ConstraintSystem<Fr>>(
-        cs: &mut CS,
-        unallocated_tag: Fr,
-        unallocated_hash: Fr,
-    ) -> Result<Self, SynthesisError> {
-        let tag = AllocatedNum::alloc(&mut cs.namespace(|| "tag"), || Ok(unallocated_tag))?;
-        let hash = AllocatedNum::alloc(&mut cs.namespace(|| "hash"), || Ok(unallocated_hash))?;
-        Ok(Self { tag, hash })
-    }
-
-    pub fn from_tagged_hash<CS: ConstraintSystem<Fr>>(
-        cs: &mut CS,
-        tagged_hash: Option<TaggedHash>,
-    ) -> Result<Self, SynthesisError> {
-        let tag = AllocatedNum::alloc(&mut cs.namespace(|| "allocate tag"), || {
-            tagged_hash
-                .map(|x| x.tag)
-                .ok_or(SynthesisError::AssignmentMissing)
-        })?;
-        let hash = AllocatedNum::alloc(&mut cs.namespace(|| "allocate hash"), || {
-            tagged_hash
-                .map(|x| x.hash)
-                .ok_or(SynthesisError::AssignmentMissing)
-        })?;
-        Ok(Self::from_tag_and_hash(tag, hash))
-    }
-
-    pub fn enforce_equal<CS: ConstraintSystem<Fr>>(&self, cs: &mut CS, other: &Self) {
-        equal(cs, || "tags equal", &self.tag, &other.tag);
-        equal(cs, || "hashes equal", &self.hash, &other.hash);
-    }
-
-    pub fn alloc_equal<CS: ConstraintSystem<Fr>>(
-        &self,
-        cs: &mut CS,
-        other: &Self,
-    ) -> Result<Boolean, SynthesisError> {
-        let tags_equal = alloc_equal(&mut cs.namespace(|| "tags equal"), &self.tag, &other.tag)?;
-        let hashes_equal = alloc_equal(
-            &mut cs.namespace(|| "hashes equal"),
-            &self.hash,
-            &other.hash,
-        )?;
-
-        Boolean::and(
-            &mut cs.namespace(|| "tags and hashes equal"),
-            &tags_equal,
-            &hashes_equal,
-        )
-    }
-
-    pub fn tagged_hash(&self) -> Option<TaggedHash> {
-        match (self.tag.get_value(), self.hash.get_value()) {
-            (Some(tag), Some(hash)) => Some(TaggedHash { tag, hash }),
-            _ => None,
-        }
-    }
-
-    pub fn fetch_and_write_str(&self, store: &Store) -> String {
-        if let Some(aaa) = &self.tagged_hash() {
-            if let Some(bbb) = store.fetch(aaa) {
-                store.write_expr_str(&bbb)
-            } else {
-                format!("expression not found in store: {:?}", aaa)
-            }
-        } else {
-            "no TaggedHash".to_string()
-        }
-    }
-    pub fn fetch_and_write_cont_str(&self, store: &Store) -> String {
-        if let Some(aaa) = &self.tagged_hash() {
-            if let Some(bbb) = store.fetch_continuation(aaa) {
-                store.write_cont_str(&bbb)
-            } else {
-                format!("continuation not found in store: {:?}", aaa)
-            }
-        } else {
-            "no TaggedHash".to_string()
-        }
-    }
-
-    pub fn allocate_thunk_components<CS: ConstraintSystem<Fr>>(
-        &self,
-        cs: CS,
-        store: &Store,
-    ) -> Result<(AllocatedNum<Fr>, AllocatedTaggedHash, AllocatedTaggedHash), SynthesisError> {
-        let maybe_thunk = if let Some(tagged_hash) = self.tagged_hash() {
-            if let Some(Expression::Thunk(thunk)) = store.fetch(&tagged_hash) {
-                Some(thunk)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        Thunk::allocate_maybe_dummy_components(cs, &maybe_thunk)
-    }
-}
+use super::pointer::{AllocatedContPtr, AllocatedPtr};
 
 pub struct GlobalAllocations {
-    pub terminal_tagged_hash: AllocatedTaggedHash,
-    pub outermost_tagged_hash: AllocatedTaggedHash,
-    pub error_tagged_hash: AllocatedTaggedHash,
-    pub dummy_tagged_hash: AllocatedTaggedHash,
-    pub nil_tagged_hash: AllocatedTaggedHash,
-    pub t_tagged_hash: AllocatedTaggedHash,
-    pub lambda_tagged_hash: AllocatedTaggedHash,
-    pub dummy_arg_tagged_hash: AllocatedTaggedHash,
-    pub nil_tag: AllocatedNum<Fr>,
+    pub terminal_ptr: AllocatedContPtr,
+    pub outermost_ptr: AllocatedContPtr,
+    pub error_ptr_cont: AllocatedContPtr,
+    pub error_ptr: AllocatedPtr,
+    pub dummy_ptr: AllocatedContPtr,
+    pub nil_ptr: AllocatedPtr,
+    pub t_ptr: AllocatedPtr,
+    pub lambda_ptr: AllocatedPtr,
+    pub dummy_arg_ptr: AllocatedPtr,
+
     pub sym_tag: AllocatedNum<Fr>,
     pub thunk_tag: AllocatedNum<Fr>,
     pub cons_tag: AllocatedNum<Fr>,
@@ -151,6 +50,7 @@ pub struct GlobalAllocations {
     pub binop2_cont_tag: AllocatedNum<Fr>,
     pub relop2_cont_tag: AllocatedNum<Fr>,
     pub if_cont_tag: AllocatedNum<Fr>,
+
     pub op1_car_tag: AllocatedNum<Fr>,
     pub op1_cdr_tag: AllocatedNum<Fr>,
     pub op1_atom_tag: AllocatedNum<Fr>,
@@ -161,123 +61,140 @@ pub struct GlobalAllocations {
     pub op2_quotient_tag: AllocatedNum<Fr>,
     pub rel2_equal_tag: AllocatedNum<Fr>,
     pub rel2_numequal_tag: AllocatedNum<Fr>,
+
     pub true_num: AllocatedNum<Fr>,
     pub false_num: AllocatedNum<Fr>,
-
-    pub default: AllocatedNum<Fr>,
+    pub default_num: AllocatedNum<Fr>,
 
     pub destructured_thunk_hash: AllocatedNum<Fr>,
-    pub destructured_thunk_value: AllocatedTaggedHash,
-    pub destructured_thunk_continuation: AllocatedTaggedHash,
+    pub destructured_thunk_value: AllocatedPtr,
+    pub destructured_thunk_continuation: AllocatedContPtr,
 }
 
 impl GlobalAllocations {
     pub fn new<CS: ConstraintSystem<Fr>>(
         cs: &mut CS,
+        store: &Store,
         witness: &Option<Witness>,
     ) -> Result<Self, SynthesisError> {
-        let terminal_tagged_hash = Continuation::Terminal
-            .allocate_constant_tagged_hash(&mut cs.namespace(|| "terminal continuation"))?;
+        let terminal_ptr = AllocatedContPtr::alloc_constant_cont_ptr(
+            &mut cs.namespace(|| "terminal continuation"),
+            store,
+            &store.get_cont_terminal(),
+        )?;
 
-        let outermost_tagged_hash = Continuation::Outermost
-            .allocate_constant_tagged_hash(&mut cs.namespace(|| "outermost continuation"))?;
+        let outermost_ptr = AllocatedContPtr::alloc_constant_cont_ptr(
+            &mut cs.namespace(|| "outermost continuation"),
+            store,
+            &store.get_cont_outermost(),
+        )?;
 
-        let error_tagged_hash = Continuation::Error
-            .allocate_constant_tagged_hash(&mut cs.namespace(|| "error continuation"))?;
+        let error_ptr_cont = AllocatedContPtr::alloc_constant_cont_ptr(
+            &mut cs.namespace(|| "error continuation"),
+            store,
+            &store.get_cont_error(),
+        )?;
+        let error_ptr =
+            AllocatedPtr::from_parts(error_ptr_cont.tag().clone(), error_ptr_cont.hash().clone());
 
-        let dummy_tagged_hash = Continuation::Dummy
-            .allocate_constant_tagged_hash(&mut cs.namespace(|| "dummy continuation"))?;
+        let dummy_ptr = AllocatedContPtr::alloc_constant_cont_ptr(
+            &mut cs.namespace(|| "dummy continuation"),
+            store,
+            &store.get_cont_dummy(),
+        )?;
 
-        let nil_tagged_hash =
-            Expression::Nil.allocate_constant_tagged_hash(&mut cs.namespace(|| "nil"))?;
+        let nil_ptr =
+            AllocatedPtr::alloc_constant_ptr(&mut cs.namespace(|| "nil"), store, &store.get_nil())?;
+        let t_ptr =
+            AllocatedPtr::alloc_constant_ptr(&mut cs.namespace(|| "T"), store, &store.get_t())?;
+        let lambda_ptr = AllocatedPtr::alloc_constant_ptr(
+            &mut cs.namespace(|| "LAMBDA"),
+            store,
+            &store.get_sym("lambda", true).unwrap(),
+        )?;
+        let dummy_arg_ptr = AllocatedPtr::alloc_constant_ptr(
+            &mut cs.namespace(|| "_"),
+            store,
+            &store.get_sym("_", true).unwrap(),
+        )?;
 
-        let t_tagged_hash =
-            Expression::read_sym("T").allocate_constant_tagged_hash(&mut cs.namespace(|| "T"))?;
-
-        let lambda_tagged_hash = Expression::read_sym("LAMBDA")
-            .allocate_constant_tagged_hash(&mut cs.namespace(|| "LAMBDA"))?;
-
-        let dummy_arg_tagged_hash =
-            Expression::read_sym("_").allocate_constant_tagged_hash(&mut cs.namespace(|| "_"))?;
-
-        let nil_tag = nil_tagged_hash.tag.clone(); //Tag::Nil.allocate_constant(&mut cs.namespace(|| "nil_tag"))?;
         let sym_tag = Tag::Sym.allocate_constant(&mut cs.namespace(|| "sym_tag"))?;
         let thunk_tag = Tag::Thunk.allocate_constant(&mut cs.namespace(|| "thunk_tag"))?;
         let cons_tag = Tag::Cons.allocate_constant(&mut cs.namespace(|| "cons_tag"))?;
         let num_tag = Tag::Num.allocate_constant(&mut cs.namespace(|| "num_tag"))?;
         let fun_tag = Tag::Fun.allocate_constant(&mut cs.namespace(|| "fun_tag"))?;
 
-        let outermost_cont_tag = BaseContinuationTag::Outermost
-            .allocate_constant(&mut cs.namespace(|| "outermost_cont_tag"))?;
-        let lookup_cont_tag = BaseContinuationTag::Lookup
-            .allocate_constant(&mut cs.namespace(|| "lookup_cont_tag"))?;
-        let letstar_cont_tag = BaseContinuationTag::LetStar
-            .allocate_constant(&mut cs.namespace(|| "letstar_cont_tag"))?;
-        let letrecstar_cont_tag = BaseContinuationTag::LetRecStar
-            .allocate_constant(&mut cs.namespace(|| "letrecstar_cont_tag"))?;
+        let outermost_cont_tag =
+            ContTag::Outermost.allocate_constant(&mut cs.namespace(|| "outermost_cont_tag"))?;
+        let lookup_cont_tag =
+            ContTag::Lookup.allocate_constant(&mut cs.namespace(|| "lookup_cont_tag"))?;
+        let letstar_cont_tag =
+            ContTag::LetStar.allocate_constant(&mut cs.namespace(|| "letstar_cont_tag"))?;
+        let letrecstar_cont_tag =
+            ContTag::LetRecStar.allocate_constant(&mut cs.namespace(|| "letrecstar_cont_tag"))?;
         let tail_cont_tag =
-            BaseContinuationTag::Tail.allocate_constant(&mut cs.namespace(|| "tail_cont_tag"))?;
+            ContTag::Tail.allocate_constant(&mut cs.namespace(|| "tail_cont_tag"))?;
         let call_cont_tag =
-            BaseContinuationTag::Call.allocate_constant(&mut cs.namespace(|| "call_cont_tag"))?;
+            ContTag::Call.allocate_constant(&mut cs.namespace(|| "call_cont_tag"))?;
         let call2_cont_tag =
-            BaseContinuationTag::Call2.allocate_constant(&mut cs.namespace(|| "call2_cont_tag"))?;
+            ContTag::Call2.allocate_constant(&mut cs.namespace(|| "call2_cont_tag"))?;
         let unop_cont_tag =
-            BaseContinuationTag::Unop.allocate_constant(&mut cs.namespace(|| "unop_cont_tag"))?;
+            ContTag::Unop.allocate_constant(&mut cs.namespace(|| "unop_cont_tag"))?;
         let binop_cont_tag =
-            BaseContinuationTag::Binop.allocate_constant(&mut cs.namespace(|| "binop_cont_tag"))?;
+            ContTag::Binop.allocate_constant(&mut cs.namespace(|| "binop_cont_tag"))?;
         let relop_cont_tag =
-            BaseContinuationTag::Relop.allocate_constant(&mut cs.namespace(|| "relop_cont_tag"))?;
-        let binop2_cont_tag = BaseContinuationTag::Binop2
-            .allocate_constant(&mut cs.namespace(|| "binop2_cont_tag"))?;
-        let relop2_cont_tag = BaseContinuationTag::Relop2
-            .allocate_constant(&mut cs.namespace(|| "relop2_cont_tag"))?;
-        let if_cont_tag =
-            BaseContinuationTag::If.allocate_constant(&mut cs.namespace(|| "if_cont_tag"))?;
+            ContTag::Relop.allocate_constant(&mut cs.namespace(|| "relop_cont_tag"))?;
+        let binop2_cont_tag =
+            ContTag::Binop2.allocate_constant(&mut cs.namespace(|| "binop2_cont_tag"))?;
+        let relop2_cont_tag =
+            ContTag::Relop2.allocate_constant(&mut cs.namespace(|| "relop2_cont_tag"))?;
+        let if_cont_tag = ContTag::If.allocate_constant(&mut cs.namespace(|| "if_cont_tag"))?;
+
         let op1_car_tag = Op1::Car.allocate_constant(&mut cs.namespace(|| "op1_car_tag"))?;
         let op1_cdr_tag = Op1::Cdr.allocate_constant(&mut cs.namespace(|| "op1_cdr_tag"))?;
         let op1_atom_tag = Op1::Atom.allocate_constant(&mut cs.namespace(|| "op1_atom_tag"))?;
         let op2_cons_tag = Op2::Cons.allocate_constant(&mut cs.namespace(|| "op2_cons_tag"))?;
         let op2_sum_tag = Op2::Sum.allocate_constant(&mut cs.namespace(|| "op2_sum_tag"))?;
         let op2_diff_tag = Op2::Diff.allocate_constant(&mut cs.namespace(|| "op2_diff_tag"))?;
+
         let op2_product_tag =
             Op2::Product.allocate_constant(&mut cs.namespace(|| "op2_product_tag"))?;
         let op2_quotient_tag =
             Op2::Quotient.allocate_constant(&mut cs.namespace(|| "op2_quotient_tag"))?;
         let rel2_numequal_tag =
             AllocatedNum::alloc(&mut cs.namespace(|| "relop2_numequal_tag"), || {
-                Ok(Rel2::NumEqual.fr())
+                Ok(Rel2::NumEqual.as_field())
             })?;
         let rel2_equal_tag = AllocatedNum::alloc(&mut cs.namespace(|| "relop2_equal_tag"), || {
-            Ok(Rel2::Equal.fr())
+            Ok(Rel2::Equal.as_field())
         })?;
+
         let true_num = allocate_constant(&mut cs.namespace(|| "true"), Fr::one())?;
         let false_num = allocate_constant(&mut cs.namespace(|| "false"), Fr::zero())?;
-
-        // NOTE: The choice of zero is significant.
-        // For example, TaggedHash::default() has both tag and hash of zero.
-        let default = allocate_constant(&mut cs.namespace(|| "default"), Fr::zero())?;
+        let default_num = allocate_constant(&mut cs.namespace(|| "default"), Fr::zero())?;
 
         let maybe_thunk = if let Some(w) = witness {
-            w.destructured_thunk.clone()
+            w.destructured_thunk
         } else {
             None
         };
         let (destructured_thunk_hash, destructured_thunk_value, destructured_thunk_continuation) =
             Thunk::allocate_maybe_dummy_components(
                 &mut cs.namespace(|| "allocate thunk components"),
-                &maybe_thunk,
+                maybe_thunk.as_ref(),
+                store,
             )?;
 
         Ok(Self {
-            terminal_tagged_hash,
-            outermost_tagged_hash,
-            error_tagged_hash,
-            dummy_tagged_hash,
-            nil_tagged_hash,
-            nil_tag,
-            t_tagged_hash,
-            lambda_tagged_hash,
-            dummy_arg_tagged_hash,
+            terminal_ptr,
+            outermost_ptr,
+            error_ptr_cont,
+            error_ptr,
+            dummy_ptr,
+            nil_ptr,
+            t_ptr,
+            lambda_ptr,
+            dummy_arg_ptr,
             sym_tag,
             thunk_tag,
             cons_tag,
@@ -308,7 +225,7 @@ impl GlobalAllocations {
             rel2_numequal_tag,
             true_num,
             false_num,
-            default,
+            default_num,
 
             destructured_thunk_hash,
             destructured_thunk_value,
@@ -317,83 +234,59 @@ impl GlobalAllocations {
     }
 }
 
-impl Expression {
-    pub fn allocate_tagged_hash<CS: ConstraintSystem<Fr>>(
-        cs: &mut CS,
-        expr: Option<&Self>,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, expr.map(|e| e.tagged_hash()))
-    }
-
-    pub fn allocated_tagged_hash<CS: ConstraintSystem<Fr>>(
-        &self,
-        cs: &mut CS,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, Some(self.tagged_hash()))
-    }
-
-    pub fn allocate_constant_tagged_hash<CS: ConstraintSystem<Fr>>(
-        &self,
-        cs: &mut CS,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        // TODO: This actually hashes, so when possible we should cache.
-        // When this is constant, we should not hash on every circuit synthesis.
-        let tagged_hash = self.tagged_hash();
-        let allocated_tag = allocate_constant(&mut cs.namespace(|| "tag"), tagged_hash.tag)?;
-        let allocated_hash = allocate_constant(&mut cs.namespace(|| "hash"), tagged_hash.hash)?;
-
-        Ok(AllocatedTaggedHash::from_tag_and_hash(
-            allocated_tag,
-            allocated_hash,
-        ))
-    }
-}
-
-impl Continuation {
+impl ContPtr {
     pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<Fr>>(
         cs: CS,
-        cont: &Option<Continuation>,
+        cont: Option<&ContPtr>,
+        store: &Store,
     ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
         if let Some(cont) = cont {
-            cont.allocate_components(cs)
+            cont.allocate_components(cs, store)
         } else {
-            Continuation::allocate_dummy_components(cs)
+            ContPtr::allocate_dummy_components(cs)
         }
     }
 
     fn allocate_components<CS: ConstraintSystem<Fr>>(
         &self,
         mut cs: CS,
+        store: &Store,
     ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
-        let component_frs = self.get_hash_components();
-        let mut components = Vec::with_capacity(8);
+        let component_frs = store
+            .get_hash_components_cont(self)
+            .expect("missing hash components");
 
-        for (i, fr) in component_frs.iter().enumerate() {
-            components.push(AllocatedNum::alloc(
-                cs.namespace(|| format!("Continuation component {}", i)),
-                || Ok(*fr),
-            )?);
-        }
+        let components: Vec<_> = component_frs
+            .iter()
+            .enumerate()
+            .map(|(i, fr)| {
+                AllocatedNum::alloc(
+                    &mut cs.namespace(|| format!("alloc component {}", i)),
+                    || Ok(*fr),
+                )
+            })
+            .collect::<Result<_, _>>()?;
 
         let hash = poseidon_hash(
             cs.namespace(|| "Continuation"),
             components.clone(),
             &POSEIDON_CONSTANTS_8,
         )?;
+
         Ok((hash, components))
     }
 
     fn allocate_dummy_components<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
     ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
-        let length = 8;
-        let mut result = Vec::with_capacity(length);
-        for i in 0..length {
-            result.push(AllocatedNum::alloc(
-                cs.namespace(|| format!("Continuation component {}", i)),
-                || Ok(Fr::zero()),
-            )?);
-        }
+        let result: Vec<_> = (0..8)
+            .map(|i| {
+                AllocatedNum::alloc(
+                    cs.namespace(|| format!("Continuation component {}", i)),
+                    || Ok(Fr::zero()),
+                )
+            })
+            .collect::<Result<_, _>>()?;
 
         // We need to create these constraints, but eventually we can avoid doing any calculation.
         // We just need a precomputed dummy witness.
@@ -405,86 +298,52 @@ impl Continuation {
 
         Ok((dummy_hash, result))
     }
-
-    pub fn construct<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-        cont_tag: &AllocatedNum<Fr>,
-        components: &[AllocatedNum<Fr>; 8],
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        let hash = poseidon_hash(
-            cs.namespace(|| "Continuation"),
-            components.to_vec(), // FIXME: add slice based api to neptune
-            &POSEIDON_CONSTANTS_8,
-        )?;
-
-        let cont = AllocatedTaggedHash::from_tag_and_hash(cont_tag.clone(), hash);
-        Ok(cont)
-    }
 }
 
-impl Expression {
+impl Ptr {
     pub fn allocate_maybe_fun<CS: ConstraintSystem<Fr>>(
         cs: CS,
-        maybe_fun: Option<&Expression>,
-    ) -> Result<
-        (
-            AllocatedNum<Fr>,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-        ),
-        SynthesisError,
-    > {
-        match maybe_fun {
-            Some(Expression::Fun(arg, body, closed_env)) => {
-                Self::allocate_fun(cs, arg, body, closed_env)
-            }
+        store: &Store,
+        maybe_fun: Option<&Ptr>,
+    ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr, AllocatedPtr), SynthesisError> {
+        match maybe_fun.map(|ptr| (ptr, ptr.tag())) {
+            Some((ptr, Tag::Fun)) => match store.fetch(ptr).expect("missing fun") {
+                Expression::Fun(arg, body, closed_env) => {
+                    let arg = store.hash_expr(&arg).expect("missing arg");
+                    let body = store.hash_expr(&body).expect("missing body");
+                    let closed_env = store.hash_expr(&closed_env).expect("missing closed env");
+                    Self::allocate_fun(cs, arg, body, closed_env)
+                }
+                _ => unreachable!(),
+            },
             _ => Self::allocate_dummy_fun(cs),
         }
     }
 
-    fn allocate_fun<CS: ConstraintSystem<Fr>>(
+    fn allocate_fun<CS: ConstraintSystem<Fr>, T: IntoHashComponents>(
         mut cs: CS,
-        arg: &TaggedHash,
-        body: &TaggedHash,
-        closed_env: &TaggedHash,
-    ) -> Result<
-        (
-            AllocatedNum<Fr>,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-        ),
-        SynthesisError,
-    > {
-        let arg_t = AllocatedTaggedHash::from_tagged_hash(
-            &mut cs.namespace(|| "allocate arg"),
-            Some(*arg),
+        arg: T,
+        body: T,
+        closed_env: T,
+    ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr, AllocatedPtr), SynthesisError> {
+        let arg_t =
+            AllocatedPtr::alloc_hash_components(&mut cs.namespace(|| "allocate arg tag"), arg)?;
+        let body_t =
+            AllocatedPtr::alloc_hash_components(&mut cs.namespace(|| "allocate body tag"), body)?;
+        let closed_env_t = AllocatedPtr::alloc_hash_components(
+            &mut cs.namespace(|| "allocate closed_env tag"),
+            closed_env,
         )?;
 
-        let body_t = AllocatedTaggedHash::from_tagged_hash(
-            &mut cs.namespace(|| "allocate body"),
-            Some(*body),
-        )?;
+        let preimage = vec![
+            arg_t.tag().clone(),
+            arg_t.hash().clone(),
+            body_t.tag().clone(),
+            body_t.hash().clone(),
+            closed_env_t.tag().clone(),
+            closed_env_t.hash().clone(),
+        ];
 
-        let closed_env_t = AllocatedTaggedHash::from_tagged_hash(
-            &mut cs.namespace(|| "allocate closed_env"),
-            Some(*closed_env),
-        )?;
-
-        let preimage = {
-            let arg_t = arg_t.clone();
-            let body_t = body_t.clone();
-            let closed_env_t = closed_env_t.clone();
-            vec![
-                arg_t.tag,
-                arg_t.hash,
-                body_t.tag,
-                body_t.hash,
-                closed_env_t.tag,
-                closed_env_t.hash,
-            ]
-        };
         let hash = poseidon_hash(cs.namespace(|| "Fun hash"), preimage, &POSEIDON_CONSTANTS_6)?;
 
         Ok((hash, arg_t, body_t, closed_env_t))
@@ -492,109 +351,38 @@ impl Expression {
 
     fn allocate_dummy_fun<CS: ConstraintSystem<Fr>>(
         cs: CS,
-    ) -> Result<
-        (
-            AllocatedNum<Fr>,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-            AllocatedTaggedHash,
-        ),
-        SynthesisError,
-    > {
-        let default = TaggedHash {
-            tag: Fr::zero(),
-            hash: Fr::zero(),
-        };
-
-        Self::allocate_fun(cs, &default, &default, &default)
-    }
-
-    pub fn construct_cons<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-        g: &GlobalAllocations,
-        a: &AllocatedTaggedHash,
-        b: &AllocatedTaggedHash,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        // This is actually binary_hash, considering creating that helper for use elsewhere.
-        let preimage = vec![a.tag.clone(), a.hash.clone(), b.tag.clone(), b.hash.clone()];
-
-        let hash = poseidon_hash(
-            cs.namespace(|| "Cons hash"),
-            preimage,
-            &POSEIDON_CONSTANTS_4,
-        )?;
-        Ok(AllocatedTaggedHash::from_tag_and_hash(
-            g.cons_tag.clone(),
-            hash,
-        ))
-    }
-
-    pub fn construct_list<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-        g: &GlobalAllocations,
-        elts: &[&AllocatedTaggedHash],
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        if elts.is_empty() {
-            Ok(g.nil_tagged_hash.clone())
-        } else {
-            let tail = Self::construct_list(&mut cs.namespace(|| "Cons tail"), g, &elts[1..])?;
-            Self::construct_cons(&mut cs.namespace(|| "Cons"), g, elts[0], &tail)
-        }
-    }
-
-    pub fn construct_fun<CS: ConstraintSystem<Fr>>(
-        mut cs: CS,
-        g: &GlobalAllocations,
-        arg: &AllocatedTaggedHash,
-        body: &AllocatedTaggedHash,
-        closed_env: &AllocatedTaggedHash,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        let preimage = vec![
-            arg.tag.clone(),
-            arg.hash.clone(),
-            body.tag.clone(),
-            body.hash.clone(),
-            closed_env.tag.clone(),
-            closed_env.hash.clone(),
-        ];
-
-        let hash = poseidon_hash(cs.namespace(|| "Fun hash"), preimage, &POSEIDON_CONSTANTS_6)?;
-        Ok(AllocatedTaggedHash::from_tag_and_hash(
-            g.fun_tag.clone(),
-            hash,
-        ))
+    ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr, AllocatedPtr), SynthesisError> {
+        Self::allocate_fun(
+            cs,
+            [Fr::zero(), Fr::zero()],
+            [Fr::zero(), Fr::zero()],
+            [Fr::zero(), Fr::zero()],
+        )
     }
 }
 
-impl Continuation {
-    pub fn allocate_tagged_hash<CS: ConstraintSystem<Fr>>(
-        cs: &mut CS,
-        expr: Option<&Self>,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, expr.map(|c| c.continuation_tagged_hash()))
-    }
-
-    pub fn allocated_tagged_hash<CS: ConstraintSystem<Fr>>(
+impl ContPtr {
+    pub fn allocate_ptr<CS: ConstraintSystem<Fr>>(
         &self,
         cs: &mut CS,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        AllocatedTaggedHash::from_tagged_hash(cs, Some(self.continuation_tagged_hash()))
+        store: &Store,
+    ) -> Result<AllocatedContPtr, SynthesisError> {
+        AllocatedContPtr::alloc(cs, || {
+            store
+                .hash_cont(self)
+                .ok_or(SynthesisError::AssignmentMissing)
+        })
     }
 
-    pub fn allocate_constant_tagged_hash<CS: ConstraintSystem<Fr>>(
+    pub fn allocate_constant_ptr<CS: ConstraintSystem<Fr>>(
         &self,
         cs: &mut CS,
-    ) -> Result<AllocatedTaggedHash, SynthesisError> {
-        // TODO: This actually hashes, so when possible we should cache.
-        // When this is constant, we should not hash on every circuit synthesis.
-        let tagged_hash = self.continuation_tagged_hash();
-        let allocated_tag = allocate_constant(&mut cs.namespace(|| "tag"), tagged_hash.tag)?;
-        let allocated_hash = allocate_constant(&mut cs.namespace(|| "hash"), tagged_hash.hash)?;
-
-        Ok(AllocatedTaggedHash::from_tag_and_hash(
-            allocated_tag,
-            allocated_hash,
-        ))
+        store: &Store,
+    ) -> Result<AllocatedContPtr, SynthesisError> {
+        let ptr = store
+            .hash_cont(self)
+            .ok_or(SynthesisError::AssignmentMissing)?;
+        AllocatedContPtr::alloc_constant(cs, ptr)
     }
 }
 
@@ -620,18 +408,21 @@ impl Tag {
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedNum<Fr>, SynthesisError> {
-        allocate_constant(&mut cs.namespace(|| format!("{:?} tag", self)), self.fr())
+        allocate_constant(
+            &mut cs.namespace(|| format!("{:?} tag", self)),
+            self.as_field(),
+        )
     }
 }
 
-impl BaseContinuationTag {
+impl ContTag {
     pub fn allocate_constant<CS: ConstraintSystem<Fr>>(
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedNum<Fr>, SynthesisError> {
         allocate_constant(
             &mut cs.namespace(|| format!("{:?} base continuation tag", self)),
-            self.cont_tag_fr(),
+            self.as_field(),
         )
     }
 }
@@ -641,7 +432,10 @@ impl Op1 {
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedNum<Fr>, SynthesisError> {
-        allocate_constant(&mut cs.namespace(|| format!("{:?} tag", self)), self.fr())
+        allocate_constant(
+            &mut cs.namespace(|| format!("{:?} tag", self)),
+            self.as_field(),
+        )
     }
 }
 
@@ -650,7 +444,10 @@ impl Op2 {
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedNum<Fr>, SynthesisError> {
-        allocate_constant(&mut cs.namespace(|| format!("{:?} tag", self)), self.fr())
+        allocate_constant(
+            &mut cs.namespace(|| format!("{:?} tag", self)),
+            self.as_field(),
+        )
     }
 }
 
@@ -659,96 +456,92 @@ impl Rel2 {
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedNum<Fr>, SynthesisError> {
-        allocate_constant(&mut cs.namespace(|| format!("{:?} tag", self)), self.fr())
+        allocate_constant(
+            &mut cs.namespace(|| format!("{:?} tag", self)),
+            self.as_field(),
+        )
     }
 }
 
 impl Thunk {
     pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<Fr>>(
         cs: CS,
-        thunk: &Option<Thunk>,
-    ) -> Result<(AllocatedNum<Fr>, AllocatedTaggedHash, AllocatedTaggedHash), SynthesisError> {
-        let (hash, components) = if let Some(thunk) = thunk {
-            thunk.allocate_components(cs)
+        thunk: Option<&Thunk>,
+        store: &Store,
+    ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedContPtr), SynthesisError> {
+        if let Some(thunk) = thunk {
+            thunk.allocate_components(cs, store)
         } else {
             Thunk::allocate_dummy_components(cs)
-        }?;
-
-        // allocate_thunk_components should probably returned AllocatedTaggedHashes.
-        let thunk_value =
-            AllocatedTaggedHash::from_tag_and_hash(components[0].clone(), components[1].clone());
-
-        let thunk_continuation =
-            AllocatedTaggedHash::from_tag_and_hash(components[2].clone(), components[3].clone());
-
-        Ok((hash, thunk_value, thunk_continuation))
+        }
     }
 
     // First component is the hash, which is wrong.
     pub fn allocate_components<CS: ConstraintSystem<Fr>>(
         &self,
         mut cs: CS,
-    ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
-        let component_frs = self.get_hash_components();
-        let mut components = Vec::with_capacity(4);
+        store: &Store,
+    ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedContPtr), SynthesisError> {
+        let component_frs = store.get_hash_components_thunk(self);
 
-        for (i, fr) in component_frs.iter().enumerate() {
-            components.push(AllocatedNum::alloc(
-                cs.namespace(|| format!("Thunk component {}", i)),
-                || Ok(*fr),
-            )?);
-        }
+        let value = AllocatedPtr::alloc(&mut cs.namespace(|| "Thunk component: value"), || {
+            component_frs
+                .as_ref()
+                .map(|frs| ScalarPtr::from_parts(frs[0], frs[1]))
+                .ok_or(SynthesisError::AssignmentMissing)
+        })?;
 
-        let hash = Self::hash_components(cs.namespace(|| "Thunk"), &components.clone())?;
+        let cont = AllocatedContPtr::alloc(
+            &mut cs.namespace(|| "Thunk component: continuation"),
+            || {
+                component_frs
+                    .as_ref()
+                    .map(|frs| ScalarContPtr::from_parts(frs[2], frs[3]))
+                    .ok_or(SynthesisError::AssignmentMissing)
+            },
+        )?;
 
-        Ok((hash, components))
+        let hash = Self::hash_components(cs.namespace(|| "Thunk"), &value, &cont)?;
+
+        Ok((hash, value, cont))
     }
 
     pub fn allocate_dummy_components<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
-    ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
-        let length = 4;
-        let mut result = Vec::with_capacity(length);
-        for i in 0..length {
-            result.push(AllocatedNum::alloc(
-                cs.namespace(|| format!("Thunk component {}", i)),
-                || Ok(Fr::zero()),
-            )?);
-        }
+    ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedContPtr), SynthesisError> {
+        let value = AllocatedPtr::alloc(&mut cs.namespace(|| "Thunk component: value"), || {
+            Ok(ScalarPtr::from_parts(Fr::zero(), Fr::zero()))
+        })?;
 
-        let dummy_hash = Self::hash_components(cs.namespace(|| "Thunk"), &result)?;
+        let cont = AllocatedContPtr::alloc(
+            &mut cs.namespace(|| "Thunk component: continuation"),
+            || Ok(ScalarContPtr::from_parts(Fr::zero(), Fr::zero())),
+        )?;
 
-        Ok((dummy_hash, result))
+        let dummy_hash = Self::hash_components(cs.namespace(|| "Thunk"), &value, &cont)?;
+
+        Ok((dummy_hash, value, cont))
     }
 
     pub fn hash_components<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
-        components: &[AllocatedNum<Fr>],
+        value: &AllocatedPtr,
+        cont: &AllocatedContPtr,
     ) -> Result<AllocatedNum<Fr>, SynthesisError> {
-        assert_eq!(4, components.len());
-
+        let vs = value.as_allocated_hash_components();
+        let conts = cont.as_allocated_hash_components();
         // This is a 'binary' hash but has arity 4 because of tag and hash components for each item.
         let hash = poseidon_hash(
             cs.namespace(|| "Thunk Continuation"),
-            components.to_vec(),
+            vec![
+                vs[0].clone(),
+                vs[1].clone(),
+                conts[0].clone(),
+                conts[1].clone(),
+            ],
             &POSEIDON_CONSTANTS_4,
         )?;
 
         Ok(hash)
     }
-}
-
-/// Takes two allocated numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.
-pub fn pick_tagged_hash<CS>(
-    mut cs: CS,
-    condition: &Boolean,
-    a: &AllocatedTaggedHash,
-    b: &AllocatedTaggedHash,
-) -> Result<AllocatedTaggedHash, SynthesisError>
-where
-    CS: ConstraintSystem<Fr>,
-{
-    let tag = pick(cs.namespace(|| "tag"), condition, &a.tag, &b.tag)?;
-    let hash = pick(cs.namespace(|| "hash"), condition, &a.hash, &b.hash)?;
-    Ok(AllocatedTaggedHash::from_tag_and_hash(tag, hash))
 }

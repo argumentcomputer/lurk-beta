@@ -1,21 +1,33 @@
-use crate::data::{Continuation, Expression, Op1, Op2, Rel2, Store, Tag, Tagged, Thunk};
-use ff::Field;
+use crate::store::{
+    ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk,
+};
+use crate::writer::Write;
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
-use std::ops::{AddAssign, MulAssign, SubAssign};
-use std::rc::Rc;
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IO {
-    pub expr: Expression,
-    pub env: Expression,
-    pub cont: Continuation, // This could be an Expression too, if we want Continuations to be first class.
+    pub expr: Ptr,
+    pub env: Ptr,
+    pub cont: ContPtr, // This could be a Ptr too, if we want Continuations to be first class.
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, Eq)]
+impl Write for IO {
+    fn fmt<W: std::io::Write>(&self, store: &Store, w: &mut W) -> std::io::Result<()> {
+        write!(w, "IO {{ expr: ")?;
+        self.expr.fmt(store, w)?;
+        write!(w, ", env: ")?;
+        self.env.fmt(store, w)?;
+        write!(w, ", cont: ")?;
+        self.cont.fmt(store, w)?;
+        write!(w, " }}")
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Frame<T, W> {
-    pub input: Rc<T>,
-    pub output: Rc<T>,
+    pub input: T,
+    pub output: T,
     pub i: usize,
     pub witness: W,
 }
@@ -39,12 +51,12 @@ pub trait Evaluable<W> {
 
 impl Evaluable<Witness> for IO {
     fn eval(&self, store: &mut Store) -> (Self, Witness) {
-        let (expr, env, cont, witness) = eval_expr(&self.expr, &self.env, &self.cont, store);
+        let (expr, env, cont, witness) = eval_expr(self.expr, self.env, self.cont, store);
         (Self { expr, env, cont }, witness)
     }
 
     fn is_terminal(&self) -> bool {
-        matches!(self.cont, Continuation::Error | Continuation::Terminal)
+        matches!(self.cont.tag(), ContTag::Error | ContTag::Terminal)
     }
 }
 
@@ -55,7 +67,7 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
 
         Self {
             input,
-            output: Rc::new(output),
+            output,
             i: self.i + 1,
             witness,
         }
@@ -67,8 +79,8 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
         let (output, witness) = input.eval(store);
 
         Self {
-            input: Rc::new(input),
-            output: Rc::new(output),
+            input,
+            output,
             i: 0,
             witness,
         }
@@ -134,18 +146,13 @@ impl<'a, 'b, T: Evaluable<Witness> + Clone + PartialEq> Iterator for FrameIt<'a,
 pub struct Witness {
     // TODO: Many of these fields ended up not being used.
     // once circuit is done, remove the excess.
-    pub prethunk_output_expr: Expression,
-    pub prethunk_output_env: Expression,
-    pub prethunk_output_cont: Continuation,
+    pub(crate) prethunk_output_expr: Ptr,
+    pub(crate) prethunk_output_env: Ptr,
+    pub(crate) prethunk_output_cont: ContPtr,
 
-    pub destructured_thunk: Option<Thunk>,
-    pub extended_closure: Option<Expression>,
-    pub make_thunk_cont: Option<Continuation>,
-    pub make_thunk_tail_continuation_cont: Option<Continuation>,
-    pub invoke_continuation_cont: Option<Continuation>,
-
-    pub invoke_continuation_output_result: Option<Expression>,
-    pub invoke_continuation_output_cont: Option<Continuation>,
+    pub(crate) destructured_thunk: Option<Thunk>,
+    pub(crate) extended_closure: Option<Ptr>,
+    pub(crate) invoke_continuation_cont: Option<ContPtr>,
 }
 
 impl Witness {
@@ -154,16 +161,16 @@ impl Witness {
             self.destructured_thunk.is_none(),
             "Only one thunk should be destructured per evaluation step."
         );
-        self.destructured_thunk = Some(thunk.clone());
+        self.destructured_thunk = Some(*thunk);
     }
 }
 
 fn eval_expr(
-    expr: &Expression,
-    env: &Expression,
-    cont: &Continuation,
+    expr: Ptr,
+    env: Ptr,
+    cont: ContPtr,
     store: &mut Store,
-) -> (Expression, Expression, Continuation, Witness) {
+) -> (Ptr, Ptr, ContPtr, Witness) {
     let (ctrl, witness) = eval_expr_with_witness(expr, env, cont, store);
     let (new_expr, new_env, new_cont) = ctrl.into_results();
 
@@ -171,14 +178,14 @@ fn eval_expr(
 }
 
 #[derive(Debug, Clone)]
-pub enum Control<Expr, Cont> {
-    Return(Expr, Expr, Cont),
-    MakeThunk(Expr, Expr, Cont),
-    InvokeContinuation(Expr, Expr, Cont),
+pub enum Control {
+    Return(Ptr, Ptr, ContPtr),
+    MakeThunk(Ptr, Ptr, ContPtr),
+    InvokeContinuation(Ptr, Ptr, ContPtr),
 }
 
-impl<E: Clone, C: Clone> Control<E, C> {
-    pub fn as_results(&self) -> (&E, &E, &C) {
+impl Control {
+    pub fn as_results(&self) -> (&Ptr, &Ptr, &ContPtr) {
         match self {
             Self::Return(expr, env, cont) => (expr, env, cont),
             Self::MakeThunk(expr, env, cont) => (expr, env, cont),
@@ -186,7 +193,7 @@ impl<E: Clone, C: Clone> Control<E, C> {
         }
     }
 
-    pub fn into_results(self) -> (E, E, C) {
+    pub fn into_results(self) -> (Ptr, Ptr, ContPtr) {
         match self {
             Self::Return(expr, env, cont) => (expr, env, cont),
             Self::MakeThunk(expr, env, cont) => (expr, env, cont),
@@ -206,361 +213,338 @@ impl<E: Clone, C: Clone> Control<E, C> {
 }
 
 fn eval_expr_with_witness(
-    expr: &Expression,
-    env: &Expression,
-    cont: &Continuation,
+    expr: Ptr,
+    env: Ptr,
+    cont: ContPtr,
     store: &mut Store,
-) -> (Control<Expression, Continuation>, Witness) {
+) -> (Control, Witness) {
     let mut extended_closure = None;
-    let control = match expr {
-        Expression::Thunk(thunk) => Control::InvokeContinuation(
-            *thunk.value.clone(),
-            env.clone(),
-            *thunk.continuation.clone(),
-        ),
-        Expression::Nil => Control::InvokeContinuation(expr.clone(), env.clone(), cont.clone()),
-        Expression::Sym(_) => {
-            if expr == &store.intern("NIL") || (expr == &store.intern("T")) {
+    let control = match expr.tag() {
+        Tag::Thunk => match store.fetch(&expr).unwrap() {
+            Expression::Thunk(thunk) => {
+                Control::InvokeContinuation(thunk.value, env, thunk.continuation)
+            }
+            _ => unreachable!(),
+        },
+        Tag::Nil => Control::InvokeContinuation(expr, env, cont),
+        Tag::Sym => {
+            if expr == store.sym("NIL") || (expr == store.t()) {
                 // NIL and T are self-evaluating symbols, pass them to the continuation in a thunk.
 
                 // CIRCUIT: sym_is_self_evaluating
                 //          cond1
-                Control::InvokeContinuation(expr.clone(), env.clone(), cont.clone())
+                Control::InvokeContinuation(expr, env, cont)
             } else {
                 // Otherwise, look for a matching binding in env.
 
                 // CIRCUIT: sym_otherwise
-                assert!(Expression::Nil != *env, "Unbound variable: {:?}", expr);
-                let (binding, smaller_env) = store.car_cdr(env);
-                if binding == Expression::Nil {
-                    // If binding is NIL, it's empty. There is no match. Return an error due to unbound variable.
-
-                    // CIRCUIT: binding_is_nil
-                    //          otherwise_and_binding_is_nil
-                    //          cond2
-                    Control::Return(expr.clone(), env.clone(), Continuation::Error)
+                if env.is_nil() {
+                    //     //assert!(!env.is_nil(), "Unbound variable: {:?}", expr);
+                    Control::Return(expr, env, store.intern_cont_error())
                 } else {
-                    // Binding is not NIL, so it is either a normal binding or a recursive environment.
+                    let (binding, smaller_env) = store.car_cdr(&env);
+                    if binding.is_nil() {
+                        // If binding is NIL, it's empty. There is no match. Return an error due to unbound variable.
 
-                    // CIRCUIT: binding_not_nil
-                    //          otherwise_and_binding_not_nil
-                    let (var_or_rec_binding, val_or_more_rec_env) = store.car_cdr(&binding);
-                    match &var_or_rec_binding {
-                        Expression::Sym(_) => {
-                            // We are in a simple env (not a recursive env),
-                            // looking at a binding's variable.
+                        // CIRCUIT: binding_is_nil
+                        //          otherwise_and_binding_is_nil
+                        //          cond2
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        // Binding is not NIL, so it is either a normal binding or a recursive environment.
 
-                            // CIRCUIT: var_or_rec_binding_is_sym
-                            //          otherwise_and_sym
-                            let v = var_or_rec_binding;
-                            let val = val_or_more_rec_env;
+                        // CIRCUIT: binding_not_nil
+                        //          otherwise_and_binding_not_nil
+                        let (var_or_rec_binding, val_or_more_rec_env) = store.car_cdr(&binding);
+                        match var_or_rec_binding.tag() {
+                            Tag::Sym => {
+                                // We are in a simple env (not a recursive env),
+                                // looking at a binding's variable.
 
-                            if v == *expr {
-                                // expr matches the binding's var.
+                                // CIRCUIT: var_or_rec_binding_is_sym
+                                //          otherwise_and_sym
+                                let v = var_or_rec_binding;
+                                let val = val_or_more_rec_env;
 
-                                // CIRCUIT: v_is_expr1
-                                //          v_is_expr1_real
-                                //          otherwise_and_v_expr_and_sym
-                                //          cond3
+                                if v == expr {
+                                    // expr matches the binding's var.
 
-                                // Pass the binding's value to the continuation in a thunk.
-                                Control::InvokeContinuation(val, env.clone(), cont.clone())
-                            } else {
-                                // expr does not match the binding's var.
+                                    // CIRCUIT: v_is_expr1
+                                    //          v_is_expr1_real
+                                    //          otherwise_and_v_expr_and_sym
+                                    //          cond3
 
-                                // CIRCUIT: otherwise_and_v_not_expr
-                                match cont {
-                                    Continuation::Lookup(_, _) => {
-                                        // If performing a lookup, continue with remaining env.
-
-                                        // CIRCUIT: cont_is_lookup
-                                        //          cont_is_lookup_sym
-                                        //          cond4
-                                        Control::Return(expr.clone(), smaller_env, cont.clone())
-                                    }
-                                    _ =>
-                                    // Otherwise, create a lookup continuation, packaging current env
-                                    // to be restored later.
-
-                                    // CIRCUIT: cont_not_lookup_sym
-                                    //          cond5
-                                    {
-                                        Control::Return(
-                                            expr.clone(),
-                                            smaller_env,
-                                            Continuation::Lookup(
-                                                env.clone(),
-                                                Box::new(cont.clone()),
-                                            ),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        // Start of a recursive_env.
-                        Expression::Cons(_, _) => {
-                            // CIRCUIT: var_or_rec_binding_is_cons
-                            //          otherwise_and_cons
-                            let rec_env = binding;
-                            let smaller_rec_env = val_or_more_rec_env;
-
-                            let (v2, val2) = store.car_cdr(&var_or_rec_binding);
-                            if v2 == *expr {
-                                // CIRCUIT: v2_is_expr
-                                //          v2_is_expr_real
-                                //          cond6
-                                let val_to_use = {
-                                    // CIRCUIT: val_to_use
-                                    match val2 {
-                                        Expression::Fun(_, _, _) => {
-                                            // TODO: This is a misnomer. It's actually the closure *to be extended*.
-                                            extended_closure = Some(val2.clone());
-                                            // CIRCUIT: val2_is_fun
-
-                                            // We just found a closure in a recursive env.
-                                            // We need to extend its environment to include that recursive env.
-
-                                            extend_closure(&val2, &rec_env, store)
-                                        }
-                                        _ => {
-                                            extended_closure = None;
-                                            val2
-                                        }
-                                    }
-                                };
-                                Control::InvokeContinuation(val_to_use, env.clone(), cont.clone())
-                            } else {
-                                // CIRCUIT: v2_not_expr
-                                //          otherwise_and_v2_not_expr
-                                //          cond7
-                                let env_to_use = if smaller_rec_env == Expression::Nil {
-                                    // CIRCUIT: smaller_rec_env_is_nil
-                                    smaller_env
+                                    // Pass the binding's value to the continuation in a thunk.
+                                    Control::InvokeContinuation(val, env, cont)
                                 } else {
-                                    // CIRCUIT: with_smaller_rec_env
-                                    store.cons(&smaller_rec_env, &smaller_env)
-                                };
-                                match cont {
-                                    Continuation::Lookup(_, _) => {
-                                        // CIRCUIT: cont_is_lookup
-                                        //          cont_is_lookup_cons
-                                        //          cond8
-                                        Control::Return(expr.clone(), env_to_use, cont.clone())
+                                    // expr does not match the binding's var.
+
+                                    // CIRCUIT: otherwise_and_v_not_expr
+                                    match cont.tag() {
+                                        ContTag::Lookup => {
+                                            // If performing a lookup, continue with remaining env.
+
+                                            // CIRCUIT: cont_is_lookup
+                                            //          cont_is_lookup_sym
+                                            //          cond4
+                                            Control::Return(expr, smaller_env, cont)
+                                        }
+                                        _ =>
+                                        // Otherwise, create a lookup continuation, packaging current env
+                                        // to be restored later.
+
+                                        // CIRCUIT: cont_not_lookup_sym
+                                        //          cond5
+                                        {
+                                            Control::Return(
+                                                expr,
+                                                smaller_env,
+                                                store.intern_cont_lookup(env, cont),
+                                            )
+                                        }
                                     }
-                                    _ => Control::Return(
-                                        // CIRCUIT: cont_not_lookup_cons
-                                        //          cond9
-                                        expr.clone(),
-                                        env_to_use,
-                                        Continuation::Lookup(env.clone(), Box::new(cont.clone())),
-                                    ),
                                 }
                             }
+                            // Start of a recursive_env.
+                            Tag::Cons => {
+                                // CIRCUIT: var_or_rec_binding_is_cons
+                                //          otherwise_and_cons
+                                let rec_env = binding;
+                                let smaller_rec_env = val_or_more_rec_env;
+
+                                let (v2, val2) = store.car_cdr(&var_or_rec_binding);
+                                if v2 == expr {
+                                    // CIRCUIT: v2_is_expr
+                                    //          v2_is_expr_real
+                                    //          cond6
+                                    let val_to_use = {
+                                        // CIRCUIT: val_to_use
+                                        match val2.tag() {
+                                            Tag::Fun => {
+                                                // TODO: This is a misnomer. It's actually the closure *to be extended*.
+                                                extended_closure = Some(val2);
+                                                // CIRCUIT: val2_is_fun
+
+                                                // We just found a closure in a recursive env.
+                                                // We need to extend its environment to include that recursive env.
+
+                                                extend_closure(&val2, &rec_env, store)
+                                            }
+                                            _ => {
+                                                extended_closure = None;
+                                                val2
+                                            }
+                                        }
+                                    };
+                                    Control::InvokeContinuation(val_to_use, env, cont)
+                                } else {
+                                    // CIRCUIT: v2_not_expr
+                                    //          otherwise_and_v2_not_expr
+                                    //          cond7
+                                    let env_to_use = if smaller_rec_env.is_nil() {
+                                        // CIRCUIT: smaller_rec_env_is_nil
+                                        smaller_env
+                                    } else {
+                                        // CIRCUIT: with_smaller_rec_env
+                                        store.cons(smaller_rec_env, smaller_env)
+                                    };
+                                    match cont.tag() {
+                                        ContTag::Lookup => {
+                                            // CIRCUIT: cont_is_lookup
+                                            //          cont_is_lookup_cons
+                                            //          cond8
+                                            Control::Return(expr, env_to_use, cont)
+                                        }
+                                        _ => Control::Return(
+                                            // CIRCUIT: cont_not_lookup_cons
+                                            //          cond9
+                                            expr,
+                                            env_to_use,
+                                            store.intern_cont_lookup(env, cont),
+                                        ),
+                                    }
+                                }
+                            }
+                            _ => panic!("Bad form."),
                         }
-                        _ => panic!("Bad form."),
                     }
                 }
             }
         }
-        Expression::Str(_) => unimplemented!(),
-        Expression::Num(_) => Control::InvokeContinuation(expr.clone(), env.clone(), cont.clone()),
-        Expression::Fun(_, _, _) => {
-            Control::InvokeContinuation(expr.clone(), env.clone(), cont.clone())
-        }
-        Expression::Cons(head_t, rest_t) => {
-            let head = store.fetch(head_t).unwrap();
-            let rest = store.fetch(rest_t).unwrap();
-            let lambda = store.intern("LAMBDA");
-            let quote = store.intern("QUOTE");
-            let dummy_arg = store.intern("_");
+        Tag::Str => unimplemented!(),
+        Tag::Num => Control::InvokeContinuation(expr, env, cont),
+        Tag::Fun => Control::InvokeContinuation(expr, env, cont),
+        Tag::Cons => {
+            let (head, rest) = store.car_cdr(&expr);
+            let lambda = store.sym("LAMBDA");
+            let quote = store.sym("QUOTE");
+            let dummy_arg = store.sym("_");
 
             if head == lambda {
                 let (args, body) = store.car_cdr(&rest);
-                let (arg, _rest) = if args == Expression::Nil {
+                let (arg, _rest) = if args.is_nil() {
                     // (LAMBDA () STUFF)
                     // becomes (LAMBDA (DUMMY) STUFF)
-                    (dummy_arg, Expression::Nil)
+                    (dummy_arg, store.nil())
                 } else {
                     store.car_cdr(&args)
                 };
                 let cdr_args = store.cdr(&args);
-                let inner_body = if cdr_args == Expression::Nil {
+                let inner_body = if cdr_args.is_nil() {
                     body
                 } else {
                     // (LAMBDA (A B) STUFF)
                     // becomes (LAMBDA (A) (LAMBDA (B) STUFF))
-                    let inner = store.cons(&cdr_args, &body);
-                    let l = store.cons(&lambda, &inner);
-                    store.list(&mut [l])
+                    let inner = store.cons(cdr_args, body);
+                    let l = store.cons(lambda, inner);
+                    store.list(&[l])
                 };
-                let function = store.fun(&arg, &inner_body, env);
+                let function = store.intern_fun(arg, inner_body, env);
 
-                Control::InvokeContinuation(function, env.clone(), cont.clone())
+                Control::InvokeContinuation(function, env, cont)
             } else if head == quote {
                 let (quoted, end) = store.car_cdr(&rest);
-                assert_eq!(Expression::Nil, end);
-                Control::InvokeContinuation(quoted, env.clone(), cont.clone())
-            } else if head == Expression::Sym("LET*".to_string()) {
+                assert!(end.is_nil());
+                Control::InvokeContinuation(quoted, env, cont)
+            } else if head == store.sym("LET*") {
                 let (bindings, body) = store.car_cdr(&rest);
                 let (body1, rest_body) = store.car_cdr(&body);
                 // Only a single body form allowed for now.
-                assert_eq!(Expression::Nil, rest_body);
-                if bindings == Expression::Nil {
-                    Control::Return(body1, env.clone(), cont.clone())
+                assert!(rest_body.is_nil());
+
+                if bindings.is_nil() {
+                    Control::Return(body1, env, cont)
                 } else {
                     let (binding1, rest_bindings) = store.car_cdr(&bindings);
                     let (var, more_vals) = store.car_cdr(&binding1);
                     let (val, end) = store.car_cdr(&more_vals);
-                    assert_eq!(Expression::Nil, end);
+                    assert!(end.is_nil());
 
-                    let expanded = if rest_bindings == Expression::Nil {
+                    let expanded = if rest_bindings.is_nil() {
                         body1
                     } else {
-                        let lt = store.intern("LET*");
-                        store.list(&mut [lt, rest_bindings, body1])
+                        let lt = store.sym("LET*");
+                        store.list(&[lt, rest_bindings, body1])
                     };
                     Control::Return(
                         val,
-                        env.clone(),
-                        Continuation::LetStar(var, expanded, env.clone(), Box::new(cont.clone())),
+                        env,
+                        store.intern_cont_let_star(var, expanded, env, cont),
                     )
                 }
-            } else if head == store.intern("LETREC*") {
+            } else if head == store.sym("LETREC*") {
                 let (bindings, body) = store.car_cdr(&rest);
                 let (body1, rest_body) = store.car_cdr(&body);
                 // Only a single body form allowed for now.
-                assert_eq!(Expression::Nil, rest_body);
-                if bindings == Expression::Nil {
-                    Control::Return(body1, env.clone(), cont.clone())
+                assert!(rest_body.is_nil());
+                if bindings.is_nil() {
+                    Control::Return(body1, env, cont)
                 } else {
                     let (binding1, rest_bindings) = store.car_cdr(&bindings);
                     let (var, more_vals) = store.car_cdr(&binding1);
                     let (val, end) = store.car_cdr(&more_vals);
-                    assert_eq!(Expression::Nil, end);
+                    assert!(end.is_nil());
 
-                    let expanded = if rest_bindings == Expression::Nil {
+                    let expanded = if rest_bindings.is_nil() {
                         body1
                     } else {
-                        let lt = store.intern("LETREC*");
-                        store.list(&mut [lt, rest_bindings, body1])
+                        let lt = store.sym("LETREC*");
+                        store.list(&[lt, rest_bindings, body1])
                     };
                     Control::Return(
                         val,
-                        env.clone(),
-                        Continuation::LetRecStar(
-                            var,
-                            expanded,
-                            env.clone(),
-                            Box::new(cont.clone()),
-                        ),
+                        env,
+                        store.intern_cont_let_rec_star(var, expanded, env, cont),
                     )
                 }
-            } else if head == store.intern("cons") {
+            } else if head == store.sym("cons") {
                 let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
-                    env.clone(),
-                    Continuation::Binop(Op2::Cons, env.clone(), more, Box::new(cont.clone())),
+                    env,
+                    store.intern_cont_binop(Op2::Cons, env, more, cont),
                 )
-            } else if head == store.intern("car") {
+            } else if head == store.sym("car") {
                 let (arg1, end) = store.car_cdr(&rest);
-                assert_eq!(Expression::Nil, end);
-                Control::Return(
-                    arg1,
-                    env.clone(),
-                    Continuation::Unop(Op1::Car, Box::new(cont.clone())),
-                )
-            } else if head == store.intern("cdr") {
+                assert!(end.is_nil());
+                Control::Return(arg1, env, store.intern_cont_unop(Op1::Car, cont))
+            } else if head == store.sym("cdr") {
                 let (arg1, end) = store.car_cdr(&rest);
-                assert_eq!(Expression::Nil, end);
-                Control::Return(
-                    arg1,
-                    env.clone(),
-                    Continuation::Unop(Op1::Cdr, Box::new(cont.clone())),
-                )
-            } else if head == store.intern("atom") {
+                assert!(end.is_nil());
+                Control::Return(arg1, env, store.intern_cont_unop(Op1::Cdr, cont))
+            } else if head == store.sym("atom") {
                 let (arg1, end) = store.car_cdr(&rest);
-                assert_eq!(Expression::Nil, end);
-                Control::Return(
-                    arg1,
-                    env.clone(),
-                    Continuation::Unop(Op1::Atom, Box::new(cont.clone())),
-                )
-            } else if head == store.intern("+") {
+                assert!(end.is_nil());
+                Control::Return(arg1, env, store.intern_cont_unop(Op1::Atom, cont))
+            } else if head == store.sym("+") {
                 let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
-                    env.clone(),
-                    Continuation::Binop(Op2::Sum, env.clone(), more, Box::new(cont.clone())),
+                    env,
+                    store.intern_cont_binop(Op2::Sum, env, more, cont),
                 )
-            } else if head == store.intern("-") {
+            } else if head == store.sym("-") {
                 let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
-                    env.clone(),
-                    Continuation::Binop(Op2::Diff, env.clone(), more, Box::new(cont.clone())),
+                    env,
+                    store.intern_cont_binop(Op2::Diff, env, more, cont),
                 )
-            } else if head == store.intern("*") {
+            } else if head == store.sym("*") {
                 let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
-                    env.clone(),
-                    Continuation::Binop(Op2::Product, env.clone(), more, Box::new(cont.clone())),
+                    env,
+                    store.intern_cont_binop(Op2::Product, env, more, cont),
                 )
-            } else if head == store.intern("/") {
+            } else if head == store.sym("/") {
                 let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
-                    env.clone(),
-                    Continuation::Binop(Op2::Quotient, env.clone(), more, Box::new(cont.clone())),
+                    env,
+                    store.intern_cont_binop(Op2::Quotient, env, more, cont),
                 )
-            } else if head == store.intern("=") {
+            } else if head == store.sym("=") {
                 let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
-                    env.clone(),
-                    Continuation::Relop(Rel2::NumEqual, env.clone(), more, Box::new(cont.clone())),
+                    env,
+                    store.intern_cont_relop(Rel2::NumEqual, env, more, cont),
                 )
-            } else if head == store.intern("eq") {
+            } else if head == store.sym("eq") {
                 let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
-                    env.clone(),
-                    Continuation::Relop(Rel2::Equal, env.clone(), more, Box::new(cont.clone())),
+                    env,
+                    store.intern_cont_relop(Rel2::Equal, env, more, cont),
                 )
-            } else if head == store.intern("if") {
+            } else if head == store.sym("if") {
                 let (condition, more) = store.car_cdr(&rest);
-                Control::Return(
-                    condition,
-                    env.clone(),
-                    Continuation::If(more, Box::new(cont.clone())),
-                )
-            } else if head == store.intern("current-env") {
-                assert_eq!(Expression::Nil, rest);
-                Control::InvokeContinuation(env.clone(), env.clone(), cont.clone())
+                Control::Return(condition, env, store.intern_cont_if(more, cont))
+            } else if head == store.sym("current-env") {
+                assert!(rest.is_nil());
+                Control::InvokeContinuation(env, env, cont)
             } else {
                 // (fn . args)
                 let fun_form = head;
                 let args = rest;
-                let (arg, more_args) = if args == Expression::Nil {
-                    (Expression::Nil, Expression::Nil)
+                let (arg, more_args) = if args.is_nil() {
+                    (store.nil(), store.nil())
                 } else {
                     store.car_cdr(&args)
                 };
-                match &more_args {
+                match more_args.tag() {
                     // (fn arg)
                     // Interpreting as call.
-                    Expression::Nil => Control::Return(
-                        fun_form,
-                        env.clone(),
-                        Continuation::Call(arg, env.clone(), Box::new(cont.clone())),
-                    ),
+                    Tag::Nil => {
+                        Control::Return(fun_form, env, store.intern_cont_call(arg, env, cont))
+                    }
                     _ => {
                         // Interpreting as multi-arg call.
                         // (fn arg . more_args) => ((fn arg) . more_args)
-                        let expanded_inner = store.list(&mut [fun_form, arg]);
-                        let expanded = store.cons(&expanded_inner, &more_args);
-                        Control::Return(expanded, env.clone(), cont.clone())
+                        let expanded_inner = store.list(&[fun_form, arg]);
+                        let expanded = store.cons(expanded_inner, more_args);
+                        Control::Return(expanded, env, cont)
                     }
                 }
             }
@@ -568,21 +552,15 @@ fn eval_expr_with_witness(
     };
 
     let (new_expr, new_env, new_cont) = control.as_results();
-    store.store_continuation(new_cont);
 
     let mut witness = Witness {
-        prethunk_output_expr: new_expr.clone(),
-        prethunk_output_env: new_env.clone(),
-        prethunk_output_cont: new_cont.clone(),
+        prethunk_output_expr: *new_expr,
+        prethunk_output_env: *new_env,
+        prethunk_output_cont: *new_cont,
 
         destructured_thunk: None,
         extended_closure,
-        make_thunk_cont: None,
-        make_thunk_tail_continuation_cont: None,
         invoke_continuation_cont: None,
-
-        invoke_continuation_output_result: None,
-        invoke_continuation_output_cont: None,
     };
 
     let control = invoke_continuation(control, store, &mut witness);
@@ -591,216 +569,243 @@ fn eval_expr_with_witness(
     (ctrl, witness)
 }
 
-fn invoke_continuation(
-    control: Control<Expression, Continuation>,
-    store: &mut Store,
-    witness: &mut Witness,
-) -> Control<Expression, Continuation> {
+fn invoke_continuation(control: Control, store: &mut Store, witness: &mut Witness) -> Control {
     if !control.is_invoke_continuation() {
         return control;
     }
 
     let (result, env, cont) = control.as_results();
 
-    witness.invoke_continuation_cont = Some(cont.clone());
+    witness.invoke_continuation_cont = Some(*cont);
 
-    let control = match &cont {
-        Continuation::Terminal => unreachable!("Terminal Continuation should never be invoked."),
-        Continuation::Dummy => unreachable!("Dummy Continuation should never be invoked."),
-        Continuation::Outermost => match result {
-            Expression::Thunk(thunk) => {
-                witness.witness_destructured_thunk(thunk);
-                Control::Return(*thunk.value.clone(), env.clone(), Continuation::Terminal)
-            }
-            _ => Control::Return(result.clone(), env.clone(), Continuation::Terminal),
+    let control = match cont.tag() {
+        ContTag::Terminal => unreachable!("Terminal Continuation should never be invoked."),
+        ContTag::Dummy => unreachable!("Dummy Continuation should never be invoked."),
+        ContTag::Outermost => match result.tag() {
+            Tag::Thunk => match store.fetch(result).unwrap() {
+                Expression::Thunk(thunk) => {
+                    witness.witness_destructured_thunk(&thunk);
+                    Control::Return(thunk.value, *env, store.intern_cont_terminal())
+                }
+                _ => unreachable!(),
+            },
+            _ => Control::Return(*result, *env, store.intern_cont_terminal()),
         },
-        Continuation::Call(arg, saved_env, continuation) => match result.tag() {
-            Tag::Fun => {
-                let function = result;
-                let next_expr = arg;
-                let newer_cont = Continuation::Call2(
-                    function.clone(),
-                    saved_env.clone(),
-                    Box::new(*continuation.clone()),
-                );
-                Control::Return(next_expr.clone(), env.clone(), newer_cont)
-            }
+        ContTag::Call => match result.tag() {
+            // (arg, saved_env, continuation)
+            Tag::Fun => match store.fetch_cont(cont).unwrap() {
+                Continuation::Call(arg, saved_env, continuation) => {
+                    let function = result;
+                    let next_expr = arg;
+                    let newer_cont = store.intern_cont_call2(*function, saved_env, continuation);
+                    Control::Return(next_expr, *env, newer_cont)
+                }
+                _ => unreachable!(),
+            },
             _ => {
-                Control::Return(result.clone(), env.clone(), Continuation::Error)
+                Control::Return(*result, *env, store.intern_cont_error())
                 // Bad function
             }
         },
-        Continuation::Call2(function, saved_env, continuation) => match function {
-            Expression::Fun(arg_t, body_t, closed_env_t) => {
-                let body = store.fetch(body_t).unwrap();
-                let body_form = store.car(&body);
-                let closed_env = store.fetch(closed_env_t).unwrap();
-                let arg = store.fetch(arg_t).unwrap();
-                let newer_env = extend(&closed_env, &arg, result, store);
-                let cont = make_tail_continuation(saved_env, continuation);
-                Control::Return(body_form, newer_env, cont)
+        ContTag::Call2 => match store.fetch_cont(cont).unwrap() {
+            Continuation::Call2(function, saved_env, continuation) => match function.tag() {
+                Tag::Fun => match store.fetch(&function).unwrap() {
+                    Expression::Fun(arg, body, closed_env) => {
+                        let body_form = store.car(&body);
+                        let newer_env = extend(closed_env, arg, *result, store);
+                        let cont = make_tail_continuation(saved_env, continuation, store);
+                        Control::Return(body_form, newer_env, cont)
+                    }
+                    _ => unreachable!(),
+                },
+                _ => {
+                    Control::Return(*result, *env, store.intern_cont_error())
+                    // panic!("Call2 continuation contains a non-function: {:?}", function);
+                }
+            },
+            _ => unreachable!(),
+        },
+        ContTag::LetStar => match store.fetch_cont(cont).unwrap() {
+            Continuation::LetStar(var, body, saved_env, continuation) => {
+                let extended_env = extend(*env, var, *result, store);
+                let c = make_tail_continuation(saved_env, continuation, store);
+
+                Control::Return(body, extended_env, c)
+            }
+            _ => unreachable!(),
+        },
+        ContTag::LetRecStar => match store.fetch_cont(cont).unwrap() {
+            Continuation::LetRecStar(var, body, saved_env, continuation) => {
+                let extended_env = extend_rec(*env, var, *result, store);
+                let c = make_tail_continuation(saved_env, continuation, store);
+
+                Control::Return(body, extended_env, c)
+            }
+            _ => unreachable!(),
+        },
+        ContTag::Unop => match store.fetch_cont(cont).unwrap() {
+            Continuation::Unop(op1, continuation) => {
+                let val = match op1 {
+                    Op1::Car => store.car(result),
+                    Op1::Cdr => store.cdr(result),
+                    Op1::Atom => match result.tag() {
+                        Tag::Cons => store.nil(),
+                        _ => store.t(),
+                    },
+                };
+                Control::MakeThunk(val, *env, continuation)
+            }
+            _ => unreachable!(),
+        },
+        ContTag::Binop => match store.fetch_cont(cont).unwrap() {
+            Continuation::Binop(op2, saved_env, unevaled_args, continuation) => {
+                let (arg2, rest) = store.car_cdr(&unevaled_args);
+                assert!(rest.is_nil());
+                Control::Return(
+                    arg2,
+                    saved_env,
+                    store.intern_cont_binop2(op2, *result, continuation),
+                )
+            }
+            _ => unreachable!(),
+        },
+        ContTag::Binop2 => match store.fetch_cont(cont).unwrap() {
+            Continuation::Binop2(op2, arg1, continuation) => {
+                let arg2 = result;
+                let result = match (store.fetch(&arg1).unwrap(), store.fetch(arg2).unwrap()) {
+                    (Expression::Num(a), Expression::Num(b)) => match op2 {
+                        Op2::Sum => {
+                            let mut tmp = a;
+                            tmp += b;
+                            store.intern_num(tmp)
+                        }
+                        Op2::Diff => {
+                            let mut tmp = a;
+                            tmp -= b;
+                            store.intern_num(tmp)
+                        }
+                        Op2::Product => {
+                            let mut tmp = a;
+                            tmp *= b;
+                            store.intern_num(tmp)
+                        }
+                        Op2::Quotient => {
+                            let mut tmp = a;
+                            // TODO: Return error continuation.
+                            let b_is_zero: bool = b.is_zero();
+                            assert!(!b_is_zero, "Division by zero error.");
+                            tmp /= b;
+                            store.intern_num(tmp)
+                        }
+                        Op2::Cons => store.cons(arg1, *arg2),
+                    },
+                    _ => match op2 {
+                        Op2::Cons => store.cons(arg1, *arg2),
+                        _ => unimplemented!("Binop2"),
+                    },
+                };
+                Control::MakeThunk(result, *env, continuation)
+            }
+            _ => unreachable!(),
+        },
+        ContTag::Relop => match store.fetch_cont(cont).unwrap() {
+            Continuation::Relop(rel2, saved_env, unevaled_args, continuation) => {
+                let (arg2, rest) = store.car_cdr(&unevaled_args);
+                assert!(rest.is_nil());
+                Control::Return(
+                    arg2,
+                    saved_env,
+                    store.intern_cont_relop2(rel2, *result, continuation),
+                )
+            }
+            _ => unreachable!(),
+        },
+        ContTag::Relop2 => match store.fetch_cont(cont).unwrap() {
+            Continuation::Relop2(rel2, arg1, continuation) => {
+                let arg2 = result;
+                let result = match (arg1.tag(), arg2.tag()) {
+                    (Tag::Num, Tag::Num) => match rel2 {
+                        Rel2::NumEqual | Rel2::Equal => {
+                            if &arg1 == arg2 {
+                                store.t() // TODO: maybe explicit boolean.
+                            } else {
+                                store.nil()
+                            }
+                        }
+                    },
+                    (_, _) => match rel2 {
+                        Rel2::NumEqual => store.nil(), // FIXME: This should be a type error.
+                        Rel2::Equal => {
+                            if &arg1 == arg2 {
+                                store.t()
+                            } else {
+                                store.nil()
+                            }
+                        }
+                    },
+                };
+                Control::MakeThunk(result, *env, continuation)
+            }
+            _ => unreachable!(),
+        },
+        ContTag::If => match store.fetch_cont(cont).unwrap() {
+            Continuation::If(more_args, continuation) => {
+                let condition = result;
+                let (arg1, more) = store.car_cdr(&more_args);
+                // NOTE: as formulated here, IF operates on any condition. Every
+                // value but NIL is considered true.
+                //
+                // We can implement this in constraints:
+                // X * (1-X) = 0
+                // C * X = 0
+                // (X + C) * Q = 1
+                //
+                // where X is a constrained boolean which is true (1) iff C == 0. Q
+                // is a value non-deterministically supplied by the prover to
+                // demonstrate that both X and C are not 0. If both were 0, the
+                // constraint C * X = 0 would hold. But in that case, X should be 1
+                // since C = 0.
+                //
+                // Now X can be used as the known-boolean conditional in a
+                // conditional selection: (B - A) * X = B - C
+                //
+                // where C is the result, A is the 'true' result, and B is the
+                // false/else result. i.e. if X then A else B.
+                //
+                // All of the above is just 'how to implement an exact equality
+                // check' in the case that the value checked against is zero. We
+                // will need this throughout, when branching on symbols (effectively
+                // a CASE expression). Since symbols are field elements with
+                // equality, this is relatively efficient. When doing this, the
+                // value being checked against is not zero, so that value should
+                // first be subtracted from the value being checked.
+
+                if condition.is_nil() {
+                    let (arg2, end) = store.car_cdr(&more);
+                    assert!(end.is_nil());
+                    Control::Return(arg2, *env, continuation)
+                } else {
+                    Control::Return(arg1, *env, continuation)
+                }
+            }
+            _ => unreachable!(),
+        },
+        ContTag::Lookup => match store.fetch_cont(cont).unwrap() {
+            Continuation::Lookup(saved_env, continuation) => {
+                Control::MakeThunk(*result, saved_env, continuation)
+            }
+            _ => unreachable!(),
+        },
+        ContTag::Tail => match store.fetch_cont(cont).unwrap() {
+            Continuation::Tail(saved_env, continuation) => {
+                Control::MakeThunk(*result, saved_env, continuation)
             }
             _ => {
-                Control::Return(result.clone(), env.clone(), Continuation::Error)
-                // panic!("Call2 continuation contains a non-function: {:?}", function);
+                unreachable!();
             }
         },
-        Continuation::LetStar(var, body, saved_env, continuation) => {
-            let extended_env = extend(env, var, result, store);
-            let c = make_tail_continuation(saved_env, continuation);
-
-            Control::Return(body.clone(), extended_env, c)
-        }
-        Continuation::LetRecStar(var, body, saved_env, continuation) => {
-            let extended_env = extend_rec(env, var, result, store);
-            let c = make_tail_continuation(saved_env, continuation);
-
-            Control::Return(body.clone(), extended_env, c)
-        }
-        Continuation::Unop(op1, continuation) => {
-            let val = match op1 {
-                Op1::Car => store.car(result),
-                Op1::Cdr => store.cdr(result),
-                Op1::Atom => match result.tag() {
-                    Tag::Cons => Expression::Nil,
-                    _ => store.intern("T"),
-                },
-            };
-            Control::MakeThunk(val, env.clone(), *continuation.clone())
-        }
-        Continuation::Binop(op2, saved_env, unevaled_args, continuation) => {
-            let (arg2, rest) = store.car_cdr(unevaled_args);
-            assert_eq!(Expression::Nil, rest);
-            Control::Return(
-                arg2,
-                saved_env.clone(),
-                Continuation::Binop2(op2.clone(), result.clone(), continuation.clone()),
-            )
-        }
-        Continuation::Binop2(op2, arg1, continuation) => {
-            let arg2 = result;
-            let result = match (arg1, &arg2) {
-                (Expression::Num(a), Expression::Num(b)) => match op2 {
-                    Op2::Sum => {
-                        let mut tmp = *a;
-                        tmp.add_assign(b);
-                        Expression::Num(tmp)
-                    }
-                    Op2::Diff => {
-                        let mut tmp = *a;
-                        tmp.sub_assign(b);
-                        Expression::Num(tmp)
-                    }
-                    Op2::Product => {
-                        let mut tmp = *a;
-                        tmp.mul_assign(b);
-                        Expression::Num(tmp)
-                    }
-                    Op2::Quotient => {
-                        let mut tmp = *a;
-                        // TODO: Return error continuation.
-                        let b_is_zero: bool = b.is_zero().into();
-                        assert!(!b_is_zero, "Division by zero error.");
-                        tmp.mul_assign(&b.invert().unwrap());
-                        Expression::Num(tmp)
-                    }
-                    Op2::Cons => store.cons(arg1, arg2),
-                },
-                _ => match op2 {
-                    Op2::Cons => store.cons(arg1, arg2),
-                    _ => unimplemented!("Binop2"),
-                },
-            };
-            Control::MakeThunk(result, env.clone(), *continuation.clone())
-        }
-        Continuation::Relop(rel2, saved_env, unevaled_args, continuation) => {
-            let (arg2, rest) = store.car_cdr(unevaled_args);
-            assert_eq!(Expression::Nil, rest);
-            Control::Return(
-                arg2,
-                saved_env.clone(),
-                Continuation::Relop2(rel2.clone(), result.clone(), continuation.clone()),
-            )
-        }
-        Continuation::Relop2(rel2, arg1, continuation) => {
-            let arg2 = result;
-            let result = match (arg1, arg2) {
-                (Expression::Num(a), Expression::Num(b)) => match rel2 {
-                    Rel2::NumEqual | Rel2::Equal => {
-                        if a == b {
-                            store.intern("T") // TODO: maybe explicit boolean.
-                        } else {
-                            Expression::Nil
-                        }
-                    }
-                },
-                (a_expr, b_expr) => match rel2 {
-                    Rel2::NumEqual => Expression::Nil, // FIXME: This should be a type error.
-                    Rel2::Equal => {
-                        if a_expr == b_expr {
-                            store.intern("T")
-                        } else {
-                            Expression::Nil
-                        }
-                    }
-                },
-            };
-            Control::MakeThunk(result, env.clone(), *continuation.clone())
-        }
-        Continuation::If(more_args, continuation) => {
-            let condition = result;
-            let (arg1, more) = store.car_cdr(more_args);
-            // NOTE: as formulated here, IF operates on any condition. Every
-            // value but NIL is considered true.
-            //
-            // We can implement this in constraints:
-            // X * (1-X) = 0
-            // C * X = 0
-            // (X + C) * Q = 1
-            //
-            // where X is a constrained boolean which is true (1) iff C == 0. Q
-            // is a value non-deterministically supplied by the prover to
-            // demonstrate that both X and C are not 0. If both were 0, the
-            // constraint C * X = 0 would hold. But in that case, X should be 1
-            // since C = 0.
-            //
-            // Now X can be used as the known-boolean conditional in a
-            // conditional selection: (B - A) * X = B - C
-            //
-            // where C is the result, A is the 'true' result, and B is the
-            // false/else result. i.e. if X then A else B.
-            //
-            // All of the above is just 'how to implement an exact equality
-            // check' in the case that the value checked against is zero. We
-            // will need this throughout, when branching on symbols (effectively
-            // a CASE expression). Since symbols are field elements with
-            // equality, this is relatively efficient. When doing this, the
-            // value being checked against is not zero, so that value should
-            // first be subtracted from the value being checked.
-
-            if condition == &Expression::Nil {
-                let (arg2, end) = store.car_cdr(&more);
-                assert_eq!(end, Expression::Nil);
-                Control::Return(arg2, env.clone(), *continuation.clone())
-            } else {
-                Control::Return(arg1, env.clone(), *continuation.clone())
-            }
-        }
-        Continuation::Lookup(saved_env, continuation) => {
-            Control::MakeThunk(result.clone(), saved_env.clone(), *continuation.clone())
-        }
-        Continuation::Tail(saved_env, continuation) => {
-            Control::MakeThunk(result.clone(), saved_env.clone(), *continuation.clone())
-        }
-        _ => {
-            unreachable!();
-        }
+        ContTag::Simple | ContTag::Error => unreachable!(),
     };
-
-    let (output_result, _output_env, output_cont) = control.as_results();
-
-    witness.invoke_continuation_output_result = Some(output_result.clone());
-    witness.invoke_continuation_output_cont = Some(output_cont.clone());
 
     if control.is_invoke_continuation() {
         unreachable!();
@@ -810,60 +815,62 @@ fn invoke_continuation(
 }
 
 // Returns (Expression::Thunk, Expression::Env, Continuation)
-fn make_thunk(
-    control: Control<Expression, Continuation>,
-    store: &mut Store,
-    witness: &mut Witness,
-) -> Control<Expression, Continuation> {
+fn make_thunk(control: Control, store: &mut Store, _witness: &mut Witness) -> Control {
     if !control.is_make_thunk() {
         return control;
     }
 
     let (result, env, cont) = control.into_results();
-    witness.make_thunk_cont = Some(cont.clone());
-    store.store_continuation(&cont);
 
-    if let Expression::Thunk(_) = result {
+    if let Tag::Thunk = result.tag() {
         unreachable!("make_thunk should never be called with a thunk");
     };
 
-    match cont {
-        Continuation::Tail(saved_env, continuation) => {
-            witness.make_thunk_tail_continuation_cont = Some(*continuation.clone());
-            let thunk = store.thunk(result, *continuation);
-            Control::Return(thunk, saved_env, Continuation::Dummy)
-        }
+    match cont.tag() {
+        ContTag::Tail => match store.fetch_cont(&cont).unwrap() {
+            Continuation::Tail(saved_env, continuation) => {
+                let thunk = store.intern_thunk(Thunk {
+                    value: result,
+                    continuation,
+                });
+                Control::Return(thunk, saved_env, store.intern_cont_dummy())
+            }
+            _ => unreachable!(),
+        },
         // If continuation is outermost, we don't actually make a thunk. Instead, we signal
         // that this is the terminal result by returning a Terminal continuation.
-        Continuation::Outermost => Control::Return(result, env, Continuation::Terminal),
+        ContTag::Outermost => Control::Return(result, env, store.intern_cont_terminal()),
         _ => {
-            let thunk = store.thunk(result, cont.clone());
-            Control::Return(thunk, env, Continuation::Dummy)
+            let thunk = store.intern_thunk(Thunk {
+                value: result,
+                continuation: cont,
+            });
+            Control::Return(thunk, env, store.intern_cont_dummy())
         }
     }
 }
 
-fn make_tail_continuation(env: &Expression, continuation: &Continuation) -> Continuation {
+fn make_tail_continuation(env: Ptr, continuation: ContPtr, store: &mut Store) -> ContPtr {
     // Result must be either a Tail or Outermost continuation.
-    match &*continuation {
+    match continuation.tag() {
         // If continuation is already tail, just return it.
-        Continuation::Tail(_, _) => continuation.clone(),
+        ContTag::Tail => continuation,
         // Otherwise, package it along with supplied env as a new Tail continuation.
-        _ => Continuation::Tail(env.clone(), Box::new(continuation.clone())),
+        _ => store.intern_cont_tail(env, continuation),
     }
     // Since this is the only place Tail continuation are created, this ensures Tail continuations never
     // point to one another: they can only be nested one deep.
 }
 
 pub struct Evaluator<'a> {
-    expr: Expression,
-    env: Expression,
+    expr: Ptr,
+    env: Ptr,
     store: &'a mut Store,
     limit: usize,
 }
 
 impl<'a> Evaluator<'a> {
-    pub fn new(expr: Expression, env: Expression, store: &'a mut Store, limit: usize) -> Self {
+    pub fn new(expr: Ptr, env: Ptr, store: &'a mut Store, limit: usize) -> Self {
         Evaluator {
             expr,
             env,
@@ -872,12 +879,12 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    pub fn eval(&mut self) -> (Expression, Expression, usize, Continuation) {
+    pub fn eval(&mut self) -> (Ptr, Ptr, usize, ContPtr) {
         let initial_input = self.initial();
         let frame_iterator = FrameIt::new(initial_input, self.store);
 
         if let Some(last_frame) = frame_iterator.next_n(self.limit) {
-            let output = Rc::try_unwrap(last_frame.output).unwrap();
+            let output = last_frame.output;
             (output.expr, output.env, last_frame.i + 1, output.cont)
         } else {
             panic!("xxx")
@@ -886,9 +893,9 @@ impl<'a> Evaluator<'a> {
 
     pub fn initial(&self) -> IO {
         IO {
-            expr: self.expr.clone(),
-            env: self.env.clone(),
-            cont: Continuation::Outermost,
+            expr: self.expr,
+            env: self.env,
+            cont: self.store.intern_cont_outermost(),
         }
     }
 
@@ -899,35 +906,30 @@ impl<'a> Evaluator<'a> {
     }
 }
 
-pub fn empty_sym_env(_store: &Store) -> Expression {
-    Expression::Nil
+pub fn empty_sym_env(store: &Store) -> Ptr {
+    store.get_nil()
 }
 
-fn extend(env: &Expression, var: &Expression, val: &Expression, store: &mut Store) -> Expression {
+fn extend(env: Ptr, var: Ptr, val: Ptr, store: &mut Store) -> Ptr {
     let cons = store.cons(var, val);
-    store.cons(&cons, env)
+    store.cons(cons, env)
 }
 
-fn extend_rec(
-    env: &Expression,
-    var: &Expression,
-    val: &Expression,
-    store: &mut Store,
-) -> Expression {
-    let (binding_or_env, rest) = store.car_cdr(env);
+fn extend_rec(env: Ptr, var: Ptr, val: Ptr, store: &mut Store) -> Ptr {
+    let (binding_or_env, rest) = store.car_cdr(&env);
     let (var_or_binding, _val_or_more_bindings) = store.car_cdr(&binding_or_env);
-    match var_or_binding {
+    match var_or_binding.tag() {
         // It's a var, so we are extending a simple env with a recursive env.
-        Expression::Sym(_) | Expression::Nil => {
+        Tag::Sym | Tag::Nil => {
             let cons = store.cons(var, val);
-            let list = store.list(&mut [cons]);
-            store.cons(&list, env)
+            let list = store.list(&[cons]);
+            store.cons(list, env)
         }
         // It's a binding, so we are extending a recursive env.
-        Expression::Cons(_, _) => {
+        Tag::Cons => {
             let cons = store.cons(var, val);
-            let cons2 = store.cons(&cons, &binding_or_env);
-            store.cons(&cons2, &rest)
+            let cons2 = store.cons(cons, binding_or_env);
+            store.cons(cons2, rest)
         }
         _ => {
             panic!("Bad input form.")
@@ -935,27 +937,25 @@ fn extend_rec(
     }
 }
 
-fn extend_closure(fun: &Expression, rec_env: &Expression, store: &mut Store) -> Expression {
-    match fun {
-        Expression::Fun(arg, body, closed_env) => {
-            let closed_env = store.fetch(closed_env).unwrap();
-            let extended = store.cons(rec_env, &closed_env);
-            store.fun(
-                &store.fetch(arg).unwrap(),
-                &store.fetch(body).unwrap(),
-                &extended,
-            )
-        }
+fn extend_closure(fun: &Ptr, rec_env: &Ptr, store: &mut Store) -> Ptr {
+    match fun.tag() {
+        Tag::Fun => match store.fetch(fun).unwrap() {
+            Expression::Fun(arg, body, closed_env) => {
+                let extended = store.cons(*rec_env, closed_env);
+                store.intern_fun(arg, body, extended)
+            }
+            _ => unreachable!(),
+        },
         _ => panic!("extend_closure received non-Fun: {:?}", fun),
     }
 }
 
 #[allow(dead_code)]
-fn lookup(env: &Expression, var: &Expression, store: &Store) -> Expression {
-    assert_eq!(Tag::Sym, var.tag());
-    match &*env {
-        Expression::Nil => Expression::Nil,
-        Expression::Cons(_, _) => {
+fn lookup(env: &Ptr, var: &Ptr, store: &Store) -> Ptr {
+    assert!(matches!(var.tag(), Tag::Sym));
+    match env.tag() {
+        Tag::Nil => store.get_nil(),
+        Tag::Cons => {
             let (binding, smaller_env) = store.car_cdr(env);
             let (v, val) = store.car_cdr(&binding);
             if v == *var {
@@ -971,17 +971,18 @@ fn lookup(env: &Expression, var: &Expression, store: &Store) -> Expression {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::writer::Write;
 
     #[test]
     fn test_lookup() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
-        let var = store.intern("variable");
-        let val = Expression::num(123);
+        let var = store.sym("variable");
+        let val = store.num(123);
 
-        assert_eq!(Expression::Nil, lookup(&env, &var, &store));
+        assert!(lookup(&env, &var, &store).is_nil());
 
-        let new_env = extend(&env, &var, &val, &mut store);
+        let new_env = extend(env, var, val, &mut store);
         assert_eq!(val, lookup(&new_env, &var, &store));
     }
 
@@ -990,11 +991,11 @@ mod test {
         let mut store = Store::default();
 
         {
-            let num = Expression::num(123);
+            let num = store.num(123);
             let (result, _new_env, _cont, _witness) = eval_expr(
-                &num,
-                &empty_sym_env(&store),
-                &Continuation::Outermost,
+                num,
+                empty_sym_env(&store),
+                store.intern_cont_outermost(),
                 &mut store,
             );
             assert_eq!(num, result);
@@ -1002,12 +1003,12 @@ mod test {
 
         {
             let (result, _new_env, _cont, _witness) = eval_expr(
-                &Expression::Nil,
-                &empty_sym_env(&store),
-                &Continuation::Outermost,
+                store.nil(),
+                empty_sym_env(&store),
+                store.intern_cont_outermost(),
                 &mut store,
             );
-            assert_eq!(Expression::Nil, result);
+            assert!(result.is_nil());
         }
     }
 
@@ -1016,9 +1017,9 @@ mod test {
         let mut store = Store::default();
 
         let limit = 20;
-        let val = Expression::num(999);
+        let val = store.num(999);
         let (result_expr, _new_env, iterations, _continuation) =
-            Evaluator::new(val.clone(), empty_sym_env(&store), &mut store, limit).eval();
+            Evaluator::new(val, empty_sym_env(&store), &mut store, limit).eval();
 
         assert_eq!(1, iterations);
         assert_eq!(&result_expr, &val);
@@ -1029,21 +1030,21 @@ mod test {
         let mut store = Store::default();
 
         let limit = 20;
-        let val = Expression::num(999);
-        let var = store.intern("apple");
-        let val2 = Expression::num(888);
-        let var2 = store.intern("banana");
-        let env = extend(&empty_sym_env(&store), &var, &val, &mut store);
+        let val = store.num(999);
+        let var = store.sym("apple");
+        let val2 = store.num(888);
+        let var2 = store.sym("banana");
+        let env = extend(empty_sym_env(&store), var, val, &mut store);
 
         {
             let (result_expr, _new_env, iterations, _continuation) =
-                Evaluator::new(var.clone(), env.clone(), &mut store, limit).eval();
+                Evaluator::new(var, env, &mut store, limit).eval();
 
             assert_eq!(1, iterations);
             assert_eq!(&result_expr, &val);
         }
         {
-            let env2 = extend(&env, &var2, &val2, &mut store);
+            let env2 = extend(env, var2, val2, &mut store);
             let (result_expr, _new_env, iterations, _continuation) =
                 Evaluator::new(var, env2, &mut store, limit).eval();
 
@@ -1055,26 +1056,26 @@ mod test {
     #[test]
     fn print_expr() {
         let mut s = Store::default();
-        let nil = Expression::Nil;
-        let x = s.intern("x");
-        let lambda = s.intern("lambda");
-        let val = Expression::num(123);
-        let lambda_args = s.cons(&x, &nil);
-        let body = s.cons(&x, &nil);
-        let rest = s.cons(&lambda_args, &body);
-        let whole_lambda = s.cons(&lambda, &rest);
-        let lambda_arguments = s.cons(&val, &nil);
-        let expr = s.cons(&whole_lambda, &lambda_arguments);
-        let output = s.write_expr_str(&expr);
+        let nil = s.nil();
+        let x = s.sym("x");
+        let lambda = s.sym("lambda");
+        let val = s.num(123);
+        let lambda_args = s.cons(x, nil);
+        let body = s.cons(x, nil);
+        let rest = s.cons(lambda_args, body);
+        let whole_lambda = s.cons(lambda, rest);
+        let lambda_arguments = s.cons(val, nil);
+        let expr = s.cons(whole_lambda, lambda_arguments);
+        let output = expr.fmt_to_string(&s);
 
-        assert_eq!("((LAMBDA (X) X) Fr(0x7b))".to_string(), output);
+        assert_eq!("((LAMBDA (X) X) Num(0x7b))".to_string(), output);
     }
 
     #[test]
     fn outer_evaluate_lambda() {
         let mut s = Store::default();
         let limit = 20;
-        let val = Expression::num(123);
+        let val = s.num(123);
         let expr = s.read("((lambda (x) x) 123)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
@@ -1088,7 +1089,7 @@ mod test {
     fn outer_evaluate_lambda2() {
         let mut s = Store::default();
         let limit = 20;
-        let val = Expression::num(123);
+        let val = s.num(123);
         let expr = s.read("((lambda (y) ((lambda (x) y) 321)) 123)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
@@ -1102,7 +1103,7 @@ mod test {
     fn outer_evaluate_lambda3() {
         let mut s = Store::default();
         let limit = 20;
-        let val = Expression::num(123);
+        let val = s.num(123);
         let expr = s
             .read("((lambda (y) ((lambda (x) ((lambda (z) z) x)) y)) 123)")
             .unwrap();
@@ -1118,8 +1119,8 @@ mod test {
     fn outer_evaluate_lambda4() {
         let mut s = Store::default();
         let limit = 20;
-        let _val = Expression::num(999);
-        let val2 = Expression::num(888);
+        let _val = s.num(999);
+        let val2 = s.num(888);
         let expr = s
             // NOTE: We pass two different values. This tests which is returned.
             .read("((lambda (y) ((lambda (x) ((lambda (z) z) x)) 888)) 999)")
@@ -1136,7 +1137,7 @@ mod test {
     fn outer_evaluate_lambda5() {
         let mut s = Store::default();
         let limit = 20;
-        let val = Expression::num(999);
+        let val = s.num(999);
         let expr = s
             // Bind a function to the name FN, then call it.
             .read("(((lambda (fn) (lambda (x) (fn x))) (lambda (y) y)) 999)")
@@ -1159,7 +1160,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(6, iterations);
-        assert_eq!(Expression::num(9), result_expr);
+        assert_eq!(s.num(9), result_expr);
     }
 
     #[test]
@@ -1172,7 +1173,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(3, iterations);
-        assert_eq!(Expression::num(4), result_expr);
+        assert_eq!(s.num(4), result_expr);
     }
 
     #[test]
@@ -1185,7 +1186,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(3, iterations);
-        assert_eq!(Expression::num(45), result_expr);
+        assert_eq!(s.num(45), result_expr);
     }
 
     #[test]
@@ -1198,7 +1199,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(3, iterations);
-        assert_eq!(Expression::num(3), result_expr);
+        assert_eq!(s.num(3), result_expr);
     }
 
     #[test]
@@ -1232,7 +1233,7 @@ mod test {
             // boolean type (like Scheme), though. Otherwise we will have to
             // think about handling of symbol names (if made explicit), since
             // neither T/NIL as 1/0 will *not* be hashes of their symbol names.
-            assert_eq!(Expression::Sym("T".to_string()), result_expr);
+            assert_eq!(s.t(), result_expr);
         }
         {
             let expr = s.read("(= 5 6)").unwrap();
@@ -1241,7 +1242,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(3, iterations);
-            assert_eq!(Expression::Nil, result_expr);
+            assert!(result_expr.is_nil());
         }
     }
 
@@ -1255,7 +1256,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(13, iterations);
-        assert_eq!(Expression::num(5), result_expr);
+        assert_eq!(s.num(5), result_expr);
     }
 
     // Enable this when we have LET.
@@ -1274,7 +1275,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(15, iterations);
-        assert_eq!(Expression::num(5), result_expr);
+        assert_eq!(s.num(5), result_expr);
     }
 
     #[test]
@@ -1287,7 +1288,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(3, iterations);
-        assert_eq!(Expression::num(1), result_expr);
+        assert_eq!(s.num(1), result_expr);
     }
 
     #[test]
@@ -1300,7 +1301,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(4, iterations);
-        assert_eq!(Expression::num(3), result_expr);
+        assert_eq!(s.num(3), result_expr);
     }
 
     #[test]
@@ -1319,7 +1320,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(10, iterations);
-        assert_eq!(Expression::num(3), result_expr);
+        assert_eq!(s.num(3), result_expr);
     }
 
     #[test]
@@ -1331,7 +1332,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(5, iterations);
-        assert_eq!(Expression::num(1), result_expr);
+        assert_eq!(s.num(1), result_expr);
     }
 
     #[test]
@@ -1351,9 +1352,9 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(18, iterations);
-        assert_eq!(Expression::num(3), result_expr);
+        assert_eq!(s.num(3), result_expr);
 
-        assert_eq!(Expression::Nil, new_env);
+        assert!(new_env.is_nil());
     }
 
     #[test]
@@ -1382,7 +1383,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(35, iterations);
-            assert_eq!(Expression::num(5), result_expr);
+            assert_eq!(s.num(5), result_expr);
         }
         {
             let mut s = Store::default();
@@ -1406,7 +1407,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(32, iterations);
-            assert_eq!(Expression::num(6), result_expr);
+            assert_eq!(s.num(6), result_expr);
         }
     }
 
@@ -1421,7 +1422,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(3, iterations);
-            assert_eq!(Expression::num(5), result_expr);
+            assert_eq!(s.num(5), result_expr);
         }
         {
             let mut s = Store::default();
@@ -1431,7 +1432,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(3, iterations);
-            assert_eq!(Expression::num(6), result_expr);
+            assert_eq!(s.num(6), result_expr);
         }
     }
 
@@ -1446,7 +1447,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(5, iterations);
-            assert_eq!(Expression::num(10), result_expr);
+            assert_eq!(s.num(10), result_expr);
         }
     }
 
@@ -1468,7 +1469,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(91, iterations);
-        assert_eq!(Expression::num(125), result_expr);
+        assert_eq!(s.num(125), result_expr);
     }
 
     #[test]
@@ -1490,7 +1491,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(201, iterations);
-        assert_eq!(Expression::num(3125), result_expr);
+        assert_eq!(s.num(3125), result_expr);
     }
 
     #[test]
@@ -1510,7 +1511,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(95, iterations);
-        assert_eq!(Expression::num(125), result_expr);
+        assert_eq!(s.num(125), result_expr);
     }
 
     #[test]
@@ -1533,7 +1534,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(75, iterations);
-        assert_eq!(Expression::num(125), result_expr);
+        assert_eq!(s.num(125), result_expr);
     }
 
     #[test]
@@ -1555,7 +1556,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(129, iterations);
-        assert_eq!(Expression::num(125), result_expr);
+        assert_eq!(s.num(125), result_expr);
     }
 
     #[test]
@@ -1579,7 +1580,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(110, iterations);
-        assert_eq!(Expression::num(125), result_expr);
+        assert_eq!(s.num(125), result_expr);
     }
 
     #[test]
@@ -1597,7 +1598,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(22, iterations);
-        assert_eq!(Expression::num(13), result_expr);
+        assert_eq!(s.num(13), result_expr);
     }
 
     #[test]
@@ -1615,7 +1616,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(31, iterations);
-        assert_eq!(Expression::num(11), result_expr);
+        assert_eq!(s.num(11), result_expr);
     }
 
     #[test]
@@ -1644,7 +1645,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(242, iterations);
-        assert_eq!(Expression::num(33), result_expr);
+        assert_eq!(s.num(33), result_expr);
     }
 
     #[test]
@@ -1658,7 +1659,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(3, iterations);
-            assert_eq!(s.intern("T"), result_expr);
+            assert_eq!(s.t(), result_expr);
         }
         {
             let mut s = Store::default();
@@ -1669,7 +1670,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(3, iterations);
-            assert_eq!(Expression::Nil, result_expr);
+            assert!(result_expr.is_nil());
         }
     }
 
@@ -1684,7 +1685,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(4, iterations);
-            assert_eq!(Expression::num(123), result_expr);
+            assert_eq!(s.num(123), result_expr);
         }
         {
             let mut s = Store::default();
@@ -1697,7 +1698,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(14, iterations);
-            assert_eq!(Expression::num(10), result_expr);
+            assert_eq!(s.num(10), result_expr);
         }
     }
 
@@ -1806,7 +1807,7 @@ mod test {
             let (result_expr, _new_env, iterations, _continuation) =
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
-            assert_eq!(Expression::Nil, result_expr);
+            assert!(result_expr.is_nil());
 
             assert_eq!(170, iterations);
         }
@@ -1840,8 +1841,7 @@ mod test {
             let (result_expr, _new_env, iterations, _continuation) =
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
-            assert_eq!(Expression::Nil, result_expr);
-
+            assert!(result_expr.is_nil());
             assert_eq!(25, iterations);
         }
     }
@@ -1864,7 +1864,7 @@ mod test {
             let (result_expr, _new_env, iterations, _continuation) =
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
-            assert_eq!(Expression::num(18), result_expr);
+            assert_eq!(s.num(18), result_expr);
             assert_eq!(22, iterations);
         }
     }
@@ -1901,8 +1901,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
-        // TODO: why is this not 304?
-        assert_eq!(Expression::num(0x1044), result_expr);
+        assert_eq!(s.num(0x1044), result_expr);
         assert_eq!(1114, iterations);
     }
 }

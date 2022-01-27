@@ -22,6 +22,7 @@ pub fn equal<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     A: FnOnce() -> AR,
     AR: Into<String>,
 {
+    // debug_assert_eq!(a.get_value(), b.get_value());
     // a * 1 = b
     cs.enforce(
         annotation,
@@ -355,17 +356,26 @@ pub fn enforce_implication<CS: ConstraintSystem<F>, F: PrimeField>(
     b: &Boolean,
 ) -> Result<(), SynthesisError> {
     let implication = implies(cs.namespace(|| "construct implication"), a, b)?;
-    enforce_true(cs.namespace(|| "enforce implication"), &implication);
+    enforce_true(cs.namespace(|| "enforce implication"), &implication)?;
     Ok(())
 }
 
-pub fn enforce_true<CS: ConstraintSystem<F>, F: PrimeField>(cs: CS, prop: &Boolean) {
-    Boolean::enforce_equal(cs, &Boolean::Constant(true), prop).unwrap(); // FIXME: unwrap
+pub fn enforce_true<CS: ConstraintSystem<F>, F: PrimeField>(
+    cs: CS,
+    prop: &Boolean,
+) -> Result<(), SynthesisError> {
+    // if let Some(val) = prop.get_value() {
+    //     debug_assert!(val);
+    // }
+    Boolean::enforce_equal(cs, &Boolean::Constant(true), prop)
 }
 
 #[allow(dead_code)]
-pub fn enforce_false<CS: ConstraintSystem<F>, F: PrimeField>(cs: CS, prop: &Boolean) {
-    Boolean::enforce_equal(cs, &Boolean::Constant(false), prop).unwrap(); // FIXME: unwrap
+pub fn enforce_false<CS: ConstraintSystem<F>, F: PrimeField>(
+    cs: CS,
+    prop: &Boolean,
+) -> Result<(), SynthesisError> {
+    Boolean::enforce_equal(cs, &Boolean::Constant(false), prop)
 }
 
 // a => b
