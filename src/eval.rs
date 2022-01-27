@@ -228,7 +228,7 @@ fn eval_expr_with_witness(
         },
         Tag::Nil => Control::InvokeContinuation(expr, env, cont),
         Tag::Sym => {
-            if expr == store.intern_sym("NIL") || (expr == store.intern_sym("T")) {
+            if expr == store.sym("NIL") || (expr == store.t()) {
                 // NIL and T are self-evaluating symbols, pass them to the continuation in a thunk.
 
                 // CIRCUIT: sym_is_self_evaluating
@@ -346,7 +346,7 @@ fn eval_expr_with_witness(
                                         smaller_env
                                     } else {
                                         // CIRCUIT: with_smaller_rec_env
-                                        store.intern_cons(smaller_rec_env, smaller_env)
+                                        store.cons(smaller_rec_env, smaller_env)
                                     };
                                     match cont.tag() {
                                         ContTag::Lookup => {
@@ -376,16 +376,16 @@ fn eval_expr_with_witness(
         Tag::Fun => Control::InvokeContinuation(expr, env, cont),
         Tag::Cons => {
             let (head, rest) = store.car_cdr(&expr);
-            let lambda = store.intern_sym("LAMBDA");
-            let quote = store.intern_sym("QUOTE");
-            let dummy_arg = store.intern_sym("_");
+            let lambda = store.sym("LAMBDA");
+            let quote = store.sym("QUOTE");
+            let dummy_arg = store.sym("_");
 
             if head == lambda {
                 let (args, body) = store.car_cdr(&rest);
                 let (arg, _rest) = if args.is_nil() {
                     // (LAMBDA () STUFF)
                     // becomes (LAMBDA (DUMMY) STUFF)
-                    (dummy_arg, store.intern_nil())
+                    (dummy_arg, store.nil())
                 } else {
                     store.car_cdr(&args)
                 };
@@ -395,9 +395,9 @@ fn eval_expr_with_witness(
                 } else {
                     // (LAMBDA (A B) STUFF)
                     // becomes (LAMBDA (A) (LAMBDA (B) STUFF))
-                    let inner = store.intern_cons(cdr_args, body);
-                    let l = store.intern_cons(lambda, inner);
-                    store.intern_list(&[l])
+                    let inner = store.cons(cdr_args, body);
+                    let l = store.cons(lambda, inner);
+                    store.list(&[l])
                 };
                 let function = store.intern_fun(arg, inner_body, env);
 
@@ -406,7 +406,7 @@ fn eval_expr_with_witness(
                 let (quoted, end) = store.car_cdr(&rest);
                 assert!(end.is_nil());
                 Control::InvokeContinuation(quoted, env, cont)
-            } else if head == store.intern_sym("LET*") {
+            } else if head == store.sym("LET*") {
                 let (bindings, body) = store.car_cdr(&rest);
                 let (body1, rest_body) = store.car_cdr(&body);
                 // Only a single body form allowed for now.
@@ -423,8 +423,8 @@ fn eval_expr_with_witness(
                     let expanded = if rest_bindings.is_nil() {
                         body1
                     } else {
-                        let lt = store.intern_sym("LET*");
-                        store.intern_list(&[lt, rest_bindings, body1])
+                        let lt = store.sym("LET*");
+                        store.list(&[lt, rest_bindings, body1])
                     };
                     Control::Return(
                         val,
@@ -432,7 +432,7 @@ fn eval_expr_with_witness(
                         store.intern_cont_let_star(var, expanded, env, cont),
                     )
                 }
-            } else if head == store.intern_sym("LETREC*") {
+            } else if head == store.sym("LETREC*") {
                 let (bindings, body) = store.car_cdr(&rest);
                 let (body1, rest_body) = store.car_cdr(&body);
                 // Only a single body form allowed for now.
@@ -448,8 +448,8 @@ fn eval_expr_with_witness(
                     let expanded = if rest_bindings.is_nil() {
                         body1
                     } else {
-                        let lt = store.intern_sym("LETREC*");
-                        store.intern_list(&[lt, rest_bindings, body1])
+                        let lt = store.sym("LETREC*");
+                        store.list(&[lt, rest_bindings, body1])
                     };
                     Control::Return(
                         val,
@@ -457,71 +457,71 @@ fn eval_expr_with_witness(
                         store.intern_cont_let_rec_star(var, expanded, env, cont),
                     )
                 }
-            } else if head == store.intern_sym("cons") {
+            } else if head == store.sym("cons") {
                 let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
                     env,
                     store.intern_cont_binop(Op2::Cons, env, more, cont),
                 )
-            } else if head == store.intern_sym("car") {
+            } else if head == store.sym("car") {
                 let (arg1, end) = store.car_cdr(&rest);
                 assert!(end.is_nil());
                 Control::Return(arg1, env, store.intern_cont_unop(Op1::Car, cont))
-            } else if head == store.intern_sym("cdr") {
+            } else if head == store.sym("cdr") {
                 let (arg1, end) = store.car_cdr(&rest);
                 assert!(end.is_nil());
                 Control::Return(arg1, env, store.intern_cont_unop(Op1::Cdr, cont))
-            } else if head == store.intern_sym("atom") {
+            } else if head == store.sym("atom") {
                 let (arg1, end) = store.car_cdr(&rest);
                 assert!(end.is_nil());
                 Control::Return(arg1, env, store.intern_cont_unop(Op1::Atom, cont))
-            } else if head == store.intern_sym("+") {
+            } else if head == store.sym("+") {
                 let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
                     env,
                     store.intern_cont_binop(Op2::Sum, env, more, cont),
                 )
-            } else if head == store.intern_sym("-") {
+            } else if head == store.sym("-") {
                 let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
                     env,
                     store.intern_cont_binop(Op2::Diff, env, more, cont),
                 )
-            } else if head == store.intern_sym("*") {
+            } else if head == store.sym("*") {
                 let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
                     env,
                     store.intern_cont_binop(Op2::Product, env, more, cont),
                 )
-            } else if head == store.intern_sym("/") {
+            } else if head == store.sym("/") {
                 let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
                     env,
                     store.intern_cont_binop(Op2::Quotient, env, more, cont),
                 )
-            } else if head == store.intern_sym("=") {
+            } else if head == store.sym("=") {
                 let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
                     env,
                     store.intern_cont_relop(Rel2::NumEqual, env, more, cont),
                 )
-            } else if head == store.intern_sym("eq") {
+            } else if head == store.sym("eq") {
                 let (arg1, more) = store.car_cdr(&rest);
                 Control::Return(
                     arg1,
                     env,
                     store.intern_cont_relop(Rel2::Equal, env, more, cont),
                 )
-            } else if head == store.intern_sym("if") {
+            } else if head == store.sym("if") {
                 let (condition, more) = store.car_cdr(&rest);
                 Control::Return(condition, env, store.intern_cont_if(more, cont))
-            } else if head == store.intern_sym("current-env") {
+            } else if head == store.sym("current-env") {
                 assert!(rest.is_nil());
                 Control::InvokeContinuation(env, env, cont)
             } else {
@@ -529,7 +529,7 @@ fn eval_expr_with_witness(
                 let fun_form = head;
                 let args = rest;
                 let (arg, more_args) = if args.is_nil() {
-                    (store.intern_nil(), store.intern_nil())
+                    (store.nil(), store.nil())
                 } else {
                     store.car_cdr(&args)
                 };
@@ -542,8 +542,8 @@ fn eval_expr_with_witness(
                     _ => {
                         // Interpreting as multi-arg call.
                         // (fn arg . more_args) => ((fn arg) . more_args)
-                        let expanded_inner = store.intern_list(&[fun_form, arg]);
-                        let expanded = store.intern_cons(expanded_inner, more_args);
+                        let expanded_inner = store.list(&[fun_form, arg]);
+                        let expanded = store.cons(expanded_inner, more_args);
                         Control::Return(expanded, env, cont)
                     }
                 }
@@ -649,8 +649,8 @@ fn invoke_continuation(control: Control, store: &mut Store, witness: &mut Witnes
                     Op1::Car => store.car(result),
                     Op1::Cdr => store.cdr(result),
                     Op1::Atom => match result.tag() {
-                        Tag::Cons => store.intern_nil(),
-                        _ => store.intern_sym("T"),
+                        Tag::Cons => store.nil(),
+                        _ => store.t(),
                     },
                 };
                 Control::MakeThunk(val, *env, continuation)
@@ -697,10 +697,10 @@ fn invoke_continuation(control: Control, store: &mut Store, witness: &mut Witnes
                             tmp /= b;
                             store.intern_num(tmp)
                         }
-                        Op2::Cons => store.intern_cons(arg1, *arg2),
+                        Op2::Cons => store.cons(arg1, *arg2),
                     },
                     _ => match op2 {
-                        Op2::Cons => store.intern_cons(arg1, *arg2),
+                        Op2::Cons => store.cons(arg1, *arg2),
                         _ => unimplemented!("Binop2"),
                     },
                 };
@@ -727,19 +727,19 @@ fn invoke_continuation(control: Control, store: &mut Store, witness: &mut Witnes
                     (Tag::Num, Tag::Num) => match rel2 {
                         Rel2::NumEqual | Rel2::Equal => {
                             if &arg1 == arg2 {
-                                store.intern_sym("T") // TODO: maybe explicit boolean.
+                                store.t() // TODO: maybe explicit boolean.
                             } else {
-                                store.intern_nil()
+                                store.nil()
                             }
                         }
                     },
                     (_, _) => match rel2 {
-                        Rel2::NumEqual => store.intern_nil(), // FIXME: This should be a type error.
+                        Rel2::NumEqual => store.nil(), // FIXME: This should be a type error.
                         Rel2::Equal => {
                             if &arg1 == arg2 {
-                                store.intern_sym("T")
+                                store.t()
                             } else {
-                                store.intern_nil()
+                                store.nil()
                             }
                         }
                     },
@@ -911,8 +911,8 @@ pub fn empty_sym_env(store: &Store) -> Ptr {
 }
 
 fn extend(env: Ptr, var: Ptr, val: Ptr, store: &mut Store) -> Ptr {
-    let cons = store.intern_cons(var, val);
-    store.intern_cons(cons, env)
+    let cons = store.cons(var, val);
+    store.cons(cons, env)
 }
 
 fn extend_rec(env: Ptr, var: Ptr, val: Ptr, store: &mut Store) -> Ptr {
@@ -921,15 +921,15 @@ fn extend_rec(env: Ptr, var: Ptr, val: Ptr, store: &mut Store) -> Ptr {
     match var_or_binding.tag() {
         // It's a var, so we are extending a simple env with a recursive env.
         Tag::Sym | Tag::Nil => {
-            let cons = store.intern_cons(var, val);
-            let list = store.intern_list(&[cons]);
-            store.intern_cons(list, env)
+            let cons = store.cons(var, val);
+            let list = store.list(&[cons]);
+            store.cons(list, env)
         }
         // It's a binding, so we are extending a recursive env.
         Tag::Cons => {
-            let cons = store.intern_cons(var, val);
-            let cons2 = store.intern_cons(cons, binding_or_env);
-            store.intern_cons(cons2, rest)
+            let cons = store.cons(var, val);
+            let cons2 = store.cons(cons, binding_or_env);
+            store.cons(cons2, rest)
         }
         _ => {
             panic!("Bad input form.")
@@ -941,7 +941,7 @@ fn extend_closure(fun: &Ptr, rec_env: &Ptr, store: &mut Store) -> Ptr {
     match fun.tag() {
         Tag::Fun => match store.fetch(fun).unwrap() {
             Expression::Fun(arg, body, closed_env) => {
-                let extended = store.intern_cons(*rec_env, closed_env);
+                let extended = store.cons(*rec_env, closed_env);
                 store.intern_fun(arg, body, extended)
             }
             _ => unreachable!(),
@@ -977,8 +977,8 @@ mod test {
     fn test_lookup() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
-        let var = store.intern_sym("variable");
-        let val = store.intern_num(123);
+        let var = store.sym("variable");
+        let val = store.num(123);
 
         assert!(lookup(&env, &var, &store).is_nil());
 
@@ -991,7 +991,7 @@ mod test {
         let mut store = Store::default();
 
         {
-            let num = store.intern_num(123);
+            let num = store.num(123);
             let (result, _new_env, _cont, _witness) = eval_expr(
                 num,
                 empty_sym_env(&store),
@@ -1003,7 +1003,7 @@ mod test {
 
         {
             let (result, _new_env, _cont, _witness) = eval_expr(
-                store.intern_nil(),
+                store.nil(),
                 empty_sym_env(&store),
                 store.intern_cont_outermost(),
                 &mut store,
@@ -1017,7 +1017,7 @@ mod test {
         let mut store = Store::default();
 
         let limit = 20;
-        let val = store.intern_num(999);
+        let val = store.num(999);
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(val, empty_sym_env(&store), &mut store, limit).eval();
 
@@ -1030,10 +1030,10 @@ mod test {
         let mut store = Store::default();
 
         let limit = 20;
-        let val = store.intern_num(999);
-        let var = store.intern_sym("apple");
-        let val2 = store.intern_num(888);
-        let var2 = store.intern_sym("banana");
+        let val = store.num(999);
+        let var = store.sym("apple");
+        let val2 = store.num(888);
+        let var2 = store.sym("banana");
         let env = extend(empty_sym_env(&store), var, val, &mut store);
 
         {
@@ -1056,16 +1056,16 @@ mod test {
     #[test]
     fn print_expr() {
         let mut s = Store::default();
-        let nil = s.intern_nil();
-        let x = s.intern_sym("x");
-        let lambda = s.intern_sym("lambda");
-        let val = s.intern_num(123);
-        let lambda_args = s.intern_cons(x, nil);
-        let body = s.intern_cons(x, nil);
-        let rest = s.intern_cons(lambda_args, body);
-        let whole_lambda = s.intern_cons(lambda, rest);
-        let lambda_arguments = s.intern_cons(val, nil);
-        let expr = s.intern_cons(whole_lambda, lambda_arguments);
+        let nil = s.nil();
+        let x = s.sym("x");
+        let lambda = s.sym("lambda");
+        let val = s.num(123);
+        let lambda_args = s.cons(x, nil);
+        let body = s.cons(x, nil);
+        let rest = s.cons(lambda_args, body);
+        let whole_lambda = s.cons(lambda, rest);
+        let lambda_arguments = s.cons(val, nil);
+        let expr = s.cons(whole_lambda, lambda_arguments);
         let output = expr.fmt_to_string(&s);
 
         assert_eq!("((LAMBDA (X) X) Num(0x7b))".to_string(), output);
@@ -1075,7 +1075,7 @@ mod test {
     fn outer_evaluate_lambda() {
         let mut s = Store::default();
         let limit = 20;
-        let val = s.intern_num(123);
+        let val = s.num(123);
         let expr = s.read("((lambda (x) x) 123)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
@@ -1089,7 +1089,7 @@ mod test {
     fn outer_evaluate_lambda2() {
         let mut s = Store::default();
         let limit = 20;
-        let val = s.intern_num(123);
+        let val = s.num(123);
         let expr = s.read("((lambda (y) ((lambda (x) y) 321)) 123)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
@@ -1103,7 +1103,7 @@ mod test {
     fn outer_evaluate_lambda3() {
         let mut s = Store::default();
         let limit = 20;
-        let val = s.intern_num(123);
+        let val = s.num(123);
         let expr = s
             .read("((lambda (y) ((lambda (x) ((lambda (z) z) x)) y)) 123)")
             .unwrap();
@@ -1119,8 +1119,8 @@ mod test {
     fn outer_evaluate_lambda4() {
         let mut s = Store::default();
         let limit = 20;
-        let _val = s.intern_num(999);
-        let val2 = s.intern_num(888);
+        let _val = s.num(999);
+        let val2 = s.num(888);
         let expr = s
             // NOTE: We pass two different values. This tests which is returned.
             .read("((lambda (y) ((lambda (x) ((lambda (z) z) x)) 888)) 999)")
@@ -1137,7 +1137,7 @@ mod test {
     fn outer_evaluate_lambda5() {
         let mut s = Store::default();
         let limit = 20;
-        let val = s.intern_num(999);
+        let val = s.num(999);
         let expr = s
             // Bind a function to the name FN, then call it.
             .read("(((lambda (fn) (lambda (x) (fn x))) (lambda (y) y)) 999)")
@@ -1160,7 +1160,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(6, iterations);
-        assert_eq!(s.intern_num(9), result_expr);
+        assert_eq!(s.num(9), result_expr);
     }
 
     #[test]
@@ -1173,7 +1173,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(3, iterations);
-        assert_eq!(s.intern_num(4), result_expr);
+        assert_eq!(s.num(4), result_expr);
     }
 
     #[test]
@@ -1186,7 +1186,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(3, iterations);
-        assert_eq!(s.intern_num(45), result_expr);
+        assert_eq!(s.num(45), result_expr);
     }
 
     #[test]
@@ -1199,7 +1199,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(3, iterations);
-        assert_eq!(s.intern_num(3), result_expr);
+        assert_eq!(s.num(3), result_expr);
     }
 
     #[test]
@@ -1233,7 +1233,7 @@ mod test {
             // boolean type (like Scheme), though. Otherwise we will have to
             // think about handling of symbol names (if made explicit), since
             // neither T/NIL as 1/0 will *not* be hashes of their symbol names.
-            assert_eq!(s.intern_sym("T"), result_expr);
+            assert_eq!(s.t(), result_expr);
         }
         {
             let expr = s.read("(= 5 6)").unwrap();
@@ -1256,7 +1256,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(13, iterations);
-        assert_eq!(s.intern_num(5), result_expr);
+        assert_eq!(s.num(5), result_expr);
     }
 
     // Enable this when we have LET.
@@ -1275,7 +1275,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(15, iterations);
-        assert_eq!(s.intern_num(5), result_expr);
+        assert_eq!(s.num(5), result_expr);
     }
 
     #[test]
@@ -1288,7 +1288,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(3, iterations);
-        assert_eq!(s.intern_num(1), result_expr);
+        assert_eq!(s.num(1), result_expr);
     }
 
     #[test]
@@ -1301,7 +1301,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(4, iterations);
-        assert_eq!(s.intern_num(3), result_expr);
+        assert_eq!(s.num(3), result_expr);
     }
 
     #[test]
@@ -1320,7 +1320,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(10, iterations);
-        assert_eq!(s.intern_num(3), result_expr);
+        assert_eq!(s.num(3), result_expr);
     }
 
     #[test]
@@ -1332,7 +1332,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(5, iterations);
-        assert_eq!(s.intern_num(1), result_expr);
+        assert_eq!(s.num(1), result_expr);
     }
 
     #[test]
@@ -1352,7 +1352,7 @@ mod test {
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(18, iterations);
-        assert_eq!(s.intern_num(3), result_expr);
+        assert_eq!(s.num(3), result_expr);
 
         assert!(new_env.is_nil());
     }
@@ -1383,7 +1383,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(35, iterations);
-            assert_eq!(s.intern_num(5), result_expr);
+            assert_eq!(s.num(5), result_expr);
         }
         {
             let mut s = Store::default();
@@ -1407,7 +1407,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(32, iterations);
-            assert_eq!(s.intern_num(6), result_expr);
+            assert_eq!(s.num(6), result_expr);
         }
     }
 
@@ -1422,7 +1422,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(3, iterations);
-            assert_eq!(s.intern_num(5), result_expr);
+            assert_eq!(s.num(5), result_expr);
         }
         {
             let mut s = Store::default();
@@ -1432,7 +1432,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(3, iterations);
-            assert_eq!(s.intern_num(6), result_expr);
+            assert_eq!(s.num(6), result_expr);
         }
     }
 
@@ -1447,7 +1447,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(5, iterations);
-            assert_eq!(s.intern_num(10), result_expr);
+            assert_eq!(s.num(10), result_expr);
         }
     }
 
@@ -1469,7 +1469,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(91, iterations);
-        assert_eq!(s.intern_num(125), result_expr);
+        assert_eq!(s.num(125), result_expr);
     }
 
     #[test]
@@ -1491,7 +1491,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(201, iterations);
-        assert_eq!(s.intern_num(3125), result_expr);
+        assert_eq!(s.num(3125), result_expr);
     }
 
     #[test]
@@ -1511,7 +1511,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(95, iterations);
-        assert_eq!(s.intern_num(125), result_expr);
+        assert_eq!(s.num(125), result_expr);
     }
 
     #[test]
@@ -1534,7 +1534,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(75, iterations);
-        assert_eq!(s.intern_num(125), result_expr);
+        assert_eq!(s.num(125), result_expr);
     }
 
     #[test]
@@ -1556,7 +1556,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(129, iterations);
-        assert_eq!(s.intern_num(125), result_expr);
+        assert_eq!(s.num(125), result_expr);
     }
 
     #[test]
@@ -1580,7 +1580,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(110, iterations);
-        assert_eq!(s.intern_num(125), result_expr);
+        assert_eq!(s.num(125), result_expr);
     }
 
     #[test]
@@ -1598,7 +1598,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(22, iterations);
-        assert_eq!(s.intern_num(13), result_expr);
+        assert_eq!(s.num(13), result_expr);
     }
 
     #[test]
@@ -1616,7 +1616,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(31, iterations);
-        assert_eq!(s.intern_num(11), result_expr);
+        assert_eq!(s.num(11), result_expr);
     }
 
     #[test]
@@ -1645,7 +1645,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
         assert_eq!(242, iterations);
-        assert_eq!(s.intern_num(33), result_expr);
+        assert_eq!(s.num(33), result_expr);
     }
 
     #[test]
@@ -1659,7 +1659,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(3, iterations);
-            assert_eq!(s.intern_sym("T"), result_expr);
+            assert_eq!(s.t(), result_expr);
         }
         {
             let mut s = Store::default();
@@ -1685,7 +1685,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(4, iterations);
-            assert_eq!(s.intern_num(123), result_expr);
+            assert_eq!(s.num(123), result_expr);
         }
         {
             let mut s = Store::default();
@@ -1698,7 +1698,7 @@ mod test {
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(14, iterations);
-            assert_eq!(s.intern_num(10), result_expr);
+            assert_eq!(s.num(10), result_expr);
         }
     }
 
@@ -1864,7 +1864,7 @@ mod test {
             let (result_expr, _new_env, iterations, _continuation) =
                 Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
-            assert_eq!(s.intern_num(18), result_expr);
+            assert_eq!(s.num(18), result_expr);
             assert_eq!(22, iterations);
         }
     }
@@ -1901,7 +1901,7 @@ mod test {
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
-        assert_eq!(s.intern_num(0x1044), result_expr);
+        assert_eq!(s.num(0x1044), result_expr);
         assert_eq!(1114, iterations);
     }
 }

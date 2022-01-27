@@ -495,33 +495,71 @@ impl Default for Store {
 
         // insert some well known symbols
         for sym in &[
-            "NIL",
-            "T",
-            "QUOTE",
-            "LAMBDA",
+            "nil",
+            "t",
+            "quote",
+            "lambda",
             "_",
-            "LET*",
-            "LETREC*",
-            "CAR",
-            "CDR",
-            "ATOM",
+            "let*",
+            "letrec*",
+            "car",
+            "cdr",
+            "atom",
             "+",
             "-",
             "*",
             "/",
             "=",
-            "EQ",
-            "CURRENT-ENV",
-            "IF",
-            "TERMINAL",
-            "DUMMY",
-            "OUTERMOST",
-            "ERROR",
+            "eq",
+            "current-env",
+            "if",
+            "terminal",
+            "dummy",
+            "outermost",
+            "error",
         ] {
-            store.intern_sym(sym);
+            store.sym(sym);
         }
 
         store
+    }
+}
+
+/// These methods provide a more ergonomic means of constructing and manipulating Lurk data.
+/// They can be thought of as a minimal DSL for working with Lurk data in Rust code.
+/// Prefer these methods when constructing literal data or assembling program fragments in
+/// tests or during evaluation, etc.
+impl Store {
+    pub fn nil(&mut self) -> Ptr {
+        self.intern_nil()
+    }
+
+    pub fn t(&mut self) -> Ptr {
+        self.sym("T")
+    }
+
+    pub fn cons(&mut self, car: Ptr, cdr: Ptr) -> Ptr {
+        self.intern_cons(car, cdr)
+    }
+
+    pub fn list(&mut self, elts: &[Ptr]) -> Ptr {
+        self.intern_list(elts)
+    }
+
+    pub fn num<T: Into<Num>>(&mut self, num: T) -> Ptr {
+        self.intern_num(num)
+    }
+
+    pub fn sym<T: AsRef<str>>(&mut self, name: T) -> Ptr {
+        self.intern_sym(name, true)
+    }
+
+    pub fn car(&self, expr: &Ptr) -> Ptr {
+        self.car_cdr(expr).0
+    }
+
+    pub fn cdr(&self, expr: &Ptr) -> Ptr {
+        self.car_cdr(expr).1
     }
 }
 
@@ -531,11 +569,15 @@ impl Store {
     }
 
     pub fn intern_nil(&mut self) -> Ptr {
-        self.intern_sym("NIL")
+        self.sym("nil")
     }
 
     pub fn get_nil(&self) -> Ptr {
-        self.get_sym("NIL").expect("missing NIL")
+        self.get_sym("nil", true).expect("missing NIL")
+    }
+
+    pub fn get_t(&self) -> Ptr {
+        self.get_sym("t", true).expect("missing T")
     }
 
     pub fn intern_cons(&mut self, car: Ptr, cdr: Ptr) -> Ptr {
@@ -545,15 +587,16 @@ impl Store {
 
     /// Helper to allocate a list, instead of manually using `cons`.
     pub fn intern_list(&mut self, elts: &[Ptr]) -> Ptr {
-        elts.iter().rev().fold(self.intern_sym("NIL"), |acc, elt| {
-            self.intern_cons(*elt, acc)
-        })
+        elts.iter()
+            .rev()
+            .fold(self.sym("nil"), |acc, elt| self.cons(*elt, acc))
     }
 
-    pub fn intern_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr {
-        // symbols are upper case
+    pub fn intern_sym<T: AsRef<str>>(&mut self, name: T, convert_case: bool) -> Ptr {
         let mut name = name.as_ref().to_string();
-        name.make_ascii_uppercase();
+        if convert_case {
+            Self::convert_sym_case(&mut name);
+        }
 
         let tag = if name == "NIL" { Tag::Nil } else { Tag::Sym };
         let ptr = self.sym_store.0.get_or_intern(name);
@@ -561,16 +604,14 @@ impl Store {
         Ptr(tag, RawPtr(ptr.to_usize()))
     }
 
-    pub fn get_sym<T: AsRef<str>>(&self, name: T) -> Option<Ptr> {
-        // symbols are upper case
+    pub fn get_sym<T: AsRef<str>>(&self, name: T, convert_case: bool) -> Option<Ptr> {
         // TODO: avoid allocation
         let mut name = name.as_ref().to_string();
-        name.make_ascii_uppercase();
-        let tag = if name.eq_ignore_ascii_case("NIL") {
-            Tag::Nil
-        } else {
-            Tag::Sym
-        };
+        if convert_case {
+            Self::convert_sym_case(&mut name);
+        }
+
+        let tag = if name == "NIL" { Tag::Nil } else { Tag::Sym };
         self.sym_store
             .0
             .get(name)
@@ -848,14 +889,6 @@ impl Store {
             },
             _ => panic!("Can only extract car_cdr from Cons"),
         }
-    }
-
-    pub fn car(&self, expr: &Ptr) -> Ptr {
-        self.car_cdr(expr).0
-    }
-
-    pub fn cdr(&self, expr: &Ptr) -> Ptr {
-        self.car_cdr(expr).1
     }
 
     pub fn hash_expr(&self, ptr: &Ptr) -> Option<ScalarPtr> {
@@ -1349,7 +1382,7 @@ mod test {
     #[test]
     fn test_print_num() {
         let mut store = Store::default();
-        let num = store.intern_num(5);
+        let num = store.num(5);
         let res = num.fmt_to_string(&store);
         assert_eq!(&res, &"Num(0x5)");
     }
@@ -1392,7 +1425,7 @@ mod test {
     fn store() {
         let mut store = Store::default();
 
-        let num_ptr = store.intern_num(123);
+        let num_ptr = store.num(123);
         let num = store.fetch(&num_ptr).unwrap();
         let num_again = store.fetch(&num_ptr).unwrap();
 
@@ -1403,9 +1436,9 @@ mod test {
     fn equality() {
         let mut store = Store::default();
 
-        let (a, b) = (store.intern_num(123), store.intern_sym("pumpkin"));
+        let (a, b) = (store.num(123), store.sym("pumpkin"));
         let cons1 = store.intern_cons(a, b);
-        let (a, b) = (store.intern_num(123), store.intern_sym("pumpkin"));
+        let (a, b) = (store.num(123), store.sym("pumpkin"));
         let cons2 = store.intern_cons(a, b);
 
         assert_eq!(cons1, cons2);

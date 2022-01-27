@@ -105,20 +105,17 @@ impl GlobalAllocations {
 
         let nil_ptr =
             AllocatedPtr::alloc_constant_ptr(&mut cs.namespace(|| "nil"), store, &store.get_nil())?;
-        let t_ptr = AllocatedPtr::alloc_constant_ptr(
-            &mut cs.namespace(|| "T"),
-            store,
-            &store.get_sym("T").unwrap(),
-        )?;
+        let t_ptr =
+            AllocatedPtr::alloc_constant_ptr(&mut cs.namespace(|| "T"), store, &store.get_t())?;
         let lambda_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "LAMBDA"),
             store,
-            &store.get_sym("LAMBDA").unwrap(),
+            &store.get_sym("lambda", true).unwrap(),
         )?;
         let dummy_arg_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "_"),
             store,
-            &store.get_sym("_").unwrap(),
+            &store.get_sym("_", true).unwrap(),
         )?;
 
         let sym_tag = Tag::Sym.allocate_constant(&mut cs.namespace(|| "sym_tag"))?;

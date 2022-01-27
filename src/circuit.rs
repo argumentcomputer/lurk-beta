@@ -855,29 +855,34 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
 > {
     let lambda = g.lambda_ptr.clone();
 
-    let hash_sym = |sym: &str| store.get_sym(sym).and_then(|s| store.hash_sym(s)).unwrap();
+    let hash_sym = |sym: &str| {
+        store
+            .get_sym(sym, true)
+            .and_then(|s| store.hash_sym(s))
+            .unwrap()
+    };
 
-    let lambda_hash = hash_sym("LAMBDA");
-    let quote_hash = hash_sym("QUOTE");
-    let letstar = hash_sym("LET*");
+    let lambda_hash = hash_sym("lambda");
+    let quote_hash = hash_sym("quote");
+    let letstar = hash_sym("let*");
     let letstar_t = AllocatedPtr::alloc_constant(&mut cs.namespace(|| "letstar_t"), letstar)?;
     let letstar_hash = letstar.value();
-    let letrecstar = hash_sym("LETREC*");
+    let letrecstar = hash_sym("letrec*");
     let letrecstar_t =
         AllocatedPtr::alloc_constant(&mut cs.namespace(|| "letrecstar"), letrecstar)?;
     let letrecstar_hash = letrecstar.value();
-    let cons_hash = hash_sym("CAR");
-    let car_hash = hash_sym("CAR");
-    let cdr_hash = hash_sym("CDR");
-    let atom_hash = hash_sym("ATOM");
+    let cons_hash = hash_sym("car");
+    let car_hash = hash_sym("car");
+    let cdr_hash = hash_sym("cdr");
+    let atom_hash = hash_sym("atom");
     let sum_hash = hash_sym("+");
     let diff_hash = hash_sym("-");
     let product_hash = hash_sym("*");
     let quotient_hash = hash_sym("/");
     let numequal_hash = hash_sym("=");
-    let equal_hash = hash_sym("EQ");
-    let current_env_hash = hash_sym("CURRENT-ENV");
-    let if_hash = hash_sym("IF");
+    let equal_hash = hash_sym("eq");
+    let current_env_hash = hash_sym("current-env");
+    let if_hash = hash_sym("if");
 
     let (head, rest) = car_cdr(&mut cs.namespace(|| "eval_cons expr"), g, expr, store)?;
 
@@ -2201,7 +2206,7 @@ mod tests {
     fn num_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
-        let num = store.intern_num(123);
+        let num = store.num(123);
 
         let input = IO {
             expr: num,
@@ -2280,7 +2285,7 @@ mod tests {
         {
             // Wrong type, so tag should differ.
             let bad_output_tag = IO {
-                expr: store.intern_sym("SYMBOL"),
+                expr: store.sym("SYMBOL"),
                 env,
                 cont: store.intern_cont_terminal(),
             };
@@ -2291,7 +2296,7 @@ mod tests {
         {
             // Wrong value, so hash should differ.
             let bad_output_value = IO {
-                expr: store.intern_num(999),
+                expr: store.num(999),
                 env,
                 cont: store.intern_cont_terminal(),
             };
@@ -2303,7 +2308,7 @@ mod tests {
             // Wrong new env.
             let bad_output_tag = IO {
                 expr: num,
-                env: store.intern_sym("not-an-env"),
+                env: store.sym("not-an-env"),
                 cont: store.intern_cont_terminal(),
             };
 
@@ -2315,7 +2320,7 @@ mod tests {
     fn nil_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
-        let nil = store.intern_nil();
+        let nil = store.nil();
 
         let input = IO {
             expr: nil,
@@ -2363,7 +2368,7 @@ mod tests {
             {
                 // Wrong type, so tag should differ.
                 let bad_output_tag = IO {
-                    expr: store.intern_sym("SYMBOL"),
+                    expr: store.sym("SYMBOL"),
                     env,
                     cont: store.intern_cont_terminal(),
                 };
@@ -2373,7 +2378,7 @@ mod tests {
             {
                 // Wrong value, so hash should differ.
                 let bad_output_value = IO {
-                    expr: store.intern_num(999),
+                    expr: store.num(999),
                     env: env.clone(),
                     cont: store.intern_cont_terminal(),
                 };
@@ -2383,12 +2388,12 @@ mod tests {
         }
     }
 
-    //#[test]
+    #[test]
     #[allow(dead_code)]
     fn t_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
-        let t = store.intern_sym("T");
+        let t = store.t();
 
         let input = IO {
             expr: t,
@@ -2438,7 +2443,7 @@ mod tests {
             {
                 // Wrong type, so tag should differ.
                 let bad_output_tag = IO {
-                    expr: store.intern_num(999),
+                    expr: store.num(999),
                     env,
                     cont: store.intern_cont_terminal(),
                 };
@@ -2448,7 +2453,7 @@ mod tests {
             {
                 // Wrong symbol, so hash should differ.
                 let bad_output_value = IO {
-                    expr: store.intern_sym("S"),
+                    expr: store.sym("S"),
                     env: env.clone(),
                     cont: store.intern_cont_terminal(),
                 };
@@ -2461,7 +2466,7 @@ mod tests {
     fn fun_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
-        let var = store.intern_sym("a");
+        let var = store.sym("a");
         let body = store.intern_list(&[var]);
         let fun = store.intern_fun(var, body, env);
 
@@ -2511,7 +2516,7 @@ mod tests {
             {
                 // Wrong type, so tag should differ.
                 let bad_output_tag = IO {
-                    expr: store.intern_sym("SYMBOL"),
+                    expr: store.sym("SYMBOL"),
                     env: env.clone(),
                     cont: store.intern_cont_terminal(),
                 };
@@ -2521,7 +2526,7 @@ mod tests {
             {
                 // Wrong value, so hash should differ.
                 let bad_output_value = IO {
-                    expr: store.intern_num(999),
+                    expr: store.num(999),
                     env: env.clone(),
                     cont: store.intern_cont_terminal(),
                 };
@@ -2531,7 +2536,7 @@ mod tests {
         }
     }
 
-    //#[test]
+    #[test]
     #[allow(dead_code)]
     fn non_self_evaluating() {
         let mut store = Store::default();
@@ -2572,26 +2577,14 @@ mod tests {
         // Success
         {
             {
-                // Output is not required to equal input.
-                let output = IO {
-                    expr: store.intern_num(987),
-                    env,
-                    cont: store.intern_cont_terminal(),
-                };
-
-                test_with_output(output, true, &mut store);
-            }
-            {
-                // However, output is permitted to equal input.
-                // Input could theoretically be a single-step quine.
-                // This is impossible in the current language for other reasons.
+                // Output does not equal input.
                 let output = IO {
                     expr: expr.clone(),
                     env: env.clone(),
                     cont: store.intern_cont_terminal(),
                 };
 
-                test_with_output(output, true, &mut store);
+                test_with_output(output, false, &mut store);
             }
         }
     }

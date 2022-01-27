@@ -70,10 +70,10 @@ impl Store {
                 }
                 '\'' => {
                     chars.next();
-                    let quote = self.intern_sym("quote");
+                    let quote = self.sym("quote");
                     let quoted = self.read_next(chars)?;
                     let inner = self.intern_list(&[quoted]);
-                    Some(self.intern_cons(quote, inner))
+                    Some(self.cons(quote, inner))
                 }
                 '\"' => self.read_string(chars),
                 ';' => {
@@ -116,7 +116,7 @@ impl Store {
             match c {
                 ')' => {
                     chars.next();
-                    Some(self.intern_nil())
+                    Some(self.nil())
                 }
                 '.' => {
                     chars.next();
@@ -129,7 +129,7 @@ impl Store {
                 _ => {
                     let car = self.read_next(chars).unwrap();
                     let rest = self.read_tail(chars).unwrap();
-                    Some(self.intern_cons(car, rest))
+                    Some(self.cons(car, rest))
                 }
             }
         } else {
@@ -159,7 +159,10 @@ impl Store {
         Some(self.intern_num(acc))
     }
 
-    fn read_symbol<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr> {
+    pub(crate) fn read_symbol<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut Peekable<T>,
+    ) -> Option<Ptr> {
         let mut name = String::new();
         let mut is_initial = true;
         while let Some(&c) = chars.peek() {
@@ -171,8 +174,14 @@ impl Store {
             }
             is_initial = false;
         }
+        Self::convert_sym_case(&mut name);
+        Some(self.intern_sym(name, false))
+    }
 
-        Some(self.intern_sym(name))
+    pub(crate) fn convert_sym_case(raw_name: &mut String) {
+        // In the future, we could support optional alternate case conventions,
+        // so all case conversion should be performed here.
+        raw_name.make_ascii_uppercase();
     }
 }
 
@@ -304,23 +313,23 @@ asdf(", "ASDF",
             assert_eq!(expected, &expr);
         };
 
-        let a = store.intern_num(123);
-        let b = store.intern_nil();
+        let a = store.num(123);
+        let b = store.nil();
         let expected = store.intern_cons(a, b);
         test(&mut store, "(123)", &expected);
 
-        let a = store.intern_num(321);
+        let a = store.num(321);
         let expected2 = store.intern_cons(a, expected);
         test(&mut store, "(321 123)", &expected2);
 
-        let a = store.intern_sym("PUMPKIN");
+        let a = store.sym("PUMPKIN");
         let expected3 = store.intern_cons(a, expected2);
         test(&mut store, "(pumpkin 321 123)", &expected3);
 
         let expected4 = store.intern_cons(expected, store.get_nil());
         test(&mut store, "((123))", &expected4);
 
-        let (a, b) = (store.intern_num(321), store.intern_nil());
+        let (a, b) = (store.num(321), store.nil());
         let alt = store.intern_cons(a, b);
         let expected5 = store.intern_cons(alt, expected4);
         test(&mut store, "((321) (123))", &expected5);
@@ -328,9 +337,9 @@ asdf(", "ASDF",
         let expected6 = store.intern_cons(expected2, expected3);
         test(&mut store, "((321 123) pumpkin 321 123)", &expected6);
 
-        let (a, b) = (store.intern_num(1), store.intern_num(2));
+        let (a, b) = (store.num(1), store.num(2));
         let pair = store.intern_cons(a, b);
-        let list = [pair, store.intern_num(3)];
+        let list = [pair, store.num(3)];
         let expected7 = store.intern_list(&list);
         test(&mut store, "((1 . 2) 3)", &expected7);
     }
@@ -343,7 +352,7 @@ asdf(", "ASDF",
             assert_eq!(expected, &expr);
         };
 
-        let (a, b) = (store.intern_num(123), store.intern_num(321));
+        let (a, b) = (store.num(123), store.num(321));
         let expected = store.intern_cons(a, b);
         test(&mut store, "(123 . 321)", &expected);
 
@@ -381,35 +390,35 @@ asdf(", "ASDF",
             };
         };
 
-        let num = store.intern_num(123);
+        let num = store.num(123);
         test(&mut store, "123", num, false);
 
         {
-            let list = [store.intern_num(123), store.intern_num(321)];
+            let list = [store.num(123), store.num(321)];
             let l = store.intern_list(&list);
             test(&mut store, " (123 321)", l, false);
         }
         {
-            let list = [store.intern_num(123), store.intern_num(321)];
+            let list = [store.num(123), store.num(321)];
             let l = store.intern_list(&list);
             test(&mut store, " !(123 321)", l, true);
         }
         {
-            let list = [store.intern_num(123), store.intern_num(321)];
+            let list = [store.num(123), store.num(321)];
             let l = store.intern_list(&list);
             test(&mut store, " ! (123 321)", l, true);
         }
         {
-            let s = store.intern_sym("asdf");
+            let s = store.sym("asdf");
             test(&mut store, "!asdf", s, true);
         }
         {
-            let s = store.intern_sym(":assert");
+            let s = store.sym(":assert");
             let l = store.intern_list(&[s]);
             test(&mut store, "!(:assert)", l, true);
         }
         {
-            let s = store.intern_sym("asdf");
+            let s = store.sym("asdf");
             test(
                 &mut store,
                 ";; comment
@@ -422,8 +431,8 @@ asdf(", "ASDF",
     #[test]
     fn is_keyword() {
         let mut store = Store::default();
-        let kw = store.intern_sym(":UIOP");
-        let not_kw = store.intern_sym("UIOP");
+        let kw = store.sym(":UIOP");
+        let not_kw = store.sym("UIOP");
 
         assert!(store.fetch(&kw).unwrap().is_keyword_sym());
         assert!(!store.fetch(&not_kw).unwrap().is_keyword_sym());
@@ -468,7 +477,7 @@ asdf(", "ASDF",
             assert_eq!(expected, res);
         };
 
-        let num = store.intern_num(321);
+        let num = store.num(321);
         test(
             &mut store,
             ";123

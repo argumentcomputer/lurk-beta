@@ -340,7 +340,7 @@ mod tests {
                      (b 1)
                      (c 2))
                 (/ (+ a b) c))",
-            |store| store.intern_num(3),
+            |store| store.num(3),
             18,
             true, // Always check Groth16 in at least one test.
             true,
@@ -353,7 +353,7 @@ mod tests {
     fn outer_prove_binop() {
         outer_prove_aux(
             &"(+ 1 2)",
-            |store| store.intern_num(3),
+            |store| store.num(3),
             3,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -366,7 +366,7 @@ mod tests {
     fn outer_prove_eq() {
         outer_prove_aux(
             &"(eq 5 5)",
-            |store| store.intern_sym("T"),
+            |store| store.t(),
             3,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -381,7 +381,7 @@ mod tests {
     fn outer_prove_num_equal() {
         outer_prove_aux(
             &"(= 5 5)",
-            |store| store.intern_sym("T"),
+            |store| store.t(),
             3,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -390,7 +390,7 @@ mod tests {
         );
         outer_prove_aux(
             &"(= 5 6)",
-            |store| store.intern_nil(),
+            |store| store.nil(),
             3,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -403,7 +403,7 @@ mod tests {
     fn outer_prove_if() {
         outer_prove_aux(
             &"(if t 5 6)",
-            |store| store.intern_num(5),
+            |store| store.num(5),
             3,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -413,7 +413,7 @@ mod tests {
 
         outer_prove_aux(
             &"(if t 5 6)",
-            |store| store.intern_num(5),
+            |store| store.num(5),
             3,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -425,7 +425,7 @@ mod tests {
     fn outer_prove_if_fully_evaluates() {
         outer_prove_aux(
             &"(if t (+ 5 5) 6)",
-            |store| store.intern_num(10),
+            |store| store.num(10),
             5,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -444,7 +444,7 @@ mod tests {
                                      1
                                      (* base ((exp base) (- exponent 1))))))))
                 ((exp 5) 3))",
-            |store| store.intern_num(125),
+            |store| store.num(125),
             // 117, // FIXME: is this change correct?
             91,
             DEFAULT_CHECK_GROTH16,
@@ -465,7 +465,7 @@ mod tests {
                                           acc
                                           (((exp base) (- exponent 1)) (* acc base))))))))
                 (((exp 5) 5) 1))",
-            |store| store.intern_num(3125),
+            |store| store.num(3125),
             // 248, // FIXME: is this change correct?
             201,
             DEFAULT_CHECK_GROTH16,
