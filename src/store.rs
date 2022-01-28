@@ -143,7 +143,7 @@ pub trait ScalarPointer: fmt::Debug + Copy + Clone + PartialEq + Hash {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct Ptr(Tag, RawPtr);
+pub struct Ptr(pub Tag, pub RawPtr);
 
 impl Ptr {
     pub const fn is_nil(&self) -> bool {
