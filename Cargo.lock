@@ -824,7 +824,6 @@ dependencies = [
  "generic-array 0.14.5",
  "indexmap",
  "itertools 0.9.0",
- "lazy_static",
  "neptune",
  "once_cell",
  "pairing",

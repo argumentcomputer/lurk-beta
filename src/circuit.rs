@@ -671,6 +671,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
 
     let lookup_continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "lookup_continuation"),
+        store,
         &g.lookup_cont_tag,
         // Mirrors Continuation::get_hash_components()
         &[
@@ -692,6 +693,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     let extended_env = AllocatedPtr::construct_cons(
         &mut cs.namespace(|| "extended_env"),
         g,
+        store,
         &rec_env,
         &fun_closed_env,
     )?;
@@ -699,6 +701,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     let extended_fun = AllocatedPtr::construct_fun(
         &mut cs.namespace(|| "extended_fun"),
         g,
+        store,
         &fun_arg,
         &fun_body,
         &extended_env,
@@ -718,6 +721,7 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     let with_smaller_rec_env = AllocatedPtr::construct_cons(
         &mut cs.namespace(|| "with_smaller_rec_env"),
         g,
+        store,
         &smaller_rec_env,
         &smaller_env,
     )?;
@@ -912,13 +916,18 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &car_args,
         )?;
 
-        let inner =
-            AllocatedPtr::construct_cons(&mut cs.namespace(|| "inner"), g, &cdr_args, &body)?;
-        let l = AllocatedPtr::construct_cons(&mut cs.namespace(|| "l"), g, &lambda, &inner)?;
+        let inner = AllocatedPtr::construct_cons(
+            &mut cs.namespace(|| "inner"),
+            g,
+            store,
+            &cdr_args,
+            &body,
+        )?;
+        let l = AllocatedPtr::construct_cons(&mut cs.namespace(|| "l"), g, store, &lambda, &inner)?;
         let cdr_args_is_nil =
             cdr_args.alloc_equal(&mut cs.namespace(|| "cdr_args_is_nil"), &g.nil_ptr)?;
 
-        let list = AllocatedPtr::construct_list(&mut cs.namespace(|| "list"), g, &[&l])?;
+        let list = AllocatedPtr::construct_list(&mut cs.namespace(|| "list"), g, store, &[&l])?;
         let inner_body = AllocatedPtr::pick(
             &mut cs.namespace(|| "inner_body"),
             &cdr_args_is_nil,
@@ -926,7 +935,14 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
             &list,
         )?;
 
-        AllocatedPtr::construct_fun(&mut cs.namespace(|| "function"), g, &arg, &inner_body, env)?
+        AllocatedPtr::construct_fun(
+            &mut cs.namespace(|| "function"),
+            g,
+            store,
+            &arg,
+            &inner_body,
+            env,
+        )?
     };
 
     results.add_clauses_cons(*lambda_hash.value(), &function, env, cont, &g.true_num);
@@ -968,6 +984,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let expanded1 = AllocatedPtr::construct_list(
             &mut cs_letrec.namespace(|| "expanded1"),
             g,
+            store,
             &[&letstar_t, &rest_bindings, &body1],
         )?;
         let bindings_is_nil =
@@ -987,6 +1004,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
 
         let continuation1_letstar = AllocatedContPtr::construct(
             &mut cs_letrec.namespace(|| "let* continuation"),
+            store,
             &g.letstar_cont_tag,
             &[&var, &expanded, env, cont],
         )?;
@@ -1001,6 +1019,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let expanded2 = AllocatedPtr::construct_list(
             &mut cs_letrec.namespace(|| "expanded2"),
             g,
+            store,
             &[&letrecstar_t, &rest_bindings, &body1],
         )?;
 
@@ -1013,6 +1032,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
 
         let continuation1_letrecstar = AllocatedContPtr::construct(
             &mut cs_letrec.namespace(|| "letrec* continuation"),
+            store,
             &g.letrecstar_cont_tag,
             &[&var, &expanded_star, env, cont],
         )?;
@@ -1045,6 +1065,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     // head == CONS
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "binop cons"),
+        store,
         &g.binop_cont_tag,
         &[&[&g.op2_cons_tag, &g.default_num], env, &more, cont],
     )?;
@@ -1059,6 +1080,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     // since it happens in many of the branches here.
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "unop car"),
+        store,
         &g.unop_cont_tag,
         &[
             &[&g.op1_car_tag, &g.default_num],
@@ -1074,6 +1096,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     // FIXME: Error if end != NIL.
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "unop cdr"),
+        store,
         &g.unop_cont_tag,
         &[
             &[&g.op1_cdr_tag, &g.default_num],
@@ -1089,6 +1112,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     // FIXME: Error if end != NIL.
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "unop atom"),
+        store,
         &g.unop_cont_tag,
         &[
             &[&g.op1_atom_tag, &g.default_num],
@@ -1103,6 +1127,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     // head == +
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "binop sum"),
+        store,
         &g.binop_cont_tag,
         &[&[&g.op2_sum_tag, &g.default_num], env, &more, cont],
     )?;
@@ -1112,6 +1137,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     // head == -
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "binop diff"),
+        store,
         &g.binop_cont_tag,
         &[&[&g.op2_diff_tag, &g.default_num], env, &more, cont],
     )?;
@@ -1121,6 +1147,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     // head == *
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "binop product"),
+        store,
         &g.binop_cont_tag,
         &[&[&g.op2_product_tag, &g.default_num], env, &more, cont],
     )?;
@@ -1136,6 +1163,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     // head == /
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "binop quotient"),
+        store,
         &g.binop_cont_tag,
         &[&[&g.op2_quotient_tag, &g.default_num], env, &more, cont],
     )?;
@@ -1151,6 +1179,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     // head == =
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "Relop NumEqual"),
+        store,
         &g.relop_cont_tag,
         &[&[&g.rel2_numequal_tag, &g.default_num], env, &more, cont],
     )?;
@@ -1166,6 +1195,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     // head == EQ
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "Relop Equal"),
+        store,
         &g.relop_cont_tag,
         &[&[&g.rel2_equal_tag, &g.default_num], env, &more, cont],
     )?;
@@ -1177,6 +1207,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let unevaled_args = more.clone();
         AllocatedContPtr::construct(
             &mut cs.namespace(|| "If"),
+            store,
             &g.if_cont_tag,
             &[
                 &unevaled_args,
@@ -1202,6 +1233,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
 
         let call_continuation = AllocatedContPtr::construct(
             &mut cs.namespace(|| "Call"),
+            store,
             &g.call_cont_tag,
             &[env, &arg1, cont, &[&g.default_num, &g.default_num]],
         )?;
@@ -1209,12 +1241,14 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
         let expanded_inner = AllocatedPtr::construct_list(
             &mut cs.namespace(|| "expanded_inner"),
             g,
+            store,
             &[fun_form, &arg1],
         )?;
 
         let expanded = AllocatedPtr::construct_cons(
             &mut cs.namespace(|| "expanded"),
             g,
+            store,
             &expanded_inner,
             &more,
         )?;
@@ -1310,6 +1344,7 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
         let result_expr = AllocatedPtr::construct_thunk(
             &mut cs.namespace(|| "tail thunk_hash"),
             g,
+            store,
             result,
             &continuation,
         )?;
@@ -1321,7 +1356,8 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
 
     results.add_clauses_thunk(ContTag::Outermost, result, env, &g.terminal_ptr);
 
-    let thunk_hash = Thunk::hash_components(&mut cs.namespace(|| "thunk_hash"), result, cont)?;
+    let thunk_hash =
+        Thunk::hash_components(&mut cs.namespace(|| "thunk_hash"), store, result, cont)?;
     let defaults = [
         &g.thunk_tag,
         &thunk_hash,
@@ -1437,6 +1473,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         // let call2_components = [g.call2_cont_tag.clone()];
         let newer_cont = AllocatedContPtr::construct(
             &mut cs.namespace(|| "construct newer_cont"),
+            store,
             &g.call2_cont_tag,
             // Mirrors Continuation::get_hash_components()
             &[
@@ -1507,6 +1544,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             let newer_env = extend(
                 &mut cs.namespace(|| "Call2 extend env"),
                 g,
+                store,
                 &closed_env,
                 &arg_t,
                 result,
@@ -1515,6 +1553,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
             let tail_cont = make_tail_continuation(
                 &mut cs.namespace(|| "Call2 make_tail_continuation"),
                 g,
+                store,
                 &saved_env,
                 &continuation,
             )?;
@@ -1541,6 +1580,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let extended_env = extend(
             &mut cs.namespace(|| "LetStar extend env"),
             g,
+            store,
             env,
             &var,
             result,
@@ -1549,6 +1589,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let tail_cont = make_tail_continuation(
             &mut cs.namespace(|| "LetStar make_tail_continuation"),
             g,
+            store,
             &saved_env,
             &cont,
         )?;
@@ -1584,6 +1625,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         let tail_cont = make_tail_continuation(
             &mut cs.namespace(|| "LetRecStar make_tail_continuation"),
             g,
+            store,
             &saved_env,
             &cont,
         )?;
@@ -1681,6 +1723,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
 
         let binop2_cont = AllocatedContPtr::construct(
             &mut cs.namespace(|| "Binop2"),
+            store,
             &g.binop2_cont_tag,
             &[
                 &[op2, &g.default_num],
@@ -1743,7 +1786,8 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
 
         let quotient = constraints::div(&mut cs.namespace(|| "quotient"), a, &divisor)?;
 
-        let cons = AllocatedPtr::construct_cons(&mut cs.namespace(|| "cons"), g, &arg1, arg2)?;
+        let cons =
+            AllocatedPtr::construct_cons(&mut cs.namespace(|| "cons"), g, store, &arg1, arg2)?;
 
         let val = case(
             &mut cs.namespace(|| "Binop2 case"),
@@ -1826,6 +1870,7 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
         // FIXME: If allocated_rest != Nil, then error.
         let relop2_cont = AllocatedContPtr::construct(
             &mut cs.namespace(|| "Relop2"),
+            store,
             &g.relop2_cont_tag,
             &[
                 &[relop2, &g.default_num],
@@ -2037,6 +2082,7 @@ fn car_cdr<CS: ConstraintSystem<Fr>>(
     let constructed_cons = AllocatedPtr::construct_cons(
         &mut cs.namespace(|| "cons"),
         g,
+        store,
         &allocated_car,
         &allocated_cdr,
     )?;
@@ -2059,13 +2105,14 @@ fn car_cdr<CS: ConstraintSystem<Fr>>(
 fn extend<CS: ConstraintSystem<Fr>>(
     mut cs: CS,
     g: &GlobalAllocations,
+    store: &Store,
     env: &AllocatedPtr,
     var: &AllocatedPtr,
     val: &AllocatedPtr,
 ) -> Result<AllocatedPtr, SynthesisError> {
     let new_binding =
-        AllocatedPtr::construct_cons(&mut cs.namespace(|| "extend binding"), g, var, val)?;
-    AllocatedPtr::construct_cons(cs, g, &new_binding, env)
+        AllocatedPtr::construct_cons(&mut cs.namespace(|| "extend binding"), g, store, var, val)?;
+    AllocatedPtr::construct_cons(cs, g, store, &new_binding, env)
 }
 
 fn extend_rec<CS: ConstraintSystem<Fr>>(
@@ -2084,21 +2131,33 @@ fn extend_rec<CS: ConstraintSystem<Fr>>(
         store,
     )?;
 
-    let cons = AllocatedPtr::construct_cons(&mut cs.namespace(|| "cons var val"), g, var, val)?;
-    let list = AllocatedPtr::construct_list(&mut cs.namespace(|| "list cons"), g, &[&cons])?;
+    let cons =
+        AllocatedPtr::construct_cons(&mut cs.namespace(|| "cons var val"), g, store, var, val)?;
+    let list = AllocatedPtr::construct_list(&mut cs.namespace(|| "list cons"), g, store, &[&cons])?;
 
-    let new_env_if_sym_or_nil =
-        AllocatedPtr::construct_cons(&mut cs.namespace(|| "new_env_if_sym_or_nil"), g, &list, env)?;
+    let new_env_if_sym_or_nil = AllocatedPtr::construct_cons(
+        &mut cs.namespace(|| "new_env_if_sym_or_nil"),
+        g,
+        store,
+        &list,
+        env,
+    )?;
 
     let cons2 = AllocatedPtr::construct_cons(
         &mut cs.namespace(|| "cons cons binding_or_env"),
         g,
+        store,
         &cons,
         &binding_or_env,
     )?;
 
-    let cons3 =
-        AllocatedPtr::construct_cons(&mut cs.namespace(|| "cons cons2 rest"), g, &cons2, &rest)?;
+    let cons3 = AllocatedPtr::construct_cons(
+        &mut cs.namespace(|| "cons cons2 rest"),
+        g,
+        store,
+        &cons2,
+        &rest,
+    )?;
 
     let is_sym = constraints::alloc_equal(
         &mut cs.namespace(|| "var_or_binding is sym"),
@@ -2138,6 +2197,7 @@ fn extend_rec<CS: ConstraintSystem<Fr>>(
 fn make_tail_continuation<CS: ConstraintSystem<Fr>>(
     mut cs: CS,
     g: &GlobalAllocations,
+    store: &Store,
     env: &AllocatedPtr,
     continuation: &AllocatedContPtr,
 ) -> Result<AllocatedContPtr, SynthesisError> {
@@ -2149,6 +2209,7 @@ fn make_tail_continuation<CS: ConstraintSystem<Fr>>(
 
     let new_tail = AllocatedContPtr::construct(
         &mut cs.namespace(|| "new tail continuation"),
+        store,
         &g.tail_cont_tag,
         &[
             env,

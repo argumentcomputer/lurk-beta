@@ -13,10 +13,7 @@ use crate::{
 };
 use crate::{
     gadgets::pointer::AsAllocatedHashComponents,
-    store::{
-        ContPtr, ContTag, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk,
-        POSEIDON_CONSTANTS_4, POSEIDON_CONSTANTS_6, POSEIDON_CONSTANTS_8,
-    },
+    store::{ContPtr, ContTag, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk},
 };
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};
@@ -243,7 +240,7 @@ impl ContPtr {
         if let Some(cont) = cont {
             cont.allocate_components(cs, store)
         } else {
-            ContPtr::allocate_dummy_components(cs)
+            ContPtr::allocate_dummy_components(cs, store)
         }
     }
 
@@ -270,7 +267,7 @@ impl ContPtr {
         let hash = poseidon_hash(
             cs.namespace(|| "Continuation"),
             components.clone(),
-            &POSEIDON_CONSTANTS_8,
+            store.poseidon_constants().c8(),
         )?;
 
         Ok((hash, components))
@@ -278,6 +275,7 @@ impl ContPtr {
 
     fn allocate_dummy_components<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
+        store: &Store,
     ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
         let result: Vec<_> = (0..8)
             .map(|i| {
@@ -293,7 +291,7 @@ impl ContPtr {
         let dummy_hash = poseidon_hash(
             cs.namespace(|| "Continuation"),
             result.clone(),
-            &POSEIDON_CONSTANTS_8,
+            store.poseidon_constants().c8(),
         )?;
 
         Ok((dummy_hash, result))
@@ -312,16 +310,17 @@ impl Ptr {
                     let arg = store.hash_expr(&arg).expect("missing arg");
                     let body = store.hash_expr(&body).expect("missing body");
                     let closed_env = store.hash_expr(&closed_env).expect("missing closed env");
-                    Self::allocate_fun(cs, arg, body, closed_env)
+                    Self::allocate_fun(cs, store, arg, body, closed_env)
                 }
                 _ => unreachable!(),
             },
-            _ => Self::allocate_dummy_fun(cs),
+            _ => Self::allocate_dummy_fun(cs, store),
         }
     }
 
     fn allocate_fun<CS: ConstraintSystem<Fr>, T: IntoHashComponents>(
         mut cs: CS,
+        store: &Store,
         arg: T,
         body: T,
         closed_env: T,
@@ -344,16 +343,22 @@ impl Ptr {
             closed_env_t.hash().clone(),
         ];
 
-        let hash = poseidon_hash(cs.namespace(|| "Fun hash"), preimage, &POSEIDON_CONSTANTS_6)?;
+        let hash = poseidon_hash(
+            cs.namespace(|| "Fun hash"),
+            preimage,
+            store.poseidon_constants().c6(),
+        )?;
 
         Ok((hash, arg_t, body_t, closed_env_t))
     }
 
     fn allocate_dummy_fun<CS: ConstraintSystem<Fr>>(
         cs: CS,
+        store: &Store,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr, AllocatedPtr), SynthesisError> {
         Self::allocate_fun(
             cs,
+            store,
             [Fr::zero(), Fr::zero()],
             [Fr::zero(), Fr::zero()],
             [Fr::zero(), Fr::zero()],
@@ -472,7 +477,7 @@ impl Thunk {
         if let Some(thunk) = thunk {
             thunk.allocate_components(cs, store)
         } else {
-            Thunk::allocate_dummy_components(cs)
+            Thunk::allocate_dummy_components(cs, store)
         }
     }
 
@@ -501,13 +506,14 @@ impl Thunk {
             },
         )?;
 
-        let hash = Self::hash_components(cs.namespace(|| "Thunk"), &value, &cont)?;
+        let hash = Self::hash_components(cs.namespace(|| "Thunk"), store, &value, &cont)?;
 
         Ok((hash, value, cont))
     }
 
     pub fn allocate_dummy_components<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
+        store: &Store,
     ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedContPtr), SynthesisError> {
         let value = AllocatedPtr::alloc(&mut cs.namespace(|| "Thunk component: value"), || {
             Ok(ScalarPtr::from_parts(Fr::zero(), Fr::zero()))
@@ -518,13 +524,14 @@ impl Thunk {
             || Ok(ScalarContPtr::from_parts(Fr::zero(), Fr::zero())),
         )?;
 
-        let dummy_hash = Self::hash_components(cs.namespace(|| "Thunk"), &value, &cont)?;
+        let dummy_hash = Self::hash_components(cs.namespace(|| "Thunk"), store, &value, &cont)?;
 
         Ok((dummy_hash, value, cont))
     }
 
     pub fn hash_components<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
+        store: &Store,
         value: &AllocatedPtr,
         cont: &AllocatedContPtr,
     ) -> Result<AllocatedNum<Fr>, SynthesisError> {
@@ -539,7 +546,7 @@ impl Thunk {
                 conts[0].clone(),
                 conts[1].clone(),
             ],
-            &POSEIDON_CONSTANTS_4,
+            store.poseidon_constants().c4(),
         )?;
 
         Ok(hash)

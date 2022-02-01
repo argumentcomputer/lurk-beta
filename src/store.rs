@@ -6,26 +6,43 @@ use std::fmt;
 use std::hash::Hash;
 use string_interner::symbol::{Symbol, SymbolUsize};
 
-use generic_array::typenum::{U10, U11, U16, U2, U3, U4, U5, U6, U7, U8, U9};
-use neptune::{hash_type::HashType, poseidon::PoseidonConstants, Strength};
+use generic_array::typenum::{U4, U6, U8};
+use neptune::poseidon::PoseidonConstants;
+use once_cell::sync::OnceCell;
 use rayon::prelude::*;
 
 use crate::Num;
 
-lazy_static::lazy_static! {
-    pub static ref POSEIDON_CONSTANTS_2: PoseidonConstants::<Scalar, U2> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_3: PoseidonConstants::<Scalar, U3> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_4: PoseidonConstants::<Scalar, U4> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_5: PoseidonConstants::<Scalar, U5> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_6: PoseidonConstants::<Scalar, U6> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_7: PoseidonConstants::<Scalar, U7> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_8: PoseidonConstants::<Scalar, U8> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_9: PoseidonConstants::<Scalar, U9> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_10: PoseidonConstants::<Scalar, U10> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_11: PoseidonConstants::<Scalar, U11> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_16: PoseidonConstants::<Scalar, U16> = PoseidonConstants::new();
-    pub static ref POSEIDON_CONSTANTS_VARIABLE: PoseidonConstants::<Scalar, U16> =
-        PoseidonConstants::new_with_strength_and_type(Strength::Standard, HashType::VariableLength);
+/// Holds the constants needed for poseidon hashing.
+#[derive(Debug)]
+pub(crate) struct HashConstants<F: PrimeField> {
+    c4: OnceCell<PoseidonConstants<F, U4>>,
+    c6: OnceCell<PoseidonConstants<F, U6>>,
+    c8: OnceCell<PoseidonConstants<F, U8>>,
+}
+
+impl<F: PrimeField> Default for HashConstants<F> {
+    fn default() -> Self {
+        Self {
+            c4: OnceCell::new(),
+            c6: OnceCell::new(),
+            c8: OnceCell::new(),
+        }
+    }
+}
+
+impl<F: PrimeField> HashConstants<F> {
+    pub fn c4(&self) -> &PoseidonConstants<F, U4> {
+        self.c4.get_or_init(|| PoseidonConstants::new())
+    }
+
+    pub fn c6(&self) -> &PoseidonConstants<F, U6> {
+        self.c6.get_or_init(|| PoseidonConstants::new())
+    }
+
+    pub fn c8(&self) -> &PoseidonConstants<F, U8> {
+        self.c8.get_or_init(|| PoseidonConstants::new())
+    }
 }
 
 type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
@@ -82,6 +99,8 @@ struct PoseidonCache {
     a4: dashmap::DashMap<CacheKey<4>, Scalar, ahash::RandomState>,
     a6: dashmap::DashMap<CacheKey<6>, Scalar, ahash::RandomState>,
     a8: dashmap::DashMap<CacheKey<8>, Scalar, ahash::RandomState>,
+
+    constants: HashConstants<Scalar>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -101,7 +120,7 @@ impl PoseidonCache {
         let hash = self
             .a4
             .entry(CacheKey(*preimage))
-            .or_insert_with(|| Poseidon::new_with_preimage(preimage, &POSEIDON_CONSTANTS_4).hash());
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c4()).hash());
         *hash
     }
 
@@ -109,7 +128,7 @@ impl PoseidonCache {
         let hash = self
             .a6
             .entry(CacheKey(*preimage))
-            .or_insert_with(|| Poseidon::new_with_preimage(preimage, &POSEIDON_CONSTANTS_6).hash());
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c6()).hash());
         *hash
     }
 
@@ -117,7 +136,7 @@ impl PoseidonCache {
         let hash = self
             .a8
             .entry(CacheKey(*preimage))
-            .or_insert_with(|| Poseidon::new_with_preimage(preimage, &POSEIDON_CONSTANTS_8).hash());
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c8()).hash());
         *hash
     }
 }
@@ -560,6 +579,10 @@ impl Store {
 
     pub fn cdr(&self, expr: &Ptr) -> Ptr {
         self.car_cdr(expr).1
+    }
+
+    pub(crate) fn poseidon_constants(&self) -> &HashConstants<Scalar> {
+        &self.poseidon_cache.constants
     }
 }
 

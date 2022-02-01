@@ -10,7 +10,7 @@ use neptune::circuit::poseidon_hash;
 use crate::{
     store::{
         ContPtr, Continuation, Expression, IntoHashComponents, Ptr, ScalarContPtr, ScalarPointer,
-        ScalarPtr, Store, Thunk, POSEIDON_CONSTANTS_4, POSEIDON_CONSTANTS_6, POSEIDON_CONSTANTS_8,
+        ScalarPtr, Store, Thunk,
     },
     writer::Write,
 };
@@ -198,6 +198,7 @@ impl AllocatedPtr {
     pub fn construct_cons<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
         g: &GlobalAllocations,
+        store: &Store,
         car: &AllocatedPtr,
         cdr: &AllocatedPtr,
     ) -> Result<AllocatedPtr, SynthesisError> {
@@ -212,7 +213,7 @@ impl AllocatedPtr {
         let hash = poseidon_hash(
             cs.namespace(|| "Cons hash"),
             preimage,
-            &POSEIDON_CONSTANTS_4,
+            store.poseidon_constants().c4(),
         )?;
 
         Ok(AllocatedPtr {
@@ -224,6 +225,7 @@ impl AllocatedPtr {
     pub fn construct_fun<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
         g: &GlobalAllocations,
+        store: &Store,
         arg: &AllocatedPtr,
         body: &AllocatedPtr,
         closed_env: &AllocatedPtr,
@@ -237,7 +239,11 @@ impl AllocatedPtr {
             closed_env.hash().clone(),
         ];
 
-        let hash = poseidon_hash(cs.namespace(|| "Fun hash"), preimage, &POSEIDON_CONSTANTS_6)?;
+        let hash = poseidon_hash(
+            cs.namespace(|| "Fun hash"),
+            preimage,
+            store.poseidon_constants().c6(),
+        )?;
 
         Ok(AllocatedPtr {
             tag: g.fun_tag.clone(),
@@ -248,23 +254,25 @@ impl AllocatedPtr {
     pub fn construct_list<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
         g: &GlobalAllocations,
+        store: &Store,
         elts: &[&AllocatedPtr],
     ) -> Result<Self, SynthesisError> {
         if elts.is_empty() {
             return Ok(g.nil_ptr.clone());
         }
 
-        let tail = Self::construct_list(&mut cs.namespace(|| "Cons tail"), g, &elts[1..])?;
-        Self::construct_cons(&mut cs.namespace(|| "Cons"), g, elts[0], &tail)
+        let tail = Self::construct_list(&mut cs.namespace(|| "Cons tail"), g, store, &elts[1..])?;
+        Self::construct_cons(&mut cs.namespace(|| "Cons"), g, store, elts[0], &tail)
     }
 
     pub fn construct_thunk<CS: ConstraintSystem<Fr>>(
         cs: CS,
         g: &GlobalAllocations,
+        store: &Store,
         val: &AllocatedPtr,
         cont: &AllocatedContPtr,
     ) -> Result<Self, SynthesisError> {
-        let thunk_hash = Thunk::hash_components(cs, val, cont)?;
+        let thunk_hash = Thunk::hash_components(cs, store, val, cont)?;
 
         Ok(AllocatedPtr {
             tag: g.thunk_tag.clone(),
@@ -511,6 +519,7 @@ impl AllocatedContPtr {
 
     pub fn construct<CS: ConstraintSystem<Fr>>(
         mut cs: CS,
+        store: &Store,
         cont_tag: &AllocatedNum<Fr>,
         components: &[&dyn AsAllocatedHashComponents; 4],
     ) -> Result<Self, SynthesisError> {
@@ -523,7 +532,7 @@ impl AllocatedContPtr {
         let hash = poseidon_hash(
             cs.namespace(|| "Continuation"),
             components,
-            &POSEIDON_CONSTANTS_8,
+            store.poseidon_constants().c8(),
         )?;
 
         let cont = AllocatedContPtr {
