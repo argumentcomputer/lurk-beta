@@ -13,10 +13,18 @@ pub enum Num<F: PrimeField> {
     U64(u64),
 }
 
-impl<F: PrimeField + Display> Display for Num<F> {
+impl<F: PrimeField> Display for Num<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Num::Scalar(s) => write!(f, "Num({})", s),
+            Num::Scalar(s) => {
+                let be_bytes = s.to_repr();
+                write!(f, "Num(0x")?;
+                for &b in be_bytes.as_ref().iter().rev() {
+                    write!(f, "{:02x}", b)?;
+                }
+                write!(f, ")")?;
+                Ok(())
+            }
             Num::U64(n) => write!(f, "Num({:#x})", n),
         }
     }

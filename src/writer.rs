@@ -50,7 +50,7 @@ impl<F: PrimeField> Write<F> for Expression<'_, F> {
                 body.fmt(store, w)?;
                 write!(w, ">")
             }
-            Num(n) => write!(w, "{:?}", n),
+            Num(n) => write!(w, "{}", n),
             Thunk(f) => {
                 write!(w, "Thunk for cont ")?;
                 f.continuation.fmt(store, w)?;
