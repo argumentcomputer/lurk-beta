@@ -5,7 +5,8 @@ use bellperson::{
     util_cs::Comparable,
     Circuit, ConstraintSystem, SynthesisError,
 };
-use blstrs::Scalar as Fr;
+use ff::PrimeField;
+use pairing_lib::Engine;
 
 use crate::{
     gadgets::{
@@ -23,8 +24,8 @@ use crate::gadgets::constraints::{
 use crate::store::{ContPtr, ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
 
 #[derive(Clone)]
-pub struct CircuitFrame<'a, T, W> {
-    pub store: &'a Store<Fr>,
+pub struct CircuitFrame<'a, E: Engine, T, W> {
+    pub store: &'a Store<E::Fr>,
     pub input: Option<T>,
     pub output: Option<T>,
     pub initial: Option<T>,
@@ -32,8 +33,8 @@ pub struct CircuitFrame<'a, T, W> {
     pub witness: Option<W>,
 }
 
-impl<'a, T: Clone, W> CircuitFrame<'a, T, W> {
-    pub fn from_frame(initial: T, frame: Frame<T, W>, store: &'a Store<Fr>) -> Self {
+impl<'a, E: Engine, T: Clone, W> CircuitFrame<'a, E, T, W> {
+    pub fn from_frame(initial: T, frame: Frame<T, W>, store: &'a Store<E::Fr>) -> Self {
         CircuitFrame {
             store,
             input: Some(frame.input),
@@ -45,8 +46,8 @@ impl<'a, T: Clone, W> CircuitFrame<'a, T, W> {
     }
 }
 
-impl Circuit<Fr> for CircuitFrame<'_, IO<Fr>, Witness<Fr>> {
-    fn synthesize<CS: ConstraintSystem<Fr>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
+impl<E: Engine> Circuit<E::Fr> for CircuitFrame<'_, E, IO<E::Fr>, Witness<E::Fr>> {
+    fn synthesize<CS: ConstraintSystem<E::Fr>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         // if let Some(o) = &self.output {
         //     dbg!(o.expr.fmt_to_string(self.store));
         // }
@@ -124,7 +125,7 @@ impl Circuit<Fr> for CircuitFrame<'_, IO<Fr>, Witness<Fr>> {
             || "frame counter",
             || {
                 self.i
-                    .map(|i| Fr::from(i as u64))
+                    .map(|i| E::Fr::from(i as u64))
                     .ok_or(SynthesisError::AssignmentMissing)
             },
         );
@@ -150,53 +151,53 @@ impl Circuit<Fr> for CircuitFrame<'_, IO<Fr>, Witness<Fr>> {
 }
 
 #[derive(Default)]
-struct Results<'a> {
-    expr_tag_clauses: Vec<CaseClause<'a, Fr>>,
-    expr_hash_clauses: Vec<CaseClause<'a, Fr>>,
-    env_tag_clauses: Vec<CaseClause<'a, Fr>>,
-    env_hash_clauses: Vec<CaseClause<'a, Fr>>,
-    cont_tag_clauses: Vec<CaseClause<'a, Fr>>,
-    cont_hash_clauses: Vec<CaseClause<'a, Fr>>,
-    invoke_continuation_clauses: Vec<CaseClause<'a, Fr>>,
-    make_thunk_num_clauses: Vec<CaseClause<'a, Fr>>,
+struct Results<'a, F: PrimeField> {
+    expr_tag_clauses: Vec<CaseClause<'a, F>>,
+    expr_hash_clauses: Vec<CaseClause<'a, F>>,
+    env_tag_clauses: Vec<CaseClause<'a, F>>,
+    env_hash_clauses: Vec<CaseClause<'a, F>>,
+    cont_tag_clauses: Vec<CaseClause<'a, F>>,
+    cont_hash_clauses: Vec<CaseClause<'a, F>>,
+    invoke_continuation_clauses: Vec<CaseClause<'a, F>>,
+    make_thunk_num_clauses: Vec<CaseClause<'a, F>>,
 }
 
-fn add_clause<'a>(
-    tag_clauses: &mut Vec<CaseClause<'a, Fr>>,
-    hash_clauses: &mut Vec<CaseClause<'a, Fr>>,
-    key: Fr,
-    expr: &'a AllocatedPtr<Fr>,
+fn add_clause<'a, F: PrimeField>(
+    tag_clauses: &mut Vec<CaseClause<'a, F>>,
+    hash_clauses: &mut Vec<CaseClause<'a, F>>,
+    key: F,
+    expr: &'a AllocatedPtr<F>,
 ) {
     add_clause_single(tag_clauses, key, expr.tag());
     add_clause_single(hash_clauses, key, expr.hash());
 }
 
-fn add_clause_cont<'a>(
-    tag_clauses: &mut Vec<CaseClause<'a, Fr>>,
-    hash_clauses: &mut Vec<CaseClause<'a, Fr>>,
-    key: Fr,
-    cont: &'a AllocatedContPtr<Fr>,
+fn add_clause_cont<'a, F: PrimeField>(
+    tag_clauses: &mut Vec<CaseClause<'a, F>>,
+    hash_clauses: &mut Vec<CaseClause<'a, F>>,
+    key: F,
+    cont: &'a AllocatedContPtr<F>,
 ) {
     add_clause_single(tag_clauses, key, cont.tag());
     add_clause_single(hash_clauses, key, cont.hash());
 }
 
-fn add_clause_single<'a>(
-    clauses: &mut Vec<CaseClause<'a, Fr>>,
-    key: Fr,
-    value: &'a AllocatedNum<Fr>,
+fn add_clause_single<'a, F: PrimeField>(
+    clauses: &mut Vec<CaseClause<'a, F>>,
+    key: F,
+    value: &'a AllocatedNum<F>,
 ) {
     clauses.push(CaseClause { key, value });
 }
 
-impl<'a> Results<'a> {
+impl<'a, F: PrimeField> Results<'a, F> {
     fn add_clauses_expr(
         &mut self,
         key: Tag,
-        result_expr: &'a AllocatedPtr<Fr>,
-        result_env: &'a AllocatedPtr<Fr>,
-        result_cont: &'a AllocatedContPtr<Fr>,
-        result_invoke_continuation: &'a AllocatedNum<Fr>,
+        result_expr: &'a AllocatedPtr<F>,
+        result_env: &'a AllocatedPtr<F>,
+        result_cont: &'a AllocatedContPtr<F>,
+        result_invoke_continuation: &'a AllocatedNum<F>,
     ) {
         let key = key.as_field();
         add_clause(
@@ -229,11 +230,11 @@ impl<'a> Results<'a> {
 
     fn add_clauses_cons(
         &mut self,
-        key: Fr,
-        result_expr: &'a AllocatedPtr<Fr>,
-        result_env: &'a AllocatedPtr<Fr>,
-        result_cont: &'a AllocatedContPtr<Fr>,
-        invoke_cont: &'a AllocatedNum<Fr>,
+        key: F,
+        result_expr: &'a AllocatedPtr<F>,
+        result_env: &'a AllocatedPtr<F>,
+        result_cont: &'a AllocatedContPtr<F>,
+        invoke_cont: &'a AllocatedNum<F>,
     ) {
         add_clause(
             &mut self.expr_tag_clauses,
@@ -259,9 +260,9 @@ impl<'a> Results<'a> {
     fn add_clauses_thunk(
         &mut self,
         key: ContTag,
-        result_expr: &'a AllocatedPtr<Fr>,
-        result_env: &'a AllocatedPtr<Fr>,
-        result_cont: &'a AllocatedContPtr<Fr>,
+        result_expr: &'a AllocatedPtr<F>,
+        result_env: &'a AllocatedPtr<F>,
+        result_cont: &'a AllocatedContPtr<F>,
     ) {
         let key = key.as_field();
         add_clause(
@@ -287,10 +288,10 @@ impl<'a> Results<'a> {
     fn add_clauses_cont(
         &mut self,
         key: ContTag,
-        result_expr: &'a AllocatedPtr<Fr>,
-        result_env: &'a AllocatedPtr<Fr>,
-        result_cont: &'a AllocatedContPtr<Fr>,
-        make_thunk_num: &'a AllocatedNum<Fr>,
+        result_expr: &'a AllocatedPtr<F>,
+        result_env: &'a AllocatedPtr<F>,
+        result_cont: &'a AllocatedContPtr<F>,
+        make_thunk_num: &'a AllocatedNum<F>,
     ) {
         let key = key.as_field();
         add_clause(
@@ -315,14 +316,14 @@ impl<'a> Results<'a> {
     }
 }
 
-fn evaluate_expression<CS: ConstraintSystem<Fr>>(
+fn evaluate_expression<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    expr: &AllocatedPtr<Fr>,
-    env: &AllocatedPtr<Fr>,
-    cont: &AllocatedContPtr<Fr>,
-    witness: &Option<Witness<Fr>>,
-    store: &Store<Fr>,
-) -> Result<(AllocatedPtr<Fr>, AllocatedPtr<Fr>, AllocatedContPtr<Fr>), SynthesisError> {
+    expr: &AllocatedPtr<F>,
+    env: &AllocatedPtr<F>,
+    cont: &AllocatedContPtr<F>,
+    witness: &Option<Witness<F>>,
+    store: &Store<F>,
+) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
     // dbg!("evaluate_expression");
     // dbg!(&expr.fetch_and_write_str(store));
     // dbg!(&env.fetch_and_write_str(store));
@@ -448,7 +449,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
 
     let first_result_env = AllocatedPtr::by_index(1, &case_results);
     let first_result_cont = AllocatedContPtr::by_index(2, &case_results);
-    let first_result_invoke_continuation: &AllocatedNum<Fr> = &case_results[6];
+    let first_result_invoke_continuation: &AllocatedNum<F> = &case_results[6];
 
     let invoke_continuation_boolean = Boolean::not(&alloc_is_zero(
         &mut cs.namespace(|| "invoke_continuation_is_zero"),
@@ -466,7 +467,7 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
         &g,
     )?;
 
-    let invoke_continuation_make_thunk: AllocatedNum<Fr> = invoke_continuation_results.3;
+    let invoke_continuation_make_thunk: AllocatedNum<F> = invoke_continuation_results.3;
 
     let result_expr0 = AllocatedPtr::pick(
         &mut cs.namespace(|| "pick maybe invoke_continuation expr"),
@@ -537,21 +538,21 @@ fn evaluate_expression<CS: ConstraintSystem<Fr>>(
     Ok((result_expr, result_env, result_cont))
 }
 
-fn eval_sym<CS: ConstraintSystem<Fr>>(
+fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    expr: &AllocatedPtr<Fr>,
-    env: &AllocatedPtr<Fr>,
-    cont: &AllocatedContPtr<Fr>,
+    expr: &AllocatedPtr<F>,
+    env: &AllocatedPtr<F>,
+    cont: &AllocatedContPtr<F>,
     not_dummy: &Boolean,
-    witness: &Option<Witness<Fr>>,
-    store: &Store<Fr>,
-    g: &GlobalAllocations<Fr>,
+    witness: &Option<Witness<F>>,
+    store: &Store<F>,
+    g: &GlobalAllocations<F>,
 ) -> Result<
     (
-        AllocatedPtr<Fr>,
-        AllocatedPtr<Fr>,
-        AllocatedContPtr<Fr>,
-        AllocatedNum<Fr>,
+        AllocatedPtr<F>,
+        AllocatedPtr<F>,
+        AllocatedContPtr<F>,
+        AllocatedNum<F>,
     ),
     SynthesisError,
 > {
@@ -839,21 +840,21 @@ fn eval_sym<CS: ConstraintSystem<Fr>>(
     Ok((output_expr, output_env, output_cont, invoke_cont_num))
 }
 
-fn eval_cons<CS: ConstraintSystem<Fr>>(
+fn eval_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    expr: &AllocatedPtr<Fr>,
-    env: &AllocatedPtr<Fr>,
-    cont: &AllocatedContPtr<Fr>,
+    expr: &AllocatedPtr<F>,
+    env: &AllocatedPtr<F>,
+    cont: &AllocatedContPtr<F>,
     _not_dummy: &Boolean,
-    _witness: &Option<Witness<Fr>>,
-    store: &Store<Fr>,
-    g: &GlobalAllocations<Fr>,
+    _witness: &Option<Witness<F>>,
+    store: &Store<F>,
+    g: &GlobalAllocations<F>,
 ) -> Result<
     (
-        AllocatedPtr<Fr>,
-        AllocatedPtr<Fr>,
-        AllocatedContPtr<Fr>,
-        AllocatedNum<Fr>,
+        AllocatedPtr<F>,
+        AllocatedPtr<F>,
+        AllocatedContPtr<F>,
+        AllocatedNum<F>,
     ),
     SynthesisError,
 > {
@@ -1303,7 +1304,7 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     let result_expr = AllocatedPtr::by_index(0, &case_results);
     let result_env = AllocatedPtr::by_index(1, &case_results);
     let result_cont = AllocatedContPtr::by_index(2, &case_results);
-    let result_invoke_cont: &AllocatedNum<Fr> = &case_results[6];
+    let result_invoke_cont: &AllocatedNum<F> = &case_results[6];
 
     Ok((
         result_expr,
@@ -1313,16 +1314,16 @@ fn eval_cons<CS: ConstraintSystem<Fr>>(
     ))
 }
 
-fn make_thunk<CS: ConstraintSystem<Fr>>(
+fn make_thunk<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    cont: &AllocatedContPtr<Fr>,
-    result: &AllocatedPtr<Fr>,
-    env: &AllocatedPtr<Fr>,
+    cont: &AllocatedContPtr<F>,
+    result: &AllocatedPtr<F>,
+    env: &AllocatedPtr<F>,
     not_dummy: &Boolean,
-    _witness: &Option<Witness<Fr>>,
-    store: &Store<Fr>,
-    g: &GlobalAllocations<Fr>,
-) -> Result<(AllocatedPtr<Fr>, AllocatedPtr<Fr>, AllocatedContPtr<Fr>), SynthesisError> {
+    _witness: &Option<Witness<F>>,
+    store: &Store<F>,
+    g: &GlobalAllocations<F>,
+) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
     let mut results = Results::default();
 
     let (computed_cont_hash, cont_components) = ContPtr::allocate_maybe_dummy_components(
@@ -1390,21 +1391,21 @@ fn make_thunk<CS: ConstraintSystem<Fr>>(
     Ok((result_expr, result_env, result_cont))
 }
 
-fn invoke_continuation<CS: ConstraintSystem<Fr>>(
+fn invoke_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    cont: &AllocatedContPtr<Fr>,
-    result: &AllocatedPtr<Fr>,
-    env: &AllocatedPtr<Fr>,
+    cont: &AllocatedContPtr<F>,
+    result: &AllocatedPtr<F>,
+    env: &AllocatedPtr<F>,
     not_dummy: &Boolean,
-    witness: &Option<Witness<Fr>>,
-    store: &Store<Fr>,
-    g: &GlobalAllocations<Fr>,
+    witness: &Option<Witness<F>>,
+    store: &Store<F>,
+    g: &GlobalAllocations<F>,
 ) -> Result<
     (
-        AllocatedPtr<Fr>,
-        AllocatedPtr<Fr>,
-        AllocatedContPtr<Fr>,
-        AllocatedNum<Fr>,
+        AllocatedPtr<F>,
+        AllocatedPtr<F>,
+        AllocatedContPtr<F>,
+        AllocatedNum<F>,
     ),
     SynthesisError,
 > {
@@ -2051,12 +2052,12 @@ fn invoke_continuation<CS: ConstraintSystem<Fr>>(
     Ok((result_expr, result_env, result_cont, make_thunk_num))
 }
 
-fn car_cdr<CS: ConstraintSystem<Fr>>(
+fn car_cdr<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    g: &GlobalAllocations<Fr>,
-    maybe_cons: &AllocatedPtr<Fr>,
-    store: &Store<Fr>,
-) -> Result<(AllocatedPtr<Fr>, AllocatedPtr<Fr>), SynthesisError> {
+    g: &GlobalAllocations<F>,
+    maybe_cons: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
     // A dummy value will never have the cons tag.
     let not_dummy = alloc_equal(
         &mut cs.namespace(|| "not_dummy"),
@@ -2102,27 +2103,27 @@ fn car_cdr<CS: ConstraintSystem<Fr>>(
     Ok((allocated_car, allocated_cdr))
 }
 
-fn extend<CS: ConstraintSystem<Fr>>(
+fn extend<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    g: &GlobalAllocations<Fr>,
-    store: &Store<Fr>,
-    env: &AllocatedPtr<Fr>,
-    var: &AllocatedPtr<Fr>,
-    val: &AllocatedPtr<Fr>,
-) -> Result<AllocatedPtr<Fr>, SynthesisError> {
+    g: &GlobalAllocations<F>,
+    store: &Store<F>,
+    env: &AllocatedPtr<F>,
+    var: &AllocatedPtr<F>,
+    val: &AllocatedPtr<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
     let new_binding =
         AllocatedPtr::construct_cons(&mut cs.namespace(|| "extend binding"), g, store, var, val)?;
     AllocatedPtr::construct_cons(cs, g, store, &new_binding, env)
 }
 
-fn extend_rec<CS: ConstraintSystem<Fr>>(
+fn extend_rec<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    g: &GlobalAllocations<Fr>,
-    env: &AllocatedPtr<Fr>,
-    var: &AllocatedPtr<Fr>,
-    val: &AllocatedPtr<Fr>,
-    store: &Store<Fr>,
-) -> Result<AllocatedPtr<Fr>, SynthesisError> {
+    g: &GlobalAllocations<F>,
+    env: &AllocatedPtr<F>,
+    var: &AllocatedPtr<F>,
+    val: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
     let (binding_or_env, rest) = car_cdr(&mut cs.namespace(|| "car_cdr env"), g, env, store)?;
     let (var_or_binding, _val_or_more_bindings) = car_cdr(
         &mut cs.namespace(|| "car_cdr binding_or_env"),
@@ -2194,13 +2195,13 @@ fn extend_rec<CS: ConstraintSystem<Fr>>(
     )
 }
 
-fn make_tail_continuation<CS: ConstraintSystem<Fr>>(
+fn make_tail_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    g: &GlobalAllocations<Fr>,
-    store: &Store<Fr>,
-    env: &AllocatedPtr<Fr>,
-    continuation: &AllocatedContPtr<Fr>,
-) -> Result<AllocatedContPtr<Fr>, SynthesisError> {
+    g: &GlobalAllocations<F>,
+    store: &Store<F>,
+    env: &AllocatedPtr<F>,
+    continuation: &AllocatedContPtr<F>,
+) -> Result<AllocatedContPtr<F>, SynthesisError> {
     let continuation_is_tail = alloc_equal(
         &mut cs.namespace(|| "continuation is tail"),
         continuation.tag(),
@@ -2229,7 +2230,7 @@ fn make_tail_continuation<CS: ConstraintSystem<Fr>>(
 
 /// Prints out the full CS for debugging purposes
 #[allow(dead_code)]
-pub(crate) fn print_cs<C: Comparable<Fr>>(this: &C) -> String {
+pub(crate) fn print_cs<F: PrimeField, C: Comparable<F>>(this: &C) -> String {
     let mut out = String::new();
     out += &format!("num_inputs: {}\n", this.num_inputs());
     out += &format!("num_constraints: {}\n", this.num_constraints());
@@ -2262,6 +2263,7 @@ mod tests {
     use bellperson::util_cs::{
         metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta,
     };
+    use blstrs::{Bls12, Scalar as Fr};
 
     #[test]
     fn num_self_evaluating() {
@@ -2286,7 +2288,7 @@ mod tests {
             let mut cs = TestConstraintSystem::new();
 
             let mut cs_blank = MetricCS::<Fr>::new();
-            let blank_frame = CircuitFrame::blank(store);
+            let blank_frame = CircuitFrame::<Bls12, _, _>::blank(store);
             blank_frame
                 .synthesize(&mut cs_blank)
                 .expect("failed to synthesize");
@@ -2393,7 +2395,7 @@ mod tests {
         let (_, witness) = input.eval(&mut store);
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
-            let mut cs = TestConstraintSystem::new();
+            let mut cs = TestConstraintSystem::<Fr>::new();
 
             let frame = Frame {
                 input: input.clone(),
@@ -2402,7 +2404,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(initial.clone(), frame, store)
+            CircuitFrame::<Bls12, _, _>::from_frame(initial.clone(), frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2468,7 +2470,7 @@ mod tests {
         let (_, witness) = input.eval(&mut store);
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
-            let mut cs = TestConstraintSystem::new();
+            let mut cs = TestConstraintSystem::<Fr>::new();
 
             let frame = Frame {
                 input: input.clone(),
@@ -2477,7 +2479,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(initial.clone(), frame, store)
+            CircuitFrame::<Bls12, _, _>::from_frame(initial.clone(), frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2541,7 +2543,7 @@ mod tests {
         let (_, witness) = input.eval(&mut store);
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
-            let mut cs = TestConstraintSystem::new();
+            let mut cs = TestConstraintSystem::<Fr>::new();
 
             let frame = Frame {
                 input: input.clone(),
@@ -2550,7 +2552,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(initial.clone(), frame, store)
+            CircuitFrame::<Bls12, _, _>::from_frame(initial.clone(), frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2615,7 +2617,7 @@ mod tests {
         let (_, witness) = input.eval(&mut store);
 
         let test_with_output = |output, expect_success, store: &mut Store<Fr>| {
-            let mut cs = TestConstraintSystem::new();
+            let mut cs = TestConstraintSystem::<Fr>::new();
 
             let frame = Frame {
                 input: input.clone(),
@@ -2624,7 +2626,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::from_frame(initial.clone(), frame, &store)
+            CircuitFrame::<Bls12, _, _>::from_frame(initial.clone(), frame, &store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
