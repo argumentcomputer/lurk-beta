@@ -51,8 +51,7 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 [[package]]
 name = "bellperson"
 version = "0.18.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "121a6b5dd501e84f0529d2d25cecc4f5f38439f1f4db9f869db7780d4e082b52"
+source = "git+https://github.com/filecoin-project/bellperson?branch=instance-aggregation#00d37b66af70f38334b07f931d50c3fa92654e57"
 dependencies = [
  "bincode",
  "bitvec",
@@ -150,8 +149,9 @@ dependencies = [
 
 [[package]]
 name = "blst"
-version = "0.3.6"
-source = "git+https://github.com/supranational/blst?branch=master#88330f86d462af5a9aa903924e2060f2c633d129"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acb8c0939e210397464ae1857265a7492a2957f915803d43cb9832229100636a"
 dependencies = [
  "cc",
  "glob",
@@ -162,9 +162,9 @@ dependencies = [
 
 [[package]]
 name = "blstrs"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6495df7995831e0211c54e888c993d4c86054c45fda110b475f021de7aa74f62"
+checksum = "664e5bb8c905952f8de3911166c63f1d6e94c04bb5094c662e5884c7bb62b475"
 dependencies = [
  "blst",
  "byte-slice-cast",

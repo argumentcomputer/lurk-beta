@@ -44,6 +44,4 @@ name = "eval"
 harness = false
 
 [patch.crates-io]
-blst = { git = "https://github.com/supranational/blst", branch = "master" }
-
-
+bellperson = { git = "https://github.com/filecoin-project/bellperson", branch = "instance-aggregation" }
