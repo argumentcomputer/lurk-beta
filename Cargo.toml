@@ -36,6 +36,7 @@ gpu = ["neptune/opencl"]
 
 [dev-dependencies]
 criterion = "0.3.5"
+pasta_curves = "0.3.0"
 
 
 [[bench]]

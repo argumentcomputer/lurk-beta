@@ -1,4 +1,5 @@
 use anyhow::Result;
+use blstrs::Scalar as Fr;
 use lurk::eval::{empty_sym_env, Evaluator};
 use lurk::store::{ContPtr, ContTag, Expression, Pointer, Ptr, Store, Tag};
 use lurk::writer::Write;
@@ -25,7 +26,7 @@ impl Validator for InputValidator {
 
 #[derive(Clone)]
 struct ReplState {
-    env: Ptr,
+    env: Ptr<Fr>,
     limit: usize,
 }
 
@@ -36,7 +37,7 @@ struct Repl {
 }
 
 impl Repl {
-    fn new(s: &mut Store, limit: usize) -> Result<Self> {
+    fn new(s: &mut Store<Fr>, limit: usize) -> Result<Self> {
         let history_path = dirs::home_dir()
             .expect("missing home directory")
             .join(".lurk-history");
@@ -138,13 +139,13 @@ fn main() -> Result<()> {
 }
 
 impl ReplState {
-    fn new(s: &mut Store, limit: usize) -> Self {
+    fn new(s: &mut Store<Fr>, limit: usize) -> Self {
         Self {
             env: empty_sym_env(&s),
             limit,
         }
     }
-    fn eval_expr(&mut self, expr: Ptr, store: &mut Store) -> (Ptr, usize, ContPtr) {
+    fn eval_expr(&mut self, expr: Ptr<Fr>, store: &mut Store<Fr>) -> (Ptr<Fr>, usize, ContPtr<Fr>) {
         let (result, _next_env, limit, next_cont) =
             Evaluator::new(expr, self.env.clone(), store, self.limit).eval();
 
@@ -154,7 +155,7 @@ impl ReplState {
     /// Returns two bools.
     /// First bool is true if input is a command.
     /// Second bool is true if processing should continue.
-    fn maybe_handle_command(&mut self, store: &mut Store, line: &str) -> Result<(bool, bool)> {
+    fn maybe_handle_command(&mut self, store: &mut Store<Fr>, line: &str) -> Result<(bool, bool)> {
         let mut chars = line.chars().peekable();
         let maybe_command = store.read_next(&mut chars);
 
@@ -209,7 +210,7 @@ impl ReplState {
         Ok(result)
     }
 
-    fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store, path: P) -> Result<()> {
+    fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store<Fr>, path: P) -> Result<()> {
         println!("Loading from {}.", path.as_ref().to_str().unwrap());
         let input = read_to_string(path)?;
 
@@ -223,7 +224,7 @@ impl ReplState {
         Ok(())
     }
 
-    fn handle_run<P: AsRef<Path> + Copy>(&mut self, store: &mut Store, path: P) -> Result<()> {
+    fn handle_run<P: AsRef<Path> + Copy>(&mut self, store: &mut Store<Fr>, path: P) -> Result<()> {
         println!("Running from {}.", path.as_ref().to_str().unwrap());
         let p = path;
 

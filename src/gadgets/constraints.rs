@@ -7,8 +7,7 @@ use bellperson::{
     },
     ConstraintSystem, SynthesisError,
 };
-use blstrs::Scalar as Fr;
-use ff::{Field, PrimeField};
+use ff::PrimeField;
 
 /// Adds a constraint to CS, enforcing an equality relationship between the allocated numbers a and b.
 ///
@@ -181,11 +180,11 @@ pub fn div<F: PrimeField, CS: ConstraintSystem<F>>(
 /// The returned result contains the selected element, and constraints are enforced.
 /// `from.len()` must be a power of two.
 #[allow(dead_code)]
-pub fn select<CS: ConstraintSystem<Fr>>(
+pub fn select<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    from: &[AllocatedNum<Fr>],
+    from: &[AllocatedNum<F>],
     path_bits: &[Boolean],
-) -> Result<AllocatedNum<Fr>, SynthesisError> {
+) -> Result<AllocatedNum<F>, SynthesisError> {
     let pathlen = path_bits.len();
     assert_eq!(1 << pathlen, from.len());
 
@@ -211,14 +210,14 @@ pub fn select<CS: ConstraintSystem<Fr>>(
 }
 
 /// Takes two allocated numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.
-pub fn pick<CS: ConstraintSystem<Fr>>(
+pub fn pick<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     condition: &Boolean,
-    a: &AllocatedNum<Fr>,
-    b: &AllocatedNum<Fr>,
-) -> Result<AllocatedNum<Fr>, SynthesisError>
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
+) -> Result<AllocatedNum<F>, SynthesisError>
 where
-    CS: ConstraintSystem<Fr>,
+    CS: ConstraintSystem<F>,
 {
     let c = AllocatedNum::alloc(cs.namespace(|| "pick result"), || {
         if condition
@@ -236,7 +235,7 @@ where
     cs.enforce(
         || "pick",
         |lc| lc + b.get_variable() - a.get_variable(),
-        |_| condition.lc(CS::one(), Fr::one()),
+        |_| condition.lc(CS::one(), F::one()),
         |lc| lc + b.get_variable() - c.get_variable(),
     );
 
@@ -415,6 +414,7 @@ mod tests {
 
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
+    use ff::Field;
     use rand::SeedableRng;
     use rand_xorshift::XorShiftRng;
     use std::ops::{AddAssign, SubAssign};

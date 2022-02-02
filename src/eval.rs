@@ -1,3 +1,5 @@
+use ff::PrimeField;
+
 use crate::store::{
     ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk,
 };
@@ -6,14 +8,14 @@ use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IO {
-    pub expr: Ptr,
-    pub env: Ptr,
-    pub cont: ContPtr, // This could be a Ptr too, if we want Continuations to be first class.
+pub struct IO<F: PrimeField> {
+    pub expr: Ptr<F>,
+    pub env: Ptr<F>,
+    pub cont: ContPtr<F>, // This could be a Ptr too, if we want Continuations to be first class.
 }
 
-impl Write for IO {
-    fn fmt<W: std::io::Write>(&self, store: &Store, w: &mut W) -> std::io::Result<()> {
+impl<F: PrimeField> Write<F> for IO<F> {
+    fn fmt<W: std::io::Write>(&self, store: &Store<F>, w: &mut W) -> std::io::Result<()> {
         write!(w, "IO {{ expr: ")?;
         self.expr.fmt(store, w)?;
         write!(w, ", env: ")?;
@@ -41,16 +43,16 @@ impl<T: PartialEq + std::fmt::Debug, W> Frame<T, W> {
     }
 }
 
-pub trait Evaluable<W> {
-    fn eval(&self, store: &mut Store) -> (Self, W)
+pub trait Evaluable<F: PrimeField, W> {
+    fn eval(&self, store: &mut Store<F>) -> (Self, W)
     where
         Self: Sized;
 
     fn is_terminal(&self) -> bool;
 }
 
-impl Evaluable<Witness> for IO {
-    fn eval(&self, store: &mut Store) -> (Self, Witness) {
+impl<F: PrimeField> Evaluable<F, Witness<F>> for IO<F> {
+    fn eval(&self, store: &mut Store<F>) -> (Self, Witness<F>) {
         let (expr, env, cont, witness) = eval_expr(self.expr, self.env, self.cont, store);
         (Self { expr, env, cont }, witness)
     }
@@ -60,8 +62,8 @@ impl Evaluable<Witness> for IO {
     }
 }
 
-impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
-    fn next(&self, store: &mut Store) -> Self {
+impl<F: PrimeField, T: Evaluable<F, Witness<F>> + Clone + PartialEq> Frame<T, Witness<F>> {
+    fn next(&self, store: &mut Store<F>) -> Self {
         let input = self.output.clone();
         let (output, witness) = input.eval(store);
 
@@ -74,8 +76,8 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
     }
 }
 
-impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
-    fn from_initial_input(input: T, store: &mut Store) -> Self {
+impl<F: PrimeField, T: Evaluable<F, Witness<F>> + Clone + PartialEq> Frame<T, Witness<F>> {
+    fn from_initial_input(input: T, store: &mut Store<F>) -> Self {
         let (output, witness) = input.eval(store);
 
         Self {
@@ -87,14 +89,16 @@ impl<T: Evaluable<Witness> + Clone + PartialEq> Frame<T, Witness> {
     }
 }
 
-pub struct FrameIt<'a, T, W> {
+pub struct FrameIt<'a, T, W, F: PrimeField> {
     first: bool,
     frame: Frame<T, W>,
-    store: &'a mut Store,
+    store: &'a mut Store<F>,
 }
 
-impl<'a, 'b, T: Evaluable<Witness> + Clone + PartialEq> FrameIt<'a, T, Witness> {
-    fn new(initial_input: T, store: &'a mut Store) -> Self {
+impl<'a, 'b, F: PrimeField, T: Evaluable<F, Witness<F>> + Clone + PartialEq>
+    FrameIt<'a, T, Witness<F>, F>
+{
+    fn new(initial_input: T, store: &'a mut Store<F>) -> Self {
         let frame = Frame::from_initial_input(initial_input, store);
         Self {
             first: true,
@@ -105,7 +109,7 @@ impl<'a, 'b, T: Evaluable<Witness> + Clone + PartialEq> FrameIt<'a, T, Witness> 
 
     /// Like `.iter().take(n).last()`, but skips intermediary stages, to optimize
     /// for evaluation.
-    fn next_n(mut self, n: usize) -> Option<Frame<T, Witness>> {
+    fn next_n(mut self, n: usize) -> Option<Frame<T, Witness<F>>> {
         for _i in 0..n {
             // skip first iteration, as one evlatuation happens on construction
             if self.first {
@@ -123,8 +127,10 @@ impl<'a, 'b, T: Evaluable<Witness> + Clone + PartialEq> FrameIt<'a, T, Witness> 
     }
 }
 
-impl<'a, 'b, T: Evaluable<Witness> + Clone + PartialEq> Iterator for FrameIt<'a, T, Witness> {
-    type Item = Frame<T, Witness>;
+impl<'a, 'b, F: PrimeField, T: Evaluable<F, Witness<F>> + Clone + PartialEq> Iterator
+    for FrameIt<'a, T, Witness<F>, F>
+{
+    type Item = Frame<T, Witness<F>>;
 
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         // skip first iteration, as one evlatuation happens on construction
@@ -143,20 +149,20 @@ impl<'a, 'b, T: Evaluable<Witness> + Clone + PartialEq> Iterator for FrameIt<'a,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Witness {
+pub struct Witness<F: PrimeField> {
     // TODO: Many of these fields ended up not being used.
     // once circuit is done, remove the excess.
-    pub(crate) prethunk_output_expr: Ptr,
-    pub(crate) prethunk_output_env: Ptr,
-    pub(crate) prethunk_output_cont: ContPtr,
+    pub(crate) prethunk_output_expr: Ptr<F>,
+    pub(crate) prethunk_output_env: Ptr<F>,
+    pub(crate) prethunk_output_cont: ContPtr<F>,
 
-    pub(crate) destructured_thunk: Option<Thunk>,
-    pub(crate) extended_closure: Option<Ptr>,
-    pub(crate) invoke_continuation_cont: Option<ContPtr>,
+    pub(crate) destructured_thunk: Option<Thunk<F>>,
+    pub(crate) extended_closure: Option<Ptr<F>>,
+    pub(crate) invoke_continuation_cont: Option<ContPtr<F>>,
 }
 
-impl Witness {
-    fn witness_destructured_thunk(&mut self, thunk: &Thunk) {
+impl<F: PrimeField> Witness<F> {
+    fn witness_destructured_thunk(&mut self, thunk: &Thunk<F>) {
         assert!(
             self.destructured_thunk.is_none(),
             "Only one thunk should be destructured per evaluation step."
@@ -165,12 +171,12 @@ impl Witness {
     }
 }
 
-fn eval_expr(
-    expr: Ptr,
-    env: Ptr,
-    cont: ContPtr,
-    store: &mut Store,
-) -> (Ptr, Ptr, ContPtr, Witness) {
+fn eval_expr<F: PrimeField>(
+    expr: Ptr<F>,
+    env: Ptr<F>,
+    cont: ContPtr<F>,
+    store: &mut Store<F>,
+) -> (Ptr<F>, Ptr<F>, ContPtr<F>, Witness<F>) {
     let (ctrl, witness) = eval_expr_with_witness(expr, env, cont, store);
     let (new_expr, new_env, new_cont) = ctrl.into_results();
 
@@ -178,14 +184,14 @@ fn eval_expr(
 }
 
 #[derive(Debug, Clone)]
-pub enum Control {
-    Return(Ptr, Ptr, ContPtr),
-    MakeThunk(Ptr, Ptr, ContPtr),
-    InvokeContinuation(Ptr, Ptr, ContPtr),
+pub enum Control<F: PrimeField> {
+    Return(Ptr<F>, Ptr<F>, ContPtr<F>),
+    MakeThunk(Ptr<F>, Ptr<F>, ContPtr<F>),
+    InvokeContinuation(Ptr<F>, Ptr<F>, ContPtr<F>),
 }
 
-impl Control {
-    pub fn as_results(&self) -> (&Ptr, &Ptr, &ContPtr) {
+impl<F: PrimeField> Control<F> {
+    pub fn as_results(&self) -> (&Ptr<F>, &Ptr<F>, &ContPtr<F>) {
         match self {
             Self::Return(expr, env, cont) => (expr, env, cont),
             Self::MakeThunk(expr, env, cont) => (expr, env, cont),
@@ -193,7 +199,7 @@ impl Control {
         }
     }
 
-    pub fn into_results(self) -> (Ptr, Ptr, ContPtr) {
+    pub fn into_results(self) -> (Ptr<F>, Ptr<F>, ContPtr<F>) {
         match self {
             Self::Return(expr, env, cont) => (expr, env, cont),
             Self::MakeThunk(expr, env, cont) => (expr, env, cont),
@@ -212,12 +218,12 @@ impl Control {
     }
 }
 
-fn eval_expr_with_witness(
-    expr: Ptr,
-    env: Ptr,
-    cont: ContPtr,
-    store: &mut Store,
-) -> (Control, Witness) {
+fn eval_expr_with_witness<F: PrimeField>(
+    expr: Ptr<F>,
+    env: Ptr<F>,
+    cont: ContPtr<F>,
+    store: &mut Store<F>,
+) -> (Control<F>, Witness<F>) {
     let mut extended_closure = None;
     let control = match expr.tag() {
         Tag::Thunk => match store.fetch(&expr).unwrap() {
@@ -569,7 +575,11 @@ fn eval_expr_with_witness(
     (ctrl, witness)
 }
 
-fn invoke_continuation(control: Control, store: &mut Store, witness: &mut Witness) -> Control {
+fn invoke_continuation<F: PrimeField>(
+    control: Control<F>,
+    store: &mut Store<F>,
+    witness: &mut Witness<F>,
+) -> Control<F> {
     if !control.is_invoke_continuation() {
         return control;
     }
@@ -815,7 +825,11 @@ fn invoke_continuation(control: Control, store: &mut Store, witness: &mut Witnes
 }
 
 // Returns (Expression::Thunk, Expression::Env, Continuation)
-fn make_thunk(control: Control, store: &mut Store, _witness: &mut Witness) -> Control {
+fn make_thunk<F: PrimeField>(
+    control: Control<F>,
+    store: &mut Store<F>,
+    _witness: &mut Witness<F>,
+) -> Control<F> {
     if !control.is_make_thunk() {
         return control;
     }
@@ -850,7 +864,11 @@ fn make_thunk(control: Control, store: &mut Store, _witness: &mut Witness) -> Co
     }
 }
 
-fn make_tail_continuation(env: Ptr, continuation: ContPtr, store: &mut Store) -> ContPtr {
+fn make_tail_continuation<F: PrimeField>(
+    env: Ptr<F>,
+    continuation: ContPtr<F>,
+    store: &mut Store<F>,
+) -> ContPtr<F> {
     // Result must be either a Tail or Outermost continuation.
     match continuation.tag() {
         // If continuation is already tail, just return it.
@@ -862,15 +880,15 @@ fn make_tail_continuation(env: Ptr, continuation: ContPtr, store: &mut Store) ->
     // point to one another: they can only be nested one deep.
 }
 
-pub struct Evaluator<'a> {
-    expr: Ptr,
-    env: Ptr,
-    store: &'a mut Store,
+pub struct Evaluator<'a, F: PrimeField> {
+    expr: Ptr<F>,
+    env: Ptr<F>,
+    store: &'a mut Store<F>,
     limit: usize,
 }
 
-impl<'a> Evaluator<'a> {
-    pub fn new(expr: Ptr, env: Ptr, store: &'a mut Store, limit: usize) -> Self {
+impl<'a, F: PrimeField> Evaluator<'a, F> {
+    pub fn new(expr: Ptr<F>, env: Ptr<F>, store: &'a mut Store<F>, limit: usize) -> Self {
         Evaluator {
             expr,
             env,
@@ -879,7 +897,7 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    pub fn eval(&mut self) -> (Ptr, Ptr, usize, ContPtr) {
+    pub fn eval(&mut self) -> (Ptr<F>, Ptr<F>, usize, ContPtr<F>) {
         let initial_input = self.initial();
         let frame_iterator = FrameIt::new(initial_input, self.store);
 
@@ -891,7 +909,7 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    pub fn initial(&self) -> IO {
+    pub fn initial(&self) -> IO<F> {
         IO {
             expr: self.expr,
             env: self.env,
@@ -899,23 +917,28 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    pub fn iter(&mut self) -> Take<FrameIt<'_, IO, Witness>> {
+    pub fn iter(&mut self) -> Take<FrameIt<'_, IO<F>, Witness<F>, F>> {
         let initial_input = self.initial();
 
         FrameIt::new(initial_input, self.store).take(self.limit)
     }
 }
 
-pub fn empty_sym_env(store: &Store) -> Ptr {
+pub fn empty_sym_env<F: PrimeField>(store: &Store<F>) -> Ptr<F> {
     store.get_nil()
 }
 
-fn extend(env: Ptr, var: Ptr, val: Ptr, store: &mut Store) -> Ptr {
+fn extend<F: PrimeField>(env: Ptr<F>, var: Ptr<F>, val: Ptr<F>, store: &mut Store<F>) -> Ptr<F> {
     let cons = store.cons(var, val);
     store.cons(cons, env)
 }
 
-fn extend_rec(env: Ptr, var: Ptr, val: Ptr, store: &mut Store) -> Ptr {
+fn extend_rec<F: PrimeField>(
+    env: Ptr<F>,
+    var: Ptr<F>,
+    val: Ptr<F>,
+    store: &mut Store<F>,
+) -> Ptr<F> {
     let (binding_or_env, rest) = store.car_cdr(&env);
     let (var_or_binding, _val_or_more_bindings) = store.car_cdr(&binding_or_env);
     match var_or_binding.tag() {
@@ -937,7 +960,7 @@ fn extend_rec(env: Ptr, var: Ptr, val: Ptr, store: &mut Store) -> Ptr {
     }
 }
 
-fn extend_closure(fun: &Ptr, rec_env: &Ptr, store: &mut Store) -> Ptr {
+fn extend_closure<F: PrimeField>(fun: &Ptr<F>, rec_env: &Ptr<F>, store: &mut Store<F>) -> Ptr<F> {
     match fun.tag() {
         Tag::Fun => match store.fetch(fun).unwrap() {
             Expression::Fun(arg, body, closed_env) => {
@@ -951,7 +974,7 @@ fn extend_closure(fun: &Ptr, rec_env: &Ptr, store: &mut Store) -> Ptr {
 }
 
 #[allow(dead_code)]
-fn lookup(env: &Ptr, var: &Ptr, store: &Store) -> Ptr {
+fn lookup<F: PrimeField>(env: &Ptr<F>, var: &Ptr<F>, store: &Store<F>) -> Ptr<F> {
     assert!(matches!(var.tag(), Tag::Sym));
     match env.tag() {
         Tag::Nil => store.get_nil(),
@@ -972,10 +995,11 @@ fn lookup(env: &Ptr, var: &Ptr, store: &Store) -> Ptr {
 mod test {
     use super::*;
     use crate::writer::Write;
+    use blstrs::Scalar as Fr;
 
     #[test]
     fn test_lookup() {
-        let mut store = Store::default();
+        let mut store = Store::<Fr>::default();
         let env = empty_sym_env(&store);
         let var = store.sym("variable");
         let val = store.num(123);
@@ -988,7 +1012,7 @@ mod test {
 
     #[test]
     fn test_eval_expr_simple() {
-        let mut store = Store::default();
+        let mut store = Store::<Fr>::default();
 
         {
             let num = store.num(123);
@@ -1014,7 +1038,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_simple() {
-        let mut store = Store::default();
+        let mut store = Store::<Fr>::default();
 
         let limit = 20;
         let val = store.num(999);
@@ -1027,7 +1051,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_lookup() {
-        let mut store = Store::default();
+        let mut store = Store::<Fr>::default();
 
         let limit = 20;
         let val = store.num(999);
@@ -1055,7 +1079,7 @@ mod test {
 
     #[test]
     fn print_expr() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let nil = s.nil();
         let x = s.sym("x");
         let lambda = s.sym("lambda");
@@ -1073,7 +1097,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_lambda() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
         let val = s.num(123);
         let expr = s.read("((lambda (x) x) 123)").unwrap();
@@ -1087,7 +1111,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_lambda2() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
         let val = s.num(123);
         let expr = s.read("((lambda (y) ((lambda (x) y) 321)) 123)").unwrap();
@@ -1101,7 +1125,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_lambda3() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
         let val = s.num(123);
         let expr = s
@@ -1117,7 +1141,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_lambda4() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
         let _val = s.num(999);
         let val2 = s.num(888);
@@ -1135,7 +1159,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_lambda5() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
         let val = s.num(999);
         let expr = s
@@ -1152,7 +1176,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_sum() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(+ 2 (+ 3 4))").unwrap();
 
@@ -1165,7 +1189,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_diff() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(- 9 5)").unwrap();
 
@@ -1178,7 +1202,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_product() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(* 9 5)").unwrap();
 
@@ -1191,7 +1215,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_quotient() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(/ 21 7)").unwrap();
 
@@ -1207,7 +1231,7 @@ mod test {
     // This shouldn't actually panic, it should return an error continuation.
     // But for now document the handling.
     fn outer_evaluate_quotient_divide_by_zero() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(/ 21 0)").unwrap();
 
@@ -1217,7 +1241,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_num_equal() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
 
         {
@@ -1248,7 +1272,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_adder1() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(((lambda (x) (lambda (y) (+ x y))) 2) 3)").unwrap();
 
@@ -1262,7 +1286,7 @@ mod test {
     // Enable this when we have LET.
     #[test]
     fn outer_evaluate_adder2() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 25;
         let expr = s
             .read(
@@ -1280,7 +1304,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_let_simple() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(let* ((a 1)) a)").unwrap();
 
@@ -1293,7 +1317,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_empty_let_bug() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(let* () (+ 1 2))").unwrap();
 
@@ -1306,7 +1330,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_let() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s
             .read(
@@ -1325,7 +1349,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_letstar_parallel_binding() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(let* ((a 1) (b a)) b)").unwrap();
 
@@ -1337,7 +1361,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_arithmetic_let() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 100;
         let expr = s
             .read(
@@ -1362,7 +1386,7 @@ mod test {
     fn outer_evaluate_fundamental_conditional() {
         let limit = 100;
         {
-            let mut s = Store::default();
+            let mut s = Store::<Fr>::default();
             let expr = s
                 .read(
                     "(let* ((true (lambda (a)
@@ -1386,7 +1410,7 @@ mod test {
             assert_eq!(s.num(5), result_expr);
         }
         {
-            let mut s = Store::default();
+            let mut s = Store::<Fr>::default();
             let expr = s
                 .read(
                     "(let* ((true (lambda (a)
@@ -1415,7 +1439,7 @@ mod test {
     fn outer_evaluate_if() {
         let limit = 100;
         {
-            let mut s = Store::default();
+            let mut s = Store::<Fr>::default();
             let expr = s.read("(if t 5 6)").unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
@@ -1425,7 +1449,7 @@ mod test {
             assert_eq!(s.num(5), result_expr);
         }
         {
-            let mut s = Store::default();
+            let mut s = Store::<Fr>::default();
             let expr = s.read("(if nil 5 6)").unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
@@ -1440,7 +1464,7 @@ mod test {
     fn outer_evaluate_fully_evaluates() {
         let limit = 100;
         {
-            let mut s = Store::default();
+            let mut s = Store::<Fr>::default();
             let expr = s.read("(if t (+ 5 5) 6)").unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
@@ -1453,7 +1477,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_recursion1() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 200;
         let expr = s
             .read(
@@ -1474,7 +1498,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_recursion2() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
             .read(
@@ -1496,7 +1520,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_recursion_multiarg() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
             .read(
@@ -1516,7 +1540,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_recursion_optimized() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
             .read(
@@ -1539,7 +1563,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_tail_recursion() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
             .read(
@@ -1561,7 +1585,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_tail_recursion_somewhat_optimized() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
             .read(
@@ -1585,7 +1609,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_multiple_letrecstar_bindings() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
             .read(
@@ -1603,7 +1627,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_multiple_letrecstar_bindings_referencing() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
             .read(
@@ -1621,7 +1645,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_multiple_letrecstar_bindings_recursive() {
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 500;
         let expr = s
             .read(
@@ -1651,7 +1675,7 @@ mod test {
     #[test]
     fn outer_evaluate_eq() {
         {
-            let mut s = Store::default();
+            let mut s = Store::<Fr>::default();
             let limit = 20;
             let expr = s.read("(eq 'a 'a)").unwrap();
 
@@ -1662,7 +1686,7 @@ mod test {
             assert_eq!(s.t(), result_expr);
         }
         {
-            let mut s = Store::default();
+            let mut s = Store::<Fr>::default();
             let limit = 20;
             let expr = s.read("(eq 'a 1)").unwrap();
 
@@ -1677,7 +1701,7 @@ mod test {
     #[test]
     fn outer_evaluate_zero_arg_lambda() {
         {
-            let mut s = Store::default();
+            let mut s = Store::<Fr>::default();
             let limit = 20;
             let expr = s.read("((lambda () 123))").unwrap();
 
@@ -1688,7 +1712,7 @@ mod test {
             assert_eq!(s.num(123), result_expr);
         }
         {
-            let mut s = Store::default();
+            let mut s = Store::<Fr>::default();
             let limit = 20;
             let expr = s
                 .read("(letrec* ((x 9) (f (lambda () (+ x 1)))) (f))")
@@ -1705,7 +1729,7 @@ mod test {
     #[test]
     fn outer_evaluate_make_tree() {
         {
-            let mut s = Store::default();
+            let mut s = Store::<Fr>::default();
             let limit = 800;
             let expr = s.read("(letrec* ((mapcar (lambda (f list)
                                                              (if (eq list nil)
@@ -1745,7 +1769,7 @@ mod test {
     #[test]
     fn outer_evaluate_make_tree_minimal_regression() {
         {
-            let mut s = Store::default();
+            let mut s = Store::<Fr>::default();
             let limit = 1000;
             let expr = s
                 .read(
@@ -1767,7 +1791,7 @@ mod test {
     #[test]
     fn outer_evaluate_map_tree_bug() {
         {
-            let mut s = Store::default();
+            let mut s = Store::<Fr>::default();
             let limit = 1000;
             let expr = s
                 .read(
@@ -1792,7 +1816,7 @@ mod test {
         {
             // Reuse map-tree failure case to test Relop behavior.
             // This failed initially and tests regression.
-            let mut s = Store::default();
+            let mut s = Store::<Fr>::default();
             let limit = 1000;
             let expr = s
                 .read(
@@ -1817,7 +1841,7 @@ mod test {
     fn env_lost_bug() {
         {
             // previously, an unbound variable `u` error
-            let mut s = Store::default();
+            let mut s = Store::<Fr>::default();
             let limit = 1000;
             let expr = s
                 .read(
@@ -1850,7 +1874,7 @@ mod test {
     fn dont_discard_rest_env() {
         {
             // previously: Unbound variable: Sym("Z")
-            let mut s = Store::default();
+            let mut s = Store::<Fr>::default();
             let limit = 1000;
             let expr = s
                 .read(
@@ -1880,7 +1904,7 @@ mod test {
         //    return x
         // }
 
-        let mut s = Store::default();
+        let mut s = Store::<Fr>::default();
         let limit = 1000000;
         let expr = s
             .read(

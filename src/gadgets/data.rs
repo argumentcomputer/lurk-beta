@@ -2,8 +2,7 @@ use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem, SynthesisError,
 };
-use blstrs::Scalar as Fr;
-use ff::Field;
+use ff::PrimeField;
 use neptune::circuit::poseidon_hash;
 
 use crate::store::{ScalarContPtr, ScalarPointer};
@@ -18,61 +17,61 @@ use crate::{
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};
 
-pub struct GlobalAllocations {
-    pub terminal_ptr: AllocatedContPtr,
-    pub outermost_ptr: AllocatedContPtr,
-    pub error_ptr_cont: AllocatedContPtr,
-    pub error_ptr: AllocatedPtr,
-    pub dummy_ptr: AllocatedContPtr,
-    pub nil_ptr: AllocatedPtr,
-    pub t_ptr: AllocatedPtr,
-    pub lambda_ptr: AllocatedPtr,
-    pub dummy_arg_ptr: AllocatedPtr,
+pub struct GlobalAllocations<F: PrimeField> {
+    pub terminal_ptr: AllocatedContPtr<F>,
+    pub outermost_ptr: AllocatedContPtr<F>,
+    pub error_ptr_cont: AllocatedContPtr<F>,
+    pub error_ptr: AllocatedPtr<F>,
+    pub dummy_ptr: AllocatedContPtr<F>,
+    pub nil_ptr: AllocatedPtr<F>,
+    pub t_ptr: AllocatedPtr<F>,
+    pub lambda_ptr: AllocatedPtr<F>,
+    pub dummy_arg_ptr: AllocatedPtr<F>,
 
-    pub sym_tag: AllocatedNum<Fr>,
-    pub thunk_tag: AllocatedNum<Fr>,
-    pub cons_tag: AllocatedNum<Fr>,
-    pub num_tag: AllocatedNum<Fr>,
-    pub fun_tag: AllocatedNum<Fr>,
-    pub letstar_cont_tag: AllocatedNum<Fr>,
-    pub letrecstar_cont_tag: AllocatedNum<Fr>,
-    pub outermost_cont_tag: AllocatedNum<Fr>,
-    pub lookup_cont_tag: AllocatedNum<Fr>,
-    pub tail_cont_tag: AllocatedNum<Fr>,
-    pub call_cont_tag: AllocatedNum<Fr>,
-    pub call2_cont_tag: AllocatedNum<Fr>,
-    pub unop_cont_tag: AllocatedNum<Fr>,
-    pub binop_cont_tag: AllocatedNum<Fr>,
-    pub relop_cont_tag: AllocatedNum<Fr>,
-    pub binop2_cont_tag: AllocatedNum<Fr>,
-    pub relop2_cont_tag: AllocatedNum<Fr>,
-    pub if_cont_tag: AllocatedNum<Fr>,
+    pub sym_tag: AllocatedNum<F>,
+    pub thunk_tag: AllocatedNum<F>,
+    pub cons_tag: AllocatedNum<F>,
+    pub num_tag: AllocatedNum<F>,
+    pub fun_tag: AllocatedNum<F>,
+    pub letstar_cont_tag: AllocatedNum<F>,
+    pub letrecstar_cont_tag: AllocatedNum<F>,
+    pub outermost_cont_tag: AllocatedNum<F>,
+    pub lookup_cont_tag: AllocatedNum<F>,
+    pub tail_cont_tag: AllocatedNum<F>,
+    pub call_cont_tag: AllocatedNum<F>,
+    pub call2_cont_tag: AllocatedNum<F>,
+    pub unop_cont_tag: AllocatedNum<F>,
+    pub binop_cont_tag: AllocatedNum<F>,
+    pub relop_cont_tag: AllocatedNum<F>,
+    pub binop2_cont_tag: AllocatedNum<F>,
+    pub relop2_cont_tag: AllocatedNum<F>,
+    pub if_cont_tag: AllocatedNum<F>,
 
-    pub op1_car_tag: AllocatedNum<Fr>,
-    pub op1_cdr_tag: AllocatedNum<Fr>,
-    pub op1_atom_tag: AllocatedNum<Fr>,
-    pub op2_cons_tag: AllocatedNum<Fr>,
-    pub op2_sum_tag: AllocatedNum<Fr>,
-    pub op2_diff_tag: AllocatedNum<Fr>,
-    pub op2_product_tag: AllocatedNum<Fr>,
-    pub op2_quotient_tag: AllocatedNum<Fr>,
-    pub rel2_equal_tag: AllocatedNum<Fr>,
-    pub rel2_numequal_tag: AllocatedNum<Fr>,
+    pub op1_car_tag: AllocatedNum<F>,
+    pub op1_cdr_tag: AllocatedNum<F>,
+    pub op1_atom_tag: AllocatedNum<F>,
+    pub op2_cons_tag: AllocatedNum<F>,
+    pub op2_sum_tag: AllocatedNum<F>,
+    pub op2_diff_tag: AllocatedNum<F>,
+    pub op2_product_tag: AllocatedNum<F>,
+    pub op2_quotient_tag: AllocatedNum<F>,
+    pub rel2_equal_tag: AllocatedNum<F>,
+    pub rel2_numequal_tag: AllocatedNum<F>,
 
-    pub true_num: AllocatedNum<Fr>,
-    pub false_num: AllocatedNum<Fr>,
-    pub default_num: AllocatedNum<Fr>,
+    pub true_num: AllocatedNum<F>,
+    pub false_num: AllocatedNum<F>,
+    pub default_num: AllocatedNum<F>,
 
-    pub destructured_thunk_hash: AllocatedNum<Fr>,
-    pub destructured_thunk_value: AllocatedPtr,
-    pub destructured_thunk_continuation: AllocatedContPtr,
+    pub destructured_thunk_hash: AllocatedNum<F>,
+    pub destructured_thunk_value: AllocatedPtr<F>,
+    pub destructured_thunk_continuation: AllocatedContPtr<F>,
 }
 
-impl GlobalAllocations {
-    pub fn new<CS: ConstraintSystem<Fr>>(
+impl<F: PrimeField> GlobalAllocations<F> {
+    pub fn new<CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        store: &Store,
-        witness: &Option<Witness>,
+        store: &Store<F>,
+        witness: &Option<Witness<F>>,
     ) -> Result<Self, SynthesisError> {
         let terminal_ptr = AllocatedContPtr::alloc_constant_cont_ptr(
             &mut cs.namespace(|| "terminal continuation"),
@@ -166,9 +165,9 @@ impl GlobalAllocations {
             Ok(Rel2::Equal.as_field())
         })?;
 
-        let true_num = allocate_constant(&mut cs.namespace(|| "true"), Fr::one())?;
-        let false_num = allocate_constant(&mut cs.namespace(|| "false"), Fr::zero())?;
-        let default_num = allocate_constant(&mut cs.namespace(|| "default"), Fr::zero())?;
+        let true_num = allocate_constant(&mut cs.namespace(|| "true"), F::one())?;
+        let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::zero())?;
+        let default_num = allocate_constant(&mut cs.namespace(|| "default"), F::zero())?;
 
         let maybe_thunk = if let Some(w) = witness {
             w.destructured_thunk
@@ -231,12 +230,12 @@ impl GlobalAllocations {
     }
 }
 
-impl ContPtr {
-    pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<Fr>>(
+impl<F: PrimeField> ContPtr<F> {
+    pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<F>>(
         cs: CS,
-        cont: Option<&ContPtr>,
-        store: &Store,
-    ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
+        cont: Option<&ContPtr<F>>,
+        store: &Store<F>,
+    ) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {
         if let Some(cont) = cont {
             cont.allocate_components(cs, store)
         } else {
@@ -244,11 +243,11 @@ impl ContPtr {
         }
     }
 
-    fn allocate_components<CS: ConstraintSystem<Fr>>(
+    fn allocate_components<CS: ConstraintSystem<F>>(
         &self,
         mut cs: CS,
-        store: &Store,
-    ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
+        store: &Store<F>,
+    ) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {
         let component_frs = store
             .get_hash_components_cont(self)
             .expect("missing hash components");
@@ -273,15 +272,15 @@ impl ContPtr {
         Ok((hash, components))
     }
 
-    fn allocate_dummy_components<CS: ConstraintSystem<Fr>>(
+    fn allocate_dummy_components<CS: ConstraintSystem<F>>(
         mut cs: CS,
-        store: &Store,
-    ) -> Result<(AllocatedNum<Fr>, Vec<AllocatedNum<Fr>>), SynthesisError> {
+        store: &Store<F>,
+    ) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {
         let result: Vec<_> = (0..8)
             .map(|i| {
                 AllocatedNum::alloc(
                     cs.namespace(|| format!("Continuation component {}", i)),
-                    || Ok(Fr::zero()),
+                    || Ok(F::zero()),
                 )
             })
             .collect::<Result<_, _>>()?;
@@ -298,12 +297,20 @@ impl ContPtr {
     }
 }
 
-impl Ptr {
-    pub fn allocate_maybe_fun<CS: ConstraintSystem<Fr>>(
+impl<F: PrimeField> Ptr<F> {
+    pub fn allocate_maybe_fun<CS: ConstraintSystem<F>>(
         cs: CS,
-        store: &Store,
-        maybe_fun: Option<&Ptr>,
-    ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr, AllocatedPtr), SynthesisError> {
+        store: &Store<F>,
+        maybe_fun: Option<&Ptr<F>>,
+    ) -> Result<
+        (
+            AllocatedNum<F>,
+            AllocatedPtr<F>,
+            AllocatedPtr<F>,
+            AllocatedPtr<F>,
+        ),
+        SynthesisError,
+    > {
         match maybe_fun.map(|ptr| (ptr, ptr.tag())) {
             Some((ptr, Tag::Fun)) => match store.fetch(ptr).expect("missing fun") {
                 Expression::Fun(arg, body, closed_env) => {
@@ -318,13 +325,21 @@ impl Ptr {
         }
     }
 
-    fn allocate_fun<CS: ConstraintSystem<Fr>, T: IntoHashComponents>(
+    fn allocate_fun<CS: ConstraintSystem<F>, T: IntoHashComponents<F>>(
         mut cs: CS,
-        store: &Store,
+        store: &Store<F>,
         arg: T,
         body: T,
         closed_env: T,
-    ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr, AllocatedPtr), SynthesisError> {
+    ) -> Result<
+        (
+            AllocatedNum<F>,
+            AllocatedPtr<F>,
+            AllocatedPtr<F>,
+            AllocatedPtr<F>,
+        ),
+        SynthesisError,
+    > {
         let arg_t =
             AllocatedPtr::alloc_hash_components(&mut cs.namespace(|| "allocate arg tag"), arg)?;
         let body_t =
@@ -352,38 +367,46 @@ impl Ptr {
         Ok((hash, arg_t, body_t, closed_env_t))
     }
 
-    fn allocate_dummy_fun<CS: ConstraintSystem<Fr>>(
+    fn allocate_dummy_fun<CS: ConstraintSystem<F>>(
         cs: CS,
-        store: &Store,
-    ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedPtr, AllocatedPtr), SynthesisError> {
+        store: &Store<F>,
+    ) -> Result<
+        (
+            AllocatedNum<F>,
+            AllocatedPtr<F>,
+            AllocatedPtr<F>,
+            AllocatedPtr<F>,
+        ),
+        SynthesisError,
+    > {
         Self::allocate_fun(
             cs,
             store,
-            [Fr::zero(), Fr::zero()],
-            [Fr::zero(), Fr::zero()],
-            [Fr::zero(), Fr::zero()],
+            [F::zero(), F::zero()],
+            [F::zero(), F::zero()],
+            [F::zero(), F::zero()],
         )
     }
 }
 
-impl ContPtr {
-    pub fn allocate_ptr<CS: ConstraintSystem<Fr>>(
+impl<F: PrimeField> ContPtr<F> {
+    pub fn allocate_ptr<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        store: &Store,
-    ) -> Result<AllocatedContPtr, SynthesisError> {
-        AllocatedContPtr::alloc(cs, || {
+        store: &Store<F>,
+    ) -> Result<AllocatedContPtr<F>, SynthesisError> {
+        AllocatedContPtr::<F>::alloc(cs, || {
             store
                 .hash_cont(self)
                 .ok_or(SynthesisError::AssignmentMissing)
         })
     }
 
-    pub fn allocate_constant_ptr<CS: ConstraintSystem<Fr>>(
+    pub fn allocate_constant_ptr<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        store: &Store,
-    ) -> Result<AllocatedContPtr, SynthesisError> {
+        store: &Store<F>,
+    ) -> Result<AllocatedContPtr<F>, SynthesisError> {
         let ptr = store
             .hash_cont(self)
             .ok_or(SynthesisError::AssignmentMissing)?;
@@ -391,11 +414,11 @@ impl ContPtr {
     }
 }
 
-pub fn allocate_constant<CS: ConstraintSystem<Fr>>(
+pub fn allocate_constant<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    val: Fr,
-) -> Result<AllocatedNum<Fr>, SynthesisError> {
-    let allocated = AllocatedNum::<Fr>::alloc(cs.namespace(|| "allocate"), || Ok(val))?;
+    val: F,
+) -> Result<AllocatedNum<F>, SynthesisError> {
+    let allocated = AllocatedNum::<F>::alloc(cs.namespace(|| "allocate"), || Ok(val))?;
 
     // allocated * 1 = val
     cs.enforce(
@@ -409,10 +432,10 @@ pub fn allocate_constant<CS: ConstraintSystem<Fr>>(
 }
 
 impl Tag {
-    pub fn allocate_constant<CS: ConstraintSystem<Fr>>(
+    pub fn allocate_constant<F: PrimeField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-    ) -> Result<AllocatedNum<Fr>, SynthesisError> {
+    ) -> Result<AllocatedNum<F>, SynthesisError> {
         allocate_constant(
             &mut cs.namespace(|| format!("{:?} tag", self)),
             self.as_field(),
@@ -421,10 +444,10 @@ impl Tag {
 }
 
 impl ContTag {
-    pub fn allocate_constant<CS: ConstraintSystem<Fr>>(
+    pub fn allocate_constant<F: PrimeField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-    ) -> Result<AllocatedNum<Fr>, SynthesisError> {
+    ) -> Result<AllocatedNum<F>, SynthesisError> {
         allocate_constant(
             &mut cs.namespace(|| format!("{:?} base continuation tag", self)),
             self.as_field(),
@@ -433,10 +456,10 @@ impl ContTag {
 }
 
 impl Op1 {
-    pub fn allocate_constant<CS: ConstraintSystem<Fr>>(
+    pub fn allocate_constant<F: PrimeField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-    ) -> Result<AllocatedNum<Fr>, SynthesisError> {
+    ) -> Result<AllocatedNum<F>, SynthesisError> {
         allocate_constant(
             &mut cs.namespace(|| format!("{:?} tag", self)),
             self.as_field(),
@@ -445,10 +468,10 @@ impl Op1 {
 }
 
 impl Op2 {
-    pub fn allocate_constant<CS: ConstraintSystem<Fr>>(
+    pub fn allocate_constant<F: PrimeField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-    ) -> Result<AllocatedNum<Fr>, SynthesisError> {
+    ) -> Result<AllocatedNum<F>, SynthesisError> {
         allocate_constant(
             &mut cs.namespace(|| format!("{:?} tag", self)),
             self.as_field(),
@@ -457,10 +480,10 @@ impl Op2 {
 }
 
 impl Rel2 {
-    pub fn allocate_constant<CS: ConstraintSystem<Fr>>(
+    pub fn allocate_constant<F: PrimeField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-    ) -> Result<AllocatedNum<Fr>, SynthesisError> {
+    ) -> Result<AllocatedNum<F>, SynthesisError> {
         allocate_constant(
             &mut cs.namespace(|| format!("{:?} tag", self)),
             self.as_field(),
@@ -468,12 +491,12 @@ impl Rel2 {
     }
 }
 
-impl Thunk {
-    pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<Fr>>(
+impl<F: PrimeField> Thunk<F> {
+    pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<F>>(
         cs: CS,
-        thunk: Option<&Thunk>,
-        store: &Store,
-    ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedContPtr), SynthesisError> {
+        thunk: Option<&Thunk<F>>,
+        store: &Store<F>,
+    ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         if let Some(thunk) = thunk {
             thunk.allocate_components(cs, store)
         } else {
@@ -482,11 +505,11 @@ impl Thunk {
     }
 
     // First component is the hash, which is wrong.
-    pub fn allocate_components<CS: ConstraintSystem<Fr>>(
+    pub fn allocate_components<CS: ConstraintSystem<F>>(
         &self,
         mut cs: CS,
-        store: &Store,
-    ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedContPtr), SynthesisError> {
+        store: &Store<F>,
+    ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         let component_frs = store.get_hash_components_thunk(self);
 
         let value = AllocatedPtr::alloc(&mut cs.namespace(|| "Thunk component: value"), || {
@@ -511,17 +534,17 @@ impl Thunk {
         Ok((hash, value, cont))
     }
 
-    pub fn allocate_dummy_components<CS: ConstraintSystem<Fr>>(
+    pub fn allocate_dummy_components<CS: ConstraintSystem<F>>(
         mut cs: CS,
-        store: &Store,
-    ) -> Result<(AllocatedNum<Fr>, AllocatedPtr, AllocatedContPtr), SynthesisError> {
+        store: &Store<F>,
+    ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         let value = AllocatedPtr::alloc(&mut cs.namespace(|| "Thunk component: value"), || {
-            Ok(ScalarPtr::from_parts(Fr::zero(), Fr::zero()))
+            Ok(ScalarPtr::from_parts(F::zero(), F::zero()))
         })?;
 
         let cont = AllocatedContPtr::alloc(
             &mut cs.namespace(|| "Thunk component: continuation"),
-            || Ok(ScalarContPtr::from_parts(Fr::zero(), Fr::zero())),
+            || Ok(ScalarContPtr::from_parts(F::zero(), F::zero())),
         )?;
 
         let dummy_hash = Self::hash_components(cs.namespace(|| "Thunk"), store, &value, &cont)?;
@@ -529,12 +552,12 @@ impl Thunk {
         Ok((dummy_hash, value, cont))
     }
 
-    pub fn hash_components<CS: ConstraintSystem<Fr>>(
+    pub fn hash_components<CS: ConstraintSystem<F>>(
         mut cs: CS,
-        store: &Store,
-        value: &AllocatedPtr,
-        cont: &AllocatedContPtr,
-    ) -> Result<AllocatedNum<Fr>, SynthesisError> {
+        store: &Store<F>,
+        value: &AllocatedPtr<F>,
+        cont: &AllocatedContPtr<F>,
+    ) -> Result<AllocatedNum<F>, SynthesisError> {
         let vs = value.as_allocated_hash_components();
         let conts = cont.as_allocated_hash_components();
         // This is a 'binary' hash but has arity 4 because of tag and hash components for each item.

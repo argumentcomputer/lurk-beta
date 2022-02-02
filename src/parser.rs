@@ -1,9 +1,11 @@
 use std::iter::Peekable;
 
+use ff::PrimeField;
+
 use crate::store::{Ptr, Store};
 
-impl Store {
-    pub fn read(&mut self, input: &str) -> Option<Ptr> {
+impl<F: PrimeField> Store<F> {
+    pub fn read(&mut self, input: &str) -> Option<Ptr<F>> {
         let mut chars = input.chars().peekable();
 
         self.read_next(&mut chars)
@@ -13,7 +15,7 @@ impl Store {
     pub fn read_string<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut Peekable<T>,
-    ) -> Option<Ptr> {
+    ) -> Option<Ptr<F>> {
         let mut result = String::new();
 
         if let Some('"') = skip_whitespace_and_peek(chars) {
@@ -37,7 +39,7 @@ impl Store {
     pub fn read_maybe_meta<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut Peekable<T>,
-    ) -> Option<(Ptr, bool)> {
+    ) -> Option<(Ptr<F>, bool)> {
         if let Some(c) = skip_whitespace_and_peek(chars) {
             match c {
                 '!' => {
@@ -58,7 +60,10 @@ impl Store {
         }
     }
 
-    pub fn read_next<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr> {
+    pub fn read_next<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut Peekable<T>,
+    ) -> Option<Ptr<F>> {
         while let Some(&c) = chars.peek() {
             if let Some(next_expr) = match c {
                 '(' => self.read_list(chars),
@@ -96,7 +101,7 @@ impl Store {
     }
 
     // In this context, 'list' includes improper lists, i.e. dotted cons-pairs like (1 . 2).
-    fn read_list<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr> {
+    fn read_list<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr<F>> {
         if let Some(&c) = chars.peek() {
             match c {
                 '(' => {
@@ -111,7 +116,7 @@ impl Store {
     }
 
     // Read the tail of a list.
-    fn read_tail<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr> {
+    fn read_tail<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr<F>> {
         if let Some(c) = skip_whitespace_and_peek(chars) {
             match c {
                 ')' => {
@@ -137,7 +142,7 @@ impl Store {
         }
     }
 
-    fn read_number<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr> {
+    fn read_number<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr<F>> {
         // As written, read_number assumes the next char is known to be a digit.
         // So it will never return None.
         let mut acc = 0;
@@ -162,7 +167,7 @@ impl Store {
     pub(crate) fn read_symbol<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut Peekable<T>,
-    ) -> Option<Ptr> {
+    ) -> Option<Ptr<F>> {
         let mut name = String::new();
         let mut is_initial = true;
         while let Some(&c) = chars.peek() {
@@ -248,13 +253,14 @@ fn skip_line_comment<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> bool 
 #[cfg(test)]
 mod test {
     use crate::writer::Write;
+    use blstrs::Scalar as Fr;
 
     use super::*;
 
     #[test]
     fn read_sym() {
         let test = |input, expected: &str| {
-            let mut store = Store::default();
+            let mut store = Store::<Fr>::default();
             let ptr = &store.read(input).unwrap();
             let expr = store.fetch(&ptr).unwrap();
 
@@ -274,7 +280,7 @@ asdf(", "ASDF",
 
     #[test]
     fn read_nil() {
-        let mut store = Store::default();
+        let mut store = Store::<Fr>::default();
         let expr = store.read("nil").unwrap();
         assert!(expr.is_nil());
     }
@@ -282,7 +288,7 @@ asdf(", "ASDF",
     #[test]
     fn read_num() {
         let test = |input, expected: u64| {
-            let mut store = Store::default();
+            let mut store = Store::<Fr>::default();
             let expr = store.read(input).unwrap();
             assert_eq!(store.intern_num(expected), expr);
         };
@@ -301,8 +307,8 @@ asdf(", "ASDF",
 
     #[test]
     fn read_list() {
-        let mut store = Store::default();
-        let test = |store: &mut Store, input, expected| {
+        let mut store = Store::<Fr>::default();
+        let test = |store: &mut Store<Fr>, input, expected| {
             let expr = store.read(input).unwrap();
             assert_eq!(expected, &expr);
         };
@@ -340,8 +346,8 @@ asdf(", "ASDF",
 
     #[test]
     fn read_improper_list() {
-        let mut store = Store::default();
-        let test = |store: &mut Store, input, expected| {
+        let mut store = Store::<Fr>::default();
+        let test = |store: &mut Store<Fr>, input, expected| {
             let expr = store.read(input).unwrap();
             assert_eq!(expected, &expr);
         };
@@ -354,8 +360,8 @@ asdf(", "ASDF",
     }
     #[test]
     fn read_print_expr() {
-        let mut store = Store::default();
-        let test = |store: &mut Store, input| {
+        let mut store = Store::<Fr>::default();
+        let test = |store: &mut Store<Fr>, input| {
             let expr = store.read(input).unwrap();
             let output = expr.fmt_to_string(store);
             assert_eq!(input, output);
@@ -372,17 +378,18 @@ asdf(", "ASDF",
 
     #[test]
     fn read_maybe_meta() {
-        let mut store = Store::default();
-        let test = |store: &mut Store, input: &str, expected_ptr: Ptr, expected_meta: bool| {
-            let mut chars = input.chars().peekable();
+        let mut store = Store::<Fr>::default();
+        let test =
+            |store: &mut Store<Fr>, input: &str, expected_ptr: Ptr<Fr>, expected_meta: bool| {
+                let mut chars = input.chars().peekable();
 
-            match store.read_maybe_meta(&mut chars).unwrap() {
-                (ptr, meta) => {
-                    assert_eq!(expected_ptr, ptr);
-                    assert_eq!(expected_meta, meta);
-                }
+                match store.read_maybe_meta(&mut chars).unwrap() {
+                    (ptr, meta) => {
+                        assert_eq!(expected_ptr, ptr);
+                        assert_eq!(expected_meta, meta);
+                    }
+                };
             };
-        };
 
         let num = store.num(123);
         test(&mut store, "123", num, false);
@@ -424,7 +431,7 @@ asdf(", "ASDF",
     }
     #[test]
     fn is_keyword() {
-        let mut store = Store::default();
+        let mut store = Store::<Fr>::default();
         let kw = store.sym(":UIOP");
         let not_kw = store.sym("UIOP");
 
@@ -434,18 +441,19 @@ asdf(", "ASDF",
 
     #[test]
     fn read_string() {
-        let mut store = Store::default();
+        let mut store = Store::<Fr>::default();
 
-        let test = |store: &mut Store, input: &str, expected: Option<Ptr>, expr: Option<&str>| {
-            let maybe_string = store.read_string(&mut input.chars().peekable());
-            assert_eq!(expected, maybe_string);
-            if let Some(ptr) = maybe_string {
-                let res = store
-                    .fetch(&ptr)
-                    .expect(&format!("failed to fetch: {:?}", input));
-                assert_eq!(res.as_str(), expr);
-            }
-        };
+        let test =
+            |store: &mut Store<Fr>, input: &str, expected: Option<Ptr<Fr>>, expr: Option<&str>| {
+                let maybe_string = store.read_string(&mut input.chars().peekable());
+                assert_eq!(expected, maybe_string);
+                if let Some(ptr) = maybe_string {
+                    let res = store
+                        .fetch(&ptr)
+                        .expect(&format!("failed to fetch: {:?}", input));
+                    assert_eq!(res.as_str(), expr);
+                }
+            };
 
         let s = store.intern_str("asdf");
         test(&mut store, "\"asdf\"", Some(s), Some("asdf"));
@@ -464,9 +472,9 @@ asdf(", "ASDF",
 
     #[test]
     fn read_with_comments() {
-        let mut store = Store::default();
+        let mut store = Store::<Fr>::default();
 
-        let test = |store: &mut Store, input: &str, expected: Option<Ptr>| {
+        let test = |store: &mut Store<Fr>, input: &str, expected: Option<Ptr<Fr>>| {
             let res = store.read(input);
             assert_eq!(expected, res);
         };

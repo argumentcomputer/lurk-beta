@@ -4,17 +4,16 @@ use std::{
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
-use blstrs::Scalar;
-use ff::{Field, PrimeField};
+use ff::PrimeField;
 
 /// Number type for Lurk. Has different internal representations to optimize evaluation.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Num {
-    Scalar(Scalar),
+pub enum Num<F: PrimeField> {
+    Scalar(F),
     U64(u64),
 }
 
-impl Display for Num {
+impl<F: PrimeField + Display> Display for Num<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Num::Scalar(s) => write!(f, "Num({})", s),
@@ -24,44 +23,23 @@ impl Display for Num {
 }
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl Hash for Num {
+impl<F: PrimeField> Hash for Num<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
-            Num::Scalar(s) => s.to_repr().hash(state),
+            Num::Scalar(s) => s.to_repr().as_ref().hash(state),
             Num::U64(n) => n.hash(state),
         }
     }
 }
 
-impl From<u64> for Num {
-    fn from(n: u64) -> Self {
-        Num::U64(n)
-    }
-}
-
-impl From<Scalar> for Num {
-    fn from(s: Scalar) -> Self {
-        Num::Scalar(s)
-    }
-}
-
-impl From<Num> for Scalar {
-    fn from(n: Num) -> Self {
-        match n {
-            Num::Scalar(s) => s,
-            Num::U64(n) => Scalar::from(n),
-        }
-    }
-}
-
-impl AddAssign for Num {
+impl<F: PrimeField> AddAssign for Num<F> {
     fn add_assign(&mut self, rhs: Self) {
         match (*self, rhs) {
             (Num::U64(ref mut a), Num::U64(b)) => {
                 if let Some(res) = a.checked_add(b) {
                     *self = Num::U64(res);
                 } else {
-                    *self = Num::Scalar(Scalar::from(*a) + Scalar::from(b));
+                    *self = Num::Scalar(F::from(*a) + F::from(b));
                 }
             }
             (Num::Scalar(ref mut a), Num::Scalar(b)) => {
@@ -69,24 +47,24 @@ impl AddAssign for Num {
                 *self = Num::Scalar(*a);
             }
             (Num::Scalar(ref mut a), Num::U64(b)) => {
-                *a += Scalar::from(b);
+                *a += F::from(b);
                 *self = Num::Scalar(*a);
             }
             (Num::U64(a), Num::Scalar(b)) => {
-                *self = Num::Scalar(Scalar::from(a) + b);
+                *self = Num::Scalar(F::from(a) + b);
             }
         }
     }
 }
 
-impl SubAssign for Num {
+impl<F: PrimeField> SubAssign for Num<F> {
     fn sub_assign(&mut self, rhs: Self) {
         match (*self, rhs) {
             (Num::U64(ref mut a), Num::U64(b)) => {
                 if let Some(res) = a.checked_sub(b) {
                     *self = Num::U64(res);
                 } else {
-                    *self = Num::Scalar(Scalar::from(*a) - Scalar::from(b));
+                    *self = Num::Scalar(F::from(*a) - F::from(b));
                 }
             }
             (Num::Scalar(ref mut a), Num::Scalar(b)) => {
@@ -94,24 +72,24 @@ impl SubAssign for Num {
                 *self = Num::Scalar(*a);
             }
             (Num::Scalar(ref mut a), Num::U64(b)) => {
-                *a -= Scalar::from(b);
+                *a -= F::from(b);
                 *self = Num::Scalar(*a);
             }
             (Num::U64(a), Num::Scalar(b)) => {
-                *self = Num::Scalar(Scalar::from(a) - b);
+                *self = Num::Scalar(F::from(a) - b);
             }
         }
     }
 }
 
-impl MulAssign for Num {
+impl<F: PrimeField> MulAssign for Num<F> {
     fn mul_assign(&mut self, rhs: Self) {
         match (*self, rhs) {
             (Num::U64(ref mut a), Num::U64(b)) => {
                 if let Some(res) = a.checked_mul(b) {
                     *self = Num::U64(res);
                 } else {
-                    *self = Num::Scalar(Scalar::from(*a) * Scalar::from(b));
+                    *self = Num::Scalar(F::from(*a) * F::from(b));
                 }
             }
             (Num::Scalar(ref mut a), Num::Scalar(b)) => {
@@ -119,17 +97,17 @@ impl MulAssign for Num {
                 *self = Num::Scalar(*a);
             }
             (Num::Scalar(ref mut a), Num::U64(b)) => {
-                *a *= Scalar::from(b);
+                *a *= F::from(b);
                 *self = Num::Scalar(*a);
             }
             (Num::U64(a), Num::Scalar(b)) => {
-                *self = Num::Scalar(Scalar::from(a) * b);
+                *self = Num::Scalar(F::from(a) * b);
             }
         }
     }
 }
 
-impl DivAssign for Num {
+impl<F: PrimeField> DivAssign for Num<F> {
     fn div_assign(&mut self, rhs: Self) {
         assert!(!rhs.is_zero(), "can not divide by 0");
         match (*self, rhs) {
@@ -137,7 +115,7 @@ impl DivAssign for Num {
                 if let Some(res) = a.checked_div(b) {
                     *self = Num::U64(res);
                 } else {
-                    *self = Num::Scalar(Scalar::from(*a) * Scalar::from(b).invert().unwrap());
+                    *self = Num::Scalar(F::from(*a) * F::from(b).invert().unwrap());
                 }
             }
             (Num::Scalar(ref mut a), Num::Scalar(b)) => {
@@ -145,22 +123,35 @@ impl DivAssign for Num {
                 *self = Num::Scalar(*a);
             }
             (Num::Scalar(ref mut a), Num::U64(b)) => {
-                *a *= Scalar::from(b).invert().unwrap();
+                *a *= F::from(b).invert().unwrap();
                 *self = Num::Scalar(*a);
             }
             (Num::U64(a), Num::Scalar(b)) => {
-                *self = Num::Scalar(Scalar::from(a) * b.invert().unwrap());
+                *self = Num::Scalar(F::from(a) * b.invert().unwrap());
             }
         }
     }
 }
 
-impl Num {
+impl<F: PrimeField> Num<F> {
     pub fn is_zero(&self) -> bool {
         match self {
             Num::Scalar(s) => s.is_zero_vartime(),
             Num::U64(n) => n == &0,
         }
+    }
+
+    pub fn into_scalar(self) -> F {
+        match self {
+            Num::U64(n) => F::from(n),
+            Num::Scalar(s) => s,
+        }
+    }
+}
+
+impl<F: PrimeField> From<u64> for Num<F> {
+    fn from(n: u64) -> Self {
+        Num::<F>::U64(n)
     }
 }
 
@@ -168,17 +159,20 @@ impl Num {
 mod tests {
     use super::*;
 
+    use blstrs::Scalar;
+    use ff::Field;
+
     #[test]
     fn test_add_assign() {
         // u64 - u64 - no overflow
-        let mut a = Num::from(5);
+        let mut a = Num::<Scalar>::U64(5);
         a += Num::from(10);
         assert_eq!(a, Num::from(15));
 
         // u64 - u64 - overflow
         let mut a = Num::from(u64::MAX);
         a += Num::from(10);
-        assert_eq!(a, Num::from(Scalar::from(u64::MAX) + Scalar::from(10)));
+        assert_eq!(a, Num::Scalar(Scalar::from(u64::MAX) + Scalar::from(10)));
 
         // scalar - scalar - no overflow
         let mut a = Num::Scalar(Scalar::from(5));
@@ -199,14 +193,14 @@ mod tests {
     #[test]
     fn test_sub_assign() {
         // u64 - u64 - no overflow
-        let mut a = Num::from(10);
-        a -= Num::from(5);
-        assert_eq!(a, Num::from(5));
+        let mut a = Num::<Scalar>::U64(10);
+        a -= Num::U64(5);
+        assert_eq!(a, Num::U64(5));
 
         // u64 - u64 - overflow
-        let mut a = Num::from(0);
-        a -= Num::from(10);
-        assert_eq!(a, Num::from(Scalar::from(0) - Scalar::from(10)));
+        let mut a = Num::U64(0);
+        a -= Num::U64(10);
+        assert_eq!(a, Num::Scalar(Scalar::from(0) - Scalar::from(10)));
 
         // scalar - scalar - no overflow
         let mut a = Num::Scalar(Scalar::from(10));
@@ -215,21 +209,21 @@ mod tests {
 
         // scalar - u64 - overflow
         let mut a = Num::Scalar(Scalar::from(5));
-        a -= Num::from(10);
+        a -= Num::U64(10);
         assert_eq!(a, Num::Scalar(Scalar::from(5) - Scalar::from(10)));
 
         // scalar - u64 - no overflow
         let mut a = Num::Scalar(Scalar::from(10));
-        a -= Num::from(5);
+        a -= Num::U64(5);
         assert_eq!(a, Num::Scalar(Scalar::from(10) - Scalar::from(5)));
 
         // scalar - u64 - overflow
-        let mut a = Num::from(5);
+        let mut a = Num::U64(5);
         a -= Num::Scalar(Scalar::from(10));
         assert_eq!(a, Num::Scalar(Scalar::from(5) - Scalar::from(10)));
 
         // scalar - u64 - no overflow
-        let mut a = Num::from(10);
+        let mut a = Num::U64(10);
         a -= Num::Scalar(Scalar::from(5));
         assert_eq!(a, Num::Scalar(Scalar::from(10) - Scalar::from(5)));
     }
@@ -237,14 +231,14 @@ mod tests {
     #[test]
     fn test_mul_assign() {
         // u64 - u64 - no overflow
-        let mut a = Num::from(5);
-        a *= Num::from(10);
-        assert_eq!(a, Num::from(5 * 10));
+        let mut a = Num::<Scalar>::U64(5);
+        a *= Num::U64(10);
+        assert_eq!(a, Num::U64(5 * 10));
 
         // u64 - u64 - overflow
-        let mut a = Num::from(u64::MAX);
-        a *= Num::from(10);
-        assert_eq!(a, Num::from(Scalar::from(u64::MAX) * Scalar::from(10)));
+        let mut a = Num::U64(u64::MAX);
+        a *= Num::U64(10);
+        assert_eq!(a, Num::Scalar(Scalar::from(u64::MAX) * Scalar::from(10)));
 
         // scalar - scalar - no overflow
         let mut a = Num::Scalar(Scalar::from(5));
@@ -253,11 +247,11 @@ mod tests {
 
         // scalar - u64 - overflow
         let mut a = Num::Scalar(Scalar::from(5));
-        a *= Num::from(u64::MAX);
+        a *= Num::U64(u64::MAX);
         assert_eq!(a, Num::Scalar(Scalar::from(5) * Scalar::from(u64::MAX)));
 
         // scalar - u64 - overflow
-        let mut a = Num::from(u64::MAX);
+        let mut a = Num::U64(u64::MAX);
         a *= Num::Scalar(Scalar::from(5));
         assert_eq!(a, Num::Scalar(Scalar::from(5) * Scalar::from(u64::MAX)));
     }
@@ -265,13 +259,13 @@ mod tests {
     #[test]
     fn test_div_assign() {
         // u64 - u64 - no overflow
-        let mut a = Num::from(10);
-        a /= Num::from(5);
-        assert_eq!(a, Num::from(10 / 5));
+        let mut a = Num::<Scalar>::U64(10);
+        a /= Num::U64(5);
+        assert_eq!(a, Num::U64(10 / 5));
 
-        let mut a = Num::from(10);
-        a /= Num::from(3);
-        assert_eq!(a, Num::from(10 / 3));
+        let mut a = Num::<Scalar>::U64(10);
+        a /= Num::U64(3);
+        assert_eq!(a, Num::U64(10 / 3));
 
         // scalar - scalar - no overflow
         let mut a = Num::Scalar(Scalar::from(10));
@@ -283,14 +277,14 @@ mod tests {
 
         // scalar - u64 - no overflow
         let mut a = Num::Scalar(Scalar::from(10));
-        a /= Num::from(5);
+        a /= Num::U64(5);
         assert_eq!(
             a,
             Num::Scalar(Scalar::from(10) * Scalar::from(5).invert().unwrap())
         );
 
         // scalar - u64 - no overflow
-        let mut a = Num::from(10);
+        let mut a = Num::U64(10);
         a /= Num::Scalar(Scalar::from(5));
         assert_eq!(
             a,
