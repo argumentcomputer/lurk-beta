@@ -17,9 +17,9 @@ impl<F: PrimeField> Display for Num<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Num::Scalar(s) => {
-                let be_bytes = s.to_repr();
+                let le_bytes = s.to_repr();
                 write!(f, "Num(0x")?;
-                for &b in be_bytes.as_ref().iter().rev() {
+                for &b in le_bytes.as_ref().iter().rev() {
                     write!(f, "{:02x}", b)?;
                 }
                 write!(f, ")")?;
