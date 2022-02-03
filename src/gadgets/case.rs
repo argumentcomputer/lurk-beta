@@ -4,13 +4,9 @@ use bellperson::{
     gadgets::num::AllocatedNum,
     ConstraintSystem, SynthesisError,
 };
-use blstrs::Scalar as Fr;
-use ff::{Field, PrimeField};
+use ff::PrimeField;
 
-use std::{
-    fmt::Debug,
-    ops::{MulAssign, SubAssign},
-};
+use std::fmt::Debug;
 
 pub struct CaseClause<'a, F: PrimeField> {
     pub key: F,
@@ -38,11 +34,11 @@ pub struct CaseConstraint<'a, F: PrimeField> {
     clauses: &'a [CaseClause<'a, F>],
 }
 
-impl CaseConstraint<'_, Fr> {
-    fn enforce_selection<CS: ConstraintSystem<Fr>>(
+impl<F: PrimeField> CaseConstraint<'_, F> {
+    fn enforce_selection<CS: ConstraintSystem<F>>(
         self,
         cs: &mut CS,
-    ) -> Result<AllocatedNum<Fr>, SynthesisError> {
+    ) -> Result<AllocatedNum<F>, SynthesisError> {
         // Allocate one bit per clause, the selector. This creates constraints enforcing that each bit is 0 or 1.
         // In fact, the 'selected' clause will have selector = 1 while the others = 0.
         // This will be confirmed/enforced by later constraints.
@@ -103,15 +99,15 @@ impl CaseConstraint<'_, Fr> {
     }
 }
 
-fn bit_dot_product<CS: ConstraintSystem<Fr>>(
+fn bit_dot_product<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     bit_vector: &[AllocatedBit],
-    value_vector: &[AllocatedNum<Fr>],
-) -> Result<AllocatedNum<Fr>, SynthesisError> {
-    let mut computed_result = Fr::zero();
+    value_vector: &[AllocatedNum<F>],
+) -> Result<AllocatedNum<F>, SynthesisError> {
+    let mut computed_result = F::zero();
 
     let mut all_products = Vec::new();
-    let zero = AllocatedNum::alloc(&mut cs.namespace(|| "zero"), || Ok(Fr::zero()))?;
+    let zero = AllocatedNum::alloc(&mut cs.namespace(|| "zero"), || Ok(F::zero()))?;
 
     for (i, (bit, value)) in bit_vector.iter().zip(value_vector).enumerate() {
         let allocated_prod = pick(
@@ -127,7 +123,7 @@ fn bit_dot_product<CS: ConstraintSystem<Fr>>(
             computed_result += prod;
         };
     }
-    let result = AllocatedNum::<Fr>::alloc(&mut cs.namespace(|| "result"), || Ok(computed_result))?;
+    let result = AllocatedNum::<F>::alloc(&mut cs.namespace(|| "result"), || Ok(computed_result))?;
 
     cs.enforce(
         || "sum of products",
@@ -143,17 +139,17 @@ fn bit_dot_product<CS: ConstraintSystem<Fr>>(
     Ok(result)
 }
 
-pub fn case<CS: ConstraintSystem<Fr>>(
+pub fn case<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    selected: &AllocatedNum<Fr>,
-    clauses: &[CaseClause<Fr>],
-    default: &AllocatedNum<Fr>,
-) -> Result<AllocatedNum<Fr>, SynthesisError> {
+    selected: &AllocatedNum<F>,
+    clauses: &[CaseClause<F>],
+    default: &AllocatedNum<F>,
+) -> Result<AllocatedNum<F>, SynthesisError> {
     assert!(!clauses.is_empty());
 
     let mut any_selected = false;
 
-    let mut acc = AllocatedNum::alloc(cs.namespace(|| "acc"), || Ok(Fr::one()))?;
+    let mut acc = AllocatedNum::alloc(cs.namespace(|| "acc"), || Ok(F::one()))?;
 
     for (i, clause) in clauses.iter().enumerate() {
         if Some(clause.key) == selected.get_value() {
@@ -221,12 +217,12 @@ pub fn case<CS: ConstraintSystem<Fr>>(
 }
 
 // TODO: This can be optimized to minimize work duplicated between the inner case calls.
-pub fn multi_case<CS: ConstraintSystem<Fr>>(
+pub fn multi_case<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    selected: &AllocatedNum<Fr>,
-    cases: &[&[CaseClause<Fr>]],
-    defaults: &[&AllocatedNum<Fr>],
-) -> Result<Vec<AllocatedNum<Fr>>, SynthesisError> {
+    selected: &AllocatedNum<F>,
+    cases: &[&[CaseClause<F>]],
+    defaults: &[&AllocatedNum<F>],
+) -> Result<Vec<AllocatedNum<F>>, SynthesisError> {
     let mut result = Vec::new();
 
     for (i, (c, default)) in cases.iter().zip(defaults).enumerate() {
@@ -242,6 +238,8 @@ pub fn multi_case<CS: ConstraintSystem<Fr>>(
 
 #[cfg(test)]
 mod tests {
+    use blstrs::Scalar as Fr;
+
     use super::*;
     use bellperson::util_cs::{
         metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta,

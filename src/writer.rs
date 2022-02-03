@@ -1,18 +1,20 @@
 use std::io;
 
+use ff::PrimeField;
+
 use crate::store::{ContPtr, Continuation, Expression, Ptr, Store};
 
-pub trait Write {
-    fn fmt<W: io::Write>(&self, store: &Store, w: &mut W) -> io::Result<()>;
-    fn fmt_to_string(&self, store: &Store) -> String {
+pub trait Write<F: PrimeField> {
+    fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()>;
+    fn fmt_to_string(&self, store: &Store<F>) -> String {
         let mut out = Vec::new();
         self.fmt(store, &mut out).expect("preallocated");
         String::from_utf8(out).expect("I know it")
     }
 }
 
-impl Write for Ptr {
-    fn fmt<W: io::Write>(&self, store: &Store, w: &mut W) -> io::Result<()> {
+impl<F: PrimeField> Write<F> for Ptr<F> {
+    fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         if let Some(expr) = store.fetch(self) {
             expr.fmt(store, w)
         } else {
@@ -21,8 +23,8 @@ impl Write for Ptr {
     }
 }
 
-impl Write for ContPtr {
-    fn fmt<W: io::Write>(&self, store: &Store, w: &mut W) -> io::Result<()> {
+impl<F: PrimeField> Write<F> for ContPtr<F> {
+    fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         if let Some(cont) = store.fetch_cont(self) {
             cont.fmt(store, w)
         } else {
@@ -31,8 +33,8 @@ impl Write for ContPtr {
     }
 }
 
-impl Write for Expression<'_> {
-    fn fmt<W: io::Write>(&self, store: &Store, w: &mut W) -> io::Result<()> {
+impl<F: PrimeField> Write<F> for Expression<'_, F> {
+    fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         use Expression::*;
 
         match self {
@@ -63,8 +65,8 @@ impl Write for Expression<'_> {
     }
 }
 
-impl Expression<'_> {
-    fn print_tail<W: io::Write>(&self, store: &Store, w: &mut W) -> io::Result<()> {
+impl<F: PrimeField> Expression<'_, F> {
+    fn print_tail<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         match self {
             Expression::Nil => write!(w, ")"),
             Expression::Cons(car, cdr) => {
@@ -93,8 +95,8 @@ impl Expression<'_> {
     }
 }
 
-impl Write for Continuation {
-    fn fmt<W: io::Write>(&self, store: &Store, w: &mut W) -> io::Result<()> {
+impl<F: PrimeField> Write<F> for Continuation<F> {
+    fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         match self {
             Continuation::Outermost => write!(w, "Outermost"),
             Continuation::Simple(cont) => {

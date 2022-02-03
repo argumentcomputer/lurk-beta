@@ -1,4 +1,4 @@
-#![allow(clippy::single_match)]
+#![allow(clippy::single_match, clippy::type_complexity)]
 
 #[macro_use]
 mod gadgets;
