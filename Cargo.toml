@@ -43,5 +43,11 @@ pasta_curves = "0.3.0"
 name = "eval"
 harness = false
 
+[workspace]
+members = [
+  "lurk_macro",
+]
+
+
 [patch.crates-io]
 bellperson = { git = "https://github.com/filecoin-project/bellperson", branch = "instance-aggregation" }

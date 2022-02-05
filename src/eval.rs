@@ -1075,7 +1075,8 @@ mod test {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let val = s.num(123);
-        let expr = s.read("((lambda (x) x) 123)").unwrap();
+        let expr = s.read("((lambda(x) x) 123)").unwrap();
+        //"((lambda (x) x) 123)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();

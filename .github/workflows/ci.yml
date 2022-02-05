@@ -52,7 +52,7 @@ jobs:
             source $HOME/.cargo/env
 
           run: |
-            $HOME/.cargo/bin/cargo test --release --target ${{ matrix.target }}
+            $HOME/.cargo/bin/cargo test --release --target ${{ matrix.target }} --all
 
   # Linux tests
   linux:
@@ -78,7 +78,7 @@ jobs:
       - name: Install opencl
         run: sudo apt update && sudo apt-get install -y ocl-icd-opencl-dev
       - run: ${{ matrix.deps }}
-      - run: cargo test --target ${{ matrix.target }}
+      - run: cargo test --target ${{ matrix.target }} --all
 
 #  # macOS tests
 #  macos:
@@ -100,7 +100,6 @@ jobs:
 #          override: true
 #      - run: cargo test
 
-
   clippy_check:
     runs-on: ubuntu-latest
     steps:
@@ -109,7 +108,7 @@ jobs:
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features          
+          args: --all-features
 
   check_fmt_and_docs:
     name: Checking fmt and docs
