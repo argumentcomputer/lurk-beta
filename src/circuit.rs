@@ -2312,10 +2312,10 @@ mod tests {
             let delta = cs.delta(&cs_blank, false);
             assert!(delta == Delta::Equal);
 
-            // println!("{}", print_cs(&cs));
-            assert_eq!(32499, cs.num_constraints());
+            //println!("{}", print_cs(&cs));
+            assert_eq!(31921, cs.num_constraints());
             assert_eq!(20, cs.num_inputs());
-            assert_eq!(32455, cs.aux().len());
+            assert_eq!(31901, cs.aux().len());
 
             let public_inputs = frame.public_inputs(store);
             let mut rng = rand::thread_rng();
