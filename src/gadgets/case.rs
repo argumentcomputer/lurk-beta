@@ -35,33 +35,39 @@ pub struct CaseConstraint<'a, F: PrimeField> {
 }
 
 impl<F: PrimeField> CaseConstraint<'_, F> {
+    /*
+    This function returns not only the result of selection, but also the
+    selector, a vector of selection bits, where exactly one bit is 1, and
+    others are 0, such that it can be reused later.
+    */
     fn enforce_selection<CS: ConstraintSystem<F>>(
         self,
         cs: &mut CS,
-    ) -> Result<AllocatedNum<F>, SynthesisError> {
-        // Allocate one bit per clause, the selector. This creates constraints enforcing that each bit is 0 or 1.
-        // In fact, the 'selected' clause will have selector = 1 while the others = 0.
-        // This will be confirmed/enforced by later constraints.
-        let mut selectors = Vec::with_capacity(self.clauses.len());
+    ) -> Result<(AllocatedNum<F>, Vec<AllocatedBit>), SynthesisError> {
+        // Allocate one bit per clause, called selection bit. This creates
+        // constraints enforcing that each bit is 0 or 1. In fact, the
+        // 'selected' clause will have selection bit = 1 while the others
+        // are 0. This will be confirmed/enforced by later constraints.
+        let mut selector = Vec::with_capacity(self.clauses.len());
         for (i, clause) in self.clauses.iter().enumerate() {
             let is_selected = if let Some(value) = self.selected.get_value() {
                 clause.key == value
             } else {
                 false
             };
-            selectors.push(
-                AllocatedBit::alloc(
-                    cs.namespace(|| format!("selector {}", i)),
-                    Some(is_selected),
-                )
-                .unwrap(),
-            );
+            selector.push(AllocatedBit::alloc(
+                cs.namespace(|| format!("selection bit {}", i)),
+                Some(is_selected),
+            )?);
         }
 
+        // We add up all bits. If the result is 1, then it means
+        // there is exactly one bit equal 1, while others are 0.
+        // This guarantees we don't have repeated selected keys.
         cs.enforce(
             || "exactly one selector is 1",
             |lc| {
-                selectors
+                selector
                     .iter()
                     .fold(lc, |lc, selector| lc + selector.get_variable())
             },
@@ -69,10 +75,11 @@ impl<F: PrimeField> CaseConstraint<'_, F> {
             |lc| lc + CS::one(),
         );
 
+        // Apply selection.
         cs.enforce(
             || "selection vector dot keys = selected",
             |lc| {
-                selectors
+                selector
                     .iter()
                     .zip(&*self.clauses)
                     .fold(lc, |lc, (selector, clause)| {
@@ -89,19 +96,19 @@ impl<F: PrimeField> CaseConstraint<'_, F> {
             .map(|c| c.value.clone())
             .collect::<Vec<_>>();
 
-        let result = bit_dot_product(
+        let result = selector_dot_product(
             &mut cs.namespace(|| "extract result"),
-            &selectors,
+            &selector,
             values.as_slice(),
         )?;
 
-        Ok(result)
+        Ok((result, selector))
     }
 }
 
-fn bit_dot_product<F: PrimeField, CS: ConstraintSystem<F>>(
+fn selector_dot_product<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    bit_vector: &[AllocatedBit],
+    selector: &[AllocatedBit],
     value_vector: &[AllocatedNum<F>],
 ) -> Result<AllocatedNum<F>, SynthesisError> {
     let mut computed_result = F::zero();
@@ -109,7 +116,7 @@ fn bit_dot_product<F: PrimeField, CS: ConstraintSystem<F>>(
     let mut all_products = Vec::new();
     let zero = AllocatedNum::alloc(&mut cs.namespace(|| "zero"), || Ok(F::zero()))?;
 
-    for (i, (bit, value)) in bit_vector.iter().zip(value_vector).enumerate() {
+    for (i, (bit, value)) in selector.iter().zip(value_vector).enumerate() {
         let allocated_prod = pick(
             &mut cs.namespace(|| format!("allocated_prod {}", i)),
             &Boolean::Is(bit.clone()),
@@ -139,6 +146,10 @@ fn bit_dot_product<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(result)
 }
 
+/*
+Selects the clause whose key is equal to selected and returns its value,
+or if no key is selected, returns the default.
+*/
 pub fn case<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selected: &AllocatedNum<F>,
@@ -146,97 +157,151 @@ pub fn case<F: PrimeField, CS: ConstraintSystem<F>>(
     default: &AllocatedNum<F>,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
     assert!(!clauses.is_empty());
-
-    let mut any_selected = false;
-
-    let mut acc = AllocatedNum::alloc(cs.namespace(|| "acc"), || Ok(F::one()))?;
-
-    for (i, clause) in clauses.iter().enumerate() {
-        if Some(clause.key) == selected.get_value() {
-            any_selected = true;
-        }
-
-        let mut x = clause.key;
-        let mut selected_present = false;
-
-        if let Some(s) = selected.get_value() {
-            selected_present = true;
-            x.sub_assign(&s);
-        };
-
-        if let Some(a) = acc.get_value() {
-            x.mul_assign(&a)
-        };
-
-        let new_acc = AllocatedNum::alloc(&mut cs.namespace(|| format!("acc {}", i + 1)), || {
-            if selected_present {
-                Ok(x)
-            } else {
-                Err(SynthesisError::AssignmentMissing)
-            }
-        })?;
-
-        // acc * clause.key - selected = new_acc
-        cs.enforce(
-            || format!("acc * (clause-{}.key - selected) = new_acc", i),
-            |lc| lc + acc.get_variable(),
-            |_| Boolean::Constant(true).lc(CS::one(), clause.key) - selected.get_variable(),
-            |lc| lc + new_acc.get_variable(),
-        );
-
-        acc = new_acc;
-    }
-    let is_selected = alloc_is_zero(cs.namespace(|| "is_selected"), &acc)?;
-    // If no selection matched, use a dummy key so constraints are met.
-    // We will actually return the default value, though.
-    let dummy_key = clauses[0].key;
-    let selected = AllocatedNum::alloc(cs.namespace(|| "default key"), || {
-        if any_selected {
-            selected
-                .get_value()
-                .ok_or(SynthesisError::AssignmentMissing)
-        } else {
-            Ok(dummy_key)
-        }
-    })?;
-
-    // FIXME: Ensure cases contain no duplicate keys.
-    let cc = CaseConstraint { selected, clauses };
-
-    // If no selection matched, choose the default value.
-    let is_default = is_selected.not();
-
-    let enforced_result = cc.enforce_selection(cs)?;
-
-    pick(
-        &mut cs.namespace(|| "maybe default"),
-        &is_default,
-        default,
-        &enforced_result,
-    )
+    multi_case(cs, selected, &[clauses], &[default]).map(|r| r[0].to_owned())
 }
 
-// TODO: This can be optimized to minimize work duplicated between the inner case calls.
+/*
+Selects the clauses whose key is equal to selected and returns
+a vector containing the corresponding values, or if no key is selected,
+returns the default.
+*/
 pub fn multi_case<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selected: &AllocatedNum<F>,
     cases: &[&[CaseClause<F>]],
     defaults: &[&AllocatedNum<F>],
 ) -> Result<Vec<AllocatedNum<F>>, SynthesisError> {
+    assert!(!cases.is_empty());
+    assert!(!defaults.is_empty());
     let mut result = Vec::new();
 
-    for (i, (c, default)) in cases.iter().zip(defaults).enumerate() {
-        result.push(case(
-            &mut cs.namespace(|| format!("case {}", i)),
+    // First clause in the list allows to constrain the selected key,
+    // which must be the same (including ordering) in other clauses.
+    let (selector, is_default) = {
+        let i = 0;
+        let c = cases[0];
+        let default = defaults[0];
+
+        assert!(!c.is_empty());
+        let mut any_selected = false;
+
+        let mut acc =
+            AllocatedNum::alloc(cs.namespace(|| format!("acc, case {}", i)), || Ok(F::one()))?;
+
+        for (i, clause) in c.iter().enumerate() {
+            if Some(clause.key) == selected.get_value() {
+                any_selected = true;
+            }
+            let mut x = clause.key;
+            let mut selected_present = false;
+
+            if let Some(s) = selected.get_value() {
+                selected_present = true;
+                x.sub_assign(&s);
+            };
+
+            if let Some(a) = acc.get_value() {
+                x.mul_assign(&a)
+            };
+
+            let new_acc = AllocatedNum::alloc(
+                &mut cs.namespace(|| format!("acc {}, case {}", i + 1, i)),
+                || {
+                    if selected_present {
+                        Ok(x)
+                    } else {
+                        Err(SynthesisError::AssignmentMissing)
+                    }
+                },
+            )?;
+
+            // acc * clause.key - selected = new_acc
+            cs.enforce(
+                || format!("acc * (clause-{}.key - selected) = new_acc, case {}", i, i),
+                |lc| lc + acc.get_variable(),
+                |_| Boolean::Constant(true).lc(CS::one(), clause.key) - selected.get_variable(),
+                |lc| lc + new_acc.get_variable(),
+            );
+
+            acc = new_acc;
+        }
+
+        // acc = prod_i(clause[i].key - selected)
+        // Therefore acc is zero if and only if some key was selected.
+        let is_selected = alloc_is_zero(cs.namespace(|| format!("is_selected, case {}", i)), &acc)?;
+
+        // If no selection matched, use a dummy key so constraints are met.
+        // We will actually return the default value, though.
+        let dummy_key = c[0].key;
+        let selected = AllocatedNum::alloc(cs.namespace(|| "default key"), || {
+            if any_selected {
+                selected
+                    .get_value()
+                    .ok_or(SynthesisError::AssignmentMissing)
+            } else {
+                Ok(dummy_key)
+            }
+        })?;
+
+        // enforce_selection() guarantees no repeated selected keys exist
+        // and returns a tuple containing the result and the selector
+        let cc = CaseConstraint {
             selected,
-            c,
+            clauses: c,
+        };
+        let (enforced_result, selector) =
+            cc.enforce_selection(&mut cs.namespace(|| format!("case {}", i)))?;
+
+        // If no selection matched, choose the default value
+        let is_default = is_selected.not();
+
+        result.push(pick(
+            &mut cs.namespace(|| format!("maybe default, case {}", i)),
+            &is_default,
             default,
+            &enforced_result,
+        )?);
+
+        (selector, is_default)
+    };
+
+    // Now that we constrained the selector, we can constrain the selection
+    // of the corresponding values in next clauses
+    // 1..n
+    for (i, (c, default)) in cases.iter().zip(defaults).enumerate().skip(1) {
+        assert!(!c.is_empty());
+
+        // Ensure key ordering actually matches
+        for (j, case) in c.iter().enumerate() {
+            assert_eq!(
+                case.key, cases[0][j].key,
+                "Key ordering missmatch {}:{}",
+                i, j
+            );
+        }
+
+        let values = c
+            .iter()
+            .map(|clause| clause.value.clone())
+            .collect::<Vec<_>>();
+
+        let next_enforced_value = selector_dot_product(
+            &mut cs.namespace(|| format!("extract result, case {}", i)),
+            &selector,
+            &values,
+        )?;
+        result.push(pick(
+            &mut cs.namespace(|| format!("maybe default, case {}", i)),
+            &is_default,
+            default,
+            &next_enforced_value,
         )?);
     }
+
     Ok(result)
 }
 
-#[cfg(test)]
+#[allow(unused_imports)]
 mod tests {
     use blstrs::Scalar as Fr;
 
@@ -252,8 +317,8 @@ mod tests {
         let x = Fr::from(123);
         let y = Fr::from(124);
         let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
-        let val = AllocatedNum::alloc(cs.namespace(|| "val"), || Ok(Fr::from(666))).unwrap();
-        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(777))).unwrap();
+        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
+        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
         let default =
             AllocatedNum::alloc(cs.namespace(|| "default"), || Ok(Fr::from(999))).unwrap();
 
@@ -261,11 +326,11 @@ mod tests {
             let clauses = [
                 CaseClause {
                     key: x,
-                    value: &val,
+                    value: &val0.clone(),
                 },
                 CaseClause {
                     key: y,
-                    value: &val2,
+                    value: &val1.clone(),
                 },
             ];
 
@@ -277,14 +342,14 @@ mod tests {
             )
             .unwrap();
 
-            assert_eq!(val.get_value(), result.get_value());
+            assert_eq!(val0.get_value(), result.get_value());
             assert!(cs.is_satisfied());
         }
 
         {
             let clauses = [CaseClause {
                 key: y,
-                value: &val,
+                value: &val0.clone(),
             }];
 
             let result = case(
@@ -301,6 +366,349 @@ mod tests {
     }
 
     #[test]
+    fn multicase() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+
+        let x = Fr::from(123);
+        let y = Fr::from(124);
+        let z = Fr::from(125);
+        let selected0 = AllocatedNum::alloc(cs.namespace(|| "selected0"), || Ok(x)).unwrap();
+        let selected1 = AllocatedNum::alloc(cs.namespace(|| "selected1"), || Ok(z)).unwrap();
+        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
+        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
+        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(700))).unwrap();
+        let default_vec = [
+            &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
+            &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
+            &AllocatedNum::alloc(cs.namespace(|| "default2"), || Ok(Fr::from(997))).unwrap(),
+        ];
+
+        {
+            let clauses0: [CaseClause<Fr>; 2] = [
+                CaseClause {
+                    key: x,
+                    value: &val0.clone(),
+                },
+                CaseClause {
+                    key: y,
+                    value: &val1.clone(),
+                },
+            ];
+            let clauses1: [CaseClause<Fr>; 2] = [
+                CaseClause {
+                    key: x,
+                    value: &val1.clone(),
+                },
+                CaseClause {
+                    key: y,
+                    value: &val0.clone(),
+                },
+            ];
+            let clauses2: [CaseClause<Fr>; 2] = [
+                CaseClause {
+                    key: x,
+                    value: &val2.clone(),
+                },
+                CaseClause {
+                    key: y,
+                    value: &val0.clone(),
+                },
+            ];
+            let clauses_vec: [&[CaseClause<Fr>]; 3] = [&clauses0, &clauses1, &clauses2];
+
+            // Test regular multicase, select first clause
+            let mut result = multi_case(
+                &mut cs.namespace(|| "selected case 0"),
+                &selected0,
+                &clauses_vec,
+                &default_vec,
+            )
+            .unwrap();
+
+            assert_eq!(val0.get_value(), result[0].get_value());
+            assert_eq!(val1.get_value(), result[1].get_value());
+            assert_eq!(val2.get_value(), result[2].get_value());
+            assert!(cs.is_satisfied());
+
+            // Test regular multicase, select default
+            result = multi_case(
+                &mut cs.namespace(|| "selected case 1"),
+                &selected1,
+                &clauses_vec,
+                &default_vec,
+            )
+            .unwrap();
+
+            assert_eq!(default_vec[0].get_value(), result[0].get_value());
+            assert_eq!(default_vec[1].get_value(), result[1].get_value());
+            assert_eq!(default_vec[2].get_value(), result[2].get_value());
+            assert!(cs.is_satisfied());
+        }
+    }
+
+    #[test]
+    fn multicase_negative1() {
+        // Test invalid multicase (repeated keys)
+        let mut cs = TestConstraintSystem::<Fr>::new();
+
+        let x = Fr::from(123);
+        let z = Fr::from(125);
+        let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(z)).unwrap();
+        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
+        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
+        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(700))).unwrap();
+
+        let default_vec = [
+            &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
+            &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
+        ];
+
+        let clauses0: [CaseClause<Fr>; 2] = [
+            CaseClause {
+                key: x,
+                value: &val0.clone(),
+            },
+            CaseClause {
+                key: x,
+                value: &val1.clone(),
+            },
+        ];
+        let clauses1: [CaseClause<Fr>; 2] = [
+            CaseClause {
+                key: x,
+                value: &val2.clone(),
+            },
+            CaseClause {
+                key: x,
+                value: &val0.clone(),
+            },
+        ];
+
+        // Test repeated keys
+        let invalid_clauses_vec: [&[CaseClause<Fr>]; 2] = [&clauses0, &clauses1];
+
+        let _ = multi_case(
+            &mut cs.namespace(|| "selected case"),
+            &selected,
+            &invalid_clauses_vec,
+            &default_vec,
+        );
+        assert!(!cs.is_satisfied());
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion failed: `(left == right)")]
+    fn multicase_negative2() {
+        // Test invalid multicase (keys ording doesn't match)
+        let mut cs = TestConstraintSystem::<Fr>::new();
+
+        let x = Fr::from(123);
+        let y = Fr::from(124);
+        let z = Fr::from(125);
+        let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(z)).unwrap();
+        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
+        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
+        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(700))).unwrap();
+
+        let default_vec = [
+            &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
+            &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
+            &AllocatedNum::alloc(cs.namespace(|| "default2"), || Ok(Fr::from(997))).unwrap(),
+        ];
+
+        let clauses0: [CaseClause<Fr>; 2] = [
+            CaseClause {
+                key: x,
+                value: &val0.clone(),
+            },
+            CaseClause {
+                key: y,
+                value: &val1.clone(),
+            },
+        ];
+        let clauses1: [CaseClause<Fr>; 2] = [
+            CaseClause {
+                key: y,
+                value: &val2.clone(),
+            },
+            CaseClause {
+                key: x,
+                value: &val0.clone(),
+            },
+        ];
+
+        let invalid_clauses_vec: [&[CaseClause<Fr>]; 2] = [&clauses0, &clauses1];
+
+        // Test keys ordering
+        let _ = multi_case(
+            &mut cs.namespace(|| "selected case"),
+            &selected,
+            &invalid_clauses_vec,
+            &default_vec,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "index out of bounds: the len is 2 but the index is 2")]
+    fn multicase_negative3() {
+        // Test invalid multicase (clauses sizes doesn't match)
+        let mut cs = TestConstraintSystem::<Fr>::new();
+
+        let x = Fr::from(123);
+        let y = Fr::from(124);
+        let z = Fr::from(125);
+        let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(z)).unwrap();
+        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
+        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
+        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(700))).unwrap();
+
+        let default_vec = [
+            &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
+            &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
+        ];
+
+        let clauses0: [CaseClause<Fr>; 2] = [
+            CaseClause {
+                key: x,
+                value: &val0.clone(),
+            },
+            CaseClause {
+                key: y,
+                value: &val1.clone(),
+            },
+        ];
+        let clauses1: [CaseClause<Fr>; 3] = [
+            CaseClause {
+                key: x,
+                value: &val2.clone(),
+            },
+            CaseClause {
+                key: y,
+                value: &val2.clone(),
+            },
+            CaseClause {
+                key: x,
+                value: &val0.clone(),
+            },
+        ];
+
+        // Test invalid clauses sizes
+        let invalid_clauses_vec: [&[CaseClause<Fr>]; 2] = [&clauses0, &clauses1];
+
+        let _ = multi_case(
+            &mut cs.namespace(|| "selected case"),
+            &selected,
+            &invalid_clauses_vec,
+            &default_vec,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion failed: !cases.is_empty()")]
+    fn multicase_negative4() {
+        // Test invalid multicase (empty clauses)
+        let mut cs = TestConstraintSystem::<Fr>::new();
+
+        let x = Fr::from(123);
+        let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
+        let default_vec = [
+            &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
+            &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
+        ];
+
+        let _ = multi_case(
+            &mut cs.namespace(|| "selected case"),
+            &selected,
+            &[],
+            &default_vec,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion failed: !defaults.is_empty()")]
+    fn multicase_negative5() {
+        // Test invalid multicase (empty defaults)
+        let mut cs = TestConstraintSystem::<Fr>::new();
+
+        let x = Fr::from(123);
+        let y = Fr::from(124);
+        let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
+        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
+        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
+        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(700))).unwrap();
+        let clauses0: [CaseClause<Fr>; 2] = [
+            CaseClause {
+                key: x,
+                value: &val0.clone(),
+            },
+            CaseClause {
+                key: y,
+                value: &val1.clone(),
+            },
+        ];
+        let clauses1: [CaseClause<Fr>; 3] = [
+            CaseClause {
+                key: x,
+                value: &val2.clone(),
+            },
+            CaseClause {
+                key: y,
+                value: &val2.clone(),
+            },
+            CaseClause {
+                key: x,
+                value: &val0.clone(),
+            },
+        ];
+        let clauses_vec: [&[CaseClause<Fr>]; 2] = [&clauses0, &clauses1];
+
+        // Test invalid, empty defaults
+        let _ = multi_case(
+            &mut cs.namespace(|| "selected case"),
+            &selected,
+            &clauses_vec,
+            &[],
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion failed: !c.is_empty()")]
+    fn multicase_negative6() {
+        // Test invalid multicase (empty case).
+        let mut cs = TestConstraintSystem::<Fr>::new();
+
+        let x = Fr::from(123);
+        let y = Fr::from(124);
+        let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
+        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
+        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
+        let default_vec = [
+            &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
+            &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
+        ];
+        let clauses0: [CaseClause<Fr>; 2] = [
+            CaseClause {
+                key: x,
+                value: &val0.clone(),
+            },
+            CaseClause {
+                key: y,
+                value: &val1.clone(),
+            },
+        ];
+        let clauses1 = [];
+        let clauses_vec: [&[CaseClause<Fr>]; 2] = [&clauses0, &clauses1];
+
+        // Test invalid, empty clauses.
+        let _ = multi_case(
+            &mut cs.namespace(|| "selected case"),
+            &selected,
+            &clauses_vec,
+            &default_vec,
+        );
+    }
+
+    #[test]
     fn groth_case() {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let mut cs_blank = MetricCS::<Fr>::new();
@@ -312,13 +720,13 @@ mod tests {
             Err(SynthesisError::AssignmentMissing)
         })
         .unwrap();
-        let val = AllocatedNum::alloc(cs.namespace(|| "val"), || Ok(Fr::from(666))).unwrap();
-        let val_blank = AllocatedNum::alloc(cs_blank.namespace(|| "val"), || {
+        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
+        let val0_blank = AllocatedNum::alloc(cs_blank.namespace(|| "val0"), || {
             Err(SynthesisError::AssignmentMissing)
         })
         .unwrap();
-        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(777))).unwrap();
-        let val2_blank = AllocatedNum::alloc(cs_blank.namespace(|| "val2"), || {
+        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
+        let val1_blank = AllocatedNum::alloc(cs_blank.namespace(|| "val1"), || {
             Err(SynthesisError::AssignmentMissing)
         })
         .unwrap();
@@ -331,11 +739,11 @@ mod tests {
             let clauses = [
                 CaseClause {
                     key: x,
-                    value: &val,
+                    value: &val0,
                 },
                 CaseClause {
                     key: y,
-                    value: &val2,
+                    value: &val1,
                 },
             ];
 
@@ -347,18 +755,18 @@ mod tests {
             )
             .unwrap();
 
-            assert_eq!(val.get_value(), result.get_value());
+            assert_eq!(val0.get_value(), result.get_value());
             assert!(cs.is_satisfied());
         }
         {
             let clauses_blank = [
                 CaseClause {
                     key: x,
-                    value: &val_blank,
+                    value: &val0_blank,
                 },
                 CaseClause {
                     key: y,
-                    value: &val2_blank,
+                    value: &val1_blank,
                 },
             ];
 
