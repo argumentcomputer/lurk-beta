@@ -69,7 +69,7 @@ impl Repl {
 }
 
 // For the moment, input must be on a single line.
-pub fn repl(lurk_file: Option<&str>) -> Result<()> {
+pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
     println!("Lurk REPL welcomes you.");
 
     let mut s = Store::default();
