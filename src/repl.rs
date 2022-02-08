@@ -73,7 +73,7 @@ pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
     println!("Lurk REPL welcomes you.");
 
     let mut s = Store::default();
-    let limit = 1000_000_000;
+    let limit = 1_000_000_000;
     let mut repl = Repl::new(&mut s, limit)?;
 
     {
@@ -138,7 +138,7 @@ pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
 impl ReplState {
     pub fn new(s: &mut Store<Fr>, limit: usize) -> Self {
         Self {
-            env: empty_sym_env(&s),
+            env: empty_sym_env(s),
             limit,
         }
     }
@@ -148,7 +148,7 @@ impl ReplState {
         store: &mut Store<Fr>,
     ) -> (Ptr<Fr>, usize, ContPtr<Fr>) {
         let (result, _next_env, limit, next_cont) =
-            Evaluator::new(expr, self.env.clone(), store, self.limit).eval();
+            Evaluator::new(expr, self.env, store, self.limit).eval();
 
         (result, limit, next_cont)
     }
@@ -166,7 +166,7 @@ impl ReplState {
 
         let result = match &maybe_command {
             Some(maybe_command) => match maybe_command.tag() {
-                Tag::Sym => match store.fetch(&maybe_command).unwrap().as_sym_str().unwrap() {
+                Tag::Sym => match store.fetch(maybe_command).unwrap().as_sym_str().unwrap() {
                     ":QUIT" => (true, false),
                     ":LOAD" => match store.read_string(&mut chars) {
                         Some(s) => match s.tag() {
@@ -195,11 +195,11 @@ impl ReplState {
                         (true, true)
                     }
                     ":CLEAR" => {
-                        self.env = empty_sym_env(&store);
+                        self.env = empty_sym_env(store);
                         (true, true)
                     }
                     s => {
-                        if s.starts_with(":") {
+                        if s.starts_with(':') {
                             println!("Unkown command: {}", s);
                             (true, true)
                         } else {
@@ -279,7 +279,7 @@ impl ReplState {
                                 let (first_evaled, _, _) = self.eval_expr(first, store);
                                 assert!(!first_evaled.is_nil());
                             } else if s == &":CLEAR" {
-                                self.env = empty_sym_env(&store);
+                                self.env = empty_sym_env(store);
                             } else if s == &":ASSERT-ERROR" {
                                 let (first, rest) = store.car_cdr(&rest);
 
@@ -305,7 +305,7 @@ impl ReplState {
                 let (result, _limit, _next_cont) = self.eval_expr(ptr, store);
 
                 println!("Read: {}", input);
-                println!("Evaled: {}", result.fmt_to_string(&store));
+                println!("Evaled: {}", result.fmt_to_string(store));
                 io::stdout().flush().unwrap();
             }
         }

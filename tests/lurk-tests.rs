@@ -1,4 +1,3 @@
-use anyhow::Result;
 use lurk::repl::repl;
 use std::path::Path;
 
@@ -16,6 +15,6 @@ fn lurk_tests() {
     dbg!(&example_dir);
     for f in test_files {
         let joined = example_dir.join(f);
-        repl(Some(joined));
+        repl(Some(joined)).unwrap();
     }
 }
