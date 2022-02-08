@@ -33,7 +33,7 @@ pub static INNER_PRODUCT_SRS: Lazy<GenericSRS<Bls12>> = Lazy::new(|| load_srs().
 static FRAME_GROTH_PARAMS: OnceCell<groth16::Parameters<Bls12>> = OnceCell::new();
 const MAX_FAKE_SRS_SIZE: usize = 2 << 20;
 
-const TRANSCRIPT_INCLUDE: &[u8] = &"LURK-CIRCUIT".as_bytes();
+const TRANSCRIPT_INCLUDE: &[u8] = "LURK-CIRCUIT".as_bytes();
 
 // If you don't have a real SnarkPack SRS symlinked, generate a fake one.
 // Don't use this in production!
@@ -67,6 +67,7 @@ fn load_srs() -> Result<GenericSRS<Bls12>, io::Error> {
 pub trait Provable<F: PrimeField> {
     fn public_inputs(&self, store: &Store<F>) -> Vec<F>;
     fn public_input_size() -> usize;
+    #[allow(clippy::ptr_arg)]
     fn extend_transcript(&self, transcript: &mut Vec<u8>, store: &Store<F>);
 }
 
@@ -231,7 +232,7 @@ impl<'a> CircuitFrame<'a, Bls12, IO<Scalar>, Witness<Scalar>> {
 
         let aggregated_proof_and_instance = aggregate_proofs_and_instances(
             &srs,
-            &TRANSCRIPT_INCLUDE,
+            TRANSCRIPT_INCLUDE,
             statements.as_slice(),
             proofs.as_slice(),
         )?;

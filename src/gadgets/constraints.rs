@@ -160,7 +160,7 @@ pub fn div<F: PrimeField, CS: ConstraintSystem<F>>(
 ) -> Result<AllocatedNum<F>, SynthesisError> {
     let res = AllocatedNum::alloc(cs.namespace(|| "div_num"), || {
         let mut tmp = a.get_value().ok_or(SynthesisError::AssignmentMissing)?;
-        let inv = (&b.get_value().ok_or(SynthesisError::AssignmentMissing)?).invert();
+        let inv = (b.get_value().ok_or(SynthesisError::AssignmentMissing)?).invert();
 
         if inv.is_some().into() {
             inv.map(|i| tmp.mul_assign(i));

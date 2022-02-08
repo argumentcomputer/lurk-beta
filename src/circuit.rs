@@ -710,7 +710,7 @@ fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
         // implies_equal_t!(cs, &cond1, &output_env, &env);
         // implies_equal_t!(cs, &cond1, &output_cont, &cont);
 
-        implies_equal_t!(cs, &cond1, &output_cont, cont);
+        implies_equal_t!(cs, &cond1, output_cont, cont);
     }
 
     let cs = &mut cs.namespace(|| "otherwise_and_binding_is_nil");
@@ -720,13 +720,13 @@ fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
 
         // implies_equal_t!(cs, &cond2, &output_expr, &expr);
         // implies_equal_t!(cs, &cond2, &output_env, &env);
-        implies_equal_t!(cs, &cond2, &output_cont, &g.error_ptr);
+        implies_equal_t!(cs, &cond2, output_cont, g.error_ptr);
     }
     let cs = &mut cs.namespace(|| "v_is_expr1_real");
 
     let cond3 = and!(cs, &v_is_expr1_real, not_dummy)?;
     {
-        implies_equal_t!(cs, &cond3, &output_expr, &val);
+        implies_equal_t!(cs, &cond3, output_expr, val);
         // implies_equal_t!(cs, &cond3, &output_env, &env);
         // implies_equal_t!(cs, &cond3, &output_cont, &cont);
     }
@@ -734,7 +734,7 @@ fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     let cond4 = and!(cs, &cont_is_lookup_sym, not_dummy)?;
     {
         // implies_equal_t!(cs, &cond4, &output_expr, &expr);
-        implies_equal_t!(cs, &cond4, &output_env, &smaller_env);
+        implies_equal_t!(cs, &cond4, output_env, smaller_env);
 
         //implies_equal_t!(cs, &cond, &output_cont, &cont);
     }
@@ -742,15 +742,15 @@ fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     let cond5 = and!(cs, &cont_not_lookup_sym, not_dummy)?;
     {
         // implies_equal_t!(cs, &cond5, &output_expr, &expr);
-        implies_equal_t!(cs, &cond5, &output_env, &smaller_env);
+        implies_equal_t!(cs, &cond5, output_env, smaller_env);
 
-        implies_equal_t!(cs, &cond5, &output_cont, &lookup_continuation);
+        implies_equal_t!(cs, &cond5, output_cont, lookup_continuation);
     }
 
     let cs = &mut cs.namespace(|| "v2_is_expr_real");
     let cond6 = and!(cs, &v2_is_expr_real, not_dummy)?;
     {
-        implies_equal_t!(cs, &cond6, &output_expr, &val_to_use);
+        implies_equal_t!(cs, &cond6, output_expr, val_to_use);
         // implies_equal_t!(cs, &cond6, &output_env, &env);
         // implies_equal_t!(cs, &cond6, &output_cont, &cont);
     }
@@ -759,7 +759,7 @@ fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     let cond7 = and!(cs, &otherwise_and_v2_not_expr, not_dummy)?;
     {
         // implies_equal_t!(cs, &cond7, &output_expr, &expr);
-        implies_equal_t!(cs, &cond7, &output_env, &env_to_use);
+        implies_equal_t!(cs, &cond7, output_env, env_to_use);
     }
 
     let cs = &mut cs.namespace(|| "cont_is_lookup_cons");
@@ -771,14 +771,14 @@ fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     let cs = &mut cs.namespace(|| "cont_not_lookup_cons");
     let cond9 = and!(cs, &cont_not_lookup_cons, not_dummy)?;
     {
-        implies_equal_t!(cs, &cond9, &output_cont, &lookup_continuation);
+        implies_equal_t!(cs, &cond9, output_cont, lookup_continuation);
     }
 
     let cs = &mut cs.namespace(|| "otherwise_neither");
     let cond10 = and!(cs, &otherwise_neither, not_dummy)?;
     {
         // "Bad form"
-        implies_equal_t!(cs, &cond10, &output_cont, &g.error_ptr);
+        implies_equal_t!(cs, &cond10, output_cont, g.error_ptr);
     }
 
     let conda = or!(cs, &cond1, &cond2)?; // cond1, cond2
@@ -790,15 +790,15 @@ fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
 
     // cond1, cond2, cond4, cond5 // cond_expr
     let cond_expr = or!(cs, &conda, &condx)?; // cond1, cond2, cond4, cond5
-    implies_equal_t!(cs, &cond_expr, &output_expr, expr);
+    implies_equal_t!(cs, &cond_expr, output_expr, expr);
 
     // cond1, cond2, cond3, cond6 // cond_env
     let cond_env = or!(cs, &conda, &condy)?; // cond1, cond2, cond3, cond6
-    implies_equal_t!(cs, &cond_env, &output_env, env);
+    implies_equal_t!(cs, &cond_env, output_env, env);
 
     // cond1, cond3, cond4, cond6, cond // cond_cont
     let cond_cont = or!(cs, &condb, &condc)?; // cond1, cond2, cond4, cond6, cond8
-    implies_equal_t!(cs, &cond_cont, &output_cont, cont);
+    implies_equal_t!(cs, &cond_cont, output_cont, cont);
 
     Ok((output_expr, output_env, output_cont, invoke_cont_num))
 }

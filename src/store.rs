@@ -641,7 +641,7 @@ impl<F: PrimeField> Store<F> {
             .fold(self.sym("nil"), |acc, elt| self.cons(*elt, acc))
     }
 
-    pub(crate) fn convert_sym_case(raw_name: &mut String) {
+    pub(crate) fn convert_sym_case(raw_name: &mut str) {
         // In the future, we could support optional alternate case conventions,
         // so all case conversion should be performed here.
         raw_name.make_ascii_uppercase();
