@@ -156,19 +156,8 @@ pub struct Witness<F: PrimeField> {
     pub(crate) prethunk_output_env: Ptr<F>,
     pub(crate) prethunk_output_cont: ContPtr<F>,
 
-    pub(crate) destructured_thunk: Option<Thunk<F>>,
     pub(crate) extended_closure: Option<Ptr<F>>,
     pub(crate) invoke_continuation_cont: Option<ContPtr<F>>,
-}
-
-impl<F: PrimeField> Witness<F> {
-    fn witness_destructured_thunk(&mut self, thunk: &Thunk<F>) {
-        assert!(
-            self.destructured_thunk.is_none(),
-            "Only one thunk should be destructured per evaluation step."
-        );
-        self.destructured_thunk = Some(*thunk);
-    }
 }
 
 fn reduce<F: PrimeField>(
@@ -564,7 +553,6 @@ fn reduce_with_witness<F: PrimeField>(
         prethunk_output_env: *new_env,
         prethunk_output_cont: *new_cont,
 
-        destructured_thunk: None,
         extended_closure,
         invoke_continuation_cont: None,
     };

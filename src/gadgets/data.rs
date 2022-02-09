@@ -5,11 +5,8 @@ use bellperson::{
 use ff::PrimeField;
 use neptune::circuit::poseidon_hash;
 
+use crate::store::{IntoHashComponents, ScalarPtr};
 use crate::store::{ScalarContPtr, ScalarPointer};
-use crate::{
-    eval::Witness,
-    store::{IntoHashComponents, ScalarPtr},
-};
 use crate::{
     gadgets::pointer::AsAllocatedHashComponents,
     store::{ContPtr, ContTag, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk},
@@ -61,17 +58,12 @@ pub struct GlobalAllocations<F: PrimeField> {
     pub true_num: AllocatedNum<F>,
     pub false_num: AllocatedNum<F>,
     pub default_num: AllocatedNum<F>,
-
-    pub destructured_thunk_hash: AllocatedNum<F>,
-    pub destructured_thunk_value: AllocatedPtr<F>,
-    pub destructured_thunk_continuation: AllocatedContPtr<F>,
 }
 
 impl<F: PrimeField> GlobalAllocations<F> {
     pub fn new<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         store: &Store<F>,
-        witness: &Option<Witness<F>>,
     ) -> Result<Self, SynthesisError> {
         let terminal_ptr = AllocatedContPtr::alloc_constant_cont_ptr(
             &mut cs.namespace(|| "terminal continuation"),
@@ -169,18 +161,6 @@ impl<F: PrimeField> GlobalAllocations<F> {
         let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::zero())?;
         let default_num = allocate_constant(&mut cs.namespace(|| "default"), F::zero())?;
 
-        let maybe_thunk = if let Some(w) = witness {
-            w.destructured_thunk
-        } else {
-            None
-        };
-        let (destructured_thunk_hash, destructured_thunk_value, destructured_thunk_continuation) =
-            Thunk::allocate_maybe_dummy_components(
-                &mut cs.namespace(|| "allocate thunk components"),
-                maybe_thunk.as_ref(),
-                store,
-            )?;
-
         Ok(Self {
             terminal_ptr,
             outermost_ptr,
@@ -222,10 +202,6 @@ impl<F: PrimeField> GlobalAllocations<F> {
             true_num,
             false_num,
             default_num,
-
-            destructured_thunk_hash,
-            destructured_thunk_value,
-            destructured_thunk_continuation,
         })
     }
 }

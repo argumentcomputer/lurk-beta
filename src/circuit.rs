@@ -292,7 +292,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
     // dbg!(&env.fetch_and_write_str(store));
     // dbg!(expr, cont);
 
-    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store, witness)?;
+    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store)?;
 
     let mut results = Results::default();
     {
@@ -2239,9 +2239,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31903, cs.num_constraints());
+            assert_eq!(31526, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31886, cs.aux().len());
+            assert_eq!(31505, cs.aux().len());
 
             let public_inputs = frame.public_inputs(store);
             let mut rng = rand::thread_rng();
