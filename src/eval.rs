@@ -44,7 +44,7 @@ impl<T: PartialEq + std::fmt::Debug, W> Frame<T, W> {
 }
 
 pub trait Evaluable<F: PrimeField, W> {
-    fn eval(&self, store: &mut Store<F>) -> (Self, W)
+    fn reduce(&self, store: &mut Store<F>) -> (Self, W)
     where
         Self: Sized;
 
@@ -52,8 +52,8 @@ pub trait Evaluable<F: PrimeField, W> {
 }
 
 impl<F: PrimeField> Evaluable<F, Witness<F>> for IO<F> {
-    fn eval(&self, store: &mut Store<F>) -> (Self, Witness<F>) {
-        let (expr, env, cont, witness) = eval_expr(self.expr, self.env, self.cont, store);
+    fn reduce(&self, store: &mut Store<F>) -> (Self, Witness<F>) {
+        let (expr, env, cont, witness) = reduce(self.expr, self.env, self.cont, store);
         (Self { expr, env, cont }, witness)
     }
 
@@ -65,7 +65,7 @@ impl<F: PrimeField> Evaluable<F, Witness<F>> for IO<F> {
 impl<F: PrimeField, T: Evaluable<F, Witness<F>> + Clone + PartialEq> Frame<T, Witness<F>> {
     fn next(&self, store: &mut Store<F>) -> Self {
         let input = self.output.clone();
-        let (output, witness) = input.eval(store);
+        let (output, witness) = input.reduce(store);
 
         Self {
             input,
@@ -78,7 +78,7 @@ impl<F: PrimeField, T: Evaluable<F, Witness<F>> + Clone + PartialEq> Frame<T, Wi
 
 impl<F: PrimeField, T: Evaluable<F, Witness<F>> + Clone + PartialEq> Frame<T, Witness<F>> {
     fn from_initial_input(input: T, store: &mut Store<F>) -> Self {
-        let (output, witness) = input.eval(store);
+        let (output, witness) = input.reduce(store);
 
         Self {
             input,
@@ -171,13 +171,13 @@ impl<F: PrimeField> Witness<F> {
     }
 }
 
-fn eval_expr<F: PrimeField>(
+fn reduce<F: PrimeField>(
     expr: Ptr<F>,
     env: Ptr<F>,
     cont: ContPtr<F>,
     store: &mut Store<F>,
 ) -> (Ptr<F>, Ptr<F>, ContPtr<F>, Witness<F>) {
-    let (ctrl, witness) = eval_expr_with_witness(expr, env, cont, store);
+    let (ctrl, witness) = reduce_with_witness(expr, env, cont, store);
     let (new_expr, new_env, new_cont) = ctrl.into_results();
 
     (new_expr, new_env, new_cont, witness)
@@ -218,7 +218,7 @@ impl<F: PrimeField> Control<F> {
     }
 }
 
-fn eval_expr_with_witness<F: PrimeField>(
+fn reduce_with_witness<F: PrimeField>(
     expr: Ptr<F>,
     env: Ptr<F>,
     cont: ContPtr<F>,
@@ -1011,12 +1011,12 @@ mod test {
     }
 
     #[test]
-    fn test_eval_expr_simple() {
+    fn test_reduce_simple() {
         let mut store = Store::<Fr>::default();
 
         {
             let num = store.num(123);
-            let (result, _new_env, _cont, _witness) = eval_expr(
+            let (result, _new_env, _cont, _witness) = reduce(
                 num,
                 empty_sym_env(&store),
                 store.intern_cont_outermost(),
@@ -1026,7 +1026,7 @@ mod test {
         }
 
         {
-            let (result, _new_env, _cont, _witness) = eval_expr(
+            let (result, _new_env, _cont, _witness) = reduce(
                 store.nil(),
                 empty_sym_env(&store),
                 store.intern_cont_outermost(),
