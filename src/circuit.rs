@@ -1376,7 +1376,7 @@ fn invoke_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
     results.add_clauses_cont(
         ContTag::Outermost,
-        &result,
+        result,
         env,
         &g.terminal_ptr,
         &g.false_num,
