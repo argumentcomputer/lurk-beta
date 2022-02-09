@@ -1016,7 +1016,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_simple() {
+    fn evaluate_simple() {
         let mut store = Store::<Fr>::default();
 
         let limit = 20;
@@ -1029,7 +1029,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_lookup() {
+    fn evaluate_lookup() {
         let mut store = Store::<Fr>::default();
 
         let limit = 20;
@@ -1075,7 +1075,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_lambda() {
+    fn evaluate_lambda() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let val = s.num(123);
@@ -1089,7 +1089,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_lambda2() {
+    fn evaluate_lambda2() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let val = s.num(123);
@@ -1103,7 +1103,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_lambda3() {
+    fn evaluate_lambda3() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let val = s.num(123);
@@ -1119,7 +1119,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_lambda4() {
+    fn evaluate_lambda4() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let _val = s.num(999);
@@ -1137,7 +1137,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_lambda5() {
+    fn evaluate_lambda5() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let val = s.num(999);
@@ -1154,7 +1154,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_sum() {
+    fn evaluate_sum() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(+ 2 (+ 3 4))").unwrap();
@@ -1167,7 +1167,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_diff() {
+    fn evaluate_diff() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(- 9 5)").unwrap();
@@ -1180,7 +1180,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_product() {
+    fn evaluate_product() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(* 9 5)").unwrap();
@@ -1193,7 +1193,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_quotient() {
+    fn evaluate_quotient() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(/ 21 7)").unwrap();
@@ -1209,7 +1209,7 @@ mod test {
     #[should_panic]
     // This shouldn't actually panic, it should return an error continuation.
     // But for now document the handling.
-    fn outer_evaluate_quotient_divide_by_zero() {
+    fn evaluate_quotient_divide_by_zero() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(/ 21 0)").unwrap();
@@ -1219,7 +1219,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_num_equal() {
+    fn evaluate_num_equal() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
 
@@ -1250,7 +1250,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_adder1() {
+    fn evaluate_adder1() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(((lambda (x) (lambda (y) (+ x y))) 2) 3)").unwrap();
@@ -1264,7 +1264,7 @@ mod test {
 
     // Enable this when we have LET.
     #[test]
-    fn outer_evaluate_adder2() {
+    fn evaluate_adder2() {
         let mut s = Store::<Fr>::default();
         let limit = 25;
         let expr = s
@@ -1282,7 +1282,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_let_simple() {
+    fn evaluate_let_simple() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(let* ((a 1)) a)").unwrap();
@@ -1295,7 +1295,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_empty_let_bug() {
+    fn evaluate_empty_let_bug() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(let* () (+ 1 2))").unwrap();
@@ -1308,7 +1308,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_let() {
+    fn evaluate_let() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s
@@ -1327,7 +1327,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_letstar_parallel_binding() {
+    fn evaluate_letstar_parallel_binding() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("(let* ((a 1) (b a)) b)").unwrap();
@@ -1339,7 +1339,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_arithmetic_let() {
+    fn evaluate_arithmetic_let() {
         let mut s = Store::<Fr>::default();
         let limit = 100;
         let expr = s
@@ -1362,7 +1362,7 @@ mod test {
 
     #[test]
     // Not because it's efficient, but to prove we can.
-    fn outer_evaluate_fundamental_conditional() {
+    fn evaluate_fundamental_conditional() {
         let limit = 100;
         {
             let mut s = Store::<Fr>::default();
@@ -1415,7 +1415,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_if() {
+    fn evaluate_if() {
         let limit = 100;
         {
             let mut s = Store::<Fr>::default();
@@ -1440,7 +1440,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_fully_evaluates() {
+    fn evaluate_fully_evaluates() {
         let limit = 100;
         {
             let mut s = Store::<Fr>::default();
@@ -1455,7 +1455,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_recursion1() {
+    fn evaluate_recursion1() {
         let mut s = Store::<Fr>::default();
         let limit = 200;
         let expr = s
@@ -1476,7 +1476,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_recursion2() {
+    fn evaluate_recursion2() {
         let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
@@ -1498,7 +1498,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_recursion_multiarg() {
+    fn evaluate_recursion_multiarg() {
         let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
@@ -1518,7 +1518,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_recursion_optimized() {
+    fn evaluate_recursion_optimized() {
         let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
@@ -1541,7 +1541,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_tail_recursion() {
+    fn evaluate_tail_recursion() {
         let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
@@ -1563,7 +1563,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_tail_recursion_somewhat_optimized() {
+    fn evaluate_tail_recursion_somewhat_optimized() {
         let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
@@ -1587,7 +1587,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_multiple_letrecstar_bindings() {
+    fn evaluate_multiple_letrecstar_bindings() {
         let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
@@ -1605,7 +1605,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_multiple_letrecstar_bindings_referencing() {
+    fn evaluate_multiple_letrecstar_bindings_referencing() {
         let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
@@ -1623,7 +1623,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_multiple_letrecstar_bindings_recursive() {
+    fn evaluate_multiple_letrecstar_bindings_recursive() {
         let mut s = Store::<Fr>::default();
         let limit = 500;
         let expr = s
@@ -1652,7 +1652,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_eq() {
+    fn evaluate_eq() {
         {
             let mut s = Store::<Fr>::default();
             let limit = 20;
@@ -1678,7 +1678,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_zero_arg_lambda() {
+    fn evaluate_zero_arg_lambda() {
         {
             let mut s = Store::<Fr>::default();
             let limit = 20;
@@ -1706,7 +1706,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_make_tree() {
+    fn evaluate_make_tree() {
         {
             let mut s = Store::<Fr>::default();
             let limit = 800;
@@ -1746,7 +1746,7 @@ mod test {
     }
 
     #[test]
-    fn outer_evaluate_make_tree_minimal_regression() {
+    fn evaluate_make_tree_minimal_regression() {
         {
             let mut s = Store::<Fr>::default();
             let limit = 1000;
@@ -1768,7 +1768,7 @@ mod test {
         }
     }
     #[test]
-    fn outer_evaluate_map_tree_bug() {
+    fn evaluate_map_tree_bug() {
         {
             let mut s = Store::<Fr>::default();
             let limit = 1000;
@@ -1791,7 +1791,7 @@ mod test {
         }
     }
     #[test]
-    fn outer_evaluate_map_tree_relop_bug() {
+    fn evaluate_map_tree_relop_bug() {
         {
             // Reuse map-tree failure case to test Relop behavior.
             // This failed initially and tests regression.
