@@ -28,19 +28,15 @@ pub struct CircuitFrame<'a, E: Engine, T, W> {
     pub store: &'a Store<E::Fr>,
     pub input: Option<T>,
     pub output: Option<T>,
-    pub initial: Option<T>,
-    pub i: Option<usize>,
     pub witness: Option<W>,
 }
 
 impl<'a, E: Engine, T: Clone, W> CircuitFrame<'a, E, T, W> {
-    pub fn from_frame(initial: T, frame: Frame<T, W>, store: &'a Store<E::Fr>) -> Self {
+    pub fn from_frame(frame: Frame<T, W>, store: &'a Store<E::Fr>) -> Self {
         CircuitFrame {
             store,
             input: Some(frame.input),
             output: Some(frame.output),
-            initial: Some(initial),
-            i: Some(frame.i),
             witness: Some(frame.witness),
         }
     }
@@ -96,39 +92,6 @@ impl<E: Engine> Circuit<E::Fr> for CircuitFrame<'_, E, IO<E::Fr>, Witness<E::Fr>
             self.store,
         )?;
 
-        // The initial input to the IVC computation.
-        // FIXME: use?
-        let _initial_expr = AllocatedPtr::bind_input(
-            &mut cs.namespace(|| "initial expression"),
-            self.initial.as_ref().map(|initial| &initial.expr),
-            self.store,
-        )?;
-
-        // FIXME: use?
-        let _initial_env = AllocatedPtr::bind_input(
-            &mut cs.namespace(|| "initial env"),
-            self.initial.as_ref().map(|initial| &initial.env),
-            self.store,
-        )?;
-
-        // FIXME: use?
-        let _initial_cont = AllocatedContPtr::bind_input(
-            &mut cs.namespace(|| "initial cont"),
-            self.initial.as_ref().map(|initial| &initial.cont),
-            self.store,
-        )?;
-
-        // We don't currently need this, but we could expose access to it for logging, etc.
-        // The frame counter:
-        // FIXME: use?
-        let _frame_counter = cs.alloc_input(
-            || "frame counter",
-            || {
-                self.i
-                    .map(|i| E::Fr::from(i as u64))
-                    .ok_or(SynthesisError::AssignmentMissing)
-            },
-        );
         //
         // End public inputs.
         ////////////////////////////////////////////////////////////////////////////////
@@ -747,7 +710,7 @@ fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
         // implies_equal_t!(cs, &cond1, &output_env, &env);
         // implies_equal_t!(cs, &cond1, &output_cont, &cont);
 
-        implies_equal_t!(cs, &cond1, &output_cont, cont);
+        implies_equal_t!(cs, &cond1, output_cont, cont);
     }
 
     let cs = &mut cs.namespace(|| "otherwise_and_binding_is_nil");
@@ -757,13 +720,13 @@ fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
 
         // implies_equal_t!(cs, &cond2, &output_expr, &expr);
         // implies_equal_t!(cs, &cond2, &output_env, &env);
-        implies_equal_t!(cs, &cond2, &output_cont, &g.error_ptr);
+        implies_equal_t!(cs, &cond2, output_cont, g.error_ptr);
     }
     let cs = &mut cs.namespace(|| "v_is_expr1_real");
 
     let cond3 = and!(cs, &v_is_expr1_real, not_dummy)?;
     {
-        implies_equal_t!(cs, &cond3, &output_expr, &val);
+        implies_equal_t!(cs, &cond3, output_expr, val);
         // implies_equal_t!(cs, &cond3, &output_env, &env);
         // implies_equal_t!(cs, &cond3, &output_cont, &cont);
     }
@@ -771,7 +734,7 @@ fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     let cond4 = and!(cs, &cont_is_lookup_sym, not_dummy)?;
     {
         // implies_equal_t!(cs, &cond4, &output_expr, &expr);
-        implies_equal_t!(cs, &cond4, &output_env, &smaller_env);
+        implies_equal_t!(cs, &cond4, output_env, smaller_env);
 
         //implies_equal_t!(cs, &cond, &output_cont, &cont);
     }
@@ -779,15 +742,15 @@ fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     let cond5 = and!(cs, &cont_not_lookup_sym, not_dummy)?;
     {
         // implies_equal_t!(cs, &cond5, &output_expr, &expr);
-        implies_equal_t!(cs, &cond5, &output_env, &smaller_env);
+        implies_equal_t!(cs, &cond5, output_env, smaller_env);
 
-        implies_equal_t!(cs, &cond5, &output_cont, &lookup_continuation);
+        implies_equal_t!(cs, &cond5, output_cont, lookup_continuation);
     }
 
     let cs = &mut cs.namespace(|| "v2_is_expr_real");
     let cond6 = and!(cs, &v2_is_expr_real, not_dummy)?;
     {
-        implies_equal_t!(cs, &cond6, &output_expr, &val_to_use);
+        implies_equal_t!(cs, &cond6, output_expr, val_to_use);
         // implies_equal_t!(cs, &cond6, &output_env, &env);
         // implies_equal_t!(cs, &cond6, &output_cont, &cont);
     }
@@ -796,7 +759,7 @@ fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     let cond7 = and!(cs, &otherwise_and_v2_not_expr, not_dummy)?;
     {
         // implies_equal_t!(cs, &cond7, &output_expr, &expr);
-        implies_equal_t!(cs, &cond7, &output_env, &env_to_use);
+        implies_equal_t!(cs, &cond7, output_env, env_to_use);
     }
 
     let cs = &mut cs.namespace(|| "cont_is_lookup_cons");
@@ -808,14 +771,14 @@ fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     let cs = &mut cs.namespace(|| "cont_not_lookup_cons");
     let cond9 = and!(cs, &cont_not_lookup_cons, not_dummy)?;
     {
-        implies_equal_t!(cs, &cond9, &output_cont, &lookup_continuation);
+        implies_equal_t!(cs, &cond9, output_cont, lookup_continuation);
     }
 
     let cs = &mut cs.namespace(|| "otherwise_neither");
     let cond10 = and!(cs, &otherwise_neither, not_dummy)?;
     {
         // "Bad form"
-        implies_equal_t!(cs, &cond10, &output_cont, &g.error_ptr);
+        implies_equal_t!(cs, &cond10, output_cont, g.error_ptr);
     }
 
     let conda = or!(cs, &cond1, &cond2)?; // cond1, cond2
@@ -827,15 +790,15 @@ fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
 
     // cond1, cond2, cond4, cond5 // cond_expr
     let cond_expr = or!(cs, &conda, &condx)?; // cond1, cond2, cond4, cond5
-    implies_equal_t!(cs, &cond_expr, &output_expr, expr);
+    implies_equal_t!(cs, &cond_expr, output_expr, expr);
 
     // cond1, cond2, cond3, cond6 // cond_env
     let cond_env = or!(cs, &conda, &condy)?; // cond1, cond2, cond3, cond6
-    implies_equal_t!(cs, &cond_env, &output_env, env);
+    implies_equal_t!(cs, &cond_env, output_env, env);
 
     // cond1, cond3, cond4, cond6, cond // cond_cont
     let cond_cont = or!(cs, &condb, &condc)?; // cond1, cond2, cond4, cond6, cond8
-    implies_equal_t!(cs, &cond_cont, &output_cont, cont);
+    implies_equal_t!(cs, &cond_cont, output_cont, cont);
 
     Ok((output_expr, output_env, output_cont, invoke_cont_num))
 }
@@ -2277,7 +2240,6 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let initial = input.clone();
         let (_, witness) = input.eval(&mut store);
 
         let groth_params = CircuitFrame::groth_params().unwrap();
@@ -2294,7 +2256,6 @@ mod tests {
                 .expect("failed to synthesize");
 
             let frame = CircuitFrame::from_frame(
-                initial.clone(),
                 Frame {
                     input: input.clone(),
                     output,
@@ -2313,9 +2274,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31921, cs.num_constraints());
-            assert_eq!(20, cs.num_inputs());
-            assert_eq!(31901, cs.aux().len());
+            assert_eq!(31915, cs.num_constraints());
+            assert_eq!(13, cs.num_inputs());
+            assert_eq!(31895, cs.aux().len());
 
             let public_inputs = frame.public_inputs(store);
             let mut rng = rand::thread_rng();
@@ -2391,7 +2352,6 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let initial = input.clone();
         let (_, witness) = input.eval(&mut store);
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
@@ -2404,7 +2364,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::<Bls12, _, _>::from_frame(initial.clone(), frame, store)
+            CircuitFrame::<Bls12, _, _>::from_frame(frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2464,9 +2424,6 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let initial = input.clone();
-        // let witness = input.compute_witness(&mut store);
-
         let (_, witness) = input.eval(&mut store);
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
@@ -2479,7 +2436,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::<Bls12, _, _>::from_frame(initial.clone(), frame, store)
+            CircuitFrame::<Bls12, _, _>::from_frame(frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2539,7 +2496,6 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let initial = input.clone();
         let (_, witness) = input.eval(&mut store);
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
@@ -2552,7 +2508,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::<Bls12, _, _>::from_frame(initial.clone(), frame, store)
+            CircuitFrame::<Bls12, _, _>::from_frame(frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2613,7 +2569,6 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let initial = input.clone();
         let (_, witness) = input.eval(&mut store);
 
         let test_with_output = |output, expect_success, store: &mut Store<Fr>| {
@@ -2626,7 +2581,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::<Bls12, _, _>::from_frame(initial.clone(), frame, &store)
+            CircuitFrame::<Bls12, _, _>::from_frame(frame, &store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 

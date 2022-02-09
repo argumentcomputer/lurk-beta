@@ -641,7 +641,7 @@ impl<F: PrimeField> Store<F> {
             .fold(self.sym("nil"), |acc, elt| self.cons(*elt, acc))
     }
 
-    pub(crate) fn convert_sym_case(raw_name: &mut String) {
+    pub(crate) fn convert_sym_case(raw_name: &mut str) {
         // In the future, we could support optional alternate case conventions,
         // so all case conversion should be performed here.
         raw_name.make_ascii_uppercase();
@@ -843,6 +843,9 @@ impl<F: PrimeField> Store<F> {
     }
 
     pub fn fetch_scalar(&self, scalar_ptr: &ScalarPtr<F>) -> Option<Ptr<F>> {
+        self.scalar_ptr_map.get(scalar_ptr).map(|p| *p)
+    }
+    pub fn fetch_scalar_m(&mut self, scalar_ptr: &ScalarPtr<F>) -> Option<Ptr<F>> {
         self.scalar_ptr_map.get(scalar_ptr).map(|p| *p)
     }
 
