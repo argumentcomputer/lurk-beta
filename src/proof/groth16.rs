@@ -19,7 +19,8 @@ use rand_xorshift::XorShiftRng;
 
 use crate::circuit::CircuitFrame;
 use crate::eval::{Evaluator, Frame, Witness, IO};
-use crate::store::{Ptr, ScalarPointer, Store};
+use crate::proof::Provable;
+use crate::store::{Ptr, Store};
 
 use std::env;
 use std::fs::File;
@@ -39,11 +40,9 @@ const TRANSCRIPT_INCLUDE: &[u8] = "LURK-CIRCUIT".as_bytes();
 // Don't use this in production!
 const FALLBACK_TO_FAKE_SRS: bool = true;
 
-type SequentialProofs<'a, E, IO, Witness> =
-    Vec<(CircuitFrame<'a, E, IO, Witness>, groth16::Proof<E>)>;
 type SequentialCS<F, IO, Witness> = Vec<(Frame<IO, Witness>, TestConstraintSystem<F>)>;
-type FrameProofs<'a, E, IO, Witness> = (
-    Proof<'a, E, CircuitFrame<'a, E, IO, Witness>>,
+type FrameProofs<'a, E, F, IO, Witness> = (
+    Proof<'a, E, CircuitFrame<'a, F, IO, Witness>>,
     Vec<Vec<<E as Engine>::Fr>>,
 );
 
@@ -64,19 +63,16 @@ fn load_srs() -> Result<GenericSRS<Bls12>, io::Error> {
     }
 }
 
-pub trait Provable<F: PrimeField> {
-    fn public_inputs(&self, store: &Store<F>) -> Vec<F>;
-    fn public_input_size() -> usize;
-    #[allow(clippy::ptr_arg)]
-    fn extend_transcript(&self, transcript: &mut Vec<u8>, store: &Store<F>);
-}
-
 #[allow(dead_code)]
 pub struct Proof<'a, E: Engine + MultiMillerLoop, F: Provable<E::Fr>>
 where
     <E as Engine>::Gt: blstrs::Compress,
 {
-    frame_proofs: SequentialProofs<'a, E, IO<E::Fr>, Witness<E::Fr>>,
+    frame_proofs: Vec<(
+        CircuitFrame<'a, E::Fr, IO<E::Fr>, Witness<E::Fr>>,
+        groth16::Proof<E>,
+    )>,
+    // SequentialProofs<'a, E, IO<E::Fr>, Witness<E::Fr>>,
     aggregated_proof_and_instance: AggregateProofAndInstance<E>,
     aggregated_proof: AggregateProof<E>,
     // FIXME: remove when input aggregation is enabled.
@@ -84,27 +80,9 @@ where
     frames: Vec<F>,
 }
 
-impl<E: Engine, W> Provable<E::Fr> for CircuitFrame<'_, E, IO<E::Fr>, W> {
-    fn public_inputs(&self, store: &Store<E::Fr>) -> Vec<E::Fr> {
-        let mut inputs: Vec<_> = Vec::with_capacity(10);
-
-        if let Some(input) = &self.input {
-            inputs.extend(input.public_inputs(store));
-        }
-        if let Some(output) = &self.output {
-            inputs.extend(output.public_inputs(store));
-        }
-
-        inputs
-    }
-
-    fn public_input_size() -> usize {
-        let input_output_size = IO::<E::Fr>::public_input_size();
-        input_output_size * 2
-    }
-
+impl<F: PrimeField, W> CircuitFrame<'_, F, IO<F>, W> {
     // This is only needed for proof aggregation without input aggregation.
-    fn extend_transcript(&self, transcript: &mut Vec<u8>, store: &Store<E::Fr>) {
+    fn extend_transcript(&self, transcript: &mut Vec<u8>, store: &Store<F>) {
         // TODO: Refactor to share code with `public_inputs` to avoid allocation.
         let inputs = self.public_inputs(store);
 
@@ -115,43 +93,7 @@ impl<E: Engine, W> Provable<E::Fr> for CircuitFrame<'_, E, IO<E::Fr>, W> {
     }
 }
 
-impl<E: Engine, T: PartialEq + std::fmt::Debug, W> CircuitFrame<'_, E, T, W> {
-    pub fn precedes(&self, maybe_next: &Self) -> bool {
-        self.output == maybe_next.input
-    }
-}
-
-impl<F: PrimeField> IO<F> {
-    fn public_inputs(&self, store: &Store<F>) -> Vec<F> {
-        let expr = store.hash_expr(&self.expr).unwrap();
-        let env = store.hash_expr(&self.env).unwrap();
-        let cont = store.hash_cont(&self.cont).unwrap();
-        vec![
-            *expr.tag(),
-            *expr.value(),
-            *env.tag(),
-            *env.value(),
-            *cont.tag(),
-            *cont.value(),
-        ]
-    }
-    fn public_input_size() -> usize {
-        6
-    }
-}
-
-impl<'a, E: Engine> CircuitFrame<'a, E, IO<E::Fr>, Witness<E::Fr>> {
-    pub fn blank(store: &'a Store<E::Fr>) -> Self {
-        Self {
-            store,
-            input: None,
-            output: None,
-            witness: None,
-        }
-    }
-}
-
-impl<'a> CircuitFrame<'a, Bls12, IO<Scalar>, Witness<Scalar>> {
+impl<'a> CircuitFrame<'a, Scalar, IO<Scalar>, Witness<Scalar>> {
     fn frame_groth_params(self) -> Result<&'static groth16::Parameters<Bls12>, SynthesisError> {
         let params = FRAME_GROTH_PARAMS.get_or_try_init::<_, SynthesisError>(|| {
             let rng = &mut XorShiftRng::from_seed(DUMMY_RNG_SEED);
@@ -183,7 +125,7 @@ impl<'a> CircuitFrame<'a, Bls12, IO<Scalar>, Witness<Scalar>> {
         store: &'a mut Store<Scalar>,
         limit: usize,
         rng: R,
-    ) -> Result<FrameProofs<'a, Bls12, IO<Scalar>, Witness<Scalar>>, SynthesisError> {
+    ) -> Result<FrameProofs<'a, Bls12, Scalar, IO<Scalar>, Witness<Scalar>>, SynthesisError> {
         // FIXME: optimize execution order
         let mut evaluator = Evaluator::new(expr, env, store, limit);
         let mut frames = evaluator.iter().collect::<Vec<_>>();
@@ -265,7 +207,7 @@ impl<'a> CircuitFrame<'a, Bls12, IO<Scalar>, Witness<Scalar>> {
             .into_iter()
             .map(|frame| {
                 let mut cs = TestConstraintSystem::new();
-                CircuitFrame::<Bls12, _, _>::from_frame(frame.clone(), store)
+                CircuitFrame::<Scalar, _, _>::from_frame(frame.clone(), store)
                     .synthesize(&mut cs)
                     .unwrap();
                 (frame, cs)
@@ -277,10 +219,13 @@ impl<'a> CircuitFrame<'a, Bls12, IO<Scalar>, Witness<Scalar>> {
 
 #[allow(dead_code)]
 fn verify_sequential_groth16_proofs(
-    frame_proofs: SequentialProofs<Bls12, IO<Scalar>, Witness<Scalar>>,
+    frame_proofs: Vec<(
+        CircuitFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>>,
+        groth16::Proof<Bls12>,
+    )>,
     vk: &groth16::VerifyingKey<Bls12>,
 ) -> Result<bool, SynthesisError> {
-    let previous_frame: Option<&CircuitFrame<Bls12, IO<Scalar>, Witness<Scalar>>> = None;
+    let previous_frame: Option<&CircuitFrame<Scalar, IO<Scalar>, Witness<Scalar>>> = None;
 
     let pvk = groth16::prepare_verifying_key(vk);
 
@@ -299,38 +244,7 @@ fn verify_sequential_groth16_proofs(
     Ok(true)
 }
 
-#[allow(dead_code)]
-fn verify_sequential_css<E: Engine>(
-    css: &SequentialCS<E::Fr, IO<E::Fr>, Witness<E::Fr>>,
-    store: &Store<E::Fr>,
-) -> Result<bool, SynthesisError> {
-    let mut previous_frame: Option<&Frame<IO<E::Fr>, Witness<E::Fr>>> = None;
-
-    for (_i, (frame, cs)) in css.iter().enumerate() {
-        if let Some(prev) = previous_frame {
-            if !prev.precedes(frame) {
-                dbg!("not preceeding frame");
-                return Ok(false);
-            }
-        }
-        if !cs.is_satisfied() {
-            dbg!("cs not satisfied");
-            return Ok(false);
-        }
-
-        let public_inputs =
-            CircuitFrame::<E, _, _>::from_frame(frame.clone(), store).public_inputs(store);
-
-        if !cs.verify(&public_inputs) {
-            dbg!("cs not verified");
-            return Ok(false);
-        }
-        previous_frame = Some(frame);
-    }
-    Ok(true)
-}
-
-impl CircuitFrame<'_, Bls12, IO<Scalar>, Witness<Scalar>> {
+impl CircuitFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>> {
     pub fn generate_groth16_proof<R: RngCore>(
         self,
         groth_params: Option<&groth16::Parameters<Bls12>>,
@@ -360,6 +274,7 @@ impl CircuitFrame<'_, Bls12, IO<Scalar>, Witness<Scalar>> {
 mod tests {
     use super::*;
     use crate::eval::empty_sym_env;
+    use crate::proof::verify_sequential_css;
     use bellperson::groth16::aggregate::{
         verify_aggregate_proof, verify_aggregate_proof_and_aggregate_instances,
     };
@@ -470,7 +385,7 @@ mod tests {
                 assert_eq!(expected_iterations, cs.len());
                 assert_eq!(expected_result, cs[cs.len() - 1].0.output.expr);
             }
-            let constraint_systems_verified = verify_sequential_css::<Bls12>(&cs, &s).unwrap();
+            let constraint_systems_verified = verify_sequential_css::<Scalar>(&cs, &s).unwrap();
             assert!(constraint_systems_verified);
 
             check_cs_deltas(&cs, limit);
@@ -483,7 +398,7 @@ mod tests {
     ) -> () {
         let mut cs_blank = MetricCS::<Fr>::new();
         let store = Store::<Fr>::default();
-        let blank_frame = CircuitFrame::<Bls12, _, _>::blank(&store);
+        let blank_frame = CircuitFrame::<Scalar, _, _>::blank(&store);
         blank_frame
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize");
