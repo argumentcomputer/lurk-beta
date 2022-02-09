@@ -3,6 +3,12 @@
 [![Build Status][build-image]][build-link]
 ![minimum rustc 1.56][msrv-image]
 
+# Submodules
+
+Lurk source files used in tests are in the [lurk-lib](https://github.com/lurk-lang/lurk-lib) submodule. You must
+initialize and update submodules before test will pass.
+
+
 ## Nix
 
 [Nix](https://nixos.org) provides a declarative, content addressed and deterministic build system.

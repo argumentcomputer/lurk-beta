@@ -1,0 +1,3 @@
+[submodule "lurk-lib"]
+	path = lurk-lib
+	url = git@github.com:lurk-lang/lurk-lib.git
