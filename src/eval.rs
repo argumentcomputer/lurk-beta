@@ -591,16 +591,7 @@ fn invoke_continuation<F: PrimeField>(
     let control = match cont.tag() {
         ContTag::Terminal => unreachable!("Terminal Continuation should never be invoked."),
         ContTag::Dummy => unreachable!("Dummy Continuation should never be invoked."),
-        ContTag::Outermost => match result.tag() {
-            Tag::Thunk => match store.fetch(result).unwrap() {
-                Expression::Thunk(thunk) => {
-                    witness.witness_destructured_thunk(&thunk);
-                    Control::Return(thunk.value, *env, store.intern_cont_terminal())
-                }
-                _ => unreachable!(),
-            },
-            _ => Control::Return(*result, *env, store.intern_cont_terminal()),
-        },
+        ContTag::Outermost => Control::Return(*result, *env, store.intern_cont_terminal()),
         ContTag::Call => match result.tag() {
             // (arg, saved_env, continuation)
             Tag::Fun => match store.fetch_cont(cont).unwrap() {

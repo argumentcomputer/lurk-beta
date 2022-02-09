@@ -1374,44 +1374,9 @@ fn invoke_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 > {
     let mut results = Results::default();
 
-    // FIXME: Handle Terminal and Dummy continuations,
-    // which should return Error continuations, but what else?
-    // We need to specify this.
-
-    let picked = {
-        let thunk_value = g.destructured_thunk_value.clone();
-        let thunk_hash = g.destructured_thunk_hash.clone();
-
-        // Enforce (result.tag == thunk_tag) implies (thunk_hash == result.hash).
-        let result_is_a_thunk = constraints::alloc_equal(
-            &mut cs.namespace(|| "result.tag == thunk_tag"),
-            result.tag(),
-            &g.thunk_tag,
-        )?;
-        let result_is_the_thunk = constraints::alloc_equal(
-            &mut cs.namespace(|| "thunk_hash = result.hash"),
-            &thunk_hash,
-            result.hash(),
-        )?;
-        enforce_implication(
-            &mut cs.namespace(|| {
-                "(result.tag == thunk_continuation) implies (thunk_hash == result.hash)"
-            }),
-            &result_is_a_thunk,
-            &result_is_the_thunk,
-        )?;
-
-        AllocatedPtr::pick(
-            &mut cs.namespace(|| "pick result or thunk"),
-            &result_is_a_thunk,
-            &thunk_value,
-            result,
-        )?
-    };
-
     results.add_clauses_cont(
         ContTag::Outermost,
-        &picked,
+        &result,
         env,
         &g.terminal_ptr,
         &g.false_num,
@@ -2274,9 +2239,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31915, cs.num_constraints());
+            assert_eq!(31903, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31895, cs.aux().len());
+            assert_eq!(31886, cs.aux().len());
 
             let public_inputs = frame.public_inputs(store);
             let mut rng = rand::thread_rng();
