@@ -96,8 +96,8 @@ impl<E: Engine> Circuit<E::Fr> for CircuitFrame<'_, E, IO<E::Fr>, Witness<E::Fr>
         // End public inputs.
         ////////////////////////////////////////////////////////////////////////////////
 
-        let (new_expr, new_env, new_cont) = evaluate_expression(
-            &mut cs.namespace(|| "evaluate expression"),
+        let (new_expr, new_env, new_cont) = reduce_expression(
+            &mut cs.namespace(|| "reduce expression"),
             &input_expr,
             &input_env,
             &input_cont,
@@ -279,7 +279,7 @@ impl<'a, F: PrimeField> Results<'a, F> {
     }
 }
 
-fn evaluate_expression<F: PrimeField, CS: ConstraintSystem<F>>(
+fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     expr: &AllocatedPtr<F>,
     env: &AllocatedPtr<F>,
@@ -287,12 +287,12 @@ fn evaluate_expression<F: PrimeField, CS: ConstraintSystem<F>>(
     witness: &Option<Witness<F>>,
     store: &Store<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-    // dbg!("evaluate_expression");
+    // dbg!("reduce_expression");
     // dbg!(&expr.fetch_and_write_str(store));
     // dbg!(&env.fetch_and_write_str(store));
     // dbg!(expr, cont);
 
-    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store, witness)?;
+    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store)?;
 
     let mut results = Results::default();
     {
@@ -334,18 +334,18 @@ fn evaluate_expression<F: PrimeField, CS: ConstraintSystem<F>>(
     }
 
     // --
-    let eval_sym_not_dummy = alloc_equal(
-        &mut cs.namespace(|| "eval_sym_not_dummy"),
+    let reduce_sym_not_dummy = alloc_equal(
+        &mut cs.namespace(|| "reduce_sym_not_dummy"),
         expr.tag(),
         &g.sym_tag,
     )?;
 
-    let (sym_result, sym_env, sym_cont, sym_invoke_cont) = eval_sym(
+    let (sym_result, sym_env, sym_cont, sym_invoke_cont) = reduce_sym(
         &mut cs.namespace(|| "eval Sym"),
         expr,
         env,
         cont,
-        &eval_sym_not_dummy,
+        &reduce_sym_not_dummy,
         witness,
         store,
         &g,
@@ -355,18 +355,18 @@ fn evaluate_expression<F: PrimeField, CS: ConstraintSystem<F>>(
     // --
 
     // --
-    let eval_cons_not_dummy = alloc_equal(
-        &mut cs.namespace(|| "eval_cons_not_dummy"),
+    let reduce_cons_not_dummy = alloc_equal(
+        &mut cs.namespace(|| "reduce_cons_not_dummy"),
         expr.tag(),
         &g.cons_tag,
     )?;
 
-    let (cons_result, cons_env, cons_cont, cons_invoke_cont) = eval_cons(
+    let (cons_result, cons_env, cons_cont, cons_invoke_cont) = reduce_cons(
         &mut cs.namespace(|| "eval Cons"),
         expr,
         env,
         cont,
-        &eval_cons_not_dummy,
+        &reduce_cons_not_dummy,
         witness,
         store,
         &g,
@@ -501,7 +501,7 @@ fn evaluate_expression<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok((result_expr, result_env, result_cont))
 }
 
-fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
+fn reduce_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     expr: &AllocatedPtr<F>,
     env: &AllocatedPtr<F>,
@@ -803,7 +803,7 @@ fn eval_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok((output_expr, output_env, output_cont, invoke_cont_num))
 }
 
-fn eval_cons<F: PrimeField, CS: ConstraintSystem<F>>(
+fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     expr: &AllocatedPtr<F>,
     env: &AllocatedPtr<F>,
@@ -852,7 +852,7 @@ fn eval_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     let current_env_hash = hash_sym("current-env");
     let if_hash = hash_sym("if");
 
-    let (head, rest) = car_cdr(&mut cs.namespace(|| "eval_cons expr"), g, expr, store)?;
+    let (head, rest) = car_cdr(&mut cs.namespace(|| "reduce_cons expr"), g, expr, store)?;
 
     // let not_dummy = alloc_equal(&mut cs.namespace(|| "rest is cons"), &rest.tag, &g.cons_tag)?;
 
@@ -1374,44 +1374,9 @@ fn invoke_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 > {
     let mut results = Results::default();
 
-    // FIXME: Handle Terminal and Dummy continuations,
-    // which should return Error continuations, but what else?
-    // We need to specify this.
-
-    let picked = {
-        let thunk_value = g.destructured_thunk_value.clone();
-        let thunk_hash = g.destructured_thunk_hash.clone();
-
-        // Enforce (result.tag == thunk_tag) implies (thunk_hash == result.hash).
-        let result_is_a_thunk = constraints::alloc_equal(
-            &mut cs.namespace(|| "result.tag == thunk_tag"),
-            result.tag(),
-            &g.thunk_tag,
-        )?;
-        let result_is_the_thunk = constraints::alloc_equal(
-            &mut cs.namespace(|| "thunk_hash = result.hash"),
-            &thunk_hash,
-            result.hash(),
-        )?;
-        enforce_implication(
-            &mut cs.namespace(|| {
-                "(result.tag == thunk_continuation) implies (thunk_hash == result.hash)"
-            }),
-            &result_is_a_thunk,
-            &result_is_the_thunk,
-        )?;
-
-        AllocatedPtr::pick(
-            &mut cs.namespace(|| "pick result or thunk"),
-            &result_is_a_thunk,
-            &thunk_value,
-            result,
-        )?
-    };
-
     results.add_clauses_cont(
         ContTag::Outermost,
-        &picked,
+        result,
         env,
         &g.terminal_ptr,
         &g.false_num,
@@ -2240,7 +2205,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let (_, witness) = input.eval(&mut store);
+        let (_, witness) = input.reduce(&mut store);
 
         let groth_params = CircuitFrame::groth_params().unwrap();
         let vk = &groth_params.vk;
@@ -2274,9 +2239,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31915, cs.num_constraints());
+            assert_eq!(31526, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31895, cs.aux().len());
+            assert_eq!(31505, cs.aux().len());
 
             let public_inputs = frame.public_inputs(store);
             let mut rng = rand::thread_rng();
@@ -2352,7 +2317,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let (_, witness) = input.eval(&mut store);
+        let (_, witness) = input.reduce(&mut store);
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
             let mut cs = TestConstraintSystem::<Fr>::new();
@@ -2424,7 +2389,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let (_, witness) = input.eval(&mut store);
+        let (_, witness) = input.reduce(&mut store);
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
             let mut cs = TestConstraintSystem::<Fr>::new();
@@ -2496,7 +2461,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let (_, witness) = input.eval(&mut store);
+        let (_, witness) = input.reduce(&mut store);
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
             let mut cs = TestConstraintSystem::<Fr>::new();
@@ -2569,7 +2534,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let (_, witness) = input.eval(&mut store);
+        let (_, witness) = input.reduce(&mut store);
 
         let test_with_output = |output, expect_success, store: &mut Store<Fr>| {
             let mut cs = TestConstraintSystem::<Fr>::new();
