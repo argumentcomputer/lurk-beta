@@ -1,4 +1,5 @@
 pub mod groth16;
+pub mod nova;
 
 use bellperson::util_cs::test_cs::TestConstraintSystem;
 use bellperson::SynthesisError;

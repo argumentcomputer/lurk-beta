@@ -18,8 +18,8 @@ use rand::{RngCore, SeedableRng};
 use rand_xorshift::XorShiftRng;
 
 use crate::circuit::CircuitFrame;
-use crate::eval::{Evaluator, Frame, Witness, IO};
-use crate::proof::Provable;
+use crate::eval::{Evaluator, Witness, IO};
+use crate::proof::{Provable, SequentialCS};
 use crate::store::{Ptr, Store};
 
 use std::env;
@@ -40,11 +40,7 @@ const TRANSCRIPT_INCLUDE: &[u8] = "LURK-CIRCUIT".as_bytes();
 // Don't use this in production!
 const FALLBACK_TO_FAKE_SRS: bool = true;
 
-type SequentialCS<F, IO, Witness> = Vec<(Frame<IO, Witness>, TestConstraintSystem<F>)>;
-type FrameProofs<'a, E, F, IO, Witness> = (
-    Proof<'a, E, CircuitFrame<'a, F, IO, Witness>>,
-    Vec<Vec<<E as Engine>::Fr>>,
-);
+type FrameProofs<'a, E> = (Proof<'a, E>, Vec<Vec<<E as Engine>::Fr>>);
 
 fn load_srs() -> Result<GenericSRS<Bls12>, io::Error> {
     let path = env::current_dir()?.join("params/v28-fil-inner-product-v1.srs");
@@ -64,7 +60,7 @@ fn load_srs() -> Result<GenericSRS<Bls12>, io::Error> {
 }
 
 #[allow(dead_code)]
-pub struct Proof<'a, E: Engine + MultiMillerLoop, F: Provable<E::Fr>>
+pub struct Proof<'a, E: Engine + MultiMillerLoop>
 where
     <E as Engine>::Gt: blstrs::Compress,
 {
@@ -72,12 +68,10 @@ where
         CircuitFrame<'a, E::Fr, IO<E::Fr>, Witness<E::Fr>>,
         groth16::Proof<E>,
     )>,
-    // SequentialProofs<'a, E, IO<E::Fr>, Witness<E::Fr>>,
     aggregated_proof_and_instance: AggregateProofAndInstance<E>,
     aggregated_proof: AggregateProof<E>,
     // FIXME: remove when input aggregation is enabled.
     transcript_include: Vec<u8>,
-    frames: Vec<F>,
 }
 
 impl<F: PrimeField, W> CircuitFrame<'_, F, IO<F>, W> {
@@ -125,7 +119,7 @@ impl<'a> CircuitFrame<'a, Scalar, IO<Scalar>, Witness<Scalar>> {
         store: &'a mut Store<Scalar>,
         limit: usize,
         rng: R,
-    ) -> Result<FrameProofs<'a, Bls12, Scalar, IO<Scalar>, Witness<Scalar>>, SynthesisError> {
+    ) -> Result<FrameProofs<'a, Bls12>, SynthesisError> {
         // FIXME: optimize execution order
         let mut evaluator = Evaluator::new(expr, env, store, limit);
         let mut frames = evaluator.iter().collect::<Vec<_>>();
@@ -184,20 +178,22 @@ impl<'a> CircuitFrame<'a, Scalar, IO<Scalar>, Witness<Scalar>> {
                 frame_proofs,
                 aggregated_proof_and_instance,
                 aggregated_proof,
-                frames: circuit_frames,
+                //                frames: circuit_frames,
                 transcript_include,
             },
             statements,
         ))
     }
+}
 
+impl<'a, F: PrimeField> CircuitFrame<'a, F, IO<F>, Witness<F>> {
     #[allow(clippy::needless_collect)]
     pub fn outer_synthesize(
-        expr: Ptr<Scalar>,
-        env: Ptr<Scalar>,
-        store: &mut Store<Scalar>,
+        expr: Ptr<F>,
+        env: Ptr<F>,
+        store: &mut Store<F>,
         limit: usize,
-    ) -> Result<SequentialCS<Scalar, IO<Scalar>, Witness<Scalar>>, SynthesisError> {
+    ) -> Result<SequentialCS<F, IO<F>, Witness<F>>, SynthesisError> {
         let mut evaluator = Evaluator::new(expr, env, store, limit);
         let frames = evaluator.iter().collect::<Vec<_>>();
 
@@ -207,7 +203,7 @@ impl<'a> CircuitFrame<'a, Scalar, IO<Scalar>, Witness<Scalar>> {
             .into_iter()
             .map(|frame| {
                 let mut cs = TestConstraintSystem::new();
-                CircuitFrame::<Scalar, _, _>::from_frame(frame.clone(), store)
+                CircuitFrame::<F, _, _>::from_frame(frame.clone(), store)
                     .synthesize(&mut cs)
                     .unwrap();
                 (frame, cs)
@@ -329,7 +325,7 @@ mod tests {
                 assert_eq!(expected_iterations, frame_proofs.len());
                 assert_eq!(
                     expected_result,
-                    frame_proofs[frame_proofs.len() - 1]
+                    proof.frame_proofs[frame_proofs.len() - 1]
                         .0
                         .output
                         .as_ref()

@@ -123,17 +123,6 @@ dependencies = [
 
 [[package]]
 name = "blake2b_simd"
-version = "0.5.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afa748e348ad3be8263be728124b24a24f268266f6f5d58af9d75f6a40b5c587"
-dependencies = [
- "arrayref",
- "arrayvec 0.5.2",
- "constant_time_eq",
-]
-
-[[package]]
-name = "blake2b_simd"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72936ee4afc7f8f736d1c38383b56480b5497b4617b4a77bdbf1d2ababc76127"
@@ -896,11 +885,12 @@ dependencies = [
  "generic-array 0.14.5",
  "indexmap",
  "itertools 0.9.0",
+ "merlin",
  "neptune",
  "nova-snark",
  "once_cell",
  "pairing",
- "pasta_curves 0.3.0",
+ "pasta_curves",
  "rand 0.8.5",
  "rand_xorshift 0.3.0",
  "rayon",
@@ -1008,15 +998,14 @@ dependencies = [
 [[package]]
 name = "nova-snark"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4ac94def9cebd98ec7c823b5d121b0bd4db3014254c2737f1dc2f5dba161fd3"
+source = "git+https://github.com/microsoft/nova?branch=main#853ab90f7c1edc8e27a4867ee0cdf950c410711f"
 dependencies = [
  "bellperson",
  "digest 0.8.1",
  "ff",
  "itertools 0.9.0",
  "merlin",
- "pasta_curves 0.2.1",
+ "pasta_curves",
  "rand 0.8.5",
  "rand_core 0.5.1",
  "rayon",
@@ -1111,26 +1100,11 @@ dependencies = [
 
 [[package]]
 name = "pasta_curves"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d647d91972bad78120fd61e06b225fcda117805c9bbf17676b51bd03a251278b"
-dependencies = [
- "blake2b_simd 0.5.11",
- "ff",
- "group",
- "lazy_static",
- "rand 0.8.5",
- "static_assertions",
- "subtle",
-]
-
-[[package]]
-name = "pasta_curves"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "82b6fc4f73033f6aa52fdde0c38f1f570e7f2c244f22e441f62a144556891b8c"
 dependencies = [
- "blake2b_simd 1.0.0",
+ "blake2b_simd",
  "ff",
  "group",
  "lazy_static",
