@@ -1386,7 +1386,7 @@ fn invoke_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &mut cs.namespace(|| "allocate_continuation_components"),
         witness
             .as_ref()
-            .and_then(|w| w.invoke_continuation_cont.as_ref()),
+            .and_then(|w| w.apply_continuation_cont.as_ref()),
         store,
     )?;
 
