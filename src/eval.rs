@@ -157,7 +157,7 @@ pub struct Witness<F: PrimeField> {
     pub(crate) prethunk_output_cont: ContPtr<F>,
 
     pub(crate) extended_closure: Option<Ptr<F>>,
-    pub(crate) invoke_continuation_cont: Option<ContPtr<F>>,
+    pub(crate) apply_continuation_cont: Option<ContPtr<F>>,
 }
 
 fn reduce<F: PrimeField>(
@@ -176,7 +176,7 @@ fn reduce<F: PrimeField>(
 pub enum Control<F: PrimeField> {
     Return(Ptr<F>, Ptr<F>, ContPtr<F>),
     MakeThunk(Ptr<F>, Ptr<F>, ContPtr<F>),
-    InvokeContinuation(Ptr<F>, Ptr<F>, ContPtr<F>),
+    ApplyContinuation(Ptr<F>, Ptr<F>, ContPtr<F>),
 }
 
 impl<F: PrimeField> Control<F> {
@@ -184,7 +184,7 @@ impl<F: PrimeField> Control<F> {
         match self {
             Self::Return(expr, env, cont) => (expr, env, cont),
             Self::MakeThunk(expr, env, cont) => (expr, env, cont),
-            Self::InvokeContinuation(expr, env, cont) => (expr, env, cont),
+            Self::ApplyContinuation(expr, env, cont) => (expr, env, cont),
         }
     }
 
@@ -192,7 +192,7 @@ impl<F: PrimeField> Control<F> {
         match self {
             Self::Return(expr, env, cont) => (expr, env, cont),
             Self::MakeThunk(expr, env, cont) => (expr, env, cont),
-            Self::InvokeContinuation(expr, env, cont) => (expr, env, cont),
+            Self::ApplyContinuation(expr, env, cont) => (expr, env, cont),
         }
     }
 
@@ -202,8 +202,8 @@ impl<F: PrimeField> Control<F> {
     pub fn is_make_thunk(&self) -> bool {
         matches!(self, Self::MakeThunk(_, _, _))
     }
-    pub fn is_invoke_continuation(&self) -> bool {
-        matches!(self, Self::InvokeContinuation(_, _, _))
+    pub fn is_apply_continuation(&self) -> bool {
+        matches!(self, Self::ApplyContinuation(_, _, _))
     }
 }
 
@@ -217,18 +217,18 @@ fn reduce_with_witness<F: PrimeField>(
     let control = match expr.tag() {
         Tag::Thunk => match store.fetch(&expr).unwrap() {
             Expression::Thunk(thunk) => {
-                Control::InvokeContinuation(thunk.value, env, thunk.continuation)
+                Control::ApplyContinuation(thunk.value, env, thunk.continuation)
             }
             _ => unreachable!(),
         },
-        Tag::Nil => Control::InvokeContinuation(expr, env, cont),
+        Tag::Nil => Control::ApplyContinuation(expr, env, cont),
         Tag::Sym => {
             if expr == store.sym("NIL") || (expr == store.t()) {
                 // NIL and T are self-evaluating symbols, pass them to the continuation in a thunk.
 
                 // CIRCUIT: sym_is_self_evaluating
                 //          cond1
-                Control::InvokeContinuation(expr, env, cont)
+                Control::ApplyContinuation(expr, env, cont)
             } else {
                 // Otherwise, look for a matching binding in env.
 
@@ -270,7 +270,7 @@ fn reduce_with_witness<F: PrimeField>(
                                     //          cond3
 
                                     // Pass the binding's value to the continuation in a thunk.
-                                    Control::InvokeContinuation(val, env, cont)
+                                    Control::ApplyContinuation(val, env, cont)
                                 } else {
                                     // expr does not match the binding's var.
 
@@ -331,7 +331,7 @@ fn reduce_with_witness<F: PrimeField>(
                                             }
                                         }
                                     };
-                                    Control::InvokeContinuation(val_to_use, env, cont)
+                                    Control::ApplyContinuation(val_to_use, env, cont)
                                 } else {
                                     // CIRCUIT: v2_not_expr
                                     //          otherwise_and_v2_not_expr
@@ -367,8 +367,8 @@ fn reduce_with_witness<F: PrimeField>(
             }
         }
         Tag::Str => unimplemented!(),
-        Tag::Num => Control::InvokeContinuation(expr, env, cont),
-        Tag::Fun => Control::InvokeContinuation(expr, env, cont),
+        Tag::Num => Control::ApplyContinuation(expr, env, cont),
+        Tag::Fun => Control::ApplyContinuation(expr, env, cont),
         Tag::Cons => {
             let (head, rest) = store.car_cdr(&expr);
             let lambda = store.sym("LAMBDA");
@@ -396,11 +396,11 @@ fn reduce_with_witness<F: PrimeField>(
                 };
                 let function = store.intern_fun(arg, inner_body, env);
 
-                Control::InvokeContinuation(function, env, cont)
+                Control::ApplyContinuation(function, env, cont)
             } else if head == quote {
                 let (quoted, end) = store.car_cdr(&rest);
                 assert!(end.is_nil());
-                Control::InvokeContinuation(quoted, env, cont)
+                Control::ApplyContinuation(quoted, env, cont)
             } else if head == store.sym("LET*") {
                 let (bindings, body) = store.car_cdr(&rest);
                 let (body1, rest_body) = store.car_cdr(&body);
@@ -518,7 +518,7 @@ fn reduce_with_witness<F: PrimeField>(
                 Control::Return(condition, env, store.intern_cont_if(more, cont))
             } else if head == store.sym("current-env") {
                 assert!(rest.is_nil());
-                Control::InvokeContinuation(env, env, cont)
+                Control::ApplyContinuation(env, env, cont)
             } else {
                 // (fn . args)
                 let fun_form = head;
@@ -554,27 +554,27 @@ fn reduce_with_witness<F: PrimeField>(
         prethunk_output_cont: *new_cont,
 
         extended_closure,
-        invoke_continuation_cont: None,
+        apply_continuation_cont: None,
     };
 
-    let control = invoke_continuation(control, store, &mut witness);
+    let control = apply_continuation(control, store, &mut witness);
     let ctrl = make_thunk(control, store, &mut witness);
 
     (ctrl, witness)
 }
 
-fn invoke_continuation<F: PrimeField>(
+fn apply_continuation<F: PrimeField>(
     control: Control<F>,
     store: &mut Store<F>,
     witness: &mut Witness<F>,
 ) -> Control<F> {
-    if !control.is_invoke_continuation() {
+    if !control.is_apply_continuation() {
         return control;
     }
 
     let (result, env, cont) = control.as_results();
 
-    witness.invoke_continuation_cont = Some(*cont);
+    witness.apply_continuation_cont = Some(*cont);
 
     let control = match cont.tag() {
         ContTag::Terminal => unreachable!("Terminal Continuation should never be invoked."),
@@ -796,7 +796,7 @@ fn invoke_continuation<F: PrimeField>(
         ContTag::Simple | ContTag::Error => unreachable!(),
     };
 
-    if control.is_invoke_continuation() {
+    if control.is_apply_continuation() {
         unreachable!();
     }
 
