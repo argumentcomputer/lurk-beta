@@ -21,23 +21,9 @@ impl Lurk {
         // We just immediately turn the `TokenStream` into a string then delegate
         // to the Lurk parser. Although this is a little silly, it is simple.
         let string = input.to_string();
-
-        // This is a hack, since `*` is not allowed in idents.
-        // As implemented here, some (strange) forms will be
-        // misread.
-        // For example: '(the words let * whatever)
-
-        // Although further hacks to the parser could get closer, this
-        // is a fundamentally insoluble problem. If we actually want a macro
-        // like this to work 100% correctly, we will need to ensure Lurk's
-        // syntax is compatible with Rust's tokenizer.
-        //
-        // This might actually be worth doing.
-        let string = string.replace("let *", "let*");
-        let string = string.replace("letrec *", "letrec*");
-
         let mut input_it = input.into_iter().peekable();
         while input_it.next().is_some() {}
+
         Ok(Lurk::Src(string))
     }
 

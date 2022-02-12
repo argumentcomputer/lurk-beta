@@ -21,9 +21,9 @@ mod test {
     #[test]
     fn test_letstar() {
         let_store!();
-        let res = lurk!((let* ((a 1)) a)).unwrap();
+        let res = lurk!((let ((a 1)) a)).unwrap();
 
-        let res2 = s_.read("(let* ((a 1)) a)").unwrap();
+        let res2 = s_.read("(let ((a 1)) a)").unwrap();
 
         assert_eq!(res2, res);
     }
@@ -31,7 +31,7 @@ mod test {
     #[test]
     fn test_letrecstar() {
         let_store!();
-        let res = lurk!((letrec* ((a 1)) a)).unwrap();
+        let res = lurk!((letrec ((a 1)) a)).unwrap();
 
         lurk!((let ((a 1)
                     (b 2)
@@ -39,7 +39,7 @@ mod test {
                (+ a (c b))))
         .unwrap();
 
-        let res2 = s_.read("(letrec* ((a 1)) a)").unwrap();
+        let res2 = s_.read("(letrec ((a 1)) a)").unwrap();
 
         assert_eq!(res2, res);
     }
@@ -54,18 +54,7 @@ mod test {
         let_store!();
         let limit = 200;
 
-        // let expr = s_
-        //     .read(
-        //         "(letrec* ((exp (lambda (base)
-        //                           (lambda (exponent)
-        //                             (if (= 0 exponent)
-        //                                 1
-        //                                 (* base ((exp base) (- exponent 1))))))))
-        //            ((exp 5) 3))",
-        //     )
-        //     .unwrap();
-
-        let expr = lurk!((letrec* ((exp (lambda (base)
+        let expr = lurk!((letrec ((exp (lambda (base)
                                          (lambda (exponent)
                                           (if (= 0 exponent)
                                            1
