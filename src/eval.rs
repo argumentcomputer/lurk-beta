@@ -401,7 +401,7 @@ fn reduce_with_witness<F: PrimeField>(
                 let (quoted, end) = store.car_cdr(&rest);
                 assert!(end.is_nil());
                 Control::ApplyContinuation(quoted, env, cont)
-            } else if head == store.sym("LET*") {
+            } else if head == store.sym("LET") {
                 let (bindings, body) = store.car_cdr(&rest);
                 let (body1, rest_body) = store.car_cdr(&body);
                 // Only a single body form allowed for now.
@@ -418,16 +418,12 @@ fn reduce_with_witness<F: PrimeField>(
                     let expanded = if rest_bindings.is_nil() {
                         body1
                     } else {
-                        let lt = store.sym("LET*");
+                        let lt = store.sym("LET");
                         store.list(&[lt, rest_bindings, body1])
                     };
-                    Control::Return(
-                        val,
-                        env,
-                        store.intern_cont_let_star(var, expanded, env, cont),
-                    )
+                    Control::Return(val, env, store.intern_cont_let(var, expanded, env, cont))
                 }
-            } else if head == store.sym("LETREC*") {
+            } else if head == store.sym("LETREC") {
                 let (bindings, body) = store.car_cdr(&rest);
                 let (body1, rest_body) = store.car_cdr(&body);
                 // Only a single body form allowed for now.
@@ -443,13 +439,13 @@ fn reduce_with_witness<F: PrimeField>(
                     let expanded = if rest_bindings.is_nil() {
                         body1
                     } else {
-                        let lt = store.sym("LETREC*");
+                        let lt = store.sym("LETREC");
                         store.list(&[lt, rest_bindings, body1])
                     };
                     Control::Return(
                         val,
                         env,
-                        store.intern_cont_let_rec_star(var, expanded, env, cont),
+                        store.intern_cont_let_rec(var, expanded, env, cont),
                     )
                 }
             } else if head == store.sym("cons") {
@@ -614,8 +610,8 @@ fn apply_continuation<F: PrimeField>(
             },
             _ => unreachable!(),
         },
-        ContTag::LetStar => match store.fetch_cont(cont).unwrap() {
-            Continuation::LetStar(var, body, saved_env, continuation) => {
+        ContTag::Let => match store.fetch_cont(cont).unwrap() {
+            Continuation::Let(var, body, saved_env, continuation) => {
                 let extended_env = extend(*env, var, *result, store);
                 let c = make_tail_continuation(saved_env, continuation, store);
 
@@ -623,8 +619,8 @@ fn apply_continuation<F: PrimeField>(
             }
             _ => unreachable!(),
         },
-        ContTag::LetRecStar => match store.fetch_cont(cont).unwrap() {
-            Continuation::LetRecStar(var, body, saved_env, continuation) => {
+        ContTag::LetRec => match store.fetch_cont(cont).unwrap() {
+            Continuation::LetRec(var, body, saved_env, continuation) => {
                 let extended_env = extend_rec(*env, var, *result, store);
                 let c = make_tail_continuation(saved_env, continuation, store);
 
@@ -1269,7 +1265,7 @@ mod test {
         let limit = 25;
         let expr = s
             .read(
-                "(let* ((make-adder (lambda (x) (lambda (y) (+ x y)))))
+                "(let ((make-adder (lambda (x) (lambda (y) (+ x y)))))
                    ((make-adder 2) 3))",
             )
             .unwrap();
@@ -1285,7 +1281,7 @@ mod test {
     fn evaluate_let_simple() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
-        let expr = s.read("(let* ((a 1)) a)").unwrap();
+        let expr = s.read("(let ((a 1)) a)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
@@ -1298,7 +1294,7 @@ mod test {
     fn evaluate_empty_let_bug() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
-        let expr = s.read("(let* () (+ 1 2))").unwrap();
+        let expr = s.read("(let () (+ 1 2))").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
@@ -1313,7 +1309,7 @@ mod test {
         let limit = 20;
         let expr = s
             .read(
-                "(let* ((a 1)
+                "(let ((a 1)
                         (b 2))
                    (+ a b))",
             )
@@ -1327,10 +1323,10 @@ mod test {
     }
 
     #[test]
-    fn evaluate_letstar_parallel_binding() {
+    fn evaluate_let_parallel_binding() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
-        let expr = s.read("(let* ((a 1) (b a)) b)").unwrap();
+        let expr = s.read("(let ((a 1) (b a)) b)").unwrap();
 
         let (result_expr, _new_env, iterations, _continuation) =
             Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
@@ -1344,7 +1340,7 @@ mod test {
         let limit = 100;
         let expr = s
             .read(
-                "(let* ((a 5)
+                "(let ((a 5)
                         (b 1)
                         (c 2))
                    (/ (+ a b) c))",
@@ -1368,7 +1364,7 @@ mod test {
             let mut s = Store::<Fr>::default();
             let expr = s
                 .read(
-                    "(let* ((true (lambda (a)
+                    "(let ((true (lambda (a)
                                     (lambda (b)
                                       a)))
                             (false (lambda (a)
@@ -1392,7 +1388,7 @@ mod test {
             let mut s = Store::<Fr>::default();
             let expr = s
                 .read(
-                    "(let* ((true (lambda (a)
+                    "(let ((true (lambda (a)
                                     (lambda (b)
                                    a)))
                             (false (lambda (a)
@@ -1460,7 +1456,7 @@ mod test {
         let limit = 200;
         let expr = s
             .read(
-                "(letrec* ((exp (lambda (base)
+                "(letrec ((exp (lambda (base)
                                   (lambda (exponent)
                                     (if (= 0 exponent)
                                         1
@@ -1481,7 +1477,7 @@ mod test {
         let limit = 300;
         let expr = s
             .read(
-                "(letrec* ((exp (lambda (base)
+                "(letrec ((exp (lambda (base)
                                   (lambda (exponent)
                                      (lambda (acc)
                                        (if (= 0 exponent)
@@ -1503,7 +1499,7 @@ mod test {
         let limit = 300;
         let expr = s
             .read(
-                "(letrec* ((exp (lambda (base exponent)
+                "(letrec ((exp (lambda (base exponent)
                                   (if (= 0 exponent)
                                       1
                                       (* base (exp base (- exponent 1)))))))
@@ -1523,8 +1519,8 @@ mod test {
         let limit = 300;
         let expr = s
             .read(
-                "(let* ((exp (lambda (base)
-                               (letrec* ((base-inner
+                "(let ((exp (lambda (base)
+                               (letrec ((base-inner
                                           (lambda (exponent)
                                             (if (= 0 exponent)
                                                 1
@@ -1546,7 +1542,7 @@ mod test {
         let limit = 300;
         let expr = s
             .read(
-                "(letrec* ((exp (lambda (base)
+                "(letrec ((exp (lambda (base)
                                   (lambda (exponent-remaining)
                                     (lambda (acc)
                                       (if (= 0 exponent-remaining)
@@ -1568,8 +1564,8 @@ mod test {
         let limit = 300;
         let expr = s
             .read(
-                "(letrec* ((exp (lambda (base)
-                             (letrec* ((base-inner
+                "(letrec ((exp (lambda (base)
+                             (letrec ((base-inner
                                         (lambda (exponent-remaining)
                                           (lambda (acc)
                                             (if (= 0 exponent-remaining)
@@ -1587,12 +1583,12 @@ mod test {
     }
 
     #[test]
-    fn evaluate_multiple_letrecstar_bindings() {
+    fn evaluate_multiple_letrec_bindings() {
         let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
             .read(
-                "(letrec* ((double (lambda (x) (* 2 x)))
+                "(letrec ((double (lambda (x) (* 2 x)))
                            (square (lambda (x) (* x x))))
                    (+ (square 3) (double 2)))",
             )
@@ -1605,12 +1601,12 @@ mod test {
     }
 
     #[test]
-    fn evaluate_multiple_letrecstar_bindings_referencing() {
+    fn evaluate_multiple_letrec_bindings_referencing() {
         let mut s = Store::<Fr>::default();
         let limit = 300;
         let expr = s
             .read(
-                "(letrec* ((double (lambda (x) (* 2 x)))
+                "(letrec ((double (lambda (x) (* 2 x)))
                            (double-inc (lambda (x) (+ 1 (double x)))))
                    (+ (double 3) (double-inc 2)))",
             )
@@ -1623,12 +1619,12 @@ mod test {
     }
 
     #[test]
-    fn evaluate_multiple_letrecstar_bindings_recursive() {
+    fn evaluate_multiple_letrec_bindings_recursive() {
         let mut s = Store::<Fr>::default();
         let limit = 500;
         let expr = s
             .read(
-                "(letrec* ((exp (lambda (base exponent)
+                "(letrec ((exp (lambda (base exponent)
                                   (if (= 0 exponent)
                                       1
                                       (* base (exp base (- exponent 1))))))
@@ -1694,7 +1690,7 @@ mod test {
             let mut s = Store::<Fr>::default();
             let limit = 20;
             let expr = s
-                .read("(letrec* ((x 9) (f (lambda () (+ x 1)))) (f))")
+                .read("(letrec ((x 9) (f (lambda () (+ x 1)))) (f))")
                 .unwrap();
 
             let (result_expr, _new_env, iterations, _continuation) =
@@ -1710,18 +1706,18 @@ mod test {
         {
             let mut s = Store::<Fr>::default();
             let limit = 800;
-            let expr = s.read("(letrec* ((mapcar (lambda (f list)
+            let expr = s.read("(letrec ((mapcar (lambda (f list)
                                                              (if (eq list nil)
                                                                  nil
                                                                  (cons (f (car list)) (mapcar f (cdr list))))))
                                          (make-row (lambda (list)
                                                      (if (eq list nil)
                                                          nil
-                                                         (let* ((cdr (cdr list)))
+                                                         (let ((cdr (cdr list)))
                                                            (cons (cons (car list) (car cdr))
                                                                  (make-row (cdr cdr)))))))
                                          (make-tree-aux (lambda (list)
-                                                          (let* ((row (make-row list)))
+                                                          (let ((row (make-row list)))
                                                             (if (eq (cdr row) nil)
                                                                 row
                                                                 (make-tree-aux row)))))
@@ -1752,11 +1748,11 @@ mod test {
             let limit = 1000;
             let expr = s
                 .read(
-                    "(letrec* ((fn-1 (lambda (x)
-                                    (let* ((y x))
+                    "(letrec ((fn-1 (lambda (x)
+                                    (let ((y x))
                                        y)))
                                (fn-2 (lambda (list)
-                                       (let* ((z (fn-1 list)))
+                                       (let ((z (fn-1 list)))
                                          (fn-2 z)))))
                                  (fn-2 '(a b c d e f g h)))",
                 )
@@ -1774,7 +1770,7 @@ mod test {
             let limit = 1000;
             let expr = s
                 .read(
-                    "(letrec* ((map-tree (lambda (f tree)
+                    "(letrec ((map-tree (lambda (f tree)
                       (if (atom tree)
                           (f tree)
                           (cons (map-tree f (car tree))
@@ -1799,7 +1795,7 @@ mod test {
             let limit = 1000;
             let expr = s
                 .read(
-                    "(letrec* ((map-tree (lambda (f tree)
+                    "(letrec ((map-tree (lambda (f tree)
                                            (if (atom tree)
                                              (f tree)
                                                (= (map-tree f (car tree))
@@ -1825,7 +1821,7 @@ mod test {
             let expr = s
                 .read(
                     "
-(letrec*
+(letrec
     (
      (id
       (lambda (x) x))
@@ -1857,8 +1853,8 @@ mod test {
             let limit = 1000;
             let expr = s
                 .read(
-                    "(let* ((z 9))
-                       (letrec* ((a 1)
+                    "(let ((z 9))
+                       (letrec ((a 1)
                                  (b 2)
                                  (l (lambda (x) (+ z x))))
                          (l 9)))",
@@ -1888,14 +1884,14 @@ mod test {
         let expr = s
             .read(
                 r#"
-(let* ((foo (lambda (a b)
-              (letrec* ((aux (lambda (i a x)
+(let ((foo (lambda (a b)
+              (letrec ((aux (lambda (i a x)
                                (if (= i b)
                                      x
-                                     (let* ((x (+ x a))
+                                     (let ((x (+ x a))
                                             (a (+ a (* b 2))))
                                        (aux (+ i 1) a x))))))
-                       (let* ((x (+ (* a b) 4)))
+                       (let ((x (+ (* a b) 4)))
                          (aux 0 a x))))))
   (foo 10 16))
 "#,
