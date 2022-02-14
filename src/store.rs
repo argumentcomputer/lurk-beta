@@ -81,8 +81,8 @@ pub struct Store<F: PrimeField> {
     relop_store: IndexSet<(Rel2, Ptr<F>, Ptr<F>, ContPtr<F>)>,
     relop2_store: IndexSet<(Rel2, Ptr<F>, ContPtr<F>)>,
     if_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    let_star_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    let_rec_star_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
+    let_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
+    let_rec_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
 
     /// Holds a mapping of ScalarPtr -> Ptr for reverse lookups
     scalar_ptr_map: dashmap::DashMap<ScalarPtr<F>, Ptr<F>, ahash::RandomState>,
@@ -368,9 +368,9 @@ pub enum Continuation<F: PrimeField> {
     /// Unevaluated arguments.
     If(Ptr<F>, ContPtr<F>),
     /// The var, the body, and the saved env.
-    LetStar(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>),
+    Let(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>),
     /// The var, the saved env, and the body.
-    LetRecStar(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>),
+    LetRec(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>),
     Dummy,
     Terminal,
 }
@@ -493,8 +493,8 @@ pub enum ContTag {
     Relop,
     Relop2,
     If,
-    LetStar,
-    LetRecStar,
+    Let,
+    LetRec,
     Dummy,
     Terminal,
 }
@@ -531,8 +531,8 @@ impl<F: PrimeField> Default for Store<F> {
             relop_store: Default::default(),
             relop2_store: Default::default(),
             if_store: Default::default(),
-            let_star_store: Default::default(),
-            let_rec_star_store: Default::default(),
+            let_store: Default::default(),
+            let_rec_store: Default::default(),
             scalar_ptr_map: Default::default(),
             scalar_ptr_cont_map: Default::default(),
             poseidon_cache: Default::default(),
@@ -545,8 +545,8 @@ impl<F: PrimeField> Default for Store<F> {
             "quote",
             "lambda",
             "_",
-            "let*",
-            "letrec*",
+            "let",
+            "letrec",
             "car",
             "cdr",
             "atom",
@@ -756,26 +756,26 @@ impl<F: PrimeField> Store<F> {
         ContPtr(ContTag::Lookup, RawPtr::new(ptr))
     }
 
-    pub fn intern_cont_let_star(
+    pub fn intern_cont_let(
         &mut self,
         a: Ptr<F>,
         b: Ptr<F>,
         c: Ptr<F>,
         d: ContPtr<F>,
     ) -> ContPtr<F> {
-        let (ptr, _) = self.let_star_store.insert_full((a, b, c, d));
-        ContPtr(ContTag::LetStar, RawPtr::new(ptr))
+        let (ptr, _) = self.let_store.insert_full((a, b, c, d));
+        ContPtr(ContTag::Let, RawPtr::new(ptr))
     }
 
-    pub fn intern_cont_let_rec_star(
+    pub fn intern_cont_let_rec(
         &mut self,
         a: Ptr<F>,
         b: Ptr<F>,
         c: Ptr<F>,
         d: ContPtr<F>,
     ) -> ContPtr<F> {
-        let (ptr, _) = self.let_rec_star_store.insert_full((a, b, c, d));
-        ContPtr(ContTag::LetRecStar, RawPtr::new(ptr))
+        let (ptr, _) = self.let_rec_store.insert_full((a, b, c, d));
+        ContPtr(ContTag::LetRec, RawPtr::new(ptr))
     }
 
     pub fn intern_cont_unop(&mut self, op: Op1, a: ContPtr<F>) -> ContPtr<F> {
@@ -953,14 +953,14 @@ impl<F: PrimeField> Store<F> {
                 .if_store
                 .get_index(ptr.1 .0)
                 .map(|(a, b)| Continuation::If(*a, *b)),
-            LetStar => self
-                .let_star_store
+            Let => self
+                .let_store
                 .get_index(ptr.1 .0)
-                .map(|(a, b, c, d)| Continuation::LetStar(*a, *b, *c, *d)),
-            LetRecStar => self
-                .let_rec_star_store
+                .map(|(a, b, c, d)| Continuation::Let(*a, *b, *c, *d)),
+            LetRec => self
+                .let_rec_store
                 .get_index(ptr.1 .0)
-                .map(|(a, b, c, d)| Continuation::LetRecStar(*a, *b, *c, *d)),
+                .map(|(a, b, c, d)| Continuation::LetRec(*a, *b, *c, *d)),
             Dummy => Some(Continuation::Dummy),
             Terminal => Some(Continuation::Terminal),
         }
@@ -1047,11 +1047,11 @@ impl<F: PrimeField> Store<F> {
             }
             Relop2(rel, arg1, cont) => self.get_hash_components_relop2(rel, arg1, cont)?,
             If(unevaled_args, cont) => self.get_hash_components_if(unevaled_args, cont)?,
-            LetStar(var, body, saved_env, cont) => {
-                self.get_hash_components_let_star(var, body, saved_env, cont)?
+            Let(var, body, saved_env, cont) => {
+                self.get_hash_components_let(var, body, saved_env, cont)?
             }
-            LetRecStar(var, body, saved_env, cont) => {
-                self.get_hash_components_let_rec_star(var, body, saved_env, cont)?
+            LetRec(var, body, saved_env, cont) => {
+                self.get_hash_components_let_rec(var, body, saved_env, cont)?
             }
         };
 
@@ -1061,7 +1061,7 @@ impl<F: PrimeField> Store<F> {
         ])
     }
 
-    fn get_hash_components_let_rec_star(
+    fn get_hash_components_let_rec(
         &self,
         var: &Ptr<F>,
         body: &Ptr<F>,
@@ -1075,7 +1075,7 @@ impl<F: PrimeField> Store<F> {
         Some([var, body, saved_env, cont])
     }
 
-    fn get_hash_components_let_star(
+    fn get_hash_components_let(
         &self,
         var: &Ptr<F>,
         body: &Ptr<F>,
@@ -1402,15 +1402,15 @@ impl<F: PrimeField> Store<F> {
             .par_iter()
             .filter_map(|(a, b)| self.get_hash_components_if(a, b));
 
-        let let_star = self
-            .let_star_store
+        let let_ = self
+            .let_store
             .par_iter()
-            .filter_map(|(a, b, c, d)| self.get_hash_components_let_star(a, b, c, d));
+            .filter_map(|(a, b, c, d)| self.get_hash_components_let(a, b, c, d));
 
-        let let_rec_star = self
-            .let_rec_star_store
+        let let_rec = self
+            .let_rec_store
             .par_iter()
-            .filter_map(|(a, b, c, d)| self.get_hash_components_let_rec_star(a, b, c, d));
+            .filter_map(|(a, b, c, d)| self.get_hash_components_let_rec(a, b, c, d));
 
         let chain = simple
             .chain(call)
@@ -1423,8 +1423,8 @@ impl<F: PrimeField> Store<F> {
             .chain(relop)
             .chain(relop2)
             .chain(ifi)
-            .chain(let_star)
-            .chain(let_rec_star);
+            .chain(let_)
+            .chain(let_rec);
 
         chain.for_each(|el| {
             self.poseidon_cache.hash8(&[
@@ -1502,8 +1502,8 @@ mod test {
         assert_eq!(0b0001_0000_0000_1010, Relop as u16);
         assert_eq!(0b0001_0000_0000_1011, Relop2 as u16);
         assert_eq!(0b0001_0000_0000_1100, If as u16);
-        assert_eq!(0b0001_0000_0000_1101, LetStar as u16);
-        assert_eq!(0b0001_0000_0000_1110, LetRecStar as u16);
+        assert_eq!(0b0001_0000_0000_1101, Let as u16);
+        assert_eq!(0b0001_0000_0000_1110, LetRec as u16);
         assert_eq!(0b0001_0000_0000_1111, Dummy as u16);
         assert_eq!(0b0001_0000_0001_0000, Terminal as u16);
     }

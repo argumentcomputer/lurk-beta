@@ -832,13 +832,12 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
 
     let lambda_hash = hash_sym("lambda");
     let quote_hash = hash_sym("quote");
-    let letstar = hash_sym("let*");
-    let letstar_t = AllocatedPtr::alloc_constant(&mut cs.namespace(|| "letstar_t"), letstar)?;
-    let letstar_hash = letstar.value();
-    let letrecstar = hash_sym("letrec*");
-    let letrecstar_t =
-        AllocatedPtr::alloc_constant(&mut cs.namespace(|| "letrecstar"), letrecstar)?;
-    let letrecstar_hash = letrecstar.value();
+    let let_sym = hash_sym("let");
+    let let_t = AllocatedPtr::alloc_constant(&mut cs.namespace(|| "let"), let_sym)?;
+    let let_hash = let_sym.value();
+    let letrec = hash_sym("letrec");
+    let letrec_t = AllocatedPtr::alloc_constant(&mut cs.namespace(|| "letrec"), letrec)?;
+    let letrec_hash = letrec.value();
     let cons_hash = hash_sym("car");
     let car_hash = hash_sym("car");
     let cdr_hash = hash_sym("cdr");
@@ -916,9 +915,9 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         results.add_clauses_cons(*quote_hash.value(), &arg1, env, cont, &g.true_num);
     }
 
-    let (val, continuation_letstar, continuation_letrecstar) = {
-        // head == LET*
-        // or head == LETREC*
+    let (val, continuation_let, continuation_letrec) = {
+        // head == LET
+        // or head == LETREC
 
         let mut cs_letrec = cs.namespace(|| "LET(REC)*");
 
@@ -949,7 +948,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
             &mut cs_letrec.namespace(|| "expanded1"),
             g,
             store,
-            &[&letstar_t, &rest_bindings, &body1],
+            &[&let_t, &rest_bindings, &body1],
         )?;
         let bindings_is_nil =
             bindings.alloc_equal(&mut cs_letrec.namespace(|| "bindings_is_nil"), &g.nil_ptr)?;
@@ -966,65 +965,53 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
             &expanded1,
         )?;
 
-        let continuation1_letstar = AllocatedContPtr::construct(
-            &mut cs_letrec.namespace(|| "let* continuation"),
+        let continuation1_let = AllocatedContPtr::construct(
+            &mut cs_letrec.namespace(|| "let continuation"),
             store,
-            &g.letstar_cont_tag,
+            &g.let_cont_tag,
             &[&var, &expanded, env, cont],
         )?;
 
-        let continuation_letstar = AllocatedContPtr::pick(
-            &mut cs_letrec.namespace(|| "continuation let*"),
+        let continuation_let = AllocatedContPtr::pick(
+            &mut cs_letrec.namespace(|| "continuation let"),
             &bindings_is_nil,
             cont,
-            &continuation1_letstar,
+            &continuation1_let,
         )?;
 
         let expanded2 = AllocatedPtr::construct_list(
             &mut cs_letrec.namespace(|| "expanded2"),
             g,
             store,
-            &[&letrecstar_t, &rest_bindings, &body1],
+            &[&letrec_t, &rest_bindings, &body1],
         )?;
 
-        let expanded_star = AllocatedPtr::pick(
-            &mut cs_letrec.namespace(|| "expanded_star"),
+        let expanded_ = AllocatedPtr::pick(
+            &mut cs_letrec.namespace(|| "expanded_"),
             &rest_bindings_is_nil,
             &body1,
             &expanded2,
         )?;
 
-        let continuation1_letrecstar = AllocatedContPtr::construct(
-            &mut cs_letrec.namespace(|| "letrec* continuation"),
+        let continuation1_letrec = AllocatedContPtr::construct(
+            &mut cs_letrec.namespace(|| "letrec continuation"),
             store,
-            &g.letrecstar_cont_tag,
-            &[&var, &expanded_star, env, cont],
+            &g.letrec_cont_tag,
+            &[&var, &expanded_, env, cont],
         )?;
 
-        let continuation_letrecstar = AllocatedContPtr::pick(
-            &mut cs_letrec.namespace(|| "continuation letrec*"),
+        let continuation_letrec = AllocatedContPtr::pick(
+            &mut cs_letrec.namespace(|| "continuation letrec"),
             &bindings_is_nil,
             cont,
-            &continuation1_letrecstar,
+            &continuation1_letrec,
         )?;
 
-        (val, continuation_letstar, continuation_letrecstar)
+        (val, continuation_let, continuation_letrec)
     };
 
-    results.add_clauses_cons(
-        *letstar_hash,
-        &val,
-        env,
-        &continuation_letstar,
-        &g.false_num,
-    );
-    results.add_clauses_cons(
-        *letrecstar_hash,
-        &val,
-        env,
-        &continuation_letrecstar,
-        &g.false_num,
-    );
+    results.add_clauses_cons(*let_hash, &val, env, &continuation_let, &g.false_num);
+    results.add_clauses_cons(*letrec_hash, &val, env, &continuation_letrec, &g.false_num);
 
     // head == CONS
     let continuation = AllocatedContPtr::construct(
@@ -1500,14 +1487,14 @@ fn invoke_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     );
 
     let (body, extended_env, tail_cont) = {
-        // Continuation::LetStar
+        // Continuation::Let
         let var = AllocatedPtr::by_index(0, &continuation_components);
         let body = AllocatedPtr::by_index(1, &continuation_components);
         let saved_env = AllocatedPtr::by_index(2, &continuation_components);
         let cont = AllocatedContPtr::by_index(3, &continuation_components);
 
         let extended_env = extend(
-            &mut cs.namespace(|| "LetStar extend env"),
+            &mut cs.namespace(|| "Let extend env"),
             g,
             store,
             env,
@@ -1516,7 +1503,7 @@ fn invoke_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         )?;
 
         let tail_cont = make_tail_continuation(
-            &mut cs.namespace(|| "LetStar make_tail_continuation"),
+            &mut cs.namespace(|| "Let make_tail_continuation"),
             g,
             store,
             &saved_env,
@@ -1525,23 +1512,17 @@ fn invoke_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
         (body, extended_env, tail_cont)
     };
-    results.add_clauses_cont(
-        ContTag::LetStar,
-        &body,
-        &extended_env,
-        &tail_cont,
-        &g.false_num,
-    );
+    results.add_clauses_cont(ContTag::Let, &body, &extended_env, &tail_cont, &g.false_num);
 
     let (body, extended_env, return_cont) = {
-        // Continuation::LetRecStar
+        // Continuation::LetRec
         let var = AllocatedPtr::by_index(0, &continuation_components);
         let body = AllocatedPtr::by_index(1, &continuation_components);
         let saved_env = AllocatedPtr::by_index(2, &continuation_components);
         let cont = AllocatedContPtr::by_index(3, &continuation_components);
 
         let extended_env = extend_rec(
-            &mut cs.namespace(|| "LetRecStar extend_rec env"),
+            &mut cs.namespace(|| "LetRec extend_rec env"),
             g,
             env,
             &var,
@@ -1552,7 +1533,7 @@ fn invoke_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         let is_error = extended_env.alloc_equal(&mut cs.namespace(|| "is_error"), &g.error_ptr)?;
 
         let tail_cont = make_tail_continuation(
-            &mut cs.namespace(|| "LetRecStar make_tail_continuation"),
+            &mut cs.namespace(|| "LetRec make_tail_continuation"),
             g,
             store,
             &saved_env,
@@ -1570,7 +1551,7 @@ fn invoke_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     };
 
     results.add_clauses_cont(
-        ContTag::LetRecStar,
+        ContTag::LetRec,
         &body,
         &extended_env,
         &return_cont,

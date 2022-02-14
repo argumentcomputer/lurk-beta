@@ -498,7 +498,7 @@ mod tests {
     #[test]
     fn outer_prove_arithmetic_let() {
         outer_prove_aux(
-            &"(let* ((a 5)
+            &"(let ((a 5)
                      (b 1)
                      (c 2))
                 (/ (+ a b) c))",
@@ -600,7 +600,7 @@ mod tests {
     #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
     fn outer_prove_recursion1() {
         outer_prove_aux(
-            &"(letrec* ((exp (lambda (base)
+            &"(letrec ((exp (lambda (base)
                                (lambda (exponent)
                                  (if (= 0 exponent)
                                      1
@@ -620,7 +620,7 @@ mod tests {
     #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
     fn outer_prove_recursion2() {
         outer_prove_aux(
-            &"(letrec* ((exp (lambda (base)
+            &"(letrec ((exp (lambda (base)
                                   (lambda (exponent)
                                      (lambda (acc)
                                        (if (= 0 exponent)

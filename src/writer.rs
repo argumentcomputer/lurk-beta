@@ -183,8 +183,8 @@ impl<F: PrimeField> Write<F> for Continuation<F> {
                 cont.fmt(store, w)?;
                 write!(w, ")")
             }
-            Continuation::LetStar(expr1, expr2, expr3, cont) => {
-                write!(w, "LetStar(")?;
+            Continuation::Let(expr1, expr2, expr3, cont) => {
+                write!(w, "Let(")?;
                 expr1.fmt(store, w)?;
                 write!(w, ", ")?;
                 expr2.fmt(store, w)?;
@@ -194,8 +194,8 @@ impl<F: PrimeField> Write<F> for Continuation<F> {
                 cont.fmt(store, w)?;
                 write!(w, ")")
             }
-            Continuation::LetRecStar(expr1, expr2, expr3, cont) => {
-                write!(w, "LetRecStar(")?;
+            Continuation::LetRec(expr1, expr2, expr3, cont) => {
+                write!(w, "LetRec(")?;
                 expr1.fmt(store, w)?;
                 write!(w, ", ")?;
                 expr2.fmt(store, w)?;
