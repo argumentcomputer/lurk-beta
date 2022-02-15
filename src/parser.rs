@@ -307,78 +307,78 @@ asdf(", "ASDF",
 
     #[test]
     fn read_list() {
-        let mut store = Store::<Fr>::default();
+        let mut s = Store::<Fr>::default();
         let test = |store: &mut Store<Fr>, input, expected| {
             let expr = store.read(input).unwrap();
             assert_eq!(expected, &expr);
         };
 
-        let a = store.num(123);
-        let b = store.nil();
-        let expected = store.intern_cons(a, b);
-        test(&mut store, "(123)", &expected);
+        let a = s.num(123);
+        let b = s.nil();
+        let expected = s.cons(a, b);
+        test(&mut s, "(123)", &expected);
 
-        let a = store.num(321);
-        let expected2 = store.intern_cons(a, expected);
-        test(&mut store, "(321 123)", &expected2);
+        let a = s.num(321);
+        let expected2 = s.cons(a, expected);
+        test(&mut s, "(321 123)", &expected2);
 
-        let a = store.sym("PUMPKIN");
-        let expected3 = store.intern_cons(a, expected2);
-        test(&mut store, "(pumpkin 321 123)", &expected3);
+        let a = s.sym("PUMPKIN");
+        let expected3 = s.cons(a, expected2);
+        test(&mut s, "(pumpkin 321 123)", &expected3);
 
-        let expected4 = store.intern_cons(expected, store.get_nil());
-        test(&mut store, "((123))", &expected4);
+        let expected4 = s.cons(expected, s.get_nil());
+        test(&mut s, "((123))", &expected4);
 
-        let (a, b) = (store.num(321), store.nil());
-        let alt = store.intern_cons(a, b);
-        let expected5 = store.intern_cons(alt, expected4);
-        test(&mut store, "((321) (123))", &expected5);
+        let (a, b) = (s.num(321), s.nil());
+        let alt = s.cons(a, b);
+        let expected5 = s.cons(alt, expected4);
+        test(&mut s, "((321) (123))", &expected5);
 
-        let expected6 = store.intern_cons(expected2, expected3);
-        test(&mut store, "((321 123) pumpkin 321 123)", &expected6);
+        let expected6 = s.cons(expected2, expected3);
+        test(&mut s, "((321 123) pumpkin 321 123)", &expected6);
 
-        let (a, b) = (store.num(1), store.num(2));
-        let pair = store.intern_cons(a, b);
-        let list = [pair, store.num(3)];
-        let expected7 = store.intern_list(&list);
-        test(&mut store, "((1 . 2) 3)", &expected7);
+        let (a, b) = (s.num(1), s.num(2));
+        let pair = s.cons(a, b);
+        let list = [pair, s.num(3)];
+        let expected7 = s.intern_list(&list);
+        test(&mut s, "((1 . 2) 3)", &expected7);
     }
 
     #[test]
     fn read_improper_list() {
-        let mut store = Store::<Fr>::default();
+        let mut s = Store::<Fr>::default();
         let test = |store: &mut Store<Fr>, input, expected| {
             let expr = store.read(input).unwrap();
             assert_eq!(expected, &expr);
         };
 
-        let (a, b) = (store.num(123), store.num(321));
-        let expected = store.intern_cons(a, b);
-        test(&mut store, "(123 . 321)", &expected);
+        let (a, b) = (s.num(123), s.num(321));
+        let expected = s.cons(a, b);
+        test(&mut s, "(123 . 321)", &expected);
 
-        assert_eq!(store.read("(123 321)"), store.read("(123 . ( 321 ))"))
+        assert_eq!(s.read("(123 321)"), s.read("(123 . ( 321 ))"))
     }
     #[test]
     fn read_print_expr() {
-        let mut store = Store::<Fr>::default();
+        let mut s = Store::<Fr>::default();
         let test = |store: &mut Store<Fr>, input| {
             let expr = store.read(input).unwrap();
             let output = expr.fmt_to_string(store);
             assert_eq!(input, output);
         };
 
-        test(&mut store, "A");
-        test(&mut store, "(A . B)");
-        test(&mut store, "(A B C)");
-        test(&mut store, "(A (B) C)");
-        test(&mut store, "(A (B . C) (D E (F)) G)");
-        // test(&mut store, "'A");
-        // test(&mut store, "'(A B)");
+        test(&mut s, "A");
+        test(&mut s, "(A . B)");
+        test(&mut s, "(A B C)");
+        test(&mut s, "(A (B) C)");
+        test(&mut s, "(A (B . C) (D E (F)) G)");
+        // test(&mut s, "'A");
+        // test(&mut s, "'(A B)");
     }
 
     #[test]
     fn read_maybe_meta() {
-        let mut store = Store::<Fr>::default();
+        let mut s = Store::<Fr>::default();
         let test =
             |store: &mut Store<Fr>, input: &str, expected_ptr: Ptr<Fr>, expected_meta: bool| {
                 let mut chars = input.chars().peekable();
@@ -391,57 +391,57 @@ asdf(", "ASDF",
                 };
             };
 
-        let num = store.num(123);
-        test(&mut store, "123", num, false);
+        let num = s.num(123);
+        test(&mut s, "123", num, false);
 
         {
-            let list = [store.num(123), store.num(321)];
-            let l = store.intern_list(&list);
-            test(&mut store, " (123 321)", l, false);
+            let list = [s.num(123), s.num(321)];
+            let l = s.list(&list);
+            test(&mut s, " (123 321)", l, false);
         }
         {
-            let list = [store.num(123), store.num(321)];
-            let l = store.intern_list(&list);
-            test(&mut store, " !(123 321)", l, true);
+            let list = [s.num(123), s.num(321)];
+            let l = s.list(&list);
+            test(&mut s, " !(123 321)", l, true);
         }
         {
-            let list = [store.num(123), store.num(321)];
-            let l = store.intern_list(&list);
-            test(&mut store, " ! (123 321)", l, true);
+            let list = [s.num(123), s.num(321)];
+            let l = s.list(&list);
+            test(&mut s, " ! (123 321)", l, true);
         }
         {
-            let s = store.sym("asdf");
-            test(&mut store, "!asdf", s, true);
+            let sym = s.sym("asdf");
+            test(&mut s, "!asdf", sym, true);
         }
         {
-            let s = store.sym(":assert");
-            let l = store.intern_list(&[s]);
-            test(&mut store, "!(:assert)", l, true);
+            let sym = s.sym(":assert");
+            let l = s.list(&[sym]);
+            test(&mut s, "!(:assert)", l, true);
         }
         {
-            let s = store.sym("asdf");
+            let sym = s.sym("asdf");
             test(
-                &mut store,
+                &mut s,
                 ";; comment
 !asdf",
-                s,
+                sym,
                 true,
             );
         }
     }
     #[test]
     fn is_keyword() {
-        let mut store = Store::<Fr>::default();
-        let kw = store.sym(":UIOP");
-        let not_kw = store.sym("UIOP");
+        let mut s = Store::<Fr>::default();
+        let kw = s.sym(":UIOP");
+        let not_kw = s.sym("UIOP");
 
-        assert!(store.fetch(&kw).unwrap().is_keyword_sym());
-        assert!(!store.fetch(&not_kw).unwrap().is_keyword_sym());
+        assert!(s.fetch(&kw).unwrap().is_keyword_sym());
+        assert!(!s.fetch(&not_kw).unwrap().is_keyword_sym());
     }
 
     #[test]
     fn read_string() {
-        let mut store = Store::<Fr>::default();
+        let mut s = Store::<Fr>::default();
 
         let test =
             |store: &mut Store<Fr>, input: &str, expected: Option<Ptr<Fr>>, expr: Option<&str>| {
@@ -455,15 +455,15 @@ asdf(", "ASDF",
                 }
             };
 
-        let s = store.intern_str("asdf");
-        test(&mut store, "\"asdf\"", Some(s), Some("asdf"));
-        test(&mut store, "\"asdf", None, None);
-        test(&mut store, "asdf", None, None);
+        let sym = s.intern_str("asdf");
+        test(&mut s, "\"asdf\"", Some(sym), Some("asdf"));
+        test(&mut s, "\"asdf", None, None);
+        test(&mut s, "asdf", None, None);
 
         {
             let input = "\"foo/bar/baz\"";
-            let ptr = store.read_string(&mut input.chars().peekable()).unwrap();
-            let res = store
+            let ptr = s.read_string(&mut input.chars().peekable()).unwrap();
+            let res = s
                 .fetch(&ptr)
                 .expect(&format!("failed to fetch: {:?}", input));
             assert_eq!(res.as_str().unwrap(), "foo/bar/baz");
@@ -472,16 +472,16 @@ asdf(", "ASDF",
 
     #[test]
     fn read_with_comments() {
-        let mut store = Store::<Fr>::default();
+        let mut s = Store::<Fr>::default();
 
         let test = |store: &mut Store<Fr>, input: &str, expected: Option<Ptr<Fr>>| {
             let res = store.read(input);
             assert_eq!(expected, res);
         };
 
-        let num = store.num(321);
+        let num = s.num(321);
         test(
-            &mut store,
+            &mut s,
             ";123
 321",
             Some(num),
