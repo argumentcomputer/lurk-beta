@@ -573,8 +573,8 @@ fn apply_continuation<F: PrimeField>(
     witness.apply_continuation_cont = Some(*cont);
 
     let control = match cont.tag() {
-        ContTag::Terminal => unreachable!("Terminal Continuation should never be invoked."),
-        ContTag::Dummy => unreachable!("Dummy Continuation should never be invoked."),
+        ContTag::Terminal => unreachable!("Terminal Continuation should never be applied."),
+        ContTag::Dummy => unreachable!("Dummy Continuation should never be applied."),
         ContTag::Outermost => Control::Return(*result, *env, store.intern_cont_terminal()),
         ContTag::Call => match result.tag() {
             // (arg, saved_env, continuation)
