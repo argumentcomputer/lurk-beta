@@ -121,7 +121,7 @@ struct Results<'a, F: PrimeField> {
     env_hash_clauses: Vec<CaseClause<'a, F>>,
     cont_tag_clauses: Vec<CaseClause<'a, F>>,
     cont_hash_clauses: Vec<CaseClause<'a, F>>,
-    invoke_continuation_clauses: Vec<CaseClause<'a, F>>,
+    apply_continuation_clauses: Vec<CaseClause<'a, F>>,
     make_thunk_num_clauses: Vec<CaseClause<'a, F>>,
 }
 
@@ -160,7 +160,7 @@ impl<'a, F: PrimeField> Results<'a, F> {
         result_expr: &'a AllocatedPtr<F>,
         result_env: &'a AllocatedPtr<F>,
         result_cont: &'a AllocatedContPtr<F>,
-        result_invoke_continuation: &'a AllocatedNum<F>,
+        result_apply_continuation: &'a AllocatedNum<F>,
     ) {
         let key = key.as_field();
         add_clause(
@@ -185,9 +185,9 @@ impl<'a, F: PrimeField> Results<'a, F> {
         );
 
         add_clause_single(
-            &mut self.invoke_continuation_clauses,
+            &mut self.apply_continuation_clauses,
             key,
-            result_invoke_continuation,
+            result_apply_continuation,
         );
     }
 
@@ -197,7 +197,7 @@ impl<'a, F: PrimeField> Results<'a, F> {
         result_expr: &'a AllocatedPtr<F>,
         result_env: &'a AllocatedPtr<F>,
         result_cont: &'a AllocatedContPtr<F>,
-        invoke_cont: &'a AllocatedNum<F>,
+        apply_cont: &'a AllocatedNum<F>,
     ) {
         add_clause(
             &mut self.expr_tag_clauses,
@@ -217,7 +217,7 @@ impl<'a, F: PrimeField> Results<'a, F> {
             key,
             result_cont,
         );
-        add_clause_single(&mut self.invoke_continuation_clauses, key, invoke_cont);
+        add_clause_single(&mut self.apply_continuation_clauses, key, apply_cont);
     }
 
     fn add_clauses_thunk(
@@ -340,7 +340,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.sym_tag,
     )?;
 
-    let (sym_result, sym_env, sym_cont, sym_invoke_cont) = reduce_sym(
+    let (sym_result, sym_env, sym_cont, sym_apply_cont) = reduce_sym(
         &mut cs.namespace(|| "eval Sym"),
         expr,
         env,
@@ -351,7 +351,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         &g,
     )?;
 
-    results.add_clauses_expr(Tag::Sym, &sym_result, &sym_env, &sym_cont, &sym_invoke_cont);
+    results.add_clauses_expr(Tag::Sym, &sym_result, &sym_env, &sym_cont, &sym_apply_cont);
     // --
 
     // --
@@ -361,7 +361,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.cons_tag,
     )?;
 
-    let (cons_result, cons_env, cons_cont, cons_invoke_cont) = reduce_cons(
+    let (cons_result, cons_env, cons_cont, cons_apply_cont) = reduce_cons(
         &mut cs.namespace(|| "eval Cons"),
         expr,
         env,
@@ -377,7 +377,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         &cons_result,
         &cons_env,
         &cons_cont,
-        &cons_invoke_cont,
+        &cons_apply_cont,
     );
 
     // --
@@ -389,7 +389,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         &results.env_hash_clauses[..],
         &results.cont_tag_clauses[..],
         &results.cont_hash_clauses[..],
-        &results.invoke_continuation_clauses[..],
+        &results.apply_continuation_clauses[..],
     ];
     let defaults = [
         &g.default_num,
@@ -412,57 +412,57 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
 
     let first_result_env = AllocatedPtr::by_index(1, &case_results);
     let first_result_cont = AllocatedContPtr::by_index(2, &case_results);
-    let first_result_invoke_continuation: &AllocatedNum<F> = &case_results[6];
+    let first_result_apply_continuation: &AllocatedNum<F> = &case_results[6];
 
-    let invoke_continuation_boolean = Boolean::not(&alloc_is_zero(
-        &mut cs.namespace(|| "invoke_continuation_is_zero"),
-        first_result_invoke_continuation,
+    let apply_continuation_boolean = Boolean::not(&alloc_is_zero(
+        &mut cs.namespace(|| "apply_continuation_is_zero"),
+        first_result_apply_continuation,
     )?);
 
-    let invoke_continuation_results = invoke_continuation(
-        &mut cs.namespace(|| "invoke_continuation-make_thunk"),
+    let apply_continuation_results = apply_continuation(
+        &mut cs.namespace(|| "apply_continuation-make_thunk"),
         &first_result_cont,
         &first_result_expr,
         &first_result_env,
-        &invoke_continuation_boolean,
+        &apply_continuation_boolean,
         witness,
         store,
         &g,
     )?;
 
-    let invoke_continuation_make_thunk: AllocatedNum<F> = invoke_continuation_results.3;
+    let apply_continuation_make_thunk: AllocatedNum<F> = apply_continuation_results.3;
 
     let result_expr0 = AllocatedPtr::pick(
-        &mut cs.namespace(|| "pick maybe invoke_continuation expr"),
-        &invoke_continuation_boolean,
-        &invoke_continuation_results.0,
+        &mut cs.namespace(|| "pick maybe apply_continuation expr"),
+        &apply_continuation_boolean,
+        &apply_continuation_results.0,
         &first_result_expr,
     )?;
 
     let result_env0 = AllocatedPtr::pick(
-        &mut cs.namespace(|| "pick maybe invoke_continuation env"),
-        &invoke_continuation_boolean,
-        &invoke_continuation_results.1,
+        &mut cs.namespace(|| "pick maybe apply_continuation env"),
+        &apply_continuation_boolean,
+        &apply_continuation_results.1,
         &first_result_env,
     )?;
 
     let result_cont0 = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "pick maybe invoke_continuation cont"),
-        &invoke_continuation_boolean,
-        &invoke_continuation_results.2,
+        &mut cs.namespace(|| "pick maybe apply_continuation cont"),
+        &apply_continuation_boolean,
+        &apply_continuation_results.2,
         &first_result_cont,
     )?;
 
     let make_thunk_num = pick(
         &mut cs.namespace(|| "pick make_thunk_boolean"),
-        &invoke_continuation_boolean,
-        &invoke_continuation_make_thunk,
+        &apply_continuation_boolean,
+        &apply_continuation_make_thunk,
         &g.false_num,
     )?;
 
     // True if make_thunk is called.
     let make_thunk_boolean = Boolean::not(&alloc_is_zero(
-        &mut cs.namespace(|| "invoke_continuation_make_thunk is zero"),
+        &mut cs.namespace(|| "apply_continuation_make_thunk is zero"),
         &make_thunk_num,
     )?);
 
@@ -612,10 +612,10 @@ fn reduce_sym<F: PrimeField, CS: ConstraintSystem<F>>(
         &otherwise_and_binding_not_nil
     )?;
 
-    let invoke_cont_bool0 = or!(cs, &sym_is_self_evaluating, &v_is_expr1_real)?;
-    let invoke_cont_bool = or!(cs, &invoke_cont_bool0, &v2_is_expr_real)?;
+    let apply_cont_bool0 = or!(cs, &sym_is_self_evaluating, &v_is_expr1_real)?;
+    let apply_cont_bool = or!(cs, &apply_cont_bool0, &v2_is_expr_real)?;
 
-    let invoke_cont_num = ifx!(cs, &invoke_cont_bool, &g.true_num, &g.false_num)?;
+    let apply_cont_num = ifx!(cs, &apply_cont_bool, &g.true_num, &g.false_num)?;
 
     let cont_is_lookup = alloc_equal(
         &mut cs.namespace(|| "cont_is_lookup"),
@@ -800,7 +800,7 @@ fn reduce_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     let cond_cont = or!(cs, &condb, &condc)?; // cond1, cond2, cond4, cond6, cond8
     implies_equal_t!(cs, &cond_cont, output_cont, cont);
 
-    Ok((output_expr, output_env, output_cont, invoke_cont_num))
+    Ok((output_expr, output_env, output_cont, apply_cont_num))
 }
 
 fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
@@ -1241,7 +1241,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         &results.env_hash_clauses[..],
         &results.cont_tag_clauses[..],
         &results.cont_hash_clauses[..],
-        &results.invoke_continuation_clauses[..],
+        &results.apply_continuation_clauses[..],
     ];
 
     let case_results = multi_case(
@@ -1254,13 +1254,13 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     let result_expr = AllocatedPtr::by_index(0, &case_results);
     let result_env = AllocatedPtr::by_index(1, &case_results);
     let result_cont = AllocatedContPtr::by_index(2, &case_results);
-    let result_invoke_cont: &AllocatedNum<F> = &case_results[6];
+    let result_apply_cont: &AllocatedNum<F> = &case_results[6];
 
     Ok((
         result_expr,
         result_env,
         result_cont,
-        result_invoke_cont.clone(),
+        result_apply_cont.clone(),
     ))
 }
 
@@ -1341,7 +1341,7 @@ fn make_thunk<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok((result_expr, result_env, result_cont))
 }
 
-fn invoke_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
+fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     cont: &AllocatedContPtr<F>,
     result: &AllocatedPtr<F>,
@@ -1947,7 +1947,7 @@ fn invoke_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     ];
 
     let case_results = multi_case(
-        &mut cs.namespace(|| "invoke_continuation case"),
+        &mut cs.namespace(|| "apply_continuation case"),
         cont.tag(),
         &all_clauses,
         &defaults,
