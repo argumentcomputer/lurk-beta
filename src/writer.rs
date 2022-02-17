@@ -99,111 +99,158 @@ impl<F: PrimeField> Write<F> for Continuation<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         match self {
             Continuation::Outermost => write!(w, "Outermost"),
-            Continuation::Simple(cont) => {
-                write!(w, "Simple(")?;
-                cont.fmt(store, w)?;
-                write!(w, ")")
+            Continuation::Simple { continuation } => {
+                write!(w, "Simple{{ continuation: ")?;
+                continuation.fmt(store, w)?;
+                write!(w, " }}")
             }
-            Continuation::Call(expr1, expr2, cont) => {
-                write!(w, "Call(")?;
-                expr1.fmt(store, w)?;
-                write!(w, ", ")?;
-                expr2.fmt(store, w)?;
-                write!(w, ", ")?;
-                cont.fmt(store, w)?;
-                write!(w, ")")
+            Continuation::Call {
+                unevaled_arg,
+                saved_env,
+                continuation,
+            } => {
+                write!(w, "Call{{ unevaled_arg: ")?;
+                unevaled_arg.fmt(store, w)?;
+                write!(w, ", saved_env: ")?;
+                saved_env.fmt(store, w)?;
+                write!(w, ", continuation: ")?;
+                continuation.fmt(store, w)?;
+                write!(w, " }}")
             }
-            Continuation::Call2(expr1, expr2, cont) => {
-                write!(w, "Call2(")?;
-                expr1.fmt(store, w)?;
-                write!(w, ", ")?;
-                expr2.fmt(store, w)?;
-                write!(w, ", ")?;
-                cont.fmt(store, w)?;
-                write!(w, ")")
+            Continuation::Call2 {
+                function,
+                saved_env,
+                continuation,
+            } => {
+                write!(w, "Call2{{ function: ")?;
+                function.fmt(store, w)?;
+                write!(w, ", saved_env: ")?;
+                saved_env.fmt(store, w)?;
+                write!(w, ", continuation: ")?;
+                continuation.fmt(store, w)?;
+                write!(w, " }}")
             }
-            Continuation::Tail(expr, cont) => {
-                write!(w, "Tail(")?;
-                expr.fmt(store, w)?;
-                write!(w, ", ")?;
-                cont.fmt(store, w)?;
-                write!(w, ")")
+            Continuation::Tail {
+                saved_env,
+                continuation,
+            } => {
+                write!(w, "Tail{{ saved_env: ")?;
+                saved_env.fmt(store, w)?;
+                write!(w, ", continuation: ")?;
+                continuation.fmt(store, w)?;
+                write!(w, " }}")
             }
             Continuation::Error => write!(w, "Error"),
-            Continuation::Lookup(expr, cont) => {
-                write!(w, "Lookup(")?;
-                expr.fmt(store, w)?;
+            Continuation::Lookup {
+                saved_env,
+                continuation,
+            } => {
+                write!(w, "Lookup{{ saved_env: ")?;
+                saved_env.fmt(store, w)?;
                 write!(w, ", ")?;
-                cont.fmt(store, w)?;
+                continuation.fmt(store, w)?;
+                write!(w, " }}")
+            }
+            Continuation::Unop {
+                operator,
+                continuation,
+            } => {
+                write!(w, "Unop{{ operator: {}, continuation: ", operator)?;
+                continuation.fmt(store, w)?;
+                write!(w, " }}")
+            }
+            Continuation::Binop {
+                operator,
+                saved_env,
+                unevaled_args,
+                continuation,
+            } => {
+                write!(w, "Binop{{ operator: ")?;
+                write!(w, "{}, saved_env: ", operator)?;
+                saved_env.fmt(store, w)?;
+                write!(w, ", unevaled_args: ")?;
+                unevaled_args.fmt(store, w)?;
+                write!(w, ", continuation")?;
+                continuation.fmt(store, w)?;
+                write!(w, " }}")
+            }
+            Continuation::Binop2 {
+                operator,
+                evaled_arg,
+                continuation,
+            } => {
+                write!(w, "Binop2{{ operator: {}, evaled_arg: ", operator)?;
+                evaled_arg.fmt(store, w)?;
+                write!(w, ", continuation: ")?;
+                continuation.fmt(store, w)?;
+                write!(w, " }}")
+            }
+            Continuation::Relop {
+                operator,
+                saved_env,
+                unevaled_args,
+                continuation,
+            } => {
+                write!(w, "Relop{{ operator: {}, saved_env: ", operator)?;
+                saved_env.fmt(store, w)?;
+                write!(w, ", unevaled_args: ")?;
+                unevaled_args.fmt(store, w)?;
+                write!(w, ", continuation: ")?;
+                continuation.fmt(store, w)?;
                 write!(w, ")")
             }
-            Continuation::Unop(op1, cont) => {
-                write!(w, "Unop({}, ", op1)?;
-                cont.fmt(store, w)?;
-                write!(w, ")")
+            Continuation::Relop2 {
+                operator,
+                evaled_arg,
+                continuation,
+            } => {
+                write!(w, "Relop2{{ operator: {}, evaled_ag: ", operator)?;
+                evaled_arg.fmt(store, w)?;
+                write!(w, ", continuation: ")?;
+                continuation.fmt(store, w)?;
+                write!(w, " }}")
             }
-            Continuation::Binop(op2, expr1, expr2, cont) => {
-                write!(w, "Binop(")?;
-                write!(w, "{}", op2)?;
-                write!(w, ", ")?;
-                expr1.fmt(store, w)?;
-                write!(w, ", ")?;
-                expr2.fmt(store, w)?;
-                write!(w, ", ")?;
-                cont.fmt(store, w)?;
-                write!(w, ")")
+            Continuation::If {
+                unevaled_args,
+                continuation,
+            } => {
+                write!(w, "If{{ unevaled_args: ")?;
+                unevaled_args.fmt(store, w)?;
+                write!(w, ", continuation: ")?;
+                continuation.fmt(store, w)?;
+                write!(w, " }}")
             }
-            Continuation::Binop2(op2, expr, cont) => {
-                write!(w, "Binop2({}, ", op2)?;
-                expr.fmt(store, w)?;
-                write!(w, ", ")?;
-                cont.fmt(store, w)?;
-                write!(w, ")")
+            Continuation::Let {
+                var,
+                body,
+                saved_env,
+                continuation,
+            } => {
+                write!(w, "Let{{ var: ")?;
+                var.fmt(store, w)?;
+                write!(w, ", body: ")?;
+                body.fmt(store, w)?;
+                write!(w, ", saved_env: ")?;
+                saved_env.fmt(store, w)?;
+                write!(w, ", continuation: ")?;
+                continuation.fmt(store, w)?;
+                write!(w, " }}")
             }
-            Continuation::Relop(rel2, expr1, expr2, cont) => {
-                write!(w, "Relop({}, ", rel2)?;
-                expr1.fmt(store, w)?;
-                write!(w, ", ")?;
-                expr2.fmt(store, w)?;
-                write!(w, ", ")?;
-                cont.fmt(store, w)?;
-                write!(w, ")")
-            }
-            Continuation::Relop2(rel2, expr, cont) => {
-                write!(w, "Relop2({}, ", rel2)?;
-                expr.fmt(store, w)?;
-                write!(w, ", ")?;
-                cont.fmt(store, w)?;
-                write!(w, ")")
-            }
-            Continuation::If(expr, cont) => {
-                write!(w, "If(")?;
-                expr.fmt(store, w)?;
-                write!(w, ", ")?;
-                cont.fmt(store, w)?;
-                write!(w, ")")
-            }
-            Continuation::Let(expr1, expr2, expr3, cont) => {
-                write!(w, "Let(")?;
-                expr1.fmt(store, w)?;
-                write!(w, ", ")?;
-                expr2.fmt(store, w)?;
-                write!(w, ", ")?;
-                expr3.fmt(store, w)?;
-                write!(w, ", ")?;
-                cont.fmt(store, w)?;
-                write!(w, ")")
-            }
-            Continuation::LetRec(expr1, expr2, expr3, cont) => {
-                write!(w, "LetRec(")?;
-                expr1.fmt(store, w)?;
-                write!(w, ", ")?;
-                expr2.fmt(store, w)?;
-                write!(w, ", ")?;
-                expr3.fmt(store, w)?;
-                write!(w, ", ")?;
-                cont.fmt(store, w)?;
-                write!(w, ")")
+            Continuation::LetRec {
+                var,
+                saved_env,
+                body,
+                continuation,
+            } => {
+                write!(w, "LetRec{{var: ")?;
+                var.fmt(store, w)?;
+                write!(w, ", saved_env: ")?;
+                saved_env.fmt(store, w)?;
+                write!(w, ", body: ")?;
+                body.fmt(store, w)?;
+                write!(w, ", continuation: ")?;
+                continuation.fmt(store, w)?;
+                write!(w, " }}")
             }
             Continuation::Dummy => write!(w, "Dummy"),
             Continuation::Terminal => write!(w, "Terminal"),

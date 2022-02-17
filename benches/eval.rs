@@ -9,14 +9,14 @@ use lurk::{
 fn go_base<F: PrimeField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
     let program = format!(
         r#"
-(let* ((foo (lambda (a b)
-              (letrec* ((aux (lambda (i a x)
+(let ((foo (lambda (a b)
+              (letrec ((aux (lambda (i a x)
                                (if (= i b)
                                      x
-                                     (let* ((x (+ x a))
+                                     (let ((x (+ x a))
                                             (a (+ a (* b 2))))
                                        (aux (+ i 1) a x))))))
-                       (let* ((x (+ (* a b) 4)))
+                       (let ((x (+ (* a b) 4)))
                          (aux 0 a x))))))
   (foo {} {}))
 "#,

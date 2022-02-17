@@ -5,12 +5,10 @@ use bellperson::{
 use ff::PrimeField;
 use neptune::circuit::poseidon_hash;
 
+use super::pointer::AsAllocatedHashComponents;
+use crate::store::{ContPtr, ContTag, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk};
 use crate::store::{IntoHashComponents, ScalarPtr};
 use crate::store::{ScalarContPtr, ScalarPointer};
-use crate::{
-    gadgets::pointer::AsAllocatedHashComponents,
-    store::{ContPtr, ContTag, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk},
-};
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};
 

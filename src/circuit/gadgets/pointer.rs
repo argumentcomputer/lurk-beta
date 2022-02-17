@@ -163,7 +163,7 @@ impl<F: PrimeField> AllocatedPtr<F> {
     pub fn fetch_and_write_str(&self, store: &Store<F>) -> String {
         self.ptr(store)
             .map(|a| a.fmt_to_string(store))
-            .unwrap_or_else(|| "no ptr".to_string())
+            .unwrap_or_else(|| "<PTR MISSING>".to_string())
     }
 
     pub fn allocate_thunk_components<CS: ConstraintSystem<F>>(

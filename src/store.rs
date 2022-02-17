@@ -120,6 +120,7 @@ impl<F: PrimeField> PoseidonCache<F> {
             .a4
             .entry(CacheKey(*preimage))
             .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c4()).hash());
+
         *hash
     }
 
@@ -346,31 +347,70 @@ impl<F: PrimeField> Hash for Thunk<F> {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Continuation<F: PrimeField> {
     Outermost,
-    Simple(ContPtr<F>),
-    /// The unevaluated argument and the saved env.
-    Call(Ptr<F>, Ptr<F>, ContPtr<F>),
-    /// The function and the saved env.
-    Call2(Ptr<F>, Ptr<F>, ContPtr<F>),
-    /// The saved env.
-    Tail(Ptr<F>, ContPtr<F>),
+    Simple {
+        continuation: ContPtr<F>,
+    },
+    Call {
+        unevaled_arg: Ptr<F>,
+        saved_env: Ptr<F>,
+        continuation: ContPtr<F>,
+    },
+    Call2 {
+        function: Ptr<F>,
+        saved_env: Ptr<F>,
+        continuation: ContPtr<F>,
+    },
+    Tail {
+        saved_env: Ptr<F>,
+        continuation: ContPtr<F>,
+    },
     Error,
-    /// The saved env.
-    Lookup(Ptr<F>, ContPtr<F>),
-    Unop(Op1, ContPtr<F>),
-    /// The saved env and unevaluated argument.
-    Binop(Op2, Ptr<F>, Ptr<F>, ContPtr<F>),
-    /// First argument.
-    Binop2(Op2, Ptr<F>, ContPtr<F>),
-    /// The saved env and unevaluated arguments.
-    Relop(Rel2, Ptr<F>, Ptr<F>, ContPtr<F>),
-    /// The first argument.
-    Relop2(Rel2, Ptr<F>, ContPtr<F>),
-    /// Unevaluated arguments.
-    If(Ptr<F>, ContPtr<F>),
-    /// The var, the body, and the saved env.
-    Let(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>),
-    /// The var, the saved env, and the body.
-    LetRec(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>),
+    Lookup {
+        saved_env: Ptr<F>,
+        continuation: ContPtr<F>,
+    },
+    Unop {
+        operator: Op1,
+        continuation: ContPtr<F>,
+    },
+    Binop {
+        operator: Op2,
+        saved_env: Ptr<F>,
+        unevaled_args: Ptr<F>,
+        continuation: ContPtr<F>,
+    },
+    Binop2 {
+        operator: Op2,
+        evaled_arg: Ptr<F>,
+        continuation: ContPtr<F>,
+    },
+    Relop {
+        operator: Rel2,
+        saved_env: Ptr<F>,
+        unevaled_args: Ptr<F>,
+        continuation: ContPtr<F>,
+    },
+    Relop2 {
+        operator: Rel2,
+        evaled_arg: Ptr<F>,
+        continuation: ContPtr<F>,
+    },
+    If {
+        unevaled_args: Ptr<F>,
+        continuation: ContPtr<F>,
+    },
+    Let {
+        var: Ptr<F>,
+        body: Ptr<F>,
+        saved_env: Ptr<F>,
+        continuation: ContPtr<F>,
+    },
+    LetRec {
+        var: Ptr<F>,
+        saved_env: Ptr<F>,
+        body: Ptr<F>,
+        continuation: ContPtr<F>,
+    },
     Dummy,
     Terminal,
 }
@@ -911,56 +951,105 @@ impl<F: PrimeField> Store<F> {
             Simple => self
                 .simple_store
                 .get_index(ptr.1 .0)
-                .map(|a| Continuation::Simple(*a)),
+                .map(|a| Continuation::Simple { continuation: *a }),
             Call => self
                 .call_store
                 .get_index(ptr.1 .0)
-                .map(|(a, b, c)| Continuation::Call(*a, *b, *c)),
+                .map(|(a, b, c)| Continuation::Call {
+                    unevaled_arg: *a,
+                    saved_env: *b,
+                    continuation: *c,
+                }),
             Call2 => self
                 .call2_store
                 .get_index(ptr.1 .0)
-                .map(|(a, b, c)| Continuation::Call2(*a, *b, *c)),
+                .map(|(a, b, c)| Continuation::Call2 {
+                    function: *a,
+                    saved_env: *b,
+                    continuation: *c,
+                }),
             Tail => self
                 .tail_store
                 .get_index(ptr.1 .0)
-                .map(|(a, b)| Continuation::Tail(*a, *b)),
+                .map(|(a, b)| Continuation::Tail {
+                    saved_env: *a,
+                    continuation: *b,
+                }),
             Error => Some(Continuation::Error),
             Lookup => self
                 .lookup_store
                 .get_index(ptr.1 .0)
-                .map(|(a, b)| Continuation::Lookup(*a, *b)),
+                .map(|(a, b)| Continuation::Lookup {
+                    saved_env: *a,
+                    continuation: *b,
+                }),
             Unop => self
                 .unop_store
                 .get_index(ptr.1 .0)
-                .map(|(a, b)| Continuation::Unop(*a, *b)),
+                .map(|(a, b)| Continuation::Unop {
+                    operator: *a,
+                    continuation: *b,
+                }),
             Binop => self
                 .binop_store
                 .get_index(ptr.1 .0)
-                .map(|(a, b, c, d)| Continuation::Binop(*a, *b, *c, *d)),
+                .map(|(a, b, c, d)| Continuation::Binop {
+                    operator: *a,
+                    saved_env: *b,
+                    unevaled_args: *c,
+                    continuation: *d,
+                }),
             Binop2 => self
                 .binop2_store
                 .get_index(ptr.1 .0)
-                .map(|(a, b, c)| Continuation::Binop2(*a, *b, *c)),
+                .map(|(a, b, c)| Continuation::Binop2 {
+                    operator: *a,
+                    evaled_arg: *b,
+                    continuation: *c,
+                }),
             Relop => self
                 .relop_store
                 .get_index(ptr.1 .0)
-                .map(|(a, b, c, d)| Continuation::Relop(*a, *b, *c, *d)),
+                .map(|(a, b, c, d)| Continuation::Relop {
+                    operator: *a,
+                    saved_env: *b,
+                    unevaled_args: *c,
+                    continuation: *d,
+                }),
             Relop2 => self
                 .relop2_store
                 .get_index(ptr.1 .0)
-                .map(|(a, b, c)| Continuation::Relop2(*a, *b, *c)),
+                .map(|(a, b, c)| Continuation::Relop2 {
+                    operator: *a,
+                    evaled_arg: *b,
+                    continuation: *c,
+                }),
             If => self
                 .if_store
                 .get_index(ptr.1 .0)
-                .map(|(a, b)| Continuation::If(*a, *b)),
+                .map(|(a, b)| Continuation::If {
+                    unevaled_args: *a,
+                    continuation: *b,
+                }),
             Let => self
                 .let_store
                 .get_index(ptr.1 .0)
-                .map(|(a, b, c, d)| Continuation::Let(*a, *b, *c, *d)),
-            LetRec => self
-                .let_rec_store
-                .get_index(ptr.1 .0)
-                .map(|(a, b, c, d)| Continuation::LetRec(*a, *b, *c, *d)),
+                .map(|(a, b, c, d)| Continuation::Let {
+                    var: *a,
+                    body: *b,
+                    saved_env: *c,
+                    continuation: *d,
+                }),
+            LetRec => {
+                self.let_rec_store
+                    .get_index(ptr.1 .0)
+                    .map(|(a, b, c, d)| Continuation::LetRec {
+                        var: *a,
+                        body: *b,
+                        saved_env: *c,
+                        continuation: *d,
+                    })
+            }
             Dummy => Some(Continuation::Dummy),
             Terminal => Some(Continuation::Terminal),
         }
@@ -1031,28 +1120,72 @@ impl<F: PrimeField> Store<F> {
         let cont = self.fetch_cont(ptr)?;
 
         let hash = match &cont {
-            Outermost | Dummy | Terminal | Error => self.get_hash_components_default(),
-            Simple(ref cont) => self.get_hash_components_simple(cont)?,
-            Call(arg, saved_env, cont) => self.get_hash_components_call(arg, saved_env, cont)?,
-            Call2(fun, saved_env, cont) => self.get_hash_components_call2(fun, saved_env, cont)?,
-            Tail(saved_env, cont) => self.get_hash_components_tail(saved_env, cont)?,
-            Lookup(saved_env, cont) => self.get_hash_components_lookup(saved_env, cont)?,
-            Unop(op, cont) => self.get_hash_components_unop(op, cont)?,
-            Binop(op, saved_env, unevaled_args, cont) => {
-                self.get_hash_components_binop(op, saved_env, unevaled_args, cont)?
+            Outermost | Terminal | Dummy | Error => self.get_hash_components_default(),
+            Simple { ref continuation } => self.get_hash_components_simple(continuation)?,
+            Call {
+                unevaled_arg,
+                saved_env,
+                continuation,
+            } => self.get_hash_components_call(unevaled_arg, saved_env, continuation)?,
+            Call2 {
+                function,
+                saved_env,
+                continuation,
+            } => self.get_hash_components_call2(function, saved_env, continuation)?,
+            Tail {
+                saved_env,
+                continuation,
+            } => self.get_hash_components_tail(saved_env, continuation)?,
+            Lookup {
+                saved_env,
+                continuation,
+            } => self.get_hash_components_lookup(saved_env, continuation)?,
+            Unop {
+                operator,
+                continuation,
+            } => self.get_hash_components_unop(operator, continuation)?,
+            Binop {
+                operator,
+                saved_env,
+                unevaled_args,
+                continuation,
+            } => {
+                self.get_hash_components_binop(operator, saved_env, unevaled_args, continuation)?
             }
-            Binop2(op, arg1, cont) => self.get_hash_components_binop2(op, arg1, cont)?,
-            Relop(rel, saved_env, unevaled_args, cont) => {
-                self.get_hash_components_relop(rel, saved_env, unevaled_args, cont)?
+            Binop2 {
+                operator,
+                evaled_arg,
+                continuation,
+            } => self.get_hash_components_binop2(operator, evaled_arg, continuation)?,
+            Relop {
+                operator,
+                saved_env,
+                unevaled_args,
+                continuation,
+            } => {
+                self.get_hash_components_relop(operator, saved_env, unevaled_args, continuation)?
             }
-            Relop2(rel, arg1, cont) => self.get_hash_components_relop2(rel, arg1, cont)?,
-            If(unevaled_args, cont) => self.get_hash_components_if(unevaled_args, cont)?,
-            Let(var, body, saved_env, cont) => {
-                self.get_hash_components_let(var, body, saved_env, cont)?
-            }
-            LetRec(var, body, saved_env, cont) => {
-                self.get_hash_components_let_rec(var, body, saved_env, cont)?
-            }
+            Relop2 {
+                operator,
+                evaled_arg,
+                continuation,
+            } => self.get_hash_components_relop2(operator, evaled_arg, continuation)?,
+            If {
+                unevaled_args,
+                continuation,
+            } => self.get_hash_components_if(unevaled_args, continuation)?,
+            Let {
+                var,
+                body,
+                saved_env,
+                continuation,
+            } => self.get_hash_components_let(var, body, saved_env, continuation)?,
+            LetRec {
+                var,
+                body,
+                saved_env,
+                continuation,
+            } => self.get_hash_components_let_rec(var, body, saved_env, continuation)?,
         };
 
         Some([
