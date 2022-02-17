@@ -108,13 +108,16 @@ pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
                 if let Some(expr) = s.read(&line) {
                     let (result, _next_env, iterations, next_cont) =
                         Evaluator::new(expr, repl.state.env, &mut s, limit).eval();
+
                     print!("[{} iterations] => ", iterations);
-                    let mut handle = stdout.lock();
-                    result.fmt(&s, &mut handle)?;
-                    println!();
 
                     match next_cont.tag() {
-                        ContTag::Outermost | ContTag::Terminal => (),
+                        ContTag::Outermost | ContTag::Terminal => {
+                            let mut handle = stdout.lock();
+                            result.fmt(&s, &mut handle)?;
+                            println!();
+                        }
+                        ContTag::Error => println!("ERROR!"),
                         _ => println!("Computation incomplete after limit: {}", limit),
                     }
                 }
