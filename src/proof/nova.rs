@@ -53,7 +53,7 @@ impl<G: Group> Proof<G> {
     }
 }
 
-trait Nova
+pub trait Nova
 where
     <Self::Grp as Group>::Scalar: ff::PrimeField,
 {
@@ -182,7 +182,7 @@ where
     }
 }
 
-struct NovaProver();
+pub struct NovaProver();
 impl Nova for NovaProver {
     type Grp = PallasPoint;
 

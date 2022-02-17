@@ -87,39 +87,49 @@ impl<F: PrimeField, W> CircuitFrame<'_, F, IO<F>, W> {
     }
 }
 
-impl<'a> CircuitFrame<'a, Scalar, IO<Scalar>, Witness<Scalar>> {
-    fn frame_groth_params(self) -> Result<&'static groth16::Parameters<Bls12>, SynthesisError> {
+pub trait Groth16
+where
+    <Self::E as Engine>::Gt: blstrs::Compress + serde::Serialize,
+    <Self::E as Engine>::G1: serde::Serialize,
+    <Self::E as Engine>::G1Affine: serde::Serialize,
+    <Self::E as Engine>::G2Affine: serde::Serialize,
+    <Self::E as Engine>::Fr: serde::Serialize,
+{
+    type E: Engine + MultiMillerLoop;
+
+    fn groth_params() -> Result<&'static groth16::Parameters<Bls12>, SynthesisError> {
+        let store = Store::default();
+        let circuit_frame = CircuitFrame::blank(&store);
         let params = FRAME_GROTH_PARAMS.get_or_try_init::<_, SynthesisError>(|| {
             let rng = &mut XorShiftRng::from_seed(DUMMY_RNG_SEED);
-            let params = groth16::generate_random_parameters::<Bls12, _, _>(self, rng)?;
+            let params = groth16::generate_random_parameters::<Bls12, _, _>(circuit_frame, rng)?;
             Ok(params)
         })?;
         Ok(params)
     }
 
-    pub fn groth_params() -> Result<&'static groth16::Parameters<Bls12>, SynthesisError> {
-        let store = Store::default();
-        CircuitFrame::blank(&store).frame_groth_params()
-    }
-
-    pub fn prove<R: RngCore>(
-        self,
-        params: Option<&groth16::Parameters<Bls12>>,
+    fn prove<R: RngCore>(
+        circuit_frame: CircuitFrame<
+            '_,
+            <Self::E as Engine>::Fr,
+            IO<<Self::E as Engine>::Fr>,
+            Witness<<Self::E as Engine>::Fr>,
+        >,
+        params: Option<&groth16::Parameters<Self::E>>,
         mut rng: R,
-    ) -> Result<groth16::Proof<Bls12>, SynthesisError> {
-        Self::generate_groth16_proof(self, params, &mut rng)
+    ) -> Result<groth16::Proof<Self::E>, SynthesisError> {
+        Self::generate_groth16_proof(circuit_frame, params, &mut rng)
     }
 
-    #[allow(clippy::needless_collect)]
-    pub fn outer_prove<R: RngCore + Clone>(
-        params: &groth16::Parameters<Bls12>,
-        srs: &GenericSRS<Bls12>,
-        expr: Ptr<Scalar>,
-        env: Ptr<Scalar>,
-        store: &'a mut Store<Scalar>,
+    fn outer_prove<'a, R: RngCore + Clone>(
+        params: &groth16::Parameters<Self::E>,
+        srs: &GenericSRS<Self::E>,
+        expr: Ptr<<Self::E as Engine>::Fr>,
+        env: Ptr<<Self::E as Engine>::Fr>,
+        store: &'a mut Store<<Self::E as Engine>::Fr>,
         limit: usize,
-        rng: R,
-    ) -> Result<FrameProofs<'a, Bls12>, SynthesisError> {
+        mut rng: R,
+    ) -> Result<FrameProofs<'a, Self::E>, SynthesisError> {
         // FIXME: optimize execution order
         let mut evaluator = Evaluator::new(expr, env, store, limit);
         let mut frames = evaluator.iter().collect::<Vec<_>>();
@@ -141,10 +151,7 @@ impl<'a> CircuitFrame<'a, Scalar, IO<Scalar>, Witness<Scalar>> {
             statements.push(circuit_frame.clone().public_inputs(store));
             circuit_frames.push(circuit_frame.clone());
 
-            // FIXME: Don't clone the RNG (?).
-            let proof = circuit_frame
-                .clone()
-                .prove(Some(params), rng.clone())
+            let proof = Self::generate_groth16_proof(circuit_frame.clone(), Some(params), &mut rng)
                 .unwrap();
             proofs.push(proof.clone());
 
@@ -178,11 +185,61 @@ impl<'a> CircuitFrame<'a, Scalar, IO<Scalar>, Witness<Scalar>> {
                 frame_proofs,
                 aggregated_proof_and_instance,
                 aggregated_proof,
-                //                frames: circuit_frames,
                 transcript_include,
             },
             statements,
         ))
+    }
+
+    fn generate_groth16_proof<R: RngCore>(
+        circuit_frame: CircuitFrame<
+            '_,
+            <Self::E as Engine>::Fr,
+            IO<<Self::E as Engine>::Fr>,
+            Witness<<Self::E as Engine>::Fr>,
+        >,
+        groth_params: Option<&groth16::Parameters<Self::E>>,
+        rng: &mut R,
+    ) -> Result<groth16::Proof<Self::E>, SynthesisError>;
+
+    fn verify_groth16_proof(
+        circuit_frame: CircuitFrame<
+            '_,
+            <Self::E as Engine>::Fr,
+            IO<<Self::E as Engine>::Fr>,
+            Witness<<Self::E as Engine>::Fr>,
+        >,
+        pvk: &groth16::PreparedVerifyingKey<Self::E>,
+        proof: groth16::Proof<Self::E>,
+    ) -> Result<bool, SynthesisError> {
+        let inputs = circuit_frame.public_inputs(circuit_frame.store);
+
+        verify_proof(pvk, &proof, &inputs)
+    }
+}
+
+pub struct Groth16Prover();
+
+impl Groth16 for Groth16Prover {
+    type E = Bls12;
+
+    fn generate_groth16_proof<R: RngCore>(
+        circuit_frame: CircuitFrame<
+            '_,
+            <Self::E as Engine>::Fr,
+            IO<<Self::E as Engine>::Fr>,
+            Witness<<Self::E as Engine>::Fr>,
+        >,
+        groth_params: Option<&groth16::Parameters<Self::E>>,
+        rng: &mut R,
+    ) -> Result<groth16::Proof<Self::E>, SynthesisError> {
+        let create_proof = |p| groth16::create_random_proof(circuit_frame, p, rng);
+
+        if let Some(params) = groth_params {
+            create_proof(params)
+        } else {
+            create_proof(Self::groth_params()?)
+        }
     }
 }
 
@@ -251,7 +308,7 @@ impl CircuitFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>> {
         if let Some(params) = groth_params {
             create_proof(params)
         } else {
-            create_proof(CircuitFrame::groth_params()?)
+            create_proof(Groth16Prover::groth_params()?)
         }
     }
 
@@ -296,7 +353,7 @@ mod tests {
 
         let expr = s.read(source).unwrap();
 
-        let groth_params = CircuitFrame::groth_params().unwrap();
+        let groth_params = Groth16Prover::groth_params().unwrap();
 
         let pvk = groth16::prepare_verifying_key(&groth_params.vk);
 
@@ -304,7 +361,7 @@ mod tests {
 
         let proof_results = if check_groth16 {
             Some(
-                CircuitFrame::outer_prove(
+                Groth16Prover::outer_prove(
                     &groth_params,
                     &INNER_PRODUCT_SRS,
                     expr.clone(),
