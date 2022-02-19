@@ -44,12 +44,11 @@ impl<G: Group> Proof<G> {
         shape_and_gens: &(R1CSShape<G>, R1CSGens<G>),
         instance: &RelaxedR1CSInstance<G>,
     ) -> bool {
-        // This panics if proof does not verify.
-        // FIXME: make Nova return a boolean.
-        self.final_proof
-            .verify(&shape_and_gens.1, &shape_and_gens.0, instance)
-            .expect("failed to verify");
-        true
+        matches!(
+            self.final_proof
+                .verify(&shape_and_gens.1, &shape_and_gens.0, instance),
+            Ok(())
+        )
     }
 }
 
