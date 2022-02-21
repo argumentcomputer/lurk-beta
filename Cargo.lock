@@ -15,9 +15,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.53"
+version = "1.0.54"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94a45b455c14666b85fc40a019e8ab9eb75e3a124e05494f5397122bc9eb06e0"
+checksum = "7a99269dff3bc004caa411f38845c20303f1e393ca2bd6581576fa3a7f59577d"
 
 [[package]]
 name = "arrayref"
@@ -66,7 +66,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 [[package]]
 name = "bellperson"
 version = "0.18.2"
-source = "git+https://github.com/filecoin-project/bellperson?branch=instance-aggregation#623a45394b2110429e90aa484268523a02504ddb"
+source = "git+https://github.com/filecoin-project/bellperson?branch=instance-aggregation#06fd7288c2601304fb4473300d1ff62e8aaa3713"
 dependencies = [
  "bincode",
  "bitvec",
@@ -842,9 +842,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.118"
+version = "0.2.119"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06e509672465a0504304aa87f9f176f2b2b716ed8fb105ebe5c02dc6dce96a94"
+checksum = "1bf2e165bb3457c8e098ea76f3e3bc9db55f87aa90d52d0e6be741470916aaa4"
 
 [[package]]
 name = "linux-raw-sys"
@@ -999,7 +999,7 @@ dependencies = [
 [[package]]
 name = "nova-snark"
 version = "0.4.0"
-source = "git+https://github.com/microsoft/nova?rev=853ab90#853ab90f7c1edc8e27a4867ee0cdf950c410711f"
+source = "git+https://github.com/porcuquine/nova?rev=853ab90#853ab90f7c1edc8e27a4867ee0cdf950c410711f"
 dependencies = [
  "bellperson",
  "digest 0.8.1",
