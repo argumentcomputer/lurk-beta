@@ -999,7 +999,7 @@ dependencies = [
 [[package]]
 name = "nova-snark"
 version = "0.4.0"
-source = "git+https://github.com/porcuquine/nova?rev=853ab90#853ab90f7c1edc8e27a4867ee0cdf950c410711f"
+source = "git+https://github.com/porcuquine/nova#f9fe69fd28f1769a0c8ca694cba8788ebca42fed"
 dependencies = [
  "bellperson",
  "digest 0.8.1",
