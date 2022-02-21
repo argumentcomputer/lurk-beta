@@ -44,11 +44,9 @@ impl<G: Group> Proof<G> {
         shape_and_gens: &(R1CSShape<G>, R1CSGens<G>),
         instance: &RelaxedR1CSInstance<G>,
     ) -> bool {
-        matches!(
-            self.final_proof
-                .verify(&shape_and_gens.1, &shape_and_gens.0, instance),
-            Ok(())
-        )
+        self.final_proof
+            .verify(&shape_and_gens.1, &shape_and_gens.0, instance)
+            .is_ok()
     }
 }
 
