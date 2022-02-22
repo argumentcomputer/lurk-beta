@@ -223,7 +223,7 @@ fn reduce_with_witness<F: PrimeField>(
         },
         Tag::Nil => Control::ApplyContinuation(expr, env, cont),
         Tag::Sym => {
-            if expr == store.sym("NIL") || (expr == store.t()) {
+            if expr == store.sym("nil") || (expr == store.t()) {
                 // NIL and T are self-evaluating symbols, pass them to the continuation in a thunk.
 
                 // CIRCUIT: sym_is_self_evaluating
@@ -371,8 +371,8 @@ fn reduce_with_witness<F: PrimeField>(
         Tag::Fun => Control::ApplyContinuation(expr, env, cont),
         Tag::Cons => {
             let (head, rest) = store.car_cdr(&expr);
-            let lambda = store.sym("LAMBDA");
-            let quote = store.sym("QUOTE");
+            let lambda = store.sym("lambda");
+            let quote = store.sym("quote");
             let dummy_arg = store.sym("_");
 
             if head == lambda {
@@ -401,7 +401,7 @@ fn reduce_with_witness<F: PrimeField>(
                 let (quoted, end) = store.car_cdr(&rest);
                 assert!(end.is_nil());
                 Control::ApplyContinuation(quoted, env, cont)
-            } else if head == store.sym("LET") {
+            } else if head == store.sym("let") {
                 let (bindings, body) = store.car_cdr(&rest);
                 let (body1, rest_body) = store.car_cdr(&body);
                 // Only a single body form allowed for now.
@@ -418,12 +418,12 @@ fn reduce_with_witness<F: PrimeField>(
                     let expanded = if rest_bindings.is_nil() {
                         body1
                     } else {
-                        let lt = store.sym("LET");
+                        let lt = store.sym("let");
                         store.list(&[lt, rest_bindings, body1])
                     };
                     Control::Return(val, env, store.intern_cont_let(var, expanded, env, cont))
                 }
-            } else if head == store.sym("LETREC") {
+            } else if head == store.sym("letrec") {
                 let (bindings, body) = store.car_cdr(&rest);
                 let (body1, rest_body) = store.car_cdr(&body);
                 // Only a single body form allowed for now.
@@ -439,7 +439,7 @@ fn reduce_with_witness<F: PrimeField>(
                     let expanded = if rest_bindings.is_nil() {
                         body1
                     } else {
-                        let lt = store.sym("LETREC");
+                        let lt = store.sym("letrec");
                         store.list(&[lt, rest_bindings, body1])
                     };
                     Control::Return(

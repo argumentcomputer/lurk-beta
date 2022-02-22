@@ -6,7 +6,6 @@ use bellperson::{
     Circuit, ConstraintSystem, SynthesisError,
 };
 use ff::PrimeField;
-use pairing_lib::Engine;
 
 use crate::{
     gadgets::{
@@ -24,15 +23,24 @@ use crate::gadgets::constraints::{
 use crate::store::{ContPtr, ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
 
 #[derive(Clone)]
-pub struct CircuitFrame<'a, E: Engine, T, W> {
-    pub store: &'a Store<E::Fr>,
+pub struct CircuitFrame<'a, F: PrimeField, T, W> {
+    pub store: &'a Store<F>,
     pub input: Option<T>,
     pub output: Option<T>,
     pub witness: Option<W>,
 }
 
-impl<'a, E: Engine, T: Clone, W> CircuitFrame<'a, E, T, W> {
-    pub fn from_frame(frame: Frame<T, W>, store: &'a Store<E::Fr>) -> Self {
+impl<'a, F: PrimeField, T: Clone, W> CircuitFrame<'a, F, T, W> {
+    pub fn blank(store: &'a Store<F>) -> Self {
+        Self {
+            store,
+            input: None,
+            output: None,
+            witness: None,
+        }
+    }
+
+    pub fn from_frame(frame: Frame<T, W>, store: &'a Store<F>) -> Self {
         CircuitFrame {
             store,
             input: Some(frame.input),
@@ -42,8 +50,8 @@ impl<'a, E: Engine, T: Clone, W> CircuitFrame<'a, E, T, W> {
     }
 }
 
-impl<E: Engine> Circuit<E::Fr> for CircuitFrame<'_, E, IO<E::Fr>, Witness<E::Fr>> {
-    fn synthesize<CS: ConstraintSystem<E::Fr>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
+impl<F: PrimeField> Circuit<F> for CircuitFrame<'_, F, IO<F>, Witness<F>> {
+    fn synthesize<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         // if let Some(o) = &self.output {
         //     dbg!(o.expr.fmt_to_string(self.store));
         // }
@@ -2166,6 +2174,7 @@ pub(crate) fn print_cs<F: PrimeField, C: Comparable<F>>(this: &C) -> String {
 mod tests {
     use super::*;
     use crate::eval::{empty_sym_env, Evaluable, IO};
+    use crate::proof::groth16::{Groth16, Groth16Prover};
     use crate::proof::Provable;
     use crate::store::Store;
     use bellperson::groth16;
@@ -2173,6 +2182,7 @@ mod tests {
         metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta,
     };
     use blstrs::{Bls12, Scalar as Fr};
+    use pairing_lib::Engine;
 
     #[test]
     fn num_self_evaluating() {
@@ -2188,7 +2198,7 @@ mod tests {
 
         let (_, witness) = input.reduce(&mut store);
 
-        let groth_params = CircuitFrame::groth_params().unwrap();
+        let groth_params = Groth16Prover::groth_params().unwrap();
         let vk = &groth_params.vk;
         let pvk = groth16::prepare_verifying_key(vk);
 
@@ -2196,7 +2206,7 @@ mod tests {
             let mut cs = TestConstraintSystem::new();
 
             let mut cs_blank = MetricCS::<Fr>::new();
-            let blank_frame = CircuitFrame::<Bls12, _, _>::blank(store);
+            let blank_frame = CircuitFrame::<<Bls12 as Engine>::Fr, _, _>::blank(store);
             blank_frame
                 .synthesize(&mut cs_blank)
                 .expect("failed to synthesize");
@@ -2227,7 +2237,7 @@ mod tests {
             let public_inputs = frame.public_inputs(store);
             let mut rng = rand::thread_rng();
 
-            let proof = frame.clone().prove(Some(&groth_params), &mut rng).unwrap();
+            let proof = Groth16Prover::prove(frame.clone(), Some(&groth_params), &mut rng).unwrap();
             let cs_verified = cs.is_satisfied() && cs.verify(&public_inputs);
             let verified = frame.verify_groth16_proof(&pvk, proof).unwrap();
 
@@ -2310,7 +2320,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::<Bls12, _, _>::from_frame(frame, store)
+            CircuitFrame::<<Bls12 as Engine>::Fr, _, _>::from_frame(frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2382,7 +2392,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::<Bls12, _, _>::from_frame(frame, store)
+            CircuitFrame::<<Bls12 as Engine>::Fr, _, _>::from_frame(frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2454,7 +2464,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::<Bls12, _, _>::from_frame(frame, store)
+            CircuitFrame::<<Bls12 as Engine>::Fr, _, _>::from_frame(frame, store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
@@ -2527,7 +2537,7 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::<Bls12, _, _>::from_frame(frame, &store)
+            CircuitFrame::<<Bls12 as Engine>::Fr, _, _>::from_frame(frame, &store)
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
