@@ -11,7 +11,7 @@ use crate::{
     gadgets::{
         case::{case, multi_case, CaseClause},
         data::GlobalAllocations,
-        pointer::{AllocatedContPtr, AllocatedPtr},
+        pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
     store::ScalarPointer,
 };
@@ -285,6 +285,64 @@ impl<'a, F: PrimeField> Results<'a, F> {
             result_cont,
         );
         add_clause_single(&mut self.make_thunk_num_clauses, key, make_thunk_num);
+    }
+}
+
+#[derive(Default)]
+struct HashInputResults<'a, F: PrimeField> {
+    tag_clauses: Vec<CaseClause<'a, F>>,
+    components_clauses: [Vec<CaseClause<'a, F>>; 8],
+}
+
+impl<'a, F: PrimeField> HashInputResults<'a, F> {
+    fn add_hash_input_clauses(
+        &mut self,
+        key: ContTag,
+        tag: &'a AllocatedNum<F>,
+        components: &'a [&dyn AsAllocatedHashComponents<F>; 4],
+    ) {
+        let key = key.as_field();
+        add_clause_single(&mut self.tag_clauses, key, tag);
+        add_clause_single(
+            &mut self.components_clauses[0],
+            key,
+            components[0].as_allocated_hash_components()[0],
+        );
+        add_clause_single(
+            &mut self.components_clauses[1],
+            key,
+            components[0].as_allocated_hash_components()[1],
+        );
+        add_clause_single(
+            &mut self.components_clauses[2],
+            key,
+            components[1].as_allocated_hash_components()[0],
+        );
+        add_clause_single(
+            &mut self.components_clauses[3],
+            key,
+            components[1].as_allocated_hash_components()[1],
+        );
+        add_clause_single(
+            &mut self.components_clauses[4],
+            key,
+            components[2].as_allocated_hash_components()[0],
+        );
+        add_clause_single(
+            &mut self.components_clauses[5],
+            key,
+            components[2].as_allocated_hash_components()[1],
+        );
+        add_clause_single(
+            &mut self.components_clauses[6],
+            key,
+            components[3].as_allocated_hash_components()[0],
+        );
+        add_clause_single(
+            &mut self.components_clauses[7],
+            key,
+            components[3].as_allocated_hash_components()[1],
+        );
     }
 }
 
@@ -1370,6 +1428,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     ),
     SynthesisError,
 > {
+    let mut hash_default_results = HashInputResults::default();
     let mut results = Results::default();
 
     results.add_clauses_cont(
@@ -1396,189 +1455,74 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         store,
     )?;
 
-    let (next, the_cont) = {
-        // Continuation::Call
+    let default_num_pair = &[&g.default_num, &g.default_num];
+
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Call                                                      //
+    /////////////////////////////////////////////////////////////////////////////
+    let (saved_env, function, continuation) = {
         let saved_env = AllocatedPtr::by_index(0, &continuation_components);
-        let arg = AllocatedPtr::by_index(1, &continuation_components);
         let continuation = AllocatedContPtr::by_index(2, &continuation_components);
 
         let function = result;
-        let next_expr = arg;
 
-        // let call2_components = [g.call2_cont_tag.clone()];
-        let newer_cont = AllocatedContPtr::construct(
-            &mut cs.namespace(|| "construct newer_cont"),
-            store,
-            &g.call2_cont_tag,
-            // Mirrors Continuation::get_hash_components()
-            &[
-                &saved_env,
-                function,
-                &continuation,
-                &[&g.default_num, &g.default_num],
-            ],
-        )?;
-
-        let result_is_fun =
-            alloc_equal(cs.namespace(|| "result_is_fun"), result.tag(), &g.fun_tag)?;
-
-        let next = AllocatedPtr::pick(
-            &mut cs.namespace(|| "call_next"),
-            &result_is_fun,
-            &next_expr,
-            result,
-        )?;
-
-        let the_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "call_cont"),
-            &result_is_fun,
-            &newer_cont,
-            &g.error_ptr_cont,
-        )?;
-        (next, the_cont)
+        (saved_env, function, continuation)
     };
-    results.add_clauses_cont(ContTag::Call, &next, env, &the_cont, &g.false_num);
+    let call_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&saved_env, function, &continuation, default_num_pair];
+    hash_default_results.add_hash_input_clauses(ContTag::Call, &g.call2_cont_tag, call_components);
 
-    let (body_form, newer_env, tail_cont) = {
-        // Continuation::Call2
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Call2                                                     //
+    /////////////////////////////////////////////////////////////////////////////
+    let (saved_env, continuation) = {
         let saved_env = AllocatedPtr::by_index(0, &continuation_components);
-        let fun = AllocatedPtr::by_index(1, &continuation_components);
         let continuation = AllocatedContPtr::by_index(2, &continuation_components);
 
-        {
-            let (hash, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
-                &mut cs.namespace(|| "allocate Call2 fun"),
-                store,
-                fun.ptr(store).as_ref(),
-            )?;
-
-            // BOOKMARK: WHy does this cause unconstrainted variable?
-            // Something about the overloaded Options?
-            let (body_form, _) = car_cdr(&mut cs.namespace(|| "body_form"), g, &body_t, store)?;
-
-            let fun_is_correct = constraints::alloc_equal(
-                &mut cs.namespace(|| "fun hash is correct"),
-                fun.hash(),
-                &hash,
-            )?;
-
-            let cont_is_call2 = constraints::alloc_equal(
-                &mut cs.namespace(|| "Call2 branch taken"),
-                cont.tag(),
-                &g.call2_cont_tag,
-            )?;
-
-            let cont_is_call2_and_not_dummy = and!(cs, &cont_is_call2, not_dummy)?;
-
-            enforce_implication(
-                &mut cs.namespace(|| "Call2 implies non-dummy fun"),
-                &cont_is_call2_and_not_dummy,
-                &fun_is_correct,
-            )?;
-
-            let newer_env = extend(
-                &mut cs.namespace(|| "Call2 extend env"),
-                g,
-                store,
-                &closed_env,
-                &arg_t,
-                result,
-            )?;
-
-            let tail_cont = make_tail_continuation(
-                &mut cs.namespace(|| "Call2 make_tail_continuation"),
-                g,
-                store,
-                &saved_env,
-                &continuation,
-            )?;
-
-            (body_form, newer_env, tail_cont)
-        }
+        (saved_env, continuation)
     };
+    let call2_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &saved_env,
+        &continuation,
+        default_num_pair,
+        default_num_pair,
+    ];
+    hash_default_results.add_hash_input_clauses(ContTag::Call2, &g.tail_cont_tag, call2_components);
 
-    results.add_clauses_cont(
-        ContTag::Call2,
-        &body_form,
-        &newer_env,
-        &tail_cont,
-        &g.false_num,
-    );
-
-    let (body, extended_env, tail_cont) = {
-        // Continuation::Let
-        let var = AllocatedPtr::by_index(0, &continuation_components);
-        let body = AllocatedPtr::by_index(1, &continuation_components);
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Let                                                       //
+    /////////////////////////////////////////////////////////////////////////////
+    let (saved_env, let_cont) = {
         let saved_env = AllocatedPtr::by_index(2, &continuation_components);
-        let cont = AllocatedContPtr::by_index(3, &continuation_components);
+        let let_cont = AllocatedContPtr::by_index(3, &continuation_components);
 
-        let extended_env = extend(
-            &mut cs.namespace(|| "Let extend env"),
-            g,
-            store,
-            env,
-            &var,
-            result,
-        )?;
-
-        let tail_cont = make_tail_continuation(
-            &mut cs.namespace(|| "Let make_tail_continuation"),
-            g,
-            store,
-            &saved_env,
-            &cont,
-        )?;
-
-        (body, extended_env, tail_cont)
+        (saved_env, let_cont)
     };
-    results.add_clauses_cont(ContTag::Let, &body, &extended_env, &tail_cont, &g.false_num);
+    let let_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&saved_env, &let_cont, default_num_pair, default_num_pair];
+    hash_default_results.add_hash_input_clauses(ContTag::Let, &g.tail_cont_tag, let_components);
 
-    let (body, extended_env, return_cont) = {
-        // Continuation::LetRec
-        let var = AllocatedPtr::by_index(0, &continuation_components);
-        let body = AllocatedPtr::by_index(1, &continuation_components);
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::LetRec                                                    //
+    /////////////////////////////////////////////////////////////////////////////
+    let (saved_env, letrec_cont) = {
         let saved_env = AllocatedPtr::by_index(2, &continuation_components);
-        let cont = AllocatedContPtr::by_index(3, &continuation_components);
+        let letrec_cont = AllocatedContPtr::by_index(3, &continuation_components);
 
-        let extended_env = extend_rec(
-            &mut cs.namespace(|| "LetRec extend_rec env"),
-            g,
-            env,
-            &var,
-            result,
-            store,
-        )?;
-
-        let is_error = extended_env.alloc_equal(&mut cs.namespace(|| "is_error"), &g.error_ptr)?;
-
-        let tail_cont = make_tail_continuation(
-            &mut cs.namespace(|| "LetRec make_tail_continuation"),
-            g,
-            store,
-            &saved_env,
-            &cont,
-        )?;
-
-        let return_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "return_cont"),
-            &is_error,
-            &g.error_ptr_cont,
-            &tail_cont,
-        )?;
-
-        (body, extended_env, return_cont)
+        (saved_env, letrec_cont)
     };
-
-    results.add_clauses_cont(
+    let letrec_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&saved_env, &letrec_cont, default_num_pair, default_num_pair];
+    hash_default_results.add_hash_input_clauses(
         ContTag::LetRec,
-        &body,
-        &extended_env,
-        &return_cont,
-        &g.false_num,
+        &g.tail_cont_tag,
+        letrec_components,
     );
 
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Unop                                                      //
+    /////////////////////////////////////////////////////////////////////////////
     let unop_val = {
-        // Continuation::Unop
         let op1 = AllocatedPtr::by_index(0, &continuation_components);
 
         let (allocated_car, allocated_cdr) =
@@ -1640,42 +1584,31 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
     results.add_clauses_cont(ContTag::Unop, &unop_val, env, &continuation, &g.true_num);
 
-    let (allocated_arg2, saved_env, binop2_cont) = {
-        // Continuation::Binop
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Unop                                                      //
+    /////////////////////////////////////////////////////////////////////////////
+    let (op2, continuation) = {
         let op2 = &continuation_components[0];
-        let saved_env = AllocatedPtr::by_index(1, &continuation_components);
-        let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
         let continuation = AllocatedContPtr::by_index(3, &continuation_components);
 
-        let (allocated_arg2, _allocated_rest) =
-            car_cdr(&mut cs.namespace(|| "Binop cons"), g, &unevaled_args, store)?;
-
-        let binop2_cont = AllocatedContPtr::construct(
-            &mut cs.namespace(|| "Binop2"),
-            store,
-            &g.binop2_cont_tag,
-            &[
-                &[op2, &g.default_num],
-                result,
-                &continuation,
-                &[&g.default_num, &g.default_num],
-            ],
-        )?;
-
-        (allocated_arg2, saved_env, binop2_cont)
+        (op2, continuation)
     };
-
-    // FIXME: If allocated_rest != Nil, then error.
-    results.add_clauses_cont(
+    let binop_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[op2, &g.default_num],
+        result,
+        &continuation,
+        default_num_pair,
+    ];
+    hash_default_results.add_hash_input_clauses(
         ContTag::Binop,
-        &allocated_arg2,
-        &saved_env,
-        &binop2_cont,
-        &g.false_num,
+        &g.binop2_cont_tag,
+        binop_components,
     );
 
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Binop2                                                    //
+    /////////////////////////////////////////////////////////////////////////////
     let (res, c) = {
-        // Continuation::Binop2
         let op2 = AllocatedPtr::by_index(0, &continuation_components);
         let arg1 = AllocatedPtr::by_index(1, &continuation_components);
         let continuation = AllocatedContPtr::by_index(2, &continuation_components);
@@ -1782,46 +1715,31 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
     results.add_clauses_cont(ContTag::Binop2, &res, env, &c, &g.true_num);
 
-    let (allocated_arg2, saved_env, relop2_cont) = {
-        // Continuation::Relop
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Relop                                                      //
+    /////////////////////////////////////////////////////////////////////////////
+    let (relop2, relop_cont) = {
         let relop2 = &continuation_components[0];
-        let saved_env = AllocatedPtr::by_index(1, &continuation_components);
-        let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
-        let continuation = AllocatedContPtr::by_index(3, &continuation_components);
+        let relop_cont = AllocatedContPtr::by_index(3, &continuation_components);
 
-        let (allocated_arg2, _allocated_rest) = car_cdr(
-            &mut cs.namespace(|| "Relops cons"),
-            g,
-            &unevaled_args,
-            store,
-        )?;
-
-        // FIXME: If allocated_rest != Nil, then error.
-        let relop2_cont = AllocatedContPtr::construct(
-            &mut cs.namespace(|| "Relop2"),
-            store,
-            &g.relop2_cont_tag,
-            &[
-                &[relop2, &g.default_num],
-                result,
-                &continuation,
-                &[&g.default_num, &g.default_num],
-            ],
-        )?;
-
-        (allocated_arg2, saved_env, relop2_cont)
+        (relop2, relop_cont)
     };
-
-    results.add_clauses_cont(
+    let relop_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[relop2, &g.default_num],
+        result,
+        &relop_cont,
+        default_num_pair,
+    ];
+    hash_default_results.add_hash_input_clauses(
         ContTag::Relop,
-        &allocated_arg2,
-        &saved_env,
-        &relop2_cont,
-        &g.false_num,
+        &g.relop2_cont_tag,
+        relop_components,
     );
 
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Relop2                                                    //
+    /////////////////////////////////////////////////////////////////////////////
     let (res, continuation) = {
-        // Continuation::Relop2
         let rel2 = AllocatedPtr::by_index(0, &continuation_components);
         let arg1 = AllocatedPtr::by_index(1, &continuation_components);
         let continuation = AllocatedContPtr::by_index(2, &continuation_components);
@@ -1882,8 +1800,10 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     };
     results.add_clauses_cont(ContTag::Relop2, &res, env, &continuation, &g.true_num);
 
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::If                                                        //
+    /////////////////////////////////////////////////////////////////////////////
     let (res, continuation) = {
-        // Continuation::If
         let unevaled_args = AllocatedPtr::by_index(0, &continuation_components);
         let continuation = AllocatedContPtr::by_index(1, &continuation_components);
 
@@ -1919,7 +1839,9 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
     results.add_clauses_cont(ContTag::If, &res, env, &continuation, &g.false_num);
 
-    // Continuation::Lookup
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Lookup                                                    //
+    /////////////////////////////////////////////////////////////////////////////
     let saved_env = AllocatedPtr::by_index(0, &continuation_components);
     let continuation = AllocatedContPtr::by_index(1, &continuation_components);
     results.add_clauses_cont(
@@ -1930,11 +1852,15 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.true_num,
     );
 
-    // Continuation::Simple
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Simple                                                    //
+    /////////////////////////////////////////////////////////////////////////////
     let continuation = AllocatedContPtr::by_index(0, &continuation_components);
     results.add_clauses_cont(ContTag::Simple, result, env, &continuation, &g.true_num);
 
-    // Continuation::Tail
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Tail                                                      //
+    /////////////////////////////////////////////////////////////////////////////
     let saved_env = AllocatedPtr::by_index(0, &continuation_components);
     let continuation = AllocatedContPtr::by_index(1, &continuation_components);
 
@@ -1946,15 +1872,6 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.true_num,
     );
 
-    let all_clauses = [
-        &results.expr_tag_clauses[..],
-        &results.expr_hash_clauses[..],
-        &results.env_tag_clauses[..],
-        &results.env_hash_clauses[..],
-        &results.cont_tag_clauses[..],
-        &results.cont_hash_clauses[..],
-        &results.make_thunk_num_clauses[..],
-    ];
     let defaults = [
         &g.default_num,
         &g.default_num,
@@ -1965,8 +1882,304 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.false_num,
     ];
 
+    /////////////////////////// multicase hash input
+    let all_hash_input_clauses = [
+        &hash_default_results.tag_clauses[..],
+        &hash_default_results.components_clauses[0][..],
+        &hash_default_results.components_clauses[1][..],
+        &hash_default_results.components_clauses[2][..],
+        &hash_default_results.components_clauses[3][..],
+        &hash_default_results.components_clauses[4][..],
+        &hash_default_results.components_clauses[5][..],
+        &hash_default_results.components_clauses[6][..],
+        &hash_default_results.components_clauses[7][..],
+    ];
+
+    let components_results = multi_case(
+        &mut cs.namespace(|| "apply_continuation hash input precomputation for default multicase"),
+        cont.tag(),
+        &all_hash_input_clauses,
+        &defaults,
+    )?;
+
+    // construct new continuation
+    let newer_cont = AllocatedContPtr::construct(
+        &mut cs.namespace(|| "construct newer_cont for precomputation"),
+        store,
+        &components_results[0], // continuation tag
+        &[
+            &[&components_results[1], &components_results[2]] as &dyn AsAllocatedHashComponents<F>,
+            &[&components_results[3], &components_results[4]] as &dyn AsAllocatedHashComponents<F>,
+            &[&components_results[5], &components_results[6]] as &dyn AsAllocatedHashComponents<F>,
+            &[&g.default_num, &g.default_num],
+        ],
+    )?;
+
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Call (after hash)                                         //
+    /////////////////////////////////////////////////////////////////////////////
+    let (next, the_cont) = {
+        let next_expr = AllocatedPtr::by_index(1, &continuation_components);
+        let result_is_fun = alloc_equal(
+            cs.namespace(|| "result_is_fun default precomputation for multicase"),
+            function.tag(),
+            &g.fun_tag,
+        )?;
+
+        let next = AllocatedPtr::pick(
+            &mut cs.namespace(|| "default env precomputation"),
+            &result_is_fun,
+            &next_expr,
+            result,
+        )?;
+
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "default cont precomputation"),
+            &result_is_fun,
+            &newer_cont,
+            &g.error_ptr_cont,
+        )?;
+        (next, the_cont)
+    };
+    results.add_clauses_cont(ContTag::Call, &next, env, &the_cont, &g.false_num);
+
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Call2 (after hash)                                        //
+    /////////////////////////////////////////////////////////////////////////////
+    let (body_form, newer_env, tail_cont) = {
+        let fun = AllocatedPtr::by_index(1, &continuation_components);
+        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
+
+        {
+            let (hash, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
+                &mut cs.namespace(|| "allocate Call2 fun precomputation"),
+                store,
+                fun.ptr(store).as_ref(),
+            )?;
+
+            // BOOKMARK: Why does this cause unconstrainted variable?
+            // Something about the overloaded Options?
+            let (body_form, _) = car_cdr(
+                &mut cs.namespace(|| "body_form precomputation"),
+                g,
+                &body_t,
+                store,
+            )?;
+
+            let fun_is_correct = constraints::alloc_equal(
+                &mut cs.namespace(|| "fun hash is correct precomputation"),
+                fun.hash(),
+                &hash,
+            )?;
+
+            let cont_is_call2_precomp = constraints::alloc_equal(
+                &mut cs.namespace(|| "Call2 branch taken precomputation"),
+                cont.tag(),
+                &g.call2_cont_tag,
+            )?;
+
+            let cont_is_call2_and_not_dummy = and!(cs, &cont_is_call2_precomp, not_dummy)?;
+
+            enforce_implication(
+                &mut cs.namespace(|| "Call2 implies non-dummy fun precomputation"),
+                &cont_is_call2_and_not_dummy,
+                &fun_is_correct,
+            )?;
+
+            let newer_env = extend(
+                &mut cs.namespace(|| "Call2 extend env precomputation"),
+                g,
+                store,
+                &closed_env,
+                &arg_t,
+                result,
+            )?;
+
+            let continuation_is_tail = alloc_equal(
+                &mut cs.namespace(|| "call2 continuation is tail precomputation"),
+                continuation.tag(),
+                &g.tail_cont_tag,
+            )?;
+
+            let tail_cont = AllocatedContPtr::pick(
+                &mut cs.namespace(|| "call2 the tail continuation precomputation"),
+                &continuation_is_tail,
+                &continuation,
+                &newer_cont,
+            );
+
+            (body_form, newer_env, tail_cont)
+        }
+    };
+
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Binop (after hash)                                        //
+    /////////////////////////////////////////////////////////////////////////////
+    let (allocated_arg2, saved_env) = {
+        let saved_env = AllocatedPtr::by_index(1, &continuation_components);
+        let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
+
+        let (allocated_arg2, _allocated_rest) = car_cdr(
+            &mut cs.namespace(|| "Binop cons precomputation"),
+            g,
+            &unevaled_args,
+            store,
+        )?;
+
+        (allocated_arg2, saved_env)
+    };
+    // FIXME: If allocated_rest != Nil, then error.
+    results.add_clauses_cont(
+        ContTag::Binop,
+        &allocated_arg2,
+        &saved_env,
+        &newer_cont,
+        &g.false_num,
+    );
+
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Relop (after hash)                                        //
+    /////////////////////////////////////////////////////////////////////////////
+    let (allocated_arg2, saved_env) = {
+        let saved_env = AllocatedPtr::by_index(1, &continuation_components);
+        let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
+
+        let (allocated_arg2, _allocated_rest) = car_cdr(
+            &mut cs.namespace(|| "Relops cons precomputation"),
+            g,
+            &unevaled_args,
+            store,
+        )?;
+
+        // FIXME: If allocated_rest != Nil, then error.
+
+        (allocated_arg2, saved_env)
+    };
+    results.add_clauses_cont(
+        ContTag::Relop,
+        &allocated_arg2,
+        &saved_env,
+        &newer_cont,
+        &g.false_num,
+    );
+    let call2_cont = match tail_cont {
+        Ok(c) => c,
+        Err(_) => g.dummy_ptr.clone(),
+    };
+    results.add_clauses_cont(
+        ContTag::Call2,
+        &body_form,
+        &newer_env,
+        &call2_cont,
+        &g.false_num,
+    );
+
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Let   (after hash)                                        //
+    /////////////////////////////////////////////////////////////////////////////
+    let (body, extended_env, tail_cont) = {
+        let var = AllocatedPtr::by_index(0, &continuation_components);
+        let body = AllocatedPtr::by_index(1, &continuation_components);
+        let let_cont = AllocatedContPtr::by_index(3, &continuation_components);
+
+        let extended_env = extend(
+            &mut cs.namespace(|| "Let extend env precomputation"),
+            g,
+            store,
+            env,
+            &var,
+            result,
+        )?;
+
+        let continuation_is_tail = alloc_equal(
+            &mut cs.namespace(|| "let continuation is tail precomputation"),
+            let_cont.tag(),
+            &g.tail_cont_tag,
+        )?;
+
+        let tail_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "let the tail continuation precomputation"),
+            &continuation_is_tail,
+            &let_cont,
+            &newer_cont,
+        );
+
+        (body, extended_env, tail_cont)
+    };
+    let let_cont = match tail_cont {
+        Ok(c) => c,
+        Err(_) => g.dummy_ptr.clone(),
+    };
+    results.add_clauses_cont(ContTag::Let, &body, &extended_env, &let_cont, &g.false_num);
+
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::LetRec (after hash)                                       //
+    /////////////////////////////////////////////////////////////////////////////
+    let (body, extended_env, return_cont) = {
+        let var = AllocatedPtr::by_index(0, &continuation_components);
+        let body = AllocatedPtr::by_index(1, &continuation_components);
+        let letrec_cont = AllocatedContPtr::by_index(3, &continuation_components);
+
+        let extended_env = extend_rec(
+            &mut cs.namespace(|| "LetRec extend_rec env precomputation"),
+            g,
+            env,
+            &var,
+            result,
+            store,
+        )?;
+
+        let is_error = extended_env.alloc_equal(
+            &mut cs.namespace(|| "is_error precomputation"),
+            &g.error_ptr,
+        )?;
+
+        let continuation_is_tail = alloc_equal(
+            &mut cs.namespace(|| "letrec continuation is tail precomputation"),
+            letrec_cont.tag(),
+            &g.tail_cont_tag,
+        )?;
+
+        let tail_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "letrec the tail continuation precomputation"),
+            &continuation_is_tail,
+            &letrec_cont,
+            &newer_cont,
+        )?;
+
+        let return_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "return_cont precomputation"),
+            &is_error,
+            &g.error_ptr_cont,
+            &tail_cont,
+        )?;
+
+        (body, extended_env, return_cont)
+    };
+    results.add_clauses_cont(
+        ContTag::LetRec,
+        &body,
+        &extended_env,
+        &return_cont,
+        &g.false_num,
+    );
+
+    /////////////////////////////////////////////////////////////////////////////
+    // Main multi_case                                                         //
+    /////////////////////////////////////////////////////////////////////////////
+
+    let all_clauses = [
+        &results.expr_tag_clauses[..],
+        &results.expr_hash_clauses[..],
+        &results.env_tag_clauses[..],
+        &results.env_hash_clauses[..],
+        &results.cont_tag_clauses[..],
+        &results.cont_hash_clauses[..],
+        &results.make_thunk_num_clauses[..],
+    ];
+
     let case_results = multi_case(
-        &mut cs.namespace(|| "apply_continuation case"),
+        &mut cs.namespace(|| "apply_continuation multicase"),
         cont.tag(),
         &all_clauses,
         &defaults,
@@ -2123,39 +2336,6 @@ fn extend_rec<F: PrimeField, CS: ConstraintSystem<F>>(
     )
 }
 
-fn make_tail_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    g: &GlobalAllocations<F>,
-    store: &Store<F>,
-    env: &AllocatedPtr<F>,
-    continuation: &AllocatedContPtr<F>,
-) -> Result<AllocatedContPtr<F>, SynthesisError> {
-    let continuation_is_tail = alloc_equal(
-        &mut cs.namespace(|| "continuation is tail"),
-        continuation.tag(),
-        &g.tail_cont_tag,
-    )?;
-
-    let new_tail = AllocatedContPtr::construct(
-        &mut cs.namespace(|| "new tail continuation"),
-        store,
-        &g.tail_cont_tag,
-        &[
-            env,
-            continuation,
-            &[&g.default_num, &g.default_num],
-            &[&g.default_num, &g.default_num],
-        ],
-    )?;
-
-    AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the tail continuation"),
-        &continuation_is_tail,
-        continuation,
-        &new_tail,
-    )
-}
-
 /// Prints out the full CS for debugging purposes
 #[allow(dead_code)]
 pub(crate) fn print_cs<F: PrimeField, C: Comparable<F>>(this: &C) -> String {
@@ -2277,9 +2457,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31552, cs.num_constraints());
+            assert_eq!(29100, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31531, cs.aux().len());
+            assert_eq!(29085, cs.aux().len());
 
             let public_inputs = frame.public_inputs(store);
             let mut rng = rand::thread_rng();
@@ -2565,7 +2745,7 @@ mod tests {
         let env = empty_sym_env(&store);
 
         // Input is not self-evaluating.
-        let expr = store.read("(+ 1 2)").unwrap();
+        let expr = store.read("(+1 2)").unwrap();
         let input = IO {
             expr: expr.clone(),
             env: env.clone(),
