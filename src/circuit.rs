@@ -2,7 +2,7 @@
 
 use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
-    util_cs::Comparable,
+    util_cs::{test_cs::TestConstraintSystem, Comparable},
     Circuit, ConstraintSystem, SynthesisError,
 };
 use ff::PrimeField;
@@ -16,10 +16,11 @@ use crate::{
     store::ScalarPointer,
 };
 
-use crate::eval::{Frame, Witness, IO};
+use crate::eval::{Evaluator, Frame, Witness, IO};
 use crate::gadgets::constraints::{
     self, alloc_equal, alloc_is_zero, enforce_implication, or, pick,
 };
+use crate::proof::SequentialCS;
 use crate::store::{ContPtr, ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
 
 #[derive(Clone)]
@@ -1315,6 +1316,8 @@ fn make_thunk<F: PrimeField, CS: ConstraintSystem<F>>(
 
     results.add_clauses_thunk(ContTag::Outermost, result, env, &g.terminal_ptr);
 
+    results.add_clauses_thunk(ContTag::Terminal, result, env, &g.terminal_ptr);
+
     let thunk_hash =
         Thunk::hash_components(&mut cs.namespace(|| "thunk_hash"), store, result, cont)?;
     let defaults = [
@@ -1376,6 +1379,14 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.terminal_ptr,
         &g.false_num,
     );
+    results.add_clauses_cont(
+        ContTag::Terminal,
+        result,
+        env,
+        &g.terminal_ptr,
+        &g.false_num,
+    );
+    results.add_clauses_cont(ContTag::Error, result, env, &g.terminal_ptr, &g.false_num);
 
     let (_continuation_hash, continuation_components) = ContPtr::allocate_maybe_dummy_components(
         &mut cs.namespace(|| "allocate_continuation_components"),
@@ -2170,6 +2181,42 @@ pub(crate) fn print_cs<F: PrimeField, C: Comparable<F>>(this: &C) -> String {
     out
 }
 
+impl<'a, F: PrimeField> CircuitFrame<'a, F, IO<F>, Witness<F>> {
+    #[allow(clippy::needless_collect)]
+    pub fn outer_synthesize(
+        expr: Ptr<F>,
+        env: Ptr<F>,
+        store: &mut Store<F>,
+        limit: usize,
+        maybe_add_extra_terminal_proof: bool,
+    ) -> Result<SequentialCS<F, IO<F>, Witness<F>>, SynthesisError> {
+        if maybe_add_extra_terminal_proof {
+            assert_eq!(1, limit.count_ones());
+        }
+
+        let mut evaluator = Evaluator::new(expr, env, store, limit);
+        let mut frames = evaluator.iter().collect::<Vec<_>>();
+        if maybe_add_extra_terminal_proof && frames.len().count_ones() != 1 {
+            // See NOTE: PADDING and LIMIT in groth16.rs.
+            frames.push(frames[frames.len() - 1].next(store));
+        }
+
+        store.hydrate_scalar_cache();
+
+        let res = frames
+            .into_iter()
+            .map(|frame| {
+                let mut cs = TestConstraintSystem::new();
+                CircuitFrame::<F, _, _>::from_frame(frame.clone(), store)
+                    .synthesize(&mut cs)
+                    .unwrap();
+                (frame, cs)
+            })
+            .collect::<Vec<_>>();
+        Ok(res)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2230,9 +2277,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31526, cs.num_constraints());
+            assert_eq!(31552, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31505, cs.aux().len());
+            assert_eq!(31531, cs.aux().len());
 
             let public_inputs = frame.public_inputs(store);
             let mut rng = rand::thread_rng();

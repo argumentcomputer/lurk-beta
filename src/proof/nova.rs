@@ -239,7 +239,7 @@ mod tests {
         }
 
         let constraint_systems = if check_constraint_systems {
-            Some(CircuitFrame::outer_synthesize(expr, e, &mut s, limit).unwrap())
+            Some(CircuitFrame::outer_synthesize(expr, e, &mut s, limit, false).unwrap())
         } else {
             None
         };
