@@ -63,7 +63,7 @@ impl<F: PrimeField> Evaluable<F, Witness<F>> for IO<F> {
 }
 
 impl<F: PrimeField, T: Evaluable<F, Witness<F>> + Clone + PartialEq> Frame<T, Witness<F>> {
-    fn next(&self, store: &mut Store<F>) -> Self {
+    pub(crate) fn next(&self, store: &mut Store<F>) -> Self {
         let input = self.output.clone();
         let (output, witness) = input.reduce(store);
 
@@ -573,7 +573,7 @@ fn apply_continuation<F: PrimeField>(
     witness.apply_continuation_cont = Some(*cont);
 
     let control = match cont.tag() {
-        ContTag::Terminal => unreachable!("Terminal Continuation should never be applied."),
+        ContTag::Terminal | ContTag::Error => Control::Return(*result, *env, *cont),
         ContTag::Dummy => unreachable!("Dummy Continuation should never be applied."),
         ContTag::Outermost => Control::Return(*result, *env, store.intern_cont_terminal()),
         ContTag::Call => match result.tag() {
@@ -789,7 +789,7 @@ fn apply_continuation<F: PrimeField>(
                 unreachable!();
             }
         },
-        ContTag::Simple | ContTag::Error => unreachable!(),
+        ContTag::Simple => unreachable!(),
     };
 
     if control.is_apply_continuation() {

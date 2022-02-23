@@ -1,4 +1,3 @@
-use bellperson::util_cs::test_cs::TestConstraintSystem;
 use bellperson::{
     groth16::{
         self,
@@ -8,7 +7,7 @@ use bellperson::{
         },
         verify_proof,
     },
-    Circuit, SynthesisError,
+    SynthesisError,
 };
 use blstrs::{Bls12, Scalar};
 use ff::PrimeField;
@@ -19,7 +18,7 @@ use rand_xorshift::XorShiftRng;
 
 use crate::circuit::CircuitFrame;
 use crate::eval::{Evaluator, Witness, IO};
-use crate::proof::{Provable, SequentialCS};
+use crate::proof::Provable;
 use crate::store::{Ptr, Store};
 
 use std::env;
@@ -130,9 +129,25 @@ where
         limit: usize,
         mut rng: R,
     ) -> Result<FrameProofs<'a, Self::E>, SynthesisError> {
+        // See NOTE below.
+        assert_eq!(1, limit.count_ones());
+
         // FIXME: optimize execution order
         let mut evaluator = Evaluator::new(expr, env, store, limit);
         let mut frames = evaluator.iter().collect::<Vec<_>>();
+
+        if frames.len().count_ones() != 1 {
+            // NOTE: PADDING and LIMIT
+            //
+            // If there are not a power-of-two number of frames, then padding will be needed.
+            // In that case, obtain a trivial final proof of the terminal reduction to itself.
+            // This will fail if the proof is not complete (i.e. the final continuation must be Terminal).
+            // This implies that when power-of-two padding is required, we must choose a limit
+            // which is a power of two.
+
+            frames.push(frames[frames.len() - 1].next(store));
+        }
+
         let mut proofs = Vec::with_capacity(frames.len());
         let mut circuit_frames = Vec::with_capacity(frames.len());
 
@@ -243,33 +258,6 @@ impl Groth16 for Groth16Prover {
     }
 }
 
-impl<'a, F: PrimeField> CircuitFrame<'a, F, IO<F>, Witness<F>> {
-    #[allow(clippy::needless_collect)]
-    pub fn outer_synthesize(
-        expr: Ptr<F>,
-        env: Ptr<F>,
-        store: &mut Store<F>,
-        limit: usize,
-    ) -> Result<SequentialCS<F, IO<F>, Witness<F>>, SynthesisError> {
-        let mut evaluator = Evaluator::new(expr, env, store, limit);
-        let frames = evaluator.iter().collect::<Vec<_>>();
-
-        store.hydrate_scalar_cache();
-
-        let res = frames
-            .into_iter()
-            .map(|frame| {
-                let mut cs = TestConstraintSystem::new();
-                CircuitFrame::<F, _, _>::from_frame(frame.clone(), store)
-                    .synthesize(&mut cs)
-                    .unwrap();
-                (frame, cs)
-            })
-            .collect::<Vec<_>>();
-        Ok(res)
-    }
-}
-
 #[allow(dead_code)]
 fn verify_sequential_groth16_proofs(
     frame_proofs: Vec<(
@@ -288,7 +276,6 @@ fn verify_sequential_groth16_proofs(
                 return Ok(false);
             }
         }
-
         if !frame.verify_groth16_proof(&pvk, proof.clone())? {
             return Ok(false);
         }
@@ -318,7 +305,6 @@ impl CircuitFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>> {
         proof: groth16::Proof<Bls12>,
     ) -> Result<bool, SynthesisError> {
         let inputs = self.public_inputs(self.store);
-
         verify_proof(pvk, &proof, &inputs)
     }
 }
@@ -327,11 +313,14 @@ impl CircuitFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>> {
 mod tests {
     use super::*;
     use crate::eval::empty_sym_env;
-    use crate::proof::verify_sequential_css;
-    use bellperson::groth16::aggregate::{
-        verify_aggregate_proof, verify_aggregate_proof_and_aggregate_instances,
+    use crate::proof::{verify_sequential_css, SequentialCS};
+    use bellperson::{
+        groth16::aggregate::{
+            verify_aggregate_proof, verify_aggregate_proof_and_aggregate_instances,
+        },
+        util_cs::{metric_cs::MetricCS, Comparable, Delta},
+        Circuit,
     };
-    use bellperson::util_cs::{metric_cs::MetricCS, Comparable, Delta};
     use blstrs::Scalar as Fr;
     use rand::rngs::OsRng;
 
@@ -379,7 +368,7 @@ mod tests {
         if let Some((proof, statements)) = proof_results {
             let frame_proofs = proof.frame_proofs.clone();
             if !debug {
-                assert_eq!(expected_iterations, frame_proofs.len());
+                assert_eq!(expected_iterations, frame_proofs.len() - 1);
                 assert_eq!(
                     expected_result,
                     proof.frame_proofs[frame_proofs.len() - 1]
@@ -399,7 +388,7 @@ mod tests {
             let public_outputs = &statements[statements.len() - 1][mid..];
 
             let srs_vk = INNER_PRODUCT_SRS.specialize(statements.len()).1;
-            let _aggregate_proof_and_instances_verified =
+            let aggregate_proof_and_instances_verified =
                 verify_aggregate_proof_and_aggregate_instances(
                     &srs_vk,
                     &pvk,
@@ -422,20 +411,18 @@ mod tests {
             .unwrap();
 
             assert!(aggregate_proof_verified);
-            // Uncomment this and remove `aggregate_proof` entirely once input aggregation
-            // is working in bellperson.
-            // assert!(aggregate_proof_and_instances_verified);
+            assert!(aggregate_proof_and_instances_verified);
         };
 
         let constraint_systems = if check_constraint_systems {
-            Some(CircuitFrame::outer_synthesize(expr, e, &mut s, limit).unwrap())
+            Some(CircuitFrame::outer_synthesize(expr, e, &mut s, limit, true).unwrap())
         } else {
             None
         };
 
         if let Some(cs) = constraint_systems {
             if !debug {
-                assert_eq!(expected_iterations, cs.len());
+                assert_eq!(expected_iterations, cs.len() - 1);
                 assert_eq!(expected_result, cs[cs.len() - 1].0.output.expr);
             }
             let constraint_systems_verified = verify_sequential_css::<Scalar>(&cs, &s).unwrap();
@@ -474,7 +461,7 @@ mod tests {
             18,
             true, // Always check Groth16 in at least one test.
             true,
-            100,
+            128,
             false,
         );
     }
@@ -487,7 +474,7 @@ mod tests {
             3,
             DEFAULT_CHECK_GROTH16,
             true,
-            100,
+            128,
             false,
         );
     }
@@ -500,7 +487,7 @@ mod tests {
             3,
             DEFAULT_CHECK_GROTH16,
             true,
-            100,
+            128,
             false,
         );
 
@@ -515,7 +502,7 @@ mod tests {
             3,
             DEFAULT_CHECK_GROTH16,
             true,
-            100,
+            128,
             false,
         );
         outer_prove_aux(
@@ -524,7 +511,7 @@ mod tests {
             3,
             DEFAULT_CHECK_GROTH16,
             true,
-            100,
+            128,
             false,
         );
     }
@@ -537,7 +524,7 @@ mod tests {
             3,
             DEFAULT_CHECK_GROTH16,
             true,
-            100,
+            128,
             false,
         );
 
@@ -547,7 +534,7 @@ mod tests {
             3,
             DEFAULT_CHECK_GROTH16,
             true,
-            100,
+            128,
             false,
         )
     }
@@ -559,7 +546,7 @@ mod tests {
             5,
             DEFAULT_CHECK_GROTH16,
             true,
-            100,
+            128,
             false,
         );
     }
@@ -579,7 +566,7 @@ mod tests {
             91,
             DEFAULT_CHECK_GROTH16,
             true,
-            200,
+            256,
             false,
         );
     }
@@ -600,7 +587,7 @@ mod tests {
             201,
             DEFAULT_CHECK_GROTH16,
             true,
-            300,
+            256,
             false,
         );
     }
