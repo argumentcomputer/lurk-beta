@@ -559,6 +559,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
     fn outer_prove_recursion1() {
         outer_prove_aux(
             &"(letrec ((exp (lambda (base)
@@ -578,6 +579,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
     fn outer_prove_recursion2() {
         outer_prove_aux(
             &"(letrec ((exp (lambda (base)
