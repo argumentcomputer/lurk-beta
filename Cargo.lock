@@ -84,7 +84,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 [[package]]
 name = "bellperson"
 version = "0.18.2"
-source = "git+https://github.com/filecoin-project/bellperson?branch=instance-aggregation#8fc179d69ec977831a7869a3b83309b6305ff758"
+source = "git+https://github.com/filecoin-project/bellperson?branch=instance-aggregation#282b4eb749ecea642123903ef3a31e9ef31b6a1e"
 dependencies = [
  "bincode",
  "bitvec",
@@ -1457,9 +1457,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.2.10"
+version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8383f39639269cde97d255a32bdb68c047337295414940c68bdd30c2e13203ff"
+checksum = "8380fe0152551244f0747b1bf41737e0f8a74f97a14ccefd1148187271634f3c"
 dependencies = [
  "bitflags",
 ]
