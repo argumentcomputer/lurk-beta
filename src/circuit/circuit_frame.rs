@@ -187,6 +187,7 @@ impl<F: PrimeField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
         cs: &mut CS,
         i: usize,
         inputs: AllocatedIO<F>,
+        g: &GlobalAllocations<F>,
     ) -> Result<AllocatedIO<F>, SynthesisError> {
         let (input_expr, input_env, input_cont) = inputs;
 
@@ -197,6 +198,7 @@ impl<F: PrimeField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
             &input_cont,
             &self.witness,
             self.store,
+            &g,
         )
     }
 }
@@ -247,6 +249,7 @@ impl<F: PrimeField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
         //
         // End public inputs.
         ////////////////////////////////////////////////////////////////////////////////
+        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), self.store)?;
 
         let acc = (input_expr, input_env, input_cont);
 
@@ -257,7 +260,7 @@ impl<F: PrimeField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
 
         let (_, (new_expr, new_env, new_cont)) =
             frames.iter().fold((0, acc), |(i, allocated_io), frame| {
-                (i + 1, frame.synthesize(cs, i, allocated_io).unwrap())
+                (i + 1, frame.synthesize(cs, i, allocated_io, &g).unwrap())
             });
 
         // dbg!(
@@ -456,6 +459,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
     cont: &AllocatedContPtr<F>,
     witness: &Option<Witness<F>>,
     store: &Store<F>,
+    g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
     // dbg!("reduce_expression");
     // dbg!(expr.hash().get_value());
@@ -463,8 +467,6 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
     // dbg!(&env.fetch_and_write_str(store));
     // dbg!(&cont.fetch_and_write_cont_str(store));
     // dbg!(expr, cont);
-
-    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store)?;
 
     let mut results = Results::default();
     {
