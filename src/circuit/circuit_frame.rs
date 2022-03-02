@@ -61,7 +61,9 @@ impl<'a, F: PrimeField, T: Clone + Copy, W: Copy> CircuitFrame<'a, F, T, W> {
     }
 }
 
-impl<'a, F: PrimeField, T: Clone + Copy + Debug, W: Copy> MultiFrame<'a, F, T, W> {
+impl<'a, F: PrimeField, T: Clone + Copy + Debug + std::cmp::PartialEq, W: Copy>
+    MultiFrame<'a, F, T, W>
+{
     pub fn blank(store: &'a Store<F>, count: usize) -> Self {
         Self {
             store,
@@ -461,9 +463,11 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-    // dbg!("reduce_expression");
-    // dbg!(expr.hash().get_value());
-    // dbg!(&expr.fetch_and_write_str(store));
+    dbg!("reduce_expression");
+    dbg!(expr.hash().get_value());
+    dbg!(expr.tag.get_value(), expr.hash.get_value());
+    dbg!(&expr.fetch_and_write_str(store));
+
     // dbg!(&env.fetch_and_write_str(store));
     // dbg!(&cont.fetch_and_write_cont_str(store));
     // dbg!(expr, cont);
@@ -476,6 +480,9 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         results.add_clauses_expr(Tag::Fun, expr, env, cont, &g.true_num);
     }
 
+    dbg!("xxx");
+    // If expr is a thunk, this will allocate its components and hash, etc.
+    // If not, these will be dummies.
     let (expr_thunk_hash, expr_thunk_value, expr_thunk_continuation) =
         expr.allocate_thunk_components(&mut cs.namespace(|| "allocate thunk components"), store)?;
     {

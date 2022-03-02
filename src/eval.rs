@@ -184,6 +184,7 @@ fn reduce<F: PrimeField>(
     cont: ContPtr<F>,
     store: &mut Store<F>,
 ) -> (Ptr<F>, Ptr<F>, ContPtr<F>, Witness<F>) {
+    dbg!(expr.tag(), expr.fmt_to_string(&store));
     let (ctrl, witness) = reduce_with_witness(expr, env, cont, store);
     let (new_expr, new_env, new_cont) = ctrl.into_results();
 
@@ -1003,6 +1004,8 @@ where
         while needs_frame_padding(frames.len(), frames[frames.len() - 1].is_terminal()) {
             frames.push(padding_frame.clone());
         }
+        // assert!(padding_frame.is_terminal());
+        // assert!(frames[frames.len() - 1].is_terminal());
         frames
     }
 }

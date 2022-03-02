@@ -86,7 +86,10 @@ where
     ) -> Vec<Frame<IO<<Self::Grp as Group>::Scalar>, Witness<<Self::Grp as Group>::Scalar>>> {
         let padding_predicate = |count, is_terminal| self.needs_frame_padding(count, is_terminal);
 
-        Evaluator::generate_frames(expr, env, store, limit, padding_predicate)
+        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate);
+        store.hydrate_scalar_cache();
+
+        frames
     }
     fn evaluate_and_prove(
         &self,
@@ -124,8 +127,6 @@ where
             .iter()
             .map(|f| Self::make_r1cs(f.clone(), shape, gens).unwrap())
             .collect::<Vec<_>>();
-
-        assert!(r1cs_instances.len() > 1);
 
         let mut step_proofs = Vec::new();
         let mut prover_transcript = Transcript::new(b"LurkProver");
@@ -247,7 +248,7 @@ mod tests {
     // FIXME: Uncommenting this causes a strange error.
     // For example, in `outer_prove_arithmetic_let()`.
     // const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
-    const DEFAULT_CHUNK_FRAME_COUNT: usize = 1;
+    const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
 
     fn outer_prove_aux<Fo: Fn(&'_ mut Store<Fr>) -> Ptr<Fr>>(
         source: &str,
@@ -285,9 +286,10 @@ mod tests {
                 proof.verify(&shape_and_gens, &instance);
             }
         }
+        dbg!(&check_constraint_systems);
         if check_constraint_systems {
             let frames = nova_prover.get_evaluation_frames(expr, e, &mut s, limit);
-            s.hydrate_scalar_cache();
+            //s.hydrate_scalar_cache();
 
             let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, &s);
             let cs = nova_prover.outer_synthesize(&multiframes).unwrap();
@@ -340,7 +342,7 @@ mod tests {
                 (/ (+ a b) c))",
             |store| store.num(3),
             18,
-            false,
+            true, //false,
             true,
             100,
             false,

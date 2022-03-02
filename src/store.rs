@@ -91,6 +91,8 @@ pub struct Store<F: PrimeField> {
 
     /// Caches poseidon hashes
     poseidon_cache: PoseidonCache<F>,
+    /// Contains Ptrs which have not yet been hydrated.
+    dehydrated: Vec<Ptr<F>>,
 }
 
 #[derive(Default, Debug)]
@@ -116,10 +118,9 @@ impl<F: PrimeField, const N: usize> Hash for CacheKey<F, N> {
 
 impl<F: PrimeField> PoseidonCache<F> {
     fn hash4(&self, preimage: &[F; 4]) -> F {
-        let hash = self
-            .a4
-            .entry(CacheKey(*preimage))
-            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c4()).hash());
+        let hash = self.a4.entry(CacheKey(*preimage)).or_insert_with(|| {
+            dbg!(Poseidon::new_with_preimage(preimage, self.constants.c4()).hash())
+        });
 
         *hash
     }
@@ -576,6 +577,7 @@ impl<F: PrimeField> Default for Store<F> {
             scalar_ptr_map: Default::default(),
             scalar_ptr_cont_map: Default::default(),
             poseidon_cache: Default::default(),
+            dehydrated: Default::default(),
         };
 
         // insert some well known symbols
@@ -741,8 +743,12 @@ impl<F: PrimeField> Store<F> {
     }
 
     pub fn intern_thunk(&mut self, thunk: Thunk<F>) -> Ptr<F> {
-        let (ptr, _) = self.thunk_store.insert_full(thunk);
-        Ptr(Tag::Thunk, RawPtr::new(ptr))
+        let (p, inserted) = self.thunk_store.insert_full(thunk);
+        let ptr = Ptr(Tag::Thunk, RawPtr::new(p));
+        if inserted {
+            self.dehydrated.push(ptr);
+        }
+        ptr
     }
 
     pub fn intern_cont_outermost(&self) -> ContPtr<F> {
@@ -1379,7 +1385,9 @@ impl<F: PrimeField> Store<F> {
     fn hash_thunk(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
         let thunk = self.fetch_thunk(&ptr)?;
         let components = self.get_hash_components_thunk(thunk)?;
-        Some(self.create_scalar_ptr(ptr, self.poseidon_cache.hash4(&components)))
+        // FIXME: This function is not called when a thunk is not a public input!
+        //
+        Some(self.create_scalar_ptr(ptr, dbg!(self.poseidon_cache.hash4(&components))))
     }
 
     fn hash_num(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
@@ -1455,6 +1463,10 @@ impl<F: PrimeField> Store<F> {
     pub fn hydrate_scalar_cache(&self) {
         println!("hydrating scalar cache");
 
+        for ptr in &self.dehydrated {
+            self.hash_expr(ptr).expect("failed to hash_expr");
+        }
+
         self.cons_store.par_iter().for_each(|(car, cdr)| {
             self.hash_ptrs_2(&[*car, *cdr]);
         });
@@ -1476,8 +1488,13 @@ impl<F: PrimeField> Store<F> {
         });
 
         self.thunk_store.par_iter().for_each(|thunk| {
+            use crate::writer::Write;
+            dbg!(&Expression::Thunk(*thunk).fmt_to_string(&self));
             if let Some(components) = self.get_hash_components_thunk(thunk) {
-                self.poseidon_cache.hash4(&components);
+                let thunk_index = self.thunk_store.get_index_of(thunk).expect("Thunk missing");
+
+                //self.create_scalar_ptr(ptr, self.poseidon_cache.hash4(&components));
+                //self.poseidon_cache.hash4(&components);
             }
         });
 

@@ -84,7 +84,8 @@ pub trait Prover<F: PrimeField> {
         let res = multiframes
             .iter()
             .enumerate()
-            .map(|(_, multiframe)| {
+            .map(|(i, multiframe)| {
+                dbg!(&i);
                 let mut cs = TestConstraintSystem::new();
                 multiframe.clone().synthesize(&mut cs).unwrap(); // FIXME: unwrap
                 (multiframe.clone(), cs)
