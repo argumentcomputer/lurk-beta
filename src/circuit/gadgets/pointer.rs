@@ -23,8 +23,8 @@ use super::{
 /// Allocated version of `Ptr`.
 #[derive(Clone)]
 pub struct AllocatedPtr<F: PrimeField> {
-    pub tag: AllocatedNum<F>,
-    pub hash: AllocatedNum<F>,
+    tag: AllocatedNum<F>,
+    hash: AllocatedNum<F>,
 }
 
 impl<F: PrimeField> Debug for AllocatedPtr<F> {
@@ -171,19 +171,15 @@ impl<F: PrimeField> AllocatedPtr<F> {
         cs: CS,
         store: &Store<F>,
     ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        dbg!(self.hash.get_value());
         let maybe_thunk = if let Some(ptr) = self.scalar_ptr(store) {
             if let Some(Expression::Thunk(thunk)) =
                 store.fetch_scalar(&ptr).and_then(|ptr| store.fetch(&ptr))
             {
-                dbg!("Thunk found", thunk);
                 Some(thunk)
             } else {
-                dbg!("Thunk not fetched");
                 None
             }
         } else {
-            dbg!("Thunk not found");
             None
         };
 

@@ -99,11 +99,6 @@ impl<F: PrimeField> Write<F> for Continuation<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         match self {
             Continuation::Outermost => write!(w, "Outermost"),
-            Continuation::Simple { continuation } => {
-                write!(w, "Simple{{ continuation: ")?;
-                continuation.fmt(store, w)?;
-                write!(w, " }}")
-            }
             Continuation::Call {
                 unevaled_arg,
                 saved_env,

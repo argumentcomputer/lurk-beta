@@ -18,22 +18,15 @@ use nova::{
     traits::Group,
     FinalSNARK, StepSNARK,
 };
-use once_cell::sync::Lazy;
 use pasta_curves::pallas;
 
-use crate::circuit::{CircuitFrame, MultiFrame};
+use crate::circuit::MultiFrame;
 use crate::eval::{Evaluator, Frame, Witness, IO};
 
 use crate::proof::Prover;
 use crate::store::{Ptr, Store};
 
 type PallasPoint = pallas::Point;
-type PallasScalar = pallas::Scalar;
-
-static EMPTY_STORE: Lazy<Store<PallasScalar>> = Lazy::new(Store::<PallasScalar>::default);
-static BLANK_CIRCUIT_FRAME: Lazy<
-    CircuitFrame<'_, PallasScalar, IO<PallasScalar>, Witness<PallasScalar>>,
-> = Lazy::new(|| CircuitFrame::blank(&EMPTY_STORE));
 
 pub struct Proof<G: Group> {
     pub step_proofs: Vec<StepSNARK<G>>,
@@ -99,7 +92,6 @@ where
         limit: usize,
     ) -> Result<(Proof<Self::Grp>, RelaxedR1CSInstance<Self::Grp>), SynthesisError> {
         let frames = self.get_evaluation_frames(expr, env, store, limit);
-        store.hydrate_scalar_cache();
 
         let (shape, gens) = self.make_shape_and_gens();
 
@@ -221,8 +213,9 @@ impl<F: PrimeField> Nova<F> for NovaProver<F> {
 
     fn make_shape_and_gens(&self) -> (R1CSShape<Self::Grp>, R1CSGens<Self::Grp>) {
         let mut cs = ShapeCS::<Self::Grp>::new();
+        let store = Store::<<Self::Grp as Group>::Scalar>::default();
 
-        MultiFrame::blank(BLANK_CIRCUIT_FRAME.store, self.chunk_frame_count)
+        MultiFrame::blank(&store, self.chunk_frame_count)
             .synthesize(&mut cs)
             .unwrap();
 
@@ -245,9 +238,6 @@ mod tests {
 
     const DEFAULT_CHECK_NOVA: bool = false;
 
-    // FIXME: Uncommenting this causes a strange error.
-    // For example, in `outer_prove_arithmetic_let()`.
-    // const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
     const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
 
     fn outer_prove_aux<Fo: Fn(&'_ mut Store<Fr>) -> Ptr<Fr>>(
@@ -267,7 +257,6 @@ mod tests {
         let e = empty_sym_env(&s);
 
         let chunk_frame_count = DEFAULT_CHUNK_FRAME_COUNT;
-
         let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
         let proof_results = if check_nova {
             Some(
@@ -289,7 +278,6 @@ mod tests {
         dbg!(&check_constraint_systems);
         if check_constraint_systems {
             let frames = nova_prover.get_evaluation_frames(expr, e, &mut s, limit);
-            //s.hydrate_scalar_cache();
 
             let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, &s);
             let cs = nova_prover.outer_synthesize(&multiframes).unwrap();
@@ -341,8 +329,8 @@ mod tests {
                      (c 2))
                 (/ (+ a b) c))",
             |store| store.num(3),
-            18,
-            true, //false,
+            18, // Always check Nova in this particular case, for regressions.
+            DEFAULT_CHECK_NOVA,
             true,
             100,
             false,
@@ -373,8 +361,6 @@ mod tests {
             100,
             false,
         );
-
-        // outer_prove_aux(&"(eq 5 6)", Expression::Nil, 5, false, true, 100, false);
     }
 
     #[test]

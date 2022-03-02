@@ -79,8 +79,6 @@ pub trait Prover<F: PrimeField> {
         &self,
         multiframes: &'a [MultiFrame<F, IO<F>, Witness<F>>],
     ) -> Result<SequentialCS<'a, F, IO<F>, Witness<F>>, SynthesisError> {
-        multiframes[0].store.hydrate_scalar_cache();
-
         let res = multiframes
             .iter()
             .enumerate()

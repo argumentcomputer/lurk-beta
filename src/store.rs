@@ -1,6 +1,7 @@
 use ff::PrimeField;
 use itertools::Itertools;
 use neptune::Poseidon;
+use rayon::prelude::*;
 use std::hash::Hash;
 use std::{fmt, marker::PhantomData};
 use string_interner::symbol::{Symbol, SymbolUsize};
@@ -8,7 +9,6 @@ use string_interner::symbol::{Symbol, SymbolUsize};
 use generic_array::typenum::{U4, U6, U8};
 use neptune::poseidon::PoseidonConstants;
 use once_cell::sync::OnceCell;
-use rayon::prelude::*;
 
 use crate::Num;
 
@@ -70,7 +70,6 @@ pub struct Store<F: PrimeField> {
     str_store: StringSet,
     thunk_store: IndexSet<Thunk<F>>,
 
-    simple_store: IndexSet<ContPtr<F>>,
     call_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
     call2_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
     tail_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
@@ -93,6 +92,7 @@ pub struct Store<F: PrimeField> {
     poseidon_cache: PoseidonCache<F>,
     /// Contains Ptrs which have not yet been hydrated.
     dehydrated: Vec<Ptr<F>>,
+    dehydrated_cont: Vec<ContPtr<F>>,
 }
 
 #[derive(Default, Debug)]
@@ -348,9 +348,6 @@ impl<F: PrimeField> Hash for Thunk<F> {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Continuation<F: PrimeField> {
     Outermost,
-    Simple {
-        continuation: ContPtr<F>,
-    },
     Call {
         unevaled_arg: Ptr<F>,
         saved_env: Ptr<F>,
@@ -522,7 +519,6 @@ impl Tag {
 #[repr(u16)]
 pub enum ContTag {
     Outermost = 0b0001_0000_0000_0000,
-    Simple,
     Call,
     Call2,
     Tail,
@@ -561,7 +557,6 @@ impl<F: PrimeField> Default for Store<F> {
             fun_store: Default::default(),
             str_store: Default::default(),
             thunk_store: Default::default(),
-            simple_store: Default::default(),
             call_store: Default::default(),
             call2_store: Default::default(),
             tail_store: Default::default(),
@@ -578,6 +573,7 @@ impl<F: PrimeField> Default for Store<F> {
             scalar_ptr_cont_map: Default::default(),
             poseidon_cache: Default::default(),
             dehydrated: Default::default(),
+            dehydrated_cont: Default::default(),
         };
 
         // insert some well known symbols
@@ -672,15 +668,19 @@ impl<F: PrimeField> Store<F> {
     }
 
     pub fn intern_cons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
-        let (ptr, _) = self.cons_store.insert_full((car, cdr));
-        Ptr(Tag::Cons, RawPtr::new(ptr))
+        let (p, inserted) = self.cons_store.insert_full((car, cdr));
+        let ptr = Ptr(Tag::Cons, RawPtr::new(p));
+        if inserted {
+            self.dehydrated.push(ptr);
+        }
+        ptr
     }
 
     /// Helper to allocate a list, instead of manually using `cons`.
     pub fn intern_list(&mut self, elts: &[Ptr<F>]) -> Ptr<F> {
         elts.iter()
             .rev()
-            .fold(self.sym("nil"), |acc, elt| self.cons(*elt, acc))
+            .fold(self.sym("nil"), |acc, elt| self.intern_cons(*elt, acc))
     }
 
     pub(crate) fn convert_sym_case(raw_name: &mut str) {
@@ -700,9 +700,15 @@ impl<F: PrimeField> Store<F> {
         let name = name.as_ref().to_string();
 
         let tag = if name == "NIL" { Tag::Nil } else { Tag::Sym };
-        let ptr = self.sym_store.0.get_or_intern(name);
 
-        Ptr(tag, RawPtr::new(ptr.to_usize()))
+        if let Some(ptr) = self.sym_store.0.get(&name) {
+            Ptr(tag, RawPtr::new(ptr.to_usize()))
+        } else {
+            let ptr = self.sym_store.0.get_or_intern(name);
+            let ptr = Ptr(tag, RawPtr::new(ptr.to_usize()));
+            self.dehydrated.push(ptr);
+            ptr
+        }
     }
 
     pub fn get_sym<T: AsRef<str>>(&self, name: T, convert_case: bool) -> Option<Ptr<F>> {
@@ -725,8 +731,14 @@ impl<F: PrimeField> Store<F> {
     }
 
     pub fn intern_str<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        let ptr = self.str_store.0.get_or_intern(name);
-        Ptr(Tag::Str, RawPtr::new(ptr.to_usize()))
+        if let Some(ptr) = self.str_store.0.get(&name) {
+            Ptr(Tag::Str, RawPtr::new(ptr.to_usize()))
+        } else {
+            let ptr = self.str_store.0.get_or_intern(name);
+            let ptr = Ptr(Tag::Str, RawPtr::new(ptr.to_usize()));
+            self.dehydrated.push(ptr);
+            ptr
+        }
     }
 
     pub fn get_str<T: AsRef<str>>(&self, name: T) -> Option<Ptr<F>> {
@@ -737,9 +749,12 @@ impl<F: PrimeField> Store<F> {
     pub fn intern_fun(&mut self, arg: Ptr<F>, body: Ptr<F>, closed_env: Ptr<F>) -> Ptr<F> {
         // TODO: closed_env must be an env
         assert!(matches!(arg.0, Tag::Sym), "ARG must be a symbol");
-
-        let (ptr, _) = self.fun_store.insert_full((arg, body, closed_env));
-        Ptr(Tag::Fun, RawPtr::new(ptr))
+        let (p, inserted) = self.fun_store.insert_full((arg, body, closed_env));
+        let ptr = Ptr(Tag::Fun, RawPtr::new(p));
+        if inserted {
+            self.dehydrated.push(ptr);
+        }
+        ptr
     }
 
     pub fn intern_thunk(&mut self, thunk: Thunk<F>) -> Ptr<F> {
@@ -751,8 +766,12 @@ impl<F: PrimeField> Store<F> {
         ptr
     }
 
-    pub fn intern_cont_outermost(&self) -> ContPtr<F> {
-        self.get_cont_outermost()
+    fn mark_dehydrated_cont(&mut self, p: ContPtr<F>) -> ContPtr<F> {
+        self.dehydrated_cont.push(p);
+        p
+    }
+    pub fn intern_cont_outermost(&mut self) -> ContPtr<F> {
+        self.mark_dehydrated_cont(self.get_cont_outermost())
     }
 
     pub fn get_cont_outermost(&self) -> ContPtr<F> {
@@ -761,17 +780,25 @@ impl<F: PrimeField> Store<F> {
     }
 
     pub fn intern_cont_call(&mut self, a: Ptr<F>, b: Ptr<F>, c: ContPtr<F>) -> ContPtr<F> {
-        let (ptr, _) = self.call_store.insert_full((a, b, c));
-        ContPtr(ContTag::Call, RawPtr::new(ptr))
+        let (p, inserted) = self.call_store.insert_full((a, b, c));
+        let ptr = ContPtr(ContTag::Call, RawPtr::new(p));
+        if inserted {
+            self.dehydrated_cont.push(ptr)
+        }
+        ptr
     }
 
     pub fn intern_cont_call2(&mut self, a: Ptr<F>, b: Ptr<F>, c: ContPtr<F>) -> ContPtr<F> {
-        let (ptr, _) = self.call2_store.insert_full((a, b, c));
-        ContPtr(ContTag::Call2, RawPtr::new(ptr))
+        let (p, inserted) = self.call2_store.insert_full((a, b, c));
+        let ptr = ContPtr(ContTag::Call2, RawPtr::new(p));
+        if inserted {
+            self.dehydrated_cont.push(ptr)
+        }
+        ptr
     }
 
-    pub fn intern_cont_error(&self) -> ContPtr<F> {
-        self.get_cont_error()
+    pub fn intern_cont_error(&mut self) -> ContPtr<F> {
+        self.mark_dehydrated_cont(self.get_cont_error())
     }
 
     pub fn get_cont_error(&self) -> ContPtr<F> {
@@ -779,8 +806,8 @@ impl<F: PrimeField> Store<F> {
         ContPtr(ContTag::Error, RawPtr::new(ptr.to_usize()))
     }
 
-    pub fn intern_cont_terminal(&self) -> ContPtr<F> {
-        self.get_cont_terminal()
+    pub fn intern_cont_terminal(&mut self) -> ContPtr<F> {
+        self.mark_dehydrated_cont(self.get_cont_terminal())
     }
 
     pub fn get_cont_terminal(&self) -> ContPtr<F> {
@@ -788,8 +815,8 @@ impl<F: PrimeField> Store<F> {
         ContPtr(ContTag::Terminal, RawPtr::new(ptr.to_usize()))
     }
 
-    pub fn intern_cont_dummy(&self) -> ContPtr<F> {
-        self.get_cont_dummy()
+    pub fn intern_cont_dummy(&mut self) -> ContPtr<F> {
+        self.mark_dehydrated_cont(self.get_cont_dummy())
     }
 
     pub fn get_cont_dummy(&self) -> ContPtr<F> {
@@ -798,8 +825,12 @@ impl<F: PrimeField> Store<F> {
     }
 
     pub fn intern_cont_lookup(&mut self, a: Ptr<F>, b: ContPtr<F>) -> ContPtr<F> {
-        let (ptr, _) = self.lookup_store.insert_full((a, b));
-        ContPtr(ContTag::Lookup, RawPtr::new(ptr))
+        let (p, inserted) = self.lookup_store.insert_full((a, b));
+        let ptr = ContPtr(ContTag::Lookup, RawPtr::new(p));
+        if inserted {
+            self.dehydrated_cont.push(ptr)
+        }
+        ptr
     }
 
     pub fn intern_cont_let(
@@ -809,8 +840,12 @@ impl<F: PrimeField> Store<F> {
         c: Ptr<F>,
         d: ContPtr<F>,
     ) -> ContPtr<F> {
-        let (ptr, _) = self.let_store.insert_full((a, b, c, d));
-        ContPtr(ContTag::Let, RawPtr::new(ptr))
+        let (p, inserted) = self.let_store.insert_full((a, b, c, d));
+        let ptr = ContPtr(ContTag::Let, RawPtr::new(p));
+        if inserted {
+            self.dehydrated_cont.push(ptr)
+        }
+        ptr
     }
 
     pub fn intern_cont_let_rec(
@@ -820,13 +855,21 @@ impl<F: PrimeField> Store<F> {
         c: Ptr<F>,
         d: ContPtr<F>,
     ) -> ContPtr<F> {
-        let (ptr, _) = self.let_rec_store.insert_full((a, b, c, d));
-        ContPtr(ContTag::LetRec, RawPtr::new(ptr))
+        let (p, inserted) = self.let_rec_store.insert_full((a, b, c, d));
+        let ptr = ContPtr(ContTag::LetRec, RawPtr::new(p));
+        if inserted {
+            self.dehydrated_cont.push(ptr)
+        }
+        ptr
     }
 
     pub fn intern_cont_unop(&mut self, op: Op1, a: ContPtr<F>) -> ContPtr<F> {
-        let (ptr, _) = self.unop_store.insert_full((op, a));
-        ContPtr(ContTag::Unop, RawPtr::new(ptr))
+        let (p, inserted) = self.unop_store.insert_full((op, a));
+        let ptr = ContPtr(ContTag::Unop, RawPtr::new(p));
+        if inserted {
+            self.dehydrated_cont.push(ptr)
+        }
+        ptr
     }
 
     pub fn intern_cont_binop(
@@ -836,13 +879,21 @@ impl<F: PrimeField> Store<F> {
         b: Ptr<F>,
         c: ContPtr<F>,
     ) -> ContPtr<F> {
-        let (ptr, _) = self.binop_store.insert_full((op, a, b, c));
-        ContPtr(ContTag::Binop, RawPtr::new(ptr))
+        let (p, inserted) = self.binop_store.insert_full((op, a, b, c));
+        let ptr = ContPtr(ContTag::Binop, RawPtr::new(p));
+        if inserted {
+            self.dehydrated_cont.push(ptr)
+        }
+        ptr
     }
 
     pub fn intern_cont_binop2(&mut self, op: Op2, a: Ptr<F>, b: ContPtr<F>) -> ContPtr<F> {
-        let (ptr, _) = self.binop2_store.insert_full((op, a, b));
-        ContPtr(ContTag::Binop2, RawPtr::new(ptr))
+        let (p, inserted) = self.binop2_store.insert_full((op, a, b));
+        let ptr = ContPtr(ContTag::Binop2, RawPtr::new(p));
+        if inserted {
+            self.dehydrated_cont.push(ptr)
+        }
+        ptr
     }
 
     pub fn intern_cont_relop(
@@ -852,23 +903,39 @@ impl<F: PrimeField> Store<F> {
         b: Ptr<F>,
         c: ContPtr<F>,
     ) -> ContPtr<F> {
-        let (ptr, _) = self.relop_store.insert_full((op, a, b, c));
-        ContPtr(ContTag::Relop, RawPtr::new(ptr))
+        let (p, inserted) = self.relop_store.insert_full((op, a, b, c));
+        let ptr = ContPtr(ContTag::Relop, RawPtr::new(p));
+        if inserted {
+            self.dehydrated_cont.push(ptr)
+        }
+        ptr
     }
 
     pub fn intern_cont_relop2(&mut self, op: Rel2, a: Ptr<F>, b: ContPtr<F>) -> ContPtr<F> {
-        let (ptr, _) = self.relop2_store.insert_full((op, a, b));
-        ContPtr(ContTag::Relop2, RawPtr::new(ptr))
+        let (p, inserted) = self.relop2_store.insert_full((op, a, b));
+        let ptr = ContPtr(ContTag::Relop2, RawPtr::new(p));
+        if inserted {
+            self.dehydrated_cont.push(ptr)
+        }
+        ptr
     }
 
     pub fn intern_cont_if(&mut self, a: Ptr<F>, b: ContPtr<F>) -> ContPtr<F> {
-        let (ptr, _) = self.if_store.insert_full((a, b));
-        ContPtr(ContTag::If, RawPtr::new(ptr))
+        let (p, inserted) = self.if_store.insert_full((a, b));
+        let ptr = ContPtr(ContTag::If, RawPtr::new(p));
+        if inserted {
+            self.dehydrated_cont.push(ptr)
+        }
+        ptr
     }
 
     pub fn intern_cont_tail(&mut self, a: Ptr<F>, b: ContPtr<F>) -> ContPtr<F> {
-        let (ptr, _) = self.tail_store.insert_full((a, b));
-        ContPtr(ContTag::Tail, RawPtr::new(ptr))
+        let (p, inserted) = self.tail_store.insert_full((a, b));
+        let ptr = ContPtr(ContTag::Tail, RawPtr::new(p));
+        if inserted {
+            self.dehydrated_cont.push(ptr)
+        }
+        ptr
     }
 
     pub fn scalar_from_parts(&self, tag: F, value: F) -> Option<ScalarPtr<F>> {
@@ -954,10 +1021,6 @@ impl<F: PrimeField> Store<F> {
         use ContTag::*;
         match ptr.0 {
             Outermost => Some(Continuation::Outermost),
-            Simple => self
-                .simple_store
-                .get_index(ptr.1 .0)
-                .map(|a| Continuation::Simple { continuation: *a }),
             Call => self
                 .call_store
                 .get_index(ptr.1 .0)
@@ -1114,12 +1177,6 @@ impl<F: PrimeField> Store<F> {
         [def, def, def, def]
     }
 
-    fn get_hash_components_simple(&self, cont: &ContPtr<F>) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
-        let cont = self.hash_cont(cont)?.into_hash_components();
-        Some([cont, def, def, def])
-    }
-
     pub fn get_hash_components_cont(&self, ptr: &ContPtr<F>) -> Option<[F; 8]> {
         use Continuation::*;
 
@@ -1127,7 +1184,6 @@ impl<F: PrimeField> Store<F> {
 
         let hash = match &cont {
             Outermost | Terminal | Dummy | Error => self.get_hash_components_default(),
-            Simple { ref continuation } => self.get_hash_components_simple(continuation)?,
             Call {
                 unevaled_arg,
                 saved_env,
@@ -1459,128 +1515,23 @@ impl<F: PrimeField> Store<F> {
         ScalarPtr(op.as_field(), F::zero())
     }
 
-    /// Fill the cache for Scalars.
-    pub fn hydrate_scalar_cache(&self) {
+    /// Fill the cache for Scalars. Only Ptrs which have been interned since last hydration will be hashed, so it is
+    /// safe to call this incrementally. However, for best proving performance, we should call exactly once so all
+    /// hashing can be batched, e.g. on the GPU.
+    pub fn hydrate_scalar_cache(&mut self) {
         println!("hydrating scalar cache");
 
-        for ptr in &self.dehydrated {
+        self.dehydrated.par_iter().for_each(|ptr| {
             self.hash_expr(ptr).expect("failed to hash_expr");
-        }
-
-        self.cons_store.par_iter().for_each(|(car, cdr)| {
-            self.hash_ptrs_2(&[*car, *cdr]);
         });
 
-        self.sym_store.0.into_iter().for_each(|(_, sym)| {
-            self.hash_string(sym);
+        self.dehydrated.truncate(0);
+
+        self.dehydrated_cont.par_iter().for_each(|ptr| {
+            self.hash_cont(ptr).expect("failed to hash_expr");
         });
 
-        // Nums are not hashed, they are their own hash.
-
-        self.fun_store
-            .par_iter()
-            .for_each(|(arg, body, closed_env)| {
-                self.hash_ptrs_3(&[*arg, *body, *closed_env]);
-            });
-
-        self.str_store.0.into_iter().for_each(|(_, name)| {
-            self.hash_string(name);
-        });
-
-        self.thunk_store.par_iter().for_each(|thunk| {
-            use crate::writer::Write;
-            dbg!(&Expression::Thunk(*thunk).fmt_to_string(&self));
-            if let Some(components) = self.get_hash_components_thunk(thunk) {
-                let thunk_index = self.thunk_store.get_index_of(thunk).expect("Thunk missing");
-
-                //self.create_scalar_ptr(ptr, self.poseidon_cache.hash4(&components));
-                //self.poseidon_cache.hash4(&components);
-            }
-        });
-
-        // Continuations are all 8 components
-        let simple = self
-            .simple_store
-            .par_iter()
-            .filter_map(|c| self.get_hash_components_simple(c));
-        let call = self
-            .call_store
-            .par_iter()
-            .filter_map(|(a, b, c)| self.get_hash_components_call(a, b, c));
-        let call2 = self
-            .call2_store
-            .par_iter()
-            .filter_map(|(a, b, c)| self.get_hash_components_call2(a, b, c));
-
-        let tail = self
-            .tail_store
-            .par_iter()
-            .filter_map(|(a, b)| self.get_hash_components_tail(a, b));
-
-        let lookup = self
-            .lookup_store
-            .par_iter()
-            .filter_map(|(a, b)| self.get_hash_components_lookup(a, b));
-
-        let unop = self
-            .unop_store
-            .par_iter()
-            .filter_map(|(a, b)| self.get_hash_components_unop(a, b));
-
-        let binop = self
-            .binop_store
-            .par_iter()
-            .filter_map(|(a, b, c, d)| self.get_hash_components_binop(a, b, c, d));
-
-        let binop2 = self
-            .binop2_store
-            .par_iter()
-            .filter_map(|(a, b, c)| self.get_hash_components_binop2(a, b, c));
-
-        let relop = self
-            .relop_store
-            .par_iter()
-            .filter_map(|(a, b, c, d)| self.get_hash_components_relop(a, b, c, d));
-
-        let relop2 = self
-            .relop2_store
-            .par_iter()
-            .filter_map(|(a, b, c)| self.get_hash_components_relop2(a, b, c));
-
-        let ifi = self
-            .if_store
-            .par_iter()
-            .filter_map(|(a, b)| self.get_hash_components_if(a, b));
-
-        let let_ = self
-            .let_store
-            .par_iter()
-            .filter_map(|(a, b, c, d)| self.get_hash_components_let(a, b, c, d));
-
-        let let_rec = self
-            .let_rec_store
-            .par_iter()
-            .filter_map(|(a, b, c, d)| self.get_hash_components_let_rec(a, b, c, d));
-
-        let chain = simple
-            .chain(call)
-            .chain(call2)
-            .chain(tail)
-            .chain(lookup)
-            .chain(unop)
-            .chain(binop)
-            .chain(binop2)
-            .chain(relop)
-            .chain(relop2)
-            .chain(ifi)
-            .chain(let_)
-            .chain(let_rec);
-
-        chain.for_each(|el| {
-            self.poseidon_cache.hash8(&[
-                el[0][0], el[0][1], el[1][0], el[1][1], el[2][0], el[2][1], el[3][0], el[3][1],
-            ]);
-        });
+        self.dehydrated_cont.truncate(0);
 
         println!("cache hydrated");
     }
@@ -1640,22 +1591,21 @@ mod test {
         use super::ContTag::*;
 
         assert_eq!(0b0001_0000_0000_0000, Outermost as u16);
-        assert_eq!(0b0001_0000_0000_0001, Simple as u16);
-        assert_eq!(0b0001_0000_0000_0010, Call as u16);
-        assert_eq!(0b0001_0000_0000_0011, Call2 as u16);
-        assert_eq!(0b0001_0000_0000_0100, Tail as u16);
-        assert_eq!(0b0001_0000_0000_0101, Error as u16);
-        assert_eq!(0b0001_0000_0000_0110, Lookup as u16);
-        assert_eq!(0b0001_0000_0000_0111, Unop as u16);
-        assert_eq!(0b0001_0000_0000_1000, Binop as u16);
-        assert_eq!(0b0001_0000_0000_1001, Binop2 as u16);
-        assert_eq!(0b0001_0000_0000_1010, Relop as u16);
-        assert_eq!(0b0001_0000_0000_1011, Relop2 as u16);
-        assert_eq!(0b0001_0000_0000_1100, If as u16);
-        assert_eq!(0b0001_0000_0000_1101, Let as u16);
-        assert_eq!(0b0001_0000_0000_1110, LetRec as u16);
-        assert_eq!(0b0001_0000_0000_1111, Dummy as u16);
-        assert_eq!(0b0001_0000_0001_0000, Terminal as u16);
+        assert_eq!(0b0001_0000_0000_0001, Call as u16);
+        assert_eq!(0b0001_0000_0000_0010, Call2 as u16);
+        assert_eq!(0b0001_0000_0000_0011, Tail as u16);
+        assert_eq!(0b0001_0000_0000_0100, Error as u16);
+        assert_eq!(0b0001_0000_0000_0101, Lookup as u16);
+        assert_eq!(0b0001_0000_0000_0110, Unop as u16);
+        assert_eq!(0b0001_0000_0000_0111, Binop as u16);
+        assert_eq!(0b0001_0000_0000_1000, Binop2 as u16);
+        assert_eq!(0b0001_0000_0000_1001, Relop as u16);
+        assert_eq!(0b0001_0000_0000_1010, Relop2 as u16);
+        assert_eq!(0b0001_0000_0000_1011, If as u16);
+        assert_eq!(0b0001_0000_0000_1100, Let as u16);
+        assert_eq!(0b0001_0000_0000_1101, LetRec as u16);
+        assert_eq!(0b0001_0000_0000_1110, Dummy as u16);
+        assert_eq!(0b0001_0000_0000_1111, Terminal as u16);
     }
 
     #[test]

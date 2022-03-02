@@ -32,6 +32,7 @@ const DUMMY_RNG_SEED: [u8; 16] = [
 
 pub static INNER_PRODUCT_SRS: Lazy<GenericSRS<Bls12>> = Lazy::new(|| load_srs().unwrap());
 static FRAME_GROTH_PARAMS: OnceCell<groth16::Parameters<Bls12>> = OnceCell::new();
+
 const MAX_FAKE_SRS_SIZE: usize = 2 << 20;
 
 const TRANSCRIPT_INCLUDE: &[u8] = "LURK-CIRCUIT".as_bytes();
@@ -82,16 +83,17 @@ where
 {
     type E: Engine + MultiMillerLoop;
 
-    fn groth_params(&self) -> Result<&'static groth16::Parameters<Bls12>, SynthesisError> {
+    //fn groth_params(&self) -> Result<&'static groth16::Parameters<Bls12>, SynthesisError> {
+    fn groth_params(&self) -> Result<groth16::Parameters<Bls12>, SynthesisError> {
         let store = Store::default();
         // FIXME: Why can't we use this?
         //let multi_frame = self.blank_multi_frame(&store);
         let multi_frame = MultiFrame::blank(&store, self.chunk_frame_count());
-        let params = FRAME_GROTH_PARAMS.get_or_try_init::<_, SynthesisError>(|| {
-            let rng = &mut XorShiftRng::from_seed(DUMMY_RNG_SEED);
-            let params = groth16::generate_random_parameters::<Bls12, _, _>(multi_frame, rng)?;
-            Ok(params)
-        })?;
+        // let params = FRAME_GROTH_PARAMS.get_or_try_init::<_, SynthesisError>(|| {
+        let rng = &mut XorShiftRng::from_seed(DUMMY_RNG_SEED);
+        let params = groth16::generate_random_parameters::<Bls12, _, _>(multi_frame, rng)?;
+        //Ok(params)
+        // })?;
         Ok(params)
     }
 
@@ -123,6 +125,7 @@ where
         let padding_predicate =
             |count, is_terminal: bool| !is_terminal || self.needs_frame_padding(count, is_terminal);
         let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate);
+        store.hydrate_scalar_cache();
 
         let multiframes = MultiFrame::from_frames(self.chunk_frame_count(), &frames, store);
         let mut proofs = Vec::with_capacity(multiframes.len());
@@ -134,8 +137,6 @@ where
         // results here can be eliminated.
         let multiframes_count = multiframes.len();
         let mut multiframe_proofs = Vec::with_capacity(multiframes_count);
-
-        store.hydrate_scalar_cache();
 
         let last_multiframe = multiframes.last().unwrap().clone();
         for multiframe in multiframes.into_iter() {
@@ -259,7 +260,7 @@ impl Groth16<<Bls12 as Engine>::Fr> for Groth16Prover<<Bls12 as Engine>::Fr> {
             let proof = create_proof(params)?;
             Ok(proof)
         } else {
-            create_proof(self.groth_params()?)
+            create_proof(&self.groth_params()?)
         }
     }
 }

@@ -463,11 +463,6 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-    dbg!("reduce_expression");
-    dbg!(expr.hash().get_value());
-    dbg!(expr.tag.get_value(), expr.hash.get_value());
-    dbg!(&expr.fetch_and_write_str(store));
-
     // dbg!(&env.fetch_and_write_str(store));
     // dbg!(&cont.fetch_and_write_cont_str(store));
     // dbg!(expr, cont);
@@ -2104,10 +2099,6 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.true_num,
     );
 
-    // Continuation::Simple
-    let continuation = AllocatedContPtr::by_index(0, &continuation_components);
-    results.add_clauses_cont(ContTag::Simple, result, env, &continuation, &g.true_num);
-
     // Continuation::Tail
     let saved_env = AllocatedPtr::by_index(0, &continuation_components);
     let continuation = AllocatedContPtr::by_index(1, &continuation_components);
@@ -2424,9 +2415,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31552, cs.num_constraints());
+            assert_eq!(31543, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31531, cs.aux().len());
+            assert_eq!(31522, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

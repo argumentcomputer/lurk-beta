@@ -859,7 +859,6 @@ fn apply_continuation<F: PrimeField>(
                 unreachable!();
             }
         },
-        ContTag::Simple => unreachable!(),
     };
 
     if control.is_apply_continuation() {
@@ -971,7 +970,7 @@ where
         }
     }
 
-    pub fn initial(&self) -> IO<F> {
+    pub fn initial(&mut self) -> IO<F> {
         IO {
             expr: self.expr,
             env: self.env,
@@ -1004,8 +1003,7 @@ where
         while needs_frame_padding(frames.len(), frames[frames.len() - 1].is_terminal()) {
             frames.push(padding_frame.clone());
         }
-        // assert!(padding_frame.is_terminal());
-        // assert!(frames[frames.len() - 1].is_terminal());
+
         frames
     }
 }
