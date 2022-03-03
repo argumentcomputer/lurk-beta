@@ -24,7 +24,6 @@ use crate::store::{Ptr, Store};
 use std::env;
 use std::fs::File;
 use std::io;
-use std::marker::PhantomData;
 
 const DUMMY_RNG_SEED: [u8; 16] = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -82,7 +81,14 @@ where
 {
     type E: Engine + MultiMillerLoop;
 
-    fn groth_params(&self) -> Result<groth16::Parameters<Bls12>, SynthesisError> {
+    fn groth_params(&self) -> Result<&groth16::Parameters<Bls12>, SynthesisError> {
+        self.cached_groth_params()
+            .ok_or(SynthesisError::AssignmentMissing)
+    }
+
+    fn cached_groth_params(&self) -> Option<&groth16::Parameters<Bls12>>;
+
+    fn get_groth_params(&self) -> Result<groth16::Parameters<Bls12>, SynthesisError> {
         let store = Store::default();
         let multiframe = MultiFrame::blank(&store, self.chunk_frame_count());
         let rng = &mut XorShiftRng::from_seed(DUMMY_RNG_SEED);
@@ -213,28 +219,38 @@ where
     }
 }
 
-pub struct Groth16Prover<F: PrimeField> {
+pub struct Groth16Prover<E: Engine + MultiMillerLoop> {
     chunk_frame_count: usize,
-    _p: PhantomData<F>,
+    groth_params: Option<groth16::Parameters<E>>,
 }
 
-impl<F: PrimeField> Groth16Prover<F> {
+impl Groth16Prover<Bls12> {
     pub fn new(chunk_frame_count: usize) -> Self {
-        Groth16Prover::<F> {
+        let mut prover = Groth16Prover {
             chunk_frame_count,
-            _p: PhantomData::<F>,
-        }
+            groth_params: None,
+        };
+        prover.groth_params = Some(
+            prover
+                .get_groth_params()
+                .expect("Groth16 parameter creation failed"),
+        );
+        prover
     }
 }
 
-impl Prover<<Bls12 as Engine>::Fr> for Groth16Prover<<Bls12 as Engine>::Fr> {
+impl Prover<<Bls12 as Engine>::Fr> for Groth16Prover<Bls12> {
     fn chunk_frame_count(&self) -> usize {
         self.chunk_frame_count
     }
 }
 
-impl Groth16<<Bls12 as Engine>::Fr> for Groth16Prover<<Bls12 as Engine>::Fr> {
+impl Groth16<<Bls12 as Engine>::Fr> for Groth16Prover<Bls12> {
     type E = Bls12;
+
+    fn cached_groth_params(&self) -> Option<&groth16::Parameters<Bls12>> {
+        self.groth_params.as_ref()
+    }
 
     fn generate_groth16_proof<R: RngCore>(
         &self,
@@ -253,7 +269,7 @@ impl Groth16<<Bls12 as Engine>::Fr> for Groth16Prover<<Bls12 as Engine>::Fr> {
             let proof = create_proof(params)?;
             Ok(proof)
         } else {
-            create_proof(&self.groth_params()?)
+            create_proof(self.groth_params()?)
         }
     }
 }
