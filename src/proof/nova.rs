@@ -329,7 +329,7 @@ mod tests {
                      (c 2))
                 (/ (+ a b) c))",
             |store| store.num(3),
-            18, // Always check Nova in this particular case, for regressions.
+            18,
             DEFAULT_CHECK_NOVA,
             true,
             100,
@@ -431,7 +431,6 @@ mod tests {
                                     (* base ((exp base) (- exponent 1))))))))
                 ((exp 5) 3))",
             |store| store.num(125),
-            // 117, // FIXME: is this change correct?
             91,
             DEFAULT_CHECK_NOVA,
             true,
@@ -452,7 +451,6 @@ mod tests {
                                          (((exp base) (- exponent 1)) (* acc base))))))))
                 (((exp 5) 5) 1))",
             |store| store.num(3125),
-            // 248, // FIXME: is this change correct?
             201,
             DEFAULT_CHECK_NOVA,
             true,
