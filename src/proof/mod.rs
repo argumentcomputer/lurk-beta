@@ -5,7 +5,6 @@ use bellperson::{util_cs::test_cs::TestConstraintSystem, Circuit, SynthesisError
 
 use crate::circuit::MultiFrame;
 use crate::eval::{Witness, IO};
-use crate::store::Store;
 use ff::PrimeField;
 
 pub(crate) type SequentialCS<'a, F, IO, Witness> =
@@ -69,10 +68,6 @@ pub trait Prover<F: PrimeField> {
     }
     fn needs_multiframe_padding(&self, raw_multiframe_count: usize) -> bool {
         self.multiframe_padding_count(raw_multiframe_count) != 0
-    }
-
-    fn blank_multi_frame<'a>(&self, store: &'a Store<F>) -> MultiFrame<'a, F, IO<F>, Witness<F>> {
-        MultiFrame::blank(store, self.chunk_frame_count())
     }
 
     fn outer_synthesize<'a>(

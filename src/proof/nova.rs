@@ -291,6 +291,7 @@ mod tests {
                     frames.len()
                 );
 
+                assert_eq!(expected_iterations, frames.len());
                 assert_eq!(adjusted_iterations, cs.len());
                 assert_eq!(expected_result, cs[cs.len() - 1].0.output.unwrap().expr);
             }

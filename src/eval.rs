@@ -52,6 +52,14 @@ impl<F: PrimeField, W: Copy> Frame<IO<F>, W> {
         // Report that index. Otherwise we can't report the initial input.
         self.output.log(store, self.i + 1);
     }
+
+    pub fn significant_frame_count(frames: &[Frame<IO<F>, W>]) -> usize {
+        frames
+            .iter()
+            .rev()
+            .skip_while(|frame| frame.is_terminal())
+            .count()
+    }
 }
 
 pub trait Evaluable<F: PrimeField, W> {

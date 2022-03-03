@@ -82,17 +82,11 @@ where
 {
     type E: Engine + MultiMillerLoop;
 
-    //fn groth_params(&self) -> Result<&'static groth16::Parameters<Bls12>, SynthesisError> {
     fn groth_params(&self) -> Result<groth16::Parameters<Bls12>, SynthesisError> {
         let store = Store::default();
-        // FIXME: Why can't we use this?
-        //let multi_frame = self.blank_multi_frame(&store);
-        let multi_frame = MultiFrame::blank(&store, self.chunk_frame_count());
-        // let params = FRAME_GROTH_PARAMS.get_or_try_init::<_, SynthesisError>(|| {
+        let multiframe = MultiFrame::blank(&store, self.chunk_frame_count());
         let rng = &mut XorShiftRng::from_seed(DUMMY_RNG_SEED);
-        let params = groth16::generate_random_parameters::<Bls12, _, _>(multi_frame, rng)?;
-        //Ok(params)
-        // })?;
+        let params = groth16::generate_random_parameters::<Bls12, _, _>(multiframe, rng)?;
         Ok(params)
     }
 
@@ -311,7 +305,7 @@ fn verify_sequential_groth16_proofs(
 mod tests {
     use super::*;
     use crate::circuit::ToInputs;
-    use crate::eval::empty_sym_env;
+    use crate::eval::{empty_sym_env, Frame};
     use crate::proof::{verify_sequential_css, SequentialCS};
     use bellperson::{
         groth16::aggregate::{
@@ -359,9 +353,11 @@ mod tests {
             let multi_frames = MultiFrame::from_frames(DEFAULT_CHUNK_FRAME_COUNT, &frames, &s);
 
             let cs = groth_prover.outer_synthesize(&multi_frames).unwrap();
+            let adjusted_iterations = groth_prover.expected_total_iterations(expected_iterations);
 
             if !debug {
-                //assert_eq!(expected_iterations, frames.len());
+                assert_eq!(expected_iterations, Frame::significant_frame_count(&frames));
+                assert_eq!(adjusted_iterations, cs.len());
                 assert_eq!(expected_result, cs[cs.len() - 1].0.output.unwrap().expr);
             }
 
