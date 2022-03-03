@@ -184,7 +184,6 @@ fn reduce<F: PrimeField>(
     cont: ContPtr<F>,
     store: &mut Store<F>,
 ) -> (Ptr<F>, Ptr<F>, ContPtr<F>, Witness<F>) {
-    dbg!(expr.tag(), expr.fmt_to_string(&store));
     let (ctrl, witness) = reduce_with_witness(expr, env, cont, store);
     let (new_expr, new_env, new_cont) = ctrl.into_results();
 

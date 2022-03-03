@@ -93,14 +93,11 @@ impl<'a, F: PrimeField, T: Clone + Copy + Debug + std::cmp::PartialEq, W: Copy>
             }
 
             let last_frame = chunk.last().expect("chunk must not be empty");
-            let last_circuit_frame = inner_frames
-                .last()
-                .expect("chunk must not be empty")
-                .clone();
+            let last_circuit_frame = *inner_frames.last().expect("chunk must not be empty");
 
             // Fill out the MultiFrame, if needed, and capture output of the final actual frame.
             for _ in chunk.len()..count {
-                inner_frames.push(last_circuit_frame.clone());
+                inner_frames.push(last_circuit_frame);
             }
 
             let output = last_frame.output;
@@ -200,7 +197,7 @@ impl<F: PrimeField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
             &input_cont,
             &self.witness,
             self.store,
-            &g,
+            g,
         )
     }
 }
@@ -523,7 +520,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         &reduce_sym_not_dummy,
         witness,
         store,
-        &g,
+        g,
     )?;
 
     results.add_clauses_expr(Tag::Sym, &sym_result, &sym_env, &sym_cont, &sym_apply_cont);
@@ -544,7 +541,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         &reduce_cons_not_dummy,
         witness,
         store,
-        &g,
+        g,
     )?;
 
     results.add_clauses_expr(
@@ -602,7 +599,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         &apply_continuation_boolean,
         witness,
         store,
-        &g,
+        g,
     )?;
 
     let apply_continuation_make_thunk: AllocatedNum<F> = apply_continuation_results.3;
@@ -649,7 +646,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         &make_thunk_boolean,
         witness,
         store,
-        &g,
+        g,
     )?;
 
     let result_expr = AllocatedPtr::pick(

@@ -11,7 +11,7 @@ use bellperson::{
 };
 use blstrs::{Bls12, Scalar};
 use ff::PrimeField;
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::Lazy;
 use pairing_lib::{Engine, MultiMillerLoop};
 use rand::{RngCore, SeedableRng};
 use rand_xorshift::XorShiftRng;
@@ -31,7 +31,6 @@ const DUMMY_RNG_SEED: [u8; 16] = [
 ];
 
 pub static INNER_PRODUCT_SRS: Lazy<GenericSRS<Bls12>> = Lazy::new(|| load_srs().unwrap());
-static FRAME_GROTH_PARAMS: OnceCell<groth16::Parameters<Bls12>> = OnceCell::new();
 
 const MAX_FAKE_SRS_SIZE: usize = 2 << 20;
 
