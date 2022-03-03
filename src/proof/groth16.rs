@@ -369,7 +369,11 @@ mod tests {
             let multi_frames = MultiFrame::from_frames(DEFAULT_CHUNK_FRAME_COUNT, &frames, &s);
 
             let cs = groth_prover.outer_synthesize(&multi_frames).unwrap();
-            let adjusted_iterations = groth_prover.expected_total_iterations(expected_iterations);
+
+            // SnarkPack requires at least proofs.
+            let min_padded = 2;
+            let adjusted_iterations =
+                groth_prover.expected_total_iterations(expected_iterations, min_padded);
 
             if !debug {
                 assert_eq!(expected_iterations, Frame::significant_frame_count(&frames));

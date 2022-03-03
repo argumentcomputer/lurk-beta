@@ -53,13 +53,14 @@ pub trait Prover<F: PrimeField> {
         total_frames % self.chunk_frame_count()
     }
 
-    fn expected_total_iterations(&self, raw_iterations: usize) -> usize {
+    fn expected_total_iterations(&self, raw_iterations: usize, min: usize) -> usize {
         let cfc = self.chunk_frame_count();
         let full_multiframe_count = raw_iterations / cfc;
         let unfull_multiframe_frame_count = raw_iterations % cfc;
         let raw_multiframe_count =
             full_multiframe_count + (unfull_multiframe_frame_count != 0) as usize;
-        raw_multiframe_count + self.multiframe_padding_count(raw_multiframe_count)
+        let min_padded = raw_multiframe_count + self.multiframe_padding_count(raw_multiframe_count);
+        min_padded.max(min)
     }
 
     fn multiframe_padding_count(&self, _raw_multiframe_count: usize) -> usize {
@@ -77,8 +78,7 @@ pub trait Prover<F: PrimeField> {
         let res = multiframes
             .iter()
             .enumerate()
-            .map(|(i, multiframe)| {
-                dbg!(&i);
+            .map(|(_, multiframe)| {
                 let mut cs = TestConstraintSystem::new();
                 multiframe.clone().synthesize(&mut cs).unwrap(); // FIXME: unwrap
                 (multiframe.clone(), cs)

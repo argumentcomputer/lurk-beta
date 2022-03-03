@@ -472,7 +472,6 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         results.add_clauses_expr(Tag::Fun, expr, env, cont, &g.true_num);
     }
 
-    dbg!("xxx");
     // If expr is a thunk, this will allocate its components and hash, etc.
     // If not, these will be dummies.
     let (expr_thunk_hash, expr_thunk_value, expr_thunk_continuation) =

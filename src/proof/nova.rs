@@ -275,14 +275,14 @@ mod tests {
                 proof.verify(&shape_and_gens, &instance);
             }
         }
-        dbg!(&check_constraint_systems);
+
         if check_constraint_systems {
             let frames = nova_prover.get_evaluation_frames(expr, e, &mut s, limit);
 
             let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, &s);
             let cs = nova_prover.outer_synthesize(&multiframes).unwrap();
 
-            let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
+            let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations, 1);
 
             if !debug {
                 dbg!(
@@ -291,7 +291,7 @@ mod tests {
                     frames.len()
                 );
 
-                assert_eq!(expected_iterations, frames.len());
+                assert_eq!(expected_iterations, Frame::significant_frame_count(&frames));
                 assert_eq!(adjusted_iterations, cs.len());
                 assert_eq!(expected_result, cs[cs.len() - 1].0.output.unwrap().expr);
             }
