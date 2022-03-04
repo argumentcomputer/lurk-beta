@@ -282,7 +282,7 @@ mod tests {
             let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, &s);
             let cs = nova_prover.outer_synthesize(&multiframes).unwrap();
 
-            let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations, 1);
+            let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
 
             if !debug {
                 dbg!(
