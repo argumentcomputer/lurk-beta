@@ -73,7 +73,7 @@ pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
     println!("Lurk REPL welcomes you.");
 
     let mut s = Store::default();
-    let limit = 100;
+    let limit = 100_000_000;
     let mut repl = Repl::new(&mut s, limit)?;
 
     {
