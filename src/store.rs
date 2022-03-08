@@ -1519,8 +1519,6 @@ impl<F: PrimeField> Store<F> {
     /// safe to call this incrementally. However, for best proving performance, we should call exactly once so all
     /// hashing can be batched, e.g. on the GPU.
     pub fn hydrate_scalar_cache(&mut self) {
-        println!("hydrating scalar cache");
-
         self.dehydrated.par_iter().for_each(|ptr| {
             self.hash_expr(ptr).expect("failed to hash_expr");
         });
@@ -1531,9 +1529,7 @@ impl<F: PrimeField> Store<F> {
             self.hash_cont(ptr).expect("failed to hash_expr");
         });
 
-        self.dehydrated_cont.truncate(0);
-
-        println!("cache hydrated");
+        self.dehydrated_cont.clear();
     }
 }
 
