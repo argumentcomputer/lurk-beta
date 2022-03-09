@@ -11,14 +11,14 @@ use bellperson::{
 };
 use blstrs::{Bls12, Scalar};
 use ff::PrimeField;
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::Lazy;
 use pairing_lib::{Engine, MultiMillerLoop};
 use rand::{RngCore, SeedableRng};
 use rand_xorshift::XorShiftRng;
 
-use crate::circuit::CircuitFrame;
+use crate::circuit::MultiFrame;
 use crate::eval::{Evaluator, Witness, IO};
-use crate::proof::Provable;
+use crate::proof::{Provable, Prover};
 use crate::store::{Ptr, Store};
 
 use std::env;
@@ -30,7 +30,7 @@ const DUMMY_RNG_SEED: [u8; 16] = [
 ];
 
 pub static INNER_PRODUCT_SRS: Lazy<GenericSRS<Bls12>> = Lazy::new(|| load_srs().unwrap());
-static FRAME_GROTH_PARAMS: OnceCell<groth16::Parameters<Bls12>> = OnceCell::new();
+
 const MAX_FAKE_SRS_SIZE: usize = 2 << 20;
 
 const TRANSCRIPT_INCLUDE: &[u8] = "LURK-CIRCUIT".as_bytes();
@@ -63,30 +63,15 @@ pub struct Proof<'a, E: Engine + MultiMillerLoop>
 where
     <E as Engine>::Gt: blstrs::Compress,
 {
-    frame_proofs: Vec<(
-        CircuitFrame<'a, E::Fr, IO<E::Fr>, Witness<E::Fr>>,
+    multiframe_proofs: Vec<(
+        MultiFrame<'a, E::Fr, IO<E::Fr>, Witness<E::Fr>>,
         groth16::Proof<E>,
     )>,
     aggregated_proof_and_instance: AggregateProofAndInstance<E>,
     aggregated_proof: AggregateProof<E>,
-    // FIXME: remove when input aggregation is enabled.
-    transcript_include: Vec<u8>,
 }
 
-impl<F: PrimeField, W> CircuitFrame<'_, F, IO<F>, W> {
-    // This is only needed for proof aggregation without input aggregation.
-    fn extend_transcript(&self, transcript: &mut Vec<u8>, store: &Store<F>) {
-        // TODO: Refactor to share code with `public_inputs` to avoid allocation.
-        let inputs = self.public_inputs(store);
-
-        for input in inputs {
-            let bytes = input.to_repr();
-            transcript.extend(bytes.as_ref());
-        }
-    }
-}
-
-pub trait Groth16
+pub trait Groth16<F: PrimeField>: Prover<F>
 where
     <Self::E as Engine>::Gt: blstrs::Compress + serde::Serialize,
     <Self::E as Engine>::G1: serde::Serialize,
@@ -96,19 +81,24 @@ where
 {
     type E: Engine + MultiMillerLoop;
 
-    fn groth_params() -> Result<&'static groth16::Parameters<Bls12>, SynthesisError> {
+    fn groth_params(&self) -> Result<&groth16::Parameters<Bls12>, SynthesisError> {
+        self.cached_groth_params()
+            .ok_or(SynthesisError::AssignmentMissing)
+    }
+
+    fn cached_groth_params(&self) -> Option<&groth16::Parameters<Bls12>>;
+
+    fn get_groth_params(&self) -> Result<groth16::Parameters<Bls12>, SynthesisError> {
         let store = Store::default();
-        let circuit_frame = CircuitFrame::blank(&store);
-        let params = FRAME_GROTH_PARAMS.get_or_try_init::<_, SynthesisError>(|| {
-            let rng = &mut XorShiftRng::from_seed(DUMMY_RNG_SEED);
-            let params = groth16::generate_random_parameters::<Bls12, _, _>(circuit_frame, rng)?;
-            Ok(params)
-        })?;
+        let multiframe = MultiFrame::blank(&store, self.chunk_frame_count());
+        let rng = &mut XorShiftRng::from_seed(DUMMY_RNG_SEED);
+        let params = groth16::generate_random_parameters::<Bls12, _, _>(multiframe, rng)?;
         Ok(params)
     }
 
     fn prove<R: RngCore>(
-        circuit_frame: CircuitFrame<
+        &self,
+        multi_frame: MultiFrame<
             '_,
             <Self::E as Engine>::Fr,
             IO<<Self::E as Engine>::Fr>,
@@ -117,10 +107,12 @@ where
         params: Option<&groth16::Parameters<Self::E>>,
         mut rng: R,
     ) -> Result<groth16::Proof<Self::E>, SynthesisError> {
-        Self::generate_groth16_proof(circuit_frame, params, &mut rng)
+        self.generate_groth16_proof(multi_frame, params, &mut rng)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn outer_prove<'a, R: RngCore + Clone>(
+        &self,
         params: &groth16::Parameters<Self::E>,
         srs: &GenericSRS<Self::E>,
         expr: Ptr<<Self::E as Engine>::Fr>,
@@ -129,64 +121,57 @@ where
         limit: usize,
         mut rng: R,
     ) -> Result<FrameProofs<'a, Self::E>, SynthesisError> {
-        // See NOTE below.
-        assert_eq!(1, limit.count_ones());
-
-        // FIXME: optimize execution order
-        let mut evaluator = Evaluator::new(expr, env, store, limit);
-        let mut frames = evaluator.iter().collect::<Vec<_>>();
-
-        if frames.len().count_ones() != 1 {
-            // NOTE: PADDING and LIMIT
-            //
-            // If there are not a power-of-two number of frames, then padding will be needed.
-            // In that case, obtain a trivial final proof of the terminal reduction to itself.
-            // This will fail if the proof is not complete (i.e. the final continuation must be Terminal).
-            // This implies that when power-of-two padding is required, we must choose a limit
-            // which is a power of two.
-
-            frames.push(frames[frames.len() - 1].next(store));
-        }
-
-        let mut proofs = Vec::with_capacity(frames.len());
-        let mut circuit_frames = Vec::with_capacity(frames.len());
-
-        let mut statements = Vec::with_capacity(frames.len());
-
+        let padding_predicate =
+            |count, is_terminal: bool| !is_terminal || self.needs_frame_padding(count, is_terminal);
+        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate);
         store.hydrate_scalar_cache();
+
+        let multiframes = MultiFrame::from_frames(self.chunk_frame_count(), &frames, store);
+        let mut proofs = Vec::with_capacity(multiframes.len());
+        let mut statements = Vec::with_capacity(multiframes.len());
 
         // NOTE: frame_proofs are not really needed, but having them helps with
         // testing and building confidence as we work up to fully succinct proofs.
         // Once these are removed a lot of the cloning and awkwardness of assembling
         // results here can be eliminated.
-        let mut frame_proofs = Vec::with_capacity(frames.len());
-        let mut transcript_include = Vec::new();
-        for frame in &frames {
-            let circuit_frame = CircuitFrame::from_frame(frame.clone(), store);
-            statements.push(circuit_frame.clone().public_inputs(store));
-            circuit_frames.push(circuit_frame.clone());
+        let multiframes_count = multiframes.len();
+        let mut multiframe_proofs = Vec::with_capacity(multiframes_count);
 
-            let proof = Self::generate_groth16_proof(circuit_frame.clone(), Some(params), &mut rng)
+        let last_multiframe = multiframes.last().unwrap().clone();
+        for multiframe in multiframes.into_iter() {
+            statements.push(multiframe.public_inputs());
+            let proof = self
+                .generate_groth16_proof(multiframe.clone(), Some(params), &mut rng)
                 .unwrap();
+
             proofs.push(proof.clone());
-
-            // FIXME: Remove this when input aggregation is working and enabled.
-            circuit_frame.extend_transcript(&mut transcript_include, store);
-
-            frame_proofs.push((circuit_frame, proof));
+            multiframe_proofs.push((multiframe, proof));
         }
 
-        let last_index = frames.len() - 1;
-        while proofs.len().count_ones() != 1 {
-            // Pad proofs and frames to a power of 2.
-            proofs.push(proofs[last_index].clone());
-            frames.push(frames[last_index].clone());
-            statements.push(statements[last_index].clone());
+        if proofs.len().count_ones() != 1 || proofs.len() < 2 {
+            let dummy_multiframe = MultiFrame::make_dummy(
+                self.chunk_frame_count(),
+                last_multiframe.frames.and_then(|x| x.last().copied()),
+                store,
+            );
+
+            let dummy_proof = self
+                .generate_groth16_proof(dummy_multiframe.clone(), Some(params), &mut rng)
+                .unwrap();
+
+            let dummy_statement = dummy_multiframe.public_inputs();
+            while proofs.len().count_ones() != 1 || proofs.len() < 2 {
+                // Pad proofs and frames to a power of 2.
+                proofs.push(dummy_proof.clone());
+                statements.push(dummy_statement.clone());
+            }
         }
+        assert_eq!(1, statements.len().count_ones());
+        dbg!(&statements);
 
         let srs = srs.specialize(proofs.len()).0;
 
-        let aggregated_proof = aggregate_proofs(&srs, &transcript_include, proofs.as_slice())?;
+        let aggregated_proof = aggregate_proofs(&srs, TRANSCRIPT_INCLUDE, proofs.as_slice())?;
 
         let aggregated_proof_and_instance = aggregate_proofs_and_instances(
             &srs,
@@ -197,17 +182,17 @@ where
 
         Ok((
             Proof {
-                frame_proofs,
+                multiframe_proofs,
                 aggregated_proof_and_instance,
                 aggregated_proof,
-                transcript_include,
             },
             statements,
         ))
     }
 
     fn generate_groth16_proof<R: RngCore>(
-        circuit_frame: CircuitFrame<
+        &self,
+        multi_frame: MultiFrame<
             '_,
             <Self::E as Engine>::Fr,
             IO<<Self::E as Engine>::Fr>,
@@ -218,7 +203,8 @@ where
     ) -> Result<groth16::Proof<Self::E>, SynthesisError>;
 
     fn verify_groth16_proof(
-        circuit_frame: CircuitFrame<
+        // multiframe need not have inner frames populated for verification purposes.
+        multiframe: MultiFrame<
             '_,
             <Self::E as Engine>::Fr,
             IO<<Self::E as Engine>::Fr>,
@@ -227,19 +213,48 @@ where
         pvk: &groth16::PreparedVerifyingKey<Self::E>,
         proof: groth16::Proof<Self::E>,
     ) -> Result<bool, SynthesisError> {
-        let inputs = circuit_frame.public_inputs(circuit_frame.store);
+        let inputs = multiframe.public_inputs();
 
         verify_proof(pvk, &proof, &inputs)
     }
 }
 
-pub struct Groth16Prover();
+pub struct Groth16Prover<E: Engine + MultiMillerLoop> {
+    chunk_frame_count: usize,
+    groth_params: Option<groth16::Parameters<E>>,
+}
 
-impl Groth16 for Groth16Prover {
+impl Groth16Prover<Bls12> {
+    pub fn new(chunk_frame_count: usize) -> Self {
+        let mut prover = Groth16Prover {
+            chunk_frame_count,
+            groth_params: None,
+        };
+        prover.groth_params = Some(
+            prover
+                .get_groth_params()
+                .expect("Groth16 parameter creation failed"),
+        );
+        prover
+    }
+}
+
+impl Prover<<Bls12 as Engine>::Fr> for Groth16Prover<Bls12> {
+    fn chunk_frame_count(&self) -> usize {
+        self.chunk_frame_count
+    }
+}
+
+impl Groth16<<Bls12 as Engine>::Fr> for Groth16Prover<Bls12> {
     type E = Bls12;
 
+    fn cached_groth_params(&self) -> Option<&groth16::Parameters<Bls12>> {
+        self.groth_params.as_ref()
+    }
+
     fn generate_groth16_proof<R: RngCore>(
-        circuit_frame: CircuitFrame<
+        &self,
+        multiframe: MultiFrame<
             '_,
             <Self::E as Engine>::Fr,
             IO<<Self::E as Engine>::Fr>,
@@ -248,35 +263,53 @@ impl Groth16 for Groth16Prover {
         groth_params: Option<&groth16::Parameters<Self::E>>,
         rng: &mut R,
     ) -> Result<groth16::Proof<Self::E>, SynthesisError> {
-        let create_proof = |p| groth16::create_random_proof(circuit_frame, p, rng);
+        let create_proof = |p| groth16::create_random_proof(multiframe, p, rng);
 
         if let Some(params) = groth_params {
-            create_proof(params)
+            let proof = create_proof(params)?;
+            Ok(proof)
         } else {
-            create_proof(Self::groth_params()?)
+            create_proof(self.groth_params()?)
         }
+    }
+}
+
+impl
+    MultiFrame<'_, <Bls12 as Engine>::Fr, IO<<Bls12 as Engine>::Fr>, Witness<<Bls12 as Engine>::Fr>>
+{
+    pub fn verify_groth16_proof(
+        self,
+        pvk: &groth16::PreparedVerifyingKey<Bls12>,
+        proof: groth16::Proof<Bls12>,
+    ) -> Result<bool, SynthesisError> {
+        let inputs: Vec<Scalar> = self.public_inputs();
+        verify_proof(pvk, &proof, inputs.as_slice())
     }
 }
 
 #[allow(dead_code)]
 fn verify_sequential_groth16_proofs(
-    frame_proofs: Vec<(
-        CircuitFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>>,
+    multiframe_proofs: Vec<(
+        MultiFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>>,
         groth16::Proof<Bls12>,
     )>,
     vk: &groth16::VerifyingKey<Bls12>,
 ) -> Result<bool, SynthesisError> {
-    let previous_frame: Option<&CircuitFrame<Scalar, IO<Scalar>, Witness<Scalar>>> = None;
-
     let pvk = groth16::prepare_verifying_key(vk);
 
-    for (_, (frame, proof)) in frame_proofs.into_iter().enumerate() {
-        if let Some(prev) = previous_frame {
-            if !prev.precedes(&frame) {
+    for (i, (multiframe, proof)) in multiframe_proofs.iter().enumerate() {
+        if i > 0 {
+            let prev = &multiframe_proofs[i - 1].0;
+
+            if !prev.precedes(multiframe) {
                 return Ok(false);
             }
         }
-        if !frame.verify_groth16_proof(&pvk, proof.clone())? {
+
+        if !multiframe
+            .clone()
+            .verify_groth16_proof(&pvk, proof.clone())?
+        {
             return Ok(false);
         }
     }
@@ -284,35 +317,11 @@ fn verify_sequential_groth16_proofs(
     Ok(true)
 }
 
-impl CircuitFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>> {
-    pub fn generate_groth16_proof<R: RngCore>(
-        self,
-        groth_params: Option<&groth16::Parameters<Bls12>>,
-        rng: &mut R,
-    ) -> Result<groth16::Proof<Bls12>, SynthesisError> {
-        let create_proof = |p| groth16::create_random_proof(self, p, rng);
-
-        if let Some(params) = groth_params {
-            create_proof(params)
-        } else {
-            create_proof(Groth16Prover::groth_params()?)
-        }
-    }
-
-    pub fn verify_groth16_proof(
-        self,
-        pvk: &groth16::PreparedVerifyingKey<Bls12>,
-        proof: groth16::Proof<Bls12>,
-    ) -> Result<bool, SynthesisError> {
-        let inputs = self.public_inputs(self.store);
-        verify_proof(pvk, &proof, &inputs)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::eval::empty_sym_env;
+    use crate::circuit::ToInputs;
+    use crate::eval::{empty_sym_env, Frame};
     use crate::proof::{verify_sequential_css, SequentialCS};
     use bellperson::{
         groth16::aggregate::{
@@ -325,6 +334,7 @@ mod tests {
     use rand::rngs::OsRng;
 
     const DEFAULT_CHECK_GROTH16: bool = false;
+    const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
 
     fn outer_prove_aux<Fo: Fn(&'_ mut Store<Fr>) -> Ptr<Fr>>(
         source: &str,
@@ -342,36 +352,67 @@ mod tests {
 
         let expr = s.read(source).unwrap();
 
-        let groth_params = Groth16Prover::groth_params().unwrap();
+        let groth_prover = Groth16Prover::new(DEFAULT_CHUNK_FRAME_COUNT);
+        let groth_params = groth_prover.groth_params().unwrap();
 
         let pvk = groth16::prepare_verifying_key(&groth_params.vk);
 
         let e = empty_sym_env(&s);
 
+        if check_constraint_systems {
+            let padding_predicate = |count, is_terminal: bool| {
+                !is_terminal || groth_prover.needs_frame_padding(count, is_terminal)
+            };
+            let frames = Evaluator::generate_frames(expr, e, &mut s, limit, padding_predicate);
+            s.hydrate_scalar_cache();
+
+            let multi_frames = MultiFrame::from_frames(DEFAULT_CHUNK_FRAME_COUNT, &frames, &s);
+
+            let cs = groth_prover.outer_synthesize(&multi_frames).unwrap();
+
+            let _adjusted_iterations = groth_prover.expected_total_iterations(expected_iterations);
+
+            if !debug {
+                assert_eq!(expected_iterations, Frame::significant_frame_count(&frames));
+                // This test fails sometimes because we are using outer_synthesize to get the frames.
+                // That method only really exists to let us test synthesis without proofs, and it doesn't duplicate
+                // all the padding logic required for SnarkPack. It might be nice to eventually refactor such taht it does,
+                // in which case this check will be useful. So let's leave it around for now.
+                // assert_eq!(adjusted_iterations, cs.len());
+                assert_eq!(expected_result, cs[cs.len() - 1].0.output.unwrap().expr);
+            }
+
+            let constraint_systems_verified = verify_sequential_css::<Scalar>(&cs).unwrap();
+            assert!(constraint_systems_verified);
+
+            check_cs_deltas(&cs, limit);
+        }
+
         let proof_results = if check_groth16 {
             Some(
-                Groth16Prover::outer_prove(
-                    &groth_params,
-                    &INNER_PRODUCT_SRS,
-                    expr.clone(),
-                    empty_sym_env(&s),
-                    &mut s,
-                    limit,
-                    rng,
-                )
-                .unwrap(),
+                groth_prover
+                    .outer_prove(
+                        &groth_params,
+                        &INNER_PRODUCT_SRS,
+                        expr.clone(),
+                        empty_sym_env(&s),
+                        &mut s,
+                        limit,
+                        rng,
+                    )
+                    .unwrap(),
             )
         } else {
             None
         };
 
         if let Some((proof, statements)) = proof_results {
-            let frame_proofs = proof.frame_proofs.clone();
+            let frame_proofs = proof.multiframe_proofs.clone();
             if !debug {
-                assert_eq!(expected_iterations, frame_proofs.len() - 1);
+                //assert_eq!(expected_iterations, frame_proofs.len() - 1);
                 assert_eq!(
                     expected_result,
-                    proof.frame_proofs[frame_proofs.len() - 1]
+                    proof.multiframe_proofs[frame_proofs.len() - 1]
                         .0
                         .output
                         .as_ref()
@@ -380,10 +421,11 @@ mod tests {
                 );
             }
             let proofs_verified =
-                verify_sequential_groth16_proofs(proof.frame_proofs, &groth_params.vk).unwrap();
+                verify_sequential_groth16_proofs(proof.multiframe_proofs, &groth_params.vk)
+                    .unwrap();
             assert!(proofs_verified);
 
-            let mid = IO::<Fr>::public_input_size();
+            let mid = IO::<Fr>::input_size();
             let public_inputs = &statements[0][..mid];
             let public_outputs = &statements[statements.len() - 1][mid..];
 
@@ -406,29 +448,12 @@ mod tests {
                 rng.clone(),
                 &statements,
                 &proof.aggregated_proof,
-                &proof.transcript_include,
+                TRANSCRIPT_INCLUDE,
             )
             .unwrap();
 
             assert!(aggregate_proof_verified);
             assert!(aggregate_proof_and_instances_verified);
-        };
-
-        let constraint_systems = if check_constraint_systems {
-            Some(CircuitFrame::outer_synthesize(expr, e, &mut s, limit, true).unwrap())
-        } else {
-            None
-        };
-
-        if let Some(cs) = constraint_systems {
-            if !debug {
-                assert_eq!(expected_iterations, cs.len() - 1);
-                assert_eq!(expected_result, cs[cs.len() - 1].0.output.expr);
-            }
-            let constraint_systems_verified = verify_sequential_css::<Scalar>(&cs, &s).unwrap();
-            assert!(constraint_systems_verified);
-
-            check_cs_deltas(&cs, limit);
         };
     }
 
@@ -438,14 +463,13 @@ mod tests {
     ) -> () {
         let mut cs_blank = MetricCS::<Fr>::new();
         let store = Store::<Fr>::default();
-        let blank_frame = CircuitFrame::<Scalar, _, _>::blank(&store);
+        let blank_frame = MultiFrame::<Scalar, _, _>::blank(&store, DEFAULT_CHUNK_FRAME_COUNT);
         blank_frame
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize");
 
-        for (i, (_frame, cs)) in constraint_systems.iter().take(limit).enumerate() {
+        for (_, (_frame, cs)) in constraint_systems.iter().take(limit).enumerate() {
             let delta = cs.delta(&cs_blank, true);
-            dbg!(i, &delta);
             assert!(delta == Delta::Equal);
         }
     }
@@ -459,7 +483,7 @@ mod tests {
                 (/ (+ a b) c))",
             |store| store.num(3),
             18,
-            true, // Always check Groth16 in at least one test.
+            DEFAULT_CHECK_GROTH16,
             true,
             128,
             false,
@@ -485,13 +509,11 @@ mod tests {
             &"(eq 5 5)",
             |store| store.t(),
             3,
-            DEFAULT_CHECK_GROTH16,
+            true, // Always check Groth16 in at least one test.
             true,
             128,
             false,
         );
-
-        // outer_prove_aux(&"(eq 5 6)", Expression::Nil, 5, false, true, 100, false);
     }
 
     #[test]

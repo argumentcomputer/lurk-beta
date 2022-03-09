@@ -52,7 +52,10 @@ jobs:
             source $HOME/.cargo/env
 
           run: |
-            $HOME/.cargo/bin/cargo test --release --target ${{ matrix.target }} --all
+            # Tests take too long on CI, probably because running in emulation.
+            # $HOME/.cargo/bin/cargo test --release --target ${{ matrix.target }} --all
+            # At least ensure it builds, though.
+            $HOME/.cargo/bin/cargo build --target ${{ matrix.target }} --all
 
   # Linux tests
   linux:
