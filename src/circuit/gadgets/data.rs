@@ -5,12 +5,10 @@ use bellperson::{
 use ff::PrimeField;
 use neptune::circuit::poseidon_hash;
 
+use super::pointer::AsAllocatedHashComponents;
+use crate::store::{ContPtr, ContTag, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk};
 use crate::store::{IntoHashComponents, ScalarPtr};
 use crate::store::{ScalarContPtr, ScalarPointer};
-use crate::{
-    gadgets::pointer::AsAllocatedHashComponents,
-    store::{ContPtr, ContTag, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk},
-};
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};
 
@@ -361,31 +359,6 @@ impl<F: PrimeField> Ptr<F> {
             [F::zero(), F::zero()],
             [F::zero(), F::zero()],
         )
-    }
-}
-
-impl<F: PrimeField> ContPtr<F> {
-    pub fn allocate_ptr<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        store: &Store<F>,
-    ) -> Result<AllocatedContPtr<F>, SynthesisError> {
-        AllocatedContPtr::<F>::alloc(cs, || {
-            store
-                .hash_cont(self)
-                .ok_or(SynthesisError::AssignmentMissing)
-        })
-    }
-
-    pub fn allocate_constant_ptr<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        store: &Store<F>,
-    ) -> Result<AllocatedContPtr<F>, SynthesisError> {
-        let ptr = store
-            .hash_cont(self)
-            .ok_or(SynthesisError::AssignmentMissing)?;
-        AllocatedContPtr::alloc_constant(cs, ptr)
     }
 }
 

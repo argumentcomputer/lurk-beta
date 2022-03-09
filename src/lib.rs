@@ -1,8 +1,5 @@
 #![allow(clippy::single_match, clippy::type_complexity)]
 
-#[macro_use]
-mod gadgets;
-
 pub mod circuit;
 pub mod eval;
 pub mod parser;

@@ -1,14 +1,14 @@
-#![allow(clippy::too_many_arguments)]
+use std::fmt::Debug;
 
 use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
-    util_cs::{test_cs::TestConstraintSystem, Comparable},
+    util_cs::Comparable,
     Circuit, ConstraintSystem, SynthesisError,
 };
 use ff::PrimeField;
 
 use crate::{
-    gadgets::{
+    circuit::gadgets::{
         case::{case, multi_case, CaseClause},
         data::GlobalAllocations,
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
@@ -16,14 +16,15 @@ use crate::{
     store::ScalarPointer,
 };
 
-use crate::eval::{Evaluator, Frame, Witness, IO};
-use crate::gadgets::constraints::{
+use super::gadgets::constraints::{
     self, alloc_equal, alloc_is_zero, enforce_implication, or, pick,
 };
-use crate::proof::SequentialCS;
+use crate::circuit::ToInputs;
+use crate::eval::{Frame, Witness, IO};
+use crate::proof::Provable;
 use crate::store::{ContPtr, ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug)]
 pub struct CircuitFrame<'a, F: PrimeField, T, W> {
     pub store: &'a Store<F>,
     pub input: Option<T>,
@@ -31,7 +32,16 @@ pub struct CircuitFrame<'a, F: PrimeField, T, W> {
     pub witness: Option<W>,
 }
 
-impl<'a, F: PrimeField, T: Clone, W> CircuitFrame<'a, F, T, W> {
+#[derive(Clone, Debug)]
+pub struct MultiFrame<'a, F: PrimeField, T, W> {
+    pub store: &'a Store<F>,
+    pub input: Option<T>,
+    pub output: Option<T>,
+    pub frames: Option<Vec<CircuitFrame<'a, F, T, W>>>,
+    pub count: usize,
+}
+
+impl<'a, F: PrimeField, T: Clone + Copy, W: Copy> CircuitFrame<'a, F, T, W> {
     pub fn blank(store: &'a Store<F>) -> Self {
         Self {
             store,
@@ -41,7 +51,7 @@ impl<'a, F: PrimeField, T: Clone, W> CircuitFrame<'a, F, T, W> {
         }
     }
 
-    pub fn from_frame(frame: Frame<T, W>, store: &'a Store<F>) -> Self {
+    pub fn from_frame(frame: &Frame<T, W>, store: &'a Store<F>) -> Self {
         CircuitFrame {
             store,
             input: Some(frame.input),
@@ -51,52 +61,186 @@ impl<'a, F: PrimeField, T: Clone, W> CircuitFrame<'a, F, T, W> {
     }
 }
 
-impl<F: PrimeField> Circuit<F> for CircuitFrame<'_, F, IO<F>, Witness<F>> {
-    fn synthesize<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
-        // if let Some(o) = &self.output {
-        //     dbg!(o.expr.fmt_to_string(self.store));
-        // }
-        // if let Some(i) = &self.input {
-        //     dbg!(i.expr.fmt_to_string(self.store));
-        // }
+impl<'a, F: PrimeField, T: Clone + Copy + Debug + std::cmp::PartialEq, W: Copy>
+    MultiFrame<'a, F, T, W>
+{
+    pub fn blank(store: &'a Store<F>, count: usize) -> Self {
+        Self {
+            store,
+            input: None,
+            output: None,
+            frames: None,
+            count,
+        }
+    }
 
+    pub fn frame_count(&self) -> usize {
+        self.count
+    }
+
+    pub fn from_frames(count: usize, frames: &[Frame<T, W>], store: &'a Store<F>) -> Vec<Self> {
+        // `count` is the number of `Frames` to include per `MultiFrame`.
+        let total_frames = frames.len();
+        let n = total_frames / count + (total_frames % count != 0) as usize;
+        let mut multi_frames = Vec::with_capacity(n);
+
+        for chunk in frames.chunks(count) {
+            let mut inner_frames = Vec::with_capacity(count);
+
+            for x in chunk {
+                let circuit_frame = CircuitFrame::from_frame(x, store);
+                inner_frames.push(circuit_frame);
+            }
+
+            let last_frame = chunk.last().expect("chunk must not be empty");
+            let last_circuit_frame = *inner_frames.last().expect("chunk must not be empty");
+
+            // Fill out the MultiFrame, if needed, and capture output of the final actual frame.
+            for _ in chunk.len()..count {
+                inner_frames.push(last_circuit_frame);
+            }
+
+            let output = last_frame.output;
+            debug_assert!(!inner_frames.is_empty());
+
+            let mf = MultiFrame {
+                store,
+                input: Some(chunk[0].input),
+                output: Some(output),
+                frames: Some(inner_frames),
+                count,
+            };
+
+            multi_frames.push(mf);
+        }
+
+        multi_frames
+    }
+
+    /// Make a dummy `MultiFrame`, duplicating `self`'s final `CircuitFrame`.
+    pub(crate) fn make_dummy(
+        count: usize,
+        circuit_frame: Option<CircuitFrame<'a, F, T, W>>,
+        store: &'a Store<F>,
+    ) -> Self {
+        let (frames, input, output) = if let Some(circuit_frame) = circuit_frame {
+            (
+                Some(vec![circuit_frame; count]),
+                circuit_frame.input,
+                circuit_frame.output,
+            )
+        } else {
+            (None, None, None)
+        };
+        Self {
+            store,
+            input,
+            output,
+            frames,
+            count,
+        }
+    }
+}
+
+impl<F: PrimeField, T: PartialEq + Debug, W> CircuitFrame<'_, F, T, W> {
+    pub fn precedes(&self, maybe_next: &Self) -> bool {
+        self.output == maybe_next.input
+    }
+}
+
+impl<F: PrimeField, T: PartialEq + Debug, W> MultiFrame<'_, F, T, W> {
+    pub fn precedes(&self, maybe_next: &Self) -> bool {
+        self.output == maybe_next.input
+    }
+}
+
+impl<F: PrimeField, W> Provable<F> for MultiFrame<'_, F, IO<F>, W> {
+    fn public_inputs(&self) -> Vec<F> {
+        let mut inputs: Vec<_> = Vec::with_capacity(Self::public_input_size());
+
+        if let Some(input) = &self.input {
+            inputs.extend(input.to_inputs(self.store));
+        } else {
+            panic!("public inputs for blank circuit");
+        }
+        if let Some(output) = &self.output {
+            inputs.extend(output.to_inputs(self.store));
+        } else {
+            panic!("public outputs for blank circuit");
+        }
+
+        inputs
+    }
+
+    fn public_input_size() -> usize {
+        let input_output_size = IO::<F>::input_size();
+        input_output_size * 2
+    }
+}
+
+type AllocatedIO<F> = (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>);
+
+impl<F: PrimeField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
+    pub(crate) fn synthesize<CS: ConstraintSystem<F>>(
+        self,
+        cs: &mut CS,
+        i: usize,
+        inputs: AllocatedIO<F>,
+        g: &GlobalAllocations<F>,
+    ) -> Result<AllocatedIO<F>, SynthesisError> {
+        let (input_expr, input_env, input_cont) = inputs;
+
+        reduce_expression(
+            &mut cs.namespace(|| format!("reduce expression {}", i)),
+            &input_expr,
+            &input_env,
+            &input_cont,
+            &self.witness,
+            self.store,
+            g,
+        )
+    }
+}
+
+impl<F: PrimeField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
+    fn synthesize<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         ////////////////////////////////////////////////////////////////////////////////
         // Bind public inputs.
         //
-        // The frame's input:
+        // Initial input:
         let input_expr = AllocatedPtr::bind_input(
-            &mut cs.namespace(|| "input expression"),
+            &mut cs.namespace(|| "outer input expression"),
             self.input.as_ref().map(|input| &input.expr),
             self.store,
         )?;
 
         let input_env = AllocatedPtr::bind_input(
-            &mut cs.namespace(|| "input env"),
+            &mut cs.namespace(|| "outer input env"),
             self.input.as_ref().map(|input| &input.env),
             self.store,
         )?;
 
         let input_cont = AllocatedContPtr::bind_input(
-            &mut cs.namespace(|| "input cont"),
+            &mut cs.namespace(|| "outer input cont"),
             self.input.as_ref().map(|input| &input.cont),
             self.store,
         )?;
 
-        // The frame's output:
+        // Final output:
         let output_expr = AllocatedPtr::bind_input(
-            &mut cs.namespace(|| "output expression"),
+            &mut cs.namespace(|| "outer output expression"),
             self.output.as_ref().map(|output| &output.expr),
             self.store,
         )?;
 
         let output_env = AllocatedPtr::bind_input(
-            &mut cs.namespace(|| "output env"),
+            &mut cs.namespace(|| "outer output env"),
             self.output.as_ref().map(|output| &output.env),
             self.store,
         )?;
 
         let output_cont = AllocatedContPtr::bind_input(
-            &mut cs.namespace(|| "output cont"),
+            &mut cs.namespace(|| "outer output cont"),
             self.output.as_ref().map(|output| &output.cont),
             self.store,
         )?;
@@ -104,19 +248,38 @@ impl<F: PrimeField> Circuit<F> for CircuitFrame<'_, F, IO<F>, Witness<F>> {
         //
         // End public inputs.
         ////////////////////////////////////////////////////////////////////////////////
+        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), self.store)?;
 
-        let (new_expr, new_env, new_cont) = reduce_expression(
-            &mut cs.namespace(|| "reduce expression"),
-            &input_expr,
-            &input_env,
-            &input_cont,
-            &self.witness,
-            self.store,
-        )?;
+        let acc = (input_expr, input_env, input_cont);
 
-        output_expr.enforce_equal(&mut cs.namespace(|| "output expr is correct"), &new_expr);
-        output_env.enforce_equal(&mut cs.namespace(|| "output env is correct"), &new_env);
-        output_cont.enforce_equal(&mut cs.namespace(|| "output cont is correct"), &new_cont);
+        let frames = match self.frames {
+            Some(f) => f,
+            None => vec![CircuitFrame::blank(self.store); self.count],
+        };
+
+        let (_, (new_expr, new_env, new_cont)) =
+            frames.iter().fold((0, acc), |(i, allocated_io), frame| {
+                (i + 1, frame.synthesize(cs, i, allocated_io, &g).unwrap())
+            });
+
+        // dbg!(
+        //     (&new_expr, &output_expr),
+        //     (&new_env, &output_env),
+        //     (&new_cont, &output_cont)
+        // );
+
+        output_expr.enforce_equal(
+            &mut cs.namespace(|| "outer output expr is correct"),
+            &new_expr,
+        );
+        output_env.enforce_equal(
+            &mut cs.namespace(|| "outer output env is correct"),
+            &new_env,
+        );
+        output_cont.enforce_equal(
+            &mut cs.namespace(|| "outer output cont is correct"),
+            &new_cont,
+        );
 
         Ok(())
     }
@@ -353,13 +516,11 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
     cont: &AllocatedContPtr<F>,
     witness: &Option<Witness<F>>,
     store: &Store<F>,
+    g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-    // dbg!("reduce_expression");
-    // dbg!(&expr.fetch_and_write_str(store));
     // dbg!(&env.fetch_and_write_str(store));
+    // dbg!(&cont.fetch_and_write_cont_str(store));
     // dbg!(expr, cont);
-
-    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store)?;
 
     let mut results = Results::default();
     {
@@ -369,6 +530,8 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         results.add_clauses_expr(Tag::Fun, expr, env, cont, &g.true_num);
     }
 
+    // If expr is a thunk, this will allocate its components and hash, etc.
+    // If not, these will be dummies.
     let (expr_thunk_hash, expr_thunk_value, expr_thunk_continuation) =
         expr.allocate_thunk_components(&mut cs.namespace(|| "allocate thunk components"), store)?;
     {
@@ -379,14 +542,13 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
             &g.thunk_tag,
         )?;
         let expr_is_the_thunk = constraints::alloc_equal(
-            &mut cs.namespace(|| "thunk_hash == expr.hash"),
+            &mut cs.namespace(|| "expr_thunk_hash == expr.hash"),
             &expr_thunk_hash,
             expr.hash(),
         )?;
 
         enforce_implication(
-            &mut cs
-                .namespace(|| "(expr.tag == thunk_continuation) implies (thunk_hash == expr.hash)"),
+            &mut cs.namespace(|| "(expr.tag == thunk_tag) implies (expr_thunk_hash == expr.hash)"),
             &expr_is_a_thunk,
             &expr_is_the_thunk,
         )?;
@@ -415,7 +577,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         &reduce_sym_not_dummy,
         witness,
         store,
-        &g,
+        g,
     )?;
 
     results.add_clauses_expr(Tag::Sym, &sym_result, &sym_env, &sym_cont, &sym_apply_cont);
@@ -436,7 +598,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         &reduce_cons_not_dummy,
         witness,
         store,
-        &g,
+        g,
     )?;
 
     results.add_clauses_expr(
@@ -494,7 +656,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         &apply_continuation_boolean,
         witness,
         store,
-        &g,
+        g,
     )?;
 
     let apply_continuation_make_thunk: AllocatedNum<F> = apply_continuation_results.3;
@@ -541,7 +703,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         &make_thunk_boolean,
         witness,
         store,
-        &g,
+        g,
     )?;
 
     let result_expr = AllocatedPtr::pick(
@@ -564,6 +726,11 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         &thunk_results.2,
         &result_cont0,
     )?;
+
+    // dbg!(&result_expr.fetch_and_write_str(store));
+    // dbg!(&result_env.fetch_and_write_str(store));
+    // dbg!(&result_cont.fetch_and_write_cont_str(store));
+    // dbg!(expr, env, cont);
 
     Ok((result_expr, result_env, result_cont))
 }
@@ -1371,9 +1538,7 @@ fn make_thunk<F: PrimeField, CS: ConstraintSystem<F>>(
     };
 
     results.add_clauses_thunk(ContTag::Tail, &result_expr, &saved_env, &g.dummy_ptr);
-
     results.add_clauses_thunk(ContTag::Outermost, result, env, &g.terminal_ptr);
-
     results.add_clauses_thunk(ContTag::Terminal, result, env, &g.terminal_ptr);
 
     let thunk_hash =
@@ -1445,7 +1610,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.terminal_ptr,
         &g.false_num,
     );
-    results.add_clauses_cont(ContTag::Error, result, env, &g.terminal_ptr, &g.false_num);
+    results.add_clauses_cont(ContTag::Error, result, env, &g.error_ptr_cont, &g.false_num);
 
     let (_continuation_hash, continuation_components) = ContPtr::allocate_maybe_dummy_components(
         &mut cs.namespace(|| "allocate_continuation_components"),
@@ -1853,14 +2018,9 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     );
 
     /////////////////////////////////////////////////////////////////////////////
-    // Continuation::Simple                                                    //
-    /////////////////////////////////////////////////////////////////////////////
-    let continuation = AllocatedContPtr::by_index(0, &continuation_components);
-    results.add_clauses_cont(ContTag::Simple, result, env, &continuation, &g.true_num);
-
-    /////////////////////////////////////////////////////////////////////////////
     // Continuation::Tail                                                      //
     /////////////////////////////////////////////////////////////////////////////
+
     let saved_env = AllocatedPtr::by_index(0, &continuation_components);
     let continuation = AllocatedContPtr::by_index(1, &continuation_components);
 
@@ -2361,42 +2521,6 @@ pub(crate) fn print_cs<F: PrimeField, C: Comparable<F>>(this: &C) -> String {
     out
 }
 
-impl<'a, F: PrimeField> CircuitFrame<'a, F, IO<F>, Witness<F>> {
-    #[allow(clippy::needless_collect)]
-    pub fn outer_synthesize(
-        expr: Ptr<F>,
-        env: Ptr<F>,
-        store: &mut Store<F>,
-        limit: usize,
-        maybe_add_extra_terminal_proof: bool,
-    ) -> Result<SequentialCS<F, IO<F>, Witness<F>>, SynthesisError> {
-        if maybe_add_extra_terminal_proof {
-            assert_eq!(1, limit.count_ones());
-        }
-
-        let mut evaluator = Evaluator::new(expr, env, store, limit);
-        let mut frames = evaluator.iter().collect::<Vec<_>>();
-        if maybe_add_extra_terminal_proof && frames.len().count_ones() != 1 {
-            // See NOTE: PADDING and LIMIT in groth16.rs.
-            frames.push(frames[frames.len() - 1].next(store));
-        }
-
-        store.hydrate_scalar_cache();
-
-        let res = frames
-            .into_iter()
-            .map(|frame| {
-                let mut cs = TestConstraintSystem::new();
-                CircuitFrame::<F, _, _>::from_frame(frame.clone(), store)
-                    .synthesize(&mut cs)
-                    .unwrap();
-                (frame, cs)
-            })
-            .collect::<Vec<_>>();
-        Ok(res)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2410,6 +2534,8 @@ mod tests {
     };
     use blstrs::{Bls12, Scalar as Fr};
     use pairing_lib::Engine;
+
+    const DEFAULT_CHUNK_FRAME_COUNT: usize = 1;
 
     #[test]
     fn num_self_evaluating() {
@@ -2425,7 +2551,8 @@ mod tests {
 
         let (_, witness) = input.reduce(&mut store);
 
-        let groth_params = Groth16Prover::groth_params().unwrap();
+        let groth_prover = Groth16Prover::new(DEFAULT_CHUNK_FRAME_COUNT);
+        let groth_params = groth_prover.groth_params().unwrap();
         let vk = &groth_params.vk;
         let pvk = groth16::prepare_verifying_key(vk);
 
@@ -2433,40 +2560,51 @@ mod tests {
             let mut cs = TestConstraintSystem::new();
 
             let mut cs_blank = MetricCS::<Fr>::new();
-            let blank_frame = CircuitFrame::<<Bls12 as Engine>::Fr, _, _>::blank(store);
-            blank_frame
+            let blank_multiframe =
+                MultiFrame::<<Bls12 as Engine>::Fr, _, _>::blank(store, DEFAULT_CHUNK_FRAME_COUNT);
+
+            blank_multiframe
                 .synthesize(&mut cs_blank)
                 .expect("failed to synthesize");
 
-            let frame = CircuitFrame::from_frame(
-                Frame {
+            let multiframes = MultiFrame::from_frames(
+                DEFAULT_CHUNK_FRAME_COUNT,
+                &[Frame {
                     input: input.clone(),
                     output,
                     i: 0,
                     witness: witness.clone(),
-                },
+                }],
                 store,
             );
 
-            frame
+            let multiframe = &multiframes[0];
+
+            multiframe
                 .clone()
                 .synthesize(&mut cs)
                 .expect("failed to synthesize");
 
             let delta = cs.delta(&cs_blank, false);
+            dbg!(&delta);
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(29100, cs.num_constraints());
+            assert_eq!(29091, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(29085, cs.aux().len());
+            assert_eq!(29076, cs.aux().len());
 
-            let public_inputs = frame.public_inputs(store);
+            let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
 
-            let proof = Groth16Prover::prove(frame.clone(), Some(&groth_params), &mut rng).unwrap();
+            let proof = groth_prover
+                .prove(multiframe.clone(), Some(&groth_params), &mut rng)
+                .unwrap();
             let cs_verified = cs.is_satisfied() && cs.verify(&public_inputs);
-            let verified = frame.verify_groth16_proof(&pvk, proof).unwrap();
+            let verified = multiframe
+                .clone()
+                .verify_groth16_proof(&pvk, proof)
+                .unwrap();
 
             if expect_success {
                 assert!(cs_verified);
@@ -2547,9 +2685,14 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::<<Bls12 as Engine>::Fr, _, _>::from_frame(frame, store)
-                .synthesize(&mut cs)
-                .expect("failed to synthesize");
+            MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
+                DEFAULT_CHUNK_FRAME_COUNT,
+                &[frame],
+                store,
+            )[0]
+            .clone()
+            .synthesize(&mut cs)
+            .expect("failed to synthesize");
 
             if expect_success {
                 assert!(cs.is_satisfied());
@@ -2619,9 +2762,14 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::<<Bls12 as Engine>::Fr, _, _>::from_frame(frame, store)
-                .synthesize(&mut cs)
-                .expect("failed to synthesize");
+            MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
+                DEFAULT_CHUNK_FRAME_COUNT,
+                &[frame],
+                store,
+            )[0]
+            .clone()
+            .synthesize(&mut cs)
+            .expect("failed to synthesize");
 
             if expect_success {
                 assert!(cs.is_satisfied());
@@ -2691,9 +2839,14 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::<<Bls12 as Engine>::Fr, _, _>::from_frame(frame, store)
-                .synthesize(&mut cs)
-                .expect("failed to synthesize");
+            MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
+                DEFAULT_CHUNK_FRAME_COUNT,
+                &[frame],
+                store,
+            )[0]
+            .clone()
+            .synthesize(&mut cs)
+            .expect("failed to synthesize");
 
             if expect_success {
                 assert!(cs.is_satisfied());
@@ -2764,9 +2917,14 @@ mod tests {
                 witness: witness.clone(),
             };
 
-            CircuitFrame::<<Bls12 as Engine>::Fr, _, _>::from_frame(frame, &store)
-                .synthesize(&mut cs)
-                .expect("failed to synthesize");
+            MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
+                DEFAULT_CHUNK_FRAME_COUNT,
+                &[frame],
+                store,
+            )[0]
+            .clone()
+            .synthesize(&mut cs)
+            .expect("failed to synthesize");
 
             if expect_success {
                 assert!(cs.is_satisfied());

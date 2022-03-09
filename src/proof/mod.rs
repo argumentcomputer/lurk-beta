@@ -1,79 +1,29 @@
 pub mod groth16;
 pub mod nova;
 
-use bellperson::util_cs::test_cs::TestConstraintSystem;
-use bellperson::SynthesisError;
+use bellperson::{util_cs::test_cs::TestConstraintSystem, Circuit, SynthesisError};
 
-use crate::circuit::CircuitFrame;
-use crate::eval::{Frame, Witness, IO};
-use crate::store::{ScalarPointer, Store};
+use crate::circuit::MultiFrame;
+use crate::eval::{Witness, IO};
 use ff::PrimeField;
-pub(crate) type SequentialCS<F, IO, Witness> = Vec<(Frame<IO, Witness>, TestConstraintSystem<F>)>;
+
+pub(crate) type SequentialCS<'a, F, IO, Witness> =
+    Vec<(MultiFrame<'a, F, IO, Witness>, TestConstraintSystem<F>)>;
 
 pub trait Provable<F: PrimeField> {
-    fn public_inputs(&self, store: &Store<F>) -> Vec<F>;
+    fn public_inputs(&self) -> Vec<F>;
     fn public_input_size() -> usize;
 }
 
-impl<F: PrimeField> IO<F> {
-    fn public_inputs(&self, store: &Store<F>) -> Vec<F> {
-        let expr = store.hash_expr(&self.expr).unwrap();
-        let env = store.hash_expr(&self.env).unwrap();
-        let cont = store.hash_cont(&self.cont).unwrap();
-        let public_inputs = vec![
-            *expr.tag(),
-            *expr.value(),
-            *env.tag(),
-            *env.value(),
-            *cont.tag(),
-            *cont.value(),
-        ];
-
-        // This ensures `public_input_size` is kept in sync with any changes.
-        assert_eq!(Self::public_input_size(), public_inputs.len());
-        public_inputs
-    }
-    fn public_input_size() -> usize {
-        6
-    }
-}
-
-impl<F: PrimeField, W> Provable<F> for CircuitFrame<'_, F, IO<F>, W> {
-    fn public_inputs(&self, store: &Store<F>) -> Vec<F> {
-        let mut inputs: Vec<_> = Vec::with_capacity(10);
-
-        if let Some(input) = &self.input {
-            inputs.extend(input.public_inputs(store));
-        }
-        if let Some(output) = &self.output {
-            inputs.extend(output.public_inputs(store));
-        }
-
-        inputs
-    }
-
-    fn public_input_size() -> usize {
-        let input_output_size = IO::<F>::public_input_size();
-        input_output_size * 2
-    }
-}
-
-impl<F: PrimeField, T: PartialEq + std::fmt::Debug, W> CircuitFrame<'_, F, T, W> {
-    pub fn precedes(&self, maybe_next: &Self) -> bool {
-        self.output == maybe_next.input
-    }
-}
-
 #[allow(dead_code)]
-fn verify_sequential_css<F: PrimeField>(
+fn verify_sequential_css<F: PrimeField + Copy>(
     css: &SequentialCS<F, IO<F>, Witness<F>>,
-    store: &Store<F>,
 ) -> Result<bool, SynthesisError> {
-    let mut previous_frame: Option<&Frame<IO<F>, Witness<F>>> = None;
+    let mut previous_frame: Option<&MultiFrame<F, IO<F>, Witness<F>>> = None;
 
-    for (_i, (frame, cs)) in css.iter().enumerate() {
+    for (_, (multiframe, cs)) in css.iter().enumerate() {
         if let Some(prev) = previous_frame {
-            if !prev.precedes(frame) {
+            if !prev.precedes(multiframe) {
                 dbg!("not preceeding frame");
                 return Ok(false);
             }
@@ -83,14 +33,56 @@ fn verify_sequential_css<F: PrimeField>(
             return Ok(false);
         }
 
-        let public_inputs =
-            CircuitFrame::<F, _, _>::from_frame(frame.clone(), store).public_inputs(store);
-
+        let public_inputs = multiframe.public_inputs();
         if !cs.verify(&public_inputs) {
             dbg!("cs not verified");
             return Ok(false);
         }
-        previous_frame = Some(frame);
+        previous_frame = Some(multiframe);
     }
     Ok(true)
+}
+
+pub trait Prover<F: PrimeField> {
+    fn chunk_frame_count(&self) -> usize;
+
+    fn needs_frame_padding(&self, total_frames: usize, _is_terminal: bool) -> bool {
+        self.frame_padding_count(total_frames) != 0
+    }
+    fn frame_padding_count(&self, total_frames: usize) -> usize {
+        total_frames % self.chunk_frame_count()
+    }
+
+    fn expected_total_iterations(&self, raw_iterations: usize) -> usize {
+        let cfc = self.chunk_frame_count();
+        let full_multiframe_count = raw_iterations / cfc;
+        let unfull_multiframe_frame_count = raw_iterations % cfc;
+        let raw_multiframe_count =
+            full_multiframe_count + (unfull_multiframe_frame_count != 0) as usize;
+        raw_multiframe_count + self.multiframe_padding_count(raw_multiframe_count)
+    }
+
+    fn multiframe_padding_count(&self, _raw_multiframe_count: usize) -> usize {
+        // By default, any number of multiframes is fine.
+        0
+    }
+    fn needs_multiframe_padding(&self, raw_multiframe_count: usize) -> bool {
+        self.multiframe_padding_count(raw_multiframe_count) != 0
+    }
+
+    fn outer_synthesize<'a>(
+        &self,
+        multiframes: &'a [MultiFrame<F, IO<F>, Witness<F>>],
+    ) -> Result<SequentialCS<'a, F, IO<F>, Witness<F>>, SynthesisError> {
+        let res = multiframes
+            .iter()
+            .enumerate()
+            .map(|(_, multiframe)| {
+                let mut cs = TestConstraintSystem::new();
+                multiframe.clone().synthesize(&mut cs).unwrap(); // FIXME: unwrap
+                (multiframe.clone(), cs)
+            })
+            .collect::<Vec<_>>();
+        Ok(res)
+    }
 }
