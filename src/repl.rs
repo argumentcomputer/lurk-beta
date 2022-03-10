@@ -1,4 +1,4 @@
-use crate::eval::{empty_sym_env, Evaluator};
+use crate::eval::{empty_sym_env, Evaluator, IO};
 use crate::store::{ContPtr, ContTag, Expression, Pointer, Ptr, Store, Tag};
 use crate::writer::Write;
 use anyhow::Result;
@@ -106,8 +106,14 @@ pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
                 };
 
                 if let Some(expr) = s.read(&line) {
-                    let (result, _next_env, iterations, next_cont) =
-                        Evaluator::new(expr, repl.state.env, &mut s, limit).eval();
+                    let (
+                        IO {
+                            expr: result,
+                            env: _env,
+                            cont: next_cont,
+                        },
+                        iterations,
+                    ) = Evaluator::new(expr, repl.state.env, &mut s, limit).eval();
 
                     print!("[{} iterations] => ", iterations);
 
@@ -150,8 +156,14 @@ impl ReplState {
         expr: Ptr<Fr>,
         store: &mut Store<Fr>,
     ) -> (Ptr<Fr>, usize, ContPtr<Fr>) {
-        let (result, _next_env, limit, next_cont) =
-            Evaluator::new(expr, self.env, store, self.limit).eval();
+        let (
+            IO {
+                expr: result,
+                env: _env,
+                cont: next_cont,
+            },
+            limit,
+        ) = Evaluator::new(expr, self.env, store, self.limit).eval();
 
         (result, limit, next_cont)
     }

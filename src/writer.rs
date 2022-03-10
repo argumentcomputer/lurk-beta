@@ -52,10 +52,11 @@ impl<F: PrimeField> Write<F> for Expression<'_, F> {
             }
             Num(n) => write!(w, "{}", n),
             Thunk(f) => {
-                write!(w, "Thunk for cont ")?;
+                write!(w, "Thunk{{ value: ")?;
+                f.value.fmt(store, w)?;
+                write!(w, " => cont: ")?;
                 f.continuation.fmt(store, w)?;
-                write!(w, " with value: ")?;
-                f.value.fmt(store, w)
+                write!(w, "}}")
             }
             Cons(_, _) => {
                 write!(w, "(")?;
@@ -161,11 +162,11 @@ impl<F: PrimeField> Write<F> for Continuation<F> {
                 continuation,
             } => {
                 write!(w, "Binop{{ operator: ")?;
-                write!(w, "{}, saved_env: ", operator)?;
-                saved_env.fmt(store, w)?;
-                write!(w, ", unevaled_args: ")?;
+                write!(w, "{}, unevaled_args: ", operator)?;
                 unevaled_args.fmt(store, w)?;
-                write!(w, ", continuation")?;
+                write!(w, ", saved_env: ")?;
+                saved_env.fmt(store, w)?;
+                write!(w, ", continuation: ")?;
                 continuation.fmt(store, w)?;
                 write!(w, " }}")
             }
@@ -249,6 +250,15 @@ impl<F: PrimeField> Write<F> for Continuation<F> {
             }
             Continuation::Dummy => write!(w, "Dummy"),
             Continuation::Terminal => write!(w, "Terminal"),
+            Continuation::Emit {
+                continuation: _continuation,
+            } => {
+                write!(w, "Emit")?;
+                write!(w, "<CONTINUATION>") // Omit continuation for clarity when logging and using output.
+                                            // write!(w, " {{ continuation: ")?;
+                                            // continuation.fmt(store, w)?;
+                                            // write!(w, " }}")
+            }
         }
     }
 }

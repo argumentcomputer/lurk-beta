@@ -36,6 +36,7 @@ pub struct GlobalAllocations<F: PrimeField> {
     pub call_cont_tag: AllocatedNum<F>,
     pub call2_cont_tag: AllocatedNum<F>,
     pub unop_cont_tag: AllocatedNum<F>,
+    pub emit_cont_tag: AllocatedNum<F>,
     pub binop_cont_tag: AllocatedNum<F>,
     pub relop_cont_tag: AllocatedNum<F>,
     pub binop2_cont_tag: AllocatedNum<F>,
@@ -45,6 +46,7 @@ pub struct GlobalAllocations<F: PrimeField> {
     pub op1_car_tag: AllocatedNum<F>,
     pub op1_cdr_tag: AllocatedNum<F>,
     pub op1_atom_tag: AllocatedNum<F>,
+    pub op1_emit_tag: AllocatedNum<F>,
     pub op2_cons_tag: AllocatedNum<F>,
     pub op2_sum_tag: AllocatedNum<F>,
     pub op2_diff_tag: AllocatedNum<F>,
@@ -125,6 +127,8 @@ impl<F: PrimeField> GlobalAllocations<F> {
             ContTag::Call2.allocate_constant(&mut cs.namespace(|| "call2_cont_tag"))?;
         let unop_cont_tag =
             ContTag::Unop.allocate_constant(&mut cs.namespace(|| "unop_cont_tag"))?;
+        let emit_cont_tag =
+            ContTag::Emit.allocate_constant(&mut cs.namespace(|| "emit_cont_tag"))?;
         let binop_cont_tag =
             ContTag::Binop.allocate_constant(&mut cs.namespace(|| "binop_cont_tag"))?;
         let relop_cont_tag =
@@ -138,6 +142,7 @@ impl<F: PrimeField> GlobalAllocations<F> {
         let op1_car_tag = Op1::Car.allocate_constant(&mut cs.namespace(|| "op1_car_tag"))?;
         let op1_cdr_tag = Op1::Cdr.allocate_constant(&mut cs.namespace(|| "op1_cdr_tag"))?;
         let op1_atom_tag = Op1::Atom.allocate_constant(&mut cs.namespace(|| "op1_atom_tag"))?;
+        let op1_emit_tag = Op1::Emit.allocate_constant(&mut cs.namespace(|| "op1_emit_tag"))?;
         let op2_cons_tag = Op2::Cons.allocate_constant(&mut cs.namespace(|| "op2_cons_tag"))?;
         let op2_sum_tag = Op2::Sum.allocate_constant(&mut cs.namespace(|| "op2_sum_tag"))?;
         let op2_diff_tag = Op2::Diff.allocate_constant(&mut cs.namespace(|| "op2_diff_tag"))?;
@@ -181,6 +186,7 @@ impl<F: PrimeField> GlobalAllocations<F> {
             call_cont_tag,
             call2_cont_tag,
             unop_cont_tag,
+            emit_cont_tag,
             binop_cont_tag,
             relop_cont_tag,
             binop2_cont_tag,
@@ -189,6 +195,7 @@ impl<F: PrimeField> GlobalAllocations<F> {
             op1_car_tag,
             op1_cdr_tag,
             op1_atom_tag,
+            op1_emit_tag,
             op2_cons_tag,
             op2_sum_tag,
             op2_diff_tag,
