@@ -244,6 +244,7 @@ mod tests {
         source: &str,
         expected_result: Fo,
         expected_iterations: usize,
+        chunk_frame_count: usize,
         check_nova: bool,
         check_constraint_systems: bool,
         limit: usize,
@@ -256,7 +257,6 @@ mod tests {
 
         let e = empty_sym_env(&s);
 
-        let chunk_frame_count = DEFAULT_CHUNK_FRAME_COUNT;
         let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
         let proof_results = if check_nova {
             Some(
@@ -331,6 +331,7 @@ mod tests {
                 (/ (+ a b) c))",
             |store| store.num(3),
             18,
+            DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
             100,
@@ -344,6 +345,7 @@ mod tests {
             &"(+ 1 2)",
             |store| store.num(3),
             3,
+            DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
             100,
@@ -357,6 +359,7 @@ mod tests {
             &"(eq 5 5)",
             |store| store.t(),
             3,
+            DEFAULT_CHUNK_FRAME_COUNT,
             true, // Always check Nova in at least one test.
             true,
             100,
@@ -370,6 +373,7 @@ mod tests {
             &"(= 5 5)",
             |store| store.t(),
             3,
+            DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
             100,
@@ -379,6 +383,7 @@ mod tests {
             &"(= 5 6)",
             |store| store.nil(),
             3,
+            DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
             100,
@@ -392,6 +397,7 @@ mod tests {
             &"(if t 5 6)",
             |store| store.num(5),
             3,
+            DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
             100,
@@ -402,6 +408,7 @@ mod tests {
             &"(if nil 5 6)",
             |store| store.num(6),
             3,
+            DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
             100,
@@ -414,6 +421,7 @@ mod tests {
             &"(if t (+ 5 5) 6)",
             |store| store.num(10),
             5,
+            DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
             100,
@@ -433,6 +441,7 @@ mod tests {
                 ((exp 5) 3))",
             |store| store.num(125),
             91,
+            DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
             200,
@@ -453,9 +462,77 @@ mod tests {
                 (((exp 5) 5) 1))",
             |store| store.num(3125),
             201,
+            DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
             300,
+            false,
+        );
+    }
+
+    fn outer_prove_unop_regression_aux(chunk_count: usize) {
+        outer_prove_aux(
+            "(atom 123)",
+            |store| store.sym("t"),
+            2,
+            chunk_count, // This needs to be 1 to exercise the bug.
+            DEFAULT_CHECK_NOVA,
+            true,
+            10,
+            false,
+        );
+        outer_prove_aux(
+            "(car '(1 . 2))",
+            |store| store.num(1),
+            2,
+            chunk_count, // This needs to be 1 to exercise the bug.
+            DEFAULT_CHECK_NOVA,
+            true,
+            10,
+            false,
+        );
+
+        outer_prove_aux(
+            "(cdr '(1 . 2))",
+            |store| store.num(2),
+            2,
+            chunk_count, // This needs to be 1 to exercise the bug.
+            DEFAULT_CHECK_NOVA,
+            true,
+            10,
+            false,
+        );
+
+        outer_prove_aux(
+            &"(emit 123)",
+            |store| store.num(123),
+            3,
+            chunk_count,
+            DEFAULT_CHECK_NOVA,
+            true,
+            10,
+            false,
+        )
+    }
+    #[test]
+    fn outer_prove_unop_regression() {
+        // We need to at least use chunk size 1 to exercise the regression.
+        // Also use a non-1 value to check the MultiFrame case.
+        for i in 1..2 {
+            outer_prove_unop_regression_aux(i);
+        }
+    }
+
+    #[test]
+    fn outer_prove_emit_output() {
+        outer_prove_aux(
+            &"(emit 123)",
+            |store| store.num(123),
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            10,
             false,
         );
     }

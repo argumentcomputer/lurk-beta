@@ -75,7 +75,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 [[package]]
 name = "bellperson"
 version = "0.18.2"
-source = "git+https://github.com/filecoin-project/bellperson?branch=instance-aggregation#1f4c6a785c2518e2b9c51b333956ffaed4f365f4"
+source = "git+https://github.com/filecoin-project/bellperson?branch=instance-aggregation#20703aa45afe5f07d741195b9224bb393bdd3d66"
 dependencies = [
  "bincode",
  "bitvec",

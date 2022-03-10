@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test {
     use blstrs::Scalar as Fr;
-    use lurk::store::Store;
+    use lurk::{eval::IO, store::Store};
     use lurk_macro::{let_store, lurk};
 
     #[test]
@@ -62,8 +62,14 @@ mod test {
                           ((exp 5) 3)))
         .unwrap();
 
-        let (result_expr, _new_env, iterations, _continuation) =
-            Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit).eval();
+        let (
+            IO {
+                expr: result_expr,
+                env: _new_env,
+                cont: _continuation,
+            },
+            iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit).eval();
 
         assert_eq!(91, iterations);
         assert_eq!(s_.num(125), result_expr);
@@ -77,8 +83,14 @@ mod test {
         let val = s_.num(123);
         let expr = lurk!(((lambda (x) x) 123)).unwrap();
 
-        let (result_expr, _new_env, iterations, _continuation) =
-            Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit).eval();
+        let (
+            IO {
+                expr: result_expr,
+                env: _new_env,
+                cont: _continuation,
+            },
+            iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit).eval();
 
         assert_eq!(4, iterations);
         assert_eq!(val, result_expr);

@@ -518,10 +518,11 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
+    // dbg!("reduce_expression");
+    // dbg!(&expr.fetch_and_write_str(store));
+    // dbg!(&expr);
     // dbg!(&env.fetch_and_write_str(store));
-    // dbg!(&cont.fetch_and_write_cont_str(store));
-    // dbg!(expr, cont);
-
+    // dbg!(&cont.fetch_and_write_cont_str(store), &cont);
     let mut results = Results::default();
     {
         // Self-evaluating expressions
@@ -932,6 +933,7 @@ fn reduce_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     )?;
 
     let cs = &mut cs.namespace(|| "sym_is_self_evaluating");
+
     let cond1 = and!(cs, &sym_is_self_evaluating, not_dummy)?;
 
     // NOTE: The commented-out implies_equal lines in the rest of this function
@@ -1072,10 +1074,11 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     let letrec = hash_sym("letrec");
     let letrec_t = AllocatedPtr::alloc_constant(&mut cs.namespace(|| "letrec"), letrec)?;
     let letrec_hash = letrec.value();
-    let cons_hash = hash_sym("car");
+    let cons_hash = hash_sym("cons");
     let car_hash = hash_sym("car");
     let cdr_hash = hash_sym("cdr");
     let atom_hash = hash_sym("atom");
+    let emit_hash = hash_sym("emit");
     let sum_hash = hash_sym("+");
     let diff_hash = hash_sym("-");
     let product_hash = hash_sym("*");
@@ -1269,8 +1272,8 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.unop_cont_tag,
         &[
             &[&g.op1_car_tag, &g.default_num],
-            &arg1,
-            env,
+            &[cont.tag(), cont.hash()],
+            &[&g.default_num, &g.default_num],
             &[&g.default_num, &g.default_num],
         ],
     )?;
@@ -1285,8 +1288,8 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.unop_cont_tag,
         &[
             &[&g.op1_cdr_tag, &g.default_num],
-            &arg1,
-            env,
+            &[cont.tag(), cont.hash()],
+            &[&g.default_num, &g.default_num],
             &[&g.default_num, &g.default_num],
         ],
     )?;
@@ -1301,13 +1304,29 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.unop_cont_tag,
         &[
             &[&g.op1_atom_tag, &g.default_num],
-            &arg1,
-            env,
+            &[cont.tag(), cont.hash()],
+            &[&g.default_num, &g.default_num],
             &[&g.default_num, &g.default_num],
         ],
     )?;
 
     results.add_clauses_cons(*atom_hash.value(), &arg1, env, &continuation, &g.false_num);
+
+    // head == EMIT
+    // FIXME: Error if end != NIL.
+    let continuation = AllocatedContPtr::construct(
+        &mut cs.namespace(|| "unop emit"),
+        store,
+        &g.unop_cont_tag,
+        &[
+            &[&g.op1_emit_tag, &g.default_num],
+            &[cont.tag(), cont.hash()],
+            &[&g.default_num, &g.default_num],
+            &[&g.default_num, &g.default_num],
+        ],
+    )?;
+
+    results.add_clauses_cons(*emit_hash.value(), &arg1, env, &continuation, &g.false_num);
 
     // head == +
     let continuation = AllocatedContPtr::construct(
@@ -1622,6 +1641,10 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
     let default_num_pair = &[&g.default_num, &g.default_num];
 
+    let continuation = AllocatedContPtr::by_index(0, &continuation_components);
+
+    results.add_clauses_cont(ContTag::Emit, result, env, &continuation, &g.true_num);
+
     /////////////////////////////////////////////////////////////////////////////
     // Continuation::Call                                                      //
     /////////////////////////////////////////////////////////////////////////////
@@ -1687,8 +1710,9 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
     // Continuation::Unop                                                      //
     /////////////////////////////////////////////////////////////////////////////
-    let unop_val = {
+    let (unop_val, unop_continuation) = {
         let op1 = AllocatedPtr::by_index(0, &continuation_components);
+        let unop_continuation = AllocatedPtr::by_index(1, &continuation_components);
 
         let (allocated_car, allocated_cdr) =
             car_cdr(&mut cs.namespace(|| "Unop cons"), g, result, store)?;
@@ -1723,6 +1747,10 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
                         key: Op1::Atom.as_field(),
                         value: atom_ptr.tag(),
                     },
+                    CaseClause {
+                        key: Op1::Emit.as_field(),
+                        value: result.tag(),
+                    },
                 ],
                 &[
                     CaseClause {
@@ -1737,17 +1765,55 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
                         key: Op1::Atom.as_field(),
                         value: atom_ptr.hash(),
                     },
+                    CaseClause {
+                        key: Op1::Emit.as_field(),
+                        value: result.hash(),
+                    },
                 ],
             ],
-            &[&g.default_num, &g.default_num, &g.default_num],
+            &[
+                &g.default_num,
+                &g.default_num,
+                &g.default_num,
+                &g.default_num,
+            ],
         )?;
 
-        AllocatedPtr::by_index(0, &res)
+        (AllocatedPtr::by_index(0, &res), unop_continuation)
     };
 
-    let continuation = AllocatedContPtr::by_index(1, &continuation_components);
+    let emit_continuation = AllocatedContPtr::construct(
+        &mut cs.namespace(|| "Emit"),
+        store,
+        &g.emit_cont_tag,
+        &[
+            &unop_continuation,
+            &[&g.default_num, &g.default_num],
+            &[&g.default_num, &g.default_num],
+            &[&g.default_num, &g.default_num],
+        ],
+    )?;
+    let unop_op1 = AllocatedPtr::by_index(0, &continuation_components);
+    let other_unop_continuation = AllocatedContPtr::by_index(1, &continuation_components);
+    let op1_is_emit = alloc_equal(
+        &mut cs.namespace(|| "op1_is_emit"),
+        unop_op1.tag(),
+        &g.op1_emit_tag,
+    )?;
+    let unop_continuation = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "unop_continuation"),
+        &op1_is_emit,
+        &emit_continuation,
+        &other_unop_continuation,
+    )?;
 
-    results.add_clauses_cont(ContTag::Unop, &unop_val, env, &continuation, &g.true_num);
+    results.add_clauses_cont(
+        ContTag::Unop,
+        &unop_val,
+        env,
+        &unop_continuation,
+        &g.true_num,
+    );
 
     /////////////////////////////////////////////////////////////////////////////
     // Continuation::Unop                                                      //
@@ -2590,9 +2656,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(29091, cs.num_constraints());
+            assert_eq!(30131, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(29076, cs.aux().len());
+            assert_eq!(30115, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

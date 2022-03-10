@@ -21,7 +21,7 @@ fn verify_sequential_css<F: PrimeField + Copy>(
 ) -> Result<bool, SynthesisError> {
     let mut previous_frame: Option<&MultiFrame<F, IO<F>, Witness<F>>> = None;
 
-    for (_, (multiframe, cs)) in css.iter().enumerate() {
+    for (i, (multiframe, cs)) in css.iter().enumerate() {
         if let Some(prev) = previous_frame {
             if !prev.precedes(multiframe) {
                 dbg!("not preceeding frame");
@@ -29,7 +29,7 @@ fn verify_sequential_css<F: PrimeField + Copy>(
             }
         }
         if !cs.is_satisfied() {
-            dbg!("cs not satisfied");
+            dbg!("cs {} not satisfied", i);
             return Ok(false);
         }
 
