@@ -9,6 +9,7 @@ fn lurk_tests() {
         "micro-tests.lurk",
         "meta-tests.lurk",
         "meta-letrec-tests.lurk",
+        "fibonacci-tests.lurk",
         "tests/spec.lurk",
     ];
 

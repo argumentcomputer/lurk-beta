@@ -82,6 +82,7 @@ pub struct Store<F: PrimeField> {
     if_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
     let_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
     let_rec_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
+    emit_store: IndexSet<ContPtr<F>>,
 
     /// Holds a mapping of ScalarPtr -> Ptr for reverse lookups
     scalar_ptr_map: dashmap::DashMap<ScalarPtr<F>, Ptr<F>, ahash::RandomState>,
@@ -118,9 +119,10 @@ impl<F: PrimeField, const N: usize> Hash for CacheKey<F, N> {
 
 impl<F: PrimeField> PoseidonCache<F> {
     fn hash4(&self, preimage: &[F; 4]) -> F {
-        let hash = self.a4.entry(CacheKey(*preimage)).or_insert_with(|| {
-            dbg!(Poseidon::new_with_preimage(preimage, self.constants.c4()).hash())
-        });
+        let hash = self
+            .a4
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c4()).hash());
 
         *hash
     }
@@ -409,6 +411,9 @@ pub enum Continuation<F: PrimeField> {
         body: Ptr<F>,
         continuation: ContPtr<F>,
     },
+    Emit {
+        continuation: ContPtr<F>,
+    },
     Dummy,
     Terminal,
 }
@@ -423,6 +428,7 @@ pub enum Op1 {
     Car = 0b0010_0000_0000_0000,
     Cdr,
     Atom,
+    Emit,
 }
 
 impl fmt::Display for Op1 {
@@ -431,6 +437,7 @@ impl fmt::Display for Op1 {
             Op1::Car => write!(f, "Car"),
             Op1::Cdr => write!(f, "Cdr"),
             Op1::Atom => write!(f, "Atom"),
+            Op1::Emit => write!(f, "Emit"),
         }
     }
 }
@@ -534,6 +541,7 @@ pub enum ContTag {
     LetRec,
     Dummy,
     Terminal,
+    Emit,
 }
 
 impl From<ContTag> for u64 {
@@ -569,6 +577,7 @@ impl<F: PrimeField> Default for Store<F> {
             if_store: Default::default(),
             let_store: Default::default(),
             let_rec_store: Default::default(),
+            emit_store: Default::default(),
             scalar_ptr_map: Default::default(),
             scalar_ptr_cont_map: Default::default(),
             poseidon_cache: Default::default(),
@@ -585,9 +594,11 @@ impl<F: PrimeField> Default for Store<F> {
             "_",
             "let",
             "letrec",
+            "cons",
             "car",
             "cdr",
             "atom",
+            "emit",
             "+",
             "-",
             "*",
@@ -871,6 +882,14 @@ impl<F: PrimeField> Store<F> {
         }
         ptr
     }
+    pub fn intern_cont_emit(&mut self, continuation: ContPtr<F>) -> ContPtr<F> {
+        let (p, inserted) = self.emit_store.insert_full(continuation);
+        let ptr = ContPtr(ContTag::Emit, RawPtr::new(p));
+        if inserted {
+            self.dehydrated_cont.push(ptr)
+        }
+        ptr
+    }
 
     pub fn intern_cont_binop(
         &mut self,
@@ -1121,6 +1140,12 @@ impl<F: PrimeField> Store<F> {
             }
             Dummy => Some(Continuation::Dummy),
             Terminal => Some(Continuation::Terminal),
+            Emit => self
+                .emit_store
+                .get_index(ptr.1 .0)
+                .map(|continuation| Continuation::Emit {
+                    continuation: *continuation,
+                }),
         }
     }
 
@@ -1248,6 +1273,7 @@ impl<F: PrimeField> Store<F> {
                 saved_env,
                 continuation,
             } => self.get_hash_components_let_rec(var, body, saved_env, continuation)?,
+            Emit { continuation } => self.get_hash_components_emit(continuation)?,
         };
 
         Some([
@@ -1406,6 +1432,14 @@ impl<F: PrimeField> Store<F> {
         Some([saved_env, arg, cont, def])
     }
 
+    fn get_hash_components_emit(&self, cont: &ContPtr<F>) -> Option<[[F; 2]; 4]> {
+        let def = [F::zero(), F::zero()];
+
+        let cont = self.hash_cont(cont)?.into_hash_components();
+
+        Some([cont, def, def, def])
+    }
+
     pub fn get_hash_components_thunk(&self, thunk: &Thunk<F>) -> Option<[F; 4]> {
         let value_hash = self.hash_expr(&thunk.value)?.into_hash_components();
         let continuation_hash = self.hash_cont(&thunk.continuation)?.into_hash_components();
@@ -1443,7 +1477,7 @@ impl<F: PrimeField> Store<F> {
         let components = self.get_hash_components_thunk(thunk)?;
         // FIXME: This function is not called when a thunk is not a public input!
         //
-        Some(self.create_scalar_ptr(ptr, dbg!(self.poseidon_cache.hash4(&components))))
+        Some(self.create_scalar_ptr(ptr, self.poseidon_cache.hash4(&components)))
     }
 
     fn hash_num(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
@@ -1526,8 +1560,10 @@ impl<F: PrimeField> Store<F> {
         self.dehydrated.truncate(0);
 
         self.dehydrated_cont.par_iter().for_each(|ptr| {
-            self.hash_cont(ptr).expect("failed to hash_expr");
+            self.hash_cont(ptr).expect("failed to hash_cont");
         });
+
+        self.dehydrated_cont.truncate(0);
 
         self.dehydrated_cont.clear();
     }
