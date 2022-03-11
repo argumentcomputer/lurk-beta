@@ -1217,7 +1217,6 @@ mod tests {
     #[test]
     #[ignore]
     fn outer_prove_evaluate_multiarg_eval_bug() {
-        //TODO: not working
         outer_prove_aux(
             &"(car (cdr '(1 2 3 4)))",
             |store| store.num(2),
@@ -1232,8 +1231,7 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_multuple_letrec_bindings() {
-        //TODO: not working
+    fn outer_prove_evaluate_multiple_letrec_bindings() {
         outer_prove_aux(
             &"(letrec
                   ((x 888)
@@ -1243,7 +1241,7 @@ mod tests {
                             (f (+ x 1))))))
                   (f 0))",
             |store| store.num(123),
-            4,
+            78,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
