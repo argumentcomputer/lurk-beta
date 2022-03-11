@@ -1253,7 +1253,6 @@ mod tests {
     #[test]
     #[ignore]
     fn outer_prove_evaluate_tail_call2() {
-        //TODO: not working
         outer_prove_aux(
             &"(letrec
                   ((f (lambda (x)
