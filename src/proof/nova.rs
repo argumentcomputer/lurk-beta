@@ -1209,7 +1209,7 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_multuple_letrec_bindings() {
+    fn outer_prove_evaluate_multiple_letrec_bindings() {
         outer_prove_aux(
             &"(letrec
                   ((x 888)
