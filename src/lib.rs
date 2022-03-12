@@ -1,5 +1,16 @@
 #![allow(clippy::single_match, clippy::type_complexity)]
 
+extern crate core;
+
+#[macro_use]
+extern crate alloc;
+
+#[cfg(test)]
+extern crate quickcheck;
+#[cfg(test)]
+#[macro_use(quickcheck)]
+extern crate quickcheck_macros;
+
 pub mod circuit;
 pub mod eval;
 pub mod parser;

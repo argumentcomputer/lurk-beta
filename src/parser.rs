@@ -4,6 +4,15 @@ use ff::PrimeField;
 
 use crate::store::{Ptr, Store};
 
+use nom_locate::LocatedSpan;
+
+pub type Span<'a> = LocatedSpan<&'a str>;
+
+mod base;
+mod error;
+mod string;
+mod syntax;
+
 impl<F: PrimeField> Store<F> {
     pub fn read(&mut self, input: &str) -> Option<Ptr<F>> {
         let mut chars = input.chars().peekable();
@@ -22,7 +31,8 @@ impl<F: PrimeField> Store<F> {
             chars.next();
             while let Some(&c) = chars.peek() {
                 chars.next();
-                // TODO: This does not handle any escaping, so strings containing " cannot be read.
+                // TODO: This does not handle any escaping, so strings containing "
+                // cannot be read.
                 if c == '"' {
                     let str = self.intern_str(result);
                     return Some(str);
@@ -100,7 +110,8 @@ impl<F: PrimeField> Store<F> {
         None
     }
 
-    // In this context, 'list' includes improper lists, i.e. dotted cons-pairs like (1 . 2).
+    // In this context, 'list' includes improper lists, i.e. dotted cons-pairs
+    // like (1 . 2).
     fn read_list<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr<F>> {
         if let Some(&c) = chars.peek() {
             match c {
@@ -245,7 +256,7 @@ fn skip_line_comment<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> bool 
     }
     false
 
-    //chars.skip_while(|c| *c != '\n' && *c != '\r');
+    // chars.skip_while(|c| *c != '\n' && *c != '\r');
     //     }
     // };
 }

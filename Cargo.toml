@@ -34,6 +34,11 @@ ahash = "0.7.6"
 pasta_curves = "0.3.0"
 string-interner = "0.14.0"
 dashmap = "5.0.0"
+nom = { version = "7.1.0", default-features = false, features = ["alloc"]}
+nom_locate = { version = "4.0.0", default-features = false, features = ["alloc"] }
+multibase = { version = "0.9.1", default-features = false }
+base-x = { version = "0.2.8", default-features = false }
+num-bigint = { version = "0.4.3", default-features = false }
 
 [features]
 default = ["gpu"]
@@ -42,6 +47,8 @@ gpu = ["neptune/opencl"]
 
 [dev-dependencies]
 criterion = "0.3.5"
+quickcheck = "1.0.3"
+quickcheck_macros = "1.0.0"
 
 
 [[bench]]
