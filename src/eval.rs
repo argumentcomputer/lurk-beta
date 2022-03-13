@@ -35,11 +35,17 @@ pub struct Frame<T: Copy, W: Copy> {
     pub witness: W,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Status {
     Terminal,
     Error,
     Incomplete,
+}
+
+impl Default for Status {
+    fn default() -> Self {
+        Self::Incomplete
+    }
 }
 
 impl Status {
@@ -121,7 +127,9 @@ pub trait Evaluable<F: PrimeField, W> {
     where
         Self: Sized;
 
+    fn status(&self) -> Status;
     fn is_complete(&self) -> bool;
+    fn is_terminal(&self) -> bool;
     fn is_error(&self) -> bool;
 
     fn log(&self, store: &Store<F>, i: usize);
@@ -133,12 +141,19 @@ impl<F: PrimeField> Evaluable<F, Witness<F>> for IO<F> {
         (Self { expr, env, cont }, witness)
     }
 
+    fn status(&self) -> Status {
+        Status::from(self.cont)
+    }
+
     fn is_complete(&self) -> bool {
-        Status::from(self.cont).is_complete()
+        self.status().is_complete()
+    }
+    fn is_terminal(&self) -> bool {
+        self.status().is_complete()
     }
 
     fn is_error(&self) -> bool {
-        Status::from(self.cont).is_error()
+        self.status().is_error()
     }
 
     fn log(&self, store: &Store<F>, i: usize) {

@@ -176,6 +176,10 @@ impl<F: PrimeField, W> Provable<F> for MultiFrame<'_, F, IO<F>, W> {
         let input_output_size = IO::<F>::input_size();
         input_output_size * 2
     }
+
+    fn chunk_frame_count(&self) -> usize {
+        self.count
+    }
 }
 
 type AllocatedIO<F> = (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>);

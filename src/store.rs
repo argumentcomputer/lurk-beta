@@ -655,6 +655,11 @@ impl<F: PrimeField> Default for Store<F> {
             store.sym(sym);
         }
 
+        // This is a hack to at least mark printed opaque conses clearly.
+        let a = store.sym("<OPAQUE-CAR>");
+        let b = store.sym("<OPAQUE-CDR>");
+        store.opaque_cons = (a, b);
+
         store
     }
 }
@@ -1063,10 +1068,11 @@ impl<F: PrimeField> Store<F> {
         self.scalar_ptr_cont_map.get(scalar_ptr).map(|p| *p)
     }
 
-    fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<&str> {
+    pub(crate) fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<&str> {
         debug_assert!(matches!(ptr.0, Tag::Sym) | matches!(ptr.0, Tag::Nil));
 
         if ptr.1.is_opaque() {
+            // Ptr.fmt depends on this never returning None for opaque syms.
             if self.opaque_map.contains_key(ptr) {
                 return Some("<Opaque Sym>");
             } else {
@@ -1256,6 +1262,8 @@ impl<F: PrimeField> Store<F> {
                 _ => unreachable!(),
             },
             _ => {
+                use crate::writer::Write;
+                dbg!(ptr.fmt_to_string(self));
                 panic!("Can only extract car_cdr from Cons")
             }
         }
@@ -1932,10 +1940,12 @@ mod test {
         let other_opaque_sym3 = other_store.intern_opaque_sym(*sym_hash.value());
 
         // other_opaque_sym doesn't exist at all in store, but it is recognized as an opaque sym.
+        // It still prints 'normally', but attempts to fetch its name detect this case.
         // This shouldn't actually happen. The test just exercise the code path which detects it.
+        assert_eq!("<Opaque Sym>", other_opaque_sym3.fmt_to_string(&store));
         assert_eq!(
             "<Opaque Sym [MISSING]>",
-            other_opaque_sym3.fmt_to_string(&store)
+            store.fetch_sym(&other_opaque_sym3).unwrap()
         );
 
         {
@@ -1991,6 +2001,16 @@ mod test {
         let qcons2 = store.list(&[quote, cons2]);
         let qcons_opaque = store.list(&[quote, opaque_cons]);
         let qcons_opaque2 = store.list(&[quote, opaque_cons2]);
+
+        assert_eq!("<Opaque Cons>", opaque_cons.fmt_to_string(&store));
+        assert_eq!(
+            "<OPAQUE-CAR>",
+            store.car(&opaque_cons).fmt_to_string(&store)
+        );
+        assert_eq!(
+            "<OPAQUE-CDR>",
+            store.cdr(&opaque_cons).fmt_to_string(&store)
+        );
         {
             let comparison_expr = store.list(&[eq, qcons, qcons_opaque]);
             // FIXME: need to implement Write for opaque data.

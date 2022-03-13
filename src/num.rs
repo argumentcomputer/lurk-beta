@@ -161,6 +161,10 @@ impl<F: PrimeField> Num<F> {
             Num::Scalar(s) => s,
         }
     }
+
+    pub fn from_scalar(s: F) -> Self {
+        Num::Scalar(s)
+    }
 }
 
 impl<F: PrimeField> From<u64> for Num<F> {
