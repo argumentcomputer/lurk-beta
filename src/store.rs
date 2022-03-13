@@ -730,13 +730,39 @@ impl<F: PrimeField> Store<F> {
         }
         ptr
     }
+    fn intern_opaque(&mut self, tag: Tag, hash: F) -> Ptr<F> {
+        let scalar_ptr = ScalarPtr::from_parts(tag.as_field(), hash);
 
-    pub fn intern_opaque_cons(&mut self, hash: F) -> Ptr<F> {
-        let scalar_ptr = ScalarPtr::from_parts(Tag::Cons.as_field(), hash);
-        let ptr = Ptr(Tag::Cons, self.new_opaque_raw_ptr());
-        self.opaque_map.entry(ptr).or_insert(scalar_ptr);
+        // Scope the first immutable borrow.
+        {
+            let ptr = self.scalar_ptr_map.get(&scalar_ptr);
+
+            if let Some(p) = ptr {
+                // Only reuse existing Prt with same hash if it is also opaque.
+                // intern_opaque will always return an opaque Ptr, never a corresponding
+                // normal Ptr. To change this behavior, remove this check.
+                if p.is_opaque() {
+                    return *p;
+                }
+            }
+        }
+        let ptr = Ptr(tag, self.new_opaque_raw_ptr());
+        // Always insert. Key is unique because of newly allocated opaque raw_ptr.
+        self.opaque_map.insert(ptr, scalar_ptr);
 
         ptr
+    }
+
+    pub fn intern_opaque_fun(&mut self, hash: F) -> Ptr<F> {
+        self.intern_opaque(Tag::Fun, hash)
+    }
+
+    pub fn intern_opaque_sym(&mut self, hash: F) -> Ptr<F> {
+        self.intern_opaque(Tag::Sym, hash)
+    }
+
+    pub fn intern_opaque_cons(&mut self, hash: F) -> Ptr<F> {
+        self.intern_opaque(Tag::Cons, hash)
     }
 
     /// Helper to allocate a list, instead of manually using `cons`.
@@ -772,13 +798,6 @@ impl<F: PrimeField> Store<F> {
             self.dehydrated.push(ptr);
             ptr
         }
-    }
-
-    pub fn intern_opaque_sym(&mut self, hash: F) -> Ptr<F> {
-        let scalar_ptr = ScalarPtr::from_parts(Tag::Sym.as_field(), hash);
-        let ptr = Ptr(Tag::Sym, self.new_opaque_raw_ptr());
-        self.opaque_map.insert(ptr, scalar_ptr);
-        ptr
     }
 
     pub fn get_sym<T: AsRef<str>>(&self, name: T, convert_case: bool) -> Option<Ptr<F>> {
@@ -824,13 +843,6 @@ impl<F: PrimeField> Store<F> {
         if inserted {
             self.dehydrated.push(ptr);
         }
-        ptr
-    }
-
-    pub fn intern_opaque_fun(&mut self, hash: F) -> Ptr<F> {
-        let scalar_ptr = ScalarPtr::from_parts(Tag::Fun.as_field(), hash);
-        let ptr = Ptr(Tag::Fun, self.new_opaque_raw_ptr());
-        self.opaque_map.insert(ptr, scalar_ptr);
         ptr
     }
 
@@ -1053,9 +1065,14 @@ impl<F: PrimeField> Store<F> {
 
     fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<&str> {
         debug_assert!(matches!(ptr.0, Tag::Sym) | matches!(ptr.0, Tag::Nil));
+
         if ptr.1.is_opaque() {
-            self.opaque_map.get(ptr).map(|p| *p);
-            return Some("<OPAQUE>");
+            if let Some(scalar_ptr) = self.opaque_map.get(ptr).map(|p| *p) {
+                return Some("<Opaque Sym>");
+            } else {
+                // This shouldn't happen.
+                return Some("<Opaque Sym [MISSING]>");
+            }
         }
 
         if ptr.0 == Tag::Nil {
@@ -1673,6 +1690,16 @@ impl<F: PrimeField> Store<F> {
         RawPtr(0isize - p as isize, Default::default())
     }
 
+    pub fn new_opaque_raw_ptr_x(&mut self, hash: F) -> RawPtr<F> {
+        self.opaque_raw_ptr_count += 1;
+        let p = self.opaque_raw_ptr_count;
+        // We can't use 0 for both opaque and normal RawPtrs.
+        assert!(p > 0);
+        // Ensure there will be no overlow.
+        assert!(p < isize::MAX as usize);
+        RawPtr(0isize - p as isize, Default::default())
+    }
+
     pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> bool {
         // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
         // compound data with opaque data in either element's transitive closure.
@@ -1867,8 +1894,8 @@ mod test {
         let mut store = Store::<Fr>::default();
 
         let empty_env = empty_sym_env(&store);
-        let sym = store.intern_sym(&"sym");
-        let sym2 = store.intern_sym(&"sym2");
+        let sym = store.sym(&"sym");
+        let sym2 = store.sym(&"sym2");
         let sym_hash = store.hash_expr(&sym).unwrap();
         let sym_hash2 = store.hash_expr(&sym2).unwrap();
         let opaque_sym = store.intern_opaque_sym(*sym_hash.value());
@@ -1884,6 +1911,36 @@ mod test {
         let t = store.sym("t");
         let nil = store.nil();
         let limit = 10;
+
+        // When an opaque sym is inserted into a store which contains the same sym, the store knows its identity.
+        // Should we just immediately coalesce and never create an opaque version in that case? Probably not because
+        // that may interact badly with explicit hiding to be implemented.
+        // Let's defer any such considerations until we have a well-specified way of segreting secret/private data.
+        //
+        // If implemented, the following commented test would pass.
+        // assert_eq!(sym.fmt_to_string(&store), opaque_sym.fmt_to_string(&store));
+
+        // For now, all opaque data remains opaque, even if the Store has enough information to clarify it.
+        assert!(sym.fmt_to_string(&store) != opaque_sym.fmt_to_string(&store));
+
+        let mut other_store = Store::<Fr>::default();
+        let other_opaque_sym = other_store.intern_opaque_sym(*sym_hash.value());
+
+        let other_sym = other_store.sym("sym");
+        // other_sym and other_opaque_sym are not equal, since the non-opaque symbol was inserted after the opaque one.
+        // TODO: we could check for this and fix when inserting non-opaque syms. If we decide to clarify opaque data
+        // when possible, we should do this too.
+        assert!(sym.fmt_to_string(&store) != other_opaque_sym.fmt_to_string(&other_store));
+
+        assert_eq!("<Opaque Sym>", other_opaque_sym.fmt_to_string(&other_store));
+
+        // other_opaque_sym doesn't exist at all in store, but it is recognized as an opaque sym.
+        // This shouldn't actually happen. The test just exercise the code path which detects it.
+        assert_eq!(
+            "<Opaque Sym [MISSING]>",
+            other_opaque_sym.fmt_to_string(&store)
+        );
+
         {
             let comparison_expr = store.list(&[eq, qsym, qsym_opaque]);
             let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();

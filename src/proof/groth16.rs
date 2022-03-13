@@ -36,7 +36,7 @@ pub static INNER_PRODUCT_SRS: Lazy<GenericSRS<Bls12>> = Lazy::new(|| load_srs().
 
 const MAX_FAKE_SRS_SIZE: usize = (2 << 14) + 1;
 
-pub const TRANSCRIPT_INCLUDE: &[u8] = "LURK-CIRCUIT".as_bytes();
+pub const TRANSCRIPT_INCLUDE: &[u8] = b"LURK-CIRCUIT";
 
 // If you don't have a real SnarkPack SRS symlinked, generate a fake one.
 // Don't use this in production!
