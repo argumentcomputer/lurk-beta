@@ -1067,7 +1067,7 @@ impl<F: PrimeField> Store<F> {
         debug_assert!(matches!(ptr.0, Tag::Sym) | matches!(ptr.0, Tag::Nil));
 
         if ptr.1.is_opaque() {
-            if let Some(scalar_ptr) = self.opaque_map.get(ptr).map(|p| *p) {
+            if self.opaque_map.contains_key(ptr) {
                 return Some("<Opaque Sym>");
             } else {
                 // This shouldn't happen.
@@ -1690,16 +1690,6 @@ impl<F: PrimeField> Store<F> {
         RawPtr(0isize - p as isize, Default::default())
     }
 
-    pub fn new_opaque_raw_ptr_x(&mut self, hash: F) -> RawPtr<F> {
-        self.opaque_raw_ptr_count += 1;
-        let p = self.opaque_raw_ptr_count;
-        // We can't use 0 for both opaque and normal RawPtrs.
-        assert!(p > 0);
-        // Ensure there will be no overlow.
-        assert!(p < isize::MAX as usize);
-        RawPtr(0isize - p as isize, Default::default())
-    }
-
     pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> bool {
         // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
         // compound data with opaque data in either element's transitive closure.
@@ -1930,15 +1920,22 @@ mod test {
         // other_sym and other_opaque_sym are not equal, since the non-opaque symbol was inserted after the opaque one.
         // TODO: we could check for this and fix when inserting non-opaque syms. If we decide to clarify opaque data
         // when possible, we should do this too.
-        assert!(sym.fmt_to_string(&store) != other_opaque_sym.fmt_to_string(&other_store));
+        assert!(
+            other_sym.fmt_to_string(&other_store) != other_opaque_sym.fmt_to_string(&other_store)
+        );
 
         assert_eq!("<Opaque Sym>", other_opaque_sym.fmt_to_string(&other_store));
+
+        // We need to insert a few opaque syms in other_store, in order to acquire a raw_ptr that doesn't exist in
+        // store. Use that to check for a malformed/missing opaque sym in store below.
+        let _other_opaque_sym2 = other_store.intern_opaque_sym(*sym_hash.value());
+        let other_opaque_sym3 = other_store.intern_opaque_sym(*sym_hash.value());
 
         // other_opaque_sym doesn't exist at all in store, but it is recognized as an opaque sym.
         // This shouldn't actually happen. The test just exercise the code path which detects it.
         assert_eq!(
             "<Opaque Sym [MISSING]>",
-            other_opaque_sym.fmt_to_string(&store)
+            other_opaque_sym3.fmt_to_string(&store)
         );
 
         {
