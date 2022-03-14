@@ -33,23 +33,12 @@ impl<F: PrimeField> Display for Num<F> {
 impl<F: PrimeField> Hash for Num<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
-            Num::Scalar(s) => s
-                .to_repr()
-                .as_ref()
-                .iter()
-                .for_each(|byte| byte.hash(state)),
-            Num::U64(n) => {
-                let mut hash = |n: u64| {
-                    n.to_le_bytes()
-                        .as_ref()
-                        .iter()
-                        .for_each(|byte| byte.hash(state))
-                };
+            Num::Scalar(s) => s.to_repr().as_ref().hash(state),
 
-                hash(*n);
-                hash(0);
-                hash(0);
-                hash(0);
+            Num::U64(n) => {
+                let mut bytes = [0u8; 32];
+                bytes[..8].copy_from_slice(&n.to_le_bytes());
+                bytes.hash(state);
             }
         }
     }
