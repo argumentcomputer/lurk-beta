@@ -8,6 +8,7 @@ use core::fmt;
 use core::fmt::Write;
 use core::num::ParseIntError;
 use nom_locate::LocatedSpan;
+use std::path::PathBuf;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseErrorKind {
@@ -21,6 +22,9 @@ pub enum ParseErrorKind {
     ReservedKeyword(String),
     ParseIntErr(ParseIntError),
     InvalidSymbol(String),
+    // TODO: Move REPL errors to their own error crate
+    ReplErrUnknownCommand,
+    ReplErrUnknownPath(PathBuf),
     Nom(ErrorKind),
 }
 

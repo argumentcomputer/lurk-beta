@@ -96,6 +96,7 @@ impl<F: PrimeField> fmt::Display for Term<F> {
 pub fn reserved_symbols() -> Vec<String> {
     Vec::from(vec![
         String::from(";;"),
+        String::from(";"),
         String::from("."),
         String::from("nil"),
         String::from(")"),
@@ -134,7 +135,7 @@ pub fn is_numeric_symbol_string1(s: &str) -> bool {
 }
 
 pub fn is_valid_symbol_char(c: char) -> bool {
-    c != ';' && c != '(' && c != ')' && !char::is_whitespace(c) && !char::is_control(c)
+    c != ';' && c != '.' && c != '(' && c != ')' && !char::is_whitespace(c) && !char::is_control(c)
 }
 
 pub fn is_valid_symbol_string(s: &str) -> bool {
@@ -147,7 +148,9 @@ pub fn parse_sym<F: PrimeField>() -> impl Fn(Span) -> IResult<Span, Term<F>, Par
     move |from: Span| {
         let (i, s) = take_till1(|x| char::is_whitespace(x) | (x == ')') | (x == '('))(from)?;
         let s: String = String::from(s.fragment().to_owned());
-        if reserved_symbols().contains(&s) {
+        if s == "nil" {
+            Ok((i, Term::Nil))
+        } else if reserved_symbols().contains(&s) {
             Err(Err::Error(ParseError::new(
                 from,
                 ParseErrorKind::ReservedKeyword(s),
@@ -420,6 +423,7 @@ pub mod tests {
     fn test_parse_sym() {
         test(parse_sym(), "asdf", Some(Term::Sym(String::from("asdf"))));
         test(parse_sym(), "ASDF", Some(Term::Sym(String::from("ASDF"))));
+        test(parse_sym(), "nil", Some(Term::Nil));
         test(parse_sym(), "+", Some(Term::Sym(String::from("+"))));
         test(parse_sym(), ";;", None);
         test(parse_sym(), ")", None);

@@ -1,4 +1,5 @@
 use crate::eval::{empty_sym_env, Evaluator, IO};
+use crate::parser::Span;
 use crate::store::{ContPtr, ContTag, Expression, Pointer, Ptr, Store, Tag};
 use crate::writer::Write;
 use anyhow::Result;
@@ -12,6 +13,10 @@ use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 use std::fs::read_to_string;
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
+
+mod command;
+
+use command::Command;
 
 #[derive(Completer, Helper, Highlighter, Hinter)]
 struct InputValidator {
@@ -76,57 +81,113 @@ pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
     let limit = 100_000_000;
     let mut repl = Repl::new(&mut s, limit)?;
 
-    {
-        if let Some(lurk_file) = lurk_file {
-            repl.state.handle_run(&mut s, &lurk_file).unwrap();
-            return Ok(());
-        }
-    }
-
     let stdout = io::stdout();
 
     loop {
-        match repl.rl.readline("> ") {
+        match repl.rl.readline("⥀> ") {
             Ok(line) => {
-                let result = repl.state.maybe_handle_command(&mut s, &line);
-
+                let result = command::parse_command()(Span::new(&line));
                 match result {
-                    Ok((handled_command, should_continue)) if handled_command => {
-                        if should_continue {
-                            continue;
-                        } else {
-                            break;
-                        };
+                    Ok((_, Command::Quit)) => {
+                        println!("Goodbye.");
+                        break;
                     }
-                    Ok(_) => (),
-                    Err(e) => {
-                        println!("Error when handling {}: {:?}", line, e);
-                        continue;
+                    Ok((_, Command::Clear)) => {
+                        repl.state.env = empty_sym_env(&s);
+                        println!("Environment cleared.");
                     }
-                };
+                    Ok((_, Command::Load(path))) => {
+                        let input = read_to_string(path)?;
 
-                if let Some(expr) = s.read(&line) {
-                    let (
-                        IO {
-                            expr: result,
-                            env: _env,
-                            cont: next_cont,
-                        },
-                        iterations,
-                    ) = Evaluator::new(expr, repl.state.env, &mut s, limit).eval();
+                        match s.parse_term(&input) {
+                            Ok(expr) => {
+                                let (result, _limit, _next_cont) =
+                                    repl.state.eval_expr(expr, &mut s);
 
-                    print!("[{} iterations] => ", iterations);
+                                repl.state.env = result;
 
-                    match next_cont.tag() {
-                        ContTag::Outermost | ContTag::Terminal => {
-                            let mut handle = stdout.lock();
-                            result.fmt(&s, &mut handle)?;
-                            println!();
+                                println!("Read: {}", input);
+                                io::stdout().flush().unwrap();
+                            }
+                            Err(e) => {
+                                println!("Error: {}", e)
+                            }
                         }
-                        ContTag::Error => println!("ERROR!"),
-                        _ => println!("Computation incomplete after limit: {}", limit),
                     }
+                    Ok((_, Command::Eval(trm))) => {
+                        let expr = s.store_term(*trm);
+                        let (
+                            IO {
+                                expr: result,
+                                env: _env,
+                                cont: next_cont,
+                            },
+                            iterations,
+                        ) = Evaluator::new(expr, repl.state.env, &mut s, repl.state.limit).eval();
+
+                        print!("[{} iterations] => ", iterations);
+
+                        match next_cont.tag() {
+                            ContTag::Outermost | ContTag::Terminal => {
+                                let mut handle = stdout.lock();
+                                result.fmt(&s, &mut handle)?;
+                                println!();
+                            }
+                            ContTag::Error => println!("ERROR! cont-tag"),
+                            _ => println!("Computation incomplete after limit: {}", limit),
+                        }
+                    }
+                    Err(e) => match e {
+                        nom::Err::Incomplete(_) => println!("Incomplete Input"),
+                        nom::Err::Failure(e) => {
+                            println!("Parse Failure:\n");
+                            println!("{}", e);
+                        }
+                        nom::Err::Error(e) => {
+                            println!("Parse Error:\n");
+                            println!("{}", e);
+                        }
+                    },
                 }
+                //let result = repl.state.maybe_handle_command(&mut s, &line);
+
+                //match result {
+                //    Ok((handled_command, should_continue)) if handled_command => {
+                //        if should_continue {
+                //            continue;
+                //        } else {
+                //            break;
+                //        };
+                //    }
+                //    Ok(_) => (),
+                //    Err(e) => {
+                //        println!("Error when handling {}: {:?}", line, e);
+                //        continue;
+                //    }
+                //};
+
+                //if let Some(expr) = s.read(&line) {
+                //    let (
+                //        IO {
+                //            expr: result,
+                //            env: _env,
+                //            cont: next_cont,
+                //        },
+                //        iterations,
+                //    ) = Evaluator::new(expr, repl.state.env, &mut s, limit).eval();
+
+                //    print!("[{} iterations] => ", iterations);
+
+                //    match next_cont.tag() {
+                //        ContTag::Outermost | ContTag::Terminal => {
+                //            let mut handle = stdout.lock();
+                //            result.fmt(&s, &mut handle)?;
+                //            println!();
+                //        }
+                //        ContTag::Error => println!("ERROR!"),
+                //        _ => println!("Computation incomplete after limit: {}", limit),
+                //    }
+                //}
             }
             Err(ReadlineError::Interrupted | ReadlineError::Eof) => {
                 println!("Exiting...");
@@ -151,6 +212,7 @@ impl ReplState {
             limit,
         }
     }
+
     pub fn eval_expr(
         &mut self,
         expr: Ptr<Fr>,
@@ -167,164 +229,87 @@ impl ReplState {
 
         (result, limit, next_cont)
     }
-
-    /// Returns two bools.
-    /// First bool is true if input is a command.
-    /// Second bool is true if processing should continue.
-    pub fn maybe_handle_command(
-        &mut self,
-        store: &mut Store<Fr>,
-        line: &str,
-    ) -> Result<(bool, bool)> {
-        let mut chars = line.chars().peekable();
-        let maybe_command = store.read_next(&mut chars);
-
-        let result = match &maybe_command {
-            Some(maybe_command) => match maybe_command.tag() {
-                Tag::Sym => match store.fetch(maybe_command).unwrap().as_sym_str().unwrap() {
-                    ":QUIT" => (true, false),
-                    ":LOAD" => match store.read_string(&mut chars) {
-                        Some(s) => match s.tag() {
-                            Tag::Str => {
-                                let path = store.fetch(&s).unwrap();
-                                let path = PathBuf::from(path.as_str().unwrap());
-                                self.handle_load(store, path)?;
-                                (true, true)
-                            }
-                            other => {
-                                anyhow::bail!("No valid path found: {:?}", other);
-                            }
-                        },
-                        None => {
-                            anyhow::bail!("No path found");
-                        }
-                    },
-                    ":RUN" => {
-                        if let Some(s) = store.read_string(&mut chars) {
-                            if s.tag() == Tag::Str {
-                                let path = store.fetch(&s).unwrap();
-                                let path = PathBuf::from(path.as_str().unwrap());
-                                self.handle_run(store, &path)?;
-                            }
-                        }
-                        (true, true)
-                    }
-                    ":CLEAR" => {
-                        self.env = empty_sym_env(store);
-                        (true, true)
-                    }
-                    s => {
-                        if s.starts_with(':') {
-                            println!("Unkown command: {}", s);
-                            (true, true)
-                        } else {
-                            (false, true)
-                        }
-                    }
-                },
-                _ => (false, true),
-            },
-            _ => (false, true),
-        };
-
-        Ok(result)
-    }
-
-    pub fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store<Fr>, path: P) -> Result<()> {
-        println!("Loading from {}.", path.as_ref().to_str().unwrap());
-        let input = read_to_string(path)?;
-
-        let expr = store.read(&input).unwrap();
-        let (result, _limit, _next_cont) = self.eval_expr(expr, store);
-
-        self.env = result;
-
-        println!("Read: {}", input);
-        io::stdout().flush().unwrap();
-        Ok(())
-    }
-
-    pub fn handle_run<P: AsRef<Path> + Copy>(
-        &mut self,
-        store: &mut Store<Fr>,
-        path: P,
-    ) -> Result<()> {
-        println!("Running from {}.", path.as_ref().to_str().unwrap());
-        let p = path;
-
-        let input = read_to_string(path)?;
-        println!("Read from {}: {}", path.as_ref().to_str().unwrap(), input);
-        let mut chars = input.chars().peekable();
-
-        while let Some((ptr, is_meta)) = store.read_maybe_meta(&mut chars) {
-            let expr = store.fetch(&ptr).unwrap();
-            if is_meta {
-                match expr {
-                    Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
-                        Expression::Sym(s) => {
-                            if s == &":LOAD" {
-                                match store.fetch(&store.car(&rest)).unwrap() {
-                                    Expression::Str(path) => {
-                                        let joined =
-                                            p.as_ref().parent().unwrap().join(Path::new(&path));
-                                        self.handle_load(store, &joined)?
-                                    }
-                                    _ => panic!("Argument to :LOAD must be a string."),
-                                }
-                                io::stdout().flush().unwrap();
-                            } else if s == &":RUN" {
-                                match store.fetch(&store.car(&rest)).unwrap() {
-                                    Expression::Str(path) => {
-                                        let joined =
-                                            p.as_ref().parent().unwrap().join(Path::new(&path));
-                                        self.handle_run(store, &joined)?
-                                    }
-                                    _ => panic!("Argument to :RUN must be a string."),
-                                }
-                            } else if s == &":ASSERT-EQ" {
-                                let (first, rest) = store.car_cdr(&rest);
-                                let (second, rest) = store.car_cdr(&rest);
-                                assert!(rest.is_nil());
-                                let (first_evaled, _, _) = self.eval_expr(first, store);
-                                let (second_evaled, _, _) = self.eval_expr(second, store);
-                                assert_eq!(first_evaled, second_evaled);
-                            } else if s == &":ASSERT" {
-                                let (first, rest) = store.car_cdr(&rest);
-                                assert!(rest.is_nil());
-                                let (first_evaled, _, _) = self.eval_expr(first, store);
-                                assert!(!first_evaled.is_nil());
-                            } else if s == &":CLEAR" {
-                                self.env = empty_sym_env(store);
-                            } else if s == &":ASSERT-ERROR" {
-                                let (first, rest) = store.car_cdr(&rest);
-
-                                assert!(rest.is_nil());
-                                let (_, _, continuation) = self.clone().eval_expr(first, store);
-                                assert!(continuation.is_error());
-                                // FIXME: bring back catching, or solve otherwise
-                                // std::panic::catch_unwind(||
-                                // } else {
-                                //     // There was a panic, so this is okay.
-                                //     // FIXME: Never panic. Instead return Continuation::Error when evaluating.
-                                //     ()
-                                // }
-                            } else {
-                                panic!("!({} ...) is unsupported.", s);
-                            }
-                        }
-                        _ => panic!("!(<COMMAND> ...) must be a (:keyword) symbol."),
-                    },
-                    _ => panic!("!<COMMAND> form is unsupported."),
-                }
-            } else {
-                let (result, _limit, _next_cont) = self.eval_expr(ptr, store);
-
-                println!("Read: {}", input);
-                println!("Evaled: {}", result.fmt_to_string(store));
-                io::stdout().flush().unwrap();
-            }
-        }
-
-        Ok(())
-    }
+    //    pub fn handle_run<P: AsRef<Path> + Copy>(
+    //        &mut self,
+    //        store: &mut Store<Fr>,
+    //        path: P,
+    //    ) -> Result<()> {
+    //        println!("Running from {}.", path.as_ref().to_str().unwrap());
+    //        let p = path;
+    //
+    //        let input = read_to_string(path)?;
+    //        println!("Read from {}: {}", path.as_ref().to_str().unwrap(), input);
+    //        let mut chars = input.chars().peekable();
+    //
+    //        while let Some((ptr, is_meta)) = store.read_maybe_meta(&mut chars) {
+    //            let expr = store.fetch(&ptr).unwrap();
+    //            if is_meta {
+    //                match expr {
+    //                    Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
+    //                        Expression::Sym(s) => {
+    //                            if s == &":LOAD" {
+    //                                match store.fetch(&store.car(&rest)).unwrap() {
+    //                                    Expression::Str(path) => {
+    //                                        let joined =
+    //                                            p.as_ref().parent().unwrap().join(Path::new(&path));
+    //                                        self.handle_load(store, &joined)?
+    //                                    }
+    //                                    _ => panic!("Argument to :LOAD must be a string."),
+    //                                }
+    //                                io::stdout().flush().unwrap();
+    //                            } else if s == &":RUN" {
+    //                                match store.fetch(&store.car(&rest)).unwrap() {
+    //                                    Expression::Str(path) => {
+    //                                        let joined =
+    //                                            p.as_ref().parent().unwrap().join(Path::new(&path));
+    //                                        self.handle_run(store, &joined)?
+    //                                    }
+    //                                    _ => panic!("Argument to :RUN must be a string."),
+    //                                }
+    //                            } else if s == &":ASSERT-EQ" {
+    //                                let (first, rest) = store.car_cdr(&rest);
+    //                                let (second, rest) = store.car_cdr(&rest);
+    //                                assert!(rest.is_nil());
+    //                                let (first_evaled, _, _) = self.eval_expr(first, store);
+    //                                let (second_evaled, _, _) = self.eval_expr(second, store);
+    //                                assert_eq!(first_evaled, second_evaled);
+    //                            } else if s == &":ASSERT" {
+    //                                let (first, rest) = store.car_cdr(&rest);
+    //                                assert!(rest.is_nil());
+    //                                let (first_evaled, _, _) = self.eval_expr(first, store);
+    //                                assert!(!first_evaled.is_nil());
+    //                            } else if s == &":CLEAR" {
+    //                                self.env = empty_sym_env(store);
+    //                            } else if s == &":ASSERT-ERROR" {
+    //                                let (first, rest) = store.car_cdr(&rest);
+    //
+    //                                assert!(rest.is_nil());
+    //                                let (_, _, continuation) = self.clone().eval_expr(first, store);
+    //                                assert!(continuation.is_error());
+    //                                // FIXME: bring back catching, or solve otherwise
+    //                                // std::panic::catch_unwind(||
+    //                                // } else {
+    //                                //     // There was a panic, so this is okay.
+    //                                //     // FIXME: Never panic. Instead return Continuation::Error when evaluating.
+    //                                //     ()
+    //                                // }
+    //                            } else {
+    //                                panic!("!({} ...) is unsupported.", s);
+    //                            }
+    //                        }
+    //                        _ => panic!("!(<COMMAND> ...) must be a (:keyword) symbol."),
+    //                    },
+    //                    _ => panic!("!<COMMAND> form is unsupported."),
+    //                }
+    //            } else {
+    //                let (result, _limit, _next_cont) = self.eval_expr(ptr, store);
+    //
+    //                println!("Read: {}", input);
+    //                println!("Evaled: {}", result.fmt_to_string(store));
+    //                io::stdout().flush().unwrap();
+    //            }
+    //        }
+    //
+    //        Ok(())
+    //    }
 }
