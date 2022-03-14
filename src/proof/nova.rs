@@ -1291,13 +1291,12 @@ mod tests {
     #[test]
     #[ignore]
     fn outer_prove_evaluate_multiple_letrecstar_bindings_referencing() {
-        //TODO: not working
         outer_prove_aux(
             &"(letrec ((double (lambda (x) (* 2 x)))
                           (double-inc (lambda (x) (+ 1 (double x)))))
                          (+ (double 3) (double-inc 2)))",
             |store| store.num(11),
-            84,
+            31,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
