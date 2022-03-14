@@ -1,10 +1,10 @@
-use ff::PrimeField;
-
 use crate::store::{
     ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk,
 };
 use crate::writer::Write;
+use ff::PrimeField;
 use log::info;
+use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
 
@@ -35,6 +35,60 @@ pub struct Frame<T: Copy, W: Copy> {
     pub witness: W,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Status {
+    Terminal,
+    Error,
+    Incomplete,
+}
+
+impl Status {
+    pub fn is_complete(&self) -> bool {
+        match self {
+            Self::Terminal | Self::Error => true,
+            Self::Incomplete => false,
+        }
+    }
+
+    pub fn is_terminal(&self) -> bool {
+        match self {
+            Self::Terminal => true,
+            Self::Incomplete | Self::Error => false,
+        }
+    }
+
+    pub fn is_error(&self) -> bool {
+        match self {
+            Self::Error => true,
+            Self::Terminal | Self::Incomplete => false,
+        }
+    }
+    pub fn is_incomplete(&self) -> bool {
+        match self {
+            Self::Incomplete => true,
+            Self::Terminal | Self::Error => false,
+        }
+    }
+
+    pub fn to_cont<F: PrimeField>(&self, s: &mut Store<F>) -> Option<ContPtr<F>> {
+        match self {
+            Self::Terminal => Some(s.intern_cont_terminal()),
+            Self::Error => Some(s.intern_cont_error()),
+            Self::Incomplete => None,
+        }
+    }
+}
+
+impl<F: PrimeField> From<ContPtr<F>> for Status {
+    fn from(cont: ContPtr<F>) -> Self {
+        match cont.tag() {
+            ContTag::Terminal => Self::Terminal,
+            ContTag::Error => Self::Error,
+            _ => Self::Incomplete,
+        }
+    }
+}
+
 impl<F: PrimeField, W: Copy> Frame<IO<F>, W> {
     pub fn precedes(&self, maybe_next: &Self) -> bool {
         let sequential = self.i + 1 == maybe_next.i;
@@ -43,8 +97,8 @@ impl<F: PrimeField, W: Copy> Frame<IO<F>, W> {
         sequential && io_match
     }
 
-    pub fn is_terminal(&self) -> bool {
-        self.input == self.output
+    pub fn is_complete(&self) -> bool {
+        self.input == self.output && self.output.is_complete()
     }
 
     pub fn log(&self, store: &Store<F>) {
@@ -57,7 +111,7 @@ impl<F: PrimeField, W: Copy> Frame<IO<F>, W> {
         frames
             .iter()
             .rev()
-            .skip_while(|frame| frame.is_terminal())
+            .skip_while(|frame| frame.is_complete())
             .count()
     }
 }
@@ -67,7 +121,8 @@ pub trait Evaluable<F: PrimeField, W> {
     where
         Self: Sized;
 
-    fn is_terminal(&self) -> bool;
+    fn is_complete(&self) -> bool;
+    fn is_error(&self) -> bool;
 
     fn log(&self, store: &Store<F>, i: usize);
 }
@@ -78,8 +133,12 @@ impl<F: PrimeField> Evaluable<F, Witness<F>> for IO<F> {
         (Self { expr, env, cont }, witness)
     }
 
-    fn is_terminal(&self) -> bool {
-        matches!(self.cont.tag(), ContTag::Error | ContTag::Terminal)
+    fn is_complete(&self) -> bool {
+        Status::from(self.cont).is_complete()
+    }
+
+    fn is_error(&self) -> bool {
+        Status::from(self.cont).is_error()
     }
 
     fn log(&self, store: &Store<F>, i: usize) {
@@ -170,7 +229,7 @@ impl<'a, 'b, F: PrimeField> FrameIt<'a, Witness<F>, F> {
     fn next_n(mut self, n: usize) -> Option<(Frame<IO<F>, Witness<F>>, Frame<IO<F>, Witness<F>>)> {
         let mut previous_frame = self.frame.clone();
         for _ in 0..n {
-            if self.frame.is_terminal() {
+            if self.frame.is_complete() {
                 break;
             }
             let new_frame = self.frame.next(self.store);
@@ -190,7 +249,7 @@ impl<'a, 'b, F: PrimeField> Iterator for FrameIt<'a, Witness<F>, F> {
             return Some(self.frame.clone());
         }
 
-        if self.frame.is_terminal() {
+        if self.frame.is_complete() {
             return None;
         }
 
@@ -421,7 +480,7 @@ fn reduce_with_witness<F: PrimeField>(
                     }
                 }
             }
-            Tag::Str => unimplemented!(),
+            Tag::Str => unreachable!(),
             Tag::Num => Control::ApplyContinuation(expr, env, cont),
             Tag::Fun => Control::ApplyContinuation(expr, env, cont),
             Tag::Cons => {
@@ -629,7 +688,6 @@ fn apply_continuation<F: PrimeField>(
     }
 
     let (result, env, cont) = control.as_results();
-
     witness.apply_continuation_cont = Some(*cont);
 
     let control = match cont.tag() {
@@ -793,7 +851,10 @@ fn apply_continuation<F: PrimeField>(
                     },
                     _ => match operator {
                         Op2::Cons => store.cons(evaled_arg, *arg2),
-                        _ => unimplemented!("Binop2"),
+                        _ => {
+                            // FIXME: Needs circuit.
+                            return Control::Return(*result, *env, store.intern_cont_error());
+                        }
                     },
                 };
                 Control::MakeThunk(result, *env, continuation)
@@ -827,7 +888,7 @@ fn apply_continuation<F: PrimeField>(
                 let result = match (evaled_arg.tag(), arg2.tag()) {
                     (Tag::Num, Tag::Num) => match operator {
                         Rel2::NumEqual | Rel2::Equal => {
-                            if &evaled_arg == arg2 {
+                            if store.ptr_eq(&evaled_arg, arg2) {
                                 store.t() // TODO: maybe explicit boolean.
                             } else {
                                 store.nil()
@@ -837,7 +898,7 @@ fn apply_continuation<F: PrimeField>(
                     (_, _) => match operator {
                         Rel2::NumEqual => store.nil(), // FIXME: This should be a type error.
                         Rel2::Equal => {
-                            if &evaled_arg == arg2 {
+                            if store.ptr_eq(&evaled_arg, arg2) {
                                 store.t()
                             } else {
                                 store.nil()
@@ -1008,7 +1069,7 @@ where
         if let Some((ultimate_frame, _penultimate_frame)) = frame_iterator.next_n(self.limit - 1) {
             let output = ultimate_frame.output;
 
-            let was_terminal = ultimate_frame.is_terminal();
+            let was_terminal = ultimate_frame.is_complete();
             let i = ultimate_frame.i;
             if was_terminal {
                 self.terminal_frame = Some(ultimate_frame);
@@ -1052,7 +1113,7 @@ where
 
         if !frames.is_empty() {
             let padding_frame = frames[frames.len() - 1].clone();
-            while needs_frame_padding(frames.len(), frames[frames.len() - 1].is_terminal()) {
+            while needs_frame_padding(frames.len(), frames[frames.len() - 1].is_complete()) {
                 frames.push(padding_frame.clone());
             }
         }
@@ -1247,7 +1308,7 @@ mod test {
         let expr = s.cons(whole_lambda, lambda_arguments);
         let output = expr.fmt_to_string(&s);
 
-        assert_eq!("((LAMBDA (X) X) Num(0x7b))".to_string(), output);
+        assert_eq!("((LAMBDA (X) X) 123)".to_string(), output);
     }
 
     #[test]
