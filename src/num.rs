@@ -119,8 +119,9 @@ impl<F: PrimeField> DivAssign for Num<F> {
         assert!(!rhs.is_zero(), "can not divide by 0");
         match (*self, rhs) {
             (Num::U64(ref mut a), Num::U64(b)) => {
-                if let Some(res) = a.checked_div(b) {
-                    *self = Num::U64(res);
+                // The result will only be Num::U64 if b divides a.
+                if *a % b == 0 {
+                    *self = Num::U64(*a / b);
                 } else {
                     *self = Num::Scalar(F::from(*a) * F::from(b).invert().unwrap());
                 }
@@ -272,7 +273,12 @@ mod tests {
 
         let mut a = Num::<Scalar>::U64(10);
         a /= Num::U64(3);
-        assert_eq!(a, Num::U64(10 / 3));
+
+        // The result is not a Num::U64.
+        assert!(matches!(a, Num::<Scalar>::Scalar(_)));
+
+        a *= Num::U64(3);
+        assert_eq!(a, Num::<Scalar>::Scalar(Scalar::from(10)));
 
         // scalar - scalar - no overflow
         let mut a = Num::Scalar(Scalar::from(10));
