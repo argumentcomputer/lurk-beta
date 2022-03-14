@@ -18,14 +18,13 @@ impl<F: PrimeField> Display for Num<F> {
         match self {
             Num::Scalar(s) => {
                 let le_bytes = s.to_repr();
-                write!(f, "Num(0x")?;
+                write!(f, "0x")?;
                 for &b in le_bytes.as_ref().iter().rev() {
                     write!(f, "{:02x}", b)?;
                 }
-                write!(f, ")")?;
                 Ok(())
             }
-            Num::U64(n) => write!(f, "Num({:#x})", n),
+            Num::U64(n) => write!(f, "{}", n),
         }
     }
 }

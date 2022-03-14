@@ -63,13 +63,18 @@ impl Default for StringSet {
 #[derive(Debug)]
 pub struct Store<F: PrimeField> {
     cons_store: IndexSet<(Ptr<F>, Ptr<F>)>,
+    pub(crate) opaque_cons: (Ptr<F>, Ptr<F>),
+
+    fun_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
+    pub(crate) opaque_fun: (Ptr<F>, Ptr<F>, Ptr<F>),
+
     sym_store: StringSet,
+
     // Other sparse storage format without hashing is likely more efficient
     num_store: IndexSet<Num<F>>,
-    fun_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
+
     str_store: StringSet,
     thunk_store: IndexSet<Thunk<F>>,
-
     call_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
     call2_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
     tail_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
@@ -84,6 +89,7 @@ pub struct Store<F: PrimeField> {
     let_rec_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
     emit_store: IndexSet<ContPtr<F>>,
 
+    opaque_map: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
     /// Holds a mapping of ScalarPtr -> Ptr for reverse lookups
     scalar_ptr_map: dashmap::DashMap<ScalarPtr<F>, Ptr<F>, ahash::RandomState>,
     /// Holds a mapping of ScalarPtr -> ContPtr<F> for reverse lookups
@@ -94,6 +100,7 @@ pub struct Store<F: PrimeField> {
     /// Contains Ptrs which have not yet been hydrated.
     dehydrated: Vec<Ptr<F>>,
     dehydrated_cont: Vec<ContPtr<F>>,
+    opaque_raw_ptr_count: usize,
 }
 
 #[derive(Default, Debug)]
@@ -178,6 +185,13 @@ impl<F: PrimeField> Hash for Ptr<F> {
 impl<F: PrimeField> Ptr<F> {
     pub fn is_nil(&self) -> bool {
         matches!(self.0, Tag::Nil)
+    }
+    pub fn is_fun(&self) -> bool {
+        matches!(self.0, Tag::Fun)
+    }
+
+    pub fn is_opaque(&self) -> bool {
+        self.1.is_opaque()
     }
 }
 
@@ -289,11 +303,23 @@ impl<F: PrimeField> ContPtr<F> {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
-pub struct RawPtr<F: PrimeField>(usize, PhantomData<F>);
+// If .0 is negative, RawPtr is opaque. This lets us retain the efficiency and structure of the current implementation.
+// It cuts the local store's address space in half, which is likely not an issue. This representation does not affect
+// external data, so if we want to change it in the future, we can do so without a change of defined behavior.
+pub struct RawPtr<F: PrimeField>(isize, PhantomData<F>);
 
 impl<F: PrimeField> RawPtr<F> {
     fn new(p: usize) -> Self {
-        RawPtr(p, Default::default())
+        assert!(p < isize::MAX as usize);
+        RawPtr(p as isize, Default::default())
+    }
+
+    fn is_opaque(&self) -> bool {
+        self.0 < 0
+    }
+
+    pub fn idx(&self) -> usize {
+        self.0.abs() as usize
     }
 }
 
@@ -558,6 +584,8 @@ impl ContTag {
 
 impl<F: PrimeField> Default for Store<F> {
     fn default() -> Self {
+        let dummy_ptr = Ptr(Tag::Nil, RawPtr::new(0));
+
         let mut store = Store {
             cons_store: Default::default(),
             sym_store: Default::default(),
@@ -578,12 +606,24 @@ impl<F: PrimeField> Default for Store<F> {
             let_store: Default::default(),
             let_rec_store: Default::default(),
             emit_store: Default::default(),
+            opaque_map: Default::default(),
             scalar_ptr_map: Default::default(),
             scalar_ptr_cont_map: Default::default(),
             poseidon_cache: Default::default(),
             dehydrated: Default::default(),
             dehydrated_cont: Default::default(),
+            opaque_raw_ptr_count: 0,
+            opaque_cons: (dummy_ptr, dummy_ptr),
+            opaque_fun: (dummy_ptr, dummy_ptr, dummy_ptr),
         };
+
+        let p = store.new_opaque_ptr();
+        store.opaque_cons = (p, p);
+        store.opaque_fun = (
+            store.new_opaque_ptr(),
+            store.new_opaque_ptr(),
+            store.new_opaque_ptr(),
+        );
 
         // insert some well known symbols
         for sym in &[
@@ -679,12 +719,50 @@ impl<F: PrimeField> Store<F> {
     }
 
     pub fn intern_cons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+        if car.is_opaque() || cdr.is_opaque() {
+            self.hash_expr(&car);
+            self.hash_expr(&cdr);
+        }
         let (p, inserted) = self.cons_store.insert_full((car, cdr));
         let ptr = Ptr(Tag::Cons, RawPtr::new(p));
         if inserted {
             self.dehydrated.push(ptr);
         }
         ptr
+    }
+    fn intern_opaque(&mut self, tag: Tag, hash: F) -> Ptr<F> {
+        let scalar_ptr = ScalarPtr::from_parts(tag.as_field(), hash);
+
+        // Scope the first immutable borrow.
+        {
+            let ptr = self.scalar_ptr_map.get(&scalar_ptr);
+
+            if let Some(p) = ptr {
+                // Only reuse existing Prt with same hash if it is also opaque.
+                // intern_opaque will always return an opaque Ptr, never a corresponding
+                // normal Ptr. To change this behavior, remove this check.
+                if p.is_opaque() {
+                    return *p;
+                }
+            }
+        }
+        let ptr = Ptr(tag, self.new_opaque_raw_ptr());
+        // Always insert. Key is unique because of newly allocated opaque raw_ptr.
+        self.opaque_map.insert(ptr, scalar_ptr);
+
+        ptr
+    }
+
+    pub fn intern_opaque_fun(&mut self, hash: F) -> Ptr<F> {
+        self.intern_opaque(Tag::Fun, hash)
+    }
+
+    pub fn intern_opaque_sym(&mut self, hash: F) -> Ptr<F> {
+        self.intern_opaque(Tag::Sym, hash)
+    }
+
+    pub fn intern_opaque_cons(&mut self, hash: F) -> Ptr<F> {
+        self.intern_opaque(Tag::Cons, hash)
     }
 
     /// Helper to allocate a list, instead of manually using `cons`.
@@ -987,39 +1065,57 @@ impl<F: PrimeField> Store<F> {
 
     fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<&str> {
         debug_assert!(matches!(ptr.0, Tag::Sym) | matches!(ptr.0, Tag::Nil));
+
+        if ptr.1.is_opaque() {
+            if self.opaque_map.contains_key(ptr) {
+                return Some("<Opaque Sym>");
+            } else {
+                // This shouldn't happen.
+                return Some("<Opaque Sym [MISSING]>");
+            }
+        }
+
         if ptr.0 == Tag::Nil {
             return Some("NIL");
         }
 
         self.sym_store
             .0
-            .resolve(SymbolUsize::try_from_usize(ptr.1 .0).unwrap())
+            .resolve(SymbolUsize::try_from_usize(ptr.1.idx()).unwrap())
     }
 
     fn fetch_str(&self, ptr: &Ptr<F>) -> Option<&str> {
         debug_assert!(matches!(ptr.0, Tag::Str));
-        let symbol = SymbolUsize::try_from_usize(ptr.1 .0).expect("invalid pointer");
+        let symbol = SymbolUsize::try_from_usize(ptr.1.idx()).expect("invalid pointer");
         self.str_store.0.resolve(symbol)
     }
 
     fn fetch_fun(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>, Ptr<F>)> {
         debug_assert!(matches!(ptr.0, Tag::Fun));
-        self.fun_store.get_index(ptr.1 .0)
+        if ptr.1.is_opaque() {
+            Some(&self.opaque_fun)
+        } else {
+            self.fun_store.get_index(ptr.1.idx())
+        }
     }
 
     fn fetch_cons(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>)> {
         debug_assert!(matches!(ptr.0, Tag::Cons));
-        self.cons_store.get_index(ptr.1 .0)
+        if ptr.1.is_opaque() {
+            Some(&self.opaque_cons)
+        } else {
+            self.cons_store.get_index(ptr.1.idx())
+        }
     }
 
     fn fetch_num(&self, ptr: &Ptr<F>) -> Option<&Num<F>> {
         debug_assert!(matches!(ptr.0, Tag::Num));
-        self.num_store.get_index(ptr.1 .0)
+        self.num_store.get_index(ptr.1.idx())
     }
 
     fn fetch_thunk(&self, ptr: &Ptr<F>) -> Option<&Thunk<F>> {
         debug_assert!(matches!(ptr.0, Tag::Thunk));
-        self.thunk_store.get_index(ptr.1 .0)
+        self.thunk_store.get_index(ptr.1.idx())
     }
 
     pub fn fetch(&self, ptr: &Ptr<F>) -> Option<Expression<F>> {
@@ -1042,7 +1138,7 @@ impl<F: PrimeField> Store<F> {
             Outermost => Some(Continuation::Outermost),
             Call => self
                 .call_store
-                .get_index(ptr.1 .0)
+                .get_index(ptr.1.idx())
                 .map(|(a, b, c)| Continuation::Call {
                     unevaled_arg: *a,
                     saved_env: *b,
@@ -1050,7 +1146,7 @@ impl<F: PrimeField> Store<F> {
                 }),
             Call2 => self
                 .call2_store
-                .get_index(ptr.1 .0)
+                .get_index(ptr.1.idx())
                 .map(|(a, b, c)| Continuation::Call2 {
                     function: *a,
                     saved_env: *b,
@@ -1058,7 +1154,7 @@ impl<F: PrimeField> Store<F> {
                 }),
             Tail => self
                 .tail_store
-                .get_index(ptr.1 .0)
+                .get_index(ptr.1.idx())
                 .map(|(a, b)| Continuation::Tail {
                     saved_env: *a,
                     continuation: *b,
@@ -1066,83 +1162,86 @@ impl<F: PrimeField> Store<F> {
             Error => Some(Continuation::Error),
             Lookup => self
                 .lookup_store
-                .get_index(ptr.1 .0)
+                .get_index(ptr.1.idx())
                 .map(|(a, b)| Continuation::Lookup {
                     saved_env: *a,
                     continuation: *b,
                 }),
             Unop => self
                 .unop_store
-                .get_index(ptr.1 .0)
+                .get_index(ptr.1.idx())
                 .map(|(a, b)| Continuation::Unop {
                     operator: *a,
                     continuation: *b,
                 }),
-            Binop => self
-                .binop_store
-                .get_index(ptr.1 .0)
-                .map(|(a, b, c, d)| Continuation::Binop {
-                    operator: *a,
-                    saved_env: *b,
-                    unevaled_args: *c,
-                    continuation: *d,
-                }),
-            Binop2 => self
-                .binop2_store
-                .get_index(ptr.1 .0)
-                .map(|(a, b, c)| Continuation::Binop2 {
-                    operator: *a,
-                    evaled_arg: *b,
-                    continuation: *c,
-                }),
-            Relop => self
-                .relop_store
-                .get_index(ptr.1 .0)
-                .map(|(a, b, c, d)| Continuation::Relop {
-                    operator: *a,
-                    saved_env: *b,
-                    unevaled_args: *c,
-                    continuation: *d,
-                }),
-            Relop2 => self
-                .relop2_store
-                .get_index(ptr.1 .0)
-                .map(|(a, b, c)| Continuation::Relop2 {
-                    operator: *a,
-                    evaled_arg: *b,
-                    continuation: *c,
-                }),
+            Binop => {
+                self.binop_store
+                    .get_index(ptr.1.idx())
+                    .map(|(a, b, c, d)| Continuation::Binop {
+                        operator: *a,
+                        saved_env: *b,
+                        unevaled_args: *c,
+                        continuation: *d,
+                    })
+            }
+            Binop2 => {
+                self.binop2_store
+                    .get_index(ptr.1.idx())
+                    .map(|(a, b, c)| Continuation::Binop2 {
+                        operator: *a,
+                        evaled_arg: *b,
+                        continuation: *c,
+                    })
+            }
+            Relop => {
+                self.relop_store
+                    .get_index(ptr.1.idx())
+                    .map(|(a, b, c, d)| Continuation::Relop {
+                        operator: *a,
+                        saved_env: *b,
+                        unevaled_args: *c,
+                        continuation: *d,
+                    })
+            }
+            Relop2 => {
+                self.relop2_store
+                    .get_index(ptr.1.idx())
+                    .map(|(a, b, c)| Continuation::Relop2 {
+                        operator: *a,
+                        evaled_arg: *b,
+                        continuation: *c,
+                    })
+            }
             If => self
                 .if_store
-                .get_index(ptr.1 .0)
+                .get_index(ptr.1.idx())
                 .map(|(a, b)| Continuation::If {
                     unevaled_args: *a,
                     continuation: *b,
                 }),
             Let => self
                 .let_store
-                .get_index(ptr.1 .0)
+                .get_index(ptr.1.idx())
                 .map(|(a, b, c, d)| Continuation::Let {
                     var: *a,
                     body: *b,
                     saved_env: *c,
                     continuation: *d,
                 }),
-            LetRec => {
-                self.let_rec_store
-                    .get_index(ptr.1 .0)
-                    .map(|(a, b, c, d)| Continuation::LetRec {
-                        var: *a,
-                        body: *b,
-                        saved_env: *c,
-                        continuation: *d,
-                    })
-            }
+            LetRec => self
+                .let_rec_store
+                .get_index(ptr.1.idx())
+                .map(|(a, b, c, d)| Continuation::LetRec {
+                    var: *a,
+                    body: *b,
+                    saved_env: *c,
+                    continuation: *d,
+                }),
             Dummy => Some(Continuation::Dummy),
             Terminal => Some(Continuation::Terminal),
             Emit => self
                 .emit_store
-                .get_index(ptr.1 .0)
+                .get_index(ptr.1.idx())
                 .map(|continuation| Continuation::Emit {
                     continuation: *continuation,
                 }),
@@ -1156,7 +1255,9 @@ impl<F: PrimeField> Store<F> {
                 Some(Expression::Cons(car, cdr)) => (car, cdr),
                 _ => unreachable!(),
             },
-            _ => panic!("Can only extract car_cdr from Cons"),
+            _ => {
+                panic!("Can only extract car_cdr from Cons")
+            }
         }
     }
 
@@ -1453,6 +1554,9 @@ impl<F: PrimeField> Store<F> {
     }
 
     pub fn hash_sym(&self, sym: Ptr<F>) -> Option<ScalarPtr<F>> {
+        if sym.is_opaque() {
+            return self.opaque_map.get(&sym).map(|s| *s);
+        }
         let s = self.fetch_sym(&sym)?;
         Some(self.create_scalar_ptr(sym, self.hash_string(s)))
     }
@@ -1463,20 +1567,37 @@ impl<F: PrimeField> Store<F> {
     }
 
     fn hash_fun(&self, fun: Ptr<F>) -> Option<ScalarPtr<F>> {
-        let (arg, body, closed_env) = self.fetch_fun(&fun)?;
-        Some(self.create_scalar_ptr(fun, self.hash_ptrs_3(&[*arg, *body, *closed_env])?))
+        if fun.is_opaque() {
+            Some(
+                *self
+                    .opaque_map
+                    .get(&fun)
+                    .expect("ScalarPtr for opaque Fun missing"),
+            )
+        } else {
+            let (arg, body, closed_env) = self.fetch_fun(&fun)?;
+            Some(self.create_scalar_ptr(fun, self.hash_ptrs_3(&[*arg, *body, *closed_env])?))
+        }
     }
 
     fn hash_cons(&self, cons: Ptr<F>) -> Option<ScalarPtr<F>> {
+        if cons.is_opaque() {
+            return Some(
+                *self
+                    .opaque_map
+                    .get(&cons)
+                    .expect("ScalarPtr for opaque Cons missing"),
+            );
+        }
+
         let (car, cdr) = self.fetch_cons(&cons)?;
+
         Some(self.create_scalar_ptr(cons, self.hash_ptrs_2(&[*car, *cdr])?))
     }
 
     fn hash_thunk(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
         let thunk = self.fetch_thunk(&ptr)?;
         let components = self.get_hash_components_thunk(thunk)?;
-        // FIXME: This function is not called when a thunk is not a public input!
-        //
         Some(self.create_scalar_ptr(ptr, self.poseidon_cache.hash4(&components)))
     }
 
@@ -1549,6 +1670,45 @@ impl<F: PrimeField> Store<F> {
         ScalarPtr(op.as_field(), F::zero())
     }
 
+    // An opaque Ptr is one for which we have the hash, but not the preimages.
+    // So we cannot open or traverse the enclosed data, but we can manipulate
+    // it atomically and include it in containing structures, etc.
+    pub fn new_opaque_ptr(&mut self) -> Ptr<F> {
+        // TODO: May need new tag for this.
+        // Meanwhile, it is illegal to try to dereference/follow an opaque PTR.
+        // So any tag and RawPtr are okay.
+        Ptr(Tag::Nil, self.new_opaque_raw_ptr())
+    }
+
+    pub fn new_opaque_raw_ptr(&mut self) -> RawPtr<F> {
+        self.opaque_raw_ptr_count += 1;
+        let p = self.opaque_raw_ptr_count;
+        // We can't use 0 for both opaque and normal RawPtrs.
+        assert!(p > 0);
+        // Ensure there will be no overlow.
+        assert!(p < isize::MAX as usize);
+        RawPtr(0isize - p as isize, Default::default())
+    }
+
+    pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> bool {
+        // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
+        // compound data with opaque data in either element's transitive closure.
+        self.hash_expr(a) == self.hash_expr(b)
+    }
+
+    pub fn cons_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> bool {
+        assert_eq!(Tag::Cons, a.tag());
+        assert_eq!(Tag::Cons, b.tag());
+
+        let a_opaque = a.is_opaque();
+        let b_opaque = b.is_opaque();
+
+        if !a_opaque && !b_opaque {
+            return a == b;
+        }
+        self.hash_expr(a) == self.hash_expr(b)
+    }
+
     /// Fill the cache for Scalars. Only Ptrs which have been interned since last hydration will be hashed, so it is
     /// safe to call this incrementally. However, for best proving performance, we should call exactly once so all
     /// hashing can be batched, e.g. on the GPU.
@@ -1594,6 +1754,7 @@ impl<F: PrimeField> Expression<'_, F> {
 
 #[cfg(test)]
 mod test {
+    use crate::eval::{empty_sym_env, Evaluator};
     use crate::writer::Write;
     use blstrs::Scalar as Fr;
 
@@ -1604,7 +1765,7 @@ mod test {
         let mut store = Store::<Fr>::default();
         let num = store.num(5);
         let res = num.fmt_to_string(&store);
-        assert_eq!(&res, &"Num(0x5)");
+        assert_eq!(&res, &"5");
     }
 
     #[test]
@@ -1667,5 +1828,197 @@ mod test {
         let (a, d) = store.car_cdr(&cons1);
         assert_eq!(store.car(&cons1), a);
         assert_eq!(store.cdr(&cons1), d);
+    }
+
+    #[test]
+    fn opaque_fun() {
+        let mut store = Store::<Fr>::default();
+
+        let arg = store.sym("A");
+        let body = store.num(123);
+        let body2 = store.num(987);
+        let empty_env = empty_sym_env(&store);
+        let fun = store.intern_fun(arg, body, empty_env);
+        let fun2 = store.intern_fun(arg, body2, empty_env);
+        let fun_hash = store.hash_expr(&fun).unwrap();
+        let fun_hash2 = store.hash_expr(&fun2).unwrap();
+        let opaque_fun = store.intern_opaque_fun(*fun_hash.value());
+        let opaque_fun2 = store.intern_opaque_fun(*fun_hash2.value());
+
+        let eq = store.sym("eq");
+        let t = store.sym("t");
+        let nil = store.nil();
+        let limit = 10;
+        {
+            let comparison_expr = store.list(&[eq, fun, opaque_fun]);
+            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            assert_eq!(t, result.expr);
+        }
+        {
+            let comparison_expr = store.list(&[eq, fun2, opaque_fun]);
+            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            assert_eq!(nil, result.expr);
+        }
+        {
+            let comparison_expr = store.list(&[eq, fun2, opaque_fun2]);
+            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            assert_eq!(t, result.expr);
+        }
+        {
+            // This test is important. It demonstrates that we can handle opaque data in compound data being evaluated
+            // without this affecting equality semantics.
+
+            let n = store.num(123);
+            let cons = store.sym("cons");
+            let cons_expr1 = store.list(&[cons, fun, n]);
+            let cons_expr2 = store.list(&[cons, opaque_fun, n]);
+
+            let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
+            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            assert_eq!(t, result.expr);
+        }
+    }
+
+    #[test]
+    fn opaque_sym() {
+        let mut store = Store::<Fr>::default();
+
+        let empty_env = empty_sym_env(&store);
+        let sym = store.sym(&"sym");
+        let sym2 = store.sym(&"sym2");
+        let sym_hash = store.hash_expr(&sym).unwrap();
+        let sym_hash2 = store.hash_expr(&sym2).unwrap();
+        let opaque_sym = store.intern_opaque_sym(*sym_hash.value());
+        let opaque_sym2 = store.intern_opaque_sym(*sym_hash2.value());
+
+        let quote = store.sym("quote");
+        let qsym = store.list(&[quote, sym]);
+        let qsym2 = store.list(&[quote, sym2]);
+        let qsym_opaque = store.list(&[quote, opaque_sym]);
+        let qsym_opaque2 = store.list(&[quote, opaque_sym2]);
+
+        let eq = store.sym("eq");
+        let t = store.sym("t");
+        let nil = store.nil();
+        let limit = 10;
+
+        // When an opaque sym is inserted into a store which contains the same sym, the store knows its identity.
+        // Should we just immediately coalesce and never create an opaque version in that case? Probably not because
+        // that may interact badly with explicit hiding to be implemented.
+        // Let's defer any such considerations until we have a well-specified way of segreting secret/private data.
+        //
+        // If implemented, the following commented test would pass.
+        // assert_eq!(sym.fmt_to_string(&store), opaque_sym.fmt_to_string(&store));
+
+        // For now, all opaque data remains opaque, even if the Store has enough information to clarify it.
+        assert!(sym.fmt_to_string(&store) != opaque_sym.fmt_to_string(&store));
+
+        let mut other_store = Store::<Fr>::default();
+        let other_opaque_sym = other_store.intern_opaque_sym(*sym_hash.value());
+
+        let other_sym = other_store.sym("sym");
+        // other_sym and other_opaque_sym are not equal, since the non-opaque symbol was inserted after the opaque one.
+        // TODO: we could check for this and fix when inserting non-opaque syms. If we decide to clarify opaque data
+        // when possible, we should do this too.
+        assert!(
+            other_sym.fmt_to_string(&other_store) != other_opaque_sym.fmt_to_string(&other_store)
+        );
+
+        assert_eq!("<Opaque Sym>", other_opaque_sym.fmt_to_string(&other_store));
+
+        // We need to insert a few opaque syms in other_store, in order to acquire a raw_ptr that doesn't exist in
+        // store. Use that to check for a malformed/missing opaque sym in store below.
+        let _other_opaque_sym2 = other_store.intern_opaque_sym(*sym_hash.value());
+        let other_opaque_sym3 = other_store.intern_opaque_sym(*sym_hash.value());
+
+        // other_opaque_sym doesn't exist at all in store, but it is recognized as an opaque sym.
+        // This shouldn't actually happen. The test just exercise the code path which detects it.
+        assert_eq!(
+            "<Opaque Sym [MISSING]>",
+            other_opaque_sym3.fmt_to_string(&store)
+        );
+
+        {
+            let comparison_expr = store.list(&[eq, qsym, qsym_opaque]);
+            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            assert_eq!(t, result.expr);
+        }
+        {
+            let comparison_expr = store.list(&[eq, qsym2, qsym_opaque]);
+            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            assert_eq!(nil, result.expr);
+        }
+        {
+            let comparison_expr = store.list(&[eq, qsym2, qsym_opaque2]);
+            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            assert_eq!(t, result.expr);
+        }
+        {
+            // This test is important. It demonstrates that we can handle opaque data in compound data being evaluated
+            // without this affecting equality semantics.
+
+            let n = store.num(123);
+            let cons = store.sym("cons");
+            let cons_expr1 = store.list(&[cons, qsym, n]);
+            let cons_expr2 = store.list(&[cons, qsym_opaque, n]);
+
+            let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
+            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            assert_eq!(t, result.expr);
+        }
+    }
+
+    #[test]
+    fn opaque_cons() {
+        let mut store = Store::<Fr>::default();
+
+        let num1 = store.num(123);
+        let num2 = store.num(987);
+        let empty_env = empty_sym_env(&store);
+        let cons = store.intern_cons(num1, num2);
+        let cons2 = store.intern_cons(num2, num1);
+        let cons_hash = store.hash_expr(&cons).unwrap();
+        let cons_hash2 = store.hash_expr(&cons2).unwrap();
+        let opaque_cons = store.intern_opaque_cons(*cons_hash.value());
+        let opaque_cons2 = store.intern_opaque_cons(*cons_hash2.value());
+
+        let eq = store.sym("eq");
+        let t = store.sym("t");
+        let nil = store.nil();
+        let limit = 10;
+        let quote = store.sym("quote");
+        let qcons = store.list(&[quote, cons]);
+        let qcons2 = store.list(&[quote, cons2]);
+        let qcons_opaque = store.list(&[quote, opaque_cons]);
+        let qcons_opaque2 = store.list(&[quote, opaque_cons2]);
+        {
+            let comparison_expr = store.list(&[eq, qcons, qcons_opaque]);
+            // FIXME: need to implement Write for opaque data.
+            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            assert_eq!(t, result.expr);
+        }
+        {
+            let comparison_expr = store.list(&[eq, qcons2, qcons_opaque]);
+            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            assert_eq!(nil, result.expr);
+        }
+        {
+            let comparison_expr = store.list(&[eq, qcons2, qcons_opaque2]);
+            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            assert_eq!(t, result.expr);
+        }
+        {
+            // This test is important. It demonstrates that we can handle opaque data in compound data being evaluated
+            // without this affecting equality semantics.
+
+            let n = store.num(123);
+            let cons_sym = store.sym("cons");
+            let cons_expr1 = store.list(&[cons_sym, qcons, n]);
+            let cons_expr2 = store.list(&[cons_sym, qcons_opaque, n]);
+
+            let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
+            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            assert_eq!(t, result.expr);
+        }
     }
 }
