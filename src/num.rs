@@ -34,7 +34,13 @@ impl<F: PrimeField> Hash for Num<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
             Num::Scalar(s) => s.to_repr().as_ref().hash(state),
-            Num::U64(n) => n.hash(state),
+
+            Num::U64(n) => {
+                let mut bytes = F::Repr::default();
+
+                bytes.as_mut()[..8].copy_from_slice(&n.to_le_bytes());
+                bytes.as_ref().hash(state);
+            }
         }
     }
 }
@@ -303,5 +309,29 @@ mod tests {
             a,
             Num::Scalar(Scalar::from(10) * Scalar::from(5).invert().unwrap())
         );
+    }
+
+    #[test]
+    fn test_num_hash() {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::Hasher;
+
+        let n = 123u64;
+        let a: Num<Scalar> = Num::U64(n);
+        let b = Num::Scalar(Scalar::from(n));
+
+        let a_hash = {
+            let mut hasher = DefaultHasher::new();
+            a.hash(&mut hasher);
+            hasher.finish()
+        };
+
+        let b_hash = {
+            let mut hasher = DefaultHasher::new();
+            b.hash(&mut hasher);
+            hasher.finish()
+        };
+
+        assert_eq!(a_hash, b_hash);
     }
 }
