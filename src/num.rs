@@ -37,6 +37,7 @@ impl<F: PrimeField> Hash for Num<F> {
 
             Num::U64(n) => {
                 let mut bytes = [0u8; 32];
+                bytes.copy_from_slice(F::Repr::default().as_ref());
                 bytes[..8].copy_from_slice(&n.to_le_bytes());
                 bytes.hash(state);
             }

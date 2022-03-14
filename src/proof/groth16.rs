@@ -190,7 +190,7 @@ where
         }
         assert_eq!(1, statements.len().count_ones());
 
-        let srs = srs.specialize(proofs.len()).0;
+        let srs = srs.specialize_input_aggregation(proofs.len()).0;
 
         let proof = aggregate_proofs_and_instances(
             &srs,
