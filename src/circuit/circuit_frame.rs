@@ -1648,13 +1648,12 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
     // Continuation::Call                                                      //
     /////////////////////////////////////////////////////////////////////////////
-    let (saved_env, function, continuation) = {
-        let saved_env = AllocatedPtr::by_index(0, &continuation_components);
-        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
-
-        let function = result;
-
-        (saved_env, function, continuation)
+    let (saved_env, continuation, function) = {
+        (
+            AllocatedPtr::by_index(0, &continuation_components),
+            AllocatedContPtr::by_index(2, &continuation_components),
+            result,
+        )
     };
     let call_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&saved_env, function, &continuation, default_num_pair];
@@ -1664,10 +1663,10 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     // Continuation::Call2                                                     //
     /////////////////////////////////////////////////////////////////////////////
     let (saved_env, continuation) = {
-        let saved_env = AllocatedPtr::by_index(0, &continuation_components);
-        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
-
-        (saved_env, continuation)
+        (
+            AllocatedPtr::by_index(0, &continuation_components),
+            AllocatedContPtr::by_index(2, &continuation_components),
+        )
     };
     let call2_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &saved_env,
@@ -1681,10 +1680,10 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     // Continuation::Let                                                       //
     /////////////////////////////////////////////////////////////////////////////
     let (saved_env, let_cont) = {
-        let saved_env = AllocatedPtr::by_index(2, &continuation_components);
-        let let_cont = AllocatedContPtr::by_index(3, &continuation_components);
-
-        (saved_env, let_cont)
+        (
+            AllocatedPtr::by_index(2, &continuation_components),
+            AllocatedContPtr::by_index(3, &continuation_components),
+        )
     };
     let let_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&saved_env, &let_cont, default_num_pair, default_num_pair];
@@ -1694,10 +1693,10 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     // Continuation::LetRec                                                    //
     /////////////////////////////////////////////////////////////////////////////
     let (saved_env, letrec_cont) = {
-        let saved_env = AllocatedPtr::by_index(2, &continuation_components);
-        let letrec_cont = AllocatedContPtr::by_index(3, &continuation_components);
-
-        (saved_env, letrec_cont)
+        (
+            AllocatedPtr::by_index(2, &continuation_components),
+            AllocatedContPtr::by_index(3, &continuation_components),
+        )
     };
     let letrec_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&saved_env, &letrec_cont, default_num_pair, default_num_pair];
@@ -1782,42 +1781,25 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         (AllocatedPtr::by_index(0, &res), unop_continuation)
     };
 
-
-
-
-
     /////////////////////////////////////////////////////////////////////////////
     // Continuation::Emit                                                      //
     /////////////////////////////////////////////////////////////////////////////
-    /*let emit_continuation = AllocatedContPtr::construct(
-        &mut cs.namespace(|| "Emit"),
-        store,
-        &g.emit_cont_tag,
-        &[
-            &unop_continuation,
-            &[&g.default_num, &g.default_num],
-            &[&g.default_num, &g.default_num],
-            &[&g.default_num, &g.default_num],
-        ],
-    )?;*/
-    let emit_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
-        &[&unop_continuation, default_num_pair, default_num_pair, default_num_pair];
+    let emit_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &unop_continuation,
+        default_num_pair,
+        default_num_pair,
+        default_num_pair,
+    ];
     hash_default_results.add_hash_input_clauses(ContTag::Unop, &g.emit_cont_tag, emit_components);
-
-
-
-
-
-
 
     /////////////////////////////////////////////////////////////////////////////
     // Continuation::Binop                                                      //
     /////////////////////////////////////////////////////////////////////////////
     let (op2, continuation) = {
-        let op2 = &continuation_components[0];
-        let continuation = AllocatedContPtr::by_index(3, &continuation_components);
-
-        (op2, continuation)
+        (
+            &continuation_components[0],
+            AllocatedContPtr::by_index(3, &continuation_components),
+        )
     };
     let binop_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[op2, &g.default_num],
@@ -1945,10 +1927,10 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     // Continuation::Relop                                                      //
     /////////////////////////////////////////////////////////////////////////////
     let (relop2, relop_cont) = {
-        let relop2 = &continuation_components[0];
-        let relop_cont = AllocatedContPtr::by_index(3, &continuation_components);
-
-        (relop2, relop_cont)
+        (
+            &continuation_components[0],
+            AllocatedContPtr::by_index(3, &continuation_components),
+        )
     };
     let relop_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[relop2, &g.default_num],
