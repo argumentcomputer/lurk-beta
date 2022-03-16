@@ -1782,6 +1782,9 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         (AllocatedPtr::by_index(0, &res), unop_continuation)
     };
 
+    /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Emit                                                      //
+    /////////////////////////////////////////////////////////////////////////////
     let emit_continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "Emit"),
         store,
@@ -1816,7 +1819,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     );
 
     /////////////////////////////////////////////////////////////////////////////
-    // Continuation::Unop                                                      //
+    // Continuation::Binop                                                      //
     /////////////////////////////////////////////////////////////////////////////
     let (op2, continuation) = {
         let op2 = &continuation_components[0];
@@ -2121,7 +2124,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     ];
 
     let components_results = multi_case(
-        &mut cs.namespace(|| "apply_continuation for hash preimage"),
+        &mut cs.namespace(|| "hash preimage for apply_continuation"),
         cont.tag(),
         &all_hash_input_clauses,
         &defaults,
@@ -2129,7 +2132,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
     // construct new continuation
     let newer_cont = AllocatedContPtr::construct(
-        &mut cs.namespace(|| "construct newer_cont for hash preimage"),
+        &mut cs.namespace(|| "construct newer_cont from hash components"),
         store,
         &components_results[0], // continuation tag
         &[
@@ -2146,20 +2149,20 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     let (next, the_cont) = {
         let next_expr = AllocatedPtr::by_index(1, &continuation_components);
         let result_is_fun = alloc_equal(
-            cs.namespace(|| "result_is_fun default for hash preimage"),
+            cs.namespace(|| "result_is_fun default using newer continuation"),
             function.tag(),
             &g.fun_tag,
         )?;
 
         let next = AllocatedPtr::pick(
-            &mut cs.namespace(|| "default env for hash preimage"),
+            &mut cs.namespace(|| "default env using newer continuation"),
             &result_is_fun,
             &next_expr,
             result,
         )?;
 
         let the_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "default cont for hash preimage"),
+            &mut cs.namespace(|| "default cont using newer continuation"),
             &result_is_fun,
             &newer_cont,
             &g.error_ptr_cont,
@@ -2177,28 +2180,26 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
         {
             let (hash, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
-                &mut cs.namespace(|| "allocate Call2 fun for hash preimage"),
+                &mut cs.namespace(|| "allocate Call2 fun using newer continuation"),
                 store,
                 fun.ptr(store).as_ref(),
             )?;
 
-            // BOOKMARK: Why does this cause unconstrainted variable?
-            // Something about the overloaded Options?
             let (body_form, _) = car_cdr(
-                &mut cs.namespace(|| "body_form for hash preimage"),
+                &mut cs.namespace(|| "body_form using newer continuation"),
                 g,
                 &body_t,
                 store,
             )?;
 
             let fun_is_correct = constraints::alloc_equal(
-                &mut cs.namespace(|| "fun hash is correct for hash preimage"),
+                &mut cs.namespace(|| "fun hash is correct using newer continuation"),
                 fun.hash(),
                 &hash,
             )?;
 
             let cont_is_call2_precomp = constraints::alloc_equal(
-                &mut cs.namespace(|| "Call2 branch taken for hash preimage"),
+                &mut cs.namespace(|| "Call2 branch taken using newer continuation"),
                 cont.tag(),
                 &g.call2_cont_tag,
             )?;
@@ -2206,13 +2207,13 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             let cont_is_call2_and_not_dummy = and!(cs, &cont_is_call2_precomp, not_dummy)?;
 
             enforce_implication(
-                &mut cs.namespace(|| "Call2 implies non-dummy fun for hash preimage"),
+                &mut cs.namespace(|| "Call2 implies non-dummy fun using newer continuation"),
                 &cont_is_call2_and_not_dummy,
                 &fun_is_correct,
             )?;
 
             let newer_env = extend(
-                &mut cs.namespace(|| "Call2 extend env for hash preimage"),
+                &mut cs.namespace(|| "Call2 extend env using newer continuation"),
                 g,
                 store,
                 &closed_env,
@@ -2221,13 +2222,13 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             )?;
 
             let continuation_is_tail = alloc_equal(
-                &mut cs.namespace(|| "call2 continuation is tail for hash preimage"),
+                &mut cs.namespace(|| "call2 continuation is tail using newer continuation"),
                 continuation.tag(),
                 &g.tail_cont_tag,
             )?;
 
             let tail_cont = AllocatedContPtr::pick(
-                &mut cs.namespace(|| "call2 the tail continuation for hash preimage"),
+                &mut cs.namespace(|| "call2 the tail continuation using newer continuation"),
                 &continuation_is_tail,
                 &continuation,
                 &newer_cont,
@@ -2245,7 +2246,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
 
         let (allocated_arg2, _allocated_rest) = car_cdr(
-            &mut cs.namespace(|| "Binop cons for hash preimage"),
+            &mut cs.namespace(|| "Binop cons using newer continuation"),
             g,
             &unevaled_args,
             store,
@@ -2270,7 +2271,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
 
         let (allocated_arg2, _allocated_rest) = car_cdr(
-            &mut cs.namespace(|| "Relops cons for hash preimage"),
+            &mut cs.namespace(|| "Relops cons using newer continuation"),
             g,
             &unevaled_args,
             store,
@@ -2308,7 +2309,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         let let_cont = AllocatedContPtr::by_index(3, &continuation_components);
 
         let extended_env = extend(
-            &mut cs.namespace(|| "Let extend env for hash preimage"),
+            &mut cs.namespace(|| "Let extend env using newer continuation"),
             g,
             store,
             env,
@@ -2317,13 +2318,13 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         )?;
 
         let continuation_is_tail = alloc_equal(
-            &mut cs.namespace(|| "let continuation is tail for hash preimage"),
+            &mut cs.namespace(|| "let continuation is tail using newer continuation"),
             let_cont.tag(),
             &g.tail_cont_tag,
         )?;
 
         let tail_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "let the tail continuation for hash preimage"),
+            &mut cs.namespace(|| "let the tail continuation using newer continuation"),
             &continuation_is_tail,
             &let_cont,
             &newer_cont,
@@ -2346,7 +2347,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         let letrec_cont = AllocatedContPtr::by_index(3, &continuation_components);
 
         let extended_env = extend_rec(
-            &mut cs.namespace(|| "LetRec extend_rec env for hash preimage"),
+            &mut cs.namespace(|| "LetRec extend_rec env using newer continuation"),
             g,
             env,
             &var,
@@ -2355,25 +2356,25 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         )?;
 
         let is_error = extended_env.alloc_equal(
-            &mut cs.namespace(|| "is_error for hash preimage"),
+            &mut cs.namespace(|| "is_error using newer continuation"),
             &g.error_ptr,
         )?;
 
         let continuation_is_tail = alloc_equal(
-            &mut cs.namespace(|| "letrec continuation is tail for hash preimage"),
+            &mut cs.namespace(|| "letrec continuation is tail using newer continuation"),
             letrec_cont.tag(),
             &g.tail_cont_tag,
         )?;
 
         let tail_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "letrec the tail continuation for hash preimage"),
+            &mut cs.namespace(|| "letrec the tail continuation using newer continuation"),
             &continuation_is_tail,
             &letrec_cont,
             &newer_cont,
         )?;
 
         let return_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "return_cont for hash preimage"),
+            &mut cs.namespace(|| "return_cont using newer continuation"),
             &is_error,
             &g.error_ptr_cont,
             &tail_cont,
