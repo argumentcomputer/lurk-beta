@@ -1782,10 +1782,14 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         (AllocatedPtr::by_index(0, &res), unop_continuation)
     };
 
+
+
+
+
     /////////////////////////////////////////////////////////////////////////////
     // Continuation::Emit                                                      //
     /////////////////////////////////////////////////////////////////////////////
-    let emit_continuation = AllocatedContPtr::construct(
+    /*let emit_continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "Emit"),
         store,
         &g.emit_cont_tag,
@@ -1795,28 +1799,16 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             &[&g.default_num, &g.default_num],
             &[&g.default_num, &g.default_num],
         ],
-    )?;
-    let unop_op1 = AllocatedPtr::by_index(0, &continuation_components);
-    let other_unop_continuation = AllocatedContPtr::by_index(1, &continuation_components);
-    let op1_is_emit = alloc_equal(
-        &mut cs.namespace(|| "op1_is_emit"),
-        unop_op1.tag(),
-        &g.op1_emit_tag,
-    )?;
-    let unop_continuation = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "unop_continuation"),
-        &op1_is_emit,
-        &emit_continuation,
-        &other_unop_continuation,
-    )?;
+    )?;*/
+    let emit_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&unop_continuation, default_num_pair, default_num_pair, default_num_pair];
+    hash_default_results.add_hash_input_clauses(ContTag::Unop, &g.emit_cont_tag, emit_components);
 
-    results.add_clauses_cont(
-        ContTag::Unop,
-        &unop_val,
-        env,
-        &unop_continuation,
-        &g.true_num,
-    );
+
+
+
+
+
 
     /////////////////////////////////////////////////////////////////////////////
     // Continuation::Binop                                                      //
@@ -2391,6 +2383,31 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     );
 
     /////////////////////////////////////////////////////////////////////////////
+    // Continuation::Unop (after hash)                                         //
+    /////////////////////////////////////////////////////////////////////////////
+    let unop_op1 = AllocatedPtr::by_index(0, &continuation_components);
+    let other_unop_continuation = AllocatedContPtr::by_index(1, &continuation_components);
+    let op1_is_emit = alloc_equal(
+        &mut cs.namespace(|| "op1_is_emit"),
+        unop_op1.tag(),
+        &g.op1_emit_tag,
+    )?;
+    let unop_continuation = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "unop_continuation"),
+        &op1_is_emit,
+        &newer_cont,
+        &other_unop_continuation,
+    )?;
+
+    results.add_clauses_cont(
+        ContTag::Unop,
+        &unop_val,
+        env,
+        &unop_continuation,
+        &g.true_num,
+    );
+
+    /////////////////////////////////////////////////////////////////////////////
     // Main multi_case                                                         //
     /////////////////////////////////////////////////////////////////////////////
 
@@ -2656,9 +2673,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(30131, cs.num_constraints());
+            assert_eq!(29635, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(30115, cs.aux().len());
+            assert_eq!(29619, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
