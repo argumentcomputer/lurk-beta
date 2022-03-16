@@ -3,6 +3,8 @@
 [![Build Status][build-image]][build-link]
 ![minimum rustc 1.56][msrv-image]
 
+#### Disclaimer: Lurk is an in-development language and should _not_ be used in production.
+
 # Submodules
 
 Lurk source files used in tests are in the [lurk-lib](https://github.com/lurk-lang/lurk-lib) submodule. You must
@@ -102,6 +104,9 @@ INFO [lurk::eval] Frame: 10
 [build-image]: https://github.com/lurk-lang/lurk-rs/workflows/CI/badge.svg
 [build-link]: https://github.com/lurk-lang/lurk-rs/actions?query=workflow%3ACI+branch%3Amaster
 [msrv-image]: https://img.shields.io/badge/rustc-1.56+-blue.svg
+
+## Lurk website
+https://www.lurk-lang.org
 
 ## License
 
