@@ -2963,7 +2963,7 @@ mod tests {
         let env = empty_sym_env(&store);
 
         // Input is not self-evaluating.
-        let expr = store.read("(+1 2)").unwrap();
+        let expr = store.read("(+ 1 2)").unwrap();
         let input = IO {
             expr: expr.clone(),
             env: env.clone(),
