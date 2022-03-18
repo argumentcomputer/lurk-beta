@@ -98,7 +98,7 @@ pub fn reserved_symbols() -> Vec<String> {
         String::from(";;"),
         String::from(";"),
         String::from("."),
-        String::from("nil"),
+        String::from("'"),
         String::from(")"),
         String::from("("),
     ])
@@ -135,7 +135,13 @@ pub fn is_numeric_symbol_string1(s: &str) -> bool {
 }
 
 pub fn is_valid_symbol_char(c: char) -> bool {
-    c != ';' && c != '.' && c != '(' && c != ')' && !char::is_whitespace(c) && !char::is_control(c)
+    c != ';'
+        && c != '.'
+        && c != '\''
+        && c != '('
+        && c != ')'
+        && !char::is_whitespace(c)
+        && !char::is_control(c)
 }
 
 pub fn is_valid_symbol_string(s: &str) -> bool {
@@ -252,11 +258,26 @@ pub fn parse_list<F: PrimeField>() -> impl Fn(Span) -> IResult<Span, Term<F>, Pa
     }
 }
 
+pub fn parse_quote<F: PrimeField>() -> impl Fn(Span) -> IResult<Span, Term<F>, ParseError<Span>> {
+    move |i: Span| {
+        let (i, _) = context("open quote", tag("'"))(i)?;
+        let (i, x) = parse_term()(i)?;
+        Ok((
+            i,
+            Term::Cons(
+                Box::new(Term::Sym(String::from("quote"))),
+                Box::new(Term::Cons(Box::new(x), Box::new(Term::Nil))),
+            ),
+        ))
+    }
+}
+
 pub fn parse_term<F: PrimeField>() -> impl Fn(Span) -> IResult<Span, Term<F>, ParseError<Span>> {
     move |i: Span| {
         context(
             "term",
             alt((
+                parse_quote(),
                 parse_sym(),
                 parse_str(),
                 parse_num(),

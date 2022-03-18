@@ -115,7 +115,14 @@ pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
                         }
                     }
                     Ok((_, Command::Eval(trm))) => {
+                        println!("term: {}", trm);
                         let expr = s.store_term(*trm);
+                        {
+                            let mut handle = stdout.lock();
+                            print!("expr: ");
+                            expr.fmt(&s, &mut handle);
+                            println!();
+                        }
                         let (
                             IO {
                                 expr: result,
