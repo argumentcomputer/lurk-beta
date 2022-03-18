@@ -68,7 +68,9 @@ impl LitBase {
     }
 
     pub fn is_digit(&self, x: char) -> bool {
-        self.base_digits().chars().any(|y| x == y)
+        self.base_digits()
+            .chars()
+            .any(|y| x.to_ascii_lowercase() == y)
     }
 
     pub fn encode<I: AsRef<[u8]>>(&self, input: I) -> String {
@@ -154,6 +156,7 @@ pub fn parse_hex_digits() -> impl Fn(Span) -> IResult<Span, String, ParseError<S
         let ds: String = core::iter::once(d)
             .chain((*ds.fragment()).to_owned().chars())
             .filter(|x| *x != '_')
+            .map(|x| x.to_ascii_lowercase())
             .collect();
         Ok((i, ds))
     }
