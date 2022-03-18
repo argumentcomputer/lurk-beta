@@ -10,6 +10,12 @@ use generic_array::typenum::{U4, U6, U8};
 use neptune::poseidon::PoseidonConstants;
 use once_cell::sync::OnceCell;
 
+use libipld::Cid;
+use libipld::Ipld;
+
+use crate::ipld;
+use crate::ipld::IpldEmbed;
+use crate::ipld::IpldError;
 use crate::Num;
 
 /// Holds the constants needed for poseidon hashing.
@@ -193,6 +199,29 @@ impl<F: PrimeField> Pointer<F> for Ptr<F> {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ScalarPtr<F: PrimeField>(F, F);
 
+impl<F: PrimeField> IpldEmbed for ScalarPtr<F> {
+    fn to_ipld(&self) -> Ipld {
+        // we are assuming the f tag is little-endian
+        let code = ipld::make_codec::<F>(ipld::f_tag_to_u32(self.0, true));
+        Cid::new_v1(code, ipld::f_digest(self.1)).to_ipld()
+    }
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        match ipld {
+            Ipld::Link(cid) => {
+                if let Some(x) = ipld::ff_from_bytes_vartime(cid.hash().digest()) {
+                    Ok(ScalarPtr(cid.codec().into(), x))
+                } else {
+                    Err(IpldError::Expected(
+                        String::from("non-empty Cid hash for ScalarPtr"),
+                        Ipld::Link(*cid),
+                    ))
+                }
+            }
+            xs => Err(IpldError::Expected(String::from("ScalarPtr"), xs.clone())),
+        }
+    }
+}
+
 #[allow(clippy::derive_hash_xor_eq)]
 impl<F: PrimeField> Hash for ScalarPtr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -233,6 +262,33 @@ impl<F: PrimeField> IntoHashComponents<F> for ScalarPtr<F> {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ScalarContPtr<F: PrimeField>(F, F);
+
+// might be simpler to include `IpldEmbed` as a trait dependency of ScalarPointer
+impl<F: PrimeField> IpldEmbed for ScalarContPtr<F> {
+    fn to_ipld(&self) -> Ipld {
+        // we are assuming the f tag is little-endian
+        let code = ipld::make_codec::<F>(ipld::f_tag_to_u32(self.0, true));
+        Cid::new_v1(code, ipld::f_digest(self.1)).to_ipld()
+    }
+    fn from_ipld(ipld: &Ipld) -> Result<Self, ipld::IpldError> {
+        match ipld {
+            Ipld::Link(cid) => {
+                if let Some(x) = ipld::ff_from_bytes_vartime(cid.hash().digest()) {
+                    Ok(ScalarContPtr(cid.codec().into(), x))
+                } else {
+                    Err(ipld::IpldError::Expected(
+                        String::from("non-empty Cid hash for ScalarContPtr"),
+                        Ipld::Link(*cid),
+                    ))
+                }
+            }
+            xs => Err(ipld::IpldError::Expected(
+                String::from("ScalarContPtr"),
+                xs.clone(),
+            )),
+        }
+    }
+}
 
 #[allow(clippy::derive_hash_xor_eq)]
 impl<F: PrimeField> Hash for ScalarContPtr<F> {
@@ -327,6 +383,93 @@ pub enum Expression<'a, F: PrimeField> {
     Num(Num<F>),
     Str(&'a str),
     Thunk(Thunk<F>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ScalarExpression<F: PrimeField> {
+    Nil,
+    Cons(ScalarPtr<F>, ScalarPtr<F>),
+    Sym(String),
+    Fun(ScalarPtr<F>, ScalarPtr<F>, ScalarPtr<F>),
+    Num(Num<F>),
+    Str(String),
+    Thunk(ScalarPtr<F>, ScalarContPtr<F>),
+}
+
+impl<F: PrimeField> IpldEmbed for ScalarExpression<F> {
+    fn to_ipld(&self) -> Ipld {
+        match self {
+            Self::Nil => Ipld::List(vec![Ipld::Integer(ipld::EXPR.into()), Ipld::Integer(0)]),
+            Self::Cons(car, cdr) => Ipld::List(vec![
+                Ipld::Integer(ipld::EXPR.into()),
+                Ipld::Integer(1),
+                car.to_ipld(),
+                cdr.to_ipld(),
+            ]),
+            Self::Sym(sym) => Ipld::List(vec![
+                Ipld::Integer(ipld::EXPR.into()),
+                Ipld::Integer(2),
+                Ipld::String(String::from(sym.clone())),
+            ]),
+            Self::Fun(arg, body, env) => Ipld::List(vec![
+                Ipld::Integer(ipld::EXPR.into()),
+                Ipld::Integer(3),
+                arg.to_ipld(),
+                body.to_ipld(),
+                env.to_ipld(),
+            ]),
+            Self::Num(x) => Ipld::List(vec![
+                Ipld::Integer(ipld::EXPR.into()),
+                Ipld::Integer(4),
+                x.to_ipld(),
+            ]),
+            Self::Str(sym) => Ipld::List(vec![
+                Ipld::Integer(ipld::EXPR.into()),
+                Ipld::Integer(5),
+                Ipld::String(String::from(sym.clone())),
+            ]),
+            Self::Thunk(val, cont) => Ipld::List(vec![
+                Ipld::Integer(ipld::EXPR.into()),
+                Ipld::Integer(6),
+                val.to_ipld(),
+                cont.to_ipld(),
+            ]),
+        }
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        use Ipld::*;
+        let tag: i128 = ipld::EXPR.into();
+        match ipld {
+            List(xs) => match xs.as_slice() {
+                [Integer(t), Integer(0)] if *t == tag => Ok(Self::Nil),
+                [Integer(t), Integer(1), car, cdr] if *t == tag => {
+                    let car = ScalarPtr::from_ipld(car)?;
+                    let cdr = ScalarPtr::from_ipld(cdr)?;
+                    Ok(Self::Cons(car, cdr))
+                }
+                [Integer(t), Integer(2), String(s)] if *t == tag => Ok(Self::Sym(s.clone())),
+                [Integer(t), Integer(3), arg, body, env] if *t == tag => {
+                    let arg = ScalarPtr::from_ipld(arg)?;
+                    let body = ScalarPtr::from_ipld(body)?;
+                    let env = ScalarPtr::from_ipld(env)?;
+                    Ok(Self::Fun(arg, body, env))
+                }
+                [Integer(t), Integer(4), num] if *t == tag => {
+                    let num = Num::from_ipld(num)?;
+                    Ok(Self::Num(num))
+                }
+                [Integer(t), Integer(5), String(s)] if *t == tag => Ok(Self::Str(s.clone())),
+                [Integer(t), Integer(6), val, cont] if *t == tag => {
+                    let val = ScalarPtr::from_ipld(val)?;
+                    let cont = ScalarContPtr::from_ipld(cont)?;
+                    Ok(Self::Thunk(val, cont))
+                }
+                xs => Err(IpldError::expected("Expr", &List(xs.to_owned()))),
+            },
+            x => Err(IpldError::expected("Expr", x)),
+        }
+    }
 }
 
 impl<F: PrimeField> Object<F> for Expression<'_, F> {

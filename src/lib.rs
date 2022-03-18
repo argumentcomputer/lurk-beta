@@ -1,7 +1,10 @@
 #![allow(clippy::single_match, clippy::type_complexity)]
 
+extern crate alloc;
+
 pub mod circuit;
 pub mod eval;
+pub mod ipld;
 pub mod parser;
 pub mod proof;
 pub mod repl;

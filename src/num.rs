@@ -4,6 +4,11 @@ use std::{
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
+use libipld::Ipld;
+
+use crate::ipld;
+use crate::ipld::IpldEmbed;
+use crate::ipld::IpldError;
 use ff::PrimeField;
 
 /// Number type for Lurk. Has different internal representations to optimize evaluation.
@@ -11,6 +16,42 @@ use ff::PrimeField;
 pub enum Num<F: PrimeField> {
     Scalar(F),
     U64(u64),
+}
+
+impl<F: PrimeField> IpldEmbed for Num<F> {
+    fn to_ipld(&self) -> Ipld {
+        match self {
+            Num::Scalar(f) => Ipld::List(vec![
+                Ipld::Integer(ipld::NUM.into()),
+                Ipld::Integer(0),
+                ipld::FWrap(*f).to_ipld(),
+            ]),
+            Num::U64(x) => Ipld::List(vec![
+                Ipld::Integer(ipld::NUM.into()),
+                Ipld::Integer(1),
+                x.to_ipld(),
+            ]),
+        }
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        use Ipld::*;
+        let tag: i128 = ipld::NUM.into();
+        match ipld {
+            List(xs) => match xs.as_slice() {
+                [Integer(t), Integer(0), x] if *t == tag => {
+                    let f = ipld::FWrap::from_ipld(x)?;
+                    Ok(Num::Scalar(f.0))
+                }
+                [Integer(t), Integer(1), x] if *t == tag => {
+                    let x = u64::from_ipld(x)?;
+                    Ok(Num::U64(x))
+                }
+                xs => Err(IpldError::expected("Num", &List(xs.to_owned()))),
+            },
+            x => Err(IpldError::expected("Num", x)),
+        }
+    }
 }
 
 impl<F: PrimeField> Display for Num<F> {
