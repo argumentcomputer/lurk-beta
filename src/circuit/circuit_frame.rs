@@ -1849,7 +1849,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
         let op2_is_div = alloc_equal(
             cs.namespace(|| "op2_is_div"),
-            &op2.tag(),
+            op2.tag(),
             &g.op2_quotient_tag,
         )?;
 

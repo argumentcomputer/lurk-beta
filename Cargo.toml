@@ -57,5 +57,5 @@ members = [
 
 
 [patch.crates-io]
-bellperson = { git = "https://github.com/filecoin-project/bellperson", branch = "instance-aggregation" }
 nova = { git = "https://github.com/porcuquine/nova", package = "nova-snark" }
+bellperson = { git = "https://github.com/filecoin-project/bellperson" }
