@@ -1847,13 +1847,26 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         let diff = constraints::sub(&mut cs.namespace(|| "difference"), a, b)?;
         let product = constraints::mul(&mut cs.namespace(|| "product"), a, b)?;
 
+        let op2_is_div = alloc_equal(
+            cs.namespace(|| "op2_is_div"),
+            &op2.tag(),
+            &g.op2_quotient_tag,
+        )?;
+
+        let real_division = Boolean::and(
+            &mut cs.namespace(|| "real_division"),
+            &not_dummy,
+            &op2_is_div,
+        )?;
+
         // FIXME: We need to check that b is not zero, returning an error if so.
+        // Currently, attempting to divide by zero will result in a SynthesisError.
 
         // In dummy paths, we need to use a non-zero dummy value for b.
         // if dummy then 1 otherwise b.
         let divisor = pick(
             &mut cs.namespace(|| "maybe-dummy divisor"),
-            &not_dummy,
+            &real_division,
             b,
             &g.true_num,
         )?;
