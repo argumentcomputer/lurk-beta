@@ -2672,9 +2672,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(29635, cs.num_constraints());
+            assert_eq!(29640, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(29619, cs.aux().len());
+            assert_eq!(29623, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
