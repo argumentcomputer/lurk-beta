@@ -1331,7 +1331,7 @@ mod tests {
     #[test]
     fn outer_prove_evaluate_fibonacci() {
         outer_prove_aux(
-                &"(letrec ((next (lambda (a b n target)
+            &"(letrec ((next (lambda (a b n target)
                     (if (eq n target)
                         a
                         (next b
@@ -1339,13 +1339,14 @@ mod tests {
                             (+ 1 n)
                             target))))
                     (fib (next 0 1 0)))
-                (fib 1))",
-            |store| store.num(1),
-            89,
+                (fib 10))",
+            |store| store.num(55),
+            //|store| store.num(12200160415121876738),
+            521,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
-            300,
+            30000000,
             false,
         );
     }
