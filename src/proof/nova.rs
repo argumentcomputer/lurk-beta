@@ -322,6 +322,12 @@ mod tests {
         }
     }
 
+    ////////////////////////////////////////////////////////////////////////////
+    // IMPORTANT: Run next tests at least once. Some are ignored because they //
+    // are expensive. The criteria is that if the number of iteractions is    //
+    // more than 30 we ignore it.                                             //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn outer_prove_arithmetic_let() {
         outer_prove_aux(
@@ -537,13 +543,7 @@ mod tests {
         );
     }
 
-    ////////////////////////////////////////////////////////////////////////////
-    // IMPORTANT: Run next tests at least once. They are ignored because they //
-    // are expensive.                                                         //
-    ////////////////////////////////////////////////////////////////////////////
-
     #[test]
-    #[ignore]
     fn outer_prove_evaluate() {
         outer_prove_aux(
             &"((lambda (x) x) 99)",
@@ -558,7 +558,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate2() {
         outer_prove_aux(
             &"((lambda (y)
@@ -575,7 +574,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate3() {
         outer_prove_aux(
             &"((lambda (y)
@@ -595,7 +593,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate4() {
         outer_prove_aux(
             &"((lambda (y)
@@ -616,7 +613,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate5() {
         outer_prove_aux(
             &"(((lambda (fn)
@@ -634,7 +630,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_sum() {
         outer_prove_aux(
             &"(+ 2 (+ 3 4))",
@@ -649,7 +644,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_diff() {
         outer_prove_aux(
             &"(- 9 5)",
@@ -664,7 +658,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_product() {
         outer_prove_aux(
             &"(* 9 5)",
@@ -679,7 +672,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_quotient() {
         outer_prove_aux(
             &"(/ 21 3)",
@@ -694,7 +686,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_adder() {
         outer_prove_aux(
             &"(((lambda (x)
@@ -713,7 +704,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_let_simple() {
         outer_prove_aux(
             &"(let ((a 1))
@@ -745,7 +735,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_let() {
         outer_prove_aux(
             &"(let ((a 1)
@@ -763,7 +752,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_arithmetic() {
         outer_prove_aux(
             &"((((lambda (x)
@@ -897,7 +885,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_if() {
         outer_prove_aux(
             &"(if nil 5 6)",
@@ -912,7 +899,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_fully_evaluates() {
         outer_prove_aux(
             &"(if t (+ 5 5) 6)",
@@ -1081,7 +1067,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_let_no_body() {
         outer_prove_aux(
             &"(let ((a 9)))",
@@ -1096,7 +1081,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_cons1() {
         outer_prove_aux(
             &"(car (cons 1 2))",
@@ -1111,7 +1095,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_cons2() {
         outer_prove_aux(
             &"(cdr (cons 1 2))",
@@ -1126,7 +1109,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_zero_arg_lambda1() {
         outer_prove_aux(
             &"((lambda () 123))",
@@ -1141,7 +1123,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_zero_arg_lambda2() {
         outer_prove_aux(
             &"(let ((x 9) (f (lambda () (+ x 1)))) (f))",
@@ -1167,7 +1148,7 @@ mod tests {
                             (f (+ x 1))))))
                   (f 0))",
             |store| store.num(123),
-            4,
+            300,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1177,7 +1158,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_cons_in_function1() {
         outer_prove_aux(
             &"(((lambda (a)
@@ -1196,7 +1176,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_cons_in_function2() {
         outer_prove_aux(
             &"(((lambda (a)
@@ -1215,7 +1194,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_multiarg_eval_bug() {
         outer_prove_aux(
             &"(car (cdr '(1 2 3 4)))",
@@ -1272,14 +1250,13 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_multiple_letrecstar_bindings() {
         outer_prove_aux(
             &"(letrec ((double (lambda (x) (* 2 x)))
                           (square (lambda (x) (* x x))))
                          (+ (square 3) (double 2)))",
             |store| store.num(13),
-            84,
+            22,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1308,7 +1285,6 @@ mod tests {
     #[test]
     #[ignore]
     fn outer_prove_evaluate_multiple_letrecstar_bindings_recursive() {
-        //TODO: not working
         outer_prove_aux(
             &"(letrec ((exp (lambda (base exponent)
                                  (if (= 0 exponent)
@@ -1325,7 +1301,7 @@ mod tests {
                          (+ (+ (exp 3 2) (exp2 2 3))
                             (exp3 4 2)))",
             |store| store.num(33),
-            31,
+            242,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
