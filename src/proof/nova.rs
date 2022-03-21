@@ -1311,7 +1311,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_dont_discard_rest_env() {
         outer_prove_aux(
             &"(let ((z 9))
@@ -1321,6 +1320,28 @@ mod tests {
                            (l 9)))",
             |store| store.num(18),
             22,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_fibonacci() {
+        outer_prove_aux(
+                &"(letrec ((next (lambda (a b n target)
+                    (if (eq n target)
+                        a
+                        (next b
+                            (+ a b)
+                            (+ 1 n)
+                            target))))
+                    (fib (next 0 1 0)))
+                (fib 1))",
+            |store| store.num(1),
+            89,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
