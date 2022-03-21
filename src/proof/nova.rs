@@ -1341,12 +1341,11 @@ mod tests {
                     (fib (next 0 1 0)))
                 (fib 10))",
             |store| store.num(55),
-            //|store| store.num(12200160415121876738),
             521,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
-            30000000,
+            522,
             false,
         );
     }
