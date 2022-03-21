@@ -63,7 +63,7 @@ fn load_srs() -> Result<GenericSRS<Bls12>, io::Error> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Proof<E: Engine + MultiMillerLoop>
 where
     <E as Engine>::Gt: blstrs::Compress + Serialize,
@@ -78,6 +78,8 @@ where
         deserialize = "AggregateProofAndInstance<E>: Deserialize<'de>"
     ))]
     pub proof: AggregateProofAndInstance<E>,
+    pub proof_count: usize,
+    pub chunk_frame_count: usize,
 }
 
 pub trait Groth16<F: PrimeField>: Prover<F>
@@ -137,7 +139,6 @@ where
     ) -> Result<
         (
             Proof<Self::E>,
-            usize,
             IO<<Self::E as Engine>::Fr>,
             IO<<Self::E as Engine>::Fr>,
         ),
@@ -202,7 +203,15 @@ where
         let public_inputs = frames[0].input;
         let public_outputs = frames[frames.len() - 1].output;
 
-        Ok((Proof { proof }, proofs.len(), public_inputs, public_outputs))
+        Ok((
+            Proof {
+                proof,
+                proof_count: proofs.len(),
+                chunk_frame_count: self.chunk_frame_count(),
+            },
+            public_inputs,
+            public_outputs,
+        ))
     }
 
     fn generate_groth16_proof<R: RngCore>(
@@ -234,7 +243,6 @@ where
     }
 
     fn verify<R: RngCore + Send>(
-        &self,
         pvk: &groth16::PreparedVerifyingKey<Self::E>,
         srs_vk: &VerifierSRS<Self::E>,
         public_inputs: &[<Self::E as Engine>::Fr],
@@ -440,8 +448,8 @@ mod tests {
             None
         };
 
-        if let Some((proof, count, public_inputs, public_outputs)) = proof_results {
-            let srs_vk = INNER_PRODUCT_SRS.specialize_vk(count);
+        if let Some((proof, public_inputs, public_outputs)) = proof_results {
+            let srs_vk = INNER_PRODUCT_SRS.specialize_vk(proof.proof_count);
             let aggregate_proof_and_instances_verified =
                 verify_aggregate_proof_and_aggregate_instances(
                     &srs_vk,

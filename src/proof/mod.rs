@@ -13,6 +13,7 @@ pub(crate) type SequentialCS<'a, F, IO, Witness> =
 pub trait Provable<F: PrimeField> {
     fn public_inputs(&self) -> Vec<F>;
     fn public_input_size() -> usize;
+    fn chunk_frame_count(&self) -> usize;
 }
 
 #[allow(dead_code)]

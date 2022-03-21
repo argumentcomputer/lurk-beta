@@ -15,7 +15,13 @@ pub trait Write<F: PrimeField> {
 
 impl<F: PrimeField> Write<F> for Ptr<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
-        if let Some(expr) = store.fetch(self) {
+        use crate::store::Pointer;
+        if self.is_opaque() {
+            // This should never fail.
+            write!(w, "<Opaque ")?;
+            write!(w, "{:?}", self.tag())?;
+            write!(w, ">")
+        } else if let Some(expr) = store.fetch(self) {
             expr.fmt(store, w)
         } else {
             Ok(())
