@@ -144,8 +144,7 @@ where
         ),
         SynthesisError,
     > {
-        let padding_predicate =
-            |count, is_terminal: bool| !is_terminal || self.needs_frame_padding(count, is_terminal);
+        let padding_predicate = |count| self.needs_frame_padding(count);
         let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate);
         store.hydrate_scalar_cache();
 
@@ -402,9 +401,7 @@ mod tests {
         let e = empty_sym_env(&s);
 
         if check_constraint_systems {
-            let padding_predicate = |count, is_terminal: bool| {
-                !is_terminal || groth_prover.needs_frame_padding(count, is_terminal)
-            };
+            let padding_predicate = |count| groth_prover.needs_frame_padding(count);
             let frames = Evaluator::generate_frames(expr, e, &mut s, limit, padding_predicate);
             s.hydrate_scalar_cache();
 

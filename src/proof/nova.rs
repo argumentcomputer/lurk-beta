@@ -77,7 +77,7 @@ where
         store: &mut Store<<Self::Grp as Group>::Scalar>,
         limit: usize,
     ) -> Vec<Frame<IO<<Self::Grp as Group>::Scalar>, Witness<<Self::Grp as Group>::Scalar>>> {
-        let padding_predicate = |count, is_terminal| self.needs_frame_padding(count, is_terminal);
+        let padding_predicate = |count| self.needs_frame_padding(count);
 
         let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate);
         store.hydrate_scalar_cache();

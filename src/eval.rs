@@ -199,6 +199,9 @@ impl<F: PrimeField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Fram
         let input = self.output;
         let (output, witness) = input.reduce(store);
 
+        // FIXME: Why isn't this method found?
+        // self.log(store);
+        self.output.log(store, self.i + 1);
         Self {
             input,
             output,
@@ -231,7 +234,6 @@ pub struct FrameIt<'a, W: Copy, F: PrimeField> {
 impl<'a, 'b, F: PrimeField> FrameIt<'a, Witness<F>, F> {
     fn new(initial_input: IO<F>, store: &'a mut Store<F>) -> Self {
         let frame = Frame::from_initial_input(initial_input, store);
-        frame.log(store);
         Self {
             first: true,
             frame,
@@ -249,7 +251,6 @@ impl<'a, 'b, F: PrimeField> FrameIt<'a, Witness<F>, F> {
             }
             let new_frame = self.frame.next(self.store);
             previous_frame = std::mem::replace(&mut self.frame, new_frame);
-            self.frame.log(self.store);
         }
         Some((self.frame, previous_frame))
     }
@@ -1111,7 +1112,7 @@ where
         FrameIt::new(initial_input, self.store).take(self.limit)
     }
 
-    pub fn generate_frames<Fp: Fn(usize, bool) -> bool>(
+    pub fn generate_frames<Fp: Fn(usize) -> bool>(
         expr: Ptr<F>,
         env: Ptr<F>,
         store: &'a mut Store<F>,
@@ -1122,13 +1123,16 @@ where
         let mut frames: Vec<Frame<IO<F>, Witness<F>>> = evaluator.iter().collect::<Vec<_>>();
         assert!(!frames.is_empty());
 
-        if !needs_frame_padding(frames.len() - 1, false) {
-            let _ = frames.pop();
-        }
+        // TODO: We previously had an optimization here. If the limit was not reached, the final frame should be an
+        // identity reduction suitable for padding. If it's not needed for that purpose, we can pop it from frames. In
+        // the worst case, this could save creating one multi-frame filled only with this identity padding. However,
+        // knowing when it is safe to do that is complicated, because for Groth16/SnarkPack+, we may need to pad the
+        // total number of proofs to a power of two. For now, we omit the optimization. With more thought and care, we
+        // could add it back later.
 
         if !frames.is_empty() {
             let padding_frame = frames[frames.len() - 1].clone();
-            while needs_frame_padding(frames.len(), frames[frames.len() - 1].is_complete()) {
+            while needs_frame_padding(frames.len()) {
                 frames.push(padding_frame.clone());
             }
         }
