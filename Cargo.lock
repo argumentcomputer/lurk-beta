@@ -97,38 +97,6 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "bellperson"
-version = "0.18.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "121a6b5dd501e84f0529d2d25cecc4f5f38439f1f4db9f869db7780d4e082b52"
-dependencies = [
- "bincode",
- "bitvec",
- "blake2s_simd",
- "blstrs",
- "byteorder",
- "crossbeam-channel",
- "digest 0.9.0",
- "execute",
- "ff",
- "group",
- "hex",
- "itertools 0.10.3",
- "lazy_static",
- "log",
- "memmap",
- "num_cpus",
- "pairing",
- "rand 0.8.5",
- "rand_core 0.6.3",
- "rayon",
- "serde",
- "sha2 0.9.9",
- "thiserror",
- "yastl",
-]
-
-[[package]]
-name = "bellperson"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f498545c6cd250a2ee1ad4f576173bcc8c2fe629fe0c0b35f9ab6b9bab78b07"
@@ -735,7 +703,7 @@ name = "fcomm"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
- "bellperson 0.18.2",
+ "bellperson",
  "blstrs",
  "ff",
  "log",
@@ -1038,7 +1006,7 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "anyhow",
- "bellperson 0.19.0",
+ "bellperson",
  "blstrs",
  "criterion",
  "dashmap",
@@ -1129,7 +1097,7 @@ name = "neptune"
 version = "5.1.0"
 source = "git+https://github.com/filecoin-project/neptune#e3e59ca7202a476b532fb1d0f6cef7a3d2dbd511"
 dependencies = [
- "bellperson 0.19.0",
+ "bellperson",
  "blake2s_simd",
  "blstrs",
  "byteorder",
@@ -1185,7 +1153,7 @@ name = "nova-snark"
 version = "0.4.0"
 source = "git+https://github.com/porcuquine/nova#b6f4cc01b3d81643d3737e1c96a2d0b947ff4662"
 dependencies = [
- "bellperson 0.19.0",
+ "bellperson",
  "digest 0.8.1",
  "ff",
  "itertools 0.9.0",
