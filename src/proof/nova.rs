@@ -1339,13 +1339,13 @@ mod tests {
                             (+ 1 n)
                             target))))
                     (fib (next 0 1 0)))
-                (fib 10))",
-            |store| store.num(55),
-            521,
+                (fib 1))",
+            |store| store.num(1),
+            89,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
-            522,
+            300,
             false,
         );
     }
