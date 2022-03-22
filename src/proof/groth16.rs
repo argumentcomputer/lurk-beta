@@ -375,7 +375,7 @@ mod tests {
     use rand::rngs::OsRng;
 
     const DEFAULT_CHECK_GROTH16: bool = false;
-    const DEFAULT_CHUNK_FRAME_COUNT: usize = 1;
+    const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
 
     fn outer_prove_aux<Fo: Fn(&'_ mut Store<Fr>) -> Ptr<Fr>>(
         source: &str,
