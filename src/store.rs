@@ -62,16 +62,14 @@ impl Default for StringSet {
 
 #[derive(Debug)]
 pub struct Store<F: PrimeField> {
-    cons_store: IndexSet<(Ptr<F>, Ptr<F>)>,
-    pub(crate) opaque_cons: (Ptr<F>, Ptr<F>),
+    pub(crate) cons_store: IndexSet<(Ptr<F>, Ptr<F>)>,
 
     fun_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
-    pub(crate) opaque_fun: (Ptr<F>, Ptr<F>, Ptr<F>),
 
     sym_store: StringSet,
 
     // Other sparse storage format without hashing is likely more efficient
-    num_store: IndexSet<Num<F>>,
+    pub(crate) num_store: IndexSet<Num<F>>,
 
     str_store: StringSet,
     thunk_store: IndexSet<Thunk<F>>,
@@ -91,7 +89,7 @@ pub struct Store<F: PrimeField> {
 
     opaque_map: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
     /// Holds a mapping of ScalarPtr -> Ptr for reverse lookups
-    scalar_ptr_map: dashmap::DashMap<ScalarPtr<F>, Ptr<F>, ahash::RandomState>,
+    pub(crate) scalar_ptr_map: dashmap::DashMap<ScalarPtr<F>, Ptr<F>, ahash::RandomState>,
     /// Holds a mapping of ScalarPtr -> ContPtr<F> for reverse lookups
     scalar_ptr_cont_map: dashmap::DashMap<ScalarContPtr<F>, ContPtr<F>, ahash::RandomState>,
 
@@ -204,8 +202,14 @@ impl<F: PrimeField> Pointer<F> for Ptr<F> {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd)]
 pub struct ScalarPtr<F: PrimeField>(F, F);
+
+// impl<F: PrimeField> Ord for ScalarPtr<F> {
+//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+//         (self.0.to_repr(), self.1.to_repr()).cmp((other.0.to_repr(), other.1.to_repr()))
+//     }
+// }
 
 #[allow(clippy::derive_hash_xor_eq)]
 impl<F: PrimeField> Hash for ScalarPtr<F> {
@@ -353,6 +357,7 @@ pub enum Expression<'a, F: PrimeField> {
     Num(Num<F>),
     Str(&'a str),
     Thunk(Thunk<F>),
+    Opaque(Ptr<F>),
 }
 
 impl<F: PrimeField> Object<F> for Expression<'_, F> {
@@ -584,8 +589,6 @@ impl ContTag {
 
 impl<F: PrimeField> Default for Store<F> {
     fn default() -> Self {
-        let dummy_ptr = Ptr(Tag::Nil, RawPtr::new(0));
-
         let mut store = Store {
             cons_store: Default::default(),
             sym_store: Default::default(),
@@ -613,17 +616,7 @@ impl<F: PrimeField> Default for Store<F> {
             dehydrated: Default::default(),
             dehydrated_cont: Default::default(),
             opaque_raw_ptr_count: 0,
-            opaque_cons: (dummy_ptr, dummy_ptr),
-            opaque_fun: (dummy_ptr, dummy_ptr, dummy_ptr),
         };
-
-        let p = store.new_opaque_ptr();
-        store.opaque_cons = (p, p);
-        store.opaque_fun = (
-            store.new_opaque_ptr(),
-            store.new_opaque_ptr(),
-            store.new_opaque_ptr(),
-        );
 
         // insert some well known symbols
         for sym in &[
@@ -655,11 +648,6 @@ impl<F: PrimeField> Default for Store<F> {
             store.sym(sym);
         }
 
-        // This is a hack to at least mark printed opaque conses clearly.
-        let a = store.sym("<OPAQUE-CAR>");
-        let b = store.sym("<OPAQUE-CDR>");
-        store.opaque_cons = (a, b);
-
         store
     }
 }
@@ -687,6 +675,10 @@ impl<F: PrimeField> Store<F> {
 
     pub fn num<T: Into<Num<F>>>(&mut self, num: T) -> Ptr<F> {
         self.intern_num(num)
+    }
+
+    pub fn str<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
+        self.intern_str(name)
     }
 
     pub fn sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
@@ -754,7 +746,6 @@ impl<F: PrimeField> Store<F> {
         let ptr = Ptr(tag, self.new_opaque_raw_ptr());
         // Always insert. Key is unique because of newly allocated opaque raw_ptr.
         self.opaque_map.insert(ptr, scalar_ptr);
-
         ptr
     }
 
@@ -811,7 +802,6 @@ impl<F: PrimeField> Store<F> {
         if convert_case {
             Self::convert_sym_case(&mut name);
         }
-
         let tag = if name == "NIL" { Tag::Nil } else { Tag::Sym };
         self.sym_store
             .0
@@ -864,6 +854,7 @@ impl<F: PrimeField> Store<F> {
         self.dehydrated_cont.push(p);
         p
     }
+
     pub fn intern_cont_outermost(&mut self) -> ContPtr<F> {
         self.mark_dehydrated_cont(self.get_cont_outermost())
     }
@@ -1090,31 +1081,32 @@ impl<F: PrimeField> Store<F> {
             .resolve(SymbolUsize::try_from_usize(ptr.1.idx()).unwrap())
     }
 
-    fn fetch_str(&self, ptr: &Ptr<F>) -> Option<&str> {
+    pub(crate) fn fetch_str(&self, ptr: &Ptr<F>) -> Option<&str> {
         debug_assert!(matches!(ptr.0, Tag::Str));
         let symbol = SymbolUsize::try_from_usize(ptr.1.idx()).expect("invalid pointer");
         self.str_store.0.resolve(symbol)
     }
 
-    fn fetch_fun(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>, Ptr<F>)> {
+    pub(crate) fn fetch_fun(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>, Ptr<F>)> {
         debug_assert!(matches!(ptr.0, Tag::Fun));
         if ptr.1.is_opaque() {
-            Some(&self.opaque_fun)
+            None
+            // Some(&self.opaque_fun)
         } else {
             self.fun_store.get_index(ptr.1.idx())
         }
     }
 
-    fn fetch_cons(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>)> {
+    pub(crate) fn fetch_cons(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>)> {
         debug_assert!(matches!(ptr.0, Tag::Cons));
         if ptr.1.is_opaque() {
-            Some(&self.opaque_cons)
+            None
         } else {
             self.cons_store.get_index(ptr.1.idx())
         }
     }
 
-    fn fetch_num(&self, ptr: &Ptr<F>) -> Option<&Num<F>> {
+    pub(crate) fn fetch_num(&self, ptr: &Ptr<F>) -> Option<&Num<F>> {
         debug_assert!(matches!(ptr.0, Tag::Num));
         self.num_store.get_index(ptr.1.idx())
     }
@@ -1125,6 +1117,9 @@ impl<F: PrimeField> Store<F> {
     }
 
     pub fn fetch(&self, ptr: &Ptr<F>) -> Option<Expression<F>> {
+        if ptr.is_opaque() {
+            return Some(Expression::Opaque(*ptr));
+        }
         match ptr.0 {
             Tag::Nil => Some(Expression::Nil),
             Tag::Cons => self.fetch_cons(ptr).map(|(a, b)| Expression::Cons(*a, *b)),
@@ -1262,8 +1257,6 @@ impl<F: PrimeField> Store<F> {
                 _ => unreachable!(),
             },
             _ => {
-                use crate::writer::Write;
-                dbg!(ptr.fmt_to_string(self));
                 panic!("Can only extract car_cdr from Cons")
             }
         }
@@ -1282,6 +1275,21 @@ impl<F: PrimeField> Store<F> {
         }
     }
 
+    // Get hash for expr, but only if it already exists.
+    // This should never cause create_scalar_ptr to be called.
+    pub fn get_expr_hash(&self, ptr: &Ptr<F>) -> Option<ScalarPtr<F>> {
+        use Tag::*;
+        match ptr.tag() {
+            Nil => self.get_hash_nil(),
+            Cons => self.get_hash_cons(*ptr),
+            Sym => self.get_hash_sym(*ptr),
+            Fun => self.get_hash_fun(*ptr),
+            Num => self.get_hash_num(*ptr),
+            Str => self.get_hash_str(*ptr),
+            Thunk => self.get_hash_thunk(*ptr),
+        }
+    }
+
     pub fn hash_cont(&self, ptr: &ContPtr<F>) -> Option<ScalarContPtr<F>> {
         let components = self.get_hash_components_cont(ptr)?;
         let hash = self.poseidon_cache.hash8(&components);
@@ -1293,8 +1301,13 @@ impl<F: PrimeField> Store<F> {
     /// ensure that they are cached properly
     fn create_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ScalarPtr<F> {
         let scalar_ptr = ScalarPtr(ptr.tag_field(), hash);
-        self.scalar_ptr_map.entry(scalar_ptr).or_insert(ptr);
+        let entry = self.scalar_ptr_map.entry(scalar_ptr);
+        entry.or_insert(ptr);
         scalar_ptr
+    }
+
+    fn get_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ScalarPtr<F> {
+        ScalarPtr(ptr.tag_field(), hash)
     }
 
     /// The only places that `ScalarContPtr`s for `ContPtr`s should be created, to
@@ -1533,7 +1546,6 @@ impl<F: PrimeField> Store<F> {
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
         let def = [F::zero(), F::zero()];
-
         let arg = self.hash_expr(arg)?.into_hash_components();
         let saved_env = self.hash_expr(saved_env)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
@@ -1566,12 +1578,25 @@ impl<F: PrimeField> Store<F> {
             return self.opaque_map.get(&sym).map(|s| *s);
         }
         let s = self.fetch_sym(&sym)?;
+
         Some(self.create_scalar_ptr(sym, self.hash_string(s)))
+    }
+
+    pub fn get_hash_sym(&self, sym: Ptr<F>) -> Option<ScalarPtr<F>> {
+        if sym.is_opaque() {
+            return self.opaque_map.get(&sym).map(|s| *s);
+        }
+        let s = self.fetch_sym(&sym)?;
+        Some(self.get_scalar_ptr(sym, self.hash_string(s)))
     }
 
     fn hash_str(&self, sym: Ptr<F>) -> Option<ScalarPtr<F>> {
         let s = self.fetch_str(&sym)?;
         Some(self.create_scalar_ptr(sym, self.hash_string(s)))
+    }
+    fn get_hash_str(&self, sym: Ptr<F>) -> Option<ScalarPtr<F>> {
+        let s = self.fetch_str(&sym)?;
+        Some(self.get_scalar_ptr(sym, self.hash_string(s)))
     }
 
     fn hash_fun(&self, fun: Ptr<F>) -> Option<ScalarPtr<F>> {
@@ -1585,6 +1610,19 @@ impl<F: PrimeField> Store<F> {
         } else {
             let (arg, body, closed_env) = self.fetch_fun(&fun)?;
             Some(self.create_scalar_ptr(fun, self.hash_ptrs_3(&[*arg, *body, *closed_env])?))
+        }
+    }
+    fn get_hash_fun(&self, fun: Ptr<F>) -> Option<ScalarPtr<F>> {
+        if fun.is_opaque() {
+            Some(
+                *self
+                    .opaque_map
+                    .get(&fun)
+                    .expect("ScalarPtr for opaque Fun missing"),
+            )
+        } else {
+            let (arg, body, closed_env) = self.fetch_fun(&fun)?;
+            Some(self.get_scalar_ptr(fun, self.get_hash_ptrs_3(&[*arg, *body, *closed_env])?))
         }
     }
 
@@ -1602,6 +1640,19 @@ impl<F: PrimeField> Store<F> {
 
         Some(self.create_scalar_ptr(cons, self.hash_ptrs_2(&[*car, *cdr])?))
     }
+    fn get_hash_cons(&self, cons: Ptr<F>) -> Option<ScalarPtr<F>> {
+        if cons.is_opaque() {
+            return Some(
+                *self
+                    .opaque_map
+                    .get(&cons)
+                    .expect("ScalarPtr for opaque Cons missing"),
+            );
+        }
+
+        let (car, cdr) = self.fetch_cons(&cons)?;
+        Some(self.get_scalar_ptr(cons, self.get_hash_ptrs_2(&[*car, *cdr])?))
+    }
 
     fn hash_thunk(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
         let thunk = self.fetch_thunk(&ptr)?;
@@ -1609,9 +1660,21 @@ impl<F: PrimeField> Store<F> {
         Some(self.create_scalar_ptr(ptr, self.poseidon_cache.hash4(&components)))
     }
 
+    fn get_hash_thunk(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
+        let thunk = self.fetch_thunk(&ptr)?;
+        let components = self.get_hash_components_thunk(thunk)?;
+        Some(self.get_scalar_ptr(ptr, self.poseidon_cache.hash4(&components)))
+    }
+
     fn hash_num(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
         let n = self.fetch_num(&ptr)?;
+
         Some(self.create_scalar_ptr(ptr, n.into_scalar()))
+    }
+    fn get_hash_num(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
+        let n = self.fetch_num(&ptr)?;
+
+        Some(self.get_scalar_ptr(ptr, n.into_scalar()))
     }
 
     fn hash_string(&self, s: &str) -> F {
@@ -1639,12 +1702,25 @@ impl<F: PrimeField> Store<F> {
         let scalar_ptrs = [self.hash_expr(&ptrs[0])?, self.hash_expr(&ptrs[1])?];
         Some(self.hash_scalar_ptrs_2(&scalar_ptrs))
     }
+    fn get_hash_ptrs_2(&self, ptrs: &[Ptr<F>; 2]) -> Option<F> {
+        let scalar_ptrs = [self.get_expr_hash(&ptrs[0])?, self.get_expr_hash(&ptrs[1])?];
+        Some(self.hash_scalar_ptrs_2(&scalar_ptrs))
+    }
 
     fn hash_ptrs_3(&self, ptrs: &[Ptr<F>; 3]) -> Option<F> {
         let scalar_ptrs = [
             self.hash_expr(&ptrs[0])?,
             self.hash_expr(&ptrs[1])?,
             self.hash_expr(&ptrs[2])?,
+        ];
+        Some(self.hash_scalar_ptrs_3(&scalar_ptrs))
+    }
+
+    fn get_hash_ptrs_3(&self, ptrs: &[Ptr<F>; 3]) -> Option<F> {
+        let scalar_ptrs = [
+            self.get_expr_hash(&ptrs[0])?,
+            self.get_expr_hash(&ptrs[1])?,
+            self.get_expr_hash(&ptrs[2])?,
         ];
         Some(self.hash_scalar_ptrs_3(&scalar_ptrs))
     }
@@ -1663,7 +1739,14 @@ impl<F: PrimeField> Store<F> {
 
     pub fn hash_nil(&self) -> Option<ScalarPtr<F>> {
         let nil = self.get_nil();
+
         self.hash_sym(nil)
+    }
+
+    pub fn get_hash_nil(&self) -> Option<ScalarPtr<F>> {
+        let nil = self.get_nil();
+
+        self.get_hash_sym(nil)
     }
 
     fn hash_op1(&self, op: &Op1) -> ScalarPtr<F> {
@@ -1701,7 +1784,7 @@ impl<F: PrimeField> Store<F> {
     pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> bool {
         // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
         // compound data with opaque data in either element's transitive closure.
-        self.hash_expr(a) == self.hash_expr(b)
+        self.get_expr_hash(a) == self.get_expr_hash(b)
     }
 
     pub fn cons_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> bool {
@@ -1714,7 +1797,7 @@ impl<F: PrimeField> Store<F> {
         if !a_opaque && !b_opaque {
             return a == b;
         }
-        self.hash_expr(a) == self.hash_expr(b)
+        self.get_expr_hash(a) == self.get_expr_hash(b)
     }
 
     /// Fill the cache for Scalars. Only Ptrs which have been interned since last hydration will be hashed, so it is
@@ -2003,14 +2086,7 @@ mod test {
         let qcons_opaque2 = store.list(&[quote, opaque_cons2]);
 
         assert_eq!("<Opaque Cons>", opaque_cons.fmt_to_string(&store));
-        assert_eq!(
-            "<OPAQUE-CAR>",
-            store.car(&opaque_cons).fmt_to_string(&store)
-        );
-        assert_eq!(
-            "<OPAQUE-CDR>",
-            store.cdr(&opaque_cons).fmt_to_string(&store)
-        );
+
         {
             let comparison_expr = store.list(&[eq, qcons, qcons_opaque]);
             // FIXME: need to implement Write for opaque data.
@@ -2032,13 +2108,49 @@ mod test {
             // without this affecting equality semantics.
 
             let n = store.num(123);
+            let n2 = store.num(321);
             let cons_sym = store.sym("cons");
             let cons_expr1 = store.list(&[cons_sym, qcons, n]);
             let cons_expr2 = store.list(&[cons_sym, qcons_opaque, n]);
+            let cons_expr3 = store.list(&[cons_sym, qcons_opaque, n2]);
 
             let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
-            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
-            assert_eq!(t, result.expr);
+            let comparison_expr2 = store.list(&[eq, cons_expr1, cons_expr3]);
+            {
+                let (result, _) =
+                    Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+                assert_eq!(t, result.expr);
+            }
+            {
+                let (result, _) =
+                    Evaluator::new(comparison_expr2, empty_env, &mut store, limit).eval();
+                assert_eq!(nil, result.expr);
+            }
         }
+    }
+
+    fn make_opaque_cons(store: &mut Store<Fr>) -> Ptr<Fr> {
+        let num1 = store.num(123);
+        let num2 = store.num(987);
+        let cons = store.intern_cons(num1, num2);
+        let cons_hash = store.hash_expr(&cons).unwrap();
+
+        store.intern_opaque_cons(*cons_hash.value())
+    }
+    #[test]
+    #[should_panic]
+    fn opaque_cons_car() {
+        let mut store = Store::<Fr>::default();
+
+        let opaque_cons = make_opaque_cons(&mut store);
+        store.car(&opaque_cons);
+    }
+    #[test]
+    #[should_panic]
+    fn opaque_cons_cdr() {
+        let mut store = Store::<Fr>::default();
+
+        let opaque_cons = make_opaque_cons(&mut store);
+        store.cdr(&opaque_cons);
     }
 }
