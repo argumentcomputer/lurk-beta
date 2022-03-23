@@ -6,10 +6,12 @@ use std::path::Path;
 use bellperson::{groth16, SynthesisError};
 use blstrs::{Bls12, Scalar};
 use ff::PrimeField;
+
+use hex::FromHex;
 use once_cell::sync::OnceCell;
 use pairing_lib::{Engine, MultiMillerLoop};
 use rand::rngs::OsRng;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use lurk::circuit::ToInputs;
 use lurk::eval::{empty_sym_env, Evaluable, Evaluator, Status, IO};
@@ -60,10 +62,44 @@ pub struct Evaluation {
     pub status: Status,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Commitment<F: PrimeField> {
-    #[serde(bound(serialize = "F: Serialize", deserialize = "F: Deserialize<'de>"))]
     pub comm: F,
+}
+
+impl<F: PrimeField> Serialize for Commitment<F> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        hex::serde::serialize(self.comm.to_repr().as_ref(), serializer)
+    }
+}
+
+impl<'de, F: PrimeField> Deserialize<'de> for Commitment<F> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        hex::serde::deserialize(deserializer)
+    }
+}
+
+impl<F: PrimeField> FromHex for Commitment<F> {
+    type Error = hex::FromHexError;
+
+    fn from_hex<T>(s: T) -> Result<Self, <Self as FromHex>::Error>
+    where
+        T: AsRef<[u8]>,
+    {
+        let v = Vec::from_hex(s)?;
+        let mut repr = <F as PrimeField>::Repr::default();
+        repr.as_mut()[..32].copy_from_slice(&v[..]);
+
+        Ok(Commitment {
+            comm: F::from_repr(repr).unwrap(),
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
