@@ -20,6 +20,13 @@
 \usepackage{fancyvrb}
 \usepackage[titletoc]{appendix}
 
+\newcommand{\redexp}{\mathrm{reduce\_expression}}
+\newcommand{\redwithwit}{\mathrm{reduce\_with\_witness}}
+\newcommand{\redcons}{\mathrm{reduce\_cons}}
+\newcommand{\redsym}{\mathrm{reduce\_sym}}
+\newcommand{\applycont}{\mathrm{apply\_continuation}}
+\newcommand{\carcdr}{\mathrm{car\_cdr}}
+\newcommand{\makethunk}{\mathrm{make\_thunk}}
 
 \begin{document}
 
@@ -32,7 +39,7 @@
 
 	\textsc{\Large Specification}\\[.5cm]
 	\HRule\\[.5cm]
-	{\Huge Zero Knowledge circuit \par}
+	{\Huge Zero-Knowledge circuit \par}
 	\vspace{.5cm}
 	{\Large for continuation-passing interpreter \par}
 	\vspace{.5cm}
@@ -46,7 +53,9 @@
 
 
 \begin{abstract}
-  \end{abstract}
+  This document describes how Lurk circuits are constructed. It is a \textbf{work in progress}.
+  Right now it contain only a short overview of the specification. The reader can expect a complete description will be provided in the near future.
+\end{abstract}
 
 \tableofcontents
 
@@ -54,46 +63,109 @@
 
 \section{Introduction}
 
-The book~\cite{FWbook}
+Lurk is a functional programming language based on Lisp.
+
+It is based on Continuation Passing Style (CPS), which is an idea described in the book ``Essentials of Programming Languages''~\cite{FWbook}.
 
 \section{Lurk}
 
+Next we provide a summary of Lurk elements.
+
+%\subsection{Expressions}
+
+%\subsection{Environment}
+
+%\subsection{Continuation}
+
 \subsection{Overview}
 
-t, nil
+\begin{itemize}
+  \item[-] \textbf{t, nil:} are self-evaluating and represent true and false, respectively.
+  \item[-] \textbf{if:} it has the format \verb|(if <test> <consequent> <alternate>)| and represents a conditional expression. It \textbf{must} receive all 3 parameters, where the \verb|<test>| is an expression used to select the result; the \verb|<consequent>| is selected if the \verb|<test>| evaluates to non-\verb|nil|; and \verb|<alternate>| is selected otherwise. We remark that differently from other programming languages, the \verb|<alternate>| expression is mandatory.
+  \item[-] \textbf{lambda:} it has the format \verb|(lambda <formals> <body>)| and represents a procedure. The environment when the lambda expression is evaluated is used as a \textbf{closure}, which is extended with \verb|<formals>|, a list of variables. The unique expression in the \verb|<body>| is evaluated and returned as result of the lambda expression.
+  \item[-] \textbf{let:} it has the format \verb|(let <bindings> <body>)| and represents an assignment expression, where \verb|<bindings>| is list of  pairs in the form \verb|(<variable>, <init>)|; and \verb|<body>| is a unique expression.
+  \item[-] \textbf{letrec:} it has the same format as \verb|<let>| expressions, following the same rules, but also allowing recursion.
+  \item[-] \textbf{quote:} it has the format \verb|(quote <datum>)| or \verb|(' <datum>)| and evaluates to \verb|<datum>|.
+  \item[-] \textbf{atom:} it has the format \verb|(atom <e>)|, and it evaluates to \verb|t| if \verb|<e>| is not a list, and evaluates to \verb|nil| otherwise.
+  \item[-] \textbf{cons, car, cdr:} The expression \verb|(cons <a> <d>)| produces a pair whose \verb|car| is \verb|<a>| and \verb|cdr| if \verb|<d>|.
+  \item[-] \textbf{arithmetic operations:} it has the format \verb|(<op> <e1> <e2>)|, where \verb|<op>| corresponds to an arithmetic operation ($+, -, \star, //$). We have that \verb|<e1>| is evaluated before \verb|<e2>| and the operation is carried out in the finite field that is used in the subjacent zero-knowledge backend.
+  \item[-] \textbf{equality:} it has the format \verb|(<op> <e1> <e2>)|, where \verb|<op>| can be either \verb|=| or \verb|eq|. The equality symbol \verb|=| is used to compare expressions whose result is a number (finite field elements), while the symbol \verb|eq| is used to compare pointers.
+  \item[-] \textbf{emit:} it has the format \verb|(emit <e>)| and is used to return the result of the evaluation of \verb|<e>| as a public value, which can be used to define the instance of the zero-knowledge statement.
+  \item[-] \textbf{begin:} is has the format \verb|(begin <e> ...)|. The sequence of expressions is evaluated from left to right and the last result is returned.
+  \item[-] \textbf{current env:} it returns the current environment represented as an association list.
+  \item[-] \textbf{eval:} it has format \verb|(eval <exp>)| or \verb|(eval <exp> <env>)|. The evaluation of \verb|<exp>| is used as an expression in the environment obtained from the evaluation of \verb|<env>|. If no \verb|<env>| is provided, an empty environment is used.
+\end{itemize}
 
-if
+\subsubsection{Fibonacci example}
 
-lambda
-
-let
-
-letrec
-
-quote
-
-atom
-
-cons, car, cdr
-
-arithmetic operations
-
-equality
-
-current env
-
-
-\subsection{Expressions}
-
-\subsection{Environment}
-
-\subsection{Continuation}
+\begin{verbatim}
+    (letrec ((next (lambda (a b n target)
+        (if (eq n target)
+            a
+                (next b
+                (+ a b)
+                (+ 1 n)
+                    target))))
+            (fib (next 0 1 0)))
+        (fib 1))
+\end{verbatim}
 
 \subsection{Store}
 
 \section{Circuit}
 
 \subsection{Overview}
+
+Each reduction step is mapped into a Frame.
+
+We group Frames into a MultiFrame object.
+
+We construct a CircuitFrame for each MultiFrame.
+
+A Circuit is a sequence of CircuitFrames,
+
+The circuit mimics the evaluation of Lurk expressions.
+
+$\redexp()$ implements $\redwithwit()$ in the circuit.
+
+global symbols contains Lurk symbols, such that we can easily compare with
+
+
+%%%%%%%%%%%%%%%%%%
+$\redsym()$
+
+ We use Boolean logic and equality tests (against global symbols) to obtain calculate auxiliary variables that will allow us to decide how we are going to take decision about control flow of a Lurk program. Using it we also can update the environment and store accordingly.
+
+%%%%%%%%%%%%%%%%%%
+$\redcons()$
+
+Takes an expression and reduces to smaller pieces, allocating in the circuit for later utilization.
+
+$\carcdr()$ gadget is used to constrain the reduction.
+
+For each possible expression type that can be reduced, we include a clause in a multicase gadget.
+
+The multicase selection depends on the head, which is the car of the expression.
+
+We return the result of the multicase.
+
+% It can be optimized in the same way as apply continuation
+
+%%%%%%%%%%%%%%%%%%
+$\makethunk()$
+
+%%%%%%%%%%%%%%%%%%
+$\applycont()$
+
+For each continuation tag we need compute the next expression, environment, continuation and thunk. Therefore we have to allocate the appropriate pointers.
+
+This task is executed in 2 stages:
+
+\begin{itemize}
+	\item[-] Some continuations require the calculation of a new pointer, while others don't. For those which indeed need a pointer, since implementation of pointer is based on a hash computation, and because hashes are expensive in the circuit, we use a multicase to select the appropriate hash preimage. Then we can compute the hash just once. This allows us to avoid computation of unnecessary hashes.
+	\item[-] Selection of the continuation results.
+\end{itemize}
+
 
 \subsection{Gadgets}
 
