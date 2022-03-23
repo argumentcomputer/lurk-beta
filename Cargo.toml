@@ -19,9 +19,7 @@ itertools = "0.9"
 log = "0.4.14"
 memmap = "0.7"
 merlin = "2.0.0"
-#neptune = { version = "5.1.0", default-features = false, features = ["arity2","arity4","arity8","arity16"] }
-# Until Neptune 6.0.0
-neptune = { git = "https://github.com/filecoin-project/neptune", default-features = false, features = ["arity2","arity4","arity8","arity16"] }
+neptune = { version = "6.0.0", default-features = false, features = ["arity2","arity4","arity8","arity16"] }
 #nova = { package = "nova-snark", version = "0.4.0" }
 # Until Nova 0.5.0
 nova = { git = "https://github.com/porcuquine/nova", package = "nova-snark" }
@@ -58,6 +56,3 @@ harness = false
 members = [
   "lurk_macro", "fcomm"
 ]
-
-
-[patch.crates-io]

@@ -722,9 +722,9 @@ dependencies = [
 
 [[package]]
 name = "fd-lock"
-version = "3.0.4"
+version = "3.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02ecad9808e0596f8956d14f7fa868f996290bd01c8d7329d6e5bc2bb76adf8f"
+checksum = "46e245f4c8ec30c6415c56cb132c07e69e74f1942f6b4a4061da748b49f486ca"
 dependencies = [
  "cfg-if 1.0.0",
  "rustix",
@@ -906,9 +906,9 @@ dependencies = [
 
 [[package]]
 name = "io-lifetimes"
-version = "0.5.3"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec58677acfea8a15352d42fc87d11d63596ade9239e0a7c9352914417515dbe6"
+checksum = "9448015e586b611e5d322f6703812bbca2f1e709d5773ecd38ddb4e3bb649504"
 
 [[package]]
 name = "itertools"
@@ -1094,8 +1094,9 @@ dependencies = [
 
 [[package]]
 name = "neptune"
-version = "5.1.0"
-source = "git+https://github.com/filecoin-project/neptune#e3e59ca7202a476b532fb1d0f6cef7a3d2dbd511"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc2a011d695c271bb5db3fc6d0f305911c82e59be8868dc73e87a26a7eaf9a86"
 dependencies = [
  "bellperson",
  "blake2s_simd",
@@ -1701,9 +1702,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.33.4"
+version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef7ec6a44fba95d21fa522760c03c16ca5ee95cebb6e4ef579cab3e6d7ba6c06"
+checksum = "40022ca0a2a8ed0ef04033ef4ed5ed47f440a3d0aeb772bc1bb8ccf709138461"
 dependencies = [
  "bitflags",
  "errno",
