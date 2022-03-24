@@ -29,15 +29,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4361135be9122e0870de935d7c439aef945b9f9ddd4199a553b5270b49c82a27"
 
 [[package]]
-name = "array-init"
-version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23589ecb866b460d3a0f1278834750268c607e8e28a1b982c907219f3178cd72"
-dependencies = [
- "nodrop",
-]
-
-[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -706,6 +697,7 @@ dependencies = [
  "bellperson",
  "blstrs",
  "ff",
+ "hex",
  "log",
  "lurk",
  "once_cell",
@@ -714,7 +706,6 @@ dependencies = [
  "pretty_env_logger",
  "rand 0.8.5",
  "serde",
- "serde-hex",
  "serde_json",
  "structopt",
  "tempdir",
@@ -883,6 +874,9 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "humantime"
@@ -1050,12 +1044,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "maybe-uninit"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
-
-[[package]]
 name = "memchr"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1121,7 +1109,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77a5d83df9f36fe23f0c3648c6bbb8b0298bb5f1939c8f2704431371f4b84d43"
 dependencies = [
- "smallvec 1.8.0",
+ "smallvec",
 ]
 
 [[package]]
@@ -1136,12 +1124,6 @@ dependencies = [
  "libc",
  "memoffset",
 ]
-
-[[package]]
-name = "nodrop"
-version = "0.1.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72ef4a56884ca558e5ddb05a1d1e7e1bfd9a68d9ed024c21704cc98872dae1bb"
 
 [[package]]
 name = "normalize-line-endings"
@@ -1248,7 +1230,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "libc",
  "redox_syscall",
- "smallvec 1.8.0",
+ "smallvec",
  "windows-sys 0.32.0",
 ]
 
@@ -1731,7 +1713,7 @@ dependencies = [
  "nix",
  "radix_trie",
  "scopeguard",
- "smallvec 1.8.0",
+ "smallvec",
  "unicode-segmentation",
  "unicode-width",
  "utf8parse",
@@ -1782,17 +1764,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce31e24b01e1e524df96f1c2fdd054405f8d7376249a5110886fb4b658484789"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde-hex"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca37e3e4d1b39afd7ff11ee4e947efae85adfddf4841787bfa47c470e96dc26d"
-dependencies = [
- "array-init",
- "serde",
- "smallvec 0.6.14",
 ]
 
 [[package]]
@@ -1863,15 +1834,6 @@ dependencies = [
  "digest 0.8.1",
  "keccak",
  "opaque-debug 0.2.3",
-]
-
-[[package]]
-name = "smallvec"
-version = "0.6.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b97fcaeba89edba30f044a10c6a3cc39df9c3f17d7cd829dd1446cab35f890e0"
-dependencies = [
- "maybe-uninit",
 ]
 
 [[package]]
