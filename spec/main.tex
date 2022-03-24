@@ -71,11 +71,13 @@ It is based on Continuation Passing Style (CPS), which is an idea described in t
 
 Next we provide a summary of Lurk elements.
 
-%\subsection{Expressions}
+IO is given by an expression, an environment and a continuation.
 
-%\subsection{Environment}
+An expression represents a computation over symbols.
 
-%\subsection{Continuation}
+Symbols are translated into values.
+
+%\subsection{Store}
 
 \subsection{Overview}
 
@@ -110,8 +112,6 @@ Next we provide a summary of Lurk elements.
         (fib 1))
 \end{verbatim}
 
-\subsection{Store}
-
 \section{Circuit}
 
 \subsection{Overview}
@@ -120,7 +120,7 @@ Each reduction step is mapped into a Frame.
 
 We group Frames into a MultiFrame object.
 
-We construct a CircuitFrame for each MultiFrame.
+We construct a CircuitFrame for each Frame.
 
 A Circuit is a sequence of CircuitFrames,
 
@@ -201,7 +201,7 @@ case
 
 multicase
 
-optimization
+%optimization
 
 
 \section{Final remarks}
