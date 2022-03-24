@@ -322,10 +322,9 @@ mod tests {
         }
     }
 
-    ////////////////////////////////////////////////////////////////////////////
-    // IMPORTANT: Run next tests at least once. Some are ignored because they //
-    // are expensive. The criteria is that if the number of iteractions is    //
-    // more than 30 we ignore it.                                             //
+    // IMPORTANT: Run next tests at least once. Some are ignored because they
+    // are expensive. The criteria is that if the number of iteractions is
+    // more than 30 we ignore it.
     ////////////////////////////////////////////////////////////////////////////
 
     #[test]
@@ -976,7 +975,6 @@ mod tests {
     #[test]
     #[ignore]
     fn outer_prove_evaluate_tail_recursion() {
-        //TODO: Fix problem (process didn't exit successfully ... (signal: 9, SIGKILL: kill))
         outer_prove_aux(
             &"(letrec ((exp (lambda (base)
                                   (lambda (exponent-remaining)
