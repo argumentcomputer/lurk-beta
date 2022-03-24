@@ -1,8 +1,6 @@
 /// Module for wasm-bindgen specific handling and endpoints.
 use crate::{
     eval::{empty_sym_env, Evaluator},
-    logging,
-    repl::ReplState,
     store::{ContTag, Pointer, Store},
     writer::Write,
 };

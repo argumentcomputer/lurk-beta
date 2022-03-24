@@ -83,9 +83,17 @@
         copyBins = true;
       };
       lurk-wasm = project.override {
-        targets = [ "wasm32-unknown-unknown" ];
-        default-features = false;
-        features = [ "wasm" ];
+        buildInputs = [ pkgs.emscripten ];
+        cargoBuildOptions = d: d ++ [
+             "--target"
+             "wasm32-unknown-unknown"
+             "--features"
+             "wasm"
+             "--no-default-features"
+        ];
+        override = d: d // {
+          CC = "${pkgs.emscripten}/bin/emcc";
+        };
         copyTarget = true;
       };
     in

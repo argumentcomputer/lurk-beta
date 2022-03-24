@@ -51,6 +51,22 @@ Lurk backend integration is still immature, so current performance is not repres
 Lurk source files used in tests are in the [lurk-lib](https://github.com/lurk-lang/lurk-lib) submodule. You must
 initialize and update submodules before test will pass.
 
+## Wasm
+
+Compile to `wasm32-unknown-unknown`
+
+```
+# With cargo
+CC=emcc cargo build --no-default-features --target wasm32-unknown-unknown --features wasm
+
+# With nix
+# -L prints build output
+nix build .#lurk-wasm -L
+
+# With wasm-pack
+CC=emcc wasm-pack build --no-default-features --features wasm
+```
+
 ## Repl
 
 ```
