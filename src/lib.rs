@@ -1,9 +1,12 @@
 #![allow(clippy::single_match, clippy::type_complexity)]
+#![feature(associated_type_defaults)]
+#![feature(generic_const_exprs)]
 
 extern crate alloc;
 
 pub mod circuit;
 pub mod eval;
+pub mod field;
 pub mod ipld;
 pub mod parser;
 pub mod proof;
