@@ -105,6 +105,39 @@ impl<'a, F: PrimeField> ScalarStore<F> {
     }
 }
 
+impl<F: PrimeField> IpldEmbed for ScalarStore<F> {
+    fn to_ipld(&self) -> Ipld {
+        let map: Vec<(ScalarPtr<F>, ScalarExpression<F>)> = self
+            .scalar_map
+            .iter()
+            .map(|(k, v)| (*k, v.clone()))
+            .collect();
+        let mut pending = self.pending_scalar_ptrs.clone();
+        pending.sort();
+        Ipld::List([map.to_ipld(), pending.to_ipld()].into())
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        match ipld {
+            Ipld::List(xs) => match xs.as_slice() {
+                [map, pending] => {
+                    let map: Vec<(ScalarPtr<F>, ScalarExpression<F>)> = IpldEmbed::from_ipld(map)?;
+                    let pending: Vec<ScalarPtr<F>> = IpldEmbed::from_ipld(pending)?;
+                    Ok(ScalarStore {
+                        scalar_map: map.into_iter().collect(),
+                        pending_scalar_ptrs: pending,
+                    })
+                }
+                xs => Err(IpldError::expected(
+                    "ScalarStore",
+                    &Ipld::List(xs.to_owned()),
+                )),
+            },
+            x => Err(IpldError::expected("ScalarStore", x)),
+        }
+    }
+}
+
 impl<'a, F: PrimeField> ScalarExpression<F> {
     fn from_ptr(store: &Store<F>, ptr: &Ptr<F>) -> Option<Self> {
         match ptr.tag() {

@@ -236,6 +236,26 @@ impl<T: IpldEmbed> IpldEmbed for Vec<T> {
     }
 }
 
+impl<A: IpldEmbed, B: IpldEmbed> IpldEmbed for (A, B) {
+    fn to_ipld(&self) -> Ipld {
+        Ipld::List([self.0.to_ipld(), self.1.to_ipld()].into())
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        match ipld {
+            Ipld::List(xs) => match xs.as_slice() {
+                [a, b] => {
+                    let a = A::from_ipld(a)?;
+                    let b = B::from_ipld(b)?;
+                    Ok((a, b))
+                }
+                xs => Err(IpldError::expected("Pair", &Ipld::List(xs.to_owned()))),
+            },
+            xs => Err(IpldError::expected("Pair", xs)),
+        }
+    }
+}
+
 impl<T: IpldEmbed> IpldEmbed for Option<T> {
     fn to_ipld(&self) -> Ipld {
         match self {
