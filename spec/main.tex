@@ -18,6 +18,7 @@
 \usepackage{algorithmicx}
 \usepackage{xspace}
 \usepackage{fancyvrb}
+\usepackage{url}
 \usepackage[titletoc]{appendix}
 
 \newcommand{\redexp}{\mathrm{reduce\_expression}}
@@ -63,21 +64,15 @@
 
 \section{Introduction}
 
-Lurk is a functional programming language based on Lisp.
-
-It is based on Continuation Passing Style (CPS), which is an idea described in the book ``Essentials of Programming Languages''~\cite{FWbook}.
+Lurk is a functional programming language based on Lisp. It is based on Continuation Passing Style (CPS), which is an idea described in the book ``Essentials of Programming Languages''~\cite{FWbook}. We will summarize the main concepts involved in the design of the language, such that reader can understand how zero-knowledge proofs~\cite{groth16, nova, halo2} are constructed to provide privacy to Lurk's programs.
 
 \section{Lurk}
 
-Next we provide a summary of Lurk elements.
+In this section we provide a summary of Lurk main elements. Shortly, an \textit{expression} represents a computation involving literals, variables, operations and procedures. Variables are handled by an \textit{environment}, which is responsible for binding variables and values. Also, we use \textit{continuations} to indicate what must done to finish the computation.
 
-IO is given by an expression, an environment and a continuation.
+We have that the system's IO is formed by an expression, an environment and a continuation. These 3 elements are essential to comprehend Lurk. Each element is represented as a pointers, which is implemented using hash functions. In particular, we use Poseidon~\cite{poseidon} to instantiate our pointers.
 
-An expression represents a computation over symbols.
-
-Symbols are translated into values.
-
-%\subsection{Store}
+The environment has a list of bindings, which correspond to a mapping between variables and values. It has local bindings, meaning that the mapping is valid only for a specific evaluation of an expression. On the other hand, the global state is represented by the \textit{store}, which behaves as a memory of the system. We have that the store is global, while the environment is local.
 
 \subsection{Overview}
 
@@ -100,8 +95,10 @@ Symbols are translated into values.
 
 \subsubsection{Fibonacci example}
 
+See next the code snippet that implements the Fibonacci's sequence:
+
 \begin{verbatim}
-    (letrec ((next (lambda (a b n target)
+> (letrec ((next (lambda (a b n target)
         (if (eq n target)
             a
                 (next b
@@ -109,102 +106,67 @@ Symbols are translated into values.
                 (+ 1 n)
                     target))))
             (fib (next 0 1 0)))
-        (fib 1))
+        (fib 10))
+[521 iterations] => 55
 \end{verbatim}
 
 \section{Circuit}
 
+Here we describe the construction of Lurk's circuit.
+
 \subsection{Overview}
 
-Each reduction step is mapped into a Frame.
+A Lurk program is split into a sequence of \textit{reduction steps}, also called iterations. In the Fibonnaci example above we have 521 iterations, and each one is mapped into a \textit{frame}. We group a set of frames into a MultiFrame object.
 
-We group Frames into a MultiFrame object.
+We construct a CircuitFrame for each frame, and a Circuit is a sequence of CircuitFrames, where the output of a previous one is linked to the input of the next. The circuit mimics the evaluation of Lurk expressions.
 
-We construct a CircuitFrame for each Frame.
+In \verb|eval.rs| it is possible to see the implementation of evaluation of Lurk's expressions. An important function is called $\redwithwit()$, which is responsible for the computation of reduction steps with its witnesses. Since a reduction step is exactly what we want prove in zero-knowledge, we provide an implementation that carries out the same computation, but in the circuit. This implementation is accomplished by $\redexp()$. Therefore we are going to describe how this implementation works.
 
-A Circuit is a sequence of CircuitFrames,
+We call \textit{global symbols} the set of Lurk symbols that are pre-computed, such that we can easily compare with symbols found during the evaluation of expressions.
 
-The circuit mimics the evaluation of Lurk expressions.
+To reduce an expression, we require a substancial amount of conditions that depend upon comparisons among symbols. Those conditions involver mostly allocation of variables and pointers in the circuit, Boolean logic using those elements, and conditionals. This functionality is implemented in method $\redsym()$. The Boolean logic and equality tests are executed against global symbols and other auxiliary variables created along the process in order to decide how we are going to take decisions about control flow of Lurk programs. Using it we also can update the environment and the store accordingly.
 
-$\redexp()$ implements $\redwithwit()$ in the circuit.
-
-global symbols contains Lurk symbols, such that we can easily compare with
-
-
-%%%%%%%%%%%%%%%%%%
-$\redsym()$
-
- We use Boolean logic and equality tests (against global symbols) to obtain calculate auxiliary variables that will allow us to decide how we are going to take decision about control flow of a Lurk program. Using it we also can update the environment and store accordingly.
-
-%%%%%%%%%%%%%%%%%%
-$\redcons()$
-
-Takes an expression and reduces to smaller pieces, allocating in the circuit for later utilization.
-
-$\carcdr()$ gadget is used to constrain the reduction.
-
-For each possible expression type that can be reduced, we include a clause in a multicase gadget.
-
-The multicase selection depends on the head, which is the car of the expression.
-
-We return the result of the multicase.
+One of the most important building blocks in a functional language like Lisp and Lurk is \verb|cons|. It is used to concatenate \verb|car| and \verb|cdr|. Hence, whenever we want to break big expressions into smallers ones, we can use a combination of those elements. In function $\redcons()$ we deal with each different situation where those elements are necessary. Namely, to reduce an expression into smaller pieces, we allocate in the circuit some auxiliary variables for later utilization. In particular, $\carcdr()$ gadget is used as a building block. Since this computation is required for different situations, depending on the type fo expression we are handling, for each one we include a clause in a multicase gadget. Thus we can easily select desired result using this approach. The multicase selection is based on the \verb|head| of an expression, which is given by the \verb|car| of the expression. We return the result of the multicase.
 
 % It can be optimized in the same way as apply continuation
 
-%%%%%%%%%%%%%%%%%%
-$\makethunk()$
+%$\makethunk()$
 
 %%%%%%%%%%%%%%%%%%
 $\applycont()$
 
-For each continuation tag we need compute the next expression, environment, continuation and thunk. Therefore we have to allocate the appropriate pointers.
-
-This task is executed in 2 stages:
+For each continuation tag we need compute the next expression, environment, continuation and thunk. Therefore we have to allocate the appropriate pointers. This task is executed in 2 stages:
 
 \begin{itemize}
 	\item[-] Some continuations require the calculation of a new pointer, while others don't. For those which indeed need a pointer, since implementation of pointer is based on a hash computation, and because hashes are expensive in the circuit, we use a multicase to select the appropriate hash preimage. Then we can compute the hash just once. This allows us to avoid computation of unnecessary hashes.
 	\item[-] Selection of the continuation results.
 \end{itemize}
 
-
 \subsection{Gadgets}
 
-\subsubsection{Macros}
+In order to construct the circuit we use the following building blocks:
 
-Boolean
-
-Equality
-
-Pick
-
-\subsubsection{Constraints}
-
-Arithmetic operations
-
-Utils
-
-\subsubsection{Pointer}
-
-Tag
-
-Hash
-
-\subsubsection{Data}
-
-allocate
-
-reverse lookup
-
-\subsubsection{Multicase}
-
-case
-
-multicase
-
-%optimization
-
+\begin{itemize}
+	\item[-] Macros:
+	\begin{itemize}
+		\item Boolean.
+	    \item Equality.
+		\item Conditionals.
+		\item Pick.
+	\end{itemize}
+	\item[-] Constraints:
+	\begin{itemize}
+        \item Arithmetic operations.
+		\item Utils.
+	\end{itemize}
+	\item[-] Pointers: tag and hash.
+    \item[-] Data: allocate and reverse lookup.
+    \item[-] Multicase.
+\end{itemize}
 
 \section{Final remarks}
+
+In this document we presented the construction of Lurk's circuit, such that Lurk's programs can be proved using zero-knowledge.
 
 \section{References}
 
