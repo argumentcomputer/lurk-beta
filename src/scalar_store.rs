@@ -5,6 +5,8 @@ use ff::PrimeField;
 use crate::num::Num;
 use crate::store::{Op1, Op2, Pointer, Ptr, Rel2, ScalarContPtr, ScalarPtr, Store, Tag};
 
+/// `ScalarStore` allows realization of a graph of `ScalarPtr`s suitable for serialization to IPLD. `ScalarExpression`s
+/// are composed only of `ScalarPtr`s, so `scalar_map` suffices to allow traverseing an arbitrary DAG.
 #[derive(Default)]
 pub struct ScalarStore<F: PrimeField> {
     scalar_map: HashMap<ScalarPtr<F>, ScalarExpression<F>>,
@@ -12,33 +14,43 @@ pub struct ScalarStore<F: PrimeField> {
 }
 
 impl<'a, F: PrimeField> ScalarStore<F> {
+    /// Create a new `ScalarStore` and add all `ScalarPtr`s reachable in the scalar representation of `expr`.
     pub fn new_with_expr(store: &Store<F>, expr: &Ptr<F>) -> Self {
         let mut new = Self::default();
         new.add_one_ptr(store, expr);
         new
     }
 
+    /// Add all ScalarPtrs representing and reachable from expr.
     pub fn add_one_ptr(&mut self, store: &Store<F>, expr: &Ptr<F>) {
         self.add_ptr(store, expr);
         self.finalize(store);
     }
 
+    /// Add the `ScalarPtr` representing `expr`, and queue it for proceessing.
     pub fn add_ptr(&mut self, store: &Store<F>, expr: &Ptr<F>) {
+        // Find the scalar_ptr representing ptr.
         if let Some(scalar_ptr) = store.get_expr_hash(expr) {
             self.add(store, expr, scalar_ptr);
         };
     }
 
-    // NOTE: This requires that the scalar_cache has been hydrated.
+    /// Add a single `ScalarPtr` and queue it for processing.
+    /// NOTE: This requires that `store.scalar_cache` has been hydrated.
     fn add_scalar_ptr(&mut self, store: &Store<F>, scalar_ptr: ScalarPtr<F>) {
+        // Find the ptr corresponding to scalar_ptr.
         if let Some(ptr) = store.scalar_ptr_map.get(&scalar_ptr) {
             self.add(store, &*ptr, scalar_ptr);
         }
     }
 
+    /// Add the `ScalarPtr` and `ScalarExpression` associated with `ptr`. The relationship between `ptr` and
+    /// `scalar_ptr` is not checked here, so `add` should only be called by `add_ptr` and `add_scalar_ptr`, which
+    /// enforce this relationship.
     fn add(&mut self, store: &Store<F>, ptr: &Ptr<F>, scalar_ptr: ScalarPtr<F>) {
         let mut new_pending_scalar_ptrs: Vec<ScalarPtr<F>> = Default::default();
 
+        // If `scalar_ptr` is not already in the map, queue its children for processing.
         self.scalar_map.entry(scalar_ptr).or_insert_with(|| {
             let scalar_expression =
                 ScalarExpression::from_ptr(store, ptr).expect("ScalarExpression missing for ptr");
@@ -51,6 +63,7 @@ impl<'a, F: PrimeField> ScalarStore<F> {
         self.pending_scalar_ptrs.extend(new_pending_scalar_ptrs);
     }
 
+    /// All the `ScalarPtr`s directly reachable from `scalar_expression`, if any.
     fn child_scalar_ptrs(scalar_expression: &ScalarExpression<F>) -> Option<Vec<ScalarPtr<F>>> {
         match scalar_expression {
             ScalarExpression::Nil => None,
@@ -71,6 +84,8 @@ impl<'a, F: PrimeField> ScalarStore<F> {
         }
     }
 
+    /// Unqueue all the pending `ScalarPtr`s and add them, queueing all of their children, then repeat until the queue
+    /// is pending queue is empty.
     fn add_pending_scalar_ptrs(&mut self, store: &Store<F>) {
         while let Some(scalar_ptr) = self.pending_scalar_ptrs.pop() {
             self.add_scalar_ptr(store, scalar_ptr);
@@ -78,7 +93,8 @@ impl<'a, F: PrimeField> ScalarStore<F> {
         assert!(self.pending_scalar_ptrs.is_empty());
     }
 
-    fn finalize(&mut self, store: &Store<F>) {
+    /// Method which finalizes the `ScalarStore`, ensuring that all reachable `ScalarPtr`s have been added.
+    pub fn finalize(&mut self, store: &Store<F>) {
         self.add_pending_scalar_ptrs(store);
     }
 }
@@ -141,6 +157,9 @@ pub enum ScalarExpression<F: PrimeField> {
     Num(Num<F>),
     Str(String),
     Thunk(ScalarThunk<F>),
+    /// The `Opaque` variants represent potentially private data which has been added to the store for use in a proof or
+    /// computation, but for which no corresponding `Expression` is known. opaque `ScalarExpressions` therefore have no
+    /// children for the purpose of graph creation or traversal.
     OpaqueCons,
     OpaqueFun,
     OpaqueSym,
