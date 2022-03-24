@@ -1275,8 +1275,10 @@ impl<F: PrimeField> Store<F> {
         }
     }
 
-    // Get hash for expr, but only if it already exists.
-    // This should never cause create_scalar_ptr to be called.
+    // Get hash for expr, but only if it already exists. This should never cause create_scalar_ptr to be called. Use
+    // this after the cache has been hydrated. NOTE: because dashmap::entry can deadlock, it is important not to call
+    // hash_expr in nested call graphs which might trigger that behavior. This discovery is what led to get_expr_hash
+    // and the 'get' versions of hash_cons, hash_sym, etc.
     pub fn get_expr_hash(&self, ptr: &Ptr<F>) -> Option<ScalarPtr<F>> {
         use Tag::*;
         match ptr.tag() {
