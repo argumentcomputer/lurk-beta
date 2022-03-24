@@ -4,7 +4,11 @@ use std::{
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
+use crate::ipld;
+use crate::ipld::IpldEmbed;
+use crate::ipld::IpldError;
 use ff::PrimeField;
+use libipld::Ipld;
 
 /// Number type for Lurk. Has different internal representations to optimize evaluation.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -12,7 +16,6 @@ pub enum Num<F: PrimeField> {
     Scalar(F),
     U64(u64),
 }
-
 impl<F: PrimeField> Display for Num<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -170,6 +173,48 @@ impl<F: PrimeField> Num<F> {
 impl<F: PrimeField> From<u64> for Num<F> {
     fn from(n: u64) -> Self {
         Num::<F>::U64(n)
+    }
+}
+
+impl<F: PrimeField> IpldEmbed for Num<F> {
+    fn to_ipld(&self) -> Ipld {
+        match self {
+            Num::Scalar(f) => Ipld::List(
+                [
+                    Ipld::Integer(ipld::NUM.into()),
+                    Ipld::Integer(0),
+                    ipld::FWrap(*f).to_ipld(),
+                ]
+                .into(),
+            ),
+            Num::U64(x) => Ipld::List(
+                [
+                    Ipld::Integer(ipld::NUM.into()),
+                    Ipld::Integer(1),
+                    x.to_ipld(),
+                ]
+                .into(),
+            ),
+        }
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        use Ipld::*;
+        let tag: i128 = ipld::NUM.into();
+        match ipld {
+            List(xs) => match xs.as_slice() {
+                [Integer(t), Integer(0), x] if *t == tag => {
+                    let f = ipld::FWrap::from_ipld(x)?;
+                    Ok(Num::Scalar(f.0))
+                }
+                [Integer(t), Integer(1), x] if *t == tag => {
+                    let x = u64::from_ipld(x)?;
+                    Ok(Num::U64(x))
+                }
+                xs => Err(IpldError::expected("Num", &List(xs.to_owned()))),
+            },
+            x => Err(IpldError::expected("Num", x)),
+        }
     }
 }
 

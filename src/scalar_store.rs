@@ -1,15 +1,21 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use ff::PrimeField;
 
-use crate::num::Num;
+use libipld::Cid;
+use libipld::Ipld;
+
+use crate::ipld;
+use crate::ipld::IpldEmbed;
+use crate::ipld::IpldError;
 use crate::store::{Op1, Op2, Pointer, Ptr, Rel2, ScalarContPtr, ScalarPtr, Store, Tag};
+use crate::Num;
 
 /// `ScalarStore` allows realization of a graph of `ScalarPtr`s suitable for serialization to IPLD. `ScalarExpression`s
 /// are composed only of `ScalarPtr`s, so `scalar_map` suffices to allow traverseing an arbitrary DAG.
 #[derive(Default)]
 pub struct ScalarStore<F: PrimeField> {
-    scalar_map: HashMap<ScalarPtr<F>, ScalarExpression<F>>,
+    scalar_map: BTreeMap<ScalarPtr<F>, ScalarExpression<F>>,
     pending_scalar_ptrs: Vec<ScalarPtr<F>>,
 }
 
@@ -67,13 +73,13 @@ impl<'a, F: PrimeField> ScalarStore<F> {
     fn child_scalar_ptrs(scalar_expression: &ScalarExpression<F>) -> Option<Vec<ScalarPtr<F>>> {
         match scalar_expression {
             ScalarExpression::Nil => None,
-            ScalarExpression::Cons(car, cdr) => Some(vec![*car, *cdr]),
+            ScalarExpression::Cons(car, cdr) => Some([*car, *cdr].into()),
             ScalarExpression::Sym(_str) => None,
             ScalarExpression::Fun {
                 arg,
                 body,
                 closed_env,
-            } => Some(vec![*arg, *body, *closed_env]),
+            } => Some([*arg, *body, *closed_env].into()),
             ScalarExpression::Num(_) => None,
             ScalarExpression::Str(_) => None,
             ScalarExpression::Thunk(_) => None,
@@ -166,9 +172,112 @@ pub enum ScalarExpression<F: PrimeField> {
     OpaqueStr,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[repr(u16)]
+pub enum OpaqueTag {
+    Nil = 0b1000_0000_0000_0000,
+    Cons,
+    Sym,
+    Fun,
+    Num,
+    Thunk,
+    Str,
+}
+
 impl<'a, F: PrimeField> Default for ScalarExpression<F> {
     fn default() -> Self {
         Self::Nil
+    }
+}
+
+impl<F: PrimeField> IpldEmbed for ScalarExpression<F> {
+    fn to_ipld(&self) -> Ipld {
+        match self {
+            Self::Nil => Ipld::List([Ipld::Integer(ipld::EXPR.into()), Ipld::Integer(0)].into()),
+            Self::Cons(car, cdr) => Ipld::List(
+                [
+                    Ipld::Integer(Tag::Cons as i128),
+                    car.to_ipld(),
+                    cdr.to_ipld(),
+                ]
+                .into(),
+            ),
+            Self::Sym(sym) => Ipld::List(
+                [
+                    Ipld::Integer(Tag::Sym as i128),
+                    Ipld::String(String::from(sym.clone())),
+                ]
+                .into(),
+            ),
+            Self::Fun {
+                arg,
+                body,
+                closed_env,
+            } => Ipld::List(
+                [
+                    Ipld::Integer(Tag::Fun as i128),
+                    arg.to_ipld(),
+                    body.to_ipld(),
+                    closed_env.to_ipld(),
+                ]
+                .into(),
+            ),
+            Self::Num(x) => Ipld::List([Ipld::Integer(Tag::Num as i128), x.to_ipld()].into()),
+            Self::Str(sym) => Ipld::List(
+                [
+                    Ipld::Integer(Tag::Str as i128),
+                    Ipld::String(String::from(sym.clone())),
+                ]
+                .into(),
+            ),
+            Self::Thunk(thunk) => {
+                Ipld::List([Ipld::Integer(Tag::Thunk as i128), thunk.to_ipld()].into())
+            }
+            Self::OpaqueCons => Ipld::List([Ipld::Integer(OpaqueTag::Cons as i128)].into()),
+            Self::OpaqueFun => Ipld::List([Ipld::Integer(OpaqueTag::Fun as i128)].into()),
+            Self::OpaqueSym => Ipld::List([Ipld::Integer(OpaqueTag::Sym as i128)].into()),
+            Self::OpaqueStr => Ipld::List([Ipld::Integer(OpaqueTag::Str as i128)].into()),
+        }
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        use Ipld::*;
+        match ipld {
+            List(xs) => match xs.as_slice() {
+                [Integer(t)] if *t == Tag::Nil as i128 => Ok(Self::Nil),
+                [Integer(t), car, cdr] if *t == Tag::Cons as i128 => {
+                    let car = ScalarPtr::from_ipld(car)?;
+                    let cdr = ScalarPtr::from_ipld(cdr)?;
+                    Ok(Self::Cons(car, cdr))
+                }
+                [Integer(t), String(s)] if *t == Tag::Sym as i128 => Ok(Self::Sym(s.clone())),
+                [Integer(t), arg, body, env] if *t == Tag::Fun as i128 => {
+                    let arg = ScalarPtr::from_ipld(arg)?;
+                    let body = ScalarPtr::from_ipld(body)?;
+                    let closed_env = ScalarPtr::from_ipld(env)?;
+                    Ok(Self::Fun {
+                        arg,
+                        body,
+                        closed_env,
+                    })
+                }
+                [Integer(t), num] if *t == Tag::Num as i128 => {
+                    let num = Num::from_ipld(num)?;
+                    Ok(Self::Num(num))
+                }
+                [Integer(t), String(s)] if *t == Tag::Str as i128 => Ok(Self::Str(s.clone())),
+                [Integer(t), thunk] if *t == Tag::Thunk as i128 => {
+                    let thunk = ScalarThunk::from_ipld(thunk)?;
+                    Ok(Self::Thunk(thunk))
+                }
+                [Integer(t)] if *t == OpaqueTag::Cons as i128 => Ok(Self::OpaqueCons),
+                [Integer(t)] if *t == OpaqueTag::Fun as i128 => Ok(Self::OpaqueFun),
+                [Integer(t)] if *t == OpaqueTag::Sym as i128 => Ok(Self::OpaqueSym),
+                [Integer(t)] if *t == OpaqueTag::Str as i128 => Ok(Self::OpaqueStr),
+                xs => Err(IpldError::expected("Expr", &List(xs.to_owned()))),
+            },
+            x => Err(IpldError::expected("Expr", x)),
+        }
     }
 }
 
@@ -177,6 +286,32 @@ impl<'a, F: PrimeField> Default for ScalarExpression<F> {
 pub struct ScalarThunk<F: PrimeField> {
     pub(crate) value: ScalarPtr<F>,
     pub(crate) continuation: ScalarContPtr<F>,
+}
+
+impl<F: PrimeField> IpldEmbed for ScalarThunk<F> {
+    fn to_ipld(&self) -> Ipld {
+        Ipld::List([self.value.to_ipld(), self.continuation.to_ipld()].into())
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        match ipld {
+            Ipld::List(xs) => match xs.as_slice() {
+                [val, cont] => {
+                    let value = ScalarPtr::from_ipld(val)?;
+                    let continuation = ScalarContPtr::from_ipld(cont)?;
+                    Ok(ScalarThunk {
+                        value,
+                        continuation,
+                    })
+                }
+                xs => Err(IpldError::expected(
+                    "ScalarThunk",
+                    &Ipld::List(xs.to_owned()),
+                )),
+            },
+            x => Err(IpldError::expected("ScalarThunk", x)),
+        }
+    }
 }
 
 // Unused for now, but will be needed when we serialize Continuations to IPLD.

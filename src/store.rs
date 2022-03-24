@@ -10,6 +10,12 @@ use generic_array::typenum::{U4, U6, U8};
 use neptune::poseidon::PoseidonConstants;
 use once_cell::sync::OnceCell;
 
+use libipld::Cid;
+use libipld::Ipld;
+
+use crate::ipld;
+use crate::ipld::IpldEmbed;
+use crate::ipld::IpldError;
 use crate::Num;
 
 /// Holds the constants needed for poseidon hashing.
@@ -202,14 +208,45 @@ impl<F: PrimeField> Pointer<F> for Ptr<F> {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ScalarPtr<F: PrimeField>(F, F);
 
-// impl<F: PrimeField> Ord for ScalarPtr<F> {
-//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-//         (self.0.to_repr(), self.1.to_repr()).cmp((other.0.to_repr(), other.1.to_repr()))
-//     }
-// }
+impl<F: PrimeField> PartialOrd for ScalarPtr<F> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
+            .partial_cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
+    }
+}
+
+impl<F: PrimeField> Ord for ScalarPtr<F> {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
+            .cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
+    }
+}
+
+impl<F: PrimeField> IpldEmbed for ScalarPtr<F> {
+    fn to_ipld(&self) -> Ipld {
+        // we are assuming the f tag is little-endian
+        let code = ipld::make_codec::<F>(ipld::f_tag_to_u32(self.0, true));
+        Cid::new_v1(code, ipld::f_digest(self.1)).to_ipld()
+    }
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        match ipld {
+            Ipld::Link(cid) => {
+                if let Some(x) = ipld::ff_from_bytes_vartime(cid.hash().digest()) {
+                    Ok(ScalarPtr::from_parts(cid.codec().into(), x))
+                } else {
+                    Err(IpldError::Expected(
+                        String::from("non-empty Cid hash for ScalarPtr"),
+                        Ipld::Link(*cid),
+                    ))
+                }
+            }
+            xs => Err(IpldError::Expected(String::from("ScalarPtr"), xs.clone())),
+        }
+    }
+}
 
 #[allow(clippy::derive_hash_xor_eq)]
 impl<F: PrimeField> Hash for ScalarPtr<F> {
@@ -251,6 +288,32 @@ impl<F: PrimeField> IntoHashComponents<F> for ScalarPtr<F> {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ScalarContPtr<F: PrimeField>(F, F);
+
+impl<F: PrimeField> IpldEmbed for ScalarContPtr<F> {
+    fn to_ipld(&self) -> Ipld {
+        // we are assuming the f tag is little-endian
+        let code = ipld::make_codec::<F>(ipld::f_tag_to_u32(self.0, true));
+        Cid::new_v1(code, ipld::f_digest(self.1)).to_ipld()
+    }
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        match ipld {
+            Ipld::Link(cid) => {
+                if let Some(x) = ipld::ff_from_bytes_vartime(cid.hash().digest()) {
+                    Ok(ScalarContPtr::from_parts(cid.codec().into(), x))
+                } else {
+                    Err(IpldError::Expected(
+                        String::from("non-empty Cid hash for ScalarContPtr"),
+                        Ipld::Link(*cid),
+                    ))
+                }
+            }
+            xs => Err(IpldError::Expected(
+                String::from("ScalarContPtr"),
+                xs.clone(),
+            )),
+        }
+    }
+}
 
 #[allow(clippy::derive_hash_xor_eq)]
 impl<F: PrimeField> Hash for ScalarContPtr<F> {
