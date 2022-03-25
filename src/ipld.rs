@@ -13,6 +13,7 @@ use libipld::codec::Codec;
 use libipld::Cid;
 use libipld::Ipld;
 
+use crate::field::LurkField;
 use crate::scalar_store::ScalarExpression;
 use crate::store::ContTag;
 use crate::store::ScalarContPtr;
@@ -22,71 +23,12 @@ use ff::PrimeField;
 
 pub const DAGCBOR: u64 = 0x71;
 
-// In future, we want to make a cid version that can have multicodec fields
-// larger than u64, so we can reserve a whole tree for future Lurk use
-pub const LURK_CODEC_PREFIX: u16 = 0xc0de;
-
-pub const NUM: u16 = 0x01;
-pub const EXPR: u16 = 0x02;
-
-// temporary hack standing in for a future extension of the `ff` trait so that
-// every field `F` is entered on the `multicodec` table
-pub fn dummy_ff_codec<F: PrimeField>() -> u16 {
-    0xbe_ff
-}
-
-// We are assuming that our tags fit in the 32 least significant bits of the `F`
-pub fn f_tag_to_u32<F: ff::PrimeField>(f: F, le: bool) -> u32 {
-    let bytes: Vec<u8> = f.to_repr().as_ref().to_vec();
-    if le {
-        let size = bytes.len();
-        let bytes: [u8; 4] = [
-            bytes[size],
-            bytes[size - 1],
-            bytes[size - 2],
-            bytes[size - 3],
-        ];
-        u32::from_le_bytes(bytes)
-    } else {
-        let bytes: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
-        u32::from_be_bytes(bytes)
-    }
-}
-
-// this assumes we only use poseidon-bls12_381-a2-fc1, or multicodec 0xb401
-// also assumes that F fits within a 512 bit digest
-pub fn f_digest<F: ff::PrimeField>(f: F) -> MultihashGeneric<64> {
-    MultihashGeneric::wrap(0xb401, f.to_repr().as_ref()).unwrap()
-}
-
-// this should be a trait method on ff, or PrimeField::Repr should be readable
-// from &[u8]
-pub fn ff_from_bytes_vartime<F: ff::PrimeField>(bs: &[u8]) -> Option<F> {
-    if bs.is_empty() {
-        return None;
-    }
-    let mut res = F::zero();
-
-    let _256 = F::from(256);
-
-    for b in bs {
-        res.mul_assign(&_256);
-        res.add_assign(&F::from(u64::from(*b)));
-    }
-    Some(res)
-}
-
-pub fn make_codec<F: PrimeField>(tag: u32) -> u64 {
-    u64::from(LURK_CODEC_PREFIX) << 48 & u64::from(dummy_ff_codec::<F>()) << 32 & u64::from(tag)
-}
-
 pub trait IpldEmbed: Sized {
     fn to_ipld(&self) -> Ipld;
     fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError>;
 }
 
-// assume that `F` fits within
-pub fn cid(code: u64, ipld: &Ipld) -> Cid {
+pub fn cbor_cid(code: u64, ipld: &Ipld) -> Cid {
     Cid::new_v1(
         code,
         Code::Blake3_256.digest(DagCborCodec.encode(ipld).unwrap().as_ref()),
@@ -194,9 +136,9 @@ impl IpldEmbed for BigUint {
 }
 
 // needed to avoid trait overlap with Cid
-pub struct FWrap<F: PrimeField>(pub F);
+pub struct FWrap<F: LurkField>(pub F);
 
-impl<F: PrimeField> IpldEmbed for FWrap<F> {
+impl<F: LurkField> IpldEmbed for FWrap<F> {
     fn to_ipld(&self) -> Ipld {
         let bytes: Vec<u8> = self.0.to_repr().as_ref().to_owned();
         Ipld::Bytes(bytes)
@@ -205,13 +147,13 @@ impl<F: PrimeField> IpldEmbed for FWrap<F> {
     fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
         match ipld {
             Ipld::Bytes(bs) => {
-                let f = ff_from_bytes_vartime(&bs).ok_or(IpldError::expected(
+                let f = F::from_bytes(&bs).ok_or(IpldError::expected(
                     "non-empty bytes",
                     &Ipld::Bytes(bs.clone()),
                 ))?;
                 Ok(FWrap(f))
             }
-            xs => Err(IpldError::expected("PrimeField", xs)),
+            xs => Err(IpldError::expected("LurkField", xs)),
         }
     }
 }

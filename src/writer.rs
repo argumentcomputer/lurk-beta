@@ -2,9 +2,10 @@ use std::io;
 
 use ff::PrimeField;
 
+use crate::field::LurkField;
 use crate::store::{ContPtr, Continuation, Expression, Ptr, Store};
 
-pub trait Write<F: PrimeField> {
+pub trait Write<F: LurkField> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()>;
     fn fmt_to_string(&self, store: &Store<F>) -> String {
         let mut out = Vec::new();
@@ -13,7 +14,7 @@ pub trait Write<F: PrimeField> {
     }
 }
 
-impl<F: PrimeField> Write<F> for Ptr<F> {
+impl<F: LurkField> Write<F> for Ptr<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         use crate::store::Pointer;
         if self.is_opaque() {
@@ -29,7 +30,7 @@ impl<F: PrimeField> Write<F> for Ptr<F> {
     }
 }
 
-impl<F: PrimeField> Write<F> for ContPtr<F> {
+impl<F: LurkField> Write<F> for ContPtr<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         if let Some(cont) = store.fetch_cont(self) {
             cont.fmt(store, w)
@@ -39,7 +40,7 @@ impl<F: PrimeField> Write<F> for ContPtr<F> {
     }
 }
 
-impl<F: PrimeField> Write<F> for Expression<'_, F> {
+impl<F: LurkField> Write<F> for Expression<'_, F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         use Expression::*;
 
@@ -75,7 +76,7 @@ impl<F: PrimeField> Write<F> for Expression<'_, F> {
     }
 }
 
-impl<F: PrimeField> Expression<'_, F> {
+impl<F: LurkField> Expression<'_, F> {
     fn print_tail<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         match self {
             Expression::Nil => write!(w, ")"),
@@ -127,7 +128,7 @@ impl<F: PrimeField> Expression<'_, F> {
     }
 }
 
-impl<F: PrimeField> Write<F> for Continuation<F> {
+impl<F: LurkField> Write<F> for Continuation<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         match self {
             Continuation::Outermost => write!(w, "Outermost"),

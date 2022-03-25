@@ -3,7 +3,6 @@
 use std::marker::PhantomData;
 
 use bellperson::{Circuit, ConstraintSystem, SynthesisError};
-use ff::PrimeField;
 use merlin::Transcript;
 use nova::{
     bellperson::{
@@ -23,6 +22,7 @@ use pasta_curves::pallas;
 use crate::circuit::MultiFrame;
 use crate::eval::{Evaluator, Frame, Witness, IO};
 
+use crate::field::LurkField;
 use crate::proof::Prover;
 use crate::store::{Ptr, Store};
 
@@ -46,9 +46,9 @@ impl<G: Group> Proof<G> {
     }
 }
 
-pub trait Nova<F: PrimeField>: Prover<F>
+pub trait Nova<F: LurkField>: Prover<F>
 where
-    <Self::Grp as Group>::Scalar: ff::PrimeField,
+    <Self::Grp as Group>::Scalar: LurkField,
 {
     type Grp: Group;
 
@@ -188,12 +188,12 @@ where
     }
 }
 
-pub struct NovaProver<F: PrimeField> {
+pub struct NovaProver<F: LurkField> {
     chunk_frame_count: usize,
     _p: PhantomData<F>,
 }
 
-impl<F: PrimeField> NovaProver<F> {
+impl<F: LurkField> NovaProver<F> {
     pub fn new(chunk_frame_count: usize) -> Self {
         NovaProver::<F> {
             chunk_frame_count,
@@ -202,13 +202,13 @@ impl<F: PrimeField> NovaProver<F> {
     }
 }
 
-impl<F: PrimeField> Prover<F> for NovaProver<F> {
+impl<F: LurkField> Prover<F> for NovaProver<F> {
     fn chunk_frame_count(&self) -> usize {
         self.chunk_frame_count
     }
 }
 
-impl<F: PrimeField> Nova<F> for NovaProver<F> {
+impl<F: LurkField> Nova<F> for NovaProver<F> {
     type Grp = PallasPoint;
 
     fn make_shape_and_gens(&self) -> (R1CSShape<Self::Grp>, R1CSGens<Self::Grp>) {

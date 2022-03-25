@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use ff::PrimeField;
 
+use crate::field::LurkField;
 use libipld::Cid;
 use libipld::Ipld;
 
@@ -14,12 +15,12 @@ use crate::Num;
 /// `ScalarStore` allows realization of a graph of `ScalarPtr`s suitable for serialization to IPLD. `ScalarExpression`s
 /// are composed only of `ScalarPtr`s, so `scalar_map` suffices to allow traverseing an arbitrary DAG.
 #[derive(Default)]
-pub struct ScalarStore<F: PrimeField> {
+pub struct ScalarStore<F: LurkField> {
     scalar_map: BTreeMap<ScalarPtr<F>, ScalarExpression<F>>,
     pending_scalar_ptrs: Vec<ScalarPtr<F>>,
 }
 
-impl<'a, F: PrimeField> ScalarStore<F> {
+impl<'a, F: LurkField> ScalarStore<F> {
     /// Create a new `ScalarStore` and add all `ScalarPtr`s reachable in the scalar representation of `expr`.
     pub fn new_with_expr(store: &Store<F>, expr: &Ptr<F>) -> Self {
         let mut new = Self::default();
@@ -105,7 +106,7 @@ impl<'a, F: PrimeField> ScalarStore<F> {
     }
 }
 
-impl<F: PrimeField> IpldEmbed for ScalarStore<F> {
+impl<F: LurkField> IpldEmbed for ScalarStore<F> {
     fn to_ipld(&self) -> Ipld {
         let map: Vec<(ScalarPtr<F>, ScalarExpression<F>)> = self
             .scalar_map
@@ -138,7 +139,7 @@ impl<F: PrimeField> IpldEmbed for ScalarStore<F> {
     }
 }
 
-impl<'a, F: PrimeField> ScalarExpression<F> {
+impl<'a, F: LurkField> ScalarExpression<F> {
     fn from_ptr(store: &Store<F>, ptr: &Ptr<F>) -> Option<Self> {
         match ptr.tag() {
             Tag::Nil => Some(ScalarExpression::Nil),
@@ -184,7 +185,7 @@ impl<'a, F: PrimeField> ScalarExpression<F> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ScalarExpression<F: PrimeField> {
+pub enum ScalarExpression<F: LurkField> {
     Nil,
     Cons(ScalarPtr<F>, ScalarPtr<F>),
     Sym(String),
@@ -217,16 +218,16 @@ pub enum OpaqueTag {
     Str,
 }
 
-impl<'a, F: PrimeField> Default for ScalarExpression<F> {
+impl<'a, F: LurkField> Default for ScalarExpression<F> {
     fn default() -> Self {
         Self::Nil
     }
 }
 
-impl<F: PrimeField> IpldEmbed for ScalarExpression<F> {
+impl<F: LurkField> IpldEmbed for ScalarExpression<F> {
     fn to_ipld(&self) -> Ipld {
         match self {
-            Self::Nil => Ipld::List([Ipld::Integer(ipld::EXPR.into()), Ipld::Integer(0)].into()),
+            Self::Nil => Ipld::List([Ipld::Integer(Tag::Nil as i128)].into()),
             Self::Cons(car, cdr) => Ipld::List(
                 [
                     Ipld::Integer(Tag::Cons as i128),
@@ -315,13 +316,15 @@ impl<F: PrimeField> IpldEmbed for ScalarExpression<F> {
 }
 
 // Unused for now, but will be needed when we serialize Thunks to IPLD.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ScalarThunk<F: PrimeField> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScalarThunk<F: LurkField> {
     pub(crate) value: ScalarPtr<F>,
     pub(crate) continuation: ScalarContPtr<F>,
 }
 
-impl<F: PrimeField> IpldEmbed for ScalarThunk<F> {
+impl<F: LurkField> Copy for ScalarThunk<F> {}
+
+impl<F: LurkField> IpldEmbed for ScalarThunk<F> {
     fn to_ipld(&self) -> Ipld {
         Ipld::List([self.value.to_ipld(), self.continuation.to_ipld()].into())
     }
@@ -349,7 +352,7 @@ impl<F: PrimeField> IpldEmbed for ScalarThunk<F> {
 
 // Unused for now, but will be needed when we serialize Continuations to IPLD.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum ScalarContinuation<F: PrimeField> {
+pub enum ScalarContinuation<F: LurkField> {
     Outermost,
     Call {
         unevaled_arg: ScalarPtr<F>,

@@ -11,7 +11,6 @@ use bellperson::{
     SynthesisError,
 };
 use blstrs::{Bls12, Scalar};
-use ff::PrimeField;
 use memmap::MmapOptions;
 use once_cell::sync::Lazy;
 use pairing_lib::{Engine, MultiMillerLoop};
@@ -21,6 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::circuit::MultiFrame;
 use crate::eval::{Evaluator, Witness, IO};
+use crate::field::LurkField;
 use crate::proof::{Provable, Prover};
 use crate::store::{Ptr, Store};
 
@@ -82,7 +82,7 @@ where
     pub chunk_frame_count: usize,
 }
 
-pub trait Groth16<F: PrimeField>: Prover<F>
+pub trait Groth16<F: LurkField>: Prover<F>
 where
     <Self::E as Engine>::Gt: blstrs::Compress + Serialize,
     <Self::E as Engine>::G1: Serialize,

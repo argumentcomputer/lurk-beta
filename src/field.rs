@@ -39,9 +39,18 @@ pub trait LurkField: ff::PrimeField {
         Self::LURK_CODEC_PREFIX << 48 & Self::FIELD_CODEC << 32 & u64::from(tag)
     }
 
+    fn from_multicodec(codec: u64) -> Option<Self> {
+        Self::from(codec & 0x0000_0000_ffff_ffff)
+    }
+
     fn to_multihash(f: Self) -> MultihashGeneric<{ Self::NUM_BYTES }> {
         MultihashGeneric::wrap(Self::HASH_CODEC, f.to_repr().as_ref()).unwrap()
     }
+
+    fn from_multihash(hash: MultihashGeneric<{ Self::NUM_BYTES }>) -> Option<Self> {
+        Self::from_bytes(hash.digest())
+    }
+
     fn to_cid(tag: Self, digest: Self) -> CidGeneric<{ Self::NUM_BYTES }> {
         CidGeneric::new_v1(Self::to_multicodec(tag), Self::to_multihash(digest))
     }

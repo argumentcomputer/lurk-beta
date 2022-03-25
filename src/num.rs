@@ -4,19 +4,22 @@ use std::{
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
+use crate::field::LurkField;
 use crate::ipld;
 use crate::ipld::IpldEmbed;
 use crate::ipld::IpldError;
-use ff::PrimeField;
 use libipld::Ipld;
 
 /// Number type for Lurk. Has different internal representations to optimize evaluation.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Num<F: PrimeField> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Num<F: LurkField> {
     Scalar(F),
     U64(u64),
 }
-impl<F: PrimeField> Display for Num<F> {
+
+impl<F: LurkField> Copy for Num<F> {}
+
+impl<F: LurkField> Display for Num<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Num::Scalar(s) => {
@@ -33,7 +36,7 @@ impl<F: PrimeField> Display for Num<F> {
 }
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField> Hash for Num<F> {
+impl<F: LurkField> Hash for Num<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
             Num::Scalar(s) => s.to_repr().as_ref().hash(state),
@@ -48,7 +51,7 @@ impl<F: PrimeField> Hash for Num<F> {
     }
 }
 
-impl<F: PrimeField> AddAssign for Num<F> {
+impl<F: LurkField> AddAssign for Num<F> {
     fn add_assign(&mut self, rhs: Self) {
         match (*self, rhs) {
             (Num::U64(ref mut a), Num::U64(b)) => {
@@ -73,7 +76,7 @@ impl<F: PrimeField> AddAssign for Num<F> {
     }
 }
 
-impl<F: PrimeField> SubAssign for Num<F> {
+impl<F: LurkField> SubAssign for Num<F> {
     fn sub_assign(&mut self, rhs: Self) {
         match (*self, rhs) {
             (Num::U64(ref mut a), Num::U64(b)) => {
@@ -98,7 +101,7 @@ impl<F: PrimeField> SubAssign for Num<F> {
     }
 }
 
-impl<F: PrimeField> MulAssign for Num<F> {
+impl<F: LurkField> MulAssign for Num<F> {
     fn mul_assign(&mut self, rhs: Self) {
         match (*self, rhs) {
             (Num::U64(ref mut a), Num::U64(b)) => {
@@ -123,7 +126,7 @@ impl<F: PrimeField> MulAssign for Num<F> {
     }
 }
 
-impl<F: PrimeField> DivAssign for Num<F> {
+impl<F: LurkField> DivAssign for Num<F> {
     fn div_assign(&mut self, rhs: Self) {
         assert!(!rhs.is_zero(), "can not divide by 0");
         match (*self, rhs) {
@@ -150,7 +153,7 @@ impl<F: PrimeField> DivAssign for Num<F> {
     }
 }
 
-impl<F: PrimeField> Num<F> {
+impl<F: LurkField> Num<F> {
     pub fn is_zero(&self) -> bool {
         match self {
             Num::Scalar(s) => s.is_zero_vartime(),
@@ -170,45 +173,30 @@ impl<F: PrimeField> Num<F> {
     }
 }
 
-impl<F: PrimeField> From<u64> for Num<F> {
+impl<F: LurkField> From<u64> for Num<F> {
     fn from(n: u64) -> Self {
         Num::<F>::U64(n)
     }
 }
 
-impl<F: PrimeField> IpldEmbed for Num<F> {
+impl<F: LurkField> IpldEmbed for Num<F> {
     fn to_ipld(&self) -> Ipld {
         match self {
-            Num::Scalar(f) => Ipld::List(
-                [
-                    Ipld::Integer(ipld::NUM.into()),
-                    Ipld::Integer(0),
-                    ipld::FWrap(*f).to_ipld(),
-                ]
-                .into(),
-            ),
-            Num::U64(x) => Ipld::List(
-                [
-                    Ipld::Integer(ipld::NUM.into()),
-                    Ipld::Integer(1),
-                    x.to_ipld(),
-                ]
-                .into(),
-            ),
+            Num::Scalar(f) => Ipld::List([ipld::FWrap(*f).to_ipld()].into()),
+            Num::U64(x) => Ipld::List([x.to_ipld()].into()),
         }
     }
 
     fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
         use Ipld::*;
-        let tag: i128 = ipld::NUM.into();
         match ipld {
             List(xs) => match xs.as_slice() {
-                [Integer(t), Integer(0), x] if *t == tag => {
-                    let f = ipld::FWrap::from_ipld(x)?;
+                [Bytes(x)] => {
+                    let f = ipld::FWrap::from_ipld(&Bytes(*x))?;
                     Ok(Num::Scalar(f.0))
                 }
-                [Integer(t), Integer(1), x] if *t == tag => {
-                    let x = u64::from_ipld(x)?;
+                [Integer(x)] => {
+                    let x = u64::from_ipld(&Integer(*x))?;
                     Ok(Num::U64(x))
                 }
                 xs => Err(IpldError::expected("Num", &List(xs.to_owned()))),

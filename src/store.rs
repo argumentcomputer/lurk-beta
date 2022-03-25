@@ -13,6 +13,7 @@ use once_cell::sync::OnceCell;
 use libipld::Cid;
 use libipld::Ipld;
 
+use crate::field::LurkField;
 use crate::ipld;
 use crate::ipld::IpldEmbed;
 use crate::ipld::IpldError;
@@ -20,13 +21,13 @@ use crate::Num;
 
 /// Holds the constants needed for poseidon hashing.
 #[derive(Debug)]
-pub(crate) struct HashConstants<F: PrimeField> {
+pub(crate) struct HashConstants<F: LurkField> {
     c4: OnceCell<PoseidonConstants<F, U4>>,
     c6: OnceCell<PoseidonConstants<F, U6>>,
     c8: OnceCell<PoseidonConstants<F, U8>>,
 }
 
-impl<F: PrimeField> Default for HashConstants<F> {
+impl<F: LurkField> Default for HashConstants<F> {
     fn default() -> Self {
         Self {
             c4: OnceCell::new(),
@@ -36,7 +37,7 @@ impl<F: PrimeField> Default for HashConstants<F> {
     }
 }
 
-impl<F: PrimeField> HashConstants<F> {
+impl<F: LurkField> HashConstants<F> {
     pub fn c4(&self) -> &PoseidonConstants<F, U4> {
         self.c4.get_or_init(|| PoseidonConstants::new())
     }
@@ -67,7 +68,7 @@ impl Default for StringSet {
 }
 
 #[derive(Debug)]
-pub struct Store<F: PrimeField> {
+pub struct Store<F: LurkField> {
     pub(crate) cons_store: IndexSet<(Ptr<F>, Ptr<F>)>,
 
     fun_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
@@ -108,7 +109,7 @@ pub struct Store<F: PrimeField> {
 }
 
 #[derive(Default, Debug)]
-struct PoseidonCache<F: PrimeField> {
+struct PoseidonCache<F: LurkField> {
     a4: dashmap::DashMap<CacheKey<F, 4>, F, ahash::RandomState>,
     a6: dashmap::DashMap<CacheKey<F, 6>, F, ahash::RandomState>,
     a8: dashmap::DashMap<CacheKey<F, 8>, F, ahash::RandomState>,
@@ -117,10 +118,10 @@ struct PoseidonCache<F: PrimeField> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-struct CacheKey<F: PrimeField, const N: usize>([F; N]);
+struct CacheKey<F: LurkField, const N: usize>([F; N]);
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField, const N: usize> Hash for CacheKey<F, N> {
+impl<F: LurkField, const N: usize> Hash for CacheKey<F, N> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         for el in &self.0 {
             el.to_repr().as_ref().hash(state);
@@ -128,7 +129,7 @@ impl<F: PrimeField, const N: usize> Hash for CacheKey<F, N> {
     }
 }
 
-impl<F: PrimeField> PoseidonCache<F> {
+impl<F: LurkField> PoseidonCache<F> {
     fn hash4(&self, preimage: &[F; 4]) -> F {
         let hash = self
             .a4
@@ -155,11 +156,11 @@ impl<F: PrimeField> PoseidonCache<F> {
     }
 }
 
-pub trait Object<F: PrimeField>: fmt::Debug + Copy + Clone + PartialEq {
+pub trait Object<F: LurkField>: fmt::Debug + Copy + Clone + PartialEq {
     type Pointer: Pointer<F>;
 }
 
-pub trait Pointer<F: PrimeField + From<u64>>: fmt::Debug + Copy + Clone + PartialEq + Hash {
+pub trait Pointer<F: LurkField + From<u64>>: fmt::Debug + Copy + Clone + PartialEq + Hash {
     type Tag: Into<u64>;
     type ScalarPointer: ScalarPointer<F>;
 
@@ -169,24 +170,24 @@ pub trait Pointer<F: PrimeField + From<u64>>: fmt::Debug + Copy + Clone + Partia
     }
 }
 
-pub trait ScalarPointer<F: PrimeField>: fmt::Debug + Copy + Clone + PartialEq + Hash {
+pub trait ScalarPointer<F: LurkField>: fmt::Debug + Copy + Clone + PartialEq + Hash {
     fn from_parts(tag: F, value: F) -> Self;
     fn tag(&self) -> &F;
     fn value(&self) -> &F;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Ptr<F: PrimeField>(Tag, RawPtr<F>);
+pub struct Ptr<F: LurkField>(Tag, RawPtr<F>);
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField> Hash for Ptr<F> {
+impl<F: LurkField> Hash for Ptr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
         self.1.hash(state);
     }
 }
 
-impl<F: PrimeField> Ptr<F> {
+impl<F: LurkField> Ptr<F> {
     pub fn is_nil(&self) -> bool {
         matches!(self.0, Tag::Nil)
     }
@@ -199,7 +200,7 @@ impl<F: PrimeField> Ptr<F> {
     }
 }
 
-impl<F: PrimeField> Pointer<F> for Ptr<F> {
+impl<F: LurkField> Pointer<F> for Ptr<F> {
     type Tag = Tag;
     type ScalarPointer = ScalarPtr<F>;
 
@@ -208,55 +209,54 @@ impl<F: PrimeField> Pointer<F> for Ptr<F> {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct ScalarPtr<F: PrimeField>(F, F);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScalarPtr<F: LurkField>(F, F);
 
-impl<F: PrimeField> PartialOrd for ScalarPtr<F> {
+impl<F: LurkField> Copy for ScalarPtr<F> {}
+
+impl<F: LurkField> PartialOrd for ScalarPtr<F> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
             .partial_cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
     }
 }
 
-impl<F: PrimeField> Ord for ScalarPtr<F> {
+impl<F: LurkField> Ord for ScalarPtr<F> {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
             .cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
     }
 }
 
-impl<F: PrimeField> IpldEmbed for ScalarPtr<F> {
+impl<F: LurkField> IpldEmbed for ScalarPtr<F> {
     fn to_ipld(&self) -> Ipld {
-        // we are assuming the f tag is little-endian
-        let code = ipld::make_codec::<F>(ipld::f_tag_to_u32(self.0, true));
-        Cid::new_v1(code, ipld::f_digest(self.1)).to_ipld()
+        F::to_cid(self.0, self.1).to_ipld()
     }
+
     fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-        match ipld {
-            Ipld::Link(cid) => {
-                if let Some(x) = ipld::ff_from_bytes_vartime(cid.hash().digest()) {
-                    Ok(ScalarPtr::from_parts(cid.codec().into(), x))
-                } else {
-                    Err(IpldError::Expected(
-                        String::from("non-empty Cid hash for ScalarPtr"),
-                        Ipld::Link(*cid),
-                    ))
-                }
-            }
-            xs => Err(IpldError::Expected(String::from("ScalarPtr"), xs.clone())),
-        }
+        let cid = Cid::from_ipld(ipld)?;
+        let tag = F::from_multicodec(cid.codec()).ok_or(Err(IpldError::Expected(
+            String::from("Tag from Cid codec"),
+            Ipld::Link(*cid),
+        )))?;
+        let dig = F::from_multihash(cid.digest()).ok_or(Err(IpldError::Expected(
+            String::from("Tag from Cid digest"),
+            Ipld::Link(*cid),
+        )))?;
+
+        Ok(ScalarPtr::from_parts(tag, dig))
     }
 }
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField> Hash for ScalarPtr<F> {
+impl<F: LurkField> Hash for ScalarPtr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.to_repr().as_ref().hash(state);
         self.1.to_repr().as_ref().hash(state);
     }
 }
 
-impl<F: PrimeField> ScalarPointer<F> for ScalarPtr<F> {
+impl<F: LurkField> ScalarPointer<F> for ScalarPtr<F> {
     fn from_parts(tag: F, value: F) -> Self {
         ScalarPtr(tag, value)
     }
@@ -270,60 +270,56 @@ impl<F: PrimeField> ScalarPointer<F> for ScalarPtr<F> {
     }
 }
 
-pub trait IntoHashComponents<F: PrimeField> {
+pub trait IntoHashComponents<F: LurkField> {
     fn into_hash_components(self) -> [F; 2];
 }
 
-impl<F: PrimeField> IntoHashComponents<F> for [F; 2] {
+impl<F: LurkField> IntoHashComponents<F> for [F; 2] {
     fn into_hash_components(self) -> [F; 2] {
         self
     }
 }
 
-impl<F: PrimeField> IntoHashComponents<F> for ScalarPtr<F> {
+impl<F: LurkField> IntoHashComponents<F> for ScalarPtr<F> {
     fn into_hash_components(self) -> [F; 2] {
         [self.0, self.1]
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct ScalarContPtr<F: PrimeField>(F, F);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScalarContPtr<F: LurkField>(F, F);
 
-impl<F: PrimeField> IpldEmbed for ScalarContPtr<F> {
+impl<F: LurkField> Copy for ScalarContPtr<F> {}
+
+impl<F: LurkField> IpldEmbed for ScalarContPtr<F> {
     fn to_ipld(&self) -> Ipld {
-        // we are assuming the f tag is little-endian
-        let code = ipld::make_codec::<F>(ipld::f_tag_to_u32(self.0, true));
-        Cid::new_v1(code, ipld::f_digest(self.1)).to_ipld()
+        F::to_cid(self.0, self.1).to_ipld()
     }
+
     fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-        match ipld {
-            Ipld::Link(cid) => {
-                if let Some(x) = ipld::ff_from_bytes_vartime(cid.hash().digest()) {
-                    Ok(ScalarContPtr::from_parts(cid.codec().into(), x))
-                } else {
-                    Err(IpldError::Expected(
-                        String::from("non-empty Cid hash for ScalarContPtr"),
-                        Ipld::Link(*cid),
-                    ))
-                }
-            }
-            xs => Err(IpldError::Expected(
-                String::from("ScalarContPtr"),
-                xs.clone(),
-            )),
-        }
+        let cid = Cid::from_ipld(ipld)?;
+        let tag = F::from_multicodec(cid.codec()).ok_or(Err(IpldError::Expected(
+            String::from("Tag from Cid codec"),
+            Ipld::Link(*cid),
+        )))?;
+        let dig = F::from_multihash(cid.digest()).ok_or(Err(IpldError::Expected(
+            String::from("Tag from Cid digest"),
+            Ipld::Link(*cid),
+        )))?;
+
+        Ok(ScalarContPtr::from_parts(tag, dig))
     }
 }
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField> Hash for ScalarContPtr<F> {
+impl<F: LurkField> Hash for ScalarContPtr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.to_repr().as_ref().hash(state);
         self.1.to_repr().as_ref().hash(state);
     }
 }
 
-impl<F: PrimeField> ScalarPointer<F> for ScalarContPtr<F> {
+impl<F: LurkField> ScalarPointer<F> for ScalarContPtr<F> {
     fn from_parts(tag: F, value: F) -> Self {
         ScalarContPtr(tag, value)
     }
@@ -336,24 +332,24 @@ impl<F: PrimeField> ScalarPointer<F> for ScalarContPtr<F> {
     }
 }
 
-impl<F: PrimeField> IntoHashComponents<F> for ScalarContPtr<F> {
+impl<F: LurkField> IntoHashComponents<F> for ScalarContPtr<F> {
     fn into_hash_components(self) -> [F; 2] {
         [self.0, self.1]
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct ContPtr<F: PrimeField>(ContTag, RawPtr<F>);
+pub struct ContPtr<F: LurkField>(ContTag, RawPtr<F>);
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField> Hash for ContPtr<F> {
+impl<F: LurkField> Hash for ContPtr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
         self.1.hash(state);
     }
 }
 
-impl<F: PrimeField> Pointer<F> for ContPtr<F> {
+impl<F: LurkField> Pointer<F> for ContPtr<F> {
     type Tag = ContTag;
     type ScalarPointer = ScalarContPtr<F>;
 
@@ -362,7 +358,7 @@ impl<F: PrimeField> Pointer<F> for ContPtr<F> {
     }
 }
 
-impl<F: PrimeField> ContPtr<F> {
+impl<F: LurkField> ContPtr<F> {
     pub fn is_error(&self) -> bool {
         matches!(self.0, ContTag::Error)
     }
@@ -373,9 +369,9 @@ impl<F: PrimeField> ContPtr<F> {
 // If .0 is negative, RawPtr is opaque. This lets us retain the efficiency and structure of the current implementation.
 // It cuts the local store's address space in half, which is likely not an issue. This representation does not affect
 // external data, so if we want to change it in the future, we can do so without a change of defined behavior.
-pub struct RawPtr<F: PrimeField>(isize, PhantomData<F>);
+pub struct RawPtr<F: LurkField>(isize, PhantomData<F>);
 
-impl<F: PrimeField> RawPtr<F> {
+impl<F: LurkField> RawPtr<F> {
     fn new(p: usize) -> Self {
         assert!(p < isize::MAX as usize);
         RawPtr(p as isize, Default::default())
@@ -391,7 +387,7 @@ impl<F: PrimeField> RawPtr<F> {
 }
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField> Hash for RawPtr<F> {
+impl<F: LurkField> Hash for RawPtr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
@@ -411,7 +407,7 @@ impl<F: PrimeField> Hash for RawPtr<F> {
 // - `0b0100` for Rel2
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Expression<'a, F: PrimeField> {
+pub enum Expression<'a, F: LurkField> {
     Nil,
     Cons(Ptr<F>, Ptr<F>),
     Sym(&'a str),
@@ -423,18 +419,18 @@ pub enum Expression<'a, F: PrimeField> {
     Opaque(Ptr<F>),
 }
 
-impl<F: PrimeField> Object<F> for Expression<'_, F> {
+impl<F: LurkField> Object<F> for Expression<'_, F> {
     type Pointer = Ptr<F>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Thunk<F: PrimeField> {
+pub struct Thunk<F: LurkField> {
     pub(crate) value: Ptr<F>,
     pub(crate) continuation: ContPtr<F>,
 }
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField> Hash for Thunk<F> {
+impl<F: LurkField> Hash for Thunk<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.value.hash(state);
         self.continuation.hash(state);
@@ -442,7 +438,7 @@ impl<F: PrimeField> Hash for Thunk<F> {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Continuation<F: PrimeField> {
+pub enum Continuation<F: LurkField> {
     Outermost,
     Call {
         unevaled_arg: Ptr<F>,
@@ -512,7 +508,7 @@ pub enum Continuation<F: PrimeField> {
     Terminal,
 }
 
-impl<F: PrimeField> Object<F> for Continuation<F> {
+impl<F: LurkField> Object<F> for Continuation<F> {
     type Pointer = ContPtr<F>;
 }
 
@@ -650,7 +646,7 @@ impl ContTag {
     }
 }
 
-impl<F: PrimeField> Default for Store<F> {
+impl<F: LurkField> Default for Store<F> {
     fn default() -> Self {
         let mut store = Store {
             cons_store: Default::default(),
@@ -719,7 +715,7 @@ impl<F: PrimeField> Default for Store<F> {
 /// They can be thought of as a minimal DSL for working with Lurk data in Rust code.
 /// Prefer these methods when constructing literal data or assembling program fragments in
 /// tests or during evaluation, etc.
-impl<F: PrimeField> Store<F> {
+impl<F: LurkField> Store<F> {
     pub fn nil(&mut self) -> Ptr<F> {
         self.intern_nil()
     }
@@ -761,7 +757,7 @@ impl<F: PrimeField> Store<F> {
     }
 }
 
-impl<F: PrimeField> Store<F> {
+impl<F: LurkField> Store<F> {
     pub fn new() -> Self {
         Store::default()
     }
@@ -1885,7 +1881,7 @@ impl<F: PrimeField> Store<F> {
     }
 }
 
-impl<F: PrimeField> Expression<'_, F> {
+impl<F: LurkField> Expression<'_, F> {
     pub fn is_keyword_sym(&self) -> bool {
         match self {
             Expression::Sym(s) => s.starts_with(':'),
