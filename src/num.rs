@@ -191,12 +191,12 @@ impl<F: LurkField> IpldEmbed for Num<F> {
         use Ipld::*;
         match ipld {
             List(xs) => match xs.as_slice() {
-                [Bytes(x)] => {
-                    let f = ipld::FWrap::from_ipld(&Bytes(*x))?;
+                [Bytes(_)] => {
+                    let f = ipld::FWrap::from_ipld(&ipld)?;
                     Ok(Num::Scalar(f.0))
                 }
-                [Integer(x)] => {
-                    let x = u64::from_ipld(&Integer(*x))?;
+                [Integer(_)] => {
+                    let x = u64::from_ipld(&ipld)?;
                     Ok(Num::U64(x))
                 }
                 xs => Err(IpldError::expected("Num", &List(xs.to_owned()))),

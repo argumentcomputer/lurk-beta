@@ -1,16 +1,18 @@
 use ff::Field;
 use ff::PrimeField;
-use libipld::cid::CidGeneric;
+use libipld::cid::Cid;
 use libipld::Ipld;
 
 use core::cmp::Ord;
 use core::cmp::Ordering;
 use multihash::Code;
+use multihash::Multihash;
 use multihash::MultihashDigest;
-use multihash::MultihashGeneric;
 
 use core::ops::AddAssign;
 use core::ops::MulAssign;
+
+use pasta_curves::Fq;
 
 pub trait LurkField: ff::PrimeField {
     const FIELD_CODEC: u64;
@@ -39,26 +41,61 @@ pub trait LurkField: ff::PrimeField {
         Self::LURK_CODEC_PREFIX << 48 & Self::FIELD_CODEC << 32 & u64::from(tag)
     }
 
-    fn from_multicodec(codec: u64) -> Option<Self> {
+    fn from_multicodec(codec: u64) -> Self {
         Self::from(codec & 0x0000_0000_ffff_ffff)
     }
 
-    fn to_multihash(f: Self) -> MultihashGeneric<{ Self::NUM_BYTES }> {
-        MultihashGeneric::wrap(Self::HASH_CODEC, f.to_repr().as_ref()).unwrap()
+    fn to_multihash(f: Self) -> Multihash {
+        Multihash::wrap(Self::HASH_CODEC, f.to_repr().as_ref()).unwrap()
     }
 
-    fn from_multihash(hash: MultihashGeneric<{ Self::NUM_BYTES }>) -> Option<Self> {
+    fn from_multihash(hash: Multihash) -> Option<Self> {
         Self::from_bytes(hash.digest())
     }
 
-    fn to_cid(tag: Self, digest: Self) -> CidGeneric<{ Self::NUM_BYTES }> {
-        CidGeneric::new_v1(Self::to_multicodec(tag), Self::to_multihash(digest))
+    fn to_cid(tag: Self, digest: Self) -> Cid {
+        Cid::new_v1(Self::to_multicodec(tag), Self::to_multihash(digest))
     }
 }
 
 impl LurkField for blstrs::Scalar {
     const FIELD_CODEC: u64 = 1;
     const HASH_CODEC: u64 = 2;
+    const LURK_CODEC_PREFIX: u64 = 0xc0de;
+    const NUM_BYTES: usize = 32;
+
+    //// This doesn't include a check that the bytes are canonical, so it
+    //// shouldn't be used. Including it for now just as a check that we
+    //// understand the byte representation
+    //fn from_bytes_vartime(bs: &[u8]) -> Option<Self> {
+    //    if bs.is_empty() || bs.len() != Self::NUM_BYTES {
+    //        return None;
+    //    }
+
+    //    let chunks: &[[u8; 8]] = unsafe { bs.as_chunks_unchecked::<8>() };
+
+    //    let mut res = Self::zero();
+
+    //    let shift = Self::from(u64::MAX) + Self::from(1);
+
+    //    for chunk in chunks.iter().rev() {
+    //        let limb = u64::from_le_bytes(*chunk);
+    //        res.mul_assign(&shift);
+    //        res.add_assign(&Self::from(limb));
+    //    }
+    //    Some(res)
+    //}
+
+    fn to_tag(f: Self) -> u32 {
+        let bytes: Vec<u8> = f.to_repr().as_ref().to_vec();
+        let bytes: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
+        u32::from_le_bytes(bytes)
+    }
+}
+
+impl LurkField for pasta_curves::Fq {
+    const FIELD_CODEC: u64 = 2;
+    const HASH_CODEC: u64 = 3;
     const LURK_CODEC_PREFIX: u64 = 0xc0de;
     const NUM_BYTES: usize = 32;
 

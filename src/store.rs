@@ -230,19 +230,17 @@ impl<F: LurkField> Ord for ScalarPtr<F> {
 
 impl<F: LurkField> IpldEmbed for ScalarPtr<F> {
     fn to_ipld(&self) -> Ipld {
-        F::to_cid(self.0, self.1).to_ipld()
+        let cid = F::to_cid(self.0, self.1);
+        cid.to_ipld()
     }
 
     fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
         let cid = Cid::from_ipld(ipld)?;
-        let tag = F::from_multicodec(cid.codec()).ok_or(Err(IpldError::Expected(
-            String::from("Tag from Cid codec"),
-            Ipld::Link(*cid),
-        )))?;
-        let dig = F::from_multihash(cid.digest()).ok_or(Err(IpldError::Expected(
+        let tag = F::from_multicodec(cid.codec());
+        let dig = F::from_multihash(*cid.hash()).ok_or(IpldError::Expected(
             String::from("Tag from Cid digest"),
-            Ipld::Link(*cid),
-        )))?;
+            Ipld::Link(cid),
+        ))?;
 
         Ok(ScalarPtr::from_parts(tag, dig))
     }
@@ -293,19 +291,17 @@ impl<F: LurkField> Copy for ScalarContPtr<F> {}
 
 impl<F: LurkField> IpldEmbed for ScalarContPtr<F> {
     fn to_ipld(&self) -> Ipld {
-        F::to_cid(self.0, self.1).to_ipld()
+        let cid = F::to_cid(self.0, self.1);
+        cid.to_ipld()
     }
 
     fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
         let cid = Cid::from_ipld(ipld)?;
-        let tag = F::from_multicodec(cid.codec()).ok_or(Err(IpldError::Expected(
-            String::from("Tag from Cid codec"),
-            Ipld::Link(*cid),
-        )))?;
-        let dig = F::from_multihash(cid.digest()).ok_or(Err(IpldError::Expected(
+        let tag = F::from_multicodec(cid.codec());
+        let dig = F::from_multihash(*cid.hash()).ok_or(IpldError::Expected(
             String::from("Tag from Cid digest"),
-            Ipld::Link(*cid),
-        )))?;
+            Ipld::Link(cid),
+        ))?;
 
         Ok(ScalarContPtr::from_parts(tag, dig))
     }

@@ -5,8 +5,8 @@ use core::num::TryFromIntError;
 use num_bigint::BigUint;
 
 use multihash::Code;
+use multihash::Multihash;
 use multihash::MultihashDigest;
-use multihash::MultihashGeneric;
 
 use libipld::cbor::DagCborCodec;
 use libipld::codec::Codec;

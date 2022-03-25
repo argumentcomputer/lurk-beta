@@ -48,7 +48,7 @@ impl<G: Group> Proof<G> {
 
 pub trait Nova<F: LurkField>: Prover<F>
 where
-    <Self::Grp as Group>::Scalar: LurkField,
+    <Self::Grp as Group>::Scalar: ff::PrimeField,
 {
     type Grp: Group;
 
@@ -61,7 +61,10 @@ where
         >,
         shape: &R1CSShape<Self::Grp>,
         gens: &R1CSGens<Self::Grp>,
-    ) -> Result<(R1CSInstance<Self::Grp>, R1CSWitness<Self::Grp>), NovaError> {
+    ) -> Result<(R1CSInstance<Self::Grp>, R1CSWitness<Self::Grp>), NovaError>
+    where
+        <<Self as Nova<F>>::Grp as Group>::Scalar: LurkField,
+    {
         let mut cs = SatisfyingAssignment::<Self::Grp>::new();
 
         multi_frame.synthesize(&mut cs).unwrap();
@@ -76,7 +79,10 @@ where
         env: Ptr<<Self::Grp as Group>::Scalar>,
         store: &mut Store<<Self::Grp as Group>::Scalar>,
         limit: usize,
-    ) -> Vec<Frame<IO<<Self::Grp as Group>::Scalar>, Witness<<Self::Grp as Group>::Scalar>>> {
+    ) -> Vec<Frame<IO<<Self::Grp as Group>::Scalar>, Witness<<Self::Grp as Group>::Scalar>>>
+    where
+        <<Self as Nova<F>>::Grp as Group>::Scalar: LurkField,
+    {
         let padding_predicate = |count| self.needs_frame_padding(count);
 
         let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate);
@@ -90,7 +96,10 @@ where
         env: Ptr<<Self::Grp as Group>::Scalar>,
         store: &mut Store<<Self::Grp as Group>::Scalar>,
         limit: usize,
-    ) -> Result<(Proof<Self::Grp>, RelaxedR1CSInstance<Self::Grp>), SynthesisError> {
+    ) -> Result<(Proof<Self::Grp>, RelaxedR1CSInstance<Self::Grp>), SynthesisError>
+    where
+        <<Self as Nova<F>>::Grp as Group>::Scalar: LurkField,
+    {
         let frames = self.get_evaluation_frames(expr, env, store, limit);
 
         let (shape, gens) = self.make_shape_and_gens();
@@ -107,7 +116,10 @@ where
         gens: &R1CSGens<Self::Grp>,
         store: &mut Store<<Self::Grp as Group>::Scalar>,
         verify_steps: bool, // Sanity check for development, until we have recursion.
-    ) -> Result<(Proof<Self::Grp>, RelaxedR1CSInstance<Self::Grp>), SynthesisError> {
+    ) -> Result<(Proof<Self::Grp>, RelaxedR1CSInstance<Self::Grp>), SynthesisError>
+    where
+        <<Self as Nova<F>>::Grp as Group>::Scalar: LurkField,
+    {
         let multiframes = MultiFrame::from_frames(self.chunk_frame_count(), frames, store);
         for mf in &multiframes {
             assert_eq!(
