@@ -22,4 +22,3 @@ num-list-proof : num-list-opening.json
 verify-num-list-proof :
 	cargo run --release -- verify --proof num-list-opening.json
 
-
