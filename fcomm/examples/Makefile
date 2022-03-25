@@ -6,7 +6,6 @@ fibonacci-proof.json : fibonacci.lurk
 
 fibonacci-proof : fibonacci-proof.json
 
-verify-fibonacci-proof : fibonacci-proof
+verify-fibonacci-proof :
 	cargo run --release -- verify --proof fibonacci-proof.json
-
 
