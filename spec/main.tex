@@ -116,7 +116,7 @@ Here we describe the construction of Lurk's circuit.
 
 \subsection{Overview}
 
-A Lurk program is split into a sequence of \textit{reduction steps}, also called iterations. In the Fibonnaci example above we have 521 iterations, and each one is mapped into a \textit{frame}. We group a set of frames into a MultiFrame object.
+A Lurk program is split into a sequence of \textit{reduction steps}, also called iterations. In the Fibonacci example above we have 521 iterations, and each one is mapped into a \textit{frame}. We group a set of frames into a MultiFrame object.
 
 We construct a CircuitFrame for each frame, and a Circuit is a sequence of CircuitFrames, where the output of a previous one is linked to the input of the next. The circuit mimics the evaluation of Lurk expressions.
 
@@ -124,7 +124,7 @@ In \verb|eval.rs| it is possible to see the implementation of evaluation of Lurk
 
 We call \textit{global symbols} the set of Lurk symbols that are pre-computed, such that we can easily compare with symbols found during the evaluation of expressions.
 
-To reduce an expression, we require a substancial amount of conditions that depend upon comparisons among symbols. Those conditions involver mostly allocation of variables and pointers in the circuit, Boolean logic using those elements, and conditionals. This functionality is implemented in method $\redsym()$. The Boolean logic and equality tests are executed against global symbols and other auxiliary variables created along the process in order to decide how we are going to take decisions about control flow of Lurk programs. Using it we also can update the environment and the store accordingly.
+To reduce an expression, we require a substancial amount of conditions that depend upon comparisons among symbols. Those conditions involve mostly allocation of variables and pointers in the circuit, Boolean logic using those elements, and conditionals. This functionality is implemented in method $\redsym()$. The Boolean logic and equality tests are executed against global symbols and other auxiliary variables created along the process in order to decide how we are going to take decisions about control flow of Lurk programs. Using it we also can update the environment and the store accordingly.
 
 One of the most important building blocks in a functional language like Lisp and Lurk is \verb|cons|. It is used to concatenate \verb|car| and \verb|cdr|. Hence, whenever we want to break big expressions into smallers ones, we can use a combination of those elements. In function $\redcons()$ we deal with each different situation where those elements are necessary. Namely, to reduce an expression into smaller pieces, we allocate in the circuit some auxiliary variables for later utilization. In particular, $\carcdr()$ gadget is used as a building block. Since this computation is required for different situations, depending on the type fo expression we are handling, for each one we include a clause in a multicase gadget. Thus we can easily select desired result using this approach. The multicase selection is based on the \verb|head| of an expression, which is given by the \verb|car| of the expression. We return the result of the multicase.
 
