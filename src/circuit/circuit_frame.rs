@@ -787,12 +787,20 @@ fn reduce_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     let (binding, smaller_env) =
         car_cdr(&mut cs.namespace(|| "If unevaled_args cons"), g, env, store)?;
 
+    let env_is_nil = env.alloc_equal(&mut cs.namespace(|| "env is nil"), &g.nil_ptr)?;
+    let env_not_nil = Boolean::not(&env_is_nil);
+    let otherwise = Boolean::and(
+        &mut cs.namespace(|| "otherwise"),
+        &sym_otherwise,
+        &env_not_nil,
+    )?;
+
     let binding_is_nil = binding.alloc_equal(&mut cs.namespace(|| "binding is nil"), &g.nil_ptr)?;
 
     let binding_not_nil = Boolean::not(&binding_is_nil);
 
-    let otherwise_and_binding_is_nil = and!(cs, &sym_otherwise, &binding_is_nil)?;
-    let otherwise_and_binding_not_nil = and!(cs, &sym_otherwise, &binding_not_nil)?;
+    let otherwise_and_binding_is_nil = and!(cs, &otherwise, &binding_is_nil)?;
+    let otherwise_and_binding_not_nil = and!(cs, &otherwise, &binding_not_nil)?;
 
     let (var_or_rec_binding, val_or_more_rec_env) =
         car_cdr(&mut cs.namespace(|| "car_cdr binding"), g, &binding, store)?;
@@ -936,15 +944,25 @@ fn reduce_sym<F: PrimeField, CS: ConstraintSystem<F>>(
         &with_smaller_rec_env
     )?;
 
-    let cs = &mut cs.namespace(|| "sym_is_self_evaluating");
-
-    let cond1 = and!(cs, &sym_is_self_evaluating, not_dummy)?;
-
     // NOTE: The commented-out implies_equal lines in the rest of this function
     // indicate the natural structure of this translation from eval.rs.
     // In order to reduce constraints, duplicated results are factored out below,
     // but the original structure is left intact so it can be checked against
     // the manual optimization.
+
+    let cs = &mut cs.namespace(|| "env_is_nil");
+    let cond0_ = and!(cs, &env_is_nil, not_dummy)?;
+    let cond0 = and!(cs, &cond0_, &sym_otherwise)?;
+    {
+        // implies_equal_t!(cs, &cond0, &output_expr, &expr);
+        // implies_equal_t!(cs, &cond0, &output_env, &env);
+        implies_equal_t!(cs, &cond0, output_cont, g.error_ptr);
+    }
+
+    let cs = &mut cs.namespace(|| "sym_is_self_evaluating");
+    let cond1_ = and!(cs, &sym_is_self_evaluating, not_dummy)?;
+    let cond1 = and!(cs, &cond1_, &env_not_nil)?;
+
     {
         // implies_equal_t!(cs, &cond1, &output_expr, &expr);
         // implies_equal_t!(cs, &cond1, &output_env, &env);
@@ -979,11 +997,12 @@ fn reduce_sym<F: PrimeField, CS: ConstraintSystem<F>>(
         //implies_equal_t!(cs, &cond, &output_cont, &cont);
     }
     let cs = &mut cs.namespace(|| "cont_not_lookup_sym");
-    let cond5 = and!(cs, &cont_not_lookup_sym, not_dummy)?;
+    let cond5_ = and!(cs, &cont_not_lookup_sym, not_dummy)?;
+    let cond5 = and!(cs, &cond5_, &otherwise)?;
+
     {
         // implies_equal_t!(cs, &cond5, &output_expr, &expr);
         implies_equal_t!(cs, &cond5, output_env, smaller_env);
-
         implies_equal_t!(cs, &cond5, output_cont, lookup_continuation);
     }
 
@@ -1009,7 +1028,8 @@ fn reduce_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     // }
 
     let cs = &mut cs.namespace(|| "cont_not_lookup_cons");
-    let cond9 = and!(cs, &cont_not_lookup_cons, not_dummy)?;
+    let cond9_ = and!(cs, &cont_not_lookup_cons, not_dummy)?;
+    let cond9 = and!(cs, &cond9_, &otherwise)?;
     {
         implies_equal_t!(cs, &cond9, output_cont, lookup_continuation);
     }
@@ -1025,15 +1045,17 @@ fn reduce_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     let condb = or!(cs, &cond4, &cond6)?; // cond4, cond6
     let condc = or!(cs, &conda, &cond8)?; // cond1, cond2, cond8
 
-    let condx = or!(cs, &cond4, &cond5)?; // cond4, cond5
-    let condy = or!(cs, &cond3, &cond6)?; // cond3, cond6
+    let condx_ = or!(cs, &cond4, &cond5)?; // cond4, cond5
+    let condx = or!(cs, &cond0, &condx_)?; // cond0, con4, cond5
+    let condy_ = or!(cs, &cond3, &cond6)?; // cond3, cond6
+    let condy = or!(cs, &cond0, &condy_)?; // cond0, cond3, cond6
 
     // cond1, cond2, cond4, cond5 // cond_expr
-    let cond_expr = or!(cs, &conda, &condx)?; // cond1, cond2, cond4, cond5
+    let cond_expr = or!(cs, &conda, &condx)?; // cond0, cond1, cond2, cond4, cond5
     implies_equal_t!(cs, &cond_expr, output_expr, expr);
 
     // cond1, cond2, cond3, cond6 // cond_env
-    let cond_env = or!(cs, &conda, &condy)?; // cond1, cond2, cond3, cond6
+    let cond_env = or!(cs, &conda, &condy)?; // cond0, cond1, cond2, cond3, cond6
     implies_equal_t!(cs, &cond_env, output_env, env);
 
     // cond1, cond3, cond4, cond6, cond // cond_cont
@@ -1177,11 +1199,21 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
             &binding1,
             store,
         )?;
-        let (val, _end) = car_cdr(
+        let bindings_is_nil =
+            bindings.alloc_equal(&mut cs_letrec.namespace(|| "bindings_is_nil"), &g.nil_ptr)?;
+
+        let (val1, _end) = car_cdr(
             &mut cs_letrec.namespace(|| "car_cdr more_vals"),
             g,
             &more_vals,
             store,
+        )?;
+
+        let val = AllocatedPtr::pick(
+            &mut cs_letrec.namespace(|| "pick val"),
+            &bindings_is_nil,
+            &body1,
+            &val1,
         )?;
 
         // FIXME: assert end == NIL
@@ -1191,8 +1223,6 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
             store,
             &[&let_t, &rest_bindings, &body1],
         )?;
-        let bindings_is_nil =
-            bindings.alloc_equal(&mut cs_letrec.namespace(|| "bindings_is_nil"), &g.nil_ptr)?;
 
         let rest_bindings_is_nil = rest_bindings.alloc_equal(
             &mut cs_letrec.namespace(|| "rest_bindings_is_nil"),
@@ -2668,13 +2698,12 @@ mod tests {
                 .expect("failed to synthesize");
 
             let delta = cs.delta(&cs_blank, false);
-            dbg!(&delta);
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(29640, cs.num_constraints());
+            assert_eq!(29670, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(29623, cs.aux().len());
+            assert_eq!(29648, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

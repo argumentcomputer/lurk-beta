@@ -75,7 +75,7 @@ macro_rules! ifx_t {
 macro_rules! equal {
     ($cs:ident, $a:expr, $b:expr) => {
         alloc_equal(
-            $cs.namespace(|| format!("{} equals {}", stringify!($a), stringify!($b))),
+            $cs.namespace(|| format!("{} equal {}", stringify!($a), stringify!($b))),
             $a,
             $b,
         )
@@ -86,7 +86,7 @@ macro_rules! equal {
 macro_rules! equal_t {
     ($cs:ident, $a:expr, $b:expr) => {
         $a.alloc_equal(
-            $cs.namespace(|| format!("{} equals {}", stringify!($a), stringify!($b))),
+            $cs.namespace(|| format!("{} equal_t {}", stringify!($a), stringify!($b))),
             $b,
         )
     };
@@ -96,7 +96,7 @@ macro_rules! implies_equal {
     ($cs:ident, $condition:expr, $a: expr, $b: expr) => {
         let equal = equal!($cs, $a, $b)?;
         enforce_implication(
-            $cs.namespace(|| format!("enforce_implication {} {}", stringify!($a), stringify!($b))),
+            $cs.namespace(|| format!("implies_equal {} {}", stringify!($a), stringify!($b))),
             $condition,
             &equal,
         )?;
@@ -108,7 +108,7 @@ macro_rules! implies_equal_t {
         let equal = equal_t!($cs, $a, $b)?;
 
         enforce_implication(
-            $cs.namespace(|| format!("enforce_implication {} {}", stringify!($a), stringify!($b))),
+            $cs.namespace(|| format!("implies_equal_t {} {}", stringify!($a), stringify!($b))),
             $condition,
             &equal,
         )?;
