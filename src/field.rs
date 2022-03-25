@@ -24,8 +24,8 @@ pub trait LurkField: ff::PrimeField {
         Self::from_repr(def).into()
     }
 
-    // This should probably be removed
-    fn from_bytes_vartime(bs: &[u8]) -> Option<Self>;
+    //// This should probably be removed
+    //fn from_bytes_vartime(bs: &[u8]) -> Option<Self>;
 
     // Tags have to be `u32` because we're trying to fit them into `u64`
     // multicodecs without overlapping with the existing table. If we can
@@ -62,27 +62,27 @@ impl LurkField for blstrs::Scalar {
     const LURK_CODEC_PREFIX: u64 = 0xc0de;
     const NUM_BYTES: usize = 32;
 
-    // This doesn't include a check that the bytes are canonical, so it
-    // shouldn't be used. Including it for now just as a check that we
-    // understand the byte representation
-    fn from_bytes_vartime(bs: &[u8]) -> Option<Self> {
-        if bs.is_empty() || bs.len() != Self::NUM_BYTES {
-            return None;
-        }
+    //// This doesn't include a check that the bytes are canonical, so it
+    //// shouldn't be used. Including it for now just as a check that we
+    //// understand the byte representation
+    //fn from_bytes_vartime(bs: &[u8]) -> Option<Self> {
+    //    if bs.is_empty() || bs.len() != Self::NUM_BYTES {
+    //        return None;
+    //    }
 
-        let chunks: &[[u8; 8]] = unsafe { bs.as_chunks_unchecked::<8>() };
+    //    let chunks: &[[u8; 8]] = unsafe { bs.as_chunks_unchecked::<8>() };
 
-        let mut res = Self::zero();
+    //    let mut res = Self::zero();
 
-        let shift = Self::from(u64::MAX) + Self::from(1);
+    //    let shift = Self::from(u64::MAX) + Self::from(1);
 
-        for chunk in chunks.iter().rev() {
-            let limb = u64::from_le_bytes(*chunk);
-            res.mul_assign(&shift);
-            res.add_assign(&Self::from(limb));
-        }
-        Some(res)
-    }
+    //    for chunk in chunks.iter().rev() {
+    //        let limb = u64::from_le_bytes(*chunk);
+    //        res.mul_assign(&shift);
+    //        res.add_assign(&Self::from(limb));
+    //    }
+    //    Some(res)
+    //}
 
     fn to_tag(f: Self) -> u32 {
         let bytes: Vec<u8> = f.to_repr().as_ref().to_vec();
@@ -96,13 +96,13 @@ mod test {
     use super::*;
     use blstrs::Scalar as Fr;
 
-    #[test]
-    fn test_from_bytes_consistency() {
-        let bytes = [[0x00; 8], [0x11; 8], [0x22; 8], [0x33; 8]].concat();
-        let f1 = <Fr as LurkField>::from_bytes(&bytes);
-        let f2 = <Fr as LurkField>::from_bytes_vartime(&bytes);
-        assert_eq!(f1, f2);
-    }
+    //#[test]
+    //fn test_from_bytes_consistency() {
+    //    let bytes = [[0x00; 8], [0x11; 8], [0x22; 8], [0x33; 8]].concat();
+    //    let f1 = <Fr as LurkField>::from_bytes(&bytes);
+    //    let f2 = <Fr as LurkField>::from_bytes_vartime(&bytes);
+    //    assert_eq!(f1, f2);
+    //}
     #[test]
     fn test_tag_consistency() {
         let f1 = Fr::from(0xdead_beef);
