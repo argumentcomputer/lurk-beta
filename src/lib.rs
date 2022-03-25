@@ -1,6 +1,7 @@
 #![allow(clippy::single_match, clippy::type_complexity)]
 #![feature(associated_type_defaults)]
 #![feature(generic_const_exprs)]
+#![feature(slice_as_chunks)]
 
 extern crate alloc;
 
