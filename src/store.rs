@@ -1257,6 +1257,8 @@ impl<F: PrimeField> Store<F> {
                 _ => unreachable!(),
             },
             _ => {
+                // FIXME: Don't panic. This can happen at runtime in a valid Lurk program,
+                // so it should result in an explicit error.
                 panic!("Can only extract car_cdr from Cons")
             }
         }

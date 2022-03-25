@@ -41,10 +41,15 @@ struct Opt {
     proof: Option<Option<String>>,
 
     #[structopt(
-        long("no-eval-input"),
-                        help("Do not evaluate inputs before passing to function when opening. Otherwise inputs are evaluated, but the evaluation is not proved.")
+        long("eval-input"),
+        help("Evaluate inputs before passing to function (outside the proof) when opening. Otherwise inputs are unevaluated.")
     )]
-    no_eval_input: bool,
+    eval_input: bool,
+    #[structopt(
+        long("quote-input"),
+        help("Quote input before passing to function when opening. Otherwise input will be passed unevaluated and unquoted. --quote-input and --eval-input would cancel each other out if used in conjunction, so is probably not what is desired.")
+    )]
+    quote_input: bool,
 
     #[structopt(
         short("l"),
@@ -188,13 +193,16 @@ impl FComm {
     fn input<F: PrimeField + Serialize>(&self, store: &mut Store<F>) -> Result<Ptr<F>, Error> {
         let path = self.input_path();
 
-        let input = if self.opt.no_eval_input {
-            let (quoted, _src) = self.read_no_eval_from_path(store, path)?;
-
-            quoted
-        } else {
+        let input = if self.opt.eval_input {
             let (evaled_input, _src) = self.read_eval_from_path(store, path)?;
             evaled_input
+        } else {
+            let (quoted, src) = self.read_no_eval_from_path(store, path)?;
+            if self.opt.quote_input {
+                quoted
+            } else {
+                src
+            }
         };
 
         Ok(input)
@@ -259,7 +267,7 @@ impl FComm {
         // Needed if we are creating a chained commitment.
         let commitment_path = Self::maybe_extract_path(&self.opt.commitment);
 
-        let proof = Opening::create_and_prove(
+        let proof = Opening::open_and_prove(
             &mut s,
             input,
             function,

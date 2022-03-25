@@ -388,9 +388,12 @@ impl<F: PrimeField + Serialize> Commitment<F> {
         let comm_ptr = self.ptr(s);
         let quoted_comm_ptr = s.list(&[quote, comm_ptr]);
 
+        // <commitment> is (fun-expr . secret)
+
         // (cdr <commitment>)
         let fun_expr = s.list(&[cdr, quoted_comm_ptr]);
 
+        // ((cdr commitment) input)
         s.list(&[fun_expr, input])
     }
 }
@@ -407,7 +410,7 @@ impl<F: PrimeField + Serialize> Function<F> {
 }
 
 impl Opening<Bls12> {
-    pub fn create_and_prove<P: AsRef<Path>>(
+    pub fn open_and_prove<P: AsRef<Path>>(
         s: &mut Store<<Bls12 as Engine>::Fr>,
         input: Ptr<<Bls12 as Engine>::Fr>,
         function: Function<<Bls12 as Engine>::Fr>,

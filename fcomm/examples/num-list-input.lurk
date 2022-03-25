@@ -1,0 +1,7 @@
+(letrec ((sum-aux (lambda (acc nums)
+                    (if nums
+                        (sum-aux (+ acc (car nums)) (cdr nums))
+                        acc)))
+         (sum (sum-aux 0)))
+        (lambda (nums)
+          (sum nums)))
