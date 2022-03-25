@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 use std::collections::BTreeMap;
 
 use ff::PrimeField;
@@ -11,8 +10,6 @@ use crate::ipld::IpldEmbed;
 use crate::ipld::IpldError;
 use crate::store::{Op1, Op2, Pointer, Ptr, Rel2, ScalarContPtr, ScalarPtr, Store, Tag};
 use crate::Num;
-
-
 
 /// `ScalarStore` allows realization of a graph of `ScalarPtr`s suitable for serialization to IPLD. `ScalarExpression`s
 /// are composed only of `ScalarPtr`s, so `scalar_map` suffices to allow traverseing an arbitrary DAG.
