@@ -322,6 +322,11 @@ mod tests {
         }
     }
 
+    // IMPORTANT: Run next tests at least once. Some are ignored because they
+    // are expensive. The criteria is that if the number of iteractions is
+    // more than 30 we ignore it.
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn outer_prove_arithmetic_let() {
         outer_prove_aux(
@@ -533,6 +538,812 @@ mod tests {
             DEFAULT_CHECK_NOVA,
             true,
             10,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate() {
+        outer_prove_aux(
+            &"((lambda (x) x) 99)",
+            |store| store.num(99),
+            4,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate2() {
+        outer_prove_aux(
+            &"((lambda (y)
+                   ((lambda (x) y) 888))
+                 99)",
+            |store| store.num(99),
+            9,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate3() {
+        outer_prove_aux(
+            &"((lambda (y)
+                    ((lambda (x)
+                       ((lambda (z) z)
+                        x))
+                     y))
+                  999)",
+            |store| store.num(999),
+            10,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate4() {
+        outer_prove_aux(
+            &"((lambda (y)
+                    ((lambda (x)
+                       ((lambda (z) z)
+                        x))
+                     ;; NOTE: We pass a different value here.
+                     888))
+                  999)",
+            |store| store.num(888),
+            10,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate5() {
+        outer_prove_aux(
+            &"(((lambda (fn)
+                     (lambda (x) (fn x)))
+                   (lambda (y) y))
+                  999)",
+            |store| store.num(999),
+            13,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_sum() {
+        outer_prove_aux(
+            &"(+ 2 (+ 3 4))",
+            |store| store.num(9),
+            6,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_diff() {
+        outer_prove_aux(
+            &"(- 9 5)",
+            |store| store.num(4),
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_product() {
+        outer_prove_aux(
+            &"(* 9 5)",
+            |store| store.num(45),
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_quotient() {
+        outer_prove_aux(
+            &"(/ 21 3)",
+            |store| store.num(7),
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_adder() {
+        outer_prove_aux(
+            &"(((lambda (x)
+                   (lambda (y)
+                     (+ x y)))
+                 2)
+                3)",
+            |store| store.num(5),
+            13,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_let_simple() {
+        outer_prove_aux(
+            &"(let ((a 1))
+                 a)",
+            |store| store.num(1),
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_let_bug() {
+        //TODO: fix this test
+        outer_prove_aux(
+            &"(let () (+ 1 2))",
+            |store| store.num(3),
+            4,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_let() {
+        outer_prove_aux(
+            &"(let ((a 1)
+                      (b 2)
+                      (c 3))
+                 (+ a (+ b c)))",
+            |store| store.num(6),
+            18,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_arithmetic() {
+        outer_prove_aux(
+            &"((((lambda (x)
+                     (lambda (y)
+                       (lambda (z)
+                         (* z
+                            (+ x y)))))
+                   2)
+                  3)
+                 4)",
+            |store| store.num(20),
+            23,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_arithmetic_let() {
+        outer_prove_aux(
+            &"(let ((x 2)
+                       (y 3)
+                       (z 4))
+                  (* z (+ x y)))",
+            |store| store.num(20),
+            18,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_comparison() {
+        outer_prove_aux(
+            &"(let ((x 2)
+                      (y 3)
+                      (z 4))
+                 (= 20 (* z
+                          (+ x y))))",
+            |store| store.t(),
+            21,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_conditional() {
+        outer_prove_aux(
+            &"(let ((true (lambda (a)
+                              (lambda (b)
+                                a)))
+                      (false (lambda (a)
+                               (lambda (b)
+                                 b)))
+                      ;; NOTE: We cannot shadow IF because it is built-in.
+                      (if- (lambda (a)
+                             (lambda (c)
+                               (lambda (cond)
+                                 ((cond a) c))))))
+                 (((if- 5) 6) true))",
+            |store| store.num(5),
+            35,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_conditional2() {
+        outer_prove_aux(
+            &"(let ((true (lambda (a)
+                              (lambda (b)
+                                a)))
+                      (false (lambda (a)
+                               (lambda (b)
+                                 b)))
+                      ;; NOTE: We cannot shadow IF because it is built-in.
+                      (if- (lambda (a)
+                             (lambda (c)
+                               (lambda (cond)
+                                 ((cond a) c))))))
+                 (((if- 5) 6) false))",
+            |store| store.num(6),
+            32,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_fundamental_conditional_bug() {
+        outer_prove_aux(
+            &"(let ((true (lambda (a)
+                              (lambda (b)
+                                a)))
+                      ;; NOTE: We cannot shadow IF because it is built-in.
+                      (if- (lambda (a)
+                             (lambda (c)
+                               (lambda (cond)
+                                 ((cond a) c))))))
+                 (((if- 5) 6) true))",
+            |store| store.num(5),
+            32,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_if() {
+        outer_prove_aux(
+            &"(if nil 5 6)",
+            |store| store.num(6),
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_fully_evaluates() {
+        outer_prove_aux(
+            &"(if t (+ 5 5) 6)",
+            |store| store.num(10),
+            5,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_recursion() {
+        outer_prove_aux(
+            &"(letrec ((exp (lambda (base)
+                                  (lambda (exponent)
+                                    (if (= 0 exponent)
+                                        1
+                                        (* base ((exp base) (- exponent 1))))))))
+                          ((exp 5) 3))",
+            |store| store.num(125),
+            91,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_recursion_multiarg() {
+        outer_prove_aux(
+            &"(letrec ((exp (lambda (base exponent)
+                                  (if (= 0 exponent)
+                                      1
+                                      (* base (exp base (- exponent 1)))))))
+                          (exp 5 3))",
+            |store| store.num(125),
+            95,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_recursion_optimized() {
+        outer_prove_aux(
+            &"(let ((exp (lambda (base)
+                               (letrec ((base-inner
+                                          (lambda (exponent)
+                                            (if (= 0 exponent)
+                                                1
+                                                (* base (base-inner (- exponent 1)))))))
+                                        base-inner))))
+                   ((exp 5) 3))",
+            |store| store.num(125),
+            75,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_tail_recursion() {
+        outer_prove_aux(
+            &"(letrec ((exp (lambda (base)
+                                  (lambda (exponent-remaining)
+                                    (lambda (acc)
+                                      (if (= 0 exponent-remaining)
+                                          acc
+                                          (((exp base) (- exponent-remaining 1)) (* acc base))))))))
+                          (((exp 5) 3) 1))",
+            |store| store.num(125),
+            129,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_tail_recursion_somewhat_optimized() {
+        outer_prove_aux(
+            &"(letrec ((exp (lambda (base)
+                                  (letrec ((base-inner
+                                             (lambda (exponent-remaining)
+                                               (lambda (acc)
+                                                 (if (= 0 exponent-remaining)
+                                                     acc
+                                                     ((base-inner (- exponent-remaining 1)) (* acc base)))))))
+                                           base-inner))))
+                          (((exp 5) 3) 1))",
+            |store| store.num(125),
+            110,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_no_mutual_recursion() {
+        //TODO: not working
+        outer_prove_aux(
+            &"(letrec ((even (lambda (n)
+                                 (if (= 0 n)
+                                     t
+                                     (odd (- n 1)))))
+                         (odd (lambda (n)
+                                (even (- n 1)))))
+                        ;; NOTE: This is not true mutual-recursion.
+                        ;; However, it exercises the behavior of LETREC.
+                        (odd 1))",
+            |store| store.t(),
+            22,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_no_mutual_recursion2() {
+        //TODO: not working
+        outer_prove_aux(
+            &"(letrec ((even (lambda (n)
+                                 (if (= 0 n)
+                                     t
+                                     (odd (- n 1)))))
+                         (odd (lambda (n)
+                                (even (- n 1)))))
+                        ;; NOTE: This is not true mutual-recursion.
+                        ;; However, it exercises the behavior of LETREC.
+                        (odd 2))",
+            |store| store.nil(),
+            25,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_let_no_body() {
+        outer_prove_aux(
+            &"(let ((a 9)))",
+            |store| store.nil(),
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_cons1() {
+        outer_prove_aux(
+            &"(car (cons 1 2))",
+            |store| store.num(1),
+            5,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_cons2() {
+        outer_prove_aux(
+            &"(cdr (cons 1 2))",
+            |store| store.num(2),
+            5,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_zero_arg_lambda1() {
+        outer_prove_aux(
+            &"((lambda () 123))",
+            |store| store.num(123),
+            4,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_zero_arg_lambda2() {
+        outer_prove_aux(
+            &"(let ((x 9) (f (lambda () (+ x 1)))) (f))",
+            |store| store.num(10),
+            13,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_minimal_tail_call() {
+        //TODO: not working
+        outer_prove_aux(
+            &"(letrec
+                  ((f (lambda (x)
+                        (if (= x 140)
+                            123
+                            (f (+ x 1))))))
+                  (f 0))",
+            |store| store.num(123),
+            300,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_cons_in_function1() {
+        outer_prove_aux(
+            &"(((lambda (a)
+                   (lambda (b)
+                     (car (cons a b))))
+                 2)
+                3)",
+            |store| store.num(2),
+            15,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_cons_in_function2() {
+        outer_prove_aux(
+            &"(((lambda (a)
+                   (lambda (b)
+                     (cdr (cons a b))))
+                 2)
+                3)",
+            |store| store.num(3),
+            15,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_multiarg_eval_bug() {
+        outer_prove_aux(
+            &"(car (cdr '(1 2 3 4)))",
+            |store| store.num(2),
+            4,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_multiple_letrec_bindings() {
+        outer_prove_aux(
+            &"(letrec
+                  ((x 888)
+                   (f (lambda (x)
+                        (if (= x 5)
+                            123
+                            (f (+ x 1))))))
+                  (f 0))",
+            |store| store.num(123),
+            78,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_tail_call2() {
+        outer_prove_aux(
+            &"(letrec
+                  ((f (lambda (x)
+                        (if (= x 5)
+                            123
+                            (f (+ x 1)))))
+                   (g (lambda (x) (f x))))
+                  (g 0))",
+            |store| store.num(123),
+            84,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_multiple_letrecstar_bindings() {
+        outer_prove_aux(
+            &"(letrec ((double (lambda (x) (* 2 x)))
+                          (square (lambda (x) (* x x))))
+                         (+ (square 3) (double 2)))",
+            |store| store.num(13),
+            22,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_multiple_letrecstar_bindings_referencing() {
+        outer_prove_aux(
+            &"(letrec ((double (lambda (x) (* 2 x)))
+                          (double-inc (lambda (x) (+ 1 (double x)))))
+                         (+ (double 3) (double-inc 2)))",
+            |store| store.num(11),
+            31,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_evaluate_multiple_letrecstar_bindings_recursive() {
+        outer_prove_aux(
+            &"(letrec ((exp (lambda (base exponent)
+                                 (if (= 0 exponent)
+                                     1
+                                     (* base (exp base (- exponent 1))))))
+                          (exp2 (lambda (base exponent)
+                                  (if (= 0 exponent)
+                                      1
+                                      (* base (exp2 base (- exponent 1))))))
+                          (exp3 (lambda (base exponent)
+                                  (if (= 0 exponent)
+                                      1
+                                      (* base (exp3 base (- exponent 1)))))))
+                         (+ (+ (exp 3 2) (exp2 2 3))
+                            (exp3 4 2)))",
+            |store| store.num(33),
+            242,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_dont_discard_rest_env() {
+        outer_prove_aux(
+            &"(let ((z 9))
+                  (letrec ((a 1)
+                            (b 2)
+                            (l (lambda (x) (+ z x))))
+                           (l 9)))",
+            |store| store.num(18),
+            22,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_fibonacci() {
+        outer_prove_aux(
+            &"(letrec ((next (lambda (a b n target)
+                    (if (eq n target)
+                        a
+                        (next b
+                            (+ a b)
+                            (+ 1 n)
+                            target))))
+                    (fib (next 0 1 0)))
+                (fib 1))",
+            |store| store.num(1),
+            89,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
             false,
         );
     }
