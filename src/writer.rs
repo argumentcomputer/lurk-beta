@@ -1,7 +1,5 @@
 use std::io;
 
-use ff::PrimeField;
-
 use crate::field::LurkField;
 use crate::store::{ContPtr, Continuation, Expression, Ptr, Store};
 

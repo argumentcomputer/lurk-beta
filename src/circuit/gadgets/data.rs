@@ -2,7 +2,6 @@ use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem, SynthesisError,
 };
-use ff::PrimeField;
 use neptune::circuit::poseidon_hash;
 
 use super::pointer::AsAllocatedHashComponents;

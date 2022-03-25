@@ -1,6 +1,5 @@
 #![allow(clippy::too_many_arguments)]
 use crate::field::LurkField;
-use ff::PrimeField;
 
 use crate::eval::IO;
 use crate::store::{ScalarPointer, Store};

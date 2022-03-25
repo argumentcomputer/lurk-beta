@@ -1,18 +1,7 @@
-use ff::Field;
 use ff::PrimeField;
 use libipld::cid::Cid;
-use libipld::Ipld;
 
-use core::cmp::Ord;
-use core::cmp::Ordering;
-use multihash::Code;
 use multihash::Multihash;
-use multihash::MultihashDigest;
-
-use core::ops::AddAssign;
-use core::ops::MulAssign;
-
-use pasta_curves::Fq;
 
 pub trait LurkField: ff::PrimeField {
     const FIELD_CODEC: u64;
@@ -26,9 +15,6 @@ pub trait LurkField: ff::PrimeField {
         Self::from_repr(def).into()
     }
 
-    //// This should probably be removed
-    //fn from_bytes_vartime(bs: &[u8]) -> Option<Self>;
-
     // Tags have to be `u32` because we're trying to fit them into `u64`
     // multicodecs without overlapping with the existing table. If we can
     // implement arbitrary-sized codecs though we can relax this to `u64`.
@@ -38,11 +24,18 @@ pub trait LurkField: ff::PrimeField {
     fn to_multicodec(f: Self) -> u64 {
         let tag: u32 = Self::to_tag(f);
 
-        Self::LURK_CODEC_PREFIX << 48 & Self::FIELD_CODEC << 32 & u64::from(tag)
+        Self::LURK_CODEC_PREFIX << 48 | Self::FIELD_CODEC << 32 | u64::from(tag)
     }
 
-    fn from_multicodec(codec: u64) -> Self {
-        Self::from(codec & 0x0000_0000_ffff_ffff)
+    fn from_multicodec(codec: u64) -> Option<Self> {
+        let lurk_prefix = (codec & 0xffff_0000_0000_0000) >> 48;
+        let field_prefix = (codec & 0x0000_ffff_0000_0000) >> 32;
+        let digest = codec & 0x0000_0000_ffff_ffff;
+        if lurk_prefix != Self::LURK_CODEC_PREFIX || field_prefix != Self::FIELD_CODEC {
+            None
+        } else {
+            Some(Self::from(digest as u64))
+        }
     }
 
     fn to_multihash(f: Self) -> Multihash {
@@ -56,6 +49,11 @@ pub trait LurkField: ff::PrimeField {
     fn to_cid(tag: Self, digest: Self) -> Cid {
         Cid::new_v1(Self::to_multicodec(tag), Self::to_multihash(digest))
     }
+    fn from_cid(cid: Cid) -> Option<(Self, Self)> {
+        let tag = Self::from_multicodec(cid.codec())?;
+        let dig = Self::from_multihash(*cid.hash())?;
+        Some((tag, dig))
+    }
 }
 
 impl LurkField for blstrs::Scalar {
@@ -63,28 +61,6 @@ impl LurkField for blstrs::Scalar {
     const HASH_CODEC: u64 = 2;
     const LURK_CODEC_PREFIX: u64 = 0xc0de;
     const NUM_BYTES: usize = 32;
-
-    //// This doesn't include a check that the bytes are canonical, so it
-    //// shouldn't be used. Including it for now just as a check that we
-    //// understand the byte representation
-    //fn from_bytes_vartime(bs: &[u8]) -> Option<Self> {
-    //    if bs.is_empty() || bs.len() != Self::NUM_BYTES {
-    //        return None;
-    //    }
-
-    //    let chunks: &[[u8; 8]] = unsafe { bs.as_chunks_unchecked::<8>() };
-
-    //    let mut res = Self::zero();
-
-    //    let shift = Self::from(u64::MAX) + Self::from(1);
-
-    //    for chunk in chunks.iter().rev() {
-    //        let limb = u64::from_le_bytes(*chunk);
-    //        res.mul_assign(&shift);
-    //        res.add_assign(&Self::from(limb));
-    //    }
-    //    Some(res)
-    //}
 
     fn to_tag(f: Self) -> u32 {
         let bytes: Vec<u8> = f.to_repr().as_ref().to_vec();
@@ -99,28 +75,6 @@ impl LurkField for pasta_curves::Fq {
     const LURK_CODEC_PREFIX: u64 = 0xc0de;
     const NUM_BYTES: usize = 32;
 
-    //// This doesn't include a check that the bytes are canonical, so it
-    //// shouldn't be used. Including it for now just as a check that we
-    //// understand the byte representation
-    //fn from_bytes_vartime(bs: &[u8]) -> Option<Self> {
-    //    if bs.is_empty() || bs.len() != Self::NUM_BYTES {
-    //        return None;
-    //    }
-
-    //    let chunks: &[[u8; 8]] = unsafe { bs.as_chunks_unchecked::<8>() };
-
-    //    let mut res = Self::zero();
-
-    //    let shift = Self::from(u64::MAX) + Self::from(1);
-
-    //    for chunk in chunks.iter().rev() {
-    //        let limb = u64::from_le_bytes(*chunk);
-    //        res.mul_assign(&shift);
-    //        res.add_assign(&Self::from(limb));
-    //    }
-    //    Some(res)
-    //}
-
     fn to_tag(f: Self) -> u32 {
         let bytes: Vec<u8> = f.to_repr().as_ref().to_vec();
         let bytes: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
@@ -133,18 +87,51 @@ mod test {
     use super::*;
     use blstrs::Scalar as Fr;
 
-    //#[test]
-    //fn test_from_bytes_consistency() {
-    //    let bytes = [[0x00; 8], [0x11; 8], [0x22; 8], [0x33; 8]].concat();
-    //    let f1 = <Fr as LurkField>::from_bytes(&bytes);
-    //    let f2 = <Fr as LurkField>::from_bytes_vartime(&bytes);
-    //    assert_eq!(f1, f2);
-    //}
-    #[test]
-    fn test_tag_consistency() {
-        let f1 = Fr::from(0xdead_beef);
+    use crate::ipld::FWrap;
+    use crate::store::Tag;
+    use quickcheck::{Arbitrary, Gen};
+    use rand::Rng;
+
+    #[quickcheck]
+    fn test_bytes_consistency(f1: FWrap<Fr>) -> bool {
+        let bytes = f1.0.to_repr().as_ref().to_owned();
+        let f2 = <Fr as LurkField>::from_bytes(&bytes);
+        Some(f1.0) == f2
+    }
+
+    #[quickcheck]
+    fn test_tag_consistency(x: Tag) -> bool {
+        let f1 = Fr::from(x as u64);
         let tag = <Fr as LurkField>::to_tag(f1);
         let f2 = Fr::from(tag as u64);
-        assert_eq!(f1, f2);
+        f1 == f2 && x as u32 == tag
+    }
+
+    #[quickcheck]
+    fn test_multicodec_consistency(x: Tag) -> bool {
+        let f1 = Fr::from(x as u64);
+        let codec = <Fr as LurkField>::to_multicodec(f1);
+        let f2 = <Fr as LurkField>::from_multicodec(codec);
+        println!("x: {:?}", x);
+        println!("f1: {}", f1);
+        println!("codec: {:0x}", codec);
+        println!("f2: {}", f1);
+        Some(f1) == f2
+    }
+    #[quickcheck]
+    fn test_multihash_consistency(f1: FWrap<Fr>) -> bool {
+        let hash = <Fr as LurkField>::to_multihash(f1.0);
+        let f2 = <Fr as LurkField>::from_multihash(hash);
+        Some(f1.0) == f2
+    }
+    #[quickcheck]
+    fn test_cid_consistency(args: (Tag, FWrap<Fr>)) -> bool {
+        let (tag1, dig1) = args;
+        let cid = <Fr as LurkField>::to_cid(Fr::from(tag1 as u64), dig1.0);
+        if let Some((tag2, dig2)) = <Fr as LurkField>::from_cid(cid) {
+            Fr::from(tag1 as u64) == tag2 && dig1.0 == dig2
+        } else {
+            false
+        }
     }
 }

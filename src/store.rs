@@ -1,4 +1,3 @@
-use ff::PrimeField;
 use itertools::Itertools;
 use neptune::Poseidon;
 use rayon::prelude::*;
@@ -14,7 +13,6 @@ use libipld::Cid;
 use libipld::Ipld;
 
 use crate::field::LurkField;
-use crate::ipld;
 use crate::ipld::IpldEmbed;
 use crate::ipld::IpldError;
 use crate::Num;
@@ -236,9 +234,8 @@ impl<F: LurkField> IpldEmbed for ScalarPtr<F> {
 
     fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
         let cid = Cid::from_ipld(ipld)?;
-        let tag = F::from_multicodec(cid.codec());
-        let dig = F::from_multihash(*cid.hash()).ok_or(IpldError::Expected(
-            String::from("Tag from Cid digest"),
+        let (tag, dig) = F::from_cid(cid).ok_or(IpldError::Expected(
+            String::from("ScalarPtr encoded as Cid"),
             Ipld::Link(cid),
         ))?;
 
@@ -297,9 +294,8 @@ impl<F: LurkField> IpldEmbed for ScalarContPtr<F> {
 
     fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
         let cid = Cid::from_ipld(ipld)?;
-        let tag = F::from_multicodec(cid.codec());
-        let dig = F::from_multihash(*cid.hash()).ok_or(IpldError::Expected(
-            String::from("Tag from Cid digest"),
+        let (tag, dig) = F::from_cid(cid).ok_or(IpldError::Expected(
+            String::from("ScalarContPtr encoded as Cid"),
             Ipld::Link(cid),
         ))?;
 
@@ -1907,6 +1903,25 @@ mod test {
     use blstrs::Scalar as Fr;
 
     use super::*;
+    use quickcheck::{Arbitrary, Gen};
+    use rand::Rng;
+
+    use crate::test::frequency;
+
+    impl Arbitrary for Tag {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Tag>)> = vec![
+                (100, Box::new(|_| Tag::Nil)),
+                (100, Box::new(|_| Tag::Cons)),
+                (100, Box::new(|_| Tag::Sym)),
+                (100, Box::new(|_| Tag::Fun)),
+                (100, Box::new(|_| Tag::Num)),
+                (100, Box::new(|_| Tag::Thunk)),
+                (100, Box::new(|_| Tag::Str)),
+            ];
+            frequency(g, input)
+        }
+    }
 
     #[test]
     fn test_print_num() {

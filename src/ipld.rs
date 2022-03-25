@@ -5,7 +5,6 @@ use core::num::TryFromIntError;
 use num_bigint::BigUint;
 
 use multihash::Code;
-use multihash::Multihash;
 use multihash::MultihashDigest;
 
 use libipld::cbor::DagCborCodec;
@@ -14,12 +13,6 @@ use libipld::Cid;
 use libipld::Ipld;
 
 use crate::field::LurkField;
-use crate::scalar_store::ScalarExpression;
-use crate::store::ContTag;
-use crate::store::ScalarContPtr;
-use crate::store::ScalarPtr;
-use crate::store::Tag;
-use ff::PrimeField;
 
 pub const DAGCBOR: u64 = 0x71;
 
@@ -136,6 +129,7 @@ impl IpldEmbed for BigUint {
 }
 
 // needed to avoid trait overlap with Cid
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FWrap<F: LurkField>(pub F);
 
 impl<F: LurkField> IpldEmbed for FWrap<F> {
@@ -217,4 +211,18 @@ impl<T: IpldEmbed> IpldEmbed for Option<T> {
     }
 }
 
-//
+#[cfg(test)]
+mod test {
+    use super::*;
+    use blstrs::Scalar as Fr;
+
+    use quickcheck::{Arbitrary, Gen};
+    use rand::Rng;
+
+    impl<F: LurkField> Arbitrary for FWrap<F> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let f = F::random(rand::thread_rng());
+            FWrap(f)
+        }
+    }
+}
