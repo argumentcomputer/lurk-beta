@@ -10,7 +10,7 @@ use crate::Num;
 
 /// `ScalarStore` allows realization of a graph of `ScalarPtr`s suitable for serialization to IPLD. `ScalarExpression`s
 /// are composed only of `ScalarPtr`s, so `scalar_map` suffices to allow traverseing an arbitrary DAG.
-#[derive(Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct ScalarStore<F: LurkField> {
     scalar_map: BTreeMap<ScalarPtr<F>, ScalarExpression<F>>,
     pending_scalar_ptrs: Vec<ScalarPtr<F>>,
@@ -425,6 +425,111 @@ mod test {
     use crate::store::ScalarPointer;
     use blstrs::Scalar as Fr;
 
+    use quickcheck::{Arbitrary, Gen};
+
+    use crate::test::frequency;
+
+    impl Arbitrary for ScalarThunk<Fr> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            ScalarThunk {
+                value: Arbitrary::arbitrary(g),
+                continuation: Arbitrary::arbitrary(g),
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn test_scalar_thunk_ipld_embed(x: ScalarThunk<Fr>) -> bool {
+        match ScalarThunk::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
+        }
+    }
+
+    impl Arbitrary for ScalarExpression<Fr> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> ScalarExpression<Fr>>)> = vec![
+                (100, Box::new(|_| Self::Nil)),
+                (
+                    100,
+                    Box::new(|g| Self::Cons(ScalarPtr::arbitrary(g), ScalarPtr::arbitrary(g))),
+                ),
+                (100, Box::new(|g| Self::Sym(String::arbitrary(g)))),
+                (100, Box::new(|g| Self::Str(String::arbitrary(g)))),
+                (100, Box::new(|g| Self::Num(Num::arbitrary(g)))),
+                (
+                    100,
+                    Box::new(|g| Self::Fun {
+                        arg: ScalarPtr::arbitrary(g),
+                        body: ScalarPtr::arbitrary(g),
+                        closed_env: ScalarPtr::arbitrary(g),
+                    }),
+                ),
+                (100, Box::new(|g| Self::Thunk(ScalarThunk::arbitrary(g)))),
+                (100, Box::new(|_| Self::OpaqueCons)),
+                (100, Box::new(|_| Self::OpaqueFun)),
+                (100, Box::new(|_| Self::OpaqueSym)),
+                (100, Box::new(|_| Self::OpaqueStr)),
+            ];
+            frequency(g, input)
+        }
+    }
+
+    #[quickcheck]
+    fn test_scalar_expr_ipld_embed(x: ScalarExpression<Fr>) -> bool {
+        match ScalarExpression::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
+        }
+    }
+
+    //// This doesn't create well-defined ScalarStores, but is still useful for
+    //// testing ipld
+    //impl Arbitrary for ScalarStore<Fr> {
+    //    fn arbitrary(g: &mut Gen) -> Self {
+    //        let map: Vec<(ScalarPtr<Fr>, ScalarExpression<Fr>)> = Arbitrary::arbitrary(g);
+    //        let pending: Vec<ScalarPtr<Fr>> = Arbitrary::arbitrary(g);
+    //        ScalarStore {
+    //            scalar_map: map.into_iter().collect(),
+    //            pending_scalar_ptrs: pending,
+    //        }
+    //    }
+    //}
+
+    //#[quickcheck]
+    //fn test_scalar_store_ipld_embed(x: ScalarStore<Fr>) -> bool {
+    //    match ScalarStore::from_ipld(&x.to_ipld()) {
+    //        Ok(y) if x == y => true,
+    //        Ok(y) => {
+    //            println!("x: {:?}", x);
+    //            println!("y: {:?}", y);
+    //            false
+    //        }
+    //        Err(e) => {
+    //            println!("{:?}", x);
+    //            println!("{:?}", e);
+    //            false
+    //        }
+    //    }
+    //}
     #[test]
     fn test_scalar_store() {
         let test = |src, expected| {
