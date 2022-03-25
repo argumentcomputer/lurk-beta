@@ -1899,6 +1899,7 @@ impl<F: LurkField> Expression<'_, F> {
 #[cfg(test)]
 mod test {
     use crate::eval::{empty_sym_env, Evaluator};
+    use crate::ipld::FWrap;
     use crate::writer::Write;
     use blstrs::Scalar as Fr;
 
@@ -1920,6 +1921,80 @@ mod test {
                 (100, Box::new(|_| Tag::Str)),
             ];
             frequency(g, input)
+        }
+    }
+    impl Arbitrary for ContTag {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> ContTag>)> = vec![
+                (100, Box::new(|_| ContTag::Outermost)),
+                (100, Box::new(|_| ContTag::Call)),
+                (100, Box::new(|_| ContTag::Call2)),
+                (100, Box::new(|_| ContTag::Tail)),
+                (100, Box::new(|_| ContTag::Error)),
+                (100, Box::new(|_| ContTag::Lookup)),
+                (100, Box::new(|_| ContTag::Unop)),
+                (100, Box::new(|_| ContTag::Binop)),
+                (100, Box::new(|_| ContTag::Binop2)),
+                (100, Box::new(|_| ContTag::Relop)),
+                (100, Box::new(|_| ContTag::Relop2)),
+                (100, Box::new(|_| ContTag::If)),
+                (100, Box::new(|_| ContTag::Let)),
+                (100, Box::new(|_| ContTag::LetRec)),
+                (100, Box::new(|_| ContTag::Dummy)),
+                (100, Box::new(|_| ContTag::Terminal)),
+                (100, Box::new(|_| ContTag::Emit)),
+            ];
+            frequency(g, input)
+        }
+    }
+
+    impl Arbitrary for ScalarPtr<Fr> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let tag = Tag::arbitrary(g);
+            let val = FWrap::arbitrary(g);
+            ScalarPtr::from_parts(Fr::from(tag as u64), val.0)
+        }
+    }
+
+    #[quickcheck]
+    fn test_scalar_ptr_ipld_embed(x: ScalarPtr<Fr>) -> bool {
+        match ScalarPtr::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
+        }
+    }
+
+    impl Arbitrary for ScalarContPtr<Fr> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let tag = ContTag::arbitrary(g);
+            let val = FWrap::arbitrary(g);
+            ScalarContPtr::from_parts(Fr::from(tag as u64), val.0)
+        }
+    }
+
+    #[quickcheck]
+    fn test_scalar_cont_ptr_ipld_embed(x: ScalarContPtr<Fr>) -> bool {
+        match ScalarContPtr::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
         }
     }
 

@@ -182,25 +182,22 @@ impl<F: LurkField> From<u64> for Num<F> {
 impl<F: LurkField> IpldEmbed for Num<F> {
     fn to_ipld(&self) -> Ipld {
         match self {
-            Num::Scalar(f) => Ipld::List([ipld::FWrap(*f).to_ipld()].into()),
-            Num::U64(x) => Ipld::List([x.to_ipld()].into()),
+            Num::Scalar(f) => ipld::FWrap(*f).to_ipld(),
+            Num::U64(x) => x.to_ipld(),
         }
     }
 
     fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
         use Ipld::*;
         match ipld {
-            List(xs) => match xs.as_slice() {
-                [Bytes(_)] => {
-                    let f = ipld::FWrap::from_ipld(&ipld)?;
-                    Ok(Num::Scalar(f.0))
-                }
-                [Integer(_)] => {
-                    let x = u64::from_ipld(&ipld)?;
-                    Ok(Num::U64(x))
-                }
-                xs => Err(IpldError::expected("Num", &List(xs.to_owned()))),
-            },
+            Bytes(_) => {
+                let f = ipld::FWrap::from_ipld(&ipld)?;
+                Ok(Num::Scalar(f.0))
+            }
+            Integer(_) => {
+                let x = u64::from_ipld(&ipld)?;
+                Ok(Num::U64(x))
+            }
             x => Err(IpldError::expected("Num", x)),
         }
     }
@@ -210,8 +207,47 @@ impl<F: LurkField> IpldEmbed for Num<F> {
 mod tests {
     use super::*;
 
+    use quickcheck::{Arbitrary, Gen};
+    use rand::Rng;
+
+    use crate::ipld::FWrap;
+    use crate::test::frequency;
     use blstrs::Scalar;
+    use blstrs::Scalar as Fr;
     use ff::Field;
+
+    impl Arbitrary for Num<Fr> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Num<Fr>>)> = vec![
+                (100, Box::new(|g| Num::U64(Arbitrary::arbitrary(g)))),
+                (
+                    100,
+                    Box::new(|g| {
+                        let f = FWrap::arbitrary(g);
+                        Num::Scalar(f.0)
+                    }),
+                ),
+            ];
+            frequency(g, input)
+        }
+    }
+
+    #[quickcheck]
+    fn test_num_ipld_embed(x: Num<Fr>) -> bool {
+        match Num::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
+        }
+    }
 
     #[test]
     fn test_add_assign() {

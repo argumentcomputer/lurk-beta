@@ -225,4 +225,21 @@ mod test {
             FWrap(f)
         }
     }
+
+    #[quickcheck]
+    fn test_fwrap_ipld_embed(x: FWrap<Fr>) -> bool {
+        match FWrap::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
+        }
+    }
 }
