@@ -718,7 +718,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_let_null_bindings() {
         outer_prove_aux(
             &"(let () (+ 1 2))",
@@ -732,7 +731,6 @@ mod tests {
         );
     }
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_letrec_null_bindings() {
         outer_prove_aux(
             &"(letrec () (+ 1 2))",
