@@ -140,6 +140,7 @@ fn test_create_open_and_verify_functional_commitment() {
     let function = Function::<Scalar> {
         source: function_source.into(),
         secret: None,
+        commitment: None,
     };
 
     let tmp_dir = TempDir::new("tmp").unwrap();
@@ -180,6 +181,7 @@ fn test_create_open_and_verify_higher_order_functional_commitment_aux(
     let function = Function::<Scalar> {
         source: function_source.into(),
         secret: None,
+        commitment: None,
     };
 
     let tmp_dir = TempDir::new("tmp").unwrap();
@@ -219,8 +221,6 @@ fn test_create_open_and_verify_higher_order_functional_commitment_aux(
 
 #[test]
 fn test_create_open_and_verify_higher_order_functional_commitment() {
-    use lurk::writer::Write;
-
     let function_source = "(lambda (f) (+ (f 3) 1))";
     let function_input = "(lambda (x) (* x 5))";
     let expected_output = "16";
@@ -233,8 +233,6 @@ fn test_create_open_and_verify_higher_order_functional_commitment() {
 
 #[test]
 fn test_create_open_and_verify_complicated_higher_order_functional_commitment1() {
-    use lurk::writer::Write;
-
     let function_source = "(let ((nums '(1 2 3 4 5))) (lambda (f) (f nums)))";
     let function_input = "(letrec ((sum-aux (lambda (acc nums)
                                               (if nums
@@ -256,8 +254,6 @@ fn test_create_open_and_verify_complicated_higher_order_functional_commitment1()
 #[ignore]
 // FIXME: This fails to verify, which seems to be a circuit bug.
 fn test_create_open_and_verify_complicated_higher_order_functional_commitment2() {
-    use lurk::writer::Write;
-
     let function_source = "(letrec ((secret-data '((joe 4 3) (bill 10 2 3) (jane 8 7 6 10) (carol 3 5 8))) (filter (lambda (data predicate) (if data (if (predicate (cdr (car data))) (cons (car data) (filter (cdr data) predicate)) (filter (cdr data) predicate))))) (f (lambda (predicate) (car (car (filter secret-data predicate)))))) f)";
 
     let function_input = "(letrec ((sum-aux (lambda (acc nums)

@@ -62,7 +62,7 @@ pub struct Evaluation {
     pub status: Status,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Commitment<F: PrimeField> {
     pub comm: F,
 }
@@ -124,7 +124,7 @@ pub struct Function<F: PrimeField + Serialize> {
     pub source: String,
     #[serde(bound(serialize = "F: Serialize", deserialize = "F: Deserialize<'de>"))]
     pub secret: Option<F>,
-    // TOOD: add Commitment here, and check it when opening.
+    pub commitment: Option<Commitment<F>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -461,6 +461,7 @@ impl Opening<Bls12> {
             let f = Function::<<Bls12 as Engine>::Fr> {
                 source: new_function.fmt_to_string(s),
                 secret: Some(new_secret),
+                commitment: Some(new_commitment),
             };
 
             if let Some(p) = chained_function_path {

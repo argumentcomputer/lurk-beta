@@ -243,6 +243,7 @@ impl FComm {
         } else {
             let (commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr);
             function.secret = Some(secret);
+            function.commitment = Some(commitment);
 
             function.write_to_path(self.function_path());
 
