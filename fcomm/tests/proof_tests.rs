@@ -78,17 +78,6 @@ fn test_verify_opening<T: AsRef<OsStr>>(mut cmd: Command, proof_path: T) {
 }
 
 #[test]
-fn test_verify_existing_expression_proof() {
-    let mut cmd = fcomm_cmd();
-
-    cmd.arg("verify")
-        .arg("--proof")
-        .arg("tests/data/proof.json");
-
-    cmd.assert().success().stdout("{\"verified\":true}");
-}
-
-#[test]
 fn test_prove_and_verify_expression() {
     let expression = "(* 9 7)";
     let expected = "63";
