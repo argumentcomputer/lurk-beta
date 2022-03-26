@@ -1,0 +1,43 @@
+(letrec ((secret-data '((joe 4 3)
+                        (bill 10 2 3)
+                        (jane 8 7 6 10)
+                        (carol 3 5 8)))
+         (filter (lambda (data predicate)
+                   (if data
+                       (if (predicate (cdr (car data)))
+                           (cons (car data)
+                                 (filter (cdr data) predicate))
+                           (filter (cdr data) predicate)))))
+         (f (lambda (predicate)
+              (car (car (filter secret-data predicate))))))
+        (f (letrec ((sum-aux (lambda (acc nums)
+                               (if nums
+                                   (sum-aux (+ acc (car nums)) (cdr nums))
+                                   acc)))
+                    (sum (sum-aux 0)))
+                   (lambda (nums)
+                     (= (sum nums) 31)))))
+
+(letrec ((secret-data '((joe 4 3)
+                        (bill 10 2 3)
+                        (jane 8 7 6 10)
+                        (carol 3 5 8)))
+         (filter (lambda (data predicate)
+                   (if data
+                       (if (predicate (cdr (car data)))
+                           (cons (car data)
+                                 (filter (cdr data) predicate))
+                           (filter (cdr data) predicate)))))
+         (f (lambda (predicate)
+              (car (car (filter secret-data predicate))))))
+        f)
+
+
+(letrec ((sum-aux (lambda (acc nums)
+                    (if nums
+                        (sum-aux (+ acc (car nums)) (cdr nums))
+                        acc)))
+         (sum (sum-aux 0)))
+        (lambda (nums)
+          (= (sum nums) 31)))
+
