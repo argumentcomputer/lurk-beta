@@ -55,7 +55,7 @@
 
 \begin{abstract}
   This document describes how Lurk circuits are constructed. It is a \textbf{work in progress}.
-  Right now it contain only a short overview of the specification. The reader can expect a complete description will be provided in the near future.
+  Right now it contains only a short overview of the specification. The reader can expect a complete description will be provided in the near future.
 \end{abstract}
 
 \tableofcontents
@@ -64,7 +64,7 @@
 
 \section{Introduction}
 
-Lurk is a functional programming language based on Lisp. It is based on Continuation Passing Style (CPS), which is an idea described in the book ``Essentials of Programming Languages''~\cite{FWbook}. We will summarize the main concepts involved in the design of the language, such that reader can understand how zero-knowledge proofs~\cite{groth16, nova, halo2} are constructed to provide privacy to Lurk's programs.
+Lurk is a functional programming language based on Lisp. An important concept in its design is Continuation Passing Style (CPS)~\footnote{A good source of information on CPS is the book ``Essentials of Programming Languages''~\cite{FWbook}}, where the control flow of programs can be managed through the usage of \textit{continuations}, which represents the rest of the computation. This technique allows to divide the program into small parts. Hence we have that we can build a small circuit for each part. We will summarize the main concepts involved in the design of the language, such that reader can understand how zero-knowledge proofs~\cite{groth16, nova, halo2} are constructed to provide privacy to Lurk's programs.
 
 \section{Lurk}
 
@@ -72,7 +72,7 @@ In this section we provide a summary of Lurk main elements. Shortly, an \textit{
 
 We have that the system's IO is formed by an expression, an environment and a continuation. These 3 elements are essential to comprehend Lurk. Each element is represented as a pointers, which is implemented using hash functions. In particular, we use Poseidon~\cite{poseidon} to instantiate our pointers.
 
-The environment has a list of bindings, which correspond to a mapping between variables and values. It has local bindings, meaning that the mapping is valid only for a specific evaluation of an expression. On the other hand, the global state is represented by the \textit{store}, which behaves as a memory of the system. We have that the store is global, while the environment is local.
+The environment has a list of bindings, which correspond to a mapping between variables and values in a certain point in time. Therefore it has local bindings, meaning that the mapping is valid only for a specific evaluation of an expression. On the other hand, the global state is represented by the \textit{store}, which behaves as a memory of the system. We have that the store is global, while the environment is local.
 
 \subsection{Overview}
 
@@ -98,7 +98,8 @@ The environment has a list of bindings, which correspond to a mapping between va
 See next the code snippet that implements the Fibonacci's sequence:
 
 \begin{verbatim}
-> (letrec ((next (lambda (a b n target)
+>
+(letrec ((next (lambda (a b n target)
         (if (eq n target)
             a
                 (next b
@@ -126,20 +127,18 @@ We call \textit{global symbols} the set of Lurk symbols that are pre-computed, s
 
 To reduce an expression, we require a substancial amount of conditions that depend upon comparisons among symbols. Those conditions involve mostly allocation of variables and pointers in the circuit, Boolean logic using those elements, and conditionals. This functionality is implemented in method $\redsym()$. The Boolean logic and equality tests are executed against global symbols and other auxiliary variables created along the process in order to decide how we are going to take decisions about control flow of Lurk programs. Using it we also can update the environment and the store accordingly.
 
-One of the most important building blocks in a functional language like Lisp and Lurk is \verb|cons|. It is used to concatenate \verb|car| and \verb|cdr|. Hence, whenever we want to break big expressions into smallers ones, we can use a combination of those elements. In function $\redcons()$ we deal with each different situation where those elements are necessary. Namely, to reduce an expression into smaller pieces, we allocate in the circuit some auxiliary variables for later utilization. In particular, $\carcdr()$ gadget is used as a building block. Since this computation is required for different situations, depending on the type fo expression we are handling, for each one we include a clause in a multicase gadget. Thus we can easily select desired result using this approach. The multicase selection is based on the \verb|head| of an expression, which is given by the \verb|car| of the expression. We return the result of the multicase.
+One of the most important building blocks in a functional language like Lisp and Lurk is \verb|cons|. It is used to concatenate \verb|car| and \verb|cdr|. Hence, whenever we want to break big expressions into smallers ones, we can use a combination of those elements. In function $\redcons()$ we deal with each different situation where those elements are necessary. Namely, to reduce an expression into smaller pieces, we allocate in the circuit some auxiliary variables for later utilization. In particular, $\carcdr()$ gadget is used as a building block. Since this computation is required for different situations, depending on the type fo expression we are handling, for each one we include a clause in a multicase gadget. Thus we can easily select the desired result using this approach. The multicase selection is based on the \verb|head| of an expression, which we get using \verb|car|. Finally, we return the result of the multicase.
 
 % It can be optimized in the same way as apply continuation
 
 %$\makethunk()$
 
 %%%%%%%%%%%%%%%%%%
-$\applycont()$
-
-For each continuation tag we need compute the next expression, environment, continuation and thunk. Therefore we have to allocate the appropriate pointers. This task is executed in 2 stages:
+Another important function is $\applycont()$. In order to finish a reduction step, we must calculate the output the frame, and that is what we are going to explain now. Each iteration has a continuation tag, and for each one we need to compute the next expression, environment, continuation and thunk. Therefore we have to constrain the system to prove we are computing the correct elements, and we have to allocate pointers to use them later. This task is executed in 2 stages:
 
 \begin{itemize}
-	\item[-] Some continuations require the calculation of a new pointer, while others don't. For those which indeed need a pointer, since implementation of pointer is based on a hash computation, and because hashes are expensive in the circuit, we use a multicase to select the appropriate hash preimage. Then we can compute the hash just once. This allows us to avoid computation of unnecessary hashes.
-	\item[-] Selection of the continuation results.
+	\item[-] Some continuations require the calculation of new pointers, while others don't. For those which indeed need new pointers, since the implementation of pointers requires a hash computation, and because hashes are expensive in the circuit, we use a multicase to select the appropriate hash preimage. Then we can compute the hashes just once. This allows us to avoid computation of unnecessary hashes.
+	\item[-] Selection of the continuation results using another multicase.
 \end{itemize}
 
 \subsection{Gadgets}
