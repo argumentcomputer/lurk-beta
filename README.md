@@ -107,9 +107,6 @@ INFO [lurk::eval] Frame: 10
 [build-link]: https://github.com/lurk-lang/lurk-rs/actions?query=workflow%3ACI+branch%3Amaster
 [msrv-image]: https://img.shields.io/badge/rustc-1.56+-blue.svg
 
-## Lurk website
-https://www.lurk-lang.org
-
 ## License
 
 MIT or Apache 2.0
