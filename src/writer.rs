@@ -134,13 +134,8 @@ impl<F: PrimeField> Write<F> for Continuation<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         match self {
             Continuation::Outermost => write!(w, "Outermost"),
-            Continuation::Call0 {
-                saved_env,
-                continuation,
-            } => {
-                write!(w, "Call0{{ saved_env: ")?;
-                saved_env.fmt(store, w)?;
-                write!(w, ", continuation: ")?;
+            Continuation::Call0 { continuation } => {
+                write!(w, "Call0{{ continuation: ")?;
                 continuation.fmt(store, w)?;
                 write!(w, " }}")
             }

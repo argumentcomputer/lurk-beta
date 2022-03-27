@@ -654,7 +654,7 @@ fn reduce_with_witness<F: PrimeField>(
                     let fun_form = head;
                     let args = rest;
                     if args.is_nil() {
-                        Control::Return(fun_form, env, store.intern_cont_call0(env, cont))
+                        Control::Return(fun_form, env, store.intern_cont_call0(cont))
                     } else {
                         let (arg, more_args) = store.car_cdr(&args);
                         match more_args.tag() {
@@ -719,15 +719,12 @@ fn apply_continuation<F: PrimeField>(
             _ => unreachable!(),
         },
         ContTag::Call0 => match store.fetch_cont(cont).unwrap() {
-            Continuation::Call0 {
-                saved_env,
-                continuation,
-            } => match result.tag() {
+            Continuation::Call0 { continuation } => match result.tag() {
                 Tag::Fun => match store.fetch(result).unwrap() {
-                    Expression::Fun(arg, body, _closed_env) => {
+                    Expression::Fun(arg, body, closed_env) => {
                         let body_form = store.car(&body);
                         if arg == store.sym("_") {
-                            Control::Return(body_form, saved_env, continuation)
+                            Control::Return(body_form, closed_env, continuation)
                         } else {
                             // Applying zero args to a non-zero arg function leaves it unchanged.
                             // This is arguably consistent with auto-currying.
@@ -768,27 +765,24 @@ fn apply_continuation<F: PrimeField>(
                 function,
                 saved_env,
                 continuation,
-            } => {
-                // assert_eq!(saved_env, *env);
-                match function.tag() {
-                    Tag::Fun => match store.fetch(&function).unwrap() {
-                        Expression::Fun(arg, body, closed_env) => {
-                            if arg == store.sym("_") {
-                                return Control::Return(*result, *env, store.intern_cont_error());
-                            }
-                            let body_form = store.car(&body);
-                            let newer_env = extend(closed_env, arg, *result, store);
-                            let cont = make_tail_continuation(saved_env, continuation, store);
-                            Control::Return(body_form, newer_env, cont)
+            } => match function.tag() {
+                Tag::Fun => match store.fetch(&function).unwrap() {
+                    Expression::Fun(arg, body, closed_env) => {
+                        if arg == store.sym("_") {
+                            return Control::Return(*result, *env, store.intern_cont_error());
                         }
-                        _ => unreachable!(),
-                    },
-                    _ => {
-                        Control::Return(*result, *env, store.intern_cont_error())
-                        // panic!("Call2 continuation contains a non-function: {:?}", function);
+                        let body_form = store.car(&body);
+                        let newer_env = extend(closed_env, arg, *result, store);
+                        let cont = make_tail_continuation(saved_env, continuation, store);
+                        Control::Return(body_form, newer_env, cont)
                     }
+                    _ => unreachable!(),
+                },
+                _ => {
+                    Control::Return(*result, *env, store.intern_cont_error())
+                    // panic!("Call2 continuation contains a non-function: {:?}", function);
                 }
-            }
+            },
             _ => unreachable!(),
         },
         ContTag::Let => match store.fetch_cont(cont).unwrap() {
