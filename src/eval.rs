@@ -737,7 +737,7 @@ fn apply_continuation<F: PrimeField>(
                     }
                     _ => unreachable!(),
                 }, // Bad function
-                _ => todo!("return error continuation"),
+                _ => Control::Return(*result, *env, store.intern_cont_error()),
             },
             _ => unreachable!(),
         },
@@ -2294,6 +2294,23 @@ mod test {
 
             assert_eq!(s.intern_cont_error(), continuation);
             assert_eq!(3, iterations);
+        }
+        {
+            let mut s = Store::<Fr>::default();
+            let limit = 20;
+            let expr = s.read("(123)").unwrap();
+
+            let (
+                IO {
+                    expr: _result_expr,
+                    env: _new_env,
+                    cont: continuation,
+                },
+                iterations,
+            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+            assert_eq!(s.intern_cont_error(), continuation);
+            assert_eq!(2, iterations);
         }
     }
 

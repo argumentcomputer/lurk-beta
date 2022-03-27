@@ -1164,14 +1164,30 @@ mod tests {
             false,
         );
     }
+
     #[test]
     fn outer_prove_evaluate_zero_arg_lambda4() {
         // FIXME: This should be an error.
         // Tests don't currently have a way of checking this, but we need that.
         outer_prove_aux(
             &"((lambda () 123) 1)",
-            |store| store.num(123),
+            |store| todo!(),
             3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+    #[test]
+    fn outer_prove_evaluate_zero_arg_lambda5() {
+        // FIXME: This should be an error.
+        // Tests don't currently have a way of checking this, but we need that.
+        outer_prove_aux(
+            &"(123)",
+            |store| todo!(),
+            2,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
