@@ -1119,6 +1119,8 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
 
     let (head, rest) = car_cdr(&mut cs.namespace(|| "reduce_cons expr"), g, expr, store)?;
 
+    let rest_is_nil = rest.alloc_equal(&mut cs.namespace(|| "rest_is_nil"), &g.nil_ptr)?;
+
     // let not_dummy = alloc_equal(&mut cs.namespace(|| "rest is cons"), &rest.tag, &g.cons_tag)?;
 
     let (arg1, more) = car_cdr(&mut cs.namespace(|| "car_cdr(rest)"), g, &rest, store)?;
@@ -1136,7 +1138,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
 
         let (car_args, cdr_args) = car_cdr(&mut cs.namespace(|| "car_cdr args"), g, &args, store)?;
 
-        // FIXME: There maybe some cases where cdr_args is wrong/differs from eval.rs.
+        // FIXME: There may be some cases where cdr_args is wrong/differs from eval.rs.
 
         let arg = AllocatedPtr::pick(
             &mut cs.namespace(|| "maybe dummy arg"),
@@ -1479,6 +1481,25 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
             &[env, &arg1, cont, &[&g.default_num, &g.default_num]],
         )?;
 
+        let call0_continuation = AllocatedContPtr::construct(
+            &mut cs.namespace(|| "Call0"),
+            store,
+            &g.call0_cont_tag,
+            &[
+                cont,
+                &[&g.default_num, &g.default_num],
+                &[&g.default_num, &g.default_num],
+                &[&g.default_num, &g.default_num],
+            ],
+        )?;
+
+        let the_call_continuation = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "the_call_tag"),
+            &rest_is_nil,
+            &call0_continuation,
+            &call_continuation,
+        )?;
+
         let expanded_inner = AllocatedPtr::construct_list(
             &mut cs.namespace(|| "expanded_inner"),
             g,
@@ -1507,7 +1528,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         let continuation = AllocatedContPtr::pick(
             &mut cs.namespace(|| "pick continuation"),
             &more_args_is_nil,
-            &call_continuation,
+            &the_call_continuation,
             cont,
         )?;
 

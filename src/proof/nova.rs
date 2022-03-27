@@ -1171,7 +1171,7 @@ mod tests {
         // Tests don't currently have a way of checking this, but we need that.
         outer_prove_aux(
             &"((lambda () 123) 1)",
-            |store| todo!(),
+            |store| store.num(999),
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1186,7 +1186,7 @@ mod tests {
         // Tests don't currently have a way of checking this, but we need that.
         outer_prove_aux(
             &"(123)",
-            |store| todo!(),
+            |store| store.num(999),
             2,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
