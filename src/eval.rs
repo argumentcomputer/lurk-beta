@@ -653,23 +653,25 @@ fn reduce_with_witness<F: PrimeField>(
                     // (fn . args)
                     let fun_form = head;
                     let args = rest;
-                    let (arg, more_args) = if args.is_nil() {
-                        (store.nil(), store.nil())
+                    if args.is_nil() {
+                        Control::Return(fun_form, env, store.intern_cont_call0(env, cont))
                     } else {
-                        store.car_cdr(&args)
-                    };
-                    match more_args.tag() {
-                        // (fn arg)
-                        // Interpreting as call.
-                        Tag::Nil => {
-                            Control::Return(fun_form, env, store.intern_cont_call(arg, env, cont))
-                        }
-                        _ => {
-                            // Interpreting as multi-arg call.
-                            // (fn arg . more_args) => ((fn arg) . more_args)
-                            let expanded_inner = store.list(&[fun_form, arg]);
-                            let expanded = store.cons(expanded_inner, more_args);
-                            Control::Return(expanded, env, cont)
+                        let (arg, more_args) = store.car_cdr(&args);
+                        match more_args.tag() {
+                            // (fn arg)
+                            // Interpreting as call.
+                            Tag::Nil => Control::Return(
+                                fun_form,
+                                env,
+                                store.intern_cont_call(arg, env, cont),
+                            ),
+                            _ => {
+                                // Interpreting as multi-arg call.
+                                // (fn arg . more_args) => ((fn arg) . more_args)
+                                let expanded_inner = store.list(&[fun_form, arg]);
+                                let expanded = store.cons(expanded_inner, more_args);
+                                Control::Return(expanded, env, cont)
+                            }
                         }
                     }
                 }
@@ -716,6 +718,30 @@ fn apply_continuation<F: PrimeField>(
             Continuation::Emit { continuation } => Control::MakeThunk(*result, *env, continuation),
             _ => unreachable!(),
         },
+        ContTag::Call0 => match store.fetch_cont(cont).unwrap() {
+            Continuation::Call0 {
+                saved_env,
+                continuation,
+            } => match result.tag() {
+                Tag::Fun => match store.fetch(result).unwrap() {
+                    Expression::Fun(arg, body, _closed_env) => {
+                        let body_form = store.car(&body);
+                        if arg == store.sym("_") {
+                            Control::Return(body_form, saved_env, continuation)
+                        } else {
+                            // Applying zero args to a non-zero arg function leaves it unchanged.
+                            // This is arguably consistent with auto-currying.
+                            // TODO: maybe it should be an error.
+                            Control::Return(*result, *env, continuation)
+                        }
+                    }
+                    _ => unreachable!(),
+                }, // Bad function
+                _ => todo!("return error continuation"),
+            },
+            _ => unreachable!(),
+        },
+
         ContTag::Call => match result.tag() {
             // (arg, saved_env, continuation)
             Tag::Fun => match store.fetch_cont(cont).unwrap() {
@@ -744,6 +770,9 @@ fn apply_continuation<F: PrimeField>(
             } => match function.tag() {
                 Tag::Fun => match store.fetch(&function).unwrap() {
                     Expression::Fun(arg, body, closed_env) => {
+                        if arg == store.sym("_") {
+                            return Control::Return(*result, *env, store.intern_cont_error());
+                        }
                         let body_form = store.car(&body);
                         let newer_env = extend(closed_env, arg, *result, store);
                         let cont = make_tail_continuation(saved_env, continuation, store);
@@ -2191,7 +2220,6 @@ mod test {
             assert!(result_expr.is_nil());
         }
     }
-
     #[test]
     fn evaluate_zero_arg_lambda() {
         {
@@ -2208,7 +2236,7 @@ mod test {
                 iterations,
             ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
-            assert_eq!(4, iterations);
+            assert_eq!(3, iterations);
             assert_eq!(s.num(123), result_expr);
         }
         {
@@ -2227,8 +2255,45 @@ mod test {
                 iterations,
             ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
-            assert_eq!(14, iterations);
             assert_eq!(s.num(10), result_expr);
+            assert_eq!(12, iterations);
+        }
+    }
+    #[test]
+    fn evaluate_zero_arg_lambda_variants() {
+        {
+            let mut s = Store::<Fr>::default();
+            let limit = 20;
+            let expr = s.read("((lambda (x) 123))").unwrap();
+
+            let (
+                IO {
+                    expr: result_expr,
+                    env: _new_env,
+                    cont: _continuation,
+                },
+                iterations,
+            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+            assert_eq!(crate::store::Tag::Fun, result_expr.tag());
+            assert_eq!(3, iterations);
+        }
+        {
+            let mut s = Store::<Fr>::default();
+            let limit = 20;
+            let expr = s.read("((lambda () 123) 1)").unwrap();
+
+            let (
+                IO {
+                    expr: _result_expr,
+                    env: _new_env,
+                    cont: continuation,
+                },
+                iterations,
+            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+            assert_eq!(s.intern_cont_error(), continuation);
+            assert_eq!(3, iterations);
         }
     }
 
