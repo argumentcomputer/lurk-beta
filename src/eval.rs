@@ -729,7 +729,6 @@ fn apply_continuation<F: PrimeField>(
                             // Applying zero args to a non-zero arg function leaves it unchanged.
                             // This is arguably consistent with auto-currying.
                             // TODO: maybe it should be an error.
-                            //let cont = make_tail_continuation(saved_env, continuation, store);
                             Control::Return(*result, *env, continuation)
                         }
                     }
