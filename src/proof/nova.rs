@@ -1135,7 +1135,7 @@ mod tests {
         outer_prove_aux(
             &"(let ((x 9) (f (lambda () (+ x 1)))) (f))",
             |store| store.num(10),
-            12,
+            10,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
