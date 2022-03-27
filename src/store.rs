@@ -1919,21 +1919,22 @@ mod test {
         use super::ContTag::*;
 
         assert_eq!(0b0001_0000_0000_0000, Outermost as u16);
-        assert_eq!(0b0001_0000_0000_0001, Call as u16);
-        assert_eq!(0b0001_0000_0000_0010, Call2 as u16);
-        assert_eq!(0b0001_0000_0000_0011, Tail as u16);
-        assert_eq!(0b0001_0000_0000_0100, Error as u16);
-        assert_eq!(0b0001_0000_0000_0101, Lookup as u16);
-        assert_eq!(0b0001_0000_0000_0110, Unop as u16);
-        assert_eq!(0b0001_0000_0000_0111, Binop as u16);
-        assert_eq!(0b0001_0000_0000_1000, Binop2 as u16);
-        assert_eq!(0b0001_0000_0000_1001, Relop as u16);
-        assert_eq!(0b0001_0000_0000_1010, Relop2 as u16);
-        assert_eq!(0b0001_0000_0000_1011, If as u16);
-        assert_eq!(0b0001_0000_0000_1100, Let as u16);
-        assert_eq!(0b0001_0000_0000_1101, LetRec as u16);
-        assert_eq!(0b0001_0000_0000_1110, Dummy as u16);
-        assert_eq!(0b0001_0000_0000_1111, Terminal as u16);
+        assert_eq!(0b0001_0000_0000_0001, Call0 as u16);
+        assert_eq!(0b0001_0000_0000_0010, Call as u16);
+        assert_eq!(0b0001_0000_0000_0011, Call2 as u16);
+        assert_eq!(0b0001_0000_0000_0100, Tail as u16);
+        assert_eq!(0b0001_0000_0000_0101, Error as u16);
+        assert_eq!(0b0001_0000_0000_0110, Lookup as u16);
+        assert_eq!(0b0001_0000_0000_0111, Unop as u16);
+        assert_eq!(0b0001_0000_0000_1000, Binop as u16);
+        assert_eq!(0b0001_0000_0000_1001, Binop2 as u16);
+        assert_eq!(0b0001_0000_0000_1010, Relop as u16);
+        assert_eq!(0b0001_0000_0000_1011, Relop2 as u16);
+        assert_eq!(0b0001_0000_0000_1100, If as u16);
+        assert_eq!(0b0001_0000_0000_1101, Let as u16);
+        assert_eq!(0b0001_0000_0000_1110, LetRec as u16);
+        assert_eq!(0b0001_0000_0000_1111, Dummy as u16);
+        assert_eq!(0b0001_0000_0001_0000, Terminal as u16);
     }
 
     #[test]
