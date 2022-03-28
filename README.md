@@ -5,9 +5,32 @@
 
 # Disclaimer
 
-**DISCLAIMER:** Lurk is an early research-stage language. Neither the cryptography nor the software has been audited, and there is currently no trusted setup for Groth16 circuits. Do not use Lurk in production environments or anywhere else that security is necessary. 
+**DISCLAIMER:** Lurk is an early research-stage language. Neither the cryptography nor the software has been audited, and there is currently no trusted setup for Groth16 circuits. Do not use Lurk in production environments or anywhere else that security is necessary.
 
-# Submodules
+# Overview
+
+Lurk is a statically scoped dialect of Lisp, influenced by Scheme and Common Lisp. A language specification and reference implementation focused on describing and developing the core language can be found in the [`lurk` repo](https://github.com/lurk-lang/lurk).
+
+- [High-level Core Lurk Language Specification](https://github.com/lurk-lang/lurk/spec/v0-1.md)
+
+Evaluation of Lurk expressions can be proved in zk-SNARKs, and this is its distinguishing feature. Lurk data is content-addressable, using SNARK-friendly Poseidon hashes (provided by [Neptune](https://github.com/neptune)) to construct compound data. In order to 
+
+# Proofs
+
+Integration with backend proving systems and tooling for proof generation are both still very early. Performance user experience are poor, but simple examples can be found in the [fcomm example directory](fcomm/README.md).
+
+# Backends
+- The `fcomm` example uses Groth16/SnarkPack+ to generate succinct (but somewhat large) proofs, using Bls12-381.
+- The forthcoming Nova backend will use the [Nova proving system](https://github.com/microsoft/Nova) and the Pasta Curves.
+- Future work may target Halo2 or other proving systems.
+
+It is an explicit design goal that statements about the evaluation of Lurk programs have identical semantic meaning across backends, with the qualification that Lurk language instances are themselves paramterized on scalar field and hash function. When backends use the same scalar field and hash function, equivalent proofs can be generated across backends. This is because the concrete representation of content-addressed data is fixed.
+
+
+---
+# Build
+
+## Submodules
 
 Lurk source files used in tests are in the [lurk-lib](https://github.com/lurk-lang/lurk-lib) submodule. You must
 initialize and update submodules before test will pass.
