@@ -27,6 +27,11 @@ Integration with backend proving systems and tooling for proof generation are bo
 
 It is an explicit design goal that statements about the evaluation of Lurk programs have identical semantic meaning across backends, with the qualification that Lurk language instances are themselves paramterized on scalar field and hash function. When backends use the same scalar field and hash function, equivalent proofs can be generated across backends. This is because the concrete representation of content-addressed data is fixed.
 
+# (WIP) Specs
+- [Circuit Spec](spec/main.pdf)
+- [Evaluation Spec](spec/eval.md)
+- [Reduction Notes](spec/reduction-notes.md)
+
 ---
 # Build
 
