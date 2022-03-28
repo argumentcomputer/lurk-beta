@@ -13,7 +13,7 @@
 
 # Overview
 
-Lurk is a statically scoped dialect of Lisp, influenced by Scheme and Common Lisp. A language specification and reference implementation focused on describing and developing the core language can be found in the [`lurk` repo](https://github.com/lurk-lang/lurk).
+Lurk is a statically scoped dialect of Lisp, influenced by Scheme and Common Lisp. A language specification and reference implementation focused on describing and developing the core language can be found in the [`lurk`](https://github.com/lurk-lang/lurk) repo.
 
 - [Lurk Language Specification](https://github.com/lurk-lang/lurk/blob/master/spec/v0-1.md)
 
