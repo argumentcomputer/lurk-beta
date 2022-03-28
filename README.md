@@ -24,7 +24,7 @@ Evaluation of Lurk expressions can be proved in zk-SNARKs, and this is its disti
 Integration with backend proving systems and tooling for proof generation are both still very early. Performance user experience are poor, but simple examples can be found in the [fcomm example directory](fcomm/README.md).
 
 # Backends
-- The `fcomm` example uses Groth16/SnarkPack[+](https://github.com/filecoin-project/bellperson/pull/257) to generate succinct (but somewhat large) proofs, using Bls12-381.
+- The `fcomm` example uses Groth16/[SnarkPack](https://eprint.iacr.org/2021/529)[+](https://github.com/filecoin-project/bellperson/pull/257) to generate succinct (but somewhat large) proofs, using Bls12-381.
 - The forthcoming Nova backend will use the [Nova proving system](https://github.com/microsoft/Nova) and the Pasta Curves.
 - Future work may target Halo2 or other proving systems.
 
