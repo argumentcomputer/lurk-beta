@@ -138,7 +138,7 @@ Another important function is $\applycont()$. In order to finish a reduction ste
 
 \begin{itemize}
 Some continuations require the calculation of new pointers, while others don't. For those which need new pointers, since the implementation of pointers requires a hash computation and because hashes are expensive in the circuit, we use a multicase to select the appropriate hash preimage. Then we can compute the hashes just once. This allows us to avoid computing unnecessary hashes.
-	\item[-] Selection of the continuation results using another multicase.
+	\item[-] We then use another multicase to select the continuation results.
 \end{itemize}
 
 \subsection{Gadgets}
