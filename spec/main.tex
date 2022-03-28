@@ -137,7 +137,7 @@ One of the most important building blocks in a functional language like Lisp and
 Another important function is $\applycont()$. In order to finish a reduction step, we must calculate the output of the frame, which is what we are going to explain now. Each iteration has a continuation tag, and for each one we need to compute the next expression, environment, continuation, and thunk. Therefore, we have to constrain the system to prove we are computing the correct elements, and we have to allocate pointers to use them later. This task is executed in 2 stages:
 
 \begin{itemize}
-	\item[-] Some continuations require the calculation of new pointers, while others don't. For those which need new pointers, since the implementation of pointers requires a hash computation and because hashes are expensive in the circuit, we use a multicase to select the appropriate hash preimage. Then we can compute the hashes just once. This allows us to avoid computating unnecessary hashes.
+Some continuations require the calculation of new pointers, while others don't. For those which need new pointers, since the implementation of pointers requires a hash computation and because hashes are expensive in the circuit, we use a multicase to select the appropriate hash preimage. Then we can compute the hashes just once. This allows us to avoid computing unnecessary hashes.
 	\item[-] Selection of the continuation results using another multicase.
 \end{itemize}
 
