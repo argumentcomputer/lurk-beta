@@ -789,6 +789,7 @@ fn reduce_sym<F: PrimeField, CS: ConstraintSystem<F>>(
 
     let env_is_nil = env.alloc_equal(&mut cs.namespace(|| "env is nil"), &g.nil_ptr)?;
     let env_not_nil = Boolean::not(&env_is_nil);
+
     let otherwise = Boolean::and(
         &mut cs.namespace(|| "otherwise"),
         &sym_otherwise,
@@ -796,7 +797,6 @@ fn reduce_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     )?;
 
     let binding_is_nil = binding.alloc_equal(&mut cs.namespace(|| "binding is nil"), &g.nil_ptr)?;
-
     let binding_not_nil = Boolean::not(&binding_is_nil);
 
     let otherwise_and_binding_is_nil = and!(cs, &otherwise, &binding_is_nil)?;
@@ -805,10 +805,15 @@ fn reduce_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     let (var_or_rec_binding, val_or_more_rec_env) =
         car_cdr(&mut cs.namespace(|| "car_cdr binding"), g, &binding, store)?;
 
-    let var_or_rec_binding_is_sym = alloc_equal(
-        &mut cs.namespace(|| "var_or_rec_binding_is_sym"),
+    let var_or_rec_binding_is_sym_ = alloc_equal(
+        &mut cs.namespace(|| "var_or_rec_binding_is_sym_"),
         var_or_rec_binding.tag(),
         &g.sym_tag,
+    )?;
+    let var_or_rec_binding_is_sym = Boolean::and(
+        &mut cs.namespace(|| "var_or_rec_binding_is_sym"),
+        &var_or_rec_binding_is_sym_,
+        &otherwise_and_binding_not_nil,
     )?;
 
     let v = var_or_rec_binding.clone();
@@ -817,9 +822,7 @@ fn reduce_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     let v_not_expr1 = Boolean::not(&v_is_expr1);
 
     let otherwise_and_sym = and!(cs, &v_not_expr1, &var_or_rec_binding_is_sym)?;
-    let otherwise_and_v_expr_and_sym = and!(cs, &v_is_expr1, &var_or_rec_binding_is_sym)?;
-
-    let v_is_expr1_real = and!(cs, &v_is_expr1, &otherwise_and_v_expr_and_sym)?;
+    let v_is_expr1_real = and!(cs, &v_is_expr1, &var_or_rec_binding_is_sym)?;
 
     let var_or_rec_binding_is_cons = alloc_equal(
         &mut cs.namespace(|| "var_or_rec_binding_is_cons"),
