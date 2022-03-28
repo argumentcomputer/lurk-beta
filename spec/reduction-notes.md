@@ -6,7 +6,7 @@ more normalized (but still WIP) specification, see the [Eval Spec](eval.md)
 The [Lurk Language Specification](https://github.com/lurk-lang/lurk/blob/master/spec/v0-1.md) defines evaluation
 semantics without specifying the internal data structures or computational steps which an implementation must use to
 calculate an evaluation. `lurk-rs` implements a concrete instance of the Lurk language for which proofs of correct
-evaluation can be generated. `lurk-rs` generates zk-SNARKs for multiple backends, and verification of these
+evaluation can be generated. `lurk-rs` generates zk-SNARK proofs for multiple backends, and verification of these
 proofs requires reference to a verification key whose identity is derived from the computation encoded in the
 corresponding arithmetic circuit. The initial Lurk circuit implementation is specified as a Rank-1 Constraint System
 (R1CS), from which Groth16 or Nova proofs are created.
