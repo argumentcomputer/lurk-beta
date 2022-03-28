@@ -151,10 +151,10 @@ In order to construct the circuit we use some gadgets and auxiliary functions as
 	\end{itemize}
 	\item[-] Constraints:
 	\begin{itemize}
-    \item \textbf{Arithmetic operations:} We can use it to constrain arithmetic operations ($+, -, \star, \slash$) in the subjacent finite field.
-	  \item[-] \textbf{Pointers:} we have that pointers are formed by a \emph{tag}, which allows to indentify the type of the pointer, and a \emph{hash} that links the pointer to its content, which is given by the hash preimage.
+    \item \textbf{Arithmetic operations:} used to constrain arithmetic operations ($+, -, \star, \slash$) in the subjacent finite field.
+	  \item[-] \textbf{Pointers:} formed by a \emph{tag}, which allows us to identify the type of the pointer, and a \emph{hash} that links the pointer to its content, which is given by the hash preimage.
     \item[-] \textbf{Data:} we have functions to allocate different types of data by using pointers. Later we can access the data using dictionaries.
-    \item[-] \textbf{Multicase:} this component is used to select results based on certain selection tags. It is basically a set of \verb|cases| that shares the same set of selection tags. A multicase whose size is equal to 1 is the same as a regular \verb|case|.
+    \item[-] \textbf{Multicase:} used to select results based on certain selection tags. It is basically a set of \verb|cases| that shares the same set of selection tags. A multicase whose size is equal to 1 is the same as a regular \verb|case|.
   \end{itemize}
 \end{itemize}
 
