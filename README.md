@@ -27,7 +27,6 @@ Integration with backend proving systems and tooling for proof generation are bo
 
 It is an explicit design goal that statements about the evaluation of Lurk programs have identical semantic meaning across backends, with the qualification that Lurk language instances are themselves paramterized on scalar field and hash function. When backends use the same scalar field and hash function, equivalent proofs can be generated across backends. This is because the concrete representation of content-addressed data is fixed.
 
-
 ---
 # Build
 
@@ -48,9 +47,19 @@ Or use the wrapper script:
 bin/lurkrs
 ```
 
-Enable `info` log-level for a trace of reduction frames:
 ```
 ➜  lurk-rs ✗ bin/lurkrs
+    Finished release [optimized] target(s) in 0.06s
+     Running `target/release/examples/repl`
+Lurk REPL welcomes you.
+> (let ((square (lambda (x) (* x x)))) (square 8))
+[9 iterations] => 64
+>
+```
+
+Or enable `info` log-level for a trace of reduction frames:
+```
+➜  lurk-rs ✗ RUST_LOG=info bin/lurkrs
     Finished release [optimized] target(s) in 0.05s
      Running `target/release/examples/repl`
 Lurk REPL welcomes you.
