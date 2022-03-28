@@ -1,7 +1,8 @@
 # Lurk
 
-[![Build Status][build-image]][build-link]
-![minimum rustc 1.56][msrv-image]
+[build-image]: https://github.com/lurk-lang/lurk-rs/workflows/CI/badge.svg
+[build-link]: https://github.com/lurk-lang/lurk-rs/actions?query=workflow%3ACI+branch%3Amaster
+[msrv-image]: https://img.shields.io/badge/rustc-1.56+-blue.svg
 
 # Disclaimer
 
@@ -38,7 +39,7 @@ initialize and update submodules before test will pass.
 ## Repl
 
 ```
-cargo run --example lurk
+cargo run --example repl
 ```
 
 Or use the wrapper script:
@@ -51,7 +52,7 @@ Enable `info` log-level for a trace of reduction frames:
 ```
 ➜  lurk-rs ✗ bin/lurkrs
     Finished release [optimized] target(s) in 0.05s
-     Running `target/release/examples/lurk`
+     Running `target/release/examples/repl`
 Lurk REPL welcomes you.
 > (let ((square (lambda (x) (* x x)))) (square 8))
 INFO [lurk::eval] Frame: 0
@@ -101,10 +102,6 @@ INFO [lurk::eval] Frame: 10
 [src/eval.rs:145] self.frame.i = 9
 [9 iterations] => Num(0x40)
 ```
-
-[build-image]: https://github.com/lurk-lang/lurk-rs/workflows/CI/badge.svg
-[build-link]: https://github.com/lurk-lang/lurk-rs/actions?query=workflow%3ACI+branch%3Amaster
-[msrv-image]: https://img.shields.io/badge/rustc-1.56+-blue.svg
 
 ## Nix
 
