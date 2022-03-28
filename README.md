@@ -13,7 +13,7 @@ Lurk is a statically scoped dialect of Lisp, influenced by Scheme and Common Lis
 
 - [Lurk Language Specification](https://github.com/lurk-lang/lurk/blob/master/spec/v0-1.md)
 
-Evaluation of Lurk expressions can be proved in zk-SNARKs, and this is its distinguishing feature. Lurk data is content-addressable, using SNARK-friendly Poseidon hashes (provided by [Neptune](https://github.com/neptune)) to construct compound data. In order to 
+Evaluation of Lurk expressions can be proved in zk-SNARKs, and this is its distinguishing feature. Lurk data is content-addressable, using SNARK-friendly Poseidon hashes (provided by [Neptune](https://github.com/filecoin-project/neptune)) to construct compound data.
 
 # Proofs
 
