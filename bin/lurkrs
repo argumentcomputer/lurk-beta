@@ -1,2 +1,2 @@
-cargo run --release --example lurk -- $@
+cargo run --release --example repl -- $@
 
