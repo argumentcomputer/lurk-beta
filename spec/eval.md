@@ -2,7 +2,7 @@
 Eval Spec (`eval.rs`)
 ---------------------
 
-For a high-level overview of the reuction step, see [Reduction Notes](reduction-notes.md).
+For a high-level overview of the reduction step, see [Reduction Notes](reduction-notes.md).
 
 The Evaluator consists of an expression, an environment, a store and an iteration limit.
 
