@@ -70,7 +70,7 @@ Lurk is a functional programming language based on Lisp. An important concept in
 
 In this section, we provide a summary of Lurk's main elements. An \textit{expression} represents a computation involving literals, variables, operations and procedures. Variables are handled by an \textit{environment}, which is responsible for binding variables and values. We also use \textit{continuations} to indicate what must done to finish the computation.
 
-The system's IO is formed by an expression, an environment, and a continuation. These 3 elements are essential to comprehend Lurk. Each element is represented as a pointer, which is implemented using hash functions. In particular, we use Poseidon~\cite{poseidon} to instantiate our pointers.
+The system's I/O is formed by an expression, an environment, and a continuation. These 3 elements are essential to comprehend Lurk. Each element is represented as a pointer, which is implemented using hash functions. In particular, we use Poseidon~\cite{poseidon} to instantiate our pointers.
 
 The environment has a list of bindings, which correspond to a mapping between variables and values at a certain point in time. Therefore, it has local bindings, meaning that the mapping is valid only for a specific evaluation of an expression. On the other hand, the global state is represented by the \textit{store}, which behaves as a memory of the system. The store is global, while the environment is local.
 
@@ -121,7 +121,7 @@ A Lurk program is split into a sequence of \textit{reduction steps}, also called
 
 We construct a CircuitFrame for each frame, and a Circuit is a sequence of CircuitFrames, where the output of a previous one is linked to the input of the next. The circuit mimics the evaluation of Lurk expressions.
 
-In \verb|eval.rs| it is possible to see the implementation of evaluation of Lurk's expressions. An important function is called $\redwithwit()$, which is responsible for the computation of reduction steps with its witnesses. Since a reduction step is exactly what we want prove in zero-knowledge, we provide an implementation that carries out the same computation, but in the circuit. This implementation is accomplished by $\redexp()$. 
+In \verb|eval.rs| it is possible to see the implementation of evaluation of Lurk's expressions. An important function is called $\redwithwit()$, which is responsible for the computation of reduction steps with its witnesses. Since a reduction step is exactly what we want to prove in zero-knowledge, we provide an implementation that carries out the same computation, but in the circuit. This implementation is accomplished by $\redexp()$.
 
 We call \textit{global symbols} the set of Lurk symbols that are pre-computed, such that we can easily compare with symbols found during the evaluation of expressions.
 
@@ -129,38 +129,33 @@ To reduce an expression, we require a substantial number of conditions that depe
 
 One of the most important building blocks in a functional language like Lisp and Lurk is \verb|cons|. It is used to concatenate \verb|car| and \verb|cdr|. Hence, whenever we want to break big expressions into smallers ones, we can use a combination of those elements. In function $\redcons()$ we deal with each different situation where those elements are necessary. Namely, to reduce an expression into smaller pieces, we allocate in the circuit some auxiliary variables for later utilization. In particular, $\carcdr()$ gadget is used as a building block. Since this computation is required for different situations, depending on the type of expression we are handling, we include a clause in a multicase gadget for each situation. We can easily select the desired result using this approach. The multicase selection is based on the \verb|head| of an expression, which we get using \verb|car|. Finally, we return the result of the multicase.
 
-% It can be optimized in the same way as apply continuation
-
-%$\makethunk()$
-
-%%%%%%%%%%%%%%%%%%
 Another important function is $\applycont()$. In order to finish a reduction step, we must calculate the output of the frame, which is what we are going to explain now. Each iteration has a continuation tag, and for each one we need to compute the next expression, environment, continuation, and thunk. Therefore, we have to constrain the system to prove we are computing the correct elements, and we have to allocate pointers to use them later. This task is executed in 2 stages:
 
 \begin{itemize}
-Some continuations require the calculation of new pointers, while others don't. For those which need new pointers, since the implementation of pointers requires a hash computation and because hashes are expensive in the circuit, we use a multicase to select the appropriate hash preimage. Then we can compute the hashes just once. This allows us to avoid computing unnecessary hashes.
+  \item[-] Some continuations require the calculation of new pointers, while others don't. For those which need new pointers, since the implementation of pointers requires a hash computation and because hashes are expensive in the circuit, we use a multicase to select the appropriate hash preimage. Then we can compute the hashes just once. This allows us to avoid computing unnecessary hashes.
 	\item[-] We then use another multicase to select the continuation results.
 \end{itemize}
 
 \subsection{Gadgets}
 
-In order to construct the circuit we use the following building blocks:
+In order to construct the circuit we use some gadgets and auxiliary functions as building blocks. Full detail such as the number of constraints of each component and their implementation description will be provided soon.
 
 \begin{itemize}
 	\item[-] Macros:
 	\begin{itemize}
-		\item Boolean.
-	    \item Equality.
-		\item Conditionals.
-		\item Pick.
+		\item \textbf{Boolean:} it is used to handle bit operations like conjunctions, disjunctions and negations.
+    \item \textbf{Equality:} it allows to compare allocated variables.
+		\item \textbf{Conditional:} it permits to construct \verb|if-then-else| expressions.
+		\item \textbf{Pick:} we use it for ternary operators.
+		\item \textbf{Implication:} this is used for constraints in the form: if $a$ is true, then $b$ is true, where $a$ and $b$ are expressions that evaluate to Boolean values.
 	\end{itemize}
 	\item[-] Constraints:
 	\begin{itemize}
-        \item Arithmetic operations.
-		\item Utils.
-	\end{itemize}
-	\item[-] Pointers: tag and hash.
-    \item[-] Data: allocate and reverse lookup.
-    \item[-] Multicase.
+    \item \textbf{Arithmetic operations:} We can use it to constrain arithmetic operations ($+, -, \star, \slash$) in the subjacent finite field.
+	  \item[-] \textbf{Pointers:} we have that pointers are formed by a \emph{tag}, which allows to indentify the type of the pointer, and a \emph{hash} that links the pointer to its content, which is given by the hash preimage.
+    \item[-] \textbf{Data:} we have functions to allocate different types of data by using pointers. Later we can access the data using dictionaries.
+    \item[-] \textbf{Multicase:} this component is used to select results based on certain selection tags. It is basically a set of \verb|cases| that shares the same set of selection tags. A multicase whose size is equal to 1 is the same as a regular \verb|case|.
+  \end{itemize}
 \end{itemize}
 
 \section{Final remarks}
