@@ -61,7 +61,7 @@ gpu = ["neptune/opencl"]
 # A wasm friendly build
 wasm = [
   "getrandom/js",
-  "blstrs/serde",
+  "blstrs",
   "bellperson/wasm",
   "bellperson/groth16",
   "nova/wasm",

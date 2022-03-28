@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Lurk WASM web example</title>
+  </head>
+  <body>
+    <textarea id="input" style="width: 100%; height: 50%;">
+(letrec ((exp (lambda (base exponent)
+                     (if (= 0 exponent)
+                         1
+                       (* base (exp base (- exponent 1)))))))
+           (current-env))
+  
+  )
+  ))))
+  (exp 2 2)
+    </textarea>
+    <button id="run">Run!</button>
+    <h2>Output</h2>
+    <dev id="output"></dev>
+    <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
+    <script src="./index.js"></script>
+    
+  </body>
+</html>

@@ -1,4 +1,5 @@
 /target
 result*
 /scratch
-
+node_modules
+web/pkg

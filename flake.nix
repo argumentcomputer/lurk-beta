@@ -115,6 +115,8 @@
           clippy
           rustfmt
           wasm-pack
+          nodejs
+          yarn
           glibc
           emscripten
           llvmPackages_6.libcxx
