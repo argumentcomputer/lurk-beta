@@ -35,30 +35,6 @@ It is an explicit design goal that statements about the evaluation of Lurk progr
 Lurk source files used in tests are in the [lurk-lib](https://github.com/lurk-lang/lurk-lib) submodule. You must
 initialize and update submodules before test will pass.
 
-
-## Nix
-
-[Nix](https://nixos.org) provides a declarative, content addressed and deterministic build system.
-
-### Loading the build environment with all dependencies
-
-```
-nix develop
-# Or automatically with direnv
-direnv allow
-```
-
-### Build the crate
-```
-nix build .
-```
-
-### Run the example 
-
-```
-nix run .#lurk-example
-```
-
 ## Repl
 
 ```
@@ -129,6 +105,30 @@ INFO [lurk::eval] Frame: 10
 [build-image]: https://github.com/lurk-lang/lurk-rs/workflows/CI/badge.svg
 [build-link]: https://github.com/lurk-lang/lurk-rs/actions?query=workflow%3ACI+branch%3Amaster
 [msrv-image]: https://img.shields.io/badge/rustc-1.56+-blue.svg
+
+## Nix
+
+[Nix](https://nixos.org) provides a declarative, content addressed and deterministic build system.
+
+### Loading the build environment with all dependencies
+
+```
+nix develop
+# Or automatically with direnv
+direnv allow
+```
+
+### Build the crate
+```
+nix build .
+```
+
+### Run the example 
+
+```
+nix run .#lurk-example
+```
+
 
 ## License
 
