@@ -17,7 +17,9 @@ Lurk is a statically scoped dialect of Lisp, influenced by Scheme and Common Lis
 
 - [Lurk Language Specification](https://github.com/lurk-lang/lurk/blob/master/spec/v0-1.md)
 
-Evaluation of Lurk expressions can be proved in zk-SNARKs, and this is its distinguishing feature. Lurk data is content-addressable, using SNARK-friendly Poseidon hashes (provided by [Neptune](https://github.com/filecoin-project/neptune)) to construct compound data.
+Lurk's distinguishing feature relative to most programming languages is that correct execution of Lurk programs can be directly proved using zk-SNARKs. The resulting proofs are succinct: they are relatively small, can be verified quickly, and they reveal only the information explicitly contained in the statement to be proved.
+
+Lurk's distinguishing feature relative to most zk-SNARK authoring languages is that Lurk is Turing complete, so arbitrary computational claims can be made and proved (subject to resource limitations, obviously). Because Lurk is a Lisp, its code is simply Lurk data, and any Lurk data can be directly evaluated as a Lurk program. Lurk constructs compound data using SNARK-friendly Poseidon hashes (provided by [Neptune](https://github.com/filecoin-project/neptune)), so its data is naturally content-addressable.
 
 # Proofs
 
@@ -29,6 +31,10 @@ Integration with backend proving systems and tooling for proof generation are bo
 - Future work may target Halo2 or other proving systems.
 
 It is an explicit design goal that statements about the evaluation of Lurk programs have identical semantic meaning across backends, with the qualification that Lurk language instances are themselves parameterized on scalar field and hash function. When backends use the same scalar field and hash function, equivalent proofs can be generated across backends. This is because the concrete representation of content-addressed data is fixed.
+
+# Performance
+
+Lurk backend integration is still immature, so current performance is not representative. As a rough approximation, we estimate that for entirely general computation using Lurk's universal circuit, Nova proving throughput will be on the order of 1,000 iterations per second per GPU. We expect that most compute-heavy applications will use optimized 'coprocessor' circuits, which will  dramatically improve performance. Planned improvements to Nova will allow for smaller inner circuits, further improving throughput -- and for full parallelization of reduction proofs.
 
 # (WIP) Specs
 - [Circuit Spec](spec/main.pdf)
