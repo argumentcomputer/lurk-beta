@@ -6,7 +6,7 @@ more normalized (but still WIP) specification, see the [Eval Spec](eval.md)
 The [Lurk Language Specification](https://github.com/lurk-lang/lurk/blob/master/spec/v0-1.md) defines evaluation
 semantics without specifying the internal data structures or computational steps which an implementation must use to
 calculate an evaluation. `lurk-rs` implements a concrete instance of the Lurk language for which proofs of correct
-evaluation can be generated. `lurk-rs` generates zk-SNARK proofs for a multiple backends, and verification of these
+evaluation can be generated. `lurk-rs` generates zk-SNARK proofs for multiple backends, and verification of these
 proofs requires reference to a verification key whose identity is derived from the computation encoded in the
 corresponding arithmetic circuit. The initial Lurk circuit implementation is specified as a Rank-1 Constraint System
 (R1CS), from which Groth16 or Nova proofs are created.
@@ -18,8 +18,8 @@ high-level specification and the low-level circuit. Not every aspect of the impl
 which directly corresponds to the layout of the constraint system is.
 
 `eval.rs` provides an `Evaluator` structure, which supports (relatively) fast evaluation of Lurk expressions. This is
-valuable when proof are not required -- if Lurk is being used for its output, or while interactively developoing program
-code, for example. It also provides an important aid to the circuit-synthesis step. Circuit synthesis does not always
+valuable when proofs are not required (e.g. if Lurk is being used for its output, or while interactively developoing program
+code). It also provides an important aid to the circuit-synthesis step. Circuit synthesis does not always
 directly mirror a deterministic specification of evaluation. Sometimes it is useful to know 'in advance' what values
 will be computed as the result of a step.
 
@@ -33,11 +33,11 @@ Taking these one at a time:
    library) are relatively expensive, and because Lurk does not provide explicit access to the hash values, we avoid
    computing them during evaluation -- instead relying on the
    [Store](https://github.com/lurk-lang/lurk-rs/blob/master/src/store.rs) to manage cheaper expression pointers in a way
-   which preserve's equality. All such pointers are resolved to content-addressable tagged hashes before circuit
-   synthesis. The Store is used during synthesis when the preimage of a hash known at synthesis time needs to be 'looked
+   that preserves equality. All such pointers are resolved to content-addressable tagged hashes before circuit
+   synthesis. The Store is used during synthesis when the preimage of a hash known at synthesis needs to be 'looked
    up'.
 2. The Witness struct is populated during evaluation and holds values allowing circuit synthesis to 'look ahead' in ways
-   which simplify assembling the constraint system.
+   that simplify assembling the constraint system.
 3. Because evaluation without circuit synthesis and with expensive hashing deferred can be performed quickly, we can
    generate the input/output/Witness values for many reduction steps at once. Synthesis (and proving, if backend allows)
    can then be fully parallelized as desired.
@@ -87,7 +87,7 @@ bin/lurkrs ../lurk/lurk-lib/example/fib.lurk  0.21s user 0.04s system 74% cpu 0.
 ```
 
 Because it also highlights an important detail of the formal reduction algorithm, we note that `lurk-rs` evaluation
-automatically performs tail-call elimination, which the Common Lisp implementation does not currently. For that reason,
+automatically performs tail-call elimination, which the Common Lisp implementation currently does not. For that reason,
 the CL implementation encounters a stack overflow by `(fib 5500)`.
 
 
@@ -139,7 +139,7 @@ This example reveals the general structure of the canonical Lurk expression eval
   - a mapping of input to 'more reduced' output.
   - given that Lurk is Turing complete, this does not guarantee termination.
   - any Lurk expression whose evaluation *does* terminate will eventually lead to a fixed point of reduction.
-- The reduction step performs a fixed computation, with no recursion, necesary so it can be proved in a circuit.
+- The reduction step performs a fixed computation, with no recursion, necessary so it can be proved in a circuit.
 - The reduction is performed in continuation-passing style, which is what allows a complete evaluation to be sliced into
   as many reductions as needed.
 - This leads naturally to the tail-call elimination observed above.
