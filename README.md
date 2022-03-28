@@ -11,7 +11,7 @@
 
 Lurk is a statically scoped dialect of Lisp, influenced by Scheme and Common Lisp. A language specification and reference implementation focused on describing and developing the core language can be found in the [`lurk` repo](https://github.com/lurk-lang/lurk).
 
-- [High-level Core Lurk Language Specification](https://github.com/lurk-lang/lurk/spec/v0-1.md)
+- [Lurk Language Specification](https://github.com/lurk-lang/lurk/blob/master/spec/v0-1.md)
 
 Evaluation of Lurk expressions can be proved in zk-SNARKs, and this is its distinguishing feature. Lurk data is content-addressable, using SNARK-friendly Poseidon hashes (provided by [Neptune](https://github.com/neptune)) to construct compound data. In order to 
 
