@@ -18,7 +18,7 @@ high-level specification and the low-level circuit. Not every aspect of the impl
 which directly corresponds to the layout of the constraint system is.
 
 `eval.rs` provides an `Evaluator` structure, which supports (relatively) fast evaluation of Lurk expressions. This is
-valuable when proofs are not required (e.g. if Lurk is being used for its output, or while interactively developoing program
+valuable when proofs are not required (e.g. if Lurk is being used for its output, or while interactively developing program
 code). It also provides an important aid to the circuit-synthesis step. Circuit synthesis does not always
 directly mirror a deterministic specification of evaluation. Sometimes it is useful to know 'in advance' what values
 will be computed as the result of a step.
