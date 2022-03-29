@@ -23,7 +23,7 @@ Lurk's distinguishing feature relative to most zk-SNARK authoring languages is t
 
 # Proofs
 
-Integration with backend proving systems and tooling for proof generation are both still very early. Performance user experience are poor, but simple examples can be found in the [fcomm example directory](fcomm/README.md).
+Integration with backend proving systems and tooling for proof generation are both still very early. Performance and user experience are poor, but simple examples can be found in the [fcomm example directory](fcomm/README.md).
 
 # Backends
 - The `fcomm` example uses Groth16/[SnarkPack](https://eprint.iacr.org/2021/529)[+](https://github.com/filecoin-project/bellperson/pull/257) to generate succinct (but somewhat large) proofs, using Bls12-381.
