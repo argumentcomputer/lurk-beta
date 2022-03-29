@@ -7,7 +7,7 @@ _For a high-level overview of the reduction step, see [Reduction Notes](reductio
 The Evaluator consists of an expression, an environment, a store and an iteration limit.
 
 ### `eval`
-The `eval` function evaluates the expression in the environment, growing the store, for a number of reduction steps at most stopping at the iteration limit.
+The eval function evaluates the expression in the environment for a number of reduction steps, growing the store and stopping (at most) at the iteration limit.
 
 ### environment
 The environment provides bindings between variables and values in lexical scope.
