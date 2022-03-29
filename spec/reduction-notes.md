@@ -137,8 +137,8 @@ This example reveals the general structure of the canonical Lurk expression eval
 - Each reduction is either:
   - an identity transformation.
   - a mapping of input to 'more reduced' output.
-  - given that Lurk is Turing complete, this does not guarantee termination.
-  - any Lurk expression whose evaluation *does* terminate will eventually lead to a fixed point of reduction.
+- Given that Lurk is Turing complete, this does not guarantee termination.
+- Any Lurk expression whose evaluation *does* terminate will eventually lead to a fixed point of reduction.
 - The reduction step performs a fixed computation, with no recursion. This is necessary so it can be proved in a circuit.
 - The reduction is performed in continuation-passing style, which is what allows a complete evaluation to be sliced into
   as many reductions as needed.
