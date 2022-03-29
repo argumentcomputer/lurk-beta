@@ -1689,7 +1689,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     );
     results.add_clauses_cont(ContTag::Error, result, env, &g.error_ptr_cont, &g.false_num);
 
-    let (_continuation_hash, continuation_components) = ContPtr::allocate_maybe_dummy_components(
+    let (continuation_hash, continuation_components) = ContPtr::allocate_maybe_dummy_components(
         &mut cs.namespace(|| "allocate_continuation_components"),
         witness
             .as_ref()
@@ -1705,16 +1705,17 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
     // Continuation::Call0
     /////////////////////////////////////////////////////////////////////////////
-    let (saved_env, continuation, function) = {
-        (
-            AllocatedPtr::by_index(0, &continuation_components),
-            AllocatedContPtr::by_index(2, &continuation_components),
-            result,
-        )
-    };
-    let call0_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
-        &[&saved_env, function, &continuation, default_num_pair];
-    hash_default_results.add_hash_input_clauses(ContTag::Call0, &g.tail_cont_tag, call0_components);
+    let old_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &AllocatedPtr::by_index(0, &continuation_components),
+        &AllocatedPtr::by_index(1, &continuation_components),
+        &AllocatedPtr::by_index(2, &continuation_components),
+        &AllocatedPtr::by_index(3, &continuation_components),
+    ];
+    hash_default_results.add_hash_input_clauses(
+        ContTag::Call0,
+        &continuation_hash,
+        &old_continuation_components,
+    );
 
     // Continuation::Call
     /////////////////////////////////////////////////////////////////////////////
