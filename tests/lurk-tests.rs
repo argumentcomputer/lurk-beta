@@ -2,7 +2,6 @@ use lurk::repl::repl;
 use std::path::Path;
 
 #[test]
-#[ignore]
 fn lurk_tests() {
     let test_files = [
         "test.lurk",
