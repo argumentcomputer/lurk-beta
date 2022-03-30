@@ -194,7 +194,7 @@ impl<F: PrimeField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
     ) -> Result<AllocatedIO<F>, SynthesisError> {
         let (input_expr, input_env, input_cont) = inputs;
 
-        reduce_expression(
+        let res = reduce_expression(
             &mut cs.namespace(|| format!("reduce expression {}", i)),
             &input_expr,
             &input_env,
@@ -202,7 +202,9 @@ impl<F: PrimeField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
             &self.witness,
             self.store,
             g,
-        )
+        );
+
+        res
     }
 }
 
@@ -1689,7 +1691,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     );
     results.add_clauses_cont(ContTag::Error, result, env, &g.error_ptr_cont, &g.false_num);
 
-    let (continuation_hash, continuation_components) = ContPtr::allocate_maybe_dummy_components(
+    let (_, continuation_components) = ContPtr::allocate_maybe_dummy_components(
         &mut cs.namespace(|| "allocate_continuation_components"),
         witness
             .as_ref()
@@ -1705,17 +1707,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
     // Continuation::Call0
     /////////////////////////////////////////////////////////////////////////////
-    let old_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
-        &AllocatedPtr::by_index(0, &continuation_components),
-        &AllocatedPtr::by_index(1, &continuation_components),
-        &AllocatedPtr::by_index(2, &continuation_components),
-        &AllocatedPtr::by_index(3, &continuation_components),
-    ];
-    hash_default_results.add_hash_input_clauses(
-        ContTag::Call0,
-        &continuation_hash,
-        &old_continuation_components,
-    );
+    results.add_clauses_cont(ContTag::Call0, result, env, &continuation, &g.false_num);
 
     // Continuation::Call
     /////////////////////////////////////////////////////////////////////////////
@@ -2188,33 +2180,6 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             &[&g.default_num, &g.default_num],
         ],
     )?;
-
-    // Continuation::Call0 (after hash)
-    /////////////////////////////////////////////////////////////////////////////
-    let (next, the_cont) = {
-        let next_expr = AllocatedPtr::by_index(1, &continuation_components);
-        let result_is_fun = alloc_equal(
-            cs.namespace(|| "result_is_fun default using newer continuation in zero-arg call"),
-            function.tag(),
-            &g.fun_tag,
-        )?;
-
-        let next = AllocatedPtr::pick(
-            &mut cs.namespace(|| "default env using newer continuation in zero-arg call"),
-            &result_is_fun,
-            &next_expr,
-            result,
-        )?;
-
-        let the_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "default cont using newer continuation in zero-arg call"),
-            &result_is_fun,
-            &newer_cont,
-            &g.error_ptr_cont,
-        )?;
-        (next, the_cont)
-    };
-    results.add_clauses_cont(ContTag::Call0, &next, env, &the_cont, &g.false_num);
 
     // Continuation::Call (after hash)
     /////////////////////////////////////////////////////////////////////////////
@@ -2745,9 +2710,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(29696, cs.num_constraints());
+            assert_eq!(30196, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(29673, cs.aux().len());
+            assert_eq!(30172, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

@@ -1171,7 +1171,9 @@ mod tests {
         // Tests don't currently have a way of checking this, but we need that.
         outer_prove_aux(
             &"((lambda () 123) 1)",
-            |store| store.num(999),
+            |store| {
+                store.intern_num(1)
+            },
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1180,13 +1182,16 @@ mod tests {
             false,
         );
     }
+
     #[test]
     fn outer_prove_evaluate_zero_arg_lambda5() {
         // FIXME: This should be an error.
         // Tests don't currently have a way of checking this, but we need that.
         outer_prove_aux(
             &"(123)",
-            |store| store.num(999),
+            |store| {
+                store.intern_num(123)
+            },
             2,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
