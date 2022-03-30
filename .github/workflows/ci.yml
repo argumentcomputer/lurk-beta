@@ -18,6 +18,8 @@ jobs:
       msrv: ${{ steps.msrv.outputs.msrv }}
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - id: msrv
         run: echo "::set-output name=msrv::$(echo $MSRV)"
 
@@ -34,6 +36,8 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - uses: uraimo/run-on-arch-action@v2.1.1
         name: Run commands
         id: runcmd
@@ -72,6 +76,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -82,6 +88,35 @@ jobs:
         run: sudo apt update && sudo apt-get install -y ocl-icd-opencl-dev
       - run: ${{ matrix.deps }}
       - run: cargo test --target ${{ matrix.target }} --all
+
+  # Linux ignored tests
+  # Run ignored tests in release mode.
+  linux-release:
+    needs: set-msrv
+    strategy:
+      matrix:
+        include:
+          # 64-bit Linux/x86_64
+          - target: x86_64-unknown-linux-gnu
+            rust: ${{needs.set-msrv.outputs.msrv}}
+          - target: x86_64-unknown-linux-gnu
+            rust: stable
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target }}
+          override: true
+      - name: Install opencl
+        run: sudo apt update && sudo apt-get install -y ocl-icd-opencl-dev
+      - run: ${{ matrix.deps }}
+      - run: cargo test --release --target ${{ matrix.target }} --all -- --ignore
 
 #  # macOS tests
 #  macos:
@@ -95,6 +130,8 @@ jobs:
 #    runs-on: macos-latest
 #    steps:
 #      - uses: actions/checkout@v2
+#        with:
+#          submodules: recursive
 #      - uses: actions-rs/toolchain@v1
 #        with:
 #          profile: minimal
