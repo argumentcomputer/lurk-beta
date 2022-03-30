@@ -1335,6 +1335,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_fibonacci() {
         outer_prove_aux(
             &"(letrec ((next (lambda (a b n target)
