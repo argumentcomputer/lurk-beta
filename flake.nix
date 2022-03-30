@@ -69,14 +69,17 @@
         darwin.apple_sdk.frameworks.OpenCL
         m4
       ];
-      project = buildRustProject {
-        inherit root buildInputs;
-        copyLibs = true;
-        C_INCLUDE_PATH = "${pkgs.llvmPackages_6.libcxx}/lib";
-        CPP_INCLUDE_PATH = "${pkgs.llvmPackages_6.libcxx}/lib";
-        LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib64:$LD_LIBRARY_PATH";
+      env = {        
         PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+        # C_INCLUDE_PATH = "${pkgs.llvmPackages_6.libcxx}/lib";
+        # CPP_INCLUDE_PATH = "${pkgs.llvmPackages_6.libcxx}/lib";
+        # LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib64:$LD_LIBRARY_PATH";
       };
+      # This is a wrapper around naersk build
+      # Remember to add Cargo.lock to git for naersk to work
+      project = buildRustProject ({
+        inherit root rust buildInputs;
+      } // env);
       lurk-example = project.override {
         cargoBuildOptions = d: d ++ [ "--example lurk" ];
         copySources = [ "examples" "src" ];
@@ -91,8 +94,9 @@
              "wasm"
              "--no-default-features"
         ];
-        override = d: d // {
+        overrideMain = d: d // {
           CC = "${pkgs.emscripten}/bin/emcc";
+          AR = "${pkgs.emscripten}/bin/emar";
         };
         copyTarget = true;
       };
@@ -107,7 +111,7 @@
       defaultPackage = self.packages.${system}.${crateName};
 
       # `nix develop`
-      devShell = pkgs.mkShell {
+      devShell = pkgs.mkShell ({
         inputsFrom = builtins.attrValues self.packages.${system};
         nativeBuildInputs = [ rust ];
         buildInputs = with pkgs; [
@@ -117,10 +121,8 @@
           wasm-pack
           nodejs
           yarn
-          glibc
           emscripten
-          llvmPackages_6.libcxx
         ];
-      };
+      } // env);
     });
 }

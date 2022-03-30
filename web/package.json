@@ -8,10 +8,10 @@
     "create-wasm-app": ".bin/create-wasm-app.js"
   },
   "scripts": {
-    "build": "PATH=$(npm bin):$PATH CC=emcc webpack --config webpack.config.js",
-    "start": "PATH=$(npm bin):$PATH CC=emcc webpack serve",
-    "build:release": "PATH=$(npm bin):$PATH CC=emcc webpack --config webpack.config.js --env=release",
-    "start:release": "PATH=$(npm bin):$PATH CC=emcc webpack serve --env=release"
+    "build": "./webpack --config webpack.config.js",
+    "start": "./webpack serve",
+    "build:release": "./webpack  --config webpack.config.js --env=release",
+    "start:release": "./webpack serve --env=release"
   },
   "keywords": [
     "webassembly",

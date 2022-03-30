@@ -57,14 +57,14 @@ Compile to `wasm32-unknown-unknown`
 
 ```
 # With cargo
-CC=emcc cargo build --no-default-features --target wasm32-unknown-unknown --features wasm
+CC=emcc AR=emar cargo build --no-default-features --target wasm32-unknown-unknown --features wasm
 
 # With nix
 # -L prints build output
 nix build .#lurk-wasm -L
 
 # With wasm-pack
-CC=emcc wasm-pack build --no-default-features --features wasm
+CC=emcc AR=emar wasm-pack build --no-default-features --features wasm
 ```
 
 ## Repl
