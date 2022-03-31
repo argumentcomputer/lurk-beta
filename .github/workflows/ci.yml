@@ -117,7 +117,7 @@ jobs:
       - name: Install opencl
         run: sudo apt update && sudo apt-get install -y ocl-icd-opencl-dev
       - run: ${{ matrix.deps }}
-      - run: cargo test --release --target ${{ matrix.target }} --all -- --ignored --test-threads=2
+      - run: cargo test --release --target ${{ matrix.target }} --all -- --ignored --test-threads=1
 
 #  # macOS tests
 #  macos:
