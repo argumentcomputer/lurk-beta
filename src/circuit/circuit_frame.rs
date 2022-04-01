@@ -194,7 +194,7 @@ impl<F: PrimeField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
     ) -> Result<AllocatedIO<F>, SynthesisError> {
         let (input_expr, input_env, input_cont) = inputs;
 
-        let res = reduce_expression(
+        reduce_expression(
             &mut cs.namespace(|| format!("reduce expression {}", i)),
             &input_expr,
             &input_env,
@@ -202,9 +202,7 @@ impl<F: PrimeField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
             &self.witness,
             self.store,
             g,
-        );
-
-        res
+        )
     }
 }
 
@@ -2189,8 +2187,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
     // Continuation::Call0 (after getting newer cont)
     /////////////////////////////////////////////////////////////////////////////
-    let (body_form, closed_env, tail_cont) = {
-        //let fun = AllocatedPtr::by_index(1, &continuation_components);
+    let (body_form, closed_env, continuation) = {
         let continuation = AllocatedContPtr::by_index(0, &continuation_components);
         let (_, _, body_t, closed_env) = Ptr::allocate_maybe_fun(
             &mut cs.namespace(|| "allocate Call2 fun using newer continuation in Call0"),
@@ -2207,7 +2204,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
         (body_form, closed_env, continuation)
     };
-    results.add_clauses_cont(ContTag::Call0, &body_form, &closed_env, &tail_cont, &g.false_num);
+    results.add_clauses_cont(ContTag::Call0, &body_form, &closed_env, &continuation, &g.false_num);
 
     // Continuation::Call (after getting newer cont)
     /////////////////////////////////////////////////////////////////////////////
