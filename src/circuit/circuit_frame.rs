@@ -535,7 +535,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
         results.add_clauses_expr(Tag::Nil, expr, env, cont, &g.true_num);
         results.add_clauses_expr(Tag::Num, expr, env, cont, &g.true_num);
         results.add_clauses_expr(Tag::Fun, expr, env, cont, &g.true_num);
-    }
+    };
 
     // If expr is a thunk, this will allocate its components and hash, etc.
     // If not, these will be dummies.
@@ -1707,7 +1707,13 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
     // Continuation::Call0
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cont(ContTag::Call0, result, env, &continuation, &g.false_num);
+    let old_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &AllocatedPtr::by_index(0, &continuation_components),
+        &AllocatedPtr::by_index(1, &continuation_components),
+        &AllocatedPtr::by_index(2, &continuation_components),
+        &AllocatedPtr::by_index(3, &continuation_components),
+    ];
+    hash_default_results.add_hash_input_clauses(ContTag::Call0, &g.tail_cont_tag, old_continuation_components);
 
     // Continuation::Call
     /////////////////////////////////////////////////////////////////////////////
@@ -2148,7 +2154,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.false_num,
     ];
 
-    /////////////////////////// multicase hash input
+    /////////////////////////// multicase (hash preimage)
     let all_hash_input_clauses = [
         &hash_default_results.tag_clauses[..],
         &hash_default_results.components_clauses[0][..],
@@ -2168,7 +2174,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &defaults,
     )?;
 
-    // construct new continuation
+    // construct newer continuation
     let newer_cont = AllocatedContPtr::construct(
         &mut cs.namespace(|| "construct newer_cont from hash components"),
         store,
@@ -2181,7 +2187,29 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         ],
     )?;
 
-    // Continuation::Call (after hash)
+    // Continuation::Call0 (after getting newer cont)
+    /////////////////////////////////////////////////////////////////////////////
+    let (body_form, closed_env, tail_cont) = {
+        //let fun = AllocatedPtr::by_index(1, &continuation_components);
+        let continuation = AllocatedContPtr::by_index(0, &continuation_components);
+        let (_, _, body_t, closed_env) = Ptr::allocate_maybe_fun(
+            &mut cs.namespace(|| "allocate Call2 fun using newer continuation in Call0"),
+            store,
+            result.ptr(store).as_ref(),
+        )?;
+
+        let (body_form, _) = car_cdr(
+            &mut cs.namespace(|| "body_form using newer continuation in Call0"),
+            g,
+            &body_t,
+            store,
+        )?;
+
+        (body_form, closed_env, continuation)
+    };
+    results.add_clauses_cont(ContTag::Call0, &body_form, &closed_env, &tail_cont, &g.false_num);
+
+    // Continuation::Call (after getting newer cont)
     /////////////////////////////////////////////////////////////////////////////
     let (next, the_cont) = {
         let next_expr = AllocatedPtr::by_index(1, &continuation_components);
@@ -2208,7 +2236,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     };
     results.add_clauses_cont(ContTag::Call, &next, env, &the_cont, &g.false_num);
 
-    // Continuation::Call2 (after hash)
+    // Continuation::Call2 (after getting newer cont)
     /////////////////////////////////////////////////////////////////////////////
     let (body_form, newer_env, tail_cont) = {
         let fun = AllocatedPtr::by_index(1, &continuation_components);
@@ -2274,7 +2302,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         }
     };
 
-    // Continuation::Binop (after hash)
+    // Continuation::Binop (after getting newer cont)
     /////////////////////////////////////////////////////////////////////////////
     let (allocated_arg2, saved_env) = {
         let saved_env = AllocatedPtr::by_index(1, &continuation_components);
@@ -2298,7 +2326,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.false_num,
     );
 
-    // Continuation::Relop (after hash)
+    // Continuation::Relop (after getting newer cont)
     /////////////////////////////////////////////////////////////////////////////
     let (allocated_arg2, saved_env) = {
         let saved_env = AllocatedPtr::by_index(1, &continuation_components);
@@ -2334,7 +2362,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.false_num,
     );
 
-    // Continuation::Let   (after hash)
+    // Continuation::Let   (after hashgetting newer cont)
     /////////////////////////////////////////////////////////////////////////////
     let (body, extended_env, tail_cont) = {
         let var = AllocatedPtr::by_index(0, &continuation_components);
@@ -2371,7 +2399,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     };
     results.add_clauses_cont(ContTag::Let, &body, &extended_env, &let_cont, &g.false_num);
 
-    // Continuation::LetRec (after hash)
+    // Continuation::LetRec (after getting newer cont)
     /////////////////////////////////////////////////////////////////////////////
     let (body, extended_env, return_cont) = {
         let var = AllocatedPtr::by_index(0, &continuation_components);
@@ -2422,7 +2450,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.false_num,
     );
 
-    // Continuation::Unop (after hash)
+    // Continuation::Unop (after getting newer cont)
     /////////////////////////////////////////////////////////////////////////////
     let unop_op1 = AllocatedPtr::by_index(0, &continuation_components);
     let other_unop_continuation = AllocatedContPtr::by_index(1, &continuation_components);
