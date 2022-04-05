@@ -218,13 +218,9 @@ impl<F: LurkField> IpldEmbed for ScalarExpression<F> {
                 ]
                 .into(),
             ),
-            Self::Sym(sym) => Ipld::List(
-                [
-                    Ipld::Integer(Tag::Sym as i128),
-                    Ipld::String(String::from(sym.clone())),
-                ]
-                .into(),
-            ),
+            Self::Sym(sym) => {
+                Ipld::List([Ipld::Integer(Tag::Sym as i128), Ipld::String(sym.clone())].into())
+            }
             Self::Fun {
                 arg,
                 body,
@@ -239,13 +235,9 @@ impl<F: LurkField> IpldEmbed for ScalarExpression<F> {
                 .into(),
             ),
             Self::Num(x) => Ipld::List([Ipld::Integer(Tag::Num as i128), x.to_ipld()].into()),
-            Self::Str(s) => Ipld::List(
-                [
-                    Ipld::Integer(Tag::Str as i128),
-                    Ipld::String(String::from(s.clone())),
-                ]
-                .into(),
-            ),
+            Self::Str(s) => {
+                Ipld::List([Ipld::Integer(Tag::Str as i128), Ipld::String(s.clone())].into())
+            }
             Self::Thunk(thunk) => {
                 Ipld::List([Ipld::Integer(Tag::Thunk as i128), thunk.to_ipld()].into())
             }

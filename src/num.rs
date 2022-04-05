@@ -191,11 +191,11 @@ impl<F: LurkField> IpldEmbed for Num<F> {
         use Ipld::*;
         match ipld {
             Bytes(_) => {
-                let f = ipld::FWrap::from_ipld(&ipld)?;
+                let f = ipld::FWrap::from_ipld(ipld)?;
                 Ok(Num::Scalar(f.0))
             }
             Integer(_) => {
-                let x = u64::from_ipld(&ipld)?;
+                let x = u64::from_ipld(ipld)?;
                 Ok(Num::U64(x))
             }
             x => Err(IpldError::expected("Num", x)),

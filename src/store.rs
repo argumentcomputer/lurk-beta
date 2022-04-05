@@ -234,10 +234,9 @@ impl<F: LurkField> IpldEmbed for ScalarPtr<F> {
 
     fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
         let cid = Cid::from_ipld(ipld)?;
-        let (tag, dig) = F::from_cid(cid).ok_or(IpldError::Expected(
-            String::from("ScalarPtr encoded as Cid"),
-            Ipld::Link(cid),
-        ))?;
+        let (tag, dig) = F::from_cid(cid).ok_or_else(|| {
+            IpldError::Expected(String::from("ScalarPtr encoded as Cid"), Ipld::Link(cid))
+        })?;
 
         Ok(ScalarPtr::from_parts(tag, dig))
     }
@@ -294,10 +293,12 @@ impl<F: LurkField> IpldEmbed for ScalarContPtr<F> {
 
     fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
         let cid = Cid::from_ipld(ipld)?;
-        let (tag, dig) = F::from_cid(cid).ok_or(IpldError::Expected(
-            String::from("ScalarContPtr encoded as Cid"),
-            Ipld::Link(cid),
-        ))?;
+        let (tag, dig) = F::from_cid(cid).ok_or_else(|| {
+            IpldError::Expected(
+                String::from("ScalarContPtr encoded as Cid"),
+                Ipld::Link(cid),
+            )
+        })?;
 
         Ok(ScalarContPtr::from_parts(tag, dig))
     }

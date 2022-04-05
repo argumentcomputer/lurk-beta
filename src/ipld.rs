@@ -1,4 +1,3 @@
-use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use core::convert::TryInto;
 use core::num::TryFromIntError;
@@ -142,10 +141,9 @@ impl<F: LurkField> IpldEmbed for FWrap<F> {
     fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
         match ipld {
             Ipld::Bytes(bs) => {
-                let f = F::from_bytes(&bs).ok_or(IpldError::expected(
-                    "non-empty bytes",
-                    &Ipld::Bytes(bs.clone()),
-                ))?;
+                let f = F::from_bytes(bs).ok_or_else(|| {
+                    IpldError::expected("non-empty bytes", &Ipld::Bytes(bs.clone()))
+                })?;
                 Ok(FWrap(f))
             }
             xs => Err(IpldError::expected("LurkField", xs)),
