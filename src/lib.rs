@@ -32,7 +32,7 @@ pub const TEST_SEED: [u8; 16] = [
 
 #[cfg(test)]
 pub mod test {
-    use quickcheck::{Arbitrary, Gen};
+    use quickcheck::Gen;
     use rand::Rng;
 
     // This is a useful testing utility for generating Arbitrary instances of
