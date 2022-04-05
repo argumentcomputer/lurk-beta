@@ -2189,7 +2189,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
     let (body_form, closed_env, continuation) = {
         let continuation = AllocatedContPtr::by_index(0, &continuation_components);
-        let (_, _, body_t, closed_env) = Ptr::allocate_maybe_fun(
+        let (hash, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
             &mut cs.namespace(|| "allocate Call2 fun using newer continuation in Call0"),
             store,
             result.ptr(store).as_ref(),
@@ -2202,7 +2202,17 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             store,
         )?;
 
-        (body_form, closed_env, continuation)
+        let arg_is_nil = arg_t.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
+
+        let next_exp = AllocatedPtr::pick(
+            &mut cs.namespace(|| "default env using newer continuation in Call0"),
+            &arg_is_nil,
+            result,
+            &body_form,
+        )?;
+
+
+        (next_exp, closed_env, continuation)
     };
     results.add_clauses_cont(ContTag::Call0, &body_form, &closed_env, &continuation, &g.false_num);
 
