@@ -216,10 +216,9 @@ mod test {
     use blstrs::Scalar as Fr;
 
     use quickcheck::{Arbitrary, Gen};
-    use rand::Rng;
 
     impl<F: LurkField> Arbitrary for FWrap<F> {
-        fn arbitrary(g: &mut Gen) -> Self {
+        fn arbitrary(_: &mut Gen) -> Self {
             let f = F::random(rand::thread_rng());
             FWrap(f)
         }

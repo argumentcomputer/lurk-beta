@@ -1908,7 +1908,6 @@ mod test {
 
     use super::*;
     use quickcheck::{Arbitrary, Gen};
-    use rand::Rng;
 
     use crate::test::frequency;
 

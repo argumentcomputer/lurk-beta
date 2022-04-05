@@ -117,8 +117,7 @@ mod test {
 
     use crate::ipld::FWrap;
     use crate::store::Tag;
-    use quickcheck::{Arbitrary, Gen};
-    use rand::Rng;
+    use quickcheck;
 
     #[quickcheck]
     fn test_bytes_consistency(f1: FWrap<Fr>) -> bool {
