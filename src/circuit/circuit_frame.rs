@@ -2202,13 +2202,13 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             store,
         )?;
 
-        let arg_is_nil = arg_t.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
+        let arg_is_nil = arg_t.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.dummy_arg_ptr)?;
 
         let next_exp = AllocatedPtr::pick(
             &mut cs.namespace(|| "default env using newer continuation in Call0"),
             &arg_is_nil,
-            result,
             &body_form,
+            result,
         )?;
 
 
