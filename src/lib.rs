@@ -1,5 +1,4 @@
 #![allow(clippy::single_match, clippy::type_complexity)]
-#![feature(associated_type_defaults)]
 
 extern crate core;
 
