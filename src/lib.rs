@@ -35,6 +35,10 @@ pub mod test {
     use quickcheck::{Arbitrary, Gen};
     use rand::Rng;
 
+    // This is a useful testing utility for generating Arbitrary instances of
+    // enums, by providing generators for each variant, plus a frequency weight
+    // for how often to choose that variant. It's included in lib::test to make
+    // it easier to import in the test modules of specific submodules.
     pub fn frequency<T, F: Fn(&mut Gen) -> T>(g: &mut Gen, gens: Vec<(i64, F)>) -> T {
         if gens.iter().any(|(v, _)| *v < 0) {
             panic!("Negative weight");

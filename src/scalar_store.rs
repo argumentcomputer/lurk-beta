@@ -109,17 +109,15 @@ impl<F: LurkField> IpldEmbed for ScalarStore<F> {
             .iter()
             .map(|(k, v)| (*k, v.clone()))
             .collect();
-        let mut pending = self.pending_scalar_ptrs.clone();
-        pending.sort();
-        Ipld::List([map.to_ipld(), pending.to_ipld()].into())
+        Ipld::List([map.to_ipld()].into())
     }
 
     fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
         match ipld {
             Ipld::List(xs) => match xs.as_slice() {
-                [map, pending] => {
+                [map] => {
                     let map: Vec<(ScalarPtr<F>, ScalarExpression<F>)> = IpldEmbed::from_ipld(map)?;
-                    let pending: Vec<ScalarPtr<F>> = IpldEmbed::from_ipld(pending)?;
+                    let pending: Vec<ScalarPtr<F>> = Vec::new();
                     Ok(ScalarStore {
                         scalar_map: map.into_iter().collect(),
                         pending_scalar_ptrs: pending,
@@ -202,18 +200,6 @@ pub enum ScalarExpression<F: LurkField> {
     OpaqueStr,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[repr(u16)]
-pub enum OpaqueTag {
-    Nil = 0b1000_0000_0000_0000,
-    Cons,
-    Sym,
-    Fun,
-    Num,
-    Thunk,
-    Str,
-}
-
 impl<'a, F: LurkField> Default for ScalarExpression<F> {
     fn default() -> Self {
         Self::Nil
@@ -253,20 +239,20 @@ impl<F: LurkField> IpldEmbed for ScalarExpression<F> {
                 .into(),
             ),
             Self::Num(x) => Ipld::List([Ipld::Integer(Tag::Num as i128), x.to_ipld()].into()),
-            Self::Str(sym) => Ipld::List(
+            Self::Str(s) => Ipld::List(
                 [
                     Ipld::Integer(Tag::Str as i128),
-                    Ipld::String(String::from(sym.clone())),
+                    Ipld::String(String::from(s.clone())),
                 ]
                 .into(),
             ),
             Self::Thunk(thunk) => {
                 Ipld::List([Ipld::Integer(Tag::Thunk as i128), thunk.to_ipld()].into())
             }
-            Self::OpaqueCons => Ipld::List([Ipld::Integer(OpaqueTag::Cons as i128)].into()),
-            Self::OpaqueFun => Ipld::List([Ipld::Integer(OpaqueTag::Fun as i128)].into()),
-            Self::OpaqueSym => Ipld::List([Ipld::Integer(OpaqueTag::Sym as i128)].into()),
-            Self::OpaqueStr => Ipld::List([Ipld::Integer(OpaqueTag::Str as i128)].into()),
+            Self::OpaqueCons => Ipld::List([Ipld::Integer(Tag::Cons as i128)].into()),
+            Self::OpaqueFun => Ipld::List([Ipld::Integer(Tag::Fun as i128)].into()),
+            Self::OpaqueSym => Ipld::List([Ipld::Integer(Tag::Sym as i128)].into()),
+            Self::OpaqueStr => Ipld::List([Ipld::Integer(Tag::Str as i128)].into()),
         }
     }
 
@@ -300,10 +286,10 @@ impl<F: LurkField> IpldEmbed for ScalarExpression<F> {
                     let thunk = ScalarThunk::from_ipld(thunk)?;
                     Ok(Self::Thunk(thunk))
                 }
-                [Integer(t)] if *t == OpaqueTag::Cons as i128 => Ok(Self::OpaqueCons),
-                [Integer(t)] if *t == OpaqueTag::Fun as i128 => Ok(Self::OpaqueFun),
-                [Integer(t)] if *t == OpaqueTag::Sym as i128 => Ok(Self::OpaqueSym),
-                [Integer(t)] if *t == OpaqueTag::Str as i128 => Ok(Self::OpaqueStr),
+                [Integer(t)] if *t == Tag::Cons as i128 => Ok(Self::OpaqueCons),
+                [Integer(t)] if *t == Tag::Fun as i128 => Ok(Self::OpaqueFun),
+                [Integer(t)] if *t == Tag::Sym as i128 => Ok(Self::OpaqueSym),
+                [Integer(t)] if *t == Tag::Str as i128 => Ok(Self::OpaqueStr),
                 xs => Err(IpldError::expected("Expr", &List(xs.to_owned()))),
             },
             x => Err(IpldError::expected("Expr", x)),
@@ -503,33 +489,33 @@ mod test {
 
     //// This doesn't create well-defined ScalarStores, but is still useful for
     //// testing ipld
-    //impl Arbitrary for ScalarStore<Fr> {
-    //    fn arbitrary(g: &mut Gen) -> Self {
-    //        let map: Vec<(ScalarPtr<Fr>, ScalarExpression<Fr>)> = Arbitrary::arbitrary(g);
-    //        let pending: Vec<ScalarPtr<Fr>> = Arbitrary::arbitrary(g);
-    //        ScalarStore {
-    //            scalar_map: map.into_iter().collect(),
-    //            pending_scalar_ptrs: pending,
-    //        }
-    //    }
-    //}
+    impl Arbitrary for ScalarStore<Fr> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let map: Vec<(ScalarPtr<Fr>, ScalarExpression<Fr>)> = Arbitrary::arbitrary(g);
+            ScalarStore {
+                scalar_map: map.into_iter().collect(),
+                pending_scalar_ptrs: Vec::new(),
+            }
+        }
+    }
 
-    //#[quickcheck]
-    //fn test_scalar_store_ipld_embed(x: ScalarStore<Fr>) -> bool {
-    //    match ScalarStore::from_ipld(&x.to_ipld()) {
-    //        Ok(y) if x == y => true,
-    //        Ok(y) => {
-    //            println!("x: {:?}", x);
-    //            println!("y: {:?}", y);
-    //            false
-    //        }
-    //        Err(e) => {
-    //            println!("{:?}", x);
-    //            println!("{:?}", e);
-    //            false
-    //        }
-    //    }
-    //}
+    #[quickcheck]
+    fn test_scalar_store_ipld_embed(x: ScalarStore<Fr>) -> bool {
+        match ScalarStore::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
+        }
+    }
+
     #[test]
     fn test_scalar_store() {
         let test = |src, expected| {

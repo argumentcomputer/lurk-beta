@@ -4,6 +4,8 @@ use libipld::cid::Cid;
 use multihash::Multihash;
 
 pub trait LurkField: ff::PrimeField {
+    // These constants are assumed to be based on some global table like
+    // multicodec, ideally extended to include arbitrary precision codecs
     const FIELD_CODEC: u64;
     const HASH_CODEC: u64;
     const LURK_CODEC_PREFIX: u64 = 0xc0de;
@@ -17,14 +19,14 @@ pub trait LurkField: ff::PrimeField {
 
     // Tags have to be `u32` because we're trying to fit them into `u64`
     // multicodecs without overlapping with the existing table. If we can
-    // implement arbitrary-sized codecs though we can relax this to `u64`.
-    // Arguably should be Option<u32> to catch larger field elems.
-    fn to_tag(f: Self) -> u32;
+    // implement arbitrary-sized codecs though we can relax this from
+    // Option<u32>, to a arbitrary sized Vec<u8>.
+    fn to_tag(f: Self) -> Option<u32>;
 
-    fn to_multicodec(f: Self) -> u64 {
-        let tag: u32 = Self::to_tag(f);
+    fn to_multicodec(f: Self) -> Option<u64> {
+        let tag: u32 = Self::to_tag(f)?;
 
-        Self::LURK_CODEC_PREFIX << 48 | Self::FIELD_CODEC << 32 | u64::from(tag)
+        Some(Self::LURK_CODEC_PREFIX << 48 | Self::FIELD_CODEC << 32 | u64::from(tag))
     }
 
     fn from_multicodec(codec: u64) -> Option<Self> {
@@ -46,8 +48,9 @@ pub trait LurkField: ff::PrimeField {
         Self::from_bytes(hash.digest())
     }
 
-    fn to_cid(tag: Self, digest: Self) -> Cid {
-        Cid::new_v1(Self::to_multicodec(tag), Self::to_multihash(digest))
+    fn to_cid(tag: Self, digest: Self) -> Option<Cid> {
+        let codec = Self::to_multicodec(tag)?;
+        Some(Cid::new_v1(codec, Self::to_multihash(digest)))
     }
     fn from_cid(cid: Cid) -> Option<(Self, Self)> {
         let tag = Self::from_multicodec(cid.codec())?;
@@ -62,10 +65,14 @@ impl LurkField for blstrs::Scalar {
     const LURK_CODEC_PREFIX: u64 = 0xc0de;
     const NUM_BYTES: usize = 32;
 
-    fn to_tag(f: Self) -> u32 {
+    fn to_tag(f: Self) -> Option<u32> {
         let bytes: Vec<u8> = f.to_repr().as_ref().to_vec();
-        let bytes: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
-        u32::from_le_bytes(bytes)
+        let tag_bytes: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
+        if bytes[4..].iter().all(|x| *x == 0) {
+            Some(u32::from_le_bytes(tag_bytes))
+        } else {
+            None
+        }
     }
 }
 
@@ -75,10 +82,31 @@ impl LurkField for pasta_curves::Fq {
     const LURK_CODEC_PREFIX: u64 = 0xc0de;
     const NUM_BYTES: usize = 32;
 
-    fn to_tag(f: Self) -> u32 {
+    fn to_tag(f: Self) -> Option<u32> {
         let bytes: Vec<u8> = f.to_repr().as_ref().to_vec();
-        let bytes: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
-        u32::from_le_bytes(bytes)
+        let tag_bytes: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
+        if bytes[4..].iter().all(|x| *x == 0) {
+            Some(u32::from_le_bytes(tag_bytes))
+        } else {
+            None
+        }
+    }
+}
+
+impl LurkField for pasta_curves::Fp {
+    const FIELD_CODEC: u64 = 3;
+    const HASH_CODEC: u64 = 3;
+    const LURK_CODEC_PREFIX: u64 = 0xc0de;
+    const NUM_BYTES: usize = 32;
+
+    fn to_tag(f: Self) -> Option<u32> {
+        let bytes: Vec<u8> = f.to_repr().as_ref().to_vec();
+        let tag_bytes: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
+        if bytes[4..].iter().all(|x| *x == 0) {
+            Some(u32::from_le_bytes(tag_bytes))
+        } else {
+            None
+        }
     }
 }
 
@@ -102,7 +130,7 @@ mod test {
     #[quickcheck]
     fn test_tag_consistency(x: Tag) -> bool {
         let f1 = Fr::from(x as u64);
-        let tag = <Fr as LurkField>::to_tag(f1);
+        let tag = <Fr as LurkField>::to_tag(f1).unwrap();
         let f2 = Fr::from(tag as u64);
         f1 == f2 && x as u32 == tag
     }
@@ -110,7 +138,7 @@ mod test {
     #[quickcheck]
     fn test_multicodec_consistency(x: Tag) -> bool {
         let f1 = Fr::from(x as u64);
-        let codec = <Fr as LurkField>::to_multicodec(f1);
+        let codec = <Fr as LurkField>::to_multicodec(f1).unwrap();
         let f2 = <Fr as LurkField>::from_multicodec(codec);
         println!("x: {:?}", x);
         println!("f1: {}", f1);
@@ -127,7 +155,7 @@ mod test {
     #[quickcheck]
     fn test_cid_consistency(args: (Tag, FWrap<Fr>)) -> bool {
         let (tag1, dig1) = args;
-        let cid = <Fr as LurkField>::to_cid(Fr::from(tag1 as u64), dig1.0);
+        let cid = <Fr as LurkField>::to_cid(Fr::from(tag1 as u64), dig1.0).unwrap();
         if let Some((tag2, dig2)) = <Fr as LurkField>::from_cid(cid) {
             Fr::from(tag1 as u64) == tag2 && dig1.0 == dig2
         } else {
