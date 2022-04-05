@@ -259,7 +259,7 @@ impl<'a, 'b, F: LurkField> FrameIt<'a, Witness<F>, F> {
 impl<'a, 'b, F: LurkField> Iterator for FrameIt<'a, Witness<F>, F> {
     type Item = Frame<IO<F>, Witness<F>>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        // skip first iteration, as one evauation happens on construction
+        // skip first iteration, as one evaluation happens on construction
         if self.first {
             self.first = false;
             return Some(self.frame.clone());

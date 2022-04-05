@@ -730,11 +730,22 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
-    fn outer_prove_evaluate_let_bug() {
-        //TODO: fix this test
+    fn outer_prove_evaluate_let_null_bindings() {
         outer_prove_aux(
             &"(let () (+ 1 2))",
+            |store| store.num(3),
+            4,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+    #[test]
+    fn outer_prove_evaluate_letrec_null_bindings() {
+        outer_prove_aux(
+            &"(letrec () (+ 1 2))",
             |store| store.num(3),
             4,
             DEFAULT_CHUNK_FRAME_COUNT,
@@ -1031,7 +1042,6 @@ mod tests {
     #[test]
     #[ignore]
     fn outer_prove_evaluate_no_mutual_recursion() {
-        //TODO: not working
         outer_prove_aux(
             &"(letrec ((even (lambda (n)
                                  (if (= 0 n)
@@ -1047,7 +1057,7 @@ mod tests {
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
-            300,
+            50,
             false,
         );
     }
@@ -1055,7 +1065,6 @@ mod tests {
     #[test]
     #[ignore]
     fn outer_prove_evaluate_no_mutual_recursion2() {
-        //TODO: not working
         outer_prove_aux(
             &"(letrec ((even (lambda (n)
                                  (if (= 0 n)
@@ -1066,7 +1075,7 @@ mod tests {
                         ;; NOTE: This is not true mutual-recursion.
                         ;; However, it exercises the behavior of LETREC.
                         (odd 2))",
-            |store| store.nil(),
+            |store| store.sym("odd"),
             25,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1149,20 +1158,19 @@ mod tests {
     #[test]
     #[ignore]
     fn outer_prove_evaluate_minimal_tail_call() {
-        //TODO: not working
         outer_prove_aux(
             &"(letrec
                   ((f (lambda (x)
-                        (if (= x 140)
+                        (if (= x 3)
                             123
                             (f (+ x 1))))))
                   (f 0))",
             |store| store.num(123),
-            300,
+            50,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
-            300,
+            100,
             false,
         );
     }

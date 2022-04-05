@@ -62,7 +62,7 @@ pub struct Evaluation {
     pub status: Status,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Commitment<F: PrimeField> {
     pub comm: F,
 }
@@ -124,7 +124,7 @@ pub struct Function<F: PrimeField + Serialize> {
     pub source: String,
     #[serde(bound(serialize = "F: Serialize", deserialize = "F: Deserialize<'de>"))]
     pub secret: Option<F>,
-    // TOOD: add Commitment here, and check it when opening.
+    pub commitment: Option<Commitment<F>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -388,9 +388,12 @@ impl<F: PrimeField + Serialize> Commitment<F> {
         let comm_ptr = self.ptr(s);
         let quoted_comm_ptr = s.list(&[quote, comm_ptr]);
 
+        // <commitment> is (fun-expr . secret)
+
         // (cdr <commitment>)
         let fun_expr = s.list(&[cdr, quoted_comm_ptr]);
 
+        // ((cdr commitment) input)
         s.list(&[fun_expr, input])
     }
 }
@@ -407,7 +410,7 @@ impl<F: PrimeField + Serialize> Function<F> {
 }
 
 impl Opening<Bls12> {
-    pub fn create_and_prove<P: AsRef<Path>>(
+    pub fn open_and_prove<P: AsRef<Path>>(
         s: &mut Store<<Bls12 as Engine>::Fr>,
         input: Ptr<<Bls12 as Engine>::Fr>,
         function: Function<<Bls12 as Engine>::Fr>,
@@ -458,6 +461,7 @@ impl Opening<Bls12> {
             let f = Function::<<Bls12 as Engine>::Fr> {
                 source: new_function.fmt_to_string(s),
                 secret: Some(new_secret),
+                commitment: Some(new_commitment),
             };
 
             if let Some(p) = chained_function_path {
