@@ -2089,11 +2089,8 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             result,
         )?;
 
-        let result_is_fun = alloc_equal(
-            cs.namespace(|| "result_is_fun"),
-            function.tag(),
-            &g.fun_tag,
-        )?;
+        let result_is_fun =
+            alloc_equal(cs.namespace(|| "result_is_fun"), function.tag(), &g.fun_tag)?;
 
         let the_cont = AllocatedContPtr::pick(
             &mut cs.namespace(|| "the_cont"),
@@ -2124,11 +2121,8 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     let (next_expr, the_cont) = {
         let mut cs = cs.namespace(|| "Call");
         let next_expr = AllocatedPtr::by_index(1, &continuation_components);
-        let result_is_fun = alloc_equal(
-            cs.namespace(|| "result_is_fun"),
-            result.tag(),
-            &g.fun_tag,
-        )?;
+        let result_is_fun =
+            alloc_equal(cs.namespace(|| "result_is_fun"), result.tag(), &g.fun_tag)?;
 
         let next_expr = AllocatedPtr::pick(
             &mut cs.namespace(|| "next_expr"),
@@ -2161,8 +2155,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
                 fun.ptr(store).as_ref(),
             )?;
 
-            let (body_form, _) =
-                car_cdr(&mut cs.namespace(|| "body_form"), g, &body_t, store)?;
+            let (body_form, _) = car_cdr(&mut cs.namespace(|| "body_form"), g, &body_t, store)?;
 
             let fun_is_correct = constraints::alloc_equal(
                 &mut cs.namespace(|| "fun hash is correct"),
@@ -2206,15 +2199,10 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
                 &newer_cont,
             );
 
-            let result_is_fun = alloc_equal(
-                cs.namespace(|| "result_is_fun"),
-                result.tag(),
-                &g.fun_tag,
-            )?;
-            let args_is_dummy = arg_t.alloc_equal(
-                &mut cs.namespace(|| "args_is_dummy"),
-                &g.dummy_arg_ptr,
-            )?;
+            let result_is_fun =
+                alloc_equal(cs.namespace(|| "result_is_fun"), result.tag(), &g.fun_tag)?;
+            let args_is_dummy =
+                arg_t.alloc_equal(&mut cs.namespace(|| "args_is_dummy"), &g.dummy_arg_ptr)?;
             let cond = or!(cs, &args_is_dummy.not(), &result_is_fun)?;
 
             let the_cont = AllocatedContPtr::pick(
@@ -2224,19 +2212,11 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
                 &g.error_ptr_cont,
             )?;
 
-            let the_env = AllocatedPtr::pick(
-                &mut cs.namespace(|| "the_env"),
-                &cond,
-                &newer_env,
-                env,
-            )?;
+            let the_env =
+                AllocatedPtr::pick(&mut cs.namespace(|| "the_env"), &cond, &newer_env, env)?;
 
-            let the_expr = AllocatedPtr::pick(
-                &mut cs.namespace(|| "the_expr"),
-                &cond,
-                &body_form,
-                result,
-            )?;
+            let the_expr =
+                AllocatedPtr::pick(&mut cs.namespace(|| "the_expr"), &cond, &body_form, result)?;
 
             (the_expr, the_env, the_cont)
         }
@@ -2292,12 +2272,8 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         let saved_env = AllocatedPtr::by_index(1, &continuation_components);
         let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
 
-        let (allocated_arg2, allocated_rest) = car_cdr(
-            &mut cs.namespace(|| "cons"),
-            g,
-            &unevaled_args,
-            store,
-        )?;
+        let (allocated_arg2, allocated_rest) =
+            car_cdr(&mut cs.namespace(|| "cons"), g, &unevaled_args, store)?;
 
         let rest_is_nil =
             allocated_rest.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
@@ -2336,17 +2312,9 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         let continuation = AllocatedContPtr::by_index(2, &continuation_components);
         let arg2 = result;
 
-        let tags_equal = alloc_equal(
-            &mut cs.namespace(|| "tags equal"),
-            arg1.tag(),
-            arg2.tag(),
-        )?;
+        let tags_equal = alloc_equal(&mut cs.namespace(|| "tags equal"), arg1.tag(), arg2.tag())?;
 
-        let vals_equal = alloc_equal(
-            &mut cs.namespace(|| "vals equal"),
-            arg1.hash(),
-            arg2.hash(),
-        )?;
+        let vals_equal = alloc_equal(&mut cs.namespace(|| "vals equal"), arg1.hash(), arg2.hash())?;
 
         let tag_is_num = alloc_equal(
             &mut cs.namespace(|| "arg1 tag is num"),
@@ -2360,22 +2328,16 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             &g.rel2_equal_tag,
         )?;
 
-        let args_equal = Boolean::and(
-            &mut cs.namespace(|| "args equal"),
-            &tags_equal,
-            &vals_equal,
-        )?;
+        let args_equal =
+            Boolean::and(&mut cs.namespace(|| "args equal"), &tags_equal, &vals_equal)?;
 
         // FIXME: This logic may be wrong. Look at it again carefully.
         // What we want is that Relop2::NumEqual not be used with any non-numeric arguments.
         // That should be an error.
 
         // not_num_tag_without_nums = args_equal && (tag_is_num || rel2_is_equal)
-        let not_num_tag_without_nums = constraints::or(
-            &mut cs.namespace(|| "sub_res"),
-            &tag_is_num,
-            &rel2_is_equal,
-        )?;
+        let not_num_tag_without_nums =
+            constraints::or(&mut cs.namespace(|| "sub_res"), &tag_is_num, &rel2_is_equal)?;
 
         let boolean_res = Boolean::and(
             &mut cs.namespace(|| "boolean_res"),
@@ -2516,8 +2478,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             store,
         )?;
 
-        let is_error =
-            extended_env.alloc_equal(&mut cs.namespace(|| "is_error"), &g.error_ptr)?;
+        let is_error = extended_env.alloc_equal(&mut cs.namespace(|| "is_error"), &g.error_ptr)?;
 
         let continuation_is_tail = alloc_equal(
             &mut cs.namespace(|| "continuation is tail"),

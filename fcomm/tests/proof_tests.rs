@@ -35,7 +35,7 @@ fn test_eval_expression() {
 
     cmd.assert()
         .success()
-        .stdout("[17 iterations] IO { expr: 34, env: NIL, cont: Terminal }\n");
+        .stdout("{\"expr\":\"((LAMBDA (A B) (+ (* A 3) B)) 9 7)\",\"env\":\"NIL\",\"cont\":\"Outermost\",\"expr_out\":\"34\",\"env_out\":\"NIL\",\"cont_out\":\"Terminal\",\"status\":\"Terminal\",\"iterations\":17}");
 }
 
 fn test_prove_expression<T: AsRef<OsStr>>(mut cmd: Command, expression_path: T, proof_path: T) {
