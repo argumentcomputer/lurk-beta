@@ -2272,14 +2272,14 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             &mut cs.namespace(|| "Binop: the expression"),
             &rest_is_nil,
             &allocated_arg2,
-            &result,
+            result,
         )?;
 
         let the_env = AllocatedPtr::pick(
             &mut cs.namespace(|| "Binop: the environment"),
             &rest_is_nil,
             &saved_env,
-            &env,
+            env,
         )?;
 
         (the_expr, the_env, the_cont)
@@ -2313,14 +2313,14 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             &mut cs.namespace(|| "Relop: the expression"),
             &rest_is_nil,
             &allocated_arg2,
-            &result,
+            result,
         )?;
 
         let the_env = AllocatedPtr::pick(
             &mut cs.namespace(|| "Relop: the environment"),
             &rest_is_nil,
             &saved_env,
-            &env,
+            env,
         )?;
 
         (the_expr, the_env, the_cont)
