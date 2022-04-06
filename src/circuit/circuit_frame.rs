@@ -2023,132 +2023,6 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         relop_components,
     );
 
-    // Continuation::Relop2
-    /////////////////////////////////////////////////////////////////////////////
-    let (res, continuation) = {
-        let rel2 = AllocatedPtr::by_index(0, &continuation_components);
-        let arg1 = AllocatedPtr::by_index(1, &continuation_components);
-        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
-        let arg2 = result;
-
-        let tags_equal = alloc_equal(
-            &mut cs.namespace(|| "Relop2 tags equal"),
-            arg1.tag(),
-            arg2.tag(),
-        )?;
-
-        let vals_equal = alloc_equal(
-            &mut cs.namespace(|| "Relop2 vals equal"),
-            arg1.hash(),
-            arg2.hash(),
-        )?;
-
-        let tag_is_num = alloc_equal(
-            &mut cs.namespace(|| "arg1 tag is num"),
-            arg1.tag(),
-            &g.num_tag,
-        )?;
-
-        let rel2_is_equal = alloc_equal(
-            &mut cs.namespace(|| "rel2 tag is Equal"),
-            rel2.tag(),
-            &g.rel2_equal_tag,
-        )?;
-
-        let args_equal =
-            Boolean::and(&mut cs.namespace(|| "args equal"), &tags_equal, &vals_equal)?;
-
-        // FIXME: This logic may be wrong. Look at it again carefully.
-        // What we want is that Relop2::NumEqual not be used with any non-numeric arguments.
-        // That should be an error.
-
-        // not_num_tag_without_nums = args_equal && (tag_is_num || rel2_is_equal)
-        let not_num_tag_without_nums =
-            constraints::or(&mut cs.namespace(|| "sub_res"), &tag_is_num, &rel2_is_equal)?;
-
-        let boolean_res = Boolean::and(
-            &mut cs.namespace(|| "boolean_res"),
-            &args_equal,
-            &not_num_tag_without_nums,
-        )?;
-
-        let res = AllocatedPtr::pick(
-            &mut cs.namespace(|| "res"),
-            &boolean_res,
-            &g.t_ptr,
-            &g.nil_ptr,
-        )?;
-
-        // FIXME: Still need to handle:
-        // - bad rel2 value (bad input)
-        // - NumEqual rel2 without both args being Num (type error).
-        (res, continuation)
-    };
-    results.add_clauses_cont(ContTag::Relop2, &res, env, &continuation, &g.true_num);
-
-    // Continuation::If
-    /////////////////////////////////////////////////////////////////////////////
-    let (res, continuation) = {
-        let unevaled_args = AllocatedPtr::by_index(0, &continuation_components);
-        let continuation = AllocatedContPtr::by_index(1, &continuation_components);
-
-        let condition = result;
-
-        // NOTE: There was a tricky bug here.
-        // When the actual continuation was Relop, and the operation is Numequal (for example),
-        // Then this appears to be an invalid but not dummy continuation, since Numequal has a Relop tag value of 1,
-        // the same as Cons.
-        //
-        // We address this by adding 2 to the tags returned by Op2 and Rel2 fr() methods, so this collision cannot happen.
-        // TODO: It might make even more sense to make all disjoint.
-        let (arg1, more) = car_cdr(
-            &mut cs.namespace(|| "If unevaled_args cons"),
-            g,
-            &unevaled_args,
-            store,
-        )?;
-
-        let condition_is_nil =
-            condition.alloc_equal(&mut cs.namespace(|| "condition is nil"), &g.nil_ptr)?;
-
-        let (arg2, _end) = car_cdr(&mut cs.namespace(|| "If more cons"), g, &more, store)?;
-
-        let res = AllocatedPtr::pick(
-            &mut cs.namespace(|| "pick arg1 or arg2"),
-            &condition_is_nil,
-            &arg2,
-            &arg1,
-        )?;
-        (res, continuation)
-    };
-
-    results.add_clauses_cont(ContTag::If, &res, env, &continuation, &g.false_num);
-
-    // Continuation::Lookup
-    /////////////////////////////////////////////////////////////////////////////
-    let saved_env = AllocatedPtr::by_index(0, &continuation_components);
-    let continuation = AllocatedContPtr::by_index(1, &continuation_components);
-    results.add_clauses_cont(
-        ContTag::Lookup,
-        result,
-        &saved_env,
-        &continuation,
-        &g.true_num,
-    );
-
-    // Continuation::Tail
-    /////////////////////////////////////////////////////////////////////////////
-    let saved_env = AllocatedPtr::by_index(0, &continuation_components);
-    let continuation = AllocatedContPtr::by_index(1, &continuation_components);
-
-    results.add_clauses_cont(
-        ContTag::Tail,
-        result,
-        &saved_env,
-        &continuation,
-        &g.true_num,
-    );
-
     let defaults = [
         &g.default_num,
         &g.default_num,
@@ -2173,13 +2047,13 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     ];
 
     let components_results = multi_case(
-        &mut cs.namespace(|| "hash preimage"),
+        &mut cs.namespace(|| "hash preimage selection"),
         cont.tag(),
         &all_hash_input_clauses,
         &defaults,
     )?;
 
-    // construct newer continuation
+    // construct newer continuation from multicase results
     let newer_cont = AllocatedContPtr::construct(
         &mut cs.namespace(|| "construct newer_cont from hash components"),
         store,
@@ -2192,9 +2066,9 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         ],
     )?;
 
-    // Continuation::Call0 (after getting newer cont)
+    // Continuation::Call0
     /////////////////////////////////////////////////////////////////////////////
-    let (body_form, closed_env, continuation) = {
+    let (body_form, closed_env, the_cont) = {
         let continuation = AllocatedContPtr::by_index(0, &continuation_components);
         let (_, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
             &mut cs.namespace(|| "Call0: allocate fun"),
@@ -2240,11 +2114,11 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         ContTag::Call0,
         &body_form,
         &closed_env,
-        &continuation,
+        &the_cont,
         &g.false_num,
     );
 
-    // Continuation::Call (after getting newer cont)
+    // Continuation::Call, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     let (next, the_cont) = {
         let next_expr = AllocatedPtr::by_index(1, &continuation_components);
@@ -2271,7 +2145,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     };
     results.add_clauses_cont(ContTag::Call, &next, env, &the_cont, &g.false_num);
 
-    // Continuation::Call2 (after getting newer cont)
+    // Continuation::Call2, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     let (the_exp, the_env, the_cont) = {
         let fun = AllocatedPtr::by_index(1, &continuation_components);
@@ -2369,7 +2243,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     };
     results.add_clauses_cont(ContTag::Call2, &the_exp, &the_env, &the_cont, &g.false_num);
 
-    // Continuation::Binop (after getting newer cont)
+    // Continuation::Binop, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     let (allocated_arg2, saved_env) = {
         let saved_env = AllocatedPtr::by_index(1, &continuation_components);
@@ -2393,7 +2267,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.false_num,
     );
 
-    // Continuation::Relop (after getting newer cont)
+    // Continuation::Relop, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     let (allocated_arg2, saved_env) = {
         let saved_env = AllocatedPtr::by_index(1, &continuation_components);
@@ -2418,7 +2292,139 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.false_num,
     );
 
-    // Continuation::Let   (after hashgetting newer cont)
+    // Continuation::Relop2
+    /////////////////////////////////////////////////////////////////////////////
+    let (res, continuation) = {
+        let rel2 = AllocatedPtr::by_index(0, &continuation_components);
+        let arg1 = AllocatedPtr::by_index(1, &continuation_components);
+        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
+        let arg2 = result;
+
+        let tags_equal = alloc_equal(
+            &mut cs.namespace(|| "Relop2: tags equal"),
+            arg1.tag(),
+            arg2.tag(),
+        )?;
+
+        let vals_equal = alloc_equal(
+            &mut cs.namespace(|| "Relop2: vals equal"),
+            arg1.hash(),
+            arg2.hash(),
+        )?;
+
+        let tag_is_num = alloc_equal(
+            &mut cs.namespace(|| "Relop2: arg1 tag is num"),
+            arg1.tag(),
+            &g.num_tag,
+        )?;
+
+        let rel2_is_equal = alloc_equal(
+            &mut cs.namespace(|| "Relop2: rel2 tag is Equal"),
+            rel2.tag(),
+            &g.rel2_equal_tag,
+        )?;
+
+        let args_equal = Boolean::and(
+            &mut cs.namespace(|| "Relop2: args equal"),
+            &tags_equal,
+            &vals_equal,
+        )?;
+
+        // FIXME: This logic may be wrong. Look at it again carefully.
+        // What we want is that Relop2::NumEqual not be used with any non-numeric arguments.
+        // That should be an error.
+
+        // not_num_tag_without_nums = args_equal && (tag_is_num || rel2_is_equal)
+        let not_num_tag_without_nums = constraints::or(
+            &mut cs.namespace(|| "Relop2: sub_res"),
+            &tag_is_num,
+            &rel2_is_equal,
+        )?;
+
+        let boolean_res = Boolean::and(
+            &mut cs.namespace(|| "Relop2: boolean_res"),
+            &args_equal,
+            &not_num_tag_without_nums,
+        )?;
+
+        let res = AllocatedPtr::pick(
+            &mut cs.namespace(|| "Relop2: res"),
+            &boolean_res,
+            &g.t_ptr,
+            &g.nil_ptr,
+        )?;
+
+        // FIXME: Still need to handle:
+        // - bad rel2 value (bad input)
+        // - NumEqual rel2 without both args being Num (type error).
+        (res, continuation)
+    };
+    results.add_clauses_cont(ContTag::Relop2, &res, env, &continuation, &g.true_num);
+
+    // Continuation::If
+    /////////////////////////////////////////////////////////////////////////////
+    let (res, continuation) = {
+        let unevaled_args = AllocatedPtr::by_index(0, &continuation_components);
+        let continuation = AllocatedContPtr::by_index(1, &continuation_components);
+
+        let condition = result;
+
+        // NOTE: There was a tricky bug here.
+        // When the actual continuation was Relop, and the operation is Numequal (for example),
+        // Then this appears to be an invalid but not dummy continuation, since Numequal has a Relop tag value of 1,
+        // the same as Cons.
+        //
+        // We address this by adding 2 to the tags returned by Op2 and Rel2 fr() methods, so this collision cannot happen.
+        // TODO: It might make even more sense to make all disjoint.
+        let (arg1, more) = car_cdr(
+            &mut cs.namespace(|| "If: unevaled_args cons"),
+            g,
+            &unevaled_args,
+            store,
+        )?;
+
+        let condition_is_nil =
+            condition.alloc_equal(&mut cs.namespace(|| "If: condition is nil"), &g.nil_ptr)?;
+
+        let (arg2, _end) = car_cdr(&mut cs.namespace(|| "If: more cons"), g, &more, store)?;
+
+        let res = AllocatedPtr::pick(
+            &mut cs.namespace(|| "If: pick arg1 or arg2"),
+            &condition_is_nil,
+            &arg2,
+            &arg1,
+        )?;
+        (res, continuation)
+    };
+
+    results.add_clauses_cont(ContTag::If, &res, env, &continuation, &g.false_num);
+
+    // Continuation::Lookup
+    /////////////////////////////////////////////////////////////////////////////
+    let saved_env = AllocatedPtr::by_index(0, &continuation_components);
+    let continuation = AllocatedContPtr::by_index(1, &continuation_components);
+    results.add_clauses_cont(
+        ContTag::Lookup,
+        result,
+        &saved_env,
+        &continuation,
+        &g.true_num,
+    );
+
+    // Continuation::Tail
+    /////////////////////////////////////////////////////////////////////////////
+    let saved_env = AllocatedPtr::by_index(0, &continuation_components);
+    let continuation = AllocatedContPtr::by_index(1, &continuation_components);
+
+    results.add_clauses_cont(
+        ContTag::Tail,
+        result,
+        &saved_env,
+        &continuation,
+        &g.true_num,
+    );
+
+    // Continuation::Let, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     let (body, extended_env, tail_cont) = {
         let var = AllocatedPtr::by_index(0, &continuation_components);
@@ -2455,7 +2461,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     };
     results.add_clauses_cont(ContTag::Let, &body, &extended_env, &let_cont, &g.false_num);
 
-    // Continuation::LetRec (after getting newer cont)
+    // Continuation::LetRec, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     let (body, extended_env, return_cont) = {
         let var = AllocatedPtr::by_index(0, &continuation_components);
@@ -2504,17 +2510,17 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.false_num,
     );
 
-    // Continuation::Unop (after getting newer cont)
+    // Continuation::Unop newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     let unop_op1 = AllocatedPtr::by_index(0, &continuation_components);
     let other_unop_continuation = AllocatedContPtr::by_index(1, &continuation_components);
     let op1_is_emit = alloc_equal(
-        &mut cs.namespace(|| "op1_is_emit"),
+        &mut cs.namespace(|| "Unop: op1_is_emit"),
         unop_op1.tag(),
         &g.op1_emit_tag,
     )?;
     let unop_continuation = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "unop_continuation"),
+        &mut cs.namespace(|| "Unop: continuation"),
         &op1_is_emit,
         &newer_cont,
         &other_unop_continuation,
