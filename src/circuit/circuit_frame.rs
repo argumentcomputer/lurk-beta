@@ -2208,9 +2208,11 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
                 function.tag(),
                 &g.fun_tag,
             )?;
-            let args_is_nil =
-                arg_t.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.dummy_arg_ptr)?;
-            let cond = or!(cs, &args_is_nil.not(), &result_is_fun)?;
+            let args_is_dummy = arg_t.alloc_equal(
+                &mut cs.namespace(|| "Call2: args_is_dummy"),
+                &g.dummy_arg_ptr,
+            )?;
+            let cond = or!(cs, &args_is_dummy.not(), &result_is_fun)?;
 
             let call2_cont = match tail_cont {
                 Ok(c) => c,
@@ -2245,52 +2247,85 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
     // Continuation::Binop, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    let (allocated_arg2, saved_env) = {
+    let (the_expr, the_env, the_cont) = {
         let saved_env = AllocatedPtr::by_index(1, &continuation_components);
         let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
 
-        let (allocated_arg2, _allocated_rest) = car_cdr(
+        let (allocated_arg2, allocated_rest) = car_cdr(
             &mut cs.namespace(|| "Binop: cons using newer continuation"),
             g,
             &unevaled_args,
             store,
         )?;
 
-        (allocated_arg2, saved_env)
+        let rest_is_nil =
+            allocated_rest.alloc_equal(&mut cs.namespace(|| "Binop: args_is_nil"), &g.nil_ptr)?;
+
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "Binop: the continuation"),
+            &rest_is_nil,
+            &newer_cont,
+            &g.error_ptr_cont,
+        )?;
+
+        let the_expr = AllocatedPtr::pick(
+            &mut cs.namespace(|| "Binop: the expression"),
+            &rest_is_nil,
+            &allocated_arg2,
+            &result,
+        )?;
+
+        let the_env = AllocatedPtr::pick(
+            &mut cs.namespace(|| "Binop: the environment"),
+            &rest_is_nil,
+            &saved_env,
+            &env,
+        )?;
+
+        (the_expr, the_env, the_cont)
     };
-    // FIXME: If allocated_rest != Nil, then error.
-    results.add_clauses_cont(
-        ContTag::Binop,
-        &allocated_arg2,
-        &saved_env,
-        &newer_cont,
-        &g.false_num,
-    );
+    results.add_clauses_cont(ContTag::Binop, &the_expr, &the_env, &the_cont, &g.false_num);
 
     // Continuation::Relop, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    let (allocated_arg2, saved_env) = {
+    let (the_expr, the_env, the_cont) = {
         let saved_env = AllocatedPtr::by_index(1, &continuation_components);
         let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
 
-        let (allocated_arg2, _allocated_rest) = car_cdr(
-            &mut cs.namespace(|| "Relops: cons"),
+        let (allocated_arg2, allocated_rest) = car_cdr(
+            &mut cs.namespace(|| "Relop: cons"),
             g,
             &unevaled_args,
             store,
         )?;
 
-        // FIXME: If allocated_rest != Nil, then error.
+        let rest_is_nil =
+            allocated_rest.alloc_equal(&mut cs.namespace(|| "Relop: args_is_nil"), &g.nil_ptr)?;
 
-        (allocated_arg2, saved_env)
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "Relop: the continuation"),
+            &rest_is_nil,
+            &newer_cont,
+            &g.error_ptr_cont,
+        )?;
+
+        let the_expr = AllocatedPtr::pick(
+            &mut cs.namespace(|| "Relop: the expression"),
+            &rest_is_nil,
+            &allocated_arg2,
+            &result,
+        )?;
+
+        let the_env = AllocatedPtr::pick(
+            &mut cs.namespace(|| "Relop: the environment"),
+            &rest_is_nil,
+            &saved_env,
+            &env,
+        )?;
+
+        (the_expr, the_env, the_cont)
     };
-    results.add_clauses_cont(
-        ContTag::Relop,
-        &allocated_arg2,
-        &saved_env,
-        &newer_cont,
-        &g.false_num,
-    );
+    results.add_clauses_cont(ContTag::Relop, &the_expr, &the_env, &the_cont, &g.false_num);
 
     // Continuation::Relop2
     /////////////////////////////////////////////////////////////////////////////
@@ -2798,9 +2833,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31070, cs.num_constraints());
+            assert_eq!(31100, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31047, cs.aux().len());
+            assert_eq!(31073, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

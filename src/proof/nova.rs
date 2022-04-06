@@ -644,6 +644,36 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "assertion failed: rest.is_nil()")]
+    fn outer_prove_evaluate_binop_rest_is_nil() {
+        outer_prove_aux(
+            &"(- 9 8 7)",
+            |store| store.nil(),
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion failed: rest.is_nil()")]
+    fn outer_prove_evaluate_relop_rest_is_nil() {
+        outer_prove_aux(
+            &"(= 9 8 7)",
+            |store| store.nil(),
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
     fn outer_prove_evaluate_diff() {
         outer_prove_aux(
             &"(- 9 5)",
