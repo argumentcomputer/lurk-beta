@@ -12,7 +12,7 @@ use crate::Num;
 /// are composed only of `ScalarPtr`s, so `scalar_map` suffices to allow traverseing an arbitrary DAG.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct ScalarStore<F: LurkField> {
-    scalar_map: BTreeMap<ScalarPtr<F>, ScalarExpression<F>>,
+    scalar_map: BTreeMap<ScalarPtr<F>, Option<ScalarExpression<F>>>,
     pending_scalar_ptrs: Vec<ScalarPtr<F>>,
 }
 
@@ -60,7 +60,7 @@ impl<'a, F: LurkField> ScalarStore<F> {
             if let Some(more_scalar_ptrs) = Self::child_scalar_ptrs(&scalar_expression) {
                 new_pending_scalar_ptrs.extend(more_scalar_ptrs);
             };
-            scalar_expression
+            Some(scalar_expression)
         });
 
         self.pending_scalar_ptrs.extend(new_pending_scalar_ptrs);
@@ -80,10 +80,6 @@ impl<'a, F: LurkField> ScalarStore<F> {
             ScalarExpression::Num(_) => None,
             ScalarExpression::Str(_) => None,
             ScalarExpression::Thunk(_) => None,
-            ScalarExpression::OpaqueCons
-            | ScalarExpression::OpaqueFun
-            | ScalarExpression::OpaqueSym
-            | ScalarExpression::OpaqueStr => None,
         }
     }
 
@@ -104,7 +100,7 @@ impl<'a, F: LurkField> ScalarStore<F> {
 
 impl<F: LurkField> IpldEmbed for ScalarStore<F> {
     fn to_ipld(&self) -> Ipld {
-        let map: Vec<(ScalarPtr<F>, ScalarExpression<F>)> = self
+        let map: Vec<(ScalarPtr<F>, Option<ScalarExpression<F>>)> = self
             .scalar_map
             .iter()
             .map(|(k, v)| (*k, v.clone()))
@@ -116,7 +112,8 @@ impl<F: LurkField> IpldEmbed for ScalarStore<F> {
         match ipld {
             Ipld::List(xs) => match xs.as_slice() {
                 [map] => {
-                    let map: Vec<(ScalarPtr<F>, ScalarExpression<F>)> = IpldEmbed::from_ipld(map)?;
+                    let map: Vec<(ScalarPtr<F>, Option<ScalarExpression<F>>)> =
+                        IpldEmbed::from_ipld(map)?;
                     let pending: Vec<ScalarPtr<F>> = Vec::new();
                     Ok(ScalarStore {
                         scalar_map: map.into_iter().collect(),
@@ -137,41 +134,33 @@ impl<'a, F: LurkField> ScalarExpression<F> {
     fn from_ptr(store: &Store<F>, ptr: &Ptr<F>) -> Option<Self> {
         match ptr.tag() {
             Tag::Nil => Some(ScalarExpression::Nil),
-            Tag::Cons => store
-                .fetch_cons(ptr)
-                .and_then(|(car, cdr)| {
-                    store.get_expr_hash(car).and_then(|car| {
-                        store
-                            .get_expr_hash(cdr)
-                            .map(|cdr| ScalarExpression::Cons(car, cdr))
-                    })
+            Tag::Cons => store.fetch_cons(ptr).and_then(|(car, cdr)| {
+                store.get_expr_hash(car).and_then(|car| {
+                    store
+                        .get_expr_hash(cdr)
+                        .map(|cdr| ScalarExpression::Cons(car, cdr))
                 })
-                .or(Some(ScalarExpression::OpaqueCons)),
+            }),
             Tag::Sym => store
                 .fetch_sym(ptr)
-                .map(|str| ScalarExpression::Sym(str.into()))
-                .or(Some(ScalarExpression::OpaqueSym)),
-            Tag::Fun => store
-                .fetch_fun(ptr)
-                .and_then(|(arg, body, closed_env)| {
-                    store.get_expr_hash(arg).and_then(|arg| {
-                        store.get_expr_hash(body).and_then(|body| {
-                            store.get_expr_hash(closed_env).map(|closed_env| {
-                                ScalarExpression::Fun {
-                                    arg,
-                                    body,
-                                    closed_env,
-                                }
+                .map(|str| ScalarExpression::Sym(str.into())),
+            Tag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
+                store.get_expr_hash(arg).and_then(|arg| {
+                    store.get_expr_hash(body).and_then(|body| {
+                        store
+                            .get_expr_hash(closed_env)
+                            .map(|closed_env| ScalarExpression::Fun {
+                                arg,
+                                body,
+                                closed_env,
                             })
-                        })
                     })
                 })
-                .or(Some(ScalarExpression::OpaqueFun)),
+            }),
             Tag::Num => store.fetch_num(ptr).map(|num| ScalarExpression::Num(*num)),
             Tag::Str => store
                 .fetch_str(ptr)
-                .map(|str| ScalarExpression::Str(str.into()))
-                .or(Some(ScalarExpression::OpaqueSym)),
+                .map(|str| ScalarExpression::Str(str.into())),
 
             Tag::Thunk => unimplemented!(),
         }
@@ -191,13 +180,6 @@ pub enum ScalarExpression<F: LurkField> {
     Num(Num<F>),
     Str(String),
     Thunk(ScalarThunk<F>),
-    /// The `Opaque` variants represent potentially private data which has been added to the store for use in a proof or
-    /// computation, but for which no corresponding `Expression` is known. opaque `ScalarExpressions` therefore have no
-    /// children for the purpose of graph creation or traversal.
-    OpaqueCons,
-    OpaqueFun,
-    OpaqueSym,
-    OpaqueStr,
 }
 
 impl<'a, F: LurkField> Default for ScalarExpression<F> {
@@ -241,10 +223,6 @@ impl<F: LurkField> IpldEmbed for ScalarExpression<F> {
             Self::Thunk(thunk) => {
                 Ipld::List([Ipld::Integer(Tag::Thunk as i128), thunk.to_ipld()].into())
             }
-            Self::OpaqueCons => Ipld::List([Ipld::Integer(Tag::Cons as i128)].into()),
-            Self::OpaqueFun => Ipld::List([Ipld::Integer(Tag::Fun as i128)].into()),
-            Self::OpaqueSym => Ipld::List([Ipld::Integer(Tag::Sym as i128)].into()),
-            Self::OpaqueStr => Ipld::List([Ipld::Integer(Tag::Str as i128)].into()),
         }
     }
 
@@ -278,10 +256,6 @@ impl<F: LurkField> IpldEmbed for ScalarExpression<F> {
                     let thunk = ScalarThunk::from_ipld(thunk)?;
                     Ok(Self::Thunk(thunk))
                 }
-                [Integer(t)] if *t == Tag::Cons as i128 => Ok(Self::OpaqueCons),
-                [Integer(t)] if *t == Tag::Fun as i128 => Ok(Self::OpaqueFun),
-                [Integer(t)] if *t == Tag::Sym as i128 => Ok(Self::OpaqueSym),
-                [Integer(t)] if *t == Tag::Str as i128 => Ok(Self::OpaqueStr),
                 xs => Err(IpldError::expected("Expr", &List(xs.to_owned()))),
             },
             x => Err(IpldError::expected("Expr", x)),
@@ -453,10 +427,6 @@ mod test {
                     }),
                 ),
                 (100, Box::new(|g| Self::Thunk(ScalarThunk::arbitrary(g)))),
-                (100, Box::new(|_| Self::OpaqueCons)),
-                (100, Box::new(|_| Self::OpaqueFun)),
-                (100, Box::new(|_| Self::OpaqueSym)),
-                (100, Box::new(|_| Self::OpaqueStr)),
             ];
             frequency(g, input)
         }
@@ -483,7 +453,7 @@ mod test {
     //// testing ipld
     impl Arbitrary for ScalarStore<Fr> {
         fn arbitrary(g: &mut Gen) -> Self {
-            let map: Vec<(ScalarPtr<Fr>, ScalarExpression<Fr>)> = Arbitrary::arbitrary(g);
+            let map: Vec<(ScalarPtr<Fr>, Option<ScalarExpression<Fr>>)> = Arbitrary::arbitrary(g);
             ScalarStore {
                 scalar_map: map.into_iter().collect(),
                 pending_scalar_ptrs: Vec::new(),
