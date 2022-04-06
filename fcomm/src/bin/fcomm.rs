@@ -1,15 +1,15 @@
 use std::env;
 use std::fs::read_to_string;
-use std::io::{self};
+use std::io;
 use std::path::{Path, PathBuf};
 
 use blstrs::Scalar;
-use ff::PrimeField;
 use pairing_lib::{Engine, MultiMillerLoop};
 use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
 
 use lurk::eval::IO;
+use lurk::field::LurkField;
 use lurk::store::{Ptr, Store};
 use lurk::writer::Write;
 
@@ -78,7 +78,7 @@ struct FComm {
 }
 
 impl FComm {
-    fn read_from_path<P: AsRef<Path>, F: PrimeField + Serialize>(
+    fn read_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
         &self,
         store: &mut Store<F>,
         path: P,
@@ -91,7 +91,7 @@ impl FComm {
         Ok(src)
     }
 
-    fn read_eval_from_path<P: AsRef<Path>, F: PrimeField + Serialize>(
+    fn read_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
         &self,
         store: &mut Store<F>,
         path: P,
@@ -109,7 +109,7 @@ impl FComm {
         Ok((expr, src))
     }
 
-    fn read_no_eval_from_path<P: AsRef<Path>, F: PrimeField + Serialize>(
+    fn read_no_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
         &self,
         store: &mut Store<F>,
         path: P,
@@ -169,7 +169,7 @@ impl FComm {
         new_path
     }
 
-    fn _lurk_function<F: PrimeField + Serialize>(
+    fn _lurk_function<F: LurkField + Serialize>(
         &self,
         store: &mut Store<F>,
     ) -> Result<(Ptr<F>, Ptr<F>), Error> {
@@ -183,14 +183,14 @@ impl FComm {
         Ok((function, src))
     }
 
-    fn function<F: PrimeField + Serialize>(&self) -> Result<Function<F>, Error>
+    fn function<F: LurkField + Serialize>(&self) -> Result<Function<F>, Error>
     where
         for<'de> F: Deserialize<'de>,
     {
         Function::read_from_path(self.function_path())
     }
 
-    fn input<F: PrimeField + Serialize>(&self, store: &mut Store<F>) -> Result<Ptr<F>, Error> {
+    fn input<F: LurkField + Serialize>(&self, store: &mut Store<F>) -> Result<Ptr<F>, Error> {
         let path = self.input_path();
 
         let input = if self.opt.eval_input {
@@ -208,7 +208,7 @@ impl FComm {
         Ok(input)
     }
 
-    fn expression<F: PrimeField + Serialize>(&self, store: &mut Store<F>) -> Result<Ptr<F>, Error> {
+    fn expression<F: LurkField + Serialize>(&self, store: &mut Store<F>) -> Result<Ptr<F>, Error> {
         let path = self.expression_path();
 
         let input = self.read_from_path(store, path)?;
@@ -223,7 +223,7 @@ impl FComm {
         for<'de> <E as Engine>::G1: Serialize + Deserialize<'de>,
         for<'de> <E as Engine>::G1Affine: Serialize + Deserialize<'de>,
         for<'de> <E as Engine>::G2Affine: Serialize + Deserialize<'de>,
-        for<'de> <E as Engine>::Fr: Serialize + Deserialize<'de>,
+        for<'de> <E as Engine>::Fr: Serialize + Deserialize<'de> + LurkField,
         for<'de> <E as Engine>::Gt: blstrs::Compress + Serialize + Deserialize<'de>,
     {
         if self.opt.proof.is_some() {
