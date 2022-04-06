@@ -2189,7 +2189,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
     let (body_form, closed_env, continuation) = {
         let continuation = AllocatedContPtr::by_index(0, &continuation_components);
-        let (hash, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
+        let (_, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
             &mut cs.namespace(|| "allocate Call2 fun using newer continuation in Call0"),
             store,
             result.ptr(store).as_ref(),
@@ -2202,17 +2202,36 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             store,
         )?;
 
-        let arg_is_nil = arg_t.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.dummy_arg_ptr)?;
+        let args_is_nil = arg_t.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.dummy_arg_ptr)?;
 
         let next_exp = AllocatedPtr::pick(
-            &mut cs.namespace(|| "default env using newer continuation in Call0"),
-            &arg_is_nil,
+            &mut cs.namespace(|| "nexp exp using newer continuation in Call0"),
+            &args_is_nil,
             &body_form,
             result,
         )?;
 
+        let result_is_fun = alloc_equal(
+            cs.namespace(|| "result_is_fun default using newer continuation in Call0"),
+            function.tag(),
+            &g.fun_tag,
+        )?;
 
-        (next_exp, closed_env, continuation)
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "default cont using newer continuation in Call0"),
+            &result_is_fun,
+            &continuation,
+            &g.error_ptr_cont,
+        )?;
+
+        let the_env = AllocatedPtr::pick(
+            &mut cs.namespace(|| "default env using newer continuation in Call0"),
+            &result_is_fun,
+            &closed_env,
+            env,
+        )?;
+
+        (next_exp, the_env, the_cont)
     };
     results.add_clauses_cont(ContTag::Call0, &body_form, &closed_env, &continuation, &g.false_num);
 
@@ -2745,9 +2764,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(30196, cs.num_constraints());
+            assert_eq!(31050, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(30172, cs.aux().len());
+            assert_eq!(31030, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
