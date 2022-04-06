@@ -311,7 +311,7 @@ impl FComm {
 
         let expr = self.expression(&mut s)?;
 
-        let proof = Proof::eval_and_prove(&mut s, expr, self.opt.limit)?;
+        let proof = Proof::eval_and_prove(&mut s, expr, self.opt.limit, false)?;
 
         // Write first, so prover can debug if proof doesn't verify (it should).
         proof.write_to_path(out_path);

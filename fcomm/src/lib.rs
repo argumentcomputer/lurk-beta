@@ -29,8 +29,16 @@ use pairing_lib::{Engine, MultiMillerLoop};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+mod file_map;
+
+use file_map::FileMap;
+
 pub const DEFAULT_REDUCTION_COUNT: ReductionCount = ReductionCount::One;
 pub static VERBOSE: OnceCell<bool> = OnceCell::new();
+
+fn bls12_proof_cache() -> FileMap<Proof<Bls12>> {
+    FileMap::<Proof<Bls12>>::new("bls12_proofs").unwrap()
+}
 
 #[macro_export]
 // FIXME: This belongs in the CLI program only, but we need to (maybe) emit the messages here.
@@ -259,6 +267,13 @@ where
     fn id(&self) -> String;
     fn cid(&self) -> Cid;
     fn has_id(&self, id: String) -> bool;
+}
+
+pub trait Key
+where
+    Self: Sized,
+{
+    fn key(&self) -> Cid;
 }
 
 impl<T: Serialize> Id for T
@@ -558,6 +573,7 @@ impl Proof<Bls12> {
         s: &mut Store<<Bls12 as Engine>::Fr>,
         expr: Ptr<<Bls12 as Engine>::Fr>,
         limit: usize,
+        only_use_cached_proofs: bool,
     ) -> Result<Self, Error> {
         let rng = OsRng;
         let env = empty_sym_env(s);
@@ -565,9 +581,25 @@ impl Proof<Bls12> {
 
         let input = IO { expr, env, cont };
 
-        prl!("Getting Parameters");
+        let proof_map = bls12_proof_cache();
+
+        let (public_output, _iterations) = evaluate(s, expr, limit);
+        let evaluation = Evaluation::new(s, input, public_output, None);
+        let claim = Claim::Evaluation(evaluation);
+
+        if let Some(proof) = proof_map.get(claim.cid()) {
+            dbg!("found cached proof!");
+            return Ok(proof);
+        }
+
+        if only_use_cached_proofs {
+            // FIXME: Error handling.
+            panic!("no cached proof");
+        }
 
         let reduction_count = DEFAULT_REDUCTION_COUNT;
+
+        prl!("Getting Parameters");
         let groth_prover = Groth16Prover::new(reduction_count.reduction_frame_count());
         let groth_params = groth_prover.groth_params().unwrap();
 
@@ -579,12 +611,13 @@ impl Proof<Bls12> {
 
         assert!(public_output.is_complete());
 
-        let evaluation = Evaluation::new(s, input, public_output, None);
         let proof = Proof {
-            claim: Claim::Evaluation(evaluation),
+            claim: claim.clone(),
             reduction_count,
             proof: groth_proof,
         };
+
+        proof_map.set(claim.cid(), &proof).unwrap();
 
         Ok(proof)
     }
@@ -699,6 +732,12 @@ impl Proof<Bls12> {
     }
 }
 
+impl Key for Proof<Bls12> {
+    fn key(&self) -> Cid {
+        self.claim.cid()
+    }
+}
+
 impl VerificationResult {
     fn new(verified: bool) -> Self {
         Self { verified }
@@ -713,8 +752,8 @@ pub fn evaluate<F: PrimeField + Serialize>(
     let env = empty_sym_env(store);
     let mut evaluator = Evaluator::new(expr, env, store, limit);
 
-    let (io, limit) = evaluator.eval();
+    let (io, iterations) = evaluator.eval();
 
     assert!(io.is_terminal());
-    (io, limit)
+    (io, iterations)
 }
