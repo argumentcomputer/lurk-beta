@@ -2069,40 +2069,41 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     // Continuation::Call0
     /////////////////////////////////////////////////////////////////////////////
     let (body_form, closed_env, the_cont) = {
+        let mut call0_cs = cs.namespace(|| "Call0");
         let continuation = AllocatedContPtr::by_index(0, &continuation_components);
         let (_, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
-            &mut cs.namespace(|| "Call0: allocate fun"),
+            &mut call0_cs.namespace(|| "allocate fun"),
             store,
             result.ptr(store).as_ref(),
         )?;
 
-        let (body_form, _) = car_cdr(&mut cs.namespace(|| "Call0: body_form"), g, &body_t, store)?;
+        let (body_form, _) = car_cdr(&mut call0_cs.namespace(|| "body_form"), g, &body_t, store)?;
 
         let args_is_dummy =
-            arg_t.alloc_equal(&mut cs.namespace(|| "args_is_dummy"), &g.dummy_arg_ptr)?;
+            arg_t.alloc_equal(&mut call0_cs.namespace(|| "args_is_dummy"), &g.dummy_arg_ptr)?;
 
         let next_exp = AllocatedPtr::pick(
-            &mut cs.namespace(|| "Call0: pick nexp exp"),
+            &mut call0_cs.namespace(|| "pick nexp exp"),
             &args_is_dummy,
             &body_form,
             result,
         )?;
 
         let result_is_fun = alloc_equal(
-            cs.namespace(|| "Call0: result_is_fun"),
+            call0_cs.namespace(|| "result_is_fun"),
             function.tag(),
             &g.fun_tag,
         )?;
 
         let the_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "Call0: pick the continuation"),
+            &mut call0_cs.namespace(|| "the_cont"),
             &result_is_fun,
             &continuation,
             &g.error_ptr_cont,
         )?;
 
         let the_env = AllocatedPtr::pick(
-            &mut cs.namespace(|| "Call0: pick the environment"),
+            &mut call0_cs.namespace(|| "the_env"),
             &result_is_fun,
             &closed_env,
             env,
@@ -2120,69 +2121,71 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
     // Continuation::Call, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    let (next, the_cont) = {
+    let (next_expr, the_cont) = {
+        let mut call_cs = cs.namespace(|| "Call");
         let next_expr = AllocatedPtr::by_index(1, &continuation_components);
         let result_is_fun = alloc_equal(
-            cs.namespace(|| "Call: result_is_fun"),
+            call_cs.namespace(|| "result_is_fun"),
             function.tag(),
             &g.fun_tag,
         )?;
 
-        let next = AllocatedPtr::pick(
-            &mut cs.namespace(|| "Call: pick the environment"),
+        let next_expr = AllocatedPtr::pick(
+            &mut call_cs.namespace(|| "next_expr"),
             &result_is_fun,
             &next_expr,
             result,
         )?;
 
         let the_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "Call: pick the continuation"),
+            &mut call_cs.namespace(|| "the_cont"),
             &result_is_fun,
             &newer_cont,
             &g.error_ptr_cont,
         )?;
-        (next, the_cont)
+        (next_expr, the_cont)
     };
-    results.add_clauses_cont(ContTag::Call, &next, env, &the_cont, &g.false_num);
+    results.add_clauses_cont(ContTag::Call, &next_expr, env, &the_cont, &g.false_num);
 
     // Continuation::Call2, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    let (the_exp, the_env, the_cont) = {
+    let (the_expr, the_env, the_cont) = {
+        let mut call2_cs = cs.namespace(|| "Call2");
         let fun = AllocatedPtr::by_index(1, &continuation_components);
         let continuation = AllocatedContPtr::by_index(2, &continuation_components);
 
         {
             let (hash, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
-                &mut cs.namespace(|| "Call2: allocate fun"),
+                &mut call2_cs.namespace(|| "allocate fun"),
                 store,
                 fun.ptr(store).as_ref(),
             )?;
 
             let (body_form, _) =
-                car_cdr(&mut cs.namespace(|| "Call2: body_form"), g, &body_t, store)?;
+                car_cdr(&mut call2_cs.namespace(|| "body_form"), g, &body_t, store)?;
 
             let fun_is_correct = constraints::alloc_equal(
-                &mut cs.namespace(|| "Call2: fun hash is correct"),
+                &mut call2_cs.namespace(|| "fun hash is correct"),
                 fun.hash(),
                 &hash,
             )?;
 
             let cont_is_call2_precomp = constraints::alloc_equal(
-                &mut cs.namespace(|| "Call2: branch taken"),
+                &mut call2_cs.namespace(|| "branch taken"),
                 cont.tag(),
                 &g.call2_cont_tag,
             )?;
 
-            let cont_is_call2_and_not_dummy = and!(cs, &cont_is_call2_precomp, not_dummy)?;
+            let cont_is_call2_and_not_dummy = and!(call2_cs, &cont_is_call2_precomp, not_dummy)?;
 
             enforce_implication(
-                &mut cs.namespace(|| "Call2: implies non-dummy fun"),
+                &mut call2_cs.namespace(|| "implies non-dummy fun"),
                 &cont_is_call2_and_not_dummy,
                 &fun_is_correct,
             )?;
 
             let newer_env = extend(
-                &mut cs.namespace(|| "Call2: extend env"),
+                &mut call2_cs.namespace(|| "extend env"),
                 g,
                 store,
                 &closed_env,
@@ -2191,28 +2194,28 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             )?;
 
             let continuation_is_tail = alloc_equal(
-                &mut cs.namespace(|| "Call2: continuation is tail"),
+                &mut call2_cs.namespace(|| "continuation is tail"),
                 continuation.tag(),
                 &g.tail_cont_tag,
             )?;
 
             let tail_cont = AllocatedContPtr::pick(
-                &mut cs.namespace(|| "Call2: the tail continuation"),
+                &mut call2_cs.namespace(|| "the tail continuation"),
                 &continuation_is_tail,
                 &continuation,
                 &newer_cont,
             );
 
             let result_is_fun = alloc_equal(
-                cs.namespace(|| "Call2: result_is_fun"),
+                call2_cs.namespace(|| "result_is_fun"),
                 function.tag(),
                 &g.fun_tag,
             )?;
             let args_is_dummy = arg_t.alloc_equal(
-                &mut cs.namespace(|| "Call2: args_is_dummy"),
+                &mut call2_cs.namespace(|| "args_is_dummy"),
                 &g.dummy_arg_ptr,
             )?;
-            let cond = or!(cs, &args_is_dummy.not(), &result_is_fun)?;
+            let cond = or!(call2_cs, &args_is_dummy.not(), &result_is_fun)?;
 
             let call2_cont = match tail_cont {
                 Ok(c) => c,
@@ -2220,63 +2223,64 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             };
 
             let the_cont = AllocatedContPtr::pick(
-                &mut cs.namespace(|| "Call2: the continuation"),
+                &mut call2_cs.namespace(|| "the_cont"),
                 &cond,
                 &call2_cont,
                 &g.error_ptr_cont,
             )?;
 
             let the_env = AllocatedPtr::pick(
-                &mut cs.namespace(|| "Call2: the environment"),
+                &mut call2_cs.namespace(|| "the_env"),
                 &cond,
                 &newer_env,
                 env,
             )?;
 
-            let the_exp = AllocatedPtr::pick(
-                &mut cs.namespace(|| "Call2: the expression"),
+            let the_expr = AllocatedPtr::pick(
+                &mut call2_cs.namespace(|| "the_expr"),
                 &cond,
                 &body_form,
                 result,
             )?;
 
-            (the_exp, the_env, the_cont)
+            (the_expr, the_env, the_cont)
         }
     };
-    results.add_clauses_cont(ContTag::Call2, &the_exp, &the_env, &the_cont, &g.false_num);
+    results.add_clauses_cont(ContTag::Call2, &the_expr, &the_env, &the_cont, &g.false_num);
 
     // Continuation::Binop, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     let (the_expr, the_env, the_cont) = {
+        let mut binop_cs = cs.namespace(|| "Binop");
         let saved_env = AllocatedPtr::by_index(1, &continuation_components);
         let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
 
         let (allocated_arg2, allocated_rest) = car_cdr(
-            &mut cs.namespace(|| "Binop: cons using newer continuation"),
+            &mut binop_cs.namespace(|| "cons using newer continuation"),
             g,
             &unevaled_args,
             store,
         )?;
 
         let rest_is_nil =
-            allocated_rest.alloc_equal(&mut cs.namespace(|| "Binop: args_is_nil"), &g.nil_ptr)?;
+            allocated_rest.alloc_equal(&mut binop_cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
 
         let the_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "Binop: the continuation"),
+            &mut binop_cs.namespace(|| "the_cont"),
             &rest_is_nil,
             &newer_cont,
             &g.error_ptr_cont,
         )?;
 
         let the_expr = AllocatedPtr::pick(
-            &mut cs.namespace(|| "Binop: the expression"),
+            &mut binop_cs.namespace(|| "the_expr"),
             &rest_is_nil,
             &allocated_arg2,
             result,
         )?;
 
         let the_env = AllocatedPtr::pick(
-            &mut cs.namespace(|| "Binop: the environment"),
+            &mut binop_cs.namespace(|| "the_env"),
             &rest_is_nil,
             &saved_env,
             env,
@@ -2289,35 +2293,36 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     // Continuation::Relop, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     let (the_expr, the_env, the_cont) = {
+        let mut relop_cs = cs.namespace(|| "Relop");
         let saved_env = AllocatedPtr::by_index(1, &continuation_components);
         let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
 
         let (allocated_arg2, allocated_rest) = car_cdr(
-            &mut cs.namespace(|| "Relop: cons"),
+            &mut relop_cs.namespace(|| "cons"),
             g,
             &unevaled_args,
             store,
         )?;
 
         let rest_is_nil =
-            allocated_rest.alloc_equal(&mut cs.namespace(|| "Relop: args_is_nil"), &g.nil_ptr)?;
+            allocated_rest.alloc_equal(&mut relop_cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
 
         let the_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "Relop: the continuation"),
+            &mut relop_cs.namespace(|| "the_cont"),
             &rest_is_nil,
             &newer_cont,
             &g.error_ptr_cont,
         )?;
 
         let the_expr = AllocatedPtr::pick(
-            &mut cs.namespace(|| "Relop: the expression"),
+            &mut relop_cs.namespace(|| "the_expr"),
             &rest_is_nil,
             &allocated_arg2,
             result,
         )?;
 
         let the_env = AllocatedPtr::pick(
-            &mut cs.namespace(|| "Relop: the environment"),
+            &mut relop_cs.namespace(|| "the_env"),
             &rest_is_nil,
             &saved_env,
             env,
@@ -2330,37 +2335,38 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     // Continuation::Relop2
     /////////////////////////////////////////////////////////////////////////////
     let (res, continuation) = {
+        let mut relop2_cs = cs.namespace(|| "Relop2");
         let rel2 = AllocatedPtr::by_index(0, &continuation_components);
         let arg1 = AllocatedPtr::by_index(1, &continuation_components);
         let continuation = AllocatedContPtr::by_index(2, &continuation_components);
         let arg2 = result;
 
         let tags_equal = alloc_equal(
-            &mut cs.namespace(|| "Relop2: tags equal"),
+            &mut relop2_cs.namespace(|| "tags equal"),
             arg1.tag(),
             arg2.tag(),
         )?;
 
         let vals_equal = alloc_equal(
-            &mut cs.namespace(|| "Relop2: vals equal"),
+            &mut relop2_cs.namespace(|| "vals equal"),
             arg1.hash(),
             arg2.hash(),
         )?;
 
         let tag_is_num = alloc_equal(
-            &mut cs.namespace(|| "Relop2: arg1 tag is num"),
+            &mut relop2_cs.namespace(|| "arg1 tag is num"),
             arg1.tag(),
             &g.num_tag,
         )?;
 
         let rel2_is_equal = alloc_equal(
-            &mut cs.namespace(|| "Relop2: rel2 tag is Equal"),
+            &mut relop2_cs.namespace(|| "rel2 tag is Equal"),
             rel2.tag(),
             &g.rel2_equal_tag,
         )?;
 
         let args_equal = Boolean::and(
-            &mut cs.namespace(|| "Relop2: args equal"),
+            &mut relop2_cs.namespace(|| "args equal"),
             &tags_equal,
             &vals_equal,
         )?;
@@ -2371,19 +2377,19 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
         // not_num_tag_without_nums = args_equal && (tag_is_num || rel2_is_equal)
         let not_num_tag_without_nums = constraints::or(
-            &mut cs.namespace(|| "Relop2: sub_res"),
+            &mut relop2_cs.namespace(|| "sub_res"),
             &tag_is_num,
             &rel2_is_equal,
         )?;
 
         let boolean_res = Boolean::and(
-            &mut cs.namespace(|| "Relop2: boolean_res"),
+            &mut relop2_cs.namespace(|| "boolean_res"),
             &args_equal,
             &not_num_tag_without_nums,
         )?;
 
         let res = AllocatedPtr::pick(
-            &mut cs.namespace(|| "Relop2: res"),
+            &mut relop2_cs.namespace(|| "res"),
             &boolean_res,
             &g.t_ptr,
             &g.nil_ptr,
@@ -2399,6 +2405,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     // Continuation::If
     /////////////////////////////////////////////////////////////////////////////
     let (res, continuation) = {
+        let mut if_cs = cs.namespace(|| "If");
         let unevaled_args = AllocatedPtr::by_index(0, &continuation_components);
         let continuation = AllocatedContPtr::by_index(1, &continuation_components);
 
@@ -2412,19 +2419,19 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         // We address this by adding 2 to the tags returned by Op2 and Rel2 fr() methods, so this collision cannot happen.
         // TODO: It might make even more sense to make all disjoint.
         let (arg1, more) = car_cdr(
-            &mut cs.namespace(|| "If: unevaled_args cons"),
+            &mut if_cs.namespace(|| "unevaled_args cons"),
             g,
             &unevaled_args,
             store,
         )?;
 
         let condition_is_nil =
-            condition.alloc_equal(&mut cs.namespace(|| "If: condition is nil"), &g.nil_ptr)?;
+            condition.alloc_equal(&mut if_cs.namespace(|| "condition is nil"), &g.nil_ptr)?;
 
-        let (arg2, _end) = car_cdr(&mut cs.namespace(|| "If: more cons"), g, &more, store)?;
+        let (arg2, _end) = car_cdr(&mut if_cs.namespace(|| "more cons"), g, &more, store)?;
 
         let res = AllocatedPtr::pick(
-            &mut cs.namespace(|| "If: pick arg1 or arg2"),
+            &mut if_cs.namespace(|| "pick arg1 or arg2"),
             &condition_is_nil,
             &arg2,
             &arg1,
@@ -2462,12 +2469,13 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     // Continuation::Let, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     let (body, extended_env, tail_cont) = {
+        let mut let_cs = cs.namespace(|| "Let");
         let var = AllocatedPtr::by_index(0, &continuation_components);
         let body = AllocatedPtr::by_index(1, &continuation_components);
         let let_cont = AllocatedContPtr::by_index(3, &continuation_components);
 
         let extended_env = extend(
-            &mut cs.namespace(|| "Let: extend env"),
+            &mut let_cs.namespace(|| "extend env"),
             g,
             store,
             env,
@@ -2476,13 +2484,13 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         )?;
 
         let continuation_is_tail = alloc_equal(
-            &mut cs.namespace(|| "Let: continuation is tail"),
+            &mut let_cs.namespace(|| "continuation is tail"),
             let_cont.tag(),
             &g.tail_cont_tag,
         )?;
 
         let tail_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "Let: the tail continuation"),
+            &mut let_cs.namespace(|| "the tail continuation"),
             &continuation_is_tail,
             &let_cont,
             &newer_cont,
@@ -2499,12 +2507,13 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     // Continuation::LetRec, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     let (body, extended_env, return_cont) = {
+        let mut letrec_cs = cs.namespace(|| "LetRec");
         let var = AllocatedPtr::by_index(0, &continuation_components);
         let body = AllocatedPtr::by_index(1, &continuation_components);
         let letrec_cont = AllocatedContPtr::by_index(3, &continuation_components);
 
         let extended_env = extend_rec(
-            &mut cs.namespace(|| "LetRec: extend_rec env"),
+            &mut letrec_cs.namespace(|| "extend_rec env"),
             g,
             env,
             &var,
@@ -2513,23 +2522,23 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         )?;
 
         let is_error =
-            extended_env.alloc_equal(&mut cs.namespace(|| "LetRec: is_error"), &g.error_ptr)?;
+            extended_env.alloc_equal(&mut letrec_cs.namespace(|| "is_error"), &g.error_ptr)?;
 
         let continuation_is_tail = alloc_equal(
-            &mut cs.namespace(|| "LetRec: continuation is tail"),
+            &mut letrec_cs.namespace(|| "continuation is tail"),
             letrec_cont.tag(),
             &g.tail_cont_tag,
         )?;
 
         let tail_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "LetRec: the tail continuation"),
+            &mut letrec_cs.namespace(|| "the tail continuation"),
             &continuation_is_tail,
             &letrec_cont,
             &newer_cont,
         )?;
 
         let return_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "LetRec: return_cont"),
+            &mut letrec_cs.namespace(|| "return_cont"),
             &is_error,
             &g.error_ptr_cont,
             &tail_cont,
@@ -2550,12 +2559,12 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     let unop_op1 = AllocatedPtr::by_index(0, &continuation_components);
     let other_unop_continuation = AllocatedContPtr::by_index(1, &continuation_components);
     let op1_is_emit = alloc_equal(
-        &mut cs.namespace(|| "Unop: op1_is_emit"),
+        &mut cs.namespace(|| "op1_is_emit"),
         unop_op1.tag(),
         &g.op1_emit_tag,
     )?;
     let unop_continuation = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "Unop: continuation"),
+        &mut cs.namespace(|| "continuation"),
         &op1_is_emit,
         &newer_cont,
         &other_unop_continuation,
