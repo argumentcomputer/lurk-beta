@@ -480,6 +480,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_arithmetic_let() {
         outer_prove_aux(
             &"(let ((a 5)
@@ -496,6 +497,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_binop() {
         outer_prove_aux(
             &"(+ 1 2)",
@@ -509,6 +511,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_eq() {
         outer_prove_aux(
             &"(eq 5 5)",
@@ -522,6 +525,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_num_equal() {
         outer_prove_aux(
             &"(= 5 5)",
@@ -544,6 +548,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_if() {
         outer_prove_aux(
             &"(if t 5 6)",
@@ -566,6 +571,7 @@ mod tests {
         )
     }
     #[test]
+    #[ignore]
     fn outer_prove_if_fully_evaluates() {
         outer_prove_aux(
             &"(if t (+ 5 5) 6)",
@@ -579,7 +585,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
+    #[ignore]
     fn outer_prove_recursion1() {
         outer_prove_aux(
             &"(letrec ((exp (lambda (base)
@@ -599,7 +605,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
+    #[ignore]
     fn outer_prove_recursion2() {
         outer_prove_aux(
             &"(letrec ((exp (lambda (base)
