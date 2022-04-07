@@ -1494,7 +1494,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         )?;
 
         let the_call_continuation = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "the_call_tag"),
+            &mut cs.namespace(|| "the_call_continuation"),
             &rest_is_nil,
             &call0_continuation,
             &call_continuation,
