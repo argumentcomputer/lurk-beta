@@ -1175,8 +1175,6 @@ mod tests {
     }
     #[test]
     fn outer_prove_evaluate_zero_arg_lambda3() {
-        // FIXME: This should return the Fun, to match eval.rs
-        // Actual expected value might need tweaking once constraint system is satisfied.
         outer_prove_aux(
             &"((lambda (x) 123))",
             |store| {
