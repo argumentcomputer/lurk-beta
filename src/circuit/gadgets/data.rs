@@ -33,6 +33,7 @@ pub struct GlobalAllocations<F: PrimeField> {
     pub outermost_cont_tag: AllocatedNum<F>,
     pub lookup_cont_tag: AllocatedNum<F>,
     pub tail_cont_tag: AllocatedNum<F>,
+    pub call0_cont_tag: AllocatedNum<F>,
     pub call_cont_tag: AllocatedNum<F>,
     pub call2_cont_tag: AllocatedNum<F>,
     pub unop_cont_tag: AllocatedNum<F>,
@@ -121,6 +122,8 @@ impl<F: PrimeField> GlobalAllocations<F> {
             ContTag::LetRec.allocate_constant(&mut cs.namespace(|| "letrec_cont_tag"))?;
         let tail_cont_tag =
             ContTag::Tail.allocate_constant(&mut cs.namespace(|| "tail_cont_tag"))?;
+        let call0_cont_tag =
+            ContTag::Call0.allocate_constant(&mut cs.namespace(|| "call0_cont_tag"))?;
         let call_cont_tag =
             ContTag::Call.allocate_constant(&mut cs.namespace(|| "call_cont_tag"))?;
         let call2_cont_tag =
@@ -183,6 +186,7 @@ impl<F: PrimeField> GlobalAllocations<F> {
             let_cont_tag,
             letrec_cont_tag,
             tail_cont_tag,
+            call0_cont_tag,
             call_cont_tag,
             call2_cont_tag,
             unop_cont_tag,

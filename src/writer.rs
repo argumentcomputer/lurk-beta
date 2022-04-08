@@ -48,12 +48,15 @@ impl<F: PrimeField> Write<F> for Expression<'_, F> {
             Sym(s) => write!(w, "{}", s),
             Str(s) => write!(w, "\"{}\"", s),
             Fun(arg, body, _closed_env) => {
+                let is_zero_arg = *arg == store.get_sym("_", true).expect("dummy_arg (_) missing");
                 let arg = store.fetch(arg).unwrap();
                 let body = store.fetch(body).unwrap();
                 write!(w, "<FUNCTION (")?;
-                arg.fmt(store, w)?;
-                write!(w, ") . ")?;
-                body.fmt(store, w)?;
+                if !is_zero_arg {
+                    arg.fmt(store, w)?;
+                }
+                write!(w, ") ")?;
+                body.print_tail(store, w)?;
                 write!(w, ">")
             }
             Num(n) => write!(w, "{}", n),
@@ -131,6 +134,11 @@ impl<F: PrimeField> Write<F> for Continuation<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         match self {
             Continuation::Outermost => write!(w, "Outermost"),
+            Continuation::Call0 { continuation } => {
+                write!(w, "Call0{{ continuation: ")?;
+                continuation.fmt(store, w)?;
+                write!(w, " }}")
+            }
             Continuation::Call {
                 unevaled_arg,
                 saved_env,
