@@ -48,6 +48,7 @@ jobs:
           install: |
             apt-get update -q -y
             apt-get install -q -y ocl-icd-opencl-dev curl build-essential
+            apt-get install -y m4
             curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal --default-toolchain ${{ matrix.rust }} -y
             source $HOME/.cargo/env
 
