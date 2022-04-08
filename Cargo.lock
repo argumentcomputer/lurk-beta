@@ -154,9 +154,9 @@ dependencies = [
 
 [[package]]
 name = "bellperson-nonnative"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2bec8b956e7461a6c64da36d1d43925792c8bbd9e2c309d27d75913ab83c7cc"
+checksum = "03ff9441ec8f28ad58d085b931ad5e93fca610b58ffb907e386304c35e313246"
 dependencies = [
  "bellperson",
  "byteorder 0.3.13",
@@ -1431,9 +1431,9 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 
 [[package]]
 name = "nova-snark"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d637944a39351ca47f617ee9fa4fa02e49933290c469b284ea07dc287118c0fe"
+checksum = "8f29cd7ec2d9be2a86d27b6b5d2530764e3717b84952badf633f49f42f75a329"
 dependencies = [
  "bellperson",
  "bellperson-nonnative",
