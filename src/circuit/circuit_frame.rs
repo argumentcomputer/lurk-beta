@@ -2126,7 +2126,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         let next_expr = AllocatedPtr::by_index(1, &continuation_components);
         let result_is_fun = alloc_equal(
             cs.namespace(|| "result_is_fun"),
-            function.tag(),
+            result.tag(),
             &g.fun_tag,
         )?;
 
@@ -2208,7 +2208,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
             let result_is_fun = alloc_equal(
                 cs.namespace(|| "result_is_fun"),
-                function.tag(),
+                result.tag(),
                 &g.fun_tag,
             )?;
             let args_is_dummy = arg_t.alloc_equal(
