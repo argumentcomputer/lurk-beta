@@ -66,8 +66,8 @@ jobs:
           # 64-bit Linux/x86_64
           - target: x86_64-unknown-linux-gnu
             rust: ${{needs.set-msrv.outputs.msrv}}
-          - target: x86_64-unknown-linux-gnu
-            rust: stable
+          # - target: x86_64-unknown-linux-gnu
+          #   rust: stable
 
     runs-on: ubuntu-latest
     steps:
