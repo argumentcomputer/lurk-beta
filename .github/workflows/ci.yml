@@ -65,7 +65,7 @@ jobs:
         include:
           # 64-bit Linux/x86_64
           - target: x86_64-unknown-linux-gnu
-          - toolchain: nightly
+            toolchain: nightly
             rust: ${{needs.set-msrv.outputs.msrv}}
           # - target: x86_64-unknown-linux-gnu
           #   rust: stable
@@ -76,7 +76,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: ${{ matrix.rust }}
+          toolchain: ${{ matrix.toolchain }}
           target: ${{ matrix.target }}
           override: true
       - name: Install opencl
