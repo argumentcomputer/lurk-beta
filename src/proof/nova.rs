@@ -242,8 +242,8 @@ impl<F: LurkField> Nova<F> for NovaProver<F> {
 mod tests {
     use super::*;
     use crate::eval::empty_sym_env;
-    use crate::proof::verify_sequential_css;
-    use crate::proof::SequentialCS;
+    use crate::proof::{verify_sequential_css, SequentialCS};
+    use crate::writer::Write;
 
     use bellperson::util_cs::{metric_cs::MetricCS, Comparable, Delta};
     use pallas::Scalar as Fr;
@@ -300,7 +300,8 @@ mod tests {
                 dbg!(
                     multiframes.len(),
                     nova_prover.chunk_frame_count(),
-                    frames.len()
+                    frames.len(),
+                    cs[cs.len() - 1].0.output.unwrap().expr.fmt_to_string(&s)
                 );
 
                 assert_eq!(expected_iterations, Frame::significant_frame_count(&frames));
@@ -646,6 +647,36 @@ mod tests {
             &"(+ 2 (+ 3 4))",
             |store| store.num(9),
             6,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion failed: rest.is_nil()")]
+    fn outer_prove_evaluate_binop_rest_is_nil() {
+        outer_prove_aux(
+            &"(- 9 8 7)",
+            |store| store.nil(),
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion failed: rest.is_nil()")]
+    fn outer_prove_evaluate_relop_rest_is_nil() {
+        outer_prove_aux(
+            &"(= 9 8 7)",
+            |store| store.nil(),
+            3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1132,7 +1163,7 @@ mod tests {
         outer_prove_aux(
             &"((lambda () 123))",
             |store| store.num(123),
-            4,
+            3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1146,7 +1177,58 @@ mod tests {
         outer_prove_aux(
             &"(let ((x 9) (f (lambda () (+ x 1)))) (f))",
             |store| store.num(10),
-            13,
+            10,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+    #[test]
+    fn outer_prove_evaluate_zero_arg_lambda3() {
+        outer_prove_aux(
+            &"((lambda (x) 123))",
+            |store| {
+                let arg = store.sym("x");
+                let num = store.num(123);
+                let body = store.list(&[num]);
+                let env = store.nil();
+                store.intern_fun(arg, body, env)
+            },
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_zero_arg_lambda4() {
+        // FIXME: This should be an error.
+        // Tests don't currently have a way of checking this, but we need that.
+        outer_prove_aux(
+            &"((lambda () 123) 1)",
+            |store| store.intern_num(1),
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_zero_arg_lambda5() {
+        // FIXME: This should be an error.
+        // Tests don't currently have a way of checking this, but we need that.
+        outer_prove_aux(
+            &"(123)",
+            |store| store.intern_num(123),
+            2,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,

@@ -78,6 +78,7 @@ pub struct Store<F: LurkField> {
 
     str_store: StringSet,
     thunk_store: IndexSet<Thunk<F>>,
+    call0_store: IndexSet<ContPtr<F>>,
     call_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
     call2_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
     tail_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
@@ -433,6 +434,9 @@ impl<F: LurkField> Hash for Thunk<F> {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Continuation<F: LurkField> {
     Outermost,
+    Call0 {
+        continuation: ContPtr<F>,
+    },
     Call {
         unevaled_arg: Ptr<F>,
         saved_env: Ptr<F>,
@@ -609,6 +613,7 @@ impl Tag {
 #[repr(u16)]
 pub enum ContTag {
     Outermost = 0b0001_0000_0000_0000,
+    Call0,
     Call,
     Call2,
     Tail,
@@ -648,6 +653,7 @@ impl<F: LurkField> Default for Store<F> {
             fun_store: Default::default(),
             str_store: Default::default(),
             thunk_store: Default::default(),
+            call0_store: Default::default(),
             call_store: Default::default(),
             call2_store: Default::default(),
             tail_store: Default::default(),
@@ -914,6 +920,15 @@ impl<F: LurkField> Store<F> {
     pub fn get_cont_outermost(&self) -> ContPtr<F> {
         let ptr = self.sym_store.0.get("OUTERMOST").expect("pre stored");
         ContPtr(ContTag::Outermost, RawPtr::new(ptr.to_usize()))
+    }
+
+    pub fn intern_cont_call0(&mut self, a: ContPtr<F>) -> ContPtr<F> {
+        let (p, inserted) = self.call0_store.insert_full(a);
+        let ptr = ContPtr(ContTag::Call0, RawPtr::new(p));
+        if inserted {
+            self.dehydrated_cont.push(ptr)
+        }
+        ptr
     }
 
     pub fn intern_cont_call(&mut self, a: Ptr<F>, b: Ptr<F>, c: ContPtr<F>) -> ContPtr<F> {
@@ -1189,6 +1204,10 @@ impl<F: LurkField> Store<F> {
         use ContTag::*;
         match ptr.0 {
             Outermost => Some(Continuation::Outermost),
+            Call0 => self
+                .call0_store
+                .get_index(ptr.1.idx())
+                .map(|c| Continuation::Call0 { continuation: *c }),
             Call => self
                 .call_store
                 .get_index(ptr.1.idx())
@@ -1387,6 +1406,7 @@ impl<F: LurkField> Store<F> {
 
         let hash = match &cont {
             Outermost | Terminal | Dummy | Error => self.get_hash_components_default(),
+            Call0 { continuation } => self.get_hash_components_call0(continuation)?,
             Call {
                 unevaled_arg,
                 saved_env,
@@ -1582,17 +1602,12 @@ impl<F: LurkField> Store<F> {
         Some([saved_env, cont, def, def])
     }
 
-    fn get_hash_components_call2(
-        &self,
-        fun: &Ptr<F>,
-        saved_env: &Ptr<F>,
-        cont: &ContPtr<F>,
-    ) -> Option<[[F; 2]; 4]> {
+    fn get_hash_components_call0(&self, cont: &ContPtr<F>) -> Option<[[F; 2]; 4]> {
         let def = [F::zero(), F::zero()];
-        let fun = self.hash_expr(fun)?.into_hash_components();
-        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+
         let cont = self.hash_cont(cont)?.into_hash_components();
-        Some([saved_env, fun, cont, def])
+
+        Some([cont, def, def, def])
     }
 
     fn get_hash_components_call(
@@ -1607,6 +1622,19 @@ impl<F: LurkField> Store<F> {
         let cont = self.hash_cont(cont)?.into_hash_components();
 
         Some([saved_env, arg, cont, def])
+    }
+
+    fn get_hash_components_call2(
+        &self,
+        fun: &Ptr<F>,
+        saved_env: &Ptr<F>,
+        cont: &ContPtr<F>,
+    ) -> Option<[[F; 2]; 4]> {
+        let def = [F::zero(), F::zero()];
+        let fun = self.hash_expr(fun)?.into_hash_components();
+        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+        let cont = self.hash_cont(cont)?.into_hash_components();
+        Some([saved_env, fun, cont, def])
     }
 
     fn get_hash_components_emit(&self, cont: &ContPtr<F>) -> Option<[[F; 2]; 4]> {
@@ -2024,21 +2052,22 @@ mod test {
         use super::ContTag::*;
 
         assert_eq!(0b0001_0000_0000_0000, Outermost as u16);
-        assert_eq!(0b0001_0000_0000_0001, Call as u16);
-        assert_eq!(0b0001_0000_0000_0010, Call2 as u16);
-        assert_eq!(0b0001_0000_0000_0011, Tail as u16);
-        assert_eq!(0b0001_0000_0000_0100, Error as u16);
-        assert_eq!(0b0001_0000_0000_0101, Lookup as u16);
-        assert_eq!(0b0001_0000_0000_0110, Unop as u16);
-        assert_eq!(0b0001_0000_0000_0111, Binop as u16);
-        assert_eq!(0b0001_0000_0000_1000, Binop2 as u16);
-        assert_eq!(0b0001_0000_0000_1001, Relop as u16);
-        assert_eq!(0b0001_0000_0000_1010, Relop2 as u16);
-        assert_eq!(0b0001_0000_0000_1011, If as u16);
-        assert_eq!(0b0001_0000_0000_1100, Let as u16);
-        assert_eq!(0b0001_0000_0000_1101, LetRec as u16);
-        assert_eq!(0b0001_0000_0000_1110, Dummy as u16);
-        assert_eq!(0b0001_0000_0000_1111, Terminal as u16);
+        assert_eq!(0b0001_0000_0000_0001, Call0 as u16);
+        assert_eq!(0b0001_0000_0000_0010, Call as u16);
+        assert_eq!(0b0001_0000_0000_0011, Call2 as u16);
+        assert_eq!(0b0001_0000_0000_0100, Tail as u16);
+        assert_eq!(0b0001_0000_0000_0101, Error as u16);
+        assert_eq!(0b0001_0000_0000_0110, Lookup as u16);
+        assert_eq!(0b0001_0000_0000_0111, Unop as u16);
+        assert_eq!(0b0001_0000_0000_1000, Binop as u16);
+        assert_eq!(0b0001_0000_0000_1001, Binop2 as u16);
+        assert_eq!(0b0001_0000_0000_1010, Relop as u16);
+        assert_eq!(0b0001_0000_0000_1011, Relop2 as u16);
+        assert_eq!(0b0001_0000_0000_1100, If as u16);
+        assert_eq!(0b0001_0000_0000_1101, Let as u16);
+        assert_eq!(0b0001_0000_0000_1110, LetRec as u16);
+        assert_eq!(0b0001_0000_0000_1111, Dummy as u16);
+        assert_eq!(0b0001_0000_0001_0000, Terminal as u16);
     }
 
     #[test]

@@ -8,11 +8,13 @@ use blstrs::{Bls12, Scalar};
 
 use ff::PrimeField;
 use hex::FromHex;
-use once_cell::sync::OnceCell;
-use pairing_lib::{Engine, MultiMillerLoop};
-use rand::rngs::OsRng;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
+use libipld::{
+    json::DagJsonCodec,
+    multihash::{Code, MultihashDigest},
+    prelude::Codec,
+    serde::to_ipld,
+    Cid,
+};
 use lurk::circuit::ToInputs;
 use lurk::eval::{empty_sym_env, Evaluable, Evaluator, Status, IO};
 use lurk::field::LurkField;
@@ -23,6 +25,10 @@ use lurk::proof::{
 use lurk::store::{Pointer, Ptr, ScalarPointer, Store, Tag};
 use lurk::writer::Write;
 use lurk::Num;
+use once_cell::sync::OnceCell;
+use pairing_lib::{Engine, MultiMillerLoop};
+use rand::rngs::OsRng;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub const DEFAULT_REDUCTION_COUNT: ReductionCount = ReductionCount::One;
 pub static VERBOSE: OnceCell<bool> = OnceCell::new();
@@ -61,9 +67,10 @@ pub struct Evaluation {
     pub env_out: String,
     pub cont_out: String,
     pub status: Status,
+    pub iterations: Option<usize>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Commitment<F: LurkField> {
     pub comm: F,
 }
@@ -102,25 +109,25 @@ impl<F: LurkField> FromHex for Commitment<F> {
         })
     }
 }
-
 #[derive(Serialize, Deserialize, Clone)]
+<<<<<<< HEAD
 pub struct Opening<E: Engine + MultiMillerLoop>
 where
     <E as Engine>::Fr: LurkField,
 {
+=======
+pub struct Expression {
+    pub source: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+pub struct Opening<F: PrimeField> {
+>>>>>>> 274add6bb7f3159e42465110e4c7fe73608e8a17
     pub input: String,
     pub output: String,
     pub status: Status,
-    #[serde(bound(
-        serialize = "E::Fr: Serialize",
-        deserialize = "E::Fr: Deserialize<'de>"
-    ))]
-    pub commitment: Commitment<E::Fr>,
-    #[serde(bound(
-        serialize = "E::Fr: Serialize",
-        deserialize = "E::Fr: Deserialize<'de>"
-    ))]
-    pub new_commitment: Option<Commitment<E::Fr>>,
+    pub commitment: Commitment<F>,
+    pub new_commitment: Option<Commitment<F>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -147,10 +154,10 @@ where
     <E as Engine>::Gt: blstrs::Compress + Serialize,
 {
     #[serde(bound(
-        serialize = "Claim<E>: Serialize",
-        deserialize = "Claim<E>: Deserialize<'de>"
+        serialize = "Claim<E::Fr>: Serialize",
+        deserialize = "Claim<E::Fr>: Deserialize<'de>"
     ))]
-    pub claim: Claim<E>,
+    pub claim: Claim<E::Fr>,
     #[serde(bound(
         serialize = "proof::groth16::Proof<E>: Serialize",
         deserialize = "proof::groth16::Proof<E>: Deserialize<'de>"
@@ -159,17 +166,22 @@ where
     pub reduction_count: ReductionCount,
 }
 
+<<<<<<< HEAD
 #[derive(Serialize, Deserialize)]
 pub enum Claim<E: Engine + MultiMillerLoop>
 where
     <E as Engine>::Fr: LurkField,
 {
+=======
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum Claim<F: PrimeField> {
+>>>>>>> 274add6bb7f3159e42465110e4c7fe73608e8a17
     Evaluation(Evaluation),
     #[serde(bound(
-        serialize = "Opening<E>: Serialize",
-        deserialize = "Opening<E>: Deserialize<'de>"
+        serialize = "Opening<F>: Serialize",
+        deserialize = "Opening<F>: Deserialize<'de>"
     ))]
-    Opening(Opening<E>),
+    Opening(Opening<F>),
 }
 
 // This is just a rough idea, mostly here so we can plumb it elsewhere. The idea is that a verifier can sign an
@@ -179,18 +191,22 @@ where
 // system where the ability to aggregate proof verification more soundly is possible.
 #[derive(Serialize, Deserialize)]
 pub struct Cert {
-    pub claim_id: String,
-    pub proof_id: String,
+    pub claim_cid: Cid,
+    pub proof_cid: Cid,
     pub verified: VerificationResult,
     pub verifier_id: String,
     pub signature: String,
 }
 
 #[allow(dead_code)]
+<<<<<<< HEAD
 impl<E: Engine + MultiMillerLoop> Claim<E>
 where
     <E as Engine>::Fr: Serialize + LurkField,
 {
+=======
+impl<F: PrimeField> Claim<F> {
+>>>>>>> 274add6bb7f3159e42465110e4c7fe73608e8a17
     pub fn is_evaluation(&self) -> bool {
         self.evaluation().is_some()
     }
@@ -203,7 +219,7 @@ where
             _ => None,
         }
     }
-    pub fn opening(&self) -> Option<Opening<E>> {
+    pub fn opening(&self) -> Option<Opening<F>> {
         match self {
             Self::Opening(o) => Some(o.clone()),
             _ => None,
@@ -259,6 +275,37 @@ impl From<SynthesisError> for Error {
     }
 }
 
+pub trait Id
+where
+    Self: Sized,
+{
+    fn id(&self) -> String;
+    fn cid(&self) -> Cid;
+    fn has_id(&self, id: String) -> bool;
+}
+
+impl<T: Serialize> Id for T
+where
+    for<'de> T: Deserialize<'de>,
+{
+    fn cid(&self) -> Cid {
+        let ipld = to_ipld(self).unwrap();
+        let dag_json = DagJsonCodec.encode(&ipld).unwrap();
+
+        let digest = Code::Blake3_256.digest(&dag_json);
+        let cid = Cid::new_v1(0x55, digest);
+        cid
+    }
+
+    fn id(&self) -> String {
+        self.cid().to_string()
+    }
+
+    fn has_id(&self, id: String) -> bool {
+        self.id() == id
+    }
+}
+
 pub trait FileStore
 where
     Self: Sized,
@@ -291,8 +338,8 @@ impl Evaluation {
         s: &mut Store<F>,
         input: IO<F>,
         output: IO<F>,
-        // This might be padded, so is not quite 'iterations' in the sense of number of actual reduction steps required
-        // to evaluate.
+        iterations: Option<usize>, // This might be padded, so is not quite 'iterations' in the sense of number of actual reduction steps required
+                                   // to evaluate.
     ) -> Self {
         let status: Status = output.cont.into();
         let terminal = status.is_terminal();
@@ -326,7 +373,23 @@ impl Evaluation {
             env_out,
             cont_out,
             status,
+            iterations,
         }
+    }
+
+    pub fn eval<F: PrimeField + Serialize>(
+        store: &mut Store<F>,
+        expr: Ptr<F>,
+        limit: usize,
+    ) -> Self {
+        let env = empty_sym_env(store);
+        let mut evaluator = Evaluator::new(expr, env, store, limit);
+
+        let input = evaluator.initial();
+
+        let (output, iterations) = evaluator.eval();
+
+        Self::new(store, input, output, Some(iterations))
     }
 }
 
@@ -416,7 +479,7 @@ impl<F: LurkField + Serialize> Function<F> {
     }
 }
 
-impl Opening<Bls12> {
+impl Opening<Scalar> {
     pub fn open_and_prove<P: AsRef<Path>>(
         s: &mut Store<<Bls12 as Engine>::Fr>,
         input: Ptr<<Bls12 as Engine>::Fr>,
@@ -539,7 +602,7 @@ impl Proof<Bls12> {
 
         assert!(public_output.is_complete());
 
-        let evaluation = Evaluation::new(s, input, public_output);
+        let evaluation = Evaluation::new(s, input, public_output, None);
         let proof = Proof {
             claim: Claim::Evaluation(evaluation),
             reduction_count,

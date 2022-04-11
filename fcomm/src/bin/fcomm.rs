@@ -11,9 +11,10 @@ use structopt::StructOpt;
 use lurk::eval::IO;
 use lurk::field::LurkField;
 use lurk::store::{Ptr, Store};
-use lurk::writer::Write;
 
-use fcomm::{self, evaluate, Commitment, Error, FileStore, Function, Opening, Proof};
+use fcomm::{
+    self, evaluate, Claim, Commitment, Error, Evaluation, FileStore, Function, Opening, Proof,
+};
 
 macro_rules! prl {
     ($($arg:expr),*) => { if *fcomm::VERBOSE.get().expect("verbose flag uninitialized") {
@@ -30,6 +31,9 @@ struct Opt {
 
     #[structopt(short("x"), long("expression"), help("Path to expression source"))]
     expression: Option<Option<String>>,
+
+    #[structopt(long("claim"), help("Wrap evaluation result in a claim"))]
+    claim: bool,
 
     #[structopt(short("c"), long("commitment"), help("Path to functional commitment"))]
     commitment: Option<Option<String>>,
@@ -290,10 +294,14 @@ impl FComm {
 
         let expr = self.expression(&mut s)?;
 
-        let (out_expr, iterations) = evaluate(&mut s, expr, self.opt.limit);
+        let evaluation = Evaluation::eval(&mut s, expr, self.opt.limit);
 
-        println!("[{} iterations] {}", iterations, out_expr.fmt_to_string(&s));
-
+        if self.opt.claim {
+            let claim = Claim::<Scalar>::Evaluation(evaluation);
+            serde_json::to_writer(io::stdout(), &claim)?;
+        } else {
+            serde_json::to_writer(io::stdout(), &evaluation)?;
+        }
         Ok(())
     }
 

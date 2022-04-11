@@ -319,7 +319,6 @@ impl ReplState {
             } else {
                 let (result, _limit, _next_cont) = self.eval_expr(ptr, store);
 
-                println!("Read: {}", input);
                 println!("Evaled: {}", result.fmt_to_string(store));
                 io::stdout().flush().unwrap();
             }
