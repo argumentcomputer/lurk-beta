@@ -166,7 +166,7 @@ pub fn div<F: PrimeField, CS: ConstraintSystem<F>>(
             inv.map(|i| tmp.mul_assign(i));
             Ok(tmp)
         } else {
-            Err(SynthesisError::DivisionByZero)
+            panic!("Division by zero.");
         }
     })?;
 

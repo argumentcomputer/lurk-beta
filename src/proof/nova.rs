@@ -716,6 +716,20 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_error_div_by_zero() {
+        outer_prove_aux(
+            &"(/ 21 0)",
+            |store| store.num(0),
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
     fn outer_prove_evaluate_adder() {
         outer_prove_aux(
             &"(((lambda (x)

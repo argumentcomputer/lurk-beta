@@ -1617,6 +1617,7 @@ fn make_thunk<F: PrimeField, CS: ConstraintSystem<F>>(
     results.add_clauses_thunk(ContTag::Tail, &result_expr, &saved_env, &g.dummy_ptr);
     results.add_clauses_thunk(ContTag::Outermost, result, env, &g.terminal_ptr);
     results.add_clauses_thunk(ContTag::Terminal, result, env, &g.terminal_ptr);
+    results.add_clauses_thunk(ContTag::Error, result, env, &g.error_ptr_cont);
 
     let thunk_hash =
         Thunk::hash_components(&mut cs.namespace(|| "thunk_hash"), store, result, cont)?;
@@ -1880,128 +1881,6 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.binop2_cont_tag,
         binop_components,
     );
-
-    // Continuation::Binop2 preimage
-    /////////////////////////////////////////////////////////////////////////////
-    let (res, c) = {
-        let op2 = AllocatedPtr::by_index(0, &continuation_components);
-        let arg1 = AllocatedPtr::by_index(1, &continuation_components);
-        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
-
-        let arg2 = result;
-
-        let arg1_is_num = alloc_equal(&mut cs.namespace(|| "arg1_is_num"), arg1.tag(), &g.num_tag)?;
-        let arg2_is_num = alloc_equal(&mut cs.namespace(|| "arg2_is_num"), arg2.tag(), &g.num_tag)?;
-        let both_args_are_nums = Boolean::and(
-            &mut cs.namespace(|| "both_args_are_nums"),
-            &arg1_is_num,
-            &arg2_is_num,
-        )?;
-
-        let (a, b) = (arg1.hash(), arg2.hash()); // For Nums, the 'hash' is an immediate value.
-
-        let not_dummy = alloc_equal(
-            &mut cs.namespace(|| "Binop2 not dummy"),
-            cont.tag(),
-            &g.binop2_cont_tag,
-        )?;
-
-        let sum = constraints::add(&mut cs.namespace(|| "sum"), a, b)?;
-        let diff = constraints::sub(&mut cs.namespace(|| "difference"), a, b)?;
-        let product = constraints::mul(&mut cs.namespace(|| "product"), a, b)?;
-
-        let op2_is_div = alloc_equal(
-            cs.namespace(|| "op2_is_div"),
-            op2.tag(),
-            &g.op2_quotient_tag,
-        )?;
-
-        let real_division = Boolean::and(
-            &mut cs.namespace(|| "real_division"),
-            &not_dummy,
-            &op2_is_div,
-        )?;
-
-        // FIXME: We need to check that b is not zero, returning an error if so.
-        // Currently, attempting to divide by zero will result in a SynthesisError.
-
-        // In dummy paths, we need to use a non-zero dummy value for b.
-        // if dummy then 1 otherwise b.
-        let divisor = pick(
-            &mut cs.namespace(|| "maybe-dummy divisor"),
-            &real_division,
-            b,
-            &g.true_num,
-        )?;
-
-        let quotient = constraints::div(&mut cs.namespace(|| "quotient"), a, &divisor)?;
-
-        let cons =
-            AllocatedPtr::construct_cons(&mut cs.namespace(|| "cons"), g, store, &arg1, arg2)?;
-
-        let val = case(
-            &mut cs.namespace(|| "Binop2 case"),
-            op2.tag(),
-            &[
-                CaseClause {
-                    key: Op2::Sum.as_field(),
-                    value: &sum,
-                },
-                CaseClause {
-                    key: Op2::Diff.as_field(),
-                    value: &diff,
-                },
-                CaseClause {
-                    key: Op2::Product.as_field(),
-                    value: &product,
-                },
-                CaseClause {
-                    key: Op2::Quotient.as_field(),
-                    value: &quotient,
-                },
-                CaseClause {
-                    key: Op2::Cons.as_field(),
-                    value: cons.hash(),
-                },
-            ],
-            &g.default_num,
-        )?;
-
-        let is_cons = alloc_equal(
-            &mut cs.namespace(|| "Op2 is Cons"),
-            op2.tag(),
-            &g.op2_cons_tag,
-        )?;
-
-        let res_tag = pick(
-            &mut cs.namespace(|| "Op2 result tag"),
-            &is_cons,
-            &g.cons_tag,
-            &g.num_tag,
-        )?;
-
-        let res = AllocatedPtr::from_parts(res_tag, val);
-
-        let valid_types = constraints::or(
-            &mut cs.namespace(|| "Op2 called with valid types"),
-            &is_cons,
-            &both_args_are_nums,
-        )?;
-
-        // FIXME: error if op2 is not actually an Op2.
-        // Currently, this will return the default value, treated as Num.
-
-        let c = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "maybe type error"),
-            &valid_types,
-            &continuation,
-            &g.error_ptr_cont,
-        )?;
-
-        (res, c)
-    };
-
-    results.add_clauses_cont(ContTag::Binop2, &res, env, &c, &g.true_num);
 
     // Continuation::Relop preimage
     /////////////////////////////////////////////////////////////////////////////
@@ -2284,6 +2163,147 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         (the_expr, the_env, the_cont)
     };
     results.add_clauses_cont(ContTag::Binop, &the_expr, &the_env, &the_cont, &g.false_num);
+
+    // Continuation::Binop2
+    /////////////////////////////////////////////////////////////////////////////
+    let (the_expr, the_cont) = {
+        let op2 = AllocatedPtr::by_index(0, &continuation_components);
+        let arg1 = AllocatedPtr::by_index(1, &continuation_components);
+        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
+
+        let arg2 = result;
+
+        let arg1_is_num = alloc_equal(&mut cs.namespace(|| "arg1_is_num"), arg1.tag(), &g.num_tag)?;
+        let arg2_is_num = alloc_equal(&mut cs.namespace(|| "arg2_is_num"), arg2.tag(), &g.num_tag)?;
+        let both_args_are_nums = Boolean::and(
+            &mut cs.namespace(|| "both_args_are_nums"),
+            &arg1_is_num,
+            &arg2_is_num,
+        )?;
+
+        let (a, b) = (arg1.hash(), arg2.hash()); // For Nums, the 'hash' is an immediate value.
+
+        let not_dummy = alloc_equal(
+            &mut cs.namespace(|| "Binop2 not dummy"),
+            cont.tag(),
+            &g.binop2_cont_tag,
+        )?;
+
+        let sum = constraints::add(&mut cs.namespace(|| "sum"), a, b)?;
+        let diff = constraints::sub(&mut cs.namespace(|| "difference"), a, b)?;
+        let product = constraints::mul(&mut cs.namespace(|| "product"), a, b)?;
+
+        let op2_is_div = alloc_equal(
+            cs.namespace(|| "op2_is_div"),
+            op2.tag(),
+            &g.op2_quotient_tag,
+        )?;
+
+        let b_is_zero = &alloc_is_zero(
+            &mut cs.namespace(|| "b_is_zero"),
+            b,
+        )?;
+
+        let divisor = pick(
+            &mut cs.namespace(|| "maybe-dummy divisor"),
+            &b_is_zero,
+            &g.true_num,
+            b,
+        )?;
+
+        let quotient = constraints::div(&mut cs.namespace(|| "quotient"), a, &divisor)?;
+
+        let cons =
+            AllocatedPtr::construct_cons(&mut cs.namespace(|| "cons"), g, store, &arg1, arg2)?;
+
+        let val = case(
+            &mut cs.namespace(|| "Binop2 case"),
+            op2.tag(),
+            &[
+                CaseClause {
+                    key: Op2::Sum.as_field(),
+                    value: &sum,
+                },
+                CaseClause {
+                    key: Op2::Diff.as_field(),
+                    value: &diff,
+                },
+                CaseClause {
+                    key: Op2::Product.as_field(),
+                    value: &product,
+                },
+                CaseClause {
+                    key: Op2::Quotient.as_field(),
+                    value: &quotient,
+                },
+                CaseClause {
+                    key: Op2::Cons.as_field(),
+                    value: cons.hash(),
+                },
+            ],
+            &g.default_num,
+        )?;
+
+        let is_cons = alloc_equal(
+            &mut cs.namespace(|| "Op2 is Cons"),
+            op2.tag(),
+            &g.op2_cons_tag,
+        )?;
+
+        let res_tag = pick(
+            &mut cs.namespace(|| "Op2 result tag"),
+            &is_cons,
+            &g.cons_tag,
+            &g.num_tag,
+        )?;
+
+        let res = AllocatedPtr::from_parts(res_tag, val);
+
+        let valid_types = constraints::or(
+            &mut cs.namespace(|| "Op2 called with valid types"),
+            &is_cons,
+            &both_args_are_nums,
+        )?;
+
+        let real_division = Boolean::and(
+            &mut cs.namespace(|| "real_division"),
+            &not_dummy,
+            &op2_is_div,
+        )?;
+
+        let real_div_and_b_is_zero = Boolean::and(
+            &mut cs.namespace(|| "real_div_and_b_is_zero"),
+            &real_division,
+            &b_is_zero,
+        )?;
+
+        let valid_types_and_not_div_by_zero = Boolean::and(
+            &mut cs.namespace(|| "Op2 called with no errors"),
+            &valid_types,
+            &Boolean::not(&real_div_and_b_is_zero),
+        )?;
+
+        // FIXME: error if op2 is not actually an Op2.
+        // Currently, this will return the default value, treated as Num.
+
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "maybe type or div by zero error"),
+            &valid_types_and_not_div_by_zero,
+            &continuation,
+            &g.error_ptr_cont,
+        )?;
+
+        let the_expr = AllocatedPtr::pick(
+            &mut cs.namespace(|| "maybe expr error"),
+            &valid_types_and_not_div_by_zero,
+            &res,
+            &result,
+        )?;
+
+        (the_expr, the_cont)
+    };
+
+    results.add_clauses_cont(ContTag::Binop2, &the_expr, env, &the_cont, &g.true_num);
 
     // Continuation::Relop, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
@@ -2837,9 +2857,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31100, cs.num_constraints());
+            assert_eq!(31115, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31073, cs.aux().len());
+            assert_eq!(31087, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

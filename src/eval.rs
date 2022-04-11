@@ -883,9 +883,10 @@ fn apply_continuation<F: PrimeField>(
                         }
                         Op2::Quotient => {
                             let mut tmp = a;
-                            // TODO: Return error continuation.
                             let b_is_zero: bool = b.is_zero();
-                            assert!(!b_is_zero, "Division by zero error.");
+                            if b_is_zero {
+                                return Control::Return(*result, *env, store.intern_cont_error());
+                            }
                             tmp /= b;
                             store.intern_num(tmp)
                         }
@@ -1597,9 +1598,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
-    // This shouldn't actually panic, it should return an error continuation.
-    // But for now document the handling.
     fn evaluate_quotient_divide_by_zero() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
