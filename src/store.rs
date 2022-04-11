@@ -15,6 +15,8 @@ use libipld::Ipld;
 use crate::field::LurkField;
 use crate::ipld::IpldEmbed;
 use crate::ipld::IpldError;
+use crate::scalar_store::ScalarExpression;
+use crate::scalar_store::ScalarStore;
 use crate::Num;
 
 /// Holds the constants needed for poseidon hashing.
@@ -604,6 +606,26 @@ impl From<Tag> for u64 {
 }
 
 impl Tag {
+    pub fn from_field<F: From<u64> + ff::Field>(f: F) -> Option<Self> {
+        if f == Tag::Nil.as_field() {
+            Some(Tag::Nil)
+        } else if f == Tag::Cons.as_field() {
+            Some(Tag::Cons)
+        } else if f == Tag::Sym.as_field() {
+            Some(Tag::Sym)
+        } else if f == Tag::Fun.as_field() {
+            Some(Tag::Fun)
+        } else if f == Tag::Thunk.as_field() {
+            Some(Tag::Thunk)
+        } else if f == Tag::Num.as_field() {
+            Some(Tag::Num)
+        } else if f == Tag::Str.as_field() {
+            Some(Tag::Str)
+        } else {
+            None
+        }
+    }
+
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
@@ -805,6 +827,58 @@ impl<F: LurkField> Store<F> {
         // Always insert. Key is unique because of newly allocated opaque raw_ptr.
         self.opaque_map.insert(ptr, scalar_ptr);
         ptr
+    }
+
+    fn intern_scalar_cont_ptr(
+        &mut self,
+        ptr: ScalarContPtr<F>,
+        scalar_store: &ScalarStore<F>,
+    ) -> Option<ContPtr<F>> {
+        todo!()
+    }
+
+    fn intern_scalar_ptr(
+        &mut self,
+        ptr: ScalarPtr<F>,
+        scalar_store: &ScalarStore<F>,
+    ) -> Option<Ptr<F>> {
+        let tag: Tag = Tag::from_field(*ptr.tag())?;
+        let expr = scalar_store.get(&ptr);
+        use ScalarExpression::*;
+        match (tag, expr) {
+            (Tag::Nil, Some(Nil)) => Some(self.intern_nil()),
+            (Tag::Cons, Some(Cons(car, cdr))) => {
+                let car = self.intern_scalar_ptr(*car, scalar_store)?;
+                let cdr = self.intern_scalar_ptr(*cdr, scalar_store)?;
+                Some(self.intern_cons(car, cdr))
+            }
+            (Tag::Str, Some(Str(s))) => Some(self.intern_str(s)),
+            (Tag::Sym, Some(Sym(s))) => Some(self.intern_sym(s)),
+            (Tag::Num, Some(Num(x))) => Some(self.intern_num(crate::Num::Scalar(*x))),
+            (Tag::Thunk, Some(Thunk(t))) => {
+                let value = self.intern_scalar_ptr(t.value, scalar_store)?;
+                let continuation = self.intern_scalar_cont_ptr(t.continuation, scalar_store)?;
+                Some(self.intern_thunk(super::store::Thunk {
+                    value,
+                    continuation,
+                }))
+            }
+            (
+                Tag::Fun,
+                Some(Fun {
+                    arg,
+                    body,
+                    closed_env,
+                }),
+            ) => {
+                let arg = self.intern_scalar_ptr(*arg, scalar_store)?;
+                let body = self.intern_scalar_ptr(*body, scalar_store)?;
+                let env = self.intern_scalar_ptr(*closed_env, scalar_store)?;
+                Some(self.intern_fun(arg, body, env))
+            }
+            (tag, None) => Some(self.intern_opaque(tag, ptr.1)),
+            _ => None,
+        }
     }
 
     pub fn intern_opaque_fun(&mut self, hash: F) -> Ptr<F> {
