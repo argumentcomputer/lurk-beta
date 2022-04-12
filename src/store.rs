@@ -1,6 +1,7 @@
 use itertools::Itertools;
 use neptune::Poseidon;
 use rayon::prelude::*;
+use std::convert::TryFrom;
 use std::hash::Hash;
 use std::{fmt, marker::PhantomData};
 use string_interner::symbol::{Symbol, SymbolUsize};
@@ -288,6 +289,20 @@ pub struct ScalarContPtr<F: LurkField>(F, F);
 
 impl<F: LurkField> Copy for ScalarContPtr<F> {}
 
+impl<F: LurkField> PartialOrd for ScalarContPtr<F> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
+            .partial_cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
+    }
+}
+
+impl<F: LurkField> Ord for ScalarContPtr<F> {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
+            .cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
+    }
+}
+
 impl<F: LurkField> IpldEmbed for ScalarContPtr<F> {
     fn to_ipld(&self) -> Ipld {
         let cid = F::to_cid(self.0, self.1);
@@ -532,8 +547,33 @@ impl fmt::Display for Op1 {
 }
 
 impl Op1 {
+    pub fn from_u16(x: u16) -> Option<Self> {
+        match x {
+            x if x == Op1::Car as u16 => Some(Op1::Car),
+            x if x == Op1::Cdr as u16 => Some(Op1::Cdr),
+            x if x == Op1::Atom as u16 => Some(Op1::Atom),
+            x if x == Op1::Emit as u16 => Some(Op1::Emit),
+            _ => None,
+        }
+    }
+
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
+    }
+}
+
+impl IpldEmbed for Op1 {
+    fn to_ipld(&self) -> Ipld {
+        Ipld::Integer(*self as i128)
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        match ipld {
+            Ipld::Integer(x) if *x >= 0 && *x <= u16::MAX as i128 => {
+                Op1::from_u16(*x as u16).ok_or_else(|| IpldError::expected("Op1", ipld))
+            }
+            xs => Err(IpldError::expected("Op1", xs)),
+        }
     }
 }
 
@@ -548,6 +588,16 @@ pub enum Op2 {
 }
 
 impl Op2 {
+    pub fn from_u16(x: u16) -> Option<Self> {
+        match x {
+            x if x == Op2::Sum as u16 => Some(Op2::Sum),
+            x if x == Op2::Diff as u16 => Some(Op2::Diff),
+            x if x == Op2::Product as u16 => Some(Op2::Product),
+            x if x == Op2::Quotient as u16 => Some(Op2::Quotient),
+            x if x == Op2::Cons as u16 => Some(Op2::Cons),
+            _ => None,
+        }
+    }
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
@@ -565,6 +615,21 @@ impl fmt::Display for Op2 {
     }
 }
 
+impl IpldEmbed for Op2 {
+    fn to_ipld(&self) -> Ipld {
+        Ipld::Integer(*self as i128)
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        match ipld {
+            Ipld::Integer(x) if *x >= 0 && *x <= u16::MAX as i128 => {
+                Op2::from_u16(*x as u16).ok_or_else(|| IpldError::expected("Op2", ipld))
+            }
+            xs => Err(IpldError::expected("Op2", xs)),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
 #[repr(u16)]
 pub enum Rel2 {
@@ -573,6 +638,13 @@ pub enum Rel2 {
 }
 
 impl Rel2 {
+    pub fn from_u16(x: u16) -> Option<Self> {
+        match x {
+            x if x == Rel2::Equal as u16 => Some(Rel2::Equal),
+            x if x == Rel2::NumEqual as u16 => Some(Rel2::NumEqual),
+            _ => None,
+        }
+    }
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
@@ -583,6 +655,21 @@ impl fmt::Display for Rel2 {
         match self {
             Rel2::Equal => write!(f, "Equal"),
             Rel2::NumEqual => write!(f, "NumEqual"),
+        }
+    }
+}
+
+impl IpldEmbed for Rel2 {
+    fn to_ipld(&self) -> Ipld {
+        Ipld::Integer(*self as i128)
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        match ipld {
+            Ipld::Integer(x) if *x >= 0 && *x <= u16::MAX as i128 => {
+                Rel2::from_u16(*x as u16).ok_or_else(|| IpldError::expected("Rel2", ipld))
+            }
+            xs => Err(IpldError::expected("Rel2", xs)),
         }
     }
 }
@@ -607,22 +694,15 @@ impl From<Tag> for u64 {
 
 impl Tag {
     pub fn from_field<F: From<u64> + ff::Field>(f: F) -> Option<Self> {
-        if f == Tag::Nil.as_field() {
-            Some(Tag::Nil)
-        } else if f == Tag::Cons.as_field() {
-            Some(Tag::Cons)
-        } else if f == Tag::Sym.as_field() {
-            Some(Tag::Sym)
-        } else if f == Tag::Fun.as_field() {
-            Some(Tag::Fun)
-        } else if f == Tag::Thunk.as_field() {
-            Some(Tag::Thunk)
-        } else if f == Tag::Num.as_field() {
-            Some(Tag::Num)
-        } else if f == Tag::Str.as_field() {
-            Some(Tag::Str)
-        } else {
-            None
+        match f {
+            f if f == Tag::Nil.as_field() => Some(Tag::Nil),
+            f if f == Tag::Cons.as_field() => Some(Tag::Cons),
+            f if f == Tag::Sym.as_field() => Some(Tag::Sym),
+            f if f == Tag::Fun.as_field() => Some(Tag::Fun),
+            f if f == Tag::Thunk.as_field() => Some(Tag::Thunk),
+            f if f == Tag::Num.as_field() => Some(Tag::Num),
+            f if f == Tag::Str.as_field() => Some(Tag::Str),
+            _ => None,
         }
     }
 
@@ -661,6 +741,28 @@ impl From<ContTag> for u64 {
 }
 
 impl ContTag {
+    pub fn from_field<F: From<u64> + ff::Field>(f: F) -> Option<Self> {
+        match f {
+            f if f == ContTag::Outermost.as_field() => Some(ContTag::Outermost),
+            f if f == ContTag::Call0.as_field() => Some(ContTag::Call0),
+            f if f == ContTag::Call.as_field() => Some(ContTag::Call),
+            f if f == ContTag::Call2.as_field() => Some(ContTag::Call2),
+            f if f == ContTag::Tail.as_field() => Some(ContTag::Tail),
+            f if f == ContTag::Error.as_field() => Some(ContTag::Error),
+            f if f == ContTag::Lookup.as_field() => Some(ContTag::Lookup),
+            f if f == ContTag::Unop.as_field() => Some(ContTag::Unop),
+            f if f == ContTag::Binop.as_field() => Some(ContTag::Binop),
+            f if f == ContTag::Relop.as_field() => Some(ContTag::Relop),
+            f if f == ContTag::If.as_field() => Some(ContTag::If),
+            f if f == ContTag::If.as_field() => Some(ContTag::If),
+            f if f == ContTag::Let.as_field() => Some(ContTag::Let),
+            f if f == ContTag::LetRec.as_field() => Some(ContTag::LetRec),
+            f if f == ContTag::Dummy.as_field() => Some(ContTag::Dummy),
+            f if f == ContTag::Terminal.as_field() => Some(ContTag::Terminal),
+            f if f == ContTag::Emit.as_field() => Some(ContTag::Emit),
+            _ => None,
+        }
+    }
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
@@ -2088,6 +2190,92 @@ mod test {
     #[quickcheck]
     fn test_scalar_cont_ptr_ipld_embed(x: ScalarContPtr<Fr>) -> bool {
         match ScalarContPtr::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
+        }
+    }
+
+    impl Arbitrary for Op1 {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Op1>)> = vec![
+                (100, Box::new(|_| Op1::Car)),
+                (100, Box::new(|_| Op1::Cdr)),
+                (100, Box::new(|_| Op1::Atom)),
+                (100, Box::new(|_| Op1::Emit)),
+            ];
+            frequency(g, input)
+        }
+    }
+
+    #[quickcheck]
+    fn test_op1_ipld_embed(x: Op1) -> bool {
+        match Op1::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
+        }
+    }
+
+    impl Arbitrary for Op2 {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Op2>)> = vec![
+                (100, Box::new(|_| Op2::Sum)),
+                (100, Box::new(|_| Op2::Diff)),
+                (100, Box::new(|_| Op2::Product)),
+                (100, Box::new(|_| Op2::Quotient)),
+                (100, Box::new(|_| Op2::Cons)),
+            ];
+            frequency(g, input)
+        }
+    }
+
+    #[quickcheck]
+    fn test_op2_ipld_embed(x: Op2) -> bool {
+        match Op2::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
+        }
+    }
+
+    impl Arbitrary for Rel2 {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Rel2>)> = vec![
+                (100, Box::new(|_| Rel2::Equal)),
+                (100, Box::new(|_| Rel2::NumEqual)),
+            ];
+            frequency(g, input)
+        }
+    }
+
+    #[quickcheck]
+    fn test_rel2_ipld_embed(x: Rel2) -> bool {
+        match Rel2::from_ipld(&x.to_ipld()) {
             Ok(y) if x == y => true,
             Ok(y) => {
                 println!("x: {:?}", x);
