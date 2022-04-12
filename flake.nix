@@ -1,19 +1,14 @@
 {
-  description = "Lurk (rust)";
+  description = "Lurk language for zero knowledge proofs";
   inputs = {
-    nixpkgs.url = github:nixos/nixpkgs/nixos-21.05;
+    nixpkgs.url = github:nixos/nixpkgs;
     flake-utils = {
       url = github:numtide/flake-utils;
       inputs.nixpkgs.follows = "nixpkgs";
     };
     naersk = {
-      url = github:yatima-inc/naersk;
+      url = github:nix-community/naersk;
       inputs.nixpkgs.follows = "nixpkgs";
-    };
-    utils = {
-      url = github:yatima-inc/nix-utils;
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.naersk.follows = "naersk";
     };
   };
 
@@ -21,75 +16,100 @@
     { self
     , nixpkgs
     , flake-utils
-    , utils
     , naersk
     }:
+    flake-utils.lib.eachDefaultSystem (system:
     let
-      supportedSystems = [
-        "aarch64-linux"
-        "aarch64-darwin"
-        "i686-linux"
-        "x86_64-darwin"
-        "x86_64-linux"
-      ];
-    in
-    flake-utils.lib.eachSystem supportedSystems (system:
-    let
-      lib = utils.lib.${system};
+      lib = nixpkgs.lib.${system};
       pkgs = nixpkgs.legacyPackages.${system};
-      inherit (lib) buildRustProject testRustProject getRust filterRustProject;
+      rustTools = import ./nix/rust.nix {
+        nixpkgs = pkgs;
+      };
+      getRust =
+        { channel ? "nightly"
+        , date
+        , sha256
+        , targets ? [ "wasm32-unknown-unknown" "wasm32-wasi" "wasm32-unknown-emscripten" ]
+        }: (rustTools.rustChannelOf {
+          inherit channel date sha256;
+        }).rust.override {
+          inherit targets;
+          extensions = [ "rust-src" "rust-analysis" ];
+        };
+      # This is the version used across projects
+      rust2022-02-20 = getRust { date = "2022-02-20"; sha256 = "sha256-ZptNrC/0Eyr0c3IiXVWTJbuprFHq6E1KfBgqjGQBIRs="; };
+      rust2022-03-15 = getRust { date = "2022-03-15"; sha256 = "sha256-C7X95SGY0D7Z17I8J9hg3z9cRnpXP7FjAOkvEdtB9nE="; };
+      rust2022-04-14 = getRust { date = "2022-04-14"; sha256 = "sha256-5sq1QCaKlh84bpGfo040f+zQriJFW7rJO9tZ4rbaQgo="; };
+      rust = rust2022-04-14;
+      # Get a naersk with the input rust version
+      naerskWithRust = rust: naersk.lib."${system}".override {
+        rustc = rust;
+        cargo = rust;
+      };
+      # Naersk using the default rust version
+      naerskDefault = naerskWithRust rust;
+      buildRustProject = pkgs.makeOverridable ({ rust, naersk ? naerskWithRust rust, ... } @ args: naersk.buildPackage ({
+        buildInputs = with pkgs; [ ];
+        targets = [ ];
+        copyLibs = true;
+        remapPathPrefix =
+          true; # remove nix store references for a smaller output package
+      } // args));
+
+      # Convenient for running tests
+      testProject = buildRustProject { doCheck = true; inherit rust root; };
       # Load a nightly rust. The hash takes precedence over the date so remember to set it to
       # something like `lib.fakeSha256` when changing the date.
-      rustNightly = getRust { date = "2022-04-14"; sha256 = "sha256-5sq1QCaKlh84bpGfo040f+zQriJFW7rJO9tZ4rbaQgo="; };
       crateName = "lurk";
-      src = ./.;
+      root = ./.;
       buildInputs = with pkgs;
-        if !stdenv.isDarwin
-        then [ ocl-icd m4 ]
-        else [
-          darwin.apple_sdk.frameworks.OpenCL
-          m4
-        ];
+      if !stdenv.isDarwin
+      then [ ocl-icd m4 ]
+      else [
+        darwin.apple_sdk.frameworks.OpenCL
+        m4
+      ];
       project = buildRustProject {
-        rust = rustNightly;
-        root = ./.;
-        inherit src buildInputs;
+        inherit root buildInputs;
         copyLibs = true;
+        C_INCLUDE_PATH = "${pkgs.llvmPackages_6.libcxx}/lib";
+        CPP_INCLUDE_PATH = "${pkgs.llvmPackages_6.libcxx}/lib";
+        LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib64:$LD_LIBRARY_PATH";
+        PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
       };
       lurk-example = project.override {
         cargoBuildOptions = d: d ++ [ "--example lurk" ];
         copySources = [ "examples" "src" ];
         copyBins = true;
       };
-      packages = {
-        ${crateName} = project;
-        inherit lurk-example;
+      lurk-wasm = project.override {
+        targets = [ "wasm32-unknown-unknown" ];
+        default-features = false;
+        features = [ "wasm" ];
+        copyTarget = true;
       };
     in
     {
-      inherit packages;
-      checks = {
-        ${crateName} = project.override { doCheck = true; };
+      packages = {
+        ${crateName} = project;
+        inherit lurk-example lurk-wasm;
+        "${crateName}-test" = testProject;
       };
 
       defaultPackage = self.packages.${system}.${crateName};
 
-      ## To run with `nix run`
-      #apps.lurk-example = flake-utils.lib.mkApp {
-      #  drv = lurk-example;
-      #  name = "lurk";
-      #};
-
-      #defaultApp = self.apps.${system}.lurk-example;
-
       # `nix develop`
       devShell = pkgs.mkShell {
         inputsFrom = builtins.attrValues self.packages.${system};
-        nativeBuildInputs = [ rustNightly ];
-        buildInputs = with pkgs; buildInputs ++ [
+        nativeBuildInputs = [ rust ];
+        buildInputs = with pkgs; [
           rust-analyzer
           clippy
           rustfmt
+          wasm-pack
+          glibc
+          emscripten
+          llvmPackages_6.libcxx
         ];
       };
     });
