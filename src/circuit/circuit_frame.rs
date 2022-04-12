@@ -1968,11 +1968,8 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             result,
         )?;
 
-        let result_is_fun = alloc_equal(
-            cs.namespace(|| "result_is_fun"),
-            function.tag(),
-            &g.fun_tag,
-        )?;
+        let result_is_fun =
+            alloc_equal(cs.namespace(|| "result_is_fun"), function.tag(), &g.fun_tag)?;
 
         let the_cont = AllocatedContPtr::pick(
             &mut cs.namespace(|| "the_cont"),
@@ -2003,11 +2000,8 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     let (next_expr, the_cont) = {
         let mut cs = cs.namespace(|| "Call");
         let next_expr = AllocatedPtr::by_index(1, &continuation_components);
-        let result_is_fun = alloc_equal(
-            cs.namespace(|| "result_is_fun"),
-            result.tag(),
-            &g.fun_tag,
-        )?;
+        let result_is_fun =
+            alloc_equal(cs.namespace(|| "result_is_fun"), result.tag(), &g.fun_tag)?;
 
         let next_expr = AllocatedPtr::pick(
             &mut cs.namespace(|| "next_expr"),
@@ -2040,8 +2034,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
                 fun.ptr(store).as_ref(),
             )?;
 
-            let (body_form, _) =
-                car_cdr(&mut cs.namespace(|| "body_form"), g, &body_t, store)?;
+            let (body_form, _) = car_cdr(&mut cs.namespace(|| "body_form"), g, &body_t, store)?;
 
             let fun_is_correct = constraints::alloc_equal(
                 &mut cs.namespace(|| "fun hash is correct"),
@@ -2085,15 +2078,10 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
                 &newer_cont,
             );
 
-            let result_is_fun = alloc_equal(
-                cs.namespace(|| "result_is_fun"),
-                result.tag(),
-                &g.fun_tag,
-            )?;
-            let args_is_dummy = arg_t.alloc_equal(
-                &mut cs.namespace(|| "args_is_dummy"),
-                &g.dummy_arg_ptr,
-            )?;
+            let result_is_fun =
+                alloc_equal(cs.namespace(|| "result_is_fun"), result.tag(), &g.fun_tag)?;
+            let args_is_dummy =
+                arg_t.alloc_equal(&mut cs.namespace(|| "args_is_dummy"), &g.dummy_arg_ptr)?;
             let cond = or!(cs, &args_is_dummy.not(), &result_is_fun)?;
 
             let the_cont = AllocatedContPtr::pick(
@@ -2103,19 +2091,11 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
                 &g.error_ptr_cont,
             )?;
 
-            let the_env = AllocatedPtr::pick(
-                &mut cs.namespace(|| "the_env"),
-                &cond,
-                &newer_env,
-                env,
-            )?;
+            let the_env =
+                AllocatedPtr::pick(&mut cs.namespace(|| "the_env"), &cond, &newer_env, env)?;
 
-            let the_expr = AllocatedPtr::pick(
-                &mut cs.namespace(|| "the_expr"),
-                &cond,
-                &body_form,
-                result,
-            )?;
+            let the_expr =
+                AllocatedPtr::pick(&mut cs.namespace(|| "the_expr"), &cond, &body_form, result)?;
 
             (the_expr, the_env, the_cont)
         }
@@ -2199,14 +2179,11 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             &g.op2_quotient_tag,
         )?;
 
-        let b_is_zero = &alloc_is_zero(
-            &mut cs.namespace(|| "b_is_zero"),
-            b,
-        )?;
+        let b_is_zero = &alloc_is_zero(&mut cs.namespace(|| "b_is_zero"), b)?;
 
         let divisor = pick(
             &mut cs.namespace(|| "maybe-dummy divisor"),
-            &b_is_zero,
+            b_is_zero,
             &g.true_num,
             b,
         )?;
@@ -2274,7 +2251,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         let real_div_and_b_is_zero = Boolean::and(
             &mut cs.namespace(|| "real_div_and_b_is_zero"),
             &real_division,
-            &b_is_zero,
+            b_is_zero,
         )?;
 
         let valid_types_and_not_div_by_zero = Boolean::and(
@@ -2283,21 +2260,30 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             &Boolean::not(&real_div_and_b_is_zero),
         )?;
 
-        // FIXME: error if op2 is not actually an Op2.
-        // Currently, this will return the default value, treated as Num.
+        let op2_not_both_num_and_not_cons = Boolean::and(
+            &mut cs.namespace(|| "not both num and not cons"),
+            &Boolean::not(&both_args_are_nums),
+            &Boolean::not(&is_cons),
+        )?;
+
+        let any_error = constraints::or(
+            &mut cs.namespace(|| "some error happened"),
+            &Boolean::not(&valid_types_and_not_div_by_zero),
+            &op2_not_both_num_and_not_cons,
+        )?;
 
         let the_cont = AllocatedContPtr::pick(
             &mut cs.namespace(|| "maybe type or div by zero error"),
-            &valid_types_and_not_div_by_zero,
-            &continuation,
+            &any_error,
             &g.error_ptr_cont,
+            &continuation,
         )?;
 
         let the_expr = AllocatedPtr::pick(
             &mut cs.namespace(|| "maybe expr error"),
-            &valid_types_and_not_div_by_zero,
+            &any_error,
+            result,
             &res,
-            &result,
         )?;
 
         (the_expr, the_cont)
@@ -2312,12 +2298,8 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         let saved_env = AllocatedPtr::by_index(1, &continuation_components);
         let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
 
-        let (allocated_arg2, allocated_rest) = car_cdr(
-            &mut cs.namespace(|| "cons"),
-            g,
-            &unevaled_args,
-            store,
-        )?;
+        let (allocated_arg2, allocated_rest) =
+            car_cdr(&mut cs.namespace(|| "cons"), g, &unevaled_args, store)?;
 
         let rest_is_nil =
             allocated_rest.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
@@ -2356,17 +2338,9 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         let continuation = AllocatedContPtr::by_index(2, &continuation_components);
         let arg2 = result;
 
-        let tags_equal = alloc_equal(
-            &mut cs.namespace(|| "tags equal"),
-            arg1.tag(),
-            arg2.tag(),
-        )?;
+        let tags_equal = alloc_equal(&mut cs.namespace(|| "tags equal"), arg1.tag(), arg2.tag())?;
 
-        let vals_equal = alloc_equal(
-            &mut cs.namespace(|| "vals equal"),
-            arg1.hash(),
-            arg2.hash(),
-        )?;
+        let vals_equal = alloc_equal(&mut cs.namespace(|| "vals equal"), arg1.hash(), arg2.hash())?;
 
         let tag_is_num = alloc_equal(
             &mut cs.namespace(|| "arg1 tag is num"),
@@ -2380,22 +2354,16 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             &g.rel2_equal_tag,
         )?;
 
-        let args_equal = Boolean::and(
-            &mut cs.namespace(|| "args equal"),
-            &tags_equal,
-            &vals_equal,
-        )?;
+        let args_equal =
+            Boolean::and(&mut cs.namespace(|| "args equal"), &tags_equal, &vals_equal)?;
 
         // FIXME: This logic may be wrong. Look at it again carefully.
         // What we want is that Relop2::NumEqual not be used with any non-numeric arguments.
         // That should be an error.
 
         // not_num_tag_without_nums = args_equal && (tag_is_num || rel2_is_equal)
-        let not_num_tag_without_nums = constraints::or(
-            &mut cs.namespace(|| "sub_res"),
-            &tag_is_num,
-            &rel2_is_equal,
-        )?;
+        let not_num_tag_without_nums =
+            constraints::or(&mut cs.namespace(|| "sub_res"), &tag_is_num, &rel2_is_equal)?;
 
         let boolean_res = Boolean::and(
             &mut cs.namespace(|| "boolean_res"),
@@ -2536,8 +2504,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             store,
         )?;
 
-        let is_error =
-            extended_env.alloc_equal(&mut cs.namespace(|| "is_error"), &g.error_ptr)?;
+        let is_error = extended_env.alloc_equal(&mut cs.namespace(|| "is_error"), &g.error_ptr)?;
 
         let continuation_is_tail = alloc_equal(
             &mut cs.namespace(|| "continuation is tail"),
@@ -2838,10 +2805,10 @@ mod tests {
             let multiframes = MultiFrame::from_frames(
                 DEFAULT_CHUNK_FRAME_COUNT,
                 &[Frame {
-                    input: input.clone(),
+                    input,
                     output,
                     i: 0,
-                    witness: witness.clone(),
+                    witness,
                 }],
                 store,
             );
@@ -2857,15 +2824,15 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31115, cs.num_constraints());
+            assert_eq!(31117, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31087, cs.aux().len());
+            assert_eq!(31089, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
 
             let proof = groth_prover
-                .prove(multiframe.clone(), Some(&groth_params), &mut rng)
+                .prove(multiframe.clone(), Some(groth_params), &mut rng)
                 .unwrap();
             let cs_verified = cs.is_satisfied() && cs.verify(&public_inputs);
             let verified = multiframe
@@ -2885,8 +2852,8 @@ mod tests {
         // Success
         {
             let output = IO {
-                expr: num.clone(),
-                env: env.clone(),
+                expr: num,
+                env,
                 cont: store.intern_cont_terminal(),
             };
 
@@ -2946,10 +2913,10 @@ mod tests {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
             let frame = Frame {
-                input: input.clone(),
+                input,
                 output,
                 i: 0,
-                witness: witness.clone(),
+                witness,
             };
 
             MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
@@ -2971,8 +2938,8 @@ mod tests {
         // Success
         {
             let output = IO {
-                expr: nil.clone(),
-                env: env.clone(),
+                expr: nil,
+                env,
                 cont: store.intern_cont_terminal(),
             };
 
@@ -2995,7 +2962,7 @@ mod tests {
                 // Wrong value, so hash should differ.
                 let bad_output_value = IO {
                     expr: store.num(999),
-                    env: env.clone(),
+                    env,
                     cont: store.intern_cont_terminal(),
                 };
 
@@ -3023,10 +2990,10 @@ mod tests {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
             let frame = Frame {
-                input: input.clone(),
+                input,
                 output,
                 i: 0,
-                witness: witness.clone(),
+                witness,
             };
 
             MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
@@ -3048,8 +3015,8 @@ mod tests {
         // Success
         {
             let output = IO {
-                expr: t.clone(),
-                env: env.clone(),
+                expr: t,
+                env,
                 cont: store.intern_cont_terminal(),
             };
 
@@ -3072,7 +3039,7 @@ mod tests {
                 // Wrong symbol, so hash should differ.
                 let bad_output_value = IO {
                     expr: store.sym("S"),
-                    env: env.clone(),
+                    env,
                     cont: store.intern_cont_terminal(),
                 };
                 test_with_output(bad_output_value, false, &store);
@@ -3089,8 +3056,8 @@ mod tests {
         let fun = store.intern_fun(var, body, env);
 
         let input = IO {
-            expr: fun.clone(),
-            env: env.clone(),
+            expr: fun,
+            env,
             cont: store.intern_cont_outermost(),
         };
 
@@ -3100,10 +3067,10 @@ mod tests {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
             let frame = Frame {
-                input: input.clone(),
+                input,
                 output,
                 i: 0,
-                witness: witness.clone(),
+                witness,
             };
 
             MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
@@ -3125,8 +3092,8 @@ mod tests {
         // Success
         {
             let output = IO {
-                expr: fun.clone(),
-                env: env.clone(),
+                expr: fun,
+                env,
                 cont: store.intern_cont_terminal(),
             };
 
@@ -3139,7 +3106,7 @@ mod tests {
                 // Wrong type, so tag should differ.
                 let bad_output_tag = IO {
                     expr: store.sym("SYMBOL"),
-                    env: env.clone(),
+                    env,
                     cont: store.intern_cont_terminal(),
                 };
 
@@ -3149,7 +3116,7 @@ mod tests {
                 // Wrong value, so hash should differ.
                 let bad_output_value = IO {
                     expr: store.num(999),
-                    env: env.clone(),
+                    env,
                     cont: store.intern_cont_terminal(),
                 };
 
@@ -3167,8 +3134,8 @@ mod tests {
         // Input is not self-evaluating.
         let expr = store.read("(+ 1 2)").unwrap();
         let input = IO {
-            expr: expr.clone(),
-            env: env.clone(),
+            expr,
+            env,
             cont: store.intern_cont_outermost(),
         };
 
@@ -3178,10 +3145,10 @@ mod tests {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
             let frame = Frame {
-                input: input.clone(),
+                input,
                 output,
                 i: 0,
-                witness: witness.clone(),
+                witness,
             };
 
             MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
@@ -3205,8 +3172,8 @@ mod tests {
             {
                 // Output does not equal input.
                 let output = IO {
-                    expr: expr.clone(),
-                    env: env.clone(),
+                    expr,
+                    env,
                     cont: store.intern_cont_terminal(),
                 };
 

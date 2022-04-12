@@ -326,11 +326,11 @@ mod tests {
             let clauses = [
                 CaseClause {
                     key: x,
-                    value: &val0.clone(),
+                    value: &val0,
                 },
                 CaseClause {
                     key: y,
-                    value: &val1.clone(),
+                    value: &val1,
                 },
             ];
 
@@ -349,7 +349,7 @@ mod tests {
         {
             let clauses = [CaseClause {
                 key: y,
-                value: &val0.clone(),
+                value: &val0,
             }];
 
             let result = case(
@@ -387,31 +387,31 @@ mod tests {
             let clauses0: [CaseClause<Fr>; 2] = [
                 CaseClause {
                     key: x,
-                    value: &val0.clone(),
+                    value: &val0,
                 },
                 CaseClause {
                     key: y,
-                    value: &val1.clone(),
+                    value: &val1,
                 },
             ];
             let clauses1: [CaseClause<Fr>; 2] = [
                 CaseClause {
                     key: x,
-                    value: &val1.clone(),
+                    value: &val1,
                 },
                 CaseClause {
                     key: y,
-                    value: &val0.clone(),
+                    value: &val0,
                 },
             ];
             let clauses2: [CaseClause<Fr>; 2] = [
                 CaseClause {
                     key: x,
-                    value: &val2.clone(),
+                    value: &val2,
                 },
                 CaseClause {
                     key: y,
-                    value: &val0.clone(),
+                    value: &val0,
                 },
             ];
             let clauses_vec: [&[CaseClause<Fr>]; 3] = [&clauses0, &clauses1, &clauses2];
@@ -466,21 +466,21 @@ mod tests {
         let clauses0: [CaseClause<Fr>; 2] = [
             CaseClause {
                 key: x,
-                value: &val0.clone(),
+                value: &val0,
             },
             CaseClause {
                 key: x,
-                value: &val1.clone(),
+                value: &val1,
             },
         ];
         let clauses1: [CaseClause<Fr>; 2] = [
             CaseClause {
                 key: x,
-                value: &val2.clone(),
+                value: &val2,
             },
             CaseClause {
                 key: x,
-                value: &val0.clone(),
+                value: &val0,
             },
         ];
 
@@ -519,21 +519,21 @@ mod tests {
         let clauses0: [CaseClause<Fr>; 2] = [
             CaseClause {
                 key: x,
-                value: &val0.clone(),
+                value: &val0,
             },
             CaseClause {
                 key: y,
-                value: &val1.clone(),
+                value: &val1,
             },
         ];
         let clauses1: [CaseClause<Fr>; 2] = [
             CaseClause {
                 key: y,
-                value: &val2.clone(),
+                value: &val2,
             },
             CaseClause {
                 key: x,
-                value: &val0.clone(),
+                value: &val0,
             },
         ];
 
@@ -570,25 +570,25 @@ mod tests {
         let clauses0: [CaseClause<Fr>; 2] = [
             CaseClause {
                 key: x,
-                value: &val0.clone(),
+                value: &val0,
             },
             CaseClause {
                 key: y,
-                value: &val1.clone(),
+                value: &val1,
             },
         ];
         let clauses1: [CaseClause<Fr>; 3] = [
             CaseClause {
                 key: x,
-                value: &val2.clone(),
+                value: &val2,
             },
             CaseClause {
                 key: y,
-                value: &val2.clone(),
+                value: &val2,
             },
             CaseClause {
                 key: x,
-                value: &val0.clone(),
+                value: &val0,
             },
         ];
 
@@ -639,25 +639,25 @@ mod tests {
         let clauses0: [CaseClause<Fr>; 2] = [
             CaseClause {
                 key: x,
-                value: &val0.clone(),
+                value: &val0,
             },
             CaseClause {
                 key: y,
-                value: &val1.clone(),
+                value: &val1,
             },
         ];
         let clauses1: [CaseClause<Fr>; 3] = [
             CaseClause {
                 key: x,
-                value: &val2.clone(),
+                value: &val2,
             },
             CaseClause {
                 key: y,
-                value: &val2.clone(),
+                value: &val2,
             },
             CaseClause {
                 key: x,
-                value: &val0.clone(),
+                value: &val0,
             },
         ];
         let clauses_vec: [&[CaseClause<Fr>]; 2] = [&clauses0, &clauses1];
@@ -689,11 +689,11 @@ mod tests {
         let clauses0: [CaseClause<Fr>; 2] = [
             CaseClause {
                 key: x,
-                value: &val0.clone(),
+                value: &val0,
             },
             CaseClause {
                 key: y,
-                value: &val1.clone(),
+                value: &val1,
             },
         ];
         let clauses1 = [];
