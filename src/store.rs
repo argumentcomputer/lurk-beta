@@ -16,6 +16,7 @@ use libipld::Ipld;
 use crate::field::LurkField;
 use crate::ipld::IpldEmbed;
 use crate::ipld::IpldError;
+use crate::scalar_store::ScalarContinuation;
 use crate::scalar_store::ScalarExpression;
 use crate::scalar_store::ScalarStore;
 use crate::Num;
@@ -931,21 +932,185 @@ impl<F: LurkField> Store<F> {
         ptr
     }
 
-    fn intern_scalar_cont_ptr(
+    pub fn intern_scalar_cont_ptr(
         &mut self,
         ptr: ScalarContPtr<F>,
         scalar_store: &ScalarStore<F>,
     ) -> Option<ContPtr<F>> {
-        todo!()
+        let tag: ContTag = ContTag::from_field(*ptr.tag())?;
+        let cont = scalar_store.get_cont(&ptr);
+        use ScalarContinuation::*;
+        match (tag, cont) {
+            (ContTag::Outermost, Some(Outermost)) => Some(self.intern_cont_outermost()),
+            (
+                ContTag::Call,
+                Some(Call {
+                    unevaled_arg,
+                    saved_env,
+                    continuation,
+                }),
+            ) => {
+                let arg = self.intern_scalar_ptr(*unevaled_arg, scalar_store)?;
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_call(arg, env, cont))
+            }
+            (
+                ContTag::Call2,
+                Some(Call2 {
+                    function,
+                    saved_env,
+                    continuation,
+                }),
+            ) => {
+                let fun = self.intern_scalar_ptr(*function, scalar_store)?;
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_call2(fun, env, cont))
+            }
+            (
+                ContTag::Tail,
+                Some(Tail {
+                    saved_env,
+                    continuation,
+                }),
+            ) => {
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_tail(env, cont))
+            }
+            (ContTag::Error, Some(Error)) => Some(self.intern_cont_error()),
+            (
+                ContTag::Lookup,
+                Some(Lookup {
+                    saved_env,
+                    continuation,
+                }),
+            ) => {
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_lookup(env, cont))
+            }
+            (
+                ContTag::Unop,
+                Some(Unop {
+                    operator,
+                    continuation,
+                }),
+            ) => {
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_unop(*operator, cont))
+            }
+            (
+                ContTag::Binop,
+                Some(Binop {
+                    operator,
+                    saved_env,
+                    unevaled_args,
+                    continuation,
+                }),
+            ) => {
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let args = self.intern_scalar_ptr(*unevaled_args, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_binop(*operator, env, args, cont))
+            }
+            (
+                ContTag::Binop2,
+                Some(Binop2 {
+                    operator,
+                    evaled_arg,
+                    continuation,
+                }),
+            ) => {
+                let arg = self.intern_scalar_ptr(*evaled_arg, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_binop2(*operator, arg, cont))
+            }
+            (
+                ContTag::Relop,
+                Some(Relop {
+                    operator,
+                    saved_env,
+                    unevaled_args,
+                    continuation,
+                }),
+            ) => {
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let args = self.intern_scalar_ptr(*unevaled_args, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_relop(*operator, env, args, cont))
+            }
+            (
+                ContTag::Relop2,
+                Some(Relop2 {
+                    operator,
+                    evaled_arg,
+                    continuation,
+                }),
+            ) => {
+                let arg = self.intern_scalar_ptr(*evaled_arg, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_relop2(*operator, arg, cont))
+            }
+            (
+                ContTag::If,
+                Some(If {
+                    unevaled_args,
+                    continuation,
+                }),
+            ) => {
+                let args = self.intern_scalar_ptr(*unevaled_args, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_if(args, cont))
+            }
+            (
+                ContTag::Let,
+                Some(Let {
+                    var,
+                    body,
+                    saved_env,
+                    continuation,
+                }),
+            ) => {
+                let var = self.intern_scalar_ptr(*var, scalar_store)?;
+                let body = self.intern_scalar_ptr(*body, scalar_store)?;
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_let(var, body, env, cont))
+            }
+            (
+                ContTag::LetRec,
+                Some(LetRec {
+                    var,
+                    body,
+                    saved_env,
+                    continuation,
+                }),
+            ) => {
+                let var = self.intern_scalar_ptr(*var, scalar_store)?;
+                let body = self.intern_scalar_ptr(*body, scalar_store)?;
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_let(var, body, env, cont))
+            }
+            (ContTag::Emit, Some(Emit { continuation })) => {
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_emit(cont))
+            }
+            (ContTag::Dummy, Some(Dummy)) => Some(self.intern_cont_dummy()),
+            (ContTag::Terminal, Some(Terminal)) => Some(self.intern_cont_terminal()),
+            _ => None,
+        }
     }
 
-    fn intern_scalar_ptr(
+    pub fn intern_scalar_ptr(
         &mut self,
         ptr: ScalarPtr<F>,
         scalar_store: &ScalarStore<F>,
     ) -> Option<Ptr<F>> {
         let tag: Tag = Tag::from_field(*ptr.tag())?;
-        let expr = scalar_store.get(&ptr);
+        let expr = scalar_store.get_expr(&ptr);
         use ScalarExpression::*;
         match (tag, expr) {
             (Tag::Nil, Some(Nil)) => Some(self.intern_nil()),

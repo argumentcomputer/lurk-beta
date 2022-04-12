@@ -102,38 +102,30 @@ impl<'a, F: LurkField> ScalarStore<F> {
     pub fn finalize(&mut self, store: &Store<F>) {
         self.add_pending_scalar_ptrs(store);
     }
-    pub fn get(&self, ptr: &ScalarPtr<F>) -> Option<&ScalarExpression<F>> {
+    pub fn get_expr(&self, ptr: &ScalarPtr<F>) -> Option<&ScalarExpression<F>> {
         let x = self.scalar_map.get(ptr)?;
         (*x).as_ref()
     }
 
-    //pub fn to_store(&mut self) -> Option<Store<F>> {
-    //    if self.pending_scalar_ptrs.is_empty() {
-    //        None
-    //    } else {
-    //        let mut store = Store::new();
+    pub fn get_cont(&self, ptr: &ScalarContPtr<F>) -> Option<&ScalarContinuation<F>> {
+        let x = self.scalar_cont_map.get(ptr)?;
+        (*x).as_ref()
+    }
+    pub fn to_store(&mut self) -> Option<Store<F>> {
+        if self.pending_scalar_ptrs.is_empty() {
+            None
+        } else {
+            let mut store = Store::new();
 
-    //        for (ptr, expr) in self.scalar_map.iter() {
-    //            match expr {
-    //                Some(ScalarExpression::Nil) => {
-    //                  store.intern_nil()
-    //                }
-    //                Some(ScalarExpression::Cons(car, cdr)) => todo!(),
-    //                Some(ScalarExpression::Str(s)) => todo!(),
-    //                Some(ScalarExpression::Sym(s)) => todo!(),
-    //                Some(ScalarExpression::Num(x)) => todo!(),
-    //                Some(ScalarExpression::Thunk(t)) => todo!(),
-    //                Some(ScalarExpression::Fun {
-    //                    arg,
-    //                    body,
-    //                    closed_env,
-    //                }) => todo!(),
-    //                None => todo!(),
-    //            }
-    //        }
-    //        Some(store)
-    //    }
-    //}
+            for ptr in self.scalar_map.keys() {
+                store.intern_scalar_ptr(*ptr, self);
+            }
+            for ptr in self.scalar_cont_map.keys() {
+                store.intern_scalar_cont_ptr(*ptr, self);
+            }
+            Some(store)
+        }
+    }
 }
 
 impl<F: LurkField> IpldEmbed for ScalarStore<F> {
@@ -705,6 +697,7 @@ mod test {
     use crate::store::ScalarPointer;
     use blstrs::Scalar as Fr;
 
+    use pasta_curves::pallas::Scalar;
     use quickcheck::{Arbitrary, Gen};
 
     use crate::test::frequency;
@@ -939,15 +932,24 @@ mod test {
             }
         }
     }
-    fn test_expr_scalar_store_ipld_embed() {
+
+    #[test]
+    fn test_expr_ipld() {
         let test = |src| {
             let mut s = Store::<Fr>::default();
             let expr = s.read(src).unwrap();
             s.hydrate_scalar_cache();
 
             if let Some((scalar_store, _)) = ScalarStore::new_with_expr(&s, &expr) {
-                //assert_eq!(expected, scalar_store.scalar_map.len());
-                assert!(true)
+                let ipld = scalar_store.to_ipld();
+                println!("{:?}", scalar_store);
+                println!("{:?}", ipld);
+                let scalar_store2 = ScalarStore::<Fr>::from_ipld(&ipld).unwrap();
+                assert_eq!(scalar_store, scalar_store2);
+                //assert!(false);
+                //let store1 = scalar_store.to_store().unwrap();
+                //let store2 = scalar_store2.to_store().unwrap();
+                //assert_eq!(store1, store2)
             } else {
                 assert!(false)
             }
@@ -959,6 +961,7 @@ mod test {
         test("(+ 1 2 (* 3 4))");
         test("(+ 1 2 (* 3 4) \"asdf\" )");
         test("(+ 1 2 2 (* 3 4) \"asdf\" \"asdf\")");
+        assert!(false);
     }
 
     #[test]
