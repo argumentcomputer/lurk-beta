@@ -40,7 +40,7 @@
       inherit (lib) buildRustProject testRustProject getRust filterRustProject;
       # Load a nightly rust. The hash takes precedence over the date so remember to set it to
       # something like `lib.fakeSha256` when changing the date.
-      rustNightly = getRust { date = "2022-03-23"; sha256 = "sha256-r/o9S7CPus34f/r9OPbSGYNzuP92jEZH1O8iHTC9/Aw="; };
+      rustNightly = getRust { date = "2022-04-11"; sha256 = "sha256-GIWsjgDN1dK24J6bkw6Xq4f9waFXJOgCsDL87eK5nkU="; };
       crateName = "lurk";
       src = ./.;
       buildInputs = with pkgs;
