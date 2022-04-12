@@ -895,7 +895,6 @@ fn apply_continuation<F: PrimeField>(
                     _ => match operator {
                         Op2::Cons => store.cons(evaled_arg, *arg2),
                         _ => {
-                            // FIXME: Needs circuit.
                             return Control::Return(*result, *env, store.intern_cont_error());
                         }
                     },
@@ -939,7 +938,9 @@ fn apply_continuation<F: PrimeField>(
                         }
                     },
                     (_, _) => match operator {
-                        Rel2::NumEqual => store.nil(), // FIXME: This should be a type error.
+                        Rel2::NumEqual => {
+                            return Control::Return(*result, *env, store.intern_cont_error());
+                        }
                         Rel2::Equal => {
                             if store.ptr_eq(&evaled_arg, arg2) {
                                 store.t()
@@ -2444,7 +2445,7 @@ mod test {
 
             assert!(result_expr.is_nil());
 
-            assert_eq!(170, iterations);
+            assert_eq!(169, iterations);
         }
     }
 

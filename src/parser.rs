@@ -383,11 +383,11 @@ asdf(", "ASDF",
             |store: &mut Store<Fr>, input: &str, expected_ptr: Ptr<Fr>, expected_meta: bool| {
                 let mut chars = input.chars().peekable();
 
-                 let (ptr, meta) = store.read_maybe_meta(&mut chars).unwrap();
-                 {
-                     assert_eq!(expected_ptr, ptr);
-                     assert_eq!(expected_meta, meta);
-                 };
+                let (ptr, meta) = store.read_maybe_meta(&mut chars).unwrap();
+                {
+                    assert_eq!(expected_ptr, ptr);
+                    assert_eq!(expected_meta, meta);
+                };
             };
 
         let num = s.num(123);

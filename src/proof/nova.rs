@@ -331,7 +331,7 @@ mod tests {
     #[test]
     fn outer_prove_arithmetic_let() {
         outer_prove_aux(
-             "(let ((a 5)
+            "(let ((a 5)
                       (b 1)
                       (c 2))
                  (/ (+ a b) c))",
@@ -398,6 +398,30 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_invalid_num_equal() {
+        outer_prove_aux(
+            "(= 5 nil)",
+            |store| store.nil(),
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            100,
+            false,
+        );
+        outer_prove_aux(
+            "(= nil 5)",
+            |store| store.num(5),
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            100,
+            false,
+        );
+    }
+
+    #[test]
     fn outer_prove_if() {
         outer_prove_aux(
             "(if t 5 6)",
@@ -439,7 +463,7 @@ mod tests {
     #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
     fn outer_prove_recursion1() {
         outer_prove_aux(
-             "(letrec ((exp (lambda (base)
+            "(letrec ((exp (lambda (base)
                                (lambda (exponent)
                                  (if (= 0 exponent)
                                      1
@@ -459,7 +483,7 @@ mod tests {
     #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
     fn outer_prove_recursion2() {
         outer_prove_aux(
-             "(letrec ((exp (lambda (base)
+            "(letrec ((exp (lambda (base)
                                   (lambda (exponent)
                                      (lambda (acc)
                                        (if (= 0 exponent)
@@ -560,7 +584,7 @@ mod tests {
     #[test]
     fn outer_prove_evaluate2() {
         outer_prove_aux(
-             "((lambda (y)
+            "((lambda (y)
                     ((lambda (x) y) 888))
                   99)",
             |store| store.num(99),
@@ -576,7 +600,7 @@ mod tests {
     #[test]
     fn outer_prove_evaluate3() {
         outer_prove_aux(
-             "((lambda (y)
+            "((lambda (y)
                      ((lambda (x)
                         ((lambda (z) z)
                          x))
@@ -595,7 +619,7 @@ mod tests {
     #[test]
     fn outer_prove_evaluate4() {
         outer_prove_aux(
-             "((lambda (y)
+            "((lambda (y)
                      ((lambda (x)
                         ((lambda (z) z)
                          x))
@@ -615,7 +639,7 @@ mod tests {
     #[test]
     fn outer_prove_evaluate5() {
         outer_prove_aux(
-             "(((lambda (fn)
+            "(((lambda (fn)
                       (lambda (x) (fn x)))
                     (lambda (y) y))
                    999)",
@@ -746,7 +770,7 @@ mod tests {
     #[test]
     fn outer_prove_evaluate_adder() {
         outer_prove_aux(
-             "(((lambda (x)
+            "(((lambda (x)
                     (lambda (y)
                       (+ x y)))
                   2)
@@ -764,7 +788,7 @@ mod tests {
     #[test]
     fn outer_prove_evaluate_let_simple() {
         outer_prove_aux(
-             "(let ((a 1))
+            "(let ((a 1))
                   a)",
             |store| store.num(1),
             3,
@@ -806,7 +830,7 @@ mod tests {
     #[test]
     fn outer_prove_evaluate_let() {
         outer_prove_aux(
-             "(let ((a 1)
+            "(let ((a 1)
                        (b 2)
                        (c 3))
                   (+ a (+ b c)))",
@@ -823,7 +847,7 @@ mod tests {
     #[test]
     fn outer_prove_evaluate_arithmetic() {
         outer_prove_aux(
-             "((((lambda (x)
+            "((((lambda (x)
                       (lambda (y)
                         (lambda (z)
                           (* z
@@ -845,7 +869,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_arithmetic_let() {
         outer_prove_aux(
-             "(let ((x 2)
+            "(let ((x 2)
                         (y 3)
                         (z 4))
                    (* z (+ x y)))",
@@ -863,7 +887,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_comparison() {
         outer_prove_aux(
-             "(let ((x 2)
+            "(let ((x 2)
                        (y 3)
                        (z 4))
                   (= 20 (* z
@@ -882,7 +906,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_conditional() {
         outer_prove_aux(
-             "(let ((true (lambda (a)
+            "(let ((true (lambda (a)
                                (lambda (b)
                                  a)))
                        (false (lambda (a)
@@ -908,7 +932,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_conditional2() {
         outer_prove_aux(
-             "(let ((true (lambda (a)
+            "(let ((true (lambda (a)
                                (lambda (b)
                                  a)))
                        (false (lambda (a)
@@ -934,7 +958,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_fundamental_conditional_bug() {
         outer_prove_aux(
-             "(let ((true (lambda (a)
+            "(let ((true (lambda (a)
                                (lambda (b)
                                  a)))
                        ;; NOTE: We cannot shadow IF because it is built-in.
@@ -985,7 +1009,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_recursion() {
         outer_prove_aux(
-             "(letrec ((exp (lambda (base)
+            "(letrec ((exp (lambda (base)
                                    (lambda (exponent)
                                      (if (= 0 exponent)
                                          1
@@ -1005,7 +1029,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_recursion_multiarg() {
         outer_prove_aux(
-             "(letrec ((exp (lambda (base exponent)
+            "(letrec ((exp (lambda (base exponent)
                                    (if (= 0 exponent)
                                        1
                                        (* base (exp base (- exponent 1)))))))
@@ -1024,7 +1048,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_recursion_optimized() {
         outer_prove_aux(
-             "(let ((exp (lambda (base)
+            "(let ((exp (lambda (base)
                                 (letrec ((base-inner
                                            (lambda (exponent)
                                              (if (= 0 exponent)
@@ -1046,7 +1070,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_tail_recursion() {
         outer_prove_aux(
-             "(letrec ((exp (lambda (base)
+            "(letrec ((exp (lambda (base)
                                    (lambda (exponent-remaining)
                                      (lambda (acc)
                                        (if (= 0 exponent-remaining)
@@ -1067,7 +1091,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_tail_recursion_somewhat_optimized() {
         outer_prove_aux(
-             "(letrec ((exp (lambda (base)
+            "(letrec ((exp (lambda (base)
                                    (letrec ((base-inner
                                               (lambda (exponent-remaining)
                                                 (lambda (acc)
@@ -1090,7 +1114,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_no_mutual_recursion() {
         outer_prove_aux(
-             "(letrec ((even (lambda (n)
+            "(letrec ((even (lambda (n)
                                   (if (= 0 n)
                                       t
                                       (odd (- n 1)))))
@@ -1113,7 +1137,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_no_mutual_recursion2() {
         outer_prove_aux(
-             "(letrec ((even (lambda (n)
+            "(letrec ((even (lambda (n)
                                   (if (= 0 n)
                                       t
                                       (odd (- n 1)))))
@@ -1257,7 +1281,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_minimal_tail_call() {
         outer_prove_aux(
-             "(letrec
+            "(letrec
                    ((f (lambda (x)
                          (if (= x 3)
                              123
@@ -1276,7 +1300,7 @@ mod tests {
     #[test]
     fn outer_prove_evaluate_cons_in_function1() {
         outer_prove_aux(
-             "(((lambda (a)
+            "(((lambda (a)
                     (lambda (b)
                       (car (cons a b))))
                   2)
@@ -1294,7 +1318,7 @@ mod tests {
     #[test]
     fn outer_prove_evaluate_cons_in_function2() {
         outer_prove_aux(
-             "(((lambda (a)
+            "(((lambda (a)
                     (lambda (b)
                       (cdr (cons a b))))
                   2)
@@ -1327,7 +1351,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_multiple_letrec_bindings() {
         outer_prove_aux(
-             "(letrec
+            "(letrec
                    ((x 888)
                     (f (lambda (x)
                          (if (= x 5)
@@ -1348,7 +1372,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_tail_call2() {
         outer_prove_aux(
-             "(letrec
+            "(letrec
                    ((f (lambda (x)
                          (if (= x 5)
                              123
@@ -1368,7 +1392,7 @@ mod tests {
     #[test]
     fn outer_prove_evaluate_multiple_letrecstar_bindings() {
         outer_prove_aux(
-             "(letrec ((double (lambda (x) (* 2 x)))
+            "(letrec ((double (lambda (x) (* 2 x)))
                            (square (lambda (x) (* x x))))
                           (+ (square 3) (double 2)))",
             |store| store.num(13),
@@ -1385,7 +1409,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_multiple_letrecstar_bindings_referencing() {
         outer_prove_aux(
-             "(letrec ((double (lambda (x) (* 2 x)))
+            "(letrec ((double (lambda (x) (* 2 x)))
                            (double-inc (lambda (x) (+ 1 (double x)))))
                           (+ (double 3) (double-inc 2)))",
             |store| store.num(11),
@@ -1402,7 +1426,7 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_multiple_letrecstar_bindings_recursive() {
         outer_prove_aux(
-             "(letrec ((exp (lambda (base exponent)
+            "(letrec ((exp (lambda (base exponent)
                                   (if (= 0 exponent)
                                       1
                                       (* base (exp base (- exponent 1))))))
@@ -1429,7 +1453,7 @@ mod tests {
     #[test]
     fn outer_prove_evaluate_dont_discard_rest_env() {
         outer_prove_aux(
-             "(let ((z 9))
+            "(let ((z 9))
                    (letrec ((a 1)
                              (b 2)
                              (l (lambda (x) (+ z x))))
@@ -1447,7 +1471,7 @@ mod tests {
     #[test]
     fn outer_prove_evaluate_fibonacci() {
         outer_prove_aux(
-             "(letrec ((next (lambda (a b n target)
+            "(letrec ((next (lambda (a b n target)
                      (if (eq n target)
                          a
                          (next b

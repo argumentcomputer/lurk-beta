@@ -2331,7 +2331,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
     // Continuation::Relop2
     /////////////////////////////////////////////////////////////////////////////
-    let (res, continuation) = {
+    let (the_expr, the_cont) = {
         let mut cs = cs.namespace(|| "Relop2");
         let rel2 = AllocatedPtr::by_index(0, &continuation_components);
         let arg1 = AllocatedPtr::by_index(1, &continuation_components);
@@ -2342,10 +2342,22 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
         let vals_equal = alloc_equal(&mut cs.namespace(|| "vals equal"), arg1.hash(), arg2.hash())?;
 
-        let tag_is_num = alloc_equal(
+        let arg1_tag_is_num = alloc_equal(
             &mut cs.namespace(|| "arg1 tag is num"),
             arg1.tag(),
             &g.num_tag,
+        )?;
+
+        let arg2_tag_is_num = alloc_equal(
+            &mut cs.namespace(|| "arg2 tag is num"),
+            arg2.tag(),
+            &g.num_tag,
+        )?;
+
+        let args_are_num = Boolean::and(
+            &mut cs.namespace(|| "args are num"),
+            &arg1_tag_is_num,
+            &arg2_tag_is_num,
         )?;
 
         let rel2_is_equal = alloc_equal(
@@ -2357,33 +2369,36 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         let args_equal =
             Boolean::and(&mut cs.namespace(|| "args equal"), &tags_equal, &vals_equal)?;
 
-        // FIXME: This logic may be wrong. Look at it again carefully.
-        // What we want is that Relop2::NumEqual not be used with any non-numeric arguments.
-        // That should be an error.
-
-        // not_num_tag_without_nums = args_equal && (tag_is_num || rel2_is_equal)
-        let not_num_tag_without_nums =
-            constraints::or(&mut cs.namespace(|| "sub_res"), &tag_is_num, &rel2_is_equal)?;
-
-        let boolean_res = Boolean::and(
-            &mut cs.namespace(|| "boolean_res"),
-            &args_equal,
-            &not_num_tag_without_nums,
+        let args_are_num_or_rel2_is_equal = constraints::or(
+            &mut cs.namespace(|| "args_are_num_or_rel2_is_equal"),
+            &args_are_num,
+            &rel2_is_equal,
         )?;
 
         let res = AllocatedPtr::pick(
             &mut cs.namespace(|| "res"),
-            &boolean_res,
+            &args_equal,
             &g.t_ptr,
             &g.nil_ptr,
         )?;
 
-        // FIXME: Still need to handle:
-        // - bad rel2 value (bad input)
-        // - NumEqual rel2 without both args being Num (type error).
-        (res, continuation)
+        let the_expr = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_expr"),
+            &args_are_num_or_rel2_is_equal,
+            &res,
+            result,
+        )?;
+
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "the_cont"),
+            &args_are_num_or_rel2_is_equal,
+            &continuation,
+            &g.error_ptr_cont,
+        )?;
+
+        (the_expr, the_cont)
     };
-    results.add_clauses_cont(ContTag::Relop2, &res, env, &continuation, &g.true_num);
+    results.add_clauses_cont(ContTag::Relop2, &the_expr, env, &the_cont, &g.true_num);
 
     // Continuation::If
     /////////////////////////////////////////////////////////////////////////////
@@ -2824,9 +2839,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31117, cs.num_constraints());
+            assert_eq!(31125, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31089, cs.aux().len());
+            assert_eq!(31096, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
