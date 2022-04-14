@@ -32,8 +32,11 @@ struct Opt {
     #[structopt(short("x"), long("expression"), help("Path to expression source"))]
     expression: Option<Option<String>>,
 
-    #[structopt(long("claim"), help("Wrap evaluation result in a claim"))]
-    claim: bool,
+    #[structopt(
+        long("claim"),
+        help("Wrap evaluation result in a claim and write to path")
+    )]
+    claim: Option<Option<String>>,
 
     #[structopt(short("c"), long("commitment"), help("Path to functional commitment"))]
     commitment: Option<Option<String>>,
@@ -155,6 +158,9 @@ impl FComm {
     fn proof_path(&self) -> PathBuf {
         Self::extract_path(&self.opt.proof, "proof")
     }
+    fn claim_path(&self) -> PathBuf {
+        Self::extract_path(&self.opt.claim, "claim")
+    }
     fn path_successor(p: PathBuf) -> PathBuf {
         let new_index = if let Some(extension) = p.extension() {
             let index = if let Some(e) = extension.to_str() {
@@ -237,6 +243,18 @@ impl FComm {
         }
     }
 
+    // Get claim from supplied path.
+    fn claim<F: PrimeField + Serialize>(&self) -> Result<Claim<F>, Error>
+    where
+        for<'de> F: Deserialize<'de>,
+    {
+        if self.opt.claim.is_some() {
+            Claim::read_from_path(self.claim_path())
+        } else {
+            panic!("whoops!");
+        }
+    }
+
     fn commit(&self) -> Result<(), Error> {
         let s = &mut Store::<Scalar>::default();
 
@@ -296,9 +314,11 @@ impl FComm {
 
         let evaluation = Evaluation::eval(&mut s, expr, self.opt.limit);
 
-        if self.opt.claim {
+        if self.opt.claim.is_some() {
+            let out_path = self.claim_path();
+
             let claim = Claim::<Scalar>::Evaluation(evaluation);
-            serde_json::to_writer(io::stdout(), &claim)?;
+            claim.write_to_path(out_path);
         } else {
             serde_json::to_writer(io::stdout(), &evaluation)?;
         }
@@ -309,9 +329,13 @@ impl FComm {
         let mut s = Store::<Scalar>::default();
         let out_path = self.proof_path();
 
-        let expr = self.expression(&mut s)?;
-
-        let proof = Proof::eval_and_prove(&mut s, expr, self.opt.limit, false)?;
+        let proof = if self.opt.claim.is_some() {
+            let claim = self.claim()?;
+            Proof::prove_claim(&mut s, claim, self.opt.limit, false)?
+        } else {
+            let expr = self.expression(&mut s)?;
+            Proof::eval_and_prove(&mut s, expr, self.opt.limit, false)?
+        };
 
         // Write first, so prover can debug if proof doesn't verify (it should).
         proof.write_to_path(out_path);

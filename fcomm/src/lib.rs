@@ -575,17 +575,25 @@ impl Proof<Bls12> {
         limit: usize,
         only_use_cached_proofs: bool,
     ) -> Result<Self, Error> {
-        let rng = OsRng;
         let env = empty_sym_env(s);
         let cont = s.intern_cont_outermost();
-
         let input = IO { expr, env, cont };
-
-        let proof_map = bls12_proof_cache();
 
         let (public_output, _iterations) = evaluate(s, expr, limit);
         let evaluation = Evaluation::new(s, input, public_output, None);
         let claim = Claim::Evaluation(evaluation);
+
+        Self::prove_claim(s, claim, limit, only_use_cached_proofs)
+    }
+
+    pub fn prove_claim(
+        s: &mut Store<<Bls12 as Engine>::Fr>,
+        claim: Claim<Scalar>,
+        limit: usize,
+        only_use_cached_proofs: bool,
+    ) -> Result<Self, Error> {
+        let rng = OsRng;
+        let proof_map = bls12_proof_cache();
 
         if let Some(proof) = proof_map.get(claim.cid()) {
             dbg!("found cached proof!");
@@ -605,6 +613,14 @@ impl Proof<Bls12> {
 
         prl!("Starting Proving");
 
+        let (expr, env) = match &claim {
+            Claim::Evaluation(e) => (
+                s.read(&e.expr).expect("bad expression"),
+                s.read(&e.env).expect("bad env"),
+            ),
+            _ => todo!(),
+        };
+
         let (groth_proof, _public_input, public_output) = groth_prover
             .outer_prove(groth_params, &INNER_PRODUCT_SRS, expr, env, s, limit, rng)
             .expect("Groth proving failed");
@@ -621,7 +637,6 @@ impl Proof<Bls12> {
 
         Ok(proof)
     }
-
     pub fn verify(&self) -> Result<VerificationResult, Error> {
         let (public_inputs, public_outputs) = match self.claim {
             Claim::Evaluation(_) => self.verify_evaluation(),
