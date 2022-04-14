@@ -48,6 +48,7 @@
         then [ ocl-icd ]
         else [
           darwin.apple_sdk.frameworks.OpenCL
+          m4
         ];
       project = buildRustProject {
         rust = rustNightly;
