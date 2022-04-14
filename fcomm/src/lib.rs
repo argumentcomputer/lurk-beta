@@ -285,8 +285,7 @@ where
         let dag_json = DagJsonCodec.encode(&ipld).unwrap();
 
         let digest = Code::Blake3_256.digest(&dag_json);
-        let cid = Cid::new_v1(0x55, digest);
-        cid
+        Cid::new_v1(0x55, digest)
     }
 
     fn id(&self) -> String {
