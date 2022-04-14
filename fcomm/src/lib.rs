@@ -110,19 +110,12 @@ impl<F: LurkField> FromHex for Commitment<F> {
     }
 }
 #[derive(Serialize, Deserialize, Clone)]
-<<<<<<< HEAD
-pub struct Opening<E: Engine + MultiMillerLoop>
-where
-    <E as Engine>::Fr: LurkField,
-{
-=======
 pub struct Expression {
     pub source: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
-pub struct Opening<F: PrimeField> {
->>>>>>> 274add6bb7f3159e42465110e4c7fe73608e8a17
+pub struct Opening<F: LurkField> {
     pub input: String,
     pub output: String,
     pub status: Status,
@@ -166,16 +159,8 @@ where
     pub reduction_count: ReductionCount,
 }
 
-<<<<<<< HEAD
-#[derive(Serialize, Deserialize)]
-pub enum Claim<E: Engine + MultiMillerLoop>
-where
-    <E as Engine>::Fr: LurkField,
-{
-=======
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum Claim<F: PrimeField> {
->>>>>>> 274add6bb7f3159e42465110e4c7fe73608e8a17
+pub enum Claim<F: LurkField> {
     Evaluation(Evaluation),
     #[serde(bound(
         serialize = "Opening<F>: Serialize",
@@ -199,14 +184,7 @@ pub struct Cert {
 }
 
 #[allow(dead_code)]
-<<<<<<< HEAD
-impl<E: Engine + MultiMillerLoop> Claim<E>
-where
-    <E as Engine>::Fr: Serialize + LurkField,
-{
-=======
-impl<F: PrimeField> Claim<F> {
->>>>>>> 274add6bb7f3159e42465110e4c7fe73608e8a17
+impl<F: LurkField> Claim<F> {
     pub fn is_evaluation(&self) -> bool {
         self.evaluation().is_some()
     }
@@ -377,7 +355,7 @@ impl Evaluation {
         }
     }
 
-    pub fn eval<F: PrimeField + Serialize>(
+    pub fn eval<F: LurkField + Serialize>(
         store: &mut Store<F>,
         expr: Ptr<F>,
         limit: usize,

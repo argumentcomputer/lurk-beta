@@ -1,7 +1,6 @@
 use itertools::Itertools;
 use neptune::Poseidon;
 use rayon::prelude::*;
-use std::convert::TryFrom;
 use std::hash::Hash;
 use std::{fmt, marker::PhantomData};
 use string_interner::symbol::{Symbol, SymbolUsize};
