@@ -1734,6 +1734,10 @@ impl<F: LurkField> Store<F> {
         scalar_ptr
     }
 
+    /// The `get_hash_components_*` functions should be kept in sync with the
+    /// IpldEmbed trait for ScalarContinuation with respect to the order of
+    /// elements
+
     fn get_hash_components_default(&self) -> [[F; 2]; 4] {
         let def = [F::zero(), F::zero()];
         [def, def, def, def]

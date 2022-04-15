@@ -342,7 +342,6 @@ impl<F: LurkField> IpldEmbed for ScalarThunk<F> {
     }
 }
 
-// Unused for now, but will be needed when we serialize Continuations to IPLD.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum ScalarContinuation<F: LurkField> {
     Outermost,
@@ -414,6 +413,9 @@ pub enum ScalarContinuation<F: LurkField> {
     Terminal,
 }
 
+// It is important that the order of list elements for each ScalarContinuation
+// are consistent with the order of field elements in the
+// `get_hash_components_*` functions
 impl<F: LurkField> IpldEmbed for ScalarContinuation<F> {
     fn to_ipld(&self) -> Ipld {
         match self {
