@@ -45,7 +45,7 @@
       src = ./.;
       buildInputs = with pkgs;
         if !stdenv.isDarwin
-        then [ ocl-icd ]
+        then [ ocl-icd m4 ]
         else [
           darwin.apple_sdk.frameworks.OpenCL
           m4
@@ -74,13 +74,13 @@
 
       defaultPackage = self.packages.${system}.${crateName};
 
-      # To run with `nix run`
-      apps.lurk-example = flake-utils.lib.mkApp {
-        drv = lurk-example;
-        name = "lurk";
-      };
+      ## To run with `nix run`
+      #apps.lurk-example = flake-utils.lib.mkApp {
+      #  drv = lurk-example;
+      #  name = "lurk";
+      #};
 
-      defaultApp = self.apps.${system}.lurk-example;
+      #defaultApp = self.apps.${system}.lurk-example;
 
       # `nix develop`
       devShell = pkgs.mkShell {
