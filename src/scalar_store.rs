@@ -696,7 +696,6 @@ mod test {
     use crate::store::ScalarPointer;
     use blstrs::Scalar as Fr;
 
-    use pasta_curves::pallas::Scalar;
     use quickcheck::{Arbitrary, Gen};
 
     use crate::test::frequency;
