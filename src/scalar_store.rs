@@ -135,11 +135,8 @@ impl<F: LurkField> IpldEmbed for ScalarStore<F> {
             .iter()
             .map(|(k, v)| (*k, v.clone()))
             .collect();
-        let cont_map: Vec<(ScalarContPtr<F>, Option<ScalarContinuation<F>>)> = self
-            .scalar_cont_map
-            .iter()
-            .map(|(k, v)| (*k, v.clone()))
-            .collect();
+        let cont_map: Vec<(ScalarContPtr<F>, Option<ScalarContinuation<F>>)> =
+            self.scalar_cont_map.iter().map(|(k, v)| (*k, *v)).collect();
         Ipld::List([map.to_ipld(), cont_map.to_ipld()].into())
     }
 

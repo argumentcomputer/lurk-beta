@@ -393,7 +393,7 @@ impl<F: LurkField> RawPtr<F> {
     }
 
     pub fn idx(&self) -> usize {
-        self.0.abs() as usize
+        self.0.unsigned_abs()
     }
 }
 
