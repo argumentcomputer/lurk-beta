@@ -244,7 +244,7 @@ impl FComm {
     }
 
     // Get claim from supplied path.
-    fn claim<F: PrimeField + Serialize>(&self) -> Result<Claim<F>, Error>
+    fn claim<F: LurkField + Serialize>(&self) -> Result<Claim<F>, Error>
     where
         for<'de> F: Deserialize<'de>,
     {

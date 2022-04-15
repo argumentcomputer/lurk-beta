@@ -2,8 +2,6 @@ use alloc::vec::Vec;
 use core::convert::TryInto;
 use core::num::TryFromIntError;
 
-use num_bigint::BigUint;
-
 use multihash::Code;
 use multihash::MultihashDigest;
 
@@ -21,7 +19,9 @@ pub trait IpldEmbed: Sized {
     fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError>;
 }
 
-pub fn cbor_cid(code: u64, ipld: &Ipld) -> Cid {
+// This is only for use with external stores like IPFS. Do not use this
+// internally
+pub fn blake3_cbor_cid(code: u64, ipld: &Ipld) -> Cid {
     Cid::new_v1(
         code,
         Code::Blake3_256.digest(DagCborCodec.encode(ipld).unwrap().as_ref()),
@@ -111,19 +111,6 @@ impl IpldEmbed for u64 {
                 Ok(x)
             }
             xs => Err(IpldError::expected("u64", xs)),
-        }
-    }
-}
-
-impl IpldEmbed for BigUint {
-    fn to_ipld(&self) -> Ipld {
-        Ipld::Bytes(self.to_bytes_be())
-    }
-
-    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-        match ipld {
-            Ipld::Bytes(bs) => Ok(BigUint::from_bytes_be(bs)),
-            xs => Err(IpldError::Expected(String::from("BigUint"), xs.clone())),
         }
     }
 }

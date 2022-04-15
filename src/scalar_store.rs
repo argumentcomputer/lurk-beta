@@ -946,10 +946,6 @@ mod test {
                 println!("{:?}", ipld);
                 let scalar_store2 = ScalarStore::<Fr>::from_ipld(&ipld).unwrap();
                 assert_eq!(scalar_store, scalar_store2);
-                //assert!(false);
-                //let store1 = scalar_store.to_store().unwrap();
-                //let store2 = scalar_store2.to_store().unwrap();
-                //assert_eq!(store1, store2)
             } else {
                 assert!(false)
             }
