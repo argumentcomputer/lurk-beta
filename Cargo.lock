@@ -868,6 +868,7 @@ checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 name = "fcomm"
 version = "0.1.1"
 dependencies = [
+ "arrayvec 0.5.2",
  "assert_cmd",
  "bellperson",
  "blstrs",
