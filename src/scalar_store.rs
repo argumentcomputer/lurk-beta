@@ -111,10 +111,28 @@ impl<'a, F: LurkField> ScalarStore<F> {
         let x = self.scalar_cont_map.get(ptr)?;
         (*x).as_ref()
     }
+
+    pub fn to_store_with_expr(&mut self, ptr: &ScalarPtr<F>) -> Option<(Store<F>, Ptr<F>)> {
+        if self.pending_scalar_ptrs.is_empty() {
+            let mut store = Store::new();
+
+            let ptr = store.intern_scalar_ptr(*ptr, self)?;
+
+            for scalar_ptr in self.scalar_map.keys() {
+                println!("scalar_ptr: {:?}", scalar_ptr);
+                let res = store.intern_scalar_ptr(*scalar_ptr, self);
+                println!("res scalar_ptr: {:?}", res);
+            }
+            for ptr in self.scalar_cont_map.keys() {
+                store.intern_scalar_cont_ptr(*ptr, self);
+            }
+            Some((store, ptr))
+        } else {
+            None
+        }
+    }
     pub fn to_store(&mut self) -> Option<Store<F>> {
         if self.pending_scalar_ptrs.is_empty() {
-            None
-        } else {
             let mut store = Store::new();
 
             for ptr in self.scalar_map.keys() {
@@ -124,6 +142,8 @@ impl<'a, F: LurkField> ScalarStore<F> {
                 store.intern_scalar_cont_ptr(*ptr, self);
             }
             Some(store)
+        } else {
+            None
         }
     }
 }
@@ -934,28 +954,72 @@ mod test {
     #[test]
     fn test_expr_ipld() {
         let test = |src| {
-            let mut s = Store::<Fr>::default();
-            let expr = s.read(src).unwrap();
-            s.hydrate_scalar_cache();
+            let mut store1 = Store::<Fr>::default();
+            let expr1 = store1.read(src).unwrap();
+            store1.hydrate_scalar_cache();
 
-            if let Some((scalar_store, _)) = ScalarStore::new_with_expr(&s, &expr) {
+            if let Some((scalar_store, scalar_expr)) = ScalarStore::new_with_expr(&store1, &expr1) {
                 let ipld = scalar_store.to_ipld();
-                println!("{:?}", scalar_store);
-                println!("{:?}", ipld);
-                let scalar_store2 = ScalarStore::<Fr>::from_ipld(&ipld).unwrap();
+                let mut scalar_store2 = ScalarStore::<Fr>::from_ipld(&ipld).unwrap();
                 assert_eq!(scalar_store, scalar_store2);
+                if let Some((mut store2, expr2)) = scalar_store2.to_store_with_expr(&scalar_expr) {
+                    store2.hydrate_scalar_cache();
+                    if let Some((scalar_store3, _)) = ScalarStore::new_with_expr(&store2, &expr2) {
+                        assert_eq!(scalar_store2, scalar_store3)
+                    } else {
+                        assert!(false)
+                    }
+                } else {
+                    assert!(false)
+                }
             } else {
                 assert!(false)
             }
         };
 
         test("symbol");
+        test("1");
+        test("(1 . 2)");
+        test("\"foo\" . \"bar\")");
+        test("(foo . bar)");
         test("(1 . 2)");
         test("(+ 1 2 3)");
         test("(+ 1 2 (* 3 4))");
         test("(+ 1 2 (* 3 4) \"asdf\" )");
         test("(+ 1 2 2 (* 3 4) \"asdf\" \"asdf\")");
-        assert!(false);
+    }
+
+    #[test]
+    fn test_expr_eval_ipld() {
+        use crate::eval;
+        let test = |src| {
+            let mut s = Store::<Fr>::default();
+            let expr = s.read(src).unwrap();
+            s.hydrate_scalar_cache();
+
+            let env = empty_sym_env(&s);
+            let mut eval = eval::Evaluator::new(expr, env, &mut s, 100);
+            let (
+                eval::IO {
+                    expr,
+                    env: _,
+                    cont: _,
+                },
+                _lim,
+            ) = eval.eval();
+
+            if let Some((scalar_store, _)) = ScalarStore::new_with_expr(&s, &expr) {
+                let ipld = scalar_store.to_ipld();
+                println!("{:?}", scalar_store);
+                let scalar_store2 = ScalarStore::<Fr>::from_ipld(&ipld).unwrap();
+                println!("{:?}", scalar_store2);
+                assert_eq!(scalar_store, scalar_store2);
+            } else {
+                assert!(false)
+            }
+        };
+
+        test("(let ((a 123)) (lambda (x) (+ x a)))");
     }
 
     #[test]
