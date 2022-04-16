@@ -119,7 +119,7 @@ impl<'a, F: LurkField> ScalarStore<F> {
             let ptr = store.intern_scalar_ptr(*ptr, self)?;
 
             for scalar_ptr in self.scalar_map.keys() {
-                let res = store.intern_scalar_ptr(*scalar_ptr, self);
+                store.intern_scalar_ptr(*scalar_ptr, self);
             }
             for ptr in self.scalar_cont_map.keys() {
                 store.intern_scalar_cont_ptr(*ptr, self);
