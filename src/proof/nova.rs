@@ -341,6 +341,7 @@ mod tests {
     ////////////////////////////////////////////////////////////////////////////
 
     #[test]
+    #[ignore]
     fn outer_prove_arithmetic_let() {
         outer_prove_aux(
             &"(let ((a 5)
@@ -358,6 +359,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_binop() {
         outer_prove_aux(
             &"(+ 1 2)",
@@ -372,6 +374,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_eq() {
         outer_prove_aux(
             &"(eq 5 5)",
@@ -386,6 +389,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_num_equal() {
         outer_prove_aux(
             &"(= 5 5)",
@@ -410,6 +414,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_if() {
         outer_prove_aux(
             &"(if t 5 6)",
@@ -434,6 +439,7 @@ mod tests {
         )
     }
     #[test]
+    #[ignore]
     fn outer_prove_if_fully_evaluates() {
         outer_prove_aux(
             &"(if t (+ 5 5) 6)",
@@ -456,9 +462,9 @@ mod tests {
                                 (if (= 0 exponent)
                                     1
                                     (* base ((exp base) (- exponent 1))))))))
-                ((exp 5) 3))",
-            |store| store.num(125),
-            91,
+                ((exp 5) 2))",
+            |store| store.num(25),
+            66,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -477,9 +483,9 @@ mod tests {
                                       (if (= 0 exponent)
                                          acc
                                          (((exp base) (- exponent 1)) (* acc base))))))))
-                (((exp 5) 5) 1))",
-            |store| store.num(3125),
-            201,
+                (((exp 5) 2) 1))",
+            |store| store.num(25),
+            93,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -533,6 +539,7 @@ mod tests {
         )
     }
     #[test]
+    #[ignore]
     fn outer_prove_unop_regression() {
         // We need to at least use chunk size 1 to exercise the regression.
         // Also use a non-1 value to check the MultiFrame case.
@@ -542,6 +549,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_emit_output() {
         outer_prove_aux(
             &"(emit 123)",
@@ -556,6 +564,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate() {
         outer_prove_aux(
             &"((lambda (x) x) 99)",
@@ -570,6 +579,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate2() {
         outer_prove_aux(
             &"((lambda (y)
@@ -586,6 +596,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate3() {
         outer_prove_aux(
             &"((lambda (y)
@@ -605,6 +616,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate4() {
         outer_prove_aux(
             &"((lambda (y)
@@ -625,6 +637,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate5() {
         outer_prove_aux(
             &"(((lambda (fn)
@@ -642,6 +655,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_sum() {
         outer_prove_aux(
             &"(+ 2 (+ 3 4))",
@@ -700,6 +714,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_product() {
         outer_prove_aux(
             &"(* 9 5)",
@@ -714,6 +729,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_quotient() {
         outer_prove_aux(
             &"(/ 21 3)",
@@ -728,6 +744,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_adder() {
         outer_prove_aux(
             &"(((lambda (x)
@@ -746,6 +763,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_let_simple() {
         outer_prove_aux(
             &"(let ((a 1))
@@ -761,6 +779,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_let_null_bindings() {
         outer_prove_aux(
             &"(let () (+ 1 2))",
@@ -774,6 +793,7 @@ mod tests {
         );
     }
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_letrec_null_bindings() {
         outer_prove_aux(
             &"(letrec () (+ 1 2))",
@@ -788,6 +808,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_let() {
         outer_prove_aux(
             &"(let ((a 1)
@@ -805,6 +826,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_arithmetic() {
         outer_prove_aux(
             &"((((lambda (x)
@@ -938,6 +960,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_if() {
         outer_prove_aux(
             &"(if nil 5 6)",
@@ -952,6 +975,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_fully_evaluates() {
         outer_prove_aux(
             &"(if t (+ 5 5) 6)",
@@ -974,9 +998,9 @@ mod tests {
                                     (if (= 0 exponent)
                                         1
                                         (* base ((exp base) (- exponent 1))))))))
-                          ((exp 5) 3))",
-            |store| store.num(125),
-            91,
+                          ((exp 5) 2))",
+            |store| store.num(25),
+            66,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -993,9 +1017,9 @@ mod tests {
                                   (if (= 0 exponent)
                                       1
                                       (* base (exp base (- exponent 1)))))))
-                          (exp 5 3))",
-            |store| store.num(125),
-            95,
+                          (exp 5 2))",
+            |store| store.num(25),
+            69,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1015,9 +1039,9 @@ mod tests {
                                                 1
                                                 (* base (base-inner (- exponent 1)))))))
                                         base-inner))))
-                   ((exp 5) 3))",
-            |store| store.num(125),
-            75,
+                   ((exp 5) 2))",
+            |store| store.num(25),
+            56,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1036,9 +1060,9 @@ mod tests {
                                       (if (= 0 exponent-remaining)
                                           acc
                                           (((exp base) (- exponent-remaining 1)) (* acc base))))))))
-                          (((exp 5) 3) 1))",
-            |store| store.num(125),
-            129,
+                          (((exp 5) 2) 1))",
+            |store| store.num(25),
+            93,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1059,9 +1083,9 @@ mod tests {
                                                      acc
                                                      ((base-inner (- exponent-remaining 1)) (* acc base)))))))
                                            base-inner))))
-                          (((exp 5) 3) 1))",
-            |store| store.num(125),
-            110,
+                          (((exp 5) 2) 1))",
+            |store| store.num(25),
+            81,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1117,6 +1141,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_let_no_body() {
         outer_prove_aux(
             &"(let ((a 9)))",
@@ -1131,6 +1156,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_cons1() {
         outer_prove_aux(
             &"(car (cons 1 2))",
@@ -1145,6 +1171,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_cons2() {
         outer_prove_aux(
             &"(cdr (cons 1 2))",
@@ -1159,6 +1186,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_zero_arg_lambda1() {
         outer_prove_aux(
             &"((lambda () 123))",
@@ -1173,6 +1201,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_zero_arg_lambda2() {
         outer_prove_aux(
             &"(let ((x 9) (f (lambda () (+ x 1)))) (f))",
@@ -1258,6 +1287,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_cons_in_function1() {
         outer_prove_aux(
             &"(((lambda (a)
@@ -1276,6 +1306,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_cons_in_function2() {
         outer_prove_aux(
             &"(((lambda (a)
@@ -1294,6 +1325,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_multiarg_eval_bug() {
         outer_prove_aux(
             &"(car (cdr '(1 2 3 4)))",
@@ -1350,6 +1382,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_multiple_letrecstar_bindings() {
         outer_prove_aux(
             &"(letrec ((double (lambda (x) (* 2 x)))
@@ -1411,6 +1444,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_dont_discard_rest_env() {
         outer_prove_aux(
             &"(let ((z 9))
@@ -1429,6 +1463,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_fibonacci() {
         outer_prove_aux(
             &"(letrec ((next (lambda (a b n target)
