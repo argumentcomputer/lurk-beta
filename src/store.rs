@@ -754,7 +754,6 @@ impl ContTag {
             f if f == ContTag::Binop.as_field() => Some(ContTag::Binop),
             f if f == ContTag::Relop.as_field() => Some(ContTag::Relop),
             f if f == ContTag::If.as_field() => Some(ContTag::If),
-            f if f == ContTag::If.as_field() => Some(ContTag::If),
             f if f == ContTag::Let.as_field() => Some(ContTag::Let),
             f if f == ContTag::LetRec.as_field() => Some(ContTag::LetRec),
             f if f == ContTag::Dummy.as_field() => Some(ContTag::Dummy),
