@@ -20,9 +20,9 @@ fn test_bad_command() {
     let mut cmd = fcomm_cmd();
 
     cmd.arg("uiop");
-    cmd.assert()
-        .failure()
-        .stderr(predicate::str::contains("Unsupported command: UIOP"));
+    cmd.assert().failure().stderr(predicate::str::contains(
+        "error: Found argument 'uiop' which wasn't expected, or isn't valid in this context",
+    ));
 }
 
 #[test]

@@ -1,3 +1,4 @@
+use log::info;
 use std::convert::TryFrom;
 use std::fs::{self, File};
 use std::io::{self, BufReader};
@@ -40,21 +41,13 @@ fn bls12_proof_cache() -> FileMap<Proof<Bls12>> {
     FileMap::<Proof<Bls12>>::new("bls12_proofs").unwrap()
 }
 
-#[macro_export]
-// FIXME: This belongs in the CLI program only, but we need to (maybe) emit the messages here.
-// TODO: Pass *something into the methods that may/may not print rather than this nonsense.
-macro_rules! prl {
-    ($($arg:expr),*) => { if *VERBOSE.get_or_init(||false) {
-        println!($($arg),*) } };
-}
-
 fn get_pvk(rc: ReductionCount) -> groth16::PreparedVerifyingKey<Bls12> {
     let groth_prover = Groth16Prover::new(rc.reduction_frame_count());
 
-    prl!("Getting Parameters");
+    info!("Getting Parameters");
     let groth_params = groth_prover.groth_params().unwrap();
 
-    prl!("Preparing verifying key");
+    info!("Preparing verifying key");
     groth16::prepare_verifying_key(&groth_params.vk)
 }
 
@@ -478,20 +471,20 @@ impl Opening<Scalar> {
         limit: usize,
         chain: bool,
         commitment_path: Option<P>,
-        chained_function_path: Option<P>,
+        chained_function_path: Option<std::path::PathBuf>,
     ) -> Result<Proof<Bls12>, Error> {
         let rng = OsRng;
 
         let (commitment, expression) =
             Commitment::construct_with_fun_application(s, function, input, limit);
 
-        prl!("Getting Parameters");
+        info!("Getting Parameters");
 
         let reduction_count = DEFAULT_REDUCTION_COUNT;
         let groth_prover = Groth16Prover::new(reduction_count.reduction_frame_count());
         let groth_params = groth_prover.groth_params().unwrap();
 
-        prl!("Starting Proving");
+        info!("Starting Proving");
 
         let (groth_proof, _public_input, public_output) = groth_prover
             .outer_prove(
@@ -606,11 +599,11 @@ impl Proof<Bls12> {
 
         let reduction_count = DEFAULT_REDUCTION_COUNT;
 
-        prl!("Getting Parameters");
+        info!("Getting Parameters");
         let groth_prover = Groth16Prover::new(reduction_count.reduction_frame_count());
         let groth_params = groth_prover.groth_params().unwrap();
 
-        prl!("Starting Proving");
+        info!("Starting Proving");
 
         let (expr, env) = match &claim {
             Claim::Evaluation(e) => (
@@ -643,15 +636,15 @@ impl Proof<Bls12> {
         }?;
         let mut rng = OsRng;
 
-        prl!("Getting Parameters");
+        info!("Getting Parameters");
 
         let count = self.proof.proof_count;
         let rc = self.reduction_count;
         let pvk = get_pvk(rc);
 
-        prl!("Specializing SRS for {} sub-proofs.", count);
+        info!("Specializing SRS for {} sub-proofs.", count);
         let srs_vk = INNER_PRODUCT_SRS.specialize_vk(count);
-        prl!("Starting Verification");
+        info!("Starting Verification");
 
         let verified = Groth16Prover::verify(
             &pvk,
