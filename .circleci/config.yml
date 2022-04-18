@@ -25,7 +25,7 @@ executors:
     machine:
       image: ubuntu-2004:202101-01
     working_directory: ~/lurk
-    resource_class: arm.medium
+    resource_class: arm.large
   darwin:
     macos:
       xcode: "13.3.0"
