@@ -2271,64 +2271,37 @@ impl<F: LurkField> Expression<'_, F> {
     }
 
     pub fn is_null(&self) -> bool {
-        match self {
-            Self::Nil => true,
-            _ => false,
-        }
+        matches!(self, Self::Nil)
     }
 
     pub fn is_cons(&self) -> bool {
-        match self {
-            Self::Cons(_, _) => true,
-            _ => false,
-        }
+        matches!(self, Self::Cons(_, _))
     }
 
     pub fn is_list(&self) -> bool {
-        match self {
-            Self::Nil | Self::Cons(_, _) => true,
-            _ => false,
-        }
+        self.is_null() || self.is_cons()
     }
 
     pub fn is_sym(&self) -> bool {
-        match self {
-            Self::Sym(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Sym(_))
     }
     pub fn is_fun(&self) -> bool {
-        match self {
-            Self::Fun(_, _, _) => true,
-            _ => false,
-        }
+        matches!(self, Self::Fun(_, _, _))
     }
 
     pub fn is_num(&self) -> bool {
-        match self {
-            Self::Num(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Num(_))
     }
     pub fn is_str(&self) -> bool {
-        match self {
-            Self::Str(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Str(_))
     }
 
     pub fn is_thunk(&self) -> bool {
-        match self {
-            Self::Thunk(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Thunk(_))
     }
 
     pub fn is_opaque(&self) -> bool {
-        match self {
-            Self::Opaque(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Opaque(_))
     }
 }
 

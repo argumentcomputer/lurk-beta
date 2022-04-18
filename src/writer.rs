@@ -1,7 +1,7 @@
 use std::io;
 
 use crate::field::LurkField;
-use crate::store::{ContPtr, Continuation, Expression, Ptr, Store, Tag};
+use crate::store::{ContPtr, Continuation, Expression, Ptr, Store};
 
 pub trait Write<F: LurkField> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()>;
