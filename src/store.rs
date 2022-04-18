@@ -2269,6 +2269,67 @@ impl<F: LurkField> Expression<'_, F> {
             _ => None,
         }
     }
+
+    pub fn is_null(&self) -> bool {
+        match self {
+            Self::Nil => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_cons(&self) -> bool {
+        match self {
+            Self::Cons(_, _) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_list(&self) -> bool {
+        match self {
+            Self::Nil | Self::Cons(_, _) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_sym(&self) -> bool {
+        match self {
+            Self::Sym(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_fun(&self) -> bool {
+        match self {
+            Self::Fun(_, _, _) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_num(&self) -> bool {
+        match self {
+            Self::Num(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_str(&self) -> bool {
+        match self {
+            Self::Str(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_thunk(&self) -> bool {
+        match self {
+            Self::Thunk(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_opaque(&self) -> bool {
+        match self {
+            Self::Opaque(_) => true,
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -2534,8 +2595,10 @@ mod test {
         let mut store = Store::<Fr>::default();
 
         let arg = store.sym("A");
-        let body = store.num(123);
-        let body2 = store.num(987);
+        let body_form = store.num(123);
+        let body2_form = store.num(987);
+        let body = store.list(&[body_form]);
+        let body2 = store.list(&[body2_form]);
         let empty_env = empty_sym_env(&store);
         let fun = store.intern_fun(arg, body, empty_env);
         let fun2 = store.intern_fun(arg, body2, empty_env);
@@ -2550,11 +2613,13 @@ mod test {
         let limit = 10;
         {
             let comparison_expr = store.list(&[eq, fun, opaque_fun]);
+            println!("comparison_expr: {}", comparison_expr.fmt_to_string(&store));
             let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, fun2, opaque_fun]);
+            println!("comparison_expr: {}", comparison_expr.fmt_to_string(&store));
             let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
             assert_eq!(nil, result.expr);
         }

@@ -1,7 +1,7 @@
 use std::io;
 
 use crate::field::LurkField;
-use crate::store::{ContPtr, Continuation, Expression, Ptr, Store};
+use crate::store::{ContPtr, Continuation, Expression, Ptr, Store, Tag};
 
 pub trait Write<F: LurkField> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()>;
@@ -55,6 +55,7 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                     arg.fmt(store, w)?;
                 }
                 write!(w, ") ")?;
+                assert!(body.is_cons(), "Fun body should be a non-empty list.");
                 body.print_tail(store, w)?;
                 write!(w, ">")
             }
@@ -84,7 +85,6 @@ impl<F: LurkField> Expression<'_, F> {
             Expression::Cons(car, cdr) => {
                 let car = store.fetch(car);
                 let cdr = store.fetch(cdr);
-
                 let fmt_car = |store, w: &mut W| {
                     if let Some(car) = car {
                         car.fmt(store, w)
@@ -103,7 +103,6 @@ impl<F: LurkField> Expression<'_, F> {
                 match cdr {
                     Some(Expression::Nil) => {
                         fmt_car(store, w)?;
-                        // car.fmt(store, w)?;
                         write!(w, ")")
                     }
                     Some(Expression::Cons(_, _)) => {
@@ -124,7 +123,9 @@ impl<F: LurkField> Expression<'_, F> {
                     None => write!(w, "<Opaque>"),
                 }
             }
-            _ => unreachable!(),
+            _ => {
+                unreachable!()
+            }
         }
     }
 }
