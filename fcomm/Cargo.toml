@@ -7,6 +7,10 @@ description = "Functional commitments with Lurk"
 edition = "2018"
 repository = "https://github.com/lurk-lang/lurk-rs"
 
+[[bin]]
+name = "fcomm"
+path = "src/bin/fcomm.rs"
+
 [dependencies]
 arrayvec = "0.5.1"
 bellperson = { version = "0.19.0" }
@@ -23,6 +27,8 @@ rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 structopt = { version = "0.3", default-features = false }
+clap = { version = "3.1", features = ["derive"] }
+clap-verbosity-flag = "1.0"
 
 [dev-dependencies]
 assert_cmd = "2.0.4"
