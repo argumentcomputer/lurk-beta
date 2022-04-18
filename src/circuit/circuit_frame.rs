@@ -1133,9 +1133,6 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         let (args, body) = (arg1.clone(), more.clone());
         let args_is_nil = args.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
 
-        // let not_dummy1 = Boolean::not(&args_is_nil);
-        // let not_dummy2 = Boolean::and(&mut cs.namespace(|| "not_dummy2"), &not_dummy, &not_dummy1)?;
-
         let (car_args, cdr_args) = car_cdr(&mut cs.namespace(|| "car_cdr args"), g, &args, store)?;
 
         // FIXME: There may be some cases where cdr_args is wrong/differs from eval.rs.
@@ -1183,7 +1180,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         results.add_clauses_cons(*quote_hash.value(), &arg1, env, cont, &g.true_num);
     }
 
-    let (val, continuation_let, continuation_letrec) = {
+    let (val, the_cont_let, the_cont_letrec) = {
         // head == LET
         // or head == LETREC
 
@@ -1207,7 +1204,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         let bindings_is_nil =
             bindings.alloc_equal(&mut cs_letrec.namespace(|| "bindings_is_nil"), &g.nil_ptr)?;
 
-        let (val1, _end) = car_cdr(
+        let (val1, end) = car_cdr(
             &mut cs_letrec.namespace(|| "car_cdr more_vals"),
             g,
             &more_vals,
@@ -1221,7 +1218,13 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
             &val1,
         )?;
 
-        // FIXME: assert end == NIL
+        let end_is_nil = end.alloc_equal(&mut cs_letrec.namespace(|| "end_is_nil"), &g.nil_ptr)?;
+        let cond_end_is_nil = Boolean::and(
+            &mut cs_letrec.namespace(|| "if binding not nil end is nil"), // otherwise it is None
+            &Boolean::not(&bindings_is_nil),
+            &end_is_nil,
+        )?;
+
         let expanded1 = AllocatedPtr::construct_list(
             &mut cs_letrec.namespace(|| "expanded1"),
             g,
@@ -1283,11 +1286,25 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
             &continuation1_letrec,
         )?;
 
-        (val, continuation_let, continuation_letrec)
+        let the_cont_let = AllocatedContPtr::pick(
+            &mut cs_letrec.namespace(|| "the_cont_let"),
+            &cond_end_is_nil,
+            &continuation_let,
+            &g.error_ptr_cont,
+        )?;
+
+        let the_cont_letrec = AllocatedContPtr::pick(
+            &mut cs_letrec.namespace(|| "the_cont_letrec"),
+            &cond_end_is_nil,
+            &continuation_letrec,
+            &g.error_ptr_cont,
+        )?;
+
+        (val, the_cont_let, the_cont_letrec)
     };
 
-    results.add_clauses_cons(*let_hash, &val, env, &continuation_let, &g.false_num);
-    results.add_clauses_cons(*letrec_hash, &val, env, &continuation_letrec, &g.false_num);
+    results.add_clauses_cons(*let_hash, &val, env, &the_cont_let, &g.false_num);
+    results.add_clauses_cons(*letrec_hash, &val, env, &the_cont_letrec, &g.false_num);
 
     // head == CONS
     let continuation = AllocatedContPtr::construct(
@@ -2839,9 +2856,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31125, cs.num_constraints());
+            assert_eq!(31139, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31096, cs.aux().len());
+            assert_eq!(31108, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

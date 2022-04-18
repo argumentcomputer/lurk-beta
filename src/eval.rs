@@ -543,15 +543,21 @@ fn reduce_with_witness<F: PrimeField>(
                         let (binding1, rest_bindings) = store.car_cdr(&bindings);
                         let (var, more_vals) = store.car_cdr(&binding1);
                         let (val, end) = store.car_cdr(&more_vals);
-                        assert!(end.is_nil());
-
-                        let expanded = if rest_bindings.is_nil() {
-                            body1
+                        if !end.is_nil() {
+                            Control::Return(val, env, store.intern_cont_error())
                         } else {
-                            let lt = store.sym("let");
-                            store.list(&[lt, rest_bindings, body1])
-                        };
-                        Control::Return(val, env, store.intern_cont_let(var, expanded, env, cont))
+                            let expanded = if rest_bindings.is_nil() {
+                                body1
+                            } else {
+                                let lt = store.sym("let");
+                                store.list(&[lt, rest_bindings, body1])
+                            };
+                            Control::Return(
+                                val,
+                                env,
+                                store.intern_cont_let(var, expanded, env, cont),
+                            )
+                        }
                     }
                 } else if head == store.sym("letrec") {
                     let (bindings, body) = store.car_cdr(&rest);
@@ -564,19 +570,21 @@ fn reduce_with_witness<F: PrimeField>(
                         let (binding1, rest_bindings) = store.car_cdr(&bindings);
                         let (var, more_vals) = store.car_cdr(&binding1);
                         let (val, end) = store.car_cdr(&more_vals);
-                        assert!(end.is_nil());
-
-                        let expanded = if rest_bindings.is_nil() {
-                            body1
+                        if !end.is_nil() {
+                            Control::Return(val, env, store.intern_cont_error())
                         } else {
-                            let lt = store.sym("letrec");
-                            store.list(&[lt, rest_bindings, body1])
-                        };
-                        Control::Return(
-                            val,
-                            env,
-                            store.intern_cont_let_rec(var, expanded, env, cont),
-                        )
+                            let expanded = if rest_bindings.is_nil() {
+                                body1
+                            } else {
+                                let lt = store.sym("letrec");
+                                store.list(&[lt, rest_bindings, body1])
+                            };
+                            Control::Return(
+                                val,
+                                env,
+                                store.intern_cont_let_rec(var, expanded, env, cont),
+                            )
+                        }
                     }
                 } else if head == store.sym("cons") {
                     let (arg1, more) = store.car_cdr(&rest);
