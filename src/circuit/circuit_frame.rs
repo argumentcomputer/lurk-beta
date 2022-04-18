@@ -5,7 +5,6 @@ use bellperson::{
     util_cs::Comparable,
     Circuit, ConstraintSystem, SynthesisError,
 };
-use ff::PrimeField;
 
 use crate::{
     circuit::gadgets::{
@@ -13,6 +12,7 @@ use crate::{
         data::GlobalAllocations,
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
+    field::LurkField,
     store::ScalarPointer,
 };
 
@@ -25,7 +25,7 @@ use crate::proof::Provable;
 use crate::store::{ContPtr, ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
 
 #[derive(Clone, Copy, Debug)]
-pub struct CircuitFrame<'a, F: PrimeField, T, W> {
+pub struct CircuitFrame<'a, F: LurkField, T, W> {
     pub store: &'a Store<F>,
     pub input: Option<T>,
     pub output: Option<T>,
@@ -33,7 +33,7 @@ pub struct CircuitFrame<'a, F: PrimeField, T, W> {
 }
 
 #[derive(Clone, Debug)]
-pub struct MultiFrame<'a, F: PrimeField, T, W> {
+pub struct MultiFrame<'a, F: LurkField, T, W> {
     pub store: &'a Store<F>,
     pub input: Option<T>,
     pub output: Option<T>,
@@ -41,7 +41,7 @@ pub struct MultiFrame<'a, F: PrimeField, T, W> {
     pub count: usize,
 }
 
-impl<'a, F: PrimeField, T: Clone + Copy, W: Copy> CircuitFrame<'a, F, T, W> {
+impl<'a, F: LurkField, T: Clone + Copy, W: Copy> CircuitFrame<'a, F, T, W> {
     pub fn blank(store: &'a Store<F>) -> Self {
         Self {
             store,
@@ -61,7 +61,7 @@ impl<'a, F: PrimeField, T: Clone + Copy, W: Copy> CircuitFrame<'a, F, T, W> {
     }
 }
 
-impl<'a, F: PrimeField, T: Clone + Copy + Debug + std::cmp::PartialEq, W: Copy>
+impl<'a, F: LurkField, T: Clone + Copy + Debug + std::cmp::PartialEq, W: Copy>
     MultiFrame<'a, F, T, W>
 {
     pub fn blank(store: &'a Store<F>, count: usize) -> Self {
@@ -142,19 +142,19 @@ impl<'a, F: PrimeField, T: Clone + Copy + Debug + std::cmp::PartialEq, W: Copy>
     }
 }
 
-impl<F: PrimeField, T: PartialEq + Debug, W> CircuitFrame<'_, F, T, W> {
+impl<F: LurkField, T: PartialEq + Debug, W> CircuitFrame<'_, F, T, W> {
     pub fn precedes(&self, maybe_next: &Self) -> bool {
         self.output == maybe_next.input
     }
 }
 
-impl<F: PrimeField, T: PartialEq + Debug, W> MultiFrame<'_, F, T, W> {
+impl<F: LurkField, T: PartialEq + Debug, W> MultiFrame<'_, F, T, W> {
     pub fn precedes(&self, maybe_next: &Self) -> bool {
         self.output == maybe_next.input
     }
 }
 
-impl<F: PrimeField, W> Provable<F> for MultiFrame<'_, F, IO<F>, W> {
+impl<F: LurkField, W> Provable<F> for MultiFrame<'_, F, IO<F>, W> {
     fn public_inputs(&self) -> Vec<F> {
         let mut inputs: Vec<_> = Vec::with_capacity(Self::public_input_size());
 
@@ -184,7 +184,7 @@ impl<F: PrimeField, W> Provable<F> for MultiFrame<'_, F, IO<F>, W> {
 
 type AllocatedIO<F> = (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>);
 
-impl<F: PrimeField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
+impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
     pub(crate) fn synthesize<CS: ConstraintSystem<F>>(
         self,
         cs: &mut CS,
@@ -206,7 +206,7 @@ impl<F: PrimeField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
     }
 }
 
-impl<F: PrimeField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
+impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
     fn synthesize<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         ////////////////////////////////////////////////////////////////////////////////
         // Bind public inputs.
@@ -290,7 +290,7 @@ impl<F: PrimeField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
 }
 
 #[derive(Default)]
-struct Results<'a, F: PrimeField> {
+struct Results<'a, F: LurkField> {
     expr_tag_clauses: Vec<CaseClause<'a, F>>,
     expr_hash_clauses: Vec<CaseClause<'a, F>>,
     env_tag_clauses: Vec<CaseClause<'a, F>>,
@@ -301,7 +301,7 @@ struct Results<'a, F: PrimeField> {
     make_thunk_num_clauses: Vec<CaseClause<'a, F>>,
 }
 
-fn add_clause<'a, F: PrimeField>(
+fn add_clause<'a, F: LurkField>(
     tag_clauses: &mut Vec<CaseClause<'a, F>>,
     hash_clauses: &mut Vec<CaseClause<'a, F>>,
     key: F,
@@ -311,7 +311,7 @@ fn add_clause<'a, F: PrimeField>(
     add_clause_single(hash_clauses, key, expr.hash());
 }
 
-fn add_clause_cont<'a, F: PrimeField>(
+fn add_clause_cont<'a, F: LurkField>(
     tag_clauses: &mut Vec<CaseClause<'a, F>>,
     hash_clauses: &mut Vec<CaseClause<'a, F>>,
     key: F,
@@ -321,7 +321,7 @@ fn add_clause_cont<'a, F: PrimeField>(
     add_clause_single(hash_clauses, key, cont.hash());
 }
 
-fn add_clause_single<'a, F: PrimeField>(
+fn add_clause_single<'a, F: LurkField>(
     clauses: &mut Vec<CaseClause<'a, F>>,
     key: F,
     value: &'a AllocatedNum<F>,
@@ -329,7 +329,7 @@ fn add_clause_single<'a, F: PrimeField>(
     clauses.push(CaseClause { key, value });
 }
 
-impl<'a, F: PrimeField> Results<'a, F> {
+impl<'a, F: LurkField> Results<'a, F> {
     fn add_clauses_expr(
         &mut self,
         key: Tag,
@@ -456,12 +456,12 @@ impl<'a, F: PrimeField> Results<'a, F> {
 }
 
 #[derive(Default)]
-struct HashInputResults<'a, F: PrimeField> {
+struct HashInputResults<'a, F: LurkField> {
     tag_clauses: Vec<CaseClause<'a, F>>,
     components_clauses: [Vec<CaseClause<'a, F>>; 8],
 }
 
-impl<'a, F: PrimeField> HashInputResults<'a, F> {
+impl<'a, F: LurkField> HashInputResults<'a, F> {
     fn add_hash_input_clauses(
         &mut self,
         key: ContTag,
@@ -513,7 +513,7 @@ impl<'a, F: PrimeField> HashInputResults<'a, F> {
     }
 }
 
-fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
+fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     expr: &AllocatedPtr<F>,
     env: &AllocatedPtr<F>,
@@ -740,7 +740,7 @@ fn reduce_expression<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok((result_expr, result_env, result_cont))
 }
 
-fn reduce_sym<F: PrimeField, CS: ConstraintSystem<F>>(
+fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     expr: &AllocatedPtr<F>,
     env: &AllocatedPtr<F>,
@@ -1068,7 +1068,7 @@ fn reduce_sym<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok((output_expr, output_env, output_cont, apply_cont_num))
 }
 
-fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
+fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     expr: &AllocatedPtr<F>,
     env: &AllocatedPtr<F>,
@@ -1575,7 +1575,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     ))
 }
 
-fn make_thunk<F: PrimeField, CS: ConstraintSystem<F>>(
+fn make_thunk<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     cont: &AllocatedContPtr<F>,
     result: &AllocatedPtr<F>,
@@ -1652,7 +1652,7 @@ fn make_thunk<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok((result_expr, result_env, result_cont))
 }
 
-fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
+fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     cont: &AllocatedContPtr<F>,
     result: &AllocatedPtr<F>,
@@ -2562,7 +2562,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok((result_expr, result_env, result_cont, make_thunk_num))
 }
 
-fn car_cdr<F: PrimeField, CS: ConstraintSystem<F>>(
+fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
     maybe_cons: &AllocatedPtr<F>,
@@ -2613,7 +2613,7 @@ fn car_cdr<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok((allocated_car, allocated_cdr))
 }
 
-fn extend<F: PrimeField, CS: ConstraintSystem<F>>(
+fn extend<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
     store: &Store<F>,
@@ -2626,7 +2626,7 @@ fn extend<F: PrimeField, CS: ConstraintSystem<F>>(
     AllocatedPtr::construct_cons(cs, g, store, &new_binding, env)
 }
 
-fn extend_rec<F: PrimeField, CS: ConstraintSystem<F>>(
+fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
     env: &AllocatedPtr<F>,
@@ -2707,7 +2707,7 @@ fn extend_rec<F: PrimeField, CS: ConstraintSystem<F>>(
 
 /// Prints out the full CS for debugging purposes
 #[allow(dead_code)]
-pub(crate) fn print_cs<F: PrimeField, C: Comparable<F>>(this: &C) -> String {
+pub(crate) fn print_cs<F: LurkField, C: Comparable<F>>(this: &C) -> String {
     let mut out = String::new();
     out += &format!("num_inputs: {}\n", this.num_inputs());
     out += &format!("num_constraints: {}\n", this.num_constraints());

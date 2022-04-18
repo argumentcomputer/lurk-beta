@@ -6,8 +6,8 @@ use std::path::Path;
 
 use bellperson::{groth16, SynthesisError};
 use blstrs::{Bls12, Scalar};
-use ff::PrimeField;
 
+use ff::PrimeField;
 use hex::FromHex;
 use libipld::{
     json::DagJsonCodec,
@@ -18,6 +18,7 @@ use libipld::{
 };
 use lurk::circuit::ToInputs;
 use lurk::eval::{empty_sym_env, Evaluable, Evaluator, Status, IO};
+use lurk::field::LurkField;
 use lurk::proof::{
     self,
     groth16::{Groth16, Groth16Prover, INNER_PRODUCT_SRS},
@@ -71,11 +72,11 @@ pub struct Evaluation {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Commitment<F: PrimeField> {
+pub struct Commitment<F: LurkField> {
     pub comm: F,
 }
 
-impl<F: PrimeField> Serialize for Commitment<F> {
+impl<F: LurkField> Serialize for Commitment<F> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -84,7 +85,7 @@ impl<F: PrimeField> Serialize for Commitment<F> {
     }
 }
 
-impl<'de, F: PrimeField> Deserialize<'de> for Commitment<F> {
+impl<'de, F: LurkField> Deserialize<'de> for Commitment<F> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -93,7 +94,7 @@ impl<'de, F: PrimeField> Deserialize<'de> for Commitment<F> {
     }
 }
 
-impl<F: PrimeField> FromHex for Commitment<F> {
+impl<F: LurkField> FromHex for Commitment<F> {
     type Error = hex::FromHexError;
 
     fn from_hex<T>(s: T) -> Result<Self, <Self as FromHex>::Error>
@@ -115,7 +116,7 @@ pub struct Expression {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
-pub struct Opening<F: PrimeField> {
+pub struct Opening<F: LurkField> {
     pub input: String,
     pub output: String,
     pub status: Status,
@@ -124,7 +125,7 @@ pub struct Opening<F: PrimeField> {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct Function<F: PrimeField + Serialize> {
+pub struct Function<F: LurkField + Serialize> {
     pub source: String,
     #[serde(bound(serialize = "F: Serialize", deserialize = "F: Deserialize<'de>"))]
     pub secret: Option<F>,
@@ -143,7 +144,7 @@ where
     <E as Engine>::G1: Serialize,
     <E as Engine>::G1Affine: Serialize,
     <E as Engine>::G2Affine: Serialize,
-    <E as Engine>::Fr: Serialize,
+    <E as Engine>::Fr: Serialize + LurkField,
     <E as Engine>::Gt: blstrs::Compress + Serialize,
 {
     #[serde(bound(
@@ -160,7 +161,7 @@ where
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum Claim<F: PrimeField> {
+pub enum Claim<F: LurkField> {
     Evaluation(Evaluation),
     #[serde(bound(
         serialize = "Opening<F>: Serialize",
@@ -184,7 +185,7 @@ pub struct Cert {
 }
 
 #[allow(dead_code)]
-impl<F: PrimeField> Claim<F> {
+impl<F: LurkField> Claim<F> {
     pub fn is_evaluation(&self) -> bool {
         self.evaluation().is_some()
     }
@@ -318,7 +319,7 @@ where
 }
 
 impl Evaluation {
-    fn new<F: PrimeField>(
+    fn new<F: LurkField>(
         s: &mut Store<F>,
         input: IO<F>,
         output: IO<F>,
@@ -361,7 +362,7 @@ impl Evaluation {
         }
     }
 
-    pub fn eval<F: PrimeField + Serialize>(
+    pub fn eval<F: LurkField + Serialize>(
         store: &mut Store<F>,
         expr: Ptr<F>,
         limit: usize,
@@ -377,7 +378,7 @@ impl Evaluation {
     }
 }
 
-impl<F: PrimeField + Serialize> Commitment<F> {
+impl<F: LurkField + Serialize> Commitment<F> {
     pub fn from_cons(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
         let digest = *s.hash_expr(ptr).expect("couldn't hash ptr").value();
 
@@ -452,7 +453,7 @@ impl<F: PrimeField + Serialize> Commitment<F> {
     }
 }
 
-impl<F: PrimeField + Serialize> Function<F> {
+impl<F: LurkField + Serialize> Function<F> {
     pub fn fun_ptr(&self, s: &mut Store<F>, limit: usize) -> Ptr<F> {
         let source_ptr = s.read(&self.source).expect("could not read source");
 
@@ -751,7 +752,7 @@ impl VerificationResult {
     }
 }
 
-pub fn evaluate<F: PrimeField + Serialize>(
+pub fn evaluate<F: LurkField + Serialize>(
     store: &mut Store<F>,
     expr: Ptr<F>,
     limit: usize,

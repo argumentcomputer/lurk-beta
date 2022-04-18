@@ -1,21 +1,21 @@
+use crate::field::LurkField;
 use crate::store::{
     ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk,
 };
 use crate::writer::Write;
-use ff::PrimeField;
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
 
 #[derive(Clone, Debug, PartialEq, Copy, Eq)]
-pub struct IO<F: PrimeField> {
+pub struct IO<F: LurkField> {
     pub expr: Ptr<F>,
     pub env: Ptr<F>,
     pub cont: ContPtr<F>, // This could be a Ptr too, if we want Continuations to be first class.
 }
 
-impl<F: PrimeField> Write<F> for IO<F> {
+impl<F: LurkField> Write<F> for IO<F> {
     fn fmt<W: std::io::Write>(&self, store: &Store<F>, w: &mut W) -> std::io::Result<()> {
         write!(w, "IO {{ expr: ")?;
         self.expr.fmt(store, w)?;
@@ -76,7 +76,7 @@ impl Status {
         }
     }
 
-    pub fn to_cont<F: PrimeField>(&self, s: &mut Store<F>) -> Option<ContPtr<F>> {
+    pub fn to_cont<F: LurkField>(&self, s: &mut Store<F>) -> Option<ContPtr<F>> {
         match self {
             Self::Terminal => Some(s.intern_cont_terminal()),
             Self::Error => Some(s.intern_cont_error()),
@@ -85,7 +85,7 @@ impl Status {
     }
 }
 
-impl<F: PrimeField> From<ContPtr<F>> for Status {
+impl<F: LurkField> From<ContPtr<F>> for Status {
     fn from(cont: ContPtr<F>) -> Self {
         match cont.tag() {
             ContTag::Terminal => Self::Terminal,
@@ -95,7 +95,7 @@ impl<F: PrimeField> From<ContPtr<F>> for Status {
     }
 }
 
-impl<F: PrimeField, W: Copy> Frame<IO<F>, W> {
+impl<F: LurkField, W: Copy> Frame<IO<F>, W> {
     pub fn precedes(&self, maybe_next: &Self) -> bool {
         let sequential = self.i + 1 == maybe_next.i;
         let io_match = self.output == maybe_next.input;
@@ -122,7 +122,7 @@ impl<F: PrimeField, W: Copy> Frame<IO<F>, W> {
     }
 }
 
-pub trait Evaluable<F: PrimeField, W> {
+pub trait Evaluable<F: LurkField, W> {
     fn reduce(&self, store: &mut Store<F>) -> (Self, W)
     where
         Self: Sized;
@@ -135,7 +135,7 @@ pub trait Evaluable<F: PrimeField, W> {
     fn log(&self, store: &Store<F>, i: usize);
 }
 
-impl<F: PrimeField> Evaluable<F, Witness<F>> for IO<F> {
+impl<F: LurkField> Evaluable<F, Witness<F>> for IO<F> {
     fn reduce(&self, store: &mut Store<F>) -> (Self, Witness<F>) {
         let (expr, env, cont, witness) = reduce(self.expr, self.env, self.cont, store);
         (Self { expr, env, cont }, witness)
@@ -172,7 +172,7 @@ impl<F: PrimeField> Evaluable<F, Witness<F>> for IO<F> {
     }
 }
 
-impl<F: PrimeField> IO<F> {
+impl<F: LurkField> IO<F> {
     // Returns any expression that was emitted in this IO (if an output) or previous (if an input).
     // The intention is that this method will be used to extract and handle all output as needed.
     pub fn maybe_emitted_expression(&self, store: &Store<F>) -> Option<Ptr<F>> {
@@ -194,7 +194,7 @@ impl<F: PrimeField> IO<F> {
     }
 }
 
-impl<F: PrimeField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame<T, Witness<F>> {
+impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame<T, Witness<F>> {
     pub(crate) fn next(&self, store: &mut Store<F>) -> Self {
         let input = self.output;
         let (output, witness) = input.reduce(store);
@@ -211,7 +211,7 @@ impl<F: PrimeField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Fram
     }
 }
 
-impl<F: PrimeField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame<T, Witness<F>> {
+impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame<T, Witness<F>> {
     fn from_initial_input(input: T, store: &mut Store<F>) -> Self {
         input.log(store, 0);
         let (output, witness) = input.reduce(store);
@@ -225,13 +225,13 @@ impl<F: PrimeField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Fram
     }
 }
 
-pub struct FrameIt<'a, W: Copy, F: PrimeField> {
+pub struct FrameIt<'a, W: Copy, F: LurkField> {
     first: bool,
     frame: Frame<IO<F>, W>,
     store: &'a mut Store<F>,
 }
 
-impl<'a, 'b, F: PrimeField> FrameIt<'a, Witness<F>, F> {
+impl<'a, 'b, F: LurkField> FrameIt<'a, Witness<F>, F> {
     fn new(initial_input: IO<F>, store: &'a mut Store<F>) -> Self {
         let frame = Frame::from_initial_input(initial_input, store);
         Self {
@@ -256,7 +256,7 @@ impl<'a, 'b, F: PrimeField> FrameIt<'a, Witness<F>, F> {
     }
 }
 
-impl<'a, 'b, F: PrimeField> Iterator for FrameIt<'a, Witness<F>, F> {
+impl<'a, 'b, F: LurkField> Iterator for FrameIt<'a, Witness<F>, F> {
     type Item = Frame<IO<F>, Witness<F>>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         // skip first iteration, as one evaluation happens on construction
@@ -276,7 +276,7 @@ impl<'a, 'b, F: PrimeField> Iterator for FrameIt<'a, Witness<F>, F> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Witness<F: PrimeField> {
+pub struct Witness<F: LurkField> {
     // TODO: Many of these fields ended up not being used.
     // once circuit is done, remove the excess.
     pub(crate) prethunk_output_expr: Ptr<F>,
@@ -287,7 +287,7 @@ pub struct Witness<F: PrimeField> {
     pub(crate) apply_continuation_cont: Option<ContPtr<F>>,
 }
 
-fn reduce<F: PrimeField>(
+fn reduce<F: LurkField>(
     expr: Ptr<F>,
     env: Ptr<F>,
     cont: ContPtr<F>,
@@ -300,13 +300,13 @@ fn reduce<F: PrimeField>(
 }
 
 #[derive(Debug, Clone)]
-pub enum Control<F: PrimeField> {
+pub enum Control<F: LurkField> {
     Return(Ptr<F>, Ptr<F>, ContPtr<F>),
     MakeThunk(Ptr<F>, Ptr<F>, ContPtr<F>),
     ApplyContinuation(Ptr<F>, Ptr<F>, ContPtr<F>),
 }
 
-impl<F: PrimeField> Control<F> {
+impl<F: LurkField> Control<F> {
     pub fn as_results(&self) -> (&Ptr<F>, &Ptr<F>, &ContPtr<F>) {
         match self {
             Self::Return(expr, env, cont) => (expr, env, cont),
@@ -334,7 +334,7 @@ impl<F: PrimeField> Control<F> {
     }
 }
 
-fn reduce_with_witness<F: PrimeField>(
+fn reduce_with_witness<F: LurkField>(
     expr: Ptr<F>,
     env: Ptr<F>,
     cont: ContPtr<F>,
@@ -696,7 +696,7 @@ fn reduce_with_witness<F: PrimeField>(
     (ctrl, witness)
 }
 
-fn apply_continuation<F: PrimeField>(
+fn apply_continuation<F: LurkField>(
     control: Control<F>,
     store: &mut Store<F>,
     witness: &mut Witness<F>,
@@ -1023,7 +1023,7 @@ fn apply_continuation<F: PrimeField>(
 }
 
 // Returns (Expression::Thunk, Expression::Env, Continuation)
-fn make_thunk<F: PrimeField>(
+fn make_thunk<F: LurkField>(
     control: Control<F>,
     store: &mut Store<F>,
     _witness: &mut Witness<F>,
@@ -1065,7 +1065,7 @@ fn make_thunk<F: PrimeField>(
     }
 }
 
-fn make_tail_continuation<F: PrimeField>(
+fn make_tail_continuation<F: LurkField>(
     env: Ptr<F>,
     continuation: ContPtr<F>,
     store: &mut Store<F>,
@@ -1081,7 +1081,7 @@ fn make_tail_continuation<F: PrimeField>(
     // point to one another: they can only be nested one deep.
 }
 
-pub struct Evaluator<'a, F: PrimeField> {
+pub struct Evaluator<'a, F: LurkField> {
     expr: Ptr<F>,
     env: Ptr<F>,
     store: &'a mut Store<F>,
@@ -1089,7 +1089,7 @@ pub struct Evaluator<'a, F: PrimeField> {
     terminal_frame: Option<Frame<IO<F>, Witness<F>>>,
 }
 
-impl<'a, F: PrimeField> Evaluator<'a, F>
+impl<'a, F: LurkField> Evaluator<'a, F>
 where
     IO<F>: Copy,
 {
@@ -1167,21 +1167,16 @@ where
     }
 }
 
-pub fn empty_sym_env<F: PrimeField>(store: &Store<F>) -> Ptr<F> {
+pub fn empty_sym_env<F: LurkField>(store: &Store<F>) -> Ptr<F> {
     store.get_nil()
 }
 
-fn extend<F: PrimeField>(env: Ptr<F>, var: Ptr<F>, val: Ptr<F>, store: &mut Store<F>) -> Ptr<F> {
+fn extend<F: LurkField>(env: Ptr<F>, var: Ptr<F>, val: Ptr<F>, store: &mut Store<F>) -> Ptr<F> {
     let cons = store.cons(var, val);
     store.cons(cons, env)
 }
 
-fn extend_rec<F: PrimeField>(
-    env: Ptr<F>,
-    var: Ptr<F>,
-    val: Ptr<F>,
-    store: &mut Store<F>,
-) -> Ptr<F> {
+fn extend_rec<F: LurkField>(env: Ptr<F>, var: Ptr<F>, val: Ptr<F>, store: &mut Store<F>) -> Ptr<F> {
     let (binding_or_env, rest) = store.car_cdr(&env);
     let (var_or_binding, _val_or_more_bindings) = store.car_cdr(&binding_or_env);
     match var_or_binding.tag() {
@@ -1203,7 +1198,7 @@ fn extend_rec<F: PrimeField>(
     }
 }
 
-fn extend_closure<F: PrimeField>(fun: &Ptr<F>, rec_env: &Ptr<F>, store: &mut Store<F>) -> Ptr<F> {
+fn extend_closure<F: LurkField>(fun: &Ptr<F>, rec_env: &Ptr<F>, store: &mut Store<F>) -> Ptr<F> {
     match fun.tag() {
         Tag::Fun => match store.fetch(fun).unwrap() {
             Expression::Fun(arg, body, closed_env) => {
@@ -1217,7 +1212,7 @@ fn extend_closure<F: PrimeField>(fun: &Ptr<F>, rec_env: &Ptr<F>, store: &mut Sto
 }
 
 #[allow(dead_code)]
-fn lookup<F: PrimeField>(env: &Ptr<F>, var: &Ptr<F>, store: &Store<F>) -> Ptr<F> {
+fn lookup<F: LurkField>(env: &Ptr<F>, var: &Ptr<F>, store: &Store<F>) -> Ptr<F> {
     assert!(matches!(var.tag(), Tag::Sym));
     match env.tag() {
         Tag::Nil => store.get_nil(),

@@ -1,5 +1,5 @@
 #![allow(clippy::too_many_arguments)]
-use ff::PrimeField;
+use crate::field::LurkField;
 
 use crate::eval::IO;
 use crate::store::{ScalarPointer, Store};
@@ -9,12 +9,12 @@ mod gadgets;
 mod circuit_frame;
 pub(crate) use circuit_frame::*;
 
-pub trait ToInputs<F: PrimeField> {
+pub trait ToInputs<F: LurkField> {
     fn to_inputs(&self, store: &Store<F>) -> Vec<F>;
     fn input_size() -> usize;
 }
 
-impl<F: PrimeField, T: ToInputs<F>> ToInputs<F> for Option<T> {
+impl<F: LurkField, T: ToInputs<F>> ToInputs<F> for Option<T> {
     fn to_inputs(&self, store: &Store<F>) -> Vec<F> {
         if let Some(t) = self {
             t.to_inputs(store)
@@ -27,7 +27,7 @@ impl<F: PrimeField, T: ToInputs<F>> ToInputs<F> for Option<T> {
     }
 }
 
-impl<F: PrimeField> ToInputs<F> for IO<F> {
+impl<F: LurkField> ToInputs<F> for IO<F> {
     fn to_inputs(&self, store: &Store<F>) -> Vec<F> {
         let expr = store.hash_expr(&self.expr).unwrap();
         let env = store.hash_expr(&self.env).unwrap();

@@ -8,6 +8,7 @@ use ff::PrimeField;
 use neptune::circuit::poseidon_hash;
 
 use crate::{
+    field::LurkField,
     store::{
         ContPtr, Continuation, Expression, IntoHashComponents, Ptr, ScalarContPtr, ScalarPointer,
         ScalarPtr, Store, Thunk,
@@ -27,7 +28,7 @@ pub struct AllocatedPtr<F: PrimeField> {
     hash: AllocatedNum<F>,
 }
 
-impl<F: PrimeField> Debug for AllocatedPtr<F> {
+impl<F: LurkField> Debug for AllocatedPtr<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let tag = format!(
             "AllocatedNum {{ value: {:?}, variable: {:?} }}",
@@ -46,7 +47,7 @@ impl<F: PrimeField> Debug for AllocatedPtr<F> {
     }
 }
 
-impl<F: PrimeField> AllocatedPtr<F> {
+impl<F: LurkField> AllocatedPtr<F> {
     pub fn alloc<Fo, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         value: Fo,
@@ -333,12 +334,12 @@ impl<F: PrimeField> AllocatedPtr<F> {
 
 /// Allocated version of `ContPtr`.
 #[derive(Clone)]
-pub struct AllocatedContPtr<F: PrimeField> {
+pub struct AllocatedContPtr<F: LurkField> {
     tag: AllocatedNum<F>,
     hash: AllocatedNum<F>,
 }
 
-impl<F: PrimeField> Debug for AllocatedContPtr<F> {
+impl<F: LurkField> Debug for AllocatedContPtr<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let tag = format!(
             "AllocatedNum {{ value: {:?}, variable: {:?} }}",
@@ -357,7 +358,7 @@ impl<F: PrimeField> Debug for AllocatedContPtr<F> {
     }
 }
 
-impl<F: PrimeField> AllocatedContPtr<F> {
+impl<F: LurkField> AllocatedContPtr<F> {
     pub fn alloc<Fo, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         value: Fo,
@@ -549,23 +550,23 @@ impl<F: PrimeField> AllocatedContPtr<F> {
     }
 }
 
-pub trait AsAllocatedHashComponents<F: PrimeField> {
+pub trait AsAllocatedHashComponents<F: LurkField> {
     fn as_allocated_hash_components(&self) -> [&AllocatedNum<F>; 2];
 }
 
-impl<F: PrimeField> AsAllocatedHashComponents<F> for AllocatedPtr<F> {
+impl<F: LurkField> AsAllocatedHashComponents<F> for AllocatedPtr<F> {
     fn as_allocated_hash_components(&self) -> [&AllocatedNum<F>; 2] {
         [&self.tag, &self.hash]
     }
 }
 
-impl<F: PrimeField> AsAllocatedHashComponents<F> for AllocatedContPtr<F> {
+impl<F: LurkField> AsAllocatedHashComponents<F> for AllocatedContPtr<F> {
     fn as_allocated_hash_components(&self) -> [&AllocatedNum<F>; 2] {
         [&self.tag, &self.hash]
     }
 }
 
-impl<F: PrimeField> AsAllocatedHashComponents<F> for [&AllocatedNum<F>; 2] {
+impl<F: LurkField> AsAllocatedHashComponents<F> for [&AllocatedNum<F>; 2] {
     fn as_allocated_hash_components(&self) -> [&AllocatedNum<F>; 2] {
         [self[0], self[1]]
     }

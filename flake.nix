@@ -40,14 +40,15 @@
       inherit (lib) buildRustProject testRustProject getRust filterRustProject;
       # Load a nightly rust. The hash takes precedence over the date so remember to set it to
       # something like `lib.fakeSha256` when changing the date.
-      rustNightly = getRust { date = "2022-03-23"; sha256 = "sha256-r/o9S7CPus34f/r9OPbSGYNzuP92jEZH1O8iHTC9/Aw="; };
+      rustNightly = getRust { date = "2022-04-14"; sha256 = "sha256-5sq1QCaKlh84bpGfo040f+zQriJFW7rJO9tZ4rbaQgo="; };
       crateName = "lurk";
       src = ./.;
       buildInputs = with pkgs;
         if !stdenv.isDarwin
-        then [ ocl-icd ]
+        then [ ocl-icd m4 ]
         else [
           darwin.apple_sdk.frameworks.OpenCL
+          m4
         ];
       project = buildRustProject {
         rust = rustNightly;
@@ -73,13 +74,13 @@
 
       defaultPackage = self.packages.${system}.${crateName};
 
-      # To run with `nix run`
-      apps.lurk-example = flake-utils.lib.mkApp {
-        drv = lurk-example;
-        name = "lurk";
-      };
+      ## To run with `nix run`
+      #apps.lurk-example = flake-utils.lib.mkApp {
+      #  drv = lurk-example;
+      #  name = "lurk";
+      #};
 
-      defaultApp = self.apps.${system}.lurk-example;
+      #defaultApp = self.apps.${system}.lurk-example;
 
       # `nix develop`
       devShell = pkgs.mkShell {

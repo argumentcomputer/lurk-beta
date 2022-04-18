@@ -1,10 +1,10 @@
 use std::iter::Peekable;
 
-use ff::PrimeField;
+use crate::field::LurkField;
 
 use crate::store::{Ptr, Store};
 
-impl<F: PrimeField> Store<F> {
+impl<F: LurkField> Store<F> {
     pub fn read(&mut self, input: &str) -> Option<Ptr<F>> {
         let mut chars = input.chars().peekable();
 

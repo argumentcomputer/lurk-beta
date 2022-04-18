@@ -5,19 +5,19 @@ use bellperson::{util_cs::test_cs::TestConstraintSystem, Circuit, SynthesisError
 
 use crate::circuit::MultiFrame;
 use crate::eval::{Witness, IO};
-use ff::PrimeField;
+use crate::field::LurkField;
 
 pub(crate) type SequentialCS<'a, F, IO, Witness> =
     Vec<(MultiFrame<'a, F, IO, Witness>, TestConstraintSystem<F>)>;
 
-pub trait Provable<F: PrimeField> {
+pub trait Provable<F: LurkField> {
     fn public_inputs(&self) -> Vec<F>;
     fn public_input_size() -> usize;
     fn chunk_frame_count(&self) -> usize;
 }
 
 #[allow(dead_code)]
-fn verify_sequential_css<F: PrimeField + Copy>(
+fn verify_sequential_css<F: LurkField + Copy>(
     css: &SequentialCS<F, IO<F>, Witness<F>>,
 ) -> Result<bool, SynthesisError> {
     let mut previous_frame: Option<&MultiFrame<F, IO<F>, Witness<F>>> = None;
@@ -44,7 +44,7 @@ fn verify_sequential_css<F: PrimeField + Copy>(
     Ok(true)
 }
 
-pub trait Prover<F: PrimeField> {
+pub trait Prover<F: LurkField> {
     fn chunk_frame_count(&self) -> usize;
 
     fn needs_frame_padding(&self, total_frames: usize) -> bool {

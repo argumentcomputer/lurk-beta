@@ -1,15 +1,15 @@
 use log::info;
 use std::env;
 use std::fs::read_to_string;
-use std::io::{self};
+use std::io;
 use std::path::{Path, PathBuf};
 
 use blstrs::Scalar;
-use ff::PrimeField;
 use pairing_lib::{Engine, MultiMillerLoop};
 use serde::{Deserialize, Serialize};
 
 use lurk::eval::IO;
+use lurk::field::LurkField;
 use lurk::store::{Ptr, Store};
 
 use clap::{AppSettings, Args, Parser, Subcommand};
@@ -249,7 +249,7 @@ impl Verify {
     }
 }
 
-fn read_from_path<P: AsRef<Path>, F: PrimeField + Serialize>(
+fn read_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
     store: &mut Store<F>,
     path: P,
 ) -> Result<Ptr<F>, Error> {
@@ -260,7 +260,7 @@ fn read_from_path<P: AsRef<Path>, F: PrimeField + Serialize>(
     Ok(src)
 }
 
-fn read_eval_from_path<P: AsRef<Path>, F: PrimeField + Serialize>(
+fn read_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
     store: &mut Store<F>,
     path: P,
     limit: usize,
@@ -278,7 +278,7 @@ fn read_eval_from_path<P: AsRef<Path>, F: PrimeField + Serialize>(
     Ok((expr, src))
 }
 
-fn read_no_eval_from_path<P: AsRef<Path>, F: PrimeField + Serialize>(
+fn read_no_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
     store: &mut Store<F>,
     path: P,
 ) -> Result<(Ptr<F>, Ptr<F>), Error> {
@@ -308,7 +308,7 @@ fn path_successor<P: AsRef<Path>>(path: P) -> PathBuf {
     new_path
 }
 
-fn _lurk_function<P: AsRef<Path>, F: PrimeField + Serialize>(
+fn _lurk_function<P: AsRef<Path>, F: LurkField + Serialize>(
     store: &mut Store<F>,
     function_path: P,
     limit: usize,
@@ -320,7 +320,7 @@ fn _lurk_function<P: AsRef<Path>, F: PrimeField + Serialize>(
     Ok((function, src))
 }
 
-fn input<P: AsRef<Path>, F: PrimeField + Serialize>(
+fn input<P: AsRef<Path>, F: LurkField + Serialize>(
     store: &mut Store<F>,
     input_path: P,
     eval_input: bool,
@@ -342,7 +342,7 @@ fn input<P: AsRef<Path>, F: PrimeField + Serialize>(
     Ok(input)
 }
 
-fn expression<P: AsRef<Path>, F: PrimeField + Serialize>(
+fn expression<P: AsRef<Path>, F: LurkField + Serialize>(
     store: &mut Store<F>,
     expression_path: P,
 ) -> Result<Ptr<F>, Error> {
@@ -356,6 +356,7 @@ fn proof<P: AsRef<Path>, E: Engine + MultiMillerLoop>(
     proof_path: Option<P>,
 ) -> Result<Proof<E>, Error>
 where
+    <E as Engine>::Fr: LurkField,
     for<'de> <E as Engine>::Gt: blstrs::Compress + Serialize + Deserialize<'de>,
     for<'de> <E as Engine>::G1: Serialize + Deserialize<'de>,
     for<'de> <E as Engine>::G1Affine: Serialize + Deserialize<'de>,
