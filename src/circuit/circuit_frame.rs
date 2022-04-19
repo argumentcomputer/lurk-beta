@@ -1220,7 +1220,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
 
         let end_is_nil = end.alloc_equal(&mut cs_letrec.namespace(|| "end_is_nil"), &g.nil_ptr)?;
         let cond_end_is_nil = Boolean::and(
-            &mut cs_letrec.namespace(|| "if binding not nil end is nil"), // otherwise it is None
+            &mut cs_letrec.namespace(|| "if binding not nil and end is nil"), // if binding is nil, then end is None
             &Boolean::not(&bindings_is_nil),
             &end_is_nil,
         )?;
@@ -1317,8 +1317,8 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     results.add_clauses_cons(*cons_hash.value(), &arg1, env, &continuation, &g.false_num);
 
     // head == CAR
-    // let end = more.clone();
-    // FIXME: Error if end != NIL.
+    let end = more.clone();
+    let end_is_nil = end.alloc_equal(&mut cs.namespace(|| "end_is_nil"), &g.nil_ptr)?;
 
     // TODO: Factor out the hashing involved in constructing the continuation,
     // since it happens in many of the branches here.
@@ -1334,7 +1334,14 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         ],
     )?;
 
-    results.add_clauses_cons(*car_hash.value(), &arg1, env, &continuation, &g.false_num);
+    let the_cont_car = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_car"),
+        &end_is_nil,
+        &continuation,
+        &g.error_ptr_cont,
+    )?;
+
+    results.add_clauses_cons(*car_hash.value(), &arg1, env, &the_cont_car, &g.false_num);
 
     // head == CDR
     // FIXME: Error if end != NIL.
@@ -1350,7 +1357,14 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         ],
     )?;
 
-    results.add_clauses_cons(*cdr_hash.value(), &arg1, env, &continuation, &g.false_num);
+    let the_cont_cdr = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_cdr"),
+        &end_is_nil,
+        &continuation,
+        &g.error_ptr_cont,
+    )?;
+
+    results.add_clauses_cons(*cdr_hash.value(), &arg1, env, &the_cont_cdr, &g.false_num);
 
     // head == ATOM
     // FIXME: Error if end != NIL.
@@ -2856,9 +2870,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31139, cs.num_constraints());
+            assert_eq!(31152, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31108, cs.aux().len());
+            assert_eq!(31119, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

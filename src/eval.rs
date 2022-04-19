@@ -595,12 +595,19 @@ fn reduce_with_witness<F: PrimeField>(
                     )
                 } else if head == store.sym("car") {
                     let (arg1, end) = store.car_cdr(&rest);
-                    assert!(end.is_nil());
-                    Control::Return(arg1, env, store.intern_cont_unop(Op1::Car, cont))
+                    if !end.is_nil() {
+                        Control::Return(arg1, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Car, cont))
+                    }
                 } else if head == store.sym("cdr") {
                     let (arg1, end) = store.car_cdr(&rest);
-                    assert!(end.is_nil());
-                    Control::Return(arg1, env, store.intern_cont_unop(Op1::Cdr, cont))
+                    //assert!(end.is_nil());
+                    if !end.is_nil() {
+                        Control::Return(arg1, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Cdr, cont))
+                    }
                 } else if head == store.sym("atom") {
                     let (arg1, end) = store.car_cdr(&rest);
                     assert!(end.is_nil());
