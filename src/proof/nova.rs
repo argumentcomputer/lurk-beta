@@ -1227,6 +1227,34 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_evaluate_atom_end_is_nil_error() {
+        outer_prove_aux(
+            "(atom 123 4)",
+            |store| store.num(123),
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_emit_end_is_nil_error() {
+        outer_prove_aux(
+            "(emit 123 4)",
+            |store| store.num(123),
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
     fn outer_prove_evaluate_cons2() {
         outer_prove_aux(
             "(cdr (cons 1 2))",

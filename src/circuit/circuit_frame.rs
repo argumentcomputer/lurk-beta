@@ -1380,7 +1380,14 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         ],
     )?;
 
-    results.add_clauses_cons(*atom_hash.value(), &arg1, env, &continuation, &g.false_num);
+    let the_cont_atom = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_atom"),
+        &end_is_nil,
+        &continuation,
+        &g.error_ptr_cont,
+    )?;
+
+    results.add_clauses_cons(*atom_hash.value(), &arg1, env, &the_cont_atom, &g.false_num);
 
     // head == EMIT
     // FIXME: Error if end != NIL.
@@ -1396,7 +1403,14 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         ],
     )?;
 
-    results.add_clauses_cons(*emit_hash.value(), &arg1, env, &continuation, &g.false_num);
+    let the_cont_emit = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_emit"),
+        &end_is_nil,
+        &continuation,
+        &g.error_ptr_cont,
+    )?;
+
+    results.add_clauses_cons(*emit_hash.value(), &arg1, env, &the_cont_emit, &g.false_num);
 
     // head == +
     let continuation = AllocatedContPtr::construct(
@@ -2870,9 +2884,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31152, cs.num_constraints());
+            assert_eq!(31156, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31119, cs.aux().len());
+            assert_eq!(31123, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

@@ -602,7 +602,6 @@ fn reduce_with_witness<F: PrimeField>(
                     }
                 } else if head == store.sym("cdr") {
                     let (arg1, end) = store.car_cdr(&rest);
-                    //assert!(end.is_nil());
                     if !end.is_nil() {
                         Control::Return(arg1, env, store.intern_cont_error())
                     } else {
@@ -610,12 +609,20 @@ fn reduce_with_witness<F: PrimeField>(
                     }
                 } else if head == store.sym("atom") {
                     let (arg1, end) = store.car_cdr(&rest);
-                    assert!(end.is_nil());
-                    Control::Return(arg1, env, store.intern_cont_unop(Op1::Atom, cont))
+                    //assert!(end.is_nil());
+                    if !end.is_nil() {
+                        Control::Return(arg1, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Atom, cont))
+                    }
                 } else if head == store.sym("emit") {
                     let (arg1, end) = store.car_cdr(&rest);
-                    assert!(end.is_nil());
-                    Control::Return(arg1, env, store.intern_cont_unop(Op1::Emit, cont))
+                    //assert!(end.is_nil());
+                    if !end.is_nil() {
+                        Control::Return(arg1, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Emit, cont))
+                    }
                 } else if head == store.sym("+") {
                     let (arg1, more) = store.car_cdr(&rest);
                     Control::Return(
