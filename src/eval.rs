@@ -609,7 +609,6 @@ fn reduce_with_witness<F: PrimeField>(
                     }
                 } else if head == store.sym("atom") {
                     let (arg1, end) = store.car_cdr(&rest);
-                    //assert!(end.is_nil());
                     if !end.is_nil() {
                         Control::Return(arg1, env, store.intern_cont_error())
                     } else {
@@ -617,7 +616,6 @@ fn reduce_with_witness<F: PrimeField>(
                     }
                 } else if head == store.sym("emit") {
                     let (arg1, end) = store.car_cdr(&rest);
-                    //assert!(end.is_nil());
                     if !end.is_nil() {
                         Control::Return(arg1, env, store.intern_cont_error())
                     } else {
@@ -867,12 +865,15 @@ fn apply_continuation<F: PrimeField>(
                 continuation,
             } => {
                 let (arg2, rest) = store.car_cdr(&unevaled_args);
-                assert!(rest.is_nil());
-                Control::Return(
-                    arg2,
-                    saved_env,
-                    store.intern_cont_binop2(operator, *result, continuation),
-                )
+                if !rest.is_nil() {
+                    Control::Return(*result, *env, store.intern_cont_error())
+                } else {
+                    Control::Return(
+                        arg2,
+                        saved_env,
+                        store.intern_cont_binop2(operator, *result, continuation),
+                    )
+                }
             }
             _ => unreachable!(),
         },
@@ -933,12 +934,15 @@ fn apply_continuation<F: PrimeField>(
                 continuation,
             } => {
                 let (arg2, rest) = store.car_cdr(&unevaled_args);
-                assert!(rest.is_nil());
-                Control::Return(
-                    arg2,
-                    saved_env,
-                    store.intern_cont_relop2(operator, *result, continuation),
-                )
+                if !rest.is_nil() {
+                    Control::Return(*result, *env, store.intern_cont_error())
+                } else {
+                    Control::Return(
+                        arg2,
+                        saved_env,
+                        store.intern_cont_relop2(operator, *result, continuation),
+                    )
+                }
             }
             _ => unreachable!(),
         },

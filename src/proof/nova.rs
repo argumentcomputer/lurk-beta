@@ -668,12 +668,11 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "assertion failed: rest.is_nil()")]
     fn outer_prove_evaluate_binop_rest_is_nil() {
         outer_prove_aux(
             "(- 9 8 7)",
-            |store| store.nil(),
-            3,
+            |store| store.num(9),
+            2,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -683,12 +682,11 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "assertion failed: rest.is_nil()")]
     fn outer_prove_evaluate_relop_rest_is_nil() {
         outer_prove_aux(
             "(= 9 8 7)",
-            |store| store.nil(),
-            3,
+            |store| store.num(9),
+            2,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
