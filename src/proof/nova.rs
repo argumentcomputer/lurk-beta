@@ -422,6 +422,20 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_quote_end_is_nil_error() {
+        outer_prove_aux(
+            "(quote (1) (2))",
+            |store| store.num(1),
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT, // This needs to be 1 to exercise the bug.
+            DEFAULT_CHECK_NOVA,
+            true,
+            10,
+            false,
+        );
+    }
+
+    #[test]
     fn outer_prove_if() {
         outer_prove_aux(
             "(if t 5 6)",
@@ -803,6 +817,48 @@ mod tests {
         outer_prove_aux(
             "(let ((a 1 2)) a)",
             |store| store.num(1),
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_letrec_end_is_nil_error() {
+        outer_prove_aux(
+            "(letrec ((a 1 2)) a)",
+            |store| store.num(1),
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_let_rest_body_is_nil_error() {
+        outer_prove_aux(
+            "(let ((a 1)) a 1)",
+            |store| store.sym("a"),
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_letrec_rest_body_is_nil_error() {
+        outer_prove_aux(
+            "(letrec ((a 1)) a 1)",
+            |store| store.sym("a"),
             1,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,

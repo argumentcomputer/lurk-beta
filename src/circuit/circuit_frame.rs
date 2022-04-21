@@ -1125,6 +1125,8 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
 
     let (arg1, more) = car_cdr(&mut cs.namespace(|| "car_cdr(rest)"), g, &rest, store)?;
 
+    let end_is_nil = more.alloc_equal(&mut cs.namespace(|| "end_is_nil"), &g.nil_ptr)?;
+
     let mut results = Results::default();
 
     // --
@@ -1175,10 +1177,14 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
 
     results.add_clauses_cons(*lambda_hash.value(), &function, env, cont, &g.true_num);
 
-    {
-        // head == QUOTE
-        results.add_clauses_cons(*quote_hash.value(), &arg1, env, cont, &g.true_num);
-    }
+    // head == QUOTE
+    let the_cont = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_let"),
+        &end_is_nil,
+        &cont,
+        &g.error_ptr_cont,
+    )?;
+    results.add_clauses_cons(*quote_hash.value(), &arg1, env, &the_cont, &g.true_num);
 
     let (val, the_cont_let, the_cont_letrec) = {
         // head == LET
@@ -1187,7 +1193,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         let mut cs_letrec = cs.namespace(|| "LET(REC)*");
 
         let (bindings, body) = (arg1.clone(), more.clone());
-        let (body1, _rest_body) =
+        let (body1, rest_body) =
             car_cdr(&mut cs_letrec.namespace(|| "car_cdr body"), g, &body, store)?;
         let (binding1, rest_bindings) = car_cdr(
             &mut cs_letrec.namespace(|| "car_cdr bindings"),
@@ -1204,6 +1210,13 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         let bindings_is_nil =
             bindings.alloc_equal(&mut cs_letrec.namespace(|| "bindings_is_nil"), &g.nil_ptr)?;
 
+        let rest_body_is_nil = rest_body.alloc_equal(&mut cs_letrec.namespace(|| "rest_body_is_nil"), &g.nil_ptr)?;
+        let cond_body1 = constraints::or(
+            &mut cs_letrec.namespace(|| "cond body1"),
+            &bindings_is_nil,
+            &Boolean::not(&rest_body_is_nil),
+        )?;
+
         let (val1, end) = car_cdr(
             &mut cs_letrec.namespace(|| "car_cdr more_vals"),
             g,
@@ -1213,16 +1226,21 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
 
         let val = AllocatedPtr::pick(
             &mut cs_letrec.namespace(|| "pick val"),
-            &bindings_is_nil,
+            &cond_body1,
             &body1,
             &val1,
         )?;
 
         let end_is_nil = end.alloc_equal(&mut cs_letrec.namespace(|| "end_is_nil"), &g.nil_ptr)?;
-        let cond_end_is_nil = Boolean::and(
-            &mut cs_letrec.namespace(|| "if binding not nil and end is nil"), // if binding is nil, then end is None
+        let mut cond_error = Boolean::and(
+            &mut cs_letrec.namespace(|| "if binding not nil and end is nil"), // if binding is nil, end_is_nil is None
             &Boolean::not(&bindings_is_nil),
             &end_is_nil,
+        )?;
+        cond_error = constraints::or(
+            &mut cs_letrec.namespace(|| "cond error"),
+            &Boolean::not(&rest_body_is_nil),
+            &cond_error,
         )?;
 
         let expanded1 = AllocatedPtr::construct_list(
@@ -1288,14 +1306,14 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
 
         let the_cont_let = AllocatedContPtr::pick(
             &mut cs_letrec.namespace(|| "the_cont_let"),
-            &cond_end_is_nil,
+            &cond_error,
             &continuation_let,
             &g.error_ptr_cont,
         )?;
 
         let the_cont_letrec = AllocatedContPtr::pick(
             &mut cs_letrec.namespace(|| "the_cont_letrec"),
-            &cond_end_is_nil,
+            &cond_error,
             &continuation_letrec,
             &g.error_ptr_cont,
         )?;
@@ -1317,8 +1335,6 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     results.add_clauses_cons(*cons_hash.value(), &arg1, env, &continuation, &g.false_num);
 
     // head == CAR
-    let end = more.clone();
-    let end_is_nil = end.alloc_equal(&mut cs.namespace(|| "end_is_nil"), &g.nil_ptr)?;
 
     // TODO: Factor out the hashing involved in constructing the continuation,
     // since it happens in many of the branches here.
@@ -1344,7 +1360,6 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     results.add_clauses_cons(*car_hash.value(), &arg1, env, &the_cont_car, &g.false_num);
 
     // head == CDR
-    // FIXME: Error if end != NIL.
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "unop cdr"),
         store,
@@ -1367,7 +1382,6 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     results.add_clauses_cons(*cdr_hash.value(), &arg1, env, &the_cont_cdr, &g.false_num);
 
     // head == ATOM
-    // FIXME: Error if end != NIL.
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "unop atom"),
         store,
@@ -1390,7 +1404,6 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     results.add_clauses_cons(*atom_hash.value(), &arg1, env, &the_cont_atom, &g.false_num);
 
     // head == EMIT
-    // FIXME: Error if end != NIL.
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "unop emit"),
         store,
@@ -2884,9 +2897,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31156, cs.num_constraints());
+            assert_eq!(31169, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31123, cs.aux().len());
+            assert_eq!(31134, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

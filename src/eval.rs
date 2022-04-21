@@ -529,15 +529,18 @@ fn reduce_with_witness<F: PrimeField>(
                     Control::ApplyContinuation(function, env, cont)
                 } else if head == quote {
                     let (quoted, end) = store.car_cdr(&rest);
-                    assert!(end.is_nil());
-                    Control::ApplyContinuation(quoted, env, cont)
+                    if !end.is_nil() {
+                        Control::Return(quoted, env, store.intern_cont_error())
+                    } else {
+                        Control::ApplyContinuation(quoted, env, cont)
+                    }
                 } else if head == store.sym("let") {
                     let (bindings, body) = store.car_cdr(&rest);
                     let (body1, rest_body) = store.car_cdr(&body);
                     // Only a single body form allowed for now.
-                    assert!(rest_body.is_nil());
-
-                    if bindings.is_nil() {
+                    if !rest_body.is_nil() {
+                        Control::Return(body1, env, store.intern_cont_error())
+                    } else if bindings.is_nil() {
                         Control::Return(body1, env, cont)
                     } else {
                         let (binding1, rest_bindings) = store.car_cdr(&bindings);
@@ -563,8 +566,9 @@ fn reduce_with_witness<F: PrimeField>(
                     let (bindings, body) = store.car_cdr(&rest);
                     let (body1, rest_body) = store.car_cdr(&body);
                     // Only a single body form allowed for now.
-                    assert!(rest_body.is_nil());
-                    if bindings.is_nil() {
+                    if !rest_body.is_nil() {
+                        Control::Return(body1, env, store.intern_cont_error())
+                    } else if bindings.is_nil() {
                         Control::Return(body1, env, cont)
                     } else {
                         let (binding1, rest_bindings) = store.car_cdr(&bindings);
