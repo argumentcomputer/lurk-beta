@@ -1178,13 +1178,13 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     results.add_clauses_cons(*lambda_hash.value(), &function, env, cont, &g.true_num);
 
     // head == QUOTE
-    let the_cont = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_let"),
+    let the_cont_if_end_is_nil = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_if_end_is_nil"),
         &end_is_nil,
         &cont,
         &g.error_ptr_cont,
     )?;
-    results.add_clauses_cons(*quote_hash.value(), &arg1, env, &the_cont, &g.true_num);
+    results.add_clauses_cons(*quote_hash.value(), &arg1, env, &the_cont_if_end_is_nil, &g.true_num);
 
     let (val, the_cont_let, the_cont_letrec) = {
         // head == LET
@@ -1521,12 +1521,14 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
 
     results.add_clauses_cons(*if_hash.value(), &arg1, env, &continuation, &g.false_num);
 
-    {
-        // head == CURRENT-ENV
-        // FIXME: Error if rest != NIL.
-
-        results.add_clauses_cons(*current_env_hash.value(), env, env, cont, &g.true_num);
-    }
+    // head == CURRENT-ENV
+    let the_cont_if_rest_is_nil = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_if_rest_is_nil"),
+        &rest_is_nil,
+        &cont,
+        &g.error_ptr_cont,
+    )?;
+    results.add_clauses_cons(*current_env_hash.value(), env, env, &the_cont_if_rest_is_nil, &g.true_num);
 
     let (res, continuation) = {
         // head == (FN . ARGS)
@@ -2897,9 +2899,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31169, cs.num_constraints());
+            assert_eq!(31171, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31134, cs.aux().len());
+            assert_eq!(31136, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

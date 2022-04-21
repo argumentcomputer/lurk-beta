@@ -798,6 +798,34 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_evaluate_current_env_simple() {
+        outer_prove_aux(
+            "(current-env)",
+            |store| store.nil(),
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_current_env_rest_is_nil_error() {
+        outer_prove_aux(
+            "(current-env a)",
+            |store| store.nil(),
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
     fn outer_prove_evaluate_let_simple() {
         outer_prove_aux(
             "(let ((a 1))

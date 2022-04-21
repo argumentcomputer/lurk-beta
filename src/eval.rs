@@ -671,8 +671,11 @@ fn reduce_with_witness<F: PrimeField>(
                     let (condition, more) = store.car_cdr(&rest);
                     Control::Return(condition, env, store.intern_cont_if(more, cont))
                 } else if head == store.sym("current-env") {
-                    assert!(rest.is_nil());
-                    Control::ApplyContinuation(env, env, cont)
+                    if !rest.is_nil() {
+                        Control::Return(env, env, store.intern_cont_error())
+                    } else {
+                        Control::ApplyContinuation(env, env, cont)
+                    }
                 } else {
                     // (fn . args)
                     let fun_form = head;
