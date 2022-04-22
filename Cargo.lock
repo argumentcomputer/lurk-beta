@@ -24,9 +24,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.56"
+version = "1.0.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4361135be9122e0870de935d7c439aef945b9f9ddd4199a553b5270b49c82a27"
+checksum = "08f9b8508dccb7687a1d6c4ce66b2b0ecef467c94667de27d8d7fe1f8d2a9cdc"
 
 [[package]]
 name = "arrayref"
@@ -137,8 +137,9 @@ dependencies = [
 
 [[package]]
 name = "bellperson"
-version = "0.19.1"
-source = "git+https://github.com/lurk-lang/bellperson?branch=acs/wasm-support#8c057d57fc028cb38f81686c45a41cfb0a4a3ec6"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3440a7dc1fb5893a06e3b73091bd0b9617893010e72f35ff821d265607b21b32"
 dependencies = [
  "bincode",
  "bitvec",
@@ -323,16 +324,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "buf_redux"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b953a6887648bb07a535631f2bc00fbdb2a2216f135552cb3f534ed136b9c07f"
-dependencies = [
- "memchr",
- "safemem",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -439,9 +430,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.1.9"
+version = "3.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6aad2534fad53df1cc12519c5cda696dd3e20e6118a027e24054aea14a0bdcbe"
+checksum = "3124f3f75ce09e22d1410043e1e24f2ecc44fad3afe4f08408f1f7663d68da2b"
 dependencies = [
  "atty",
  "bitflags",
@@ -460,7 +451,7 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17e437250f23cdd03daf3de763093aa27873a026ef9a156800da9ddd617c51d4"
 dependencies = [
- "clap 3.1.9",
+ "clap 3.1.10",
  "log",
 ]
 
@@ -926,9 +917,9 @@ version = "0.1.1"
 dependencies = [
  "arrayvec 0.5.2",
  "assert_cmd",
- "bellperson 0.19.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bellperson 0.19.1",
  "blstrs",
- "clap 3.1.9",
+ "clap 3.1.10",
  "clap-verbosity-flag",
  "ff",
  "hex",
@@ -1316,7 +1307,7 @@ version = "0.1.1"
 dependencies = [
  "ahash",
  "anyhow",
- "bellperson 0.19.1 (git+https://github.com/lurk-lang/bellperson?branch=acs/wasm-support)",
+ "bellperson 0.20.0",
  "blstrs",
  "cid",
  "criterion",
@@ -1451,9 +1442,9 @@ dependencies = [
 [[package]]
 name = "neptune"
 version = "6.0.0"
-source = "git+https://github.com/lurk-lang/neptune?branch=acs/wasm-support#b56f2a3de9da1789798d105741e5df8340b7c8c4"
+source = "git+https://github.com/lurk-lang/neptune?branch=acs/wasm-support#41e29ea7e16114d9c870ad747638ecfcfd497d54"
 dependencies = [
- "bellperson 0.19.1 (git+https://github.com/lurk-lang/bellperson?branch=acs/wasm-support)",
+ "bellperson 0.20.0",
  "blake2s_simd 0.5.11",
  "blstrs",
  "byteorder",
@@ -1501,9 +1492,9 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 [[package]]
 name = "nova-snark"
 version = "0.4.0"
-source = "git+https://github.com/lurk-lang/nova?branch=acs/wasm-support#ce2852956ff7922c873f0ae54887b529f5404387"
+source = "git+https://github.com/lurk-lang/nova?branch=acs/wasm-support#c1aa537ba7df5da0e4b92d3bc8a373a80a7a7977"
 dependencies = [
- "bellperson 0.19.1 (git+https://github.com/lurk-lang/bellperson?branch=acs/wasm-support)",
+ "bellperson 0.20.0",
  "digest 0.8.1",
  "ff",
  "itertools 0.9.0",
@@ -1609,9 +1600,9 @@ dependencies = [
 
 [[package]]
 name = "pasta_curves"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82b6fc4f73033f6aa52fdde0c38f1f570e7f2c244f22e441f62a144556891b8c"
+checksum = "d10d05f1fdbc8c45f133202559b5ed33704fa1e633e96a5776af474779f2ac3f"
 dependencies = [
  "blake2b_simd",
  "ff",
@@ -2109,10 +2100,9 @@ checksum = "f2cc38e8fa666e2de3c4aba7edeb5ffc5246c1c2ed0e3d17e560aeeba736b23f"
 [[package]]
 name = "rustyline"
 version = "9.1.2"
-source = "git+https://github.com/yatima-inc/rustyline?branch=acs/wasm-web-support#ecf22de50b3337b38ff0e9b04f872340141c83c4"
+source = "git+https://github.com/yatima-inc/rustyline?branch=acs/wasm-web-support#1ff29c8f292e72605022bff66b2e19cf4644c81a"
 dependencies = [
  "bitflags",
- "buf_redux",
  "cfg-if 1.0.0",
  "clipboard-win",
  "dirs-next",
@@ -2123,7 +2113,6 @@ dependencies = [
  "nix",
  "radix_trie",
  "scopeguard",
- "smallvec",
  "unicode-segmentation",
  "unicode-width",
  "utf8parse",
@@ -2145,12 +2134,6 @@ name = "ryu"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73b4b750c782965c211b42f022f59af1fbceabdd026623714f104152f1ec149f"
-
-[[package]]
-name = "safemem"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef703b7cb59335eae2eb93ceb664c0eb7ea6bf567079d843e09420219668e072"
 
 [[package]]
 name = "same-file"
