@@ -1181,10 +1181,16 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     let the_cont_if_end_is_nil = AllocatedContPtr::pick(
         &mut cs.namespace(|| "the_cont_if_end_is_nil"),
         &end_is_nil,
-        &cont,
+        cont,
         &g.error_ptr_cont,
     )?;
-    results.add_clauses_cons(*quote_hash.value(), &arg1, env, &the_cont_if_end_is_nil, &g.true_num);
+    results.add_clauses_cons(
+        *quote_hash.value(),
+        &arg1,
+        env,
+        &the_cont_if_end_is_nil,
+        &g.true_num,
+    );
 
     let (val, the_cont_let, the_cont_letrec) = {
         // head == LET
@@ -1210,7 +1216,8 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         let bindings_is_nil =
             bindings.alloc_equal(&mut cs_letrec.namespace(|| "bindings_is_nil"), &g.nil_ptr)?;
 
-        let rest_body_is_nil = rest_body.alloc_equal(&mut cs_letrec.namespace(|| "rest_body_is_nil"), &g.nil_ptr)?;
+        let rest_body_is_nil =
+            rest_body.alloc_equal(&mut cs_letrec.namespace(|| "rest_body_is_nil"), &g.nil_ptr)?;
         let cond_body1 = constraints::or(
             &mut cs_letrec.namespace(|| "cond body1"),
             &bindings_is_nil,
@@ -1525,10 +1532,16 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     let the_cont_if_rest_is_nil = AllocatedContPtr::pick(
         &mut cs.namespace(|| "the_cont_if_rest_is_nil"),
         &rest_is_nil,
-        &cont,
+        cont,
         &g.error_ptr_cont,
     )?;
-    results.add_clauses_cons(*current_env_hash.value(), env, env, &the_cont_if_rest_is_nil, &g.true_num);
+    results.add_clauses_cons(
+        *current_env_hash.value(),
+        env,
+        env,
+        &the_cont_if_rest_is_nil,
+        &g.true_num,
+    );
 
     let (res, continuation) = {
         // head == (FN . ARGS)
@@ -2488,8 +2501,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
         let (arg2, end) = car_cdr(&mut cs.namespace(|| "more cons"), g, &more, store)?;
 
-        let end_is_nil =
-            end.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
+        let end_is_nil = end.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
 
         let res = AllocatedPtr::pick(
             &mut cs.namespace(|| "pick arg1 or arg2"),
