@@ -229,7 +229,7 @@ impl<F: PrimeField> Nova<F> for NovaProver<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::eval::empty_sym_env;
+    use crate::eval::{empty_sym_env, Status};
     use crate::proof::{verify_sequential_css, SequentialCS};
     use crate::writer::Write;
 
@@ -243,6 +243,7 @@ mod tests {
     fn outer_prove_aux<Fo: Fn(&'_ mut Store<Fr>) -> Ptr<Fr>>(
         source: &str,
         expected_result: Fo,
+        expected_cont: Status,
         expected_iterations: usize,
         chunk_frame_count: usize,
         check_nova: bool,
@@ -295,6 +296,8 @@ mod tests {
                 assert_eq!(expected_iterations, Frame::significant_frame_count(&frames));
                 assert_eq!(adjusted_iterations, cs.len());
                 assert_eq!(expected_result, cs[cs.len() - 1].0.output.unwrap().expr);
+                let status: Status = cs[cs.len() - 1].0.output.unwrap().cont.into();
+                assert_eq!(expected_cont, status);
             }
 
             let constraint_systems_verified = verify_sequential_css::<Fr>(&cs).unwrap();
@@ -336,6 +339,7 @@ mod tests {
                       (c 2))
                  (/ (+ a b) c))",
             |store| store.num(3),
+            Status::Terminal,
             18,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -350,6 +354,7 @@ mod tests {
         outer_prove_aux(
             "(+ 1 2)",
             |store| store.num(3),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -364,6 +369,7 @@ mod tests {
         outer_prove_aux(
             "(eq 5 5)",
             |store| store.t(),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             true, // Always check Nova in at least one test.
@@ -378,6 +384,7 @@ mod tests {
         outer_prove_aux(
             "(= 5 5)",
             |store| store.t(),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -388,6 +395,7 @@ mod tests {
         outer_prove_aux(
             "(= 5 6)",
             |store| store.nil(),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -402,6 +410,7 @@ mod tests {
         outer_prove_aux(
             "(= 5 nil)",
             |store| store.nil(),
+            Status::Error,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -412,6 +421,7 @@ mod tests {
         outer_prove_aux(
             "(= nil 5)",
             |store| store.num(5),
+            Status::Error,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -426,6 +436,7 @@ mod tests {
         outer_prove_aux(
             "(quote (1) (2))",
             |store| store.num(1),
+            Status::Error,
             3,
             DEFAULT_CHUNK_FRAME_COUNT, // This needs to be 1 to exercise the bug.
             DEFAULT_CHECK_NOVA,
@@ -440,6 +451,7 @@ mod tests {
         outer_prove_aux(
             "(if t 5 6)",
             |store| store.num(5),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -451,6 +463,7 @@ mod tests {
         outer_prove_aux(
             "(if nil 5 6)",
             |store| store.num(6),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -465,6 +478,7 @@ mod tests {
         outer_prove_aux(
             "(if nil 5 6 7)",
             |store| store.num(5),
+            Status::Error,
             2,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -479,6 +493,7 @@ mod tests {
         outer_prove_aux(
             "(if t (+ 5 5) 6)",
             |store| store.num(10),
+            Status::Terminal,
             5,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -499,6 +514,7 @@ mod tests {
                                      (* base ((exp base) (- exponent 1))))))))
                  ((exp 5) 3))",
             |store| store.num(125),
+            Status::Terminal,
             91,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -520,6 +536,7 @@ mod tests {
                                           (((exp base) (- exponent 1)) (* acc base))))))))
                 (((exp 5) 5) 1))",
             |store| store.num(3125),
+            Status::Terminal,
             201,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -533,6 +550,7 @@ mod tests {
         outer_prove_aux(
             "(atom 123)",
             |store| store.sym("t"),
+            Status::Terminal,
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
             DEFAULT_CHECK_NOVA,
@@ -543,6 +561,7 @@ mod tests {
         outer_prove_aux(
             "(car '(1 . 2))",
             |store| store.num(1),
+            Status::Terminal,
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
             DEFAULT_CHECK_NOVA,
@@ -554,6 +573,7 @@ mod tests {
         outer_prove_aux(
             "(cdr '(1 . 2))",
             |store| store.num(2),
+            Status::Terminal,
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
             DEFAULT_CHECK_NOVA,
@@ -565,6 +585,7 @@ mod tests {
         outer_prove_aux(
             "(emit 123)",
             |store| store.num(123),
+            Status::Terminal,
             3,
             chunk_count,
             DEFAULT_CHECK_NOVA,
@@ -587,6 +608,7 @@ mod tests {
         outer_prove_aux(
             "(emit 123)",
             |store| store.num(123),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -601,6 +623,7 @@ mod tests {
         outer_prove_aux(
             "((lambda (x) x) 99)",
             |store| store.num(99),
+            Status::Terminal,
             4,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -617,6 +640,7 @@ mod tests {
                     ((lambda (x) y) 888))
                   99)",
             |store| store.num(99),
+            Status::Terminal,
             9,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -636,6 +660,7 @@ mod tests {
                       y))
                    999)",
             |store| store.num(999),
+            Status::Terminal,
             10,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -656,6 +681,7 @@ mod tests {
                       888))
                   999)",
             |store| store.num(888),
+            Status::Terminal,
             10,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -673,6 +699,7 @@ mod tests {
                     (lambda (y) y))
                    999)",
             |store| store.num(999),
+            Status::Terminal,
             13,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -687,6 +714,7 @@ mod tests {
         outer_prove_aux(
             "(+ 2 (+ 3 4))",
             |store| store.num(9),
+            Status::Terminal,
             6,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -701,6 +729,7 @@ mod tests {
         outer_prove_aux(
             "(- 9 8 7)",
             |store| store.num(9),
+            Status::Error,
             2,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -715,6 +744,7 @@ mod tests {
         outer_prove_aux(
             "(= 9 8 7)",
             |store| store.num(9),
+            Status::Error,
             2,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -729,6 +759,7 @@ mod tests {
         outer_prove_aux(
             "(- 9 5)",
             |store| store.num(4),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -743,6 +774,7 @@ mod tests {
         outer_prove_aux(
             "(* 9 5)",
             |store| store.num(45),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -757,6 +789,7 @@ mod tests {
         outer_prove_aux(
             "(/ 21 3)",
             |store| store.num(7),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -771,6 +804,7 @@ mod tests {
         outer_prove_aux(
             "(/ 21 0)",
             |store| store.num(0),
+            Status::Error,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -785,6 +819,7 @@ mod tests {
         outer_prove_aux(
             "(/ 21 nil)",
             |store| store.nil(),
+            Status::Error,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -803,6 +838,7 @@ mod tests {
                   2)
                  3)",
             |store| store.num(5),
+            Status::Terminal,
             13,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -817,6 +853,7 @@ mod tests {
         outer_prove_aux(
             "(current-env)",
             |store| store.nil(),
+            Status::Terminal,
             1,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -831,6 +868,7 @@ mod tests {
         outer_prove_aux(
             "(current-env a)",
             |store| store.nil(),
+            Status::Error,
             1,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -846,6 +884,7 @@ mod tests {
             "(let ((a 1))
                   a)",
             |store| store.num(1),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -860,6 +899,7 @@ mod tests {
         outer_prove_aux(
             "(let ((a 1 2)) a)",
             |store| store.num(1),
+            Status::Error,
             1,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -874,6 +914,7 @@ mod tests {
         outer_prove_aux(
             "(letrec ((a 1 2)) a)",
             |store| store.num(1),
+            Status::Error,
             1,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -888,6 +929,7 @@ mod tests {
         outer_prove_aux(
             "(let ((a 1)) a 1)",
             |store| store.sym("a"),
+            Status::Error,
             1,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -902,6 +944,7 @@ mod tests {
         outer_prove_aux(
             "(letrec ((a 1)) a 1)",
             |store| store.sym("a"),
+            Status::Error,
             1,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -916,6 +959,7 @@ mod tests {
         outer_prove_aux(
             "(let () (+ 1 2))",
             |store| store.num(3),
+            Status::Terminal,
             4,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -929,6 +973,7 @@ mod tests {
         outer_prove_aux(
             "(letrec () (+ 1 2))",
             |store| store.num(3),
+            Status::Terminal,
             4,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -946,6 +991,7 @@ mod tests {
                        (c 3))
                   (+ a (+ b c)))",
             |store| store.num(6),
+            Status::Terminal,
             18,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -967,6 +1013,7 @@ mod tests {
                   3)
                  4)",
             |store| store.num(20),
+            Status::Terminal,
             23,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -985,6 +1032,7 @@ mod tests {
                         (z 4))
                    (* z (+ x y)))",
             |store| store.num(20),
+            Status::Terminal,
             18,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1004,6 +1052,7 @@ mod tests {
                   (= 20 (* z
                            (+ x y))))",
             |store| store.t(),
+            Status::Terminal,
             21,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1030,6 +1079,7 @@ mod tests {
                                  ((cond a) c))))))
                  (((if- 5) 6) true))",
             |store| store.num(5),
+            Status::Terminal,
             35,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1056,6 +1106,7 @@ mod tests {
                                  ((cond a) c))))))
                  (((if- 5) 6) false))",
             |store| store.num(6),
+            Status::Terminal,
             32,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1079,6 +1130,7 @@ mod tests {
                                  ((cond a) c))))))
                  (((if- 5) 6) true))",
             |store| store.num(5),
+            Status::Terminal,
             32,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1093,6 +1145,7 @@ mod tests {
         outer_prove_aux(
             "(if nil 5 6)",
             |store| store.num(6),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1107,6 +1160,7 @@ mod tests {
         outer_prove_aux(
             "(if t (+ 5 5) 6)",
             |store| store.num(10),
+            Status::Terminal,
             5,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1127,6 +1181,7 @@ mod tests {
                                          (* base ((exp base) (- exponent 1))))))))
                            ((exp 5) 3))",
             |store| store.num(125),
+            Status::Terminal,
             91,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1146,6 +1201,7 @@ mod tests {
                                        (* base (exp base (- exponent 1)))))))
                            (exp 5 3))",
             |store| store.num(125),
+            Status::Terminal,
             95,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1168,6 +1224,7 @@ mod tests {
                                         base-inner))))
                    ((exp 5) 3))",
             |store| store.num(125),
+            Status::Terminal,
             75,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1189,6 +1246,7 @@ mod tests {
                                            (((exp base) (- exponent-remaining 1)) (* acc base))))))))
                           (((exp 5) 3) 1))",
             |store| store.num(125),
+            Status::Terminal,
             129,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1212,6 +1270,7 @@ mod tests {
                                            base-inner))))
                           (((exp 5) 3) 1))",
             |store| store.num(125),
+            Status::Terminal,
             110,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1235,6 +1294,7 @@ mod tests {
                         ;; However, it exercises the behavior of LETREC.
                         (odd 1))",
             |store| store.t(),
+            Status::Terminal,
             22,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1258,6 +1318,7 @@ mod tests {
                         ;; However, it exercises the behavior of LETREC.
                         (odd 2))",
             |store| store.sym("odd"),
+            Status::Terminal,
             25,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1272,6 +1333,7 @@ mod tests {
         outer_prove_aux(
             "(let ((a 9)))",
             |store| store.nil(),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1286,6 +1348,7 @@ mod tests {
         outer_prove_aux(
             "(car (cons 1 2))",
             |store| store.num(1),
+            Status::Terminal,
             5,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1300,6 +1363,7 @@ mod tests {
         outer_prove_aux(
             "(car (1 2) 3)",
             |store| store.num(1),
+            Status::Error,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1314,6 +1378,7 @@ mod tests {
         outer_prove_aux(
             "(cdr (1 2) 3)",
             |store| store.num(1),
+            Status::Error,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1328,6 +1393,7 @@ mod tests {
         outer_prove_aux(
             "(atom 123 4)",
             |store| store.num(123),
+            Status::Error,
             1,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1342,6 +1408,7 @@ mod tests {
         outer_prove_aux(
             "(emit 123 4)",
             |store| store.num(123),
+            Status::Error,
             1,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1356,6 +1423,7 @@ mod tests {
         outer_prove_aux(
             "(cdr (cons 1 2))",
             |store| store.num(2),
+            Status::Terminal,
             5,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1370,6 +1438,7 @@ mod tests {
         outer_prove_aux(
             "((lambda () 123))",
             |store| store.num(123),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1384,6 +1453,7 @@ mod tests {
         outer_prove_aux(
             "(let ((x 9) (f (lambda () (+ x 1)))) (f))",
             |store| store.num(10),
+            Status::Terminal,
             10,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1403,6 +1473,7 @@ mod tests {
                 let env = store.nil();
                 store.intern_fun(arg, body, env)
             },
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1414,11 +1485,10 @@ mod tests {
 
     #[test]
     fn outer_prove_evaluate_zero_arg_lambda4() {
-        // FIXME: This should be an error.
-        // Tests don't currently have a way of checking this, but we need that.
         outer_prove_aux(
             "((lambda () 123) 1)",
             |store| store.intern_num(1),
+            Status::Error,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1430,11 +1500,10 @@ mod tests {
 
     #[test]
     fn outer_prove_evaluate_zero_arg_lambda5() {
-        // FIXME: This should be an error.
-        // Tests don't currently have a way of checking this, but we need that.
         outer_prove_aux(
             "(123)",
             |store| store.intern_num(123),
+            Status::Error,
             2,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1455,6 +1524,7 @@ mod tests {
                              (f (+ x 1))))))
                    (f 0))",
             |store| store.num(123),
+            Status::Terminal,
             50,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1473,6 +1543,7 @@ mod tests {
                   2)
                  3)",
             |store| store.num(2),
+            Status::Terminal,
             15,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1491,6 +1562,7 @@ mod tests {
                   2)
                  3)",
             |store| store.num(3),
+            Status::Terminal,
             15,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1505,6 +1577,7 @@ mod tests {
         outer_prove_aux(
             "(car (cdr '(1 2 3 4)))",
             |store| store.num(2),
+            Status::Terminal,
             4,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1526,6 +1599,7 @@ mod tests {
                              (f (+ x 1))))))
                   (f 0))",
             |store| store.num(123),
+            Status::Terminal,
             78,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1547,6 +1621,7 @@ mod tests {
                     (g (lambda (x) (f x))))
                   (g 0))",
             |store| store.num(123),
+            Status::Terminal,
             84,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1563,6 +1638,7 @@ mod tests {
                            (square (lambda (x) (* x x))))
                           (+ (square 3) (double 2)))",
             |store| store.num(13),
+            Status::Terminal,
             22,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1580,6 +1656,7 @@ mod tests {
                            (double-inc (lambda (x) (+ 1 (double x)))))
                           (+ (double 3) (double-inc 2)))",
             |store| store.num(11),
+            Status::Terminal,
             31,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1608,6 +1685,7 @@ mod tests {
                          (+ (+ (exp 3 2) (exp2 2 3))
                             (exp3 4 2)))",
             |store| store.num(33),
+            Status::Terminal,
             242,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1626,6 +1704,7 @@ mod tests {
                              (l (lambda (x) (+ z x))))
                             (l 9)))",
             |store| store.num(18),
+            Status::Terminal,
             22,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1648,6 +1727,7 @@ mod tests {
                     (fib (next 0 1 0)))
                 (fib 1))",
             |store| store.num(1),
+            Status::Terminal,
             89,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
