@@ -236,7 +236,7 @@ impl ReplState {
     pub fn new(store_mutex: Arc<Mutex<Store<Fr>>>, limit: usize) -> Self {
         Self {
             store: store_mutex.clone(),
-            env: empty_sym_env(&mut store_mutex.lock().unwrap()),
+            env: empty_sym_env(&store_mutex.lock().unwrap()),
             limit,
         }
     }

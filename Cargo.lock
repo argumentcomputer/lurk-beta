@@ -105,38 +105,6 @@ checksum = "a4521f3e3d031370679b3b140beb36dfe4801b09ac77e30c61941f97df3ef28b"
 
 [[package]]
 name = "bellperson"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efaa4c870642267ca1ab719f737e17984a91d16861ddde1c799aee7124ce0ca2"
-dependencies = [
- "bincode",
- "bitvec",
- "blake2s_simd 0.5.11",
- "blstrs",
- "byteorder",
- "crossbeam-channel",
- "digest 0.9.0",
- "ec-gpu",
- "ec-gpu-gen 0.2.1",
- "ff",
- "group",
- "itertools 0.10.3",
- "lazy_static",
- "log",
- "memmap",
- "num_cpus",
- "pairing",
- "rand 0.8.5",
- "rand_core 0.6.3",
- "rayon",
- "serde",
- "sha2 0.9.9",
- "thiserror",
- "yastl",
-]
-
-[[package]]
-name = "bellperson"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3440a7dc1fb5893a06e3b73091bd0b9617893010e72f35ff821d265607b21b32"
@@ -917,7 +885,7 @@ version = "0.1.1"
 dependencies = [
  "arrayvec 0.5.2",
  "assert_cmd",
- "bellperson 0.19.1",
+ "bellperson",
  "blstrs",
  "clap 3.1.10",
  "clap-verbosity-flag",
@@ -1307,7 +1275,7 @@ version = "0.1.1"
 dependencies = [
  "ahash",
  "anyhow",
- "bellperson 0.20.0",
+ "bellperson",
  "blstrs",
  "cid",
  "criterion",
@@ -1444,7 +1412,7 @@ name = "neptune"
 version = "6.0.0"
 source = "git+https://github.com/lurk-lang/neptune?branch=acs/wasm-support#41e29ea7e16114d9c870ad747638ecfcfd497d54"
 dependencies = [
- "bellperson 0.20.0",
+ "bellperson",
  "blake2s_simd 0.5.11",
  "blstrs",
  "byteorder",
@@ -1494,7 +1462,7 @@ name = "nova-snark"
 version = "0.4.0"
 source = "git+https://github.com/lurk-lang/nova?branch=acs/wasm-support#c1aa537ba7df5da0e4b92d3bc8a373a80a7a7977"
 dependencies = [
- "bellperson 0.20.0",
+ "bellperson",
  "digest 0.8.1",
  "ff",
  "itertools 0.9.0",
