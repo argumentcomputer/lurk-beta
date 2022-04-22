@@ -459,6 +459,21 @@ mod tests {
             false,
         )
     }
+
+    #[test]
+    fn outer_prove_if_end_is_nil_error() {
+        outer_prove_aux(
+            "(if nil 5 6 7)",
+            |store| store.num(5),
+            2,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            100,
+            false,
+        )
+    }
+
     #[test]
     fn outer_prove_if_fully_evaluates() {
         outer_prove_aux(

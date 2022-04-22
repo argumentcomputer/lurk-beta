@@ -2462,7 +2462,7 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
 
     // Continuation::If
     /////////////////////////////////////////////////////////////////////////////
-    let (res, continuation) = {
+    let (res, the_cont) = {
         let mut cs = cs.namespace(|| "If");
         let unevaled_args = AllocatedPtr::by_index(0, &continuation_components);
         let continuation = AllocatedContPtr::by_index(1, &continuation_components);
@@ -2486,7 +2486,10 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
         let condition_is_nil =
             condition.alloc_equal(&mut cs.namespace(|| "condition is nil"), &g.nil_ptr)?;
 
-        let (arg2, _end) = car_cdr(&mut cs.namespace(|| "more cons"), g, &more, store)?;
+        let (arg2, end) = car_cdr(&mut cs.namespace(|| "more cons"), g, &more, store)?;
+
+        let end_is_nil =
+            end.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
 
         let res = AllocatedPtr::pick(
             &mut cs.namespace(|| "pick arg1 or arg2"),
@@ -2494,10 +2497,25 @@ fn apply_continuation<F: PrimeField, CS: ConstraintSystem<F>>(
             &arg2,
             &arg1,
         )?;
-        (res, continuation)
+
+        let the_res = AllocatedPtr::pick(
+            &mut cs.namespace(|| "end is nil pick res"),
+            &end_is_nil,
+            &res,
+            &arg1,
+        )?;
+
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "end is nil pick cont"),
+            &end_is_nil,
+            &continuation,
+            &g.error_ptr_cont,
+        )?;
+
+        (the_res, the_cont)
     };
 
-    results.add_clauses_cont(ContTag::If, &res, env, &continuation, &g.false_num);
+    results.add_clauses_cont(ContTag::If, &res, env, &the_cont, &g.false_num);
 
     // Continuation::Lookup
     /////////////////////////////////////////////////////////////////////////////
@@ -2899,9 +2917,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31171, cs.num_constraints());
+            assert_eq!(31184, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31136, cs.aux().len());
+            assert_eq!(31147, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

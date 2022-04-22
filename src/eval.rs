@@ -1022,9 +1022,11 @@ fn apply_continuation<F: PrimeField>(
                 // value being checked against is not zero, so that value should
                 // first be subtracted from the value being checked.
 
-                if condition.is_nil() {
-                    let (arg2, end) = store.car_cdr(&more);
-                    assert!(end.is_nil());
+                let (arg2, end) = store.car_cdr(&more);
+                //assert!(end.is_nil());
+                if !end.is_nil() {
+                    Control::Return(arg1, *env, store.intern_cont_error())
+                } else if condition.is_nil() {
                     Control::Return(arg2, *env, continuation)
                 } else {
                     Control::Return(arg1, *env, continuation)
