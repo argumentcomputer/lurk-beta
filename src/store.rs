@@ -916,7 +916,7 @@ impl<F: LurkField> Store<F> {
             let ptr = self.scalar_ptr_map.get(&scalar_ptr);
 
             if let Some(p) = ptr {
-                // Only reuse existing Prt with same hash if it is also opaque.
+                // Only reuse existing Ptr with same hash if it is also opaque.
                 // intern_opaque will always return an opaque Ptr, never a corresponding
                 // normal Ptr. To change this behavior, remove this check.
                 if p.is_opaque() {
@@ -1664,6 +1664,7 @@ impl<F: LurkField> Store<F> {
             Tag::Nil => (self.get_nil(), self.get_nil()),
             Tag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => (car, cdr),
+                Some(Expression::Opaque(_)) => panic!("uiop"),
                 _ => unreachable!(),
             },
             _ => {

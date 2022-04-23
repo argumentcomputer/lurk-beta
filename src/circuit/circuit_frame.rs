@@ -522,11 +522,10 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-    // dbg!("reduce_expression");
-    // dbg!(&expr.fetch_and_write_str(store));
-    // dbg!(&expr);
-    // dbg!(&env.fetch_and_write_str(store));
-    // dbg!(&cont.fetch_and_write_cont_str(store), &cont);
+    dbg!("reduce_expression");
+    dbg!(&expr.fetch_and_write_str(store), &expr);
+    dbg!(&env.fetch_and_write_str(store), &env);
+    dbg!(&cont.fetch_and_write_cont_str(store), &cont);
     let mut results = Results::default();
     {
         // Self-evaluating expressions
@@ -697,6 +696,8 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         &apply_continuation_results.1,
         &first_result_env,
     )?;
+
+    dbg!(&apply_continuation_results.1, &first_result_env);
 
     let result_cont0 = AllocatedContPtr::pick(
         &mut cs.namespace(|| "pick maybe apply_continuation cont"),

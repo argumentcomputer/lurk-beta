@@ -14,18 +14,22 @@ use libipld::{
     multihash::{Code, MultihashDigest},
     prelude::Codec,
     serde::to_ipld,
-    Cid,
+    Cid, Ipld,
 };
-use lurk::circuit::ToInputs;
-use lurk::eval::{empty_sym_env, Evaluable, Evaluator, Status, IO};
-use lurk::field::LurkField;
-use lurk::proof::{
-    self,
-    groth16::{Groth16, Groth16Prover, INNER_PRODUCT_SRS},
+use lurk::{
+    circuit::ToInputs,
+    eval::{empty_sym_env, Evaluable, Evaluator, Status, IO},
+    field::LurkField,
+    ipld::IpldEmbed,
+    proof::{
+        self,
+        groth16::{Groth16, Groth16Prover, INNER_PRODUCT_SRS},
+    },
+    scalar_store::ScalarStore,
+    store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store, Tag},
+    writer::Write,
+    Num,
 };
-use lurk::store::{Pointer, Ptr, ScalarPointer, Store, Tag};
-use lurk::writer::Write;
-use lurk::Num;
 use once_cell::sync::OnceCell;
 use pairing_lib::{Engine, MultiMillerLoop};
 use rand::rngs::OsRng;
@@ -38,8 +42,12 @@ use file_map::FileMap;
 pub const DEFAULT_REDUCTION_COUNT: ReductionCount = ReductionCount::One;
 pub static VERBOSE: OnceCell<bool> = OnceCell::new();
 
-fn bls12_proof_cache() -> FileMap<Proof<Bls12>> {
-    FileMap::<Proof<Bls12>>::new("bls12_proofs").unwrap()
+fn bls12_proof_cache() -> FileMap<Cid, Proof<Bls12>> {
+    FileMap::<Cid, Proof<Bls12>>::new("bls12_proofs").unwrap()
+}
+
+pub fn committed_function_store() -> FileMap<Commitment<Scalar>, Function<Scalar>> {
+    FileMap::<Commitment<Scalar>, Function<Scalar>>::new("functions").unwrap()
 }
 
 fn get_pvk(rc: ReductionCount) -> groth16::PreparedVerifyingKey<Bls12> {
@@ -76,12 +84,31 @@ pub struct Commitment<F: LurkField> {
     pub comm: F,
 }
 
+impl<F: LurkField> ToString for Commitment<F> {
+    fn to_string(&self) -> String {
+        let s = serde_json::to_string(&self).unwrap();
+        // Remove quotation marks. Yes, dumb hacks are happening.
+        let s = s[1..s.len() - 1].to_string();
+        s
+    }
+}
+
 impl<F: LurkField> Serialize for Commitment<F> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        hex::serde::serialize(self.comm.to_repr().as_ref(), serializer)
+        // Use be_bytes for consistency with PrimeField printed representation.
+        let be_bytes: Vec<u8> = self
+            .comm
+            .to_repr()
+            .as_ref()
+            .iter()
+            .rev()
+            .map(|x| x.to_owned())
+            .collect();
+
+        hex::serde::serialize(be_bytes, serializer)
     }
 }
 
@@ -101,7 +128,8 @@ impl<F: LurkField> FromHex for Commitment<F> {
     where
         T: AsRef<[u8]>,
     {
-        let v = Vec::from_hex(s)?;
+        let mut v = Vec::from_hex(s)?;
+        v.reverse();
         let mut repr = <F as PrimeField>::Repr::default();
         repr.as_mut()[..32].copy_from_slice(&v[..]);
 
@@ -124,15 +152,24 @@ pub struct Opening<F: LurkField> {
     pub new_commitment: Option<Commitment<F>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum LurkPtr {
+    Source(String),
+    Ipld {
+        scalar_store: Ipld,
+        scalar_ptr: Ipld,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Function<F: LurkField + Serialize> {
-    pub source: String,
+    pub fun: LurkPtr,
     #[serde(bound(serialize = "F: Serialize", deserialize = "F: Deserialize<'de>"))]
     pub secret: Option<F>,
     pub commitment: Option<Commitment<F>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct VerificationResult {
     pub verified: bool,
 }
@@ -236,6 +273,7 @@ pub enum Error {
     IOError(io::Error),
     JsonError(serde_json::Error),
     SynthesisError(SynthesisError),
+    CommitmentParseError(hex::FromHexError),
 }
 
 impl From<io::Error> for Error {
@@ -263,11 +301,11 @@ where
     fn has_id(&self, id: String) -> bool;
 }
 
-pub trait Key
+pub trait Key<T: ToString>
 where
     Self: Sized,
 {
-    fn key(&self) -> Cid;
+    fn key(&self) -> T;
 }
 
 impl<T: Serialize> Id for T
@@ -302,14 +340,22 @@ where
 
 impl<T: Serialize> FileStore for T
 where
-    for<'de> T: Deserialize<'de>,
+    for<'de> T: Deserialize<'de>, // + Decode<DagJsonCodec>,
 {
     fn write_to_path<P: AsRef<Path>>(&self, path: P) {
-        fs::write(path, serde_json::to_string(self).unwrap()).expect("failed to write file");
+        let ipld = to_ipld(self).unwrap();
+        let dag_json = DagJsonCodec.encode(&ipld).unwrap();
+
+        fs::write(path, dag_json).expect("failed to write file");
     }
     fn read_from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
+
+        // let mut bytes: Vec<u8> = Default::default();
+        // reader.read_to_end(&mut bytes);
+
+        // let decoded: Self = DagJsonCodec.decode(&bytes).unwrap();
         Ok(serde_json::from_reader(reader).expect("failed to read file"))
     }
     fn read_from_stdin() -> Result<Self, Error> {
@@ -408,19 +454,20 @@ impl<F: LurkField + Serialize> Commitment<F> {
         Self::from_cons(s, &hidden)
     }
 
+    // Importantly, this ensures the function and secret are in the Store, s.
     fn construct_with_fun_application(
         s: &mut Store<F>,
         function: Function<F>,
         input: Ptr<F>,
         limit: usize,
     ) -> (Self, Ptr<F>) {
-        let cdr = s.sym("cdr");
-        let quote = s.sym("quote");
-
         let fun_ptr = function.fun_ptr(s, limit);
         let secret = function.secret.expect("Function secret missing");
 
         let commitment = Self::from_ptr_and_secret(s, &fun_ptr, secret);
+
+        let cdr = s.sym("cdr");
+        let quote = s.sym("quote");
 
         let secret_ptr = s.num(Num::from_scalar(secret));
         let comm_ptr = s.cons(secret_ptr, fun_ptr);
@@ -443,7 +490,7 @@ impl<F: LurkField + Serialize> Commitment<F> {
         let comm_ptr = self.ptr(s);
         let quoted_comm_ptr = s.list(&[quote, comm_ptr]);
 
-        // <commitment> is (fun-expr . secret)
+        // <commitment> is (secret . fun-expr)
 
         // (cdr <commitment>)
         let fun_expr = s.list(&[cdr, quoted_comm_ptr]);
@@ -455,78 +502,112 @@ impl<F: LurkField + Serialize> Commitment<F> {
 
 impl<F: LurkField + Serialize> Function<F> {
     pub fn fun_ptr(&self, s: &mut Store<F>, limit: usize) -> Ptr<F> {
-        let source_ptr = s.read(&self.source).expect("could not read source");
+        let source_ptr = match &self.fun {
+            LurkPtr::Source(source) => s.read(&source).expect("could not read source"),
+            LurkPtr::Ipld {
+                scalar_store,
+                scalar_ptr,
+            } => {
+                // FIXME: put the scalar_store in a new field for the store.
+                let fun_scalar_store = ScalarStore::<F>::from_ipld(&scalar_store).unwrap();
+                let fun_scalar_ptr = ScalarPtr::from_ipld(&scalar_ptr).unwrap();
+                s.intern_scalar_ptr(fun_scalar_ptr, &fun_scalar_store)
+                    .expect("failed to intern scalar_ptr for fun")
+            }
+        };
 
         // Evaluate the source to get an actual function.
         let (output, _iterations) = evaluate(s, source_ptr, limit);
+        // TODO: Verify that result actually is a function.
 
         output.expr
     }
 }
 
 impl Opening<Scalar> {
-    pub fn open_and_prove<P: AsRef<Path>>(
-        s: &mut Store<<Bls12 as Engine>::Fr>,
-        input: Ptr<<Bls12 as Engine>::Fr>,
-        function: Function<<Bls12 as Engine>::Fr>,
+    pub fn open_and_prove(
+        s: &mut Store<Scalar>,
+        input: Ptr<Scalar>,
+        function: Function<Scalar>,
         limit: usize,
         chain: bool,
-        commitment_path: Option<P>,
-        chained_function_path: Option<std::path::PathBuf>,
     ) -> Result<Proof<Bls12>, Error> {
-        let rng = OsRng;
+        let claim = Self::open(s, input, function, limit, chain)?;
+
+        Proof::prove_claim(s, claim, limit, false)
+    }
+
+    fn _is_chained(&self) -> bool {
+        self.new_commitment.is_some()
+    }
+
+    fn public_output_expression(&self, s: &mut Store<Scalar>) -> Ptr<Scalar> {
+        let result = s.read(&self.output).expect("unreadable result");
+
+        if let Some(commitment) = self.new_commitment {
+            let c = commitment.ptr(s);
+
+            s.cons(result, c)
+        } else {
+            result
+        }
+    }
+
+    pub fn open(
+        s: &mut Store<Scalar>,
+        input: Ptr<Scalar>,
+        function: Function<Scalar>,
+        limit: usize,
+        chain: bool,
+    ) -> Result<Claim<Scalar>, Error> {
+        let function_map = committed_function_store();
 
         let (commitment, expression) =
             Commitment::construct_with_fun_application(s, function, input, limit);
+        let (public_output, iterations) = evaluate(s, expression, limit);
 
-        info!("Getting Parameters");
-
-        let reduction_count = DEFAULT_REDUCTION_COUNT;
-        let groth_prover = Groth16Prover::new(reduction_count.reduction_frame_count());
-        let groth_params = groth_prover.groth_params().unwrap();
-
-        info!("Starting Proving");
-
-        let (groth_proof, _public_input, public_output) = groth_prover
-            .outer_prove(
-                groth_params,
-                &INNER_PRODUCT_SRS,
-                expression,
-                empty_sym_env(s),
-                s,
-                limit,
-                rng,
-            )
-            .unwrap();
-
-        assert!(public_output.is_complete());
-
-        let status = public_output.status();
-
-        let input_string = input.fmt_to_string(s);
-
-        // FIXME: Chaining won't actually work until we can read a literal function. This can be through
-        // non-writer/reader serialization/deserialize but it must be implemented.
         let (new_commitment, output_expr) = if chain {
+            // public_output = (result_expr (secret . new_fun))
             let cons = public_output.expr;
-            let output_expr = s.car(&cons);
-            let new_function = s.cdr(&cons);
-            let (new_commitment, new_secret) = Commitment::from_ptr_with_hiding(s, &new_function);
+            let result_expr = s.car(&cons);
+            let new_comm = s.cdr(&cons);
+            let new_secret = s
+                .get_expr_hash(&s.car(&new_comm))
+                .expect("secret missing")
+                .value()
+                .clone();
 
-            let f = Function::<<Bls12 as Engine>::Fr> {
-                source: new_function.fmt_to_string(s),
+            let new_fun = s.cdr(&new_comm);
+            let new_commitment = Commitment::from_cons(s, &new_comm);
+
+            s.hydrate_scalar_cache();
+            let (scalar_store, scalar_ptr) = ScalarStore::new_with_expr(s, &new_fun);
+            let scalar_ptr = scalar_ptr.unwrap();
+
+            let scalar_store_ipld = scalar_store.to_ipld();
+            let new_fun_ipld = scalar_ptr.to_ipld();
+
+            let again = ScalarStore::from_ipld(&new_fun_ipld).unwrap();
+            assert_eq!(&scalar_store, &again);
+
+            let new_function = Function::<Scalar> {
+                fun: LurkPtr::Ipld {
+                    scalar_store: scalar_store_ipld,
+                    scalar_ptr: new_fun_ipld,
+                },
                 secret: Some(new_secret),
                 commitment: Some(new_commitment),
             };
 
-            if let Some(p) = chained_function_path {
-                f.write_to_path(p);
-            };
-            (Some(new_commitment), output_expr)
+            function_map.set(new_commitment, &new_function)?;
+
+            (Some(new_commitment), result_expr)
         } else {
             (None, public_output.expr)
         };
 
+        let input_string = input.fmt_to_string(s);
+        let status = public_output.status();
         let output_string = if status.is_terminal() {
             // Only actual output if result is terminal.
             output_expr.fmt_to_string(s)
@@ -537,34 +618,22 @@ impl Opening<Scalar> {
             "".to_string()
         };
 
-        if let Some(ref c) = new_commitment {
-            if let Some(path) = commitment_path {
-                c.write_to_path(path);
-            } else {
-                panic!("commitment path missing");
-            }
-        }
+        let claim = Claim::Opening(Opening {
+            commitment,
+            new_commitment,
+            input: input_string,
+            output: output_string,
+            status,
+        });
 
-        let proof = Proof {
-            claim: Claim::Opening(Opening {
-                commitment,
-                new_commitment,
-                input: input_string,
-                output: output_string,
-                status,
-            }),
-            reduction_count,
-            proof: groth_proof,
-        };
-
-        Ok(proof)
+        Ok(claim)
     }
 }
 
 impl Proof<Bls12> {
     pub fn eval_and_prove(
-        s: &mut Store<<Bls12 as Engine>::Fr>,
-        expr: Ptr<<Bls12 as Engine>::Fr>,
+        s: &mut Store<Scalar>,
+        expr: Ptr<Scalar>,
         limit: usize,
         only_use_cached_proofs: bool,
     ) -> Result<Self, Error> {
@@ -580,18 +649,20 @@ impl Proof<Bls12> {
     }
 
     pub fn prove_claim(
-        s: &mut Store<<Bls12 as Engine>::Fr>,
+        s: &mut Store<Scalar>,
         claim: Claim<Scalar>,
         limit: usize,
         only_use_cached_proofs: bool,
     ) -> Result<Self, Error> {
         let rng = OsRng;
         let proof_map = bls12_proof_cache();
+        let function_map = committed_function_store();
 
-        if let Some(proof) = proof_map.get(claim.cid()) {
-            dbg!("found cached proof!");
-            return Ok(proof);
-        }
+        // FIXME: Commented-out for development.
+        // if let Some(proof) = proof_map.get(claim.cid()) {
+        //     dbg!("found cached proof!");
+        //     return Ok(proof);
+        // }
 
         if only_use_cached_proofs {
             // FIXME: Error handling.
@@ -611,13 +682,27 @@ impl Proof<Bls12> {
                 s.read(&e.expr).expect("bad expression"),
                 s.read(&e.env).expect("bad env"),
             ),
-            _ => todo!(),
+            Claim::Opening(o) => {
+                let commitment = o.commitment;
+
+                // In order to prove the opening, we need access to the original function.
+                let function = function_map
+                    .get(commitment)
+                    .expect("function for commitment missing");
+
+                let input = s.read(&o.input).expect("bad expression");
+                let (c, expression) =
+                    Commitment::construct_with_fun_application(s, function, input, limit);
+
+                assert_eq!(commitment, c);
+
+                (expression, empty_sym_env(&s))
+            }
         };
 
         let (groth_proof, _public_input, public_output) = groth_prover
             .outer_prove(groth_params, &INNER_PRODUCT_SRS, expr, env, s, limit, rng)
             .expect("Groth proving failed");
-
         assert!(public_output.is_complete());
 
         let proof = Proof {
@@ -626,10 +711,14 @@ impl Proof<Bls12> {
             proof: groth_proof,
         };
 
+        let verification_result = proof.verify()?;
+        assert!(verification_result.verified);
+
         proof_map.set(claim.cid(), &proof).unwrap();
 
         Ok(proof)
     }
+
     pub fn verify(&self) -> Result<VerificationResult, Error> {
         let (public_inputs, public_outputs) = match self.claim {
             Claim::Evaluation(_) => self.verify_evaluation(),
@@ -707,10 +796,12 @@ impl Proof<Bls12> {
         assert!(self.claim.is_opening());
 
         let opening = self.claim.opening().expect("expected opening claim");
-        let output = s.read(&opening.output).expect("could not read output");
+        let output = opening.public_output_expression(&mut s);
+
         let input = s.read(&opening.input).expect("could not read input");
 
         let expression = opening.commitment.fun_application(&mut s, input);
+
         let expr = s
             .hash_expr(&expression)
             .expect("failed to hash input expression");
@@ -735,12 +826,19 @@ impl Proof<Bls12> {
         };
 
         let public_outputs = output_io.to_inputs(&s);
+        let x = s.intern_cont_terminal();
 
         Ok((public_inputs, public_outputs))
     }
 }
 
-impl Key for Proof<Bls12> {
+impl Key<Commitment<Scalar>> for Function<Scalar> {
+    fn key(&self) -> Commitment<Scalar> {
+        self.commitment.expect("commitment missing")
+    }
+}
+
+impl Key<Cid> for Proof<Bls12> {
     fn key(&self) -> Cid {
         self.claim.cid()
     }

@@ -72,7 +72,9 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                 self.print_tail(store, w)
             }
             Opaque(f) => {
-                write!(w, "<Opaque {:?}>", f)
+                write!(w, "<Opaque ")?;
+                f.fmt(store, w)?;
+                write!(w, ">")
             }
         }
     }

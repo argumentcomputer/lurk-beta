@@ -3,8 +3,6 @@ use std::io::Error;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
-use libipld::Cid;
-
 use crate::{FileStore, Key};
 
 pub fn data_dir() -> PathBuf {
@@ -14,12 +12,12 @@ pub fn data_dir() -> PathBuf {
     }
 }
 
-pub struct FileMap<T: Key + FileStore> {
+pub struct FileMap<K: ToString, T: Key<K> + FileStore> {
     dir: PathBuf,
-    _t: PhantomData<T>,
+    _t: PhantomData<(K, T)>,
 }
 
-impl<'a, T: Key + FileStore> FileMap<T> {
+impl<'a, K: ToString + Copy, T: Key<K> + FileStore> FileMap<K, T> {
     pub fn new<P: AsRef<Path>>(name: P) -> Result<Self, Error> {
         let data_dir = data_dir();
         let dir = PathBuf::from(&data_dir).join(name.as_ref());
@@ -31,16 +29,16 @@ impl<'a, T: Key + FileStore> FileMap<T> {
         })
     }
 
-    fn key_path(&self, key: Cid) -> PathBuf {
+    fn key_path(&self, key: K) -> PathBuf {
         self.dir.join(PathBuf::from(key.to_string()))
     }
 
-    pub fn get(&self, key: Cid) -> Option<T> {
+    pub fn get(&self, key: K) -> Option<T> {
         dbg!(self.key_path(key));
         T::read_from_path(self.key_path(key)).ok()
     }
 
-    pub fn set(&self, key: Cid, data: &T) -> Result<(), Error> {
+    pub fn set(&self, key: K, data: &T) -> Result<(), Error> {
         data.write_to_path(self.key_path(key));
         Ok(())
     }
