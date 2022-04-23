@@ -1398,8 +1398,9 @@ dependencies = [
 
 [[package]]
 name = "neptune"
-version = "6.0.0"
-source = "git+https://github.com/lurk-lang/neptune?branch=acs/wasm-support#41e29ea7e16114d9c870ad747638ecfcfd497d54"
+version = "6.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "168b7eb5ae857c52df8b8d4196ba443fe2e527f451c1eee94f681a5d333cbd93"
 dependencies = [
  "bellperson",
  "blake2s_simd 0.5.11",
