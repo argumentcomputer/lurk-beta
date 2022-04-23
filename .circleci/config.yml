@@ -102,6 +102,7 @@ jobs:
       - install_gpu_deps
       - restore_rustup_cache
       - run: cargo --version
+      - run: cargo build --workspace --all-targets
       - run:
           name: Linux Tests
           command: cargo test --workspace

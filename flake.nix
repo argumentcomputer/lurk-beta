@@ -122,6 +122,7 @@
           nodejs
           yarn
           emscripten
+          binaryen
         ];
       } // env);
     });

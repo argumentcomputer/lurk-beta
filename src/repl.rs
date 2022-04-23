@@ -284,7 +284,7 @@ impl ReplState {
                             Tag::Str => {
                                 let path = store.fetch(&s).unwrap();
                                 let path = PathBuf::from(path.as_str().unwrap());
-                                self.handle_load(path, println)?;
+                                self.handle_load(&mut store, path, println)?;
                                 (true, true)
                             }
                             other => {
@@ -326,14 +326,16 @@ impl ReplState {
         Ok(result)
     }
 
-    pub fn handle_load<P: AsRef<Path>>(&mut self, path: P, println: &dyn Fn(String)) -> Result<()> {
+    pub fn handle_load<P: AsRef<Path>>(
+        &mut self,
+        store: &mut Store<Fr>,
+        path: P,
+        println: &dyn Fn(String),
+    ) -> Result<()> {
         println(format!("Loading from {}.", path.as_ref().to_str().unwrap()));
         let input = read_to_string(path)?;
-
-        let store_mutex = self.store.clone();
-        let mut store = store_mutex.lock().unwrap();
         let expr = store.read(&input).unwrap();
-        let (result, _limit, _next_cont) = self.eval_expr(expr, &mut store);
+        let (result, _limit, _next_cont) = self.eval_expr(expr, store);
 
         self.env = result;
 
@@ -371,7 +373,7 @@ impl ReplState {
                                     Expression::Str(path) => {
                                         let joined =
                                             p.as_ref().parent().unwrap().join(Path::new(&path));
-                                        self.handle_load(&joined, println)?
+                                        self.handle_load(&mut store, &joined, println)?
                                     }
                                     _ => panic!("Argument to :LOAD must be a string."),
                                 }
