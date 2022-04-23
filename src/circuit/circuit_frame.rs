@@ -535,6 +535,12 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         results.add_clauses_expr(Tag::Fun, expr, env, cont, &g.true_num);
     };
 
+    let cont_is_terminal = alloc_equal(
+        &mut cs.namespace(|| "cont_is_terminal"),
+        cont.tag(),
+        g.terminal_ptr.tag(),
+    )?;
+
     // If expr is a thunk, this will allocate its components and hash, etc.
     // If not, these will be dummies.
     let (expr_thunk_hash, expr_thunk_value, expr_thunk_continuation) =
@@ -642,16 +648,28 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         &defaults,
     )?;
 
-    let first_result_expr = AllocatedPtr::by_index(0, &case_results);
+    let first_result_expr_0 = AllocatedPtr::by_index(0, &case_results);
+    let first_result_expr = AllocatedPtr::pick(
+        &mut cs.namespace(|| "first_result_expr"),
+        &cont_is_terminal,
+        &g.nil_ptr,
+        &first_result_expr_0,
+    )?;
 
     let first_result_env = AllocatedPtr::by_index(1, &case_results);
     let first_result_cont = AllocatedContPtr::by_index(2, &case_results);
     let first_result_apply_continuation: &AllocatedNum<F> = &case_results[6];
 
-    let apply_continuation_boolean = Boolean::not(&alloc_is_zero(
-        &mut cs.namespace(|| "apply_continuation_is_zero"),
+    let apply_continuation_boolean_0 = Boolean::not(&alloc_is_zero(
+        &mut cs.namespace(|| "apply_continuation_boolean_0"),
         first_result_apply_continuation,
     )?);
+
+    let apply_continuation_boolean = Boolean::and(
+        &mut cs.namespace(|| "apply_continuation_boolean"),
+        &apply_continuation_boolean_0,
+        &Boolean::not(&cont_is_terminal),
+    )?;
 
     let apply_continuation_results = apply_continuation(
         &mut cs.namespace(|| "apply_continuation-make_thunk"),
@@ -711,31 +729,52 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         g,
     )?;
 
-    let result_expr = AllocatedPtr::pick(
+    let result_expr_candidate = AllocatedPtr::pick(
         &mut cs.namespace(|| "pick maybe make_thunk expr"),
         &make_thunk_boolean,
         &thunk_results.0,
         &result_expr0,
     )?;
 
-    let result_env = AllocatedPtr::pick(
+    let result_env_candidate = AllocatedPtr::pick(
         &mut cs.namespace(|| "pick maybe make_thunk env"),
         &make_thunk_boolean,
         &thunk_results.1,
         &result_env0,
     )?;
 
-    let result_cont = AllocatedContPtr::pick(
+    let result_cont_candidate = AllocatedContPtr::pick(
         &mut cs.namespace(|| "pick maybe make_thunk cont"),
         &make_thunk_boolean,
         &thunk_results.2,
         &result_cont0,
     )?;
 
-    // dbg!(&result_expr.fetch_and_write_str(store));
-    // dbg!(&result_env.fetch_and_write_str(store));
-    // dbg!(&result_cont.fetch_and_write_cont_str(store));
+    // dbg!(&result_expr_candidate.fetch_and_write_str(store));
+    // dbg!(&result_env_candidate.fetch_and_write_str(store));
+    // dbg!(&result_cont_candidate.fetch_and_write_cont_str(store));
     // dbg!(expr, env, cont);
+
+    let result_expr = AllocatedPtr::<F>::pick(
+        &mut cs.namespace(|| "result_expr"),
+        &cont_is_terminal,
+        expr,
+        &result_expr_candidate,
+    )?;
+
+    let result_env = AllocatedPtr::<F>::pick(
+        &mut cs.namespace(|| "result_env"),
+        &cont_is_terminal,
+        env,
+        &result_env_candidate,
+    )?;
+
+    let result_cont = AllocatedContPtr::<F>::pick(
+        &mut cs.namespace(|| "result_cont"),
+        &cont_is_terminal,
+        cont,
+        &result_cont_candidate,
+    )?;
 
     Ok((result_expr, result_env, result_cont))
 }
@@ -2798,9 +2837,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31100, cs.num_constraints());
+            assert_eq!(31113, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31073, cs.aux().len());
+            assert_eq!(31085, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

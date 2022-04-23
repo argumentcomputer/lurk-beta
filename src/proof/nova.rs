@@ -538,6 +538,7 @@ mod tests {
             false,
         )
     }
+
     #[test]
     #[ignore]
     fn outer_prove_unop_regression() {
@@ -1477,6 +1478,71 @@ mod tests {
                 (fib 1))",
             |store| store.num(1),
             89,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_terminal_continuation_regression() {
+        let mut s = Store::<Fr>::default();
+        let src = "(letrec ((a (lambda (x) (cons 2 2))))
+                     (a 1))";
+
+        let expr = s.read(src).unwrap();
+        let limit = 300;
+
+        let (
+            IO {
+                expr: result_expr,
+                env: _new_env,
+                cont: _continuation,
+            },
+            _iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+        outer_prove_aux(
+            &src,
+            |_| result_expr,
+            9,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_chained_functional_commitment() {
+        let mut s = Store::<Fr>::default();
+
+        let src = "(letrec ((secret 12345)
+                       (a (lambda (acc x)
+                            (let ((acc (+ acc x)))
+                              (cons acc (cons secret (a acc)))))))
+                (a 0 5))";
+
+        let expr = s.read(src).unwrap();
+        let limit = 300;
+
+        let (
+            IO {
+                expr: result_expr,
+                env: _new_env,
+                cont: _continuation,
+            },
+            _iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+        outer_prove_aux(
+            &src,
+            |_| result_expr,
+            39,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
