@@ -1395,7 +1395,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.error_ptr_cont,
     )?;
 
-    results.add_clauses_cons(*car_hash.value(), &arg1, env, &the_cont_car, &g.false_num);
+    results.add_clauses_cons(*car_hash.value(), &arg1_or_expr, env, &the_cont_car, &g.false_num);
 
     // head == CDR
     let continuation = AllocatedContPtr::construct(
@@ -1417,7 +1417,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.error_ptr_cont,
     )?;
 
-    results.add_clauses_cons(*cdr_hash.value(), &arg1, env, &the_cont_cdr, &g.false_num);
+    results.add_clauses_cons(*cdr_hash.value(), &arg1_or_expr, env, &the_cont_cdr, &g.false_num);
 
     // head == ATOM
     let continuation = AllocatedContPtr::construct(

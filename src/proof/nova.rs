@@ -284,21 +284,22 @@ mod tests {
             let cs = nova_prover.outer_synthesize(&multiframes).unwrap();
 
             let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
+            let output = cs[cs.len() - 1].0.output.unwrap();
 
             if !debug {
                 dbg!(
                     multiframes.len(),
                     nova_prover.chunk_frame_count(),
                     frames.len(),
-                    cs[cs.len() - 1].0.output.unwrap().expr.fmt_to_string(&s)
+                    output.expr.fmt_to_string(&s)
                 );
 
                 assert_eq!(expected_iterations, Frame::significant_frame_count(&frames));
                 assert_eq!(adjusted_iterations, cs.len());
                 if expected_cont != Status::Error {
-                    assert_eq!(expected_result, cs[cs.len() - 1].0.output.unwrap().expr);
+                    assert_eq!(expected_result, output.expr);
                 }
-                let status: Status = cs[cs.len() - 1].0.output.unwrap().cont.into();
+                let status: Status = output.cont.into();
                 assert_eq!(expected_cont, status);
             }
 
@@ -1366,7 +1367,7 @@ mod tests {
             "(car (1 2) 3)",
             |store| store.num(1),
             Status::Error,
-            3,
+            1,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1381,7 +1382,7 @@ mod tests {
             "(cdr (1 2) 3)",
             |store| store.num(1),
             Status::Error,
-            3,
+            1,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,

@@ -600,14 +600,14 @@ fn reduce_with_witness<F: PrimeField>(
                 } else if head == store.sym("car") {
                     let (arg1, end) = store.car_cdr(&rest);
                     if !end.is_nil() {
-                        Control::Return(arg1, env, store.intern_cont_error())
+                        Control::Return(expr, env, store.intern_cont_error())
                     } else {
                         Control::Return(arg1, env, store.intern_cont_unop(Op1::Car, cont))
                     }
                 } else if head == store.sym("cdr") {
                     let (arg1, end) = store.car_cdr(&rest);
                     if !end.is_nil() {
-                        Control::Return(arg1, env, store.intern_cont_error())
+                        Control::Return(expr, env, store.intern_cont_error())
                     } else {
                         Control::Return(arg1, env, store.intern_cont_unop(Op1::Cdr, cont))
                     }
