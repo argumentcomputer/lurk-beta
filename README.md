@@ -69,14 +69,33 @@ nix build .#lurk-wasm -L
 CC=emcc AR=emar wasm-pack build --no-default-features --features wasm
 ```
 
-The steps above will generate a `pkg` folder with the javascript wasm artifacts. Once this is avaible, we can run the following to launch the web example.
+The steps above will generate a `pkg` folder with the javascript wasm artifacts (Lurk wasm bindings). Once this is available, we can launch the web example.
+
+Before launching the web example, we need to install the necessary pre-requisites.
+
+- [yarn](https://classic.yarnpkg.com/lang/en/docs/install/#mac-stable) or [npm](https://nodejs.org/en/download/package-manager/)
+- [webpack](https://webpack.js.org/guides/installation/)
+
+Assuming we have `yarn` or `npm` installed, install `webpack` using the following command:
+
 ```
 cd web
+
+# Using yarn
+yarn add -D webpack-cli 
+
+# Using npm
+npm install --save-dev webpack
+```
+
+After webpack installation, run the following yarn commands.
+```
 yarn install
 yarn start
 ```
 
 Go to [localhost:8080](http://localhost:8080) to view the evaluator
+
 
 ## Repl
 
