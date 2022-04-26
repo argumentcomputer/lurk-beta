@@ -1488,8 +1488,8 @@ lru-cache@^6.0.0:
   dependencies:
     yallist "^4.0.0"
 
-"lurk-rs@file:./pkg":
-  version "0.1.0"
+"lurk-rs@file:../pkg":
+  version "0.1.1"
 
 media-typer@0.3.0:
   version "0.3.0"

@@ -4,23 +4,53 @@
     <meta charset="utf-8">
     <title>Lurk WASM web example</title>
   </head>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+  <style>
+    .terminal {
+      width:100%;
+      height:100%;
+      background-color:black;
+      color:#66cc00;
+      font-size:20px;
+      padding: 20px;
+    }
+    .output {
+      width: 100%;
+      min-height: 30rem;
+      font-family: "Lucida Console", Monaco, monospace;
+      font-size: 0.8rem;
+      line-height: 1.2;
+      padding: 20px;
+    }
+  </style>
   <body>
-    <textarea id="input" style="width: 100%; height: 50%;">
+
+  <div class="container">
+    <div class="form-group">
+      <h2>WASM WEB</h2>
+      <label for="input">Lurk Expression</label>
+      <textarea class="terminal" id="input" rows="15">
 (letrec ((exp (lambda (base exponent)
-                     (if (= 0 exponent)
-                         1
-                       (* base (exp base (- exponent 1)))))))
-           (current-env))
-  
-  )
-  ))))
-  (exp 2 2)
-    </textarea>
-    <button id="run">Run!</button>
+                 (if (= 0 exponent)
+                     1
+                   (* base (exp base (- exponent 1)))))))
+       (current-env))
+
+)
+))))
+(exp 2 2)
+      </textarea>
+    </div>
+
     <h2>Output</h2>
-    <dev id="output"></dev>
     <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
     <script src="./index.js"></script>
-    
+    <div class="form-group">
+      <button type="button" class="btn btn-primary" id="run">Run</button>
+    </div>
+    <textarea id="output" class="output" cols="30" rows="10"></textarea>
+  </div>
   </body>
+
+
 </html>

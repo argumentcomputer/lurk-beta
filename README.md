@@ -163,7 +163,22 @@ nix build .
 nix run .#lurk-example
 ```
 
+## Troubleshooting
+### `Failed to find tool. Is `emcc` installed?`
 
+Make sure that emcc is installed. Follow the steps below
+```
+git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk
+./emsdk install latest
+./emsdk activate latest
+```
+
+You will be prompted by the cli to include the EMS specific environment variables. You can do so manually by running the following commands:
+```
+source "./emsdk/emsdk_env.sh"    
+echo 'source "./emsdk/emsdk_env.sh"' >> $HOME/.zprofile
+```
 ## License
 
 MIT or Apache 2.0

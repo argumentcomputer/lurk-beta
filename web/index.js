@@ -1,7 +1,9 @@
 import * as wasm from "lurk-rs";
 var output = document.getElementById("output");
 function show(text) {
-    output.innerText = text;
+    console.log(text);
+    var textedJson = JSON.stringify(text,null,);
+    output.innerText = JSON.parse(textedJson);
     console.log(text);
     
 }
