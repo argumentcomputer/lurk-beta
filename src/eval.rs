@@ -544,8 +544,8 @@ fn reduce_with_witness<F: PrimeField>(
                         Control::Return(body1, env, cont)
                     } else {
                         let (binding1, rest_bindings) = store.car_cdr(&bindings);
-                        let (var, more_vals) = store.car_cdr(&binding1);
-                        let (val, end) = store.car_cdr(&more_vals);
+                        let (var, vals) = store.car_cdr(&binding1);
+                        let (val, end) = store.car_cdr(&vals);
                         if !end.is_nil() {
                             Control::Return(expr, env, store.intern_cont_error())
                         } else {
@@ -572,8 +572,8 @@ fn reduce_with_witness<F: PrimeField>(
                         Control::Return(body1, env, cont)
                     } else {
                         let (binding1, rest_bindings) = store.car_cdr(&bindings);
-                        let (var, more_vals) = store.car_cdr(&binding1);
-                        let (val, end) = store.car_cdr(&more_vals);
+                        let (var, vals) = store.car_cdr(&binding1);
+                        let (val, end) = store.car_cdr(&vals);
                         if !end.is_nil() {
                             Control::Return(expr, env, store.intern_cont_error())
                         } else {

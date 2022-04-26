@@ -1230,7 +1230,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
             &bindings,
             store,
         )?;
-        let (var, more_vals) = car_cdr(
+        let (var, vals) = car_cdr(
             &mut cs_letrec.namespace(|| "car_cdr binding1"),
             g,
             &binding1,
@@ -1245,7 +1245,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         let (val, end) = car_cdr(
             &mut cs_letrec.namespace(|| "car_cdr more_vals"),
             g,
-            &more_vals,
+            &vals,
             store,
         )?;
 
