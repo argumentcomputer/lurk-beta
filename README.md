@@ -55,17 +55,28 @@ initialize and update submodules before test will pass.
 
 Compile to `wasm32-unknown-unknown`
 
+### With cargo
 ```
-# With cargo
 CC=emcc AR=emar cargo build --no-default-features --target wasm32-unknown-unknown --features wasm
-
-# With nix
+```
+### With nix
+```
 # -L prints build output
 nix build .#lurk-wasm -L
-
-# With wasm-pack
+```
+### With wasm-pack
+```
 CC=emcc AR=emar wasm-pack build --no-default-features --features wasm
 ```
+
+The steps above will generate a `pkg` folder with the javascript wasm artifacts. Once this is avaible, we can run the following to launch the web example.
+```
+cd web
+yarn install
+yarn start
+```
+
+Go to [localhost:8080](http://localhost:8080) to view the evaluator
 
 ## Repl
 
