@@ -1193,10 +1193,11 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     );
 
     /*
-     * Returns the expression, which can be the value of the first binding,
+     * Returns the expression, which can be the value of the first binding
      * when it is found, or the body otherwise. It also returns 2 continuations,
-     * one for let and one for letrec. In both cases the continuation is equal to
-     * `cont` if no error is found.
+     * one for let and one for letrec. The continuation is `cont` if no error
+     * is found and bindings is nil. Otherwise the continuation is a new
+     * pointer, created using the expanded env.
      * Errors:
      *  - rest_body_is_nil
      *  - end_is_nil rest (and not binding_is_nil)
@@ -1310,21 +1311,21 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         let output_cont_let = AllocatedContPtr::pick(
             &mut cs_letrec.namespace(|| "pick cont or newer let"),
             &bindings_is_nil,
-            &cont,
+            cont,
             &continuation_let,
         )?;
 
         let output_cont_letrec = AllocatedContPtr::pick(
             &mut cs_letrec.namespace(|| "pick cont or newer letrec"),
             &bindings_is_nil,
-            &cont,
+            cont,
             &continuation_letrec,
         )?;
 
         let the_expr = AllocatedPtr::pick(
             &mut cs_letrec.namespace(|| "the_expr_let"),
             &cond_error,
-            &expr,
+            expr,
             &output_expr,
         )?;
 
