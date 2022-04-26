@@ -1213,7 +1213,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
      * pointer, created using the expanded env.
      * Errors:
      *  - rest_body_is_nil
-     *  - end_is_nil rest (and not binding_is_nil)
+     *  - end_is_nil rest (and not bindings_is_nil)
      */
     let (the_expr, the_cont_let, the_cont_letrec) = {
         // head == LET
