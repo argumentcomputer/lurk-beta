@@ -530,7 +530,7 @@ fn reduce_with_witness<F: PrimeField>(
                 } else if head == quote {
                     let (quoted, end) = store.car_cdr(&rest);
                     if !end.is_nil() {
-                        Control::Return(quoted, env, store.intern_cont_error())
+                        Control::Return(expr, env, store.intern_cont_error())
                     } else {
                         Control::ApplyContinuation(quoted, env, cont)
                     }
@@ -614,14 +614,14 @@ fn reduce_with_witness<F: PrimeField>(
                 } else if head == store.sym("atom") {
                     let (arg1, end) = store.car_cdr(&rest);
                     if !end.is_nil() {
-                        Control::Return(arg1, env, store.intern_cont_error())
+                        Control::Return(expr, env, store.intern_cont_error())
                     } else {
                         Control::Return(arg1, env, store.intern_cont_unop(Op1::Atom, cont))
                     }
                 } else if head == store.sym("emit") {
                     let (arg1, end) = store.car_cdr(&rest);
                     if !end.is_nil() {
-                        Control::Return(arg1, env, store.intern_cont_error())
+                        Control::Return(expr, env, store.intern_cont_error())
                     } else {
                         Control::Return(arg1, env, store.intern_cont_unop(Op1::Emit, cont))
                     }

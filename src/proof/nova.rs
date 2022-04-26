@@ -439,7 +439,7 @@ mod tests {
             "(quote (1) (2))",
             |store| store.num(1),
             Status::Error,
-            3,
+            1,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,

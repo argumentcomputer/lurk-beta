@@ -1178,17 +1178,30 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
     results.add_clauses_cons(*lambda_hash.value(), &function, env, cont, &g.true_num);
 
     // head == QUOTE
-    let the_cont_if_end_is_nil = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_if_end_is_nil"),
-        &end_is_nil,
-        cont,
-        &g.error_ptr_cont,
-    )?;
+    let (arg1_or_expr, the_cont) = {
+
+        let arg1_or_expr = AllocatedPtr::pick(
+            &mut cs.namespace(|| "arg1 if end is nil, expr otherwise"),
+            &end_is_nil,
+            &arg1,
+            &expr,
+        )?;
+
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "the cont if end is nil"),
+            &end_is_nil,
+            cont,
+            &g.error_ptr_cont,
+        )?;
+
+        (arg1_or_expr, the_cont)
+    };
+
     results.add_clauses_cons(
         *quote_hash.value(),
-        &arg1,
+        &arg1_or_expr,
         env,
-        &the_cont_if_end_is_nil,
+        &the_cont,
         &g.true_num,
     );
 
@@ -1426,7 +1439,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.error_ptr_cont,
     )?;
 
-    results.add_clauses_cons(*atom_hash.value(), &arg1, env, &the_cont_atom, &g.false_num);
+    results.add_clauses_cons(*atom_hash.value(), &arg1_or_expr, env, &the_cont_atom, &g.false_num);
 
     // head == EMIT
     let continuation = AllocatedContPtr::construct(
@@ -1448,7 +1461,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.error_ptr_cont,
     )?;
 
-    results.add_clauses_cons(*emit_hash.value(), &arg1, env, &the_cont_emit, &g.false_num);
+    results.add_clauses_cons(*emit_hash.value(), &arg1_or_expr, env, &the_cont_emit, &g.false_num);
 
     // head == +
     let continuation = AllocatedContPtr::construct(
@@ -2947,9 +2960,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31185, cs.num_constraints());
+            assert_eq!(31187, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31148, cs.aux().len());
+            assert_eq!(31150, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
