@@ -295,7 +295,9 @@ mod tests {
 
                 assert_eq!(expected_iterations, Frame::significant_frame_count(&frames));
                 assert_eq!(adjusted_iterations, cs.len());
-                assert_eq!(expected_result, cs[cs.len() - 1].0.output.unwrap().expr);
+                if expected_cont != Status::Error {
+                    assert_eq!(expected_result, cs[cs.len() - 1].0.output.unwrap().expr);
+                }
                 let status: Status = cs[cs.len() - 1].0.output.unwrap().cont.into();
                 assert_eq!(expected_cont, status);
             }
@@ -438,7 +440,7 @@ mod tests {
             |store| store.num(1),
             Status::Error,
             3,
-            DEFAULT_CHUNK_FRAME_COUNT, // This needs to be 1 to exercise the bug.
+            DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
             10,

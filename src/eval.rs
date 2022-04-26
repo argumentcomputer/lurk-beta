@@ -539,7 +539,7 @@ fn reduce_with_witness<F: PrimeField>(
                     let (body1, rest_body) = store.car_cdr(&body);
                     // Only a single body form allowed for now.
                     if !rest_body.is_nil() {
-                        Control::Return(body1, env, store.intern_cont_error())
+                        Control::Return(expr, env, store.intern_cont_error())
                     } else if bindings.is_nil() {
                         Control::Return(body1, env, cont)
                     } else {
@@ -547,7 +547,7 @@ fn reduce_with_witness<F: PrimeField>(
                         let (var, more_vals) = store.car_cdr(&binding1);
                         let (val, end) = store.car_cdr(&more_vals);
                         if !end.is_nil() {
-                            Control::Return(val, env, store.intern_cont_error())
+                            Control::Return(expr, env, store.intern_cont_error())
                         } else {
                             let expanded = if rest_bindings.is_nil() {
                                 body1
@@ -567,7 +567,7 @@ fn reduce_with_witness<F: PrimeField>(
                     let (body1, rest_body) = store.car_cdr(&body);
                     // Only a single body form allowed for now.
                     if !rest_body.is_nil() {
-                        Control::Return(body1, env, store.intern_cont_error())
+                        Control::Return(expr, env, store.intern_cont_error())
                     } else if bindings.is_nil() {
                         Control::Return(body1, env, cont)
                     } else {
@@ -575,7 +575,7 @@ fn reduce_with_witness<F: PrimeField>(
                         let (var, more_vals) = store.car_cdr(&binding1);
                         let (val, end) = store.car_cdr(&more_vals);
                         if !end.is_nil() {
-                            Control::Return(val, env, store.intern_cont_error())
+                            Control::Return(expr, env, store.intern_cont_error())
                         } else {
                             let expanded = if rest_bindings.is_nil() {
                                 body1
@@ -1023,7 +1023,6 @@ fn apply_continuation<F: PrimeField>(
                 // first be subtracted from the value being checked.
 
                 let (arg2, end) = store.car_cdr(&more);
-                //assert!(end.is_nil());
                 if !end.is_nil() {
                     Control::Return(arg1, *env, store.intern_cont_error())
                 } else if condition.is_nil() {

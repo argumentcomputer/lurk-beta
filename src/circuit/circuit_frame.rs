@@ -1192,7 +1192,16 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         &g.true_num,
     );
 
-    let (val, the_cont_let, the_cont_letrec) = {
+    /*
+     * Returns the expression, which can be the value of the first binding,
+     * when it is found, or the body otherwise. It also returns 2 continuations,
+     * one for let and one for letrec. In both cases the continuation is equal to
+     * `cont` if no error is found.
+     * Errors:
+     *  - rest_body_is_nil
+     *  - end_is_nil rest (and not binding_is_nil)
+     */
+    let (the_expr, the_cont_let, the_cont_letrec) = {
         // head == LET
         // or head == LETREC
 
@@ -1218,32 +1227,26 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
 
         let rest_body_is_nil =
             rest_body.alloc_equal(&mut cs_letrec.namespace(|| "rest_body_is_nil"), &g.nil_ptr)?;
-        let cond_body1 = constraints::or(
-            &mut cs_letrec.namespace(|| "cond body1"),
-            &bindings_is_nil,
-            &Boolean::not(&rest_body_is_nil),
-        )?;
 
-        let (val1, end) = car_cdr(
+        let (val, end) = car_cdr(
             &mut cs_letrec.namespace(|| "car_cdr more_vals"),
             g,
             &more_vals,
             store,
         )?;
 
-        let val = AllocatedPtr::pick(
-            &mut cs_letrec.namespace(|| "pick val"),
-            &cond_body1,
-            &body1,
-            &val1,
-        )?;
-
         let end_is_nil = end.alloc_equal(&mut cs_letrec.namespace(|| "end_is_nil"), &g.nil_ptr)?;
+
+        /*
+         * We get the condition for error by using OR of each individual error.
+         */
+        // First error happens when binding is not nil AND end is not nil
         let mut cond_error = Boolean::and(
-            &mut cs_letrec.namespace(|| "if binding not nil and end is nil"), // if binding is nil, end_is_nil is None
+            &mut cs_letrec.namespace(|| "if binding not nil and end is nil"),
             &Boolean::not(&bindings_is_nil),
-            &end_is_nil,
+            &Boolean::not(&end_is_nil),
         )?;
+        // Second error happens when rest_body is not nil
         cond_error = constraints::or(
             &mut cs_letrec.namespace(|| "cond error"),
             &Boolean::not(&rest_body_is_nil),
@@ -1269,18 +1272,11 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
             &expanded1,
         )?;
 
-        let continuation1_let = AllocatedContPtr::construct(
+        let continuation_let = AllocatedContPtr::construct(
             &mut cs_letrec.namespace(|| "let continuation"),
             store,
             &g.let_cont_tag,
             &[&var, &expanded, env, cont],
-        )?;
-
-        let continuation_let = AllocatedContPtr::pick(
-            &mut cs_letrec.namespace(|| "continuation let"),
-            &bindings_is_nil,
-            cont,
-            &continuation1_let,
         )?;
 
         let expanded2 = AllocatedPtr::construct_list(
@@ -1297,39 +1293,60 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
             &expanded2,
         )?;
 
-        let continuation1_letrec = AllocatedContPtr::construct(
+        let continuation_letrec = AllocatedContPtr::construct(
             &mut cs_letrec.namespace(|| "letrec continuation"),
             store,
             &g.letrec_cont_tag,
             &[&var, &expanded_, env, cont],
         )?;
 
-        let continuation_letrec = AllocatedContPtr::pick(
-            &mut cs_letrec.namespace(|| "continuation letrec"),
+        let output_expr = AllocatedPtr::pick(
+            &mut cs_letrec.namespace(|| "pick body1 or val"),
             &bindings_is_nil,
-            cont,
-            &continuation1_letrec,
+            &body1,
+            &val,
+        )?;
+
+        let output_cont_let = AllocatedContPtr::pick(
+            &mut cs_letrec.namespace(|| "pick cont or newer let"),
+            &bindings_is_nil,
+            &cont,
+            &continuation_let,
+        )?;
+
+        let output_cont_letrec = AllocatedContPtr::pick(
+            &mut cs_letrec.namespace(|| "pick cont or newer letrec"),
+            &bindings_is_nil,
+            &cont,
+            &continuation_letrec,
+        )?;
+
+        let the_expr = AllocatedPtr::pick(
+            &mut cs_letrec.namespace(|| "the_expr_let"),
+            &cond_error,
+            &expr,
+            &output_expr,
         )?;
 
         let the_cont_let = AllocatedContPtr::pick(
             &mut cs_letrec.namespace(|| "the_cont_let"),
             &cond_error,
-            &continuation_let,
             &g.error_ptr_cont,
+            &output_cont_let,
         )?;
 
         let the_cont_letrec = AllocatedContPtr::pick(
             &mut cs_letrec.namespace(|| "the_cont_letrec"),
             &cond_error,
-            &continuation_letrec,
             &g.error_ptr_cont,
+            &output_cont_letrec,
         )?;
 
-        (val, the_cont_let, the_cont_letrec)
+        (the_expr, the_cont_let, the_cont_letrec)
     };
 
-    results.add_clauses_cons(*let_hash, &val, env, &the_cont_let, &g.false_num);
-    results.add_clauses_cons(*letrec_hash, &val, env, &the_cont_letrec, &g.false_num);
+    results.add_clauses_cons(*let_hash, &the_expr, env, &the_cont_let, &g.false_num);
+    results.add_clauses_cons(*letrec_hash, &the_expr, env, &the_cont_letrec, &g.false_num);
 
     // head == CONS
     let continuation = AllocatedContPtr::construct(
@@ -2929,9 +2946,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31184, cs.num_constraints());
+            assert_eq!(31185, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31147, cs.aux().len());
+            assert_eq!(31148, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
