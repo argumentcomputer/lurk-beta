@@ -1243,7 +1243,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
             rest_body.alloc_equal(&mut cs_letrec.namespace(|| "rest_body_is_nil"), &g.nil_ptr)?;
 
         let (val, end) = car_cdr(
-            &mut cs_letrec.namespace(|| "car_cdr more_vals"),
+            &mut cs_letrec.namespace(|| "car_cdr vals"),
             g,
             &vals,
             store,
