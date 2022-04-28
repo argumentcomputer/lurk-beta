@@ -1251,7 +1251,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
 
         let end_is_nil = end.alloc_equal(&mut cs_letrec.namespace(|| "end_is_nil"), &g.nil_ptr)?;
 
-        let body1_is_nil = body1.alloc_equal(&mut cs_letrec.namespace(|| "body1_is_nil"), &g.nil_ptr)?;
+        let body_is_nil = body.alloc_equal(&mut cs_letrec.namespace(|| "body_is_nil"), &g.nil_ptr)?;
 
         /*
          * We get the condition for error by using OR of each individual error.
@@ -1263,7 +1263,7 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
         )?;
         cond_error = constraints::or(
             &mut cs_letrec.namespace(|| "cond error2"),
-            &body1_is_nil,
+            &body_is_nil,
             &cond_error,
         )?;
 

@@ -296,11 +296,11 @@ mod tests {
 
                 assert_eq!(expected_iterations, Frame::significant_frame_count(&frames));
                 assert_eq!(adjusted_iterations, cs.len());
+                let status: Status = output.cont.into();
+                assert_eq!(expected_cont, status);
                 if expected_cont != Status::Error {
                     assert_eq!(expected_result, output.expr);
                 }
-                let status: Status = output.cont.into();
-                assert_eq!(expected_cont, status);
             }
 
             let constraint_systems_verified = verify_sequential_css::<Fr>(&cs).unwrap();
@@ -979,6 +979,21 @@ mod tests {
             |store| store.num(1),
             Status::Error,
             1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_let_body_nil() {
+        outer_prove_aux(
+            "(eq nil (let () nil))",
+            |store| store.t(),
+            Status::Terminal,
+            4,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
