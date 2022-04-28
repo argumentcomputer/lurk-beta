@@ -538,7 +538,7 @@ fn reduce_with_witness<F: PrimeField>(
                     let (bindings, body) = store.car_cdr(&rest);
                     let (body1, rest_body) = store.car_cdr(&body);
                     // Only a single body form allowed for now.
-                    if !rest_body.is_nil() {
+                    if !rest_body.is_nil() || body1.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else if bindings.is_nil() {
                         Control::Return(body1, env, cont)
@@ -566,7 +566,7 @@ fn reduce_with_witness<F: PrimeField>(
                     let (bindings, body) = store.car_cdr(&rest);
                     let (body1, rest_body) = store.car_cdr(&body);
                     // Only a single body form allowed for now.
-                    if !rest_body.is_nil() {
+                    if !rest_body.is_nil() || body1.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else if bindings.is_nil() {
                         Control::Return(body1, env, cont)

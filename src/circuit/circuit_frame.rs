@@ -1251,13 +1251,20 @@ fn reduce_cons<F: PrimeField, CS: ConstraintSystem<F>>(
 
         let end_is_nil = end.alloc_equal(&mut cs_letrec.namespace(|| "end_is_nil"), &g.nil_ptr)?;
 
+        let body1_is_nil = body1.alloc_equal(&mut cs_letrec.namespace(|| "body1_is_nil"), &g.nil_ptr)?;
+
         /*
          * We get the condition for error by using OR of each individual error.
          */
-        let cond_error = constraints::or(
-            &mut cs_letrec.namespace(|| "cond error"),
+        let mut cond_error = constraints::or(
+            &mut cs_letrec.namespace(|| "cond error1"),
             &Boolean::not(&rest_body_is_nil),
             &Boolean::not(&end_is_nil),
+        )?;
+        cond_error = constraints::or(
+            &mut cs_letrec.namespace(|| "cond error2"),
+            &body1_is_nil,
+            &cond_error,
         )?;
 
         let expanded1 = AllocatedPtr::construct_list(
@@ -2953,9 +2960,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31186, cs.num_constraints());
+            assert_eq!(31196, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31149, cs.aux().len());
+            assert_eq!(31157, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

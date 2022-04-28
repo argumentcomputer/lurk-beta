@@ -928,6 +928,66 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_evaluate_let_empty_error() {
+        outer_prove_aux(
+            "(let)",
+            |store| store.num(1),
+            Status::Error,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_let_empty_body_error() {
+        outer_prove_aux(
+            "(let ((a 1)))",
+            |store| store.num(1),
+            Status::Error,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_letrec_empty_error() {
+        outer_prove_aux(
+            "(letrec)",
+            |store| store.num(1),
+            Status::Error,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_letrec_empty_body_error() {
+        outer_prove_aux(
+            "(letrec ((a 1)))",
+            |store| store.num(1),
+            Status::Error,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
     fn outer_prove_evaluate_let_rest_body_is_nil_error() {
         outer_prove_aux(
             "(let ((a 1)) a 1)",
@@ -1323,21 +1383,6 @@ mod tests {
             |store| store.sym("odd"),
             Status::Terminal,
             25,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
-    }
-
-    #[test]
-    fn outer_prove_evaluate_let_no_body() {
-        outer_prove_aux(
-            "(let ((a 9)))",
-            |store| store.nil(),
-            Status::Terminal,
-            3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
