@@ -1,4 +1,3 @@
-use ff::PrimeField;
 use itertools::Itertools;
 use neptune::Poseidon;
 use rayon::prelude::*;
@@ -10,17 +9,26 @@ use generic_array::typenum::{U4, U6, U8};
 use neptune::poseidon::PoseidonConstants;
 use once_cell::sync::OnceCell;
 
+use libipld::Cid;
+use libipld::Ipld;
+
+use crate::field::LurkField;
+use crate::ipld::IpldEmbed;
+use crate::ipld::IpldError;
+use crate::scalar_store::ScalarContinuation;
+use crate::scalar_store::ScalarExpression;
+use crate::scalar_store::ScalarStore;
 use crate::Num;
 
 /// Holds the constants needed for poseidon hashing.
 #[derive(Debug)]
-pub(crate) struct HashConstants<F: PrimeField> {
+pub(crate) struct HashConstants<F: LurkField> {
     c4: OnceCell<PoseidonConstants<F, U4>>,
     c6: OnceCell<PoseidonConstants<F, U6>>,
     c8: OnceCell<PoseidonConstants<F, U8>>,
 }
 
-impl<F: PrimeField> Default for HashConstants<F> {
+impl<F: LurkField> Default for HashConstants<F> {
     fn default() -> Self {
         Self {
             c4: OnceCell::new(),
@@ -30,7 +38,7 @@ impl<F: PrimeField> Default for HashConstants<F> {
     }
 }
 
-impl<F: PrimeField> HashConstants<F> {
+impl<F: LurkField> HashConstants<F> {
     pub fn c4(&self) -> &PoseidonConstants<F, U4> {
         self.c4.get_or_init(|| PoseidonConstants::new())
     }
@@ -61,7 +69,7 @@ impl Default for StringSet {
 }
 
 #[derive(Debug)]
-pub struct Store<F: PrimeField> {
+pub struct Store<F: LurkField> {
     pub(crate) cons_store: IndexSet<(Ptr<F>, Ptr<F>)>,
 
     fun_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
@@ -103,7 +111,7 @@ pub struct Store<F: PrimeField> {
 }
 
 #[derive(Default, Debug)]
-struct PoseidonCache<F: PrimeField> {
+struct PoseidonCache<F: LurkField> {
     a4: dashmap::DashMap<CacheKey<F, 4>, F, ahash::RandomState>,
     a6: dashmap::DashMap<CacheKey<F, 6>, F, ahash::RandomState>,
     a8: dashmap::DashMap<CacheKey<F, 8>, F, ahash::RandomState>,
@@ -112,10 +120,10 @@ struct PoseidonCache<F: PrimeField> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-struct CacheKey<F: PrimeField, const N: usize>([F; N]);
+struct CacheKey<F: LurkField, const N: usize>([F; N]);
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField, const N: usize> Hash for CacheKey<F, N> {
+impl<F: LurkField, const N: usize> Hash for CacheKey<F, N> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         for el in &self.0 {
             el.to_repr().as_ref().hash(state);
@@ -123,7 +131,7 @@ impl<F: PrimeField, const N: usize> Hash for CacheKey<F, N> {
     }
 }
 
-impl<F: PrimeField> PoseidonCache<F> {
+impl<F: LurkField> PoseidonCache<F> {
     fn hash4(&self, preimage: &[F; 4]) -> F {
         let hash = self
             .a4
@@ -150,11 +158,11 @@ impl<F: PrimeField> PoseidonCache<F> {
     }
 }
 
-pub trait Object<F: PrimeField>: fmt::Debug + Copy + Clone + PartialEq {
+pub trait Object<F: LurkField>: fmt::Debug + Copy + Clone + PartialEq {
     type Pointer: Pointer<F>;
 }
 
-pub trait Pointer<F: PrimeField + From<u64>>: fmt::Debug + Copy + Clone + PartialEq + Hash {
+pub trait Pointer<F: LurkField + From<u64>>: fmt::Debug + Copy + Clone + PartialEq + Hash {
     type Tag: Into<u64>;
     type ScalarPointer: ScalarPointer<F>;
 
@@ -164,24 +172,24 @@ pub trait Pointer<F: PrimeField + From<u64>>: fmt::Debug + Copy + Clone + Partia
     }
 }
 
-pub trait ScalarPointer<F: PrimeField>: fmt::Debug + Copy + Clone + PartialEq + Hash {
+pub trait ScalarPointer<F: LurkField>: fmt::Debug + Copy + Clone + PartialEq + Hash {
     fn from_parts(tag: F, value: F) -> Self;
     fn tag(&self) -> &F;
     fn value(&self) -> &F;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Ptr<F: PrimeField>(Tag, RawPtr<F>);
+pub struct Ptr<F: LurkField>(Tag, RawPtr<F>);
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField> Hash for Ptr<F> {
+impl<F: LurkField> Hash for Ptr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
         self.1.hash(state);
     }
 }
 
-impl<F: PrimeField> Ptr<F> {
+impl<F: LurkField> Ptr<F> {
     pub fn is_nil(&self) -> bool {
         matches!(self.0, Tag::Nil)
     }
@@ -194,7 +202,7 @@ impl<F: PrimeField> Ptr<F> {
     }
 }
 
-impl<F: PrimeField> Pointer<F> for Ptr<F> {
+impl<F: LurkField> Pointer<F> for Ptr<F> {
     type Tag = Tag;
     type ScalarPointer = ScalarPtr<F>;
 
@@ -203,24 +211,50 @@ impl<F: PrimeField> Pointer<F> for Ptr<F> {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd)]
-pub struct ScalarPtr<F: PrimeField>(F, F);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScalarPtr<F: LurkField>(F, F);
 
-// impl<F: PrimeField> Ord for ScalarPtr<F> {
-//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-//         (self.0.to_repr(), self.1.to_repr()).cmp((other.0.to_repr(), other.1.to_repr()))
-//     }
-// }
+impl<F: LurkField> Copy for ScalarPtr<F> {}
+
+impl<F: LurkField> PartialOrd for ScalarPtr<F> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
+            .partial_cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
+    }
+}
+
+impl<F: LurkField> Ord for ScalarPtr<F> {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
+            .cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
+    }
+}
+
+impl<F: LurkField> IpldEmbed for ScalarPtr<F> {
+    fn to_ipld(&self) -> Ipld {
+        let cid = F::to_cid(self.0, self.1);
+        cid.to_ipld()
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        let cid = Cid::from_ipld(ipld)?;
+        let (tag, dig) = F::from_cid(cid).ok_or_else(|| {
+            IpldError::Expected(String::from("ScalarPtr encoded as Cid"), Ipld::Link(cid))
+        })?;
+
+        Ok(ScalarPtr::from_parts(tag, dig))
+    }
+}
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField> Hash for ScalarPtr<F> {
+impl<F: LurkField> Hash for ScalarPtr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.to_repr().as_ref().hash(state);
         self.1.to_repr().as_ref().hash(state);
     }
 }
 
-impl<F: PrimeField> ScalarPointer<F> for ScalarPtr<F> {
+impl<F: LurkField> ScalarPointer<F> for ScalarPtr<F> {
     fn from_parts(tag: F, value: F) -> Self {
         ScalarPtr(tag, value)
     }
@@ -234,34 +268,69 @@ impl<F: PrimeField> ScalarPointer<F> for ScalarPtr<F> {
     }
 }
 
-pub trait IntoHashComponents<F: PrimeField> {
+pub trait IntoHashComponents<F: LurkField> {
     fn into_hash_components(self) -> [F; 2];
 }
 
-impl<F: PrimeField> IntoHashComponents<F> for [F; 2] {
+impl<F: LurkField> IntoHashComponents<F> for [F; 2] {
     fn into_hash_components(self) -> [F; 2] {
         self
     }
 }
 
-impl<F: PrimeField> IntoHashComponents<F> for ScalarPtr<F> {
+impl<F: LurkField> IntoHashComponents<F> for ScalarPtr<F> {
     fn into_hash_components(self) -> [F; 2] {
         [self.0, self.1]
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct ScalarContPtr<F: PrimeField>(F, F);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScalarContPtr<F: LurkField>(F, F);
+
+impl<F: LurkField> Copy for ScalarContPtr<F> {}
+
+impl<F: LurkField> PartialOrd for ScalarContPtr<F> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
+            .partial_cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
+    }
+}
+
+impl<F: LurkField> Ord for ScalarContPtr<F> {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
+            .cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
+    }
+}
+
+impl<F: LurkField> IpldEmbed for ScalarContPtr<F> {
+    fn to_ipld(&self) -> Ipld {
+        let cid = F::to_cid(self.0, self.1);
+        cid.to_ipld()
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        let cid = Cid::from_ipld(ipld)?;
+        let (tag, dig) = F::from_cid(cid).ok_or_else(|| {
+            IpldError::Expected(
+                String::from("ScalarContPtr encoded as Cid"),
+                Ipld::Link(cid),
+            )
+        })?;
+
+        Ok(ScalarContPtr::from_parts(tag, dig))
+    }
+}
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField> Hash for ScalarContPtr<F> {
+impl<F: LurkField> Hash for ScalarContPtr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.to_repr().as_ref().hash(state);
         self.1.to_repr().as_ref().hash(state);
     }
 }
 
-impl<F: PrimeField> ScalarPointer<F> for ScalarContPtr<F> {
+impl<F: LurkField> ScalarPointer<F> for ScalarContPtr<F> {
     fn from_parts(tag: F, value: F) -> Self {
         ScalarContPtr(tag, value)
     }
@@ -274,24 +343,24 @@ impl<F: PrimeField> ScalarPointer<F> for ScalarContPtr<F> {
     }
 }
 
-impl<F: PrimeField> IntoHashComponents<F> for ScalarContPtr<F> {
+impl<F: LurkField> IntoHashComponents<F> for ScalarContPtr<F> {
     fn into_hash_components(self) -> [F; 2] {
         [self.0, self.1]
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct ContPtr<F: PrimeField>(ContTag, RawPtr<F>);
+pub struct ContPtr<F: LurkField>(ContTag, RawPtr<F>);
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField> Hash for ContPtr<F> {
+impl<F: LurkField> Hash for ContPtr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
         self.1.hash(state);
     }
 }
 
-impl<F: PrimeField> Pointer<F> for ContPtr<F> {
+impl<F: LurkField> Pointer<F> for ContPtr<F> {
     type Tag = ContTag;
     type ScalarPointer = ScalarContPtr<F>;
 
@@ -300,7 +369,7 @@ impl<F: PrimeField> Pointer<F> for ContPtr<F> {
     }
 }
 
-impl<F: PrimeField> ContPtr<F> {
+impl<F: LurkField> ContPtr<F> {
     pub fn is_error(&self) -> bool {
         matches!(self.0, ContTag::Error)
     }
@@ -311,9 +380,9 @@ impl<F: PrimeField> ContPtr<F> {
 // If .0 is negative, RawPtr is opaque. This lets us retain the efficiency and structure of the current implementation.
 // It cuts the local store's address space in half, which is likely not an issue. This representation does not affect
 // external data, so if we want to change it in the future, we can do so without a change of defined behavior.
-pub struct RawPtr<F: PrimeField>(isize, PhantomData<F>);
+pub struct RawPtr<F: LurkField>(isize, PhantomData<F>);
 
-impl<F: PrimeField> RawPtr<F> {
+impl<F: LurkField> RawPtr<F> {
     fn new(p: usize) -> Self {
         assert!(p < isize::MAX as usize);
         RawPtr(p as isize, Default::default())
@@ -324,12 +393,12 @@ impl<F: PrimeField> RawPtr<F> {
     }
 
     pub fn idx(&self) -> usize {
-        self.0.abs() as usize
+        self.0.unsigned_abs() as usize
     }
 }
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField> Hash for RawPtr<F> {
+impl<F: LurkField> Hash for RawPtr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
@@ -349,7 +418,7 @@ impl<F: PrimeField> Hash for RawPtr<F> {
 // - `0b0100` for Rel2
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Expression<'a, F: PrimeField> {
+pub enum Expression<'a, F: LurkField> {
     Nil,
     Cons(Ptr<F>, Ptr<F>),
     Sym(&'a str),
@@ -361,18 +430,18 @@ pub enum Expression<'a, F: PrimeField> {
     Opaque(Ptr<F>),
 }
 
-impl<F: PrimeField> Object<F> for Expression<'_, F> {
+impl<F: LurkField> Object<F> for Expression<'_, F> {
     type Pointer = Ptr<F>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Thunk<F: PrimeField> {
+pub struct Thunk<F: LurkField> {
     pub(crate) value: Ptr<F>,
     pub(crate) continuation: ContPtr<F>,
 }
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField> Hash for Thunk<F> {
+impl<F: LurkField> Hash for Thunk<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.value.hash(state);
         self.continuation.hash(state);
@@ -380,7 +449,7 @@ impl<F: PrimeField> Hash for Thunk<F> {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Continuation<F: PrimeField> {
+pub enum Continuation<F: LurkField> {
     Outermost,
     Call0 {
         continuation: ContPtr<F>,
@@ -453,7 +522,7 @@ pub enum Continuation<F: PrimeField> {
     Terminal,
 }
 
-impl<F: PrimeField> Object<F> for Continuation<F> {
+impl<F: LurkField> Object<F> for Continuation<F> {
     type Pointer = ContPtr<F>;
 }
 
@@ -478,8 +547,33 @@ impl fmt::Display for Op1 {
 }
 
 impl Op1 {
+    pub fn from_u16(x: u16) -> Option<Self> {
+        match x {
+            x if x == Op1::Car as u16 => Some(Op1::Car),
+            x if x == Op1::Cdr as u16 => Some(Op1::Cdr),
+            x if x == Op1::Atom as u16 => Some(Op1::Atom),
+            x if x == Op1::Emit as u16 => Some(Op1::Emit),
+            _ => None,
+        }
+    }
+
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
+    }
+}
+
+impl IpldEmbed for Op1 {
+    fn to_ipld(&self) -> Ipld {
+        Ipld::Integer(*self as i128)
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        match ipld {
+            Ipld::Integer(x) if *x >= 0 && *x <= u16::MAX as i128 => {
+                Op1::from_u16(*x as u16).ok_or_else(|| IpldError::expected("Op1", ipld))
+            }
+            xs => Err(IpldError::expected("Op1", xs)),
+        }
     }
 }
 
@@ -494,6 +588,16 @@ pub enum Op2 {
 }
 
 impl Op2 {
+    pub fn from_u16(x: u16) -> Option<Self> {
+        match x {
+            x if x == Op2::Sum as u16 => Some(Op2::Sum),
+            x if x == Op2::Diff as u16 => Some(Op2::Diff),
+            x if x == Op2::Product as u16 => Some(Op2::Product),
+            x if x == Op2::Quotient as u16 => Some(Op2::Quotient),
+            x if x == Op2::Cons as u16 => Some(Op2::Cons),
+            _ => None,
+        }
+    }
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
@@ -511,6 +615,21 @@ impl fmt::Display for Op2 {
     }
 }
 
+impl IpldEmbed for Op2 {
+    fn to_ipld(&self) -> Ipld {
+        Ipld::Integer(*self as i128)
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        match ipld {
+            Ipld::Integer(x) if *x >= 0 && *x <= u16::MAX as i128 => {
+                Op2::from_u16(*x as u16).ok_or_else(|| IpldError::expected("Op2", ipld))
+            }
+            xs => Err(IpldError::expected("Op2", xs)),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
 #[repr(u16)]
 pub enum Rel2 {
@@ -519,6 +638,13 @@ pub enum Rel2 {
 }
 
 impl Rel2 {
+    pub fn from_u16(x: u16) -> Option<Self> {
+        match x {
+            x if x == Rel2::Equal as u16 => Some(Rel2::Equal),
+            x if x == Rel2::NumEqual as u16 => Some(Rel2::NumEqual),
+            _ => None,
+        }
+    }
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
@@ -529,6 +655,21 @@ impl fmt::Display for Rel2 {
         match self {
             Rel2::Equal => write!(f, "Equal"),
             Rel2::NumEqual => write!(f, "NumEqual"),
+        }
+    }
+}
+
+impl IpldEmbed for Rel2 {
+    fn to_ipld(&self) -> Ipld {
+        Ipld::Integer(*self as i128)
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        match ipld {
+            Ipld::Integer(x) if *x >= 0 && *x <= u16::MAX as i128 => {
+                Rel2::from_u16(*x as u16).ok_or_else(|| IpldError::expected("Rel2", ipld))
+            }
+            xs => Err(IpldError::expected("Rel2", xs)),
         }
     }
 }
@@ -552,6 +693,19 @@ impl From<Tag> for u64 {
 }
 
 impl Tag {
+    pub fn from_field<F: From<u64> + ff::Field>(f: F) -> Option<Self> {
+        match f {
+            f if f == Tag::Nil.as_field() => Some(Tag::Nil),
+            f if f == Tag::Cons.as_field() => Some(Tag::Cons),
+            f if f == Tag::Sym.as_field() => Some(Tag::Sym),
+            f if f == Tag::Fun.as_field() => Some(Tag::Fun),
+            f if f == Tag::Thunk.as_field() => Some(Tag::Thunk),
+            f if f == Tag::Num.as_field() => Some(Tag::Num),
+            f if f == Tag::Str.as_field() => Some(Tag::Str),
+            _ => None,
+        }
+    }
+
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
@@ -587,12 +741,33 @@ impl From<ContTag> for u64 {
 }
 
 impl ContTag {
+    pub fn from_field<F: From<u64> + ff::Field>(f: F) -> Option<Self> {
+        match f {
+            f if f == ContTag::Outermost.as_field() => Some(ContTag::Outermost),
+            f if f == ContTag::Call0.as_field() => Some(ContTag::Call0),
+            f if f == ContTag::Call.as_field() => Some(ContTag::Call),
+            f if f == ContTag::Call2.as_field() => Some(ContTag::Call2),
+            f if f == ContTag::Tail.as_field() => Some(ContTag::Tail),
+            f if f == ContTag::Error.as_field() => Some(ContTag::Error),
+            f if f == ContTag::Lookup.as_field() => Some(ContTag::Lookup),
+            f if f == ContTag::Unop.as_field() => Some(ContTag::Unop),
+            f if f == ContTag::Binop.as_field() => Some(ContTag::Binop),
+            f if f == ContTag::Relop.as_field() => Some(ContTag::Relop),
+            f if f == ContTag::If.as_field() => Some(ContTag::If),
+            f if f == ContTag::Let.as_field() => Some(ContTag::Let),
+            f if f == ContTag::LetRec.as_field() => Some(ContTag::LetRec),
+            f if f == ContTag::Dummy.as_field() => Some(ContTag::Dummy),
+            f if f == ContTag::Terminal.as_field() => Some(ContTag::Terminal),
+            f if f == ContTag::Emit.as_field() => Some(ContTag::Emit),
+            _ => None,
+        }
+    }
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
 }
 
-impl<F: PrimeField> Default for Store<F> {
+impl<F: LurkField> Default for Store<F> {
     fn default() -> Self {
         let mut store = Store {
             cons_store: Default::default(),
@@ -662,7 +837,7 @@ impl<F: PrimeField> Default for Store<F> {
 /// They can be thought of as a minimal DSL for working with Lurk data in Rust code.
 /// Prefer these methods when constructing literal data or assembling program fragments in
 /// tests or during evaluation, etc.
-impl<F: PrimeField> Store<F> {
+impl<F: LurkField> Store<F> {
     pub fn nil(&mut self) -> Ptr<F> {
         self.intern_nil()
     }
@@ -704,7 +879,7 @@ impl<F: PrimeField> Store<F> {
     }
 }
 
-impl<F: PrimeField> Store<F> {
+impl<F: LurkField> Store<F> {
     pub fn new() -> Self {
         Store::default()
     }
@@ -753,6 +928,222 @@ impl<F: PrimeField> Store<F> {
         // Always insert. Key is unique because of newly allocated opaque raw_ptr.
         self.opaque_map.insert(ptr, scalar_ptr);
         ptr
+    }
+
+    pub fn intern_scalar_cont_ptr(
+        &mut self,
+        ptr: ScalarContPtr<F>,
+        scalar_store: &ScalarStore<F>,
+    ) -> Option<ContPtr<F>> {
+        let tag: ContTag = ContTag::from_field(*ptr.tag())?;
+        let cont = scalar_store.get_cont(&ptr);
+        use ScalarContinuation::*;
+        match (tag, cont) {
+            (ContTag::Outermost, Some(Outermost)) => Some(self.intern_cont_outermost()),
+            (
+                ContTag::Call,
+                Some(Call {
+                    unevaled_arg,
+                    saved_env,
+                    continuation,
+                }),
+            ) => {
+                let arg = self.intern_scalar_ptr(*unevaled_arg, scalar_store)?;
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_call(arg, env, cont))
+            }
+            (
+                ContTag::Call2,
+                Some(Call2 {
+                    function,
+                    saved_env,
+                    continuation,
+                }),
+            ) => {
+                let fun = self.intern_scalar_ptr(*function, scalar_store)?;
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_call2(fun, env, cont))
+            }
+            (
+                ContTag::Tail,
+                Some(Tail {
+                    saved_env,
+                    continuation,
+                }),
+            ) => {
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_tail(env, cont))
+            }
+            (ContTag::Error, Some(Error)) => Some(self.intern_cont_error()),
+            (
+                ContTag::Lookup,
+                Some(Lookup {
+                    saved_env,
+                    continuation,
+                }),
+            ) => {
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_lookup(env, cont))
+            }
+            (
+                ContTag::Unop,
+                Some(Unop {
+                    operator,
+                    continuation,
+                }),
+            ) => {
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_unop(*operator, cont))
+            }
+            (
+                ContTag::Binop,
+                Some(Binop {
+                    operator,
+                    saved_env,
+                    unevaled_args,
+                    continuation,
+                }),
+            ) => {
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let args = self.intern_scalar_ptr(*unevaled_args, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_binop(*operator, env, args, cont))
+            }
+            (
+                ContTag::Binop2,
+                Some(Binop2 {
+                    operator,
+                    evaled_arg,
+                    continuation,
+                }),
+            ) => {
+                let arg = self.intern_scalar_ptr(*evaled_arg, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_binop2(*operator, arg, cont))
+            }
+            (
+                ContTag::Relop,
+                Some(Relop {
+                    operator,
+                    saved_env,
+                    unevaled_args,
+                    continuation,
+                }),
+            ) => {
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let args = self.intern_scalar_ptr(*unevaled_args, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_relop(*operator, env, args, cont))
+            }
+            (
+                ContTag::Relop2,
+                Some(Relop2 {
+                    operator,
+                    evaled_arg,
+                    continuation,
+                }),
+            ) => {
+                let arg = self.intern_scalar_ptr(*evaled_arg, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_relop2(*operator, arg, cont))
+            }
+            (
+                ContTag::If,
+                Some(If {
+                    unevaled_args,
+                    continuation,
+                }),
+            ) => {
+                let args = self.intern_scalar_ptr(*unevaled_args, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_if(args, cont))
+            }
+            (
+                ContTag::Let,
+                Some(Let {
+                    var,
+                    body,
+                    saved_env,
+                    continuation,
+                }),
+            ) => {
+                let var = self.intern_scalar_ptr(*var, scalar_store)?;
+                let body = self.intern_scalar_ptr(*body, scalar_store)?;
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_let(var, body, env, cont))
+            }
+            (
+                ContTag::LetRec,
+                Some(LetRec {
+                    var,
+                    body,
+                    saved_env,
+                    continuation,
+                }),
+            ) => {
+                let var = self.intern_scalar_ptr(*var, scalar_store)?;
+                let body = self.intern_scalar_ptr(*body, scalar_store)?;
+                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_let(var, body, env, cont))
+            }
+            (ContTag::Emit, Some(Emit { continuation })) => {
+                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
+                Some(self.intern_cont_emit(cont))
+            }
+            (ContTag::Dummy, Some(Dummy)) => Some(self.intern_cont_dummy()),
+            (ContTag::Terminal, Some(Terminal)) => Some(self.intern_cont_terminal()),
+            _ => None,
+        }
+    }
+
+    pub fn intern_scalar_ptr(
+        &mut self,
+        ptr: ScalarPtr<F>,
+        scalar_store: &ScalarStore<F>,
+    ) -> Option<Ptr<F>> {
+        let tag: Tag = Tag::from_field(*ptr.tag())?;
+        let expr = scalar_store.get_expr(&ptr);
+        use ScalarExpression::*;
+        match (tag, expr) {
+            (Tag::Nil, Some(Nil)) => Some(self.intern_nil()),
+            (Tag::Cons, Some(Cons(car, cdr))) => {
+                let car = self.intern_scalar_ptr(*car, scalar_store)?;
+                let cdr = self.intern_scalar_ptr(*cdr, scalar_store)?;
+                Some(self.intern_cons(car, cdr))
+            }
+            (Tag::Str, Some(Str(s))) => Some(self.intern_str(s)),
+            (Tag::Sym, Some(Sym(s))) => Some(self.intern_sym(s)),
+            (Tag::Num, Some(Num(x))) => Some(self.intern_num(crate::Num::Scalar(*x))),
+            (Tag::Thunk, Some(Thunk(t))) => {
+                let value = self.intern_scalar_ptr(t.value, scalar_store)?;
+                let continuation = self.intern_scalar_cont_ptr(t.continuation, scalar_store)?;
+                Some(self.intern_thunk(super::store::Thunk {
+                    value,
+                    continuation,
+                }))
+            }
+            (
+                Tag::Fun,
+                Some(Fun {
+                    arg,
+                    body,
+                    closed_env,
+                }),
+            ) => {
+                let arg = self.intern_scalar_ptr(*arg, scalar_store)?;
+                let body = self.intern_scalar_ptr(*body, scalar_store)?;
+                let env = self.intern_scalar_ptr(*closed_env, scalar_store)?;
+                Some(self.intern_fun(arg, body, env))
+            }
+            (tag, None) => Some(self.intern_opaque(tag, ptr.1)),
+            _ => None,
+        }
     }
 
     pub fn intern_opaque_fun(&mut self, hash: F) -> Ptr<F> {
@@ -1342,6 +1733,10 @@ impl<F: PrimeField> Store<F> {
         scalar_ptr
     }
 
+    /// The `get_hash_components_*` functions should be kept in sync with the
+    /// IpldEmbed trait for ScalarContinuation with respect to the order of
+    /// elements
+
     fn get_hash_components_default(&self) -> [[F; 2]; 4] {
         let def = [F::zero(), F::zero()];
         [def, def, def, def]
@@ -1852,7 +2247,7 @@ impl<F: PrimeField> Store<F> {
     }
 }
 
-impl<F: PrimeField> Expression<'_, F> {
+impl<F: LurkField> Expression<'_, F> {
     pub fn is_keyword_sym(&self) -> bool {
         match self {
             Expression::Sym(s) => s.starts_with(':'),
@@ -1873,15 +2268,228 @@ impl<F: PrimeField> Expression<'_, F> {
             _ => None,
         }
     }
+
+    pub fn is_null(&self) -> bool {
+        matches!(self, Self::Nil)
+    }
+
+    pub fn is_cons(&self) -> bool {
+        matches!(self, Self::Cons(_, _))
+    }
+
+    pub fn is_list(&self) -> bool {
+        self.is_null() || self.is_cons()
+    }
+
+    pub fn is_sym(&self) -> bool {
+        matches!(self, Self::Sym(_))
+    }
+    pub fn is_fun(&self) -> bool {
+        matches!(self, Self::Fun(_, _, _))
+    }
+
+    pub fn is_num(&self) -> bool {
+        matches!(self, Self::Num(_))
+    }
+    pub fn is_str(&self) -> bool {
+        matches!(self, Self::Str(_))
+    }
+
+    pub fn is_thunk(&self) -> bool {
+        matches!(self, Self::Thunk(_))
+    }
+
+    pub fn is_opaque(&self) -> bool {
+        matches!(self, Self::Opaque(_))
+    }
 }
 
 #[cfg(test)]
 mod test {
     use crate::eval::{empty_sym_env, Evaluator};
+    use crate::ipld::FWrap;
     use crate::writer::Write;
     use blstrs::Scalar as Fr;
 
     use super::*;
+    use quickcheck::{Arbitrary, Gen};
+
+    use crate::test::frequency;
+
+    impl Arbitrary for Tag {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Tag>)> = vec![
+                (100, Box::new(|_| Tag::Nil)),
+                (100, Box::new(|_| Tag::Cons)),
+                (100, Box::new(|_| Tag::Sym)),
+                (100, Box::new(|_| Tag::Fun)),
+                (100, Box::new(|_| Tag::Num)),
+                (100, Box::new(|_| Tag::Thunk)),
+                (100, Box::new(|_| Tag::Str)),
+            ];
+            frequency(g, input)
+        }
+    }
+    impl Arbitrary for ContTag {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> ContTag>)> = vec![
+                (100, Box::new(|_| ContTag::Outermost)),
+                (100, Box::new(|_| ContTag::Call)),
+                (100, Box::new(|_| ContTag::Call2)),
+                (100, Box::new(|_| ContTag::Tail)),
+                (100, Box::new(|_| ContTag::Error)),
+                (100, Box::new(|_| ContTag::Lookup)),
+                (100, Box::new(|_| ContTag::Unop)),
+                (100, Box::new(|_| ContTag::Binop)),
+                (100, Box::new(|_| ContTag::Binop2)),
+                (100, Box::new(|_| ContTag::Relop)),
+                (100, Box::new(|_| ContTag::Relop2)),
+                (100, Box::new(|_| ContTag::If)),
+                (100, Box::new(|_| ContTag::Let)),
+                (100, Box::new(|_| ContTag::LetRec)),
+                (100, Box::new(|_| ContTag::Dummy)),
+                (100, Box::new(|_| ContTag::Terminal)),
+                (100, Box::new(|_| ContTag::Emit)),
+            ];
+            frequency(g, input)
+        }
+    }
+
+    impl Arbitrary for ScalarPtr<Fr> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let tag = Tag::arbitrary(g);
+            let val = FWrap::arbitrary(g);
+            ScalarPtr::from_parts(Fr::from(tag as u64), val.0)
+        }
+    }
+
+    #[quickcheck]
+    fn test_scalar_ptr_ipld_embed(x: ScalarPtr<Fr>) -> bool {
+        match ScalarPtr::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
+        }
+    }
+
+    impl Arbitrary for ScalarContPtr<Fr> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let tag = ContTag::arbitrary(g);
+            let val = FWrap::arbitrary(g);
+            ScalarContPtr::from_parts(Fr::from(tag as u64), val.0)
+        }
+    }
+
+    #[quickcheck]
+    fn test_scalar_cont_ptr_ipld_embed(x: ScalarContPtr<Fr>) -> bool {
+        match ScalarContPtr::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
+        }
+    }
+
+    impl Arbitrary for Op1 {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Op1>)> = vec![
+                (100, Box::new(|_| Op1::Car)),
+                (100, Box::new(|_| Op1::Cdr)),
+                (100, Box::new(|_| Op1::Atom)),
+                (100, Box::new(|_| Op1::Emit)),
+            ];
+            frequency(g, input)
+        }
+    }
+
+    #[quickcheck]
+    fn test_op1_ipld_embed(x: Op1) -> bool {
+        match Op1::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
+        }
+    }
+
+    impl Arbitrary for Op2 {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Op2>)> = vec![
+                (100, Box::new(|_| Op2::Sum)),
+                (100, Box::new(|_| Op2::Diff)),
+                (100, Box::new(|_| Op2::Product)),
+                (100, Box::new(|_| Op2::Quotient)),
+                (100, Box::new(|_| Op2::Cons)),
+            ];
+            frequency(g, input)
+        }
+    }
+
+    #[quickcheck]
+    fn test_op2_ipld_embed(x: Op2) -> bool {
+        match Op2::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
+        }
+    }
+
+    impl Arbitrary for Rel2 {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Rel2>)> = vec![
+                (100, Box::new(|_| Rel2::Equal)),
+                (100, Box::new(|_| Rel2::NumEqual)),
+            ];
+            frequency(g, input)
+        }
+    }
+
+    #[quickcheck]
+    fn test_rel2_ipld_embed(x: Rel2) -> bool {
+        match Rel2::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
+        }
+    }
 
     #[test]
     fn test_print_num() {
@@ -1959,8 +2567,10 @@ mod test {
         let mut store = Store::<Fr>::default();
 
         let arg = store.sym("A");
-        let body = store.num(123);
-        let body2 = store.num(987);
+        let body_form = store.num(123);
+        let body2_form = store.num(987);
+        let body = store.list(&[body_form]);
+        let body2 = store.list(&[body2_form]);
         let empty_env = empty_sym_env(&store);
         let fun = store.intern_fun(arg, body, empty_env);
         let fun2 = store.intern_fun(arg, body2, empty_env);
@@ -1975,11 +2585,13 @@ mod test {
         let limit = 10;
         {
             let comparison_expr = store.list(&[eq, fun, opaque_fun]);
+            println!("comparison_expr: {}", comparison_expr.fmt_to_string(&store));
             let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, fun2, opaque_fun]);
+            println!("comparison_expr: {}", comparison_expr.fmt_to_string(&store));
             let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
             assert_eq!(nil, result.expr);
         }

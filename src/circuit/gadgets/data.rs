@@ -2,17 +2,17 @@ use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem, SynthesisError,
 };
-use ff::PrimeField;
 use neptune::circuit::poseidon_hash;
 
 use super::pointer::AsAllocatedHashComponents;
+use crate::field::LurkField;
 use crate::store::{ContPtr, ContTag, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk};
 use crate::store::{IntoHashComponents, ScalarPtr};
 use crate::store::{ScalarContPtr, ScalarPointer};
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};
 
-pub struct GlobalAllocations<F: PrimeField> {
+pub struct GlobalAllocations<F: LurkField> {
     pub terminal_ptr: AllocatedContPtr<F>,
     pub outermost_ptr: AllocatedContPtr<F>,
     pub error_ptr_cont: AllocatedContPtr<F>,
@@ -61,7 +61,7 @@ pub struct GlobalAllocations<F: PrimeField> {
     pub default_num: AllocatedNum<F>,
 }
 
-impl<F: PrimeField> GlobalAllocations<F> {
+impl<F: LurkField> GlobalAllocations<F> {
     pub fn new<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         store: &Store<F>,
@@ -214,7 +214,7 @@ impl<F: PrimeField> GlobalAllocations<F> {
     }
 }
 
-impl<F: PrimeField> ContPtr<F> {
+impl<F: LurkField> ContPtr<F> {
     pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<F>>(
         cs: CS,
         cont: Option<&ContPtr<F>>,
@@ -281,7 +281,7 @@ impl<F: PrimeField> ContPtr<F> {
     }
 }
 
-impl<F: PrimeField> Ptr<F> {
+impl<F: LurkField> Ptr<F> {
     pub fn allocate_maybe_fun<CS: ConstraintSystem<F>>(
         cs: CS,
         store: &Store<F>,
@@ -373,7 +373,7 @@ impl<F: PrimeField> Ptr<F> {
     }
 }
 
-pub fn allocate_constant<F: PrimeField, CS: ConstraintSystem<F>>(
+pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     val: F,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
@@ -391,7 +391,7 @@ pub fn allocate_constant<F: PrimeField, CS: ConstraintSystem<F>>(
 }
 
 impl Tag {
-    pub fn allocate_constant<F: PrimeField, CS: ConstraintSystem<F>>(
+    pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
@@ -403,7 +403,7 @@ impl Tag {
 }
 
 impl ContTag {
-    pub fn allocate_constant<F: PrimeField, CS: ConstraintSystem<F>>(
+    pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
@@ -415,7 +415,7 @@ impl ContTag {
 }
 
 impl Op1 {
-    pub fn allocate_constant<F: PrimeField, CS: ConstraintSystem<F>>(
+    pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
@@ -427,7 +427,7 @@ impl Op1 {
 }
 
 impl Op2 {
-    pub fn allocate_constant<F: PrimeField, CS: ConstraintSystem<F>>(
+    pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
@@ -439,7 +439,7 @@ impl Op2 {
 }
 
 impl Rel2 {
-    pub fn allocate_constant<F: PrimeField, CS: ConstraintSystem<F>>(
+    pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
@@ -450,7 +450,7 @@ impl Rel2 {
     }
 }
 
-impl<F: PrimeField> Thunk<F> {
+impl<F: LurkField> Thunk<F> {
     pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<F>>(
         cs: CS,
         thunk: Option<&Thunk<F>>,

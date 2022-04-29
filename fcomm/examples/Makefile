@@ -1,10 +1,17 @@
 eval-fibonacci :
 	cargo run --release -- eval --expression fibonacci.lurk
 
+fibonacci-claim.json : fibonacci.lurk
+	cargo run --release -- eval --expression fibonacci.lurk --claim fibonacci-claim.json
+
 fibonacci-proof.json : fibonacci.lurk
 	cargo run --release -- prove --expression fibonacci.lurk --proof fibonacci-proof.json
 
+fibonacci-proof2.json : fibonacci-claim.json
+	cargo run --release -- prove --claim fibonacci-claim.json --proof fibonacci-proof2.json
+
 fibonacci-proof : fibonacci-proof.json
+fibonacci-proof2 : fibonacci-proof2.json
 
 verify-fibonacci-proof :
 	cargo run --release -- verify --proof fibonacci-proof.json

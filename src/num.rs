@@ -4,16 +4,22 @@ use std::{
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
-use ff::PrimeField;
+use crate::field::LurkField;
+use crate::ipld;
+use crate::ipld::IpldEmbed;
+use crate::ipld::IpldError;
+use libipld::Ipld;
 
 /// Number type for Lurk. Has different internal representations to optimize evaluation.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Num<F: PrimeField> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Num<F: LurkField> {
     Scalar(F),
     U64(u64),
 }
 
-impl<F: PrimeField> Display for Num<F> {
+impl<F: LurkField> Copy for Num<F> {}
+
+impl<F: LurkField> Display for Num<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Num::Scalar(s) => {
@@ -30,7 +36,7 @@ impl<F: PrimeField> Display for Num<F> {
 }
 
 #[allow(clippy::derive_hash_xor_eq)]
-impl<F: PrimeField> Hash for Num<F> {
+impl<F: LurkField> Hash for Num<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
             Num::Scalar(s) => s.to_repr().as_ref().hash(state),
@@ -45,7 +51,7 @@ impl<F: PrimeField> Hash for Num<F> {
     }
 }
 
-impl<F: PrimeField> AddAssign for Num<F> {
+impl<F: LurkField> AddAssign for Num<F> {
     fn add_assign(&mut self, rhs: Self) {
         match (*self, rhs) {
             (Num::U64(ref mut a), Num::U64(b)) => {
@@ -70,7 +76,7 @@ impl<F: PrimeField> AddAssign for Num<F> {
     }
 }
 
-impl<F: PrimeField> SubAssign for Num<F> {
+impl<F: LurkField> SubAssign for Num<F> {
     fn sub_assign(&mut self, rhs: Self) {
         match (*self, rhs) {
             (Num::U64(ref mut a), Num::U64(b)) => {
@@ -95,7 +101,7 @@ impl<F: PrimeField> SubAssign for Num<F> {
     }
 }
 
-impl<F: PrimeField> MulAssign for Num<F> {
+impl<F: LurkField> MulAssign for Num<F> {
     fn mul_assign(&mut self, rhs: Self) {
         match (*self, rhs) {
             (Num::U64(ref mut a), Num::U64(b)) => {
@@ -120,7 +126,7 @@ impl<F: PrimeField> MulAssign for Num<F> {
     }
 }
 
-impl<F: PrimeField> DivAssign for Num<F> {
+impl<F: LurkField> DivAssign for Num<F> {
     fn div_assign(&mut self, rhs: Self) {
         assert!(!rhs.is_zero(), "can not divide by 0");
         match (*self, rhs) {
@@ -147,7 +153,7 @@ impl<F: PrimeField> DivAssign for Num<F> {
     }
 }
 
-impl<F: PrimeField> Num<F> {
+impl<F: LurkField> Num<F> {
     pub fn is_zero(&self) -> bool {
         match self {
             Num::Scalar(s) => s.is_zero_vartime(),
@@ -167,9 +173,33 @@ impl<F: PrimeField> Num<F> {
     }
 }
 
-impl<F: PrimeField> From<u64> for Num<F> {
+impl<F: LurkField> From<u64> for Num<F> {
     fn from(n: u64) -> Self {
         Num::<F>::U64(n)
+    }
+}
+
+impl<F: LurkField> IpldEmbed for Num<F> {
+    fn to_ipld(&self) -> Ipld {
+        match self {
+            Num::Scalar(f) => ipld::FWrap(*f).to_ipld(),
+            Num::U64(x) => x.to_ipld(),
+        }
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        use Ipld::*;
+        match ipld {
+            Bytes(_) => {
+                let f = ipld::FWrap::from_ipld(ipld)?;
+                Ok(Num::Scalar(f.0))
+            }
+            Integer(_) => {
+                let x = u64::from_ipld(ipld)?;
+                Ok(Num::U64(x))
+            }
+            x => Err(IpldError::expected("Num", x)),
+        }
     }
 }
 
@@ -177,8 +207,46 @@ impl<F: PrimeField> From<u64> for Num<F> {
 mod tests {
     use super::*;
 
+    use quickcheck::{Arbitrary, Gen};
+
+    use crate::ipld::FWrap;
+    use crate::test::frequency;
     use blstrs::Scalar;
+    use blstrs::Scalar as Fr;
     use ff::Field;
+
+    impl Arbitrary for Num<Fr> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Num<Fr>>)> = vec![
+                (100, Box::new(|g| Num::U64(Arbitrary::arbitrary(g)))),
+                (
+                    100,
+                    Box::new(|g| {
+                        let f = FWrap::arbitrary(g);
+                        Num::Scalar(f.0)
+                    }),
+                ),
+            ];
+            frequency(g, input)
+        }
+    }
+
+    #[quickcheck]
+    fn test_num_ipld_embed(x: Num<Fr>) -> bool {
+        match Num::from_ipld(&x.to_ipld()) {
+            Ok(y) if x == y => true,
+            Ok(y) => {
+                println!("x: {:?}", x);
+                println!("y: {:?}", y);
+                false
+            }
+            Err(e) => {
+                println!("{:?}", x);
+                println!("{:?}", e);
+                false
+            }
+        }
+    }
 
     #[test]
     fn test_add_assign() {

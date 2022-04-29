@@ -20,9 +20,9 @@ fn test_bad_command() {
     let mut cmd = fcomm_cmd();
 
     cmd.arg("uiop");
-    cmd.assert()
-        .failure()
-        .stderr(predicate::str::contains("Unsupported command: UIOP"));
+    cmd.assert().failure().stderr(predicate::str::contains(
+        "error: Found argument 'uiop' which wasn't expected, or isn't valid in this context",
+    ));
 }
 
 #[test]
@@ -35,7 +35,7 @@ fn test_eval_expression() {
 
     cmd.assert()
         .success()
-        .stdout("[17 iterations] IO { expr: 34, env: NIL, cont: Terminal }\n");
+        .stdout("{\"expr\":\"((LAMBDA (A B) (+ (* A 3) B)) 9 7)\",\"env\":\"NIL\",\"cont\":\"Outermost\",\"expr_out\":\"34\",\"env_out\":\"NIL\",\"cont_out\":\"Terminal\",\"status\":\"Terminal\",\"iterations\":17}");
 }
 
 fn test_prove_expression<T: AsRef<OsStr>>(mut cmd: Command, expression_path: T, proof_path: T) {
@@ -78,6 +78,7 @@ fn test_verify_opening<T: AsRef<OsStr>>(mut cmd: Command, proof_path: T) {
 }
 
 #[test]
+#[ignore]
 fn test_prove_and_verify_expression() {
     let expression = "(* 9 7)";
     let expected = "63";
@@ -121,6 +122,7 @@ fn commit<T: AsRef<OsStr>>(function_path: T, commitment_path: T) {
 }
 
 #[test]
+#[ignore]
 fn test_create_open_and_verify_functional_commitment() {
     let function_source = "(lambda (x) (+ x 3))";
     let function_input = "22";
@@ -209,6 +211,7 @@ fn test_create_open_and_verify_higher_order_functional_commitment_aux(
 }
 
 #[test]
+#[ignore]
 fn test_create_open_and_verify_higher_order_functional_commitment() {
     let function_source = "(lambda (f) (+ (f 3) 1))";
     let function_input = "(lambda (x) (* x 5))";
@@ -220,7 +223,9 @@ fn test_create_open_and_verify_higher_order_functional_commitment() {
     );
 }
 
-#[test]
+// #[test]
+// #[ignore]
+#[allow(dead_code)]
 fn test_create_open_and_verify_complicated_higher_order_functional_commitment1() {
     let function_source = "(let ((nums '(1 2 3 4 5))) (lambda (f) (f nums)))";
     let function_input = "(letrec ((sum-aux (lambda (acc nums)
@@ -239,9 +244,10 @@ fn test_create_open_and_verify_complicated_higher_order_functional_commitment1()
     );
 }
 
-#[test]
-#[ignore]
+// #[test]
+// #[ignore]
 // FIXME: This fails to verify, which seems to be a circuit bug.
+#[allow(dead_code)]
 fn test_create_open_and_verify_complicated_higher_order_functional_commitment2() {
     let function_source = "(letrec ((secret-data '((joe 4 3) (bill 10 2 3) (jane 8 7 6 10) (carol 3 5 8))) (filter (lambda (data predicate) (if data (if (predicate (cdr (car data))) (cons (car data) (filter (cdr data) predicate)) (filter (cdr data) predicate))))) (f (lambda (predicate) (car (car (filter secret-data predicate)))))) f)";
 

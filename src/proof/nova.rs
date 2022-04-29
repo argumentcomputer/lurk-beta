@@ -3,7 +3,6 @@
 use std::marker::PhantomData;
 
 use bellperson::{Circuit, ConstraintSystem, SynthesisError};
-use ff::PrimeField;
 use merlin::Transcript;
 use nova::{
     bellperson::{
@@ -23,6 +22,7 @@ use pasta_curves::pallas;
 use crate::circuit::MultiFrame;
 use crate::eval::{Evaluator, Frame, Witness, IO};
 
+use crate::field::LurkField;
 use crate::proof::Prover;
 use crate::store::{Ptr, Store};
 
@@ -46,7 +46,7 @@ impl<G: Group> Proof<G> {
     }
 }
 
-pub trait Nova<F: PrimeField>: Prover<F>
+pub trait Nova<F: LurkField>: Prover<F>
 where
     <Self::Grp as Group>::Scalar: ff::PrimeField,
 {
@@ -61,7 +61,10 @@ where
         >,
         shape: &R1CSShape<Self::Grp>,
         gens: &R1CSGens<Self::Grp>,
-    ) -> Result<(R1CSInstance<Self::Grp>, R1CSWitness<Self::Grp>), NovaError> {
+    ) -> Result<(R1CSInstance<Self::Grp>, R1CSWitness<Self::Grp>), NovaError>
+    where
+        <<Self as Nova<F>>::Grp as Group>::Scalar: LurkField,
+    {
         let mut cs = SatisfyingAssignment::<Self::Grp>::new();
 
         multi_frame.synthesize(&mut cs).unwrap();
@@ -76,7 +79,10 @@ where
         env: Ptr<<Self::Grp as Group>::Scalar>,
         store: &mut Store<<Self::Grp as Group>::Scalar>,
         limit: usize,
-    ) -> Vec<Frame<IO<<Self::Grp as Group>::Scalar>, Witness<<Self::Grp as Group>::Scalar>>> {
+    ) -> Vec<Frame<IO<<Self::Grp as Group>::Scalar>, Witness<<Self::Grp as Group>::Scalar>>>
+    where
+        <<Self as Nova<F>>::Grp as Group>::Scalar: LurkField,
+    {
         let padding_predicate = |count| self.needs_frame_padding(count);
 
         let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate);
@@ -90,7 +96,10 @@ where
         env: Ptr<<Self::Grp as Group>::Scalar>,
         store: &mut Store<<Self::Grp as Group>::Scalar>,
         limit: usize,
-    ) -> Result<(Proof<Self::Grp>, RelaxedR1CSInstance<Self::Grp>), SynthesisError> {
+    ) -> Result<(Proof<Self::Grp>, RelaxedR1CSInstance<Self::Grp>), SynthesisError>
+    where
+        <<Self as Nova<F>>::Grp as Group>::Scalar: LurkField,
+    {
         let frames = self.get_evaluation_frames(expr, env, store, limit);
 
         let (shape, gens) = self.make_shape_and_gens();
@@ -107,7 +116,10 @@ where
         gens: &R1CSGens<Self::Grp>,
         store: &mut Store<<Self::Grp as Group>::Scalar>,
         verify_steps: bool, // Sanity check for development, until we have recursion.
-    ) -> Result<(Proof<Self::Grp>, RelaxedR1CSInstance<Self::Grp>), SynthesisError> {
+    ) -> Result<(Proof<Self::Grp>, RelaxedR1CSInstance<Self::Grp>), SynthesisError>
+    where
+        <<Self as Nova<F>>::Grp as Group>::Scalar: LurkField,
+    {
         let multiframes = MultiFrame::from_frames(self.chunk_frame_count(), frames, store);
         for mf in &multiframes {
             assert_eq!(
@@ -188,12 +200,12 @@ where
     }
 }
 
-pub struct NovaProver<F: PrimeField> {
+pub struct NovaProver<F: LurkField> {
     chunk_frame_count: usize,
     _p: PhantomData<F>,
 }
 
-impl<F: PrimeField> NovaProver<F> {
+impl<F: LurkField> NovaProver<F> {
     pub fn new(chunk_frame_count: usize) -> Self {
         NovaProver::<F> {
             chunk_frame_count,
@@ -202,13 +214,13 @@ impl<F: PrimeField> NovaProver<F> {
     }
 }
 
-impl<F: PrimeField> Prover<F> for NovaProver<F> {
+impl<F: LurkField> Prover<F> for NovaProver<F> {
     fn chunk_frame_count(&self) -> usize {
         self.chunk_frame_count
     }
 }
 
-impl<F: PrimeField> Nova<F> for NovaProver<F> {
+impl<F: LurkField> Nova<F> for NovaProver<F> {
     type Grp = PallasPoint;
 
     fn make_shape_and_gens(&self) -> (R1CSShape<Self::Grp>, R1CSGens<Self::Grp>) {
@@ -335,6 +347,7 @@ mod tests {
     ////////////////////////////////////////////////////////////////////////////
 
     #[test]
+    #[ignore]
     fn outer_prove_arithmetic_let() {
         outer_prove_aux(
             "(let ((a 5)
@@ -353,6 +366,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_binop() {
         outer_prove_aux(
             "(+ 1 2)",
@@ -368,6 +382,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_eq() {
         outer_prove_aux(
             "(eq 5 5)",
@@ -383,6 +398,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_num_equal() {
         outer_prove_aux(
             "(= 5 5)",
@@ -492,6 +508,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_if_fully_evaluates() {
         outer_prove_aux(
             "(if t (+ 5 5) 6)",
@@ -515,10 +532,10 @@ mod tests {
                                  (if (= 0 exponent)
                                      1
                                      (* base ((exp base) (- exponent 1))))))))
-                 ((exp 5) 3))",
-            |store| store.num(125),
+                 ((exp 5) 2))",
+            |store| store.num(25),
             Status::Terminal,
-            91,
+            66,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -537,10 +554,12 @@ mod tests {
                                        (if (= 0 exponent)
                                           acc
                                           (((exp base) (- exponent 1)) (* acc base))))))))
-                (((exp 5) 5) 1))",
-            |store| store.num(3125),
+                (((exp 5) 2) 1))",
+            |store| store.num(25),
             Status::Terminal,
-            201,
+            93,
+            |store| store.num(25),
+            93,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -597,7 +616,9 @@ mod tests {
             false,
         )
     }
+
     #[test]
+    #[ignore]
     fn outer_prove_unop_regression() {
         // We need to at least use chunk size 1 to exercise the regression.
         // Also use a non-1 value to check the MultiFrame case.
@@ -607,6 +628,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_emit_output() {
         outer_prove_aux(
             "(emit 123)",
@@ -622,6 +644,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate() {
         outer_prove_aux(
             "((lambda (x) x) 99)",
@@ -637,6 +660,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate2() {
         outer_prove_aux(
             "((lambda (y)
@@ -654,6 +678,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate3() {
         outer_prove_aux(
             "((lambda (y)
@@ -674,6 +699,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate4() {
         outer_prove_aux(
             "((lambda (y)
@@ -695,6 +721,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate5() {
         outer_prove_aux(
             "(((lambda (fn)
@@ -713,6 +740,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_sum() {
         outer_prove_aux(
             "(+ 2 (+ 3 4))",
@@ -773,6 +801,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_product() {
         outer_prove_aux(
             "(* 9 5)",
@@ -788,6 +817,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_quotient() {
         outer_prove_aux(
             "(/ 21 3)",
@@ -833,6 +863,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_adder() {
         outer_prove_aux(
             "(((lambda (x)
@@ -1047,6 +1078,7 @@ mod tests {
         );
     }
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_letrec_null_bindings() {
         outer_prove_aux(
             "(letrec () (+ 1 2))",
@@ -1062,6 +1094,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_let() {
         outer_prove_aux(
             "(let ((a 1)
@@ -1080,6 +1113,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_arithmetic() {
         outer_prove_aux(
             "((((lambda (x)
@@ -1219,6 +1253,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_if() {
         outer_prove_aux(
             "(if nil 5 6)",
@@ -1234,6 +1269,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_fully_evaluates() {
         outer_prove_aux(
             "(if t (+ 5 5) 6)",
@@ -1257,10 +1293,10 @@ mod tests {
                                      (if (= 0 exponent)
                                          1
                                          (* base ((exp base) (- exponent 1))))))))
-                           ((exp 5) 3))",
-            |store| store.num(125),
+                           ((exp 5) 2))",
+            |store| store.num(25),
             Status::Terminal,
-            91,
+            66,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1277,10 +1313,10 @@ mod tests {
                                    (if (= 0 exponent)
                                        1
                                        (* base (exp base (- exponent 1)))))))
-                           (exp 5 3))",
-            |store| store.num(125),
+                           (exp 5 2))",
+            |store| store.num(25),
             Status::Terminal,
-            95,
+            69,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1300,10 +1336,10 @@ mod tests {
                                                  1
                                                  (* base (base-inner (- exponent 1)))))))
                                         base-inner))))
-                   ((exp 5) 3))",
-            |store| store.num(125),
+                   ((exp 5) 2))",
+            |store| store.num(25),
             Status::Terminal,
-            75,
+            56,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1322,10 +1358,10 @@ mod tests {
                                        (if (= 0 exponent-remaining)
                                            acc
                                            (((exp base) (- exponent-remaining 1)) (* acc base))))))))
-                          (((exp 5) 3) 1))",
-            |store| store.num(125),
+                          (((exp 5) 2) 1))",
+            |store| store.num(25),
             Status::Terminal,
-            129,
+            93,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1346,10 +1382,10 @@ mod tests {
                                                       acc
                                                      ((base-inner (- exponent-remaining 1)) (* acc base)))))))
                                            base-inner))))
-                          (((exp 5) 3) 1))",
-            |store| store.num(125),
+                          (((exp 5) 2) 1))",
+            |store| store.num(25),
             Status::Terminal,
-            110,
+            81,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1482,6 +1518,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_cons2() {
         outer_prove_aux(
             "(cdr (cons 1 2))",
@@ -1497,6 +1534,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_zero_arg_lambda1() {
         outer_prove_aux(
             "((lambda () 123))",
@@ -1512,6 +1550,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_zero_arg_lambda2() {
         outer_prove_aux(
             "(let ((x 9) (f (lambda () (+ x 1)))) (f))",
@@ -1598,6 +1637,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_cons_in_function1() {
         outer_prove_aux(
             "(((lambda (a)
@@ -1617,6 +1657,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_cons_in_function2() {
         outer_prove_aux(
             "(((lambda (a)
@@ -1636,6 +1677,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_multiarg_eval_bug() {
         outer_prove_aux(
             "(car (cdr '(1 2 3 4)))",
@@ -1695,6 +1737,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_multiple_letrecstar_bindings() {
         outer_prove_aux(
             "(letrec ((double (lambda (x) (* 2 x)))
@@ -1759,6 +1802,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_dont_discard_rest_env() {
         outer_prove_aux(
             "(let ((z 9))
@@ -1778,6 +1822,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_fibonacci() {
         outer_prove_aux(
             "(letrec ((next (lambda (a b n target)
@@ -1792,6 +1837,71 @@ mod tests {
             |store| store.num(1),
             Status::Terminal,
             89,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_terminal_continuation_regression() {
+        let mut s = Store::<Fr>::default();
+        let src = "(letrec ((a (lambda (x) (cons 2 2))))
+                     (a 1))";
+
+        let expr = s.read(src).unwrap();
+        let limit = 300;
+
+        let (
+            IO {
+                expr: result_expr,
+                env: _new_env,
+                cont: _continuation,
+            },
+            _iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+        outer_prove_aux(
+            &src,
+            |_| result_expr,
+            9,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_chained_functional_commitment() {
+        let mut s = Store::<Fr>::default();
+
+        let src = "(letrec ((secret 12345)
+                       (a (lambda (acc x)
+                            (let ((acc (+ acc x)))
+                              (cons acc (cons secret (a acc)))))))
+                (a 0 5))";
+
+        let expr = s.read(src).unwrap();
+        let limit = 300;
+
+        let (
+            IO {
+                expr: result_expr,
+                env: _new_env,
+                cont: _continuation,
+            },
+            _iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+        outer_prove_aux(
+            &src,
+            |_| result_expr,
+            39,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,

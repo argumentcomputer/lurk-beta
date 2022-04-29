@@ -1,0 +1,212 @@
+version: 2.1
+
+setup-env: &setup-env
+  MSRV: 1.60.0
+  RUSTFLAGS: "-Dwarnings"
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
+  RUST_LOG: info
+
+parameters:
+  stable-version:
+    type: string
+    default: "stable-2022-02-04"
+  nightly-version:
+    type: string
+    default: "nightly-2022-02-04"
+
+executors:
+  default:
+    machine:
+      image: ubuntu-2004:202101-01
+    working_directory: ~/lurk
+    resource_class: xlarge
+  arm64:
+    machine:
+      image: ubuntu-2004:202101-01
+    working_directory: ~/lurk
+    resource_class: arm.large
+  darwin:
+    macos:
+      xcode: "13.3.0"
+    working_directory: ~/lurk
+    resource_class: medium
+
+commands:
+  set_env_path:
+    steps:
+      - run:
+          name: Set the PATH env variable
+          command: |
+            # Also put the Rust LLVM tools into the PATH.
+            echo 'export PATH="$HOME:~/.cargo/bin:~/.rustup/toolchains/<< pipeline.parameters.stable-version >>-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin:$PATH"' | tee --append $BASH_ENV
+            source $BASH_ENV
+            
+  save_rustup_cache:
+    steps:
+      - save_cache:
+          name: "Save rustup cache"
+          key: cargo-v2-{{ checksum "rust-toolchain" }}-{{ checksum "Cargo.toml" }}-{{ checksum "Cargo.lock" }}-{{arch}}
+          paths:
+            - "~/.cargo"
+            - "~/.rustup"
+
+  restore_rustup_cache:
+      steps:
+        - restore_cache:
+            keys:
+              - cargo-v2-{{ checksum "rust-toolchain" }}-{{ checksum "Cargo.toml" }}-{{ checksum "Cargo.lock" }}-{{ arch }}
+              - repo-source-{{ .Branch }}-{{ .Revision }}
+
+  install_gpu_deps:
+    steps:
+      - run: sudo apt update && sudo apt install -y ocl-icd-opencl-dev curl build-essential
+
+jobs:
+  cargo_fetch:
+    executor: default
+    environment: *setup-env
+    steps:
+      - checkout
+      - run:
+          name: Update submodules
+          command: git submodule update --init --recursive
+      - run: curl https://sh.rustup.rs -sSf | sh -s -- -y
+      - run: rustup install $(cat rust-toolchain)
+      - run: rustup default $(cat rust-toolchain)
+      - run: cargo --version
+      - run: rustc --version
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
+      - restore_cache:
+          keys:
+            - cargo-v2-{{ checksum "rust-toolchain" }}-{{ checksum "Cargo.toml" }}-{{ checksum "Cargo.lock" }}-{{ arch }}
+      - run: cargo update
+      - run: cargo fetch
+      - run: rm -rf .git
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - lurk
+      - save_rustup_cache
+
+  linux:
+    executor: default
+    environment: *setup-env
+    steps:
+      - checkout
+      - set_env_path
+      - attach_workspace:
+          at: "~/"
+      - install_gpu_deps
+      - restore_rustup_cache
+      - run: cargo --version
+      - run:
+          name: Linux Tests
+          command: cargo test --workspace
+          no_output_timeout: 120m
+
+  linux_release:
+    executor: default
+    environment: *setup-env
+    steps:
+      - checkout
+      - set_env_path
+      - attach_workspace:
+          at: "~/"
+      - restore_rustup_cache
+      - install_gpu_deps
+      - run:
+          name: Linux Tests
+          command: cargo test --release --workspace -- --ignored --skip groth16::tests::outer_prove_recursion --test-threads=1
+
+  arm64:
+    executor: arm64
+    environment: *setup-env
+    steps:
+      - checkout
+      - run:
+          name: Update submodules
+          command: git submodule update --init --recursive
+      - attach_workspace:
+          at: "~/"
+      - install_gpu_deps
+      - run:
+          name: Install Rust
+          command: |
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
+      - run: rustup install $(cat rust-toolchain)
+      - run: rustup default $(cat rust-toolchain)
+      - run: cargo --version
+      - run: cargo update
+      - run: cargo fetch
+      - run:
+          name: Arm64 Tests
+          command: cargo test --workspace
+          no_output_timeout: 120m
+
+  mac:
+    executor: darwin
+    environment: *setup-env
+    steps:
+      - checkout
+      - run:
+          name: Update submodules
+          command: git submodule update --init --recursive
+      - attach_workspace:
+           at: "~/"
+      - run:
+          name: Install Rust
+          command: |
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
+      - run: rustup install $(cat rust-toolchain)
+      - run: rustup default $(cat rust-toolchain)
+      - run: cargo --version
+      - run: cargo update
+      - run: cargo fetch
+      - run:
+          name: MacOS Tests
+          command: cargo test --workspace
+          no_output_timeout: 120m
+
+  clippy:
+    executor: default
+    environment: *setup-env
+    steps:
+      - checkout
+      - set_env_path
+      - attach_workspace:
+          at: "~/"
+      - restore_rustup_cache
+      - run: cargo clippy --all -- -D warnings
+      
+  rustfmt:
+    executor: default
+    environment: *setup-env
+    steps:
+      - checkout
+      - set_env_path
+      - attach_workspace:
+          at: "~/"
+      - restore_rustup_cache
+      - run: cargo fmt --all -- --check
+      
+workflows:
+  test-all:
+    jobs:
+      - cargo_fetch
+      - linux:
+         requires:
+           - cargo_fetch
+      - arm64
+      - mac
+      - linux_release:
+          requires:
+            - cargo_fetch
+      - rustfmt:
+         requires:
+           - cargo_fetch
+      - clippy:
+         requires:
+           - cargo_fetch

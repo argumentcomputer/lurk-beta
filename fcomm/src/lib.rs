@@ -1,3 +1,4 @@
+use log::info;
 use std::convert::TryFrom;
 use std::fs::{self, File};
 use std::io::{self, BufReader};
@@ -5,16 +6,19 @@ use std::path::Path;
 
 use bellperson::{groth16, SynthesisError};
 use blstrs::{Bls12, Scalar};
+
 use ff::PrimeField;
-
 use hex::FromHex;
-use once_cell::sync::OnceCell;
-use pairing_lib::{Engine, MultiMillerLoop};
-use rand::rngs::OsRng;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
+use libipld::{
+    json::DagJsonCodec,
+    multihash::{Code, MultihashDigest},
+    prelude::Codec,
+    serde::to_ipld,
+    Cid,
+};
 use lurk::circuit::ToInputs;
 use lurk::eval::{empty_sym_env, Evaluable, Evaluator, Status, IO};
+use lurk::field::LurkField;
 use lurk::proof::{
     self,
     groth16::{Groth16, Groth16Prover, INNER_PRODUCT_SRS},
@@ -22,25 +26,29 @@ use lurk::proof::{
 use lurk::store::{Pointer, Ptr, ScalarPointer, Store, Tag};
 use lurk::writer::Write;
 use lurk::Num;
+use once_cell::sync::OnceCell;
+use pairing_lib::{Engine, MultiMillerLoop};
+use rand::rngs::OsRng;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+mod file_map;
+
+use file_map::FileMap;
 
 pub const DEFAULT_REDUCTION_COUNT: ReductionCount = ReductionCount::One;
 pub static VERBOSE: OnceCell<bool> = OnceCell::new();
 
-#[macro_export]
-// FIXME: This belongs in the CLI program only, but we need to (maybe) emit the messages here.
-// TODO: Pass *something into the methods that may/may not print rather than this nonsense.
-macro_rules! prl {
-    ($($arg:expr),*) => { if *VERBOSE.get_or_init(||false) {
-        println!($($arg),*) } };
+fn bls12_proof_cache() -> FileMap<Proof<Bls12>> {
+    FileMap::<Proof<Bls12>>::new("bls12_proofs").unwrap()
 }
 
 fn get_pvk(rc: ReductionCount) -> groth16::PreparedVerifyingKey<Bls12> {
     let groth_prover = Groth16Prover::new(rc.reduction_frame_count());
 
-    prl!("Getting Parameters");
+    info!("Getting Parameters");
     let groth_params = groth_prover.groth_params().unwrap();
 
-    prl!("Preparing verifying key");
+    info!("Preparing verifying key");
     groth16::prepare_verifying_key(&groth_params.vk)
 }
 
@@ -60,14 +68,15 @@ pub struct Evaluation {
     pub env_out: String,
     pub cont_out: String,
     pub status: Status,
+    pub iterations: Option<usize>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Commitment<F: PrimeField> {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Commitment<F: LurkField> {
     pub comm: F,
 }
 
-impl<F: PrimeField> Serialize for Commitment<F> {
+impl<F: LurkField> Serialize for Commitment<F> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -76,7 +85,7 @@ impl<F: PrimeField> Serialize for Commitment<F> {
     }
 }
 
-impl<'de, F: PrimeField> Deserialize<'de> for Commitment<F> {
+impl<'de, F: LurkField> Deserialize<'de> for Commitment<F> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -85,7 +94,7 @@ impl<'de, F: PrimeField> Deserialize<'de> for Commitment<F> {
     }
 }
 
-impl<F: PrimeField> FromHex for Commitment<F> {
+impl<F: LurkField> FromHex for Commitment<F> {
     type Error = hex::FromHexError;
 
     fn from_hex<T>(s: T) -> Result<Self, <Self as FromHex>::Error>
@@ -101,26 +110,22 @@ impl<F: PrimeField> FromHex for Commitment<F> {
         })
     }
 }
-
 #[derive(Serialize, Deserialize, Clone)]
-pub struct Opening<E: Engine + MultiMillerLoop> {
+pub struct Expression {
+    pub source: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+pub struct Opening<F: LurkField> {
     pub input: String,
     pub output: String,
     pub status: Status,
-    #[serde(bound(
-        serialize = "E::Fr: Serialize",
-        deserialize = "E::Fr: Deserialize<'de>"
-    ))]
-    pub commitment: Commitment<E::Fr>,
-    #[serde(bound(
-        serialize = "E::Fr: Serialize",
-        deserialize = "E::Fr: Deserialize<'de>"
-    ))]
-    pub new_commitment: Option<Commitment<E::Fr>>,
+    pub commitment: Commitment<F>,
+    pub new_commitment: Option<Commitment<F>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct Function<F: PrimeField + Serialize> {
+pub struct Function<F: LurkField + Serialize> {
     pub source: String,
     #[serde(bound(serialize = "F: Serialize", deserialize = "F: Deserialize<'de>"))]
     pub secret: Option<F>,
@@ -139,14 +144,14 @@ where
     <E as Engine>::G1: Serialize,
     <E as Engine>::G1Affine: Serialize,
     <E as Engine>::G2Affine: Serialize,
-    <E as Engine>::Fr: Serialize,
+    <E as Engine>::Fr: Serialize + LurkField,
     <E as Engine>::Gt: blstrs::Compress + Serialize,
 {
     #[serde(bound(
-        serialize = "Claim<E>: Serialize",
-        deserialize = "Claim<E>: Deserialize<'de>"
+        serialize = "Claim<E::Fr>: Serialize",
+        deserialize = "Claim<E::Fr>: Deserialize<'de>"
     ))]
-    pub claim: Claim<E>,
+    pub claim: Claim<E::Fr>,
     #[serde(bound(
         serialize = "proof::groth16::Proof<E>: Serialize",
         deserialize = "proof::groth16::Proof<E>: Deserialize<'de>"
@@ -155,14 +160,14 @@ where
     pub reduction_count: ReductionCount,
 }
 
-#[derive(Serialize, Deserialize)]
-pub enum Claim<E: Engine + MultiMillerLoop> {
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum Claim<F: LurkField> {
     Evaluation(Evaluation),
     #[serde(bound(
-        serialize = "Opening<E>: Serialize",
-        deserialize = "Opening<E>: Deserialize<'de>"
+        serialize = "Opening<F>: Serialize",
+        deserialize = "Opening<F>: Deserialize<'de>"
     ))]
-    Opening(Opening<E>),
+    Opening(Opening<F>),
 }
 
 // This is just a rough idea, mostly here so we can plumb it elsewhere. The idea is that a verifier can sign an
@@ -172,18 +177,15 @@ pub enum Claim<E: Engine + MultiMillerLoop> {
 // system where the ability to aggregate proof verification more soundly is possible.
 #[derive(Serialize, Deserialize)]
 pub struct Cert {
-    pub claim_id: String,
-    pub proof_id: String,
+    pub claim_cid: Cid,
+    pub proof_cid: Cid,
     pub verified: VerificationResult,
     pub verifier_id: String,
     pub signature: String,
 }
 
 #[allow(dead_code)]
-impl<E: Engine + MultiMillerLoop> Claim<E>
-where
-    <E as Engine>::Fr: Serialize,
-{
+impl<F: LurkField> Claim<F> {
     pub fn is_evaluation(&self) -> bool {
         self.evaluation().is_some()
     }
@@ -196,7 +198,7 @@ where
             _ => None,
         }
     }
-    pub fn opening(&self) -> Option<Opening<E>> {
+    pub fn opening(&self) -> Option<Opening<F>> {
         match self {
             Self::Opening(o) => Some(o.clone()),
             _ => None,
@@ -252,6 +254,43 @@ impl From<SynthesisError> for Error {
     }
 }
 
+pub trait Id
+where
+    Self: Sized,
+{
+    fn id(&self) -> String;
+    fn cid(&self) -> Cid;
+    fn has_id(&self, id: String) -> bool;
+}
+
+pub trait Key
+where
+    Self: Sized,
+{
+    fn key(&self) -> Cid;
+}
+
+impl<T: Serialize> Id for T
+where
+    for<'de> T: Deserialize<'de>,
+{
+    fn cid(&self) -> Cid {
+        let ipld = to_ipld(self).unwrap();
+        let dag_json = DagJsonCodec.encode(&ipld).unwrap();
+
+        let digest = Code::Blake3_256.digest(&dag_json);
+        Cid::new_v1(0x55, digest)
+    }
+
+    fn id(&self) -> String {
+        self.cid().to_string()
+    }
+
+    fn has_id(&self, id: String) -> bool {
+        self.id() == id
+    }
+}
+
 pub trait FileStore
 where
     Self: Sized,
@@ -280,12 +319,12 @@ where
 }
 
 impl Evaluation {
-    fn new<F: PrimeField>(
+    fn new<F: LurkField>(
         s: &mut Store<F>,
         input: IO<F>,
         output: IO<F>,
-        // This might be padded, so is not quite 'iterations' in the sense of number of actual reduction steps required
-        // to evaluate.
+        iterations: Option<usize>, // This might be padded, so is not quite 'iterations' in the sense of number of actual reduction steps required
+                                   // to evaluate.
     ) -> Self {
         let status: Status = output.cont.into();
         let terminal = status.is_terminal();
@@ -319,11 +358,27 @@ impl Evaluation {
             env_out,
             cont_out,
             status,
+            iterations,
         }
+    }
+
+    pub fn eval<F: LurkField + Serialize>(
+        store: &mut Store<F>,
+        expr: Ptr<F>,
+        limit: usize,
+    ) -> Self {
+        let env = empty_sym_env(store);
+        let mut evaluator = Evaluator::new(expr, env, store, limit);
+
+        let input = evaluator.initial();
+
+        let (output, iterations) = evaluator.eval();
+
+        Self::new(store, input, output, Some(iterations))
     }
 }
 
-impl<F: PrimeField + Serialize> Commitment<F> {
+impl<F: LurkField + Serialize> Commitment<F> {
     pub fn from_cons(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
         let digest = *s.hash_expr(ptr).expect("couldn't hash ptr").value();
 
@@ -398,7 +453,7 @@ impl<F: PrimeField + Serialize> Commitment<F> {
     }
 }
 
-impl<F: PrimeField + Serialize> Function<F> {
+impl<F: LurkField + Serialize> Function<F> {
     pub fn fun_ptr(&self, s: &mut Store<F>, limit: usize) -> Ptr<F> {
         let source_ptr = s.read(&self.source).expect("could not read source");
 
@@ -409,7 +464,7 @@ impl<F: PrimeField + Serialize> Function<F> {
     }
 }
 
-impl Opening<Bls12> {
+impl Opening<Scalar> {
     pub fn open_and_prove<P: AsRef<Path>>(
         s: &mut Store<<Bls12 as Engine>::Fr>,
         input: Ptr<<Bls12 as Engine>::Fr>,
@@ -417,20 +472,20 @@ impl Opening<Bls12> {
         limit: usize,
         chain: bool,
         commitment_path: Option<P>,
-        chained_function_path: Option<P>,
+        chained_function_path: Option<std::path::PathBuf>,
     ) -> Result<Proof<Bls12>, Error> {
         let rng = OsRng;
 
         let (commitment, expression) =
             Commitment::construct_with_fun_application(s, function, input, limit);
 
-        prl!("Getting Parameters");
+        info!("Getting Parameters");
 
         let reduction_count = DEFAULT_REDUCTION_COUNT;
         let groth_prover = Groth16Prover::new(reduction_count.reduction_frame_count());
         let groth_params = groth_prover.groth_params().unwrap();
 
-        prl!("Starting Proving");
+        info!("Starting Proving");
 
         let (groth_proof, _public_input, public_output) = groth_prover
             .outer_prove(
@@ -511,20 +566,53 @@ impl Proof<Bls12> {
         s: &mut Store<<Bls12 as Engine>::Fr>,
         expr: Ptr<<Bls12 as Engine>::Fr>,
         limit: usize,
+        only_use_cached_proofs: bool,
     ) -> Result<Self, Error> {
-        let rng = OsRng;
         let env = empty_sym_env(s);
         let cont = s.intern_cont_outermost();
-
         let input = IO { expr, env, cont };
 
-        prl!("Getting Parameters");
+        let (public_output, _iterations) = evaluate(s, expr, limit);
+        let evaluation = Evaluation::new(s, input, public_output, None);
+        let claim = Claim::Evaluation(evaluation);
+
+        Self::prove_claim(s, claim, limit, only_use_cached_proofs)
+    }
+
+    pub fn prove_claim(
+        s: &mut Store<<Bls12 as Engine>::Fr>,
+        claim: Claim<Scalar>,
+        limit: usize,
+        only_use_cached_proofs: bool,
+    ) -> Result<Self, Error> {
+        let rng = OsRng;
+        let proof_map = bls12_proof_cache();
+
+        if let Some(proof) = proof_map.get(claim.cid()) {
+            dbg!("found cached proof!");
+            return Ok(proof);
+        }
+
+        if only_use_cached_proofs {
+            // FIXME: Error handling.
+            panic!("no cached proof");
+        }
 
         let reduction_count = DEFAULT_REDUCTION_COUNT;
+
+        info!("Getting Parameters");
         let groth_prover = Groth16Prover::new(reduction_count.reduction_frame_count());
         let groth_params = groth_prover.groth_params().unwrap();
 
-        prl!("Starting Proving");
+        info!("Starting Proving");
+
+        let (expr, env) = match &claim {
+            Claim::Evaluation(e) => (
+                s.read(&e.expr).expect("bad expression"),
+                s.read(&e.env).expect("bad env"),
+            ),
+            _ => todo!(),
+        };
 
         let (groth_proof, _public_input, public_output) = groth_prover
             .outer_prove(groth_params, &INNER_PRODUCT_SRS, expr, env, s, limit, rng)
@@ -532,16 +620,16 @@ impl Proof<Bls12> {
 
         assert!(public_output.is_complete());
 
-        let evaluation = Evaluation::new(s, input, public_output);
         let proof = Proof {
-            claim: Claim::Evaluation(evaluation),
+            claim: claim.clone(),
             reduction_count,
             proof: groth_proof,
         };
 
+        proof_map.set(claim.cid(), &proof).unwrap();
+
         Ok(proof)
     }
-
     pub fn verify(&self) -> Result<VerificationResult, Error> {
         let (public_inputs, public_outputs) = match self.claim {
             Claim::Evaluation(_) => self.verify_evaluation(),
@@ -549,15 +637,15 @@ impl Proof<Bls12> {
         }?;
         let mut rng = OsRng;
 
-        prl!("Getting Parameters");
+        info!("Getting Parameters");
 
         let count = self.proof.proof_count;
         let rc = self.reduction_count;
         let pvk = get_pvk(rc);
 
-        prl!("Specializing SRS for {} sub-proofs.", count);
+        info!("Specializing SRS for {} sub-proofs.", count);
         let srs_vk = INNER_PRODUCT_SRS.specialize_vk(count);
-        prl!("Starting Verification");
+        info!("Starting Verification");
 
         let verified = Groth16Prover::verify(
             &pvk,
@@ -652,13 +740,19 @@ impl Proof<Bls12> {
     }
 }
 
+impl Key for Proof<Bls12> {
+    fn key(&self) -> Cid {
+        self.claim.cid()
+    }
+}
+
 impl VerificationResult {
     fn new(verified: bool) -> Self {
         Self { verified }
     }
 }
 
-pub fn evaluate<F: PrimeField + Serialize>(
+pub fn evaluate<F: LurkField + Serialize>(
     store: &mut Store<F>,
     expr: Ptr<F>,
     limit: usize,
@@ -666,8 +760,8 @@ pub fn evaluate<F: PrimeField + Serialize>(
     let env = empty_sym_env(store);
     let mut evaluator = Evaluator::new(expr, env, store, limit);
 
-    let (io, limit) = evaluator.eval();
+    let (io, iterations) = evaluator.eval();
 
     assert!(io.is_terminal());
-    (io, limit)
+    (io, iterations)
 }

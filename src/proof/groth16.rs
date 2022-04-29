@@ -11,7 +11,6 @@ use bellperson::{
     SynthesisError,
 };
 use blstrs::{Bls12, Scalar};
-use ff::PrimeField;
 use memmap::MmapOptions;
 use once_cell::sync::Lazy;
 use pairing_lib::{Engine, MultiMillerLoop};
@@ -21,6 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::circuit::MultiFrame;
 use crate::eval::{Evaluator, Witness, IO};
+use crate::field::LurkField;
 use crate::proof::{Provable, Prover};
 use crate::store::{Ptr, Store};
 
@@ -82,7 +82,7 @@ where
     pub chunk_frame_count: usize,
 }
 
-pub trait Groth16<F: PrimeField>: Prover<F>
+pub trait Groth16<F: LurkField>: Prover<F>
 where
     <Self::E as Engine>::Gt: blstrs::Compress + Serialize,
     <Self::E as Engine>::G1: Serialize,
@@ -122,7 +122,10 @@ where
         >,
         params: Option<&groth16::Parameters<Self::E>>,
         mut rng: R,
-    ) -> Result<groth16::Proof<Self::E>, SynthesisError> {
+    ) -> Result<groth16::Proof<Self::E>, SynthesisError>
+    where
+        <<Self as Groth16<F>>::E as Engine>::Fr: LurkField,
+    {
         self.generate_groth16_proof(multi_frame, params, &mut rng)
     }
 
@@ -143,7 +146,10 @@ where
             IO<<Self::E as Engine>::Fr>,
         ),
         SynthesisError,
-    > {
+    >
+    where
+        <<Self as Groth16<F>>::E as Engine>::Fr: LurkField,
+    {
         let padding_predicate = |count| self.needs_frame_padding(count);
         let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate);
         store.hydrate_scalar_cache();
@@ -223,7 +229,9 @@ where
         >,
         groth_params: Option<&groth16::Parameters<Self::E>>,
         rng: &mut R,
-    ) -> Result<groth16::Proof<Self::E>, SynthesisError>;
+    ) -> Result<groth16::Proof<Self::E>, SynthesisError>
+    where
+        <<Self as Groth16<F>>::E as Engine>::Fr: LurkField;
 
     fn verify_groth16_proof(
         // multiframe need not have inner frames populated for verification purposes.
@@ -235,7 +243,10 @@ where
         >,
         pvk: &groth16::PreparedVerifyingKey<Self::E>,
         proof: groth16::Proof<Self::E>,
-    ) -> Result<bool, SynthesisError> {
+    ) -> Result<bool, SynthesisError>
+    where
+        <<Self as Groth16<F>>::E as Engine>::Fr: LurkField,
+    {
         let inputs = multiframe.public_inputs();
 
         verify_proof(pvk, &proof, &inputs)
@@ -480,6 +491,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_arithmetic_let() {
         outer_prove_aux(
             "(let ((a 5)
@@ -496,6 +508,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_binop() {
         outer_prove_aux(
             "(+ 1 2)",
@@ -509,6 +522,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_eq() {
         outer_prove_aux(
             "(eq 5 5)",
@@ -522,6 +536,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_num_equal() {
         outer_prove_aux(
             "(= 5 5)",
@@ -544,6 +559,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_if() {
         outer_prove_aux(
             "(if t 5 6)",
@@ -566,6 +582,7 @@ mod tests {
         )
     }
     #[test]
+    #[ignore]
     fn outer_prove_if_fully_evaluates() {
         outer_prove_aux(
             "(if t (+ 5 5) 6)",
@@ -579,7 +596,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
+    #[ignore]
     fn outer_prove_recursion1() {
         outer_prove_aux(
             "(letrec ((exp (lambda (base)
@@ -599,7 +616,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
+    #[ignore]
     fn outer_prove_recursion2() {
         outer_prove_aux(
             "(letrec ((exp (lambda (base)

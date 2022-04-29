@@ -1,10 +1,9 @@
 use std::io;
 
-use ff::PrimeField;
-
+use crate::field::LurkField;
 use crate::store::{ContPtr, Continuation, Expression, Ptr, Store};
 
-pub trait Write<F: PrimeField> {
+pub trait Write<F: LurkField> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()>;
     fn fmt_to_string(&self, store: &Store<F>) -> String {
         let mut out = Vec::new();
@@ -13,7 +12,7 @@ pub trait Write<F: PrimeField> {
     }
 }
 
-impl<F: PrimeField> Write<F> for Ptr<F> {
+impl<F: LurkField> Write<F> for Ptr<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         use crate::store::Pointer;
         if self.is_opaque() {
@@ -29,7 +28,7 @@ impl<F: PrimeField> Write<F> for Ptr<F> {
     }
 }
 
-impl<F: PrimeField> Write<F> for ContPtr<F> {
+impl<F: LurkField> Write<F> for ContPtr<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         if let Some(cont) = store.fetch_cont(self) {
             cont.fmt(store, w)
@@ -39,7 +38,7 @@ impl<F: PrimeField> Write<F> for ContPtr<F> {
     }
 }
 
-impl<F: PrimeField> Write<F> for Expression<'_, F> {
+impl<F: LurkField> Write<F> for Expression<'_, F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         use Expression::*;
 
@@ -56,6 +55,7 @@ impl<F: PrimeField> Write<F> for Expression<'_, F> {
                     arg.fmt(store, w)?;
                 }
                 write!(w, ") ")?;
+                assert!(body.is_cons(), "Fun body should be a non-empty list.");
                 body.print_tail(store, w)?;
                 write!(w, ">")
             }
@@ -78,14 +78,13 @@ impl<F: PrimeField> Write<F> for Expression<'_, F> {
     }
 }
 
-impl<F: PrimeField> Expression<'_, F> {
+impl<F: LurkField> Expression<'_, F> {
     fn print_tail<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         match self {
             Expression::Nil => write!(w, ")"),
             Expression::Cons(car, cdr) => {
                 let car = store.fetch(car);
                 let cdr = store.fetch(cdr);
-
                 let fmt_car = |store, w: &mut W| {
                     if let Some(car) = car {
                         car.fmt(store, w)
@@ -104,7 +103,6 @@ impl<F: PrimeField> Expression<'_, F> {
                 match cdr {
                     Some(Expression::Nil) => {
                         fmt_car(store, w)?;
-                        // car.fmt(store, w)?;
                         write!(w, ")")
                     }
                     Some(Expression::Cons(_, _)) => {
@@ -125,12 +123,14 @@ impl<F: PrimeField> Expression<'_, F> {
                     None => write!(w, "<Opaque>"),
                 }
             }
-            _ => unreachable!(),
+            _ => {
+                unreachable!()
+            }
         }
     }
 }
 
-impl<F: PrimeField> Write<F> for Continuation<F> {
+impl<F: LurkField> Write<F> for Continuation<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         match self {
             Continuation::Outermost => write!(w, "Outermost"),
