@@ -558,8 +558,6 @@ mod tests {
             |store| store.num(25),
             Status::Terminal,
             93,
-            |store| store.num(25),
-            93,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -913,6 +911,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_let_simple() {
         outer_prove_aux(
             "(let ((a 1))
@@ -1064,6 +1063,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_let_null_bindings() {
         outer_prove_aux(
             "(let () (+ 1 2))",
@@ -1443,6 +1443,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn outer_prove_evaluate_cons1() {
         outer_prove_aux(
             "(car (cons 1 2))",
@@ -1866,6 +1867,7 @@ mod tests {
         outer_prove_aux(
             &src,
             |_| result_expr,
+            Status::Terminal,
             9,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1901,6 +1903,7 @@ mod tests {
         outer_prove_aux(
             &src,
             |_| result_expr,
+            Status::Terminal,
             39,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,

@@ -2519,11 +2519,17 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         )?;
 
         let not_num_tag_without_nums =
-            constraints::or(&mut cs.namespace(|| "sub_res"), &tag_is_num, &rel2_is_equal)?;
+            constraints::or(&mut cs.namespace(|| "sub_res"), &args_are_num, &rel2_is_equal)?;
+
+        let boolean_res = Boolean::and(
+            &mut cs.namespace(|| "boolean_res"),
+            &args_equal,
+            &not_num_tag_without_nums,
+        )?;
 
         let res = AllocatedPtr::pick(
             &mut cs.namespace(|| "res"),
-            &args_equal,
+            &boolean_res,
             &g.t_ptr,
             &g.nil_ptr,
         )?;
@@ -3002,9 +3008,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31196, cs.num_constraints());
+            assert_eq!(31211, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31157, cs.aux().len());
+            assert_eq!(31171, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
