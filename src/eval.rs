@@ -1791,11 +1791,7 @@ mod test {
     fn evaluate_let_empty_error() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
-        let expr = s
-            .read(
-                "(let)",
-            )
-            .unwrap();
+        let expr = s.read("(let)").unwrap();
 
         let (
             IO {
@@ -1814,11 +1810,7 @@ mod test {
     fn evaluate_let_empty_body_error() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
-        let expr = s
-            .read(
-                "(let ((a 1)))",
-            )
-            .unwrap();
+        let expr = s.read("(let ((a 1)))").unwrap();
 
         let (
             IO {
@@ -1837,11 +1829,7 @@ mod test {
     fn evaluate_letrec_empty_error() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
-        let expr = s
-            .read(
-                "(letrec)",
-            )
-            .unwrap();
+        let expr = s.read("(letrec)").unwrap();
 
         let (
             IO {
@@ -1860,11 +1848,7 @@ mod test {
     fn evaluate_letrec_empty_body_error() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
-        let expr = s
-            .read(
-                "(letrec ((a 1)))",
-            )
-            .unwrap();
+        let expr = s.read("(letrec ((a 1)))").unwrap();
 
         let (
             IO {
@@ -1883,11 +1867,7 @@ mod test {
     fn evaluate_letrec_body_nil() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
-        let expr = s
-            .read(
-                "(eq nil (let () nil))",
-            )
-            .unwrap();
+        let expr = s.read("(eq nil (let () nil))").unwrap();
 
         let (
             IO {

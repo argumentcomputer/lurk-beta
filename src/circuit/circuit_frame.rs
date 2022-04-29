@@ -1218,7 +1218,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == QUOTE
     let (arg1_or_expr, the_cont) = {
-
         let arg1_or_expr = AllocatedPtr::pick(
             &mut cs.namespace(|| "arg1 if end is nil, expr otherwise"),
             &end_is_nil,
@@ -1281,16 +1280,12 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         let rest_body_is_nil =
             rest_body.alloc_equal(&mut cs_letrec.namespace(|| "rest_body_is_nil"), &g.nil_ptr)?;
 
-        let (val, end) = car_cdr(
-            &mut cs_letrec.namespace(|| "car_cdr vals"),
-            g,
-            &vals,
-            store,
-        )?;
+        let (val, end) = car_cdr(&mut cs_letrec.namespace(|| "car_cdr vals"), g, &vals, store)?;
 
         let end_is_nil = end.alloc_equal(&mut cs_letrec.namespace(|| "end_is_nil"), &g.nil_ptr)?;
 
-        let body_is_nil = body.alloc_equal(&mut cs_letrec.namespace(|| "body_is_nil"), &g.nil_ptr)?;
+        let body_is_nil =
+            body.alloc_equal(&mut cs_letrec.namespace(|| "body_is_nil"), &g.nil_ptr)?;
 
         /*
          * We get the condition for error by using OR of each individual error.
@@ -1434,7 +1429,13 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.error_ptr_cont,
     )?;
 
-    results.add_clauses_cons(*car_hash.value(), &arg1_or_expr, env, &the_cont_car, &g.false_num);
+    results.add_clauses_cons(
+        *car_hash.value(),
+        &arg1_or_expr,
+        env,
+        &the_cont_car,
+        &g.false_num,
+    );
 
     // head == CDR
     let continuation = AllocatedContPtr::construct(
@@ -1456,7 +1457,13 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.error_ptr_cont,
     )?;
 
-    results.add_clauses_cons(*cdr_hash.value(), &arg1_or_expr, env, &the_cont_cdr, &g.false_num);
+    results.add_clauses_cons(
+        *cdr_hash.value(),
+        &arg1_or_expr,
+        env,
+        &the_cont_cdr,
+        &g.false_num,
+    );
 
     // head == ATOM
     let continuation = AllocatedContPtr::construct(
@@ -1478,7 +1485,13 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.error_ptr_cont,
     )?;
 
-    results.add_clauses_cons(*atom_hash.value(), &arg1_or_expr, env, &the_cont_atom, &g.false_num);
+    results.add_clauses_cons(
+        *atom_hash.value(),
+        &arg1_or_expr,
+        env,
+        &the_cont_atom,
+        &g.false_num,
+    );
 
     // head == EMIT
     let continuation = AllocatedContPtr::construct(
@@ -1500,7 +1513,13 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.error_ptr_cont,
     )?;
 
-    results.add_clauses_cons(*emit_hash.value(), &arg1_or_expr, env, &the_cont_emit, &g.false_num);
+    results.add_clauses_cons(
+        *emit_hash.value(),
+        &arg1_or_expr,
+        env,
+        &the_cont_emit,
+        &g.false_num,
+    );
 
     // head == +
     let continuation = AllocatedContPtr::construct(
@@ -2518,8 +2537,11 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &rel2_is_equal,
         )?;
 
-        let not_num_tag_without_nums =
-            constraints::or(&mut cs.namespace(|| "sub_res"), &args_are_num, &rel2_is_equal)?;
+        let not_num_tag_without_nums = constraints::or(
+            &mut cs.namespace(|| "sub_res"),
+            &args_are_num,
+            &rel2_is_equal,
+        )?;
 
         let boolean_res = Boolean::and(
             &mut cs.namespace(|| "boolean_res"),
