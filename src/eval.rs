@@ -1793,6 +1793,121 @@ mod test {
     }
 
     #[test]
+    fn evaluate_let_empty_error() {
+        let mut s = Store::<Fr>::default();
+        let limit = 20;
+        let expr = s
+            .read(
+                "(let)",
+            )
+            .unwrap();
+
+        let (
+            IO {
+                expr: _result_expr,
+                env: _new_env,
+                cont: continuation,
+            },
+            iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+        assert!(continuation.is_error());
+        assert_eq!(1, iterations);
+    }
+
+    #[test]
+    fn evaluate_let_empty_body_error() {
+        let mut s = Store::<Fr>::default();
+        let limit = 20;
+        let expr = s
+            .read(
+                "(let ((a 1)))",
+            )
+            .unwrap();
+
+        let (
+            IO {
+                expr: _result_expr,
+                env: _new_env,
+                cont: continuation,
+            },
+            iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+        assert!(continuation.is_error());
+        assert_eq!(1, iterations);
+    }
+
+    #[test]
+    fn evaluate_letrec_empty_error() {
+        let mut s = Store::<Fr>::default();
+        let limit = 20;
+        let expr = s
+            .read(
+                "(letrec)",
+            )
+            .unwrap();
+
+        let (
+            IO {
+                expr: _result_expr,
+                env: _new_env,
+                cont: continuation,
+            },
+            iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+        assert!(continuation.is_error());
+        assert_eq!(1, iterations);
+    }
+
+    #[test]
+    fn evaluate_letrec_empty_body_error() {
+        let mut s = Store::<Fr>::default();
+        let limit = 20;
+        let expr = s
+            .read(
+                "(letrec ((a 1)))",
+            )
+            .unwrap();
+
+        let (
+            IO {
+                expr: _result_expr,
+                env: _new_env,
+                cont: continuation,
+            },
+            iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+        assert!(continuation.is_error());
+        assert_eq!(1, iterations);
+    }
+
+    #[test]
+    fn evaluate_letrec_body_nil() {
+        let mut s = Store::<Fr>::default();
+        let limit = 20;
+        let expr = s
+            .read(
+                "(eq nil (let () nil))",
+            )
+            .unwrap();
+
+        let (
+            IO {
+                expr: result_expr,
+                env: _new_env,
+                cont: _continuation,
+            },
+            iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+        assert_eq!(4, iterations);
+        assert_eq!(s.t(), result_expr);
+    }
+
+    #[test]
     fn evaluate_let_parallel_binding() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
