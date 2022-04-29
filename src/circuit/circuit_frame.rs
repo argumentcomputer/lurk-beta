@@ -1222,7 +1222,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &mut cs.namespace(|| "arg1 if end is nil, expr otherwise"),
             &end_is_nil,
             &arg1,
-            &expr,
+            expr,
         )?;
 
         let the_cont = AllocatedContPtr::pick(
