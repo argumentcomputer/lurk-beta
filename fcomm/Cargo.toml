@@ -18,7 +18,7 @@ blstrs = "0.4.1"
 ff = "0.11.0"
 hex = { version = "0.4.2", features = ["serde"] }
 log = "0.4.14"
-libipld = { version = "0.13.1", default-features = false, features = ["dag-json", "serde-codec"] }
+libipld = { package = "libipld", git = "https://github.com/lurk-lang/libipld", branch = "jcb/serde-minimal", default-features = false, features = ["dag-cbor", "serde-codec"] }
 lurk = { path = "../", package = "lurk" }
 once_cell = "1.9.0"
 pairing_lib = { version = "0.21", package = "pairing" }

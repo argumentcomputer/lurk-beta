@@ -10,6 +10,8 @@ use libipld::codec::Codec;
 use libipld::Cid;
 use libipld::Ipld;
 
+use blstrs::Scalar;
+
 use crate::field::LurkField;
 
 pub const DAGCBOR: u64 = 0x71;
@@ -33,8 +35,11 @@ pub enum IpldError {
     Utf8(Vec<u8>, alloc::string::FromUtf8Error),
     ByteCount(Vec<u8>, u64),
     UnicodeChar(u32),
-    U64(TryFromIntError),
+    USize(TryFromIntError),
+    U8(TryFromIntError),
+    U16(TryFromIntError),
     U32(TryFromIntError),
+    U64(TryFromIntError),
     Expected(String, Ipld),
 }
 
@@ -83,6 +88,38 @@ impl IpldEmbed for String {
     }
 }
 
+impl IpldEmbed for u8 {
+    fn to_ipld(&self) -> Ipld {
+        Ipld::Integer(*self as i128)
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        match ipld {
+            Ipld::Integer(x) => {
+                let x = (*x).try_into().map_err(IpldError::U8)?;
+                Ok(x)
+            }
+            xs => Err(IpldError::expected("u8", xs)),
+        }
+    }
+}
+
+impl IpldEmbed for u16 {
+    fn to_ipld(&self) -> Ipld {
+        Ipld::Integer(*self as i128)
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        match ipld {
+            Ipld::Integer(x) => {
+                let x = (*x).try_into().map_err(IpldError::U16)?;
+                Ok(x)
+            }
+            xs => Err(IpldError::expected("u16", xs)),
+        }
+    }
+}
+
 impl IpldEmbed for u32 {
     fn to_ipld(&self) -> Ipld {
         Ipld::Integer(*self as i128)
@@ -111,6 +148,22 @@ impl IpldEmbed for u64 {
                 Ok(x)
             }
             xs => Err(IpldError::expected("u64", xs)),
+        }
+    }
+}
+
+impl IpldEmbed for usize {
+    fn to_ipld(&self) -> Ipld {
+        Ipld::Integer(*self as i128)
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        match ipld {
+            Ipld::Integer(x) => {
+                let x = (*x).try_into().map_err(IpldError::USize)?;
+                Ok(x)
+            }
+            xs => Err(IpldError::expected("usize", xs)),
         }
     }
 }
@@ -193,6 +246,24 @@ impl<T: IpldEmbed> IpldEmbed for Option<T> {
                 let x = T::from_ipld(x)?;
                 Ok(Some(x))
             }
+        }
+    }
+}
+
+impl IpldEmbed for Scalar {
+    fn to_ipld(&self) -> Ipld {
+        Vec::from(self.to_bytes_le()).to_ipld()
+    }
+
+    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+        let mut bytes = Vec::from_ipld(ipld)?;
+        let bytes: [u8; 32] = bytes
+            .try_into()
+            .map_err(|_| IpldError::expected("Scalar", ipld))?;
+        if let Some(scalar) = Scalar::from_bytes_le(&bytes).into() {
+            Ok(scalar)
+        } else {
+            Err(IpldError::expected("Scalar", ipld))
         }
     }
 }

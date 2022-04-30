@@ -32,13 +32,16 @@ rustyline-derive = "0.5.0"
 rand_xorshift = "0.3.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
+serde_repr = "0.1.7"
 indexmap = { version = "1.8.0", features = ["rayon"] }
 ahash = "0.7.6"
 pasta_curves = "0.3.0"
 string-interner = "0.14.0"
 dashmap = "5.0.0"
-libipld = { version = "0.13.1", default-features = false, features = ["dag-cbor"] }
-cid = { version = "0.8.3", default-features = false, features = ["alloc"]}
+#libipld = { version = "0.13.1", default-features = false, features = ["dag-cbor"] }
+libipld = { package = "libipld", git = "https://github.com/lurk-lang/libipld", branch = "jcb/serde-minimal", default-features = false, features = ["dag-cbor", "serde-codec"] }
+
+cid = { version = "0.8.4", default-features = false, features = ["alloc", "serde-codec"]}
 multihash = { version = "0.16.1", default-features = false, features = ["alloc", "blake3"] }
 
 
