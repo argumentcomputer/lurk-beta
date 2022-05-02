@@ -13,6 +13,7 @@ use libipld::{
     json::DagJsonCodec,
     multihash::{Code, MultihashDigest},
     prelude::Codec,
+    serde::from_ipld,
     serde::to_ipld,
     Cid, Ipld,
 };
@@ -20,7 +21,6 @@ use lurk::{
     circuit::ToInputs,
     eval::{empty_sym_env, Evaluable, Evaluator, Status, IO},
     field::LurkField,
-    ipld::IpldEmbed,
     proof::{
         self,
         groth16::{Groth16, Groth16Prover, INNER_PRODUCT_SRS},
@@ -509,8 +509,8 @@ impl<F: LurkField + Serialize> Function<F> {
                 scalar_ptr,
             } => {
                 // FIXME: put the scalar_store in a new field for the store.
-                let fun_scalar_store = ScalarStore::<F>::from_ipld(&scalar_store).unwrap();
-                let fun_scalar_ptr = ScalarPtr::from_ipld(&scalar_ptr).unwrap();
+                let fun_scalar_store: ScalarStore<F> = from_ipld(*scalar_store).unwrap();
+                let fun_scalar_ptr: ScalarPtr<F> = from_ipld(*scalar_ptr).unwrap();
                 s.intern_scalar_ptr(fun_scalar_ptr, &fun_scalar_store)
                     .expect("failed to intern scalar_ptr for fun")
             }
@@ -584,10 +584,10 @@ impl Opening<Scalar> {
             let (scalar_store, scalar_ptr) = ScalarStore::new_with_expr(s, &new_fun);
             let scalar_ptr = scalar_ptr.unwrap();
 
-            let scalar_store_ipld = scalar_store.to_ipld();
-            let new_fun_ipld = scalar_ptr.to_ipld();
+            let scalar_store_ipld = to_ipld(scalar_store).unwrap();
+            let new_fun_ipld = to_ipld(scalar_ptr).unwrap();
 
-            let again = ScalarStore::from_ipld(&new_fun_ipld).unwrap();
+            let again = from_ipld(new_fun_ipld).unwrap();
             assert_eq!(&scalar_store, &again);
 
             let new_function = Function::<Scalar> {
