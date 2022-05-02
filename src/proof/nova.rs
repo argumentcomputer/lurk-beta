@@ -1433,7 +1433,7 @@ mod tests {
                         (odd 2))",
             |store| store.sym("odd"),
             Status::Error,
-            30,
+            25,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
