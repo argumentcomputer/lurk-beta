@@ -3,7 +3,6 @@ use crate::store::{
     ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk,
 };
 use crate::writer::Write;
-use libipld::Ipld;
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;

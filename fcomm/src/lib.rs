@@ -33,6 +33,7 @@ use lurk::{
 use once_cell::sync::OnceCell;
 use pairing_lib::{Engine, MultiMillerLoop};
 use rand::rngs::OsRng;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 mod file_map;
@@ -424,7 +425,7 @@ impl Evaluation {
     }
 }
 
-impl<F: LurkField + Serialize> Commitment<F> {
+impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
     pub fn from_cons(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
         let digest = *s.hash_expr(ptr).expect("couldn't hash ptr").value();
 
@@ -500,7 +501,7 @@ impl<F: LurkField + Serialize> Commitment<F> {
     }
 }
 
-impl<F: LurkField + Serialize> Function<F> {
+impl<F: LurkField + Serialize + DeserializeOwned> Function<F> {
     pub fn fun_ptr(&self, s: &mut Store<F>, limit: usize) -> Ptr<F> {
         let source_ptr = match &self.fun {
             LurkPtr::Source(source) => s.read(&source).expect("could not read source"),
@@ -509,8 +510,8 @@ impl<F: LurkField + Serialize> Function<F> {
                 scalar_ptr,
             } => {
                 // FIXME: put the scalar_store in a new field for the store.
-                let fun_scalar_store: ScalarStore<F> = from_ipld(*scalar_store).unwrap();
-                let fun_scalar_ptr: ScalarPtr<F> = from_ipld(*scalar_ptr).unwrap();
+                let fun_scalar_store: ScalarStore<F> = from_ipld(scalar_store.clone()).unwrap();
+                let fun_scalar_ptr: ScalarPtr<F> = from_ipld(scalar_ptr.clone()).unwrap();
                 s.intern_scalar_ptr(fun_scalar_ptr, &fun_scalar_store)
                     .expect("failed to intern scalar_ptr for fun")
             }
@@ -564,7 +565,7 @@ impl Opening<Scalar> {
 
         let (commitment, expression) =
             Commitment::construct_with_fun_application(s, function, input, limit);
-        let (public_output, iterations) = evaluate(s, expression, limit);
+        let (public_output, _iterations) = evaluate(s, expression, limit);
 
         let (new_commitment, output_expr) = if chain {
             // public_output = (result_expr (secret . new_fun))
@@ -584,10 +585,10 @@ impl Opening<Scalar> {
             let (scalar_store, scalar_ptr) = ScalarStore::new_with_expr(s, &new_fun);
             let scalar_ptr = scalar_ptr.unwrap();
 
-            let scalar_store_ipld = to_ipld(scalar_store).unwrap();
-            let new_fun_ipld = to_ipld(scalar_ptr).unwrap();
+            let scalar_store_ipld = to_ipld(scalar_store.clone()).unwrap();
+            let new_fun_ipld = to_ipld(scalar_ptr.clone()).unwrap();
 
-            let again = from_ipld(new_fun_ipld).unwrap();
+            let again = from_ipld(new_fun_ipld.clone()).unwrap();
             assert_eq!(&scalar_store, &again);
 
             let new_function = Function::<Scalar> {
@@ -826,7 +827,7 @@ impl Proof<Bls12> {
         };
 
         let public_outputs = output_io.to_inputs(&s);
-        let x = s.intern_cont_terminal();
+        let _x = s.intern_cont_terminal();
 
         Ok((public_inputs, public_outputs))
     }

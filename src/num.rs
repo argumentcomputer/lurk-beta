@@ -7,7 +7,6 @@ use std::{
 };
 
 use crate::field::LurkField;
-use libipld::Ipld;
 
 /// Number type for Lurk. Has different internal representations to optimize evaluation.
 #[derive(Debug, Clone, PartialEq, Eq)]

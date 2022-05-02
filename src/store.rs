@@ -10,7 +10,6 @@ use neptune::poseidon::PoseidonConstants;
 use once_cell::sync::OnceCell;
 
 use libipld::Cid;
-use libipld::Ipld;
 
 use crate::field::LurkField;
 use crate::scalar_store::ScalarContinuation;

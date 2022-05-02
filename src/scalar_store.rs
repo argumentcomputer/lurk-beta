@@ -1,9 +1,8 @@
 use std::collections::BTreeMap;
 
 use crate::field::LurkField;
-use libipld::Ipld;
 
-use crate::store::{ContTag, Op1, Op2, Pointer, Ptr, Rel2, ScalarContPtr, ScalarPtr, Store, Tag};
+use crate::store::{Op1, Op2, Pointer, Ptr, Rel2, ScalarContPtr, ScalarPtr, Store, Tag};
 use crate::Num;
 use serde::Deserialize;
 use serde::Serialize;
