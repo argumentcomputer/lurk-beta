@@ -1468,7 +1468,6 @@ mod tests {
         );
     }
 
-
     #[test]
     #[ignore]
     fn outer_prove_evaluate_cons1() {
