@@ -1420,33 +1420,7 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_no_mutual_recursion2() {
-        outer_prove_aux(
-            "(letrec ((even (lambda (n)
-                                  (if (= 0 n)
-                                      t
-                                      (odd (- n 1)))))
-                          (odd (lambda (n)
-                                  (if (= 0 n)
-                                      nil
-                                 (even (- n 1))))))
-                        ;; NOTE: This is not true mutual-recursion.
-                        ;; However, it exercises the behavior of LETREC.
-                        (odd 2))",
-            |store| store.sym("odd"),
-            Status::Terminal,
-            30,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
-    }
-
-    #[test]
-    #[ignore]
-    fn outer_prove_evaluate_no_mutual_recursion2_error() {
+    fn outer_prove_evaluate_no_mutual_recursion_error() {
         outer_prove_aux(
             "(letrec ((even (lambda (n)
                                   (if (= 0 n)
