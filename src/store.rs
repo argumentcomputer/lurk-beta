@@ -2294,6 +2294,7 @@ pub mod test {
 
     use libipld::serde::from_ipld;
     use libipld::serde::to_ipld;
+    use libipld::Ipld;
 
     impl Arbitrary for Tag {
         fn arbitrary(g: &mut Gen) -> Self {
