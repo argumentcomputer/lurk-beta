@@ -3,9 +3,6 @@ use std::collections::BTreeMap;
 use crate::field::LurkField;
 use libipld::Ipld;
 
-use crate::ipld::FWrap;
-use crate::ipld::IpldEmbed;
-use crate::ipld::IpldError;
 use crate::store::{ContTag, Op1, Op2, Pointer, Ptr, Rel2, ScalarContPtr, ScalarPtr, Store, Tag};
 use crate::Num;
 use serde::Deserialize;
@@ -17,7 +14,7 @@ use serde::Serialize;
 pub struct ScalarStore<F: LurkField> {
     scalar_map: BTreeMap<ScalarPtr<F>, Option<ScalarExpression<F>>>,
     scalar_cont_map: BTreeMap<ScalarContPtr<F>, Option<ScalarContinuation<F>>>,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     pending_scalar_ptrs: Vec<ScalarPtr<F>>,
 }
 
@@ -298,6 +295,7 @@ pub enum ScalarContinuation<F: LurkField> {
 mod test {
     use super::*;
     use crate::eval::empty_sym_env;
+    use crate::field::FWrap;
     use crate::store::ScalarPointer;
     use blstrs::Scalar as Fr;
 

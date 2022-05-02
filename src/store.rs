@@ -2282,9 +2282,9 @@ impl<F: LurkField> Expression<'_, F> {
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use crate::eval::{empty_sym_env, Evaluator};
-    use crate::ipld::FWrap;
+    use crate::field::FWrap;
     use crate::writer::Write;
     use blstrs::Scalar as Fr;
 

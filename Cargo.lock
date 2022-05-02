@@ -1200,7 +1200,7 @@ checksum = "cb691a747a7ab48abc15c5b42066eaafde10dc427e3b6ee2a1cf43db04c763bd"
 [[package]]
 name = "libipld"
 version = "0.13.1"
-source = "git+https://github.com/lurk-lang/libipld?branch=jcb/serde-minimal#8cf938280ff6b3ee28913f8dbcf81cae158f9774"
+source = "git+https://github.com/lurk-lang/libipld?branch=jcb/serde-minimal#da5a7f9a26864e90bf6cce0ae88271e7b4e57ec0"
 dependencies = [
  "async-trait",
  "cached",
@@ -1217,7 +1217,7 @@ dependencies = [
 [[package]]
 name = "libipld-cbor"
 version = "0.13.1"
-source = "git+https://github.com/lurk-lang/libipld?branch=jcb/serde-minimal#8cf938280ff6b3ee28913f8dbcf81cae158f9774"
+source = "git+https://github.com/lurk-lang/libipld?branch=jcb/serde-minimal#da5a7f9a26864e90bf6cce0ae88271e7b4e57ec0"
 dependencies = [
  "byteorder 1.4.3",
  "libipld-core",
@@ -1227,7 +1227,7 @@ dependencies = [
 [[package]]
 name = "libipld-core"
 version = "0.13.1"
-source = "git+https://github.com/lurk-lang/libipld?branch=jcb/serde-minimal#8cf938280ff6b3ee28913f8dbcf81cae158f9774"
+source = "git+https://github.com/lurk-lang/libipld?branch=jcb/serde-minimal#da5a7f9a26864e90bf6cce0ae88271e7b4e57ec0"
 dependencies = [
  "anyhow",
  "cid",
@@ -1241,7 +1241,7 @@ dependencies = [
 [[package]]
 name = "libipld-macro"
 version = "0.13.1"
-source = "git+https://github.com/lurk-lang/libipld?branch=jcb/serde-minimal#8cf938280ff6b3ee28913f8dbcf81cae158f9774"
+source = "git+https://github.com/lurk-lang/libipld?branch=jcb/serde-minimal#da5a7f9a26864e90bf6cce0ae88271e7b4e57ec0"
 dependencies = [
  "libipld-core",
 ]

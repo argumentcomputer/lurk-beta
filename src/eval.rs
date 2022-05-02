@@ -1,12 +1,11 @@
 use crate::field::LurkField;
-use crate::ipld::IpldEmbed;
-use crate::ipld::IpldError;
 use crate::store::{
     ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk,
 };
 use crate::writer::Write;
 use libipld::Ipld;
 use log::info;
+use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
 
@@ -37,7 +36,7 @@ pub struct Frame<T: Copy, W: Copy> {
     pub witness: W,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Status {
     Terminal,
     Error,
@@ -83,31 +82,6 @@ impl Status {
             Self::Terminal => Some(s.intern_cont_terminal()),
             Self::Error => Some(s.intern_cont_error()),
             Self::Incomplete => None,
-        }
-    }
-}
-
-impl IpldEmbed for Status {
-    fn to_ipld(&self) -> Ipld {
-        match self {
-            Self::Terminal => vec![0usize].to_ipld(),
-            Self::Error => vec![1usize].to_ipld(),
-            Self::Incomplete => vec![2usize].to_ipld(),
-        }
-    }
-
-    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-        match ipld {
-            Ipld::List(xs) => match xs.as_slice() {
-                [Ipld::Integer(0)] => Ok(Self::Terminal),
-                [Ipld::Integer(1)] => Ok(Self::Error),
-                [Ipld::Integer(2)] => Ok(Self::Incomplete),
-                xs => Err(IpldError::Expected(
-                    String::from("Status"),
-                    Ipld::List(xs.to_owned()),
-                )),
-            },
-            xs => Err(IpldError::Expected(String::from("Status"), xs.clone())),
         }
     }
 }
