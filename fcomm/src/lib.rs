@@ -1,7 +1,7 @@
 use log::info;
 use std::convert::TryFrom;
 use std::fs::{self, File};
-use std::io::{self, BufReader};
+use std::io::{self, BufReader, Read};
 use std::path::Path;
 
 use bellperson::{groth16, SynthesisError};
@@ -350,13 +350,13 @@ where
     }
     fn read_from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let file = File::open(path)?;
-        let reader = BufReader::new(file);
+        let mut reader = BufReader::new(file);
 
-        // let mut bytes: Vec<u8> = Default::default();
-        // reader.read_to_end(&mut bytes);
+        let mut bytes: Vec<u8> = Default::default();
+        reader.read_to_end(&mut bytes).unwrap();
 
-        // let decoded: Self = DagJsonCodec.decode(&bytes).unwrap();
-        Ok(serde_json::from_reader(reader).expect("failed to read file"))
+        let decoded: Ipld = DagJsonCodec.decode(&bytes).unwrap();
+        Ok(from_ipld(decoded).unwrap())
     }
     fn read_from_stdin() -> Result<Self, Error> {
         let reader = BufReader::new(io::stdin());

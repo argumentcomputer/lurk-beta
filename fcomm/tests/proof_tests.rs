@@ -118,8 +118,7 @@ fn test_prove_and_verify_expression() {
             &fcomm_data_path,
         );
 
-        let proof_string = fs::read_to_string(&proof_path).unwrap();
-        let proof: Proof<Bls12> = serde_json::from_str(&proof_string).unwrap();
+        let proof = Proof::<Bls12>::read_from_path(&proof_path).unwrap();
 
         assert_eq!(
             proof
@@ -200,10 +199,9 @@ fn test_function_aux(
     let commitment_path = tmp_dir.path().join("commitment.json");
     let fcomm_data_path = tmp_dir.path().join("fcomm_data");
 
-    let function_file = File::create(&function_path).unwrap();
     let mut input_file = File::create(&input_path).unwrap();
 
-    serde_json::to_writer(&function_file, &function).unwrap();
+    function.write_to_path(&function_path);
 
     commit(&function_path, &commitment_path, &fcomm_data_path);
 
@@ -221,8 +219,7 @@ fn test_function_aux(
             chained,
         );
 
-        let proof_string = fs::read_to_string(&proof_path).unwrap();
-        let proof: Proof<Bls12> = serde_json::from_str(&proof_string).unwrap();
+        let proof = Proof::<Bls12>::read_from_path(&proof_path).unwrap();
         let opening = proof.claim.opening().expect("expected opening claim");
 
         let mut store = Store::<Scalar>::default();
