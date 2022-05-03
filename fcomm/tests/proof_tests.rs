@@ -3,7 +3,6 @@ use predicates::prelude::*;
 use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::Write;
-use std::path::PathBuf;
 use std::process::Command;
 use tempdir::TempDir;
 
@@ -193,7 +192,7 @@ fn test_function_aux(
 ) {
     use lurk::writer::Write;
 
-    let mut io = expected_io.iter();
+    let io = expected_io.iter();
 
     let proof_path = tmp_dir.path().join("proof.json");
     let function_path = tmp_dir.path().join("function.json");
