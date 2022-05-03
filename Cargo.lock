@@ -1523,7 +1523,7 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 [[package]]
 name = "nova-snark"
 version = "0.4.2"
-source = "git+https://github.com/microsoft/nova#9a466d14671a6927a38bcc69d15b3c3a05c7e5f3"
+source = "git+https://github.com/lurk-lang/nova?branch=acs/wasm-support#c8eee5aa43d50a204c6fd61fe5d947c902414d92"
 dependencies = [
  "bellperson",
  "bellperson-nonnative",

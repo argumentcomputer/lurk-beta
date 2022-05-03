@@ -12,5 +12,5 @@ fn main() -> Result<()> {
         None
     };
 
-    repl(lurk_file.as_ref().map(|x| &**x))
+    repl(lurk_file.as_deref())
 }

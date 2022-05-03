@@ -483,9 +483,9 @@ mod tests {
             Some(
                 groth_prover
                     .outer_prove(
-                        &groth_params,
+                        groth_params,
                         &INNER_PRODUCT_SRS,
-                        expr.clone(),
+                        expr,
                         empty_sym_env(&s),
                         s,
                         limit,
@@ -503,11 +503,11 @@ mod tests {
                 verify_aggregate_proof_and_aggregate_instances(
                     &srs_vk,
                     &pvk,
-                    rng.clone(),
+                    rng,
                     &public_inputs.to_inputs(&s),
                     &public_outputs.to_inputs(&s),
                     &proof.proof,
-                    &TRANSCRIPT_INCLUDE,
+                    TRANSCRIPT_INCLUDE,
                 )
                 .unwrap();
             assert!(aggregate_proof_and_instances_verified);
@@ -517,7 +517,7 @@ mod tests {
     pub fn check_cs_deltas(
         constraint_systems: &SequentialCS<Fr, IO<Fr>, Witness<Fr>>,
         limit: usize,
-    ) -> () {
+    ) {
         let mut cs_blank = MetricCS::<Fr>::new();
         let store = Store::<Fr>::default();
         let blank_frame = MultiFrame::<Scalar, _, _>::blank(&store, DEFAULT_CHUNK_FRAME_COUNT);
@@ -535,10 +535,10 @@ mod tests {
     #[ignore]
     fn outer_prove_arithmetic_let() {
         outer_prove_aux(
-            &"(let ((a 5)
-                     (b 1)
-                     (c 2))
-                (/ (+ a b) c))",
+            "(let ((a 5)
+                      (b 1)
+                      (c 2))
+                 (/ (+ a b) c))",
             |store| store.num(3),
             18,
             DEFAULT_CHECK_GROTH16,
@@ -552,7 +552,7 @@ mod tests {
     #[ignore]
     fn outer_prove_binop() {
         outer_prove_aux(
-            &"(+ 1 2)",
+            "(+ 1 2)",
             |store| store.num(3),
             3,
             DEFAULT_CHECK_GROTH16,
@@ -566,7 +566,7 @@ mod tests {
     #[ignore]
     fn outer_prove_eq() {
         outer_prove_aux(
-            &"(eq 5 5)",
+            "(eq 5 5)",
             |store| store.t(),
             3,
             true, // Always check Groth16 in at least one test.
@@ -580,7 +580,7 @@ mod tests {
     #[ignore]
     fn outer_prove_num_equal() {
         outer_prove_aux(
-            &"(= 5 5)",
+            "(= 5 5)",
             |store| store.t(),
             3,
             DEFAULT_CHECK_GROTH16,
@@ -589,7 +589,7 @@ mod tests {
             false,
         );
         outer_prove_aux(
-            &"(= 5 6)",
+            "(= 5 6)",
             |store| store.nil(),
             3,
             DEFAULT_CHECK_GROTH16,
@@ -603,7 +603,7 @@ mod tests {
     #[ignore]
     fn outer_prove_if() {
         outer_prove_aux(
-            &"(if t 5 6)",
+            "(if t 5 6)",
             |store| store.num(5),
             3,
             DEFAULT_CHECK_GROTH16,
@@ -613,7 +613,7 @@ mod tests {
         );
 
         outer_prove_aux(
-            &"(if t 5 6)",
+            "(if t 5 6)",
             |store| store.num(5),
             3,
             DEFAULT_CHECK_GROTH16,
@@ -626,7 +626,7 @@ mod tests {
     #[ignore]
     fn outer_prove_if_fully_evaluates() {
         outer_prove_aux(
-            &"(if t (+ 5 5) 6)",
+            "(if t (+ 5 5) 6)",
             |store| store.num(10),
             5,
             DEFAULT_CHECK_GROTH16,
@@ -640,12 +640,12 @@ mod tests {
     #[ignore]
     fn outer_prove_recursion1() {
         outer_prove_aux(
-            &"(letrec ((exp (lambda (base)
-                               (lambda (exponent)
-                                 (if (= 0 exponent)
-                                     1
-                                     (* base ((exp base) (- exponent 1))))))))
-                ((exp 5) 3))",
+            "(letrec ((exp (lambda (base)
+                                (lambda (exponent)
+                                  (if (= 0 exponent)
+                                      1
+                                      (* base ((exp base) (- exponent 1))))))))
+                 ((exp 5) 3))",
             |store| store.num(125),
             // 117, // FIXME: is this change correct?
             91,
@@ -660,12 +660,12 @@ mod tests {
     #[ignore]
     fn outer_prove_recursion2() {
         outer_prove_aux(
-            &"(letrec ((exp (lambda (base)
-                                  (lambda (exponent)
-                                     (lambda (acc)
-                                       (if (= 0 exponent)
-                                          acc
-                                          (((exp base) (- exponent 1)) (* acc base))))))))
+            "(letrec ((exp (lambda (base)
+                                   (lambda (exponent)
+                                      (lambda (acc)
+                                        (if (= 0 exponent)
+                                           acc
+                                           (((exp base) (- exponent 1)) (* acc base))))))))
                 (((exp 5) 5) 1))",
             |store| store.num(3125),
             // 248, // FIXME: is this change correct?
