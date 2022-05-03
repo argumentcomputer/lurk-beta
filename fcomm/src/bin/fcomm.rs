@@ -183,7 +183,7 @@ impl Open {
         let mut s = Store::<Scalar>::default();
         let function_map = committed_function_store();
         let commitment =
-            Commitment::from_hex(&self.commitment).map_err(|e| Error::CommitmentParseError(e))?;
+            Commitment::from_hex(&self.commitment).map_err(Error::CommitmentParseError)?;
 
         let function = function_map
             .get(commitment)

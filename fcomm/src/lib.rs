@@ -89,8 +89,7 @@ impl<F: LurkField> ToString for Commitment<F> {
     fn to_string(&self) -> String {
         let s = serde_json::to_string(&self).unwrap();
         // Remove quotation marks. Yes, dumb hacks are happening.
-        let s = s[1..s.len() - 1].to_string();
-        s
+        s[1..s.len() - 1].to_string()
     }
 }
 
@@ -504,7 +503,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
 impl<F: LurkField + Serialize + DeserializeOwned> Function<F> {
     pub fn fun_ptr(&self, s: &mut Store<F>, limit: usize) -> Ptr<F> {
         let source_ptr = match &self.fun {
-            LurkPtr::Source(source) => s.read(&source).expect("could not read source"),
+            LurkPtr::Source(source) => s.read(source).expect("could not read source"),
             LurkPtr::Ipld {
                 scalar_store,
                 scalar_ptr,
@@ -572,11 +571,10 @@ impl Opening<Scalar> {
             let cons = public_output.expr;
             let result_expr = s.car(&cons);
             let new_comm = s.cdr(&cons);
-            let new_secret = s
+            let new_secret = *s
                 .get_expr_hash(&s.car(&new_comm))
                 .expect("secret missing")
-                .value()
-                .clone();
+                .value();
 
             let new_fun = s.cdr(&new_comm);
             let new_commitment = Commitment::from_cons(s, &new_comm);
@@ -586,7 +584,7 @@ impl Opening<Scalar> {
             let scalar_ptr = scalar_ptr.unwrap();
 
             let scalar_store_ipld = to_ipld(scalar_store.clone()).unwrap();
-            let new_fun_ipld = to_ipld(scalar_ptr.clone()).unwrap();
+            let new_fun_ipld = to_ipld(scalar_ptr).unwrap();
 
             let again = from_ipld(new_fun_ipld.clone()).unwrap();
             assert_eq!(&scalar_store, &again);
@@ -697,7 +695,7 @@ impl Proof<Bls12> {
 
                 assert_eq!(commitment, c);
 
-                (expression, empty_sym_env(&s))
+                (expression, empty_sym_env(s))
             }
         };
 

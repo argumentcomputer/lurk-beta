@@ -238,7 +238,7 @@ impl<F: LurkField> Serialize for ScalarPtr<F> {
     {
         use ser::Error;
         let cid = F::to_cid(self.0, self.1)
-            .ok_or_else(|| S::Error::custom(format!("expected validly tagged ScalarPtr")))?;
+            .ok_or_else(|| S::Error::custom("expected validly tagged ScalarPtr".to_string()))?;
         cid.serialize(serializer)
     }
 }
@@ -321,7 +321,7 @@ impl<F: LurkField> Serialize for ScalarContPtr<F> {
     {
         use ser::Error;
         let cid = F::to_cid(self.0, self.1)
-            .ok_or_else(|| S::Error::custom(format!("expected validly tagged ScalarContPtr")))?;
+            .ok_or_else(|| S::Error::custom("expected validly tagged ScalarContPtr".to_string()))?;
         cid.serialize(serializer)
     }
 }
