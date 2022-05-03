@@ -18,7 +18,7 @@ use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 use fcomm::{
     self, committed_function_store, evaluate, Claim, Commitment, Error, Evaluation, FileStore,
-    Function, Opening, Proof,
+    Function, LurkPtr, Opening, Proof,
 };
 
 /// Functional commitments
@@ -77,6 +77,10 @@ struct Commit {
     /// Path to functional commitment
     #[clap(short, long, parse(from_os_str))]
     commitment: Option<PathBuf>,
+
+    // Function is lurk source.
+    #[clap(long)]
+    lurk: bool,
 }
 
 #[derive(Args, Debug)]
@@ -138,7 +142,18 @@ impl Commit {
     fn commit(&self, limit: usize) -> Result<(), Error> {
         let s = &mut Store::<Scalar>::default();
 
-        let mut function = Function::read_from_path(&self.function)?;
+        let mut function = if self.lurk {
+            let path = env::current_dir()?.join(&self.function);
+            let src = read_to_string(path)?;
+
+            Function {
+                fun: LurkPtr::Source(src),
+                secret: None,
+                commitment: None,
+            }
+        } else {
+            Function::read_from_path(&self.function)?
+        };
         let fun_ptr = function.fun_ptr(s, limit);
         let function_map = committed_function_store();
 

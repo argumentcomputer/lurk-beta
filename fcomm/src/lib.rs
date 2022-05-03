@@ -1,7 +1,7 @@
 use log::info;
 use std::convert::TryFrom;
-use std::fs::{self, File};
-use std::io::{self, BufReader, Read};
+use std::fs::File;
+use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 
 use bellperson::{groth16, SynthesisError};
@@ -10,6 +10,7 @@ use blstrs::{Bls12, Scalar};
 use ff::PrimeField;
 use hex::FromHex;
 use libipld::{
+    cbor::DagCborCodec,
     json::DagJsonCodec,
     multihash::{Code, MultihashDigest},
     prelude::Codec,
@@ -153,8 +154,15 @@ pub struct Opening<F: LurkField> {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct LurkScalarBytes {
+    scalar_store: Vec<u8>,
+    scalar_ptr: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum LurkPtr {
     Source(String),
+    ScalarBytes(LurkScalarBytes),
     Ipld {
         scalar_store: Ipld,
         scalar_ptr: Ipld,
@@ -343,21 +351,19 @@ where
     for<'de> T: Deserialize<'de>, // + Decode<DagJsonCodec>,
 {
     fn write_to_path<P: AsRef<Path>>(&self, path: P) {
-        let ipld = to_ipld(self).unwrap();
-        let dag_json = DagJsonCodec.encode(&ipld).unwrap();
+        let file = File::create(path).expect("failed to create file");
+        let writer = BufWriter::new(&file);
 
-        fs::write(path, dag_json).expect("failed to write file");
+        serde_json::to_writer(writer, &self).expect("failed to write file");
     }
+
     fn read_from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let file = File::open(path)?;
-        let mut reader = BufReader::new(file);
+        let reader = BufReader::new(file);
 
-        let mut bytes: Vec<u8> = Default::default();
-        reader.read_to_end(&mut bytes).unwrap();
-
-        let decoded: Ipld = DagJsonCodec.decode(&bytes).unwrap();
-        Ok(from_ipld(decoded).unwrap())
+        Ok(serde_json::from_reader(reader).expect("failed to read file"))
     }
+
     fn read_from_stdin() -> Result<Self, Error> {
         let reader = BufReader::new(io::stdin());
         Ok(serde_json::from_reader(reader).expect("failed to read from stdin"))
@@ -502,8 +508,35 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
 
 impl<F: LurkField + Serialize + DeserializeOwned> Function<F> {
     pub fn fun_ptr(&self, s: &mut Store<F>, limit: usize) -> Ptr<F> {
-        let source_ptr = match &self.fun {
+        let source_ptr = self.fun.ptr(s);
+
+        // Evaluate the source to get an actual function.
+        let (output, _iterations) = evaluate(s, source_ptr, limit);
+        // TODO: Verify that result actually is a function.
+
+        output.expr
+    }
+}
+
+impl LurkPtr {
+    fn ptr<F: LurkField + Serialize + DeserializeOwned>(&self, s: &mut Store<F>) -> Ptr<F> {
+        match self {
             LurkPtr::Source(source) => s.read(source).expect("could not read source"),
+            LurkPtr::ScalarBytes(opaque_lurk_data) => {
+                let scalar_store: Ipld = DagCborCodec
+                    .decode(&opaque_lurk_data.scalar_store)
+                    .expect("could not read opaque scalar store");
+                let scalar_ptr: Ipld = DagCborCodec
+                    .decode(&opaque_lurk_data.scalar_ptr)
+                    .expect("could not read opaque scalar ptr");
+
+                let lurk_ptr = LurkPtr::Ipld {
+                    scalar_store,
+                    scalar_ptr,
+                };
+
+                lurk_ptr.ptr(s)
+            }
             LurkPtr::Ipld {
                 scalar_store,
                 scalar_ptr,
@@ -514,13 +547,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Function<F> {
                 s.intern_scalar_ptr(fun_scalar_ptr, &fun_scalar_store)
                     .expect("failed to intern scalar_ptr for fun")
             }
-        };
-
-        // Evaluate the source to get an actual function.
-        let (output, _iterations) = evaluate(s, source_ptr, limit);
-        // TODO: Verify that result actually is a function.
-
-        output.expr
+        }
     }
 }
 
@@ -586,14 +613,17 @@ impl Opening<Scalar> {
             let scalar_store_ipld = to_ipld(scalar_store.clone()).unwrap();
             let new_fun_ipld = to_ipld(scalar_ptr).unwrap();
 
+            let scalar_store_bytes = DagCborCodec.encode(&scalar_store_ipld).unwrap();
+            let new_fun_bytes = DagCborCodec.encode(&new_fun_ipld).unwrap();
+
             let again = from_ipld(new_fun_ipld.clone()).unwrap();
             assert_eq!(&scalar_store, &again);
 
             let new_function = Function::<Scalar> {
-                fun: LurkPtr::Ipld {
-                    scalar_store: scalar_store_ipld,
-                    scalar_ptr: new_fun_ipld,
-                },
+                fun: LurkPtr::ScalarBytes(LurkScalarBytes {
+                    scalar_store: scalar_store_bytes,
+                    scalar_ptr: new_fun_bytes,
+                }),
                 secret: Some(new_secret),
                 commitment: Some(new_commitment),
             };
