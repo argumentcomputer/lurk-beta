@@ -1165,6 +1165,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     let (arg1, more) = car_cdr(&mut cs.namespace(|| "car_cdr(rest)"), g, &rest, store)?;
 
+    let end_is_nil = more.alloc_equal(&mut cs.namespace(|| "end_is_nil"), &g.nil_ptr)?;
+
     let mut results = Results::default();
 
     // --
@@ -1172,9 +1174,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         // head == LAMBDA
         let (args, body) = (arg1.clone(), more.clone());
         let args_is_nil = args.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
-
-        // let not_dummy1 = Boolean::not(&args_is_nil);
-        // let not_dummy2 = Boolean::and(&mut cs.namespace(|| "not_dummy2"), &not_dummy, &not_dummy1)?;
 
         let (car_args, cdr_args) = car_cdr(&mut cs.namespace(|| "car_cdr args"), g, &args, store)?;
 
@@ -1218,19 +1217,51 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     results.add_clauses_cons(*lambda_hash.value(), &function, env, cont, &g.true_num);
 
-    {
-        // head == QUOTE
-        results.add_clauses_cons(*quote_hash.value(), &arg1, env, cont, &g.true_num);
-    }
+    // head == QUOTE
+    let (arg1_or_expr, the_cont) = {
+        let arg1_or_expr = AllocatedPtr::pick(
+            &mut cs.namespace(|| "arg1 if end is nil, expr otherwise"),
+            &end_is_nil,
+            &arg1,
+            expr,
+        )?;
 
-    let (val, continuation_let, continuation_letrec) = {
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "the cont if end is nil"),
+            &end_is_nil,
+            cont,
+            &g.error_ptr_cont,
+        )?;
+
+        (arg1_or_expr, the_cont)
+    };
+
+    results.add_clauses_cons(
+        *quote_hash.value(),
+        &arg1_or_expr,
+        env,
+        &the_cont,
+        &g.true_num,
+    );
+
+    /*
+     * Returns the expression, which can be the value of the first binding
+     * when it is found, or the body otherwise. It also returns 2 continuations,
+     * one for let and one for letrec. The continuation is `cont` if no error
+     * is found and bindings is nil. Otherwise the continuation is a new
+     * pointer, created using the expanded env.
+     * Errors:
+     *  - rest_body_is_nil
+     *  - end_is_nil rest (and not bindings_is_nil)
+     */
+    let (the_expr, the_cont_let, the_cont_letrec) = {
         // head == LET
         // or head == LETREC
 
         let mut cs_letrec = cs.namespace(|| "LET(REC)*");
 
         let (bindings, body) = (arg1.clone(), more.clone());
-        let (body1, _rest_body) =
+        let (body1, rest_body) =
             car_cdr(&mut cs_letrec.namespace(|| "car_cdr body"), g, &body, store)?;
         let (binding1, rest_bindings) = car_cdr(
             &mut cs_letrec.namespace(|| "car_cdr bindings"),
@@ -1238,7 +1269,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &bindings,
             store,
         )?;
-        let (var, more_vals) = car_cdr(
+        let (var, vals) = car_cdr(
             &mut cs_letrec.namespace(|| "car_cdr binding1"),
             g,
             &binding1,
@@ -1247,21 +1278,30 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         let bindings_is_nil =
             bindings.alloc_equal(&mut cs_letrec.namespace(|| "bindings_is_nil"), &g.nil_ptr)?;
 
-        let (val1, _end) = car_cdr(
-            &mut cs_letrec.namespace(|| "car_cdr more_vals"),
-            g,
-            &more_vals,
-            store,
+        let rest_body_is_nil =
+            rest_body.alloc_equal(&mut cs_letrec.namespace(|| "rest_body_is_nil"), &g.nil_ptr)?;
+
+        let (val, end) = car_cdr(&mut cs_letrec.namespace(|| "car_cdr vals"), g, &vals, store)?;
+
+        let end_is_nil = end.alloc_equal(&mut cs_letrec.namespace(|| "end_is_nil"), &g.nil_ptr)?;
+
+        let body_is_nil =
+            body.alloc_equal(&mut cs_letrec.namespace(|| "body_is_nil"), &g.nil_ptr)?;
+
+        /*
+         * We get the condition for error by using OR of each individual error.
+         */
+        let mut cond_error = constraints::or(
+            &mut cs_letrec.namespace(|| "cond error1"),
+            &Boolean::not(&rest_body_is_nil),
+            &Boolean::not(&end_is_nil),
+        )?;
+        cond_error = constraints::or(
+            &mut cs_letrec.namespace(|| "cond error2"),
+            &body_is_nil,
+            &cond_error,
         )?;
 
-        let val = AllocatedPtr::pick(
-            &mut cs_letrec.namespace(|| "pick val"),
-            &bindings_is_nil,
-            &body1,
-            &val1,
-        )?;
-
-        // FIXME: assert end == NIL
         let expanded1 = AllocatedPtr::construct_list(
             &mut cs_letrec.namespace(|| "expanded1"),
             g,
@@ -1281,18 +1321,11 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &expanded1,
         )?;
 
-        let continuation1_let = AllocatedContPtr::construct(
+        let continuation_let = AllocatedContPtr::construct(
             &mut cs_letrec.namespace(|| "let continuation"),
             store,
             &g.let_cont_tag,
             &[&var, &expanded, env, cont],
-        )?;
-
-        let continuation_let = AllocatedContPtr::pick(
-            &mut cs_letrec.namespace(|| "continuation let"),
-            &bindings_is_nil,
-            cont,
-            &continuation1_let,
         )?;
 
         let expanded2 = AllocatedPtr::construct_list(
@@ -1309,25 +1342,60 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &expanded2,
         )?;
 
-        let continuation1_letrec = AllocatedContPtr::construct(
+        let continuation_letrec = AllocatedContPtr::construct(
             &mut cs_letrec.namespace(|| "letrec continuation"),
             store,
             &g.letrec_cont_tag,
             &[&var, &expanded_, env, cont],
         )?;
 
-        let continuation_letrec = AllocatedContPtr::pick(
-            &mut cs_letrec.namespace(|| "continuation letrec"),
+        let output_expr = AllocatedPtr::pick(
+            &mut cs_letrec.namespace(|| "pick body1 or val"),
             &bindings_is_nil,
-            cont,
-            &continuation1_letrec,
+            &body1,
+            &val,
         )?;
 
-        (val, continuation_let, continuation_letrec)
+        let output_cont_let = AllocatedContPtr::pick(
+            &mut cs_letrec.namespace(|| "pick cont or newer let"),
+            &bindings_is_nil,
+            cont,
+            &continuation_let,
+        )?;
+
+        let output_cont_letrec = AllocatedContPtr::pick(
+            &mut cs_letrec.namespace(|| "pick cont or newer letrec"),
+            &bindings_is_nil,
+            cont,
+            &continuation_letrec,
+        )?;
+
+        let the_expr = AllocatedPtr::pick(
+            &mut cs_letrec.namespace(|| "the_expr_let"),
+            &cond_error,
+            expr,
+            &output_expr,
+        )?;
+
+        let the_cont_let = AllocatedContPtr::pick(
+            &mut cs_letrec.namespace(|| "the_cont_let"),
+            &cond_error,
+            &g.error_ptr_cont,
+            &output_cont_let,
+        )?;
+
+        let the_cont_letrec = AllocatedContPtr::pick(
+            &mut cs_letrec.namespace(|| "the_cont_letrec"),
+            &cond_error,
+            &g.error_ptr_cont,
+            &output_cont_letrec,
+        )?;
+
+        (the_expr, the_cont_let, the_cont_letrec)
     };
 
-    results.add_clauses_cons(*let_hash, &val, env, &continuation_let, &g.false_num);
-    results.add_clauses_cons(*letrec_hash, &val, env, &continuation_letrec, &g.false_num);
+    results.add_clauses_cons(*let_hash, &the_expr, env, &the_cont_let, &g.false_num);
+    results.add_clauses_cons(*letrec_hash, &the_expr, env, &the_cont_letrec, &g.false_num);
 
     // head == CONS
     let continuation = AllocatedContPtr::construct(
@@ -1340,8 +1408,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     results.add_clauses_cons(*cons_hash.value(), &arg1, env, &continuation, &g.false_num);
 
     // head == CAR
-    // let end = more.clone();
-    // FIXME: Error if end != NIL.
 
     // TODO: Factor out the hashing involved in constructing the continuation,
     // since it happens in many of the branches here.
@@ -1357,10 +1423,22 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         ],
     )?;
 
-    results.add_clauses_cons(*car_hash.value(), &arg1, env, &continuation, &g.false_num);
+    let the_cont_car = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_car"),
+        &end_is_nil,
+        &continuation,
+        &g.error_ptr_cont,
+    )?;
+
+    results.add_clauses_cons(
+        *car_hash.value(),
+        &arg1_or_expr,
+        env,
+        &the_cont_car,
+        &g.false_num,
+    );
 
     // head == CDR
-    // FIXME: Error if end != NIL.
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "unop cdr"),
         store,
@@ -1373,10 +1451,22 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         ],
     )?;
 
-    results.add_clauses_cons(*cdr_hash.value(), &arg1, env, &continuation, &g.false_num);
+    let the_cont_cdr = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_cdr"),
+        &end_is_nil,
+        &continuation,
+        &g.error_ptr_cont,
+    )?;
+
+    results.add_clauses_cons(
+        *cdr_hash.value(),
+        &arg1_or_expr,
+        env,
+        &the_cont_cdr,
+        &g.false_num,
+    );
 
     // head == ATOM
-    // FIXME: Error if end != NIL.
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "unop atom"),
         store,
@@ -1389,10 +1479,22 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         ],
     )?;
 
-    results.add_clauses_cons(*atom_hash.value(), &arg1, env, &continuation, &g.false_num);
+    let the_cont_atom = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_atom"),
+        &end_is_nil,
+        &continuation,
+        &g.error_ptr_cont,
+    )?;
+
+    results.add_clauses_cons(
+        *atom_hash.value(),
+        &arg1_or_expr,
+        env,
+        &the_cont_atom,
+        &g.false_num,
+    );
 
     // head == EMIT
-    // FIXME: Error if end != NIL.
     let continuation = AllocatedContPtr::construct(
         &mut cs.namespace(|| "unop emit"),
         store,
@@ -1405,7 +1507,20 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         ],
     )?;
 
-    results.add_clauses_cons(*emit_hash.value(), &arg1, env, &continuation, &g.false_num);
+    let the_cont_emit = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_emit"),
+        &end_is_nil,
+        &continuation,
+        &g.error_ptr_cont,
+    )?;
+
+    results.add_clauses_cons(
+        *emit_hash.value(),
+        &arg1_or_expr,
+        env,
+        &the_cont_emit,
+        &g.false_num,
+    );
 
     // head == +
     let continuation = AllocatedContPtr::construct(
@@ -1503,12 +1618,20 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     results.add_clauses_cons(*if_hash.value(), &arg1, env, &continuation, &g.false_num);
 
-    {
-        // head == CURRENT-ENV
-        // FIXME: Error if rest != NIL.
-
-        results.add_clauses_cons(*current_env_hash.value(), env, env, cont, &g.true_num);
-    }
+    // head == CURRENT-ENV
+    let the_cont_if_rest_is_nil = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_if_rest_is_nil"),
+        &rest_is_nil,
+        cont,
+        &g.error_ptr_cont,
+    )?;
+    results.add_clauses_cons(
+        *current_env_hash.value(),
+        env,
+        env,
+        &the_cont_if_rest_is_nil,
+        &g.true_num,
+    );
 
     let (res, continuation) = {
         // head == (FN . ARGS)
@@ -1657,6 +1780,7 @@ fn make_thunk<F: LurkField, CS: ConstraintSystem<F>>(
     results.add_clauses_thunk(ContTag::Tail, &result_expr, &saved_env, &g.dummy_ptr);
     results.add_clauses_thunk(ContTag::Outermost, result, env, &g.terminal_ptr);
     results.add_clauses_thunk(ContTag::Terminal, result, env, &g.terminal_ptr);
+    results.add_clauses_thunk(ContTag::Error, result, env, &g.error_ptr_cont);
 
     let thunk_hash =
         Thunk::hash_components(&mut cs.namespace(|| "thunk_hash"), store, result, cont)?;
@@ -1921,128 +2045,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         binop_components,
     );
 
-    // Continuation::Binop2 preimage
-    /////////////////////////////////////////////////////////////////////////////
-    let (res, c) = {
-        let op2 = AllocatedPtr::by_index(0, &continuation_components);
-        let arg1 = AllocatedPtr::by_index(1, &continuation_components);
-        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
-
-        let arg2 = result;
-
-        let arg1_is_num = alloc_equal(&mut cs.namespace(|| "arg1_is_num"), arg1.tag(), &g.num_tag)?;
-        let arg2_is_num = alloc_equal(&mut cs.namespace(|| "arg2_is_num"), arg2.tag(), &g.num_tag)?;
-        let both_args_are_nums = Boolean::and(
-            &mut cs.namespace(|| "both_args_are_nums"),
-            &arg1_is_num,
-            &arg2_is_num,
-        )?;
-
-        let (a, b) = (arg1.hash(), arg2.hash()); // For Nums, the 'hash' is an immediate value.
-
-        let not_dummy = alloc_equal(
-            &mut cs.namespace(|| "Binop2 not dummy"),
-            cont.tag(),
-            &g.binop2_cont_tag,
-        )?;
-
-        let sum = constraints::add(&mut cs.namespace(|| "sum"), a, b)?;
-        let diff = constraints::sub(&mut cs.namespace(|| "difference"), a, b)?;
-        let product = constraints::mul(&mut cs.namespace(|| "product"), a, b)?;
-
-        let op2_is_div = alloc_equal(
-            cs.namespace(|| "op2_is_div"),
-            op2.tag(),
-            &g.op2_quotient_tag,
-        )?;
-
-        let real_division = Boolean::and(
-            &mut cs.namespace(|| "real_division"),
-            &not_dummy,
-            &op2_is_div,
-        )?;
-
-        // FIXME: We need to check that b is not zero, returning an error if so.
-        // Currently, attempting to divide by zero will result in a SynthesisError.
-
-        // In dummy paths, we need to use a non-zero dummy value for b.
-        // if dummy then 1 otherwise b.
-        let divisor = pick(
-            &mut cs.namespace(|| "maybe-dummy divisor"),
-            &real_division,
-            b,
-            &g.true_num,
-        )?;
-
-        let quotient = constraints::div(&mut cs.namespace(|| "quotient"), a, &divisor)?;
-
-        let cons =
-            AllocatedPtr::construct_cons(&mut cs.namespace(|| "cons"), g, store, &arg1, arg2)?;
-
-        let val = case(
-            &mut cs.namespace(|| "Binop2 case"),
-            op2.tag(),
-            &[
-                CaseClause {
-                    key: Op2::Sum.as_field(),
-                    value: &sum,
-                },
-                CaseClause {
-                    key: Op2::Diff.as_field(),
-                    value: &diff,
-                },
-                CaseClause {
-                    key: Op2::Product.as_field(),
-                    value: &product,
-                },
-                CaseClause {
-                    key: Op2::Quotient.as_field(),
-                    value: &quotient,
-                },
-                CaseClause {
-                    key: Op2::Cons.as_field(),
-                    value: cons.hash(),
-                },
-            ],
-            &g.default_num,
-        )?;
-
-        let is_cons = alloc_equal(
-            &mut cs.namespace(|| "Op2 is Cons"),
-            op2.tag(),
-            &g.op2_cons_tag,
-        )?;
-
-        let res_tag = pick(
-            &mut cs.namespace(|| "Op2 result tag"),
-            &is_cons,
-            &g.cons_tag,
-            &g.num_tag,
-        )?;
-
-        let res = AllocatedPtr::from_parts(res_tag, val);
-
-        let valid_types = constraints::or(
-            &mut cs.namespace(|| "Op2 called with valid types"),
-            &is_cons,
-            &both_args_are_nums,
-        )?;
-
-        // FIXME: error if op2 is not actually an Op2.
-        // Currently, this will return the default value, treated as Num.
-
-        let c = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "maybe type error"),
-            &valid_types,
-            &continuation,
-            &g.error_ptr_cont,
-        )?;
-
-        (res, c)
-    };
-
-    results.add_clauses_cont(ContTag::Binop2, &res, env, &c, &g.true_num);
-
     // Continuation::Relop preimage
     /////////////////////////////////////////////////////////////////////////////
     let (relop2, relop_cont) = {
@@ -2305,6 +2307,153 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     };
     results.add_clauses_cont(ContTag::Binop, &the_expr, &the_env, &the_cont, &g.false_num);
 
+    // Continuation::Binop2
+    /////////////////////////////////////////////////////////////////////////////
+    let (the_expr, the_cont) = {
+        let op2 = AllocatedPtr::by_index(0, &continuation_components);
+        let arg1 = AllocatedPtr::by_index(1, &continuation_components);
+        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
+
+        let arg2 = result;
+
+        let arg1_is_num = alloc_equal(&mut cs.namespace(|| "arg1_is_num"), arg1.tag(), &g.num_tag)?;
+        let arg2_is_num = alloc_equal(&mut cs.namespace(|| "arg2_is_num"), arg2.tag(), &g.num_tag)?;
+        let both_args_are_nums = Boolean::and(
+            &mut cs.namespace(|| "both_args_are_nums"),
+            &arg1_is_num,
+            &arg2_is_num,
+        )?;
+
+        let (a, b) = (arg1.hash(), arg2.hash()); // For Nums, the 'hash' is an immediate value.
+
+        let not_dummy = alloc_equal(
+            &mut cs.namespace(|| "Binop2 not dummy"),
+            cont.tag(),
+            &g.binop2_cont_tag,
+        )?;
+
+        let sum = constraints::add(&mut cs.namespace(|| "sum"), a, b)?;
+        let diff = constraints::sub(&mut cs.namespace(|| "difference"), a, b)?;
+        let product = constraints::mul(&mut cs.namespace(|| "product"), a, b)?;
+
+        let op2_is_div = alloc_equal(
+            cs.namespace(|| "op2_is_div"),
+            op2.tag(),
+            &g.op2_quotient_tag,
+        )?;
+
+        let b_is_zero = &alloc_is_zero(&mut cs.namespace(|| "b_is_zero"), b)?;
+
+        let divisor = pick(
+            &mut cs.namespace(|| "maybe-dummy divisor"),
+            b_is_zero,
+            &g.true_num,
+            b,
+        )?;
+
+        let quotient = constraints::div(&mut cs.namespace(|| "quotient"), a, &divisor)?;
+
+        let cons =
+            AllocatedPtr::construct_cons(&mut cs.namespace(|| "cons"), g, store, &arg1, arg2)?;
+
+        let val = case(
+            &mut cs.namespace(|| "Binop2 case"),
+            op2.tag(),
+            &[
+                CaseClause {
+                    key: Op2::Sum.as_field(),
+                    value: &sum,
+                },
+                CaseClause {
+                    key: Op2::Diff.as_field(),
+                    value: &diff,
+                },
+                CaseClause {
+                    key: Op2::Product.as_field(),
+                    value: &product,
+                },
+                CaseClause {
+                    key: Op2::Quotient.as_field(),
+                    value: &quotient,
+                },
+                CaseClause {
+                    key: Op2::Cons.as_field(),
+                    value: cons.hash(),
+                },
+            ],
+            &g.default_num,
+        )?;
+
+        let is_cons = alloc_equal(
+            &mut cs.namespace(|| "Op2 is Cons"),
+            op2.tag(),
+            &g.op2_cons_tag,
+        )?;
+
+        let res_tag = pick(
+            &mut cs.namespace(|| "Op2 result tag"),
+            &is_cons,
+            &g.cons_tag,
+            &g.num_tag,
+        )?;
+
+        let res = AllocatedPtr::from_parts(res_tag, val);
+
+        let valid_types = constraints::or(
+            &mut cs.namespace(|| "Op2 called with valid types"),
+            &is_cons,
+            &both_args_are_nums,
+        )?;
+
+        let real_division = Boolean::and(
+            &mut cs.namespace(|| "real_division"),
+            &not_dummy,
+            &op2_is_div,
+        )?;
+
+        let real_div_and_b_is_zero = Boolean::and(
+            &mut cs.namespace(|| "real_div_and_b_is_zero"),
+            &real_division,
+            b_is_zero,
+        )?;
+
+        let valid_types_and_not_div_by_zero = Boolean::and(
+            &mut cs.namespace(|| "Op2 called with no errors"),
+            &valid_types,
+            &Boolean::not(&real_div_and_b_is_zero),
+        )?;
+
+        let op2_not_both_num_and_not_cons = Boolean::and(
+            &mut cs.namespace(|| "not both num and not cons"),
+            &Boolean::not(&both_args_are_nums),
+            &Boolean::not(&is_cons),
+        )?;
+
+        let any_error = constraints::or(
+            &mut cs.namespace(|| "some error happened"),
+            &Boolean::not(&valid_types_and_not_div_by_zero),
+            &op2_not_both_num_and_not_cons,
+        )?;
+
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "maybe type or div by zero error"),
+            &any_error,
+            &g.error_ptr_cont,
+            &continuation,
+        )?;
+
+        let the_expr = AllocatedPtr::pick(
+            &mut cs.namespace(|| "maybe expr error"),
+            &any_error,
+            result,
+            &res,
+        )?;
+
+        (the_expr, the_cont)
+    };
+
+    results.add_clauses_cont(ContTag::Binop2, &the_expr, env, &the_cont, &g.true_num);
+
     // Continuation::Relop, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     let (the_expr, the_env, the_cont) = {
@@ -2345,7 +2494,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
     // Continuation::Relop2
     /////////////////////////////////////////////////////////////////////////////
-    let (res, continuation) = {
+    let (the_expr, the_cont) = {
         let mut cs = cs.namespace(|| "Relop2");
         let rel2 = AllocatedPtr::by_index(0, &continuation_components);
         let arg1 = AllocatedPtr::by_index(1, &continuation_components);
@@ -2356,10 +2505,22 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let vals_equal = alloc_equal(&mut cs.namespace(|| "vals equal"), arg1.hash(), arg2.hash())?;
 
-        let tag_is_num = alloc_equal(
+        let arg1_tag_is_num = alloc_equal(
             &mut cs.namespace(|| "arg1 tag is num"),
             arg1.tag(),
             &g.num_tag,
+        )?;
+
+        let arg2_tag_is_num = alloc_equal(
+            &mut cs.namespace(|| "arg2 tag is num"),
+            arg2.tag(),
+            &g.num_tag,
+        )?;
+
+        let args_are_num = Boolean::and(
+            &mut cs.namespace(|| "args are num"),
+            &arg1_tag_is_num,
+            &arg2_tag_is_num,
         )?;
 
         let rel2_is_equal = alloc_equal(
@@ -2371,13 +2532,17 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let args_equal =
             Boolean::and(&mut cs.namespace(|| "args equal"), &tags_equal, &vals_equal)?;
 
-        // FIXME: This logic may be wrong. Look at it again carefully.
-        // What we want is that Relop2::NumEqual not be used with any non-numeric arguments.
-        // That should be an error.
+        let args_are_num_or_rel2_is_equal = constraints::or(
+            &mut cs.namespace(|| "args_are_num_or_rel2_is_equal"),
+            &args_are_num,
+            &rel2_is_equal,
+        )?;
 
-        // not_num_tag_without_nums = args_equal && (tag_is_num || rel2_is_equal)
-        let not_num_tag_without_nums =
-            constraints::or(&mut cs.namespace(|| "sub_res"), &tag_is_num, &rel2_is_equal)?;
+        let not_num_tag_without_nums = constraints::or(
+            &mut cs.namespace(|| "sub_res"),
+            &args_are_num,
+            &rel2_is_equal,
+        )?;
 
         let boolean_res = Boolean::and(
             &mut cs.namespace(|| "boolean_res"),
@@ -2392,16 +2557,27 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.nil_ptr,
         )?;
 
-        // FIXME: Still need to handle:
-        // - bad rel2 value (bad input)
-        // - NumEqual rel2 without both args being Num (type error).
-        (res, continuation)
+        let the_expr = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_expr"),
+            &args_are_num_or_rel2_is_equal,
+            &res,
+            result,
+        )?;
+
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "the_cont"),
+            &args_are_num_or_rel2_is_equal,
+            &continuation,
+            &g.error_ptr_cont,
+        )?;
+
+        (the_expr, the_cont)
     };
-    results.add_clauses_cont(ContTag::Relop2, &res, env, &continuation, &g.true_num);
+    results.add_clauses_cont(ContTag::Relop2, &the_expr, env, &the_cont, &g.true_num);
 
     // Continuation::If
     /////////////////////////////////////////////////////////////////////////////
-    let (res, continuation) = {
+    let (res, the_cont) = {
         let mut cs = cs.namespace(|| "If");
         let unevaled_args = AllocatedPtr::by_index(0, &continuation_components);
         let continuation = AllocatedContPtr::by_index(1, &continuation_components);
@@ -2425,7 +2601,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let condition_is_nil =
             condition.alloc_equal(&mut cs.namespace(|| "condition is nil"), &g.nil_ptr)?;
 
-        let (arg2, _end) = car_cdr(&mut cs.namespace(|| "more cons"), g, &more, store)?;
+        let (arg2, end) = car_cdr(&mut cs.namespace(|| "more cons"), g, &more, store)?;
+
+        let end_is_nil = end.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
 
         let res = AllocatedPtr::pick(
             &mut cs.namespace(|| "pick arg1 or arg2"),
@@ -2433,10 +2611,25 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &arg2,
             &arg1,
         )?;
-        (res, continuation)
+
+        let the_res = AllocatedPtr::pick(
+            &mut cs.namespace(|| "end is nil pick res"),
+            &end_is_nil,
+            &res,
+            &arg1,
+        )?;
+
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "end is nil pick cont"),
+            &end_is_nil,
+            &continuation,
+            &g.error_ptr_cont,
+        )?;
+
+        (the_res, the_cont)
     };
 
-    results.add_clauses_cont(ContTag::If, &res, env, &continuation, &g.false_num);
+    results.add_clauses_cont(ContTag::If, &res, env, &the_cont, &g.false_num);
 
     // Continuation::Lookup
     /////////////////////////////////////////////////////////////////////////////
@@ -2819,10 +3012,10 @@ mod tests {
             let multiframes = MultiFrame::from_frames(
                 DEFAULT_CHUNK_FRAME_COUNT,
                 &[Frame {
-                    input: input.clone(),
+                    input,
                     output,
                     i: 0,
-                    witness: witness.clone(),
+                    witness,
                 }],
                 store,
             );
@@ -2838,15 +3031,15 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31113, cs.num_constraints());
+            assert_eq!(31211, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31085, cs.aux().len());
+            assert_eq!(31171, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
 
             let proof = groth_prover
-                .prove(multiframe.clone(), Some(&groth_params), &mut rng)
+                .prove(multiframe.clone(), Some(groth_params), &mut rng)
                 .unwrap();
             let cs_verified = cs.is_satisfied() && cs.verify(&public_inputs);
             let verified = multiframe
@@ -2866,8 +3059,8 @@ mod tests {
         // Success
         {
             let output = IO {
-                expr: num.clone(),
-                env: env.clone(),
+                expr: num,
+                env,
                 cont: store.intern_cont_terminal(),
             };
 
@@ -2927,10 +3120,10 @@ mod tests {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
             let frame = Frame {
-                input: input.clone(),
+                input,
                 output,
                 i: 0,
-                witness: witness.clone(),
+                witness,
             };
 
             MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
@@ -2952,8 +3145,8 @@ mod tests {
         // Success
         {
             let output = IO {
-                expr: nil.clone(),
-                env: env.clone(),
+                expr: nil,
+                env,
                 cont: store.intern_cont_terminal(),
             };
 
@@ -2976,7 +3169,7 @@ mod tests {
                 // Wrong value, so hash should differ.
                 let bad_output_value = IO {
                     expr: store.num(999),
-                    env: env.clone(),
+                    env,
                     cont: store.intern_cont_terminal(),
                 };
 
@@ -3004,10 +3197,10 @@ mod tests {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
             let frame = Frame {
-                input: input.clone(),
+                input,
                 output,
                 i: 0,
-                witness: witness.clone(),
+                witness,
             };
 
             MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
@@ -3029,8 +3222,8 @@ mod tests {
         // Success
         {
             let output = IO {
-                expr: t.clone(),
-                env: env.clone(),
+                expr: t,
+                env,
                 cont: store.intern_cont_terminal(),
             };
 
@@ -3053,7 +3246,7 @@ mod tests {
                 // Wrong symbol, so hash should differ.
                 let bad_output_value = IO {
                     expr: store.sym("S"),
-                    env: env.clone(),
+                    env,
                     cont: store.intern_cont_terminal(),
                 };
                 test_with_output(bad_output_value, false, &store);
@@ -3070,8 +3263,8 @@ mod tests {
         let fun = store.intern_fun(var, body, env);
 
         let input = IO {
-            expr: fun.clone(),
-            env: env.clone(),
+            expr: fun,
+            env,
             cont: store.intern_cont_outermost(),
         };
 
@@ -3081,10 +3274,10 @@ mod tests {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
             let frame = Frame {
-                input: input.clone(),
+                input,
                 output,
                 i: 0,
-                witness: witness.clone(),
+                witness,
             };
 
             MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
@@ -3106,8 +3299,8 @@ mod tests {
         // Success
         {
             let output = IO {
-                expr: fun.clone(),
-                env: env.clone(),
+                expr: fun,
+                env,
                 cont: store.intern_cont_terminal(),
             };
 
@@ -3120,7 +3313,7 @@ mod tests {
                 // Wrong type, so tag should differ.
                 let bad_output_tag = IO {
                     expr: store.sym("SYMBOL"),
-                    env: env.clone(),
+                    env,
                     cont: store.intern_cont_terminal(),
                 };
 
@@ -3130,7 +3323,7 @@ mod tests {
                 // Wrong value, so hash should differ.
                 let bad_output_value = IO {
                     expr: store.num(999),
-                    env: env.clone(),
+                    env,
                     cont: store.intern_cont_terminal(),
                 };
 
@@ -3148,8 +3341,8 @@ mod tests {
         // Input is not self-evaluating.
         let expr = store.read("(+ 1 2)").unwrap();
         let input = IO {
-            expr: expr.clone(),
-            env: env.clone(),
+            expr,
+            env,
             cont: store.intern_cont_outermost(),
         };
 
@@ -3159,10 +3352,10 @@ mod tests {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
             let frame = Frame {
-                input: input.clone(),
+                input,
                 output,
                 i: 0,
-                witness: witness.clone(),
+                witness,
             };
 
             MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
@@ -3186,8 +3379,8 @@ mod tests {
             {
                 // Output does not equal input.
                 let output = IO {
-                    expr: expr.clone(),
-                    env: env.clone(),
+                    expr,
+                    env,
                     cont: store.intern_cont_terminal(),
                 };
 

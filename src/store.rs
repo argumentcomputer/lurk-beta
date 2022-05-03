@@ -10,15 +10,16 @@ use neptune::poseidon::PoseidonConstants;
 use once_cell::sync::OnceCell;
 
 use libipld::Cid;
-use libipld::Ipld;
 
 use crate::field::LurkField;
-use crate::ipld::IpldEmbed;
-use crate::ipld::IpldError;
 use crate::scalar_store::ScalarContinuation;
 use crate::scalar_store::ScalarExpression;
 use crate::scalar_store::ScalarStore;
 use crate::Num;
+use serde::Deserialize;
+use serde::Serialize;
+use serde::{de, ser};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 /// Holds the constants needed for poseidon hashing.
 #[derive(Debug)]
@@ -230,18 +231,28 @@ impl<F: LurkField> Ord for ScalarPtr<F> {
     }
 }
 
-impl<F: LurkField> IpldEmbed for ScalarPtr<F> {
-    fn to_ipld(&self) -> Ipld {
-        let cid = F::to_cid(self.0, self.1);
-        cid.to_ipld()
+impl<F: LurkField> Serialize for ScalarPtr<F> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use ser::Error;
+        let cid = F::to_cid(self.0, self.1)
+            .ok_or_else(|| S::Error::custom("expected validly tagged ScalarPtr".to_string()))?;
+        cid.serialize(serializer)
     }
+}
 
-    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-        let cid = Cid::from_ipld(ipld)?;
+impl<'de, F: LurkField> Deserialize<'de> for ScalarPtr<F> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use de::Error;
+        let cid = Cid::deserialize(deserializer)?;
         let (tag, dig) = F::from_cid(cid).ok_or_else(|| {
-            IpldError::Expected(String::from("ScalarPtr encoded as Cid"), Ipld::Link(cid))
+            D::Error::custom(format!("expected ScalarPtr encoded as Cid, got {}", cid))
         })?;
-
         Ok(ScalarPtr::from_parts(tag, dig))
     }
 }
@@ -303,21 +314,31 @@ impl<F: LurkField> Ord for ScalarContPtr<F> {
     }
 }
 
-impl<F: LurkField> IpldEmbed for ScalarContPtr<F> {
-    fn to_ipld(&self) -> Ipld {
-        let cid = F::to_cid(self.0, self.1);
-        cid.to_ipld()
+impl<F: LurkField> Serialize for ScalarContPtr<F> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use ser::Error;
+        let cid = F::to_cid(self.0, self.1)
+            .ok_or_else(|| S::Error::custom("expected validly tagged ScalarContPtr".to_string()))?;
+        cid.serialize(serializer)
     }
+}
 
-    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-        let cid = Cid::from_ipld(ipld)?;
+impl<'de, F: LurkField> Deserialize<'de> for ScalarContPtr<F> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use de::Error;
+        let cid = Cid::deserialize(deserializer)?;
         let (tag, dig) = F::from_cid(cid).ok_or_else(|| {
-            IpldError::Expected(
-                String::from("ScalarContPtr encoded as Cid"),
-                Ipld::Link(cid),
-            )
+            D::Error::custom(format!(
+                "expected ScalarContPtr encoded as Cid, got {}",
+                cid
+            ))
         })?;
-
         Ok(ScalarContPtr::from_parts(tag, dig))
     }
 }
@@ -526,7 +547,7 @@ impl<F: LurkField> Object<F> for Continuation<F> {
     type Pointer = ContPtr<F>;
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash, Serialize_repr, Deserialize_repr)]
 #[repr(u16)]
 pub enum Op1 {
     Car = 0b0010_0000_0000_0000,
@@ -562,22 +583,7 @@ impl Op1 {
     }
 }
 
-impl IpldEmbed for Op1 {
-    fn to_ipld(&self) -> Ipld {
-        Ipld::Integer(*self as i128)
-    }
-
-    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-        match ipld {
-            Ipld::Integer(x) if *x >= 0 && *x <= u16::MAX as i128 => {
-                Op1::from_u16(*x as u16).ok_or_else(|| IpldError::expected("Op1", ipld))
-            }
-            xs => Err(IpldError::expected("Op1", xs)),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash, Serialize_repr, Deserialize_repr)]
 #[repr(u16)]
 pub enum Op2 {
     Sum = 0b0011_0000_0000_0000,
@@ -615,22 +621,7 @@ impl fmt::Display for Op2 {
     }
 }
 
-impl IpldEmbed for Op2 {
-    fn to_ipld(&self) -> Ipld {
-        Ipld::Integer(*self as i128)
-    }
-
-    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-        match ipld {
-            Ipld::Integer(x) if *x >= 0 && *x <= u16::MAX as i128 => {
-                Op2::from_u16(*x as u16).ok_or_else(|| IpldError::expected("Op2", ipld))
-            }
-            xs => Err(IpldError::expected("Op2", xs)),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash, Serialize_repr, Deserialize_repr)]
 #[repr(u16)]
 pub enum Rel2 {
     Equal = 0b0100_0000_0000_0000,
@@ -659,22 +650,7 @@ impl fmt::Display for Rel2 {
     }
 }
 
-impl IpldEmbed for Rel2 {
-    fn to_ipld(&self) -> Ipld {
-        Ipld::Integer(*self as i128)
-    }
-
-    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-        match ipld {
-            Ipld::Integer(x) if *x >= 0 && *x <= u16::MAX as i128 => {
-                Rel2::from_u16(*x as u16).ok_or_else(|| IpldError::expected("Rel2", ipld))
-            }
-            xs => Err(IpldError::expected("Rel2", xs)),
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr)]
 #[repr(u16)]
 pub enum Tag {
     Nil = 0b0000_0000_0000_0000,
@@ -1735,9 +1711,8 @@ impl<F: LurkField> Store<F> {
     }
 
     /// The `get_hash_components_*` functions should be kept in sync with the
-    /// IpldEmbed trait for ScalarContinuation with respect to the order of
-    /// elements
-
+    /// the arguments of each variant of ScalarContinuation with respect to the
+    /// sourc position order of elements
     fn get_hash_components_default(&self) -> [[F; 2]; 4] {
         let def = [F::zero(), F::zero()];
         [def, def, def, def]
@@ -2306,9 +2281,9 @@ impl<F: LurkField> Expression<'_, F> {
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use crate::eval::{empty_sym_env, Evaluator};
-    use crate::ipld::FWrap;
+    use crate::field::FWrap;
     use crate::writer::Write;
     use blstrs::Scalar as Fr;
 
@@ -2316,6 +2291,10 @@ mod test {
     use quickcheck::{Arbitrary, Gen};
 
     use crate::test::frequency;
+
+    use libipld::serde::from_ipld;
+    use libipld::serde::to_ipld;
+    use libipld::Ipld;
 
     impl Arbitrary for Tag {
         fn arbitrary(g: &mut Gen) -> Self {
@@ -2365,20 +2344,25 @@ mod test {
     }
 
     #[quickcheck]
-    fn test_scalar_ptr_ipld_embed(x: ScalarPtr<Fr>) -> bool {
-        match ScalarPtr::from_ipld(&x.to_ipld()) {
-            Ok(y) if x == y => true,
-            Ok(y) => {
-                println!("x: {:?}", x);
-                println!("y: {:?}", y);
+    fn test_scalar_ptr_ipld(x: ScalarPtr<Fr>) -> bool {
+        if let Ok(ipld) = to_ipld(x) {
+            if let Ok(y) = from_ipld(ipld) {
+                x == y
+            } else {
                 false
             }
-            Err(e) => {
-                println!("{:?}", x);
-                println!("{:?}", e);
-                false
-            }
+        } else {
+            false
         }
+    }
+
+    #[test]
+    fn unit_scalar_ptr_ipld() {
+        let tag = Tag::Num.as_field();
+        let dig = 0.into();
+        let ptr = ScalarPtr::<Fr>::from_parts(tag, dig);
+        let cid = Cid::new_v1(Fr::to_multicodec(tag).unwrap(), Fr::to_multihash(dig));
+        assert_eq!(to_ipld(ptr).unwrap(), Ipld::Link(cid))
     }
 
     impl Arbitrary for ScalarContPtr<Fr> {
@@ -2390,20 +2374,25 @@ mod test {
     }
 
     #[quickcheck]
-    fn test_scalar_cont_ptr_ipld_embed(x: ScalarContPtr<Fr>) -> bool {
-        match ScalarContPtr::from_ipld(&x.to_ipld()) {
-            Ok(y) if x == y => true,
-            Ok(y) => {
-                println!("x: {:?}", x);
-                println!("y: {:?}", y);
+    fn prop_scalar_cont_ptr_ipld(x: ScalarContPtr<Fr>) -> bool {
+        if let Ok(ipld) = to_ipld(x) {
+            if let Ok(y) = from_ipld(ipld) {
+                x == y
+            } else {
                 false
             }
-            Err(e) => {
-                println!("{:?}", x);
-                println!("{:?}", e);
-                false
-            }
+        } else {
+            false
         }
+    }
+
+    #[test]
+    fn unit_scalar_cont_ptr_ipld() {
+        let tag = ContTag::Dummy.as_field();
+        let dig = 0.into();
+        let ptr = ScalarContPtr::<Fr>::from_parts(tag, dig);
+        let cid = Cid::new_v1(Fr::to_multicodec(tag).unwrap(), Fr::to_multihash(dig));
+        assert_eq!(to_ipld(ptr).unwrap(), Ipld::Link(cid))
     }
 
     impl Arbitrary for Op1 {
@@ -2419,20 +2408,24 @@ mod test {
     }
 
     #[quickcheck]
-    fn test_op1_ipld_embed(x: Op1) -> bool {
-        match Op1::from_ipld(&x.to_ipld()) {
-            Ok(y) if x == y => true,
-            Ok(y) => {
-                println!("x: {:?}", x);
-                println!("y: {:?}", y);
+    fn prop_op1_ipld(x: Op1) -> bool {
+        if let Ok(ipld) = to_ipld(x) {
+            if let Ok(y) = from_ipld(ipld) {
+                x == y
+            } else {
                 false
             }
-            Err(e) => {
-                println!("{:?}", x);
-                println!("{:?}", e);
-                false
-            }
+        } else {
+            false
         }
+    }
+
+    #[test]
+    fn unit_op1_ipld() {
+        assert_eq!(
+            to_ipld(Op1::Car).unwrap(),
+            Ipld::Integer(0b0010_0000_0000_0000 as i128)
+        );
     }
 
     impl Arbitrary for Op2 {
@@ -2449,20 +2442,24 @@ mod test {
     }
 
     #[quickcheck]
-    fn test_op2_ipld_embed(x: Op2) -> bool {
-        match Op2::from_ipld(&x.to_ipld()) {
-            Ok(y) if x == y => true,
-            Ok(y) => {
-                println!("x: {:?}", x);
-                println!("y: {:?}", y);
+    fn prop_op2_ipld_embed(x: Op2) -> bool {
+        if let Ok(ipld) = to_ipld(x) {
+            if let Ok(y) = from_ipld(ipld) {
+                x == y
+            } else {
                 false
             }
-            Err(e) => {
-                println!("{:?}", x);
-                println!("{:?}", e);
-                false
-            }
+        } else {
+            false
         }
+    }
+
+    #[test]
+    fn unit_op2_ipld() {
+        assert_eq!(
+            to_ipld(Op2::Sum).unwrap(),
+            Ipld::Integer(0b0011_0000_0000_0000 as i128)
+        );
     }
 
     impl Arbitrary for Rel2 {
@@ -2476,20 +2473,24 @@ mod test {
     }
 
     #[quickcheck]
-    fn test_rel2_ipld_embed(x: Rel2) -> bool {
-        match Rel2::from_ipld(&x.to_ipld()) {
-            Ok(y) if x == y => true,
-            Ok(y) => {
-                println!("x: {:?}", x);
-                println!("y: {:?}", y);
+    fn prop_rel2_ipld(x: Rel2) -> bool {
+        if let Ok(ipld) = to_ipld(x) {
+            if let Ok(y) = from_ipld(ipld) {
+                x == y
+            } else {
                 false
             }
-            Err(e) => {
-                println!("{:?}", x);
-                println!("{:?}", e);
-                false
-            }
+        } else {
+            false
         }
+    }
+
+    #[test]
+    fn unit_rel2_ipld() {
+        assert_eq!(
+            to_ipld(Rel2::Equal).unwrap(),
+            Ipld::Integer(0b0100_0000_0000_0000 as i128)
+        );
     }
 
     #[test]
