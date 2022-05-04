@@ -1,7 +1,7 @@
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
 use std::ffi::OsStr;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::Write;
 use std::process::Command;
 use tempdir::TempDir;
@@ -199,8 +199,6 @@ fn test_function_aux(
     let commitment_path = tmp_dir.path().join("commitment.json");
     let fcomm_data_path = tmp_dir.path().join("fcomm_data");
 
-    let mut input_file = File::create(&input_path).unwrap();
-
     function.write_to_path(&function_path);
 
     commit(&function_path, &commitment_path, &fcomm_data_path);
@@ -208,6 +206,8 @@ fn test_function_aux(
     let mut commitment: Commitment<Scalar> = Commitment::read_from_path(&commitment_path).unwrap();
 
     for (function_input, expected_output) in io {
+        let mut input_file = File::create(&input_path).unwrap();
+
         write!(input_file, "{}", function_input).unwrap();
 
         test_open_commitment(
@@ -221,16 +221,17 @@ fn test_function_aux(
 
         let proof = Proof::<Bls12>::read_from_path(&proof_path).unwrap();
         let opening = proof.claim.opening().expect("expected opening claim");
+        dbg!(&opening);
 
         let mut store = Store::<Scalar>::default();
 
         let input = store.read(function_input).unwrap();
         let canonical_input = input.fmt_to_string(&store);
 
-        dbg!(&canonical_input, &opening.input);
-        dbg!(&expected_output, &opening.output);
+        let canonical_output = store.read(&expected_output).unwrap().fmt_to_string(&store);
+
         assert_eq!(canonical_input, opening.input);
-        assert_eq!(*expected_output, opening.output);
+        assert_eq!(*expected_output, canonical_output);
 
         test_verify_opening(fcomm_cmd(), &proof_path, &fcomm_data_path);
 

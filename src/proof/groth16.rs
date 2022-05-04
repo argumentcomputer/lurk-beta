@@ -208,23 +208,6 @@ where
 
         let public_inputs = frames[0].input;
         let public_outputs = frames[frames.len() - 1].output;
-        use crate::store::{Pointer, ScalarPointer};
-        dbg!([
-            &public_inputs.expr.tag_field(),
-            store.hash_expr(&public_inputs.expr).unwrap().value(),
-            &public_inputs.env.tag_field(),
-            store.hash_expr(&public_inputs.env).unwrap().value(),
-            &public_inputs.cont.tag_field(),
-            store.hash_cont(&public_inputs.cont).unwrap().value()
-        ]);
-        dbg!([
-            &public_outputs.expr.tag_field(),
-            store.hash_expr(&public_outputs.expr).unwrap().value(),
-            &public_outputs.env.tag_field(),
-            store.hash_expr(&public_outputs.env).unwrap().value(),
-            &public_outputs.cont.tag_field(),
-            store.hash_cont(&public_outputs.cont).unwrap().value()
-        ]);
 
         Ok((
             Proof {

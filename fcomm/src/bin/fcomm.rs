@@ -206,9 +206,6 @@ impl Open {
         let input = input(&mut s, &self.input, eval_input, limit, quote_input)?;
         let out_path = &self.proof;
 
-        // // Needed if we are creating a chained commitment.
-        // let chained_function_path = chain.then(|| path_successor(&self.function));
-
         let proof = Opening::open_and_prove(&mut s, input, function, limit, chain)?;
 
         // // Write first, so prover can debug if proof doesn't verify (it should).

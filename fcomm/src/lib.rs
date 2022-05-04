@@ -160,13 +160,16 @@ pub struct LurkScalarBytes {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct LurkScalarIpld {
+    scalar_store: Ipld,
+    scalar_ptr: Ipld,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum LurkPtr {
     Source(String),
     ScalarBytes(LurkScalarBytes),
-    Ipld {
-        scalar_store: Ipld,
-        scalar_ptr: Ipld,
-    },
+    Ipld(LurkScalarIpld),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -522,28 +525,27 @@ impl LurkPtr {
     fn ptr<F: LurkField + Serialize + DeserializeOwned>(&self, s: &mut Store<F>) -> Ptr<F> {
         match self {
             LurkPtr::Source(source) => s.read(source).expect("could not read source"),
-            LurkPtr::ScalarBytes(opaque_lurk_data) => {
+            LurkPtr::ScalarBytes(lurk_scalar_bytes) => {
                 let scalar_store: Ipld = DagCborCodec
-                    .decode(&opaque_lurk_data.scalar_store)
+                    .decode(&lurk_scalar_bytes.scalar_store)
                     .expect("could not read opaque scalar store");
                 let scalar_ptr: Ipld = DagCborCodec
-                    .decode(&opaque_lurk_data.scalar_ptr)
+                    .decode(&lurk_scalar_bytes.scalar_ptr)
                     .expect("could not read opaque scalar ptr");
 
-                let lurk_ptr = LurkPtr::Ipld {
+                let lurk_ptr = LurkPtr::Ipld(LurkScalarIpld {
                     scalar_store,
                     scalar_ptr,
-                };
+                });
 
                 lurk_ptr.ptr(s)
             }
-            LurkPtr::Ipld {
-                scalar_store,
-                scalar_ptr,
-            } => {
+            LurkPtr::Ipld(lurk_scalar_ipld) => {
                 // FIXME: put the scalar_store in a new field for the store.
-                let fun_scalar_store: ScalarStore<F> = from_ipld(scalar_store.clone()).unwrap();
-                let fun_scalar_ptr: ScalarPtr<F> = from_ipld(scalar_ptr.clone()).unwrap();
+                let fun_scalar_store: ScalarStore<F> =
+                    from_ipld(lurk_scalar_ipld.scalar_store.clone()).unwrap();
+                let fun_scalar_ptr: ScalarPtr<F> =
+                    from_ipld(lurk_scalar_ipld.scalar_ptr.clone()).unwrap();
                 s.intern_scalar_ptr(fun_scalar_ptr, &fun_scalar_store)
                     .expect("failed to intern scalar_ptr for fun")
             }
@@ -617,7 +619,17 @@ impl Opening<Scalar> {
             let new_fun_bytes = DagCborCodec.encode(&new_fun_ipld).unwrap();
 
             let again = from_ipld(new_fun_ipld.clone()).unwrap();
-            assert_eq!(&scalar_store, &again);
+            assert_eq!(&scalar_ptr, &again);
+
+            // TODO: Can this be made to work?
+            // let new_function = Function::<Scalar> {
+            //     fun: LurkPtr::Ipld(LurkScalarIpld {
+            //         scalar_store: scalar_store_ipld,
+            //         scalar_ptr: new_fun_ipld,
+            //     }),
+            //     secret: Some(new_secret),
+            //     commitment: Some(new_commitment),
+            // };
 
             let new_function = Function::<Scalar> {
                 fun: LurkPtr::ScalarBytes(LurkScalarBytes {
@@ -855,7 +867,6 @@ impl Proof<Bls12> {
         };
 
         let public_outputs = output_io.to_inputs(&s);
-        let _x = s.intern_cont_terminal();
 
         Ok((public_inputs, public_outputs))
     }
