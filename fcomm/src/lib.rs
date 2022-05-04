@@ -14,8 +14,7 @@ use libipld::{
     json::DagJsonCodec,
     multihash::{Code, MultihashDigest},
     prelude::Codec,
-    serde::from_ipld,
-    serde::to_ipld,
+    serde::{from_ipld, to_ipld},
     Cid, Ipld,
 };
 use lurk::{
@@ -43,6 +42,21 @@ use file_map::FileMap;
 
 pub const DEFAULT_REDUCTION_COUNT: ReductionCount = ReductionCount::One;
 pub static VERBOSE: OnceCell<bool> = OnceCell::new();
+
+mod base64 {
+    use serde::{Deserialize, Serialize};
+    use serde::{Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(v: &Vec<u8>, s: S) -> Result<S::Ok, S::Error> {
+        let base64 = base64::encode(v);
+        String::serialize(&base64, s)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
+        let base64 = String::deserialize(d)?;
+        base64::decode(base64.as_bytes()).map_err(serde::de::Error::custom)
+    }
+}
 
 fn bls12_proof_cache() -> FileMap<Cid, Proof<Bls12>> {
     FileMap::<Cid, Proof<Bls12>>::new("bls12_proofs").unwrap()
@@ -139,6 +153,7 @@ impl<F: LurkField> FromHex for Commitment<F> {
         })
     }
 }
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Expression {
     pub source: String,
@@ -155,7 +170,9 @@ pub struct Opening<F: LurkField> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct LurkScalarBytes {
+    #[serde(with = "base64")]
     scalar_store: Vec<u8>,
+    #[serde(with = "base64")]
     scalar_ptr: Vec<u8>,
 }
 
@@ -612,13 +629,13 @@ impl Opening<Scalar> {
             let (scalar_store, scalar_ptr) = ScalarStore::new_with_expr(s, &new_fun);
             let scalar_ptr = scalar_ptr.unwrap();
 
-            let scalar_store_ipld = to_ipld(scalar_store.clone()).unwrap();
+            let scalar_store_ipld = to_ipld(scalar_store).unwrap();
             let new_fun_ipld = to_ipld(scalar_ptr).unwrap();
 
             let scalar_store_bytes = DagCborCodec.encode(&scalar_store_ipld).unwrap();
             let new_fun_bytes = DagCborCodec.encode(&new_fun_ipld).unwrap();
 
-            let again = from_ipld(new_fun_ipld.clone()).unwrap();
+            let again = from_ipld(new_fun_ipld).unwrap();
             assert_eq!(&scalar_ptr, &again);
 
             // TODO: Can this be made to work?
