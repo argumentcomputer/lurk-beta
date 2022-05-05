@@ -523,8 +523,9 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
     // dbg!("reduce_expression");
-    // dbg!(&expr.fetch_and_write_str(store), &expr);
-    // dbg!(&env.fetch_and_write_str(store), &env);
+    // dbg!(&expr.fetch_and_write_str(store));
+    // dbg!(&expr);
+    // dbg!(&env.fetch_and_write_str(store));
     // dbg!(&cont.fetch_and_write_cont_str(store), &cont);
     let mut results = Results::default();
     {

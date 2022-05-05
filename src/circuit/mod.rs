@@ -6,7 +6,7 @@ use crate::store::{ScalarPointer, Store};
 
 #[macro_use]
 mod gadgets;
-pub mod circuit_frame;
+mod circuit_frame;
 pub(crate) use circuit_frame::*;
 
 pub trait ToInputs<F: LurkField> {

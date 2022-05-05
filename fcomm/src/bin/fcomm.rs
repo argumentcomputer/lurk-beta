@@ -70,7 +70,7 @@ enum Command {
 
 #[derive(Args, Debug)]
 struct Commit {
-    /// Path to function source
+    /// Path to function
     #[clap(short, long, parse(from_os_str))]
     function: PathBuf,
 
@@ -85,20 +85,25 @@ struct Commit {
 
 #[derive(Args, Debug)]
 struct Open {
-    // /// Path to function source
-    // #[clap(short, long, parse(from_os_str))]
-    // function: PathBuf,
     /// Path to function input
     #[clap(short, long, parse(from_os_str))]
     input: PathBuf,
 
-    /// Path to proof input
+    /// Path to proof output if prove requested
     #[clap(short, long, parse(from_os_str))]
-    proof: PathBuf,
+    proof: Option<PathBuf>,
 
-    /// Commitment value (hex string)
+    /// Optional commitment value (hex string). Function will be looked-up by commitment if supplied.
     #[clap(short, long)]
-    commitment: String,
+    commitment: Option<String>,
+
+    /// Optional path to function used if commitment is not supplied.
+    #[clap(short, long, parse(from_os_str))]
+    function: Option<PathBuf>,
+
+    // Function is lurk source.
+    #[clap(long)]
+    lurk: bool,
 
     /// Chain commitment openings. Opening includes commitment to new function along with output.
     #[clap(long)]
@@ -120,13 +125,13 @@ struct Eval {
 struct Prove {
     /// Path to expression source
     #[clap(short = 'x', long, parse(from_os_str))]
-    expression: PathBuf,
+    expression: Option<PathBuf>,
 
     /// Path to proof input
     #[clap(short, long, parse(from_os_str))]
     proof: PathBuf,
 
-    /// Wrap evaluation result in a claim
+    /// Path to claim to prove
     #[clap(long)]
     claim: Option<PathBuf>,
 }
@@ -195,23 +200,49 @@ impl Open {
         eval_input: bool,
         quote_input: bool,
     ) -> Result<(), Error> {
+        assert!(
+            !(self.commitment.is_some() && self.function.is_some()),
+            "commitment and function must not both be supplied"
+        );
+
         let mut s = Store::<Scalar>::default();
         let function_map = committed_function_store();
-        let commitment =
-            Commitment::from_hex(&self.commitment).map_err(Error::CommitmentParseError)?;
+        let function = if let Some(comm_string) = &self.commitment {
+            let commitment =
+                Commitment::from_hex(&comm_string).map_err(Error::CommitmentParseError)?;
 
-        let function = function_map
-            .get(commitment)
-            .expect("committed function not found");
+            let function = function_map
+                .get(commitment)
+                .expect("committed function not found");
+
+            function
+        } else {
+            let function_path = self.function.as_ref().expect("function missing");
+            if self.lurk {
+                let path = env::current_dir()?.join(&function_path);
+                let src = read_to_string(path)?;
+
+                Function {
+                    fun: LurkPtr::Source(src),
+                    secret: None,
+                    commitment: None,
+                }
+            } else {
+                Function::read_from_path(&function_path)?
+            }
+        };
+
         let input = input(&mut s, &self.input, eval_input, limit, quote_input)?;
-        let out_path = &self.proof;
+        if let Some(out_path) = &self.proof {
+            let proof = Opening::open_and_prove(&mut s, input, function, limit, chain)?;
 
-        let proof = Opening::open_and_prove(&mut s, input, function, limit, chain)?;
-
-        // // Write first, so prover can debug if proof doesn't verify (it should).
-        proof.write_to_path(out_path);
-        proof.verify().expect("created opening doesn't verify");
-
+            // Write first, so prover can debug if proof doesn't verify (it should).
+            proof.write_to_path(out_path);
+            proof.verify().expect("created opening doesn't verify");
+        } else {
+            let claim = Opening::open(&mut s, input, function, limit, chain)?;
+            serde_json::to_writer(io::stdout(), &claim)?;
+        }
         Ok(())
     }
 }
@@ -242,11 +273,23 @@ impl Prove {
     fn prove(&self, limit: usize) -> Result<(), Error> {
         let mut s = Store::<Scalar>::default();
 
-        let expr = expression(&mut s, &self.expression)?;
-
         let proof = match &self.claim {
-            Some(claim) => Proof::prove_claim(&mut s, Claim::read_from_path(claim)?, limit, false)?,
-            None => Proof::eval_and_prove(&mut s, expr, limit, false)?,
+            Some(claim) => {
+                assert!(
+                    self.expression.is_none(),
+                    "claim and expression must not both be supplied"
+                );
+                Proof::prove_claim(&mut s, Claim::read_from_path(claim)?, limit, false)?
+            }
+
+            None => {
+                let expr = expression(
+                    &mut s,
+                    &self.expression.as_ref().expect("expression missing"),
+                )?;
+
+                Proof::eval_and_prove(&mut s, expr, limit, false)?
+            }
         };
 
         // Write first, so prover can debug if proof doesn't verify (it should).
