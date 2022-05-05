@@ -127,14 +127,8 @@ INFO  lurk::eval > Frame: 9
 ## Nix
 
 [Nix](https://nixos.org) provides a declarative, content addressed and deterministic build system.
-
-### Loading the build environment with all dependencies
-
-```
-nix develop
-# Or automatically with direnv
-direnv allow
-```
+$ nix-shell
+$ cargo build
 
 ### Build the crate
 ```
