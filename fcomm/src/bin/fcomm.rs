@@ -211,11 +211,9 @@ impl Open {
             let commitment =
                 Commitment::from_hex(&comm_string).map_err(Error::CommitmentParseError)?;
 
-            let function = function_map
+            function_map
                 .get(commitment)
-                .expect("committed function not found");
-
-            function
+                .expect("committed function not found")
         } else {
             let function_path = self.function.as_ref().expect("function missing");
             if self.lurk {

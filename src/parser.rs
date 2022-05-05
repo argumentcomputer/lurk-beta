@@ -348,7 +348,12 @@ asdf(", "ASDF",
             );
         };
         test("0x10", Fr::from(16));
-        test("0x10", Fr::from(16));
+        test("0x22", Fr::from(34));
+        test("0x0010", Fr::from(16));
+        test("0x0022", Fr::from(34));
+
+        test("0X10", Fr::from(16));
+        test("0X22", Fr::from(34));
     }
 
     #[test]

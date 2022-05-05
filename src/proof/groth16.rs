@@ -388,7 +388,7 @@ mod tests {
     use rand::rngs::OsRng;
 
     const DEFAULT_CHECK_GROTH16: bool = false;
-    const DEFAULT_CHUNK_FRAME_COUNT: usize = 1;
+    const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
 
     fn outer_prove_aux<Fo: Fn(&'_ mut Store<Fr>) -> Ptr<Fr>>(
         source: &str,
@@ -668,10 +668,10 @@ mod tests {
         let fun_src = s
             .read(
                 "(letrec ((secret 12345)
-                                    (a (lambda (acc x)
-                                         (let ((acc (+ acc x)))
-                                           (cons acc (cons secret (a acc)))))))
-                     (a 0))",
+                          (a (lambda (acc x)
+                               (let ((acc (+ acc x)))
+                                 (cons acc (cons secret (a acc)))))))
+                   (a 0))",
             )
             .unwrap();
         let limit = 300;
@@ -679,8 +679,6 @@ mod tests {
         let (evaled, _) = Evaluator::new(fun_src, empty_sym_env(&s), &mut s, limit).eval();
 
         let fun = evaled.expr;
-
-        use crate::writer::Write;
 
         let cdr = s.sym("cdr");
         let quote = s.sym("quote");
@@ -692,17 +690,10 @@ mod tests {
         let fun_from_comm = s.list(&[cdr, quoted_commitment]);
         let input = s.list(&[fun_from_comm, five]);
 
-        dbg!(
-            commitment.fmt_to_string(&s),
-            quoted_commitment.fmt_to_string(&s),
-            fun_from_comm.fmt_to_string(&s),
-            input.fmt_to_string(&s)
-        );
-
         let (output, iterations) = Evaluator::new(input, empty_sym_env(&s), &mut s, limit).eval();
 
         let result_expr = output.expr;
-        dbg!(&iterations);
+
         outer_prove_aux0(&mut s, input, result_expr, 32, true, true, limit, false);
     }
 }
