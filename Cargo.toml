@@ -39,7 +39,7 @@ ahash = "0.7.6"
 pasta_curves = "0.3.0"
 string-interner = "0.14.0"
 dashmap = "5.0.0"
-libipld = { package = "libipld", git = "https://github.com/lurk-lang/libipld", branch = "jcb/serde-minimal", default-features = false, features = ["dag-cbor", "dag-json", "serde-codec"] }
+libipld = { package = "lurk-ipld", version = "0.1.0", default-features = false, features = ["dag-cbor", "dag-json", "serde-codec"] }
 cid = { version = "0.8.4", default-features = false, features = ["alloc", "serde-codec"]}
 multihash = { version = "0.16.1", default-features = false, features = ["alloc", "blake3"] }
 

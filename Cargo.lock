@@ -934,9 +934,9 @@ dependencies = [
  "clap-verbosity-flag",
  "ff",
  "hex",
- "libipld",
  "log",
  "lurk",
+ "lurk-ipld",
  "once_cell",
  "pairing",
  "predicates",
@@ -1256,67 +1256,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5916d2ae698f6de9bfb891ad7a8d65c09d232dc58cc4ac433c7da3b2fd84bc2b"
 
 [[package]]
-name = "libipld"
-version = "0.13.1"
-source = "git+https://github.com/lurk-lang/libipld?branch=jcb/serde-minimal#da5a7f9a26864e90bf6cce0ae88271e7b4e57ec0"
-dependencies = [
- "async-trait",
- "cached",
- "fnv",
- "libipld-cbor",
- "libipld-core",
- "libipld-json",
- "libipld-macro",
- "log",
- "multihash",
- "parking_lot",
- "thiserror",
-]
-
-[[package]]
-name = "libipld-cbor"
-version = "0.13.1"
-source = "git+https://github.com/lurk-lang/libipld?branch=jcb/serde-minimal#da5a7f9a26864e90bf6cce0ae88271e7b4e57ec0"
-dependencies = [
- "byteorder 1.4.3",
- "libipld-core",
- "thiserror",
-]
-
-[[package]]
-name = "libipld-core"
-version = "0.13.1"
-source = "git+https://github.com/lurk-lang/libipld?branch=jcb/serde-minimal#da5a7f9a26864e90bf6cce0ae88271e7b4e57ec0"
-dependencies = [
- "anyhow",
- "cid",
- "core2",
- "multibase",
- "multihash",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "libipld-json"
-version = "0.13.1"
-source = "git+https://github.com/lurk-lang/libipld?branch=jcb/serde-minimal#da5a7f9a26864e90bf6cce0ae88271e7b4e57ec0"
-dependencies = [
- "libipld-core",
- "multihash",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "libipld-macro"
-version = "0.13.1"
-source = "git+https://github.com/lurk-lang/libipld?branch=jcb/serde-minimal#da5a7f9a26864e90bf6cce0ae88271e7b4e57ec0"
-dependencies = [
- "libipld-core",
-]
-
-[[package]]
 name = "linux-raw-sys"
 version = "0.0.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1357,8 +1296,8 @@ dependencies = [
  "generic-array 0.14.5",
  "indexmap",
  "itertools 0.9.0",
- "libipld",
  "log",
+ "lurk-ipld",
  "memmap",
  "merlin",
  "multihash",
@@ -1380,6 +1319,72 @@ dependencies = [
  "serde_repr",
  "string-interner",
  "structopt",
+]
+
+[[package]]
+name = "lurk-ipld"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6675e4a614577a2e677b7ddabbe23824c980b5373a7553768554fa4d3c83ec9f"
+dependencies = [
+ "async-trait",
+ "cached",
+ "fnv",
+ "log",
+ "lurk-ipld-cbor",
+ "lurk-ipld-core",
+ "lurk-ipld-json",
+ "lurk-ipld-macro",
+ "multihash",
+ "parking_lot",
+ "thiserror",
+]
+
+[[package]]
+name = "lurk-ipld-cbor"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f04538a7157c1782ddf2806355046adc01d2371a99502b66ac26df9149b62f3"
+dependencies = [
+ "byteorder 1.4.3",
+ "lurk-ipld-core",
+ "thiserror",
+]
+
+[[package]]
+name = "lurk-ipld-core"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfd43b843c3cdc52d0df1ccdfdc75c65e412c25ff696cbc29be069d6d5e8261e"
+dependencies = [
+ "anyhow",
+ "cid",
+ "core2",
+ "multibase",
+ "multihash",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "lurk-ipld-json"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db548002b1710ab2eaab21404087d0114f9069f18705c0ab6f9b26d46c614614"
+dependencies = [
+ "lurk-ipld-core",
+ "multihash",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "lurk-ipld-macro"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b797538f4712f28003260eba722e4732668b9738fb88fa0d5202707a48c0272"
+dependencies = [
+ "lurk-ipld-core",
 ]
 
 [[package]]
