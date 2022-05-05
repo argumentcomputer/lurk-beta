@@ -126,21 +126,17 @@ INFO  lurk::eval > Frame: 9
 
 ## Nix
 
-[Nix](https://nixos.org) provides a declarative, content addressed and deterministic build system.
+You can enter into a [Nix](https://nixos.org) shell with the appropriate
+dependencies for Lurk with
+```
 $ nix-shell
+```
+
+And then building with Cargo as usual:
+
+```
 $ cargo build
-
-### Build the crate
 ```
-nix build .
-```
-
-### Run the example 
-
-```
-nix run .#lurk-example
-```
-
 
 ## License
 
