@@ -14,9 +14,6 @@ extern crate quickcheck_macros;
 pub mod circuit;
 pub mod eval;
 pub mod field;
-pub mod ipld;
-#[macro_use]
-pub mod logging;
 pub mod parser;
 pub mod proof;
 pub mod repl;

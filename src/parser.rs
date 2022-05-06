@@ -150,10 +150,19 @@ impl<F: LurkField> Store<F> {
 
         while let Some(&c) = chars.peek() {
             if is_digit_char(&c) {
+                let digit_char = chars.next().unwrap();
+                if c == '0' {
+                    if let Some(&c) = chars.peek() {
+                        if c.to_ascii_uppercase() == 'X' {
+                            chars.next();
+                            return self.read_hex_num(chars);
+                        }
+                    }
+                }
+
                 if acc != 0 {
                     acc *= ten;
                 }
-                let digit_char = chars.next().unwrap();
                 let digit = digit_char.to_digit(10).unwrap();
                 let n: u64 = digit.into();
                 acc += n;
@@ -162,6 +171,31 @@ impl<F: LurkField> Store<F> {
             }
         }
         Some(self.intern_num(acc))
+    }
+    fn read_hex_num<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut Peekable<T>,
+    ) -> Option<Ptr<F>> {
+        let zero = F::from(0);
+        let mut acc = zero;
+        let sixteen = F::from(16);
+
+        while let Some(&c) = chars.peek() {
+            if is_digit_char(&c) {
+                let digit_char = chars.next().unwrap();
+
+                if acc != zero {
+                    acc *= sixteen;
+                }
+                let digit = digit_char.to_digit(16).unwrap();
+                let n: u64 = digit.into();
+                let f: F = n.into();
+                acc += f;
+            } else {
+                break;
+            }
+        }
+        Some(self.intern_num(crate::num::Num::Scalar(acc)))
     }
 
     pub(crate) fn read_symbol<T: Iterator<Item = char>>(
@@ -262,7 +296,7 @@ mod test {
         let test = |input, expected: &str| {
             let mut store = Store::<Fr>::default();
             let ptr = &store.read(input).unwrap();
-            let expr = store.fetch(&ptr).unwrap();
+            let expr = store.fetch(ptr).unwrap();
 
             assert_eq!(expected, expr.as_sym_str().unwrap());
         };
@@ -303,6 +337,23 @@ asdf(", "ASDF",
 0987654321",
             987654321,
         );
+
+        let test = |input, expected: Fr| {
+            let mut store = Store::<Fr>::default();
+            let expr = store.read(input).unwrap();
+            dbg!(expr.fmt_to_string(&store));
+            assert_eq!(
+                store.intern_num(crate::num::Num::from_scalar(expected)),
+                expr
+            );
+        };
+        test("0x10", Fr::from(16));
+        test("0x22", Fr::from(34));
+        test("0x0010", Fr::from(16));
+        test("0x0022", Fr::from(34));
+
+        test("0X10", Fr::from(16));
+        test("0X22", Fr::from(34));
     }
 
     #[test]
@@ -383,11 +434,10 @@ asdf(", "ASDF",
             |store: &mut Store<Fr>, input: &str, expected_ptr: Ptr<Fr>, expected_meta: bool| {
                 let mut chars = input.chars().peekable();
 
-                match store.read_maybe_meta(&mut chars).unwrap() {
-                    (ptr, meta) => {
-                        assert_eq!(expected_ptr, ptr);
-                        assert_eq!(expected_meta, meta);
-                    }
+                let (ptr, meta) = store.read_maybe_meta(&mut chars).unwrap();
+                {
+                    assert_eq!(expected_ptr, ptr);
+                    assert_eq!(expected_meta, meta);
                 };
             };
 
@@ -450,7 +500,7 @@ asdf(", "ASDF",
                 if let Some(ptr) = maybe_string {
                     let res = store
                         .fetch(&ptr)
-                        .expect(&format!("failed to fetch: {:?}", input));
+                        .unwrap_or_else(|| panic!("failed to fetch: {:?}", input));
                     assert_eq!(res.as_str(), expr);
                 }
             };
@@ -465,7 +515,7 @@ asdf(", "ASDF",
             let ptr = s.read_string(&mut input.chars().peekable()).unwrap();
             let res = s
                 .fetch(&ptr)
-                .expect(&format!("failed to fetch: {:?}", input));
+                .unwrap_or_else(|| panic!("failed to fetch: {:?}", input));
             assert_eq!(res.as_str().unwrap(), "foo/bar/baz");
         }
     }

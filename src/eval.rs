@@ -35,7 +35,7 @@ pub struct Frame<T: Copy, W: Copy> {
     pub witness: W,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Status {
     Terminal,
     Error,
@@ -529,54 +529,66 @@ fn reduce_with_witness<F: LurkField>(
                     Control::ApplyContinuation(function, env, cont)
                 } else if head == quote {
                     let (quoted, end) = store.car_cdr(&rest);
-                    assert!(end.is_nil());
-                    Control::ApplyContinuation(quoted, env, cont)
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::ApplyContinuation(quoted, env, cont)
+                    }
                 } else if head == store.sym("let") {
                     let (bindings, body) = store.car_cdr(&rest);
                     let (body1, rest_body) = store.car_cdr(&body);
                     // Only a single body form allowed for now.
-                    assert!(rest_body.is_nil());
-
-                    if bindings.is_nil() {
+                    if !rest_body.is_nil() || body.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else if bindings.is_nil() {
                         Control::Return(body1, env, cont)
                     } else {
                         let (binding1, rest_bindings) = store.car_cdr(&bindings);
-                        let (var, more_vals) = store.car_cdr(&binding1);
-                        let (val, end) = store.car_cdr(&more_vals);
-                        assert!(end.is_nil());
-
-                        let expanded = if rest_bindings.is_nil() {
-                            body1
+                        let (var, vals) = store.car_cdr(&binding1);
+                        let (val, end) = store.car_cdr(&vals);
+                        if !end.is_nil() {
+                            Control::Return(expr, env, store.intern_cont_error())
                         } else {
-                            let lt = store.sym("let");
-                            store.list(&[lt, rest_bindings, body1])
-                        };
-                        Control::Return(val, env, store.intern_cont_let(var, expanded, env, cont))
+                            let expanded = if rest_bindings.is_nil() {
+                                body1
+                            } else {
+                                let lt = store.sym("let");
+                                store.list(&[lt, rest_bindings, body1])
+                            };
+                            Control::Return(
+                                val,
+                                env,
+                                store.intern_cont_let(var, expanded, env, cont),
+                            )
+                        }
                     }
                 } else if head == store.sym("letrec") {
                     let (bindings, body) = store.car_cdr(&rest);
                     let (body1, rest_body) = store.car_cdr(&body);
                     // Only a single body form allowed for now.
-                    assert!(rest_body.is_nil());
-                    if bindings.is_nil() {
+                    if !rest_body.is_nil() || body.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else if bindings.is_nil() {
                         Control::Return(body1, env, cont)
                     } else {
                         let (binding1, rest_bindings) = store.car_cdr(&bindings);
-                        let (var, more_vals) = store.car_cdr(&binding1);
-                        let (val, end) = store.car_cdr(&more_vals);
-                        assert!(end.is_nil());
-
-                        let expanded = if rest_bindings.is_nil() {
-                            body1
+                        let (var, vals) = store.car_cdr(&binding1);
+                        let (val, end) = store.car_cdr(&vals);
+                        if !end.is_nil() {
+                            Control::Return(expr, env, store.intern_cont_error())
                         } else {
-                            let lt = store.sym("letrec");
-                            store.list(&[lt, rest_bindings, body1])
-                        };
-                        Control::Return(
-                            val,
-                            env,
-                            store.intern_cont_let_rec(var, expanded, env, cont),
-                        )
+                            let expanded = if rest_bindings.is_nil() {
+                                body1
+                            } else {
+                                let lt = store.sym("letrec");
+                                store.list(&[lt, rest_bindings, body1])
+                            };
+                            Control::Return(
+                                val,
+                                env,
+                                store.intern_cont_let_rec(var, expanded, env, cont),
+                            )
+                        }
                     }
                 } else if head == store.sym("cons") {
                     let (arg1, more) = store.car_cdr(&rest);
@@ -587,20 +599,32 @@ fn reduce_with_witness<F: LurkField>(
                     )
                 } else if head == store.sym("car") {
                     let (arg1, end) = store.car_cdr(&rest);
-                    assert!(end.is_nil());
-                    Control::Return(arg1, env, store.intern_cont_unop(Op1::Car, cont))
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Car, cont))
+                    }
                 } else if head == store.sym("cdr") {
                     let (arg1, end) = store.car_cdr(&rest);
-                    assert!(end.is_nil());
-                    Control::Return(arg1, env, store.intern_cont_unop(Op1::Cdr, cont))
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Cdr, cont))
+                    }
                 } else if head == store.sym("atom") {
                     let (arg1, end) = store.car_cdr(&rest);
-                    assert!(end.is_nil());
-                    Control::Return(arg1, env, store.intern_cont_unop(Op1::Atom, cont))
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Atom, cont))
+                    }
                 } else if head == store.sym("emit") {
                     let (arg1, end) = store.car_cdr(&rest);
-                    assert!(end.is_nil());
-                    Control::Return(arg1, env, store.intern_cont_unop(Op1::Emit, cont))
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Emit, cont))
+                    }
                 } else if head == store.sym("+") {
                     let (arg1, more) = store.car_cdr(&rest);
                     Control::Return(
@@ -647,8 +671,11 @@ fn reduce_with_witness<F: LurkField>(
                     let (condition, more) = store.car_cdr(&rest);
                     Control::Return(condition, env, store.intern_cont_if(more, cont))
                 } else if head == store.sym("current-env") {
-                    assert!(rest.is_nil());
-                    Control::ApplyContinuation(env, env, cont)
+                    if !rest.is_nil() {
+                        Control::Return(env, env, store.intern_cont_error())
+                    } else {
+                        Control::ApplyContinuation(env, env, cont)
+                    }
                 } else {
                     // (fn . args)
                     let fun_form = head;
@@ -845,12 +872,15 @@ fn apply_continuation<F: LurkField>(
                 continuation,
             } => {
                 let (arg2, rest) = store.car_cdr(&unevaled_args);
-                assert!(rest.is_nil());
-                Control::Return(
-                    arg2,
-                    saved_env,
-                    store.intern_cont_binop2(operator, *result, continuation),
-                )
+                if !rest.is_nil() {
+                    Control::Return(*result, *env, store.intern_cont_error())
+                } else {
+                    Control::Return(
+                        arg2,
+                        saved_env,
+                        store.intern_cont_binop2(operator, *result, continuation),
+                    )
+                }
             }
             _ => unreachable!(),
         },
@@ -883,9 +913,10 @@ fn apply_continuation<F: LurkField>(
                         }
                         Op2::Quotient => {
                             let mut tmp = a;
-                            // TODO: Return error continuation.
                             let b_is_zero: bool = b.is_zero();
-                            assert!(!b_is_zero, "Division by zero error.");
+                            if b_is_zero {
+                                return Control::Return(*result, *env, store.intern_cont_error());
+                            }
                             tmp /= b;
                             store.intern_num(tmp)
                         }
@@ -894,7 +925,6 @@ fn apply_continuation<F: LurkField>(
                     _ => match operator {
                         Op2::Cons => store.cons(evaled_arg, *arg2),
                         _ => {
-                            // FIXME: Needs circuit.
                             return Control::Return(*result, *env, store.intern_cont_error());
                         }
                     },
@@ -911,12 +941,15 @@ fn apply_continuation<F: LurkField>(
                 continuation,
             } => {
                 let (arg2, rest) = store.car_cdr(&unevaled_args);
-                assert!(rest.is_nil());
-                Control::Return(
-                    arg2,
-                    saved_env,
-                    store.intern_cont_relop2(operator, *result, continuation),
-                )
+                if !rest.is_nil() {
+                    Control::Return(*result, *env, store.intern_cont_error())
+                } else {
+                    Control::Return(
+                        arg2,
+                        saved_env,
+                        store.intern_cont_relop2(operator, *result, continuation),
+                    )
+                }
             }
             _ => unreachable!(),
         },
@@ -938,7 +971,9 @@ fn apply_continuation<F: LurkField>(
                         }
                     },
                     (_, _) => match operator {
-                        Rel2::NumEqual => store.nil(), // FIXME: This should be a type error.
+                        Rel2::NumEqual => {
+                            return Control::Return(*result, *env, store.intern_cont_error());
+                        }
                         Rel2::Equal => {
                             if store.ptr_eq(&evaled_arg, arg2) {
                                 store.t()
@@ -987,9 +1022,10 @@ fn apply_continuation<F: LurkField>(
                 // value being checked against is not zero, so that value should
                 // first be subtracted from the value being checked.
 
-                if condition.is_nil() {
-                    let (arg2, end) = store.car_cdr(&more);
-                    assert!(end.is_nil());
+                let (arg2, end) = store.car_cdr(&more);
+                if !end.is_nil() {
+                    Control::Return(arg1, *env, store.intern_cont_error())
+                } else if condition.is_nil() {
                     Control::Return(arg2, *env, continuation)
                 } else {
                     Control::Return(arg1, *env, continuation)
@@ -1592,9 +1628,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
-    // This shouldn't actually panic, it should return an error continuation.
-    // But for now document the handling.
     fn evaluate_quotient_divide_by_zero() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
@@ -1752,6 +1785,101 @@ mod test {
 
         assert_eq!(10, iterations);
         assert_eq!(s.num(3), result_expr);
+    }
+
+    #[test]
+    fn evaluate_let_empty_error() {
+        let mut s = Store::<Fr>::default();
+        let limit = 20;
+        let expr = s.read("(let)").unwrap();
+
+        let (
+            IO {
+                expr: _result_expr,
+                env: _new_env,
+                cont: continuation,
+            },
+            iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+        assert!(continuation.is_error());
+        assert_eq!(1, iterations);
+    }
+
+    #[test]
+    fn evaluate_let_empty_body_error() {
+        let mut s = Store::<Fr>::default();
+        let limit = 20;
+        let expr = s.read("(let ((a 1)))").unwrap();
+
+        let (
+            IO {
+                expr: _result_expr,
+                env: _new_env,
+                cont: continuation,
+            },
+            iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+        assert!(continuation.is_error());
+        assert_eq!(1, iterations);
+    }
+
+    #[test]
+    fn evaluate_letrec_empty_error() {
+        let mut s = Store::<Fr>::default();
+        let limit = 20;
+        let expr = s.read("(letrec)").unwrap();
+
+        let (
+            IO {
+                expr: _result_expr,
+                env: _new_env,
+                cont: continuation,
+            },
+            iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+        assert!(continuation.is_error());
+        assert_eq!(1, iterations);
+    }
+
+    #[test]
+    fn evaluate_letrec_empty_body_error() {
+        let mut s = Store::<Fr>::default();
+        let limit = 20;
+        let expr = s.read("(letrec ((a 1)))").unwrap();
+
+        let (
+            IO {
+                expr: _result_expr,
+                env: _new_env,
+                cont: continuation,
+            },
+            iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+        assert!(continuation.is_error());
+        assert_eq!(1, iterations);
+    }
+
+    #[test]
+    fn evaluate_letrec_body_nil() {
+        let mut s = Store::<Fr>::default();
+        let limit = 20;
+        let expr = s.read("(eq nil (let () nil))").unwrap();
+
+        let (
+            IO {
+                expr: result_expr,
+                env: _new_env,
+                cont: _continuation,
+            },
+            iterations,
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
+        assert_eq!(4, iterations);
+        assert_eq!(s.t(), result_expr);
     }
 
     #[test]
@@ -2441,7 +2569,7 @@ mod test {
 
             assert!(result_expr.is_nil());
 
-            assert_eq!(170, iterations);
+            assert_eq!(169, iterations);
         }
     }
 

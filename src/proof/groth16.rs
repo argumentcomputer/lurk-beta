@@ -163,6 +163,7 @@ where
     >
     where
         <<Self as Groth16<F>>::E as Engine>::Fr: LurkField,
+        <<Self as Groth16<F>>::E as Engine>::Fr: ff::PrimeField,
     {
         let padding_predicate = |count| self.needs_frame_padding(count);
         let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate);
@@ -334,6 +335,7 @@ impl Groth16<<Bls12 as Engine>::Fr> for Groth16Prover<Bls12> {
 
         if let Some(params) = groth_params {
             let proof = create_proof(params)?;
+
             Ok(proof)
         } else {
             create_proof(self.groth_params()?)
@@ -411,12 +413,34 @@ mod tests {
         limit: usize,
         debug: bool,
     ) {
-        let rng = OsRng;
-
         let mut s = Store::default();
         let expected_result = expected_result(&mut s);
 
         let expr = s.read(source).unwrap();
+
+        outer_prove_aux0(
+            &mut s,
+            expr,
+            expected_result,
+            expected_iterations,
+            check_groth16,
+            check_constraint_systems,
+            limit,
+            debug,
+        )
+    }
+
+    fn outer_prove_aux0(
+        s: &mut Store<Fr>,
+        expr: Ptr<Fr>,
+        expected_result: Ptr<Fr>,
+        expected_iterations: usize,
+        check_groth16: bool,
+        check_constraint_systems: bool,
+        limit: usize,
+        debug: bool,
+    ) {
+        let rng = OsRng;
 
         let groth_prover = Groth16Prover::new(DEFAULT_CHUNK_FRAME_COUNT);
         let groth_params = groth_prover.groth_params().unwrap();
@@ -427,7 +451,7 @@ mod tests {
 
         if check_constraint_systems {
             let padding_predicate = |count| groth_prover.needs_frame_padding(count);
-            let frames = Evaluator::generate_frames(expr, e, &mut s, limit, padding_predicate);
+            let frames = Evaluator::generate_frames(expr, e, s, limit, padding_predicate);
             s.hydrate_scalar_cache();
 
             let multi_frames = MultiFrame::from_frames(DEFAULT_CHUNK_FRAME_COUNT, &frames, &s);
@@ -456,11 +480,11 @@ mod tests {
             Some(
                 groth_prover
                     .outer_prove(
-                        &groth_params,
+                        groth_params,
                         &INNER_PRODUCT_SRS,
-                        expr.clone(),
+                        expr,
                         empty_sym_env(&s),
-                        &mut s,
+                        s,
                         limit,
                         rng,
                     )
@@ -476,11 +500,11 @@ mod tests {
                 verify_aggregate_proof_and_aggregate_instances(
                     &srs_vk,
                     &pvk,
-                    rng.clone(),
+                    rng,
                     &public_inputs.to_inputs(&s),
                     &public_outputs.to_inputs(&s),
                     &proof.proof,
-                    &TRANSCRIPT_INCLUDE,
+                    TRANSCRIPT_INCLUDE,
                 )
                 .unwrap();
             assert!(aggregate_proof_and_instances_verified);
@@ -490,7 +514,7 @@ mod tests {
     pub fn check_cs_deltas(
         constraint_systems: &SequentialCS<Fr, IO<Fr>, Witness<Fr>>,
         limit: usize,
-    ) -> () {
+    ) {
         let mut cs_blank = MetricCS::<Fr>::new();
         let store = Store::<Fr>::default();
         let blank_frame = MultiFrame::<Scalar, _, _>::blank(&store, DEFAULT_CHUNK_FRAME_COUNT);
@@ -508,10 +532,10 @@ mod tests {
     #[ignore]
     fn outer_prove_arithmetic_let() {
         outer_prove_aux(
-            &"(let ((a 5)
-                     (b 1)
-                     (c 2))
-                (/ (+ a b) c))",
+            "(let ((a 5)
+                      (b 1)
+                      (c 2))
+                 (/ (+ a b) c))",
             |store| store.num(3),
             18,
             DEFAULT_CHECK_GROTH16,
@@ -525,7 +549,7 @@ mod tests {
     #[ignore]
     fn outer_prove_binop() {
         outer_prove_aux(
-            &"(+ 1 2)",
+            "(+ 1 2)",
             |store| store.num(3),
             3,
             DEFAULT_CHECK_GROTH16,
@@ -539,7 +563,7 @@ mod tests {
     #[ignore]
     fn outer_prove_eq() {
         outer_prove_aux(
-            &"(eq 5 5)",
+            "(eq 5 5)",
             |store| store.t(),
             3,
             true, // Always check Groth16 in at least one test.
@@ -553,7 +577,7 @@ mod tests {
     #[ignore]
     fn outer_prove_num_equal() {
         outer_prove_aux(
-            &"(= 5 5)",
+            "(= 5 5)",
             |store| store.t(),
             3,
             DEFAULT_CHECK_GROTH16,
@@ -562,7 +586,7 @@ mod tests {
             false,
         );
         outer_prove_aux(
-            &"(= 5 6)",
+            "(= 5 6)",
             |store| store.nil(),
             3,
             DEFAULT_CHECK_GROTH16,
@@ -576,7 +600,7 @@ mod tests {
     #[ignore]
     fn outer_prove_if() {
         outer_prove_aux(
-            &"(if t 5 6)",
+            "(if t 5 6)",
             |store| store.num(5),
             3,
             DEFAULT_CHECK_GROTH16,
@@ -586,7 +610,7 @@ mod tests {
         );
 
         outer_prove_aux(
-            &"(if t 5 6)",
+            "(if t 5 6)",
             |store| store.num(5),
             3,
             DEFAULT_CHECK_GROTH16,
@@ -599,7 +623,7 @@ mod tests {
     #[ignore]
     fn outer_prove_if_fully_evaluates() {
         outer_prove_aux(
-            &"(if t (+ 5 5) 6)",
+            "(if t (+ 5 5) 6)",
             |store| store.num(10),
             5,
             DEFAULT_CHECK_GROTH16,
@@ -613,12 +637,12 @@ mod tests {
     #[ignore]
     fn outer_prove_recursion1() {
         outer_prove_aux(
-            &"(letrec ((exp (lambda (base)
-                               (lambda (exponent)
-                                 (if (= 0 exponent)
-                                     1
-                                     (* base ((exp base) (- exponent 1))))))))
-                ((exp 5) 3))",
+            "(letrec ((exp (lambda (base)
+                                (lambda (exponent)
+                                  (if (= 0 exponent)
+                                      1
+                                      (* base ((exp base) (- exponent 1))))))))
+                 ((exp 5) 3))",
             |store| store.num(125),
             // 117, // FIXME: is this change correct?
             91,
@@ -633,12 +657,12 @@ mod tests {
     #[ignore]
     fn outer_prove_recursion2() {
         outer_prove_aux(
-            &"(letrec ((exp (lambda (base)
-                                  (lambda (exponent)
-                                     (lambda (acc)
-                                       (if (= 0 exponent)
-                                          acc
-                                          (((exp base) (- exponent 1)) (* acc base))))))))
+            "(letrec ((exp (lambda (base)
+                                   (lambda (exponent)
+                                      (lambda (acc)
+                                        (if (= 0 exponent)
+                                           acc
+                                           (((exp base) (- exponent 1)) (* acc base))))))))
                 (((exp 5) 5) 1))",
             |store| store.num(3125),
             // 248, // FIXME: is this change correct?
@@ -648,5 +672,42 @@ mod tests {
             256,
             false,
         );
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_chained_functional_commitment() {
+        let mut s = Store::<Fr>::default();
+
+        let fun_src = s
+            .read(
+                "(letrec ((secret 12345)
+                          (a (lambda (acc x)
+                               (let ((acc (+ acc x)))
+                                 (cons acc (cons secret (a acc)))))))
+                   (a 0))",
+            )
+            .unwrap();
+        let limit = 300;
+
+        let (evaled, _) = Evaluator::new(fun_src, empty_sym_env(&s), &mut s, limit).eval();
+
+        let fun = evaled.expr;
+
+        let cdr = s.sym("cdr");
+        let quote = s.sym("quote");
+
+        let zero = s.num(0);
+        let five = s.num(5);
+        let commitment = s.cons(zero, fun);
+        let quoted_commitment = s.list(&[quote, commitment]);
+        let fun_from_comm = s.list(&[cdr, quoted_commitment]);
+        let input = s.list(&[fun_from_comm, five]);
+
+        let (output, _iterations) = Evaluator::new(input, empty_sym_env(&s), &mut s, limit).eval();
+
+        let result_expr = output.expr;
+
+        outer_prove_aux0(&mut s, input, result_expr, 32, true, true, limit, false);
     }
 }

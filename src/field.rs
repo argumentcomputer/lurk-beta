@@ -1,5 +1,6 @@
 use ff::PrimeField;
 use libipld::cid::Cid;
+use serde::{Deserialize, Serialize};
 
 use multihash::Multihash;
 
@@ -110,14 +111,48 @@ impl LurkField for pasta_curves::Fp {
     }
 }
 
+// For working around the orphan trait impl rule
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FWrap<F: LurkField>(pub F);
+
+impl<F: LurkField> Serialize for FWrap<F> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let bytes: Vec<u8> = Vec::from(self.0.to_repr().as_ref());
+        bytes.serialize(serializer)
+    }
+}
+
+impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+        let bytes: Vec<u8> = Vec::deserialize(deserializer)?;
+        let f = F::from_bytes(&bytes).ok_or_else(|| {
+            D::Error::custom(format!("expected field element as bytes, got {:?}", &bytes))
+        })?;
+        Ok(FWrap(f))
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use blstrs::Scalar as Fr;
 
-    use crate::ipld::FWrap;
     use crate::store::Tag;
-    use quickcheck;
+    use quickcheck::{Arbitrary, Gen};
+
+    impl<F: LurkField> Arbitrary for FWrap<F> {
+        fn arbitrary(_: &mut Gen) -> Self {
+            let f = F::random(rand::thread_rng());
+            FWrap(f)
+        }
+    }
 
     #[quickcheck]
     fn test_bytes_consistency(f1: FWrap<Fr>) -> bool {

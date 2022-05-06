@@ -241,7 +241,7 @@ impl<F: LurkField> Nova<F> for NovaProver<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::eval::empty_sym_env;
+    use crate::eval::{empty_sym_env, Status};
     use crate::proof::{verify_sequential_css, SequentialCS};
     use crate::writer::Write;
 
@@ -255,6 +255,7 @@ mod tests {
     fn outer_prove_aux<Fo: Fn(&'_ mut Store<Fr>) -> Ptr<Fr>>(
         source: &str,
         expected_result: Fo,
+        expected_cont: Status,
         expected_iterations: usize,
         chunk_frame_count: usize,
         check_nova: bool,
@@ -273,7 +274,7 @@ mod tests {
         let proof_results = if check_nova {
             Some(
                 nova_prover
-                    .evaluate_and_prove(expr.clone(), empty_sym_env(&s), &mut s, limit)
+                    .evaluate_and_prove(expr, empty_sym_env(&s), &mut s, limit)
                     .unwrap(),
             )
         } else {
@@ -295,18 +296,23 @@ mod tests {
             let cs = nova_prover.outer_synthesize(&multiframes).unwrap();
 
             let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
+            let output = cs[cs.len() - 1].0.output.unwrap();
 
             if !debug {
                 dbg!(
                     multiframes.len(),
                     nova_prover.chunk_frame_count(),
                     frames.len(),
-                    cs[cs.len() - 1].0.output.unwrap().expr.fmt_to_string(&s)
+                    output.expr.fmt_to_string(&s)
                 );
 
                 assert_eq!(expected_iterations, Frame::significant_frame_count(&frames));
                 assert_eq!(adjusted_iterations, cs.len());
-                assert_eq!(expected_result, cs[cs.len() - 1].0.output.unwrap().expr);
+                let status: Status = output.cont.into();
+                assert_eq!(expected_cont, status);
+                if expected_cont != Status::Error {
+                    assert_eq!(expected_result, output.expr);
+                }
             }
 
             let constraint_systems_verified = verify_sequential_css::<Fr>(&cs).unwrap();
@@ -319,7 +325,7 @@ mod tests {
     pub fn check_cs_deltas(
         constraint_systems: &SequentialCS<Fr, IO<Fr>, Witness<Fr>>,
         chunk_frame_count: usize,
-    ) -> () {
+    ) {
         let mut cs_blank = MetricCS::<Fr>::new();
         let store = Store::<Fr>::default();
 
@@ -344,11 +350,12 @@ mod tests {
     #[ignore]
     fn outer_prove_arithmetic_let() {
         outer_prove_aux(
-            &"(let ((a 5)
-                     (b 1)
-                     (c 2))
-                (/ (+ a b) c))",
+            "(let ((a 5)
+                      (b 1)
+                      (c 2))
+                 (/ (+ a b) c))",
             |store| store.num(3),
+            Status::Terminal,
             18,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -362,8 +369,9 @@ mod tests {
     #[ignore]
     fn outer_prove_binop() {
         outer_prove_aux(
-            &"(+ 1 2)",
+            "(+ 1 2)",
             |store| store.num(3),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -377,8 +385,9 @@ mod tests {
     #[ignore]
     fn outer_prove_eq() {
         outer_prove_aux(
-            &"(eq 5 5)",
+            "(eq 5 5)",
             |store| store.t(),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             true, // Always check Nova in at least one test.
@@ -392,8 +401,9 @@ mod tests {
     #[ignore]
     fn outer_prove_num_equal() {
         outer_prove_aux(
-            &"(= 5 5)",
+            "(= 5 5)",
             |store| store.t(),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -402,8 +412,9 @@ mod tests {
             false,
         );
         outer_prove_aux(
-            &"(= 5 6)",
+            "(= 5 6)",
             |store| store.nil(),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -414,11 +425,52 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    fn outer_prove_invalid_num_equal() {
+        outer_prove_aux(
+            "(= 5 nil)",
+            |store| store.nil(),
+            Status::Error,
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            100,
+            false,
+        );
+        outer_prove_aux(
+            "(= nil 5)",
+            |store| store.num(5),
+            Status::Error,
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            100,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_quote_end_is_nil_error() {
+        outer_prove_aux(
+            "(quote (1) (2))",
+            |store| store.num(1),
+            Status::Error,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            10,
+            false,
+        );
+    }
+
+    #[test]
     fn outer_prove_if() {
         outer_prove_aux(
-            &"(if t 5 6)",
+            "(if t 5 6)",
             |store| store.num(5),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -428,8 +480,9 @@ mod tests {
         );
 
         outer_prove_aux(
-            &"(if nil 5 6)",
+            "(if nil 5 6)",
             |store| store.num(6),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -438,12 +491,29 @@ mod tests {
             false,
         )
     }
+
+    #[test]
+    fn outer_prove_if_end_is_nil_error() {
+        outer_prove_aux(
+            "(if nil 5 6 7)",
+            |store| store.num(5),
+            Status::Error,
+            2,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            100,
+            false,
+        )
+    }
+
     #[test]
     #[ignore]
     fn outer_prove_if_fully_evaluates() {
         outer_prove_aux(
-            &"(if t (+ 5 5) 6)",
+            "(if t (+ 5 5) 6)",
             |store| store.num(10),
+            Status::Terminal,
             5,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -457,13 +527,14 @@ mod tests {
     #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
     fn outer_prove_recursion1() {
         outer_prove_aux(
-            &"(letrec ((exp (lambda (base)
-                              (lambda (exponent)
-                                (if (= 0 exponent)
-                                    1
-                                    (* base ((exp base) (- exponent 1))))))))
-                ((exp 5) 2))",
+            "(letrec ((exp (lambda (base)
+                               (lambda (exponent)
+                                 (if (= 0 exponent)
+                                     1
+                                     (* base ((exp base) (- exponent 1))))))))
+                 ((exp 5) 2))",
             |store| store.num(25),
+            Status::Terminal,
             66,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -477,14 +548,15 @@ mod tests {
     #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
     fn outer_prove_recursion2() {
         outer_prove_aux(
-            &"(letrec ((exp (lambda (base)
-                                 (lambda (exponent)
-                                    (lambda (acc)
-                                      (if (= 0 exponent)
-                                         acc
-                                         (((exp base) (- exponent 1)) (* acc base))))))))
+            "(letrec ((exp (lambda (base)
+                                  (lambda (exponent)
+                                     (lambda (acc)
+                                       (if (= 0 exponent)
+                                          acc
+                                          (((exp base) (- exponent 1)) (* acc base))))))))
                 (((exp 5) 2) 1))",
             |store| store.num(25),
+            Status::Terminal,
             93,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -498,6 +570,7 @@ mod tests {
         outer_prove_aux(
             "(atom 123)",
             |store| store.sym("t"),
+            Status::Terminal,
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
             DEFAULT_CHECK_NOVA,
@@ -508,6 +581,7 @@ mod tests {
         outer_prove_aux(
             "(car '(1 . 2))",
             |store| store.num(1),
+            Status::Terminal,
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
             DEFAULT_CHECK_NOVA,
@@ -519,6 +593,7 @@ mod tests {
         outer_prove_aux(
             "(cdr '(1 . 2))",
             |store| store.num(2),
+            Status::Terminal,
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
             DEFAULT_CHECK_NOVA,
@@ -528,8 +603,9 @@ mod tests {
         );
 
         outer_prove_aux(
-            &"(emit 123)",
+            "(emit 123)",
             |store| store.num(123),
+            Status::Terminal,
             3,
             chunk_count,
             DEFAULT_CHECK_NOVA,
@@ -553,8 +629,9 @@ mod tests {
     #[ignore]
     fn outer_prove_emit_output() {
         outer_prove_aux(
-            &"(emit 123)",
+            "(emit 123)",
             |store| store.num(123),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -568,8 +645,9 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate() {
         outer_prove_aux(
-            &"((lambda (x) x) 99)",
+            "((lambda (x) x) 99)",
             |store| store.num(99),
+            Status::Terminal,
             4,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -583,10 +661,11 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate2() {
         outer_prove_aux(
-            &"((lambda (y)
-                   ((lambda (x) y) 888))
-                 99)",
+            "((lambda (y)
+                    ((lambda (x) y) 888))
+                  99)",
             |store| store.num(99),
+            Status::Terminal,
             9,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -600,13 +679,14 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate3() {
         outer_prove_aux(
-            &"((lambda (y)
-                    ((lambda (x)
-                       ((lambda (z) z)
-                        x))
-                     y))
-                  999)",
+            "((lambda (y)
+                     ((lambda (x)
+                        ((lambda (z) z)
+                         x))
+                      y))
+                   999)",
             |store| store.num(999),
+            Status::Terminal,
             10,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -620,14 +700,15 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate4() {
         outer_prove_aux(
-            &"((lambda (y)
-                    ((lambda (x)
-                       ((lambda (z) z)
-                        x))
-                     ;; NOTE: We pass a different value here.
-                     888))
+            "((lambda (y)
+                     ((lambda (x)
+                        ((lambda (z) z)
+                         x))
+                      ;; NOTE: We pass a different value here.
+                      888))
                   999)",
             |store| store.num(888),
+            Status::Terminal,
             10,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -641,11 +722,12 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate5() {
         outer_prove_aux(
-            &"(((lambda (fn)
-                     (lambda (x) (fn x)))
-                   (lambda (y) y))
-                  999)",
+            "(((lambda (fn)
+                      (lambda (x) (fn x)))
+                    (lambda (y) y))
+                   999)",
             |store| store.num(999),
+            Status::Terminal,
             13,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -659,8 +741,9 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_sum() {
         outer_prove_aux(
-            &"(+ 2 (+ 3 4))",
+            "(+ 2 (+ 3 4))",
             |store| store.num(9),
+            Status::Terminal,
             6,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -671,12 +754,12 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "assertion failed: rest.is_nil()")]
     fn outer_prove_evaluate_binop_rest_is_nil() {
         outer_prove_aux(
-            &"(- 9 8 7)",
-            |store| store.nil(),
-            3,
+            "(- 9 8 7)",
+            |store| store.num(9),
+            Status::Error,
+            2,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -686,12 +769,12 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "assertion failed: rest.is_nil()")]
     fn outer_prove_evaluate_relop_rest_is_nil() {
         outer_prove_aux(
-            &"(= 9 8 7)",
-            |store| store.nil(),
-            3,
+            "(= 9 8 7)",
+            |store| store.num(9),
+            Status::Error,
+            2,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -703,8 +786,9 @@ mod tests {
     #[test]
     fn outer_prove_evaluate_diff() {
         outer_prove_aux(
-            &"(- 9 5)",
+            "(- 9 5)",
             |store| store.num(4),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -718,8 +802,9 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_product() {
         outer_prove_aux(
-            &"(* 9 5)",
+            "(* 9 5)",
             |store| store.num(45),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -733,8 +818,39 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_quotient() {
         outer_prove_aux(
-            &"(/ 21 3)",
+            "(/ 21 3)",
             |store| store.num(7),
+            Status::Terminal,
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_error_div_by_zero() {
+        outer_prove_aux(
+            "(/ 21 0)",
+            |store| store.num(0),
+            Status::Error,
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_error_invalid_type_and_not_cons() {
+        outer_prove_aux(
+            "(/ 21 nil)",
+            |store| store.nil(),
+            Status::Error,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -748,13 +864,44 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_adder() {
         outer_prove_aux(
-            &"(((lambda (x)
-                   (lambda (y)
-                     (+ x y)))
-                 2)
-                3)",
+            "(((lambda (x)
+                    (lambda (y)
+                      (+ x y)))
+                  2)
+                 3)",
             |store| store.num(5),
+            Status::Terminal,
             13,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_current_env_simple() {
+        outer_prove_aux(
+            "(current-env)",
+            |store| store.nil(),
+            Status::Terminal,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_current_env_rest_is_nil_error() {
+        outer_prove_aux(
+            "(current-env a)",
+            |store| store.nil(),
+            Status::Error,
+            1,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -767,10 +914,146 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_let_simple() {
         outer_prove_aux(
-            &"(let ((a 1))
-                 a)",
+            "(let ((a 1))
+                  a)",
             |store| store.num(1),
+            Status::Terminal,
             3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_let_end_is_nil_error() {
+        outer_prove_aux(
+            "(let ((a 1 2)) a)",
+            |store| store.num(1),
+            Status::Error,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_letrec_end_is_nil_error() {
+        outer_prove_aux(
+            "(letrec ((a 1 2)) a)",
+            |store| store.num(1),
+            Status::Error,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_let_empty_error() {
+        outer_prove_aux(
+            "(let)",
+            |store| store.num(1),
+            Status::Error,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_let_empty_body_error() {
+        outer_prove_aux(
+            "(let ((a 1)))",
+            |store| store.num(1),
+            Status::Error,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_letrec_empty_error() {
+        outer_prove_aux(
+            "(letrec)",
+            |store| store.num(1),
+            Status::Error,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_letrec_empty_body_error() {
+        outer_prove_aux(
+            "(letrec ((a 1)))",
+            |store| store.num(1),
+            Status::Error,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_let_body_nil() {
+        outer_prove_aux(
+            "(eq nil (let () nil))",
+            |store| store.t(),
+            Status::Terminal,
+            4,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_let_rest_body_is_nil_error() {
+        outer_prove_aux(
+            "(let ((a 1)) a 1)",
+            |store| store.sym("a"),
+            Status::Error,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_letrec_rest_body_is_nil_error() {
+        outer_prove_aux(
+            "(letrec ((a 1)) a 1)",
+            |store| store.sym("a"),
+            Status::Error,
+            1,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -783,8 +1066,9 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_let_null_bindings() {
         outer_prove_aux(
-            &"(let () (+ 1 2))",
+            "(let () (+ 1 2))",
             |store| store.num(3),
+            Status::Terminal,
             4,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -797,8 +1081,9 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_letrec_null_bindings() {
         outer_prove_aux(
-            &"(letrec () (+ 1 2))",
+            "(letrec () (+ 1 2))",
             |store| store.num(3),
+            Status::Terminal,
             4,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -812,11 +1097,12 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_let() {
         outer_prove_aux(
-            &"(let ((a 1)
-                      (b 2)
-                      (c 3))
-                 (+ a (+ b c)))",
+            "(let ((a 1)
+                       (b 2)
+                       (c 3))
+                  (+ a (+ b c)))",
             |store| store.num(6),
+            Status::Terminal,
             18,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -830,15 +1116,16 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_arithmetic() {
         outer_prove_aux(
-            &"((((lambda (x)
-                     (lambda (y)
-                       (lambda (z)
-                         (* z
-                            (+ x y)))))
-                   2)
+            "((((lambda (x)
+                      (lambda (y)
+                        (lambda (z)
+                          (* z
+                             (+ x y)))))
+                    2)
                   3)
                  4)",
             |store| store.num(20),
+            Status::Terminal,
             23,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -852,11 +1139,12 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_arithmetic_let() {
         outer_prove_aux(
-            &"(let ((x 2)
-                       (y 3)
-                       (z 4))
-                  (* z (+ x y)))",
+            "(let ((x 2)
+                        (y 3)
+                        (z 4))
+                   (* z (+ x y)))",
             |store| store.num(20),
+            Status::Terminal,
             18,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -870,12 +1158,13 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_comparison() {
         outer_prove_aux(
-            &"(let ((x 2)
-                      (y 3)
-                      (z 4))
-                 (= 20 (* z
-                          (+ x y))))",
+            "(let ((x 2)
+                       (y 3)
+                       (z 4))
+                  (= 20 (* z
+                           (+ x y))))",
             |store| store.t(),
+            Status::Terminal,
             21,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -889,12 +1178,12 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_conditional() {
         outer_prove_aux(
-            &"(let ((true (lambda (a)
-                              (lambda (b)
-                                a)))
-                      (false (lambda (a)
+            "(let ((true (lambda (a)
                                (lambda (b)
-                                 b)))
+                                 a)))
+                       (false (lambda (a)
+                                (lambda (b)
+                                  b)))
                       ;; NOTE: We cannot shadow IF because it is built-in.
                       (if- (lambda (a)
                              (lambda (c)
@@ -902,6 +1191,7 @@ mod tests {
                                  ((cond a) c))))))
                  (((if- 5) 6) true))",
             |store| store.num(5),
+            Status::Terminal,
             35,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -915,12 +1205,12 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_conditional2() {
         outer_prove_aux(
-            &"(let ((true (lambda (a)
-                              (lambda (b)
-                                a)))
-                      (false (lambda (a)
+            "(let ((true (lambda (a)
                                (lambda (b)
-                                 b)))
+                                 a)))
+                       (false (lambda (a)
+                                (lambda (b)
+                                  b)))
                       ;; NOTE: We cannot shadow IF because it is built-in.
                       (if- (lambda (a)
                              (lambda (c)
@@ -928,6 +1218,7 @@ mod tests {
                                  ((cond a) c))))))
                  (((if- 5) 6) false))",
             |store| store.num(6),
+            Status::Terminal,
             32,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -941,16 +1232,17 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_fundamental_conditional_bug() {
         outer_prove_aux(
-            &"(let ((true (lambda (a)
-                              (lambda (b)
-                                a)))
-                      ;; NOTE: We cannot shadow IF because it is built-in.
-                      (if- (lambda (a)
-                             (lambda (c)
+            "(let ((true (lambda (a)
+                               (lambda (b)
+                                 a)))
+                       ;; NOTE: We cannot shadow IF because it is built-in.
+                       (if- (lambda (a)
+                              (lambda (c)
                                (lambda (cond)
                                  ((cond a) c))))))
                  (((if- 5) 6) true))",
             |store| store.num(5),
+            Status::Terminal,
             32,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -964,8 +1256,9 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_if() {
         outer_prove_aux(
-            &"(if nil 5 6)",
+            "(if nil 5 6)",
             |store| store.num(6),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -979,8 +1272,9 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_fully_evaluates() {
         outer_prove_aux(
-            &"(if t (+ 5 5) 6)",
+            "(if t (+ 5 5) 6)",
             |store| store.num(10),
+            Status::Terminal,
             5,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -994,13 +1288,14 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_recursion() {
         outer_prove_aux(
-            &"(letrec ((exp (lambda (base)
-                                  (lambda (exponent)
-                                    (if (= 0 exponent)
-                                        1
-                                        (* base ((exp base) (- exponent 1))))))))
-                          ((exp 5) 2))",
+            "(letrec ((exp (lambda (base)
+                                   (lambda (exponent)
+                                     (if (= 0 exponent)
+                                         1
+                                         (* base ((exp base) (- exponent 1))))))))
+                           ((exp 5) 2))",
             |store| store.num(25),
+            Status::Terminal,
             66,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1014,12 +1309,13 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_recursion_multiarg() {
         outer_prove_aux(
-            &"(letrec ((exp (lambda (base exponent)
-                                  (if (= 0 exponent)
-                                      1
-                                      (* base (exp base (- exponent 1)))))))
-                          (exp 5 2))",
+            "(letrec ((exp (lambda (base exponent)
+                                   (if (= 0 exponent)
+                                       1
+                                       (* base (exp base (- exponent 1)))))))
+                           (exp 5 2))",
             |store| store.num(25),
+            Status::Terminal,
             69,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1033,15 +1329,16 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_recursion_optimized() {
         outer_prove_aux(
-            &"(let ((exp (lambda (base)
-                               (letrec ((base-inner
-                                          (lambda (exponent)
-                                            (if (= 0 exponent)
-                                                1
-                                                (* base (base-inner (- exponent 1)))))))
+            "(let ((exp (lambda (base)
+                                (letrec ((base-inner
+                                           (lambda (exponent)
+                                             (if (= 0 exponent)
+                                                 1
+                                                 (* base (base-inner (- exponent 1)))))))
                                         base-inner))))
                    ((exp 5) 2))",
             |store| store.num(25),
+            Status::Terminal,
             56,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1055,14 +1352,15 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_tail_recursion() {
         outer_prove_aux(
-            &"(letrec ((exp (lambda (base)
-                                  (lambda (exponent-remaining)
-                                    (lambda (acc)
-                                      (if (= 0 exponent-remaining)
-                                          acc
-                                          (((exp base) (- exponent-remaining 1)) (* acc base))))))))
+            "(letrec ((exp (lambda (base)
+                                   (lambda (exponent-remaining)
+                                     (lambda (acc)
+                                       (if (= 0 exponent-remaining)
+                                           acc
+                                           (((exp base) (- exponent-remaining 1)) (* acc base))))))))
                           (((exp 5) 2) 1))",
             |store| store.num(25),
+            Status::Terminal,
             93,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1076,16 +1374,17 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_tail_recursion_somewhat_optimized() {
         outer_prove_aux(
-            &"(letrec ((exp (lambda (base)
-                                  (letrec ((base-inner
-                                             (lambda (exponent-remaining)
-                                               (lambda (acc)
-                                                 (if (= 0 exponent-remaining)
-                                                     acc
+            "(letrec ((exp (lambda (base)
+                                   (letrec ((base-inner
+                                              (lambda (exponent-remaining)
+                                                (lambda (acc)
+                                                  (if (= 0 exponent-remaining)
+                                                      acc
                                                      ((base-inner (- exponent-remaining 1)) (* acc base)))))))
                                            base-inner))))
                           (((exp 5) 2) 1))",
             |store| store.num(25),
+            Status::Terminal,
             81,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1099,16 +1398,17 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_no_mutual_recursion() {
         outer_prove_aux(
-            &"(letrec ((even (lambda (n)
-                                 (if (= 0 n)
-                                     t
-                                     (odd (- n 1)))))
-                         (odd (lambda (n)
-                                (even (- n 1)))))
+            "(letrec ((even (lambda (n)
+                                  (if (= 0 n)
+                                      t
+                                      (odd (- n 1)))))
+                          (odd (lambda (n)
+                                 (even (- n 1)))))
                         ;; NOTE: This is not true mutual-recursion.
                         ;; However, it exercises the behavior of LETREC.
                         (odd 1))",
             |store| store.t(),
+            Status::Terminal,
             22,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1120,34 +1420,20 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_no_mutual_recursion2() {
+    fn outer_prove_evaluate_no_mutual_recursion_error() {
         outer_prove_aux(
-            &"(letrec ((even (lambda (n)
-                                 (if (= 0 n)
-                                     t
-                                     (odd (- n 1)))))
-                         (odd (lambda (n)
-                                (even (- n 1)))))
+            "(letrec ((even (lambda (n)
+                                  (if (= 0 n)
+                                      t
+                                      (odd (- n 1)))))
+                          (odd (lambda (n)
+                                 (even (- n 1)))))
                         ;; NOTE: This is not true mutual-recursion.
                         ;; However, it exercises the behavior of LETREC.
                         (odd 2))",
             |store| store.sym("odd"),
+            Status::Error,
             25,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
-    }
-
-    #[test]
-    #[ignore]
-    fn outer_prove_evaluate_let_no_body() {
-        outer_prove_aux(
-            &"(let ((a 9)))",
-            |store| store.nil(),
-            3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1160,9 +1446,70 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_cons1() {
         outer_prove_aux(
-            &"(car (cons 1 2))",
+            "(car (cons 1 2))",
             |store| store.num(1),
+            Status::Terminal,
             5,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_car_end_is_nil_error() {
+        outer_prove_aux(
+            "(car (1 2) 3)",
+            |store| store.num(1),
+            Status::Error,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_cdr_end_is_nil_error() {
+        outer_prove_aux(
+            "(cdr (1 2) 3)",
+            |store| store.num(1),
+            Status::Error,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_atom_end_is_nil_error() {
+        outer_prove_aux(
+            "(atom 123 4)",
+            |store| store.num(123),
+            Status::Error,
+            1,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_evaluate_emit_end_is_nil_error() {
+        outer_prove_aux(
+            "(emit 123 4)",
+            |store| store.num(123),
+            Status::Error,
+            1,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
@@ -1175,8 +1522,9 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_cons2() {
         outer_prove_aux(
-            &"(cdr (cons 1 2))",
+            "(cdr (cons 1 2))",
             |store| store.num(2),
+            Status::Terminal,
             5,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1190,8 +1538,9 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_zero_arg_lambda1() {
         outer_prove_aux(
-            &"((lambda () 123))",
+            "((lambda () 123))",
             |store| store.num(123),
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1205,8 +1554,9 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_zero_arg_lambda2() {
         outer_prove_aux(
-            &"(let ((x 9) (f (lambda () (+ x 1)))) (f))",
+            "(let ((x 9) (f (lambda () (+ x 1)))) (f))",
             |store| store.num(10),
+            Status::Terminal,
             10,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1218,7 +1568,7 @@ mod tests {
     #[test]
     fn outer_prove_evaluate_zero_arg_lambda3() {
         outer_prove_aux(
-            &"((lambda (x) 123))",
+            "((lambda (x) 123))",
             |store| {
                 let arg = store.sym("x");
                 let num = store.num(123);
@@ -1226,6 +1576,7 @@ mod tests {
                 let env = store.nil();
                 store.intern_fun(arg, body, env)
             },
+            Status::Terminal,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1237,11 +1588,10 @@ mod tests {
 
     #[test]
     fn outer_prove_evaluate_zero_arg_lambda4() {
-        // FIXME: This should be an error.
-        // Tests don't currently have a way of checking this, but we need that.
         outer_prove_aux(
-            &"((lambda () 123) 1)",
+            "((lambda () 123) 1)",
             |store| store.intern_num(1),
+            Status::Error,
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1253,11 +1603,10 @@ mod tests {
 
     #[test]
     fn outer_prove_evaluate_zero_arg_lambda5() {
-        // FIXME: This should be an error.
-        // Tests don't currently have a way of checking this, but we need that.
         outer_prove_aux(
-            &"(123)",
+            "(123)",
             |store| store.intern_num(123),
+            Status::Error,
             2,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1271,13 +1620,14 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_minimal_tail_call() {
         outer_prove_aux(
-            &"(letrec
-                  ((f (lambda (x)
-                        (if (= x 3)
-                            123
-                            (f (+ x 1))))))
-                  (f 0))",
+            "(letrec
+                   ((f (lambda (x)
+                         (if (= x 3)
+                             123
+                             (f (+ x 1))))))
+                   (f 0))",
             |store| store.num(123),
+            Status::Terminal,
             50,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1291,12 +1641,13 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_cons_in_function1() {
         outer_prove_aux(
-            &"(((lambda (a)
-                   (lambda (b)
-                     (car (cons a b))))
-                 2)
-                3)",
+            "(((lambda (a)
+                    (lambda (b)
+                      (car (cons a b))))
+                  2)
+                 3)",
             |store| store.num(2),
+            Status::Terminal,
             15,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1310,12 +1661,13 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_cons_in_function2() {
         outer_prove_aux(
-            &"(((lambda (a)
-                   (lambda (b)
-                     (cdr (cons a b))))
-                 2)
-                3)",
+            "(((lambda (a)
+                    (lambda (b)
+                      (cdr (cons a b))))
+                  2)
+                 3)",
             |store| store.num(3),
+            Status::Terminal,
             15,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1329,8 +1681,9 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_multiarg_eval_bug() {
         outer_prove_aux(
-            &"(car (cdr '(1 2 3 4)))",
+            "(car (cdr '(1 2 3 4)))",
             |store| store.num(2),
+            Status::Terminal,
             4,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1344,14 +1697,15 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_multiple_letrec_bindings() {
         outer_prove_aux(
-            &"(letrec
-                  ((x 888)
-                   (f (lambda (x)
-                        (if (= x 5)
-                            123
-                            (f (+ x 1))))))
+            "(letrec
+                   ((x 888)
+                    (f (lambda (x)
+                         (if (= x 5)
+                             123
+                             (f (+ x 1))))))
                   (f 0))",
             |store| store.num(123),
+            Status::Terminal,
             78,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1365,14 +1719,15 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_tail_call2() {
         outer_prove_aux(
-            &"(letrec
-                  ((f (lambda (x)
-                        (if (= x 5)
-                            123
-                            (f (+ x 1)))))
-                   (g (lambda (x) (f x))))
+            "(letrec
+                   ((f (lambda (x)
+                         (if (= x 5)
+                             123
+                             (f (+ x 1)))))
+                    (g (lambda (x) (f x))))
                   (g 0))",
             |store| store.num(123),
+            Status::Terminal,
             84,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1386,10 +1741,11 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_multiple_letrecstar_bindings() {
         outer_prove_aux(
-            &"(letrec ((double (lambda (x) (* 2 x)))
-                          (square (lambda (x) (* x x))))
-                         (+ (square 3) (double 2)))",
+            "(letrec ((double (lambda (x) (* 2 x)))
+                           (square (lambda (x) (* x x))))
+                          (+ (square 3) (double 2)))",
             |store| store.num(13),
+            Status::Terminal,
             22,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1403,10 +1759,11 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_multiple_letrecstar_bindings_referencing() {
         outer_prove_aux(
-            &"(letrec ((double (lambda (x) (* 2 x)))
-                          (double-inc (lambda (x) (+ 1 (double x)))))
-                         (+ (double 3) (double-inc 2)))",
+            "(letrec ((double (lambda (x) (* 2 x)))
+                           (double-inc (lambda (x) (+ 1 (double x)))))
+                          (+ (double 3) (double-inc 2)))",
             |store| store.num(11),
+            Status::Terminal,
             31,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1420,12 +1777,12 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_multiple_letrecstar_bindings_recursive() {
         outer_prove_aux(
-            &"(letrec ((exp (lambda (base exponent)
-                                 (if (= 0 exponent)
-                                     1
-                                     (* base (exp base (- exponent 1))))))
-                          (exp2 (lambda (base exponent)
+            "(letrec ((exp (lambda (base exponent)
                                   (if (= 0 exponent)
+                                      1
+                                      (* base (exp base (- exponent 1))))))
+                           (exp2 (lambda (base exponent)
+                                   (if (= 0 exponent)
                                       1
                                       (* base (exp2 base (- exponent 1))))))
                           (exp3 (lambda (base exponent)
@@ -1435,6 +1792,7 @@ mod tests {
                          (+ (+ (exp 3 2) (exp2 2 3))
                             (exp3 4 2)))",
             |store| store.num(33),
+            Status::Terminal,
             242,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1448,12 +1806,13 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_dont_discard_rest_env() {
         outer_prove_aux(
-            &"(let ((z 9))
-                  (letrec ((a 1)
-                            (b 2)
-                            (l (lambda (x) (+ z x))))
-                           (l 9)))",
+            "(let ((z 9))
+                   (letrec ((a 1)
+                             (b 2)
+                             (l (lambda (x) (+ z x))))
+                            (l 9)))",
             |store| store.num(18),
+            Status::Terminal,
             22,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1467,16 +1826,17 @@ mod tests {
     #[ignore]
     fn outer_prove_evaluate_fibonacci() {
         outer_prove_aux(
-            &"(letrec ((next (lambda (a b n target)
-                    (if (eq n target)
-                        a
-                        (next b
-                            (+ a b)
-                            (+ 1 n)
+            "(letrec ((next (lambda (a b n target)
+                     (if (eq n target)
+                         a
+                         (next b
+                             (+ a b)
+                             (+ 1 n)
                             target))))
                     (fib (next 0 1 0)))
                 (fib 1))",
             |store| store.num(1),
+            Status::Terminal,
             89,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1507,6 +1867,7 @@ mod tests {
         outer_prove_aux(
             &src,
             |_| result_expr,
+            Status::Terminal,
             9,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
@@ -1542,6 +1903,7 @@ mod tests {
         outer_prove_aux(
             &src,
             |_| result_expr,
+            Status::Terminal,
             39,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
