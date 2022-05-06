@@ -119,8 +119,6 @@ name = "base64"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc19a4937b4fbd3fe3379793130e42060d10627a360f2127802b10b87e7baf74"
 
 [[package]]
 name = "bellperson"
@@ -159,15 +157,11 @@ dependencies = [
 [[package]]
 name = "bellperson-nonnative"
 version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8649d339127ed9bd8b29a98da46c47386b93069a7b1cd58624c186c01e909e82"
 source = "git+https://github.com/yatima-inc/bellperson-nonnative?branch=sb/wasm#3aa397e5b6c5117127ffb4b7d1fff2a0026a2169"
 dependencies = [
  "bellperson",
  "byteorder 0.3.13",
  "ff",
- "rand 0.4.6",
- "rug",
  "num-bigint 0.4.3",
  "num-integer",
  "num-traits",
@@ -1237,58 +1231,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5916d2ae698f6de9bfb891ad7a8d65c09d232dc58cc4ac433c7da3b2fd84bc2b"
 
 [[package]]
-name = "libipld"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfb2f6a99d838dcb1cc18361c79e827b76e91987227406e705d07cbef51ab7be"
-dependencies = [
- "async-trait",
- "cached",
- "fnv",
- "libipld-cbor",
- "libipld-core",
- "libipld-json",
- "libipld-macro",
- "log",
- "multihash",
- "parking_lot",
- "thiserror",
-]
-
-[[package]]
-name = "libipld-cbor"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46b3bbc4f35b8f25eb140d183f33d4610a1eb6531b312f01161fa06693f8c28a"
-dependencies = [
- "byteorder 1.4.3",
- "libipld-core",
- "thiserror",
-]
-
-[[package]]
-name = "libipld-core"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbdd758764f9680a818af33c31db733eb7c45224715d8816b9dcf0548c75f7c5"
-dependencies = [
- "anyhow",
- "cid",
- "core2",
- "multibase",
- "multihash",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "libipld-json"
-version = "0.13.1"
-version = "0.2.125"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5916d2ae698f6de9bfb891ad7a8d65c09d232dc58cc4ac433c7da3b2fd84bc2b"
-
-[[package]]
 name = "linux-raw-sys"
 version = "0.0.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1571,7 +1513,7 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 [[package]]
 name = "nova-snark"
 version = "0.4.2"
-source = "git+https://github.com/lurk-lang/nova?branch=acs/wasm-support#c8eee5aa43d50a204c6fd61fe5d947c902414d92"
+source = "git+https://github.com/yatima-inc/Nova?branch=sb/wasm#0268972130f03435fb065d6f27851e633184cb75"
 dependencies = [
  "bellperson",
  "bellperson-nonnative",
@@ -2173,18 +2115,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rug"
-version = "1.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f829d980ca193fa33fdd1decaebe72ec07cf2d8afdd0be60b3e5391f18014c91"
-dependencies = [
- "az",
- "gmp-mpfr-sys",
- "libc",
- "serde",
-]
-
-[[package]]
 name = "rust-gpu-tools"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2459,30 +2389,6 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
-
-[[package]]
-name = "structopt"
-version = "0.3.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c6b5c64445ba8094a6ab0c3cd2ad323e07171012d9c98b0b15651daf1787a10"
-dependencies = [
- "clap 2.34.0",
- "lazy_static",
- "structopt-derive",
-]
-
-[[package]]
-name = "structopt-derive"
-version = "0.4.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcb5ae327f9cc13b68763b5749770cb9e048a99bd9dfdfa58d0cf05d5f64afe0"
-dependencies = [
- "heck 0.3.3",
- "proc-macro-error",
- "proc-macro2 1.0.37",
- "quote 1.0.18",
- "syn 1.0.92",
-]
 
 [[package]]
 name = "subtle"
