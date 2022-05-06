@@ -716,11 +716,10 @@ impl Proof<Bls12> {
         let proof_map = bls12_proof_cache();
         let function_map = committed_function_store();
 
-        // FIXME: Commented-out for development.
-        // if let Some(proof) = proof_map.get(claim.cid()) {
-        //     dbg!("found cached proof!");
-        //     return Ok(proof);
-        // }
+        if let Some(proof) = proof_map.get(claim.cid()) {
+            dbg!("found cached proof!");
+            return Ok(proof);
+        }
 
         if only_use_cached_proofs {
             // FIXME: Error handling.
