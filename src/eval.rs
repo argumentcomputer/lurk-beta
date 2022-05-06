@@ -597,6 +597,13 @@ fn reduce_with_witness<F: LurkField>(
                         env,
                         store.intern_cont_binop(Op2::Cons, env, more, cont),
                     )
+                } else if head == store.sym("begin") {
+                    let (arg1, more) = store.car_cdr(&rest);
+                    Control::Return(
+                        arg1,
+                        env,
+                        store.intern_cont_binop(Op2::Begin, env, more, cont),
+                    )
                 } else if head == store.sym("car") {
                     let (arg1, end) = store.car_cdr(&rest);
                     if !end.is_nil() {
@@ -872,7 +879,15 @@ fn apply_continuation<F: LurkField>(
                 continuation,
             } => {
                 let (arg2, rest) = store.car_cdr(&unevaled_args);
-                if !rest.is_nil() {
+                if operator == Op2::Begin {
+                    if rest.is_nil() {
+                        Control::Return(arg2, saved_env, continuation)
+                    } else {
+                        let begin = store.sym("begin");
+                        let begin_again = store.cons(begin, unevaled_args);
+                        Control::Return(begin_again, saved_env, continuation)
+                    }
+                } else if !rest.is_nil() {
                     Control::Return(*result, *env, store.intern_cont_error())
                 } else {
                     Control::Return(
@@ -921,6 +936,7 @@ fn apply_continuation<F: LurkField>(
                             store.intern_num(tmp)
                         }
                         Op2::Cons => store.cons(evaled_arg, *arg2),
+                        Op2::Begin => unreachable!(),
                     },
                     _ => match operator {
                         Op2::Cons => store.cons(evaled_arg, *arg2),
