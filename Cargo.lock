@@ -3,6 +3,17 @@
 version = 3
 
 [[package]]
+name = "addchain"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b2e69442aa5628ea6951fa33e24efe8313f4321a91bd729fc2f75bdfc858570"
+dependencies = [
+ "num-bigint 0.3.3",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
 name = "ahash"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -108,6 +119,8 @@ name = "base64"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc19a4937b4fbd3fe3379793130e42060d10627a360f2127802b10b87e7baf74"
 
 [[package]]
 name = "bellperson"
@@ -119,7 +132,7 @@ dependencies = [
  "bitvec",
  "blake2s_simd 0.5.11",
  "blstrs",
- "byteorder",
+ "byteorder 1.4.3",
  "crossbeam-channel",
  "digest 0.9.0",
  "ec-gpu",
@@ -148,12 +161,17 @@ name = "bellperson-nonnative"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8649d339127ed9bd8b29a98da46c47386b93069a7b1cd58624c186c01e909e82"
+source = "git+https://github.com/yatima-inc/bellperson-nonnative?branch=sb/wasm#3aa397e5b6c5117127ffb4b7d1fff2a0026a2169"
 dependencies = [
  "bellperson",
  "byteorder 0.3.13",
  "ff",
  "rand 0.4.6",
  "rug",
+ "num-bigint 0.4.3",
+ "num-integer",
+ "num-traits",
+ "rand 0.8.5",
 ]
 
 [[package]]
@@ -237,7 +255,7 @@ checksum = "c0940dc441f31689269e10ac70eb1002a3a1d3ad1390e030043662eb7fe4688b"
 dependencies = [
  "block-padding",
  "byte-tools",
- "byteorder",
+ "byteorder 1.4.3",
  "generic-array 0.12.4",
 ]
 
@@ -327,6 +345,12 @@ name = "byte-tools"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3b5ca7a04898ad4bcd41c90c5285445ff5b791899bb1b0abdd2a2aa791211d7"
+
+[[package]]
+name = "byteorder"
+version = "0.3.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29b2aa490a8f546381308d68fc79e6bd753cd3ad839f7a7172897f1feedfa175"
 
 [[package]]
 name = "byteorder"
@@ -460,15 +484,6 @@ name = "clap_lex"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a37c35f1112dad5e6e0b1adaff798507497a18fceeb30cceb3bae7d1427b9213"
-dependencies = [
- "os_str_bytes",
-]
-
-[[package]]
-name = "clap_lex"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "189ddd3b5d32a70b35e7686054371742a937b0d99128e76dde6340210e966669"
 dependencies = [
  "os_str_bytes",
 ]
@@ -951,6 +966,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "131655483be284720a17d74ff97592b8e76576dc25563148601df2d7c9080924"
 dependencies = [
  "bitvec",
+ "byteorder 1.4.3",
+ "ff_derive",
  "rand_core 0.6.3",
  "subtle",
 ]
@@ -963,7 +980,7 @@ checksum = "717420ad8da706b4e4190f69d3d39fc8ba4075ea33d08dc6f4d1d46ba1203f54"
 dependencies = [
  "addchain",
  "cfg-if 1.0.0",
- "num-bigint",
+ "num-bigint 0.3.3",
  "num-integer",
  "num-traits",
  "proc-macro2 1.0.37",
@@ -1074,7 +1091,7 @@ version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc5ac374b108929de78460075f3dc439fa66df9d8fc77e8f12caa5165fcf0c89"
 dependencies = [
- "byteorder",
+ "byteorder 1.4.3",
  "ff",
  "rand 0.8.5",
  "rand_core 0.6.3",
@@ -1215,9 +1232,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.124"
+version = "0.2.125"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21a41fed9d98f27ab1c6d161da622a4fa35e8a54a8adc24bbf3ddd0ef70b0e50"
+checksum = "5916d2ae698f6de9bfb891ad7a8d65c09d232dc58cc4ac433c7da3b2fd84bc2b"
 
 [[package]]
 name = "libipld"
@@ -1244,7 +1261,7 @@ version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "46b3bbc4f35b8f25eb140d183f33d4610a1eb6531b312f01161fa06693f8c28a"
 dependencies = [
- "byteorder",
+ "byteorder 1.4.3",
  "libipld-core",
  "thiserror",
 ]
@@ -1450,7 +1467,7 @@ version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e261cf0f8b3c42ded9f7d2bb59dea03aa52bc8a1cbc7482f9fc3fd1229d3b42"
 dependencies = [
- "byteorder",
+ "byteorder 1.4.3",
  "keccak",
  "rand_core 0.5.1",
  "zeroize",
@@ -1509,7 +1526,7 @@ dependencies = [
  "bellperson",
  "blake2s_simd 0.5.11",
  "blstrs",
- "byteorder",
+ "byteorder 1.4.3",
  "ec-gpu",
  "ec-gpu-gen 0.1.2",
  "execute",
@@ -1557,10 +1574,15 @@ version = "0.4.2"
 source = "git+https://github.com/lurk-lang/nova?branch=acs/wasm-support#c8eee5aa43d50a204c6fd61fe5d947c902414d92"
 dependencies = [
  "bellperson",
+ "bellperson-nonnative",
  "digest 0.8.1",
  "ff",
+ "generic-array 0.14.5",
  "itertools 0.9.0",
  "merlin",
+ "neptune",
+ "num-bigint 0.4.3",
+ "num-traits",
  "pasta_curves",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -1579,6 +1601,19 @@ dependencies = [
  "autocfg 1.1.0",
  "num-integer",
  "num-traits",
+]
+
+[[package]]
+name = "num-bigint"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f93ab6289c7b344a8a9f60f88d80aa20032336fe78da341afc91c8a2341fc75f"
+dependencies = [
+ "autocfg 1.1.0",
+ "num-integer",
+ "num-traits",
+ "rand 0.8.5",
+ "serde",
 ]
 
 [[package]]
