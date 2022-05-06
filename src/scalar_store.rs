@@ -1,20 +1,19 @@
 use std::collections::BTreeMap;
 
 use crate::field::LurkField;
-use libipld::Ipld;
 
-use crate::ipld::FWrap;
-use crate::ipld::IpldEmbed;
-use crate::ipld::IpldError;
-use crate::store::{ContTag, Op1, Op2, Pointer, Ptr, Rel2, ScalarContPtr, ScalarPtr, Store, Tag};
+use crate::store::{Op1, Op2, Pointer, Ptr, Rel2, ScalarContPtr, ScalarPtr, Store, Tag};
 use crate::Num;
+use serde::Deserialize;
+use serde::Serialize;
 
 /// `ScalarStore` allows realization of a graph of `ScalarPtr`s suitable for serialization to IPLD. `ScalarExpression`s
 /// are composed only of `ScalarPtr`s, so `scalar_map` suffices to allow traverseing an arbitrary DAG.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScalarStore<F: LurkField> {
     scalar_map: BTreeMap<ScalarPtr<F>, Option<ScalarExpression<F>>>,
     scalar_cont_map: BTreeMap<ScalarContPtr<F>, Option<ScalarContinuation<F>>>,
+    #[serde(skip)]
     pending_scalar_ptrs: Vec<ScalarPtr<F>>,
 }
 
@@ -149,43 +148,6 @@ impl<'a, F: LurkField> ScalarStore<F> {
     }
 }
 
-impl<F: LurkField> IpldEmbed for ScalarStore<F> {
-    fn to_ipld(&self) -> Ipld {
-        let map: Vec<(ScalarPtr<F>, Option<ScalarExpression<F>>)> = self
-            .scalar_map
-            .iter()
-            .map(|(k, v)| (*k, v.clone()))
-            .collect();
-        let cont_map: Vec<(ScalarContPtr<F>, Option<ScalarContinuation<F>>)> =
-            self.scalar_cont_map.iter().map(|(k, v)| (*k, *v)).collect();
-        Ipld::List([map.to_ipld(), cont_map.to_ipld()].into())
-    }
-
-    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-        match ipld {
-            Ipld::List(xs) => match xs.as_slice() {
-                [map, cont_map] => {
-                    let map: Vec<(ScalarPtr<F>, Option<ScalarExpression<F>>)> =
-                        IpldEmbed::from_ipld(map)?;
-                    let cont_map: Vec<(ScalarContPtr<F>, Option<ScalarContinuation<F>>)> =
-                        IpldEmbed::from_ipld(cont_map)?;
-                    let pending: Vec<ScalarPtr<F>> = Vec::new();
-                    Ok(ScalarStore {
-                        scalar_map: map.into_iter().collect(),
-                        scalar_cont_map: cont_map.into_iter().collect(),
-                        pending_scalar_ptrs: pending,
-                    })
-                }
-                xs => Err(IpldError::expected(
-                    "ScalarStore",
-                    &Ipld::List(xs.to_owned()),
-                )),
-            },
-            x => Err(IpldError::expected("ScalarStore", x)),
-        }
-    }
-}
-
 impl<'a, F: LurkField> ScalarExpression<F> {
     fn from_ptr(store: &Store<F>, ptr: &Ptr<F>) -> Option<Self> {
         match ptr.tag() {
@@ -227,7 +189,7 @@ impl<'a, F: LurkField> ScalarExpression<F> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ScalarExpression<F: LurkField> {
     Nil,
     Cons(ScalarPtr<F>, ScalarPtr<F>),
@@ -248,85 +210,8 @@ impl<'a, F: LurkField> Default for ScalarExpression<F> {
     }
 }
 
-impl<F: LurkField> IpldEmbed for ScalarExpression<F> {
-    fn to_ipld(&self) -> Ipld {
-        match self {
-            Self::Nil => Ipld::List([Ipld::Integer(Tag::Nil as i128)].into()),
-            Self::Cons(car, cdr) => Ipld::List(
-                [
-                    Ipld::Integer(Tag::Cons as i128),
-                    car.to_ipld(),
-                    cdr.to_ipld(),
-                ]
-                .into(),
-            ),
-            Self::Sym(sym) => {
-                Ipld::List([Ipld::Integer(Tag::Sym as i128), Ipld::String(sym.clone())].into())
-            }
-            Self::Fun {
-                arg,
-                body,
-                closed_env,
-            } => Ipld::List(
-                [
-                    Ipld::Integer(Tag::Fun as i128),
-                    arg.to_ipld(),
-                    body.to_ipld(),
-                    closed_env.to_ipld(),
-                ]
-                .into(),
-            ),
-            Self::Num(x) => {
-                Ipld::List([Ipld::Integer(Tag::Num as i128), FWrap(*x).to_ipld()].into())
-            }
-            Self::Str(s) => {
-                Ipld::List([Ipld::Integer(Tag::Str as i128), Ipld::String(s.clone())].into())
-            }
-            Self::Thunk(thunk) => {
-                Ipld::List([Ipld::Integer(Tag::Thunk as i128), thunk.to_ipld()].into())
-            }
-        }
-    }
-
-    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-        use Ipld::*;
-        match ipld {
-            List(xs) => match xs.as_slice() {
-                [Integer(t)] if *t == Tag::Nil as i128 => Ok(Self::Nil),
-                [Integer(t), car, cdr] if *t == Tag::Cons as i128 => {
-                    let car = ScalarPtr::from_ipld(car)?;
-                    let cdr = ScalarPtr::from_ipld(cdr)?;
-                    Ok(Self::Cons(car, cdr))
-                }
-                [Integer(t), String(s)] if *t == Tag::Sym as i128 => Ok(Self::Sym(s.clone())),
-                [Integer(t), arg, body, env] if *t == Tag::Fun as i128 => {
-                    let arg = ScalarPtr::from_ipld(arg)?;
-                    let body = ScalarPtr::from_ipld(body)?;
-                    let closed_env = ScalarPtr::from_ipld(env)?;
-                    Ok(Self::Fun {
-                        arg,
-                        body,
-                        closed_env,
-                    })
-                }
-                [Integer(t), num] if *t == Tag::Num as i128 => {
-                    let num = FWrap::from_ipld(num)?;
-                    Ok(Self::Num(num.0))
-                }
-                [Integer(t), String(s)] if *t == Tag::Str as i128 => Ok(Self::Str(s.clone())),
-                [Integer(t), thunk] if *t == Tag::Thunk as i128 => {
-                    let thunk = ScalarThunk::from_ipld(thunk)?;
-                    Ok(Self::Thunk(thunk))
-                }
-                xs => Err(IpldError::expected("Expr", &List(xs.to_owned()))),
-            },
-            x => Err(IpldError::expected("Expr", x)),
-        }
-    }
-}
-
 // Unused for now, but will be needed when we serialize Thunks to IPLD.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScalarThunk<F: LurkField> {
     pub(crate) value: ScalarPtr<F>,
     pub(crate) continuation: ScalarContPtr<F>,
@@ -334,33 +219,7 @@ pub struct ScalarThunk<F: LurkField> {
 
 impl<F: LurkField> Copy for ScalarThunk<F> {}
 
-impl<F: LurkField> IpldEmbed for ScalarThunk<F> {
-    fn to_ipld(&self) -> Ipld {
-        Ipld::List([self.value.to_ipld(), self.continuation.to_ipld()].into())
-    }
-
-    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-        match ipld {
-            Ipld::List(xs) => match xs.as_slice() {
-                [val, cont] => {
-                    let value = ScalarPtr::from_ipld(val)?;
-                    let continuation = ScalarContPtr::from_ipld(cont)?;
-                    Ok(ScalarThunk {
-                        value,
-                        continuation,
-                    })
-                }
-                xs => Err(IpldError::expected(
-                    "ScalarThunk",
-                    &Ipld::List(xs.to_owned()),
-                )),
-            },
-            x => Err(IpldError::expected("ScalarThunk", x)),
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ScalarContinuation<F: LurkField> {
     Outermost,
     Call {
@@ -431,295 +290,20 @@ pub enum ScalarContinuation<F: LurkField> {
     Terminal,
 }
 
-// It is important that the order of list elements for each ScalarContinuation
-// are consistent with the order of field elements in the
-// `get_hash_components_*` functions
-impl<F: LurkField> IpldEmbed for ScalarContinuation<F> {
-    fn to_ipld(&self) -> Ipld {
-        match self {
-            Self::Outermost => Ipld::List([Ipld::Integer(ContTag::Outermost as i128)].into()),
-            Self::Call {
-                unevaled_arg,
-                saved_env,
-                continuation,
-            } => Ipld::List(vec![
-                Ipld::Integer(ContTag::Call as i128),
-                unevaled_arg.to_ipld(),
-                saved_env.to_ipld(),
-                continuation.to_ipld(),
-            ]),
-            Self::Call2 {
-                function,
-                saved_env,
-                continuation,
-            } => Ipld::List(vec![
-                Ipld::Integer(ContTag::Call2 as i128),
-                function.to_ipld(),
-                saved_env.to_ipld(),
-                continuation.to_ipld(),
-            ]),
-            Self::Tail {
-                saved_env,
-                continuation,
-            } => Ipld::List(vec![
-                Ipld::Integer(ContTag::Tail as i128),
-                saved_env.to_ipld(),
-                continuation.to_ipld(),
-            ]),
-            Self::Error => Ipld::List(vec![Ipld::Integer(ContTag::Error as i128)]),
-            Self::Lookup {
-                saved_env,
-                continuation,
-            } => Ipld::List(vec![
-                Ipld::Integer(ContTag::Lookup as i128),
-                saved_env.to_ipld(),
-                continuation.to_ipld(),
-            ]),
-            Self::Unop {
-                operator,
-                continuation,
-            } => Ipld::List(vec![
-                Ipld::Integer(ContTag::Unop as i128),
-                operator.to_ipld(),
-                continuation.to_ipld(),
-            ]),
-            Self::Binop {
-                operator,
-                saved_env,
-                unevaled_args,
-                continuation,
-            } => Ipld::List(vec![
-                Ipld::Integer(ContTag::Binop as i128),
-                operator.to_ipld(),
-                saved_env.to_ipld(),
-                unevaled_args.to_ipld(),
-                continuation.to_ipld(),
-            ]),
-            Self::Binop2 {
-                operator,
-                evaled_arg,
-                continuation,
-            } => Ipld::List(vec![
-                Ipld::Integer(ContTag::Binop2 as i128),
-                operator.to_ipld(),
-                evaled_arg.to_ipld(),
-                continuation.to_ipld(),
-            ]),
-            Self::Relop {
-                operator,
-                saved_env,
-                unevaled_args,
-                continuation,
-            } => Ipld::List(vec![
-                Ipld::Integer(ContTag::Relop as i128),
-                operator.to_ipld(),
-                saved_env.to_ipld(),
-                unevaled_args.to_ipld(),
-                continuation.to_ipld(),
-            ]),
-            Self::Relop2 {
-                operator,
-                evaled_arg,
-                continuation,
-            } => Ipld::List(vec![
-                Ipld::Integer(ContTag::Relop2 as i128),
-                operator.to_ipld(),
-                evaled_arg.to_ipld(),
-                continuation.to_ipld(),
-            ]),
-            Self::If {
-                unevaled_args,
-                continuation,
-            } => Ipld::List(vec![
-                Ipld::Integer(ContTag::If as i128),
-                unevaled_args.to_ipld(),
-                continuation.to_ipld(),
-            ]),
-            Self::Let {
-                var,
-                body,
-                saved_env,
-                continuation,
-            } => Ipld::List(vec![
-                Ipld::Integer(ContTag::Let as i128),
-                var.to_ipld(),
-                body.to_ipld(),
-                saved_env.to_ipld(),
-                continuation.to_ipld(),
-            ]),
-            Self::LetRec {
-                var,
-                saved_env,
-                body,
-                continuation,
-            } => Ipld::List(vec![
-                Ipld::Integer(ContTag::LetRec as i128),
-                var.to_ipld(),
-                body.to_ipld(),
-                saved_env.to_ipld(),
-                continuation.to_ipld(),
-            ]),
-            Self::Emit { continuation } => Ipld::List(vec![
-                Ipld::Integer(ContTag::Emit as i128),
-                continuation.to_ipld(),
-            ]),
-            Self::Dummy => Ipld::List(vec![Ipld::Integer(ContTag::Dummy as i128)]),
-            Self::Terminal => Ipld::List(vec![Ipld::Integer(ContTag::Terminal as i128)]),
-        }
-    }
-
-    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-        use Ipld::Integer;
-        match ipld {
-            Ipld::List(xs) => match xs.as_slice() {
-                [Integer(t)] if *t == ContTag::Outermost as i128 => Ok(Self::Outermost),
-                [Integer(t), arg, env, cont] if *t == ContTag::Call as i128 => {
-                    let unevaled_arg = ScalarPtr::from_ipld(arg)?;
-                    let saved_env = ScalarPtr::from_ipld(env)?;
-                    let continuation = ScalarContPtr::from_ipld(cont)?;
-                    Ok(Self::Call {
-                        unevaled_arg,
-                        saved_env,
-                        continuation,
-                    })
-                }
-                [Integer(t), fun, env, cont] if *t == ContTag::Call2 as i128 => {
-                    let function = ScalarPtr::from_ipld(fun)?;
-                    let saved_env = ScalarPtr::from_ipld(env)?;
-                    let continuation = ScalarContPtr::from_ipld(cont)?;
-                    Ok(Self::Call2 {
-                        function,
-                        saved_env,
-                        continuation,
-                    })
-                }
-                [Integer(t), env, cont] if *t == ContTag::Tail as i128 => {
-                    let saved_env = ScalarPtr::from_ipld(env)?;
-                    let continuation = ScalarContPtr::from_ipld(cont)?;
-                    Ok(Self::Tail {
-                        saved_env,
-                        continuation,
-                    })
-                }
-                [Integer(t)] if *t == ContTag::Error as i128 => Ok(Self::Error),
-                [Integer(t), env, cont] if *t == ContTag::Lookup as i128 => {
-                    let saved_env = ScalarPtr::from_ipld(env)?;
-                    let continuation = ScalarContPtr::from_ipld(cont)?;
-                    Ok(Self::Lookup {
-                        saved_env,
-                        continuation,
-                    })
-                }
-                [Integer(t), opr, cont] if *t == ContTag::Unop as i128 => {
-                    let operator = Op1::from_ipld(opr)?;
-                    let continuation = ScalarContPtr::from_ipld(cont)?;
-                    Ok(Self::Unop {
-                        operator,
-                        continuation,
-                    })
-                }
-                [Integer(t), opr, env, arg, cont] if *t == ContTag::Binop as i128 => {
-                    let operator = Op2::from_ipld(opr)?;
-                    let saved_env = ScalarPtr::from_ipld(env)?;
-                    let unevaled_args = ScalarPtr::from_ipld(arg)?;
-                    let continuation = ScalarContPtr::from_ipld(cont)?;
-                    Ok(Self::Binop {
-                        operator,
-                        saved_env,
-                        unevaled_args,
-                        continuation,
-                    })
-                }
-                [Integer(t), opr, arg, cont] if *t == ContTag::Binop2 as i128 => {
-                    let operator = Op2::from_ipld(opr)?;
-                    let evaled_arg = ScalarPtr::from_ipld(arg)?;
-                    let continuation = ScalarContPtr::from_ipld(cont)?;
-                    Ok(Self::Binop2 {
-                        operator,
-                        evaled_arg,
-                        continuation,
-                    })
-                }
-                [Integer(t), opr, env, arg, cont] if *t == ContTag::Relop as i128 => {
-                    let operator = Rel2::from_ipld(opr)?;
-                    let saved_env = ScalarPtr::from_ipld(env)?;
-                    let unevaled_args = ScalarPtr::from_ipld(arg)?;
-                    let continuation = ScalarContPtr::from_ipld(cont)?;
-                    Ok(Self::Relop {
-                        operator,
-                        saved_env,
-                        unevaled_args,
-                        continuation,
-                    })
-                }
-                [Integer(t), opr, arg, cont] if *t == ContTag::Relop2 as i128 => {
-                    let operator = Rel2::from_ipld(opr)?;
-                    let evaled_arg = ScalarPtr::from_ipld(arg)?;
-                    let continuation = ScalarContPtr::from_ipld(cont)?;
-                    Ok(Self::Relop2 {
-                        operator,
-                        evaled_arg,
-                        continuation,
-                    })
-                }
-                [Integer(t), arg, cont] if *t == ContTag::If as i128 => {
-                    let unevaled_args = ScalarPtr::from_ipld(arg)?;
-                    let continuation = ScalarContPtr::from_ipld(cont)?;
-                    Ok(Self::If {
-                        unevaled_args,
-                        continuation,
-                    })
-                }
-                [Integer(t), var, body, env, cont] if *t == ContTag::Let as i128 => {
-                    let var = ScalarPtr::from_ipld(var)?;
-                    let body = ScalarPtr::from_ipld(body)?;
-                    let saved_env = ScalarPtr::from_ipld(env)?;
-                    let continuation = ScalarContPtr::from_ipld(cont)?;
-                    Ok(Self::Let {
-                        var,
-                        body,
-                        saved_env,
-                        continuation,
-                    })
-                }
-                [Integer(t), var, body, env, cont] if *t == ContTag::LetRec as i128 => {
-                    let var = ScalarPtr::from_ipld(var)?;
-                    let saved_env = ScalarPtr::from_ipld(env)?;
-                    let body = ScalarPtr::from_ipld(body)?;
-                    let continuation = ScalarContPtr::from_ipld(cont)?;
-                    Ok(Self::LetRec {
-                        var,
-                        body,
-                        saved_env,
-                        continuation,
-                    })
-                }
-                [Integer(t), cont] if *t == ContTag::Emit as i128 => {
-                    let continuation = ScalarContPtr::from_ipld(cont)?;
-                    Ok(Self::Emit { continuation })
-                }
-                [Integer(t)] if *t == ContTag::Dummy as i128 => Ok(Self::Dummy),
-                [Integer(t)] if *t == ContTag::Terminal as i128 => Ok(Self::Terminal),
-                xs => Err(IpldError::expected(
-                    "ScalarContinuation",
-                    &Ipld::List(xs.to_owned()),
-                )),
-            },
-            x => Err(IpldError::expected("ScalarContinuation", x)),
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::eval::empty_sym_env;
+    use crate::field::FWrap;
     use crate::store::ScalarPointer;
     use blstrs::Scalar as Fr;
 
     use quickcheck::{Arbitrary, Gen};
 
     use crate::test::frequency;
+
+    use libipld::serde::from_ipld;
+    use libipld::serde::to_ipld;
 
     impl Arbitrary for ScalarThunk<Fr> {
         fn arbitrary(g: &mut Gen) -> Self {
@@ -731,19 +315,15 @@ mod test {
     }
 
     #[quickcheck]
-    fn test_scalar_thunk_ipld_embed(x: ScalarThunk<Fr>) -> bool {
-        match ScalarThunk::from_ipld(&x.to_ipld()) {
-            Ok(y) if x == y => true,
-            Ok(y) => {
-                println!("x: {:?}", x);
-                println!("y: {:?}", y);
+    fn prop_scalar_thunk_ipld(x: ScalarThunk<Fr>) -> bool {
+        if let Ok(ipld) = to_ipld(x) {
+            if let Ok(y) = from_ipld(ipld) {
+                x == y
+            } else {
                 false
             }
-            Err(e) => {
-                println!("{:?}", x);
-                println!("{:?}", e);
-                false
-            }
+        } else {
+            false
         }
     }
 
@@ -887,41 +467,44 @@ mod test {
     }
 
     #[quickcheck]
-    fn test_scalar_expr_ipld_embed(x: ScalarExpression<Fr>) -> bool {
-        match ScalarExpression::from_ipld(&x.to_ipld()) {
-            Ok(y) if x == y => true,
-            Ok(y) => {
-                println!("x: {:?}", x);
-                println!("y: {:?}", y);
-                false
-            }
+    fn prop_scalar_expression_ipld(x: ScalarExpression<Fr>) -> bool {
+        match to_ipld(x.clone()) {
+            Ok(ipld) => match from_ipld(ipld.clone()) {
+                Ok(y) => {
+                    println!("x: {:?}", x);
+                    println!("y: {:?}", y);
+                    x == y
+                }
+                Err(e) => {
+                    println!("ser x: {:?}", x);
+                    println!("de ipld: {:?}", ipld);
+                    println!("err e: {:?}", e);
+                    false
+                }
+            },
             Err(e) => {
-                println!("{:?}", x);
-                println!("{:?}", e);
+                println!("ser x: {:?}", x);
+                println!("err e: {:?}", e);
                 false
             }
         }
     }
 
     #[quickcheck]
-    fn test_scalar_cont_ipld_embed(x: ScalarContinuation<Fr>) -> bool {
-        match ScalarContinuation::from_ipld(&x.to_ipld()) {
-            Ok(y) if x == y => true,
-            Ok(y) => {
-                println!("x: {:?}", x);
-                println!("y: {:?}", y);
+    fn prop_scalar_continuation_ipld(x: ScalarExpression<Fr>) -> bool {
+        if let Ok(ipld) = to_ipld(x.clone()) {
+            if let Ok(y) = from_ipld(ipld) {
+                x == y
+            } else {
                 false
             }
-            Err(e) => {
-                println!("{:?}", x);
-                println!("{:?}", e);
-                false
-            }
+        } else {
+            false
         }
     }
 
-    //// This doesn't create well-defined ScalarStores, but is still useful for
-    //// testing ipld
+    // This doesn't create well-defined ScalarStores, so is only useful for
+    // testing ipld
     impl Arbitrary for ScalarStore<Fr> {
         fn arbitrary(g: &mut Gen) -> Self {
             let map: Vec<(ScalarPtr<Fr>, Option<ScalarExpression<Fr>>)> = Arbitrary::arbitrary(g);
@@ -936,19 +519,15 @@ mod test {
     }
 
     #[quickcheck]
-    fn test_scalar_store_ipld_embed(x: ScalarStore<Fr>) -> bool {
-        match ScalarStore::from_ipld(&x.to_ipld()) {
-            Ok(y) if x == y => true,
-            Ok(y) => {
-                println!("x: {:?}", x);
-                println!("y: {:?}", y);
+    fn prop_scalar_store_ipld(x: ScalarStore<Fr>) -> bool {
+        if let Ok(ipld) = to_ipld(x.clone()) {
+            if let Ok(y) = from_ipld(ipld) {
+                x == y
+            } else {
                 false
             }
-            Err(e) => {
-                println!("{:?}", x);
-                println!("{:?}", e);
-                false
-            }
+        } else {
+            false
         }
     }
 
@@ -960,8 +539,8 @@ mod test {
             store1.hydrate_scalar_cache();
 
             if let (scalar_store, Some(scalar_expr)) = ScalarStore::new_with_expr(&store1, &expr1) {
-                let ipld = scalar_store.to_ipld();
-                let mut scalar_store2 = ScalarStore::<Fr>::from_ipld(&ipld).unwrap();
+                let ipld = to_ipld(scalar_store.clone()).unwrap();
+                let mut scalar_store2 = from_ipld(ipld).unwrap();
                 assert_eq!(scalar_store, scalar_store2);
                 if let Some((mut store2, expr2)) = scalar_store2.to_store_with_expr(&scalar_expr) {
                     store2.hydrate_scalar_cache();
@@ -1007,9 +586,9 @@ mod test {
             ) = eval.eval();
 
             let (scalar_store, _) = ScalarStore::new_with_expr(&s, &expr);
-            let ipld = scalar_store.to_ipld();
             println!("{:?}", scalar_store);
-            let scalar_store2 = ScalarStore::<Fr>::from_ipld(&ipld).unwrap();
+            let ipld = to_ipld(scalar_store.clone()).unwrap();
+            let scalar_store2 = from_ipld(ipld).unwrap();
             println!("{:?}", scalar_store2);
             assert_eq!(scalar_store, scalar_store2);
         };

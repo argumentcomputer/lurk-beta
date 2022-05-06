@@ -1,3 +1,5 @@
+use crate::field::FWrap;
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
     hash::Hash,
@@ -5,10 +7,6 @@ use std::{
 };
 
 use crate::field::LurkField;
-use crate::ipld;
-use crate::ipld::IpldEmbed;
-use crate::ipld::IpldError;
-use libipld::Ipld;
 
 /// Number type for Lurk. Has different internal representations to optimize evaluation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -179,27 +177,25 @@ impl<F: LurkField> From<u64> for Num<F> {
     }
 }
 
-impl<F: LurkField> IpldEmbed for Num<F> {
-    fn to_ipld(&self) -> Ipld {
+impl<F: LurkField> Serialize for Num<F> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
         match self {
-            Num::Scalar(f) => ipld::FWrap(*f).to_ipld(),
-            Num::U64(x) => x.to_ipld(),
+            Num::Scalar(f) => FWrap::serialize(&FWrap(*f), serializer),
+            Num::U64(x) => FWrap::serialize(&FWrap(F::from(*x)), serializer),
         }
     }
+}
 
-    fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-        use Ipld::*;
-        match ipld {
-            Bytes(_) => {
-                let f = ipld::FWrap::from_ipld(ipld)?;
-                Ok(Num::Scalar(f.0))
-            }
-            Integer(_) => {
-                let x = u64::from_ipld(ipld)?;
-                Ok(Num::U64(x))
-            }
-            x => Err(IpldError::expected("Num", x)),
-        }
+impl<'de, F: LurkField> Deserialize<'de> for Num<F> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let f = FWrap::deserialize(deserializer)?;
+        Ok(Num::Scalar(f.0))
     }
 }
 
@@ -209,7 +205,7 @@ mod tests {
 
     use quickcheck::{Arbitrary, Gen};
 
-    use crate::ipld::FWrap;
+    use crate::field::FWrap;
     use crate::test::frequency;
     use blstrs::Scalar;
     use blstrs::Scalar as Fr;
@@ -232,19 +228,15 @@ mod tests {
     }
 
     #[quickcheck]
-    fn test_num_ipld_embed(x: Num<Fr>) -> bool {
-        match Num::from_ipld(&x.to_ipld()) {
-            Ok(y) if x == y => true,
-            Ok(y) => {
-                println!("x: {:?}", x);
-                println!("y: {:?}", y);
+    fn prop_num_ipld(x: Num<Fr>) -> bool {
+        if let Ok(ipld) = libipld::serde::to_ipld(x) {
+            if let Ok(y) = libipld::serde::from_ipld(ipld) {
+                Num::Scalar(x.into_scalar()) == y
+            } else {
                 false
             }
-            Err(e) => {
-                println!("{:?}", x);
-                println!("{:?}", e);
-                false
-            }
+        } else {
+            false
         }
     }
 

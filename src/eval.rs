@@ -35,7 +35,7 @@ pub struct Frame<T: Copy, W: Copy> {
     pub witness: W,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Status {
     Terminal,
     Error,

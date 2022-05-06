@@ -17,7 +17,7 @@ pub trait Provable<F: LurkField> {
 }
 
 #[allow(dead_code)]
-fn verify_sequential_css<F: LurkField + Copy>(
+pub fn verify_sequential_css<F: LurkField + Copy>(
     css: &SequentialCS<F, IO<F>, Witness<F>>,
 ) -> Result<bool, SynthesisError> {
     let mut previous_frame: Option<&MultiFrame<F, IO<F>, Witness<F>>> = None;
