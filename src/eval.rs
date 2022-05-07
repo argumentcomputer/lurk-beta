@@ -604,6 +604,13 @@ fn reduce_with_witness<F: LurkField>(
                         env,
                         store.intern_cont_binop(Op2::Begin, env, more, cont),
                     )
+                } else if head == store.sym("begin1") {
+                    let (arg1, more) = store.car_cdr(&rest);
+                    Control::Return(
+                        arg1,
+                        env,
+                        store.intern_cont_binop(Op2::Begin1, env, more, cont),
+                    )
                 } else if head == store.sym("car") {
                     let (arg1, end) = store.car_cdr(&rest);
                     if !end.is_nil() {
@@ -887,6 +894,20 @@ fn apply_continuation<F: LurkField>(
                         let begin_again = store.cons(begin, unevaled_args);
                         Control::Return(begin_again, saved_env, continuation)
                     }
+                } else if operator == Op2::Begin1 {
+                    if rest.is_nil() {
+                        let begin = store.sym("begin");
+                        let arg2_then_evaled_arg1 = store.list(&[begin, arg2, *result]);
+                        Control::Return(arg2_then_evaled_arg1, saved_env, continuation)
+                    } else {
+                        let begin = store.sym("begin");
+                        let begin_rest = store.cons(begin, unevaled_args);
+                        Control::Return(
+                            begin_rest,
+                            saved_env,
+                            store.intern_cont_binop2(operator, *result, continuation),
+                        )
+                    }
                 } else if !rest.is_nil() {
                     Control::Return(*result, *env, store.intern_cont_error())
                 } else {
@@ -936,6 +957,7 @@ fn apply_continuation<F: LurkField>(
                             store.intern_num(tmp)
                         }
                         Op2::Cons => store.cons(evaled_arg, *arg2),
+                        Op2::Begin1 => evaled_arg,
                         Op2::Begin => unreachable!(),
                     },
                     _ => match operator {

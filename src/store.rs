@@ -592,6 +592,7 @@ pub enum Op2 {
     Quotient,
     Cons,
     Begin,
+    Begin1,
 }
 
 impl Op2 {
@@ -619,6 +620,7 @@ impl fmt::Display for Op2 {
             Op2::Quotient => write!(f, "Quotient"),
             Op2::Cons => write!(f, "Cons"),
             Op2::Begin => write!(f, "Begin"),
+            Op2::Begin1 => write!(f, "Begin1"),
         }
     }
 }
