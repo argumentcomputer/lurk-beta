@@ -788,6 +788,8 @@ impl<F: LurkField> Default for Store<F> {
             "_",
             "let",
             "letrec",
+            "begin",
+            "begin1",
             "cons",
             "car",
             "cdr",
@@ -870,6 +872,14 @@ impl<F: LurkField> Store<F> {
 
     pub fn get_nil(&self) -> Ptr<F> {
         self.get_sym("nil", true).expect("missing NIL")
+    }
+
+    pub fn get_begin(&self) -> Ptr<F> {
+        self.get_sym("begin", true).expect("missing BEGIN")
+    }
+
+    pub fn get_quote(&self) -> Ptr<F> {
+        self.get_sym("quote", true).expect("missing QUOTE")
     }
 
     pub fn get_t(&self) -> Ptr<F> {

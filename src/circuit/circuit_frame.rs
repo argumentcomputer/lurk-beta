@@ -1143,6 +1143,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let letrec_t = AllocatedPtr::alloc_constant(&mut cs.namespace(|| "letrec"), letrec)?;
     let letrec_hash = letrec.value();
     let cons_hash = hash_sym("cons");
+    let begin_hash = hash_sym("begin");
+    let begin1_hash = hash_sym("begin1");
     let car_hash = hash_sym("car");
     let cdr_hash = hash_sym("cdr");
     let atom_hash = hash_sym("atom");
@@ -1403,8 +1405,31 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.binop_cont_tag,
         &[&[&g.op2_cons_tag, &g.default_num], env, &more, cont],
     )?;
-
     results.add_clauses_cons(*cons_hash.value(), &arg1, env, &continuation, &g.false_num);
+
+    // head == BEGIN
+    let continuation = AllocatedContPtr::construct(
+        &mut cs.namespace(|| "binop begin"),
+        store,
+        &g.binop_cont_tag,
+        &[&[&g.op2_begin_tag, &g.default_num], env, &more, cont],
+    )?;
+    results.add_clauses_cons(*begin_hash.value(), &arg1, env, &continuation, &g.false_num);
+
+    // head == BEGIN1
+    let continuation = AllocatedContPtr::construct(
+        &mut cs.namespace(|| "binop begin1"),
+        store,
+        &g.binop_cont_tag,
+        &[&[&g.op2_begin1_tag, &g.default_num], env, &more, cont],
+    )?;
+    results.add_clauses_cons(
+        *begin1_hash.value(),
+        &arg1,
+        env,
+        &continuation,
+        &g.false_num,
+    );
 
     // head == CAR
 
@@ -2268,6 +2293,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
     let (the_expr, the_env, the_cont) = {
         let mut cs = cs.namespace(|| "Binop");
+        let operator = AllocatedPtr::by_index(0, &continuation_components);
         let saved_env = AllocatedPtr::by_index(1, &continuation_components);
         let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
 
@@ -2278,28 +2304,134 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             store,
         )?;
 
-        let rest_is_nil =
-            allocated_rest.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
+        let op_is_begin = alloc_equal(
+            cs.namespace(|| "op_is_begin"),
+            operator.tag(),
+            &g.op2_begin_tag,
+        )?;
 
-        let the_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "the_cont"),
+        let op_is_begin1 = alloc_equal(
+            cs.namespace(|| "op_is_begin1"),
+            operator.tag(),
+            &g.op2_begin1_tag,
+        )?;
+
+        let rest_is_nil =
+            allocated_rest.alloc_equal(&mut cs.namespace(|| "rest_is_nil"), &g.nil_ptr)?;
+
+        let begin = store.get_begin();
+
+        let quote = store.get_quote();
+
+        let allocated_begin =
+            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "begin"), store, || Ok(&begin))?;
+
+        let allocated_quote =
+            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "quote"), store, || Ok(&quote))?;
+
+        let begin_again = AllocatedPtr::construct_cons(
+            &mut cs.namespace(|| "begin again"),
+            g,
+            store,
+            &allocated_begin,
+            &unevaled_args,
+        )?;
+
+        let quoted = AllocatedPtr::construct_list(
+            &mut cs.namespace(|| "quoted"),
+            g,
+            store,
+            &[&allocated_quote, result],
+        )?;
+
+        let arg2_then_evaled_arg1 = AllocatedPtr::construct_list(
+            &mut cs.namespace(|| "arg2_then_evaled_arg1"),
+            g,
+            store,
+            &[&allocated_begin, &allocated_arg2, &quoted],
+        )?;
+
+        let the_expr_if_begin = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_expr_if_begin"),
             &rest_is_nil,
+            &allocated_arg2,
+            &begin_again,
+        )?;
+
+        let the_expr_if_begin1 = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_expr_if_begin1"),
+            &rest_is_nil,
+            &arg2_then_evaled_arg1,
+            &begin_again,
+        )?;
+
+        let otherwise = Boolean::not(&constraints::or(
+            &mut cs.namespace(|| "otherwise"),
+            &op_is_begin,
+            &op_is_begin1,
+        )?);
+
+        let otherwise_if_rest_is_nil = Boolean::and(
+            &mut cs.namespace(|| "otherwise_if_rest_is_nil"),
+            &otherwise,
+            &rest_is_nil,
+        )?;
+
+        // else
+        let the_cont_otherwise = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "the_cont_otherwise"),
+            &otherwise_if_rest_is_nil,
             &newer_cont,
             &g.error_ptr_cont,
         )?;
 
-        let the_expr = AllocatedPtr::pick(
-            &mut cs.namespace(|| "the_expr"),
-            &rest_is_nil,
+        let the_expr_otherwise = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_expr_otherwise"),
+            &otherwise_if_rest_is_nil,
             &allocated_arg2,
             result,
         )?;
 
-        let the_env = AllocatedPtr::pick(
-            &mut cs.namespace(|| "the_env"),
-            &rest_is_nil,
+        let the_env_otherwise = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_env_otherwise"),
+            &otherwise_if_rest_is_nil,
             &saved_env,
             env,
+        )?;
+
+        let the_begin_continuation = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "the_begin_continuation"),
+            &op_is_begin,
+            &continuation,
+            &newer_cont,
+        )?;
+
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "the_cont"),
+            &otherwise,
+            &the_cont_otherwise,
+            &the_begin_continuation,
+        )?;
+
+        let the_begin_expr = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_begin_expr"),
+            &op_is_begin,
+            &the_expr_if_begin,
+            &the_expr_if_begin1,
+        )?;
+
+        let the_expr = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_expr"),
+            &otherwise,
+            &the_expr_otherwise,
+            &the_begin_expr,
+        )?;
+
+        let the_env = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_env"),
+            &otherwise,
+            &the_env_otherwise,
+            &saved_env,
         )?;
 
         (the_expr, the_env, the_cont)
@@ -2378,6 +2510,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 CaseClause {
                     key: Op2::Cons.as_field(),
                     value: cons.hash(),
+                },
+                CaseClause {
+                    key: Op2::Begin1.as_field(),
+                    value: &arg1.hash(),
                 },
             ],
             &g.default_num,
@@ -3030,9 +3166,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(31211, cs.num_constraints());
+            assert_eq!(34530, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(31171, cs.aux().len());
+            assert_eq!(34492, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
