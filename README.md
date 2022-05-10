@@ -1,5 +1,6 @@
 # Lurk
 
+[![CircleCI](https://circleci.com/gh/lurk-lang/lurk-rs.svg?style=shield)](https://circleci.com/gh/lurk-lang/lurk-rs)
 ![minimum rustc 1.60][msrv-image]
 ![crates.io][crates-image]
 
