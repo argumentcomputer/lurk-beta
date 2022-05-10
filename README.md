@@ -4,7 +4,7 @@
 ![minimum rustc 1.60][msrv-image]
 ![crates.io][crates-image]
 
-[msrv-image]: https://img.shields.io/badge/rustc-1.56+-blue.svg
+[msrv-image]: https://img.shields.io/badge/rustc-1.60+-blue.svg
 [crates-image]: https://img.shields.io/crates/v/lurk.svg
 
 # Disclaimer
