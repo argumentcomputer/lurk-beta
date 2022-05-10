@@ -1,12 +1,10 @@
 # Lurk
 
-[![Build Status][build-image]][build-link]
+[![CircleCI](https://circleci.com/gh/lurk-lang/lurk-rs.svg?style=shield)](https://circleci.com/gh/lurk-lang/lurk-rs)
 ![minimum rustc 1.60][msrv-image]
 ![crates.io][crates-image]
 
-[build-image]: https://github.com/lurk-lang/lurk-rs/workflows/CI/badge.svg
-[build-link]: https://github.com/lurk-lang/lurk-rs/actions?query=workflow%3ACI+branch%3Amaster
-[msrv-image]: https://img.shields.io/badge/rustc-1.56+-blue.svg
+[msrv-image]: https://img.shields.io/badge/rustc-1.60+-blue.svg
 [crates-image]: https://img.shields.io/crates/v/lurk.svg
 
 # Disclaimer
