@@ -2513,7 +2513,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 },
                 CaseClause {
                     key: Op2::Begin1.as_field(),
-                    value: &arg1.hash(),
+                    value: arg1.hash(),
                 },
             ],
             &g.default_num,
