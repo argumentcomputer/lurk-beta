@@ -1,3 +1,6 @@
+build : ../../target/release/fcomm
+	cargo build --release
+
 eval-fibonacci :
 	cargo run --release -- eval --expression fibonacci.lurk
 

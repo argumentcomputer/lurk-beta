@@ -100,6 +100,12 @@ pub struct Commitment<F: LurkField> {
     pub comm: F,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct OpeningRequest<F: LurkField> {
+    pub commitment: Commitment<F>,
+    pub input: Expression,
+}
+
 impl<F: LurkField> ToString for Commitment<F> {
     fn to_string(&self) -> String {
         let s = serde_json::to_string(&self).unwrap();
@@ -154,9 +160,9 @@ impl<F: LurkField> FromHex for Commitment<F> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Expression {
-    pub source: String,
+    pub expr: LurkPtr,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
@@ -168,7 +174,7 @@ pub struct Opening<F: LurkField> {
     pub new_commitment: Option<Commitment<F>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 pub struct LurkScalarBytes {
     #[serde(with = "base64")]
     scalar_store: Vec<u8>,
@@ -302,6 +308,9 @@ pub enum Error {
     JsonError(serde_json::Error),
     SynthesisError(SynthesisError),
     CommitmentParseError(hex::FromHexError),
+    UnknownCommitment,
+    OpeningFailure,
+    EvaluationFailure,
 }
 
 impl From<io::Error> for Error {
@@ -380,7 +389,6 @@ where
     fn read_from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
-
         Ok(serde_json::from_reader(reader).expect("failed to read file"))
     }
 
@@ -539,7 +547,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Function<F> {
 }
 
 impl LurkPtr {
-    fn ptr<F: LurkField + Serialize + DeserializeOwned>(&self, s: &mut Store<F>) -> Ptr<F> {
+    pub fn ptr<F: LurkField + Serialize + DeserializeOwned>(&self, s: &mut Store<F>) -> Ptr<F> {
         match self {
             LurkPtr::Source(source) => s.read(source).expect("could not read source"),
             LurkPtr::ScalarBytes(lurk_scalar_bytes) => {
@@ -570,17 +578,64 @@ impl LurkPtr {
     }
 }
 
+impl Expression {
+    pub fn eval<F: LurkField + Serialize + DeserializeOwned>(
+        &self,
+        s: &mut Store<F>,
+        limit: usize,
+    ) -> Result<Ptr<F>, Error> {
+        let expr = self.expr.ptr(s);
+        let (io, _iterations) = evaluate(s, expr, limit);
+
+        Ok(io.expr)
+    }
+}
+
 impl Opening<Scalar> {
-    pub fn open_and_prove(
+    pub fn apply_and_prove(
         s: &mut Store<Scalar>,
         input: Ptr<Scalar>,
         function: Function<Scalar>,
         limit: usize,
         chain: bool,
     ) -> Result<Proof<Bls12>, Error> {
-        let claim = Self::open(s, input, function, limit, chain)?;
+        let claim = Self::apply(s, input, function, limit, chain)?;
 
         Proof::prove_claim(s, claim, limit, false)
+    }
+
+    pub fn open_and_prove(
+        s: &mut Store<Scalar>,
+        request: OpeningRequest<Scalar>,
+        limit: usize,
+        chain: bool,
+    ) -> Result<Proof<Bls12>, Error> {
+        let input = request.input.expr.ptr(s);
+        let commitment = request.commitment;
+
+        let function_map = committed_function_store();
+        let function = function_map
+            .get(commitment)
+            .ok_or(Error::UnknownCommitment)?;
+
+        Self::apply_and_prove(s, input, function, limit, chain)
+    }
+
+    pub fn open(
+        s: &mut Store<Scalar>,
+        request: OpeningRequest<Scalar>,
+        limit: usize,
+        chain: bool,
+    ) -> Result<Claim<Scalar>, Error> {
+        let input = request.input.expr.ptr(s);
+        let commitment = request.commitment;
+
+        let function_map = committed_function_store();
+        let function = function_map
+            .get(commitment)
+            .ok_or(Error::UnknownCommitment)?;
+
+        Self::apply(s, input, function, limit, chain)
     }
 
     fn _is_chained(&self) -> bool {
@@ -599,7 +654,7 @@ impl Opening<Scalar> {
         }
     }
 
-    pub fn open(
+    pub fn apply(
         s: &mut Store<Scalar>,
         input: Ptr<Scalar>,
         function: Function<Scalar>,
@@ -717,7 +772,6 @@ impl Proof<Bls12> {
         let function_map = committed_function_store();
 
         if let Some(proof) = proof_map.get(claim.cid()) {
-            dbg!("found cached proof!");
             return Ok(proof);
         }
 
@@ -768,6 +822,18 @@ impl Proof<Bls12> {
             proof: groth_proof,
         };
 
+        match &proof.claim {
+            Claim::Opening(o) => {
+                if o.status != Status::Terminal {
+                    return Err(Error::OpeningFailure);
+                };
+            }
+            Claim::Evaluation(e) => {
+                if e.status != Status::Terminal {
+                    return Err(Error::EvaluationFailure);
+                };
+            }
+        };
         let verification_result = proof.verify()?;
         assert!(verification_result.verified);
 
@@ -906,11 +972,7 @@ impl VerificationResult {
     }
 }
 
-pub fn evaluate<F: LurkField + Serialize>(
-    store: &mut Store<F>,
-    expr: Ptr<F>,
-    limit: usize,
-) -> (IO<F>, usize) {
+pub fn evaluate<F: LurkField>(store: &mut Store<F>, expr: Ptr<F>, limit: usize) -> (IO<F>, usize) {
     let env = empty_sym_env(store);
     let mut evaluator = Evaluator::new(expr, env, store, limit);
 
