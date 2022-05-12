@@ -599,17 +599,18 @@ impl Opening<Scalar> {
         function: Function<Scalar>,
         limit: usize,
         chain: bool,
+        only_use_cached_proofs: bool,
     ) -> Result<Proof<Bls12>, Error> {
         let claim = Self::apply(s, input, function, limit, chain)?;
 
-        Proof::prove_claim(s, claim, limit, false)
+        Proof::prove_claim(s, claim, limit, only_use_cached_proofs)
     }
 
     pub fn open_and_prove(
         s: &mut Store<Scalar>,
         request: OpeningRequest<Scalar>,
         limit: usize,
-        chain: bool,
+        only_use_cached_proofs: bool,
     ) -> Result<Proof<Bls12>, Error> {
         let input = request.input.expr.ptr(s);
         let commitment = request.commitment;
@@ -619,7 +620,14 @@ impl Opening<Scalar> {
             .get(commitment)
             .ok_or(Error::UnknownCommitment)?;
 
-        Self::apply_and_prove(s, input, function, limit, chain)
+        Self::apply_and_prove(
+            s,
+            input,
+            function,
+            limit,
+            request.chain,
+            only_use_cached_proofs,
+        )
     }
 
     pub fn open(

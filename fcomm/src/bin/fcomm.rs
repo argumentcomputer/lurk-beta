@@ -231,10 +231,9 @@ impl Open {
         if let Some(request_path) = &self.request {
             assert!(!chain, "chain and request may not both be specified");
             let request = opening_request(request_path).expect("failed to read opening request");
-            let chain = request.chain;
 
             if let Some(out_path) = &self.proof {
-                let proof = Opening::open_and_prove(s, request, limit, chain)?;
+                let proof = Opening::open_and_prove(s, request, limit, false)?;
 
                 handle_proof(out_path, proof);
             } else {
@@ -273,7 +272,7 @@ impl Open {
             let input = input(s, &input_path, eval_input, limit, quote_input)?;
 
             if let Some(out_path) = &self.proof {
-                let proof = Opening::apply_and_prove(s, input, function, limit, chain)?;
+                let proof = Opening::apply_and_prove(s, input, function, limit, chain, false)?;
 
                 handle_proof(out_path, proof);
             } else {
