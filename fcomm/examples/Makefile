@@ -29,6 +29,6 @@ num-list-opening.json : num-list-function.json num-list-input.lurk
 
 num-list-proof : num-list-opening.json
 
-verify-num-list-proof :
+verify-num-list-opening :
 	cargo run --release -- verify --proof num-list-opening.json
 

@@ -124,6 +124,10 @@ struct Eval {
     /// Wrap evaluation result in a claim
     #[clap(long)]
     claim: Option<PathBuf>,
+
+    // Expression is lurk source.
+    #[clap(long)]
+    lurk: bool,
 }
 
 #[derive(Args, Debug)]
@@ -139,6 +143,10 @@ struct Prove {
     /// Path to claim to prove
     #[clap(long)]
     claim: Option<PathBuf>,
+
+    // Expression is lurk source.
+    #[clap(long)]
+    lurk: bool,
 }
 
 #[derive(Args, Debug)]
@@ -224,6 +232,10 @@ impl Open {
             let request = opening_request(request_path).expect("failed to read opening request");
 
             if let Some(out_path) = &self.proof {
+                assert_eq!(
+                    request.chain, chain,
+                    "request.chain and --chain option disagree"
+                );
                 let proof = Opening::open_and_prove(s, request, limit, chain)?;
 
                 handle_proof(out_path, proof);
@@ -280,7 +292,7 @@ impl Eval {
     fn eval(&self, limit: usize) -> Result<(), Error> {
         let s = &mut Store::<Scalar>::default();
 
-        let expr = expression(s, &self.expression)?;
+        let expr = expression(s, &self.expression, self.lurk)?;
 
         let evaluation = Evaluation::eval(s, expr, limit);
 
@@ -312,7 +324,11 @@ impl Prove {
             }
 
             None => {
-                let expr = expression(s, &self.expression.as_ref().expect("expression missing"))?;
+                let expr = expression(
+                    s,
+                    self.expression.as_ref().expect("expression missing"),
+                    self.lurk,
+                )?;
 
                 Proof::eval_and_prove(s, expr, limit, false)?
             }
@@ -420,11 +436,15 @@ fn input<P: AsRef<Path>, F: LurkField + Serialize>(
 fn expression<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
     store: &mut Store<F>,
     expression_path: P,
+    lurk: bool,
 ) -> Result<Ptr<F>, Error> {
-    let expression = Expression::read_from_path(expression_path)?;
-    let expr = expression.expr.ptr(store);
-
-    Ok(expr)
+    if lurk {
+        read_from_path(store, expression_path)
+    } else {
+        let expression = Expression::read_from_path(expression_path)?;
+        let expr = expression.expr.ptr(store);
+        Ok(expr)
+    }
 }
 
 fn opening_request<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(

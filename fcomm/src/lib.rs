@@ -104,6 +104,7 @@ pub struct Commitment<F: LurkField> {
 pub struct OpeningRequest<F: LurkField> {
     pub commitment: Commitment<F>,
     pub input: Expression,
+    pub chain: bool,
 }
 
 impl<F: LurkField> ToString for Commitment<F> {
