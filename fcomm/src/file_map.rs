@@ -34,7 +34,7 @@ impl<'a, K: ToString + Copy, T: Key<K> + FileStore> FileMap<K, T> {
     }
 
     pub fn get(&self, key: K) -> Option<T> {
-        dbg!(self.key_path(key));
+        self.key_path(key);
         T::read_from_path(self.key_path(key)).ok()
     }
 

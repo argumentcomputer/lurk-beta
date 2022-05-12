@@ -4,9 +4,10 @@ use std::fs::read_to_string;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use blstrs::Scalar;
+use blstrs::{Bls12, Scalar};
 use hex::FromHex;
 use pairing_lib::{Engine, MultiMillerLoop};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use lurk::eval::IO;
@@ -17,8 +18,8 @@ use clap::{AppSettings, Args, Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 use fcomm::{
-    self, committed_function_store, evaluate, Claim, Commitment, Error, Evaluation, FileStore,
-    Function, LurkPtr, Opening, Proof,
+    self, committed_function_store, evaluate, Claim, Commitment, Error, Evaluation, Expression,
+    FileStore, Function, LurkPtr, Opening, OpeningRequest, Proof,
 };
 
 /// Functional commitments
@@ -29,10 +30,6 @@ struct Cli {
     /// Evaluate inputs before passing to function (outside the proof) when opening. Otherwise inputs are unevaluated.
     #[clap(long)]
     eval_input: bool,
-
-    /// Quote input before passing to function when opening. Otherwise input will be passed unevaluated and unquoted. --quote-input and --eval-input would cancel each other out if used in conjunction, so is probably not what is desired.
-    #[clap(long)]
-    quote_input: bool,
 
     /// Iteration limit
     #[clap(short, long, default_value = "1000")]
@@ -87,7 +84,7 @@ struct Commit {
 struct Open {
     /// Path to function input
     #[clap(short, long, parse(from_os_str))]
-    input: PathBuf,
+    input: Option<PathBuf>,
 
     /// Path to proof output if prove requested
     #[clap(short, long, parse(from_os_str))]
@@ -101,6 +98,10 @@ struct Open {
     #[clap(short, long, parse(from_os_str))]
     function: Option<PathBuf>,
 
+    /// Optional path to OpeningRequest -- which subsumes commitment, function, and input if supplied.
+    #[clap(long, parse(from_os_str))]
+    request: Option<PathBuf>,
+
     // Function is lurk source.
     #[clap(long)]
     lurk: bool,
@@ -108,6 +109,10 @@ struct Open {
     /// Chain commitment openings. Opening includes commitment to new function along with output.
     #[clap(long)]
     chain: bool,
+
+    /// Quote input before passing to function when opening. Otherwise input will be passed unevaluated and unquoted. --quote-input and --eval-input would cancel each other out if used in conjunction, so is probably not what is desired.
+    #[clap(long)]
+    quote_input: bool,
 }
 
 #[derive(Args, Debug)]
@@ -119,6 +124,10 @@ struct Eval {
     /// Wrap evaluation result in a claim
     #[clap(long)]
     claim: Option<PathBuf>,
+
+    // Expression is lurk source.
+    #[clap(long)]
+    lurk: bool,
 }
 
 #[derive(Args, Debug)]
@@ -134,6 +143,10 @@ struct Prove {
     /// Path to claim to prove
     #[clap(long)]
     claim: Option<PathBuf>,
+
+    // Expression is lurk source.
+    #[clap(long)]
+    lurk: bool,
 }
 
 #[derive(Args, Debug)]
@@ -205,53 +218,80 @@ impl Open {
             "commitment and function must not both be supplied"
         );
 
-        let mut s = Store::<Scalar>::default();
+        let s = &mut Store::<Scalar>::default();
         let function_map = committed_function_store();
-        let function = if let Some(comm_string) = &self.commitment {
-            let commitment =
-                Commitment::from_hex(&comm_string).map_err(Error::CommitmentParseError)?;
 
-            function_map
-                .get(commitment)
-                .expect("committed function not found")
-        } else {
-            let function_path = self.function.as_ref().expect("function missing");
-            if self.lurk {
-                let path = env::current_dir()?.join(&function_path);
-                let src = read_to_string(path)?;
-
-                Function {
-                    fun: LurkPtr::Source(src),
-                    secret: None,
-                    commitment: None,
-                }
-            } else {
-                Function::read_from_path(&function_path)?
-            }
-        };
-
-        let input = input(&mut s, &self.input, eval_input, limit, quote_input)?;
-        if let Some(out_path) = &self.proof {
-            let proof = Opening::open_and_prove(&mut s, input, function, limit, chain)?;
-
-            // Write first, so prover can debug if proof doesn't verify (it should).
+        let handle_proof = |out_path, proof: Proof<Bls12>| {
             proof.write_to_path(out_path);
             proof.verify().expect("created opening doesn't verify");
+        };
+
+        let handle_claim = |claim: Claim<Scalar>| serde_json::to_writer(io::stdout(), &claim);
+
+        if let Some(request_path) = &self.request {
+            assert!(!chain, "chain and request may not both be specified");
+            let request = opening_request(request_path).expect("failed to read opening request");
+
+            if let Some(out_path) = &self.proof {
+                let proof = Opening::open_and_prove(s, request, limit, false)?;
+
+                handle_proof(out_path, proof);
+            } else {
+                let function = function_map
+                    .get(request.commitment)
+                    .expect("committed function not found");
+                let input = request.input.eval(s, limit)?;
+
+                let claim = Opening::apply(s, input, function, limit, chain)?;
+                handle_claim(claim)?;
+            }
         } else {
-            let claim = Opening::open(&mut s, input, function, limit, chain)?;
-            serde_json::to_writer(io::stdout(), &claim)?;
-        }
+            let function = if let Some(comm_string) = &self.commitment {
+                let commitment =
+                    Commitment::from_hex(&comm_string).map_err(Error::CommitmentParseError)?;
+
+                function_map
+                    .get(commitment)
+                    .expect("committed function not found")
+            } else {
+                let function_path = self.function.as_ref().expect("function missing");
+                if self.lurk {
+                    let path = env::current_dir()?.join(&function_path);
+                    let src = read_to_string(path)?;
+                    Function {
+                        fun: LurkPtr::Source(src),
+                        secret: None,
+                        commitment: None,
+                    }
+                } else {
+                    Function::read_from_path(&function_path)?
+                }
+            };
+
+            let input_path = self.input.as_ref().expect("input missing");
+            let input = input(s, &input_path, eval_input, limit, quote_input)?;
+
+            if let Some(out_path) = &self.proof {
+                let proof = Opening::apply_and_prove(s, input, function, limit, chain, false)?;
+
+                handle_proof(out_path, proof);
+            } else {
+                let claim = Opening::apply(s, input, function, limit, chain)?;
+
+                handle_claim(claim)?;
+            }
+        };
         Ok(())
     }
 }
 
 impl Eval {
     fn eval(&self, limit: usize) -> Result<(), Error> {
-        let mut s = Store::<Scalar>::default();
+        let s = &mut Store::<Scalar>::default();
 
-        let expr = expression(&mut s, &self.expression)?;
+        let expr = expression(s, &self.expression, self.lurk)?;
 
-        let evaluation = Evaluation::eval(&mut s, expr, limit);
+        let evaluation = Evaluation::eval(s, expr, limit);
 
         match &self.claim {
             Some(out_path) => {
@@ -269,7 +309,7 @@ impl Eval {
 
 impl Prove {
     fn prove(&self, limit: usize) -> Result<(), Error> {
-        let mut s = Store::<Scalar>::default();
+        let s = &mut Store::<Scalar>::default();
 
         let proof = match &self.claim {
             Some(claim) => {
@@ -277,16 +317,17 @@ impl Prove {
                     self.expression.is_none(),
                     "claim and expression must not both be supplied"
                 );
-                Proof::prove_claim(&mut s, Claim::read_from_path(claim)?, limit, false)?
+                Proof::prove_claim(s, Claim::read_from_path(claim)?, limit, false)?
             }
 
             None => {
                 let expr = expression(
-                    &mut s,
-                    &self.expression.as_ref().expect("expression missing"),
+                    s,
+                    self.expression.as_ref().expect("expression missing"),
+                    self.lurk,
                 )?;
 
-                Proof::eval_and_prove(&mut s, expr, limit, false)?
+                Proof::eval_and_prove(s, expr, limit, false)?
             }
         };
 
@@ -389,13 +430,24 @@ fn input<P: AsRef<Path>, F: LurkField + Serialize>(
     Ok(input)
 }
 
-fn expression<P: AsRef<Path>, F: LurkField + Serialize>(
+fn expression<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
     store: &mut Store<F>,
     expression_path: P,
+    lurk: bool,
 ) -> Result<Ptr<F>, Error> {
-    let input = read_from_path(store, expression_path)?;
+    if lurk {
+        read_from_path(store, expression_path)
+    } else {
+        let expression = Expression::read_from_path(expression_path)?;
+        let expr = expression.expr.ptr(store);
+        Ok(expr)
+    }
+}
 
-    Ok(input)
+fn opening_request<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
+    request_path: P,
+) -> Result<OpeningRequest<F>, Error> {
+    OpeningRequest::read_from_path(request_path)
 }
 
 // Get proof from supplied path or else from stdin.
@@ -426,7 +478,7 @@ fn main() -> Result<(), Error> {
 
     match &cli.command {
         Command::Commit(c) => c.commit(cli.limit),
-        Command::Open(o) => o.open(o.chain, cli.limit, cli.eval_input, cli.quote_input),
+        Command::Open(o) => o.open(o.chain, cli.limit, cli.eval_input, o.quote_input),
         Command::Eval(e) => e.eval(cli.limit),
         Command::Prove(p) => p.prove(cli.limit),
         Command::Verify(v) => v.verify(cli.error),
