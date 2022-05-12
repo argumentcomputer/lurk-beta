@@ -835,6 +835,7 @@ impl Proof<Bls12> {
                 };
             }
         };
+
         let verification_result = proof.verify()?;
         assert!(verification_result.verified);
 

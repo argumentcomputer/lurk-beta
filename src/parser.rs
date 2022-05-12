@@ -172,6 +172,7 @@ impl<F: LurkField> Store<F> {
         }
         Some(self.intern_num(acc))
     }
+
     fn read_hex_num<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut Peekable<T>,
@@ -181,7 +182,7 @@ impl<F: LurkField> Store<F> {
         let sixteen = F::from(16);
 
         while let Some(&c) = chars.peek() {
-            if is_digit_char(&c) {
+            if is_hex_digit_char(&c) {
                 let digit_char = chars.next().unwrap();
 
                 if acc != zero {
@@ -234,6 +235,10 @@ fn is_symbol_char(c: &char, initial: bool) -> bool {
 
 fn is_digit_char(c: &char) -> bool {
     matches!(c, '0'..='9')
+}
+
+fn is_hex_digit_char(c: &char) -> bool {
+    matches!(c, '0'..='9' | 'a'..='f' | 'A'..='F')
 }
 
 #[allow(dead_code)]
@@ -354,6 +359,20 @@ asdf(", "ASDF",
 
         test("0X10", Fr::from(16));
         test("0X22", Fr::from(34));
+
+        test("0x000e", Fr::from(14));
+
+        test(
+            "0x000000000000000000000000000000000000000000000000000000000000000f",
+            Fr::from(15),
+        );
+
+        test("0x000F", Fr::from(15));
+
+        test(
+            "0x000000000000000000000000000000000000000000000000000000000000000F",
+            Fr::from(15),
+        );
     }
 
     #[test]

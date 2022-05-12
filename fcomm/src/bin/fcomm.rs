@@ -229,13 +229,11 @@ impl Open {
         let handle_claim = |claim: Claim<Scalar>| serde_json::to_writer(io::stdout(), &claim);
 
         if let Some(request_path) = &self.request {
+            assert!(!chain, "chain and request may not both be specified");
             let request = opening_request(request_path).expect("failed to read opening request");
+            let chain = request.chain;
 
             if let Some(out_path) = &self.proof {
-                assert_eq!(
-                    request.chain, chain,
-                    "request.chain and --chain option disagree"
-                );
                 let proof = Opening::open_and_prove(s, request, limit, chain)?;
 
                 handle_proof(out_path, proof);
