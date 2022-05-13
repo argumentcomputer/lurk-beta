@@ -37,7 +37,10 @@ fn test_eval_expression() {
     let mut expression_file = File::create(&expression_path).unwrap();
     write!(expression_file, "{}", expression).unwrap();
 
-    cmd.arg("eval").arg("--expression").arg(expression_path);
+    cmd.arg("eval")
+        .arg("--expression")
+        .arg(expression_path)
+        .arg("--lurk");
 
     cmd.assert()
         .success()
@@ -55,7 +58,8 @@ fn test_prove_expression<T: AsRef<OsStr>>(
         .arg("--expression")
         .arg(expression_path)
         .arg("--proof")
-        .arg(proof_path);
+        .arg(proof_path)
+        .arg("--lurk");
 
     cmd.assert().success();
 }
