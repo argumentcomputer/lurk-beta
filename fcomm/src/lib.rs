@@ -3,10 +3,10 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
+use std::str::FromStr;
 
 use bellperson::{groth16, SynthesisError};
 use blstrs::{Bls12, Scalar};
-
 use ff::PrimeField;
 use hex::FromHex;
 use libipld::{
@@ -248,13 +248,33 @@ pub enum Claim<F: LurkField> {
 // Although real proofs should be fast to verify, they will still be large relative to a small (auditable) bundle like
 // this. Even if not entirely realistic, something with this general *shape* is likely to play a role in a recursive
 // system where the ability to aggregate proof verification more soundly is possible.
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Cert {
+    #[serde(serialize_with = "cid_string", deserialize_with = "string_cid")]
     pub claim_cid: Cid,
+    #[serde(serialize_with = "cid_string", deserialize_with = "string_cid")]
     pub proof_cid: Cid,
-    pub verified: VerificationResult,
+    pub verified: bool,
     pub verifier_id: String,
     pub signature: String,
+}
+
+fn cid_string<S>(c: &Cid, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    s.serialize_str(&c.to_string())
+}
+
+fn string_cid<'de, D>(d: D) -> Result<Cid, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::Error;
+
+    let string = String::deserialize(d)?;
+
+    Cid::from_str(&string).map_err(|e| D::Error::custom(e.to_string()))
 }
 
 #[allow(dead_code)]
@@ -991,4 +1011,33 @@ pub fn evaluate<F: LurkField>(store: &mut Store<F>, expr: Ptr<F>, limit: usize) 
 
     assert!(io.is_terminal());
     (io, iterations)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_cert_serialization() {
+        use serde_json::json;
+
+        let c = Commitment {
+            comm: Scalar::from(123),
+        };
+
+        let cid = c.cid();
+        let cert = Cert {
+            claim_cid: cid,
+            proof_cid: cid,
+            verified: true,
+            verifier_id: "asdf".to_string(),
+            signature: "fdsa".to_string(),
+        };
+        let json = json!(cert);
+
+        let string = json.to_string();
+
+        let cert_again: Cert = serde_json::from_str(&string).unwrap();
+        assert_eq!(cert, cert_again);
+    }
 }
