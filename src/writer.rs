@@ -76,6 +76,11 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                 f.fmt(store, w)?;
                 write!(w, ">")
             }
+            Char(c) => {
+                write!(w, "#\\")?;
+                dbg!(&c);
+                write!(w, "{}", c)
+            }
         }
     }
 }

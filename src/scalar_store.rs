@@ -183,7 +183,7 @@ impl<'a, F: LurkField> ScalarExpression<F> {
             Tag::Str => store
                 .fetch_str(ptr)
                 .map(|str| ScalarExpression::Str(str.into())),
-
+            Tag::Char => todo!(),
             Tag::Thunk => unimplemented!(),
         }
     }

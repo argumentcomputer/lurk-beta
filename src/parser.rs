@@ -2,7 +2,7 @@ use std::iter::Peekable;
 
 use crate::field::LurkField;
 
-use crate::store::{Ptr, Store};
+use crate::store::{Ptr, RawPtr, Store, Tag};
 
 impl<F: LurkField> Store<F> {
     pub fn read(&mut self, input: &str) -> Option<Ptr<F>> {
@@ -81,6 +81,7 @@ impl<F: LurkField> Store<F> {
                     Some(self.cons(quote, inner))
                 }
                 '\"' => self.read_string(chars),
+                '#' => self.read_pound(chars),
                 ';' => {
                     chars.next();
                     if skip_line_comment(chars) {
@@ -216,6 +217,29 @@ impl<F: LurkField> Store<F> {
         }
         Self::convert_sym_case(&mut name);
         Some(self.intern_sym(name))
+    }
+
+    pub(crate) fn read_pound<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut Peekable<T>,
+    ) -> Option<Ptr<F>> {
+        chars.next().unwrap();
+        if let Some(&c) = chars.peek() {
+            match c {
+                '\\' => {
+                    chars.next();
+                    if let Some(&c) = chars.peek() {
+                        chars.next();
+                        Some(Ptr(Tag::Char, RawPtr::new(u32::from(c) as usize)))
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            }
+        } else {
+            None
+        }
     }
 }
 

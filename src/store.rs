@@ -180,7 +180,7 @@ pub trait ScalarPointer<F: LurkField>: fmt::Debug + Copy + Clone + PartialEq + H
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Ptr<F: LurkField>(Tag, RawPtr<F>);
+pub struct Ptr<F: LurkField>(pub(crate) Tag, pub(crate) RawPtr<F>);
 
 #[allow(clippy::derive_hash_xor_eq)]
 impl<F: LurkField> Hash for Ptr<F> {
@@ -404,7 +404,7 @@ impl<F: LurkField> ContPtr<F> {
 pub struct RawPtr<F: LurkField>(isize, PhantomData<F>);
 
 impl<F: LurkField> RawPtr<F> {
-    fn new(p: usize) -> Self {
+    pub(crate) fn new(p: usize) -> Self {
         assert!(p < isize::MAX as usize);
         RawPtr(p as isize, Default::default())
     }
@@ -449,6 +449,7 @@ pub enum Expression<'a, F: LurkField> {
     Str(&'a str),
     Thunk(Thunk<F>),
     Opaque(Ptr<F>),
+    Char(char),
 }
 
 impl<F: LurkField> Object<F> for Expression<'_, F> {
@@ -662,6 +663,7 @@ pub enum Tag {
     Num,
     Thunk,
     Str,
+    Char,
 }
 
 impl From<Tag> for u64 {
@@ -1480,6 +1482,11 @@ impl<F: LurkField> Store<F> {
         self.str_store.0.resolve(symbol)
     }
 
+    pub(crate) fn fetch_char(&self, ptr: &Ptr<F>) -> Option<char> {
+        debug_assert!(matches!(ptr.0, Tag::Char));
+        char::from_u32(ptr.1 .0 as u32)
+    }
+
     pub(crate) fn fetch_fun(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>, Ptr<F>)> {
         debug_assert!(matches!(ptr.0, Tag::Fun));
         if ptr.1.is_opaque() {
@@ -1523,6 +1530,7 @@ impl<F: LurkField> Store<F> {
                 .map(|(a, b, c)| Expression::Fun(*a, *b, *c)),
             Tag::Thunk => self.fetch_thunk(ptr).map(|thunk| Expression::Thunk(*thunk)),
             Tag::Str => self.fetch_str(ptr).map(Expression::Str),
+            Tag::Char => self.fetch_char(ptr).map(Expression::Char),
         }
     }
 
@@ -1671,6 +1679,7 @@ impl<F: LurkField> Store<F> {
             Fun => self.hash_fun(*ptr),
             Num => self.hash_num(*ptr),
             Str => self.hash_str(*ptr),
+            Char => self.hash_char(*ptr),
             Thunk => self.hash_thunk(*ptr),
         }
     }
@@ -1688,6 +1697,7 @@ impl<F: LurkField> Store<F> {
             Fun => self.get_hash_fun(*ptr),
             Num => self.get_hash_num(*ptr),
             Str => self.get_hash_str(*ptr),
+            Char => self.get_hash_char(*ptr),
             Thunk => self.get_hash_thunk(*ptr),
         }
     }
@@ -2078,6 +2088,17 @@ impl<F: LurkField> Store<F> {
         let thunk = self.fetch_thunk(&ptr)?;
         let components = self.get_hash_components_thunk(thunk)?;
         Some(self.get_scalar_ptr(ptr, self.poseidon_cache.hash4(&components)))
+    }
+
+    fn hash_char(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
+        let char_code = ptr.1 .0 as u32;
+
+        Some(self.create_scalar_ptr(ptr, F::from(char_code as u64)))
+    }
+    fn get_hash_char(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
+        let char_code = ptr.1 .0 as u32;
+
+        Some(self.get_scalar_ptr(ptr, F::from(char_code as u64)))
     }
 
     fn hash_num(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {

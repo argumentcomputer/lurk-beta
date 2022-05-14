@@ -363,7 +363,10 @@ fn reduce_with_witness<F: LurkField>(
                 }
                 _ => unreachable!(),
             },
-            Tag::Nil => Control::ApplyContinuation(expr, env, cont),
+            // Self-evaluating
+            Tag::Nil | Tag::Num | Tag::Fun | Tag::Char => {
+                Control::ApplyContinuation(expr, env, cont)
+            }
             Tag::Sym => {
                 if expr == store.sym("nil") || (expr == store.t()) {
                     // NIL and T are self-evaluating symbols, pass them to the continuation in a thunk.
@@ -509,8 +512,6 @@ fn reduce_with_witness<F: LurkField>(
                 }
             }
             Tag::Str => unreachable!(),
-            Tag::Num => Control::ApplyContinuation(expr, env, cont),
-            Tag::Fun => Control::ApplyContinuation(expr, env, cont),
             Tag::Cons => {
                 let (head, rest) = store.car_cdr(&expr);
                 let lambda = store.sym("lambda");
