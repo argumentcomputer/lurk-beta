@@ -2,7 +2,7 @@ use std::iter::Peekable;
 
 use crate::field::LurkField;
 
-use crate::store::{Ptr, Store};
+use crate::store::{Ptr, RawPtr, Store, Tag};
 
 impl<F: LurkField> Store<F> {
     pub fn read(&mut self, input: &str) -> Option<Ptr<F>> {
