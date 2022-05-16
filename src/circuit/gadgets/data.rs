@@ -50,7 +50,6 @@ pub struct GlobalAllocations<F: LurkField> {
     pub op1_emit_tag: AllocatedNum<F>,
     pub op2_cons_tag: AllocatedNum<F>,
     pub op2_begin_tag: AllocatedNum<F>,
-    pub op2_begin1_tag: AllocatedNum<F>,
     pub op2_sum_tag: AllocatedNum<F>,
     pub op2_diff_tag: AllocatedNum<F>,
     pub op2_product_tag: AllocatedNum<F>,
@@ -150,8 +149,6 @@ impl<F: LurkField> GlobalAllocations<F> {
         let op1_emit_tag = Op1::Emit.allocate_constant(&mut cs.namespace(|| "op1_emit_tag"))?;
         let op2_cons_tag = Op2::Cons.allocate_constant(&mut cs.namespace(|| "op2_cons_tag"))?;
         let op2_begin_tag = Op2::Begin.allocate_constant(&mut cs.namespace(|| "op2_begin_tag"))?;
-        let op2_begin1_tag =
-            Op2::Begin1.allocate_constant(&mut cs.namespace(|| "op2_begin1_tag"))?;
         let op2_sum_tag = Op2::Sum.allocate_constant(&mut cs.namespace(|| "op2_sum_tag"))?;
         let op2_diff_tag = Op2::Diff.allocate_constant(&mut cs.namespace(|| "op2_diff_tag"))?;
 
@@ -207,7 +204,6 @@ impl<F: LurkField> GlobalAllocations<F> {
             op1_emit_tag,
             op2_cons_tag,
             op2_begin_tag,
-            op2_begin1_tag,
             op2_sum_tag,
             op2_diff_tag,
             op2_product_tag,

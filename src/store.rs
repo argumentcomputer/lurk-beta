@@ -789,7 +789,6 @@ impl<F: LurkField> Default for Store<F> {
             "let",
             "letrec",
             "begin",
-            "begin1",
             "cons",
             "car",
             "cdr",

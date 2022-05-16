@@ -608,17 +608,6 @@ fn reduce_with_witness<F: LurkField>(
                             store.intern_cont_binop(Op2::Begin, env, more, cont),
                         )
                     }
-                } else if head == store.sym("begin1") {
-                    let (arg1, more) = store.car_cdr(&rest);
-                    if more.is_nil() {
-                        Control::Return(arg1, env, cont)
-                    } else {
-                        Control::Return(
-                            arg1,
-                            env,
-                            store.intern_cont_binop(Op2::Begin1, env, more, cont),
-                        )
-                    }
                 } else if head == store.sym("car") {
                     let (arg1, end) = store.car_cdr(&rest);
                     if !end.is_nil() {
@@ -2761,52 +2750,6 @@ mod test {
             let expected = s.list(&[binding]);
             assert_eq!(expected, result_expr);
             assert_eq!(5, iterations);
-        }
-    }
-    #[test]
-    fn begin1_current_env() {
-        {
-            let mut s = Store::<Fr>::default();
-            let limit = 1000;
-            let expr = s.read("(begin1 (current-env))").unwrap();
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-            let expected = s.nil();
-            assert_eq!(expected, result_expr);
-            assert_eq!(2, iterations);
-        }
-    }
-    #[test]
-    fn begin1_current_env1() {
-        {
-            let mut s = Store::<Fr>::default();
-            let limit = 1000;
-            let expr = s
-                .read(
-                    "(let ((a 1))
-                       (begin1 (current-env)))",
-                )
-                .unwrap();
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-            let a = s.sym("a");
-            let one = s.num(1);
-            let binding = s.cons(a, one);
-            let expected = s.list(&[binding]);
-            assert_eq!(expected, result_expr);
-            assert_eq!(4, iterations);
         }
     }
 }

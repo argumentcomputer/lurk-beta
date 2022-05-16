@@ -1144,7 +1144,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let letrec_hash = letrec.value();
     let cons_hash = hash_sym("cons");
     let begin_hash = hash_sym("begin");
-    let begin1_hash = hash_sym("begin1");
     let car_hash = hash_sym("car");
     let cdr_hash = hash_sym("cdr");
     let atom_hash = hash_sym("atom");
@@ -1415,15 +1414,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&[&g.op2_begin_tag, &g.default_num], env, &more, cont],
     )?;
     results.add_clauses_cons(*begin_hash.value(), &arg1, env, &continuation, &g.false_num);
-
-    // head == BEGIN1
-    let continuation = AllocatedContPtr::construct(
-        &mut cs.namespace(|| "binop begin1"),
-        store,
-        &g.binop_cont_tag,
-        &[&[&g.op2_begin1_tag, &g.default_num], env, &more, cont],
-    )?;
-    results.add_clauses_cons(*begin1_hash.value(), &arg1, env, &continuation, &g.false_num);
 
     // head == CAR
 
@@ -2304,9 +2294,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.op2_begin_tag,
         )?;
 
-        //let operator_is_begin1 =
-        //    operator.alloc_equal(&mut cs.namespace(|| "operator_is_begin1"), &g.op2_begin1_tag)?;
-
         let rest_is_nil =
             allocated_rest.alloc_equal(&mut cs.namespace(|| "rest_is_nil"), &g.nil_ptr)?;
 
@@ -2330,9 +2317,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &begin_again,
         )?;
 
-        let otherwise = Boolean::not(
-            &op_is_begin,
-        );
+        let otherwise = Boolean::not(&op_is_begin);
 
         let otherwise_if_rest_is_nil = Boolean::and(
             &mut cs.namespace(|| "otherwise_if_rest_is_nil"),
@@ -3103,9 +3088,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(32629, cs.num_constraints());
+            assert_eq!(32114, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(32590, cs.aux().len());
+            assert_eq!(32075, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
