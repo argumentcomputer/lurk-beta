@@ -902,22 +902,6 @@ fn apply_continuation<F: LurkField>(
                         let begin_again = store.cons(begin, unevaled_args);
                         Control::Return(begin_again, saved_env, continuation)
                     }
-                } else if operator == Op2::Begin1 {
-                    if rest.is_nil() {
-                        let begin = store.sym("begin");
-                        let quote = store.sym("quote");
-                        let quoted = store.list(&[quote, *result]);
-                        let arg2_then_evaled_arg1 = store.list(&[begin, arg2, quoted]);
-                        Control::Return(arg2_then_evaled_arg1, saved_env, continuation)
-                    } else {
-                        let begin = store.sym("begin");
-                        let begin_rest = store.cons(begin, unevaled_args);
-                        Control::Return(
-                            begin_rest,
-                            saved_env,
-                            store.intern_cont_binop2(operator, *result, continuation),
-                        )
-                    }
                 } else if !rest.is_nil() {
                     Control::Return(*result, *env, store.intern_cont_error())
                 } else {

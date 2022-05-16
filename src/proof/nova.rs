@@ -1927,19 +1927,4 @@ mod tests {
             false,
         );
     }
-
-    #[test]
-    fn outer_prove_begin1() {
-        outer_prove_aux(
-            "(begin1 (emit 1) (emit 2) (emit 3))",
-            |store| store.num(1),
-            Status::Terminal,
-            14,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
-    }
 }

@@ -1423,13 +1423,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.binop_cont_tag,
         &[&[&g.op2_begin1_tag, &g.default_num], env, &more, cont],
     )?;
-    results.add_clauses_cons(
-        *begin1_hash.value(),
-        &arg1,
-        env,
-        &continuation,
-        &g.false_num,
-    );
+    results.add_clauses_cons(*begin1_hash.value(), &arg1, env, &continuation, &g.false_num);
 
     // head == CAR
 
@@ -2310,24 +2304,16 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.op2_begin_tag,
         )?;
 
-        let op_is_begin1 = alloc_equal(
-            cs.namespace(|| "op_is_begin1"),
-            operator.tag(),
-            &g.op2_begin1_tag,
-        )?;
+        //let operator_is_begin1 =
+        //    operator.alloc_equal(&mut cs.namespace(|| "operator_is_begin1"), &g.op2_begin1_tag)?;
 
         let rest_is_nil =
             allocated_rest.alloc_equal(&mut cs.namespace(|| "rest_is_nil"), &g.nil_ptr)?;
 
         let begin = store.get_begin();
 
-        let quote = store.get_quote();
-
         let allocated_begin =
             AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "begin"), store, || Ok(&begin))?;
-
-        let allocated_quote =
-            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "quote"), store, || Ok(&quote))?;
 
         let begin_again = AllocatedPtr::construct_cons(
             &mut cs.namespace(|| "begin again"),
@@ -2337,39 +2323,16 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &unevaled_args,
         )?;
 
-        let quoted = AllocatedPtr::construct_list(
-            &mut cs.namespace(|| "quoted"),
-            g,
-            store,
-            &[&allocated_quote, result],
-        )?;
-
-        let arg2_then_evaled_arg1 = AllocatedPtr::construct_list(
-            &mut cs.namespace(|| "arg2_then_evaled_arg1"),
-            g,
-            store,
-            &[&allocated_begin, &allocated_arg2, &quoted],
-        )?;
-
         let the_expr_if_begin = AllocatedPtr::pick(
-            &mut cs.namespace(|| "the_expr_if_begin"),
+            &mut cs.namespace(|| "the_exp_if_begin"),
             &rest_is_nil,
             &allocated_arg2,
             &begin_again,
         )?;
 
-        let the_expr_if_begin1 = AllocatedPtr::pick(
-            &mut cs.namespace(|| "the_expr_if_begin1"),
-            &rest_is_nil,
-            &arg2_then_evaled_arg1,
-            &begin_again,
-        )?;
-
-        let otherwise = Boolean::not(&constraints::or(
-            &mut cs.namespace(|| "otherwise"),
+        let otherwise = Boolean::not(
             &op_is_begin,
-            &op_is_begin1,
-        )?);
+        );
 
         let otherwise_if_rest_is_nil = Boolean::and(
             &mut cs.namespace(|| "otherwise_if_rest_is_nil"),
@@ -2377,7 +2340,27 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &rest_is_nil,
         )?;
 
-        // else
+        let the_expr_otherwise = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_expr_otherwise"),
+            &rest_is_nil,
+            &allocated_arg2,
+            result,
+        )?;
+
+        let the_expr = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_expr"),
+            &otherwise,
+            &the_expr_otherwise,
+            &the_expr_if_begin,
+        )?;
+
+        let the_env = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_env"),
+            &rest_is_nil,
+            &saved_env,
+            env,
+        )?;
+
         let the_cont_otherwise = AllocatedContPtr::pick(
             &mut cs.namespace(|| "the_cont_otherwise"),
             &otherwise_if_rest_is_nil,
@@ -2385,53 +2368,11 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.error_ptr_cont,
         )?;
 
-        let the_expr_otherwise = AllocatedPtr::pick(
-            &mut cs.namespace(|| "the_expr_otherwise"),
-            &otherwise_if_rest_is_nil,
-            &allocated_arg2,
-            result,
-        )?;
-
-        let the_env_otherwise = AllocatedPtr::pick(
-            &mut cs.namespace(|| "the_env_otherwise"),
-            &otherwise_if_rest_is_nil,
-            &saved_env,
-            env,
-        )?;
-
-        let the_begin_continuation = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "the_begin_continuation"),
-            &op_is_begin,
-            &continuation,
-            &newer_cont,
-        )?;
-
         let the_cont = AllocatedContPtr::pick(
             &mut cs.namespace(|| "the_cont"),
             &otherwise,
             &the_cont_otherwise,
-            &the_begin_continuation,
-        )?;
-
-        let the_begin_expr = AllocatedPtr::pick(
-            &mut cs.namespace(|| "the_begin_expr"),
-            &op_is_begin,
-            &the_expr_if_begin,
-            &the_expr_if_begin1,
-        )?;
-
-        let the_expr = AllocatedPtr::pick(
-            &mut cs.namespace(|| "the_expr"),
-            &otherwise,
-            &the_expr_otherwise,
-            &the_begin_expr,
-        )?;
-
-        let the_env = AllocatedPtr::pick(
-            &mut cs.namespace(|| "the_env"),
-            &otherwise,
-            &the_env_otherwise,
-            &saved_env,
+            &continuation,
         )?;
 
         (the_expr, the_env, the_cont)
@@ -2510,10 +2451,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 CaseClause {
                     key: Op2::Cons.as_field(),
                     value: cons.hash(),
-                },
-                CaseClause {
-                    key: Op2::Begin1.as_field(),
-                    value: arg1.hash(),
                 },
             ],
             &g.default_num,
@@ -3166,9 +3103,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(34530, cs.num_constraints());
+            assert_eq!(32629, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(34492, cs.aux().len());
+            assert_eq!(32590, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
