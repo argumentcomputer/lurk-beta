@@ -88,6 +88,7 @@ impl<'a, F: LurkField> ScalarStore<F> {
             ScalarExpression::Num(_) => None,
             ScalarExpression::Str(_) => None,
             ScalarExpression::Thunk(_) => None,
+            ScalarExpression::Char(_) => None,
         }
     }
 
@@ -182,8 +183,8 @@ impl<'a, F: LurkField> ScalarExpression<F> {
 
             Tag::Str => store
                 .fetch_str(ptr)
-                .map(|str| ScalarExpression::Str(str.into())),
-            Tag::Char => todo!(),
+                .map(|str| ScalarExpression::Str(str.to_string())),
+            Tag::Char => store.fetch_char(ptr).map(ScalarExpression::Char),
             Tag::Thunk => unimplemented!(),
         }
     }
@@ -202,6 +203,7 @@ pub enum ScalarExpression<F: LurkField> {
     Num(F),
     Str(String),
     Thunk(ScalarThunk<F>),
+    Char(char),
 }
 
 impl<'a, F: LurkField> Default for ScalarExpression<F> {

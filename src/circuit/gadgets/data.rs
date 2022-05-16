@@ -301,9 +301,11 @@ impl<F: LurkField> Ptr<F> {
         match maybe_fun.map(|ptr| (ptr, ptr.tag())) {
             Some((ptr, Tag::Fun)) => match store.fetch(ptr).expect("missing fun") {
                 Expression::Fun(arg, body, closed_env) => {
-                    let arg = store.hash_expr(&arg).expect("missing arg");
-                    let body = store.hash_expr(&body).expect("missing body");
-                    let closed_env = store.hash_expr(&closed_env).expect("missing closed env");
+                    let arg = store.get_expr_hash(&arg).expect("missing arg");
+                    let body = store.get_expr_hash(&body).expect("missing body");
+                    let closed_env = store
+                        .get_expr_hash(&closed_env)
+                        .expect("missing closed env");
                     Self::allocate_fun(cs, store, arg, body, closed_env)
                 }
                 _ => unreachable!(),

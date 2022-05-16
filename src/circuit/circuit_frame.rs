@@ -1130,7 +1130,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let hash_sym = |sym: &str| {
         store
             .get_sym(sym, true)
-            .and_then(|s| store.hash_sym(s))
+            .and_then(|s| store.get_hash_sym(s))
             .unwrap()
     };
 

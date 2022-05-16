@@ -11,7 +11,6 @@ impl<F: LurkField> Store<F> {
         self.read_next(&mut chars)
     }
 
-    // For now, this is only used for REPL/CLI commands.
     pub fn read_string<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut Peekable<T>,
@@ -561,6 +560,25 @@ asdf(", "ASDF",
                 .unwrap_or_else(|| panic!("failed to fetch: {:?}", input));
             assert_eq!(res.as_str().unwrap(), "foo/bar/baz");
         }
+    }
+
+    #[test]
+    fn read_write_char() {
+        let s = &mut Store::<Fr>::default();
+
+        let a = 'a';
+        let char = s.get_char(a);
+        let input = r#"#\a"#;
+        let ptr = s.read(input).unwrap();
+        let res = s.fetch(&ptr).unwrap();
+        match res {
+            crate::store::Expression::Char(c) => assert_eq!(a, c),
+            _ => panic!("not a Char"),
+        };
+        let printed = res.fmt_to_string(s);
+
+        assert_eq!(char, ptr);
+        assert_eq!(input, printed);
     }
 
     #[test]
