@@ -952,7 +952,6 @@ fn apply_continuation<F: LurkField>(
                             store.intern_num(tmp)
                         }
                         Op2::Cons => store.cons(evaled_arg, *arg2),
-                        Op2::Begin1 => evaled_arg,
                         Op2::Begin => unreachable!(),
                     },
                     _ => match operator {
