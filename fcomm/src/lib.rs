@@ -12,7 +12,6 @@ use hex::FromHex;
 use libipld::{
     cbor::DagCborCodec,
     json::DagJsonCodec,
-    multibase::decode,
     multihash::{Code, MultihashDigest},
     prelude::Codec,
     serde::{from_ipld, to_ipld},
