@@ -1926,7 +1926,7 @@ mod tests {
 
         let (
             IO {
-                expr: result_expr,
+                expr: _result_expr,
                 env: _new_env,
                 cont: _continuation,
             },

@@ -243,7 +243,14 @@ impl<'a, 'b, F: LurkField> FrameIt<'a, Witness<F>, F> {
 
     /// Like `.iter().take(n).last()`, but skips intermediary stages, to optimize
     /// for evaluation.
-    fn next_n(mut self, n: usize) -> Option<(Frame<IO<F>, Witness<F>>, Frame<IO<F>, Witness<F>>, Vec<Ptr<F>>)> {
+    fn next_n(
+        mut self,
+        n: usize,
+    ) -> Option<(
+        Frame<IO<F>, Witness<F>>,
+        Frame<IO<F>, Witness<F>>,
+        Vec<Ptr<F>>,
+    )> {
         let mut previous_frame = self.frame.clone();
         let mut emitted: Vec<Ptr<F>> = Vec::new();
         for _ in 0..n {
@@ -1170,7 +1177,9 @@ where
         let frame_iterator = FrameIt::new(initial_input, self.store);
 
         // Initial input performs one reduction, so we need limit - 1 more.
-        if let Some((ultimate_frame, _penultimate_frame, emitted)) = frame_iterator.next_n(self.limit - 1) {
+        if let Some((ultimate_frame, _penultimate_frame, emitted)) =
+            frame_iterator.next_n(self.limit - 1)
+        {
             let output = ultimate_frame.output;
 
             let was_terminal = ultimate_frame.is_complete();
@@ -1467,7 +1476,8 @@ mod test {
         let val = s.num(123);
         let expr = s.read("(emit 123)").unwrap();
 
-        let (output, iterations, emitted) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+        let (output, iterations, emitted) =
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         assert_eq!(2, iterations);
         assert_eq!(Some(val), output.maybe_emitted_expression(&s));

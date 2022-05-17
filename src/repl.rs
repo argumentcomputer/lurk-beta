@@ -113,7 +113,7 @@ pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
                             cont: next_cont,
                         },
                         iterations,
-                        emitted,
+                        _emitted,
                     ) = Evaluator::new(expr, repl.state.env, &mut s, limit).eval();
 
                     print!("[{} iterations] => ", iterations);
@@ -164,7 +164,7 @@ impl ReplState {
                 cont: next_cont,
             },
             limit,
-            emitted,
+            _emitted,
         ) = Evaluator::new(expr, self.env, store, self.limit).eval();
 
         (result, limit, next_cont)
