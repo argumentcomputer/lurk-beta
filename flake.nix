@@ -29,7 +29,7 @@
         { channel ? "nightly"
         , date
         , sha256
-        , targets ? [ "wasm32-unknown-unknown" "wasm32-wasi" "wasm32-unknown-emscripten" ]
+        , targets ? [ "wasm32-unknown-unknown" "wasm32-wasi" ]
         }: (rustTools.rustChannelOf {
           inherit channel date sha256;
         }).rust.override {
@@ -86,7 +86,7 @@
         copyBins = true;
       };
       lurk-wasm = project.override {
-        buildInputs = [ pkgs.emscripten ];
+        buildInputs = [ pkgs.llvm, pkgs.lld_14 ];
         cargoBuildOptions = d: d ++ [
              "--target"
              "wasm32-unknown-unknown"
@@ -94,10 +94,6 @@
              "wasm"
              "--no-default-features"
         ];
-        overrideMain = d: d // {
-          CC = "${pkgs.emscripten}/bin/emcc";
-          AR = "${pkgs.emscripten}/bin/emar";
-        };
         copyTarget = true;
       };
     in
@@ -121,7 +117,6 @@
           wasm-pack
           nodejs
           yarn
-          emscripten
           binaryen
         ];
       } // env);

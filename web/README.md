@@ -1,6 +1,6 @@
 # Example Lurk in browser with wasm
 
-## Pre-requisites
+## Prerequisites
 - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/#mac-stable) or [npm](https://nodejs.org/en/download/package-manager/)
 - [webpack](https://webpack.js.org/guides/installation/)
 

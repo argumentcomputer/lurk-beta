@@ -49,30 +49,49 @@ Lurk backend integration is still immature, so current performance is not repres
 Lurk source files used in tests are in the [lurk-lib](https://github.com/lurk-lang/lurk-lib) submodule. You must
 initialize and update submodules before test will pass.
 
-## Wasm
+## Wasm Web Example
 
-Compile to `wasm32-unknown-unknown`
+### Install prerequisites
 
-### With cargo
+- wasm32 target:
 ```
-CC=emcc AR=emar cargo build --no-default-features --target wasm32-unknown-unknown --features wasm
+rustup target add wasm32-unknown-unknown
 ```
-### With nix
+- wasm-pack:
 ```
-# -L prints build output
-nix build .#lurk-wasm -L
+cargo install wasm-pack
 ```
-### With wasm-pack
+- wasm-ld linker:
 ```
-CC=emcc AR=emar wasm-pack build --no-default-features --features wasm
+# Ubuntu
+sudo apt install llvm lld-14
+# Mac
+brew install llvm
+export PATH=/usr/local/opt/llvm/bin:$PATH
+# Verify installation
+llc --version
 ```
-
-The steps above will generate a `pkg` folder with the javascript wasm artifacts (Lurk wasm bindings). Once this is available, we can launch the web example.
-
-Before launching the web example, we need to install the necessary pre-requisites.
-
+- clang
 - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/#mac-stable) or [npm](https://nodejs.org/en/download/package-manager/)
 - [webpack](https://webpack.js.org/guides/installation/)
+
+### Build with cargo
+```
+cargo build --no-default-features --features wasm --target wasm32-unknown-unknown
+```
+### Build with wasm-pack
+
+* Linux
+```
+wasm-pack build --no-default-features --features wasm
+```
+* Mac
+```
+CC=clang AR=llvm-ar wasm-pack build --no-default-features --features wasm
+```
+### Build web evaluator
+
+Building with `wasm-pack` will generate a `pkg` folder with the javascript wasm artifacts (Lurk wasm bindings). Once this is available, we can launch the web example.
 
 Assuming we have `yarn` or `npm` installed, install `webpack` using the following command:
 
@@ -183,21 +202,10 @@ $ cargo build
 ```
 
 ## Troubleshooting
-### `Failed to find tool. Is `emcc` installed?`
 
-Make sure that emcc is installed. Follow the steps below
-```
-git clone https://github.com/emscripten-core/emsdk.git
-cd emsdk
-./emsdk install latest
-./emsdk activate latest
-```
+- Wasm build: `Error: failed to build archive: section too large`
+Run `cargo clean`, then try compiling with `CC=clang AR=llvm-ar`
 
-You will be prompted by the cli to include the EMS specific environment variables. You can do so manually by running the following commands:
-```
-source "./emsdk/emsdk_env.sh"    
-echo 'source "./emsdk/emsdk_env.sh"' >> $HOME/.zprofile
-```
 ## License
 
 MIT or Apache 2.0

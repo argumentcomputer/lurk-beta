@@ -1,6 +1,5 @@
 use blstrs::Scalar as Fr;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-//use ff::PrimeField;
 use lurk::{
     eval::{empty_sym_env, Evaluator},
     field::LurkField,
