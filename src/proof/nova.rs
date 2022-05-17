@@ -1862,6 +1862,7 @@ mod tests {
                 cont: _continuation,
             },
             _iterations,
+            _emitted,
         ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         outer_prove_aux(
@@ -1898,6 +1899,7 @@ mod tests {
                 cont: _continuation,
             },
             _iterations,
+            _emitted,
         ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         outer_prove_aux(
@@ -1915,8 +1917,25 @@ mod tests {
 
     #[test]
     fn outer_prove_begin() {
+        let mut s = Store::<Fr>::default();
+
+        let src = "(begin (emit 1) (emit 2) (emit 3))";
+
+        let expr = s.read(src).unwrap();
+        let limit = 300;
+
+        let (
+            IO {
+                expr: result_expr,
+                env: _new_env,
+                cont: _continuation,
+            },
+            _iterations,
+            emitted,
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+
         outer_prove_aux(
-            "(begin (emit 1) (emit 2) (emit 3))",
+            &src,
             |store| store.num(3),
             Status::Terminal,
             13,
@@ -1926,5 +1945,8 @@ mod tests {
             300,
             false,
         );
+        assert_eq!(s.num(1), emitted[0]);
+        assert_eq!(s.num(2), emitted[1]);
+        assert_eq!(s.num(3), emitted[2]);
     }
 }

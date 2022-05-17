@@ -583,6 +583,7 @@ mod test {
                     cont: _,
                 },
                 _lim,
+                _emitted,
             ) = eval.eval();
 
             let (scalar_store, _) = ScalarStore::new_with_expr(&s, &expr);
