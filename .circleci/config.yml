@@ -104,8 +104,8 @@ jobs:
       - run: cargo --version
       - run: cargo build --workspace --all-targets
       - run:
-         name: Wasm Test
-	 command: cargo build --no-default-features --features wasm --target wasm32-unknown-unknown
+          name: Wasm Test
+          command: cargo build --no-default-features --features wasm --target wasm32-unknown-unknown
       - run:
           name: Linux Tests
           command: cargo test --workspace
