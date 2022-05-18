@@ -2206,14 +2206,12 @@ impl<F: LurkField> Store<F> {
 
         let mut chars = s.chars();
         let first = chars.next().unwrap();
-        // FIXME: abstract this.
         let c_scalar: F = (u32::from(first) as u64).into();
         let c = ScalarPtr(Tag::Char.as_field(), c_scalar);
         let rest_string = chars.collect::<String>();
-        self.intern_str(&rest_string);
+        let rest_ptr = self.intern_str(&rest_string);
         let rest_hash = self.hash_string_mut(&rest_string);
-        // NOTE: We are bypassing create_scalar_ptr. Is that okay? How to fix?
-        let rest = ScalarPtr(Tag::Str.as_field(), rest_hash);
+        let rest = self.create_scalar_ptr(rest_ptr, rest_hash);
         self.hash_scalar_ptrs_2(&[c, rest])
     }
 
@@ -2982,7 +2980,6 @@ pub mod test {
     }
 
     #[test]
-    #[should_panic]
     fn str_inner_fetch_unhydrated() {
         str_inner_fetch_aux(false);
     }
