@@ -156,7 +156,7 @@ impl ReplState {
         &mut self,
         expr: Ptr<Fr>,
         store: &mut Store<Fr>,
-    ) -> (Ptr<Fr>, usize, ContPtr<Fr>) {
+    ) -> (Ptr<Fr>, usize, ContPtr<Fr>, Vec<Ptr<Fr>>) {
         let (
             IO {
                 expr: result,
@@ -164,10 +164,10 @@ impl ReplState {
                 cont: next_cont,
             },
             limit,
-            _emitted,
+            emitted,
         ) = Evaluator::new(expr, self.env, store, self.limit).eval();
 
-        (result, limit, next_cont)
+        (result, limit, next_cont, emitted)
     }
 
     /// Returns two bools.
@@ -237,7 +237,7 @@ impl ReplState {
         let input = read_to_string(path)?;
 
         let expr = store.read(&input).unwrap();
-        let (result, _limit, _next_cont) = self.eval_expr(expr, store);
+        let (result, _limit, _next_cont, _) = self.eval_expr(expr, store);
 
         self.env = result;
 
@@ -287,13 +287,13 @@ impl ReplState {
                                 let (first, rest) = store.car_cdr(&rest);
                                 let (second, rest) = store.car_cdr(&rest);
                                 assert!(rest.is_nil());
-                                let (first_evaled, _, _) = self.eval_expr(first, store);
-                                let (second_evaled, _, _) = self.eval_expr(second, store);
+                                let (first_evaled, _, _, _) = self.eval_expr(first, store);
+                                let (second_evaled, _, _, _) = self.eval_expr(second, store);
                                 assert_eq!(first_evaled, second_evaled);
                             } else if s == &":ASSERT" {
                                 let (first, rest) = store.car_cdr(&rest);
                                 assert!(rest.is_nil());
-                                let (first_evaled, _, _) = self.eval_expr(first, store);
+                                let (first_evaled, _, _, _) = self.eval_expr(first, store);
                                 assert!(!first_evaled.is_nil());
                             } else if s == &":CLEAR" {
                                 self.env = empty_sym_env(store);
@@ -301,7 +301,7 @@ impl ReplState {
                                 let (first, rest) = store.car_cdr(&rest);
 
                                 assert!(rest.is_nil());
-                                let (_, _, continuation) = self.clone().eval_expr(first, store);
+                                let (_, _, continuation, _) = self.clone().eval_expr(first, store);
                                 assert!(continuation.is_error());
                                 // FIXME: bring back catching, or solve otherwise
                                 // std::panic::catch_unwind(||
@@ -310,6 +310,19 @@ impl ReplState {
                                 //     // FIXME: Never panic. Instead return Continuation::Error when evaluating.
                                 //     ()
                                 // }
+                            } else if s == &":ASSERT-EMITTED" {
+                                let (first, rest) = store.car_cdr(&rest);
+                                let (second, rest) = store.car_cdr(&rest);
+
+                                assert!(rest.is_nil());
+                                let (_, _, _, emitted) = self.clone().eval_expr(first, store);
+                                let (second_evaled, _, _, _) = self.eval_expr(second, store);
+                                let (mut first_emitted, mut rest_emitted) =
+                                    store.car_cdr(&second_evaled);
+                                for i in 0..emitted.len() {
+                                    assert_eq!(emitted[i], first_emitted);
+                                    (first_emitted, rest_emitted) = store.car_cdr(&rest_emitted);
+                                }
                             } else {
                                 panic!("!({} ...) is unsupported.", s);
                             }
@@ -319,7 +332,7 @@ impl ReplState {
                     _ => panic!("!<COMMAND> form is unsupported."),
                 }
             } else {
-                let (result, _limit, _next_cont) = self.eval_expr(ptr, store);
+                let (result, _limit, _next_cont, _) = self.eval_expr(ptr, store);
 
                 println!("Evaled: {}", result.fmt_to_string(store));
                 io::stdout().flush().unwrap();
