@@ -1712,9 +1712,9 @@ impl<F: LurkField> Store<F> {
             },
             Tag::Str => {
                 if let Some(Expression::Str(s)) = self.fetch(ptr) {
-                    let mut xxx = s.chars();
-                    if let Some(c) = xxx.next() {
-                        let cdr_str: String = xxx.collect();
+                    let mut chars = s.chars();
+                    if let Some(c) = chars.next() {
+                        let cdr_str: String = chars.collect();
                         let str = self.get_str(&cdr_str).expect("cdr str missing");
                         (self.get_char(c), str)
                     } else {
