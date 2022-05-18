@@ -3033,7 +3033,6 @@ pub mod test {
 
         let str2_again = s.fetch_scalar(&str2_scalar_ptr).unwrap();
 
-        dbg!(str2.fmt_to_string(&s), str2_again.fmt_to_string(&s));
         assert_eq!(str2, str2_again);
     }
 
