@@ -319,8 +319,8 @@ impl ReplState {
                                 let (second_evaled, _, _, _) = self.eval_expr(second, store);
                                 let (mut first_emitted, mut rest_emitted) =
                                     store.car_cdr(&second_evaled);
-                                for i in 0..emitted.len() {
-                                    assert_eq!(emitted[i], first_emitted);
+                                for elem in emitted {
+                                    assert_eq!(elem, first_emitted);
                                     (first_emitted, rest_emitted) = store.car_cdr(&rest_emitted);
                                 }
                             } else {
