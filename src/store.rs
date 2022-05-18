@@ -2957,4 +2957,33 @@ pub mod test {
 
         assert_eq!(str_hash, str_again_hash);
     }
+
+    fn str_inner_fetch_aux(hydrate: bool) {
+        let s = &mut Store::<Fr>::default();
+
+        let str = s.read(r#" "ORANGE" "#).unwrap();
+        let str2 = s.cdr(&str);
+
+        // Unless the cache is hydrated, the inner destructuring will not map the ScalarPtr to corresponding Ptr.
+        if hydrate {
+            s.hydrate_scalar_cache();
+        };
+
+        let str2_scalar_ptr = s.get_expr_hash(&str2).unwrap();
+
+        let str2_again = s.fetch_scalar(&str2_scalar_ptr).unwrap();
+
+        assert_eq!(str2, str2_again);
+    }
+
+    #[test]
+    fn str_inner_fetch_hydrated() {
+        str_inner_fetch_aux(true);
+    }
+
+    #[test]
+    #[should_panic]
+    fn str_inner_fetch_unhydrated() {
+        str_inner_fetch_aux(false);
+    }
 }
