@@ -14,12 +14,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "adler"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
-
-[[package]]
 name = "ahash"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -534,15 +528,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crc32fast"
-version = "1.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b540bd8bc810d3885c6ea91e2018302f68baba2129ab3e88f32389ee9370880d"
-dependencies = [
- "cfg-if 1.0.0",
-]
-
-[[package]]
 name = "criterion"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -999,18 +984,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "flate2"
-version = "1.0.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b39522e96686d38f4bc984b9198e3a0613264abaebaff2c5c918bfa6b6da09af"
-dependencies = [
- "cfg-if 1.0.0",
- "crc32fast",
- "libc",
- "miniz_oxide",
-]
-
-[[package]]
 name = "float-cmp"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1444,15 +1417,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "miniz_oxide"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2b29bd4bc3f33391105ebee3589c19197c4271e3e5a9ec9bfe8127eeff8f082"
-dependencies = [
- "adler",
-]
-
-[[package]]
 name = "multibase"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1547,15 +1511,13 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 
 [[package]]
 name = "nova-snark"
-version = "0.5.0"
-source = "git+https://github.com/yatima-inc/Nova?branch=sb/wasm#0ba7139b58aa1fa5ba9deda5bdc5acbccd0849b7"
+version = "0.4.2"
+source = "git+https://github.com/lurk-lang/Nova?branch=acs/wasm-support#fc51e6361716fb718374c44eaee164e2e3cbe70c"
 dependencies = [
  "bellperson",
  "bellperson-nonnative",
- "bincode",
  "digest 0.8.1",
  "ff",
- "flate2",
  "generic-array 0.14.5",
  "itertools 0.9.0",
  "merlin",
@@ -1567,7 +1529,6 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rand_core 0.5.1",
  "rayon",
- "serde",
  "sha3 0.8.2",
  "subtle",
 ]
