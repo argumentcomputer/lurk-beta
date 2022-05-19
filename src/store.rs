@@ -2294,7 +2294,6 @@ impl<F: LurkField> Store<F> {
 
     fn hash_scalar_ptrs_2(&self, ptrs: &[ScalarPtr<F>; 2]) -> F {
         let preimage = [ptrs[0].0, ptrs[0].1, ptrs[1].0, ptrs[1].1];
-        info!("hashing {:?}", &ptrs);
         self.poseidon_cache.hash4(&preimage)
     }
 
@@ -2968,7 +2967,6 @@ pub mod test {
         let opaque_cons = make_opaque_cons(&mut store);
         store.car(&opaque_cons);
     }
-
     #[test]
     #[should_panic]
     fn opaque_cons_cdr() {
