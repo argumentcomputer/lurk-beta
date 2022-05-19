@@ -77,9 +77,7 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                 write!(w, ">")
             }
             Char(c) => {
-                write!(w, "#\\")?;
-                dbg!(&c);
-                write!(w, "{}", c)
+                write!(w, "#\\{}", c)
             }
         }
     }

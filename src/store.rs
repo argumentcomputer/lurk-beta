@@ -5,7 +5,6 @@ use std::hash::Hash;
 use std::{fmt, marker::PhantomData};
 use string_interner::symbol::{Symbol, SymbolUsize};
 
-use log::info;
 use neptune::poseidon::PoseidonConstants;
 use once_cell::sync::OnceCell;
 
