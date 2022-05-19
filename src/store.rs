@@ -179,7 +179,7 @@ pub trait ScalarPointer<F: LurkField>: fmt::Debug + Copy + Clone + PartialEq + H
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Ptr<F: LurkField>(pub(crate) Tag, pub(crate) RawPtr<F>);
+pub struct Ptr<F: LurkField>(Tag, RawPtr<F>);
 
 #[allow(clippy::derive_hash_xor_eq)]
 impl<F: LurkField> Hash for Ptr<F> {
@@ -409,7 +409,7 @@ impl<F: LurkField> ContPtr<F> {
 pub struct RawPtr<F: LurkField>(isize, PhantomData<F>);
 
 impl<F: LurkField> RawPtr<F> {
-    pub(crate) fn new(p: usize) -> Self {
+    fn new(p: usize) -> Self {
         assert!(p < isize::MAX as usize);
         RawPtr(p as isize, Default::default())
     }
@@ -3033,6 +3033,7 @@ pub mod test {
 
         let str2_again = s.fetch_scalar(&str2_scalar_ptr).unwrap();
 
+        dbg!(str2.fmt_to_string(&s), str2_again.fmt_to_string(&s));
         assert_eq!(str2, str2_again);
     }
 
