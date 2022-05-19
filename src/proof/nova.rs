@@ -3,7 +3,6 @@
 use std::marker::PhantomData;
 
 use bellperson::{Circuit, ConstraintSystem, SynthesisError};
-use merlin::Transcript;
 use nova::{
     bellperson::{
         r1cs::{NovaShape, NovaWitness},
@@ -133,8 +132,6 @@ where
             .collect::<Vec<_>>();
 
         let mut step_proofs = Vec::new();
-        let mut prover_transcript = Transcript::new(b"LurkProver");
-        let mut verifier_transcript = Transcript::new(b"LurkVerifier");
 
         let initial_acc = (
             RelaxedR1CSInstance::default(gens, shape),
@@ -152,11 +149,10 @@ where
                         &acc_W,
                         next_U,
                         next_W,
-                        &mut prover_transcript,
                     );
                     if verify_steps {
                         step_proof
-                            .verify(&acc_U, next_U, &mut verifier_transcript)
+                            .verify(shape, &acc_U, next_U)
                             .unwrap();
                         step_proofs.push(step_proof);
                     };
@@ -181,7 +177,6 @@ where
         r_W: &RelaxedR1CSWitness<Self::Grp>,
         U2: &R1CSInstance<Self::Grp>,
         W2: &R1CSWitness<Self::Grp>,
-        prover_transcript: &mut merlin::Transcript,
     ) -> (
         StepSNARK<Self::Grp>,
         (
@@ -189,7 +184,7 @@ where
             RelaxedR1CSWitness<Self::Grp>,
         ),
     ) {
-        let res = StepSNARK::prove(gens, S, r_U, r_W, U2, W2, prover_transcript);
+        let res = StepSNARK::prove(gens, S, r_U, r_W, U2, W2);
         res.expect("make_step_snark failed")
     }
 

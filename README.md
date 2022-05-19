@@ -67,17 +67,16 @@ cargo install wasm-pack
 sudo apt install llvm lld-14
 # Mac
 brew install llvm
+# Add llvm to homebrew's PATH variable, e.g. one of the following
 export PATH=/usr/local/opt/llvm/bin:$PATH
+export PATH=/opt/homebrew/Cellar/llvm/13.0.1_1/bin:$PATH
 # Verify installation
 llc --version
 ```
-- clang
+- [clang](https://clang.llvm.org/get_started.html)
 - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/#mac-stable) or [npm](https://nodejs.org/en/download/package-manager/)
 - [webpack](https://webpack.js.org/guides/installation/)
 
-### Build with cargo
-```
-cargo build --no-default-features --features wasm --target wasm32-unknown-unknown
 ```
 ### Build with wasm-pack
 
