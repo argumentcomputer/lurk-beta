@@ -1226,6 +1226,7 @@ impl<F: LurkField> Store<F> {
         self.hash_string_mut(str.as_ref());
         self.intern_str_aux(str)
     }
+
     fn intern_str_aux<T: AsRef<str>>(&mut self, str: T) -> Ptr<F> {
         if let Some(ptr) = self.str_store.0.get(&str) {
             Ptr(Tag::Str, RawPtr::new(ptr.to_usize()))
@@ -2237,8 +2238,11 @@ impl<F: LurkField> Store<F> {
 
         chars.fold(initial_scalar_ptr, |acc, char| {
             let c_scalar: F = (u32::from(char) as u64).into();
+            // This bypasses create_scalar_ptr but is okay because Chars are immediate and don't need to be indexed.
             let c = ScalarPtr(Tag::Char.as_field(), c_scalar);
             let hash = self.hash_scalar_ptrs_2(&[c, acc]);
+            // This bypasses create_scalar_ptr but is okay because we will call it to correctly create each of these
+            // ScalarPtrs belwo, in hash_string_mut_aux.
             let new_scalar_ptr = ScalarPtr(Tag::Str.as_field(), hash);
             hashes.push(hash);
             new_scalar_ptr
@@ -2248,7 +2252,7 @@ impl<F: LurkField> Store<F> {
     }
 
     fn hash_string_mut_aux(&mut self, mut s: im::Vector<char>, all_hashes: Vec<F>) -> F {
-        assert_eq!(s.len(), all_hashes.len());
+        debug_assert_eq!(s.len(), all_hashes.len());
 
         let final_hash = all_hashes.last().unwrap();
 
@@ -2291,7 +2295,6 @@ impl<F: LurkField> Store<F> {
 
     fn hash_scalar_ptrs_2(&self, ptrs: &[ScalarPtr<F>; 2]) -> F {
         let preimage = [ptrs[0].0, ptrs[0].1, ptrs[1].0, ptrs[1].1];
-        info!("hashing {:?}", &ptrs);
         self.poseidon_cache.hash4(&preimage)
     }
 
@@ -2965,7 +2968,6 @@ pub mod test {
         let opaque_cons = make_opaque_cons(&mut store);
         store.car(&opaque_cons);
     }
-
     #[test]
     #[should_panic]
     fn opaque_cons_cdr() {
