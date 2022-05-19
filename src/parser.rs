@@ -2,7 +2,7 @@ use std::iter::Peekable;
 
 use crate::field::LurkField;
 
-use crate::store::{Ptr, RawPtr, Store, Tag};
+use crate::store::{Ptr, Store};
 
 impl<F: LurkField> Store<F> {
     pub fn read(&mut self, input: &str) -> Option<Ptr<F>> {
@@ -229,7 +229,7 @@ impl<F: LurkField> Store<F> {
                     chars.next();
                     if let Some(&c) = chars.peek() {
                         chars.next();
-                        Some(Ptr(Tag::Char, RawPtr::new(u32::from(c) as usize)))
+                        Some(c.into())
                     } else {
                         None
                     }

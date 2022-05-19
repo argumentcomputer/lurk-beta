@@ -180,7 +180,7 @@ pub trait ScalarPointer<F: LurkField>: fmt::Debug + Copy + Clone + PartialEq + H
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Ptr<F: LurkField>(pub(crate) Tag, pub(crate) RawPtr<F>);
+pub struct Ptr<F: LurkField>(Tag, RawPtr<F>);
 
 #[allow(clippy::derive_hash_xor_eq)]
 impl<F: LurkField> Hash for Ptr<F> {
@@ -200,6 +200,12 @@ impl<F: LurkField> Ptr<F> {
 
     pub fn is_opaque(&self) -> bool {
         self.1.is_opaque()
+    }
+}
+
+impl<F: LurkField> From<char> for Ptr<F> {
+    fn from(c: char) -> Self {
+        Self(Tag::Char, RawPtr::new(u32::from(c) as usize))
     }
 }
 
@@ -404,7 +410,7 @@ impl<F: LurkField> ContPtr<F> {
 pub struct RawPtr<F: LurkField>(isize, PhantomData<F>);
 
 impl<F: LurkField> RawPtr<F> {
-    pub(crate) fn new(p: usize) -> Self {
+    fn new(p: usize) -> Self {
         assert!(p < isize::MAX as usize);
         RawPtr(p as isize, Default::default())
     }
@@ -1177,6 +1183,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
+        // Hash name for side effect. This will cause all tails to be interned.
         self.hash_string_mut(name.as_ref());
         let name = name.as_ref().to_string();
 
@@ -1214,12 +1221,16 @@ impl<F: LurkField> Store<F> {
         Ptr(Tag::Char, RawPtr::new(u32::from(c) as usize))
     }
 
-    pub fn intern_str<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        self.hash_string_mut(name.as_ref());
-        if let Some(ptr) = self.str_store.0.get(&name) {
+    pub fn intern_str<T: AsRef<str>>(&mut self, str: T) -> Ptr<F> {
+        // Hash name for side effect. This will cause all tails to be interned.
+        self.hash_string_mut(str.as_ref());
+        self.intern_str_aux(str)
+    }
+    fn intern_str_aux<T: AsRef<str>>(&mut self, str: T) -> Ptr<F> {
+        if let Some(ptr) = self.str_store.0.get(&str) {
             Ptr(Tag::Str, RawPtr::new(ptr.to_usize()))
         } else {
-            let ptr = self.str_store.0.get_or_intern(name);
+            let ptr = self.str_store.0.get_or_intern(str);
             let ptr = Ptr(Tag::Str, RawPtr::new(ptr.to_usize()));
 
             self.dehydrated.push(ptr);
@@ -2198,21 +2209,57 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn hash_string_mut(&mut self, s: &str) -> F {
-        if s.is_empty() {
-            return F::zero();
+        let mut v = im::Vector::<char>::new();
+        for c in s.chars() {
+            v.push_back(c);
+        }
+        self.intern_str_aux(&s);
+
+        let initial_hash = F::zero();
+        let initial_scalar_ptr = {
+            let hash = initial_hash;
+            let ptr = self.intern_str_aux(&"");
+            self.create_scalar_ptr(ptr, hash)
         };
 
-        // TODO: This is not very  efficient.
+        if s.is_empty() {
+            initial_hash
+        } else {
+            let all_hashes = self.all_hashes(s, initial_scalar_ptr);
+            self.hash_string_mut_aux(v, all_hashes)
+        }
+    }
 
-        let mut chars = s.chars();
-        let first = chars.next().unwrap();
-        let c_scalar: F = (u32::from(first) as u64).into();
-        let c = ScalarPtr(Tag::Char.as_field(), c_scalar);
-        let rest_string = chars.collect::<String>();
-        let rest_ptr = self.intern_str(&rest_string);
-        let rest_hash = self.hash_string_mut(&rest_string);
-        let rest = self.create_scalar_ptr(rest_ptr, rest_hash);
-        self.hash_scalar_ptrs_2(&[c, rest])
+    // All hashes of substrings, shortest to longest.
+    fn all_hashes(&mut self, s: &str, initial_scalar_ptr: ScalarPtr<F>) -> Vec<F> {
+        let chars = s.chars().rev();
+        let mut hashes = Vec::with_capacity(s.len());
+
+        chars.fold(initial_scalar_ptr, |acc, char| {
+            let c_scalar: F = (u32::from(char) as u64).into();
+            let c = ScalarPtr(Tag::Char.as_field(), c_scalar);
+            let hash = self.hash_scalar_ptrs_2(&[c, acc]);
+            let new_scalar_ptr = ScalarPtr(Tag::Str.as_field(), hash);
+            hashes.push(hash);
+            new_scalar_ptr
+        });
+
+        hashes
+    }
+
+    fn hash_string_mut_aux(&mut self, mut s: im::Vector<char>, all_hashes: Vec<F>) -> F {
+        assert_eq!(s.len(), all_hashes.len());
+
+        let final_hash = all_hashes.last().unwrap();
+
+        for hash in all_hashes.iter().rev() {
+            let string = s.iter().collect::<String>();
+            let ptr = self.intern_str_aux(&string);
+            self.create_scalar_ptr(ptr, *hash);
+            s.slice(..1);
+        }
+
+        *final_hash
     }
 
     fn hash_ptrs_2(&self, ptrs: &[Ptr<F>; 2]) -> Option<F> {
@@ -2941,6 +2988,18 @@ pub mod test {
     }
 
     #[test]
+    fn empty_str_tag_hash() {
+        let s = &mut Store::<Fr>::default();
+
+        let sym = s.sym("");
+        let sym_tag = s.get_expr_hash(&sym).unwrap().0;
+        let sym_hash = s.get_expr_hash(&sym).unwrap().1;
+
+        assert_eq!(Tag::Sym.as_field::<Fr>(), sym_tag);
+        assert_eq!(Fr::from(0), sym_hash)
+    }
+
+    #[test]
     fn str_car_cdr_hashes() {
         let s = &mut Store::<Fr>::default();
 
@@ -2956,10 +3015,10 @@ pub mod test {
         assert_eq!(str_hash, str_again_hash);
     }
 
-    fn str_inner_fetch_aux(hydrate: bool) {
+    fn str_inner_fetch_aux(str: &str, hydrate: bool) {
         let s = &mut Store::<Fr>::default();
 
-        let str = s.read(r#" "ORANGE" "#).unwrap();
+        let str = s.read(str).unwrap();
         let str2 = s.cdr(&str);
 
         // Unless the cache is hydrated, the inner destructuring will not map the ScalarPtr to corresponding Ptr.
@@ -2971,16 +3030,43 @@ pub mod test {
 
         let str2_again = s.fetch_scalar(&str2_scalar_ptr).unwrap();
 
+        dbg!(str2.fmt_to_string(&s), str2_again.fmt_to_string(&s));
         assert_eq!(str2, str2_again);
     }
 
     #[test]
     fn str_inner_fetch_hydrated() {
-        str_inner_fetch_aux(true);
+        str_inner_fetch_aux(r#" "ORANGE" "#, true);
     }
 
     #[test]
     fn str_inner_fetch_unhydrated() {
-        str_inner_fetch_aux(false);
+        str_inner_fetch_aux(r#" "ORANGE" "#, false);
+    }
+
+    fn empty_str_fetch_aux(hydrate: bool) {
+        let s = &mut Store::<Fr>::default();
+
+        let str = s.read(r#" "" "#).unwrap();
+
+        // Unless the cache is hydrated, the inner destructuring will not map the ScalarPtr to corresponding Ptr.
+        if hydrate {
+            s.hydrate_scalar_cache();
+        };
+
+        let str_scalar_ptr = s.get_expr_hash(&str).unwrap();
+
+        let str_again = s.fetch_scalar(&str_scalar_ptr).unwrap();
+
+        assert_eq!(str, str_again);
+    }
+    #[test]
+    fn empty_str_fetch_hydrated() {
+        empty_str_fetch_aux(true);
+    }
+
+    #[test]
+    fn empty_str_fetch_unhydrated() {
+        empty_str_fetch_aux(false);
     }
 }
