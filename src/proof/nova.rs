@@ -142,18 +142,10 @@ where
             r1cs_instances
                 .iter()
                 .fold(initial_acc, |(acc_U, acc_W), (next_U, next_W)| {
-                    let (step_proof, (step_U, step_W)) = Self::make_step_snark(
-                        gens,
-                        shape,
-                        &acc_U,
-                        &acc_W,
-                        next_U,
-                        next_W,
-                    );
+                    let (step_proof, (step_U, step_W)) =
+                        Self::make_step_snark(gens, shape, &acc_U, &acc_W, next_U, next_W);
                     if verify_steps {
-                        step_proof
-                            .verify(shape, &acc_U, next_U)
-                            .unwrap();
+                        step_proof.verify(shape, &acc_U, next_U).unwrap();
                         step_proofs.push(step_proof);
                     };
                     (step_U, step_W)
