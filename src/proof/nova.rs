@@ -262,6 +262,7 @@ mod tests {
         check_constraint_systems: bool,
         limit: usize,
         debug: bool,
+        emitted: Option<Vec<(usize, Ptr<Fr>)>>,
     ) {
         let mut s = Store::default();
         let expected_result = expected_result(&mut s);
@@ -297,6 +298,22 @@ mod tests {
 
             let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
             let output = cs[cs.len() - 1].0.output.unwrap();
+
+            if emitted.is_some() {
+                for i in 0..frames.len() {
+                    let frame_output = frames[i].output;
+                    dbg!("output: {:?}", frame_output.fmt_to_string(&s));
+                }
+                for elem in emitted.unwrap() {
+                    let frame_emitted = frames[elem.0].output;
+                    if let Some(expr) = frame_emitted.maybe_emitted_expression(&s) {
+                        let a = s.fetch(&expr);
+                        let b = s.fetch(&elem.1);
+                        assert_eq!(a, b);
+                        //assert_eq!(expr, elem.1);
+                    }
+                }
+            }
 
             if !debug {
                 dbg!(
@@ -362,6 +379,7 @@ mod tests {
             true,
             100,
             false,
+            None,
         );
     }
 
@@ -378,6 +396,7 @@ mod tests {
             true,
             100,
             false,
+            None,
         );
     }
 
@@ -394,6 +413,7 @@ mod tests {
             true,
             100,
             false,
+            None,
         );
     }
 
@@ -410,7 +430,9 @@ mod tests {
             true,
             100,
             false,
+            None,
         );
+
         outer_prove_aux(
             "(= 5 6)",
             |store| store.nil(),
@@ -421,6 +443,7 @@ mod tests {
             true,
             100,
             false,
+            None,
         );
     }
 
@@ -436,7 +459,9 @@ mod tests {
             true,
             100,
             false,
+            None,
         );
+
         outer_prove_aux(
             "(= nil 5)",
             |store| store.num(5),
@@ -447,6 +472,7 @@ mod tests {
             true,
             100,
             false,
+            None,
         );
     }
 
@@ -462,6 +488,7 @@ mod tests {
             true,
             10,
             false,
+            None,
         );
     }
 
@@ -477,6 +504,7 @@ mod tests {
             true,
             100,
             false,
+            None,
         );
 
         outer_prove_aux(
@@ -489,6 +517,7 @@ mod tests {
             true,
             100,
             false,
+            None,
         )
     }
 
@@ -504,6 +533,7 @@ mod tests {
             true,
             100,
             false,
+            None,
         )
     }
 
@@ -520,6 +550,7 @@ mod tests {
             true,
             100,
             false,
+            None,
         );
     }
 
@@ -541,6 +572,7 @@ mod tests {
             true,
             200,
             false,
+            None,
         );
     }
 
@@ -563,6 +595,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -577,7 +610,9 @@ mod tests {
             true,
             10,
             false,
+            None,
         );
+
         outer_prove_aux(
             "(car '(1 . 2))",
             |store| store.num(1),
@@ -588,6 +623,7 @@ mod tests {
             true,
             10,
             false,
+            None,
         );
 
         outer_prove_aux(
@@ -600,6 +636,7 @@ mod tests {
             true,
             10,
             false,
+            None,
         );
 
         outer_prove_aux(
@@ -612,6 +649,7 @@ mod tests {
             true,
             10,
             false,
+            None,
         )
     }
 
@@ -638,6 +676,7 @@ mod tests {
             true,
             10,
             false,
+            None,
         );
     }
 
@@ -654,6 +693,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -672,6 +712,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -693,6 +734,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -715,6 +757,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -734,6 +777,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -750,6 +794,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -765,6 +810,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -780,6 +826,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -795,6 +842,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -811,6 +859,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -827,6 +876,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -842,6 +892,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -857,6 +908,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -877,6 +929,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -892,6 +945,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -907,6 +961,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -924,6 +979,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -939,6 +995,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -954,6 +1011,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -969,6 +1027,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -984,6 +1043,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -999,6 +1059,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1014,6 +1075,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1029,6 +1091,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1044,6 +1107,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1059,6 +1123,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1075,6 +1140,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
     #[test]
@@ -1090,6 +1156,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1109,6 +1176,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1132,6 +1200,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1151,6 +1220,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1171,6 +1241,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1198,6 +1269,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1225,6 +1297,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1249,6 +1322,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1265,6 +1339,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1281,6 +1356,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1302,6 +1378,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1322,6 +1399,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1345,6 +1423,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1367,6 +1446,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1391,6 +1471,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1415,6 +1496,7 @@ mod tests {
             true,
             50,
             false,
+            None,
         );
     }
 
@@ -1439,6 +1521,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1455,6 +1538,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1470,6 +1554,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1485,6 +1570,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1500,6 +1586,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1515,6 +1602,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1531,6 +1619,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1547,6 +1636,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1563,6 +1653,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
     #[test]
@@ -1583,6 +1674,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1598,6 +1690,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1613,6 +1706,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1634,6 +1728,7 @@ mod tests {
             true,
             100,
             false,
+            None,
         );
     }
 
@@ -1654,6 +1749,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1674,6 +1770,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1690,6 +1787,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1712,6 +1810,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1734,6 +1833,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1752,6 +1852,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1770,6 +1871,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1799,6 +1901,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1819,6 +1922,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1843,6 +1947,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1875,6 +1980,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1912,6 +2018,7 @@ mod tests {
             true,
             300,
             false,
+            None,
         );
     }
 
@@ -1924,15 +2031,8 @@ mod tests {
         let expr = s.read(src).unwrap();
         let limit = 300;
 
-        let (
-            IO {
-                expr: _result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            _iterations,
-            emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+        let (_io, _iterations, emitted) =
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         outer_prove_aux(
             &src,
@@ -1944,9 +2044,25 @@ mod tests {
             true,
             300,
             false,
+            Some(vec![(11, s.num(1)), (2, s.num(2)), (7, s.num(3))]),
         );
-        assert_eq!(s.num(1), emitted[0]);
-        assert_eq!(s.num(2), emitted[1]);
-        assert_eq!(s.num(3), emitted[2]);
+        let expected = vec![s.num(1), s.num(2), s.num(3)];
+        assert_eq!(emitted, expected);
+    }
+
+    #[test]
+    fn outer_prove_begin_empty() {
+        outer_prove_aux(
+            "(begin)",
+            |store| store.nil(),
+            Status::Terminal,
+            2,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+            None,
+        );
     }
 }

@@ -1413,7 +1413,15 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.binop_cont_tag,
         &[&[&g.op2_begin_tag, &g.default_num], env, &more, cont],
     )?;
-    results.add_clauses_cons(*begin_hash.value(), &arg1, env, &continuation, &g.false_num);
+
+    let cont_begin = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "cont begin"),
+        &end_is_nil,
+        cont,
+        &continuation,
+    )?;
+
+    results.add_clauses_cons(*begin_hash.value(), &arg1, env, &cont_begin, &g.false_num);
 
     // head == CAR
 
@@ -2312,30 +2320,23 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let the_expr_if_begin = AllocatedPtr::pick(
             &mut cs.namespace(|| "the_exp_if_begin"),
-            &rest_is_nil,
-            &allocated_arg2,
+            &op_is_begin,
             &begin_again,
+            &result,
         )?;
 
         let otherwise = Boolean::not(&op_is_begin);
 
-        let otherwise_if_rest_is_nil = Boolean::and(
-            &mut cs.namespace(|| "otherwise_if_rest_is_nil"),
+        let otherwise_and_rest_is_nil = Boolean::and(
+            &mut cs.namespace(|| "otherwise_and_rest_is_nil"),
             &otherwise,
             &rest_is_nil,
-        )?;
-
-        let the_expr_otherwise = AllocatedPtr::pick(
-            &mut cs.namespace(|| "the_expr_otherwise"),
-            &rest_is_nil,
-            &allocated_arg2,
-            result,
         )?;
 
         let the_expr = AllocatedPtr::pick(
             &mut cs.namespace(|| "the_expr"),
-            &otherwise,
-            &the_expr_otherwise,
+            &rest_is_nil,
+            &allocated_arg2,
             &the_expr_if_begin,
         )?;
 
@@ -2348,7 +2349,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let the_cont_otherwise = AllocatedContPtr::pick(
             &mut cs.namespace(|| "the_cont_otherwise"),
-            &otherwise_if_rest_is_nil,
+            &otherwise_and_rest_is_nil,
             &newer_cont,
             &g.error_ptr_cont,
         )?;
