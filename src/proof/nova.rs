@@ -133,8 +133,8 @@ where
             .collect::<Vec<_>>();
 
         let mut step_proofs = Vec::new();
-         let mut prover_transcript = Transcript::new(b"LurkProver");
-         let mut verifier_transcript = Transcript::new(b"LurkVerifier");
+        let mut prover_transcript = Transcript::new(b"LurkProver");
+        let mut verifier_transcript = Transcript::new(b"LurkVerifier");
 
         let initial_acc = (
             RelaxedR1CSInstance::default(gens, shape),
@@ -145,10 +145,19 @@ where
             r1cs_instances
                 .iter()
                 .fold(initial_acc, |(acc_U, acc_W), (next_U, next_W)| {
-                    let (step_proof, (step_U, step_W)) =
-                        Self::make_step_snark(gens, shape, &acc_U, &acc_W, next_U, next_W, &mut prover_transcript);
+                    let (step_proof, (step_U, step_W)) = Self::make_step_snark(
+                        gens,
+                        shape,
+                        &acc_U,
+                        &acc_W,
+                        next_U,
+                        next_W,
+                        &mut prover_transcript,
+                    );
                     if verify_steps {
-                        step_proof.verify(&acc_U, next_U, &mut verifier_transcript).unwrap();
+                        step_proof
+                            .verify(&acc_U, next_U, &mut verifier_transcript)
+                            .unwrap();
                         step_proofs.push(step_proof);
                     };
                     (step_U, step_W)
@@ -172,7 +181,7 @@ where
         r_W: &RelaxedR1CSWitness<Self::Grp>,
         U2: &R1CSInstance<Self::Grp>,
         W2: &R1CSWitness<Self::Grp>,
-      prover_transcript: &mut merlin::Transcript,
+        prover_transcript: &mut merlin::Transcript,
     ) -> (
         StepSNARK<Self::Grp>,
         (

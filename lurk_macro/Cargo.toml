@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["porcuquine <porcuquine@gmail.com>"]
 license = "MIT OR Apache-2.0"
 description = "Lurk in Rust"
-edition = "2021"
+edition = "2018"
 
 [dependencies]
 blstrs = "0.4.2"

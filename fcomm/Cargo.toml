@@ -4,7 +4,7 @@ version = "0.1.1"
 authors = ["porcuquine <porcuquine@gmail.com>"]
 license = "MIT OR Apache-2.0"
 description = "Functional commitments with Lurk"
-edition = "2021"
+edition = "2018"
 repository = "https://github.com/lurk-lang/lurk-rs"
 
 [[bin]]
