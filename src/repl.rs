@@ -1,7 +1,7 @@
 use crate::eval::{empty_sym_env, Evaluator, IO};
 use crate::store::{ContPtr, ContTag, Expression, Pointer, Ptr, Store, Tag};
 use crate::writer::Write;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use blstrs::Scalar as Fr;
 use rustyline::error::ReadlineError;
 use rustyline::validate::{
@@ -10,13 +10,12 @@ use rustyline::validate::{
 use rustyline::{Config, Editor};
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 use std::fs::read_to_string;
-use std::io::{self, StdoutLock, Write as _};
+use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 
 #[derive(Completer, Helper, Highlighter, Hinter)]
-pub struct InputValidator {
-    pub brackets: MatchingBracketValidator,
+struct InputValidator {
+    brackets: MatchingBracketValidator,
 }
 
 impl Validator for InputValidator {
@@ -24,115 +23,21 @@ impl Validator for InputValidator {
         self.brackets.validate(ctx)
     }
 }
-pub enum ReplError {
-    Interrupted,
-    Eof,
-    Other(String),
-}
 
 #[derive(Clone)]
 pub struct ReplState {
-    store: Arc<Mutex<Store<Fr>>>,
     env: Ptr<Fr>,
     limit: usize,
 }
 
-pub enum LineResult {
-    Async,
-    Success,
-    Quit,
-}
-
-/// Read evaluate print loop - REPL
-/// A common interface for both the CLI REPL and the web REPL.
-/// The design is currently based on rustyline.
-pub trait Repl {
-    /// Print results to the interface suited for this implementation.
-    fn println(&self, s: String) -> Result<()>;
-
-    /// Load the command history
-    fn load_history(&mut self) -> Result<()>;
-
-    /// Add a new entry to the command history
-    fn add_history_entry(&mut self, s: &str) -> Result<()>;
-
-    /// Save the command history
-    fn save_history(&mut self) -> Result<()>;
-
-    /// Get a thread safe mutable pointer to the current ReplEnv
-    fn get_state(&self) -> Arc<Mutex<ReplState>>;
-
-    /// Get a Write buffer for this repl.
-    fn writer<'a>(&'a mut self) -> &'a mut (dyn io::Write + 'a);
-
-    /// Run a single line of input from the user
-    /// This will mutably update the shell_state
-    fn handle_line(&mut self, line: String) -> Result<LineResult> {
-        let state_mutex = self.get_state();
-        let mut state = state_mutex.lock().map_err(|e| anyhow!("{}", e))?;
-        let limit = state.limit;
-        let store_mutex = state.get_store();
-        let result = state.maybe_handle_command(&line, &|s| {
-            self.println(s).unwrap();
-        });
-        // This must happen after maybe_handle_command
-        let mut store = store_mutex.lock().map_err(|e| anyhow!("{}", e))?;
-
-        match result {
-            Ok((handled_command, should_continue)) if handled_command => {
-                if should_continue {
-                    return Ok(LineResult::Success);
-                } else {
-                    return Ok(LineResult::Quit);
-                };
-            }
-            Ok(_) => (),
-            Err(e) => {
-                let err = anyhow!("Error when handling {}: {:?}", line, e);
-                return Err(err);
-            }
-        };
-
-        if let Some(expr) = store.read(&line) {
-            let (
-                IO {
-                    expr: result,
-                    env: _env,
-                    cont: next_cont,
-                },
-                iterations,
-            ) = Evaluator::new(expr, state.env, &mut store, limit).eval();
-
-            self.println(format!("[{} iterations] => ", iterations))?;
-
-            match next_cont.tag() {
-                ContTag::Outermost | ContTag::Terminal => {
-                    let mut handle = self.writer();
-                    result
-                        .fmt(&store, &mut handle)
-                        .map_err(|e| anyhow!("{}", e))?;
-                    handle.flush()?;
-                    self.println("".to_string())?;
-                    Ok(LineResult::Success)
-                }
-                ContTag::Error => Err(anyhow!("ERROR!")),
-                _ => Err(anyhow!("Computation incomplete after limit: {}", limit)),
-            }
-        } else {
-            Err(anyhow!("Failed to parse"))
-        }
-    }
-}
-
-pub struct CliRepl {
-    state: Arc<Mutex<ReplState>>,
+pub struct Repl {
+    state: ReplState,
     rl: Editor<InputValidator>,
     history_path: PathBuf,
-    stdout: StdoutLock<'static>,
 }
 
-impl CliRepl {
-    pub fn new(store: Arc<Mutex<Store<Fr>>>, limit: usize) -> Result<Self> {
+impl Repl {
+    pub fn new(s: &mut Store<Fr>, limit: usize) -> Result<Self> {
         let history_path = dirs::home_dir()
             .expect("missing home directory")
             .join(".lurk-history");
@@ -146,74 +51,81 @@ impl CliRepl {
             .build();
         let mut rl = Editor::with_config(config);
         rl.set_helper(Some(h));
+        if history_path.exists() {
+            rl.load_history(&history_path)?;
+        }
 
-        let stdout = io::stdout().lock();
-        let state = Arc::new(Mutex::new(ReplState::new(store, limit)));
+        let state = ReplState::new(s, limit);
         Ok(Self {
             state,
             rl,
             history_path,
-            stdout,
         })
     }
-}
-
-impl Repl for CliRepl {
-    fn println(&self, s: String) -> Result<()> {
-        println!("{}", s);
-        Ok(())
-    }
-
-    fn writer<'a>(&'a mut self) -> &'a mut (dyn io::Write + 'a) {
-        &mut self.stdout
-    }
-
-    fn save_history(&mut self) -> Result<()> {
+    pub fn save_history(&mut self) -> Result<()> {
         self.rl.save_history(&self.history_path)?;
         Ok(())
     }
-
-    fn add_history_entry(&mut self, _s: &str) -> Result<()> {
-        Ok(())
-    }
-
-    fn get_state(&self) -> Arc<Mutex<ReplState>> {
-        self.state.clone()
-    }
-
-    fn load_history(&mut self) -> Result<()> {
-        if self.history_path.exists() {
-            self.rl.load_history(&self.history_path)?;
-        }
-
-        Ok(())
-    }
 }
 
-/// Run the cli repl
-/// For the moment, input must be on a single line.
+// For the moment, input must be on a single line.
 pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
-    let s = Arc::new(Mutex::new(Store::default()));
+    println!("Lurk REPL welcomes you.");
+
+    let mut s = Store::default();
     let limit = 100_000_000;
-    let mut repl = CliRepl::new(s, limit)?;
-    repl.println("Lurk REPL welcomes you.".to_owned())?;
+    let mut repl = Repl::new(&mut s, limit)?;
 
     {
         if let Some(lurk_file) = lurk_file {
-            repl.state
-                .lock()
-                .map_err(|e| anyhow!("{}", e))?
-                .handle_run(&lurk_file, &|s| println!("{}", s))
-                .unwrap();
+            repl.state.handle_run(&mut s, &lurk_file).unwrap();
             return Ok(());
         }
     }
 
+    let stdout = io::stdout();
+
     loop {
         match repl.rl.readline("> ") {
             Ok(line) => {
-                if let Ok(LineResult::Quit) = repl.handle_line(line) {
-                    break;
+                let result = repl.state.maybe_handle_command(&mut s, &line);
+
+                match result {
+                    Ok((handled_command, should_continue)) if handled_command => {
+                        if should_continue {
+                            continue;
+                        } else {
+                            break;
+                        };
+                    }
+                    Ok(_) => (),
+                    Err(e) => {
+                        println!("Error when handling {}: {:?}", line, e);
+                        continue;
+                    }
+                };
+
+                if let Some(expr) = s.read(&line) {
+                    let (
+                        IO {
+                            expr: result,
+                            env: _env,
+                            cont: next_cont,
+                        },
+                        iterations,
+                    ) = Evaluator::new(expr, repl.state.env, &mut s, limit).eval();
+
+                    print!("[{} iterations] => ", iterations);
+
+                    match next_cont.tag() {
+                        ContTag::Outermost | ContTag::Terminal => {
+                            let mut handle = stdout.lock();
+                            result.fmt(&s, &mut handle)?;
+                            println!();
+                        }
+                        ContTag::Error => println!("ERROR!"),
+                        _ => println!("Computation incomplete after limit: {}", limit),
+                    }
                 }
             }
             Err(ReadlineError::Interrupted | ReadlineError::Eof) => {
@@ -233,18 +145,12 @@ pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
 }
 
 impl ReplState {
-    pub fn new(store_mutex: Arc<Mutex<Store<Fr>>>, limit: usize) -> Self {
+    pub fn new(s: &mut Store<Fr>, limit: usize) -> Self {
         Self {
-            store: store_mutex.clone(),
-            env: empty_sym_env(&store_mutex.lock().unwrap()),
+            env: empty_sym_env(s),
             limit,
         }
     }
-
-    pub fn get_store(&self) -> Arc<Mutex<Store<Fr>>> {
-        self.store.clone()
-    }
-
     pub fn eval_expr(
         &mut self,
         expr: Ptr<Fr>,
@@ -267,11 +173,9 @@ impl ReplState {
     /// Second bool is true if processing should continue.
     pub fn maybe_handle_command(
         &mut self,
+        store: &mut Store<Fr>,
         line: &str,
-        println: &dyn Fn(String),
     ) -> Result<(bool, bool)> {
-        let store_mutex = self.store.clone();
-        let mut store = store_mutex.lock().map_err(|e| anyhow!("{}", e))?;
         let mut chars = line.chars().peekable();
         let maybe_command = store.read_next(&mut chars);
 
@@ -284,7 +188,7 @@ impl ReplState {
                             Tag::Str => {
                                 let path = store.fetch(&s).unwrap();
                                 let path = PathBuf::from(path.as_str().unwrap());
-                                self.handle_load(&mut store, path, println)?;
+                                self.handle_load(store, path)?;
                                 (true, true)
                             }
                             other => {
@@ -300,18 +204,18 @@ impl ReplState {
                             if s.tag() == Tag::Str {
                                 let path = store.fetch(&s).unwrap();
                                 let path = PathBuf::from(path.as_str().unwrap());
-                                self.handle_run(&path, println)?;
+                                self.handle_run(store, &path)?;
                             }
                         }
                         (true, true)
                     }
                     ":CLEAR" => {
-                        self.env = empty_sym_env(&store);
+                        self.env = empty_sym_env(store);
                         (true, true)
                     }
                     s => {
                         if s.starts_with(':') {
-                            println(format!("Unkown command: {}", s));
+                            println!("Unkown command: {}", s);
                             (true, true)
                         } else {
                             (false, true)
@@ -326,40 +230,30 @@ impl ReplState {
         Ok(result)
     }
 
-    pub fn handle_load<P: AsRef<Path>>(
-        &mut self,
-        store: &mut Store<Fr>,
-        path: P,
-        println: &dyn Fn(String),
-    ) -> Result<()> {
-        println(format!("Loading from {}.", path.as_ref().to_str().unwrap()));
+    pub fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store<Fr>, path: P) -> Result<()> {
+        println!("Loading from {}.", path.as_ref().to_str().unwrap());
         let input = read_to_string(path)?;
+
         let expr = store.read(&input).unwrap();
         let (result, _limit, _next_cont) = self.eval_expr(expr, store);
 
         self.env = result;
 
-        println(format!("Read: {}", input));
+        println!("Read: {}", input);
         io::stdout().flush().unwrap();
         Ok(())
     }
 
     pub fn handle_run<P: AsRef<Path> + Copy>(
         &mut self,
+        store: &mut Store<Fr>,
         path: P,
-        println: &dyn Fn(String),
     ) -> Result<()> {
-        let store_mutex = self.store.clone();
-        let mut store = store_mutex.lock().unwrap();
-        println(format!("Running from {}.", path.as_ref().to_str().unwrap()));
+        println!("Running from {}.", path.as_ref().to_str().unwrap());
         let p = path;
 
         let input = read_to_string(path)?;
-        println(format!(
-            "Read from {}: {}",
-            path.as_ref().to_str().unwrap(),
-            input
-        ));
+        println!("Read from {}: {}", path.as_ref().to_str().unwrap(), input);
         let mut chars = input.chars().peekable();
 
         while let Some((ptr, is_meta)) = store.read_maybe_meta(&mut chars) {
@@ -373,17 +267,17 @@ impl ReplState {
                                     Expression::Str(path) => {
                                         let joined =
                                             p.as_ref().parent().unwrap().join(Path::new(&path));
-                                        self.handle_load(&mut store, &joined, println)?
+                                        self.handle_load(store, &joined)?
                                     }
                                     _ => panic!("Argument to :LOAD must be a string."),
                                 }
-                                io::stderr().flush().unwrap();
+                                io::stdout().flush().unwrap();
                             } else if s == &":RUN" {
                                 match store.fetch(&store.car(&rest)).unwrap() {
                                     Expression::Str(path) => {
                                         let joined =
                                             p.as_ref().parent().unwrap().join(Path::new(&path));
-                                        self.handle_run(&joined, println)?
+                                        self.handle_run(store, &joined)?
                                     }
                                     _ => panic!("Argument to :RUN must be a string."),
                                 }
@@ -391,22 +285,21 @@ impl ReplState {
                                 let (first, rest) = store.car_cdr(&rest);
                                 let (second, rest) = store.car_cdr(&rest);
                                 assert!(rest.is_nil());
-                                let (first_evaled, _, _) = self.eval_expr(first, &mut store);
-                                let (second_evaled, _, _) = self.eval_expr(second, &mut store);
+                                let (first_evaled, _, _) = self.eval_expr(first, store);
+                                let (second_evaled, _, _) = self.eval_expr(second, store);
                                 assert_eq!(first_evaled, second_evaled);
                             } else if s == &":ASSERT" {
                                 let (first, rest) = store.car_cdr(&rest);
                                 assert!(rest.is_nil());
-                                let (first_evaled, _, _) = self.eval_expr(first, &mut store);
+                                let (first_evaled, _, _) = self.eval_expr(first, store);
                                 assert!(!first_evaled.is_nil());
                             } else if s == &":CLEAR" {
-                                self.env = empty_sym_env(&store);
+                                self.env = empty_sym_env(store);
                             } else if s == &":ASSERT-ERROR" {
                                 let (first, rest) = store.car_cdr(&rest);
 
                                 assert!(rest.is_nil());
-                                let (_, _, continuation) =
-                                    self.clone().eval_expr(first, &mut store);
+                                let (_, _, continuation) = self.clone().eval_expr(first, store);
                                 assert!(continuation.is_error());
                                 // FIXME: bring back catching, or solve otherwise
                                 // std::panic::catch_unwind(||
@@ -424,9 +317,9 @@ impl ReplState {
                     _ => panic!("!<COMMAND> form is unsupported."),
                 }
             } else {
-                let (result, _limit, _next_cont) = self.eval_expr(ptr, &mut store);
+                let (result, _limit, _next_cont) = self.eval_expr(ptr, store);
 
-                println(format!("Evaled: {}", result.fmt_to_string(&store)));
+                println!("Evaled: {}", result.fmt_to_string(store));
                 io::stdout().flush().unwrap();
             }
         }
@@ -434,3 +327,4 @@ impl ReplState {
         Ok(())
     }
 }
+
