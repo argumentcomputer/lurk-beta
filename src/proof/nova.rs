@@ -325,7 +325,6 @@ mod tests {
     fn check_emitted_frames<Fo: Fn(&'_ mut Store<Fr>) -> Vec<Ptr<Fr>>>(
         source: &str,
         chunk_frame_count: usize,
-        check_nova: bool,
         limit: usize,
         emitted: Fo,
     ) {
@@ -336,22 +335,16 @@ mod tests {
         let e = empty_sym_env(&s);
 
         let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
-        let proof_results = if check_nova {
-            Some(
-                nova_prover
-                    .evaluate_and_prove(expr, empty_sym_env(&s), &mut s, limit)
-                    .unwrap(),
-            )
-        } else {
-            None
-        };
+        let proof_results = Some(
+            nova_prover
+                .evaluate_and_prove(expr, empty_sym_env(&s), &mut s, limit)
+                .unwrap(),
+        );
 
         let shape_and_gens = nova_prover.make_shape_and_gens();
 
-        if check_nova {
-            if let Some((proof, instance)) = proof_results {
-                proof.verify(&shape_and_gens, &instance);
-            }
+        if let Some((proof, instance)) = proof_results {
+            proof.verify(&shape_and_gens, &instance);
         }
 
         let frames = nova_prover.get_evaluation_frames(expr, e, &mut s, limit);
@@ -1994,7 +1987,6 @@ mod tests {
         check_emitted_frames(
             &src,
             DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
             300,
             |store| vec![store.num(1), store.num(2), store.num(3)],
         );
