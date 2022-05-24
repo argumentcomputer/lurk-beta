@@ -9,7 +9,7 @@ pub trait LurkField: ff::PrimeField {
     // multicodec, ideally extended to include arbitrary precision codecs
     const FIELD_CODEC: u64;
     const HASH_CODEC: u64;
-    const LURK_CODEC_PREFIX: u64 = 0xc0de;
+    const LURK_CODEC_PREFIX: u64 = 0x10de;
     const NUM_BYTES: usize;
 
     fn from_bytes(bs: &[u8]) -> Option<Self> {
