@@ -393,7 +393,7 @@ impl Put {
 
         let src = read_from_path(store, &self.data)?;
         store.hydrate_scalar_cache();
-        let (scalar_store, _) = ScalarStore::new_with_expr(&store, &src);
+        let (scalar_store, _) = ScalarStore::new_with_expr(store, &src);
         let ipld = to_ipld(scalar_store.clone()).unwrap();
         let cid = dag_put(&self.host, ipld)
             .await
