@@ -10,12 +10,11 @@ use pairing_lib::{Engine, MultiMillerLoop};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+use libipld::serde::{from_ipld, to_ipld};
 use lurk::eval::IO;
 use lurk::field::LurkField;
+use lurk::ipfs::{dag_get, dag_put};
 use lurk::store::{Ptr, Store};
-use lurk::ipfs::{dag_put, dag_get};
-use libipld::serde::{to_ipld, from_ipld};
-use futures::executor::block_on;
 
 use clap::{AppSettings, Args, Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
@@ -67,11 +66,11 @@ enum Command {
     /// Verifies a proof
     Verify(Verify),
 
-  /// Stores Lurk data on IPFS
-  Put(Put),
-  
-  /// Retrieves Lurk data from IPFS
-  Get(Get),
+    /// Stores Lurk data on IPFS
+    Put(Put),
+
+    /// Retrieves Lurk data from IPFS
+    Get(Get),
 }
 
 #[derive(Args, Debug)]
@@ -167,24 +166,24 @@ struct Verify {
 
 #[derive(Args, Debug)]
 struct Put {
-  ///Input Lurk data
-  #[clap(long, parse(from_os_str))]
-  data: PathBuf,
+    ///Input Lurk data
+    #[clap(long, parse(from_os_str))]
+    data: PathBuf,
 
-  ///IPFS host
-  #[clap(short, long, default_value = "localhost:5001")]
-  host: String,
+    ///IPFS host
+    #[clap(short, long, default_value = "localhost:5001")]
+    host: String,
 }
 
 #[derive(Args, Debug)]
 struct Get {
-  ///Input Lurk data
-  #[clap(long)]
-  cid: String,
+    ///Input Lurk data
+    #[clap(long)]
+    cid: String,
 
-  ///IPFS host
-  #[clap(short, long, default_value = "localhost:5001")]
-  host: String,
+    ///IPFS host
+    #[clap(short, long, default_value = "localhost:5001")]
+    host: String,
 }
 
 impl Commit {
@@ -388,23 +387,26 @@ impl Verify {
 }
 
 impl Put {
-  fn put(&self) -> Result<(), Error> {
-    let ipld = to_ipld(self.data).expect("Invalid Lurk data");
-    let cid = dag_put(self.host, ipld);
-    block_on(cid).expect("Failed to store on IPFS");
-    info!("{:?}\nstored on IPFS", cid);
-    Ok(())
-  }
+    async fn put(&self) -> Result<(), Error> {
+        let src = read_from_path(&self.data)?;
+        let ipld = to_ipld(src).expect("Invalid Lurk data");
+        let cid = dag_put(self.host.clone(), ipld)
+            .await
+            .expect("Failed to store on IPFS");
+        info!("{:?}\nstored on IPFS", cid);
+        Ok(())
+    }
 }
 
 impl Get {
-  fn get(&self) -> Result<(), Error> {
-    let ipld = dag_get(self.host, self.cid);
-    block_on(ipld).expect("Failed to store on IPFS");
-    let data = from_ipld(ipld).expect("Invalid IPLD");
-    info!("{:?}\nretrieved from IPFS", data);
-    Ok(())
-  }
+    async fn get(&self) -> Result<(), Error> {
+        let ipld = dag_get(self.host.clone(), self.cid.clone())
+            .await
+            .expect("Failed to retrieve from IPFS");
+        let data: blstrs::Scalar = from_ipld(ipld).expect("Invalid Lurk IPLD");
+        info!("{:?}\nretrieved from IPFS", data);
+        Ok(())
+    }
 }
 
 fn read_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
@@ -520,7 +522,8 @@ where
     }
 }
 
-fn main() -> Result<(), Error> {
+#[tokio::main]
+async fn main() -> Result<(), Error> {
     let cli = Cli::parse();
 
     pretty_env_logger::formatted_builder()
@@ -532,8 +535,8 @@ fn main() -> Result<(), Error> {
         Command::Open(o) => o.open(o.chain, cli.limit, cli.eval_input, o.quote_input),
         Command::Eval(e) => e.eval(cli.limit),
         Command::Prove(p) => p.prove(cli.limit),
-      Command::Verify(v) => v.verify(cli.error),
-      Command::Put(p) => p.put(),
-      Command::Get(g) => g.get(),
+        Command::Verify(v) => v.verify(cli.error),
+        Command::Put(p) => p.put().await,
+        Command::Get(g) => g.get().await,
     }
 }

@@ -30,7 +30,7 @@ serde_json = { version = "1.0" }
 structopt = { version = "0.3", default-features = false }
 clap = { version = "3.1", features = ["derive"] }
 clap-verbosity-flag = "1.0"
-futures = { version = "0.3", features = ["executor"] }
+tokio = { version = "1.8", features = ["rt", "macros"] }
 
 [dev-dependencies]
 assert_cmd = "2.0.4"
