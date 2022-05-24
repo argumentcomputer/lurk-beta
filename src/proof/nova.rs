@@ -1984,12 +1984,9 @@ mod tests {
             false,
         );
 
-        check_emitted_frames(
-            &src,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            300,
-            |store| vec![store.num(1), store.num(2), store.num(3)],
-        );
+        check_emitted_frames(&src, DEFAULT_CHUNK_FRAME_COUNT, 300, |store| {
+            vec![store.num(1), store.num(2), store.num(3)]
+        });
     }
 
     #[test]
