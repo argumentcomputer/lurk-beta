@@ -58,7 +58,7 @@ mod test {
 
     #[ignore]
     #[tokio::test]
-    async fn lurk_ipfs_roundtrip() -> Result<(), reqwest::Error> {
+    async fn ipfs_roundtrip() -> Result<(), reqwest::Error> {
         let mut store_in = Store::<Fr>::default();
         let expr = store_in.read("symbol").unwrap();
         store_in.hydrate_scalar_cache();
