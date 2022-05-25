@@ -335,30 +335,15 @@ mod tests {
         let e = empty_sym_env(&s);
 
         let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
-        let proof_results = Some(
-            nova_prover
-                .evaluate_and_prove(expr, empty_sym_env(&s), &mut s, limit)
-                .unwrap(),
-        );
-
-        let shape_and_gens = nova_prover.make_shape_and_gens();
-
-        if let Some((proof, instance)) = proof_results {
-            proof.verify(&shape_and_gens, &instance);
-        }
 
         let frames = nova_prover.get_evaluation_frames(expr, e, &mut s, limit);
 
         let emitted_result = emitted(&mut s);
 
-        let mut emitted_vec = Vec::new();
-
-        for i in 0..frames.len() {
-            let frame_output = frames[i].output;
-            if let Some(expr) = frame_output.maybe_emitted_expression(&s) {
-                emitted_vec.push(expr)
-            }
-        }
+        let emitted_vec: Vec<_> = frames
+            .iter()
+            .flat_map(|frame| frame.output.maybe_emitted_expression(&s))
+            .collect();
         assert_eq!(emitted_vec, emitted_result);
     }
 
