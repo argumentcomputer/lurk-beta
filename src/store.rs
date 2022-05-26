@@ -1221,7 +1221,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_str<T: AsRef<str>>(&mut self, str: T) -> Ptr<F> {
-        // Hash name for side effect. This will cause all tails to be interned.
+        // Hash string for side effect. This will cause all tails to be interned.
         self.hash_string_mut(str.as_ref());
         self.intern_str_aux(str)
     }
