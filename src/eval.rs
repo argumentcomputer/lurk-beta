@@ -2741,6 +2741,7 @@ mod test {
         expected_result: Option<Ptr<Fr>>,
         expected_env: Option<Ptr<Fr>>,
         expected_cont: Option<ContPtr<Fr>>,
+        expected_emitted: Option<Vec<Ptr<Fr>>>,
         expected_iterations: usize,
     ) {
         let limit = 100000;
@@ -2753,7 +2754,7 @@ mod test {
                 cont: new_cont,
             },
             iterations,
-            _emitted,
+            emitted,
         ) = Evaluator::new(expr, env, s, limit).eval();
 
         if let Some(expected_result) = expected_result {
@@ -2769,6 +2770,14 @@ mod test {
         } else {
             assert_eq!(s.intern_cont_terminal(), new_cont);
         }
+        if let Some(expected_emitted) = expected_emitted {
+            assert_eq!(expected_emitted.len(), emitted.len());
+
+            assert!(expected_emitted
+                .iter()
+                .zip(emitted)
+                .all(|(a, b)| s.ptr_eq(a, &b)));
+        }
         assert_eq!(expected_iterations, iterations);
     }
 
@@ -2781,11 +2790,11 @@ mod test {
         let empty = s.intern_str(&"");
         let nil = s.nil();
 
-        test_aux(s, r#"(car "apple")"#, Some(a), None, None, 2);
-        test_aux(s, r#"(cdr "apple")"#, Some(pple), None, None, 2);
-        test_aux(s, r#"(car "")"#, Some(nil), None, None, 2);
-        test_aux(s, r#"(cdr "")"#, Some(empty), None, None, 2);
-        test_aux(s, r#"(cons #\a "pple")"#, Some(apple), None, None, 3);
+        test_aux(s, r#"(car "apple")"#, Some(a), None, None, None, 2);
+        test_aux(s, r#"(cdr "apple")"#, Some(pple), None, None, None, 2);
+        test_aux(s, r#"(car "")"#, Some(nil), None, None, None, 2);
+        test_aux(s, r#"(cdr "")"#, Some(empty), None, None, None, 2);
+        test_aux(s, r#"(cons #\a "pple")"#, Some(apple), None, None, None, 3);
     }
 
     #[test]
@@ -2816,6 +2825,7 @@ mod test {
   (foo 10 16))
 "#,
             Some(n),
+            None,
             None,
             None,
             1114,
