@@ -363,7 +363,10 @@ fn reduce_with_witness<F: LurkField>(
                 }
                 _ => unreachable!(),
             },
-            Tag::Nil => Control::ApplyContinuation(expr, env, cont),
+            // Self-evaluating
+            Tag::Nil | Tag::Num | Tag::Fun | Tag::Char | Tag::Str => {
+                Control::ApplyContinuation(expr, env, cont)
+            }
             Tag::Sym => {
                 if expr == store.sym("nil") || (expr == store.t()) {
                     // NIL and T are self-evaluating symbols, pass them to the continuation in a thunk.
@@ -508,10 +511,8 @@ fn reduce_with_witness<F: LurkField>(
                     }
                 }
             }
-            Tag::Str => unreachable!(),
-            Tag::Num => Control::ApplyContinuation(expr, env, cont),
-            Tag::Fun => Control::ApplyContinuation(expr, env, cont),
             Tag::Cons => {
+                // This should not fail, since expr is a Cons.
                 let (head, rest) = store.car_cdr(&expr);
                 let lambda = store.sym("lambda");
                 let quote = store.sym("quote");
@@ -621,14 +622,14 @@ fn reduce_with_witness<F: LurkField>(
                         )
                     }
                 } else if head == store.sym("car") {
-                    let (arg1, end) = store.car_cdr(&rest);
+                    let (arg1, end) = store.car_cdr_mut(&rest);
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {
                         Control::Return(arg1, env, store.intern_cont_unop(Op1::Car, cont))
                     }
                 } else if head == store.sym("cdr") {
-                    let (arg1, end) = store.car_cdr(&rest);
+                    let (arg1, end) = store.car_cdr_mut(&rest);
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {
@@ -868,8 +869,8 @@ fn apply_continuation<F: LurkField>(
                 continuation,
             } => {
                 let val = match operator {
-                    Op1::Car => store.car(result),
-                    Op1::Cdr => store.cdr(result),
+                    Op1::Car => store.car_cdr_mut(result).0,
+                    Op1::Cdr => store.car_cdr_mut(result).1,
                     Op1::Atom => match result.tag() {
                         Tag::Cons => store.nil(),
                         _ => store.t(),
@@ -2733,6 +2734,69 @@ mod test {
         }
     }
 
+    // TODO: Use this in other tests.
+    fn test_aux(
+        s: &mut Store<Fr>,
+        expr: &str,
+        expected_result: Option<Ptr<Fr>>,
+        expected_env: Option<Ptr<Fr>>,
+        expected_cont: Option<ContPtr<Fr>>,
+        expected_emitted: Option<Vec<Ptr<Fr>>>,
+        expected_iterations: usize,
+    ) {
+        let limit = 100000;
+        let expr = s.read(expr).unwrap();
+        let env = empty_sym_env(&s);
+        let (
+            IO {
+                expr: new_expr,
+                env: new_env,
+                cont: new_cont,
+            },
+            iterations,
+            emitted,
+        ) = Evaluator::new(expr, env, s, limit).eval();
+
+        if let Some(expected_result) = expected_result {
+            assert_eq!(expected_result, new_expr);
+        }
+        if let Some(expected_env) = expected_env {
+            assert_eq!(expected_env, new_env);
+        } else {
+            assert_eq!(env, new_env);
+        }
+        if let Some(expected_cont) = expected_cont {
+            assert_eq!(expected_cont, new_cont);
+        } else {
+            assert_eq!(s.intern_cont_terminal(), new_cont);
+        }
+        if let Some(expected_emitted) = expected_emitted {
+            assert_eq!(expected_emitted.len(), emitted.len());
+
+            assert!(expected_emitted
+                .iter()
+                .zip(emitted)
+                .all(|(a, b)| s.ptr_eq(a, &b)));
+        }
+        assert_eq!(expected_iterations, iterations);
+    }
+
+    #[test]
+    fn test_str_car_cdr_cons() {
+        let s = &mut Store::<Fr>::default();
+        let a = s.read(r#"#\a"#).unwrap();
+        let apple = s.read(r#" "apple" "#).unwrap();
+        let pple = s.read(r#" "pple" "#).unwrap();
+        let empty = s.intern_str(&"");
+        let nil = s.nil();
+
+        test_aux(s, r#"(car "apple")"#, Some(a), None, None, None, 2);
+        test_aux(s, r#"(cdr "apple")"#, Some(pple), None, None, None, 2);
+        test_aux(s, r#"(car "")"#, Some(nil), None, None, None, 2);
+        test_aux(s, r#"(cdr "")"#, Some(empty), None, None, None, 2);
+        test_aux(s, r#"(cons #\a "pple")"#, Some(apple), None, None, None, 3);
+    }
+
     #[test]
     fn go_translate() {
         // func Foo(a int, b int) int {
@@ -2744,11 +2808,11 @@ mod test {
         //    return x
         // }
 
-        let mut s = Store::<Fr>::default();
-        let limit = 1000000;
-        let expr = s
-            .read(
-                r#"
+        let s = &mut Store::<Fr>::default();
+        let n = s.num(0x1044);
+        test_aux(
+            s,
+            r#"
 (let ((foo (lambda (a b)
               (letrec ((aux (lambda (i a x)
                                (if (= i b)
@@ -2760,21 +2824,12 @@ mod test {
                          (aux 0 a x))))))
   (foo 10 16))
 "#,
-            )
-            .unwrap();
-
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-            _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(s.num(0x1044), result_expr);
-        assert_eq!(1114, iterations);
+            Some(n),
+            None,
+            None,
+            None,
+            1114,
+        );
     }
 
     #[test]
