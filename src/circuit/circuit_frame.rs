@@ -2322,7 +2322,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &mut cs.namespace(|| "the_exp_if_begin"),
             &op_is_begin,
             &begin_again,
-            &result,
+            result,
         )?;
 
         let otherwise = Boolean::not(&op_is_begin);

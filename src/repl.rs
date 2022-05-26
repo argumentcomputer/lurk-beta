@@ -319,13 +319,13 @@ impl ReplState {
                                 let (_, _, _, emitted) = self.eval_expr(second, store);
                                 let (mut first_emitted, mut rest_emitted) =
                                     store.car_cdr(&first_evaled);
-                                for i in 0..emitted.len() {
-                                    if emitted[i] != first_emitted {
+                                for (i, elem) in emitted.iter().enumerate() {
+                                    if elem != &first_emitted {
                                         panic!(
                                             ":ASSERT-EMITTED failed at position {}. Expected {}, but found {}.",
                                             i,
                                             first_emitted.fmt_to_string(store),
-                                            emitted[i].fmt_to_string(store),
+                                            elem.fmt_to_string(store),
                                         );
                                     }
                                     (first_emitted, rest_emitted) = store.car_cdr(&rest_emitted);
