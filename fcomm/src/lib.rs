@@ -473,7 +473,7 @@ impl Evaluation {
 
         let input = evaluator.initial();
 
-        let (output, iterations) = evaluator.eval();
+        let (output, iterations, _) = evaluator.eval();
 
         Self::new(store, input, output, Some(iterations))
     }
@@ -1006,7 +1006,7 @@ pub fn evaluate<F: LurkField>(store: &mut Store<F>, expr: Ptr<F>, limit: usize) 
     let env = empty_sym_env(store);
     let mut evaluator = Evaluator::new(expr, env, store, limit);
 
-    let (io, iterations) = evaluator.eval();
+    let (io, iterations, _) = evaluator.eval();
 
     assert!(io.is_terminal());
     (io, iterations)

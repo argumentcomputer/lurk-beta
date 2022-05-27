@@ -676,7 +676,7 @@ mod tests {
             .unwrap();
         let limit = 300;
 
-        let (evaled, _) = Evaluator::new(fun_src, empty_sym_env(&s), &mut s, limit).eval();
+        let (evaled, _, _) = Evaluator::new(fun_src, empty_sym_env(&s), &mut s, limit).eval();
 
         let fun = evaled.expr;
 
@@ -690,7 +690,8 @@ mod tests {
         let fun_from_comm = s.list(&[cdr, quoted_commitment]);
         let input = s.list(&[fun_from_comm, five]);
 
-        let (output, _iterations) = Evaluator::new(input, empty_sym_env(&s), &mut s, limit).eval();
+        let (output, _iterations, _emitted) =
+            Evaluator::new(input, empty_sym_env(&s), &mut s, limit).eval();
 
         let result_expr = output.expr;
 

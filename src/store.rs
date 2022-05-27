@@ -1,11 +1,10 @@
-use itertools::Itertools;
+use generic_array::typenum::{U4, U6, U8};
 use neptune::Poseidon;
 use rayon::prelude::*;
 use std::hash::Hash;
 use std::{fmt, marker::PhantomData};
 use string_interner::symbol::{Symbol, SymbolUsize};
 
-use generic_array::typenum::{U4, U6, U8};
 use neptune::poseidon::PoseidonConstants;
 use once_cell::sync::OnceCell;
 
@@ -200,6 +199,12 @@ impl<F: LurkField> Ptr<F> {
 
     pub fn is_opaque(&self) -> bool {
         self.1.is_opaque()
+    }
+}
+
+impl<F: LurkField> From<char> for Ptr<F> {
+    fn from(c: char) -> Self {
+        Self(Tag::Char, RawPtr::new(u32::from(c) as usize))
     }
 }
 
@@ -449,6 +454,7 @@ pub enum Expression<'a, F: LurkField> {
     Str(&'a str),
     Thunk(Thunk<F>),
     Opaque(Ptr<F>),
+    Char(char),
 }
 
 impl<F: LurkField> Object<F> for Expression<'_, F> {
@@ -591,6 +597,7 @@ pub enum Op2 {
     Product,
     Quotient,
     Cons,
+    Begin,
 }
 
 impl Op2 {
@@ -617,6 +624,7 @@ impl fmt::Display for Op2 {
             Op2::Product => write!(f, "Product"),
             Op2::Quotient => write!(f, "Quotient"),
             Op2::Cons => write!(f, "Cons"),
+            Op2::Begin => write!(f, "Begin"),
         }
     }
 }
@@ -660,6 +668,7 @@ pub enum Tag {
     Num,
     Thunk,
     Str,
+    Char,
 }
 
 impl From<Tag> for u64 {
@@ -784,6 +793,7 @@ impl<F: LurkField> Default for Store<F> {
             "_",
             "let",
             "letrec",
+            "begin",
             "cons",
             "car",
             "cdr",
@@ -868,6 +878,14 @@ impl<F: LurkField> Store<F> {
         self.get_sym("nil", true).expect("missing NIL")
     }
 
+    pub fn get_begin(&self) -> Ptr<F> {
+        self.get_sym("begin", true).expect("missing BEGIN")
+    }
+
+    pub fn get_quote(&self) -> Ptr<F> {
+        self.get_sym("quote", true).expect("missing QUOTE")
+    }
+
     pub fn get_t(&self) -> Ptr<F> {
         self.get_sym("t", true).expect("missing T")
     }
@@ -877,6 +895,15 @@ impl<F: LurkField> Store<F> {
             self.hash_expr(&car);
             self.hash_expr(&cdr);
         }
+        if (car.tag(), cdr.tag()) == (Tag::Char, Tag::Str) {
+            let (c, s) = (
+                self.fetch_char(&car).unwrap(),
+                self.fetch_str(&cdr).unwrap(),
+            );
+            let new_str = format!("{}{}", c, s);
+            return self.intern_str(&new_str);
+        };
+
         let (p, inserted) = self.cons_store.insert_full((car, cdr));
         let ptr = Ptr(Tag::Cons, RawPtr::new(p));
         if inserted {
@@ -1155,6 +1182,8 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
+        // Hash name for side effect. This will cause all tails to be interned.
+        self.hash_string_mut(name.as_ref());
         let name = name.as_ref().to_string();
 
         let tag = if name == "NIL" { Tag::Nil } else { Tag::Sym };
@@ -1187,12 +1216,23 @@ impl<F: LurkField> Store<F> {
         Ptr(Tag::Num, RawPtr::new(ptr))
     }
 
-    pub fn intern_str<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        if let Some(ptr) = self.str_store.0.get(&name) {
+    pub fn get_char(&self, c: char) -> Ptr<F> {
+        Ptr(Tag::Char, RawPtr::new(u32::from(c) as usize))
+    }
+
+    pub fn intern_str<T: AsRef<str>>(&mut self, str: T) -> Ptr<F> {
+        // Hash string for side effect. This will cause all tails to be interned.
+        self.hash_string_mut(str.as_ref());
+        self.intern_str_aux(str)
+    }
+
+    fn intern_str_aux<T: AsRef<str>>(&mut self, str: T) -> Ptr<F> {
+        if let Some(ptr) = self.str_store.0.get(&str) {
             Ptr(Tag::Str, RawPtr::new(ptr.to_usize()))
         } else {
-            let ptr = self.str_store.0.get_or_intern(name);
+            let ptr = self.str_store.0.get_or_intern(str);
             let ptr = Ptr(Tag::Str, RawPtr::new(ptr.to_usize()));
+
             self.dehydrated.push(ptr);
             ptr
         }
@@ -1469,6 +1509,11 @@ impl<F: LurkField> Store<F> {
         self.str_store.0.resolve(symbol)
     }
 
+    pub(crate) fn fetch_char(&self, ptr: &Ptr<F>) -> Option<char> {
+        debug_assert!(matches!(ptr.0, Tag::Char));
+        char::from_u32(ptr.1 .0 as u32)
+    }
+
     pub(crate) fn fetch_fun(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>, Ptr<F>)> {
         debug_assert!(matches!(ptr.0, Tag::Fun));
         if ptr.1.is_opaque() {
@@ -1511,7 +1556,8 @@ impl<F: LurkField> Store<F> {
                 .fetch_fun(ptr)
                 .map(|(a, b, c)| Expression::Fun(*a, *b, *c)),
             Tag::Thunk => self.fetch_thunk(ptr).map(|thunk| Expression::Thunk(*thunk)),
-            Tag::Str => self.fetch_str(ptr).map(Expression::Str),
+            Tag::Str => self.fetch_str(ptr).map(|str| Expression::Str(str)),
+            Tag::Char => self.fetch_char(ptr).map(Expression::Char),
         }
     }
 
@@ -1635,14 +1681,60 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn car_cdr(&self, ptr: &Ptr<F>) -> (Ptr<F>, Ptr<F>) {
+    /// Mutable version of car_cdr to handle Str. `(cdr str)` may return a new str (the tail), which must be allocated.
+    pub fn car_cdr_mut(&mut self, ptr: &Ptr<F>) -> (Ptr<F>, Ptr<F>) {
         match ptr.0 {
             Tag::Nil => (self.get_nil(), self.get_nil()),
             Tag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => (car, cdr),
-                Some(Expression::Opaque(_)) => panic!("uiop"),
+                Some(Expression::Opaque(_)) => panic!("cannot destructure opaque Cons"),
                 _ => unreachable!(),
             },
+            Tag::Str => {
+                if let Some(Expression::Str(s)) = self.fetch(ptr) {
+                    let mut str = s.chars();
+                    if let Some(c) = str.next() {
+                        let cdr_str: String = str.collect();
+                        let str = self.intern_str(&cdr_str);
+                        (self.get_char(c), str)
+                    } else {
+                        (self.nil(), self.intern_str(&""))
+                    }
+                } else {
+                    panic!();
+                }
+            }
+            _ => {
+                // FIXME: Don't panic. This can happen at runtime in a valid Lurk program,
+                // so it should result in an explicit error.
+                panic!("Can only extract car_cdr from Cons")
+            }
+        }
+    }
+
+    pub fn car_cdr(&self, ptr: &Ptr<F>) -> (Ptr<F>, Ptr<F>) {
+        // FIXME: Maybe make error.
+        match ptr.0 {
+            Tag::Nil => (self.get_nil(), self.get_nil()),
+            Tag::Cons => match self.fetch(ptr) {
+                Some(Expression::Cons(car, cdr)) => (car, cdr),
+                Some(Expression::Opaque(_)) => panic!("cannot destructure opaque Cons"),
+                _ => unreachable!(),
+            },
+            Tag::Str => {
+                if let Some(Expression::Str(s)) = self.fetch(ptr) {
+                    let mut chars = s.chars();
+                    if let Some(c) = chars.next() {
+                        let cdr_str: String = chars.collect();
+                        let str = self.get_str(&cdr_str).expect("cdr str missing");
+                        (self.get_char(c), str)
+                    } else {
+                        panic!();
+                    }
+                } else {
+                    panic!();
+                }
+            }
             _ => {
                 // FIXME: Don't panic. This can happen at runtime in a valid Lurk program,
                 // so it should result in an explicit error.
@@ -1660,6 +1752,7 @@ impl<F: LurkField> Store<F> {
             Fun => self.hash_fun(*ptr),
             Num => self.hash_num(*ptr),
             Str => self.hash_str(*ptr),
+            Char => self.hash_char(*ptr),
             Thunk => self.hash_thunk(*ptr),
         }
     }
@@ -1677,6 +1770,7 @@ impl<F: LurkField> Store<F> {
             Fun => self.get_hash_fun(*ptr),
             Num => self.get_hash_num(*ptr),
             Str => self.get_hash_str(*ptr),
+            Char => self.get_hash_char(*ptr),
             Thunk => self.get_hash_thunk(*ptr),
         }
     }
@@ -1806,9 +1900,9 @@ impl<F: LurkField> Store<F> {
         saved_env: &Ptr<F>,
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
-        let var = self.hash_expr(var)?.into_hash_components();
-        let body = self.hash_expr(body)?.into_hash_components();
-        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+        let var = self.get_expr_hash(var)?.into_hash_components();
+        let body = self.get_expr_hash(body)?.into_hash_components();
+        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([var, body, saved_env, cont])
     }
@@ -1820,9 +1914,9 @@ impl<F: LurkField> Store<F> {
         saved_env: &Ptr<F>,
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
-        let var = self.hash_expr(var)?.into_hash_components();
-        let body = self.hash_expr(body)?.into_hash_components();
-        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+        let var = self.get_expr_hash(var)?.into_hash_components();
+        let body = self.get_expr_hash(body)?.into_hash_components();
+        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([var, body, saved_env, cont])
     }
@@ -1833,7 +1927,7 @@ impl<F: LurkField> Store<F> {
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
         let def = [F::zero(), F::zero()];
-        let unevaled_args = self.hash_expr(unevaled_args)?.into_hash_components();
+        let unevaled_args = self.get_expr_hash(unevaled_args)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([unevaled_args, cont, def, def])
     }
@@ -1846,7 +1940,7 @@ impl<F: LurkField> Store<F> {
     ) -> Option<[[F; 2]; 4]> {
         let def = [F::zero(), F::zero()];
         let rel = self.hash_rel2(rel).into_hash_components();
-        let arg1 = self.hash_expr(arg1)?.into_hash_components();
+        let arg1 = self.get_expr_hash(arg1)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([rel, arg1, cont, def])
     }
@@ -1859,8 +1953,8 @@ impl<F: LurkField> Store<F> {
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
         let rel = self.hash_rel2(rel).into_hash_components();
-        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
-        let unevaled_args = self.hash_expr(unevaled_args)?.into_hash_components();
+        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
+        let unevaled_args = self.get_expr_hash(unevaled_args)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([rel, saved_env, unevaled_args, cont])
     }
@@ -1873,7 +1967,7 @@ impl<F: LurkField> Store<F> {
     ) -> Option<[[F; 2]; 4]> {
         let def = [F::zero(), F::zero()];
         let op = self.hash_op2(op).into_hash_components();
-        let arg1 = self.hash_expr(arg1)?.into_hash_components();
+        let arg1 = self.get_expr_hash(arg1)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([op, arg1, cont, def])
     }
@@ -1886,8 +1980,8 @@ impl<F: LurkField> Store<F> {
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
         let op = self.hash_op2(op).into_hash_components();
-        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
-        let unevaled_args = self.hash_expr(unevaled_args)?.into_hash_components();
+        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
+        let unevaled_args = self.get_expr_hash(unevaled_args)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([op, saved_env, unevaled_args, cont])
     }
@@ -1905,7 +1999,7 @@ impl<F: LurkField> Store<F> {
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
         let def = [F::zero(), F::zero()];
-        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([saved_env, cont, def, def])
     }
@@ -1916,7 +2010,7 @@ impl<F: LurkField> Store<F> {
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
         let def = [F::zero(), F::zero()];
-        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([saved_env, cont, def, def])
     }
@@ -1936,8 +2030,8 @@ impl<F: LurkField> Store<F> {
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
         let def = [F::zero(), F::zero()];
-        let arg = self.hash_expr(arg)?.into_hash_components();
-        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+        let arg = self.get_expr_hash(arg)?.into_hash_components();
+        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
 
         Some([saved_env, arg, cont, def])
@@ -1950,8 +2044,8 @@ impl<F: LurkField> Store<F> {
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
         let def = [F::zero(), F::zero()];
-        let fun = self.hash_expr(fun)?.into_hash_components();
-        let saved_env = self.hash_expr(saved_env)?.into_hash_components();
+        let fun = self.get_expr_hash(fun)?.into_hash_components();
+        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([saved_env, fun, cont, def])
     }
@@ -1965,7 +2059,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn get_hash_components_thunk(&self, thunk: &Thunk<F>) -> Option<[F; 4]> {
-        let value_hash = self.hash_expr(&thunk.value)?.into_hash_components();
+        let value_hash = self.get_expr_hash(&thunk.value)?.into_hash_components();
         let continuation_hash = self.hash_cont(&thunk.continuation)?.into_hash_components();
 
         Some([
@@ -1982,7 +2076,8 @@ impl<F: LurkField> Store<F> {
         }
         let s = self.fetch_sym(&sym)?;
 
-        Some(self.create_scalar_ptr(sym, self.hash_string(s)))
+        let str_hash = self.hash_string(s);
+        Some(self.create_scalar_ptr(sym, str_hash))
     }
 
     pub fn get_hash_sym(&self, sym: Ptr<F>) -> Option<ScalarPtr<F>> {
@@ -1993,13 +2088,21 @@ impl<F: LurkField> Store<F> {
         Some(self.get_scalar_ptr(sym, self.hash_string(s)))
     }
 
-    fn hash_str(&self, sym: Ptr<F>) -> Option<ScalarPtr<F>> {
-        let s = self.fetch_str(&sym)?;
-        Some(self.create_scalar_ptr(sym, self.hash_string(s)))
+    fn hash_str(&self, str: Ptr<F>) -> Option<ScalarPtr<F>> {
+        if str.is_opaque() {
+            return self.opaque_map.get(&str).map(|s| *s);
+        }
+
+        let s = self.fetch_str(&str)?;
+        Some(self.create_scalar_ptr(str, self.hash_string(s)))
     }
-    fn get_hash_str(&self, sym: Ptr<F>) -> Option<ScalarPtr<F>> {
-        let s = self.fetch_str(&sym)?;
-        Some(self.get_scalar_ptr(sym, self.hash_string(s)))
+
+    fn get_hash_str(&self, str: Ptr<F>) -> Option<ScalarPtr<F>> {
+        if str.is_opaque() {
+            return self.opaque_map.get(&str).map(|s| *s);
+        }
+        let s = self.fetch_str(&str)?;
+        Some(self.get_scalar_ptr(str, self.hash_string(s)))
     }
 
     fn hash_fun(&self, fun: Ptr<F>) -> Option<ScalarPtr<F>> {
@@ -2069,6 +2172,17 @@ impl<F: LurkField> Store<F> {
         Some(self.get_scalar_ptr(ptr, self.poseidon_cache.hash4(&components)))
     }
 
+    fn hash_char(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
+        let char_code = ptr.1 .0 as u32;
+
+        Some(self.create_scalar_ptr(ptr, F::from(char_code as u64)))
+    }
+    fn get_hash_char(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
+        let char_code = ptr.1 .0 as u32;
+
+        Some(self.get_scalar_ptr(ptr, F::from(char_code as u64)))
+    }
+
     fn hash_num(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
         let n = self.fetch_num(&ptr)?;
 
@@ -2081,24 +2195,74 @@ impl<F: LurkField> Store<F> {
     }
 
     fn hash_string(&self, s: &str) -> F {
-        // We should use HashType::VariableLength, once supported.
-        // The following is just quick and dirty, but should be unique.
-        let mut preimage = [F::zero(); 8];
-        let mut x = F::from(s.len() as u64);
-        s.chars()
-            .map(|c| F::from(c as u64))
-            .chunks(7)
-            .into_iter()
-            .for_each(|mut chunk| {
-                preimage[0] = x;
-                for item in preimage.iter_mut().skip(1).take(7) {
-                    if let Some(c) = chunk.next() {
-                        *item = c
-                    };
-                }
-                x = self.poseidon_cache.hash8(&preimage)
-            });
-        x
+        if s.is_empty() {
+            return F::zero();
+        };
+        let mut chars = s.chars();
+        let char = chars.next().unwrap();
+        let rest_string = chars.collect::<String>();
+        let c = self.get_char(char);
+
+        let rest = self.get_str(&rest_string).expect("str missing from store");
+
+        self.get_hash_ptrs_2(&[c, rest]).unwrap()
+    }
+
+    pub fn hash_string_mut(&mut self, s: &str) -> F {
+        let mut v = im::Vector::<char>::new();
+        for c in s.chars() {
+            v.push_back(c);
+        }
+        self.intern_str_aux(&s);
+
+        let initial_hash = F::zero();
+        let initial_scalar_ptr = {
+            let hash = initial_hash;
+            let ptr = self.intern_str_aux(&"");
+            self.create_scalar_ptr(ptr, hash)
+        };
+
+        if s.is_empty() {
+            initial_hash
+        } else {
+            let all_hashes = self.all_hashes(s, initial_scalar_ptr);
+            self.hash_string_mut_aux(v, all_hashes)
+        }
+    }
+
+    // All hashes of substrings, shortest to longest.
+    fn all_hashes(&mut self, s: &str, initial_scalar_ptr: ScalarPtr<F>) -> Vec<F> {
+        let chars = s.chars().rev();
+        let mut hashes = Vec::with_capacity(s.len());
+
+        chars.fold(initial_scalar_ptr, |acc, char| {
+            let c_scalar: F = (u32::from(char) as u64).into();
+            // This bypasses create_scalar_ptr but is okay because Chars are immediate and don't need to be indexed.
+            let c = ScalarPtr(Tag::Char.as_field(), c_scalar);
+            let hash = self.hash_scalar_ptrs_2(&[c, acc]);
+            // This bypasses create_scalar_ptr but is okay because we will call it to correctly create each of these
+            // ScalarPtrs belwo, in hash_string_mut_aux.
+            let new_scalar_ptr = ScalarPtr(Tag::Str.as_field(), hash);
+            hashes.push(hash);
+            new_scalar_ptr
+        });
+
+        hashes
+    }
+
+    fn hash_string_mut_aux(&mut self, mut s: im::Vector<char>, all_hashes: Vec<F>) -> F {
+        debug_assert_eq!(s.len(), all_hashes.len());
+
+        let final_hash = all_hashes.last().unwrap();
+
+        for hash in all_hashes.iter().rev() {
+            let string = s.iter().collect::<String>();
+            let ptr = self.intern_str_aux(&string);
+            self.create_scalar_ptr(ptr, *hash);
+            s.slice(..1);
+        }
+
+        *final_hash
     }
 
     fn hash_ptrs_2(&self, ptrs: &[Ptr<F>; 2]) -> Option<F> {
@@ -2588,18 +2752,21 @@ pub mod test {
         {
             let comparison_expr = store.list(&[eq, fun, opaque_fun]);
             println!("comparison_expr: {}", comparison_expr.fmt_to_string(&store));
-            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, fun2, opaque_fun]);
             println!("comparison_expr: {}", comparison_expr.fmt_to_string(&store));
-            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
             assert_eq!(nil, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, fun2, opaque_fun2]);
-            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
             assert_eq!(t, result.expr);
         }
         {
@@ -2612,7 +2779,8 @@ pub mod test {
             let cons_expr2 = store.list(&[cons, opaque_fun, n]);
 
             let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
-            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
             assert_eq!(t, result.expr);
         }
     }
@@ -2680,17 +2848,20 @@ pub mod test {
 
         {
             let comparison_expr = store.list(&[eq, qsym, qsym_opaque]);
-            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qsym2, qsym_opaque]);
-            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
             assert_eq!(nil, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qsym2, qsym_opaque2]);
-            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
             assert_eq!(t, result.expr);
         }
         {
@@ -2703,7 +2874,8 @@ pub mod test {
             let cons_expr2 = store.list(&[cons, qsym_opaque, n]);
 
             let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
-            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
             assert_eq!(t, result.expr);
         }
     }
@@ -2737,17 +2909,20 @@ pub mod test {
         {
             let comparison_expr = store.list(&[eq, qcons, qcons_opaque]);
             // FIXME: need to implement Write for opaque data.
-            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qcons2, qcons_opaque]);
-            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
             assert_eq!(nil, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qcons2, qcons_opaque2]);
-            let (result, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
             assert_eq!(t, result.expr);
         }
         {
@@ -2764,12 +2939,12 @@ pub mod test {
             let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
             let comparison_expr2 = store.list(&[eq, cons_expr1, cons_expr3]);
             {
-                let (result, _) =
+                let (result, _, _) =
                     Evaluator::new(comparison_expr, empty_env, &mut store, limit).eval();
                 assert_eq!(t, result.expr);
             }
             {
-                let (result, _) =
+                let (result, _, _) =
                     Evaluator::new(comparison_expr2, empty_env, &mut store, limit).eval();
                 assert_eq!(nil, result.expr);
             }
@@ -2799,5 +2974,100 @@ pub mod test {
 
         let opaque_cons = make_opaque_cons(&mut store);
         store.cdr(&opaque_cons);
+    }
+    #[test]
+    fn str_and_sym_hashes() {
+        let s = &mut Store::<Fr>::default();
+
+        let sym = s.sym("orange");
+        let str = s.read(r#" "ORANGE" "#).unwrap();
+
+        let sym_hash = s.get_expr_hash(&sym).unwrap().1;
+        let str_hash = s.hash_expr(&str).unwrap().1;
+
+        assert_eq!(sym_hash, str_hash);
+    }
+
+    #[test]
+    fn empty_str_tag_hash() {
+        let s = &mut Store::<Fr>::default();
+
+        let sym = s.sym("");
+        let sym_tag = s.get_expr_hash(&sym).unwrap().0;
+        let sym_hash = s.get_expr_hash(&sym).unwrap().1;
+
+        assert_eq!(Tag::Sym.as_field::<Fr>(), sym_tag);
+        assert_eq!(Fr::from(0), sym_hash)
+    }
+
+    #[test]
+    fn str_car_cdr_hashes() {
+        let s = &mut Store::<Fr>::default();
+
+        let str = s.read(r#" "ORANGE" "#).unwrap();
+        let str2 = s.cdr(&str);
+        let c = s.car(&str);
+
+        let str_hash = s.hash_expr(&str).unwrap().1;
+
+        let str_again = s.cons(c, str2);
+        let str_again_hash = s.hash_expr(&str_again).unwrap().1;
+
+        assert_eq!(str_hash, str_again_hash);
+    }
+
+    fn str_inner_fetch_aux(str: &str, hydrate: bool) {
+        let s = &mut Store::<Fr>::default();
+
+        let str = s.read(str).unwrap();
+        let str2 = s.cdr(&str);
+
+        // Unless the cache is hydrated, the inner destructuring will not map the ScalarPtr to corresponding Ptr.
+        if hydrate {
+            s.hydrate_scalar_cache();
+        };
+
+        let str2_scalar_ptr = s.get_expr_hash(&str2).unwrap();
+
+        let str2_again = s.fetch_scalar(&str2_scalar_ptr).unwrap();
+
+        dbg!(str2.fmt_to_string(&s), str2_again.fmt_to_string(&s));
+        assert_eq!(str2, str2_again);
+    }
+
+    #[test]
+    fn str_inner_fetch_hydrated() {
+        str_inner_fetch_aux(r#" "ORANGE" "#, true);
+    }
+
+    #[test]
+    fn str_inner_fetch_unhydrated() {
+        str_inner_fetch_aux(r#" "ORANGE" "#, false);
+    }
+
+    fn empty_str_fetch_aux(hydrate: bool) {
+        let s = &mut Store::<Fr>::default();
+
+        let str = s.read(r#" "" "#).unwrap();
+
+        // Unless the cache is hydrated, the inner destructuring will not map the ScalarPtr to corresponding Ptr.
+        if hydrate {
+            s.hydrate_scalar_cache();
+        };
+
+        let str_scalar_ptr = s.get_expr_hash(&str).unwrap();
+
+        let str_again = s.fetch_scalar(&str_scalar_ptr).unwrap();
+
+        assert_eq!(str, str_again);
+    }
+    #[test]
+    fn empty_str_fetch_hydrated() {
+        empty_str_fetch_aux(true);
+    }
+
+    #[test]
+    fn empty_str_fetch_unhydrated() {
+        empty_str_fetch_aux(false);
     }
 }

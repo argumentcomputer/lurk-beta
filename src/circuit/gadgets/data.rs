@@ -49,6 +49,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub op1_atom_tag: AllocatedNum<F>,
     pub op1_emit_tag: AllocatedNum<F>,
     pub op2_cons_tag: AllocatedNum<F>,
+    pub op2_begin_tag: AllocatedNum<F>,
     pub op2_sum_tag: AllocatedNum<F>,
     pub op2_diff_tag: AllocatedNum<F>,
     pub op2_product_tag: AllocatedNum<F>,
@@ -147,6 +148,7 @@ impl<F: LurkField> GlobalAllocations<F> {
         let op1_atom_tag = Op1::Atom.allocate_constant(&mut cs.namespace(|| "op1_atom_tag"))?;
         let op1_emit_tag = Op1::Emit.allocate_constant(&mut cs.namespace(|| "op1_emit_tag"))?;
         let op2_cons_tag = Op2::Cons.allocate_constant(&mut cs.namespace(|| "op2_cons_tag"))?;
+        let op2_begin_tag = Op2::Begin.allocate_constant(&mut cs.namespace(|| "op2_begin_tag"))?;
         let op2_sum_tag = Op2::Sum.allocate_constant(&mut cs.namespace(|| "op2_sum_tag"))?;
         let op2_diff_tag = Op2::Diff.allocate_constant(&mut cs.namespace(|| "op2_diff_tag"))?;
 
@@ -201,6 +203,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             op1_atom_tag,
             op1_emit_tag,
             op2_cons_tag,
+            op2_begin_tag,
             op2_sum_tag,
             op2_diff_tag,
             op2_product_tag,
@@ -298,9 +301,11 @@ impl<F: LurkField> Ptr<F> {
         match maybe_fun.map(|ptr| (ptr, ptr.tag())) {
             Some((ptr, Tag::Fun)) => match store.fetch(ptr).expect("missing fun") {
                 Expression::Fun(arg, body, closed_env) => {
-                    let arg = store.hash_expr(&arg).expect("missing arg");
-                    let body = store.hash_expr(&body).expect("missing body");
-                    let closed_env = store.hash_expr(&closed_env).expect("missing closed env");
+                    let arg = store.get_expr_hash(&arg).expect("missing arg");
+                    let body = store.get_expr_hash(&body).expect("missing body");
+                    let closed_env = store
+                        .get_expr_hash(&closed_env)
+                        .expect("missing closed env");
                     Self::allocate_fun(cs, store, arg, body, closed_env)
                 }
                 _ => unreachable!(),
