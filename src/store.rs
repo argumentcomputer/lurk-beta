@@ -193,6 +193,7 @@ impl<F: LurkField> Ptr<F> {
     pub fn is_nil(&self) -> bool {
         matches!(self.0, Tag::Nil)
     }
+
     pub fn is_fun(&self) -> bool {
         matches!(self.0, Tag::Fun)
     }

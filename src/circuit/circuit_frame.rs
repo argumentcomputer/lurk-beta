@@ -22,7 +22,7 @@ use super::gadgets::constraints::{
 use crate::circuit::ToInputs;
 use crate::eval::{Frame, Witness, IO};
 use crate::proof::Provable;
-use crate::store::{ContPtr, ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
+use crate::store::{ContPtr, ContTag, Op1, Op2, Ptr, Store, Tag, Thunk, Expression};
 
 #[derive(Clone, Copy, Debug)]
 pub struct CircuitFrame<'a, F: LurkField, T, W> {
@@ -533,6 +533,8 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         results.add_clauses_expr(Tag::Nil, expr, env, cont, &g.true_num);
         results.add_clauses_expr(Tag::Num, expr, env, cont, &g.true_num);
         results.add_clauses_expr(Tag::Fun, expr, env, cont, &g.true_num);
+        results.add_clauses_expr(Tag::Char, expr, env, cont, &g.true_num);
+        results.add_clauses_expr(Tag::Str, expr, env, cont, &g.true_num);
     };
 
     let cont_is_terminal = alloc_equal(
@@ -2866,12 +2868,22 @@ fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
         &g.cons_tag,
     )?;
 
-    let (car, cdr) = if not_dummy.get_value().expect("not_dummy missing") {
-        if let Some(ptr) = maybe_cons.ptr(store).as_ref() {
+    let (car, cdr) = if let Some(ptr) = maybe_cons.ptr(store).as_ref() {
+        if not_dummy.get_value().expect("not_dummy missing") {
             store.car_cdr(ptr)
         } else {
-            // Dummy
-            (store.get_nil(), store.get_nil())
+            if let Some(Expression::Str(s)) = store.fetch(ptr) {
+                let mut chars = s.chars();
+                if let Some(c) = chars.next() {
+                    let cdr_str: String = chars.collect();
+                    let str = store.get_str(&cdr_str).expect("cdr str missing");
+                    (store.get_char(c), str)
+                } else {
+                    (store.get_nil(), store.get_str(&"").unwrap())
+                }
+            } else {
+                (store.get_nil(), store.get_nil())
+            }
         }
     } else {
         // Dummy
@@ -3089,9 +3101,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(32114, cs.num_constraints());
+            assert_eq!(32132, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(32075, cs.aux().len());
+            assert_eq!(32093, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

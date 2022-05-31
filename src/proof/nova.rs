@@ -1988,4 +1988,46 @@ mod tests {
             false,
         );
     }
+
+    fn test_nova_aux<Fo: Fn(&'_ mut Store<Fr>) -> Ptr<Fr>> (
+        src: &str,
+        expected_expr: Fo,
+        expected_iterations: usize,
+    ) {
+        outer_prove_aux(
+            src,
+            expected_expr,
+            Status::Terminal,
+            expected_iterations,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_str_car_cdr_cons() {
+        test_nova_aux(
+            r#"(car "apple")"#,
+            |store| store.read(r#"#\a"#).unwrap(),
+            2);
+        test_nova_aux(
+            r#"(cdr "apple")"#,
+            |store| store.read(r#" "pple" "#).unwrap(),
+            2);
+        test_nova_aux(
+            r#"(car "")"#,
+            |store| store.nil(),
+            2);
+        test_nova_aux(
+            r#"(cdr "")"#,
+            |store| store.intern_str(&""),
+            2);
+        //test_nova_aux(
+        //    r#"(cons #\a "pple")"#,
+        //    |store| store.read(r#" "apple" "#).unwrap(),
+        //    3);
+    }
 }
