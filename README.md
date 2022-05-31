@@ -77,7 +77,6 @@ llc --version
 - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/#mac-stable) or [npm](https://nodejs.org/en/download/package-manager/)
 - [webpack](https://webpack.js.org/guides/installation/)
 
-```
 ### Build with wasm-pack
 
 * Linux

@@ -25,7 +25,7 @@ pub fn run_lurk(source: JsValue) -> Result<JsValue, JsValue> {
     context.insert("expression", expression.clone());
 
     if let Some(expr) = store.read(&expression) {
-        let (output, iterations) =
+        let (output, iterations, _ptrs) =
             Evaluator::new(expr, empty_sym_env(&store), &mut store, limit).eval();
 
         let iterations_str = iterations.to_string();

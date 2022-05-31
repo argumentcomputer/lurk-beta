@@ -322,6 +322,31 @@ mod tests {
         }
     }
 
+    fn check_emitted_frames<Fo: Fn(&'_ mut Store<Fr>) -> Vec<Ptr<Fr>>>(
+        source: &str,
+        chunk_frame_count: usize,
+        limit: usize,
+        emitted: Fo,
+    ) {
+        let mut s = Store::default();
+
+        let expr = s.read(source).unwrap();
+
+        let e = empty_sym_env(&s);
+
+        let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
+
+        let frames = nova_prover.get_evaluation_frames(expr, e, &mut s, limit);
+
+        let emitted_result = emitted(&mut s);
+
+        let emitted_vec: Vec<_> = frames
+            .iter()
+            .flat_map(|frame| frame.output.maybe_emitted_expression(&s))
+            .collect();
+        assert_eq!(emitted_vec, emitted_result);
+    }
+
     pub fn check_cs_deltas(
         constraint_systems: &SequentialCS<Fr, IO<Fr>, Witness<Fr>>,
         chunk_frame_count: usize,
@@ -411,6 +436,7 @@ mod tests {
             100,
             false,
         );
+
         outer_prove_aux(
             "(= 5 6)",
             |store| store.nil(),
@@ -437,6 +463,7 @@ mod tests {
             100,
             false,
         );
+
         outer_prove_aux(
             "(= nil 5)",
             |store| store.num(5),
@@ -578,6 +605,7 @@ mod tests {
             10,
             false,
         );
+
         outer_prove_aux(
             "(car '(1 . 2))",
             |store| store.num(1),
@@ -1862,6 +1890,7 @@ mod tests {
                 cont: _continuation,
             },
             _iterations,
+            _emitted,
         ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         outer_prove_aux(
@@ -1898,6 +1927,7 @@ mod tests {
                 cont: _continuation,
             },
             _iterations,
+            _emitted,
         ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
         outer_prove_aux(
@@ -1905,6 +1935,52 @@ mod tests {
             |_| result_expr,
             Status::Terminal,
             39,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+    }
+
+    #[test]
+    fn outer_prove_begin() {
+        let mut s = Store::<Fr>::default();
+
+        let src = "(begin (emit 1) (emit 2) (emit 3))";
+
+        let expr = s.read(src).unwrap();
+        let limit = 300;
+
+        let (_io, _iterations, emitted) =
+            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+        let expected = vec![s.num(1), s.num(2), s.num(3)];
+        assert_eq!(emitted, expected);
+
+        outer_prove_aux(
+            src,
+            |store| store.num(3),
+            Status::Terminal,
+            13,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_CHECK_NOVA,
+            true,
+            300,
+            false,
+        );
+
+        check_emitted_frames(&src, DEFAULT_CHUNK_FRAME_COUNT, 300, |store| {
+            vec![store.num(1), store.num(2), store.num(3)]
+        });
+    }
+
+    #[test]
+    fn outer_prove_begin_empty() {
+        outer_prove_aux(
+            "(begin)",
+            |store| store.nil(),
+            Status::Terminal,
+            2,
             DEFAULT_CHUNK_FRAME_COUNT,
             DEFAULT_CHECK_NOVA,
             true,
