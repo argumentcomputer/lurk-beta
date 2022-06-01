@@ -26,6 +26,8 @@ pub struct GlobalAllocations<F: LurkField> {
     pub sym_tag: AllocatedNum<F>,
     pub thunk_tag: AllocatedNum<F>,
     pub cons_tag: AllocatedNum<F>,
+    pub char_tag: AllocatedNum<F>,
+    pub str_tag: AllocatedNum<F>,
     pub num_tag: AllocatedNum<F>,
     pub fun_tag: AllocatedNum<F>,
     pub let_cont_tag: AllocatedNum<F>,
@@ -111,6 +113,8 @@ impl<F: LurkField> GlobalAllocations<F> {
         let sym_tag = Tag::Sym.allocate_constant(&mut cs.namespace(|| "sym_tag"))?;
         let thunk_tag = Tag::Thunk.allocate_constant(&mut cs.namespace(|| "thunk_tag"))?;
         let cons_tag = Tag::Cons.allocate_constant(&mut cs.namespace(|| "cons_tag"))?;
+        let char_tag = Tag::Char.allocate_constant(&mut cs.namespace(|| "char_tag"))?;
+        let str_tag = Tag::Str.allocate_constant(&mut cs.namespace(|| "str_tag"))?;
         let num_tag = Tag::Num.allocate_constant(&mut cs.namespace(|| "num_tag"))?;
         let fun_tag = Tag::Fun.allocate_constant(&mut cs.namespace(|| "fun_tag"))?;
 
@@ -181,6 +185,8 @@ impl<F: LurkField> GlobalAllocations<F> {
             sym_tag,
             thunk_tag,
             cons_tag,
+            char_tag,
+            str_tag,
             num_tag,
             fun_tag,
             outermost_cont_tag,
