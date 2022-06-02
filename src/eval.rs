@@ -1306,6 +1306,50 @@ mod test {
     use crate::writer::Write;
     use blstrs::Scalar as Fr;
 
+    fn test_aux(
+        s: &mut Store<Fr>,
+        expr: &str,
+        expected_result: Option<Ptr<Fr>>,
+        expected_env: Option<Ptr<Fr>>,
+        expected_cont: Option<ContPtr<Fr>>,
+        expected_emitted: Option<Vec<Ptr<Fr>>>,
+        expected_iterations: usize,
+    ) {
+        let limit = 100000;
+        let expr = s.read(expr).unwrap();
+        let env = empty_sym_env(&s);
+        let (
+            IO {
+                expr: new_expr,
+                env: new_env,
+                cont: new_cont,
+            },
+            iterations,
+            emitted,
+        ) = Evaluator::new(expr, env, s, limit).eval();
+
+        if let Some(expected_result) = expected_result {
+            assert_eq!(expected_result, new_expr);
+        }
+        if let Some(expected_env) = expected_env {
+            assert_eq!(expected_env, new_env);
+        }
+        if let Some(expected_cont) = expected_cont {
+            assert_eq!(expected_cont, new_cont);
+        } else {
+            assert_eq!(s.intern_cont_terminal(), new_cont);
+        }
+        if let Some(expected_emitted) = expected_emitted {
+            assert_eq!(expected_emitted.len(), emitted.len());
+
+            assert!(expected_emitted
+                .iter()
+                .zip(emitted)
+                .all(|(a, b)| s.ptr_eq(a, &b)));
+        }
+        assert_eq!(expected_iterations, iterations);
+    }
+
     #[test]
     fn test_lookup() {
         let mut store = Store::<Fr>::default();
@@ -2080,50 +2124,6 @@ mod test {
             let expected = s.num(18);
             test_aux(s, expr, Some(expected), None, None, None, 22);
         }
-    }
-
-    fn test_aux(
-        s: &mut Store<Fr>,
-        expr: &str,
-        expected_result: Option<Ptr<Fr>>,
-        expected_env: Option<Ptr<Fr>>,
-        expected_cont: Option<ContPtr<Fr>>,
-        expected_emitted: Option<Vec<Ptr<Fr>>>,
-        expected_iterations: usize,
-    ) {
-        let limit = 100000;
-        let expr = s.read(expr).unwrap();
-        let env = empty_sym_env(&s);
-        let (
-            IO {
-                expr: new_expr,
-                env: new_env,
-                cont: new_cont,
-            },
-            iterations,
-            emitted,
-        ) = Evaluator::new(expr, env, s, limit).eval();
-
-        if let Some(expected_result) = expected_result {
-            assert_eq!(expected_result, new_expr);
-        }
-        if let Some(expected_env) = expected_env {
-            assert_eq!(expected_env, new_env);
-        }
-        if let Some(expected_cont) = expected_cont {
-            assert_eq!(expected_cont, new_cont);
-        } else {
-            assert_eq!(s.intern_cont_terminal(), new_cont);
-        }
-        if let Some(expected_emitted) = expected_emitted {
-            assert_eq!(expected_emitted.len(), emitted.len());
-
-            assert!(expected_emitted
-                .iter()
-                .zip(emitted)
-                .all(|(a, b)| s.ptr_eq(a, &b)));
-        }
-        assert_eq!(expected_iterations, iterations);
     }
 
     #[test]

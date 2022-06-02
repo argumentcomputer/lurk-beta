@@ -243,6 +243,7 @@ mod tests {
     use super::*;
     use crate::eval::{empty_sym_env, Status};
     use crate::proof::{verify_sequential_css, SequentialCS};
+    use crate::store::ContPtr;
     use crate::writer::Write;
 
     use bellperson::util_cs::{metric_cs::MetricCS, Comparable, Delta};
@@ -322,29 +323,73 @@ mod tests {
         }
     }
 
-    fn check_emitted_frames<Fo: Fn(&'_ mut Store<Fr>) -> Vec<Ptr<Fr>>>(
-        source: &str,
-        chunk_frame_count: usize,
-        limit: usize,
-        emitted: Fo,
+    fn nova_test_aux(
+        s: &mut Store<Fr>,
+        expr: &str,
+        expected_result: Option<Ptr<Fr>>,
+        expected_env: Option<Ptr<Fr>>,
+        expected_cont: Option<ContPtr<Fr>>,
+        expected_emitted: Option<Vec<Ptr<Fr>>>,
+        expected_iterations: usize,
     ) {
-        let mut s = Store::default();
-
-        let expr = s.read(source).unwrap();
+        let limit = 100000;
+        let expr = s.read(expr).unwrap();
 
         let e = empty_sym_env(&s);
 
-        let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
+        let nova_prover = NovaProver::<Fr>::new(DEFAULT_CHUNK_FRAME_COUNT);
+        let proof_results = Some(
+            nova_prover
+                .evaluate_and_prove(expr, empty_sym_env(&s), s, limit)
+                .unwrap(),
+        );
 
-        let frames = nova_prover.get_evaluation_frames(expr, e, &mut s, limit);
+        let shape_and_gens = nova_prover.make_shape_and_gens();
 
-        let emitted_result = emitted(&mut s);
+        if let Some((proof, instance)) = proof_results {
+            proof.verify(&shape_and_gens, &instance);
+        }
 
-        let emitted_vec: Vec<_> = frames
-            .iter()
-            .flat_map(|frame| frame.output.maybe_emitted_expression(&s))
-            .collect();
-        assert_eq!(emitted_vec, emitted_result);
+        let frames = nova_prover.get_evaluation_frames(expr, e, s, limit);
+
+        let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, &s);
+        let cs = nova_prover.outer_synthesize(&multiframes).unwrap();
+
+        let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
+        let output = cs[cs.len() - 1].0.output.unwrap();
+
+        // dbg!(
+        //     multiframes.len(),
+        //     nova_prover.chunk_frame_count(),
+        //     frames.len(),
+        //     output.expr.fmt_to_string(&s)
+        // );
+
+        assert_eq!(expected_iterations, Frame::significant_frame_count(&frames));
+        assert_eq!(adjusted_iterations, cs.len());
+        if let Some(expected_result) = expected_result {
+            assert_eq!(expected_result, output.expr);
+        }
+        if let Some(expected_env) = expected_env {
+            assert_eq!(expected_env, output.env);
+        }
+        if let Some(expected_cont) = expected_cont {
+            assert_eq!(expected_cont, output.cont);
+        } else {
+            assert_eq!(s.get_cont_terminal(), output.cont);
+        }
+        if let Some(expected_emitted) = expected_emitted {
+            let emitted_vec: Vec<_> = frames
+                .iter()
+                .flat_map(|frame| frame.output.maybe_emitted_expression(&s))
+                .collect();
+            assert_eq!(expected_emitted, emitted_vec);
+        }
+
+        let constraint_systems_verified = verify_sequential_css::<Fr>(&cs).unwrap();
+        assert!(constraint_systems_verified);
+
+        check_cs_deltas(&cs, nova_prover.chunk_frame_count());
     }
 
     pub fn check_cs_deltas(
@@ -372,209 +417,164 @@ mod tests {
     ////////////////////////////////////////////////////////////////////////////
 
     #[test]
-    #[ignore]
-    fn outer_prove_arithmetic_let() {
-        outer_prove_aux(
-            "(let ((a 5)
-                      (b 1)
-                      (c 2))
-                 (/ (+ a b) c))",
-            |store| store.num(3),
-            Status::Terminal,
-            18,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            100,
-            false,
-        );
+    fn test_outer_prove_binop() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(3);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
     #[ignore]
-    fn outer_prove_binop() {
-        outer_prove_aux(
-            "(+ 1 2)",
-            |store| store.num(3),
-            Status::Terminal,
-            3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            100,
-            false,
+    fn outer_prove_arithmetic_let() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(3);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
+            "(let ((a 5)
+                      (b 1)
+                      (c 2))
+                 (/ (+ a b) c))",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            18,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_eq() {
-        outer_prove_aux(
-            "(eq 5 5)",
-            |store| store.t(),
-            Status::Terminal,
-            3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            true, // Always check Nova in at least one test.
-            true,
-            100,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let expected = s.t();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, "(eq 5 5)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
     #[ignore]
     fn outer_prove_num_equal() {
-        outer_prove_aux(
-            "(= 5 5)",
-            |store| store.t(),
-            Status::Terminal,
-            3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            100,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let expected = s.t();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, "(= 5 5)", Some(expected), None, Some(terminal), None, 3);
 
-        outer_prove_aux(
-            "(= 5 6)",
-            |store| store.nil(),
-            Status::Terminal,
-            3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            100,
-            false,
-        );
+        let expected = s.nil();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, "(= 5 6)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
     fn outer_prove_invalid_num_equal() {
-        outer_prove_aux(
-            "(= 5 nil)",
-            |store| store.nil(),
-            Status::Error,
-            3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            100,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let expected = s.nil();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(= 5 nil)", Some(expected), None, Some(error), None, 3);
 
-        outer_prove_aux(
-            "(= nil 5)",
-            |store| store.num(5),
-            Status::Error,
-            3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            100,
-            false,
-        );
+        let expected = s.num(5);
+        nova_test_aux(s, "(= nil 5)", Some(expected), None, Some(error), None, 3);
     }
 
     #[test]
     fn outer_prove_quote_end_is_nil_error() {
-        outer_prove_aux(
-            "(quote (1) (2))",
-            |store| store.num(1),
-            Status::Error,
-            1,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            10,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(quote (1) (2))", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_if() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(5);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(if t 5 6)",
-            |store| store.num(5),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            100,
-            false,
         );
 
-        outer_prove_aux(
+        let expected = s.num(6);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(if nil 5 6)",
-            |store| store.num(6),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            100,
-            false,
         )
     }
 
     #[test]
     fn outer_prove_if_end_is_nil_error() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(5);
+        let error = s.get_cont_error();
+        nova_test_aux(
+            s,
             "(if nil 5 6 7)",
-            |store| store.num(5),
-            Status::Error,
+            Some(expected),
+            None,
+            Some(error),
+            None,
             2,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            100,
-            false,
         )
     }
 
     #[test]
     #[ignore]
     fn outer_prove_if_fully_evaluates() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(10);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(if t (+ 5 5) 6)",
-            |store| store.num(10),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             5,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            100,
-            false,
         );
     }
 
     #[test]
     #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
     fn outer_prove_recursion1() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(25);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(letrec ((exp (lambda (base)
                                (lambda (exponent)
                                  (if (= 0 exponent)
                                      1
                                      (* base ((exp base) (- exponent 1))))))))
                  ((exp 5) 2))",
-            |store| store.num(25),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             66,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            200,
-            false,
         );
     }
 
     #[test]
     #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
     fn outer_prove_recursion2() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(25);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(letrec ((exp (lambda (base)
                                   (lambda (exponent)
                                      (lambda (acc)
@@ -582,18 +582,16 @@ mod tests {
                                           acc
                                           (((exp base) (- exponent 1)) (* acc base))))))))
                 (((exp 5) 2) 1))",
-            |store| store.num(25),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             93,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     fn outer_prove_unop_regression_aux(chunk_count: usize) {
+        let s = &mut Store::<Fr>::default();
         outer_prove_aux(
             "(atom 123)",
             |store| store.sym("t"),
@@ -656,78 +654,86 @@ mod tests {
     #[test]
     #[ignore]
     fn outer_prove_emit_output() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(emit 123)",
-            |store| store.num(123),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            10,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(99);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "((lambda (x) x) 99)",
-            |store| store.num(99),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             4,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate2() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(99);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "((lambda (y)
                     ((lambda (x) y) 888))
                   99)",
-            |store| store.num(99),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             9,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate3() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(999);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "((lambda (y)
                      ((lambda (x)
                         ((lambda (z) z)
                          x))
                       y))
                    999)",
-            |store| store.num(999),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             10,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate4() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(888);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "((lambda (y)
                      ((lambda (x)
                         ((lambda (z) z)
@@ -735,415 +741,313 @@ mod tests {
                       ;; NOTE: We pass a different value here.
                       888))
                   999)",
-            |store| store.num(888),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             10,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate5() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(999);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(((lambda (fn)
                       (lambda (x) (fn x)))
                     (lambda (y) y))
                    999)",
-            |store| store.num(999),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             13,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_sum() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(9);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(+ 2 (+ 3 4))",
-            |store| store.num(9),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             6,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     fn outer_prove_evaluate_binop_rest_is_nil() {
-        outer_prove_aux(
-            "(- 9 8 7)",
-            |store| store.num(9),
-            Status::Error,
-            2,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(9);
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(- 9 8 7)", Some(expected), None, Some(error), None, 2);
     }
 
     #[test]
     fn outer_prove_evaluate_relop_rest_is_nil() {
-        outer_prove_aux(
-            "(= 9 8 7)",
-            |store| store.num(9),
-            Status::Error,
-            2,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(9);
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(= 9 8 7)", Some(expected), None, Some(error), None, 2);
     }
 
     #[test]
     fn outer_prove_evaluate_diff() {
-        outer_prove_aux(
-            "(- 9 5)",
-            |store| store.num(4),
-            Status::Terminal,
-            3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(4);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, "(- 9 5)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_product() {
-        outer_prove_aux(
-            "(* 9 5)",
-            |store| store.num(45),
-            Status::Terminal,
-            3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(45);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, "(* 9 5)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_quotient() {
-        outer_prove_aux(
-            "(/ 21 3)",
-            |store| store.num(7),
-            Status::Terminal,
-            3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(7);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, "(/ 21 3)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
     fn outer_prove_error_div_by_zero() {
-        outer_prove_aux(
-            "(/ 21 0)",
-            |store| store.num(0),
-            Status::Error,
-            3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(0);
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(/ 21 0)", Some(expected), None, Some(error), None, 3);
     }
 
     #[test]
     fn outer_prove_error_invalid_type_and_not_cons() {
-        outer_prove_aux(
-            "(/ 21 nil)",
-            |store| store.nil(),
-            Status::Error,
-            3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let expected = s.nil();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(/ 21 nil)", Some(expected), None, Some(error), None, 3);
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_adder() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(5);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(((lambda (x)
                     (lambda (y)
                       (+ x y)))
                   2)
                  3)",
-            |store| store.num(5),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             13,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     fn outer_prove_evaluate_current_env_simple() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.nil();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(current-env)",
-            |store| store.nil(),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             1,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     fn outer_prove_evaluate_current_env_rest_is_nil_error() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.nil();
+        let error = s.get_cont_error();
+        nova_test_aux(
+            s,
             "(current-env a)",
-            |store| store.nil(),
-            Status::Error,
+            Some(expected),
+            None,
+            Some(error),
+            None,
             1,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_let_simple() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(1);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(let ((a 1))
                   a)",
-            |store| store.num(1),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     fn outer_prove_evaluate_let_end_is_nil_error() {
-        outer_prove_aux(
-            "(let ((a 1 2)) a)",
-            |store| store.num(1),
-            Status::Error,
-            1,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(let ((a 1 2)) a)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_letrec_end_is_nil_error() {
-        outer_prove_aux(
-            "(letrec ((a 1 2)) a)",
-            |store| store.num(1),
-            Status::Error,
-            1,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(letrec ((a 1 2)) a)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_let_empty_error() {
-        outer_prove_aux(
-            "(let)",
-            |store| store.num(1),
-            Status::Error,
-            1,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(let)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_let_empty_body_error() {
-        outer_prove_aux(
-            "(let ((a 1)))",
-            |store| store.num(1),
-            Status::Error,
-            1,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(let ((a 1)))", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_letrec_empty_error() {
-        outer_prove_aux(
-            "(letrec)",
-            |store| store.num(1),
-            Status::Error,
-            1,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(letrec)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_letrec_empty_body_error() {
-        outer_prove_aux(
-            "(letrec ((a 1)))",
-            |store| store.num(1),
-            Status::Error,
-            1,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(letrec ((a 1)))", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_let_body_nil() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.t();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(eq nil (let () nil))",
-            |store| store.t(),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             4,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     fn outer_prove_evaluate_let_rest_body_is_nil_error() {
-        outer_prove_aux(
-            "(let ((a 1)) a 1)",
-            |store| store.sym("a"),
-            Status::Error,
-            1,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(let ((a 1)) a 1)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_letrec_rest_body_is_nil_error() {
-        outer_prove_aux(
-            "(letrec ((a 1)) a 1)",
-            |store| store.sym("a"),
-            Status::Error,
-            1,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(letrec ((a 1)) a 1)", None, None, Some(error), None, 1);
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_let_null_bindings() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(3);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(let () (+ 1 2))",
-            |store| store.num(3),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             4,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
     #[test]
     #[ignore]
     fn outer_prove_evaluate_letrec_null_bindings() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(3);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(letrec () (+ 1 2))",
-            |store| store.num(3),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             4,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_let() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(6);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(let ((a 1)
                        (b 2)
                        (c 3))
                   (+ a (+ b c)))",
-            |store| store.num(6),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             18,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_arithmetic() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(20);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "((((lambda (x)
                       (lambda (y)
                         (lambda (z)
@@ -1152,60 +1056,63 @@ mod tests {
                     2)
                   3)
                  4)",
-            |store| store.num(20),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             23,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_arithmetic_let() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(20);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(let ((x 2)
                         (y 3)
                         (z 4))
                    (* z (+ x y)))",
-            |store| store.num(20),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             18,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_comparison() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.t();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(let ((x 2)
                        (y 3)
                        (z 4))
                   (= 20 (* z
                            (+ x y))))",
-            |store| store.t(),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             21,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_conditional() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(5);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(let ((true (lambda (a)
                                (lambda (b)
                                  a)))
@@ -1218,21 +1125,22 @@ mod tests {
                                (lambda (cond)
                                  ((cond a) c))))))
                  (((if- 5) 6) true))",
-            |store| store.num(5),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             35,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_conditional2() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(6);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(let ((true (lambda (a)
                                (lambda (b)
                                  a)))
@@ -1245,21 +1153,22 @@ mod tests {
                                (lambda (cond)
                                  ((cond a) c))))))
                  (((if- 5) 6) false))",
-            |store| store.num(6),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             32,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_fundamental_conditional_bug() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(5);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(let ((true (lambda (a)
                                (lambda (b)
                                  a)))
@@ -1269,94 +1178,99 @@ mod tests {
                                (lambda (cond)
                                  ((cond a) c))))))
                  (((if- 5) 6) true))",
-            |store| store.num(5),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             32,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_if() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(6);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(if nil 5 6)",
-            |store| store.num(6),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_fully_evaluates() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(10);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(if t (+ 5 5) 6)",
-            |store| store.num(10),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             5,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_recursion() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(25);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(letrec ((exp (lambda (base)
                                    (lambda (exponent)
                                      (if (= 0 exponent)
                                          1
                                          (* base ((exp base) (- exponent 1))))))))
                            ((exp 5) 2))",
-            |store| store.num(25),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             66,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_recursion_multiarg() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(25);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(letrec ((exp (lambda (base exponent)
                                    (if (= 0 exponent)
                                        1
                                        (* base (exp base (- exponent 1)))))))
                            (exp 5 2))",
-            |store| store.num(25),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             69,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_recursion_optimized() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(25);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(let ((exp (lambda (base)
                                 (letrec ((base-inner
                                            (lambda (exponent)
@@ -1365,21 +1279,22 @@ mod tests {
                                                  (* base (base-inner (- exponent 1)))))))
                                         base-inner))))
                    ((exp 5) 2))",
-            |store| store.num(25),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             56,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_tail_recursion() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(25);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(letrec ((exp (lambda (base)
                                    (lambda (exponent-remaining)
                                      (lambda (acc)
@@ -1387,21 +1302,22 @@ mod tests {
                                            acc
                                            (((exp base) (- exponent-remaining 1)) (* acc base))))))))
                           (((exp 5) 2) 1))",
-            |store| store.num(25),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             93,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_tail_recursion_somewhat_optimized() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(25);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(letrec ((exp (lambda (base)
                                    (letrec ((base-inner
                                               (lambda (exponent-remaining)
@@ -1411,21 +1327,22 @@ mod tests {
                                                      ((base-inner (- exponent-remaining 1)) (* acc base)))))))
                                            base-inner))))
                           (((exp 5) 2) 1))",
-            |store| store.num(25),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             81,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_no_mutual_recursion() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.t();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(letrec ((even (lambda (n)
                                   (if (= 0 n)
                                       t
@@ -1435,21 +1352,21 @@ mod tests {
                         ;; NOTE: This is not true mutual-recursion.
                         ;; However, it exercises the behavior of LETREC.
                         (odd 1))",
-            |store| store.t(),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             22,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            50,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_no_mutual_recursion_error() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(
+            s,
             "(letrec ((even (lambda (n)
                                   (if (= 0 n)
                                       t
@@ -1459,272 +1376,235 @@ mod tests {
                         ;; NOTE: This is not true mutual-recursion.
                         ;; However, it exercises the behavior of LETREC.
                         (odd 2))",
-            |store| store.sym("odd"),
-            Status::Error,
+            None,
+            None,
+            Some(error),
+            None,
             25,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_cons1() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(1);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(car (cons 1 2))",
-            |store| store.num(1),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             5,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     fn outer_prove_evaluate_car_end_is_nil_error() {
-        outer_prove_aux(
-            "(car (1 2) 3)",
-            |store| store.num(1),
-            Status::Error,
-            1,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(car (1 2) 3)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_cdr_end_is_nil_error() {
-        outer_prove_aux(
-            "(cdr (1 2) 3)",
-            |store| store.num(1),
-            Status::Error,
-            1,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(cdr (1 2) 3)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_atom_end_is_nil_error() {
-        outer_prove_aux(
-            "(atom 123 4)",
-            |store| store.num(123),
-            Status::Error,
-            1,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(atom 123 4)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_emit_end_is_nil_error() {
-        outer_prove_aux(
-            "(emit 123 4)",
-            |store| store.num(123),
-            Status::Error,
-            1,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(emit 123 4)", None, None, Some(error), None, 1);
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_cons2() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(2);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(cdr (cons 1 2))",
-            |store| store.num(2),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             5,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_zero_arg_lambda1() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "((lambda () 123))",
-            |store| store.num(123),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_zero_arg_lambda2() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(10);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(let ((x 9) (f (lambda () (+ x 1)))) (f))",
-            |store| store.num(10),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             10,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
     #[test]
     fn outer_prove_evaluate_zero_arg_lambda3() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = {
+            let arg = s.sym("x");
+            let num = s.num(123);
+            let body = s.list(&[num]);
+            let env = s.nil();
+            s.intern_fun(arg, body, env)
+        };
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "((lambda (x) 123))",
-            |store| {
-                let arg = store.sym("x");
-                let num = store.num(123);
-                let body = store.list(&[num]);
-                let env = store.nil();
-                store.intern_fun(arg, body, env)
-            },
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     fn outer_prove_evaluate_zero_arg_lambda4() {
-        outer_prove_aux(
-            "((lambda () 123) 1)",
-            |store| store.intern_num(1),
-            Status::Error,
-            3,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, "((lambda () 123) 1)", None, None, Some(error), None, 3);
     }
 
     #[test]
     fn outer_prove_evaluate_zero_arg_lambda5() {
-        outer_prove_aux(
-            "(123)",
-            |store| store.intern_num(123),
-            Status::Error,
-            2,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(123);
+        let error = s.get_cont_error();
+        nova_test_aux(s, "(123)", Some(expected), None, Some(error), None, 2);
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_minimal_tail_call() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(letrec
                    ((f (lambda (x)
                          (if (= x 3)
                              123
                              (f (+ x 1))))))
                    (f 0))",
-            |store| store.num(123),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             50,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            100,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_cons_in_function1() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(2);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(((lambda (a)
                     (lambda (b)
                       (car (cons a b))))
                   2)
                  3)",
-            |store| store.num(2),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             15,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_cons_in_function2() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(3);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(((lambda (a)
                     (lambda (b)
                       (cdr (cons a b))))
                   2)
                  3)",
-            |store| store.num(3),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             15,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_multiarg_eval_bug() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(2);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(car (cdr '(1 2 3 4)))",
-            |store| store.num(2),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             4,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_multiple_letrec_bindings() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(letrec
                    ((x 888)
                     (f (lambda (x)
@@ -1732,21 +1612,22 @@ mod tests {
                              123
                              (f (+ x 1))))))
                   (f 0))",
-            |store| store.num(123),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             78,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_tail_call2() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(letrec
                    ((f (lambda (x)
                          (if (= x 5)
@@ -1754,57 +1635,60 @@ mod tests {
                              (f (+ x 1)))))
                     (g (lambda (x) (f x))))
                   (g 0))",
-            |store| store.num(123),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             84,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_multiple_letrecstar_bindings() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(13);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(letrec ((double (lambda (x) (* 2 x)))
                            (square (lambda (x) (* x x))))
                           (+ (square 3) (double 2)))",
-            |store| store.num(13),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             22,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_multiple_letrecstar_bindings_referencing() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(11);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(letrec ((double (lambda (x) (* 2 x)))
                            (double-inc (lambda (x) (+ 1 (double x)))))
                           (+ (double 3) (double-inc 2)))",
-            |store| store.num(11),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             31,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_multiple_letrecstar_bindings_recursive() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(33);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(letrec ((exp (lambda (base exponent)
                                   (if (= 0 exponent)
                                       1
@@ -1819,41 +1703,43 @@ mod tests {
                                       (* base (exp3 base (- exponent 1)))))))
                          (+ (+ (exp 3 2) (exp2 2 3))
                             (exp3 4 2)))",
-            |store| store.num(33),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             242,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_dont_discard_rest_env() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(18);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(let ((z 9))
                    (letrec ((a 1)
                              (b 2)
                              (l (lambda (x) (+ z x))))
                             (l 9)))",
-            |store| store.num(18),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             22,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_evaluate_fibonacci() {
-        outer_prove_aux(
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(1);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
             "(letrec ((next (lambda (a b n target)
                      (if (eq n target)
                          a
@@ -1863,163 +1749,127 @@ mod tests {
                             target))))
                     (fib (next 0 1 0)))
                 (fib 1))",
-            |store| store.num(1),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             89,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     fn outer_prove_terminal_continuation_regression() {
-        let mut s = Store::<Fr>::default();
-        let src = "(letrec ((a (lambda (x) (cons 2 2))))
-                     (a 1))";
-
-        let expr = s.read(src).unwrap();
-        let limit = 300;
-
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            _iterations,
-            _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        outer_prove_aux(
-            &src,
-            |_| result_expr,
-            Status::Terminal,
+        let s = &mut Store::<Fr>::default();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
+            "(letrec ((a (lambda (x) (cons 2 2))))
+                     (a 1))",
+            None,
+            None,
+            Some(terminal),
+            None,
             9,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
     }
 
     #[test]
     #[ignore]
     fn outer_prove_chained_functional_commitment() {
-        let mut s = Store::<Fr>::default();
-
-        let src = "(letrec ((secret 12345)
+        let s = &mut Store::<Fr>::default();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
+            "(letrec ((secret 12345)
                        (a (lambda (acc x)
                             (let ((acc (+ acc x)))
                               (cons acc (cons secret (a acc)))))))
-                (a 0 5))";
-
-        let expr = s.read(src).unwrap();
-        let limit = 300;
-
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            _iterations,
-            _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        outer_prove_aux(
-            &src,
-            |_| result_expr,
-            Status::Terminal,
+                (a 0 5))",
+            None,
+            None,
+            Some(terminal),
+            None,
             39,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
         );
-    }
-
-    #[test]
-    fn outer_prove_begin() {
-        let mut s = Store::<Fr>::default();
-
-        let src = "(begin (emit 1) (emit 2) (emit 3))";
-
-        let expr = s.read(src).unwrap();
-        let limit = 300;
-
-        let (_io, _iterations, emitted) =
-            Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-        let expected = vec![s.num(1), s.num(2), s.num(3)];
-        assert_eq!(emitted, expected);
-
-        outer_prove_aux(
-            src,
-            |store| store.num(3),
-            Status::Terminal,
-            13,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
-
-        check_emitted_frames(&src, DEFAULT_CHUNK_FRAME_COUNT, 300, |store| {
-            vec![store.num(1), store.num(2), store.num(3)]
-        });
     }
 
     #[test]
     fn outer_prove_begin_empty() {
-        outer_prove_aux(
-            "(begin)",
-            |store| store.nil(),
-            Status::Terminal,
-            2,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
-        );
+        let s = &mut Store::<Fr>::default();
+        let expected = s.nil();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, "(begin)", Some(expected), None, Some(terminal), None, 2);
     }
 
-    fn test_nova_aux<Fo: Fn(&'_ mut Store<Fr>) -> Ptr<Fr>>(
-        src: &str,
-        expected_expr: Fo,
-        expected_iterations: usize,
-    ) {
-        outer_prove_aux(
-            src,
-            expected_expr,
-            Status::Terminal,
-            expected_iterations,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            DEFAULT_CHECK_NOVA,
-            true,
-            300,
-            false,
+    #[test]
+    fn test_outer_prove_begin() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(begin (emit 1) (emit 2) (emit 3))";
+        let expected_expr = s.num(3);
+        let expected_emitted = vec![s.num(1), s.num(2), s.num(3)];
+        nova_test_aux(
+            s,
+            expr,
+            Some(expected_expr),
+            None,
+            None,
+            Some(expected_emitted),
+            13,
         );
     }
 
     #[test]
     fn outer_prove_str_car_cdr_cons() {
-        test_nova_aux(r#"(car "apple")"#, |store| store.read(r#"#\a"#).unwrap(), 2);
-        test_nova_aux(
-            r#"(cdr "apple")"#,
-            |store| store.read(r#" "pple" "#).unwrap(),
+        let s = &mut Store::<Fr>::default();
+        let expected_a = s.read(r#"#\a"#).unwrap();
+        let expected_pple = s.read(r#" "pple" "#).unwrap();
+        let expected_nil = s.nil();
+        let expected_empty_str = s.intern_str(&"");
+        let expected_apple = s.read(r#" "apple" "#).unwrap();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
+            r#"(car "apple")"#,
+            Some(expected_a),
+            None,
+            Some(terminal),
+            None,
             2,
         );
-        test_nova_aux(r#"(car "")"#, |store| store.nil(), 2);
-        test_nova_aux(r#"(cdr "")"#, |store| store.intern_str(&""), 2);
-        test_nova_aux(
+        nova_test_aux(
+            s,
+            r#"(cdr "apple")"#,
+            Some(expected_pple),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
+        nova_test_aux(
+            s,
+            r#"(car "")"#,
+            Some(expected_nil),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
+        nova_test_aux(
+            s,
+            r#"(cdr "")"#,
+            Some(expected_empty_str),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
+        nova_test_aux(
+            s,
             r#"(cons #\a "pple")"#,
-            |store| store.read(r#" "apple" "#).unwrap(),
+            Some(expected_apple),
+            None,
+            Some(terminal),
+            None,
             3,
         );
     }
