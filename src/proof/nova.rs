@@ -241,87 +241,14 @@ impl<F: LurkField> Nova<F> for NovaProver<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::eval::{empty_sym_env, Status};
+    use crate::eval::empty_sym_env;
     use crate::proof::{verify_sequential_css, SequentialCS};
     use crate::store::ContPtr;
-    use crate::writer::Write;
 
     use bellperson::util_cs::{metric_cs::MetricCS, Comparable, Delta};
     use pallas::Scalar as Fr;
 
-    const DEFAULT_CHECK_NOVA: bool = false;
-
     const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
-
-    fn outer_prove_aux<Fo: Fn(&'_ mut Store<Fr>) -> Ptr<Fr>>(
-        source: &str,
-        expected_result: Fo,
-        expected_cont: Status,
-        expected_iterations: usize,
-        chunk_frame_count: usize,
-        check_nova: bool,
-        check_constraint_systems: bool,
-        limit: usize,
-        debug: bool,
-    ) {
-        let mut s = Store::default();
-        let expected_result = expected_result(&mut s);
-
-        let expr = s.read(source).unwrap();
-
-        let e = empty_sym_env(&s);
-
-        let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
-        let proof_results = if check_nova {
-            Some(
-                nova_prover
-                    .evaluate_and_prove(expr, empty_sym_env(&s), &mut s, limit)
-                    .unwrap(),
-            )
-        } else {
-            None
-        };
-
-        let shape_and_gens = nova_prover.make_shape_and_gens();
-
-        if check_nova {
-            if let Some((proof, instance)) = proof_results {
-                proof.verify(&shape_and_gens, &instance);
-            }
-        }
-
-        if check_constraint_systems {
-            let frames = nova_prover.get_evaluation_frames(expr, e, &mut s, limit);
-
-            let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, &s);
-            let cs = nova_prover.outer_synthesize(&multiframes).unwrap();
-
-            let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
-            let output = cs[cs.len() - 1].0.output.unwrap();
-
-            if !debug {
-                dbg!(
-                    multiframes.len(),
-                    nova_prover.chunk_frame_count(),
-                    frames.len(),
-                    output.expr.fmt_to_string(&s)
-                );
-
-                assert_eq!(expected_iterations, Frame::significant_frame_count(&frames));
-                assert_eq!(adjusted_iterations, cs.len());
-                let status: Status = output.cont.into();
-                assert_eq!(expected_cont, status);
-                if expected_cont != Status::Error {
-                    assert_eq!(expected_result, output.expr);
-                }
-            }
-
-            let constraint_systems_verified = verify_sequential_css::<Fr>(&cs).unwrap();
-            assert!(constraint_systems_verified);
-
-            check_cs_deltas(&cs, nova_prover.chunk_frame_count());
-        }
-    }
 
     fn nova_test_aux(
         s: &mut Store<Fr>,
@@ -332,12 +259,34 @@ mod tests {
         expected_emitted: Option<Vec<Ptr<Fr>>>,
         expected_iterations: usize,
     ) {
+        nova_test_full_aux(
+            s,
+            expr,
+            expected_result,
+            expected_env,
+            expected_cont,
+            expected_emitted,
+            expected_iterations,
+            DEFAULT_CHUNK_FRAME_COUNT,
+        )
+    }
+
+    fn nova_test_full_aux(
+        s: &mut Store<Fr>,
+        expr: &str,
+        expected_result: Option<Ptr<Fr>>,
+        expected_env: Option<Ptr<Fr>>,
+        expected_cont: Option<ContPtr<Fr>>,
+        expected_emitted: Option<Vec<Ptr<Fr>>>,
+        expected_iterations: usize,
+        chunk_frame_count: usize,
+    ) {
         let limit = 100000;
         let expr = s.read(expr).unwrap();
 
         let e = empty_sym_env(&s);
 
-        let nova_prover = NovaProver::<Fr>::new(DEFAULT_CHUNK_FRAME_COUNT);
+        let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
         let proof_results = Some(
             nova_prover
                 .evaluate_and_prove(expr, empty_sym_env(&s), s, limit)
@@ -592,52 +541,53 @@ mod tests {
 
     fn outer_prove_unop_regression_aux(chunk_count: usize) {
         let s = &mut Store::<Fr>::default();
-        outer_prove_aux(
+        let expected = s.sym("t");
+        let terminal = s.get_cont_terminal();
+        nova_test_full_aux(
+            s,
             "(atom 123)",
-            |store| store.sym("t"),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
-            DEFAULT_CHECK_NOVA,
-            true,
-            10,
-            false,
         );
 
-        outer_prove_aux(
+        let expected = s.num(1);
+        nova_test_full_aux(
+            s,
             "(car '(1 . 2))",
-            |store| store.num(1),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
-            DEFAULT_CHECK_NOVA,
-            true,
-            10,
-            false,
         );
 
-        outer_prove_aux(
+        let expected = s.num(2);
+        nova_test_full_aux(
+            s,
             "(cdr '(1 . 2))",
-            |store| store.num(2),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
-            DEFAULT_CHECK_NOVA,
-            true,
-            10,
-            false,
         );
 
-        outer_prove_aux(
+        let expected = s.num(123);
+        nova_test_full_aux(
+            s,
             "(emit 123)",
-            |store| store.num(123),
-            Status::Terminal,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
             3,
             chunk_count,
-            DEFAULT_CHECK_NOVA,
-            true,
-            10,
-            false,
         )
     }
 
@@ -1802,7 +1752,7 @@ mod tests {
     }
 
     #[test]
-    fn test_outer_prove_begin() {
+    fn outer_prove_begin_emit() {
         let s = &mut Store::<Fr>::default();
         let expr = "(begin (emit 1) (emit 2) (emit 3))";
         let expected_expr = s.num(3);
