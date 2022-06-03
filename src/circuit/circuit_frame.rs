@@ -2456,15 +2456,15 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.char_tag,
         )?;
         let arg2_is_str = alloc_equal(&mut cs.namespace(|| "arg2_is_str"), arg2.tag(), &g.str_tag)?;
-        let both_args_are_str = Boolean::and(
-            &mut cs.namespace(|| "both_args_are_str"),
+        let args_are_char_str = Boolean::and(
+            &mut cs.namespace(|| "args_are_char_str"),
             &arg1_is_char,
             &arg2_is_str,
         )?;
 
         let cons_tag = pick(
             &mut cs.namespace(|| "cons_tag"),
-            &both_args_are_str,
+            &args_are_char_str,
             &g.str_tag,
             &g.cons_tag,
         )?;
