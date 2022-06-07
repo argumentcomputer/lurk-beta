@@ -268,6 +268,7 @@ mod tests {
             expected_emitted,
             expected_iterations,
             DEFAULT_CHUNK_FRAME_COUNT,
+            false,
         )
     }
 
@@ -280,6 +281,7 @@ mod tests {
         expected_emitted: Option<Vec<Ptr<Fr>>>,
         expected_iterations: usize,
         chunk_frame_count: usize,
+        check_nova: bool,
     ) {
         let limit = 100000;
         let expr = s.read(expr).unwrap();
@@ -287,6 +289,16 @@ mod tests {
         let e = empty_sym_env(&s);
 
         let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
+        let proof_results = if check_nova {
+            Some(
+                nova_prover
+                    .evaluate_and_prove(expr, empty_sym_env(&s), s, limit)
+                    .unwrap(),
+            )
+        } else {
+            None
+        };
+
         let proof_results = Some(
             nova_prover
                 .evaluate_and_prove(expr, empty_sym_env(&s), s, limit)
@@ -295,8 +307,10 @@ mod tests {
 
         let shape_and_gens = nova_prover.make_shape_and_gens();
 
-        if let Some((proof, instance)) = proof_results {
-            proof.verify(&shape_and_gens, &instance);
+        if check_nova {
+            if let Some((proof, instance)) = proof_results {
+                proof.verify(&shape_and_gens, &instance);
+            }
         }
 
         let frames = nova_prover.get_evaluation_frames(expr, e, s, limit);
@@ -399,7 +413,17 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.t();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(eq 5 5)", Some(expected), None, Some(terminal), None, 3);
+        nova_test_full_aux(
+            s,
+            "(eq 5 5)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            true,
+        );
     }
 
     #[test]
@@ -552,6 +576,7 @@ mod tests {
             None,
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
+            false,
         );
 
         let expected = s.num(1);
@@ -564,6 +589,7 @@ mod tests {
             None,
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
+            false,
         );
 
         let expected = s.num(2);
@@ -576,6 +602,7 @@ mod tests {
             None,
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
+            false,
         );
 
         let expected = s.num(123);
@@ -588,6 +615,7 @@ mod tests {
             None,
             3,
             chunk_count,
+            false,
         )
     }
 
