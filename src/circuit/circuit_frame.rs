@@ -22,7 +22,7 @@ use super::gadgets::constraints::{
 use crate::circuit::ToInputs;
 use crate::eval::{Frame, Witness, IO};
 use crate::proof::Provable;
-use crate::store::{ContPtr, ContTag, Expression, Op1, Op2, Ptr, Store, Tag, Thunk};
+use crate::store::{ContPtr, ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
 
 #[derive(Clone, Copy, Debug)]
 pub struct CircuitFrame<'a, F: LurkField, T, W> {
@@ -2910,8 +2910,13 @@ fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     let (car, cdr) = if let Some(ptr) = maybe_cons.ptr(store).as_ref() {
-        if maybe_cons_is_cons.get_value().expect("maybe_cons_is_cons is missing") ||
-           maybe_cons_is_str.get_value().expect("maybe_cons_is_str is missing") {
+        if maybe_cons_is_cons
+            .get_value()
+            .expect("maybe_cons_is_cons is missing")
+            || maybe_cons_is_str
+                .get_value()
+                .expect("maybe_cons_is_str is missing")
+        {
             store.car_cdr(ptr)
         } else {
             (store.get_nil(), store.get_nil())
