@@ -299,12 +299,6 @@ mod tests {
             None
         };
 
-        let proof_results = Some(
-            nova_prover
-                .evaluate_and_prove(expr, empty_sym_env(&s), s, limit)
-                .unwrap(),
-        );
-
         let shape_and_gens = nova_prover.make_shape_and_gens();
 
         if check_nova {
