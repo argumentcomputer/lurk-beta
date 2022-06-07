@@ -2880,15 +2880,37 @@ fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     maybe_cons: &AllocatedPtr<F>,
     store: &Store<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
-    // A dummy value will never have the cons tag.
-    let not_dummy = alloc_equal(
-        &mut cs.namespace(|| "not_dummy"),
+    let maybe_cons_is_cons = alloc_equal(
+        &mut cs.namespace(|| "maybe_cons_is_cons"),
         maybe_cons.tag(),
         &g.cons_tag,
     )?;
 
+    let maybe_cons_is_str = alloc_equal(
+        &mut cs.namespace(|| "maybe_cons_is_string"),
+        maybe_cons.tag(),
+        &g.str_tag,
+    )?;
+
+    let maybe_str_is_empty = alloc_is_zero(
+        &mut cs.namespace(|| "maybe_string_is_empty"),
+        maybe_cons.hash(),
+    )?;
+
+    let maybe_cons_is_non_empty_str = Boolean::and(
+        &mut cs.namespace(|| "maybe_cons_is_non_empty_str"),
+        &maybe_cons_is_str,
+        &Boolean::not(&maybe_str_is_empty),
+    );
+
+    let is_cons = constraints::or(
+        &mut cs.namespace(|| "is_cons"),
+        &maybe_cons_is_cons,
+        &maybe_cons_is_non_empty_str.unwrap(),
+    )?;
+
     let (car, cdr) = if let Some(ptr) = maybe_cons.ptr(store).as_ref() {
-        if not_dummy.get_value().expect("not_dummy missing") {
+        if maybe_cons_is_cons.get_value().expect("not_dummy missing") {
             store.car_cdr(ptr)
         } else if let Some(Expression::Str(s)) = store.fetch(ptr) {
             let mut chars = s.chars();
@@ -2926,7 +2948,7 @@ fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
 
     enforce_implication(
         &mut cs.namespace(|| "not dummy implies real cons"),
-        &not_dummy,
+        &is_cons,
         &real_cons,
     )?;
 
@@ -3118,9 +3140,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(32144, cs.num_constraints());
+            assert_eq!(32315, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(32103, cs.aux().len());
+            assert_eq!(32236, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

@@ -1769,13 +1769,9 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_str_car_cdr_cons() {
+    fn outer_prove_str_car() {
         let s = &mut Store::<Fr>::default();
         let expected_a = s.read(r#"#\a"#).unwrap();
-        let expected_pple = s.read(r#" "pple" "#).unwrap();
-        let expected_nil = s.nil();
-        let expected_empty_str = s.intern_str(&"");
-        let expected_apple = s.read(r#" "apple" "#).unwrap();
         let terminal = s.get_cont_terminal();
         nova_test_aux(
             s,
@@ -1786,6 +1782,13 @@ mod tests {
             None,
             2,
         );
+    }
+
+    #[test]
+    fn outer_prove_str_cdr() {
+        let s = &mut Store::<Fr>::default();
+        let expected_pple = s.read(r#" "pple" "#).unwrap();
+        let terminal = s.get_cont_terminal();
         nova_test_aux(
             s,
             r#"(cdr "apple")"#,
@@ -1795,6 +1798,13 @@ mod tests {
             None,
             2,
         );
+    }
+
+    #[test]
+    fn outer_prove_str_car_empty() {
+        let s = &mut Store::<Fr>::default();
+        let expected_nil = s.nil();
+        let terminal = s.get_cont_terminal();
         nova_test_aux(
             s,
             r#"(car "")"#,
@@ -1804,6 +1814,13 @@ mod tests {
             None,
             2,
         );
+    }
+
+    #[test]
+    fn outer_prove_str_cdr_empty() {
+        let s = &mut Store::<Fr>::default();
+        let expected_empty_str = s.intern_str(&"");
+        let terminal = s.get_cont_terminal();
         nova_test_aux(
             s,
             r#"(cdr "")"#,
@@ -1813,6 +1830,13 @@ mod tests {
             None,
             2,
         );
+    }
+
+    #[test]
+    fn outer_prove_str_cons() {
+        let s = &mut Store::<Fr>::default();
+        let expected_apple = s.read(r#" "apple" "#).unwrap();
+        let terminal = s.get_cont_terminal();
         nova_test_aux(
             s,
             r#"(cons #\a "pple")"#,
