@@ -1730,7 +1730,7 @@ impl<F: LurkField> Store<F> {
                         let str = self.get_str(&cdr_str).expect("cdr str missing");
                         (self.get_char(c), str)
                     } else {
-                        panic!();
+                        (self.get_nil(), self.get_str(&"").unwrap())
                     }
                 } else {
                     panic!();

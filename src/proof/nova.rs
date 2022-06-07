@@ -244,6 +244,7 @@ mod tests {
     use crate::eval::empty_sym_env;
     use crate::proof::{verify_sequential_css, SequentialCS};
     use crate::store::ContPtr;
+    use crate::writer::Write;
 
     use bellperson::util_cs::{metric_cs::MetricCS, Comparable, Delta};
     use pallas::Scalar as Fr;
@@ -315,12 +316,12 @@ mod tests {
         let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
         let output = cs[cs.len() - 1].0.output.unwrap();
 
-        // dbg!(
-        //     multiframes.len(),
-        //     nova_prover.chunk_frame_count(),
-        //     frames.len(),
-        //     output.expr.fmt_to_string(&s)
-        // );
+        dbg!(
+            multiframes.len(),
+            nova_prover.chunk_frame_count(),
+            frames.len(),
+            output.expr.fmt_to_string(&s)
+        );
 
         assert_eq!(expected_iterations, Frame::significant_frame_count(&frames));
         assert_eq!(adjusted_iterations, cs.len());

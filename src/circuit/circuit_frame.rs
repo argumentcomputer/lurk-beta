@@ -2910,17 +2910,9 @@ fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     let (car, cdr) = if let Some(ptr) = maybe_cons.ptr(store).as_ref() {
-        if maybe_cons_is_cons.get_value().expect("not_dummy missing") {
+        if maybe_cons_is_cons.get_value().expect("maybe_cons_is_cons is missing") ||
+           maybe_cons_is_str.get_value().expect("maybe_cons_is_str is missing") {
             store.car_cdr(ptr)
-        } else if let Some(Expression::Str(s)) = store.fetch(ptr) {
-            let mut chars = s.chars();
-            if let Some(c) = chars.next() {
-                let cdr_str: String = chars.collect();
-                let str = store.get_str(&cdr_str).expect("cdr str missing");
-                (store.get_char(c), str)
-            } else {
-                (store.get_nil(), store.get_str(&"").unwrap())
-            }
         } else {
             (store.get_nil(), store.get_nil())
         }
