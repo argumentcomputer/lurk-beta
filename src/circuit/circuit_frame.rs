@@ -2943,18 +2943,13 @@ fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
         constructed_cons.hash(),
     )?;
 
+    // If `maybe_cons` is not a cons, then it is dummy. No check is necessary.
+    // If `maybe_cons` is an empty string, then the hash is zero.
+    // Otherwise, we must enforce equality of hashes.
     enforce_implication(
         &mut cs.namespace(|| "is cons implies real cons"),
         &is_cons,
         &real_cons,
-    )?;
-
-    let zero_cons = alloc_is_zero(&mut cs.namespace(|| "cons is zero"), maybe_cons.hash())?;
-
-    enforce_implication(
-        &mut cs.namespace(|| "empty str implies zero cons"),
-        &maybe_str_is_empty,
-        &zero_cons,
     )?;
 
     Ok((allocated_car, allocated_cdr))
@@ -3145,9 +3140,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(32410, cs.num_constraints());
+            assert_eq!(32315, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(32293, cs.aux().len());
+            assert_eq!(32236, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
