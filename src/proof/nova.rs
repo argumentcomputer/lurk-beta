@@ -1870,4 +1870,11 @@ mod tests {
             3,
         );
     }
+
+    #[test]
+    fn outer_prove_one_arg_cons_error() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, r#"(cons "")"#, None, None, Some(error), None, 1);
+    }
 }

@@ -1406,7 +1406,16 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.binop_cont_tag,
         &[&[&g.op2_cons_tag, &g.default_num], env, &more, cont],
     )?;
-    results.add_clauses_cons(*cons_hash.value(), &arg1, env, &continuation, &g.false_num);
+
+    // Checking one-arg cons error
+    let the_cont_cons = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_cons"),
+        &end_is_nil,
+        &g.error_ptr_cont,
+        &continuation,
+    )?;
+
+    results.add_clauses_cons(*cons_hash.value(), &arg1, env, &the_cont_cons, &g.false_num);
 
     // head == BEGIN
     let continuation = AllocatedContPtr::construct(
@@ -3140,9 +3149,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(32315, cs.num_constraints());
+            assert_eq!(32317, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(32236, cs.aux().len());
+            assert_eq!(32238, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

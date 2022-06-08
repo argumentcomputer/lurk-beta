@@ -605,11 +605,15 @@ fn reduce_with_witness<F: LurkField>(
                     }
                 } else if head == store.sym("cons") {
                     let (arg1, more) = store.car_cdr(&rest);
-                    Control::Return(
-                        arg1,
-                        env,
-                        store.intern_cont_binop(Op2::Cons, env, more, cont),
-                    )
+                    if more.is_nil() {
+                        Control::Return(arg1, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(
+                            arg1,
+                            env,
+                            store.intern_cont_binop(Op2::Cons, env, more, cont),
+                        )
+                    }
                 } else if head == store.sym("begin") {
                     let (arg1, more) = store.car_cdr(&rest);
                     if more.is_nil() {
@@ -806,8 +810,8 @@ fn apply_continuation<F: LurkField>(
                 _ => unreachable!(),
             },
             _ => {
-                Control::Return(*result, *env, store.intern_cont_error())
                 // Bad function
+                Control::Return(*result, *env, store.intern_cont_error())
             }
         },
         ContTag::Call2 => match store.fetch_cont(cont).unwrap() {
@@ -829,8 +833,8 @@ fn apply_continuation<F: LurkField>(
                     _ => unreachable!(),
                 },
                 _ => {
+                    // Call2 continuation contains a non-function
                     Control::Return(*result, *env, store.intern_cont_error())
-                    // panic!("Call2 continuation contains a non-function: {:?}", function);
                 }
             },
             _ => unreachable!(),
@@ -2140,6 +2144,13 @@ mod test {
         test_aux(s, r#"(car "")"#, Some(nil), None, None, None, 2);
         test_aux(s, r#"(cdr "")"#, Some(empty), None, None, None, 2);
         test_aux(s, r#"(cons #\a "pple")"#, Some(apple), None, None, None, 3);
+    }
+
+    #[test]
+    fn test_one_arg_cons_error() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        test_aux(s, r#"(cons "")"#, None, None, Some(error), None, 1);
     }
 
     #[test]
