@@ -226,33 +226,6 @@ impl<F: LurkField> AllocatedPtr<F> {
         })
     }
 
-    pub fn construct_str<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        g: &GlobalAllocations<F>,
-        store: &Store<F>,
-        car: &AllocatedPtr<F>,
-        cdr: &AllocatedPtr<F>,
-    ) -> Result<AllocatedPtr<F>, SynthesisError> {
-        // This is actually binary_hash, considering creating that helper for use elsewhere.
-        let preimage = vec![
-            car.tag().clone(),
-            car.hash().clone(),
-            cdr.tag().clone(),
-            cdr.hash().clone(),
-        ];
-
-        let hash = poseidon_hash(
-            cs.namespace(|| "Cons hash"),
-            preimage,
-            store.poseidon_constants().c4(),
-        )?;
-
-        Ok(AllocatedPtr {
-            tag: g.str_tag.clone(),
-            hash,
-        })
-    }
-
     pub fn construct_fun<CS: ConstraintSystem<F>>(
         mut cs: CS,
         g: &GlobalAllocations<F>,
