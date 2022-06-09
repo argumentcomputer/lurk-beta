@@ -323,6 +323,11 @@ mod tests {
             output.expr.fmt_to_string(&s)
         );
 
+        let constraint_systems_verified = verify_sequential_css::<Fr>(&cs).unwrap();
+        assert!(constraint_systems_verified);
+
+        check_cs_deltas(&cs, nova_prover.chunk_frame_count());
+
         if let Some(expected_emitted) = expected_emitted {
             let emitted_vec: Vec<_> = frames
                 .iter()
@@ -330,11 +335,6 @@ mod tests {
                 .collect();
             assert_eq!(expected_emitted, emitted_vec);
         }
-
-        let constraint_systems_verified = verify_sequential_css::<Fr>(&cs).unwrap();
-        assert!(constraint_systems_verified);
-
-        check_cs_deltas(&cs, nova_prover.chunk_frame_count());
 
         assert_eq!(expected_iterations, Frame::significant_frame_count(&frames));
         assert_eq!(adjusted_iterations, cs.len());
