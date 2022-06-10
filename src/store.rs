@@ -1713,6 +1713,38 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    /// Mutable version of car_cdr to handle Str. `(cdr str)` may return a new str (the tail), which must be allocated.
+    pub fn car_cdr_mut_err(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>),&str> {
+        match ptr.0 {
+            Tag::Nil => Ok((self.get_nil(), self.get_nil())),
+            Tag::Cons => match self.fetch(ptr) {
+                Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
+                Some(Expression::Opaque(_)) => panic!("cannot destructure opaque Cons"),
+                _ => unreachable!(),
+            },
+            Tag::Str => {
+                if let Some(Expression::Str(s)) = self.fetch(ptr) {
+                    let mut str = s.chars();
+                    if let Some(c) = str.next() {
+                        let cdr_str: String = str.collect();
+                        let str = self.intern_str(&cdr_str);
+                        Ok((self.get_char(c), str))
+                    } else {
+                        Ok((self.nil(), self.intern_str(&"")))
+                    }
+                } else {
+                    panic!();
+                }
+            }
+            _ => {
+                // FIXME: Don't panic. This can happen at runtime in a valid Lurk program,
+                // so it should result in an explicit error.
+                //panic!("Can only extract car_cdr from Cons")
+                Err("Invalid tag")
+            }
+        }
+    }
+
     pub fn car_cdr(&self, ptr: &Ptr<F>) -> (Ptr<F>, Ptr<F>) {
         // FIXME: Maybe make error.
         match ptr.0 {

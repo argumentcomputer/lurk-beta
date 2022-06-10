@@ -873,8 +873,18 @@ fn apply_continuation<F: LurkField>(
                 continuation,
             } => {
                 let val = match operator {
-                    Op1::Car => store.car_cdr_mut(result).0,
-                    Op1::Cdr => store.car_cdr_mut(result).1,
+                    Op1::Car => match store.car_cdr_mut_err(result) {
+                        Ok((car, _)) => car,
+                        Err(_) => {
+                            return Control::Return(*result, *env, store.intern_cont_error())
+                        },
+                    },
+                    Op1::Cdr => match store.car_cdr_mut_err(result){
+                        Ok((_, cdr)) => cdr,
+                        Err(_) => {
+                            return Control::Return(*result, *env, store.intern_cont_error())
+                        },
+                    },
                     Op1::Atom => match result.tag() {
                         Tag::Cons => store.nil(),
                         _ => store.t(),
@@ -2151,6 +2161,20 @@ mod test {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
         test_aux(s, r#"(cons "")"#, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn test_car_invalid_tag_error() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        test_aux(s, r#"(car 42)"#, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn test_cdr_invalid_tag_error() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        test_aux(s, r#"(cdr 42)"#, None, None, Some(error), None, 2);
     }
 
     #[test]
