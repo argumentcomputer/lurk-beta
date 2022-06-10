@@ -2,7 +2,7 @@ use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem, SynthesisError,
 };
-use neptune::circuit::poseidon_hash;
+use neptune::circuit2::poseidon_hash_allocated as poseidon_hash;
 
 use super::pointer::AsAllocatedHashComponents;
 use crate::field::LurkField;
