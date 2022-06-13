@@ -628,7 +628,7 @@ fn reduce_with_witness<F: LurkField>(
                 } else if head == store.sym("car") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
-                        Err(_) => unreachable!("Invalid tag"), //TODO: double check
+                        Err(_) => panic!("Invalid tag"),
                     };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
@@ -638,7 +638,7 @@ fn reduce_with_witness<F: LurkField>(
                 } else if head == store.sym("cdr") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
-                        Err(_) => unreachable!("Invalid tag"), //TODO: double check
+                        Err(_) => panic!("Invalid tag"),
                     };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())

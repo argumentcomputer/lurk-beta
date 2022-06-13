@@ -2864,13 +2864,13 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             result.alloc_equal(&mut cs.namespace(|| "result_is_nil"), &g.nil_ptr)?;
 
         let car_cdr_has_valid_tag_ = constraints::or(
-            &mut cs.namespace(|| "car_cdr_has_valid_tag"),
+            &mut cs.namespace(|| "car_cdr_has_valid_tag_"),
             &result_has_cons_tag,
             &result_has_str_tag,
         )?;
 
         let car_cdr_has_valid_tag = constraints::or(
-            &mut cs.namespace(|| "car_cdr_has_valid_tag2"),
+            &mut cs.namespace(|| "car_cdr_has_valid_tag"),
             &car_cdr_has_valid_tag_,
             &result_is_nil,
         )?;
