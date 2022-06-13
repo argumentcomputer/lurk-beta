@@ -626,14 +626,20 @@ fn reduce_with_witness<F: LurkField>(
                         )
                     }
                 } else if head == store.sym("car") {
-                    let (arg1, end) = store.car_cdr_mut(&rest);
+                    let (arg1, end) = match store.car_cdr_mut(&rest) {
+                        Ok((car, cdr)) => (car, cdr),
+                        Err(_) => unreachable!("Invalid tag"),//TODO: double check
+                    };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {
                         Control::Return(arg1, env, store.intern_cont_unop(Op1::Car, cont))
                     }
                 } else if head == store.sym("cdr") {
-                    let (arg1, end) = store.car_cdr_mut(&rest);
+                    let (arg1, end) = match store.car_cdr_mut(&rest) {
+                        Ok((car, cdr)) => (car, cdr),
+                        Err(_) => unreachable!("Invalid tag"), //TODO: double check
+                    };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {
@@ -873,13 +879,13 @@ fn apply_continuation<F: LurkField>(
                 continuation,
             } => {
                 let val = match operator {
-                    Op1::Car => match store.car_cdr_mut_err(result) {
+                    Op1::Car => match store.car_cdr_mut(result) {
                         Ok((car, _)) => car,
                         Err(_) => {
                             return Control::Return(*result, *env, store.intern_cont_error())
                         },
                     },
-                    Op1::Cdr => match store.car_cdr_mut_err(result){
+                    Op1::Cdr => match store.car_cdr_mut(result){
                         Ok((_, cdr)) => cdr,
                         Err(_) => {
                             return Control::Return(*result, *env, store.intern_cont_error())
@@ -1480,7 +1486,8 @@ mod test {
         let car = s.num(1);
         let cdr = s.num(2);
         let expected = s.cons(car, cdr);
-        test_aux(s, expr, Some(expected), None, None, None, 3);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -1490,7 +1497,8 @@ mod test {
 
         let expected = s.num(123);
         let emitted = vec![expected];
-        test_aux(s, expr, Some(expected), None, None, Some(emitted), 3);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), Some(emitted), 3);
     }
 
     #[test]
@@ -1499,7 +1507,8 @@ mod test {
         let expr = "((lambda(x) x) 123)";
 
         let expected = s.num(123);
-        test_aux(s, expr, Some(expected), None, None, None, 4);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
     }
 
     #[test]
@@ -1508,7 +1517,8 @@ mod test {
         let expr = "((lambda (y) ((lambda (x) y) 321)) 123)";
 
         let expected = s.num(123);
-        test_aux(s, expr, Some(expected), None, None, None, 9);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
     }
 
     #[test]
@@ -1517,7 +1527,8 @@ mod test {
         let expr = "((lambda (y) ((lambda (x) ((lambda (z) z) x)) y)) 123)";
 
         let expected = s.num(123);
-        test_aux(s, expr, Some(expected), None, None, None, 10);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 10);
     }
 
     #[test]
@@ -1528,7 +1539,8 @@ mod test {
             "((lambda (y) ((lambda (x) ((lambda (z) z) x)) 888)) 999)";
 
         let expected = s.num(888);
-        test_aux(s, expr, Some(expected), None, None, None, 10);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 10);
     }
 
     #[test]
@@ -1539,7 +1551,8 @@ mod test {
             "(((lambda (fn) (lambda (x) (fn x))) (lambda (y) y)) 999)";
 
         let expected = s.num(999);
-        test_aux(s, expr, Some(expected), None, None, None, 13);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 13);
     }
 
     #[test]
@@ -1548,7 +1561,8 @@ mod test {
         let expr = "(+ 2 (+ 3 4))";
 
         let expected = s.num(9);
-        test_aux(s, expr, Some(expected), None, None, None, 6);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 6);
     }
 
     #[test]
@@ -1557,7 +1571,8 @@ mod test {
         let expr = "(- 9 5)";
 
         let expected = s.num(4);
-        test_aux(s, expr, Some(expected), None, None, None, 3);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -1566,7 +1581,8 @@ mod test {
         let expr = "(* 9 5)";
 
         let expected = s.num(45);
-        test_aux(s, expr, Some(expected), None, None, None, 3);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -1575,7 +1591,8 @@ mod test {
         let expr = "(/ 21 7)";
 
         let expected = s.num(3);
-        test_aux(s, expr, Some(expected), None, None, None, 3);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -1601,13 +1618,15 @@ mod test {
             // think about handling of symbol names (if made explicit), since
             // neither T/NIL as 1/0 will *not* be hashes of their symbol names.
             let expected = s.t();
-            test_aux(s, expr, Some(expected), None, None, None, 3);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
         {
             let expr = "(= 5 6)";
 
             let expected = s.nil();
-            test_aux(s, expr, Some(expected), None, None, None, 3);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
     }
 
@@ -1617,7 +1636,8 @@ mod test {
         let expr = "(((lambda (x) (lambda (y) (+ x y))) 2) 3)";
 
         let expected = s.num(5);
-        test_aux(s, expr, Some(expected), None, None, None, 13);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 13);
     }
 
     // Enable this when we have LET.
@@ -1628,7 +1648,8 @@ mod test {
                    ((make-adder 2) 3))";
 
         let expected = s.num(5);
-        test_aux(s, expr, Some(expected), None, None, None, 15);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 15);
     }
 
     #[test]
@@ -1637,7 +1658,8 @@ mod test {
         let expr = "(let ((a 1)) a)";
 
         let expected = s.num(1);
-        test_aux(s, expr, Some(expected), None, None, None, 3);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -1646,7 +1668,8 @@ mod test {
         let expr = "(let () (+ 1 2))";
 
         let expected = s.num(3);
-        test_aux(s, expr, Some(expected), None, None, None, 4);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
     }
 
     #[test]
@@ -1657,7 +1680,8 @@ mod test {
                    (+ a b))";
 
         let expected = s.num(3);
-        test_aux(s, expr, Some(expected), None, None, None, 10);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 10);
     }
 
     #[test]
@@ -1702,7 +1726,8 @@ mod test {
         let expr = "(eq nil (let () nil))";
 
         let expected = s.t();
-        test_aux(s, expr, Some(expected), None, None, None, 4);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
     }
 
     #[test]
@@ -1711,7 +1736,8 @@ mod test {
         let expr = "(let ((a 1) (b a)) b)";
 
         let expected = s.num(1);
-        test_aux(s, expr, Some(expected), None, None, None, 5)
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 5)
     }
 
     #[test]
@@ -1724,7 +1750,8 @@ mod test {
 
         let expected = s.num(3);
         let new_env = s.nil();
-        test_aux(s, expr, Some(expected), Some(new_env), None, None, 18);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), Some(new_env), Some(terminal), None, 18);
     }
 
     #[test]
@@ -1745,7 +1772,8 @@ mod test {
                        (((iff 5) 6) true))";
 
             let expected = s.num(5);
-            test_aux(s, expr, Some(expected), None, None, None, 35);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 35);
         }
         {
             let s = &mut Store::<Fr>::default();
@@ -1762,7 +1790,8 @@ mod test {
                        (((iff 5) 6) false))";
 
             let expected = s.num(6);
-            test_aux(s, expr, Some(expected), None, None, None, 32);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 32);
         }
     }
 
@@ -1773,14 +1802,16 @@ mod test {
             let expr = "(if t 5 6)";
 
             let expected = s.num(5);
-            test_aux(s, expr, Some(expected), None, None, None, 3);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
         {
             let s = &mut Store::<Fr>::default();
             let expr = "(if nil 5 6)";
 
             let expected = s.num(6);
-            test_aux(s, expr, Some(expected), None, None, None, 3);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
     }
 
@@ -1791,7 +1822,8 @@ mod test {
             let expr = "(if t (+ 5 5) 6)";
 
             let expected = s.num(10);
-            test_aux(s, expr, Some(expected), None, None, None, 5);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
         }
     }
 
@@ -1806,7 +1838,8 @@ mod test {
                    ((exp 5) 3))";
 
         let expected = s.num(125);
-        test_aux(s, expr, Some(expected), None, None, None, 91);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 91);
     }
 
     #[test]
@@ -1821,7 +1854,8 @@ mod test {
                    (((exp 5) 5) 1))";
 
         let expected = s.num(3125);
-        test_aux(s, expr, Some(expected), None, None, None, 201);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 201);
     }
 
     #[test]
@@ -1834,7 +1868,8 @@ mod test {
                           (exp 5 3))";
 
         let expected = s.num(125);
-        test_aux(s, expr, Some(expected), None, None, None, 95);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 95);
     }
 
     #[test]
@@ -1850,7 +1885,8 @@ mod test {
                     ((exp 5) 3))";
 
         let expected = s.num(125);
-        test_aux(s, expr, Some(expected), None, None, None, 75);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 75);
     }
 
     #[test]
@@ -1865,7 +1901,8 @@ mod test {
                           (((exp 5) 3) 1))";
 
         let expected = s.num(125);
-        test_aux(s, expr, Some(expected), None, None, None, 129);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 129);
     }
 
     #[test]
@@ -1883,7 +1920,8 @@ mod test {
                    (((exp 5) 3) 1))";
 
         let expected = s.num(125);
-        test_aux(s, expr, Some(expected), None, None, None, 110);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 110);
     }
 
     #[test]
@@ -1894,7 +1932,8 @@ mod test {
                    (+ (square 3) (double 2)))";
 
         let expected = s.num(13);
-        test_aux(s, expr, Some(expected), None, None, None, 22);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 22);
     }
 
     #[test]
@@ -1905,7 +1944,8 @@ mod test {
                    (+ (double 3) (double-inc 2)))";
 
         let expected = s.num(11);
-        test_aux(s, expr, Some(expected), None, None, None, 31);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 31);
     }
 
     #[test]
@@ -1927,7 +1967,8 @@ mod test {
                       (exp3 4 2)))";
 
         let expected = s.num(33);
-        test_aux(s, expr, Some(expected), None, None, None, 242);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 242);
     }
 
     #[test]
@@ -1937,14 +1978,16 @@ mod test {
             let expr = "(eq 'a 'a)";
 
             let expected = s.t();
-            test_aux(s, expr, Some(expected), None, None, None, 3);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
         {
             let s = &mut Store::<Fr>::default();
             let expr = "(eq 'a 1)";
 
             let expected = s.nil();
-            test_aux(s, expr, Some(expected), None, None, None, 3);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
     }
     #[test]
@@ -1954,14 +1997,16 @@ mod test {
             let expr = "((lambda () 123))";
 
             let expected = s.num(123);
-            test_aux(s, expr, Some(expected), None, None, None, 3);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
         {
             let s = &mut Store::<Fr>::default();
             let expr = "(letrec ((x 9) (f (lambda () (+ x 1)))) (f))";
 
             let expected = s.num(10);
-            test_aux(s, expr, Some(expected), None, None, None, 12);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 12);
         }
     }
 
@@ -2032,7 +2077,8 @@ mod test {
             let expected = s
                 .read("(((h . g) . (f . e)) . ((d . c) . (b . a)))")
                 .unwrap();
-            test_aux(s, expr, Some(expected), None, None, None, 493);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 493);
         }
     }
 
@@ -2078,7 +2124,8 @@ mod test {
          (map-tree (lambda (x) (+ 1 x)) '((1 . 2) . (3 . 4))))";
 
             let expected = s.read("((2 . 3) . (4 . 5))").unwrap();
-            test_aux(s, expr, Some(expected), None, None, None, 170);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 170);
         }
     }
 
@@ -2121,7 +2168,8 @@ mod test {
   (foo '()))
 ";
             let expected = s.nil();
-            test_aux(s, expr, Some(expected), None, None, None, 25);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 25);
         }
     }
 
@@ -2136,7 +2184,8 @@ mod test {
                                  (l (lambda (x) (+ z x))))
                          (l 9)))";
             let expected = s.num(18);
-            test_aux(s, expr, Some(expected), None, None, None, 22);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 22);
         }
     }
 
@@ -2148,12 +2197,13 @@ mod test {
         let pple = s.read(r#" "pple" "#).unwrap();
         let empty = s.intern_str(&"");
         let nil = s.nil();
+        let terminal = s.get_cont_terminal();
 
-        test_aux(s, r#"(car "apple")"#, Some(a), None, None, None, 2);
-        test_aux(s, r#"(cdr "apple")"#, Some(pple), None, None, None, 2);
-        test_aux(s, r#"(car "")"#, Some(nil), None, None, None, 2);
-        test_aux(s, r#"(cdr "")"#, Some(empty), None, None, None, 2);
-        test_aux(s, r#"(cons #\a "pple")"#, Some(apple), None, None, None, 3);
+        test_aux(s, r#"(car "apple")"#, Some(a), None, Some(terminal), None, 2);
+        test_aux(s, r#"(cdr "apple")"#, Some(pple), None, Some(terminal), None, 2);
+        test_aux(s, r#"(car "")"#, Some(nil), None, Some(terminal), None, 2);
+        test_aux(s, r#"(cdr "")"#, Some(empty), None, Some(terminal), None, 2);
+        test_aux(s, r#"(cons #\a "pple")"#, Some(apple), None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -2164,17 +2214,51 @@ mod test {
     }
 
     #[test]
-    fn test_car_invalid_tag_error() {
+    fn test_car_nil() {
         let s = &mut Store::<Fr>::default();
-        let error = s.get_cont_error();
-        test_aux(s, r#"(car 42)"#, None, None, Some(error), None, 2);
+        let expected = s.nil();
+        let terminal = s.get_cont_terminal();
+        test_aux(s, r#"(car NIL)"#, Some(expected), None, Some(terminal), None, 2);
     }
 
     #[test]
-    fn test_cdr_invalid_tag_error() {
+    fn test_cdr_nil() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.nil();
+        let terminal = s.get_cont_terminal();
+        test_aux(s, r#"(cdr NIL)"#, Some(expected), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn test_car_cdr_invalid_tag_error_sym() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
+        test_aux(s, r#"(car car)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(cdr car)"#, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn test_car_cdr_invalid_tag_error_char() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        test_aux(s, r#"(car #\a)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(cdr #\a)"#, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn test_car_cdr_invalid_tag_error_num() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        test_aux(s, r#"(car 42)"#, None, None, Some(error), None, 2);
         test_aux(s, r#"(cdr 42)"#, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn test_car_cdr_invalid_tag_error_lambda() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        test_aux(s, r#"(car (lambda (x) x))"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(cdr (lambda (x) x))"#, None, None, Some(error), None, 2);
     }
 
     #[test]

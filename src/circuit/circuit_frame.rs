@@ -1974,7 +1974,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
     let (unop_val, unop_continuation) = {
         let op1 = AllocatedPtr::by_index(0, &continuation_components);
-        let unop_continuation = AllocatedPtr::by_index(1, &continuation_components);
+        let unop_continuation = AllocatedContPtr::by_index(1, &continuation_components);
 
         let (allocated_car, allocated_cdr) =
             car_cdr(&mut cs.namespace(|| "Unop cons"), g, result, store)?;
@@ -2833,25 +2833,93 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
     // Continuation::Unop newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    let unop_op1 = AllocatedPtr::by_index(0, &continuation_components);
-    let other_unop_continuation = AllocatedContPtr::by_index(1, &continuation_components);
-    let op1_is_emit = alloc_equal(
-        &mut cs.namespace(|| "op1_is_emit"),
-        unop_op1.tag(),
-        &g.op1_emit_tag,
-    )?;
-    let unop_continuation = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "continuation"),
-        &op1_is_emit,
-        &newer_cont,
-        &other_unop_continuation,
-    )?;
+    let (the_expr, the_cont) = {
+        let unop_op1 = AllocatedPtr::by_index(0, &continuation_components);
+        let other_unop_continuation = AllocatedContPtr::by_index(1, &continuation_components);
+        let op1_is_emit = alloc_equal(
+            &mut cs.namespace(|| "op1_is_emit"),
+            unop_op1.tag(),
+            &g.op1_emit_tag,
+        )?;
+        let unop_continuation = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "continuation"),
+            &op1_is_emit,
+            &newer_cont,
+            &other_unop_continuation,
+        )?;
+
+        let result_has_cons_tag = alloc_equal(
+            &mut cs.namespace(|| "result_has_cons_tag"),
+            result.tag(),
+            &g.cons_tag,
+        )?;
+
+        let result_has_str_tag = alloc_equal(
+            &mut cs.namespace(|| "result_has_str_tag"),
+            result.tag(),
+            &g.str_tag,
+        )?;
+
+        let result_is_nil = result.alloc_equal(&mut cs.namespace(|| "result_is_nil"), &g.nil_ptr)?;
+
+        let car_cdr_has_valid_tag_ = constraints::or(
+            &mut cs.namespace(|| "car_cdr_has_valid_tag"),
+            &result_has_cons_tag,
+            &result_has_str_tag,
+        )?;
+
+        let car_cdr_has_valid_tag = constraints::or(
+            &mut cs.namespace(|| "car_cdr_has_valid_tag2"),
+            &car_cdr_has_valid_tag_,
+            &result_is_nil,
+        )?;
+
+        let op1_is_car = alloc_equal(
+            &mut cs.namespace(|| "op1_is_car"),
+            unop_op1.tag(),
+            &g.op1_car_tag,
+        )?;
+
+        let op1_is_cdr = alloc_equal(
+            &mut cs.namespace(|| "op1_is_cdr"),
+            unop_op1.tag(),
+            &g.op1_cdr_tag,
+        )?;
+
+        let op1_is_car_or_cdr = constraints::or(
+            &mut cs.namespace(|| "op1_is_car_or_cdr"),
+            &op1_is_car,
+            &op1_is_cdr,
+        )?;
+
+        let car_cdr_has_invalid_tag = Boolean::and(
+            &mut cs.namespace(|| "car_cdr_has_invalid_tag"),
+            &op1_is_car_or_cdr,
+            &Boolean::not(&car_cdr_has_valid_tag),
+        )?;
+
+        let the_expr = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_expr"),
+            &car_cdr_has_invalid_tag,
+            &result,
+            &unop_val,
+        )?;
+
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "the_cont"),
+            &car_cdr_has_invalid_tag,
+            &g.error_ptr_cont,
+            &unop_continuation,
+        )?;
+
+        (the_expr, the_cont)
+    };
 
     results.add_clauses_cont(
         ContTag::Unop,
-        &unop_val,
+        &the_expr,
         env,
-        &unop_continuation,
+        &the_cont,
         &g.true_num,
     );
 
