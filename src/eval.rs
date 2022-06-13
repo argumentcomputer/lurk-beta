@@ -628,7 +628,7 @@ fn reduce_with_witness<F: LurkField>(
                 } else if head == store.sym("car") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
-                        Err(_) => unreachable!("Invalid tag"),//TODO: double check
+                        Err(_) => unreachable!("Invalid tag"), //TODO: double check
                     };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
@@ -881,15 +881,11 @@ fn apply_continuation<F: LurkField>(
                 let val = match operator {
                     Op1::Car => match store.car_cdr_mut(result) {
                         Ok((car, _)) => car,
-                        Err(_) => {
-                            return Control::Return(*result, *env, store.intern_cont_error())
-                        },
+                        Err(_) => return Control::Return(*result, *env, store.intern_cont_error()),
                     },
-                    Op1::Cdr => match store.car_cdr_mut(result){
+                    Op1::Cdr => match store.car_cdr_mut(result) {
                         Ok((_, cdr)) => cdr,
-                        Err(_) => {
-                            return Control::Return(*result, *env, store.intern_cont_error())
-                        },
+                        Err(_) => return Control::Return(*result, *env, store.intern_cont_error()),
                     },
                     Op1::Atom => match result.tag() {
                         Tag::Cons => store.nil(),
@@ -1498,7 +1494,15 @@ mod test {
         let expected = s.num(123);
         let emitted = vec![expected];
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), Some(emitted), 3);
+        test_aux(
+            s,
+            expr,
+            Some(expected),
+            None,
+            Some(terminal),
+            Some(emitted),
+            3,
+        );
     }
 
     #[test]
@@ -1751,7 +1755,15 @@ mod test {
         let expected = s.num(3);
         let new_env = s.nil();
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), Some(new_env), Some(terminal), None, 18);
+        test_aux(
+            s,
+            expr,
+            Some(expected),
+            Some(new_env),
+            Some(terminal),
+            None,
+            18,
+        );
     }
 
     #[test]
@@ -2199,11 +2211,35 @@ mod test {
         let nil = s.nil();
         let terminal = s.get_cont_terminal();
 
-        test_aux(s, r#"(car "apple")"#, Some(a), None, Some(terminal), None, 2);
-        test_aux(s, r#"(cdr "apple")"#, Some(pple), None, Some(terminal), None, 2);
+        test_aux(
+            s,
+            r#"(car "apple")"#,
+            Some(a),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
+        test_aux(
+            s,
+            r#"(cdr "apple")"#,
+            Some(pple),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
         test_aux(s, r#"(car "")"#, Some(nil), None, Some(terminal), None, 2);
         test_aux(s, r#"(cdr "")"#, Some(empty), None, Some(terminal), None, 2);
-        test_aux(s, r#"(cons #\a "pple")"#, Some(apple), None, Some(terminal), None, 3);
+        test_aux(
+            s,
+            r#"(cons #\a "pple")"#,
+            Some(apple),
+            None,
+            Some(terminal),
+            None,
+            3,
+        );
     }
 
     #[test]
@@ -2218,7 +2254,15 @@ mod test {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        test_aux(s, r#"(car NIL)"#, Some(expected), None, Some(terminal), None, 2);
+        test_aux(
+            s,
+            r#"(car NIL)"#,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
     }
 
     #[test]
@@ -2226,7 +2270,15 @@ mod test {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        test_aux(s, r#"(cdr NIL)"#, Some(expected), None, Some(terminal), None, 2);
+        test_aux(
+            s,
+            r#"(cdr NIL)"#,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
     }
 
     #[test]
@@ -2257,8 +2309,24 @@ mod test {
     fn test_car_cdr_invalid_tag_error_lambda() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux(s, r#"(car (lambda (x) x))"#, None, None, Some(error), None, 2);
-        test_aux(s, r#"(cdr (lambda (x) x))"#, None, None, Some(error), None, 2);
+        test_aux(
+            s,
+            r#"(car (lambda (x) x))"#,
+            None,
+            None,
+            Some(error),
+            None,
+            2,
+        );
+        test_aux(
+            s,
+            r#"(cdr (lambda (x) x))"#,
+            None,
+            None,
+            Some(error),
+            None,
+            2,
+        );
     }
 
     #[test]

@@ -2860,7 +2860,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.str_tag,
         )?;
 
-        let result_is_nil = result.alloc_equal(&mut cs.namespace(|| "result_is_nil"), &g.nil_ptr)?;
+        let result_is_nil =
+            result.alloc_equal(&mut cs.namespace(|| "result_is_nil"), &g.nil_ptr)?;
 
         let car_cdr_has_valid_tag_ = constraints::or(
             &mut cs.namespace(|| "car_cdr_has_valid_tag"),
@@ -2901,7 +2902,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let the_expr = AllocatedPtr::pick(
             &mut cs.namespace(|| "the_expr"),
             &car_cdr_has_invalid_tag,
-            &result,
+            result,
             &unop_val,
         )?;
 
@@ -2915,13 +2916,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         (the_expr, the_cont)
     };
 
-    results.add_clauses_cont(
-        ContTag::Unop,
-        &the_expr,
-        env,
-        &the_cont,
-        &g.true_num,
-    );
+    results.add_clauses_cont(ContTag::Unop, &the_expr, env, &the_cont, &g.true_num);
 
     // Main multi_case
     /////////////////////////////////////////////////////////////////////////////

@@ -1884,7 +1884,15 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, r#"(car NIL)"#, Some(expected), None, Some(terminal), None, 2);
+        nova_test_aux(
+            s,
+            r#"(car NIL)"#,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
     }
 
     #[test]
@@ -1892,7 +1900,15 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, r#"(cdr NIL)"#, Some(expected), None, Some(terminal), None, 2);
+        nova_test_aux(
+            s,
+            r#"(cdr NIL)"#,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
     }
 
     #[test]
@@ -1923,7 +1939,23 @@ mod tests {
     fn outer_prove_car_cdr_invalid_tag_error_lambda() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, r#"(car (lambda (x) x))"#, None, None, Some(error), None, 2);
-        nova_test_aux(s, r#"(cdr (lambda (x) x))"#, None, None, Some(error), None, 2);
+        nova_test_aux(
+            s,
+            r#"(car (lambda (x) x))"#,
+            None,
+            None,
+            Some(error),
+            None,
+            2,
+        );
+        nova_test_aux(
+            s,
+            r#"(cdr (lambda (x) x))"#,
+            None,
+            None,
+            Some(error),
+            None,
+            2,
+        );
     }
 }

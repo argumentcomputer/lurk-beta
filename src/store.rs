@@ -1683,7 +1683,7 @@ impl<F: LurkField> Store<F> {
     }
 
     /// Mutable version of car_cdr to handle Str. `(cdr str)` may return a new str (the tail), which must be allocated.
-    pub fn car_cdr_mut(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>),&str> {
+    pub fn car_cdr_mut(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), &str> {
         match ptr.0 {
             Tag::Nil => Ok((self.get_nil(), self.get_nil())),
             Tag::Cons => match self.fetch(ptr) {
@@ -1705,9 +1705,7 @@ impl<F: LurkField> Store<F> {
                     panic!();
                 }
             }
-            _ => {
-                Err("Invalid tag")
-            }
+            _ => Err("Invalid tag"),
         }
     }
 
