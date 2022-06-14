@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use libipld::serde::{from_ipld, to_ipld};
 use lurk::eval::IO;
 use lurk::field::LurkField;
-use lurk::ipfs::{dag_get, dag_put};
 use lurk::scalar_store::ScalarStore;
 use lurk::store::{Ptr, Store};
 
@@ -22,7 +21,7 @@ use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 use fcomm::{
     self, committed_function_store, evaluate, Claim, Commitment, Error, Evaluation, Expression,
-    FileStore, Function, LurkPtr, Opening, OpeningRequest, Proof,
+    FileStore, Function, LurkPtr, Opening, OpeningRequest, Proof, ipfs::{dag_get, dag_put},
 };
 
 /// Functional commitments

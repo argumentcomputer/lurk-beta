@@ -43,7 +43,6 @@ dashmap = "5.0.0"
 libipld = { package = "lurk-ipld", version = "0.1.0", default-features = false, features = ["dag-cbor", "dag-json", "serde-codec"] }
 cid = { version = "0.8.4", default-features = false, features = ["alloc", "serde-codec"]}
 multihash = { version = "0.16.1", default-features = false, features = ["alloc", "blake3"] }
-reqwest = { version = "0.11", features = ["multipart", "json", "blocking"] }
 
 [features]
 default = ["gpu", "bellperson/default", "nova/default"]
