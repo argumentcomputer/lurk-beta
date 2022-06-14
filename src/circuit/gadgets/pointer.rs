@@ -5,7 +5,7 @@ use bellperson::{
     ConstraintSystem, SynthesisError,
 };
 use ff::PrimeField;
-use neptune::circuit::poseidon_hash;
+use neptune::circuit2::poseidon_hash_allocated as poseidon_hash;
 
 use crate::{
     field::LurkField,

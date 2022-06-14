@@ -193,6 +193,7 @@ impl<F: LurkField> Ptr<F> {
     pub fn is_nil(&self) -> bool {
         matches!(self.0, Tag::Nil)
     }
+
     pub fn is_fun(&self) -> bool {
         matches!(self.0, Tag::Fun)
     }
@@ -1729,7 +1730,7 @@ impl<F: LurkField> Store<F> {
                         let str = self.get_str(&cdr_str).expect("cdr str missing");
                         (self.get_char(c), str)
                     } else {
-                        panic!();
+                        (self.get_nil(), self.get_str(&"").unwrap())
                     }
                 } else {
                     panic!();

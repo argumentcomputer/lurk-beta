@@ -533,6 +533,8 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         results.add_clauses_expr(Tag::Nil, expr, env, cont, &g.true_num);
         results.add_clauses_expr(Tag::Num, expr, env, cont, &g.true_num);
         results.add_clauses_expr(Tag::Fun, expr, env, cont, &g.true_num);
+        results.add_clauses_expr(Tag::Char, expr, env, cont, &g.true_num);
+        results.add_clauses_expr(Tag::Str, expr, env, cont, &g.true_num);
     };
 
     let cont_is_terminal = alloc_equal(
@@ -1404,7 +1406,16 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.binop_cont_tag,
         &[&[&g.op2_cons_tag, &g.default_num], env, &more, cont],
     )?;
-    results.add_clauses_cons(*cons_hash.value(), &arg1, env, &continuation, &g.false_num);
+
+    // Checking one-arg cons error
+    let the_cont_cons = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_cons"),
+        &end_is_nil,
+        &g.error_ptr_cont,
+        &continuation,
+    )?;
+
+    results.add_clauses_cons(*cons_hash.value(), &arg1, env, &the_cont_cons, &g.false_num);
 
     // head == BEGIN
     let continuation = AllocatedContPtr::construct(
@@ -2448,10 +2459,29 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.op2_cons_tag,
         )?;
 
+        let arg1_is_char = alloc_equal(
+            &mut cs.namespace(|| "arg1_is_char"),
+            arg1.tag(),
+            &g.char_tag,
+        )?;
+        let arg2_is_str = alloc_equal(&mut cs.namespace(|| "arg2_is_str"), arg2.tag(), &g.str_tag)?;
+        let args_are_char_str = Boolean::and(
+            &mut cs.namespace(|| "args_are_char_str"),
+            &arg1_is_char,
+            &arg2_is_str,
+        )?;
+
+        let cons_tag = pick(
+            &mut cs.namespace(|| "cons_tag"),
+            &args_are_char_str,
+            &g.str_tag,
+            &g.cons_tag,
+        )?;
+
         let res_tag = pick(
             &mut cs.namespace(|| "Op2 result tag"),
             &is_cons,
-            &g.cons_tag,
+            &cons_tag,
             &g.num_tag,
         )?;
 
@@ -2859,18 +2889,45 @@ fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     maybe_cons: &AllocatedPtr<F>,
     store: &Store<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
-    // A dummy value will never have the cons tag.
-    let not_dummy = alloc_equal(
-        &mut cs.namespace(|| "not_dummy"),
+    let maybe_cons_is_cons = alloc_equal(
+        &mut cs.namespace(|| "maybe_cons_is_cons"),
         maybe_cons.tag(),
         &g.cons_tag,
     )?;
 
-    let (car, cdr) = if not_dummy.get_value().expect("not_dummy missing") {
-        if let Some(ptr) = maybe_cons.ptr(store).as_ref() {
+    let maybe_cons_is_str = alloc_equal(
+        &mut cs.namespace(|| "maybe_cons_is_string"),
+        maybe_cons.tag(),
+        &g.str_tag,
+    )?;
+
+    let maybe_str_is_empty = alloc_is_zero(
+        &mut cs.namespace(|| "maybe_string_is_empty"),
+        maybe_cons.hash(),
+    )?;
+
+    let maybe_cons_is_non_empty_str = Boolean::and(
+        &mut cs.namespace(|| "maybe_cons_is_non_empty_str"),
+        &maybe_cons_is_str,
+        &Boolean::not(&maybe_str_is_empty),
+    );
+
+    let is_cons = constraints::or(
+        &mut cs.namespace(|| "is_cons"),
+        &maybe_cons_is_cons,
+        &maybe_cons_is_non_empty_str.unwrap(),
+    )?;
+
+    let (car, cdr) = if let Some(ptr) = maybe_cons.ptr(store).as_ref() {
+        if maybe_cons_is_cons
+            .get_value()
+            .expect("maybe_cons_is_cons is missing")
+            || maybe_cons_is_str
+                .get_value()
+                .expect("maybe_cons_is_str is missing")
+        {
             store.car_cdr(ptr)
         } else {
-            // Dummy
             (store.get_nil(), store.get_nil())
         }
     } else {
@@ -2895,9 +2952,12 @@ fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
         constructed_cons.hash(),
     )?;
 
+    // If `maybe_cons` is not a cons, then it is dummy. No check is necessary.
+    // If `maybe_cons` is an empty string, then the hash is zero.
+    // Otherwise, we must enforce equality of hashes.
     enforce_implication(
-        &mut cs.namespace(|| "not dummy implies real cons"),
-        &not_dummy,
+        &mut cs.namespace(|| "is cons implies real cons"),
+        &is_cons,
         &real_cons,
     )?;
 
@@ -3089,9 +3149,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(32114, cs.num_constraints());
+            assert_eq!(24995, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(32075, cs.aux().len());
+            assert_eq!(24916, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
