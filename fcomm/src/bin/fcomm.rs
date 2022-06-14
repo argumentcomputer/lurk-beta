@@ -28,15 +28,16 @@ use fcomm::{
 #[clap(global_setting(AppSettings::DeriveDisplayOrder))]
 struct Cli {
     /// Evaluate inputs before passing to function (outside the proof) when opening. Otherwise inputs are unevaluated.
-    #[clap(long)]
+    #[clap(long, value_parser)]
     eval_input: bool,
 
     /// Iteration limit
-    #[clap(short, long, default_value = "1000")]
+    #[allow(deprecated)]
+    #[clap(short, long, default_value = "1000", value_parser)]
     limit: usize,
 
     /// Exit with error on failed verification
-    #[clap(short, long)]
+    #[clap(short, long, value_parser)]
     error: bool,
 
     /// Be verbose
@@ -68,91 +69,91 @@ enum Command {
 #[derive(Args, Debug)]
 struct Commit {
     /// Path to function
-    #[clap(short, long, parse(from_os_str))]
+    #[clap(short, long, value_parser)]
     function: PathBuf,
 
     /// Path to functional commitment
-    #[clap(short, long, parse(from_os_str))]
+    #[clap(short, long, value_parser)]
     commitment: Option<PathBuf>,
 
     // Function is lurk source.
-    #[clap(long)]
+    #[clap(long, value_parser)]
     lurk: bool,
 }
 
 #[derive(Args, Debug)]
 struct Open {
     /// Path to function input
-    #[clap(short, long, parse(from_os_str))]
+    #[clap(short, long, value_parser)]
     input: Option<PathBuf>,
 
     /// Path to proof output if prove requested
-    #[clap(short, long, parse(from_os_str))]
+    #[clap(short, long, value_parser)]
     proof: Option<PathBuf>,
 
     /// Optional commitment value (hex string). Function will be looked-up by commitment if supplied.
-    #[clap(short, long)]
+    #[clap(short, long, value_parser)]
     commitment: Option<String>,
 
     /// Optional path to function used if commitment is not supplied.
-    #[clap(short, long, parse(from_os_str))]
+    #[clap(short, long, value_parser)]
     function: Option<PathBuf>,
 
     /// Optional path to OpeningRequest -- which subsumes commitment, function, and input if supplied.
-    #[clap(long, parse(from_os_str))]
+    #[clap(long, value_parser)]
     request: Option<PathBuf>,
 
     // Function is lurk source.
-    #[clap(long)]
+    #[clap(long, value_parser)]
     lurk: bool,
 
     /// Chain commitment openings. Opening includes commitment to new function along with output.
-    #[clap(long)]
+    #[clap(long, value_parser)]
     chain: bool,
 
     /// Quote input before passing to function when opening. Otherwise input will be passed unevaluated and unquoted. --quote-input and --eval-input would cancel each other out if used in conjunction, so is probably not what is desired.
-    #[clap(long)]
+    #[clap(long, value_parser)]
     quote_input: bool,
 }
 
 #[derive(Args, Debug)]
 struct Eval {
     /// Path to expression source
-    #[clap(short = 'x', long, parse(from_os_str))]
+    #[clap(short = 'x', long, value_parser)]
     expression: PathBuf,
 
     /// Wrap evaluation result in a claim
-    #[clap(long)]
+    #[clap(long, value_parser)]
     claim: Option<PathBuf>,
 
     // Expression is lurk source.
-    #[clap(long)]
+    #[clap(long, value_parser)]
     lurk: bool,
 }
 
 #[derive(Args, Debug)]
 struct Prove {
     /// Path to expression source
-    #[clap(short = 'x', long, parse(from_os_str))]
+    #[clap(short = 'x', long, value_parser)]
     expression: Option<PathBuf>,
 
     /// Path to proof input
-    #[clap(short, long, parse(from_os_str))]
+    #[clap(short, long, value_parser)]
     proof: PathBuf,
 
     /// Path to claim to prove
-    #[clap(long)]
+    #[clap(long, value_parser)]
     claim: Option<PathBuf>,
 
     // Expression is lurk source.
-    #[clap(long)]
+    #[clap(long, value_parser)]
     lurk: bool,
 }
 
 #[derive(Args, Debug)]
 struct Verify {
     /// Path to proof input
-    #[clap(short, long, parse(from_os_str))]
+    #[clap(short, long, value_parser)]
     proof: PathBuf,
 }
 
