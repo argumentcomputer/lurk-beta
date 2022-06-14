@@ -50,10 +50,10 @@ pub async fn dag_get(host: &String, cid: &String) -> Result<Ipld, reqwest::Error
 #[cfg(test)]
 mod test {
     use crate::ipfs::{dag_get, dag_put};
-    use lurk::scalar_store::ScalarStore;
-    use lurk::store::Store;
     use blstrs::Scalar as Fr;
     use libipld::serde::{from_ipld, to_ipld};
+    use lurk::scalar_store::ScalarStore;
+    use lurk::store::Store;
     use reqwest;
 
     #[ignore]

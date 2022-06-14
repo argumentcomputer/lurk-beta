@@ -20,8 +20,10 @@ use clap::{AppSettings, Args, Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 use fcomm::{
-    self, committed_function_store, evaluate, Claim, Commitment, Error, Evaluation, Expression,
-    FileStore, Function, LurkPtr, Opening, OpeningRequest, Proof, ipfs::{dag_get, dag_put},
+    self, committed_function_store, evaluate,
+    ipfs::{dag_get, dag_put},
+    Claim, Commitment, Error, Evaluation, Expression, FileStore, Function, LurkPtr, Opening,
+    OpeningRequest, Proof,
 };
 
 /// Functional commitments
@@ -30,15 +32,15 @@ use fcomm::{
 #[clap(global_setting(AppSettings::DeriveDisplayOrder))]
 struct Cli {
     /// Evaluate inputs before passing to function (outside the proof) when opening. Otherwise inputs are unevaluated.
-    #[clap(long)]
+    #[clap(long, action)]
     eval_input: bool,
 
     /// Iteration limit
-    #[clap(short, long, default_value = "1000")]
+    #[clap(short, long, value_parser, default_value_t = 1000)]
     limit: usize,
 
     /// Exit with error on failed verification
-    #[clap(short, long)]
+    #[clap(short, long, action)]
     error: bool,
 
     /// Be verbose
@@ -76,113 +78,113 @@ enum Command {
 #[derive(Args, Debug)]
 struct Commit {
     /// Path to function
-    #[clap(short, long, parse(from_os_str))]
+    #[clap(short, long, value_parser)]
     function: PathBuf,
 
     /// Path to functional commitment
-    #[clap(short, long, parse(from_os_str))]
+    #[clap(short, long, value_parser)]
     commitment: Option<PathBuf>,
 
     // Function is lurk source.
-    #[clap(long)]
+    #[clap(long, action)]
     lurk: bool,
 }
 
 #[derive(Args, Debug)]
 struct Open {
     /// Path to function input
-    #[clap(short, long, parse(from_os_str))]
+    #[clap(short, long, value_parser)]
     input: Option<PathBuf>,
 
     /// Path to proof output if prove requested
-    #[clap(short, long, parse(from_os_str))]
+    #[clap(short, long, value_parser)]
     proof: Option<PathBuf>,
 
     /// Optional commitment value (hex string). Function will be looked-up by commitment if supplied.
-    #[clap(short, long)]
+    #[clap(short, long, value_parser)]
     commitment: Option<String>,
 
     /// Optional path to function used if commitment is not supplied.
-    #[clap(short, long, parse(from_os_str))]
+    #[clap(short, long, value_parser)]
     function: Option<PathBuf>,
 
     /// Optional path to OpeningRequest -- which subsumes commitment, function, and input if supplied.
-    #[clap(long, parse(from_os_str))]
+    #[clap(long, value_parser)]
     request: Option<PathBuf>,
 
     // Function is lurk source.
-    #[clap(long)]
+    #[clap(long, action)]
     lurk: bool,
 
     /// Chain commitment openings. Opening includes commitment to new function along with output.
-    #[clap(long)]
+    #[clap(long, action)]
     chain: bool,
 
     /// Quote input before passing to function when opening. Otherwise input will be passed unevaluated and unquoted. --quote-input and --eval-input would cancel each other out if used in conjunction, so is probably not what is desired.
-    #[clap(long)]
+    #[clap(long, action)]
     quote_input: bool,
 }
 
 #[derive(Args, Debug)]
 struct Eval {
     /// Path to expression source
-    #[clap(short = 'x', long, parse(from_os_str))]
+    #[clap(short = 'x', long, value_parser)]
     expression: PathBuf,
 
     /// Wrap evaluation result in a claim
-    #[clap(long)]
+    #[clap(long, value_parser)]
     claim: Option<PathBuf>,
 
     // Expression is lurk source.
-    #[clap(long)]
+    #[clap(long, action)]
     lurk: bool,
 }
 
 #[derive(Args, Debug)]
 struct Prove {
     /// Path to expression source
-    #[clap(short = 'x', long, parse(from_os_str))]
+    #[clap(short = 'x', long, value_parser)]
     expression: Option<PathBuf>,
 
     /// Path to proof input
-    #[clap(short, long, parse(from_os_str))]
+    #[clap(short, long, value_parser)]
     proof: PathBuf,
 
     /// Path to claim to prove
-    #[clap(long, parse(from_os_str))]
+    #[clap(long, value_parser)]
     claim: Option<PathBuf>,
 
     // Expression is lurk source.
-    #[clap(long)]
+    #[clap(long, action)]
     lurk: bool,
 }
 
 #[derive(Args, Debug)]
 struct Verify {
     /// Path to proof input
-    #[clap(short, long, parse(from_os_str))]
+    #[clap(short, long, value_parser)]
     proof: PathBuf,
 }
 
 #[derive(Args, Debug)]
 struct Put {
     ///Input Lurk data
-    #[clap(long, parse(from_os_str))]
+    #[clap(long, value_parser)]
     data: PathBuf,
 
     ///IPFS host
-    #[clap(long, default_value = "localhost:5001")]
+    #[clap(long, default_value_t = String::from("localhost:5001"), value_parser)]
     host: String,
 }
 
 #[derive(Args, Debug)]
 struct Get {
     ///Input Lurk data
-    #[clap(long)]
+    #[clap(long, value_parser)]
     cid: String,
 
     ///IPFS host
-    #[clap(long, default_value = "localhost:5001")]
+    #[clap(long, default_value_t = String::from("localhost:5001"), value_parser)]
     host: String,
 }
 
