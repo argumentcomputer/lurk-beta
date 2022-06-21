@@ -1878,4 +1878,84 @@ mod tests {
         let error = s.get_cont_error();
         nova_test_aux(s, r#"(cons "")"#, None, None, Some(error), None, 1);
     }
+
+    #[test]
+    fn outer_prove_car_nil() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.nil();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
+            r#"(car NIL)"#,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
+    }
+
+    #[test]
+    fn outer_prove_cdr_nil() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.nil();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
+            r#"(cdr NIL)"#,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
+    }
+
+    #[test]
+    fn outer_prove_car_cdr_invalid_tag_error_sym() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, r#"(car car)"#, None, None, Some(error), None, 2);
+        nova_test_aux(s, r#"(cdr car)"#, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_car_cdr_invalid_tag_error_char() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, r#"(car #\a)"#, None, None, Some(error), None, 2);
+        nova_test_aux(s, r#"(cdr #\a)"#, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_car_cdr_invalid_tag_error_num() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, r#"(car 42)"#, None, None, Some(error), None, 2);
+        nova_test_aux(s, r#"(cdr 42)"#, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_car_cdr_invalid_tag_error_lambda() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(
+            s,
+            r#"(car (lambda (x) x))"#,
+            None,
+            None,
+            Some(error),
+            None,
+            2,
+        );
+        nova_test_aux(
+            s,
+            r#"(cdr (lambda (x) x))"#,
+            None,
+            None,
+            Some(error),
+            None,
+            2,
+        );
+    }
 }
