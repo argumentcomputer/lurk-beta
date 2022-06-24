@@ -28,7 +28,6 @@ use lurk::{
     scalar_store::ScalarStore,
     store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store, Tag},
     writer::Write,
-    Num,
 };
 use once_cell::sync::OnceCell;
 use pairing_lib::{Engine, MultiMillerLoop};
@@ -480,16 +479,16 @@ impl Evaluation {
 }
 
 impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
-    pub fn from_cons(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
+    pub fn from_comm(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
         let digest = *s.hash_expr(ptr).expect("couldn't hash ptr").value();
 
-        assert_eq!(Tag::Cons, ptr.tag());
+        assert_eq!(Tag::Comm, ptr.tag());
 
         Commitment { comm: digest }
     }
 
     pub fn ptr(&self, s: &mut Store<F>) -> Ptr<F> {
-        s.intern_opaque_cons(self.comm)
+        s.intern_opaque_comm(self.comm)
     }
 
     pub fn from_ptr_with_hiding(s: &mut Store<F>, function_ptr: &Ptr<F>) -> (Self, F) {
@@ -501,12 +500,9 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
     }
 
     pub fn from_ptr_and_secret(s: &mut Store<F>, function_ptr: &Ptr<F>, secret: F) -> Self {
-        let secret_num = Num::from_scalar(secret);
-        let secret_ptr = s.intern_num(secret_num);
+        let hidden = s.hide(secret, *function_ptr);
 
-        let hidden = s.cons(secret_ptr, *function_ptr);
-
-        Self::from_cons(s, &hidden)
+        Self::from_comm(s, &hidden)
     }
 
     // Importantly, this ensures the function and secret are in the Store, s.
@@ -521,36 +517,26 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
 
         let commitment = Self::from_ptr_and_secret(s, &fun_ptr, secret);
 
-        let cdr = s.sym("cdr");
-        let quote = s.sym("quote");
+        let open = s.sym("open");
+        let comm_ptr = s.hide(secret, fun_ptr);
 
-        let secret_ptr = s.num(Num::from_scalar(secret));
-        let comm_ptr = s.cons(secret_ptr, fun_ptr);
+        // (open <commitment>)
+        let fun_expr = s.list(&[open, comm_ptr]);
 
-        let quoted_comm_ptr = s.list(&[quote, comm_ptr]);
-
-        // (cdr <commitment>)
-        let fun_expr = s.list(&[cdr, quoted_comm_ptr]);
-
-        // ((cdr <commitment>) input)
+        // ((open <commitment>) input)
         let expression = s.list(&[fun_expr, input]);
 
         (commitment, expression)
     }
 
     fn fun_application(&self, s: &mut Store<F>, input: Ptr<F>) -> Ptr<F> {
-        let cdr = s.sym("cdr");
-        let quote = s.sym("quote");
-
+        let open = s.sym("open");
         let comm_ptr = self.ptr(s);
-        let quoted_comm_ptr = s.list(&[quote, comm_ptr]);
 
-        // <commitment> is (secret . fun-expr)
+        // (open <commitment>)
+        let fun_expr = s.list(&[open, comm_ptr]);
 
-        // (cdr <commitment>)
-        let fun_expr = s.list(&[cdr, quoted_comm_ptr]);
-
-        // ((cdr commitment) input)
+        // ((open commitment) input)
         s.list(&[fun_expr, input])
     }
 }
@@ -697,17 +683,18 @@ impl Opening<Scalar> {
         let (public_output, _iterations) = evaluate(s, expression, limit);
 
         let (new_commitment, output_expr) = if chain {
+            // FIXME: update for explicit commitments.
+
             // public_output = (result_expr (secret . new_fun))
             let cons = public_output.expr;
             let result_expr = s.car(&cons);
             let new_comm = s.cdr(&cons);
-            let new_secret = *s
-                .get_expr_hash(&s.car(&new_comm))
-                .expect("secret missing")
-                .value();
 
-            let new_fun = s.cdr(&new_comm);
-            let new_commitment = Commitment::from_cons(s, &new_comm);
+            let new_secret0 = s.secret(new_comm).expect("secret missing");
+            let new_secret = *s.get_expr_hash(&new_secret0).expect("hash missing").value();
+
+            let new_fun = s.open(new_comm).expect("opening missing");
+            let new_commitment = Commitment::from_comm(s, &new_comm);
 
             s.hydrate_scalar_cache();
             let (scalar_store, scalar_ptr) = ScalarStore::new_with_expr(s, &new_fun);
@@ -835,7 +822,6 @@ impl Proof<Bls12> {
                     Commitment::construct_with_fun_application(s, function, input, limit);
 
                 assert_eq!(commitment, c);
-
                 (expression, empty_sym_env(s))
             }
         };
