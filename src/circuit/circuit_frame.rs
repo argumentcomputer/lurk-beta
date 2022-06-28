@@ -1402,9 +1402,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == CONS
     /////////////////////////////////////////////////////////////////////////////
-    let cons_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
-        &[&g.op2_cons_tag, &g.default_num], env, &more, cont,
-    ];
+    let cons_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&[&g.op2_cons_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
         *cons_hash.value(),
         &g.binop_cont_tag,
@@ -1413,18 +1412,13 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == BEGIN
     /////////////////////////////////////////////////////////////////////////////
-    let begin_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
-        &[&g.op2_begin_tag, &g.default_num], env, &more, cont,
-    ];
+    let begin_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&[&g.op2_begin_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
         *begin_hash.value(),
         &g.binop_cont_tag,
         begin_continuation_components,
     );
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // head == CAR
     /////////////////////////////////////////////////////////////////////////////
@@ -1484,9 +1478,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == +
     /////////////////////////////////////////////////////////////////////////////
-    let sum_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
-        &[&g.op2_sum_tag, &g.default_num], env, &more, cont,
-    ];
+    let sum_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&[&g.op2_sum_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
         *sum_hash.value(),
         &g.binop_cont_tag,
@@ -1495,9 +1488,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == -
     /////////////////////////////////////////////////////////////////////////////
-    let diff_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
-        &[&g.op2_diff_tag, &g.default_num], env, &more, cont,
-    ];
+    let diff_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&[&g.op2_diff_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
         *diff_hash.value(),
         &g.binop_cont_tag,
@@ -1507,9 +1499,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == *
     /////////////////////////////////////////////////////////////////////////////
 
-    let product_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
-        &[&g.op2_product_tag, &g.default_num], env, &more, cont,
-    ];
+    let product_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&[&g.op2_product_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
         *product_hash.value(),
         &g.binop_cont_tag,
@@ -1519,9 +1510,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == /
     /////////////////////////////////////////////////////////////////////////////
 
-    let quotient_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
-        &[&g.op2_quotient_tag, &g.default_num], env, &more, cont,
-    ];
+    let quotient_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&[&g.op2_quotient_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
         *quotient_hash.value(),
         &g.binop_cont_tag,
@@ -1531,9 +1521,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == =
     /////////////////////////////////////////////////////////////////////////////
 
-    let numequal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
-        &[&g.rel2_numequal_tag, &g.default_num], env, &more, cont,
-    ];
+    let numequal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&[&g.rel2_numequal_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
         *numequal_hash.value(),
         &g.relop_cont_tag,
@@ -1542,9 +1531,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == EQ
     /////////////////////////////////////////////////////////////////////////////
-    let equal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
-        &[&g.rel2_numequal_tag, &g.default_num], env, &more, cont,
-    ];
+    let equal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&[&g.rel2_numequal_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
         *equal_hash.value(),
         &g.relop_cont_tag,
@@ -1703,7 +1691,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
     results.add_clauses_cons(*cons_hash.value(), &arg1, env, &the_cont_cons, &g.false_num);
 
-
     // head == BEGIN, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
 
@@ -1797,13 +1784,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == *, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(
-        *product_hash.value(),
-        &arg1,
-        env,
-        &newer_cont,
-        &g.false_num,
-    );
+    results.add_clauses_cons(*product_hash.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == /, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
@@ -1832,9 +1813,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == IF, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(*if_hash.value(), &arg1, env, &newer_cont, &g.false_num);
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     let all_clauses = [
         &results.expr_tag_clauses[..],
@@ -2025,7 +2003,11 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     };
     let call_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&saved_env, function, &continuation, default_num_pair];
-    hash_default_results.add_hash_input_clauses(ContTag::Call.as_field(), &g.call2_cont_tag, call_components);
+    hash_default_results.add_hash_input_clauses(
+        ContTag::Call.as_field(),
+        &g.call2_cont_tag,
+        call_components,
+    );
 
     // Continuation::Call2 preimage
     /////////////////////////////////////////////////////////////////////////////
@@ -2041,7 +2023,11 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         default_num_pair,
         default_num_pair,
     ];
-    hash_default_results.add_hash_input_clauses(ContTag::Call2.as_field(), &g.tail_cont_tag, call2_components);
+    hash_default_results.add_hash_input_clauses(
+        ContTag::Call2.as_field(),
+        &g.tail_cont_tag,
+        call2_components,
+    );
 
     // Continuation::Let preimage
     /////////////////////////////////////////////////////////////////////////////
@@ -2053,7 +2039,11 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     };
     let let_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&saved_env, &let_cont, default_num_pair, default_num_pair];
-    hash_default_results.add_hash_input_clauses(ContTag::Let.as_field(), &g.tail_cont_tag, let_components);
+    hash_default_results.add_hash_input_clauses(
+        ContTag::Let.as_field(),
+        &g.tail_cont_tag,
+        let_components,
+    );
 
     // Continuation::LetRec
     /////////////////////////////////////////////////////////////////////////////
@@ -2151,7 +2141,11 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         default_num_pair,
         default_num_pair,
     ];
-    hash_default_results.add_hash_input_clauses(ContTag::Unop.as_field(), &g.emit_cont_tag, emit_components);
+    hash_default_results.add_hash_input_clauses(
+        ContTag::Unop.as_field(),
+        &g.emit_cont_tag,
+        emit_components,
+    );
 
     // Continuation::Binop preimage
     /////////////////////////////////////////////////////////////////////////////
