@@ -1257,7 +1257,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
      *  - rest_body_is_nil
      *  - end_is_nil rest (and not bindings_is_nil)
      */
-    let (the_expr, the_cont_let, the_cont_letrec) = {
+    let (the_expr, var_letrec, expanded_let, expanded_letrec, bindings_is_nil, cond_error) = {
         // head == LET
         // or head == LETREC
 
@@ -1324,13 +1324,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &expanded1,
         )?;
 
-        let continuation_let = AllocatedContPtr::construct(
-            &mut cs_letrec.namespace(|| "let continuation"),
-            store,
-            &g.let_cont_tag,
-            &[&var, &expanded, env, cont],
-        )?;
-
         let expanded2 = AllocatedPtr::construct_list(
             &mut cs_letrec.namespace(|| "expanded2"),
             g,
@@ -1345,32 +1338,11 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &expanded2,
         )?;
 
-        let continuation_letrec = AllocatedContPtr::construct(
-            &mut cs_letrec.namespace(|| "letrec continuation"),
-            store,
-            &g.letrec_cont_tag,
-            &[&var, &expanded_, env, cont],
-        )?;
-
         let output_expr = AllocatedPtr::pick(
             &mut cs_letrec.namespace(|| "pick body1 or val"),
             &bindings_is_nil,
             &body1,
             &val,
-        )?;
-
-        let output_cont_let = AllocatedContPtr::pick(
-            &mut cs_letrec.namespace(|| "pick cont or newer let"),
-            &bindings_is_nil,
-            cont,
-            &continuation_let,
-        )?;
-
-        let output_cont_letrec = AllocatedContPtr::pick(
-            &mut cs_letrec.namespace(|| "pick cont or newer letrec"),
-            &bindings_is_nil,
-            cont,
-            &continuation_letrec,
         )?;
 
         let the_expr = AllocatedPtr::pick(
@@ -1380,25 +1352,25 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &output_expr,
         )?;
 
-        let the_cont_let = AllocatedContPtr::pick(
-            &mut cs_letrec.namespace(|| "the_cont_let"),
-            &cond_error,
-            &g.error_ptr_cont,
-            &output_cont_let,
-        )?;
-
-        let the_cont_letrec = AllocatedContPtr::pick(
-            &mut cs_letrec.namespace(|| "the_cont_letrec"),
-            &cond_error,
-            &g.error_ptr_cont,
-            &output_cont_letrec,
-        )?;
-
-        (the_expr, the_cont_let, the_cont_letrec)
+        (the_expr, var, expanded, expanded_, bindings_is_nil, cond_error)
     };
 
-    results.add_clauses_cons(*let_hash, &the_expr, env, &the_cont_let, &g.false_num);
-    results.add_clauses_cons(*letrec_hash, &the_expr, env, &the_cont_letrec, &g.false_num);
+    // head == LET and LETREC
+    /////////////////////////////////////////////////////////////////////////////
+    let let_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&var_letrec, &expanded_let, env, cont];
+    hash_default_results.add_hash_input_clauses(
+        *let_sym.value(),
+        &g.let_cont_tag,
+        let_continuation_components,
+    );
+    let letrec_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&var_letrec, &expanded_letrec, env, cont];
+    hash_default_results.add_hash_input_clauses(
+        *letrec.value(),
+        &g.letrec_cont_tag,
+        letrec_continuation_components,
+    );
 
     // head == CONS
     /////////////////////////////////////////////////////////////////////////////
@@ -1633,9 +1605,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         (res, continuation)
     };
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
     let defaults = [
         res.tag(),
         res.hash(),
@@ -1678,6 +1647,28 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &[&g.default_num, &g.default_num],
         ],
     )?;
+
+    // head == LET and LETREC, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+
+    let the_cont_letrec = {
+        let output_cont_letrec = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "pick cont or newer let"),
+            &bindings_is_nil,
+            cont,
+            &newer_cont,
+        )?;
+
+        let the_cont_letrec = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "the_cont_let"),
+            &cond_error,
+            &g.error_ptr_cont,
+            &output_cont_letrec,
+        )?;
+        the_cont_letrec
+   };
+    results.add_clauses_cons(*let_hash, &the_expr, env, &the_cont_letrec, &g.false_num);
+    results.add_clauses_cons(*letrec_hash, &the_expr, env, &the_cont_letrec, &g.false_num);
 
     // head == CONS, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
@@ -3307,9 +3298,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(20544, cs.num_constraints());
+            assert_eq!(19788, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(20465, cs.aux().len());
+            assert_eq!(19709, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
