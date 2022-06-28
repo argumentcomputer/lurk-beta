@@ -145,32 +145,64 @@ impl<F: LurkField> Store<F> {
     fn read_number<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr<F>> {
         // As written, read_number assumes the next char is known to be a digit.
         // So it will never return None.
-        let mut acc = 0;
+        let mut acc: u64 = 0;
         let ten = 10;
 
+        if let Some(&c) = chars.peek() {
+            if c == '0' {
+                chars.next().unwrap();
+                if let Some(&c) = chars.peek() {
+                    if c.to_ascii_uppercase() == 'X' {
+                        chars.next();
+                        return self.read_hex_num(chars);
+                    }
+                }
+            }
+        }
         while let Some(&c) = chars.peek() {
             if is_digit_char(&c) {
                 let digit_char = chars.next().unwrap();
-                if c == '0' {
-                    if let Some(&c) = chars.peek() {
-                        if c.to_ascii_uppercase() == 'X' {
-                            chars.next();
-                            return self.read_hex_num(chars);
-                        }
-                    }
-                }
-
-                if acc != 0 {
-                    acc *= ten;
-                }
                 let digit = digit_char.to_digit(10).unwrap();
                 let n: u64 = digit.into();
-                acc += n;
+
+                if let Some(new) = acc.checked_mul(ten).and_then(|x| x.checked_add(n)) {
+                    acc = new;
+                } else {
+                    // If acc * 10 + n would overflow, convert to F-sized accumulator and continue.
+                    let scalar_acc = F::from(acc) * F::from(ten) + F::from(n);
+                    return self.read_number_aux(scalar_acc, chars);
+                }
             } else {
                 break;
             }
         }
         Some(self.intern_num(acc))
+    }
+
+    fn read_number_aux<T: Iterator<Item = char>>(
+        &mut self,
+        mut acc: F,
+        chars: &mut Peekable<T>,
+    ) -> Option<Ptr<F>> {
+        let zero = F::from(0);
+        let ten = F::from(10);
+
+        while let Some(&c) = chars.peek() {
+            if is_digit_char(&c) {
+                let digit_char = chars.next().unwrap();
+
+                if acc != zero {
+                    acc *= ten;
+                }
+                let digit = digit_char.to_digit(10).unwrap();
+                let n: u64 = digit.into();
+                let f: F = n.into();
+                acc += f;
+            } else {
+                break;
+            }
+        }
+        Some(self.intern_num(crate::num::Num::Scalar(acc)))
     }
 
     fn read_hex_num<T: Iterator<Item = char>>(
@@ -352,7 +384,8 @@ asdf(", "ASDF",
         let test = |input, expected: u64| {
             let mut store = Store::<Fr>::default();
             let expr = store.read(input).unwrap();
-            assert_eq!(store.intern_num(expected), expr);
+            let expected = store.intern_num(expected);
+            assert!(store.ptr_eq(&expected, &expr));
         };
         test("123", 123);
         test("0987654321", 987654321);
@@ -369,11 +402,8 @@ asdf(", "ASDF",
         let test = |input, expected: Fr| {
             let mut store = Store::<Fr>::default();
             let expr = store.read(input).unwrap();
-            dbg!(expr.fmt_to_string(&store));
-            assert_eq!(
-                store.intern_num(crate::num::Num::from_scalar(expected)),
-                expr
-            );
+            let expected = store.intern_num(crate::num::Num::from_scalar(expected));
+            assert!(store.ptr_eq(&expected, &expr));
         };
         test("0x10", Fr::from(16));
         test("0x22", Fr::from(34));
@@ -395,6 +425,34 @@ asdf(", "ASDF",
         test(
             "0x000000000000000000000000000000000000000000000000000000000000000F",
             Fr::from(15),
+        );
+
+        {
+            let x = 18446744073709551615;
+            assert_eq!(u64::MAX, x);
+            test("18446744073709551616", Fr::from(x) + Fr::from(1));
+        }
+
+        test("1230xa", Fr::from(1230));
+
+        let test = |a, b| {
+            let mut store = Store::<Fr>::default();
+            let a_num = store.read(a).unwrap();
+            let b_num = store.read(b).unwrap();
+            dbg!(a_num.fmt_to_string(&store), b_num.fmt_to_string(&store));
+            assert!(store.ptr_eq(&a_num, &b_num));
+        };
+
+        test("18446744073709551616", "0x10000000000000000");
+        test("123456789123456789123", "0x6B14E9F9B0DF36A83");
+
+        // > (- 0 1)
+        // [3 iterations] => 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000
+        // (format nil "~x" (mod (expt 2 256) (1+ #x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000)))
+        // "1824B159ACC5056F998C4FEFECBC4FF55884B7FA0003480200000001FFFFFFFE"
+        test(
+            "0x10000000000000000000000000000000000000000000000000000000000000000",
+            "0x1824B159ACC5056F998C4FEFECBC4FF55884B7FA0003480200000001FFFFFFFE",
         );
     }
 
