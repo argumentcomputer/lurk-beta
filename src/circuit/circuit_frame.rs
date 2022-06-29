@@ -1547,8 +1547,15 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.true_num,
     );
 
-    let (cont_tag, component0_tag, component0_hash, component1_tag, component1_hash, component2_tag, component2_hash) = {
-
+    let (
+        cont_tag,
+        component0_tag,
+        component0_hash,
+        component1_tag,
+        component1_hash,
+        component2_tag,
+        component2_hash,
+    ) = {
         let cont_tag = pick(
             &mut cs.namespace(|| "pick cont_tag"),
             &rest_is_nil,
@@ -1592,7 +1599,15 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             cont.hash(),
         )?;
 
-        (cont_tag, component0_tag, component0_hash, component1_tag, component1_hash, component2_tag, component2_hash)
+        (
+            cont_tag,
+            component0_tag,
+            component0_hash,
+            component1_tag,
+            component1_hash,
+            component2_tag,
+            component2_hash,
+        )
     };
 
     let defaults = [
