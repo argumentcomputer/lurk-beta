@@ -1352,7 +1352,14 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &output_expr,
         )?;
 
-        (the_expr, var, expanded, expanded_, bindings_is_nil, cond_error)
+        (
+            the_expr,
+            var,
+            expanded,
+            expanded_,
+            bindings_is_nil,
+            cond_error,
+        )
     };
 
     // head == LET and LETREC
@@ -1540,79 +1547,64 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.true_num,
     );
 
-    let (res, continuation) = {
-        // head == (FN . ARGS)
-        let fun_form = &head;
+    let (cont_tag, component0_tag, component0_hash, component1_tag, component1_hash, component2_tag, component2_hash) = {
 
-        let call_continuation = AllocatedContPtr::construct(
-            &mut cs.namespace(|| "Call"),
-            store,
-            &g.call_cont_tag,
-            &[env, &arg1, cont, &[&g.default_num, &g.default_num]],
-        )?;
-
-        let call0_continuation = AllocatedContPtr::construct(
-            &mut cs.namespace(|| "Call0"),
-            store,
-            &g.call0_cont_tag,
-            &[
-                cont,
-                &[&g.default_num, &g.default_num],
-                &[&g.default_num, &g.default_num],
-                &[&g.default_num, &g.default_num],
-            ],
-        )?;
-
-        let the_call_continuation = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "the_call_continuation"),
+        let cont_tag = pick(
+            &mut cs.namespace(|| "pick cont_tag"),
             &rest_is_nil,
-            &call0_continuation,
-            &call_continuation,
+            &g.call0_cont_tag,
+            &g.call_cont_tag,
+        )?;
+        let component0_tag = pick(
+            &mut cs.namespace(|| "pick component0_tag"),
+            &rest_is_nil,
+            cont.tag(),
+            env.tag(),
+        )?;
+        let component0_hash = pick(
+            &mut cs.namespace(|| "pick component0_hash"),
+            &rest_is_nil,
+            cont.hash(),
+            env.hash(),
+        )?;
+        let component1_tag = pick(
+            &mut cs.namespace(|| "pick component1_tag"),
+            &rest_is_nil,
+            &g.default_num,
+            arg1.tag(),
+        )?;
+        let component1_hash = pick(
+            &mut cs.namespace(|| "pick component1_hash"),
+            &rest_is_nil,
+            &g.default_num,
+            arg1.hash(),
+        )?;
+        let component2_tag = pick(
+            &mut cs.namespace(|| "pick component2_tag"),
+            &rest_is_nil,
+            &g.default_num,
+            cont.tag(),
+        )?;
+        let component2_hash = pick(
+            &mut cs.namespace(|| "pick component2_hash"),
+            &rest_is_nil,
+            &g.default_num,
+            cont.hash(),
         )?;
 
-        let expanded_inner = AllocatedPtr::construct_list(
-            &mut cs.namespace(|| "expanded_inner"),
-            g,
-            store,
-            &[fun_form, &arg1],
-        )?;
-
-        let expanded = AllocatedPtr::construct_cons(
-            &mut cs.namespace(|| "expanded"),
-            g,
-            store,
-            &expanded_inner,
-            &more,
-        )?;
-
-        let more_args_is_nil =
-            more.alloc_equal(&mut cs.namespace(|| "more_args_is_nil"), &g.nil_ptr)?;
-
-        let res = AllocatedPtr::pick(
-            &mut cs.namespace(|| "pick res"),
-            &more_args_is_nil,
-            fun_form,
-            &expanded,
-        )?;
-
-        let continuation = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "pick continuation"),
-            &more_args_is_nil,
-            &the_call_continuation,
-            cont,
-        )?;
-
-        (res, continuation)
+        (cont_tag, component0_tag, component0_hash, component1_tag, component1_hash, component2_tag, component2_hash)
     };
 
     let defaults = [
-        res.tag(),
-        res.hash(),
-        env.tag(),
-        env.hash(),
-        continuation.tag(),
-        continuation.hash(),
-        &g.false_num,
+        &cont_tag,
+        &component0_tag,
+        &component0_hash,
+        &component1_tag,
+        &component1_hash,
+        &component2_tag,
+        &component2_hash,
+        &g.default_num,
+        &g.default_num,
     ];
 
     /////////////////////////// multicase (hash preimage)
@@ -1666,7 +1658,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &output_cont_letrec,
         )?;
         the_cont_letrec
-   };
+    };
     results.add_clauses_cons(*let_hash, &the_expr, env, &the_cont_letrec, &g.false_num);
     results.add_clauses_cons(*letrec_hash, &the_expr, env, &the_cont_letrec, &g.false_num);
 
@@ -1804,6 +1796,57 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == IF, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(*if_hash.value(), &arg1, env, &newer_cont, &g.false_num);
+
+    // head == CALL and CALL0, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    let (res, continuation) = {
+        // head == (FN . ARGS)
+        let fun_form = &head;
+
+        let expanded_inner = AllocatedPtr::construct_list(
+            &mut cs.namespace(|| "expanded_inner"),
+            g,
+            store,
+            &[fun_form, &arg1],
+        )?;
+
+        let expanded = AllocatedPtr::construct_cons(
+            &mut cs.namespace(|| "expanded"),
+            g,
+            store,
+            &expanded_inner,
+            &more,
+        )?;
+
+        let more_args_is_nil =
+            more.alloc_equal(&mut cs.namespace(|| "more_args_is_nil"), &g.nil_ptr)?;
+
+        let res = AllocatedPtr::pick(
+            &mut cs.namespace(|| "pick res"),
+            &more_args_is_nil,
+            fun_form,
+            &expanded,
+        )?;
+
+        let continuation = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "pick continuation"),
+            &more_args_is_nil,
+            &newer_cont,
+            cont,
+        )?;
+
+        (res, continuation)
+    };
+
+    let defaults = [
+        res.tag(),
+        res.hash(),
+        env.tag(),
+        env.hash(),
+        continuation.tag(),
+        continuation.hash(),
+        &g.false_num,
+    ];
 
     let all_clauses = [
         &results.expr_tag_clauses[..],
@@ -3298,9 +3341,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(19788, cs.num_constraints());
+            assert_eq!(19057, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(19709, cs.aux().len());
+            assert_eq!(18980, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
