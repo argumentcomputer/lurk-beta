@@ -1651,7 +1651,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &[&components_results[1], &components_results[2]] as &dyn AsAllocatedHashComponents<F>,
             &[&components_results[3], &components_results[4]] as &dyn AsAllocatedHashComponents<F>,
             &[&components_results[5], &components_results[6]] as &dyn AsAllocatedHashComponents<F>,
-            &[&g.default_num, &g.default_num],
+            &[&components_results[7], &components_results[8]] as &dyn AsAllocatedHashComponents<F>,
         ],
     )?;
 
