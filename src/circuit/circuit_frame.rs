@@ -1511,7 +1511,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == EQ
     /////////////////////////////////////////////////////////////////////////////
     let equal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
-        &[&[&g.rel2_numequal_tag, &g.default_num], env, &more, cont];
+        &[&[&g.rel2_equal_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
         *equal_hash.value(),
         &g.relop_cont_tag,
@@ -1657,7 +1657,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == LET and LETREC, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-
     let the_cont_letrec = {
         let output_cont_letrec = AllocatedContPtr::pick(
             &mut cs.namespace(|| "pick cont or newer let"),
@@ -1679,7 +1678,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == CONS, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-
     // Checking one-arg cons error
     let the_cont_cons = AllocatedContPtr::pick(
         &mut cs.namespace(|| "the_cont_cons"),
@@ -1691,7 +1689,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == BEGIN, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-
     let cont_begin = AllocatedContPtr::pick(
         &mut cs.namespace(|| "cont begin"),
         &end_is_nil,
@@ -1702,7 +1699,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == CAR, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-
     let the_cont_car = AllocatedContPtr::pick(
         &mut cs.namespace(|| "the_cont_car"),
         &end_is_nil,
@@ -1720,7 +1716,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == CDR, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-
     let the_cont_cdr = AllocatedContPtr::pick(
         &mut cs.namespace(|| "the_cont_cdr"),
         &end_is_nil,
@@ -1738,7 +1733,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == ATOM, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-
     let the_cont_atom = AllocatedContPtr::pick(
         &mut cs.namespace(|| "the_cont_atom"),
         &end_is_nil,
@@ -1756,7 +1750,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == EMIT, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-
     let the_cont_emit = AllocatedContPtr::pick(
         &mut cs.namespace(|| "the_cont_emit"),
         &end_is_nil,
@@ -1776,7 +1769,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(*sum_hash.value(), &arg1, env, &newer_cont, &g.false_num);
 
-    // head == +, newer_cont is allocated
+    // head == -, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(*diff_hash.value(), &arg1, env, &newer_cont, &g.false_num);
 
