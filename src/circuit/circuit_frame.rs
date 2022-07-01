@@ -1699,8 +1699,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == CAR, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    let the_cont_car = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_car"),
+    let the_cont_car_cdr_atom_emit = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_car_cdr_atom_emit"),
         &end_is_nil,
         &newer_cont,
         &g.error_ptr_cont,
@@ -1710,58 +1710,37 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *car_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_car,
+        &the_cont_car_cdr_atom_emit,
         &g.false_num,
     );
 
     // head == CDR, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    let the_cont_cdr = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_cdr"),
-        &end_is_nil,
-        &newer_cont,
-        &g.error_ptr_cont,
-    )?;
-
     results.add_clauses_cons(
         *cdr_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_cdr,
+        &the_cont_car_cdr_atom_emit,
         &g.false_num,
     );
 
     // head == ATOM, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    let the_cont_atom = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_atom"),
-        &end_is_nil,
-        &newer_cont,
-        &g.error_ptr_cont,
-    )?;
-
     results.add_clauses_cons(
         *atom_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_atom,
+        &the_cont_car_cdr_atom_emit,
         &g.false_num,
     );
 
     // head == EMIT, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    let the_cont_emit = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_emit"),
-        &end_is_nil,
-        &newer_cont,
-        &g.error_ptr_cont,
-    )?;
-
     results.add_clauses_cons(
         *emit_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_emit,
+        &the_cont_car_cdr_atom_emit,
         &g.false_num,
     );
 
@@ -3349,9 +3328,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(19057, cs.num_constraints());
+            assert_eq!(19051, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(18980, cs.aux().len());
+            assert_eq!(18974, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
