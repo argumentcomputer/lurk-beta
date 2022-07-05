@@ -1784,7 +1784,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(*if_hash.value(), &arg1, env, &newer_cont, &g.false_num);
 
-    // head == (FN . ARGS), newer_cont is allocated (deal with CALL and CALL0) 
+    // head == (FN . ARGS), newer_cont is allocated (deal with CALL and CALL0)
     /////////////////////////////////////////////////////////////////////////////
     let (res, continuation) = {
         let fun_form = &head;
