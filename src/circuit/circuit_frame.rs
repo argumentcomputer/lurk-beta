@@ -1264,8 +1264,12 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         let mut cs_let_letrec = cs.namespace(|| "LET_LETREC");
 
         let (bindings, body) = (arg1.clone(), more.clone());
-        let (body1, rest_body) =
-            car_cdr(&mut cs_let_letrec.namespace(|| "car_cdr body"), g, &body, store)?;
+        let (body1, rest_body) = car_cdr(
+            &mut cs_let_letrec.namespace(|| "car_cdr body"),
+            g,
+            &body,
+            store,
+        )?;
         let (binding1, rest_bindings) = car_cdr(
             &mut cs_let_letrec.namespace(|| "car_cdr bindings"),
             g,
@@ -1278,15 +1282,25 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &binding1,
             store,
         )?;
-        let bindings_is_nil =
-            bindings.alloc_equal(&mut cs_let_letrec.namespace(|| "bindings_is_nil"), &g.nil_ptr)?;
+        let bindings_is_nil = bindings.alloc_equal(
+            &mut cs_let_letrec.namespace(|| "bindings_is_nil"),
+            &g.nil_ptr,
+        )?;
 
-        let rest_body_is_nil =
-            rest_body.alloc_equal(&mut cs_let_letrec.namespace(|| "rest_body_is_nil"), &g.nil_ptr)?;
+        let rest_body_is_nil = rest_body.alloc_equal(
+            &mut cs_let_letrec.namespace(|| "rest_body_is_nil"),
+            &g.nil_ptr,
+        )?;
 
-        let (val, end) = car_cdr(&mut cs_let_letrec.namespace(|| "car_cdr vals"), g, &vals, store)?;
+        let (val, end) = car_cdr(
+            &mut cs_let_letrec.namespace(|| "car_cdr vals"),
+            g,
+            &vals,
+            store,
+        )?;
 
-        let end_is_nil = end.alloc_equal(&mut cs_let_letrec.namespace(|| "end_is_nil"), &g.nil_ptr)?;
+        let end_is_nil =
+            end.alloc_equal(&mut cs_let_letrec.namespace(|| "end_is_nil"), &g.nil_ptr)?;
 
         let body_is_nil =
             body.alloc_equal(&mut cs_let_letrec.namespace(|| "body_is_nil"), &g.nil_ptr)?;
