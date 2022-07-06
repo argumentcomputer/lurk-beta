@@ -1257,96 +1257,96 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
      *  - rest_body_is_nil
      *  - end_is_nil rest (and not bindings_is_nil)
      */
-    let (the_expr, var_letrec, expanded_let, expanded_letrec, bindings_is_nil, cond_error) = {
+    let (the_expr, var_let_letrec, expanded_let, expanded_letrec, bindings_is_nil, cond_error) = {
         // head == LET
         // or head == LETREC
 
-        let mut cs_letrec = cs.namespace(|| "LET(REC)*");
+        let mut cs_let_letrec = cs.namespace(|| "LET_LETREC");
 
         let (bindings, body) = (arg1.clone(), more.clone());
         let (body1, rest_body) =
-            car_cdr(&mut cs_letrec.namespace(|| "car_cdr body"), g, &body, store)?;
+            car_cdr(&mut cs_let_letrec.namespace(|| "car_cdr body"), g, &body, store)?;
         let (binding1, rest_bindings) = car_cdr(
-            &mut cs_letrec.namespace(|| "car_cdr bindings"),
+            &mut cs_let_letrec.namespace(|| "car_cdr bindings"),
             g,
             &bindings,
             store,
         )?;
-        let (var, vals) = car_cdr(
-            &mut cs_letrec.namespace(|| "car_cdr binding1"),
+        let (var_let_letrec, vals) = car_cdr(
+            &mut cs_let_letrec.namespace(|| "car_cdr binding1"),
             g,
             &binding1,
             store,
         )?;
         let bindings_is_nil =
-            bindings.alloc_equal(&mut cs_letrec.namespace(|| "bindings_is_nil"), &g.nil_ptr)?;
+            bindings.alloc_equal(&mut cs_let_letrec.namespace(|| "bindings_is_nil"), &g.nil_ptr)?;
 
         let rest_body_is_nil =
-            rest_body.alloc_equal(&mut cs_letrec.namespace(|| "rest_body_is_nil"), &g.nil_ptr)?;
+            rest_body.alloc_equal(&mut cs_let_letrec.namespace(|| "rest_body_is_nil"), &g.nil_ptr)?;
 
-        let (val, end) = car_cdr(&mut cs_letrec.namespace(|| "car_cdr vals"), g, &vals, store)?;
+        let (val, end) = car_cdr(&mut cs_let_letrec.namespace(|| "car_cdr vals"), g, &vals, store)?;
 
-        let end_is_nil = end.alloc_equal(&mut cs_letrec.namespace(|| "end_is_nil"), &g.nil_ptr)?;
+        let end_is_nil = end.alloc_equal(&mut cs_let_letrec.namespace(|| "end_is_nil"), &g.nil_ptr)?;
 
         let body_is_nil =
-            body.alloc_equal(&mut cs_letrec.namespace(|| "body_is_nil"), &g.nil_ptr)?;
+            body.alloc_equal(&mut cs_let_letrec.namespace(|| "body_is_nil"), &g.nil_ptr)?;
 
         /*
          * We get the condition for error by using OR of each individual error.
          */
         let mut cond_error = constraints::or(
-            &mut cs_letrec.namespace(|| "cond error1"),
+            &mut cs_let_letrec.namespace(|| "cond error1"),
             &Boolean::not(&rest_body_is_nil),
             &Boolean::not(&end_is_nil),
         )?;
         cond_error = constraints::or(
-            &mut cs_letrec.namespace(|| "cond error2"),
+            &mut cs_let_letrec.namespace(|| "cond error2"),
             &body_is_nil,
             &cond_error,
         )?;
 
         let expanded1 = AllocatedPtr::construct_list(
-            &mut cs_letrec.namespace(|| "expanded1"),
+            &mut cs_let_letrec.namespace(|| "expanded1"),
             g,
             store,
             &[&let_t, &rest_bindings, &body1],
         )?;
 
         let rest_bindings_is_nil = rest_bindings.alloc_equal(
-            &mut cs_letrec.namespace(|| "rest_bindings_is_nil"),
+            &mut cs_let_letrec.namespace(|| "rest_bindings_is_nil"),
             &g.nil_ptr,
         )?;
 
         let expanded = AllocatedPtr::pick(
-            &mut cs_letrec.namespace(|| "expanded"),
+            &mut cs_let_letrec.namespace(|| "expanded"),
             &rest_bindings_is_nil,
             &body1,
             &expanded1,
         )?;
 
         let expanded2 = AllocatedPtr::construct_list(
-            &mut cs_letrec.namespace(|| "expanded2"),
+            &mut cs_let_letrec.namespace(|| "expanded2"),
             g,
             store,
             &[&letrec_t, &rest_bindings, &body1],
         )?;
 
         let expanded_ = AllocatedPtr::pick(
-            &mut cs_letrec.namespace(|| "expanded_"),
+            &mut cs_let_letrec.namespace(|| "expanded_"),
             &rest_bindings_is_nil,
             &body1,
             &expanded2,
         )?;
 
         let output_expr = AllocatedPtr::pick(
-            &mut cs_letrec.namespace(|| "pick body1 or val"),
+            &mut cs_let_letrec.namespace(|| "pick body1 or val"),
             &bindings_is_nil,
             &body1,
             &val,
         )?;
 
         let the_expr = AllocatedPtr::pick(
-            &mut cs_letrec.namespace(|| "the_expr_let"),
+            &mut cs_let_letrec.namespace(|| "the_expr_let"),
             &cond_error,
             expr,
             &output_expr,
@@ -1354,7 +1354,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
         (
             the_expr,
-            var,
+            var_let_letrec,
             expanded,
             expanded_,
             bindings_is_nil,
@@ -1365,14 +1365,14 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == LET and LETREC
     /////////////////////////////////////////////////////////////////////////////
     let let_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
-        &[&var_letrec, &expanded_let, env, cont];
+        &[&var_let_letrec, &expanded_let, env, cont];
     hash_default_results.add_hash_input_clauses(
         *let_sym.value(),
         &g.let_cont_tag,
         let_continuation_components,
     );
     let letrec_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
-        &[&var_letrec, &expanded_letrec, env, cont];
+        &[&var_let_letrec, &expanded_letrec, env, cont];
     hash_default_results.add_hash_input_clauses(
         *letrec.value(),
         &g.letrec_cont_tag,
@@ -1665,13 +1665,13 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &newer_cont,
         )?;
 
-        let the_cont_letrec = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "the_cont_let"),
+        let the_cont_let_letrec = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "the_cont_let_letrec"),
             &cond_error,
             &g.error_ptr_cont,
             &output_cont_letrec,
         )?;
-        the_cont_letrec
+        the_cont_let_letrec
     };
     results.add_clauses_cons(*let_hash, &the_expr, env, &the_cont_letrec, &g.false_num);
     results.add_clauses_cons(*letrec_hash, &the_expr, env, &the_cont_letrec, &g.false_num);
