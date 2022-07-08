@@ -2579,4 +2579,52 @@ mod test {
 
         test_aux2(s2, &expr, Some(x), None, None, None, 2);
     }
+
+    #[test]
+    fn commit_open_sym() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (commit 'x))";
+        let x = s.sym("x");
+        test_aux(s, expr, Some(x), None, None, None, 4);
+    }
+
+    #[test]
+    fn commit_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(commit 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn open_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn secret_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn num_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn comm_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(comm 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
 }

@@ -818,9 +818,15 @@ impl<F: LurkField> Default for Store<F> {
             "let",
             "letrec",
             "begin",
+            "hide",
             "cons",
             "car",
             "cdr",
+            "commit",
+            "num",
+            "comm",
+            "open",
+            "secret",
             "atom",
             "emit",
             "+",
@@ -864,6 +870,57 @@ impl<F: LurkField> Store<F> {
         self.intern_comm(secret, payload)
     }
 
+    pub fn hide_non_mut(&self, secret: F, payload: Ptr<F>) -> Option<Ptr<F>> {
+        let comm_idx = self.comm_store
+            .get_index_of(&(FWrap(secret), payload));
+        dbg!(comm_idx);
+
+        let comm_ptr: Option<Ptr<F>> = match comm_idx {
+            Some(c) => Some(Ptr(Tag::Comm, RawPtr::new(c))),
+            None => None,
+        };
+        dbg!(comm_ptr);
+
+        comm_ptr
+    }
+
+    pub fn open_non_mut(&self, ptr: Ptr<F>) -> Option<Ptr<F>> {
+        //assert!(ptr.0 == Tag::Comm || ptr.0 == Tag::Num);
+
+        let p = match ptr.0 {
+            Tag::Comm => ptr,
+            //Tag::Num => {
+                //let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
+
+                //self.intern_maybe_opaque_comm(scalar)
+            //}
+            _ => return None,
+        };
+
+        if let Some((_secret, payload)) = self.fetch_comm(&p) {
+            Some(*payload)
+        } else {
+            None
+        }
+    }
+
+    pub fn secret_non_mut(&self, ptr: Ptr<F>) -> Option<Ptr<F>> {
+        //assert_eq!(Tag::Comm, ptr.0);
+
+        let p = match ptr.0 {
+            Tag::Comm => ptr,
+            //Tag::Num => {
+            //    let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
+
+            //    self.intern_maybe_opaque_comm(scalar)
+            //}
+            _ => return None,
+        };
+
+        self.fetch_comm(&p)
+            .and_then(|(secret, _payload)| self.get_num(Num::Scalar(secret.0)))
+    }
+
     pub fn list(&mut self, elts: &[Ptr<F>]) -> Ptr<F> {
         self.intern_list(elts)
     }
@@ -891,9 +948,7 @@ impl<F: LurkField> Store<F> {
     pub(crate) fn poseidon_constants(&self) -> &HashConstants<F> {
         &self.poseidon_cache.constants
     }
-}
 
-impl<F: LurkField> Store<F> {
     pub fn new() -> Self {
         Store::default()
     }
@@ -939,6 +994,7 @@ impl<F: LurkField> Store<F> {
         }
         ptr
     }
+
     pub fn intern_comm(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
         if payload.is_opaque() {
             self.hash_expr(&payload);
