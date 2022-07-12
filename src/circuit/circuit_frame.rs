@@ -3349,7 +3349,7 @@ fn hide<F: LurkField, CS: ConstraintSystem<F>>(
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let commit = if let Some(ptr) = maybe_payload.ptr(store).as_ref() {
-        store.hide_non_mut(secret, *ptr)
+        store.hide(secret, *ptr)
     } else {
         None
     };
@@ -3366,7 +3366,7 @@ fn open<F: LurkField, CS: ConstraintSystem<F>>(
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let open = if let Some(ptr) = maybe_commit.ptr(store).as_ref() {
-        store.open_non_mut(*ptr)
+        store.open(*ptr)
     } else {
         None
     };
@@ -3383,7 +3383,7 @@ fn secret<F: LurkField, CS: ConstraintSystem<F>>(
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let secret = if let Some(ptr) = maybe_commit.ptr(store).as_ref() {
-        store.secret_non_mut(*ptr)
+        store.secret(*ptr)
     } else {
         None
     };

@@ -962,12 +962,12 @@ fn apply_continuation<F: LurkField>(
                         );
                     }
                     Op1::Open => store
-                        .open(*result)
+                        .open_mut(*result)
                         .expect("hidden value could not be opened"),
                     Op1::Secret => store
-                        .secret(*result)
+                        .secret_mut(*result)
                         .expect("secret could not be extracted"),
-                    Op1::Commit => store.hide(F::zero(), *result),
+                    Op1::Commit => store.hide_mut(F::zero(), *result),
                     Op1::Num => match result.tag() {
                         // TODO: There should be a corresponding Op1::Char for creating characters from numbers.
                         Tag::Num | Tag::Comm | Tag::Char => {
@@ -1055,12 +1055,12 @@ fn apply_continuation<F: LurkField>(
                             store.intern_num(tmp)
                         }
                         Op2::Cons => store.cons(evaled_arg, *arg2),
-                        Op2::Hide => store.hide(a.into_scalar(), *arg2),
+                        Op2::Hide => store.hide_mut(a.into_scalar(), *arg2),
                         Op2::Begin => unreachable!(),
                     },
                     (Expression::Num(a), _) => match operator {
                         Op2::Cons => store.cons(evaled_arg, *arg2),
-                        Op2::Hide => store.hide(a.into_scalar(), *arg2),
+                        Op2::Hide => store.hide_mut(a.into_scalar(), *arg2),
                         _ => {
                             return Control::Return(*result, *env, store.intern_cont_error());
                         }
