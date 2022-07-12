@@ -157,11 +157,13 @@ impl<F: LurkField> GlobalAllocations<F> {
 
         let op1_car_tag = Op1::Car.allocate_constant(&mut cs.namespace(|| "op1_car_tag"))?;
         let op1_cdr_tag = Op1::Cdr.allocate_constant(&mut cs.namespace(|| "op1_cdr_tag"))?;
-        let op1_commit_tag = Op1::Commit.allocate_constant(&mut cs.namespace(|| "op1_commit_tag"))?;
+        let op1_commit_tag =
+            Op1::Commit.allocate_constant(&mut cs.namespace(|| "op1_commit_tag"))?;
         let op1_num_tag = Op1::Num.allocate_constant(&mut cs.namespace(|| "op1_num_tag"))?;
         let op1_comm_tag = Op1::Comm.allocate_constant(&mut cs.namespace(|| "op1_comm_tag"))?;
         let op1_open_tag = Op1::Open.allocate_constant(&mut cs.namespace(|| "op1_open_tag"))?;
-        let op1_secret_tag = Op1::Secret.allocate_constant(&mut cs.namespace(|| "op1_secret_tag"))?;
+        let op1_secret_tag =
+            Op1::Secret.allocate_constant(&mut cs.namespace(|| "op1_secret_tag"))?;
         let op1_atom_tag = Op1::Atom.allocate_constant(&mut cs.namespace(|| "op1_atom_tag"))?;
         let op1_emit_tag = Op1::Emit.allocate_constant(&mut cs.namespace(|| "op1_emit_tag"))?;
         let op2_cons_tag = Op2::Cons.allocate_constant(&mut cs.namespace(|| "op2_cons_tag"))?;

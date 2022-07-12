@@ -1788,7 +1788,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &mut cs.namespace(|| "the_expr_commit"),
         &end_is_nil,
         &arg1,
-        &expr,
+        expr,
     )?;
 
     results.add_clauses_cons(
@@ -2821,6 +2821,27 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.op2_hide_tag,
         )?;
 
+        let hide_tag_is_comm = alloc_equal(
+            &mut cs.namespace(|| "hide tag is comm"),
+            hide.tag(),
+            &g.comm_tag,
+        )?;
+
+        let hide_tag_is_dummy =
+            alloc_is_zero(&mut cs.namespace(|| "hide tag is dummy"), hide.tag())?;
+
+        let hide_tag_is_correct = constraints::or(
+            &mut cs.namespace(|| "hide tag is correct"),
+            &hide_tag_is_comm,
+            &hide_tag_is_dummy,
+        )?;
+
+        enforce_implication(
+            &mut cs.namespace(|| "is hide implies hide tag is correct"),
+            &is_hide,
+            &hide_tag_is_correct,
+        )?;
+
         let arg1_is_char = alloc_equal(
             &mut cs.namespace(|| "arg1_is_char"),
             arg1.tag(),
@@ -3333,15 +3354,10 @@ fn hide<F: LurkField, CS: ConstraintSystem<F>>(
         None
     };
     let commit_ptr = match commit {
-        Some(c) => {
-            c
-        },
-        None => {
-            store.get_nil() // dummy
-        },
+        Some(c) => c,
+        None => store.get_nil(),
     };
-
-    Ok(AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "hide"), store, || Ok(&commit_ptr))?)
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "hide"), store, || Ok(&commit_ptr))
 }
 
 fn open<F: LurkField, CS: ConstraintSystem<F>>(
@@ -3349,16 +3365,16 @@ fn open<F: LurkField, CS: ConstraintSystem<F>>(
     maybe_commit: &AllocatedPtr<F>,
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let commit = if let Some(ptr) = maybe_commit.ptr(store).as_ref() {
+    let open = if let Some(ptr) = maybe_commit.ptr(store).as_ref() {
         store.open_non_mut(*ptr)
     } else {
         None
     };
-    let allocated_commit = match commit {
-        Some(c) => { c },
-        None => { store.get_nil() },
+    let open_ptr = match open {
+        Some(o) => o,
+        None => store.get_nil(),
     };
-    Ok(AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&allocated_commit))?)
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&open_ptr))
 }
 
 fn secret<F: LurkField, CS: ConstraintSystem<F>>(
@@ -3371,11 +3387,11 @@ fn secret<F: LurkField, CS: ConstraintSystem<F>>(
     } else {
         None
     };
-    let allocated_secret = match secret {
-        Some(c) => { c },
-        None => { store.get_nil() },
+    let secret_ptr = match secret {
+        Some(s) => s,
+        None => store.get_nil(),
     };
-    Ok(AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "secret"), store, || Ok(&allocated_secret))?)
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "secret"), store, || Ok(&secret_ptr))
 }
 
 fn num<F: LurkField, CS: ConstraintSystem<F>>(
@@ -3384,17 +3400,16 @@ fn num<F: LurkField, CS: ConstraintSystem<F>>(
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let num = if let Some(ptr) = maybe_num.ptr(store).as_ref() {
-        let scalar_ptr =
-            store.get_expr_hash(ptr).expect("expr hash missing");
+        let scalar_ptr = store.get_expr_hash(ptr).expect("expr hash missing");
         store.get_num(crate::Num::Scalar::<F>(*scalar_ptr.value()))
     } else {
         None
     };
     let allocated_num = match num {
-        Some(c) => { c },
-        None => { store.get_nil() },
+        Some(n) => n,
+        None => store.get_nil(),
     };
-    Ok(AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "num"), store, || Ok(&allocated_num))?)
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "num"), store, || Ok(&allocated_num))
 }
 
 fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
@@ -3663,9 +3678,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(19051, cs.num_constraints());
+            assert_eq!(21481, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(18974, cs.aux().len());
+            assert_eq!(21410, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

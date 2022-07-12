@@ -710,6 +710,8 @@ impl Tag {
             f if f == Tag::Thunk.as_field() => Some(Tag::Thunk),
             f if f == Tag::Num.as_field() => Some(Tag::Num),
             f if f == Tag::Str.as_field() => Some(Tag::Str),
+            f if f == Tag::Char.as_field() => Some(Tag::Char),
+            f if f == Tag::Comm.as_field() => Some(Tag::Comm),
             _ => None,
         }
     }
@@ -871,15 +873,9 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn hide_non_mut(&self, secret: F, payload: Ptr<F>) -> Option<Ptr<F>> {
-        let comm_idx = self.comm_store
-            .get_index_of(&(FWrap(secret), payload));
-        dbg!(comm_idx);
+        let comm_idx = self.comm_store.get_index_of(&(FWrap(secret), payload));
 
-        let comm_ptr: Option<Ptr<F>> = match comm_idx {
-            Some(c) => Some(Ptr(Tag::Comm, RawPtr::new(c))),
-            None => None,
-        };
-        dbg!(comm_ptr);
+        let comm_ptr: Option<Ptr<F>> = comm_idx.map(|c| Ptr(Tag::Comm, RawPtr::new(c)));
 
         comm_ptr
     }
@@ -890,9 +886,9 @@ impl<F: LurkField> Store<F> {
         let p = match ptr.0 {
             Tag::Comm => ptr,
             //Tag::Num => {
-                //let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
+            //let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
 
-                //self.intern_maybe_opaque_comm(scalar)
+            //self.intern_maybe_opaque_comm(scalar)
             //}
             _ => return None,
         };
