@@ -3348,16 +3348,15 @@ fn hide<F: LurkField, CS: ConstraintSystem<F>>(
     maybe_payload: &AllocatedPtr<F>,
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let commit = if let Some(ptr) = maybe_payload.ptr(store).as_ref() {
-        store.hide(secret, *ptr)
+    let hide_ptr = if let Some(ptr) = maybe_payload.ptr(store).as_ref() {
+        match store.hide(secret, *ptr) {
+            Some(c) => c,
+            None => store.get_nil(),
+        }
     } else {
-        None
+        store.get_nil()
     };
-    let commit_ptr = match commit {
-        Some(c) => c,
-        None => store.get_nil(),
-    };
-    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "hide"), store, || Ok(&commit_ptr))
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "hide"), store, || Ok(&hide_ptr))
 }
 
 fn open<F: LurkField, CS: ConstraintSystem<F>>(
@@ -3365,14 +3364,13 @@ fn open<F: LurkField, CS: ConstraintSystem<F>>(
     maybe_commit: &AllocatedPtr<F>,
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let open = if let Some(ptr) = maybe_commit.ptr(store).as_ref() {
-        store.open(*ptr)
+    let open_ptr = if let Some(ptr) = maybe_commit.ptr(store).as_ref() {
+        match store.open(*ptr) {
+            Some(o) => o,
+            None => store.get_nil(),
+        }
     } else {
-        None
-    };
-    let open_ptr = match open {
-        Some(o) => o,
-        None => store.get_nil(),
+        store.get_nil()
     };
     AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&open_ptr))
 }
@@ -3382,14 +3380,13 @@ fn secret<F: LurkField, CS: ConstraintSystem<F>>(
     maybe_commit: &AllocatedPtr<F>,
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let secret = if let Some(ptr) = maybe_commit.ptr(store).as_ref() {
-        store.secret(*ptr)
+    let secret_ptr = if let Some(ptr) = maybe_commit.ptr(store).as_ref() {
+        match store.secret(*ptr) {
+            Some(s) => s,
+            None => store.get_nil(),
+        }
     } else {
-        None
-    };
-    let secret_ptr = match secret {
-        Some(s) => s,
-        None => store.get_nil(),
+        store.get_nil()
     };
     AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "secret"), store, || Ok(&secret_ptr))
 }
@@ -3399,17 +3396,16 @@ fn num<F: LurkField, CS: ConstraintSystem<F>>(
     maybe_num: &AllocatedPtr<F>,
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let num = if let Some(ptr) = maybe_num.ptr(store).as_ref() {
+    let num_ptr = if let Some(ptr) = maybe_num.ptr(store).as_ref() {
         let scalar_ptr = store.get_expr_hash(ptr).expect("expr hash missing");
-        store.get_num(crate::Num::Scalar::<F>(*scalar_ptr.value()))
+        match store.get_num(crate::Num::Scalar::<F>(*scalar_ptr.value())) {
+            Some(n) => n,
+            None => store.get_nil(),
+        }
     } else {
-        None
+        store.get_nil()
     };
-    let allocated_num = match num {
-        Some(n) => n,
-        None => store.get_nil(),
-    };
-    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "num"), store, || Ok(&allocated_num))
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "num"), store, || Ok(&num_ptr))
 }
 
 fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
