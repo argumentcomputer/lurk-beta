@@ -500,7 +500,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
     }
 
     pub fn from_ptr_and_secret(s: &mut Store<F>, function_ptr: &Ptr<F>, secret: F) -> Self {
-        let hidden = s.hide(secret, *function_ptr);
+        let hidden = s.hide_mut(secret, *function_ptr);
 
         Self::from_comm(s, &hidden)
     }
@@ -518,7 +518,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
         let commitment = Self::from_ptr_and_secret(s, &fun_ptr, secret);
 
         let open = s.sym("open");
-        let comm_ptr = s.hide(secret, fun_ptr);
+        let comm_ptr = s.hide_mut(secret, fun_ptr);
 
         // (open <commitment>)
         let fun_expr = s.list(&[open, comm_ptr]);
