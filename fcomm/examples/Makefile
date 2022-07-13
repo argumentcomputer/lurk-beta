@@ -5,10 +5,10 @@ eval-fibonacci :
 	cargo run --release -- eval --expression fibonacci.lurk
 
 fibonacci-claim.json : fibonacci.lurk
-	cargo run --release -- eval --expression fibonacci.lurk --claim fibonacci-claim.json
+	cargo run --release -- eval --expression fibonacci.lurk --claim fibonacci-claim.json --lurk
 
 fibonacci-proof.json : fibonacci.lurk
-	cargo run --release -- prove --expression fibonacci.lurk --proof fibonacci-proof.json
+	cargo run --release -- prove --expression fibonacci.lurk --proof fibonacci-proof.json --lurk
 
 fibonacci-proof2.json : fibonacci-claim.json
 	cargo run --release -- prove --claim fibonacci-claim.json --proof fibonacci-proof2.json
