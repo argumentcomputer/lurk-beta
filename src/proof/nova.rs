@@ -2119,7 +2119,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = "(num (quote x))";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+        nova_test_aux(s, expr, None, None, Some(error), None, 2);
     }
 
     #[test]
@@ -2127,7 +2127,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = "(comm (quote x))";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+        nova_test_aux(s, expr, None, None, Some(error), None, 2);
     }
 
     #[test]

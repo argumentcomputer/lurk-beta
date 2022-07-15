@@ -3304,16 +3304,79 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &Boolean::not(&car_cdr_has_valid_tag),
         )?;
 
+        let op1_is_comm = alloc_equal(
+            &mut cs.namespace(|| "op1_is_comm"),
+            unop_op1.tag(),
+            &g.op1_comm_tag,
+        )?;
+
+        let op1_is_num = alloc_equal(
+            &mut cs.namespace(|| "op1_is_num"),
+            unop_op1.tag(),
+            &g.op1_num_tag,
+        )?;
+
+        let tag_is_num = alloc_equal(&mut cs.namespace(|| "tag_is_num"), result.tag(), &g.num_tag)?;
+
+        let tag_is_comm = alloc_equal(
+            &mut cs.namespace(|| "tag_is_comm"),
+            result.tag(),
+            &g.comm_tag,
+        )?;
+
+        let tag_is_char = alloc_equal(
+            &mut cs.namespace(|| "tag_is_char"),
+            result.tag(),
+            &g.char_tag,
+        )?;
+
+        let tag_is_num_or_comm = constraints::or(
+            &mut cs.namespace(|| "tag_is_num_or_comm"),
+            &tag_is_num,
+            &tag_is_comm,
+        )?;
+
+        let tag_is_num_or_comm_or_char = constraints::or(
+            &mut cs.namespace(|| "tag_is_num_or_comm_or_char"),
+            &tag_is_num_or_comm,
+            &tag_is_char,
+        )?;
+
+        let comm_invalid_tag_error = Boolean::and(
+            &mut cs.namespace(|| "comm_invalid_tag_error"),
+            &op1_is_comm,
+            &Boolean::not(&tag_is_num_or_comm),
+        )?;
+
+        let num_invalid_tag_error = Boolean::and(
+            &mut cs.namespace(|| "num_invalid_tag_error"),
+            &op1_is_num,
+            &Boolean::not(&tag_is_num_or_comm_or_char),
+        )?;
+
+        // Any error? Compute the OR of individual errors
+        let any_error_ = constraints::or(
+            &mut cs.namespace(|| "any_error_"),
+            &car_cdr_has_invalid_tag,
+            &comm_invalid_tag_error,
+        )?;
+
+        let any_error = constraints::or(
+            &mut cs.namespace(|| "any_error"),
+            &any_error_,
+            &num_invalid_tag_error,
+        )?;
+
         let the_expr = AllocatedPtr::pick(
             &mut cs.namespace(|| "the_expr"),
-            &car_cdr_has_invalid_tag,
+            &any_error,
             result,
             &unop_val,
         )?;
 
         let the_cont = AllocatedContPtr::pick(
             &mut cs.namespace(|| "the_cont"),
-            &car_cdr_has_invalid_tag,
+            &any_error,
             &g.error_ptr_cont,
             &unop_continuation,
         )?;
