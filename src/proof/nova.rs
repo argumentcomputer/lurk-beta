@@ -2102,7 +2102,7 @@ mod tests {
         let expr = "(open (comm (num (commit 123))))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
     }
 
     #[test]

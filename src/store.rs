@@ -884,12 +884,8 @@ impl<F: LurkField> Store<F> {
             Tag::Num => {
                 let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
                 match self.get_maybe_opaque(Tag::Comm, scalar) {
-                    Some(c) => {
-                        c
-                    },
-                    None => {
-                        self.get_nil()
-                    },
+                    Some(c) => c,
+                    None => self.get_nil(),
                 }
             }
             _ => return None,
@@ -1016,13 +1012,7 @@ impl<F: LurkField> Store<F> {
         self.intern_opaque_aux(tag, hash, false)
     }
 
-
-
-    pub fn get_maybe_opaque(
-        &self,
-        tag: Tag,
-        hash: F,
-    ) -> Option<Ptr<F>> {
+    pub fn get_maybe_opaque(&self, tag: Tag, hash: F) -> Option<Ptr<F>> {
         let scalar_ptr = ScalarPtr::from_parts(tag.as_field(), hash);
 
         //self.scalar_ptr_map.get(&scalar_ptr)
@@ -1032,8 +1022,6 @@ impl<F: LurkField> Store<F> {
         }
         None
     }
-
-
 
     // Intern a potentially-opaque value. If the corresponding non-opaque value is already known to the store, and
     // `return_non_opaque_if_existing` is true, return the known value.

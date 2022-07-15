@@ -2302,6 +2302,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let open = open(&mut cs.namespace(|| "Unop open"), result, store)?;
         let secret = secret(&mut cs.namespace(|| "Unop secret"), result, store)?;
         let num = num(&mut cs.namespace(|| "Unop num"), result, store)?;
+        let comm = comm(&mut cs.namespace(|| "Unop comm"), result, store)?;
 
         let res = multi_case(
             &mut cs.namespace(|| "Unop case"),
@@ -2340,6 +2341,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                         key: Op1::Num.as_field(),
                         value: num.tag(),
                     },
+                    CaseClause {
+                        key: Op1::Comm.as_field(),
+                        value: comm.tag(),
+                    },
                 ],
                 &[
                     CaseClause {
@@ -2373,6 +2378,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                     CaseClause {
                         key: Op1::Num.as_field(),
                         value: num.hash(),
+                    },
+                    CaseClause {
+                        key: Op1::Comm.as_field(),
+                        value: comm.hash(),
                     },
                 ],
             ],
@@ -3369,15 +3378,11 @@ fn open<F: LurkField, CS: ConstraintSystem<F>>(
         None => F::zero(),
     };
     let open_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
-        Some(c) => {
-            match store.open(c) {
-                Some(o) => o,
-                None => store.get_nil(),
-            }
+        Some(c) => match store.open(c) {
+            Some(o) => o,
+            None => store.get_nil(),
         },
-        None => {
-            store.get_nil()
-        },
+        None => store.get_nil(),
     };
     AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&open_ptr))
 }
@@ -3406,17 +3411,31 @@ fn num<F: LurkField, CS: ConstraintSystem<F>>(
     let num_ptr = if let Some(ptr) = maybe_num.ptr(store).as_ref() {
         let scalar_ptr = store.get_expr_hash(ptr).expect("expr hash missing");
         match store.get_num(crate::Num::Scalar::<F>(*scalar_ptr.value())) {
-            Some(n) => {
-                n
-            },
-            None => {
-                store.get_nil()
-            },
+            Some(n) => n,
+            None => store.get_nil(),
         }
     } else {
         store.get_nil()
     };
     AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "num"), store, || Ok(&num_ptr))
+}
+
+fn comm<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    maybe_comm: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    let hash = match maybe_comm.hash().get_value() {
+        Some(h) => h,
+        None => F::zero(),
+    };
+    let comm_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
+        Some(c) => {
+            c
+        }
+        None => store.get_nil(),
+    };
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&comm_ptr))
 }
 
 fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
@@ -3685,9 +3704,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(21481, cs.num_constraints());
+            assert_eq!(21485, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(21410, cs.aux().len());
+            assert_eq!(21416, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
