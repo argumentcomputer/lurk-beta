@@ -3430,9 +3430,7 @@ fn comm<F: LurkField, CS: ConstraintSystem<F>>(
         None => F::zero(),
     };
     let comm_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
-        Some(c) => {
-            c
-        }
+        Some(c) => c,
         None => store.get_nil(),
     };
     AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&comm_ptr))

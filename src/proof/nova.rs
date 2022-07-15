@@ -2115,6 +2115,22 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_num_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num (quote x))";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn outer_prove_comm_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(comm (quote x))";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
     fn outer_prove_terminal_sym() {
         let s = &mut Store::<Fr>::default();
         let expr = "(quote x)";
