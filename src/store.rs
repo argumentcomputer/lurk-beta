@@ -881,11 +881,17 @@ impl<F: LurkField> Store<F> {
     pub fn open(&self, ptr: Ptr<F>) -> Option<Ptr<F>> {
         let p = match ptr.0 {
             Tag::Comm => ptr,
-            //Tag::Num => {
-            //let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
-
-            //self.intern_maybe_opaque_comm(scalar)
-            //}
+            Tag::Num => {
+                let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
+                match self.get_maybe_opaque(Tag::Comm, scalar) {
+                    Some(c) => {
+                        c
+                    },
+                    None => {
+                        self.get_nil()
+                    },
+                }
+            }
             _ => return None,
         };
 
@@ -1009,6 +1015,25 @@ impl<F: LurkField> Store<F> {
     fn intern_opaque(&mut self, tag: Tag, hash: F) -> Ptr<F> {
         self.intern_opaque_aux(tag, hash, false)
     }
+
+
+
+    pub fn get_maybe_opaque(
+        &self,
+        tag: Tag,
+        hash: F,
+    ) -> Option<Ptr<F>> {
+        let scalar_ptr = ScalarPtr::from_parts(tag.as_field(), hash);
+
+        //self.scalar_ptr_map.get(&scalar_ptr)
+        let ptr = self.scalar_ptr_map.get(&scalar_ptr);
+        if let Some(p) = ptr {
+            return Some(*p);
+        }
+        None
+    }
+
+
 
     // Intern a potentially-opaque value. If the corresponding non-opaque value is already known to the store, and
     // `return_non_opaque_if_existing` is true, return the known value.
@@ -1369,6 +1394,24 @@ impl<F: LurkField> Store<F> {
         self.num_store
             .get_index_of::<Num<F>>(&num)
             .map(|x| Ptr(Tag::Num, RawPtr::new(x)))
+    }
+
+    pub fn get_comm<T: Into<Num<F>>>(&self, num: T) -> Option<Ptr<F>> {
+        let num = num.into();
+        let num = match num {
+            Num::Scalar(scalar) => {
+                if let Some(u64_num) = scalar.to_u64() {
+                    Num::U64(u64_num)
+                } else {
+                    num
+                }
+            }
+            Num::U64(_) => num,
+        };
+
+        self.num_store
+            .get_index_of::<Num<F>>(&num)
+            .map(|x| Ptr(Tag::Comm, RawPtr::new(x)))
     }
 
     pub fn get_char(&self, c: char) -> Ptr<F> {

@@ -3364,13 +3364,20 @@ fn open<F: LurkField, CS: ConstraintSystem<F>>(
     maybe_commit: &AllocatedPtr<F>,
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let open_ptr = if let Some(ptr) = maybe_commit.ptr(store).as_ref() {
-        match store.open(*ptr) {
-            Some(o) => o,
-            None => store.get_nil(),
-        }
-    } else {
-        store.get_nil()
+    let hash = match maybe_commit.hash().get_value() {
+        Some(h) => h,
+        None => F::zero(),
+    };
+    let open_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
+        Some(c) => {
+            match store.open(c) {
+                Some(o) => o,
+                None => store.get_nil(),
+            }
+        },
+        None => {
+            store.get_nil()
+        },
     };
     AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&open_ptr))
 }
@@ -3399,8 +3406,12 @@ fn num<F: LurkField, CS: ConstraintSystem<F>>(
     let num_ptr = if let Some(ptr) = maybe_num.ptr(store).as_ref() {
         let scalar_ptr = store.get_expr_hash(ptr).expect("expr hash missing");
         match store.get_num(crate::Num::Scalar::<F>(*scalar_ptr.value())) {
-            Some(n) => n,
-            None => store.get_nil(),
+            Some(n) => {
+                n
+            },
+            None => {
+                store.get_nil()
+            },
         }
     } else {
         store.get_nil()
