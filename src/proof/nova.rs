@@ -2089,6 +2089,15 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_num_char() {
+        let s = &mut Store::<Fr>::default();
+        let expr = r#"(num #\a)"#;
+        let expected = s.num(97);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+    }
+
+    #[test]
     fn outer_prove_commit_num() {
         let s = &mut Store::<Fr>::default();
         let expr = "(num (commit 123))";
