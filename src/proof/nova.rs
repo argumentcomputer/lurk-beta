@@ -2071,6 +2071,14 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_char_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(char 123 456)";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
     fn outer_prove_commit_secret() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret (commit 123))";
@@ -2095,6 +2103,15 @@ mod tests {
         let expected = s.num(97);
         let terminal = s.get_cont_terminal();
         nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_char_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = r#"(char 97)"#;
+        let expected_a = s.read(r#"#\a"#).unwrap();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 2);
     }
 
     #[test]
@@ -2135,6 +2152,14 @@ mod tests {
     fn outer_prove_comm_invalid_tag() {
         let s = &mut Store::<Fr>::default();
         let expr = "(comm (quote x))";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_char_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(char (quote x))";
         let error = s.get_cont_error();
         nova_test_aux(s, expr, None, None, Some(error), None, 2);
     }

@@ -568,6 +568,7 @@ pub enum Op1 {
     Commit,
     Num,
     Comm,
+    Char,
 }
 
 impl fmt::Display for Op1 {
@@ -582,6 +583,7 @@ impl fmt::Display for Op1 {
             Op1::Commit => write!(f, "Commit"),
             Op1::Num => write!(f, "Num"),
             Op1::Comm => write!(f, "Comm"),
+            Op1::Char => write!(f, "Char"),
         }
     }
 }
@@ -598,6 +600,7 @@ impl Op1 {
             x if x == Op1::Commit as u16 => Some(Op1::Commit),
             x if x == Op1::Num as u16 => Some(Op1::Num),
             x if x == Op1::Comm as u16 => Some(Op1::Comm),
+            x if x == Op1::Char as u16 => Some(Op1::Char),
             _ => None,
         }
     }
@@ -712,6 +715,7 @@ impl Tag {
             f if f == Tag::Str.as_field() => Some(Tag::Str),
             f if f == Tag::Char.as_field() => Some(Tag::Char),
             f if f == Tag::Comm.as_field() => Some(Tag::Comm),
+            f if f == Tag::Char.as_field() => Some(Tag::Char),
             _ => None,
         }
     }
@@ -827,6 +831,7 @@ impl<F: LurkField> Default for Store<F> {
             "commit",
             "num",
             "comm",
+            "char",
             "open",
             "secret",
             "atom",

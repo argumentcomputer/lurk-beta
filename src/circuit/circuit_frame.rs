@@ -1166,6 +1166,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let commit_hash = hash_sym("commit");
     let num_hash = hash_sym("num");
     let comm_hash = hash_sym("comm");
+    let char_hash = hash_sym("char");
     let open_hash = hash_sym("open");
     let secret_hash = hash_sym("secret");
 
@@ -1490,6 +1491,20 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *comm_hash.value(),
         &g.unop_cont_tag,
         comm_continuation_components,
+    );
+
+    // head == CHAR
+    /////////////////////////////////////////////////////////////////////////////
+    let char_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&g.op1_char_tag, &g.default_num],
+        &[cont.tag(), cont.hash()],
+        &[&g.default_num, &g.default_num],
+        &[&g.default_num, &g.default_num],
+    ];
+    hash_default_results.add_hash_input_clauses(
+        *char_hash.value(),
+        &g.unop_cont_tag,
+        char_continuation_components,
     );
 
     // head == BEGIN
@@ -1887,6 +1902,16 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.false_num,
     );
 
+    // head == CHAR, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(
+        *char_hash.value(),
+        &arg1_or_expr,
+        env,
+        &the_cont_end_is_nil,
+        &g.false_num,
+    );
+
     // head == ATOM, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
@@ -2271,6 +2296,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let secret = secret(&mut cs.namespace(|| "Unop secret"), result, store)?;
         let num = num(&mut cs.namespace(|| "Unop num"), result, store)?;
         let comm = comm(&mut cs.namespace(|| "Unop comm"), result, store)?;
+        let c = char_op(&mut cs.namespace(|| "Unop char"), result, store)?;
 
         let res = multi_case(
             &mut cs.namespace(|| "Unop case"),
@@ -2313,6 +2339,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                         key: Op1::Comm.as_field(),
                         value: comm.tag(),
                     },
+                    CaseClause {
+                        key: Op1::Char.as_field(),
+                        value: c.tag(),
+                    },
                 ],
                 &[
                     CaseClause {
@@ -2350,6 +2380,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                     CaseClause {
                         key: Op1::Comm.as_field(),
                         value: comm.hash(),
+                    },
+                    CaseClause {
+                        key: Op1::Char.as_field(),
+                        value: c.hash(),
                     },
                 ],
             ],
@@ -3284,6 +3318,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.op1_num_tag,
         )?;
 
+        let op1_is_char = alloc_equal(
+            &mut cs.namespace(|| "op1_is_char"),
+            unop_op1.tag(),
+            &g.op1_char_tag,
+        )?;
+
         let tag_is_num = alloc_equal(&mut cs.namespace(|| "tag_is_num"), result.tag(), &g.num_tag)?;
 
         let tag_is_comm = alloc_equal(
@@ -3304,6 +3344,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &tag_is_comm,
         )?;
 
+        let tag_is_num_or_char = constraints::or(
+            &mut cs.namespace(|| "tag_is_num_or_char"),
+            &tag_is_num,
+            &tag_is_char,
+        )?;
+
         let tag_is_num_or_comm_or_char = constraints::or(
             &mut cs.namespace(|| "tag_is_num_or_comm_or_char"),
             &tag_is_num_or_comm,
@@ -3322,17 +3368,29 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &Boolean::not(&tag_is_num_or_comm_or_char),
         )?;
 
+        let char_invalid_tag_error = Boolean::and(
+            &mut cs.namespace(|| "char_invalid_tag_error"),
+            &op1_is_char,
+            &Boolean::not(&tag_is_num_or_char),
+        )?;
+
         // Any error? Compute the OR of individual errors
-        let any_error_ = constraints::or(
-            &mut cs.namespace(|| "any_error_"),
+        let any_error1 = constraints::or(
+            &mut cs.namespace(|| "any_error1"),
             &car_cdr_has_invalid_tag,
             &comm_invalid_tag_error,
         )?;
 
+        let any_error2 = constraints::or(
+            &mut cs.namespace(|| "any_erro2"),
+            &any_error1,
+            &num_invalid_tag_error,
+        )?;
+
         let any_error = constraints::or(
             &mut cs.namespace(|| "any_error"),
-            &any_error_,
-            &num_invalid_tag_error,
+            &any_error2,
+            &char_invalid_tag_error,
         )?;
 
         let the_expr = AllocatedPtr::pick(
@@ -3465,6 +3523,23 @@ fn comm<F: LurkField, CS: ConstraintSystem<F>>(
         None => store.get_nil(),
     };
     AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&comm_ptr))
+}
+
+fn char_op<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    maybe_char: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    let char_ptr = if let Some(ptr) = maybe_char.ptr(store).as_ref() {
+        let scalar_ptr = store.get_expr_hash(ptr).expect("expr hash missing");
+        match scalar_ptr.value().to_u32() {
+            Some(n) => store.get_char(char::from_u32(n).unwrap()),
+            None => store.get_nil(),
+        }
+    } else {
+        store.get_nil()
+    };
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "char_op"), store, || Ok(&char_ptr))
 }
 
 fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
@@ -3733,9 +3808,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(19255, cs.num_constraints());
+            assert_eq!(19287, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(19181, cs.aux().len());
+            assert_eq!(19214, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

@@ -687,6 +687,16 @@ fn reduce_with_witness<F: LurkField>(
                     } else {
                         Control::Return(arg1, env, store.intern_cont_unop(Op1::Comm, cont))
                     }
+                } else if head == store.sym("char") {
+                    let (arg1, end) = match store.car_cdr_mut(&rest) {
+                        Ok((car, cdr)) => (car, cdr),
+                        Err(e) => panic!("{}", e),
+                    };
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Char, cont))
+                    }
                 } else if head == store.sym("open") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
@@ -969,7 +979,6 @@ fn apply_continuation<F: LurkField>(
                         .expect("secret could not be extracted"),
                     Op1::Commit => store.hide_mut(F::zero(), *result),
                     Op1::Num => match result.tag() {
-                        // TODO: There should be a corresponding Op1::Char for creating characters from numbers.
                         Tag::Num | Tag::Comm | Tag::Char => {
                             let scalar_ptr =
                                 store.get_expr_hash(result).expect("expr hash missing");
@@ -982,6 +991,16 @@ fn apply_continuation<F: LurkField>(
                             let scalar_ptr =
                                 store.get_expr_hash(result).expect("expr hash missing");
                             store.intern_maybe_opaque_comm(*scalar_ptr.value())
+                        }
+                        _ => return Control::Return(*result, *env, store.intern_cont_error()),
+                    },
+                    Op1::Char => match result.tag() {
+                        Tag::Num | Tag::Char => {
+                            let scalar_ptr =
+                                store.get_expr_hash(result).expect("expr hash missing");
+                            store.get_char(
+                                char::from_u32(scalar_ptr.value().to_u32().unwrap()).unwrap(),
+                            )
                         }
                         _ => return Control::Return(*result, *env, store.intern_cont_error()),
                     },
