@@ -1384,24 +1384,6 @@ impl<F: LurkField> Store<F> {
             .map(|x| Ptr(Tag::Num, RawPtr::new(x)))
     }
 
-    pub fn get_comm<T: Into<Num<F>>>(&self, num: T) -> Option<Ptr<F>> {
-        let num = num.into();
-        let num = match num {
-            Num::Scalar(scalar) => {
-                if let Some(u64_num) = scalar.to_u64() {
-                    Num::U64(u64_num)
-                } else {
-                    num
-                }
-            }
-            Num::U64(_) => num,
-        };
-
-        self.num_store
-            .get_index_of::<Num<F>>(&num)
-            .map(|x| Ptr(Tag::Comm, RawPtr::new(x)))
-    }
-
     pub fn get_char(&self, c: char) -> Ptr<F> {
         Ptr(Tag::Char, RawPtr::new(u32::from(c) as usize))
     }
