@@ -1412,6 +1412,86 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         cons_continuation_components,
     );
 
+    // head == HIDE
+    /////////////////////////////////////////////////////////////////////////////
+    let hide_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&[&g.op2_hide_tag, &g.default_num], env, &more, cont];
+    hash_default_results.add_hash_input_clauses(
+        *hide_hash.value(),
+        &g.binop_cont_tag,
+        hide_continuation_components,
+    );
+
+    // head == COMMIT
+    /////////////////////////////////////////////////////////////////////////////
+    let commit_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&g.op1_commit_tag, &g.default_num],
+        &[cont.tag(), cont.hash()],
+        &[&g.default_num, &g.default_num],
+        &[&g.default_num, &g.default_num],
+    ];
+    hash_default_results.add_hash_input_clauses(
+        *commit_hash.value(),
+        &g.unop_cont_tag,
+        commit_continuation_components,
+    );
+
+    // head == OPEN
+    /////////////////////////////////////////////////////////////////////////////
+    let open_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&g.op1_open_tag, &g.default_num],
+        &[cont.tag(), cont.hash()],
+        &[&g.default_num, &g.default_num],
+        &[&g.default_num, &g.default_num],
+    ];
+    hash_default_results.add_hash_input_clauses(
+        *open_hash.value(),
+        &g.unop_cont_tag,
+        open_continuation_components,
+    );
+
+    // head == SECRET
+    /////////////////////////////////////////////////////////////////////////////
+    let secret_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&g.op1_secret_tag, &g.default_num],
+        &[cont.tag(), cont.hash()],
+        &[&g.default_num, &g.default_num],
+        &[&g.default_num, &g.default_num],
+    ];
+    hash_default_results.add_hash_input_clauses(
+        *secret_hash.value(),
+        &g.unop_cont_tag,
+        secret_continuation_components,
+    );
+
+    // head == NUM
+    /////////////////////////////////////////////////////////////////////////////
+    let num_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&g.op1_num_tag, &g.default_num],
+        &[cont.tag(), cont.hash()],
+        &[&g.default_num, &g.default_num],
+        &[&g.default_num, &g.default_num],
+    ];
+    hash_default_results.add_hash_input_clauses(
+        *num_hash.value(),
+        &g.unop_cont_tag,
+        num_continuation_components,
+    );
+
+    // head == COMM
+    /////////////////////////////////////////////////////////////////////////////
+    let comm_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&g.op1_comm_tag, &g.default_num],
+        &[cont.tag(), cont.hash()],
+        &[&g.default_num, &g.default_num],
+        &[&g.default_num, &g.default_num],
+    ];
+    hash_default_results.add_hash_input_clauses(
+        *comm_hash.value(),
+        &g.unop_cont_tag,
+        comm_continuation_components,
+    );
+
     // head == BEGIN
     /////////////////////////////////////////////////////////////////////////////
     let begin_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
@@ -1710,23 +1790,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
     results.add_clauses_cons(*cons_hash.value(), &arg1, env, &the_cont_cons, &g.false_num);
 
-    // head == HIDE
-    let continuation = AllocatedContPtr::construct(
-        &mut cs.namespace(|| "binop hide"),
-        store,
-        &g.binop_cont_tag,
-        &[&[&g.op2_hide_tag, &g.default_num], env, &more, cont],
-    )?;
-
-    let the_cont_hide = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_hide"),
-        &end_is_nil,
-        &g.error_ptr_cont,
-        &continuation,
-    )?;
-
-    results.add_clauses_cons(*hide_hash.value(), &arg1, env, &the_cont_hide, &g.false_num);
-
     // head == BEGIN, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     let cont_begin = AllocatedContPtr::pick(
@@ -1739,7 +1802,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == CAR, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    let the_cont_car_cdr_atom_emit = AllocatedContPtr::pick(
+    let the_cont_end_is_nil = AllocatedContPtr::pick(
         &mut cs.namespace(|| "the_cont_car_cdr_atom_emit"),
         &end_is_nil,
         &newer_cont,
@@ -1750,7 +1813,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *car_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_car_cdr_atom_emit,
+        &the_cont_end_is_nil,
         &g.false_num,
     );
 
@@ -1760,162 +1823,67 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *cdr_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_car_cdr_atom_emit,
+        &the_cont_end_is_nil,
         &g.false_num,
     );
 
-    // head == COMMIT
-    let continuation = AllocatedContPtr::construct(
-        &mut cs.namespace(|| "unop commit"),
-        store,
-        &g.unop_cont_tag,
-        &[
-            &[&g.op1_commit_tag, &g.default_num],
-            &[cont.tag(), cont.hash()],
-            &[&g.default_num, &g.default_num],
-            &[&g.default_num, &g.default_num],
-        ],
-    )?;
-
-    let the_cont_commit = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_commit"),
+    // head == HIDE, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    let the_cont_hide = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_hide"),
         &end_is_nil,
-        &continuation,
         &g.error_ptr_cont,
+        &newer_cont,
     )?;
+    results.add_clauses_cons(*hide_hash.value(), &arg1, env, &the_cont_hide, &g.false_num);
 
-    let the_expr_commit = AllocatedPtr::pick(
-        &mut cs.namespace(|| "the_expr_commit"),
-        &end_is_nil,
-        &arg1,
-        expr,
-    )?;
-
+    // head == COMMIT, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
         *commit_hash.value(),
-        &the_expr_commit,
+        &arg1_or_expr,
         env,
-        &the_cont_commit,
+        &the_cont_end_is_nil,
         &g.false_num,
     );
 
-    // head == NUM
-    let continuation = AllocatedContPtr::construct(
-        &mut cs.namespace(|| "unop num"),
-        store,
-        &g.unop_cont_tag,
-        &[
-            &[&g.op1_num_tag, &g.default_num],
-            &[cont.tag(), cont.hash()],
-            &[&g.default_num, &g.default_num],
-            &[&g.default_num, &g.default_num],
-        ],
-    )?;
-
-    let the_cont_num = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_num"),
-        &end_is_nil,
-        &continuation,
-        &g.error_ptr_cont,
-    )?;
-
-    let the_expr_num = the_expr_commit.clone();
-
-    results.add_clauses_cons(
-        *num_hash.value(),
-        &the_expr_num,
-        env,
-        &the_cont_num,
-        &g.false_num,
-    );
-
-    // head == COMM
-    let continuation = AllocatedContPtr::construct(
-        &mut cs.namespace(|| "unop comm"),
-        store,
-        &g.unop_cont_tag,
-        &[
-            &[&g.op1_comm_tag, &g.default_num],
-            &[cont.tag(), cont.hash()],
-            &[&g.default_num, &g.default_num],
-            &[&g.default_num, &g.default_num],
-        ],
-    )?;
-
-    let the_cont_comm = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_comm"),
-        &end_is_nil,
-        &continuation,
-        &g.error_ptr_cont,
-    )?;
-
-    let the_expr_comm = the_expr_commit.clone();
-
-    results.add_clauses_cons(
-        *comm_hash.value(),
-        &the_expr_comm,
-        env,
-        &the_cont_comm,
-        &g.false_num,
-    );
-
-    // head == OPEN
-    let continuation = AllocatedContPtr::construct(
-        &mut cs.namespace(|| "unop open"),
-        store,
-        &g.unop_cont_tag,
-        &[
-            &[&g.op1_open_tag, &g.default_num],
-            &[cont.tag(), cont.hash()],
-            &[&g.default_num, &g.default_num],
-            &[&g.default_num, &g.default_num],
-        ],
-    )?;
-
-    let the_cont_open = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_open"),
-        &end_is_nil,
-        &continuation,
-        &g.error_ptr_cont,
-    )?;
-
-    let the_expr_open = the_expr_commit.clone();
-
+    // head == OPEN, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
         *open_hash.value(),
-        &the_expr_open,
+        &arg1_or_expr,
         env,
-        &the_cont_open,
+        &the_cont_end_is_nil,
         &g.false_num,
     );
 
-    // head == SECRET
-    let continuation = AllocatedContPtr::construct(
-        &mut cs.namespace(|| "unop secret"),
-        store,
-        &g.unop_cont_tag,
-        &[
-            &[&g.op1_secret_tag, &g.default_num],
-            &[cont.tag(), cont.hash()],
-            &[&g.default_num, &g.default_num],
-            &[&g.default_num, &g.default_num],
-        ],
-    )?;
-
-    let the_cont_secret = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_secret"),
-        &end_is_nil,
-        &continuation,
-        &g.error_ptr_cont,
-    )?;
-
-    let the_expr_secret = the_expr_commit.clone();
-
+    // head == SECRET, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
         *secret_hash.value(),
-        &the_expr_secret,
+        &arg1_or_expr,
         env,
-        &the_cont_secret,
+        &the_cont_end_is_nil,
+        &g.false_num,
+    );
+
+    // head == NUM, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(
+        *num_hash.value(),
+        &arg1_or_expr,
+        env,
+        &the_cont_end_is_nil,
+        &g.false_num,
+    );
+
+    // head == COMM, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(
+        *comm_hash.value(),
+        &arg1_or_expr,
+        env,
+        &the_cont_end_is_nil,
         &g.false_num,
     );
 
@@ -1925,7 +1893,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *atom_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_car_cdr_atom_emit,
+        &the_cont_end_is_nil,
         &g.false_num,
     );
 
@@ -1935,7 +1903,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *emit_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_car_cdr_atom_emit,
+        &the_cont_end_is_nil,
         &g.false_num,
     );
 
@@ -3765,9 +3733,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(21511, cs.num_constraints());
+            assert_eq!(19255, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(21437, cs.aux().len());
+            assert_eq!(19181, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
