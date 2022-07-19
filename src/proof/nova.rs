@@ -2123,10 +2123,37 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_hide_open_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (comm (num (hide 123 456))))";
+        let expected = s.num(456);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+    }
+
+    #[test]
+    fn outer_prove_hide_secret_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (comm (num (hide 123 456))))";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+    }
+
+    #[test]
     fn outer_prove_commit_open_comm_num() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open (comm (num (commit 123))))";
         let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
+    }
+
+    #[test]
+    fn outer_prove_commit_secret_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (comm (num (commit 123))))";
+        let expected = s.num(0);
         let terminal = s.get_cont_terminal();
         nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
     }

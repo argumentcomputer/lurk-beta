@@ -906,11 +906,6 @@ impl<F: LurkField> Store<F> {
     pub fn secret(&self, ptr: Ptr<F>) -> Option<Ptr<F>> {
         let p = match ptr.0 {
             Tag::Comm => ptr,
-            //Tag::Num => {
-            //    let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
-
-            //    self.intern_maybe_opaque_comm(scalar)
-            //}
             _ => return None,
         };
 
@@ -1020,7 +1015,6 @@ impl<F: LurkField> Store<F> {
     pub fn get_maybe_opaque(&self, tag: Tag, hash: F) -> Option<Ptr<F>> {
         let scalar_ptr = ScalarPtr::from_parts(tag.as_field(), hash);
 
-        //self.scalar_ptr_map.get(&scalar_ptr)
         let ptr = self.scalar_ptr_map.get(&scalar_ptr);
         if let Some(p) = ptr {
             return Some(*p);
@@ -1947,16 +1941,16 @@ impl<F: LurkField> Store<F> {
 
         let p = match ptr.0 {
             Tag::Comm => ptr,
-            Tag::Num => {
-                let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
-
-                self.intern_maybe_opaque_comm(scalar)
-            }
             _ => return None,
         };
 
-        self.fetch_comm(&p)
-            .and_then(|(secret, _payload)| self.get_num(Num::Scalar(secret.0)))
+        if let Some((secret, _payload)) = self.fetch_comm(&p) {
+            let secret_element = Num::Scalar(secret.0);
+            let secret_num = self.intern_num(secret_element);
+            Some(secret_num)
+        } else {
+            None
+        }
     }
 
     pub fn hash_expr(&self, ptr: &Ptr<F>) -> Option<ScalarPtr<F>> {

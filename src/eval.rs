@@ -2646,4 +2646,134 @@ mod test {
         let error = s.get_cont_error();
         test_aux(s, expr, None, None, Some(error), None, 1);
     }
+
+    #[test]
+    fn char_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(char 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn prove_commit_secret() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (commit 123))";
+        let expected = s.num(0);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
+    }
+
+    #[test]
+    fn num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num 123)";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn num_char() {
+        let s = &mut Store::<Fr>::default();
+        let expr = r#"(num #\a)"#;
+        let expected = s.num(97);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn char_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = r#"(char 97)"#;
+        let expected_a = s.read(r#"#\a"#).unwrap();
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn commit_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num (commit 123))";
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, None, None, Some(terminal), None, 4);
+    }
+
+    #[test]
+    fn hide_open_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (comm (num (hide 123 456))))";
+        let expected = s.num(456);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+    }
+
+    #[test]
+    fn hide_secret_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (comm (num (hide 123 456))))";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+    }
+
+    #[test]
+    fn commit_open_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (comm (num (commit 123))))";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
+    }
+
+    #[test]
+    fn commit_secret_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (comm (num (commit 123))))";
+        let expected = s.num(0);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
+    }
+
+    #[test]
+    fn commit_num_open() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (num (commit 123)))";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 6);
+    }
+
+    #[test]
+    fn num_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num (quote x))";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn comm_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(comm (quote x))";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn char_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(char (quote x))";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn terminal_sym() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(quote x)";
+        let x = s.sym("x");
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(x), None, Some(terminal), None, 1);
+    }
 }
