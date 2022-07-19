@@ -873,13 +873,13 @@ impl<F: LurkField> Store<F> {
         self.intern_cons(car, cdr)
     }
 
-    pub fn hide(&self, secret: F, payload: Ptr<F>) -> Option<Ptr<F>> {
+    pub fn hidden(&self, secret: F, payload: Ptr<F>) -> Option<Ptr<F>> {
         self.comm_store
             .get_index_of(&(FWrap(secret), payload))
             .map(|c| Ptr(Tag::Comm, RawPtr::new(c)))
     }
 
-    pub fn hide_mut(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
+    pub fn hide(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
         self.intern_comm(secret, payload)
     }
 

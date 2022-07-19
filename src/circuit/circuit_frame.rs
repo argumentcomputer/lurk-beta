@@ -3446,7 +3446,7 @@ fn hide<F: LurkField, CS: ConstraintSystem<F>>(
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let hide_ptr = if let Some(ptr) = maybe_payload.ptr(store).as_ref() {
-        match store.hide(secret, *ptr) {
+        match store.hidden(secret, *ptr) {
             Some(c) => c,
             None => store.get_nil(),
         }

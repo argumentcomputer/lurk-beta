@@ -977,7 +977,7 @@ fn apply_continuation<F: LurkField>(
                     Op1::Secret => store
                         .secret_mut(*result)
                         .expect("secret could not be extracted"),
-                    Op1::Commit => store.hide_mut(F::zero(), *result),
+                    Op1::Commit => store.hide(F::zero(), *result),
                     Op1::Num => match result.tag() {
                         Tag::Num | Tag::Comm | Tag::Char => {
                             let scalar_ptr =
@@ -1074,12 +1074,12 @@ fn apply_continuation<F: LurkField>(
                             store.intern_num(tmp)
                         }
                         Op2::Cons => store.cons(evaled_arg, *arg2),
-                        Op2::Hide => store.hide_mut(a.into_scalar(), *arg2),
+                        Op2::Hide => store.hide(a.into_scalar(), *arg2),
                         Op2::Begin => unreachable!(),
                     },
                     (Expression::Num(a), _) => match operator {
                         Op2::Cons => store.cons(evaled_arg, *arg2),
-                        Op2::Hide => store.hide_mut(a.into_scalar(), *arg2),
+                        Op2::Hide => store.hide(a.into_scalar(), *arg2),
                         _ => {
                             return Control::Return(*result, *env, store.intern_cont_error());
                         }
