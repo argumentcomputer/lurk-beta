@@ -1386,7 +1386,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         )
     };
 
-    // head == LET and LETREC
+    // head == LET and LETREC preimage
     /////////////////////////////////////////////////////////////////////////////
     let let_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&var_let_letrec, &expanded_let, env, cont];
@@ -1403,7 +1403,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         letrec_continuation_components,
     );
 
-    // head == CONS
+    // head == CONS preimage
     /////////////////////////////////////////////////////////////////////////////
     let cons_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_cons_tag, &g.default_num], env, &more, cont];
@@ -1413,7 +1413,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         cons_continuation_components,
     );
 
-    // head == HIDE
+    // head == HIDE preimage
     /////////////////////////////////////////////////////////////////////////////
     let hide_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_hide_tag, &g.default_num], env, &more, cont];
@@ -1423,7 +1423,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         hide_continuation_components,
     );
 
-    // head == COMMIT
+    // head == COMMIT preimage
     /////////////////////////////////////////////////////////////////////////////
     let commit_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[&g.op1_commit_tag, &g.default_num],
@@ -1437,7 +1437,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         commit_continuation_components,
     );
 
-    // head == OPEN
+    // head == OPEN preimage
     /////////////////////////////////////////////////////////////////////////////
     let open_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[&g.op1_open_tag, &g.default_num],
@@ -1451,7 +1451,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         open_continuation_components,
     );
 
-    // head == SECRET
+    // head == SECRET preimage
     /////////////////////////////////////////////////////////////////////////////
     let secret_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[&g.op1_secret_tag, &g.default_num],
@@ -1465,7 +1465,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         secret_continuation_components,
     );
 
-    // head == NUM
+    // head == NUM preimage
     /////////////////////////////////////////////////////////////////////////////
     let num_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[&g.op1_num_tag, &g.default_num],
@@ -1479,7 +1479,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         num_continuation_components,
     );
 
-    // head == COMM
+    // head == COMM preimage
     /////////////////////////////////////////////////////////////////////////////
     let comm_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[&g.op1_comm_tag, &g.default_num],
@@ -1493,7 +1493,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         comm_continuation_components,
     );
 
-    // head == CHAR
+    // head == CHAR preimage
     /////////////////////////////////////////////////////////////////////////////
     let char_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[&g.op1_char_tag, &g.default_num],
@@ -1507,7 +1507,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         char_continuation_components,
     );
 
-    // head == BEGIN
+    // head == BEGIN preimage
     /////////////////////////////////////////////////////////////////////////////
     let begin_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_begin_tag, &g.default_num], env, &more, cont];
@@ -1517,7 +1517,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         begin_continuation_components,
     );
 
-    // head == CAR
+    // head == CAR preimage
     /////////////////////////////////////////////////////////////////////////////
     let car_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[&g.op1_car_tag, &g.default_num],
@@ -1531,7 +1531,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         car_continuation_components,
     );
 
-    // head == CDR
+    // head == CDR preimage
     /////////////////////////////////////////////////////////////////////////////
     let cdr_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[&g.op1_cdr_tag, &g.default_num],
@@ -1545,7 +1545,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         cdr_continuation_components,
     );
 
-    // head == ATOM
+    // head == ATOM preimage
     /////////////////////////////////////////////////////////////////////////////
     let atom_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[&g.op1_atom_tag, &g.default_num],
@@ -1559,7 +1559,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         atom_continuation_components,
     );
 
-    // head == EMIT
+    // head == EMIT preimage
     /////////////////////////////////////////////////////////////////////////////
     let emit_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[&g.op1_emit_tag, &g.default_num],
@@ -1573,7 +1573,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         emit_continuation_components,
     );
 
-    // head == +
+    // head == + preimage
     /////////////////////////////////////////////////////////////////////////////
     let sum_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_sum_tag, &g.default_num], env, &more, cont];
@@ -1583,7 +1583,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         sum_continuation_components,
     );
 
-    // head == -
+    // head == - preimage
     /////////////////////////////////////////////////////////////////////////////
     let diff_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_diff_tag, &g.default_num], env, &more, cont];
@@ -1593,9 +1593,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         diff_continuation_components,
     );
 
-    // head == *
+    // head == * preimage
     /////////////////////////////////////////////////////////////////////////////
-
     let product_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_product_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
@@ -1604,7 +1603,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         product_continuation_components,
     );
 
-    // head == /
+    // head == / preimage
     /////////////////////////////////////////////////////////////////////////////
 
     let quotient_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
@@ -1615,7 +1614,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         quotient_continuation_components,
     );
 
-    // head == =
+    // head == = preimage
     /////////////////////////////////////////////////////////////////////////////
 
     let numequal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
@@ -1626,7 +1625,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         numequal_continuation_components,
     );
 
-    // head == EQ
+    // head == EQ preimage
     /////////////////////////////////////////////////////////////////////////////
     let equal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.rel2_equal_tag, &g.default_num], env, &more, cont];
@@ -1636,7 +1635,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         equal_continuation_components,
     );
 
-    // head == IF
+    // head == IF preimage
     /////////////////////////////////////////////////////////////////////////////
     let if_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &more.clone(),
