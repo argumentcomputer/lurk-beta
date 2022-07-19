@@ -903,6 +903,26 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    pub fn open_mut(&mut self, ptr: Ptr<F>) -> Option<Ptr<F>> {
+        assert!(ptr.0 == Tag::Comm || ptr.0 == Tag::Num);
+
+        let p = match ptr.0 {
+            Tag::Comm => ptr,
+            Tag::Num => {
+                let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
+
+                self.intern_maybe_opaque_comm(scalar)
+            }
+            _ => return None,
+        };
+
+        if let Some((_secret, payload)) = self.fetch_comm(&p) {
+            Some(*payload)
+        } else {
+            None
+        }
+    }
+
     pub fn secret(&self, ptr: Ptr<F>) -> Option<Ptr<F>> {
         let p = match ptr.0 {
             Tag::Comm => ptr,
@@ -911,6 +931,23 @@ impl<F: LurkField> Store<F> {
 
         self.fetch_comm(&p)
             .and_then(|(secret, _payload)| self.get_num(Num::Scalar(secret.0)))
+    }
+
+    pub fn secret_mut(&mut self, ptr: Ptr<F>) -> Option<Ptr<F>> {
+        assert_eq!(Tag::Comm, ptr.0);
+
+        let p = match ptr.0 {
+            Tag::Comm => ptr,
+            _ => return None,
+        };
+
+        if let Some((secret, _payload)) = self.fetch_comm(&p) {
+            let secret_element = Num::Scalar(secret.0);
+            let secret_num = self.intern_num(secret_element);
+            Some(secret_num)
+        } else {
+            None
+        }
     }
 
     pub fn list(&mut self, elts: &[Ptr<F>]) -> Ptr<F> {
@@ -1913,43 +1950,6 @@ impl<F: LurkField> Store<F> {
                 // so it should result in an explicit error.
                 panic!("Can only extract car_cdr from Cons")
             }
-        }
-    }
-
-    pub fn open_mut(&mut self, ptr: Ptr<F>) -> Option<Ptr<F>> {
-        assert!(ptr.0 == Tag::Comm || ptr.0 == Tag::Num);
-
-        let p = match ptr.0 {
-            Tag::Comm => ptr,
-            Tag::Num => {
-                let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
-
-                self.intern_maybe_opaque_comm(scalar)
-            }
-            _ => return None,
-        };
-
-        if let Some((_secret, payload)) = self.fetch_comm(&p) {
-            Some(*payload)
-        } else {
-            None
-        }
-    }
-
-    pub fn secret_mut(&mut self, ptr: Ptr<F>) -> Option<Ptr<F>> {
-        assert_eq!(Tag::Comm, ptr.0);
-
-        let p = match ptr.0 {
-            Tag::Comm => ptr,
-            _ => return None,
-        };
-
-        if let Some((secret, _payload)) = self.fetch_comm(&p) {
-            let secret_element = Num::Scalar(secret.0);
-            let secret_num = self.intern_num(secret_element);
-            Some(secret_num)
-        } else {
-            None
         }
     }
 
