@@ -32,3 +32,12 @@ num-list-proof : num-list-opening.json
 verify-num-list-opening :
 	cargo run --release -- verify --proof num-list-opening.json
 
+chained-commitment.json : chained-function.json
+
+chained-opening: chained-opening.json
+
+chained-opening.json : chained-function.json chained-input.lurk
+	cargo run --release open --function chained-function.json --input chained-input.lurk --proof chained-opening.json --chain
+
+verify-chained-opening :
+	cargo run --release -- verify --proof chained-opening.json
