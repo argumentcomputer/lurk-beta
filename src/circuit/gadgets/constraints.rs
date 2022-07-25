@@ -248,13 +248,13 @@ pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     a: &AllocatedNum<F>,
     b: &AllocatedNum<F>,
 ) -> Result<Boolean, SynthesisError> {
-    let equal = a.get_value() == b.get_value();
+    let equal = a.get_value().and_then(|x| b.get_value().map(|y| x == y));
 
     // Difference between `a` and `b`. This will be zero if `a` and `b` are equal.
     let diff = sub(cs.namespace(|| "a - b"), a, b)?;
 
     // result = (a == b)
-    let result = AllocatedBit::alloc(cs.namespace(|| "a = b"), Some(equal))?;
+    let result = AllocatedBit::alloc(cs.namespace(|| "a = b"), equal)?;
 
     // result * diff = 0
     // This means that at least one of result or diff is zero.
@@ -269,15 +269,13 @@ pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     let q = cs.alloc(
         || "q",
         || {
-            if let Some(tmp0) = diff.get_value() {
-                let tmp1 = tmp0.invert();
-                if tmp1.is_some().into() {
-                    Ok(tmp1.unwrap())
-                } else {
-                    Ok(F::one())
-                }
+            let tmp0 = diff.get_value().ok_or(SynthesisError::AssignmentMissing)?;
+            let tmp1 = tmp0.invert();
+
+            if tmp1.is_some().into() {
+                Ok(tmp1.unwrap())
             } else {
-                Err(SynthesisError::AssignmentMissing)
+                Ok(F::one())
             }
         },
     )?;
@@ -321,15 +319,12 @@ pub fn alloc_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     let q = cs.alloc(
         || "q",
         || {
-            if let Some(tmp0) = x.get_value() {
-                let tmp1 = tmp0.invert();
-                if tmp1.is_some().into() {
-                    Ok(tmp1.unwrap())
-                } else {
-                    Ok(F::one())
-                }
+            let tmp0 = x.get_value().ok_or(SynthesisError::AssignmentMissing)?;
+            let tmp1 = tmp0.invert();
+            if tmp1.is_some().into() {
+                Ok(tmp1.unwrap())
             } else {
-                Err(SynthesisError::AssignmentMissing)
+                Ok(F::one())
             }
         },
     )?;
