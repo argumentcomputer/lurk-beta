@@ -954,6 +954,7 @@ fn apply_continuation<F: LurkField>(
                     Op1::Car => match store.car_cdr_mut(result) {
                         Ok((car, _)) => car,
                         Err(_) => return Control::Return(*result, *env, store.intern_cont_error()),
+                        //Err(_) => store.nil(),
                     },
                     Op1::Cdr => match store.car_cdr_mut(result) {
                         Ok((_, cdr)) => cdr,

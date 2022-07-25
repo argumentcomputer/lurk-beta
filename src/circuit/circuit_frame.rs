@@ -1816,8 +1816,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == CAR, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    let the_cont_end_is_nil = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_car_cdr_atom_emit"),
+    let newer_cont_if_end_is_nil = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "newer_cont_if_end_is_nil"),
         &end_is_nil,
         &newer_cont,
         &g.error_ptr_cont,
@@ -1827,7 +1827,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *car_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_end_is_nil,
+        &newer_cont_if_end_is_nil,
         &g.false_num,
     );
 
@@ -1837,7 +1837,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *cdr_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_end_is_nil,
+        &newer_cont_if_end_is_nil,
         &g.false_num,
     );
 
@@ -1857,7 +1857,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *commit_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_end_is_nil,
+        &newer_cont_if_end_is_nil,
         &g.false_num,
     );
 
@@ -1867,7 +1867,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *open_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_end_is_nil,
+        &newer_cont_if_end_is_nil,
         &g.false_num,
     );
 
@@ -1877,7 +1877,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *secret_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_end_is_nil,
+        &newer_cont_if_end_is_nil,
         &g.false_num,
     );
 
@@ -1887,7 +1887,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *num_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_end_is_nil,
+        &newer_cont_if_end_is_nil,
         &g.false_num,
     );
 
@@ -1897,7 +1897,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *comm_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_end_is_nil,
+        &newer_cont_if_end_is_nil,
         &g.false_num,
     );
 
@@ -1907,7 +1907,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *char_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_end_is_nil,
+        &newer_cont_if_end_is_nil,
         &g.false_num,
     );
 
@@ -1917,7 +1917,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *atom_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_end_is_nil,
+        &newer_cont_if_end_is_nil,
         &g.false_num,
     );
 
@@ -1927,7 +1927,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *emit_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_end_is_nil,
+        &newer_cont_if_end_is_nil,
         &g.false_num,
     );
 
@@ -2290,8 +2290,20 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.t_ptr,
         )?;
 
+        let op1_is_open = alloc_equal(
+            &mut cs.namespace(|| "op1 is open"),
+            op1.tag(),
+            &g.op1_open_tag,
+        )?;
+        let not_dummy = match g.op1_open_tag.get_value() {
+            Some(_) => op1_is_open,
+            // If circuit is blank then op1_is_open is true,
+            // because everything is None at this moment
+            None => Boolean::not(&op1_is_open),
+        };
+
         let hide = hide(&mut cs.namespace(|| "Unop hide"), F::zero(), result, store)?;
-        let open = open(&mut cs.namespace(|| "Unop open"), result, store)?;
+        let open = open(&mut cs.namespace(|| "Unop open"), &not_dummy, result, store)?;
         let secret = secret(&mut cs.namespace(|| "Unop secret"), result, store)?;
         let num = num(&mut cs.namespace(|| "Unop num"), result, store)?;
         let comm = comm(&mut cs.namespace(|| "Unop comm"), result, store)?;
@@ -3448,29 +3460,38 @@ fn hide<F: LurkField, CS: ConstraintSystem<F>>(
     let hide_ptr = if let Some(ptr) = maybe_payload.ptr(store).as_ref() {
         match store.hidden(secret, *ptr) {
             Some(c) => c,
-            None => store.get_nil(),
+            None => store.get_nil(), // dummy
         }
     } else {
-        store.get_nil()
+        store.get_nil() // dummy
     };
     AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "hide"), store, || Ok(&hide_ptr))
 }
 
 fn open<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
+    not_dummy: &Boolean,
     maybe_commit: &AllocatedPtr<F>,
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let hash = match maybe_commit.hash().get_value() {
         Some(h) => h,
-        None => F::zero(),
+        None => F::zero(), // dummy
     };
     let open_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
         Some(c) => match store.open(c) {
             Some(o) => o,
-            None => store.get_nil(),
+            None => {
+                panic!("Failed to open commitment.")
+            }
         },
-        None => store.get_nil(),
+        None => {
+            if not_dummy.get_value().expect("not_dummy is missing") {
+                panic!("hidden value could not be opened")
+            } else {
+                store.get_nil() // TODO: replace by bogus dummy
+            }
+        }
     };
     AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&open_ptr))
 }
@@ -3807,9 +3828,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(19287, cs.num_constraints());
+            assert_eq!(19291, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(19214, cs.aux().len());
+            assert_eq!(19217, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

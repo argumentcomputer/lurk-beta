@@ -2199,4 +2199,12 @@ mod tests {
         let terminal = s.get_cont_terminal();
         nova_test_aux(s, expr, Some(x), None, Some(terminal), None, 1);
     }
+
+    #[test]
+    #[should_panic = "hidden value could not be opened"]
+    fn outer_prove_open_unknown_commit() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open 123)";
+        nova_test_aux(s, expr, None, None, None, None, 2);
+    }
 }

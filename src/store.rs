@@ -890,7 +890,9 @@ impl<F: LurkField> Store<F> {
                 let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
                 match self.get_maybe_opaque(Tag::Comm, scalar) {
                     Some(c) => c,
-                    None => self.get_nil(),
+                    None => {
+                        panic!("Can't find commitment in the store.")
+                    }
                 }
             }
             _ => return None,
