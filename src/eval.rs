@@ -687,6 +687,16 @@ fn reduce_with_witness<F: LurkField>(
                     } else {
                         Control::Return(arg1, env, store.intern_cont_unop(Op1::Comm, cont))
                     }
+                } else if head == store.sym("char") {
+                    let (arg1, end) = match store.car_cdr_mut(&rest) {
+                        Ok((car, cdr)) => (car, cdr),
+                        Err(e) => panic!("{}", e),
+                    };
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Char, cont))
+                    }
                 } else if head == store.sym("open") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
@@ -944,6 +954,7 @@ fn apply_continuation<F: LurkField>(
                     Op1::Car => match store.car_cdr_mut(result) {
                         Ok((car, _)) => car,
                         Err(_) => return Control::Return(*result, *env, store.intern_cont_error()),
+                        //Err(_) => store.nil(),
                     },
                     Op1::Cdr => match store.car_cdr_mut(result) {
                         Ok((_, cdr)) => cdr,
@@ -962,14 +973,13 @@ fn apply_continuation<F: LurkField>(
                         );
                     }
                     Op1::Open => store
-                        .open(*result)
+                        .open_mut(*result)
                         .expect("hidden value could not be opened"),
                     Op1::Secret => store
-                        .secret(*result)
+                        .secret_mut(*result)
                         .expect("secret could not be extracted"),
                     Op1::Commit => store.hide(F::zero(), *result),
                     Op1::Num => match result.tag() {
-                        // TODO: There should be a corresponding Op1::Char for creating characters from numbers.
                         Tag::Num | Tag::Comm | Tag::Char => {
                             let scalar_ptr =
                                 store.get_expr_hash(result).expect("expr hash missing");
@@ -982,6 +992,16 @@ fn apply_continuation<F: LurkField>(
                             let scalar_ptr =
                                 store.get_expr_hash(result).expect("expr hash missing");
                             store.intern_maybe_opaque_comm(*scalar_ptr.value())
+                        }
+                        _ => return Control::Return(*result, *env, store.intern_cont_error()),
+                    },
+                    Op1::Char => match result.tag() {
+                        Tag::Num | Tag::Char => {
+                            let scalar_ptr =
+                                store.get_expr_hash(result).expect("expr hash missing");
+                            store.get_char(
+                                char::from_u32(scalar_ptr.value().to_u32().unwrap()).unwrap(),
+                            )
                         }
                         _ => return Control::Return(*result, *env, store.intern_cont_error()),
                     },
@@ -2578,5 +2598,207 @@ mod test {
         let expr = s2.list(&[open, comm]);
 
         test_aux2(s2, &expr, Some(x), None, None, None, 2);
+    }
+
+    #[test]
+    fn commit_open_sym() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (commit 'x))";
+        let x = s.sym("x");
+        test_aux(s, expr, Some(x), None, None, None, 4);
+    }
+
+    #[test]
+    fn commit_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(commit 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn open_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn secret_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn num_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn comm_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(comm 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn char_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(char 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn prove_commit_secret() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (commit 123))";
+        let expected = s.num(0);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
+    }
+
+    #[test]
+    fn num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num 123)";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn num_char() {
+        let s = &mut Store::<Fr>::default();
+        let expr = r#"(num #\a)"#;
+        let expected = s.num(97);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn char_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = r#"(char 97)"#;
+        let expected_a = s.read(r#"#\a"#).unwrap();
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn commit_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num (commit 123))";
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, None, None, Some(terminal), None, 4);
+    }
+
+    #[test]
+    fn hide_open_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (comm (num (hide 123 456))))";
+        let expected = s.num(456);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+    }
+
+    #[test]
+    fn hide_secret_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (comm (num (hide 123 456))))";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+    }
+
+    #[test]
+    fn commit_open_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (comm (num (commit 123))))";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
+    }
+
+    #[test]
+    fn commit_secret_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (comm (num (commit 123))))";
+        let expected = s.num(0);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
+    }
+
+    #[test]
+    fn commit_num_open() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (num (commit 123)))";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 6);
+    }
+
+    #[test]
+    fn num_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num (quote x))";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn comm_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(comm (quote x))";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn char_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(char (quote x))";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn terminal_sym() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(quote x)";
+        let x = s.sym("x");
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(x), None, Some(terminal), None, 1);
+    }
+
+    #[test]
+    #[should_panic = "hidden value could not be opened"]
+    fn open_opaque_commit() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open 123)";
+        test_aux(s, expr, None, None, None, None, 2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn secret_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret 123)";
+        test_aux(s, expr, None, None, None, None, 2);
+    }
+
+    #[test]
+    #[should_panic = "secret could not be extracted"]
+    fn secret_opaque_commit() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (comm 123))";
+        test_aux(s, expr, None, None, None, None, 2);
     }
 }

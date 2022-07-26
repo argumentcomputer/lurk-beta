@@ -568,6 +568,7 @@ pub enum Op1 {
     Commit,
     Num,
     Comm,
+    Char,
 }
 
 impl fmt::Display for Op1 {
@@ -582,6 +583,7 @@ impl fmt::Display for Op1 {
             Op1::Commit => write!(f, "Commit"),
             Op1::Num => write!(f, "Num"),
             Op1::Comm => write!(f, "Comm"),
+            Op1::Char => write!(f, "Char"),
         }
     }
 }
@@ -598,6 +600,7 @@ impl Op1 {
             x if x == Op1::Commit as u16 => Some(Op1::Commit),
             x if x == Op1::Num as u16 => Some(Op1::Num),
             x if x == Op1::Comm as u16 => Some(Op1::Comm),
+            x if x == Op1::Char as u16 => Some(Op1::Char),
             _ => None,
         }
     }
@@ -710,6 +713,9 @@ impl Tag {
             f if f == Tag::Thunk.as_field() => Some(Tag::Thunk),
             f if f == Tag::Num.as_field() => Some(Tag::Num),
             f if f == Tag::Str.as_field() => Some(Tag::Str),
+            f if f == Tag::Char.as_field() => Some(Tag::Char),
+            f if f == Tag::Comm.as_field() => Some(Tag::Comm),
+            f if f == Tag::Char.as_field() => Some(Tag::Char),
             _ => None,
         }
     }
@@ -818,9 +824,16 @@ impl<F: LurkField> Default for Store<F> {
             "let",
             "letrec",
             "begin",
+            "hide",
             "cons",
             "car",
             "cdr",
+            "commit",
+            "num",
+            "comm",
+            "char",
+            "open",
+            "secret",
             "atom",
             "emit",
             "+",
@@ -860,8 +873,83 @@ impl<F: LurkField> Store<F> {
         self.intern_cons(car, cdr)
     }
 
+    pub fn hidden(&self, secret: F, payload: Ptr<F>) -> Option<Ptr<F>> {
+        self.comm_store
+            .get_index_of(&(FWrap(secret), payload))
+            .map(|c| Ptr(Tag::Comm, RawPtr::new(c)))
+    }
+
     pub fn hide(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
         self.intern_comm(secret, payload)
+    }
+
+    pub fn open(&self, ptr: Ptr<F>) -> Option<Ptr<F>> {
+        let p = match ptr.0 {
+            Tag::Comm => ptr,
+            Tag::Num => {
+                let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
+                match self.get_maybe_opaque(Tag::Comm, scalar) {
+                    Some(c) => c,
+                    None => {
+                        panic!("Can't find commitment in the store.")
+                    }
+                }
+            }
+            _ => return None,
+        };
+
+        if let Some((_secret, payload)) = self.fetch_comm(&p) {
+            Some(*payload)
+        } else {
+            None
+        }
+    }
+
+    pub fn open_mut(&mut self, ptr: Ptr<F>) -> Option<Ptr<F>> {
+        assert!(ptr.0 == Tag::Comm || ptr.0 == Tag::Num);
+
+        let p = match ptr.0 {
+            Tag::Comm => ptr,
+            Tag::Num => {
+                let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
+
+                self.intern_maybe_opaque_comm(scalar)
+            }
+            _ => unreachable!(),
+        };
+
+        if let Some((_secret, payload)) = self.fetch_comm(&p) {
+            Some(*payload)
+        } else {
+            None
+        }
+    }
+
+    pub fn secret(&self, ptr: Ptr<F>) -> Option<Ptr<F>> {
+        let p = match ptr.0 {
+            Tag::Comm => ptr,
+            _ => return None,
+        };
+
+        self.fetch_comm(&p)
+            .and_then(|(secret, _payload)| self.get_num(Num::Scalar(secret.0)))
+    }
+
+    pub fn secret_mut(&mut self, ptr: Ptr<F>) -> Option<Ptr<F>> {
+        assert_eq!(Tag::Comm, ptr.0);
+
+        let p = match ptr.0 {
+            Tag::Comm => ptr,
+            _ => unreachable!(),
+        };
+
+        if let Some((secret, _payload)) = self.fetch_comm(&p) {
+            let secret_element = Num::Scalar(secret.0);
+            let secret_num = self.intern_num(secret_element);
+            Some(secret_num)
+        } else {
+            None
+        }
     }
 
     pub fn list(&mut self, elts: &[Ptr<F>]) -> Ptr<F> {
@@ -891,9 +979,7 @@ impl<F: LurkField> Store<F> {
     pub(crate) fn poseidon_constants(&self) -> &HashConstants<F> {
         &self.poseidon_cache.constants
     }
-}
 
-impl<F: LurkField> Store<F> {
     pub fn new() -> Self {
         Store::default()
     }
@@ -939,6 +1025,7 @@ impl<F: LurkField> Store<F> {
         }
         ptr
     }
+
     pub fn intern_comm(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
         if payload.is_opaque() {
             self.hash_expr(&payload);
@@ -962,6 +1049,16 @@ impl<F: LurkField> Store<F> {
     // return an opaque one anyway.
     fn intern_opaque(&mut self, tag: Tag, hash: F) -> Ptr<F> {
         self.intern_opaque_aux(tag, hash, false)
+    }
+
+    pub fn get_maybe_opaque(&self, tag: Tag, hash: F) -> Option<Ptr<F>> {
+        let scalar_ptr = ScalarPtr::from_parts(tag.as_field(), hash);
+
+        let ptr = self.scalar_ptr_map.get(&scalar_ptr);
+        if let Some(p) = ptr {
+            return Some(*p);
+        }
+        None
     }
 
     // Intern a potentially-opaque value. If the corresponding non-opaque value is already known to the store, and
@@ -1856,43 +1953,6 @@ impl<F: LurkField> Store<F> {
                 panic!("Can only extract car_cdr from Cons")
             }
         }
-    }
-
-    pub fn open(&mut self, ptr: Ptr<F>) -> Option<Ptr<F>> {
-        assert!(ptr.0 == Tag::Comm || ptr.0 == Tag::Num);
-
-        let p = match ptr.0 {
-            Tag::Comm => ptr,
-            Tag::Num => {
-                let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
-
-                self.intern_maybe_opaque_comm(scalar)
-            }
-            _ => return None,
-        };
-
-        if let Some((_secret, payload)) = self.fetch_comm(&p) {
-            Some(*payload)
-        } else {
-            None
-        }
-    }
-
-    pub fn secret(&mut self, ptr: Ptr<F>) -> Option<Ptr<F>> {
-        assert_eq!(Tag::Comm, ptr.0);
-
-        let p = match ptr.0 {
-            Tag::Comm => ptr,
-            Tag::Num => {
-                let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
-
-                self.intern_maybe_opaque_comm(scalar)
-            }
-            _ => return None,
-        };
-
-        self.fetch_comm(&p)
-            .and_then(|(secret, _payload)| self.get_num(Num::Scalar(secret.0)))
     }
 
     pub fn hash_expr(&self, ptr: &Ptr<F>) -> Option<ScalarPtr<F>> {

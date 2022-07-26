@@ -1984,4 +1984,243 @@ mod tests {
             2,
         );
     }
+
+    #[test]
+    fn outer_prove_hide_open() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (hide 123 456))";
+        let expected = s.num(456);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
+    }
+
+    #[test]
+    fn outer_prove_hide_secret() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (hide 123 456))";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
+    }
+
+    #[test]
+    fn outer_prove_hide_open_sym() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (hide 123 'x))";
+        let x = s.sym("x");
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(x), None, Some(terminal), None, 5);
+    }
+
+    #[test]
+    fn outer_prove_commit_open_sym() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (commit 'x))";
+        let x = s.sym("x");
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(x), None, Some(terminal), None, 4);
+    }
+
+    #[test]
+    fn outer_prove_commit_open() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (commit 123))";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
+    }
+
+    #[test]
+    fn outer_prove_commit_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(commit 123 456)";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn outer_prove_open_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open 123 456)";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn outer_prove_secret_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret 123 456)";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn outer_prove_num_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num 123 456)";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn outer_prove_comm_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(comm 123 456)";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn outer_prove_char_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(char 123 456)";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn outer_prove_commit_secret() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (commit 123))";
+        let expected = s.num(0);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
+    }
+
+    #[test]
+    fn outer_prove_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num 123)";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_num_char() {
+        let s = &mut Store::<Fr>::default();
+        let expr = r#"(num #\a)"#;
+        let expected = s.num(97);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_char_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = r#"(char 97)"#;
+        let expected_a = s.read(r#"#\a"#).unwrap();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_commit_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num (commit 123))";
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, None, None, Some(terminal), None, 4);
+    }
+
+    #[test]
+    fn outer_prove_hide_open_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (comm (num (hide 123 456))))";
+        let expected = s.num(456);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+    }
+
+    #[test]
+    fn outer_prove_hide_secret_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (comm (num (hide 123 456))))";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+    }
+
+    #[test]
+    fn outer_prove_commit_open_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (comm (num (commit 123))))";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
+    }
+
+    #[test]
+    fn outer_prove_commit_secret_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (comm (num (commit 123))))";
+        let expected = s.num(0);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
+    }
+
+    #[test]
+    fn outer_prove_commit_num_open() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (num (commit 123)))";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 6);
+    }
+
+    #[test]
+    fn outer_prove_num_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num (quote x))";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_comm_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(comm (quote x))";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_char_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(char (quote x))";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_terminal_sym() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(quote x)";
+        let x = s.sym("x");
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(x), None, Some(terminal), None, 1);
+    }
+
+    #[test]
+    #[should_panic = "hidden value could not be opened"]
+    fn outer_prove_open_opaque_commit() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open 123)";
+        nova_test_aux(s, expr, None, None, None, None, 2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn outer_prove_secret_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret 123)";
+        nova_test_aux(s, expr, None, None, None, None, 2);
+    }
+
+    #[test]
+    #[should_panic = "secret could not be extracted"]
+    fn outer_prove_secret_opaque_commit() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (comm 123))";
+        nova_test_aux(s, expr, None, None, None, None, 2);
+    }
 }

@@ -534,6 +534,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         results.add_clauses_expr(Tag::Fun, expr, env, cont, &g.true_num);
         results.add_clauses_expr(Tag::Char, expr, env, cont, &g.true_num);
         results.add_clauses_expr(Tag::Str, expr, env, cont, &g.true_num);
+        results.add_clauses_expr(Tag::Comm, expr, env, cont, &g.true_num);
     };
 
     let cont_is_terminal = alloc_equal(
@@ -580,6 +581,8 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         expr.tag(),
         &g.sym_tag,
     )?;
+    let cont_is_not_terminal = Boolean::not(&cont_is_terminal);
+    let reduce_sym_not_dummy = and!(cs, &reduce_sym_not_dummy, &cont_is_not_terminal)?;
 
     let (sym_result, sym_env, sym_cont, sym_apply_cont) = reduce_sym(
         &mut cs.namespace(|| "eval Sym"),
@@ -1159,6 +1162,13 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let equal_hash = hash_sym("eq");
     let current_env_hash = hash_sym("current-env");
     let if_hash = hash_sym("if");
+    let hide_hash = hash_sym("hide");
+    let commit_hash = hash_sym("commit");
+    let num_hash = hash_sym("num");
+    let comm_hash = hash_sym("comm");
+    let char_hash = hash_sym("char");
+    let open_hash = hash_sym("open");
+    let secret_hash = hash_sym("secret");
 
     let (head, rest) = car_cdr(&mut cs.namespace(|| "reduce_cons expr"), g, expr, store)?;
 
@@ -1376,7 +1386,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         )
     };
 
-    // head == LET and LETREC
+    // head == LET and LETREC preimage
     /////////////////////////////////////////////////////////////////////////////
     let let_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&var_let_letrec, &expanded_let, env, cont];
@@ -1393,7 +1403,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         letrec_continuation_components,
     );
 
-    // head == CONS
+    // head == CONS preimage
     /////////////////////////////////////////////////////////////////////////////
     let cons_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_cons_tag, &g.default_num], env, &more, cont];
@@ -1403,7 +1413,101 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         cons_continuation_components,
     );
 
-    // head == BEGIN
+    // head == HIDE preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let hide_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&[&g.op2_hide_tag, &g.default_num], env, &more, cont];
+    hash_default_results.add_hash_input_clauses(
+        *hide_hash.value(),
+        &g.binop_cont_tag,
+        hide_continuation_components,
+    );
+
+    // head == COMMIT preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let commit_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&g.op1_commit_tag, &g.default_num],
+        &[cont.tag(), cont.hash()],
+        &[&g.default_num, &g.default_num],
+        &[&g.default_num, &g.default_num],
+    ];
+    hash_default_results.add_hash_input_clauses(
+        *commit_hash.value(),
+        &g.unop_cont_tag,
+        commit_continuation_components,
+    );
+
+    // head == OPEN preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let open_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&g.op1_open_tag, &g.default_num],
+        &[cont.tag(), cont.hash()],
+        &[&g.default_num, &g.default_num],
+        &[&g.default_num, &g.default_num],
+    ];
+    hash_default_results.add_hash_input_clauses(
+        *open_hash.value(),
+        &g.unop_cont_tag,
+        open_continuation_components,
+    );
+
+    // head == SECRET preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let secret_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&g.op1_secret_tag, &g.default_num],
+        &[cont.tag(), cont.hash()],
+        &[&g.default_num, &g.default_num],
+        &[&g.default_num, &g.default_num],
+    ];
+    hash_default_results.add_hash_input_clauses(
+        *secret_hash.value(),
+        &g.unop_cont_tag,
+        secret_continuation_components,
+    );
+
+    // head == NUM preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let num_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&g.op1_num_tag, &g.default_num],
+        &[cont.tag(), cont.hash()],
+        &[&g.default_num, &g.default_num],
+        &[&g.default_num, &g.default_num],
+    ];
+    hash_default_results.add_hash_input_clauses(
+        *num_hash.value(),
+        &g.unop_cont_tag,
+        num_continuation_components,
+    );
+
+    // head == COMM preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let comm_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&g.op1_comm_tag, &g.default_num],
+        &[cont.tag(), cont.hash()],
+        &[&g.default_num, &g.default_num],
+        &[&g.default_num, &g.default_num],
+    ];
+    hash_default_results.add_hash_input_clauses(
+        *comm_hash.value(),
+        &g.unop_cont_tag,
+        comm_continuation_components,
+    );
+
+    // head == CHAR preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let char_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&g.op1_char_tag, &g.default_num],
+        &[cont.tag(), cont.hash()],
+        &[&g.default_num, &g.default_num],
+        &[&g.default_num, &g.default_num],
+    ];
+    hash_default_results.add_hash_input_clauses(
+        *char_hash.value(),
+        &g.unop_cont_tag,
+        char_continuation_components,
+    );
+
+    // head == BEGIN preimage
     /////////////////////////////////////////////////////////////////////////////
     let begin_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_begin_tag, &g.default_num], env, &more, cont];
@@ -1413,7 +1517,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         begin_continuation_components,
     );
 
-    // head == CAR
+    // head == CAR preimage
     /////////////////////////////////////////////////////////////////////////////
     let car_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[&g.op1_car_tag, &g.default_num],
@@ -1427,7 +1531,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         car_continuation_components,
     );
 
-    // head == CDR
+    // head == CDR preimage
     /////////////////////////////////////////////////////////////////////////////
     let cdr_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[&g.op1_cdr_tag, &g.default_num],
@@ -1441,7 +1545,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         cdr_continuation_components,
     );
 
-    // head == ATOM
+    // head == ATOM preimage
     /////////////////////////////////////////////////////////////////////////////
     let atom_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[&g.op1_atom_tag, &g.default_num],
@@ -1455,7 +1559,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         atom_continuation_components,
     );
 
-    // head == EMIT
+    // head == EMIT preimage
     /////////////////////////////////////////////////////////////////////////////
     let emit_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &[&g.op1_emit_tag, &g.default_num],
@@ -1469,7 +1573,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         emit_continuation_components,
     );
 
-    // head == +
+    // head == + preimage
     /////////////////////////////////////////////////////////////////////////////
     let sum_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_sum_tag, &g.default_num], env, &more, cont];
@@ -1479,7 +1583,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         sum_continuation_components,
     );
 
-    // head == -
+    // head == - preimage
     /////////////////////////////////////////////////////////////////////////////
     let diff_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_diff_tag, &g.default_num], env, &more, cont];
@@ -1489,9 +1593,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         diff_continuation_components,
     );
 
-    // head == *
+    // head == * preimage
     /////////////////////////////////////////////////////////////////////////////
-
     let product_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_product_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
@@ -1500,7 +1603,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         product_continuation_components,
     );
 
-    // head == /
+    // head == / preimage
     /////////////////////////////////////////////////////////////////////////////
 
     let quotient_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
@@ -1511,7 +1614,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         quotient_continuation_components,
     );
 
-    // head == =
+    // head == = preimage
     /////////////////////////////////////////////////////////////////////////////
 
     let numequal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
@@ -1522,7 +1625,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         numequal_continuation_components,
     );
 
-    // head == EQ
+    // head == EQ preimage
     /////////////////////////////////////////////////////////////////////////////
     let equal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.rel2_equal_tag, &g.default_num], env, &more, cont];
@@ -1532,7 +1635,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         equal_continuation_components,
     );
 
-    // head == IF
+    // head == IF preimage
     /////////////////////////////////////////////////////////////////////////////
     let if_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
         &more.clone(),
@@ -1713,8 +1816,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == CAR, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    let the_cont_car_cdr_atom_emit = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_car_cdr_atom_emit"),
+    let newer_cont_if_end_is_nil = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "newer_cont_if_end_is_nil"),
         &end_is_nil,
         &newer_cont,
         &g.error_ptr_cont,
@@ -1724,7 +1827,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *car_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_car_cdr_atom_emit,
+        &newer_cont_if_end_is_nil,
         &g.false_num,
     );
 
@@ -1734,7 +1837,77 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *cdr_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_car_cdr_atom_emit,
+        &newer_cont_if_end_is_nil,
+        &g.false_num,
+    );
+
+    // head == HIDE, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    let the_cont_hide = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_hide"),
+        &end_is_nil,
+        &g.error_ptr_cont,
+        &newer_cont,
+    )?;
+    results.add_clauses_cons(*hide_hash.value(), &arg1, env, &the_cont_hide, &g.false_num);
+
+    // head == COMMIT, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(
+        *commit_hash.value(),
+        &arg1_or_expr,
+        env,
+        &newer_cont_if_end_is_nil,
+        &g.false_num,
+    );
+
+    // head == OPEN, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(
+        *open_hash.value(),
+        &arg1_or_expr,
+        env,
+        &newer_cont_if_end_is_nil,
+        &g.false_num,
+    );
+
+    // head == SECRET, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(
+        *secret_hash.value(),
+        &arg1_or_expr,
+        env,
+        &newer_cont_if_end_is_nil,
+        &g.false_num,
+    );
+
+    // head == NUM, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(
+        *num_hash.value(),
+        &arg1_or_expr,
+        env,
+        &newer_cont_if_end_is_nil,
+        &g.false_num,
+    );
+
+    // head == COMM, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(
+        *comm_hash.value(),
+        &arg1_or_expr,
+        env,
+        &newer_cont_if_end_is_nil,
+        &g.false_num,
+    );
+
+    // head == CHAR, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(
+        *char_hash.value(),
+        &arg1_or_expr,
+        env,
+        &newer_cont_if_end_is_nil,
         &g.false_num,
     );
 
@@ -1744,7 +1917,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *atom_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_car_cdr_atom_emit,
+        &newer_cont_if_end_is_nil,
         &g.false_num,
     );
 
@@ -1754,7 +1927,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *emit_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_car_cdr_atom_emit,
+        &newer_cont_if_end_is_nil,
         &g.false_num,
     );
 
@@ -2079,7 +2252,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let_components,
     );
 
-    // Continuation::LetRec
+    // Continuation::LetRec preimage
     /////////////////////////////////////////////////////////////////////////////
     let (saved_env, letrec_cont) = {
         (
@@ -2117,6 +2290,35 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.t_ptr,
         )?;
 
+        let op1_is_open = alloc_equal(
+            &mut cs.namespace(|| "op1 is open"),
+            op1.tag(),
+            &g.op1_open_tag,
+        )?;
+
+        let op1_is_secret = alloc_equal(
+            &mut cs.namespace(|| "op1 is secret"),
+            op1.tag(),
+            &g.op1_secret_tag,
+        )?;
+
+        let hide = hide(&mut cs.namespace(|| "Unop hide"), F::zero(), result, store)?;
+        let open = open(
+            &mut cs.namespace(|| "Unop open"),
+            &op1_is_open,
+            result,
+            store,
+        )?;
+        let secret = secret(
+            &mut cs.namespace(|| "Unop secret"),
+            &op1_is_secret,
+            result,
+            store,
+        )?;
+        let num = num(&mut cs.namespace(|| "Unop num"), result, store)?;
+        let comm = comm(&mut cs.namespace(|| "Unop comm"), result, store)?;
+        let c = char_op(&mut cs.namespace(|| "Unop char"), result, store)?;
+
         let res = multi_case(
             &mut cs.namespace(|| "Unop case"),
             op1.tag(),
@@ -2138,6 +2340,30 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                         key: Op1::Emit.as_field(),
                         value: result.tag(),
                     },
+                    CaseClause {
+                        key: Op1::Commit.as_field(),
+                        value: hide.tag(),
+                    },
+                    CaseClause {
+                        key: Op1::Open.as_field(),
+                        value: open.tag(),
+                    },
+                    CaseClause {
+                        key: Op1::Secret.as_field(),
+                        value: secret.tag(),
+                    },
+                    CaseClause {
+                        key: Op1::Num.as_field(),
+                        value: num.tag(),
+                    },
+                    CaseClause {
+                        key: Op1::Comm.as_field(),
+                        value: comm.tag(),
+                    },
+                    CaseClause {
+                        key: Op1::Char.as_field(),
+                        value: c.tag(),
+                    },
                 ],
                 &[
                     CaseClause {
@@ -2155,6 +2381,30 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                     CaseClause {
                         key: Op1::Emit.as_field(),
                         value: result.hash(),
+                    },
+                    CaseClause {
+                        key: Op1::Commit.as_field(),
+                        value: hide.hash(),
+                    },
+                    CaseClause {
+                        key: Op1::Open.as_field(),
+                        value: open.hash(),
+                    },
+                    CaseClause {
+                        key: Op1::Secret.as_field(),
+                        value: secret.hash(),
+                    },
+                    CaseClause {
+                        key: Op1::Num.as_field(),
+                        value: num.hash(),
+                    },
+                    CaseClause {
+                        key: Op1::Comm.as_field(),
+                        value: comm.hash(),
+                    },
+                    CaseClause {
+                        key: Op1::Char.as_field(),
+                        value: c.hash(),
                     },
                 ],
             ],
@@ -2533,6 +2783,11 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let sum = constraints::add(&mut cs.namespace(|| "sum"), a, b)?;
         let diff = constraints::sub(&mut cs.namespace(|| "difference"), a, b)?;
         let product = constraints::mul(&mut cs.namespace(|| "product"), a, b)?;
+        let secret = match arg1.hash().get_value() {
+            Some(s) => s,
+            None => F::zero(), //dummy
+        };
+        let hide = hide(&mut cs.namespace(|| "Binop2 hide"), secret, arg2, store)?;
 
         let op2_is_div = alloc_equal(
             cs.namespace(|| "op2_is_div"),
@@ -2578,6 +2833,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                     key: Op2::Cons.as_field(),
                     value: cons.hash(),
                 },
+                CaseClause {
+                    key: Op2::Hide.as_field(),
+                    value: hide.hash(),
+                },
             ],
             &g.default_num,
         )?;
@@ -2586,6 +2845,33 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &mut cs.namespace(|| "Op2 is Cons"),
             op2.tag(),
             &g.op2_cons_tag,
+        )?;
+
+        let is_hide = alloc_equal(
+            &mut cs.namespace(|| "Op2 is Hide"),
+            op2.tag(),
+            &g.op2_hide_tag,
+        )?;
+
+        let hide_tag_is_comm = alloc_equal(
+            &mut cs.namespace(|| "hide tag is comm"),
+            hide.tag(),
+            &g.comm_tag,
+        )?;
+
+        let hide_tag_is_dummy =
+            alloc_is_zero(&mut cs.namespace(|| "hide tag is dummy"), hide.tag())?;
+
+        let hide_tag_is_correct = constraints::or(
+            &mut cs.namespace(|| "hide tag is correct"),
+            &hide_tag_is_comm,
+            &hide_tag_is_dummy,
+        )?;
+
+        enforce_implication(
+            &mut cs.namespace(|| "is hide implies hide tag is correct"),
+            &is_hide,
+            &hide_tag_is_correct,
         )?;
 
         let arg1_is_char = alloc_equal(
@@ -2607,18 +2893,31 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.cons_tag,
         )?;
 
+        let comm_or_num_tag = pick(
+            &mut cs.namespace(|| "Op2 tag is comm or num"),
+            &is_hide,
+            &g.comm_tag,
+            &g.num_tag,
+        )?;
+
         let res_tag = pick(
             &mut cs.namespace(|| "Op2 result tag"),
             &is_cons,
             &cons_tag,
-            &g.num_tag,
+            &comm_or_num_tag,
         )?;
 
         let res = AllocatedPtr::from_parts(res_tag, val);
 
+        let is_cons_or_is_hide = constraints::or(
+            &mut cs.namespace(|| "is cons or is hide"),
+            &is_cons,
+            &is_hide,
+        )?;
+
         let valid_types = constraints::or(
             &mut cs.namespace(|| "Op2 called with valid types"),
-            &is_cons,
+            &is_cons_or_is_hide,
             &both_args_are_nums,
         )?;
 
@@ -2640,16 +2939,16 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &Boolean::not(&real_div_and_b_is_zero),
         )?;
 
-        let op2_not_both_num_and_not_cons = Boolean::and(
-            &mut cs.namespace(|| "not both num and not cons"),
+        let op2_not_both_num_and_not_cons_or_hide = Boolean::and(
+            &mut cs.namespace(|| "not both num and not cons or hide"),
             &Boolean::not(&both_args_are_nums),
-            &Boolean::not(&is_cons),
+            &Boolean::not(&is_cons_or_is_hide),
         )?;
 
         let any_error = constraints::or(
             &mut cs.namespace(|| "some error happened"),
             &Boolean::not(&valid_types_and_not_div_by_zero),
-            &op2_not_both_num_and_not_cons,
+            &op2_not_both_num_and_not_cons_or_hide,
         )?;
 
         let the_cont = AllocatedContPtr::pick(
@@ -3028,16 +3327,103 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &Boolean::not(&car_cdr_has_valid_tag),
         )?;
 
+        let op1_is_comm = alloc_equal(
+            &mut cs.namespace(|| "op1_is_comm"),
+            unop_op1.tag(),
+            &g.op1_comm_tag,
+        )?;
+
+        let op1_is_num = alloc_equal(
+            &mut cs.namespace(|| "op1_is_num"),
+            unop_op1.tag(),
+            &g.op1_num_tag,
+        )?;
+
+        let op1_is_char = alloc_equal(
+            &mut cs.namespace(|| "op1_is_char"),
+            unop_op1.tag(),
+            &g.op1_char_tag,
+        )?;
+
+        let tag_is_num = alloc_equal(&mut cs.namespace(|| "tag_is_num"), result.tag(), &g.num_tag)?;
+
+        let tag_is_comm = alloc_equal(
+            &mut cs.namespace(|| "tag_is_comm"),
+            result.tag(),
+            &g.comm_tag,
+        )?;
+
+        let tag_is_char = alloc_equal(
+            &mut cs.namespace(|| "tag_is_char"),
+            result.tag(),
+            &g.char_tag,
+        )?;
+
+        let tag_is_num_or_comm = constraints::or(
+            &mut cs.namespace(|| "tag_is_num_or_comm"),
+            &tag_is_num,
+            &tag_is_comm,
+        )?;
+
+        let tag_is_num_or_char = constraints::or(
+            &mut cs.namespace(|| "tag_is_num_or_char"),
+            &tag_is_num,
+            &tag_is_char,
+        )?;
+
+        let tag_is_num_or_comm_or_char = constraints::or(
+            &mut cs.namespace(|| "tag_is_num_or_comm_or_char"),
+            &tag_is_num_or_comm,
+            &tag_is_char,
+        )?;
+
+        let comm_invalid_tag_error = Boolean::and(
+            &mut cs.namespace(|| "comm_invalid_tag_error"),
+            &op1_is_comm,
+            &Boolean::not(&tag_is_num_or_comm),
+        )?;
+
+        let num_invalid_tag_error = Boolean::and(
+            &mut cs.namespace(|| "num_invalid_tag_error"),
+            &op1_is_num,
+            &Boolean::not(&tag_is_num_or_comm_or_char),
+        )?;
+
+        let char_invalid_tag_error = Boolean::and(
+            &mut cs.namespace(|| "char_invalid_tag_error"),
+            &op1_is_char,
+            &Boolean::not(&tag_is_num_or_char),
+        )?;
+
+        // Any error? Compute the OR of individual errors
+        let any_error1 = constraints::or(
+            &mut cs.namespace(|| "any_error1"),
+            &car_cdr_has_invalid_tag,
+            &comm_invalid_tag_error,
+        )?;
+
+        let any_error2 = constraints::or(
+            &mut cs.namespace(|| "any_erro2"),
+            &any_error1,
+            &num_invalid_tag_error,
+        )?;
+
+        let any_error = constraints::or(
+            &mut cs.namespace(|| "any_error"),
+            &any_error2,
+            &char_invalid_tag_error,
+        )?;
+
         let the_expr = AllocatedPtr::pick(
             &mut cs.namespace(|| "the_expr"),
-            &car_cdr_has_invalid_tag,
+            &any_error,
             result,
             &unop_val,
         )?;
 
         let the_cont = AllocatedContPtr::pick(
             &mut cs.namespace(|| "the_cont"),
-            &car_cdr_has_invalid_tag,
+            &any_error,
             &g.error_ptr_cont,
             &unop_continuation,
         )?;
@@ -3073,6 +3459,150 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     let make_thunk_num = case_results[6].clone();
 
     Ok((result_expr, result_env, result_cont, make_thunk_num))
+}
+
+fn hide<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    secret: F,
+    maybe_payload: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    let hide_ptr = if let Some(ptr) = maybe_payload.ptr(store).as_ref() {
+        match store.hidden(secret, *ptr) {
+            Some(c) => c,
+            None => store.get_nil(), // dummy
+        }
+    } else {
+        store.get_nil() // dummy
+    };
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "hide"), store, || Ok(&hide_ptr))
+}
+
+fn open<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    not_dummy: &Boolean,
+    maybe_commit: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    let hash = match maybe_commit.hash().get_value() {
+        Some(hash) => hash,
+        None => F::zero(), // dummy value
+    };
+
+    let dummy_check = || {
+        match not_dummy.get_value() {
+            Some(not_dummy) => {
+                if not_dummy {
+                    panic!("hidden value could not be opened")
+                } else {
+                    // TODO: replace by dummy pointer (bogus)
+                    store.get_nil()
+                }
+            }
+            None => {
+                // TODO: replace by dummy pointer (blank)
+                store.get_nil()
+            }
+        }
+    };
+
+    let open_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
+        Some(commit) => match store.open(commit) {
+            Some(openning) => openning,
+            None => dummy_check(),
+        },
+        None => dummy_check(),
+    };
+
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&open_ptr))
+}
+
+fn secret<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    not_dummy: &Boolean,
+    maybe_commit: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    let hash = match maybe_commit.hash().get_value() {
+        Some(hash) => hash,
+        None => F::zero(), // dummy value
+    };
+
+    let dummy_check = || {
+        match not_dummy.get_value() {
+            Some(not_dummy) => {
+                if not_dummy {
+                    panic!("secret could not be extracted")
+                } else {
+                    // TODO: replace by dummy pointer (bogus)
+                    store.get_nil()
+                }
+            }
+            None => {
+                // TODO: replace by dummy pointer (blank)
+                store.get_nil()
+            }
+        }
+    };
+
+    let secret_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
+        Some(commit) => match store.secret(commit) {
+            Some(secret) => secret,
+            None => dummy_check(),
+        },
+        None => dummy_check(),
+    };
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "secret"), store, || Ok(&secret_ptr))
+}
+
+fn num<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    maybe_num: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    let num_ptr = if let Some(ptr) = maybe_num.ptr(store).as_ref() {
+        let scalar_ptr = store.get_expr_hash(ptr).expect("expr hash missing");
+        match store.get_num(crate::Num::Scalar::<F>(*scalar_ptr.value())) {
+            Some(n) => n,
+            None => store.get_nil(),
+        }
+    } else {
+        store.get_nil()
+    };
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "num"), store, || Ok(&num_ptr))
+}
+
+fn comm<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    maybe_comm: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    let hash = match maybe_comm.hash().get_value() {
+        Some(h) => h,
+        None => F::zero(), // dummy value
+    };
+    let comm_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
+        Some(c) => c,
+        None => store.get_nil(),
+    };
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&comm_ptr))
+}
+
+fn char_op<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    maybe_char: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    let char_ptr = if let Some(ptr) = maybe_char.ptr(store).as_ref() {
+        let scalar_ptr = store.get_expr_hash(ptr).expect("expr hash missing");
+        match scalar_ptr.value().to_u32() {
+            Some(n) => store.get_char(char::from_u32(n).unwrap()),
+            None => store.get_nil(),
+        }
+    } else {
+        store.get_nil()
+    };
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "char_op"), store, || Ok(&char_ptr))
 }
 
 fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
@@ -3341,9 +3871,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(19051, cs.num_constraints());
+            assert_eq!(19295, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(18974, cs.aux().len());
+            assert_eq!(19220, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
