@@ -3484,7 +3484,6 @@ fn open<F: LurkField, CS: ConstraintSystem<F>>(
     maybe_commit: &AllocatedPtr<F>,
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-
     let hash = match maybe_commit.hash().get_value() {
         Some(hash) => hash,
         None => F::zero(), // dummy value
@@ -3510,13 +3509,9 @@ fn open<F: LurkField, CS: ConstraintSystem<F>>(
     let open_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
         Some(commit) => match store.open(commit) {
             Some(openning) => openning,
-            None => {
-                dummy_check()
-            },
+            None => dummy_check(),
         },
-        None => {
-            dummy_check()
-        },
+        None => dummy_check(),
     };
 
     AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&open_ptr))
