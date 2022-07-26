@@ -2295,16 +2295,26 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             op1.tag(),
             &g.op1_open_tag,
         )?;
-        let not_dummy = match g.op1_open_tag.get_value() {
-            Some(_) => op1_is_open,
-            // If circuit is blank then op1_is_open is true,
-            // because everything is None at this moment
-            None => Boolean::not(&op1_is_open),
-        };
+
+        let op1_is_secret = alloc_equal(
+            &mut cs.namespace(|| "op1 is secret"),
+            op1.tag(),
+            &g.op1_secret_tag,
+        )?;
 
         let hide = hide(&mut cs.namespace(|| "Unop hide"), F::zero(), result, store)?;
-        let open = open(&mut cs.namespace(|| "Unop open"), &not_dummy, result, store)?;
-        let secret = secret(&mut cs.namespace(|| "Unop secret"), result, store)?;
+        let open = open(
+            &mut cs.namespace(|| "Unop open"),
+            &op1_is_open,
+            result,
+            store,
+        )?;
+        let secret = secret(
+            &mut cs.namespace(|| "Unop secret"),
+            &op1_is_secret,
+            result,
+            store,
+        )?;
         let num = num(&mut cs.namespace(|| "Unop num"), result, store)?;
         let comm = comm(&mut cs.namespace(|| "Unop comm"), result, store)?;
         let c = char_op(&mut cs.namespace(|| "Unop char"), result, store)?;
@@ -3474,40 +3484,78 @@ fn open<F: LurkField, CS: ConstraintSystem<F>>(
     maybe_commit: &AllocatedPtr<F>,
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
+
     let hash = match maybe_commit.hash().get_value() {
-        Some(h) => h,
-        None => F::zero(), // dummy
+        Some(hash) => hash,
+        None => F::zero(), // dummy value
     };
-    let open_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
-        Some(c) => match store.open(c) {
-            Some(o) => o,
-            None => {
-                panic!("Failed to open commitment.")
+
+    let dummy_check = || {
+        match not_dummy.get_value() {
+            Some(not_dummy) => {
+                if not_dummy {
+                    panic!("hidden value could not be opened")
+                } else {
+                    // TODO: replace by dummy pointer (bogus)
+                    store.get_nil()
+                }
             }
-        },
-        None => {
-            if not_dummy.get_value().expect("not_dummy is missing") {
-                panic!("hidden value could not be opened")
-            } else {
-                store.get_nil() // TODO: replace by bogus dummy
+            None => {
+                // TODO: replace by dummy pointer (blank)
+                store.get_nil()
             }
         }
     };
+
+    let open_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
+        Some(commit) => match store.open(commit) {
+            Some(openning) => openning,
+            None => {
+                dummy_check()
+            },
+        },
+        None => {
+            dummy_check()
+        },
+    };
+
     AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&open_ptr))
 }
 
 fn secret<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
+    not_dummy: &Boolean,
     maybe_commit: &AllocatedPtr<F>,
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let secret_ptr = if let Some(ptr) = maybe_commit.ptr(store).as_ref() {
-        match store.secret(*ptr) {
-            Some(s) => s,
-            None => store.get_nil(),
+    let hash = match maybe_commit.hash().get_value() {
+        Some(hash) => hash,
+        None => F::zero(), // dummy value
+    };
+
+    let dummy_check = || {
+        match not_dummy.get_value() {
+            Some(not_dummy) => {
+                if not_dummy {
+                    panic!("secret could not be extracted")
+                } else {
+                    // TODO: replace by dummy pointer (bogus)
+                    store.get_nil()
+                }
+            }
+            None => {
+                // TODO: replace by dummy pointer (blank)
+                store.get_nil()
+            }
         }
-    } else {
-        store.get_nil()
+    };
+
+    let secret_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
+        Some(commit) => match store.secret(commit) {
+            Some(secret) => secret,
+            None => dummy_check(),
+        },
+        None => dummy_check(),
     };
     AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "secret"), store, || Ok(&secret_ptr))
 }
@@ -3536,7 +3584,7 @@ fn comm<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let hash = match maybe_comm.hash().get_value() {
         Some(h) => h,
-        None => F::zero(),
+        None => F::zero(), // dummy value
     };
     let comm_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
         Some(c) => c,
@@ -3828,9 +3876,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(19291, cs.num_constraints());
+            assert_eq!(19295, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(19217, cs.aux().len());
+            assert_eq!(19220, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

@@ -2202,9 +2202,25 @@ mod tests {
 
     #[test]
     #[should_panic = "hidden value could not be opened"]
-    fn outer_prove_open_unknown_commit() {
+    fn outer_prove_open_opaque_commit() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 123)";
+        nova_test_aux(s, expr, None, None, None, None, 2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn outer_prove_secret_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret 123)";
+        nova_test_aux(s, expr, None, None, None, None, 2);
+    }
+
+    #[test]
+    #[should_panic = "secret could not be extracted"]
+    fn outer_prove_secret_opaque_commit() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (comm 123))";
         nova_test_aux(s, expr, None, None, None, None, 2);
     }
 }

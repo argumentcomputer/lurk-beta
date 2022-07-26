@@ -915,7 +915,7 @@ impl<F: LurkField> Store<F> {
 
                 self.intern_maybe_opaque_comm(scalar)
             }
-            _ => return None,
+            _ => unreachable!(),
         };
 
         if let Some((_secret, payload)) = self.fetch_comm(&p) {
@@ -940,7 +940,7 @@ impl<F: LurkField> Store<F> {
 
         let p = match ptr.0 {
             Tag::Comm => ptr,
-            _ => return None,
+            _ => unreachable!(),
         };
 
         if let Some((secret, _payload)) = self.fetch_comm(&p) {
