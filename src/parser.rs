@@ -277,7 +277,7 @@ impl<F: LurkField> Store<F> {
 fn is_symbol_char(c: &char, initial: bool) -> bool {
     match c {
         // FIXME: suppport more than just alpha.
-        'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' | '=' | ':' => true,
+        'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' | '=' | ':' | '_' => true,
         _ => {
             if initial {
                 false
@@ -370,6 +370,8 @@ mod test {
             "
 asdf(", "ASDF",
         );
+        test("foo-bar", "FOO-BAR");
+        test("foo_bar", "FOO_BAR");
     }
 
     #[test]
@@ -605,8 +607,8 @@ asdf(", "ASDF",
                 }
             };
 
-        let sym = s.intern_str("asdf");
-        test(&mut s, "\"asdf\"", Some(sym), Some("asdf"));
+        let str = s.intern_str("asdf");
+        test(&mut s, "\"asdf\"", Some(str), Some("asdf"));
         test(&mut s, "\"asdf", None, None);
         test(&mut s, "asdf", None, None);
 
