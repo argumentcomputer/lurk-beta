@@ -17,7 +17,7 @@ use nova::{
     traits::Group,
     FinalSNARK, StepSNARK,
 };
-use pasta_curves::pallas;
+use pasta_curves::{pallas, vesta};
 
 use crate::circuit::MultiFrame;
 use crate::eval::{Evaluator, Frame, Witness, IO};
@@ -27,6 +27,9 @@ use crate::proof::Prover;
 use crate::store::{Ptr, Store};
 
 type PallasPoint = pallas::Point;
+
+pub type PallasScalar = pallas::Scalar;
+pub type VestaScalar = vesta::Scalar;
 
 pub struct Proof<G: Group> {
     pub step_proofs: Vec<StepSNARK<G>>,
