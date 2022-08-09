@@ -5,6 +5,12 @@ use std::hash::Hash;
 
 use multihash::Multihash;
 
+pub enum LanguageField {
+    Pallas,
+    Vesta,
+    BLS12_381,
+}
+
 pub trait LurkField: ff::PrimeField {
     // These constants are assumed to be based on some global table like
     // multicodec, ideally extended to include arbitrary precision codecs

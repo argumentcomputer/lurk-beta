@@ -61,6 +61,11 @@ Or use the wrapper script:
 bin/lurkrs
 ```
 
+Set the environment variable `LURK_FIELD` to specify the scalar field of the Lurk language instance:
+- `LURK_FIELD=PALLAS` (default): scalar field of Pallas
+- `LURK_FIELD=VESTA` (default): scalar field of Vesta
+- `LURK_FIELD=BLS12-381` (default): scalar field of BLS12-381
+
 ```
 ➜  lurk-rs ✗ bin/lurkrs
     Finished release [optimized] target(s) in 0.06s
