@@ -828,6 +828,7 @@ impl<F: LurkField> Default for Store<F> {
             "begin",
             "hide",
             "cons",
+            "strcons",
             "car",
             "cdr",
             "commit",
