@@ -2267,7 +2267,6 @@ mod tests {
         nova_test_aux(s, r#"(car "")"#, Some(nil), None, Some(terminal), None, 2);
         nova_test_aux(s, r#"(cdr "")"#, Some(empty), None, Some(terminal), None, 2);
 
-        // FIXME: This case fails.
         nova_test_aux(
             s,
             r#"(cons #\a "pple")"#,
@@ -2288,10 +2287,8 @@ mod tests {
             3,
         );
 
-        // FIXME: This case fails.
         nova_test_aux(s, r#"(strcons #\a #\b)"#, None, None, Some(error), None, 3);
 
-        // FIXME: This case fails.
         nova_test_aux(s, r#"(strcons "a" "b")"#, None, None, Some(error), None, 3);
 
         nova_test_aux(s, r#"(strcons 1 2)"#, None, None, Some(error), None, 3);

@@ -2799,12 +2799,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &arg2_is_num,
         )?;
 
-        let some_args_are_nums = constraints::or(
-            &mut cs.namespace(|| "some_args_are_nums"),
-            &arg1_is_num,
-            &arg2_is_num,
-        )?;
-
         let (a, b) = (arg1.hash(), arg2.hash()); // For Nums, the 'hash' is an immediate value.
 
         let not_dummy = alloc_equal(
@@ -2931,7 +2925,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let cons_tag = pick(
             &mut cs.namespace(|| "cons_tag"),
-            &args_are_char_str,
+            &is_strcons,
             &g.str_tag,
             &g.cons_tag,
         )?;
@@ -2997,9 +2991,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &Boolean::not(&is_cons_or_strcons_or_hide),
         )?;
 
-        let some_num_and_strcons = Boolean::and(
-            &mut cs.namespace(|| "both_num_and_strcons"),
-            &some_args_are_nums,
+        let args_not_char_str = &Boolean::not(&args_are_char_str);
+        let invalid_strcons_tag = Boolean::and(
+            &mut cs.namespace(|| "invalid_strcons_tag"),
+            args_not_char_str,
             &is_strcons,
         )?;
 
@@ -3012,7 +3007,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let any_error = constraints::or(
             &mut cs.namespace(|| "some error happened"),
             &any_error1,
-            &some_num_and_strcons,
+            &invalid_strcons_tag,
         )?;
 
         let the_cont = AllocatedContPtr::pick(
@@ -3935,9 +3930,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(19328, cs.num_constraints());
+            assert_eq!(19327, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(19252, cs.aux().len());
+            assert_eq!(19251, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
