@@ -45,7 +45,7 @@ multihash = { version = "0.16.1", default-features = false, features = ["alloc",
 
 
 [features]
-default = ["gpu", "bellperson/default", "nova/default"]
+default = ["bellperson/default", "nova/default"]
 
 gpu = ["neptune/opencl"]
 
@@ -64,3 +64,6 @@ members = [
   "lurk_macro", "fcomm"
 ]
 
+[[bin]]
+name = "lurkrs"
+path = "examples/repl.rs"
