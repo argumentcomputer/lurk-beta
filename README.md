@@ -141,6 +141,13 @@ And then building with Cargo as usual:
 $ cargo build
 ```
 
+## Install
+
+You can install the `lurkrs` binary on your machine with
+```
+$ cargo install --path .
+```
+
 ## License
 
 MIT or Apache 2.0
