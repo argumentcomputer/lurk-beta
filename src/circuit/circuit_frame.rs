@@ -1149,6 +1149,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let letrec_t = AllocatedPtr::alloc_constant(&mut cs.namespace(|| "letrec"), letrec)?;
     let letrec_hash = letrec.value();
     let cons_hash = hash_sym("cons");
+    let strcons_hash = hash_sym("strcons");
     let begin_hash = hash_sym("begin");
     let car_hash = hash_sym("car");
     let cdr_hash = hash_sym("cdr");
@@ -1411,6 +1412,16 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *cons_hash.value(),
         &g.binop_cont_tag,
         cons_continuation_components,
+    );
+
+    // head == STRCONS preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let strcons_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&[&g.op2_strcons_tag, &g.default_num], env, &more, cont];
+    hash_default_results.add_hash_input_clauses(
+        *strcons_hash.value(),
+        &g.binop_cont_tag,
+        strcons_continuation_components,
     );
 
     // head == HIDE preimage
@@ -1795,14 +1806,30 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == CONS, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    // Checking one-arg cons error
-    let the_cont_cons = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_cons"),
+    // Checking one-arg cons or strcons error
+    let the_cont_cons_or_strcons = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_cons_or_strcons"),
         &end_is_nil,
         &g.error_ptr_cont,
         &newer_cont,
     )?;
-    results.add_clauses_cons(*cons_hash.value(), &arg1, env, &the_cont_cons, &g.false_num);
+    results.add_clauses_cons(
+        *cons_hash.value(),
+        &arg1,
+        env,
+        &the_cont_cons_or_strcons,
+        &g.false_num,
+    );
+
+    // head == STRCONS, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(
+        *strcons_hash.value(),
+        &arg1,
+        env,
+        &the_cont_cons_or_strcons,
+        &g.false_num,
+    );
 
     // head == BEGIN, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
@@ -2834,6 +2861,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                     value: cons.hash(),
                 },
                 CaseClause {
+                    key: Op2::StrCons.as_field(),
+                    value: cons.hash(),
+                },
+                CaseClause {
                     key: Op2::Hide.as_field(),
                     value: hide.hash(),
                 },
@@ -2845,6 +2876,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &mut cs.namespace(|| "Op2 is Cons"),
             op2.tag(),
             &g.op2_cons_tag,
+        )?;
+
+        let is_strcons = alloc_equal(
+            &mut cs.namespace(|| "Op2 is StrCons"),
+            op2.tag(),
+            &g.op2_strcons_tag,
         )?;
 
         let is_hide = alloc_equal(
@@ -2888,7 +2925,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let cons_tag = pick(
             &mut cs.namespace(|| "cons_tag"),
-            &args_are_char_str,
+            &is_strcons,
             &g.str_tag,
             &g.cons_tag,
         )?;
@@ -2900,24 +2937,33 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.num_tag,
         )?;
 
+        let is_cons_or_hide =
+            constraints::or(&mut cs.namespace(|| "is cons or hide"), &is_cons, &is_hide)?;
+
+        let is_cons_or_strcons = constraints::or(
+            &mut cs.namespace(|| "is cons or strcons"),
+            &is_cons,
+            &is_strcons,
+        )?;
+
+        let is_cons_or_strcons_or_hide = constraints::or(
+            &mut cs.namespace(|| "is cons or srtcons or hide"),
+            &is_cons_or_hide,
+            &is_strcons,
+        )?;
+
         let res_tag = pick(
             &mut cs.namespace(|| "Op2 result tag"),
-            &is_cons,
+            &is_cons_or_strcons,
             &cons_tag,
             &comm_or_num_tag,
         )?;
 
         let res = AllocatedPtr::from_parts(res_tag, val);
 
-        let is_cons_or_is_hide = constraints::or(
-            &mut cs.namespace(|| "is cons or is hide"),
-            &is_cons,
-            &is_hide,
-        )?;
-
         let valid_types = constraints::or(
             &mut cs.namespace(|| "Op2 called with valid types"),
-            &is_cons_or_is_hide,
+            &is_cons_or_strcons_or_hide,
             &both_args_are_nums,
         )?;
 
@@ -2939,16 +2985,29 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &Boolean::not(&real_div_and_b_is_zero),
         )?;
 
-        let op2_not_both_num_and_not_cons_or_hide = Boolean::and(
-            &mut cs.namespace(|| "not both num and not cons or hide"),
+        let op2_not_both_num_and_not_cons_or_strcons_or_hide = Boolean::and(
+            &mut cs.namespace(|| "not both num and not cons or strcons or hide"),
             &Boolean::not(&both_args_are_nums),
-            &Boolean::not(&is_cons_or_is_hide),
+            &Boolean::not(&is_cons_or_strcons_or_hide),
+        )?;
+
+        let args_not_char_str = &Boolean::not(&args_are_char_str);
+        let invalid_strcons_tag = Boolean::and(
+            &mut cs.namespace(|| "invalid_strcons_tag"),
+            args_not_char_str,
+            &is_strcons,
+        )?;
+
+        let any_error1 = constraints::or(
+            &mut cs.namespace(|| "first two errors"),
+            &Boolean::not(&valid_types_and_not_div_by_zero),
+            &op2_not_both_num_and_not_cons_or_strcons_or_hide,
         )?;
 
         let any_error = constraints::or(
             &mut cs.namespace(|| "some error happened"),
-            &Boolean::not(&valid_types_and_not_div_by_zero),
-            &op2_not_both_num_and_not_cons_or_hide,
+            &any_error1,
+            &invalid_strcons_tag,
         )?;
 
         let the_cont = AllocatedContPtr::pick(
@@ -3871,9 +3930,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(19295, cs.num_constraints());
+            assert_eq!(19327, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(19220, cs.aux().len());
+            assert_eq!(19251, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

@@ -58,6 +58,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub op1_atom_tag: AllocatedNum<F>,
     pub op1_emit_tag: AllocatedNum<F>,
     pub op2_cons_tag: AllocatedNum<F>,
+    pub op2_strcons_tag: AllocatedNum<F>,
     pub op2_hide_tag: AllocatedNum<F>,
     pub op2_begin_tag: AllocatedNum<F>,
     pub op2_sum_tag: AllocatedNum<F>,
@@ -169,6 +170,8 @@ impl<F: LurkField> GlobalAllocations<F> {
         let op1_atom_tag = Op1::Atom.allocate_constant(&mut cs.namespace(|| "op1_atom_tag"))?;
         let op1_emit_tag = Op1::Emit.allocate_constant(&mut cs.namespace(|| "op1_emit_tag"))?;
         let op2_cons_tag = Op2::Cons.allocate_constant(&mut cs.namespace(|| "op2_cons_tag"))?;
+        let op2_strcons_tag =
+            Op2::StrCons.allocate_constant(&mut cs.namespace(|| "op2_strcons_tag"))?;
         let op2_hide_tag = Op2::Hide.allocate_constant(&mut cs.namespace(|| "op2_hide_tag"))?;
         let op2_begin_tag = Op2::Begin.allocate_constant(&mut cs.namespace(|| "op2_begin_tag"))?;
         let op2_sum_tag = Op2::Sum.allocate_constant(&mut cs.namespace(|| "op2_sum_tag"))?;
@@ -234,6 +237,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             op1_atom_tag,
             op1_emit_tag,
             op2_cons_tag,
+            op2_strcons_tag,
             op2_hide_tag,
             op2_begin_tag,
             op2_sum_tag,

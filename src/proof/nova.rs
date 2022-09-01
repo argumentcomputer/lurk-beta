@@ -1886,19 +1886,26 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_str_cons() {
+    fn outer_prove_strcons() {
         let s = &mut Store::<Fr>::default();
         let expected_apple = s.read(r#" "apple" "#).unwrap();
         let terminal = s.get_cont_terminal();
         nova_test_aux(
             s,
-            r#"(cons #\a "pple")"#,
+            r#"(strcons #\a "pple")"#,
             Some(expected_apple),
             None,
             Some(terminal),
             None,
             3,
         );
+    }
+
+    #[test]
+    fn outer_prove_str_cons_error() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        nova_test_aux(s, r#"(strcons #\a 123)"#, None, None, Some(error), None, 3);
     }
 
     #[test]
@@ -2225,5 +2232,65 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret (comm 123))";
         nova_test_aux(s, expr, None, None, None, None, 2);
+    }
+
+    #[test]
+    fn test_str_car_cdr_cons() {
+        let s = &mut Store::<Fr>::default();
+        let a = s.read(r#"#\a"#).unwrap();
+        let apple = s.read(r#" "apple" "#).unwrap();
+        let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
+        let pple = s.read(r#" "pple" "#).unwrap();
+        let empty = s.intern_str(&"");
+        let nil = s.nil();
+        let terminal = s.get_cont_terminal();
+        let error = s.get_cont_error();
+
+        nova_test_aux(
+            s,
+            r#"(car "apple")"#,
+            Some(a),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
+        nova_test_aux(
+            s,
+            r#"(cdr "apple")"#,
+            Some(pple),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
+        nova_test_aux(s, r#"(car "")"#, Some(nil), None, Some(terminal), None, 2);
+        nova_test_aux(s, r#"(cdr "")"#, Some(empty), None, Some(terminal), None, 2);
+
+        nova_test_aux(
+            s,
+            r#"(cons #\a "pple")"#,
+            Some(a_pple),
+            None,
+            Some(terminal),
+            None,
+            3,
+        );
+
+        nova_test_aux(
+            s,
+            r#"(strcons #\a "pple")"#,
+            Some(apple),
+            None,
+            Some(terminal),
+            None,
+            3,
+        );
+
+        nova_test_aux(s, r#"(strcons #\a #\b)"#, None, None, Some(error), None, 3);
+
+        nova_test_aux(s, r#"(strcons "a" "b")"#, None, None, Some(error), None, 3);
+
+        nova_test_aux(s, r#"(strcons 1 2)"#, None, None, Some(error), None, 3);
     }
 }
