@@ -2,210 +2,76 @@
 
 use std::marker::PhantomData;
 
-use bellperson::{Circuit, ConstraintSystem, SynthesisError};
-use merlin::Transcript;
+use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
+
 use nova::{
-    bellperson::{
-        r1cs::{NovaShape, NovaWitness},
-        shape_cs::ShapeCS,
-        solver::SatisfyingAssignment,
-    },
     errors::NovaError,
-    r1cs::{
-        R1CSGens, R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance, RelaxedR1CSWitness,
+    traits::{
+        circuit::{StepCircuit, TrivialTestCircuit},
+        Group,
     },
-    traits::Group,
-    FinalSNARK, StepSNARK,
+    CompressedSNARK, RecursiveSNARK,
 };
 use pasta_curves::{pallas, vesta};
 
-use crate::circuit::MultiFrame;
+use crate::circuit::{
+    gadgets::{
+        data::{GlobalAllocations, WrappedMultiFrame},
+        pointer::{AllocatedContPtr, AllocatedPtr},
+    },
+    CircuitFrame, MultiFrame,
+};
 use crate::eval::{Evaluator, Frame, Witness, IO};
 
 use crate::field::LurkField;
 use crate::proof::Prover;
 use crate::store::{Ptr, Store};
 
-type PallasPoint = pallas::Point;
+pub type G1 = pallas::Point;
+pub type G2 = vesta::Point;
 
-pub type PallasScalar = pallas::Scalar;
-pub type VestaScalar = vesta::Scalar;
+pub type S1 = pallas::Scalar;
+pub type S2 = vesta::Scalar;
 
-pub struct Proof<G: Group> {
-    pub step_proofs: Vec<StepSNARK<G>>,
-    pub final_proof: FinalSNARK<G>,
-    pub final_instance: RelaxedR1CSInstance<G>,
+pub type SS1 = nova::spartan_with_ipa_pc::RelaxedR1CSSNARK<G1>;
+pub type SS2 = nova::spartan_with_ipa_pc::RelaxedR1CSSNARK<G2>;
+
+pub type C1<'a> = WrappedMultiFrame<'a, S1, IO<S1>, Witness<S1>>;
+pub type C2 = TrivialTestCircuit<<G2 as Group>::Scalar>;
+
+pub type PublicParams<'a> = nova::PublicParams<G1, G2, C1<'a>, C2>;
+
+#[allow(clippy::large_enum_variant)]
+pub enum Proof<'a> {
+    Recursive(RecursiveSNARK<G1, G2, C1<'a>, C2>),
+    Compressed(CompressedSNARK<G1, G2, C1<'a>, C2, SS1, SS2>),
 }
 
-impl<G: Group> Proof<G> {
-    pub fn verify(
-        &self,
-        shape_and_gens: &(R1CSShape<G>, R1CSGens<G>),
-        instance: &RelaxedR1CSInstance<G>,
-    ) -> bool {
-        self.final_proof
-            .verify(&shape_and_gens.1, &shape_and_gens.0, instance)
-            .is_ok()
-    }
+//pub fn public_params<'a>(store: &'a Store<S1>, num_iters_per_step: usize) -> PublicParams<'a> {
+pub fn public_params(store: &Store<S1>, num_iters_per_step: usize) -> PublicParams {
+    let (circuit_primary, circuit_secondary) = C1::circuits(store, num_iters_per_step);
+
+    PublicParams::setup(circuit_primary, circuit_secondary)
 }
 
-pub trait Nova<F: LurkField>: Prover<F>
-where
-    <Self::Grp as Group>::Scalar: ff::PrimeField,
-{
-    type Grp: Group;
-
-    fn make_r1cs(
-        multi_frame: MultiFrame<
-            '_,
-            <Self::Grp as Group>::Scalar,
-            IO<<Self::Grp as Group>::Scalar>,
-            Witness<<Self::Grp as Group>::Scalar>,
-        >,
-        shape: &R1CSShape<Self::Grp>,
-        gens: &R1CSGens<Self::Grp>,
-    ) -> Result<(R1CSInstance<Self::Grp>, R1CSWitness<Self::Grp>), NovaError>
-    where
-        <<Self as Nova<F>>::Grp as Group>::Scalar: LurkField,
-    {
-        let mut cs = SatisfyingAssignment::<Self::Grp>::new();
-
-        multi_frame.synthesize(&mut cs).unwrap();
-
-        let (instance, witness) = cs.r1cs_instance_and_witness(shape, gens)?;
-
-        Ok((instance, witness))
-    }
-    fn get_evaluation_frames(
-        &self,
-        expr: Ptr<<Self::Grp as Group>::Scalar>,
-        env: Ptr<<Self::Grp as Group>::Scalar>,
-        store: &mut Store<<Self::Grp as Group>::Scalar>,
-        limit: usize,
-    ) -> Vec<Frame<IO<<Self::Grp as Group>::Scalar>, Witness<<Self::Grp as Group>::Scalar>>>
-    where
-        <<Self as Nova<F>>::Grp as Group>::Scalar: LurkField,
-    {
-        let padding_predicate = |count| self.needs_frame_padding(count);
-
-        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate);
-        store.hydrate_scalar_cache();
-
-        frames
-    }
-    fn evaluate_and_prove(
-        &self,
-        expr: Ptr<<Self::Grp as Group>::Scalar>,
-        env: Ptr<<Self::Grp as Group>::Scalar>,
-        store: &mut Store<<Self::Grp as Group>::Scalar>,
-        limit: usize,
-    ) -> Result<(Proof<Self::Grp>, RelaxedR1CSInstance<Self::Grp>), SynthesisError>
-    where
-        <<Self as Nova<F>>::Grp as Group>::Scalar: LurkField,
-    {
-        let frames = self.get_evaluation_frames(expr, env, store, limit);
-
-        let (shape, gens) = self.make_shape_and_gens();
-
-        self.make_proof(frames.as_slice(), &shape, &gens, store, true)
-    }
-
-    fn make_shape_and_gens(&self) -> (R1CSShape<Self::Grp>, R1CSGens<Self::Grp>);
-
-    fn make_proof(
-        &self,
-        frames: &[Frame<IO<<Self::Grp as Group>::Scalar>, Witness<<Self::Grp as Group>::Scalar>>],
-        shape: &R1CSShape<Self::Grp>,
-        gens: &R1CSGens<Self::Grp>,
-        store: &mut Store<<Self::Grp as Group>::Scalar>,
-        verify_steps: bool, // Sanity check for development, until we have recursion.
-    ) -> Result<(Proof<Self::Grp>, RelaxedR1CSInstance<Self::Grp>), SynthesisError>
-    where
-        <<Self as Nova<F>>::Grp as Group>::Scalar: LurkField,
-    {
-        let multiframes = MultiFrame::from_frames(self.chunk_frame_count(), frames, store);
-        for mf in &multiframes {
-            assert_eq!(
-                Some(self.chunk_frame_count()),
-                mf.frames.clone().map(|x| x.len())
-            );
-        }
-        let r1cs_instances = multiframes
-            .iter()
-            .map(|f| Self::make_r1cs(f.clone(), shape, gens).unwrap())
-            .collect::<Vec<_>>();
-
-        let mut step_proofs = Vec::new();
-        let mut prover_transcript = Transcript::new(b"LurkProver");
-        let mut verifier_transcript = Transcript::new(b"LurkVerifier");
-
-        let initial_acc = (
-            RelaxedR1CSInstance::default(gens, shape),
-            RelaxedR1CSWitness::default(shape),
-        );
-
-        let (acc_U, acc_W) =
-            r1cs_instances
-                .iter()
-                .fold(initial_acc, |(acc_U, acc_W), (next_U, next_W)| {
-                    let (step_proof, (step_U, step_W)) = Self::make_step_snark(
-                        gens,
-                        shape,
-                        &acc_U,
-                        &acc_W,
-                        next_U,
-                        next_W,
-                        &mut prover_transcript,
-                    );
-                    if verify_steps {
-                        step_proof
-                            .verify(&acc_U, next_U, &mut verifier_transcript)
-                            .unwrap();
-                        step_proofs.push(step_proof);
-                    };
-                    (step_U, step_W)
-                });
-
-        let final_proof = Self::make_final_snark(&acc_W);
-
-        let proof = Proof {
-            step_proofs,
-            final_proof,
-            final_instance: acc_U.clone(),
-        };
-
-        Ok((proof, acc_U))
-    }
-
-    fn make_step_snark(
-        gens: &R1CSGens<Self::Grp>,
-        S: &R1CSShape<Self::Grp>,
-        r_U: &RelaxedR1CSInstance<Self::Grp>,
-        r_W: &RelaxedR1CSWitness<Self::Grp>,
-        U2: &R1CSInstance<Self::Grp>,
-        W2: &R1CSWitness<Self::Grp>,
-        prover_transcript: &mut merlin::Transcript,
-    ) -> (
-        StepSNARK<Self::Grp>,
+impl<'a> WrappedMultiFrame<'a, S1, IO<S1>, Witness<S1>> {
+    fn circuits(store: &'a Store<S1>, count: usize) -> (C1<'a>, C2) {
         (
-            RelaxedR1CSInstance<Self::Grp>,
-            RelaxedR1CSWitness<Self::Grp>,
-        ),
-    ) {
-        let res = StepSNARK::prove(gens, S, r_U, r_W, U2, W2, prover_transcript);
-        res.expect("make_step_snark failed")
-    }
-
-    fn make_final_snark(W: &RelaxedR1CSWitness<Self::Grp>) -> FinalSNARK<Self::Grp> {
-        // produce a final SNARK
-        let res = FinalSNARK::prove(W);
-        res.expect("make_final_snark failed")
+            WrappedMultiFrame::blank(store, count),
+            TrivialTestCircuit::default(),
+        )
     }
 }
 
 pub struct NovaProver<F: LurkField> {
     chunk_frame_count: usize,
     _p: PhantomData<F>,
+}
+
+impl<F: LurkField> Prover<F> for NovaProver<F> {
+    fn chunk_frame_count(&self) -> usize {
+        self.chunk_frame_count
+    }
 }
 
 impl<F: LurkField> NovaProver<F> {
@@ -215,29 +81,244 @@ impl<F: LurkField> NovaProver<F> {
             _p: PhantomData::<F>,
         }
     }
-}
+    fn get_evaluation_frames(
+        &self,
+        expr: Ptr<S1>,
+        env: Ptr<S1>,
+        store: &mut Store<S1>,
+        limit: usize,
+    ) -> Vec<Frame<IO<S1>, Witness<S1>>> {
+        let padding_predicate = |count| self.needs_frame_padding(count);
 
-impl<F: LurkField> Prover<F> for NovaProver<F> {
-    fn chunk_frame_count(&self) -> usize {
-        self.chunk_frame_count
+        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate);
+        store.hydrate_scalar_cache();
+
+        frames
+    }
+    pub fn evaluate_and_prove<'a>(
+        &'a self,
+        pp: &'a PublicParams,
+        expr: Ptr<S1>,
+        env: Ptr<S1>,
+        store: &'a mut Store<S1>,
+        limit: usize,
+    ) -> Result<(Proof, Vec<S1>, Vec<S1>, usize), Error> {
+        let frames = self.get_evaluation_frames(expr, env, store, limit);
+        let z0 = frames[0].input_vector(store);
+        let zi = frames.last().unwrap().output_vector(store);
+
+        let (proof, num_steps) = self.make_proof(pp, frames.as_slice(), store)?;
+
+        Ok((proof, z0, zi, num_steps))
+    }
+
+    pub fn make_proof<'a>(
+        &'a self,
+        pp: &'a PublicParams,
+        frames: &[Frame<IO<S1>, Witness<S1>>],
+        store: &'a mut Store<S1>,
+    ) -> Result<(Proof, usize), Error> {
+        let multiframes = MultiFrame::from_frames(self.chunk_frame_count(), frames, store);
+        let mut circuits = Vec::with_capacity(multiframes.len());
+
+        for (i, mf) in multiframes.iter().enumerate() {
+            circuits.push(mf.clone().wrap(store, i));
+        }
+        let z0 = multiframes[0].z0(store).unwrap();
+        let num_steps = multiframes.len();
+        let proof = Proof::prove_recursively(pp, store, &circuits, self.chunk_frame_count, z0)?;
+
+        Ok((proof, num_steps))
     }
 }
 
-impl<F: LurkField> Nova<F> for NovaProver<F> {
-    type Grp = PallasPoint;
+impl<'a, F: LurkField> MultiFrame<'a, F, IO<F>, Witness<F>> {
+    fn z0(&self, store: &Store<F>) -> Option<Vec<F>> {
+        if self.frames.is_some() {
+            self.input.map(|input| input.to_vector(store))
+        } else {
+            None
+        }
+    }
 
-    fn make_shape_and_gens(&self) -> (R1CSShape<Self::Grp>, R1CSGens<Self::Grp>) {
-        let mut cs = ShapeCS::<Self::Grp>::new();
-        let store = Store::<<Self::Grp as Group>::Scalar>::default();
+    fn wrap(self, store: &'a Store<F>, i: usize) -> WrappedMultiFrame<'a, F, IO<F>, Witness<F>> {
+        WrappedMultiFrame {
+            i,
+            store,
+            multi_frame: self,
+        }
+    }
+}
 
-        MultiFrame::blank(&store, self.chunk_frame_count)
-            .synthesize(&mut cs)
-            .unwrap();
+#[derive(Debug)]
+pub enum Error {
+    Nova(NovaError),
+    Synthesis(SynthesisError),
+}
 
-        let shape = cs.r1cs_shape();
-        let gens = cs.r1cs_gens();
+impl<'a, F: LurkField> StepCircuit<F> for WrappedMultiFrame<'a, F, IO<F>, Witness<F>> {
+    fn arity(&self) -> usize {
+        6
+    }
 
-        (shape, gens)
+    fn synthesize<CS>(
+        &self,
+        cs: &mut CS,
+        z: &[AllocatedNum<F>],
+    ) -> Result<Vec<AllocatedNum<F>>, SynthesisError>
+    where
+        CS: ConstraintSystem<F>,
+    {
+        assert_eq!(self.arity(), z.len());
+
+        let input_expr = AllocatedPtr::from_parts(&z[0], &z[1]);
+        let input_env = AllocatedPtr::from_parts(&z[2], &z[3]);
+        let input_cont = AllocatedContPtr::from_parts(&z[4], &z[5]);
+
+        //        let g = &self.global_allocations;
+        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), self.store)?;
+
+        let acc = (input_expr, input_env, input_cont);
+
+        let count = self.multi_frame.count;
+        let blank_frame = CircuitFrame::blank(self.multi_frame.store);
+
+        // FIXME: clone
+        let frames = match self.multi_frame.frames.clone() {
+            Some(f) => f,
+            None => vec![blank_frame; count],
+        };
+
+        let (_, (new_expr, new_env, new_cont)) =
+            frames.iter().fold((0, acc), |(i, allocated_io), frame| {
+                (i + 1, frame.synthesize(cs, i, allocated_io, &g).unwrap())
+            });
+
+        Ok(vec![
+            new_expr.tag().clone(),
+            new_expr.hash().clone(),
+            new_env.tag().clone(),
+            new_env.hash().clone(),
+            new_cont.tag().clone(),
+            new_cont.hash().clone(),
+        ])
+    }
+
+    fn output(&self, z: &[F]) -> Vec<F> {
+        // sanity check
+        assert_eq!(z, self.multi_frame.input.unwrap().to_vector(self.store));
+        assert_eq!(
+            self.multi_frame
+                .frames
+                .as_ref()
+                .unwrap()
+                .last()
+                .unwrap()
+                .output,
+            self.multi_frame.output
+        );
+        self.multi_frame.output.unwrap().to_vector(self.store)
+    }
+}
+
+impl<'a> Proof<'a> {
+    pub fn prove_recursively(
+        pp: &'a PublicParams,
+        store: &'a Store<S1>,
+        circuits: &[C1<'a>],
+        num_iters_per_step: usize,
+        z0: Vec<S1>,
+    ) -> Result<Self, Error> {
+        assert_eq!(6, z0.len());
+        let debug = true;
+        let z0_primary = z0;
+        let z0_secondary = Self::z0_secondary();
+
+        assert_eq!(
+            circuits[0].multi_frame.frames.as_ref().unwrap().len(),
+            num_iters_per_step
+        );
+        let (_circuit_primary, circuit_secondary) = C1::<'a>::circuits(store, num_iters_per_step);
+
+        // produce a recursive SNARK
+        let mut recursive_snark: Option<RecursiveSNARK<G1, G2, C1<'a>, C2>> = None;
+
+        for circuit_primary in circuits.iter() {
+            assert_eq!(
+                num_iters_per_step,
+                circuit_primary.multi_frame.frames.as_ref().unwrap().len()
+            );
+            if debug {
+                // For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
+                use bellperson::util_cs::test_cs::TestConstraintSystem;
+                let mut cs = TestConstraintSystem::<<G1 as Group>::Scalar>::new();
+
+                let zi = circuit_primary.multi_frame.frames.as_ref().unwrap()[0]
+                    .input
+                    .unwrap()
+                    .to_vector(store);
+                let mut zi_allocated = Vec::with_capacity(zi.len());
+
+                for (i, x) in zi.iter().enumerate() {
+                    let allocated =
+                        AllocatedNum::alloc(cs.namespace(|| format!("z{}_1", i)), || Ok(*x))
+                            .map_err(Error::Synthesis)?;
+                    zi_allocated.push(allocated);
+                }
+
+                circuit_primary
+                    .synthesize(&mut cs, zi_allocated.as_slice())
+                    .map_err(Error::Synthesis)?;
+
+                assert!(cs.is_satisfied());
+            }
+
+            let res = RecursiveSNARK::prove_step(
+                pp,
+                recursive_snark,
+                circuit_primary.clone(),
+                circuit_secondary.clone(),
+                z0_primary.clone(),
+                z0_secondary.clone(),
+            );
+            assert!(res.is_ok());
+            recursive_snark = Some(res.map_err(Error::Nova)?);
+        }
+
+        Ok(Self::Recursive(recursive_snark.unwrap()))
+    }
+
+    pub fn compress(self, pp: &'a PublicParams) -> Result<Self, Error> {
+        match &self {
+            Self::Recursive(recursive_snark) => Ok(Self::Compressed(
+                CompressedSNARK::<_, _, _, _, SS1, SS2>::prove(pp, recursive_snark)
+                    .map_err(Error::Nova)?,
+            )),
+            Self::Compressed(_) => Ok(self),
+        }
+    }
+
+    pub fn verify(
+        &self,
+        pp: &PublicParams,
+        num_steps: usize,
+        z0: Vec<S1>,
+        zi: &[S1],
+    ) -> Result<bool, NovaError> {
+        let (z0_primary, zi_primary) = (z0, zi);
+        let z0_secondary = Self::z0_secondary();
+        let zi_secondary = z0_secondary.clone();
+
+        let (zi_primary_verified, zi_secondary_verified) = match self {
+            Self::Recursive(p) => p.verify(pp, num_steps, z0_primary, z0_secondary),
+            Self::Compressed(p) => p.verify(pp, num_steps, z0_primary, z0_secondary),
+        }?;
+
+        Ok(zi_primary == zi_primary_verified && zi_secondary == zi_secondary_verified)
+    }
+
+    fn z0_secondary() -> Vec<S2> {
+        vec![<G2 as Group>::Scalar::zero()]
     }
 }
 
@@ -248,8 +329,9 @@ mod tests {
     use crate::proof::Provable;
     use crate::store::ContPtr;
 
-    use bellperson::util_cs::{
-        metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta,
+    use bellperson::{
+        util_cs::{metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta},
+        Circuit,
     };
     use pallas::Scalar as Fr;
 
@@ -292,12 +374,15 @@ mod tests {
         let expr = s.read(expr).unwrap();
 
         let e = empty_sym_env(&s);
+        let dummy_store = Store::default();
+        let pp = public_params(&dummy_store, chunk_frame_count);
 
         let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
+
         let proof_results = if check_nova {
             Some(
                 nova_prover
-                    .evaluate_and_prove(expr, empty_sym_env(&s), s, limit)
+                    .evaluate_and_prove(&pp, expr, empty_sym_env(&s), s, limit)
                     .unwrap(),
             )
         } else {
@@ -305,9 +390,12 @@ mod tests {
         };
 
         if check_nova {
-            let shape_and_gens = nova_prover.make_shape_and_gens();
-            if let Some((proof, instance)) = proof_results {
-                proof.verify(&shape_and_gens, &instance);
+            if let Some((proof, z0, zi, num_steps)) = proof_results {
+                let res = proof.verify(&pp, num_steps, z0, &zi);
+                if res.is_err() {
+                    dbg!(&res);
+                }
+                assert!(res.unwrap());
             }
         }
 
@@ -341,7 +429,7 @@ mod tests {
             previous_frame = Some(multiframe.clone());
 
             let delta = cs.delta(&cs_blank, true);
-            dbg!(&i, &delta);
+
             assert!(delta == Delta::Equal);
         }
         let output = previous_frame.unwrap().output.unwrap();

@@ -14,9 +14,9 @@ path = "src/bin/fcomm.rs"
 [dependencies]
 arrayvec = "0.5.1"
 base64 = "0.13.0"
-bellperson = { version = "0.20", default-features = false }
-blstrs = "0.4.1"
-ff = "0.11.0"
+bellperson = { version = "0.22", default-features = false, features = ["groth16"] }
+blstrs = "0.5.0"
+ff = "0.12.0"
 hex = { version = "0.4.2", features = ["serde"] }
 log = "0.4.14"
 libipld = { package = "lurk-ipld", version = "0.1.0", default-features = false, features = ["dag-cbor", "dag-json", "serde-codec"] }

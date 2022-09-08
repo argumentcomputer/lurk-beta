@@ -32,8 +32,8 @@ pub struct CircuitFrame<'a, F: LurkField, T, W> {
     pub witness: Option<W>,
 }
 
-#[derive(Clone, Debug)]
-pub struct MultiFrame<'a, F: LurkField, T, W> {
+#[derive(Clone)]
+pub struct MultiFrame<'a, F: LurkField, T: Copy, W> {
     pub store: &'a Store<F>,
     pub input: Option<T>,
     pub output: Option<T>,
@@ -61,9 +61,7 @@ impl<'a, F: LurkField, T: Clone + Copy, W: Copy> CircuitFrame<'a, F, T, W> {
     }
 }
 
-impl<'a, F: LurkField, T: Clone + Copy + Debug + std::cmp::PartialEq, W: Copy>
-    MultiFrame<'a, F, T, W>
-{
+impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFrame<'a, F, T, W> {
     pub fn blank(store: &'a Store<F>, count: usize) -> Self {
         Self {
             store,
@@ -148,7 +146,7 @@ impl<F: LurkField, T: PartialEq + Debug, W> CircuitFrame<'_, F, T, W> {
     }
 }
 
-impl<F: LurkField, T: PartialEq + Debug, W> MultiFrame<'_, F, T, W> {
+impl<F: LurkField, T: PartialEq + Debug + Copy, W> MultiFrame<'_, F, T, W> {
     pub fn precedes(&self, maybe_next: &Self) -> bool {
         self.output == maybe_next.input
     }
@@ -2959,7 +2957,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &comm_or_num_tag,
         )?;
 
-        let res = AllocatedPtr::from_parts(res_tag, val);
+        let res = AllocatedPtr::from_parts(&res_tag, &val);
 
         let valid_types = constraints::or(
             &mut cs.namespace(|| "Op2 called with valid types"),
@@ -3930,9 +3928,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(19327, cs.num_constraints());
+            assert_eq!(19498, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(19251, cs.aux().len());
+            assert_eq!(19422, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

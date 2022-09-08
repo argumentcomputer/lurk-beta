@@ -113,8 +113,11 @@ impl<F: LurkField> AllocatedPtr<F> {
         AllocatedPtr::alloc_constant(cs, ptr)
     }
 
-    pub fn from_parts(tag: AllocatedNum<F>, hash: AllocatedNum<F>) -> Self {
-        AllocatedPtr { tag, hash }
+    pub fn from_parts(tag: &AllocatedNum<F>, hash: &AllocatedNum<F>) -> Self {
+        AllocatedPtr {
+            tag: tag.clone(),
+            hash: hash.clone(),
+        }
     }
 
     pub fn tag(&self) -> &AllocatedNum<F> {
@@ -574,6 +577,13 @@ impl<F: LurkField> AllocatedContPtr<F> {
             hash,
         };
         Ok(cont)
+    }
+
+    pub fn from_parts(tag: &AllocatedNum<F>, hash: &AllocatedNum<F>) -> Self {
+        Self {
+            tag: tag.clone(),
+            hash: hash.clone(),
+        }
     }
 }
 

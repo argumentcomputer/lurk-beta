@@ -1,6 +1,6 @@
 use anyhow::Result;
 use lurk::field::LanguageField;
-use lurk::proof::nova::{PallasScalar, VestaScalar};
+use lurk::proof::nova;
 use lurk::repl::repl;
 
 fn main() -> Result<()> {
@@ -28,7 +28,7 @@ fn main() -> Result<()> {
 
     match field {
         LanguageField::BLS12_381 => repl::<_, blstrs::Scalar>(lurk_file.as_deref()),
-        LanguageField::Pallas => repl::<_, PallasScalar>(lurk_file.as_deref()),
-        LanguageField::Vesta => repl::<_, VestaScalar>(lurk_file.as_deref()),
+        LanguageField::Pallas => repl::<_, nova::S1>(lurk_file.as_deref()),
+        LanguageField::Vesta => repl::<_, nova::S2>(lurk_file.as_deref()),
     }
 }

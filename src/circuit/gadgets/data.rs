@@ -5,6 +5,7 @@ use bellperson::{
 use neptune::circuit2::poseidon_hash_allocated as poseidon_hash;
 
 use super::pointer::AsAllocatedHashComponents;
+use crate::circuit::circuit_frame::MultiFrame;
 use crate::field::LurkField;
 use crate::store::{ContPtr, ContTag, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk};
 use crate::store::{IntoHashComponents, ScalarPtr};
@@ -12,6 +13,7 @@ use crate::store::{ScalarContPtr, ScalarPointer};
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};
 
+#[derive(Clone)]
 pub struct GlobalAllocations<F: LurkField> {
     pub terminal_ptr: AllocatedContPtr<F>,
     pub outermost_ptr: AllocatedContPtr<F>,
@@ -95,8 +97,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             store,
             &store.get_cont_error(),
         )?;
-        let error_ptr =
-            AllocatedPtr::from_parts(error_ptr_cont.tag().clone(), error_ptr_cont.hash().clone());
+        let error_ptr = AllocatedPtr::from_parts(error_ptr_cont.tag(), error_ptr_cont.hash());
 
         let dummy_ptr = AllocatedContPtr::alloc_constant_cont_ptr(
             &mut cs.namespace(|| "dummy continuation"),
@@ -250,6 +251,23 @@ impl<F: LurkField> GlobalAllocations<F> {
             false_num,
             default_num,
         })
+    }
+}
+
+#[derive(Clone)]
+pub struct WrappedMultiFrame<'a, F: LurkField, T: Copy, W: Copy> {
+    pub i: usize,
+    pub store: &'a Store<F>,
+    pub multi_frame: MultiFrame<'a, F, T, W>,
+}
+
+impl<'a, F: LurkField, T: Copy + PartialEq, W: Copy> WrappedMultiFrame<'a, F, T, W> {
+    pub fn blank(store: &'a Store<F>, count: usize) -> Self {
+        Self {
+            i: 0,
+            store,
+            multi_frame: MultiFrame::blank(store, count),
+        }
     }
 }
 

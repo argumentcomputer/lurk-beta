@@ -3,8 +3,8 @@ use bellperson::{
         self,
         aggregate::{
             aggregate_proofs_and_instances, setup_fake_srs,
-            verify_aggregate_proof_and_aggregate_instances, AggregateProofAndInstance, GenericSRS,
-            VerifierSRS,
+            verify_aggregate_proof_and_aggregate_instances, AggregateProofAndInstance,
+            AggregateVersion, GenericSRS, VerifierSRS,
         },
         verify_proof,
     },
@@ -204,6 +204,7 @@ where
             TRANSCRIPT_INCLUDE,
             statements.as_slice(),
             proofs.as_slice(),
+            AggregateVersion::V2,
         )?;
 
         let public_inputs = frames[0].input;
@@ -269,6 +270,7 @@ where
             public_outputs,
             proof,
             TRANSCRIPT_INCLUDE,
+            AggregateVersion::V2,
         )
     }
 }
@@ -491,6 +493,7 @@ mod tests {
                     &public_outputs.to_inputs(&s),
                     &proof.proof,
                     TRANSCRIPT_INCLUDE,
+                    AggregateVersion::V2,
                 )
                 .unwrap();
             assert!(aggregate_proof_and_instances_verified);

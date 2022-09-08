@@ -121,6 +121,13 @@ impl<F: LurkField, W: Copy> Frame<IO<F>, W> {
             .skip_while(|frame| frame.is_complete())
             .count()
     }
+
+    pub fn input_vector(&self, store: &Store<F>) -> Vec<F> {
+        self.input.to_vector(store)
+    }
+    pub fn output_vector(&self, store: &Store<F>) -> Vec<F> {
+        self.output.to_vector(store)
+    }
 }
 
 pub trait Evaluable<F: LurkField, W> {
@@ -192,6 +199,20 @@ impl<F: LurkField> IO<F> {
         } else {
             None
         }
+    }
+
+    pub fn to_vector(&self, store: &Store<F>) -> Vec<F> {
+        let expr_scalar_ptr = store.get_expr_hash(&self.expr).unwrap();
+        let env_scalar_ptr = store.get_expr_hash(&self.env).unwrap();
+        let cont_scalar_ptr = store.hash_cont(&self.cont).unwrap();
+        vec![
+            *expr_scalar_ptr.tag(),
+            *expr_scalar_ptr.value(),
+            *env_scalar_ptr.tag(),
+            *env_scalar_ptr.value(),
+            *cont_scalar_ptr.tag(),
+            *cont_scalar_ptr.value(),
+        ]
     }
 }
 
