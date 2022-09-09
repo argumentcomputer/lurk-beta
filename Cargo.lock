@@ -141,15 +141,15 @@ dependencies = [
  "digest 0.9.0",
  "ec-gpu",
  "ec-gpu-gen",
- "ff 0.12.0",
+ "ff",
  "getrandom 0.2.7",
- "group 0.12.0",
+ "group",
  "itertools 0.10.3",
  "lazy_static",
  "log",
  "memmap",
  "num_cpus",
- "pairing 0.22.0",
+ "pairing",
  "rand 0.8.5",
  "rand_core 0.6.3",
  "rayon",
@@ -168,7 +168,7 @@ checksum = "4bceb1381fe9bad1152f22efa8213fecb680b22ac338dfa3e836ca37fc745a91"
 dependencies = [
  "bellperson",
  "byteorder 0.3.13",
- "ff 0.12.0",
+ "ff",
  "num-bigint 0.4.3",
  "num-integer",
  "num-traits",
@@ -330,9 +330,9 @@ dependencies = [
  "blst",
  "byte-slice-cast",
  "ec-gpu",
- "ff 0.12.0",
- "group 0.12.0",
- "pairing 0.22.0",
+ "ff",
+ "group",
+ "pairing",
  "rand_core 0.6.3",
  "serde",
  "subtle",
@@ -830,13 +830,13 @@ dependencies = [
  "crossbeam-channel",
  "ec-gpu",
  "execute",
- "ff 0.12.0",
- "group 0.12.0",
+ "ff",
+ "group",
  "hex",
  "log",
  "num_cpus",
  "once_cell",
- "pairing 0.22.0",
+ "pairing",
  "rayon",
  "rust-gpu-tools 0.6.1",
  "sha2 0.10.5",
@@ -965,13 +965,13 @@ dependencies = [
  "blstrs",
  "clap 3.2.20",
  "clap-verbosity-flag",
- "ff 0.12.0",
+ "ff",
  "hex",
  "log",
  "lurk",
  "lurk-ipld",
  "once_cell",
- "pairing 0.21.0",
+ "pairing",
  "predicates",
  "pretty_env_logger",
  "rand 0.8.5",
@@ -990,16 +990,6 @@ dependencies = [
  "cfg-if 1.0.0",
  "rustix",
  "windows-sys",
-]
-
-[[package]]
-name = "ff"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "131655483be284720a17d74ff97592b8e76576dc25563148601df2d7c9080924"
-dependencies = [
- "rand_core 0.6.3",
- "subtle",
 ]
 
 [[package]]
@@ -1146,23 +1136,12 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
 name = "group"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc5ac374b108929de78460075f3dc439fa66df9d8fc77e8f12caa5165fcf0c89"
-dependencies = [
- "ff 0.11.1",
- "rand_core 0.6.3",
- "subtle",
-]
-
-[[package]]
-name = "group"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7391856def869c1c81063a03457c676fbcd419709c3dfb33d8d319de484b154d"
 dependencies = [
  "byteorder 1.4.3",
- "ff 0.12.0",
+ "ff",
  "rand 0.8.5",
  "rand_core 0.6.3",
  "rand_xorshift 0.3.0",
@@ -1366,7 +1345,7 @@ dependencies = [
  "criterion",
  "dashmap",
  "dirs 4.0.0",
- "ff 0.12.0",
+ "ff",
  "generic-array 0.14.6",
  "im",
  "indexmap",
@@ -1379,7 +1358,7 @@ dependencies = [
  "neptune",
  "nova-snark",
  "once_cell",
- "pairing 0.22.0",
+ "pairing",
  "pasta-msm",
  "pasta_curves",
  "pretty_env_logger",
@@ -1468,7 +1447,7 @@ name = "lurk_macro"
 version = "0.1.0"
 dependencies = [
  "blstrs",
- "ff 0.12.0",
+ "ff",
  "gensym",
  "lurk",
  "proc-macro-error",
@@ -1580,7 +1559,7 @@ dependencies = [
  "ec-gpu",
  "ec-gpu-gen",
  "execute",
- "ff 0.12.0",
+ "ff",
  "generic-array 0.14.6",
  "hex",
  "itertools 0.8.2",
@@ -1630,7 +1609,7 @@ dependencies = [
  "bincode",
  "bitvec 1.0.1",
  "digest 0.8.1",
- "ff 0.12.0",
+ "ff",
  "flate2",
  "generic-array 0.14.6",
  "itertools 0.9.0",
@@ -1754,20 +1733,11 @@ checksum = "9ff7415e9ae3fff1225851df9e0d9e4e5479f947619774677a63572e55e80eff"
 
 [[package]]
 name = "pairing"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2e415e349a3006dd7d9482cdab1c980a845bed1377777d768cb693a44540b42"
-dependencies = [
- "group 0.11.0",
-]
-
-[[package]]
-name = "pairing"
 version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "135590d8bdba2b31346f9cd1fb2a912329f5135e832a4f422942eb6ead8b6b3b"
 dependencies = [
- "group 0.12.0",
+ "group",
 ]
 
 [[package]]
@@ -1814,8 +1784,8 @@ checksum = "369d7785168ad7ff0cbe467d968ca3e19a927d8536b11ef9c21b4e454b15ba42"
 dependencies = [
  "blake2b_simd",
  "ec-gpu",
- "ff 0.12.0",
- "group 0.12.0",
+ "ff",
+ "group",
  "lazy_static",
  "rand 0.8.5",
  "static_assertions",
