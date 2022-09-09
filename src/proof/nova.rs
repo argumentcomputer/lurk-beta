@@ -391,11 +391,16 @@ mod tests {
 
         if check_nova {
             if let Some((proof, z0, zi, num_steps)) = proof_results {
-                let res = proof.verify(&pp, num_steps, z0, &zi);
+                let res = proof.verify(&pp, num_steps, z0.clone(), &zi);
                 if res.is_err() {
                     dbg!(&res);
                 }
                 assert!(res.unwrap());
+
+                let compressed = proof.compress(&pp).unwrap();
+                let res2 = compressed.verify(&pp, num_steps, z0, &zi);
+
+                assert!(res2.unwrap());
             }
         }
 
