@@ -175,24 +175,24 @@ impl<'a, F: LurkField> StepCircuit<F> for WrappedMultiFrame<'a, F, IO<F>, Witnes
         let input_env = AllocatedPtr::from_parts(&z[2], &z[3]);
         let input_cont = AllocatedContPtr::from_parts(&z[4], &z[5]);
 
-        //        let g = &self.global_allocations;
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), self.store)?;
-
+        let count = self.multi_frame.count;
         let acc = (input_expr, input_env, input_cont);
 
-        let count = self.multi_frame.count;
-        let blank_frame = CircuitFrame::blank(self.multi_frame.store);
-
-        // FIXME: clone
-        let frames = match self.multi_frame.frames.clone() {
-            Some(f) => f,
-            None => vec![blank_frame; count],
-        };
-
-        let (_, (new_expr, new_env, new_cont)) =
+        let fold_frames = |frames: &Vec<CircuitFrame<F, IO<F>, Witness<F>>>| {
             frames.iter().fold((0, acc), |(i, allocated_io), frame| {
                 (i + 1, frame.synthesize(cs, i, allocated_io, &g).unwrap())
-            });
+            })
+        };
+
+        let (_, (new_expr, new_env, new_cont)) = match self.multi_frame.frames.as_ref() {
+            Some(frames) => fold_frames(frames),
+            None => {
+                let blank_frame = CircuitFrame::blank(self.multi_frame.store);
+                let frames = vec![blank_frame; count];
+                fold_frames(&frames)
+            }
+        };
 
         Ok(vec![
             new_expr.tag().clone(),

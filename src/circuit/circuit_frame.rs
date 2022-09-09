@@ -184,7 +184,7 @@ type AllocatedIO<F> = (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>);
 
 impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
     pub(crate) fn synthesize<CS: ConstraintSystem<F>>(
-        self,
+        &self,
         cs: &mut CS,
         i: usize,
         inputs: AllocatedIO<F>,
