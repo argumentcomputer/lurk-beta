@@ -188,7 +188,8 @@ impl<'a> Proof<'a> {
         num_iters_per_step: usize,
         z0: Vec<S1>,
     ) -> Result<Self, Error> {
-        assert_eq!(6, z0.len());
+        assert!(circuits.len() > 0);
+        assert_eq!(circuits[0].arity(), z0.len());
         let debug = true;
         let z0_primary = z0;
         let z0_secondary = Self::z0_secondary();
