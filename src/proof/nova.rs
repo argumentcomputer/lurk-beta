@@ -334,33 +334,25 @@ mod tests {
         let expr = s.read(expr).unwrap();
 
         let e = empty_sym_env(&s);
-        let pp = public_params(chunk_frame_count);
 
         let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
 
-        let proof_results = if check_nova {
-            Some(
-                nova_prover
-                    .evaluate_and_prove(&pp, expr, empty_sym_env(&s), s, limit)
-                    .unwrap(),
-            )
-        } else {
-            None
-        };
-
         if check_nova {
-            if let Some((proof, z0, zi, num_steps)) = proof_results {
-                let res = proof.verify(&pp, num_steps, z0.clone(), &zi);
-                if res.is_err() {
-                    dbg!(&res);
-                }
-                assert!(res.unwrap());
+            let pp = public_params(chunk_frame_count);
+            let (proof, z0, zi, num_steps) = nova_prover
+                .evaluate_and_prove(&pp, expr, empty_sym_env(&s), s, limit)
+                .unwrap();
 
-                let compressed = proof.compress(&pp).unwrap();
-                let res2 = compressed.verify(&pp, num_steps, z0, &zi);
-
-                assert!(res2.unwrap());
+            let res = proof.verify(&pp, num_steps, z0.clone(), &zi);
+            if res.is_err() {
+                dbg!(&res);
             }
+            assert!(res.unwrap());
+
+            let compressed = proof.compress(&pp).unwrap();
+            let res2 = compressed.verify(&pp, num_steps, z0, &zi);
+
+            assert!(res2.unwrap());
         }
 
         let frames = nova_prover.get_evaluation_frames(expr, e, s, limit);
