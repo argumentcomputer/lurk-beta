@@ -12,6 +12,7 @@ use crate::store::{ScalarContPtr, ScalarPointer};
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};
 
+#[derive(Clone)]
 pub struct GlobalAllocations<F: LurkField> {
     pub terminal_ptr: AllocatedContPtr<F>,
     pub outermost_ptr: AllocatedContPtr<F>,
@@ -95,8 +96,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             store,
             &store.get_cont_error(),
         )?;
-        let error_ptr =
-            AllocatedPtr::from_parts(error_ptr_cont.tag().clone(), error_ptr_cont.hash().clone());
+        let error_ptr = AllocatedPtr::from_parts(error_ptr_cont.tag(), error_ptr_cont.hash());
 
         let dummy_ptr = AllocatedContPtr::alloc_constant_cont_ptr(
             &mut cs.namespace(|| "dummy continuation"),

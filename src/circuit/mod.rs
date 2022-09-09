@@ -5,7 +5,7 @@ use crate::eval::IO;
 use crate::store::{ScalarPointer, Store};
 
 #[macro_use]
-mod gadgets;
+pub(crate) mod gadgets;
 mod circuit_frame;
 pub(crate) use circuit_frame::*;
 
