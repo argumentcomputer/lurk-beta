@@ -47,7 +47,6 @@ pub enum Proof<'a> {
     Compressed(CompressedSNARK<G1, G2, C1<'a>, C2, SS1, SS2>),
 }
 
-//pub fn public_params<'a>(store: &'a Store<S1>, num_iters_per_step: usize) -> PublicParams<'a> {
 pub fn public_params(store: &Store<S1>, num_iters_per_step: usize) -> PublicParams {
     let (circuit_primary, circuit_secondary) = C1::circuits(store, num_iters_per_step);
 
