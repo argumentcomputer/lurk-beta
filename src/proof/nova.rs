@@ -421,7 +421,7 @@ mod tests {
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize blank");
 
-        for (i, multiframe) in multiframes.iter().enumerate() {
+        for multiframe in multiframes.iter() {
             let mut cs = TestConstraintSystem::new();
             multiframe.clone().synthesize(&mut cs).unwrap();
 
