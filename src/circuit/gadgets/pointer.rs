@@ -330,10 +330,10 @@ impl<F: LurkField> AllocatedPtr<F> {
         Ok(AllocatedPtr { tag, hash })
     }
 
-    pub fn by_index(n: usize, case_results: &[AllocatedNum<F>]) -> Self {
+    pub fn by_index(n: usize, ptr_vec: &[AllocatedNum<F>]) -> Self {
         AllocatedPtr {
-            tag: case_results[n * 2].clone(),
-            hash: case_results[1 + n * 2].clone(),
+            tag: ptr_vec[n * 2].clone(),
+            hash: ptr_vec[1 + n * 2].clone(),
         }
     }
 
@@ -547,10 +547,10 @@ impl<F: LurkField> AllocatedContPtr<F> {
         Ok(AllocatedContPtr { tag, hash })
     }
 
-    pub fn by_index(n: usize, case_results: &[AllocatedNum<F>]) -> Self {
+    pub fn by_index(n: usize, ptr_vec: &[AllocatedNum<F>]) -> Self {
         AllocatedContPtr {
-            tag: case_results[n * 2].clone(),
-            hash: case_results[1 + n * 2].clone(),
+            tag: ptr_vec[n * 2].clone(),
+            hash: ptr_vec[1 + n * 2].clone(),
         }
     }
 

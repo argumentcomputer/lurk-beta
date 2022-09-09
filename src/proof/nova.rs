@@ -101,34 +101,12 @@ impl<F: LurkField> NovaProver<F> {
         let frames = self.get_evaluation_frames(expr, env, store, limit);
         let z0 = frames[0].input_vector(store);
         let zi = frames.last().unwrap().output_vector(store);
-
-        let (proof, num_steps) = self.make_proof(pp, frames.as_slice(), store)?;
+        let circuits = MultiFrame::from_frames(self.chunk_frame_count(), &frames, store);
+        let num_steps = circuits.len();
+        let proof =
+            Proof::prove_recursively(pp, store, &circuits, self.chunk_frame_count, z0.clone())?;
 
         Ok((proof, z0, zi, num_steps))
-    }
-
-    pub fn make_proof<'a>(
-        &'a self,
-        pp: &'a PublicParams,
-        frames: &[Frame<IO<S1>, Witness<S1>>],
-        store: &'a mut Store<S1>,
-    ) -> Result<(Proof, usize), Error> {
-        let circuits = MultiFrame::from_frames(self.chunk_frame_count(), frames, store);
-        let z0 = circuits[0].z0(store).unwrap();
-        let num_steps = circuits.len();
-        let proof = Proof::prove_recursively(pp, store, &circuits, self.chunk_frame_count, z0)?;
-
-        Ok((proof, num_steps))
-    }
-}
-
-impl<'a, F: LurkField> MultiFrame<'a, F, IO<F>, Witness<F>> {
-    fn z0(&self, store: &Store<F>) -> Option<Vec<F>> {
-        if self.frames.is_some() {
-            self.input.map(|input| input.to_vector(store))
-        } else {
-            None
-        }
     }
 }
 
@@ -153,9 +131,9 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F, IO<F>, Witness<F>> {
     {
         assert_eq!(self.arity(), z.len());
 
-        let input_expr = AllocatedPtr::from_parts(&z[0], &z[1]);
-        let input_env = AllocatedPtr::from_parts(&z[2], &z[3]);
-        let input_cont = AllocatedContPtr::from_parts(&z[4], &z[5]);
+        let input_expr = AllocatedPtr::by_index(0, z);
+        let input_env = AllocatedPtr::by_index(1, z);
+        let input_cont = AllocatedContPtr::by_index(2, z);
 
         let g = if let Some(s) = self.store {
             GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?
