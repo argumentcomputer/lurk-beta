@@ -34,7 +34,7 @@ pub struct CircuitFrame<'a, F: LurkField, T, W> {
 
 #[derive(Clone)]
 pub struct MultiFrame<'a, F: LurkField, T: Copy, W> {
-    pub store: &'a Store<F>,
+    pub store: Option<&'a Store<F>>,
     pub input: Option<T>,
     pub output: Option<T>,
     pub frames: Option<Vec<CircuitFrame<'a, F, T, W>>>,
@@ -62,14 +62,18 @@ impl<'a, F: LurkField, T: Clone + Copy, W: Copy> CircuitFrame<'a, F, T, W> {
 }
 
 impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFrame<'a, F, T, W> {
-    pub fn blank(store: &'a Store<F>, count: usize) -> Self {
+    pub fn blank(count: usize) -> Self {
         Self {
-            store,
+            store: None,
             input: None,
             output: None,
             frames: None,
             count,
         }
+    }
+
+    pub fn get_store(&self) -> &Store<F> {
+        self.store.expect("store missing")
     }
 
     pub fn frame_count(&self) -> usize {
@@ -102,7 +106,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
             debug_assert!(!inner_frames.is_empty());
 
             let mf = MultiFrame {
-                store,
+                store: Some(store),
                 input: Some(chunk[0].input),
                 output: Some(output),
                 frames: Some(inner_frames),
@@ -131,7 +135,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
             (None, None, None)
         };
         Self {
-            store,
+            store: Some(store),
             input,
             output,
             frames,
@@ -152,17 +156,17 @@ impl<F: LurkField, T: PartialEq + Debug + Copy, W> MultiFrame<'_, F, T, W> {
     }
 }
 
-impl<F: LurkField, W> Provable<F> for MultiFrame<'_, F, IO<F>, W> {
+impl<F: LurkField, W: Copy> Provable<F> for MultiFrame<'_, F, IO<F>, W> {
     fn public_inputs(&self) -> Vec<F> {
         let mut inputs: Vec<_> = Vec::with_capacity(Self::public_input_size());
 
         if let Some(input) = &self.input {
-            inputs.extend(input.to_inputs(self.store));
+            inputs.extend(input.to_inputs(self.get_store()));
         } else {
             panic!("public inputs for blank circuit");
         }
         if let Some(output) = &self.output {
-            inputs.extend(output.to_inputs(self.store));
+            inputs.extend(output.to_inputs(self.get_store()));
         } else {
             panic!("public outputs for blank circuit");
         }
@@ -218,80 +222,94 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
         // Bind public inputs.
         //
         // Initial input:
-        let input_expr = AllocatedPtr::bind_input(
-            &mut cs.namespace(|| "outer input expression"),
-            self.input.as_ref().map(|input| &input.expr),
-            self.store,
-        )?;
 
-        let input_env = AllocatedPtr::bind_input(
-            &mut cs.namespace(|| "outer input env"),
-            self.input.as_ref().map(|input| &input.env),
-            self.store,
-        )?;
+        let mut synth = |store,
+                         frames: &[CircuitFrame<F, IO<F>, Witness<F>>],
+                         input: Option<IO<F>>,
+                         output: Option<IO<F>>| {
+            let input_expr = AllocatedPtr::bind_input(
+                &mut cs.namespace(|| "outer input expression"),
+                input.as_ref().map(|input| &input.expr),
+                store,
+            )?;
 
-        let input_cont = AllocatedContPtr::bind_input(
-            &mut cs.namespace(|| "outer input cont"),
-            self.input.as_ref().map(|input| &input.cont),
-            self.store,
-        )?;
+            let input_env = AllocatedPtr::bind_input(
+                &mut cs.namespace(|| "outer input env"),
+                input.as_ref().map(|input| &input.env),
+                store,
+            )?;
 
-        // Final output:
-        let output_expr = AllocatedPtr::bind_input(
-            &mut cs.namespace(|| "outer output expression"),
-            self.output.as_ref().map(|output| &output.expr),
-            self.store,
-        )?;
+            let input_cont = AllocatedContPtr::bind_input(
+                &mut cs.namespace(|| "outer input cont"),
+                input.as_ref().map(|input| &input.cont),
+                store,
+            )?;
 
-        let output_env = AllocatedPtr::bind_input(
-            &mut cs.namespace(|| "outer output env"),
-            self.output.as_ref().map(|output| &output.env),
-            self.store,
-        )?;
+            // Final output:
+            let output_expr = AllocatedPtr::bind_input(
+                &mut cs.namespace(|| "outer output expression"),
+                output.as_ref().map(|output| &output.expr),
+                store,
+            )?;
 
-        let output_cont = AllocatedContPtr::bind_input(
-            &mut cs.namespace(|| "outer output cont"),
-            self.output.as_ref().map(|output| &output.cont),
-            self.store,
-        )?;
+            let output_env = AllocatedPtr::bind_input(
+                &mut cs.namespace(|| "outer output env"),
+                output.as_ref().map(|output| &output.env),
+                store,
+            )?;
 
-        //
-        // End public inputs.
-        ////////////////////////////////////////////////////////////////////////////////
-        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), self.store)?;
+            let output_cont = AllocatedContPtr::bind_input(
+                &mut cs.namespace(|| "outer output cont"),
+                output.as_ref().map(|output| &output.cont),
+                store,
+            )?;
 
-        let acc = (input_expr, input_env, input_cont);
+            //
+            // End public inputs.
+            ////////////////////////////////////////////////////////////////////////////////
+            let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store)?;
+
+            let acc = (input_expr, input_env, input_cont);
+
+            let (_, (new_expr, new_env, new_cont)) =
+                frames.iter().fold((0, acc), |(i, allocated_io), frame| {
+                    (i + 1, frame.synthesize(cs, i, allocated_io, &g).unwrap())
+                });
+
+            // dbg!(
+            //     (&new_expr, &output_expr),
+            //     (&new_env, &output_env),
+            //     (&new_cont, &output_cont)
+            // );
+
+            output_expr.enforce_equal(
+                &mut cs.namespace(|| "outer output expr is correct"),
+                &new_expr,
+            );
+            output_env.enforce_equal(
+                &mut cs.namespace(|| "outer output env is correct"),
+                &new_env,
+            );
+            output_cont.enforce_equal(
+                &mut cs.namespace(|| "outer output cont is correct"),
+                &new_cont,
+            );
+
+            Ok(())
+        };
 
         let frames = match self.frames {
             Some(f) => f,
             None => vec![CircuitFrame::blank(); self.count],
         };
 
-        let (_, (new_expr, new_env, new_cont)) =
-            frames.iter().fold((0, acc), |(i, allocated_io), frame| {
-                (i + 1, frame.synthesize(cs, i, allocated_io, &g).unwrap())
-            });
-
-        // dbg!(
-        //     (&new_expr, &output_expr),
-        //     (&new_env, &output_env),
-        //     (&new_cont, &output_cont)
-        // );
-
-        output_expr.enforce_equal(
-            &mut cs.namespace(|| "outer output expr is correct"),
-            &new_expr,
-        );
-        output_env.enforce_equal(
-            &mut cs.namespace(|| "outer output env is correct"),
-            &new_env,
-        );
-        output_cont.enforce_equal(
-            &mut cs.namespace(|| "outer output cont is correct"),
-            &new_cont,
-        );
-
-        Ok(())
+        match self.store {
+            Some(s) => synth(s, &frames, self.input, self.output),
+            None => {
+                let store = Default::default();
+                synth(&store, &frames, self.input, self.output)
+            }
+        }
     }
 }
 
@@ -3908,7 +3926,7 @@ mod tests {
 
             let mut cs_blank = MetricCS::<Fr>::new();
             let blank_multiframe =
-                MultiFrame::<<Bls12 as Engine>::Fr, _, _>::blank(store, DEFAULT_CHUNK_FRAME_COUNT);
+                MultiFrame::<<Bls12 as Engine>::Fr, _, _>::blank(DEFAULT_CHUNK_FRAME_COUNT);
 
             blank_multiframe
                 .synthesize(&mut cs_blank)

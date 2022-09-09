@@ -261,15 +261,15 @@ pub struct WrappedMultiFrame<'a, F: LurkField, T: Copy, W: Copy> {
 }
 
 impl<'a, F: LurkField, T: Copy + PartialEq, W: Copy> WrappedMultiFrame<'a, F, T, W> {
-    pub fn blank(store: &'a Store<F>, count: usize) -> Self {
+    pub fn blank(count: usize) -> Self {
         Self {
             i: 0,
-            multiframe: MultiFrame::blank(store, count),
+            multiframe: MultiFrame::blank(count),
         }
     }
 
     pub fn store(&self) -> &Store<F> {
-        self.multiframe.store
+        self.multiframe.store.expect("store missing")
     }
 }
 

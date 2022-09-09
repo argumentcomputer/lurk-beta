@@ -47,16 +47,16 @@ pub enum Proof<'a> {
     Compressed(CompressedSNARK<G1, G2, C1<'a>, C2, SS1, SS2>),
 }
 
-pub fn public_params(store: &Store<S1>, num_iters_per_step: usize) -> PublicParams {
-    let (circuit_primary, circuit_secondary) = C1::circuits(store, num_iters_per_step);
+pub fn public_params(num_iters_per_step: usize) -> PublicParams<'static> {
+    let (circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step);
 
     PublicParams::setup(circuit_primary, circuit_secondary)
 }
 
 impl<'a> WrappedMultiFrame<'a, S1, IO<S1>, Witness<S1>> {
-    fn circuits(store: &'a Store<S1>, count: usize) -> (C1<'a>, C2) {
+    fn circuits(count: usize) -> (C1<'a>, C2) {
         (
-            WrappedMultiFrame::blank(store, count),
+            WrappedMultiFrame::blank(count),
             TrivialTestCircuit::default(),
         )
     }
@@ -173,7 +173,12 @@ impl<'a, F: LurkField> StepCircuit<F> for WrappedMultiFrame<'a, F, IO<F>, Witnes
         let input_env = AllocatedPtr::from_parts(&z[2], &z[3]);
         let input_cont = AllocatedContPtr::from_parts(&z[4], &z[5]);
 
-        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), self.store())?;
+        let g = if let Some(s) = self.multiframe.store {
+            GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?
+        } else {
+            let s = Store::default();
+            GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?
+        };
         let count = self.multiframe.count;
         let acc = (input_expr, input_env, input_cont);
 
@@ -236,7 +241,7 @@ impl<'a> Proof<'a> {
             circuits[0].multiframe.frames.as_ref().unwrap().len(),
             num_iters_per_step
         );
-        let (_circuit_primary, circuit_secondary) = C1::<'a>::circuits(store, num_iters_per_step);
+        let (_circuit_primary, circuit_secondary) = C1::<'a>::circuits(num_iters_per_step);
 
         // produce a recursive SNARK
         let mut recursive_snark: Option<RecursiveSNARK<G1, G2, C1<'a>, C2>> = None;
@@ -372,8 +377,7 @@ mod tests {
         let expr = s.read(expr).unwrap();
 
         let e = empty_sym_env(&s);
-        let dummy_store = Store::default();
-        let pp = public_params(&dummy_store, chunk_frame_count);
+        let pp = public_params(chunk_frame_count);
 
         let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
 
@@ -414,7 +418,7 @@ mod tests {
         let mut cs_blank = MetricCS::<Fr>::new();
         let store = Store::<Fr>::default();
 
-        let blank = MultiFrame::<Fr, IO<Fr>, Witness<Fr>>::blank(&store, chunk_frame_count);
+        let blank = MultiFrame::<Fr, IO<Fr>, Witness<Fr>>::blank(chunk_frame_count);
         blank
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize blank");
