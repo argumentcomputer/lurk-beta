@@ -41,10 +41,9 @@ pub type C2 = TrivialTestCircuit<<G2 as Group>::Scalar>;
 
 pub type PublicParams<'a> = nova::PublicParams<G1, G2, C1<'a>, C2>;
 
-#[allow(clippy::large_enum_variant)]
 pub enum Proof<'a> {
-    Recursive(RecursiveSNARK<G1, G2, C1<'a>, C2>),
-    Compressed(CompressedSNARK<G1, G2, C1<'a>, C2, SS1, SS2>),
+    Recursive(Box<RecursiveSNARK<G1, G2, C1<'a>, C2>>),
+    Compressed(Box<CompressedSNARK<G1, G2, C1<'a>, C2, SS1, SS2>>),
 }
 
 pub fn public_params(num_iters_per_step: usize) -> PublicParams<'static> {
@@ -267,15 +266,15 @@ impl<'a> Proof<'a> {
             recursive_snark = Some(res.map_err(Error::Nova)?);
         }
 
-        Ok(Self::Recursive(recursive_snark.unwrap()))
+        Ok(Self::Recursive(Box::new(recursive_snark.unwrap())))
     }
 
     pub fn compress(self, pp: &'a PublicParams) -> Result<Self, Error> {
         match &self {
-            Self::Recursive(recursive_snark) => Ok(Self::Compressed(
+            Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(
                 CompressedSNARK::<_, _, _, _, SS1, SS2>::prove(pp, recursive_snark)
                     .map_err(Error::Nova)?,
-            )),
+            ))),
             Self::Compressed(_) => Ok(self),
         }
     }
