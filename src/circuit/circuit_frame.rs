@@ -26,7 +26,7 @@ use crate::store::{ContPtr, ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
 
 #[derive(Clone, Copy, Debug)]
 pub struct CircuitFrame<'a, F: LurkField, T, W> {
-    pub store: &'a Store<F>,
+    pub store: Option<&'a Store<F>>,
     pub input: Option<T>,
     pub output: Option<T>,
     pub witness: Option<W>,
@@ -42,9 +42,9 @@ pub struct MultiFrame<'a, F: LurkField, T: Copy, W> {
 }
 
 impl<'a, F: LurkField, T: Clone + Copy, W: Copy> CircuitFrame<'a, F, T, W> {
-    pub fn blank(store: &'a Store<F>) -> Self {
+    pub fn blank() -> Self {
         Self {
-            store,
+            store: None,
             input: None,
             output: None,
             witness: None,
@@ -53,7 +53,7 @@ impl<'a, F: LurkField, T: Clone + Copy, W: Copy> CircuitFrame<'a, F, T, W> {
 
     pub fn from_frame(frame: &Frame<T, W>, store: &'a Store<F>) -> Self {
         CircuitFrame {
-            store,
+            store: Some(store),
             input: Some(frame.input),
             output: Some(frame.output),
             witness: Some(frame.witness),
@@ -191,16 +191,24 @@ impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
         g: &GlobalAllocations<F>,
     ) -> Result<AllocatedIO<F>, SynthesisError> {
         let (input_expr, input_env, input_cont) = inputs;
+        let mut reduce = |store| {
+            reduce_expression(
+                &mut cs.namespace(|| format!("reduce expression {}", i)),
+                &input_expr,
+                &input_env,
+                &input_cont,
+                &self.witness,
+                store,
+                g,
+            )
+        };
 
-        reduce_expression(
-            &mut cs.namespace(|| format!("reduce expression {}", i)),
-            &input_expr,
-            &input_env,
-            &input_cont,
-            &self.witness,
-            self.store,
-            g,
-        )
+        if let Some(store) = self.store {
+            reduce(store)
+        } else {
+            let store = Default::default();
+            reduce(&store)
+        }
     }
 }
 
@@ -256,7 +264,7 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
 
         let frames = match self.frames {
             Some(f) => f,
-            None => vec![CircuitFrame::blank(self.store); self.count],
+            None => vec![CircuitFrame::blank(); self.count],
         };
 
         let (_, (new_expr, new_env, new_cont)) =

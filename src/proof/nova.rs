@@ -186,7 +186,7 @@ impl<'a, F: LurkField> StepCircuit<F> for WrappedMultiFrame<'a, F, IO<F>, Witnes
         let (_, (new_expr, new_env, new_cont)) = match self.multiframe.frames.as_ref() {
             Some(frames) => fold_frames(frames),
             None => {
-                let blank_frame = CircuitFrame::blank(self.multiframe.store);
+                let blank_frame = CircuitFrame::blank();
                 let frames = vec![blank_frame; count];
                 fold_frames(&frames)
             }
