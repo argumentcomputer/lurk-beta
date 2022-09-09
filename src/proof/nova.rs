@@ -16,7 +16,7 @@ use pasta_curves::{pallas, vesta};
 
 use crate::circuit::{
     gadgets::{
-        data::{GlobalAllocations, WrappedMultiFrame},
+        data::GlobalAllocations,
         pointer::{AllocatedContPtr, AllocatedPtr},
     },
     CircuitFrame, MultiFrame,
@@ -36,7 +36,7 @@ pub type S2 = vesta::Scalar;
 pub type SS1 = nova::spartan_with_ipa_pc::RelaxedR1CSSNARK<G1>;
 pub type SS2 = nova::spartan_with_ipa_pc::RelaxedR1CSSNARK<G2>;
 
-pub type C1<'a> = WrappedMultiFrame<'a, S1, IO<S1>, Witness<S1>>;
+pub type C1<'a> = MultiFrame<'a, S1, IO<S1>, Witness<S1>>;
 pub type C2 = TrivialTestCircuit<<G2 as Group>::Scalar>;
 
 pub type PublicParams<'a> = nova::PublicParams<G1, G2, C1<'a>, C2>;
@@ -53,12 +53,9 @@ pub fn public_params(num_iters_per_step: usize) -> PublicParams<'static> {
     PublicParams::setup(circuit_primary, circuit_secondary)
 }
 
-impl<'a> WrappedMultiFrame<'a, S1, IO<S1>, Witness<S1>> {
+impl<'a> MultiFrame<'a, S1, IO<S1>, Witness<S1>> {
     fn circuits(count: usize) -> (C1<'a>, C2) {
-        (
-            WrappedMultiFrame::blank(count),
-            TrivialTestCircuit::default(),
-        )
+        (MultiFrame::blank(count), TrivialTestCircuit::default())
     }
 }
 
@@ -117,14 +114,9 @@ impl<F: LurkField> NovaProver<F> {
         frames: &[Frame<IO<S1>, Witness<S1>>],
         store: &'a mut Store<S1>,
     ) -> Result<(Proof, usize), Error> {
-        let multiframes = MultiFrame::from_frames(self.chunk_frame_count(), frames, store);
-        let mut circuits = Vec::with_capacity(multiframes.len());
-
-        for (i, mf) in multiframes.iter().enumerate() {
-            circuits.push(mf.clone().wrap(i));
-        }
-        let z0 = multiframes[0].z0(store).unwrap();
-        let num_steps = multiframes.len();
+        let circuits = MultiFrame::from_frames(self.chunk_frame_count(), frames, store);
+        let z0 = circuits[0].z0(store).unwrap();
+        let num_steps = circuits.len();
         let proof = Proof::prove_recursively(pp, store, &circuits, self.chunk_frame_count, z0)?;
 
         Ok((proof, num_steps))
@@ -139,13 +131,6 @@ impl<'a, F: LurkField> MultiFrame<'a, F, IO<F>, Witness<F>> {
             None
         }
     }
-
-    fn wrap(self, i: usize) -> WrappedMultiFrame<'a, F, IO<F>, Witness<F>> {
-        WrappedMultiFrame {
-            i,
-            multiframe: self,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -154,7 +139,7 @@ pub enum Error {
     Synthesis(SynthesisError),
 }
 
-impl<'a, F: LurkField> StepCircuit<F> for WrappedMultiFrame<'a, F, IO<F>, Witness<F>> {
+impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F, IO<F>, Witness<F>> {
     fn arity(&self) -> usize {
         6
     }
@@ -173,13 +158,13 @@ impl<'a, F: LurkField> StepCircuit<F> for WrappedMultiFrame<'a, F, IO<F>, Witnes
         let input_env = AllocatedPtr::from_parts(&z[2], &z[3]);
         let input_cont = AllocatedContPtr::from_parts(&z[4], &z[5]);
 
-        let g = if let Some(s) = self.multiframe.store {
+        let g = if let Some(s) = self.store {
             GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?
         } else {
             let s = Store::default();
             GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?
         };
-        let count = self.multiframe.count;
+        let count = self.count;
         let acc = (input_expr, input_env, input_cont);
 
         let fold_frames = |frames: &Vec<CircuitFrame<F, IO<F>, Witness<F>>>| {
@@ -188,7 +173,7 @@ impl<'a, F: LurkField> StepCircuit<F> for WrappedMultiFrame<'a, F, IO<F>, Witnes
             })
         };
 
-        let (_, (new_expr, new_env, new_cont)) = match self.multiframe.frames.as_ref() {
+        let (_, (new_expr, new_env, new_cont)) = match self.frames.as_ref() {
             Some(frames) => fold_frames(frames),
             None => {
                 let blank_frame = CircuitFrame::blank();
@@ -209,18 +194,12 @@ impl<'a, F: LurkField> StepCircuit<F> for WrappedMultiFrame<'a, F, IO<F>, Witnes
 
     fn output(&self, z: &[F]) -> Vec<F> {
         // sanity check
-        assert_eq!(z, self.multiframe.input.unwrap().to_vector(self.store()));
+        assert_eq!(z, self.input.unwrap().to_vector(self.get_store()));
         assert_eq!(
-            self.multiframe
-                .frames
-                .as_ref()
-                .unwrap()
-                .last()
-                .unwrap()
-                .output,
-            self.multiframe.output
+            self.frames.as_ref().unwrap().last().unwrap().output,
+            self.output
         );
-        self.multiframe.output.unwrap().to_vector(self.store())
+        self.output.unwrap().to_vector(self.get_store())
     }
 }
 
@@ -238,7 +217,7 @@ impl<'a> Proof<'a> {
         let z0_secondary = Self::z0_secondary();
 
         assert_eq!(
-            circuits[0].multiframe.frames.as_ref().unwrap().len(),
+            circuits[0].frames.as_ref().unwrap().len(),
             num_iters_per_step
         );
         let (_circuit_primary, circuit_secondary) = C1::<'a>::circuits(num_iters_per_step);
@@ -249,14 +228,14 @@ impl<'a> Proof<'a> {
         for circuit_primary in circuits.iter() {
             assert_eq!(
                 num_iters_per_step,
-                circuit_primary.multiframe.frames.as_ref().unwrap().len()
+                circuit_primary.frames.as_ref().unwrap().len()
             );
             if debug {
                 // For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
                 use bellperson::util_cs::test_cs::TestConstraintSystem;
                 let mut cs = TestConstraintSystem::<<G1 as Group>::Scalar>::new();
 
-                let zi = circuit_primary.multiframe.frames.as_ref().unwrap()[0]
+                let zi = circuit_primary.frames.as_ref().unwrap()[0]
                     .input
                     .unwrap()
                     .to_vector(store);

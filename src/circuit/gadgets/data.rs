@@ -5,7 +5,6 @@ use bellperson::{
 use neptune::circuit2::poseidon_hash_allocated as poseidon_hash;
 
 use super::pointer::AsAllocatedHashComponents;
-use crate::circuit::circuit_frame::MultiFrame;
 use crate::field::LurkField;
 use crate::store::{ContPtr, ContTag, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk};
 use crate::store::{IntoHashComponents, ScalarPtr};
@@ -251,25 +250,6 @@ impl<F: LurkField> GlobalAllocations<F> {
             false_num,
             default_num,
         })
-    }
-}
-
-#[derive(Clone)]
-pub struct WrappedMultiFrame<'a, F: LurkField, T: Copy, W: Copy> {
-    pub i: usize,
-    pub multiframe: MultiFrame<'a, F, T, W>,
-}
-
-impl<'a, F: LurkField, T: Copy + PartialEq, W: Copy> WrappedMultiFrame<'a, F, T, W> {
-    pub fn blank(count: usize) -> Self {
-        Self {
-            i: 0,
-            multiframe: MultiFrame::blank(count),
-        }
-    }
-
-    pub fn store(&self) -> &Store<F> {
-        self.multiframe.store.expect("store missing")
     }
 }
 
