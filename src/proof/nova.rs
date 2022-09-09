@@ -121,7 +121,7 @@ impl<F: LurkField> NovaProver<F> {
         let mut circuits = Vec::with_capacity(multiframes.len());
 
         for (i, mf) in multiframes.iter().enumerate() {
-            circuits.push(mf.clone().wrap(store, i));
+            circuits.push(mf.clone().wrap(i));
         }
         let z0 = multiframes[0].z0(store).unwrap();
         let num_steps = multiframes.len();
@@ -140,10 +140,9 @@ impl<'a, F: LurkField> MultiFrame<'a, F, IO<F>, Witness<F>> {
         }
     }
 
-    fn wrap(self, store: &'a Store<F>, i: usize) -> WrappedMultiFrame<'a, F, IO<F>, Witness<F>> {
+    fn wrap(self, i: usize) -> WrappedMultiFrame<'a, F, IO<F>, Witness<F>> {
         WrappedMultiFrame {
             i,
-            store,
             multi_frame: self,
         }
     }
@@ -174,7 +173,7 @@ impl<'a, F: LurkField> StepCircuit<F> for WrappedMultiFrame<'a, F, IO<F>, Witnes
         let input_env = AllocatedPtr::from_parts(&z[2], &z[3]);
         let input_cont = AllocatedContPtr::from_parts(&z[4], &z[5]);
 
-        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), self.store)?;
+        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), self.store())?;
         let count = self.multi_frame.count;
         let acc = (input_expr, input_env, input_cont);
 
@@ -205,7 +204,7 @@ impl<'a, F: LurkField> StepCircuit<F> for WrappedMultiFrame<'a, F, IO<F>, Witnes
 
     fn output(&self, z: &[F]) -> Vec<F> {
         // sanity check
-        assert_eq!(z, self.multi_frame.input.unwrap().to_vector(self.store));
+        assert_eq!(z, self.multi_frame.input.unwrap().to_vector(self.store()));
         assert_eq!(
             self.multi_frame
                 .frames
@@ -216,7 +215,7 @@ impl<'a, F: LurkField> StepCircuit<F> for WrappedMultiFrame<'a, F, IO<F>, Witnes
                 .output,
             self.multi_frame.output
         );
-        self.multi_frame.output.unwrap().to_vector(self.store)
+        self.multi_frame.output.unwrap().to_vector(self.store())
     }
 }
 

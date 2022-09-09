@@ -257,7 +257,6 @@ impl<F: LurkField> GlobalAllocations<F> {
 #[derive(Clone)]
 pub struct WrappedMultiFrame<'a, F: LurkField, T: Copy, W: Copy> {
     pub i: usize,
-    pub store: &'a Store<F>,
     pub multi_frame: MultiFrame<'a, F, T, W>,
 }
 
@@ -265,9 +264,12 @@ impl<'a, F: LurkField, T: Copy + PartialEq, W: Copy> WrappedMultiFrame<'a, F, T,
     pub fn blank(store: &'a Store<F>, count: usize) -> Self {
         Self {
             i: 0,
-            store,
             multi_frame: MultiFrame::blank(store, count),
         }
+    }
+
+    pub fn store(&self) -> &Store<F> {
+        self.multi_frame.store
     }
 }
 
