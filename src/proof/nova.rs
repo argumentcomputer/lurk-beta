@@ -190,7 +190,7 @@ impl<'a> Proof<'a> {
     ) -> Result<Self, Error> {
         assert!(circuits.len() > 0);
         assert_eq!(circuits[0].arity(), z0.len());
-        let debug = true;
+        let debug = false;
         let z0_primary = z0;
         let z0_secondary = Self::z0_secondary();
 
