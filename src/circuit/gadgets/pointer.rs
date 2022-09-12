@@ -5,7 +5,6 @@ use bellperson::{
     ConstraintSystem, SynthesisError,
 };
 use ff::PrimeField;
-use neptune::circuit2::poseidon_hash_allocated as poseidon_hash;
 
 use crate::{
     field::LurkField,
@@ -18,7 +17,7 @@ use crate::{
 
 use super::{
     constraints::{alloc_equal, equal, pick},
-    data::{allocate_constant, GlobalAllocations},
+    data::{allocate_constant, hash_poseidon, GlobalAllocations},
 };
 
 /// Allocated version of `Ptr`.
@@ -217,7 +216,7 @@ impl<F: LurkField> AllocatedPtr<F> {
             cdr.hash().clone(),
         ];
 
-        let hash = poseidon_hash(
+        let hash = hash_poseidon(
             cs.namespace(|| "Cons hash"),
             preimage,
             store.poseidon_constants().c4(),
@@ -244,7 +243,7 @@ impl<F: LurkField> AllocatedPtr<F> {
             cdr.hash().clone(),
         ];
 
-        let hash = poseidon_hash(
+        let hash = hash_poseidon(
             cs.namespace(|| "StrCons hash"),
             preimage,
             store.poseidon_constants().c4(),
@@ -273,7 +272,7 @@ impl<F: LurkField> AllocatedPtr<F> {
             closed_env.hash().clone(),
         ];
 
-        let hash = poseidon_hash(
+        let hash = hash_poseidon(
             cs.namespace(|| "Fun hash"),
             preimage,
             store.poseidon_constants().c6(),
@@ -566,7 +565,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
             .cloned()
             .collect();
 
-        let hash = poseidon_hash(
+        let hash = hash_poseidon(
             cs.namespace(|| "Continuation"),
             components,
             store.poseidon_constants().c8(),
