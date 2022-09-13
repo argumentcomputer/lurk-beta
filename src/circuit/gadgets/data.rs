@@ -2,7 +2,10 @@ use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem, SynthesisError,
 };
-use neptune::circuit2::poseidon_hash_allocated as poseidon_hash;
+use neptune::{
+    circuit2::poseidon_hash_allocated as poseidon_hash,
+    poseidon::{Arity, PoseidonConstants},
+};
 
 use super::pointer::AsAllocatedHashComponents;
 use crate::field::LurkField;
@@ -253,6 +256,14 @@ impl<F: LurkField> GlobalAllocations<F> {
     }
 }
 
+pub fn hash_poseidon<CS: ConstraintSystem<F>, F: LurkField, A: Arity<F>>(
+    cs: CS,
+    preimage: Vec<AllocatedNum<F>>,
+    constants: &PoseidonConstants<F, A>,
+) -> Result<AllocatedNum<F>, SynthesisError> {
+    poseidon_hash(cs, preimage, constants)
+}
+
 impl<F: LurkField> ContPtr<F> {
     pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<F>>(
         cs: CS,
@@ -286,7 +297,7 @@ impl<F: LurkField> ContPtr<F> {
             })
             .collect::<Result<_, _>>()?;
 
-        let hash = poseidon_hash(
+        let hash = hash_poseidon(
             cs.namespace(|| "Continuation"),
             components.clone(),
             store.poseidon_constants().c8(),
@@ -310,7 +321,7 @@ impl<F: LurkField> ContPtr<F> {
 
         // We need to create these constraints, but eventually we can avoid doing any calculation.
         // We just need a precomputed dummy witness.
-        let dummy_hash = poseidon_hash(
+        let dummy_hash = hash_poseidon(
             cs.namespace(|| "Continuation"),
             result.clone(),
             store.poseidon_constants().c8(),
@@ -383,7 +394,7 @@ impl<F: LurkField> Ptr<F> {
             closed_env_t.hash().clone(),
         ];
 
-        let hash = poseidon_hash(
+        let hash = hash_poseidon(
             cs.namespace(|| "Fun hash"),
             preimage,
             store.poseidon_constants().c6(),
@@ -561,7 +572,7 @@ impl<F: LurkField> Thunk<F> {
         let vs = value.as_allocated_hash_components();
         let conts = cont.as_allocated_hash_components();
         // This is a 'binary' hash but has arity 4 because of tag and hash components for each item.
-        let hash = poseidon_hash(
+        let hash = hash_poseidon(
             cs.namespace(|| "Thunk Continuation"),
             vec![
                 vs[0].clone(),
