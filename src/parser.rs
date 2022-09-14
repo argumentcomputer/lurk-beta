@@ -35,6 +35,30 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    pub fn read_quoted_symbol<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut Peekable<T>,
+    ) -> Option<Ptr<F>> {
+        let mut result = String::new();
+
+        if let Some('|') = skip_whitespace_and_peek(chars) {
+            chars.next();
+            while let Some(&c) = chars.peek() {
+                chars.next();
+                // TODO: This does not handle any escaping, so symbols containing | cannot be read.
+                if c == '|' {
+                    let sym = self.intern_sym(result);
+                    return Some(sym);
+                } else {
+                    result.push(c);
+                }
+            }
+            None
+        } else {
+            None
+        }
+    }
+
     pub fn read_maybe_meta<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut Peekable<T>,
@@ -80,6 +104,7 @@ impl<F: LurkField> Store<F> {
                     Some(self.cons(quote, inner))
                 }
                 '\"' => self.read_string(chars),
+                '|' => self.read_quoted_symbol(chars),
                 '#' => self.read_pound(chars),
                 ';' => {
                     chars.next();
@@ -235,6 +260,13 @@ impl<F: LurkField> Store<F> {
         &mut self,
         chars: &mut Peekable<T>,
     ) -> Option<Ptr<F>> {
+        let name = Self::read_unquoted_symbol_name(chars);
+        Some(self.intern_sym(name))
+    }
+
+    pub(crate) fn read_unquoted_symbol_name<T: Iterator<Item = char>>(
+        chars: &mut Peekable<T>,
+    ) -> String {
         let mut name = String::new();
         let mut is_initial = true;
         while let Some(&c) = chars.peek() {
@@ -247,7 +279,7 @@ impl<F: LurkField> Store<F> {
             is_initial = false;
         }
         Self::convert_sym_case(&mut name);
-        Some(self.intern_sym(name))
+        name
     }
 
     pub(crate) fn read_pound<T: Iterator<Item = char>>(
@@ -372,6 +404,11 @@ asdf(", "ASDF",
         );
         test("foo-bar", "FOO-BAR");
         test("foo_bar", "FOO_BAR");
+
+        test(
+            "|A quoted symbol: α, β, ∧, ∨, ∑.|",
+            "A quoted symbol: α, β, ∧, ∨, ∑.",
+        );
     }
 
     #[test]

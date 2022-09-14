@@ -43,13 +43,25 @@ impl<F: LurkField> Write<F> for ContPtr<F> {
     }
 }
 
+fn write_symbol<F: LurkField, W: io::Write>(w: &mut W, symbol_name: &str) -> io::Result<()> {
+    let mut chars = symbol_name.chars().peekable();
+    let unquoted = Store::<F>::read_unquoted_symbol_name(&mut chars);
+    if unquoted == symbol_name {
+        write!(w, "{}", symbol_name)
+    } else {
+        write!(w, "|")?;
+        write!(w, "{}", symbol_name)?;
+        write!(w, "|")
+    }
+}
+
 impl<F: LurkField> Write<F> for Expression<'_, F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         use Expression::*;
 
         match self {
             Nil => write!(w, "NIL"),
-            Sym(s) => write!(w, "{}", s),
+            Sym(s) => write_symbol::<F, _>(w, s),
             Str(s) => write!(w, "\"{}\"", s),
             Fun(arg, body, _closed_env) => {
                 let is_zero_arg = *arg == store.get_sym("_", true).expect("dummy_arg (_) missing");
