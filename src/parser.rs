@@ -277,7 +277,7 @@ impl<F: LurkField> Store<F> {
 fn is_symbol_char(c: &char, initial: bool) -> bool {
     match c {
         // FIXME: suppport more than just alpha.
-        'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' | '=' | ':' | '_' => true,
+        'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' | '=' | '<' | '>' | ':' | '_' => true,
         _ => {
             if initial {
                 false

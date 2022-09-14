@@ -1,4 +1,4 @@
-use ff::PrimeField;
+use ff::{PrimeField, PrimeFieldBits};
 use libipld::cid::Cid;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
@@ -11,7 +11,7 @@ pub enum LanguageField {
     BLS12_381,
 }
 
-pub trait LurkField: ff::PrimeField {
+pub trait LurkField: PrimeField + PrimeFieldBits {
     // These constants are assumed to be based on some global table like
     // multicodec, ideally extended to include arbitrary precision codecs
     const FIELD_CODEC: u64;
@@ -43,6 +43,27 @@ pub trait LurkField: ff::PrimeField {
         let mut byte_array = [0u8; 8];
         byte_array.copy_from_slice(&self.to_repr().as_ref()[0..8]);
         Some(u64::from_le_bytes(byte_array))
+    }
+
+    fn most_negative() -> Self {
+        Self::most_positive() + Self::one()
+    }
+
+    /// 0 - 1 is one minus the modulus, which must be even in a prime field.
+    /// The result is the largest field element which is even when doubled.
+    /// We define this to be the most positive field element.
+    fn most_positive() -> Self {
+        let one = Self::one();
+        let two = one + one;
+
+        let half = two.invert().unwrap();
+        let modulus_minus_one = Self::zero() - one;
+        half * modulus_minus_one
+    }
+
+    /// A field element is defined to be negative if it is odd after doubling.
+    fn is_negative(&self) -> bool {
+        self.double().is_odd().into()
     }
 
     // Tags have to be `u32` because we're trying to fit them into `u64`

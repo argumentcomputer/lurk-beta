@@ -1,4 +1,5 @@
 use crate::field::LurkField;
+use crate::num::Num;
 use crate::store::{
     ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, Rel2, ScalarPointer, Store,
     Tag, Thunk,
@@ -805,6 +806,34 @@ fn reduce_with_witness<F: LurkField>(
                         env,
                         store.intern_cont_relop(Rel2::Equal, env, more, cont),
                     )
+                } else if head == store.sym("<") {
+                    let (arg1, more) = store.car_cdr(&rest);
+                    Control::Return(
+                        arg1,
+                        env,
+                        store.intern_cont_binop(Op2::Less, env, more, cont),
+                    )
+                } else if head == store.sym(">") {
+                    let (arg1, more) = store.car_cdr(&rest);
+                    Control::Return(
+                        arg1,
+                        env,
+                        store.intern_cont_binop(Op2::Greater, env, more, cont),
+                    )
+                } else if head == store.sym("<=") {
+                    let (arg1, more) = store.car_cdr(&rest);
+                    Control::Return(
+                        arg1,
+                        env,
+                        store.intern_cont_binop(Op2::LessEqual, env, more, cont),
+                    )
+                } else if head == store.sym(">=") {
+                    let (arg1, more) = store.car_cdr(&rest);
+                    Control::Return(
+                        arg1,
+                        env,
+                        store.intern_cont_binop(Op2::GreaterEqual, env, more, cont),
+                    )
                 } else if head == store.sym("if") {
                     let (condition, more) = store.car_cdr(&rest);
                     Control::Return(condition, env, store.intern_cont_if(more, cont))
@@ -1106,6 +1135,10 @@ fn apply_continuation<F: LurkField>(
                             tmp /= b;
                             store.intern_num(tmp)
                         }
+                        Op2::Less => store.less_than(a, b),
+                        Op2::Greater => store.less_than(b, a),
+                        Op2::LessEqual => store.less_equal(a, b),
+                        Op2::GreaterEqual => store.less_equal(b, a),
                         Op2::Cons => store.cons(evaled_arg, *arg2),
                         Op2::StrCons => {
                             return Control::Return(*result, *env, store.intern_cont_error())
@@ -1451,6 +1484,23 @@ fn extend_closure<F: LurkField>(fun: &Ptr<F>, rec_env: &Ptr<F>, store: &mut Stor
             _ => unreachable!(),
         },
         _ => panic!("extend_closure received non-Fun: {:?}", fun),
+    }
+}
+
+impl<F: LurkField> Store<F> {
+    fn as_lurk_boolean(&mut self, x: bool) -> Ptr<F> {
+        if x {
+            self.t()
+        } else {
+            self.nil()
+        }
+    }
+    fn less_than(&mut self, a: Num<F>, b: Num<F>) -> Ptr<F> {
+        self.as_lurk_boolean(a.is_less_than(b))
+    }
+
+    fn less_equal(&mut self, a: Num<F>, b: Num<F>) -> Ptr<F> {
+        self.as_lurk_boolean(a.is_less_than(b) || a.is_equal(b))
     }
 }
 
@@ -2860,5 +2910,104 @@ mod test {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret (comm 123))";
         test_aux(s, expr, None, None, None, None, 2);
+    }
+
+    fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
+        let expr = &format!("({} {} {})", op, a, b);
+        let expected = if res { s.t() } else { s.nil() };
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn test_relational() {
+        let s = &mut Store::<Fr>::default();
+        let lt = "<";
+        let gt = ">";
+        let lte = "<=";
+        let gte = ">=";
+        let zero = "0";
+        let one = "1";
+        let two = "2";
+
+        let most_negative = &format!("{}", Num::<Fr>::most_negative());
+        let most_positive = &format!("{}", Num::<Fr>::most_positive());
+
+        relational_aux(s, lt, one, two, true);
+        relational_aux(s, gt, one, two, false);
+        relational_aux(s, lte, one, two, true);
+        relational_aux(s, gte, one, two, false);
+
+        relational_aux(s, lt, two, one, false);
+        relational_aux(s, gt, two, one, true);
+        relational_aux(s, lte, two, one, false);
+        relational_aux(s, gte, two, one, true);
+
+        relational_aux(s, lt, one, one, false);
+        relational_aux(s, gt, one, one, false);
+        relational_aux(s, lte, one, one, true);
+        relational_aux(s, gte, one, one, true);
+
+        relational_aux(s, lt, zero, two, true);
+        relational_aux(s, gt, zero, two, false);
+        relational_aux(s, lte, zero, two, true);
+        relational_aux(s, gte, zero, two, false);
+
+        relational_aux(s, lt, two, zero, false);
+        relational_aux(s, gt, two, zero, true);
+        relational_aux(s, lte, two, zero, false);
+        relational_aux(s, gte, two, zero, true);
+
+        relational_aux(s, lt, zero, zero, false);
+        relational_aux(s, gt, zero, zero, false);
+        relational_aux(s, lte, zero, zero, true);
+        relational_aux(s, gte, zero, zero, true);
+
+        relational_aux(s, lt, most_negative, most_positive, true);
+        relational_aux(s, gt, most_negative, most_positive, false);
+        relational_aux(s, lte, most_negative, most_positive, true);
+        relational_aux(s, gte, most_negative, most_positive, false);
+
+        relational_aux(s, lt, most_positive, most_negative, false);
+        relational_aux(s, gt, most_positive, most_negative, true);
+        relational_aux(s, lte, most_positive, most_negative, false);
+        relational_aux(s, gte, most_positive, most_negative, true);
+
+        relational_aux(s, lt, most_negative, most_negative, false);
+        relational_aux(s, gt, most_negative, most_negative, false);
+        relational_aux(s, lte, most_negative, most_negative, true);
+        relational_aux(s, gte, most_negative, most_negative, true);
+
+        relational_aux(s, lt, one, most_positive, true);
+        relational_aux(s, gt, one, most_positive, false);
+        relational_aux(s, lte, one, most_positive, true);
+        relational_aux(s, gte, one, most_positive, false);
+
+        relational_aux(s, lt, most_positive, one, false);
+        relational_aux(s, gt, most_positive, one, true);
+        relational_aux(s, lte, most_positive, one, false);
+        relational_aux(s, gte, most_positive, one, true);
+
+        relational_aux(s, lt, one, most_negative, false);
+        relational_aux(s, gt, one, most_negative, true);
+        relational_aux(s, lte, one, most_negative, false);
+        relational_aux(s, gte, one, most_negative, true);
+    }
+
+    #[test]
+    fn test_relational_edge_case_identity() {
+        let s = &mut Store::<Fr>::default();
+        // Normally, a value cannot be less than the result of incrementing it.
+        // However, the most positive field element (when viewed as signed)
+        // is the exception. Incrementing it yields the most negative element,
+        // which is less than the most positive.
+        let expr = "(let ((most-positive (/ (- 0 1) 2))
+                          (most-negative (+ 1 most-positive)))
+                      (< most-negative most-positive))";
+        let t = s.t();
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
     }
 }
