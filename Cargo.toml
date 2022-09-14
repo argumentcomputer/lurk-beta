@@ -7,8 +7,8 @@ description = "Turing-Complete Zero Knowledge"
 edition = "2018"
 repository = "https://github.com/lurk-lang/lurk-rs"
 
-[lib]
-crate-type = ["cdylib", "rlib"]
+#[lib]
+#crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 anyhow = "1.0.45"
