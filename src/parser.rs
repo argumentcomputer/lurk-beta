@@ -21,8 +21,12 @@ impl<F: LurkField> Store<F> {
             chars.next();
             while let Some(&c) = chars.peek() {
                 chars.next();
-                // TODO: This does not handle any escaping, so strings containing " cannot be read.
-                if c == '"' {
+                if c == '\\' {
+                    if let Some(&c) = chars.peek() {
+                        result.push(c);
+                        chars.next();
+                    }
+                } else if c == '"' {
                     let str = self.intern_str(result);
                     return Some(str);
                 } else {
@@ -45,8 +49,12 @@ impl<F: LurkField> Store<F> {
             chars.next();
             while let Some(&c) = chars.peek() {
                 chars.next();
-                // TODO: This does not handle any escaping, so symbols containing | cannot be read.
-                if c == '|' {
+                if c == '\\' {
+                    if let Some(&c) = chars.peek() {
+                        result.push(c);
+                        chars.next();
+                    }
+                } else if c == '|' {
                     let sym = self.intern_sym(result);
                     return Some(sym);
                 } else {
@@ -409,6 +417,10 @@ asdf(", "ASDF",
             "|A quoted symbol: α, β, ∧, ∨, ∑.|",
             "A quoted symbol: α, β, ∧, ∨, ∑.",
         );
+        test(
+            r#"|Symbol with \|escaped pipes\| contained.|"#,
+            "Symbol with |escaped pipes| contained.",
+        )
     }
 
     #[test]
@@ -644,11 +656,12 @@ asdf(", "ASDF",
                 }
             };
 
-        let str = s.intern_str("asdf");
-        test(&mut s, "\"asdf\"", Some(str), Some("asdf"));
-        test(&mut s, "\"asdf", None, None);
-        test(&mut s, "asdf", None, None);
-
+        {
+            let str = s.intern_str("asdf");
+            test(&mut s, "\"asdf\"", Some(str), Some("asdf"));
+            test(&mut s, "\"asdf", None, None);
+            test(&mut s, "asdf", None, None);
+        }
         {
             let input = "\"foo/bar/baz\"";
             let ptr = s.read_string(&mut input.chars().peekable()).unwrap();
@@ -656,6 +669,16 @@ asdf(", "ASDF",
                 .fetch(&ptr)
                 .unwrap_or_else(|| panic!("failed to fetch: {:?}", input));
             assert_eq!(res.as_str().unwrap(), "foo/bar/baz");
+        }
+
+        {
+            let str = s.intern_str(r#"Bob "Bugs" Murphy"#);
+            test(
+                &mut s,
+                r#""Bob \"Bugs\" Murphy""#,
+                Some(str),
+                Some(r#"Bob "Bugs" Murphy"#),
+            );
         }
     }
 

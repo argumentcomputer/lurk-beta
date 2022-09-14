@@ -3020,8 +3020,8 @@ mod test {
     fn test_quoted_symbols() {
         let s = &mut Store::<Fr>::default();
         let expr = "(let ((|foo bar| 9)
-                          (|Foo Bar| (lambda (|X|) (* x x))))
-                      (|Foo Bar| |foo bar|))";
+                          (|Foo \\| Bar| (lambda (|X|) (* x x))))
+                      (|Foo \\| Bar| |foo bar|))";
         let res = s.num(81);
         let terminal = s.get_cont_terminal();
 
