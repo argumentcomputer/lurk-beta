@@ -2993,6 +2993,11 @@ mod test {
         relational_aux(s, gt, one, most_negative, true);
         relational_aux(s, lte, one, most_negative, false);
         relational_aux(s, gte, one, most_negative, true);
+
+        relational_aux(s, lt, most_negative, one, true);
+        relational_aux(s, gt, most_negative, one, false);
+        relational_aux(s, lte, most_negative, one, true);
+        relational_aux(s, gte, most_negative, one, false);
     }
 
     #[test]
@@ -3009,5 +3014,17 @@ mod test {
         let terminal = s.get_cont_terminal();
 
         test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
+    }
+
+    #[test]
+    fn test_quoted_symbols() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(let ((|foo bar| 9)
+                          (|Foo \\| Bar| (lambda (|X|) (* x x))))
+                      (|Foo \\| Bar| |foo bar|))";
+        let res = s.num(81);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 13);
     }
 }

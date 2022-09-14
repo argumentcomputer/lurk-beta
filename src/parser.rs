@@ -21,10 +21,42 @@ impl<F: LurkField> Store<F> {
             chars.next();
             while let Some(&c) = chars.peek() {
                 chars.next();
-                // TODO: This does not handle any escaping, so strings containing " cannot be read.
-                if c == '"' {
+                if c == '\\' {
+                    if let Some(&c) = chars.peek() {
+                        result.push(c);
+                        chars.next();
+                    }
+                } else if c == '"' {
                     let str = self.intern_str(result);
                     return Some(str);
+                } else {
+                    result.push(c);
+                }
+            }
+            None
+        } else {
+            None
+        }
+    }
+
+    pub fn read_quoted_symbol<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut Peekable<T>,
+    ) -> Option<Ptr<F>> {
+        let mut result = String::new();
+
+        if let Some('|') = skip_whitespace_and_peek(chars) {
+            chars.next();
+            while let Some(&c) = chars.peek() {
+                chars.next();
+                if c == '\\' {
+                    if let Some(&c) = chars.peek() {
+                        result.push(c);
+                        chars.next();
+                    }
+                } else if c == '|' {
+                    let sym = self.intern_sym(result);
+                    return Some(sym);
                 } else {
                     result.push(c);
                 }
@@ -80,6 +112,7 @@ impl<F: LurkField> Store<F> {
                     Some(self.cons(quote, inner))
                 }
                 '\"' => self.read_string(chars),
+                '|' => self.read_quoted_symbol(chars),
                 '#' => self.read_pound(chars),
                 ';' => {
                     chars.next();
@@ -235,6 +268,13 @@ impl<F: LurkField> Store<F> {
         &mut self,
         chars: &mut Peekable<T>,
     ) -> Option<Ptr<F>> {
+        let name = Self::read_unquoted_symbol_name(chars);
+        Some(self.intern_sym(name))
+    }
+
+    pub(crate) fn read_unquoted_symbol_name<T: Iterator<Item = char>>(
+        chars: &mut Peekable<T>,
+    ) -> String {
         let mut name = String::new();
         let mut is_initial = true;
         while let Some(&c) = chars.peek() {
@@ -247,7 +287,7 @@ impl<F: LurkField> Store<F> {
             is_initial = false;
         }
         Self::convert_sym_case(&mut name);
-        Some(self.intern_sym(name))
+        name
     }
 
     pub(crate) fn read_pound<T: Iterator<Item = char>>(
@@ -372,6 +412,15 @@ asdf(", "ASDF",
         );
         test("foo-bar", "FOO-BAR");
         test("foo_bar", "FOO_BAR");
+
+        test(
+            "|A quoted symbol: α, β, ∧, ∨, ∑.|",
+            "A quoted symbol: α, β, ∧, ∨, ∑.",
+        );
+        test(
+            r#"|Symbol with \|escaped pipes\| contained.|"#,
+            "Symbol with |escaped pipes| contained.",
+        )
     }
 
     #[test]
@@ -607,11 +656,12 @@ asdf(", "ASDF",
                 }
             };
 
-        let str = s.intern_str("asdf");
-        test(&mut s, "\"asdf\"", Some(str), Some("asdf"));
-        test(&mut s, "\"asdf", None, None);
-        test(&mut s, "asdf", None, None);
-
+        {
+            let str = s.intern_str("asdf");
+            test(&mut s, "\"asdf\"", Some(str), Some("asdf"));
+            test(&mut s, "\"asdf", None, None);
+            test(&mut s, "asdf", None, None);
+        }
         {
             let input = "\"foo/bar/baz\"";
             let ptr = s.read_string(&mut input.chars().peekable()).unwrap();
@@ -619,6 +669,16 @@ asdf(", "ASDF",
                 .fetch(&ptr)
                 .unwrap_or_else(|| panic!("failed to fetch: {:?}", input));
             assert_eq!(res.as_str().unwrap(), "foo/bar/baz");
+        }
+
+        {
+            let str = s.intern_str(r#"Bob "Bugs" Murphy"#);
+            test(
+                &mut s,
+                r#""Bob \"Bugs\" Murphy""#,
+                Some(str),
+                Some(r#"Bob "Bugs" Murphy"#),
+            );
         }
     }
 
