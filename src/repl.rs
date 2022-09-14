@@ -1,8 +1,8 @@
 use crate::eval::{empty_sym_env, Evaluator, IO};
+use crate::field::LurkField;
 use crate::store::{ContPtr, ContTag, Expression, Pointer, Ptr, Store, Tag};
 use crate::writer::Write;
 use anyhow::Result;
-use blstrs::Scalar as Fr;
 use rustyline::error::ReadlineError;
 use rustyline::validate::{
     MatchingBracketValidator, ValidationContext, ValidationResult, Validator,
@@ -25,19 +25,19 @@ impl Validator for InputValidator {
 }
 
 #[derive(Clone)]
-pub struct ReplState {
-    env: Ptr<Fr>,
+pub struct ReplState<F: LurkField> {
+    env: Ptr<F>,
     limit: usize,
 }
 
-pub struct Repl {
-    state: ReplState,
+pub struct Repl<F: LurkField> {
+    state: ReplState<F>,
     rl: Editor<InputValidator>,
     history_path: PathBuf,
 }
 
-impl Repl {
-    pub fn new(s: &mut Store<Fr>, limit: usize) -> Result<Self> {
+impl<F: LurkField> Repl<F> {
+    pub fn new(s: &mut Store<F>, limit: usize) -> Result<Self> {
         let history_path = dirs::home_dir()
             .expect("missing home directory")
             .join(".lurk-history");
@@ -69,10 +69,10 @@ impl Repl {
 }
 
 // For the moment, input must be on a single line.
-pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
+pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
     println!("Lurk REPL welcomes you.");
 
-    let mut s = Store::default();
+    let mut s = Store::<F>::default();
     let limit = 100_000_000;
     let mut repl = Repl::new(&mut s, limit)?;
 
@@ -88,6 +88,8 @@ pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
     loop {
         match repl.rl.readline("> ") {
             Ok(line) => {
+                repl.save_history()?;
+
                 let result = repl.state.maybe_handle_command(&mut s, &line);
 
                 match result {
@@ -140,13 +142,11 @@ pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
         }
     }
 
-    repl.save_history()?;
-
     Ok(())
 }
 
-impl ReplState {
-    pub fn new(s: &mut Store<Fr>, limit: usize) -> Self {
+impl<F: LurkField> ReplState<F> {
+    pub fn new(s: &mut Store<F>, limit: usize) -> Self {
         Self {
             env: empty_sym_env(s),
             limit,
@@ -154,9 +154,9 @@ impl ReplState {
     }
     pub fn eval_expr(
         &mut self,
-        expr: Ptr<Fr>,
-        store: &mut Store<Fr>,
-    ) -> (Ptr<Fr>, usize, ContPtr<Fr>, Vec<Ptr<Fr>>) {
+        expr: Ptr<F>,
+        store: &mut Store<F>,
+    ) -> (Ptr<F>, usize, ContPtr<F>, Vec<Ptr<F>>) {
         let (
             IO {
                 expr: result,
@@ -175,7 +175,7 @@ impl ReplState {
     /// Second bool is true if processing should continue.
     pub fn maybe_handle_command(
         &mut self,
-        store: &mut Store<Fr>,
+        store: &mut Store<F>,
         line: &str,
     ) -> Result<(bool, bool)> {
         let mut chars = line.chars().peekable();
@@ -232,7 +232,7 @@ impl ReplState {
         Ok(result)
     }
 
-    pub fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store<Fr>, path: P) -> Result<()> {
+    pub fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store<F>, path: P) -> Result<()> {
         println!("Loading from {}.", path.as_ref().to_str().unwrap());
         let input = read_to_string(path)?;
 
@@ -248,7 +248,7 @@ impl ReplState {
 
     pub fn handle_run<P: AsRef<Path> + Copy>(
         &mut self,
-        store: &mut Store<Fr>,
+        store: &mut Store<F>,
         path: P,
     ) -> Result<()> {
         println!("Running from {}.", path.as_ref().to_str().unwrap());
@@ -289,7 +289,7 @@ impl ReplState {
                                 assert!(rest.is_nil());
                                 let (first_evaled, _, _, _) = self.eval_expr(first, store);
                                 let (second_evaled, _, _, _) = self.eval_expr(second, store);
-                                assert_eq!(first_evaled, second_evaled);
+                                assert!(store.ptr_eq(&first_evaled, &second_evaled));
                             } else if s == &":ASSERT" {
                                 let (first, rest) = store.car_cdr(&rest);
                                 assert!(rest.is_nil());

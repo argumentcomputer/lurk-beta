@@ -14,11 +14,16 @@ pub trait Write<F: LurkField> {
 
 impl<F: LurkField> Write<F> for Ptr<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
-        use crate::store::Pointer;
+        use crate::store::{Pointer, ScalarPointer};
         if self.is_opaque() {
             // This should never fail.
             write!(w, "<Opaque ")?;
             write!(w, "{:?}", self.tag())?;
+
+            if let Some(x) = store.get_expr_hash(self) {
+                write!(w, " ")?;
+                crate::store::Expression::Num(crate::num::Num::Scalar(*x.value())).fmt(store, w)?;
+            }
             write!(w, ">")
         } else if let Some(expr) = store.fetch(self) {
             expr.fmt(store, w)
@@ -38,13 +43,25 @@ impl<F: LurkField> Write<F> for ContPtr<F> {
     }
 }
 
+fn write_symbol<F: LurkField, W: io::Write>(w: &mut W, symbol_name: &str) -> io::Result<()> {
+    let mut chars = symbol_name.chars().peekable();
+    let unquoted = Store::<F>::read_unquoted_symbol_name(&mut chars);
+    if unquoted == symbol_name {
+        write!(w, "{}", symbol_name)
+    } else {
+        write!(w, "|")?;
+        write!(w, "{}", symbol_name)?;
+        write!(w, "|")
+    }
+}
+
 impl<F: LurkField> Write<F> for Expression<'_, F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         use Expression::*;
 
         match self {
             Nil => write!(w, "NIL"),
-            Sym(s) => write!(w, "{}", s),
+            Sym(s) => write_symbol::<F, _>(w, s),
             Str(s) => write!(w, "\"{}\"", s),
             Fun(arg, body, _closed_env) => {
                 let is_zero_arg = *arg == store.get_sym("_", true).expect("dummy_arg (_) missing");
@@ -71,11 +88,15 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                 write!(w, "(")?;
                 self.print_tail(store, w)
             }
-            Opaque(f) => {
-                write!(w, "<Opaque ")?;
-                f.fmt(store, w)?;
-                write!(w, ">")
+            Comm(secret, payload) => {
+                // This requires a run-time coercion.
+                // Consider implementing the equivalent of CL's #. reader macro to let this happen at read-time.
+                write!(w, "(comm ")?;
+                let c = store.commitment_hash(*secret, store.get_expr_hash(payload).unwrap());
+                Num(crate::num::Num::Scalar(c)).fmt(store, w)?;
+                write!(w, ")")
             }
+            Opaque(f) => f.fmt(store, w),
             Char(c) => {
                 write!(w, "#\\{}", c)
             }

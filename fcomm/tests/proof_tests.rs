@@ -277,7 +277,7 @@ fn test_create_open_and_verify_higher_order_functional_commitment() {
 #[test]
 #[ignore]
 fn test_create_open_and_verify_chained_functional_commitment() {
-    let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (cons secret (a acc))))))) (a 0))";
+    let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
 
     let expected_io = vec![("5", "5"), ("3", "8")];
 

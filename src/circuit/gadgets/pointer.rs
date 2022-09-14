@@ -5,7 +5,6 @@ use bellperson::{
     ConstraintSystem, SynthesisError,
 };
 use ff::PrimeField;
-use neptune::circuit::poseidon_hash;
 
 use crate::{
     field::LurkField,
@@ -18,7 +17,7 @@ use crate::{
 
 use super::{
     constraints::{alloc_equal, equal, pick},
-    data::{allocate_constant, GlobalAllocations},
+    data::{allocate_constant, hash_poseidon, GlobalAllocations},
 };
 
 /// Allocated version of `Ptr`.
@@ -113,8 +112,11 @@ impl<F: LurkField> AllocatedPtr<F> {
         AllocatedPtr::alloc_constant(cs, ptr)
     }
 
-    pub fn from_parts(tag: AllocatedNum<F>, hash: AllocatedNum<F>) -> Self {
-        AllocatedPtr { tag, hash }
+    pub fn from_parts(tag: &AllocatedNum<F>, hash: &AllocatedNum<F>) -> Self {
+        AllocatedPtr {
+            tag: tag.clone(),
+            hash: hash.clone(),
+        }
     }
 
     pub fn tag(&self) -> &AllocatedNum<F> {
@@ -214,7 +216,7 @@ impl<F: LurkField> AllocatedPtr<F> {
             cdr.hash().clone(),
         ];
 
-        let hash = poseidon_hash(
+        let hash = hash_poseidon(
             cs.namespace(|| "Cons hash"),
             preimage,
             store.poseidon_constants().c4(),
@@ -222,6 +224,33 @@ impl<F: LurkField> AllocatedPtr<F> {
 
         Ok(AllocatedPtr {
             tag: g.cons_tag.clone(),
+            hash,
+        })
+    }
+
+    pub fn construct_strcons<CS: ConstraintSystem<F>>(
+        mut cs: CS,
+        g: &GlobalAllocations<F>,
+        store: &Store<F>,
+        car: &AllocatedPtr<F>,
+        cdr: &AllocatedPtr<F>,
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        // This is actually binary_hash, considering creating that helper for use elsewhere.
+        let preimage = vec![
+            car.tag().clone(),
+            car.hash().clone(),
+            cdr.tag().clone(),
+            cdr.hash().clone(),
+        ];
+
+        let hash = hash_poseidon(
+            cs.namespace(|| "StrCons hash"),
+            preimage,
+            store.poseidon_constants().c4(),
+        )?;
+
+        Ok(AllocatedPtr {
+            tag: g.str_tag.clone(),
             hash,
         })
     }
@@ -243,7 +272,7 @@ impl<F: LurkField> AllocatedPtr<F> {
             closed_env.hash().clone(),
         ];
 
-        let hash = poseidon_hash(
+        let hash = hash_poseidon(
             cs.namespace(|| "Fun hash"),
             preimage,
             store.poseidon_constants().c6(),
@@ -300,10 +329,10 @@ impl<F: LurkField> AllocatedPtr<F> {
         Ok(AllocatedPtr { tag, hash })
     }
 
-    pub fn by_index(n: usize, case_results: &[AllocatedNum<F>]) -> Self {
+    pub fn by_index(n: usize, ptr_vec: &[AllocatedNum<F>]) -> Self {
         AllocatedPtr {
-            tag: case_results[n * 2].clone(),
-            hash: case_results[1 + n * 2].clone(),
+            tag: ptr_vec[n * 2].clone(),
+            hash: ptr_vec[1 + n * 2].clone(),
         }
     }
 
@@ -517,10 +546,10 @@ impl<F: LurkField> AllocatedContPtr<F> {
         Ok(AllocatedContPtr { tag, hash })
     }
 
-    pub fn by_index(n: usize, case_results: &[AllocatedNum<F>]) -> Self {
+    pub fn by_index(n: usize, ptr_vec: &[AllocatedNum<F>]) -> Self {
         AllocatedContPtr {
-            tag: case_results[n * 2].clone(),
-            hash: case_results[1 + n * 2].clone(),
+            tag: ptr_vec[n * 2].clone(),
+            hash: ptr_vec[1 + n * 2].clone(),
         }
     }
 
@@ -536,7 +565,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
             .cloned()
             .collect();
 
-        let hash = poseidon_hash(
+        let hash = hash_poseidon(
             cs.namespace(|| "Continuation"),
             components,
             store.poseidon_constants().c8(),
@@ -547,6 +576,13 @@ impl<F: LurkField> AllocatedContPtr<F> {
             hash,
         };
         Ok(cont)
+    }
+
+    pub fn from_parts(tag: &AllocatedNum<F>, hash: &AllocatedNum<F>) -> Self {
+        Self {
+            tag: tag.clone(),
+            hash: hash.clone(),
+        }
     }
 }
 
