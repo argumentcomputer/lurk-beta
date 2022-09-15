@@ -107,7 +107,7 @@ jobs:
       - run: sudo apt install clang
       - run:
           name: Wasm Build
-          command: cargo build --no-default-features --features wasm --target wasm32-unknown-unknown
+          command: cargo build --target wasm32-unknown-unknown
       - run:
           name: Linux Tests
           command: cargo test --workspace

@@ -1,17 +1,16 @@
+#[cfg(not(target_arch = "wasm32"))]
+use bellperson::groth16::aggregate::setup_fake_srs;
 use bellperson::{
     groth16::{
         self,
         aggregate::{
-            aggregate_proofs_and_instances, AggregateProofAndInstance,
-            verify_aggregate_proof_and_aggregate_instances, 
-            AggregateVersion, GenericSRS, VerifierSRS,
+            aggregate_proofs_and_instances, verify_aggregate_proof_and_aggregate_instances,
+            AggregateProofAndInstance, AggregateVersion, GenericSRS, VerifierSRS,
         },
         verify_proof,
     },
     SynthesisError,
 };
-#[cfg(not(target_arch = "wasm32"))]
-use bellperson::groth16::aggregate::setup_fake_srs;
 use blstrs::{Bls12, Scalar};
 #[cfg(not(target_arch = "wasm32"))]
 use memmap::MmapOptions;
@@ -29,11 +28,7 @@ use crate::proof::{Provable, Prover};
 use crate::store::{Ptr, Store};
 
 #[cfg(not(target_arch = "wasm32"))]
-use std::{
-  env,
-  fs::File,
-  io,
-};
+use std::{env, fs::File, io};
 
 const DUMMY_RNG_SEED: [u8; 16] = [
     0x01, 0x03, 0x02, 0x04, 0x05, 0x07, 0x06, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0C, 0x0B, 0x0A,

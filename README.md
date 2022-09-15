@@ -147,11 +147,6 @@ And then building with Cargo as usual:
 $ cargo build
 ```
 
-## Troubleshooting
-
-- Wasm build: `Error: failed to build archive: section too large`
-Run `cargo clean`, then try compiling with `CC=clang AR=llvm-ar`
-
 ## Install
 
 You can install the `lurkrs` binary on your machine with
