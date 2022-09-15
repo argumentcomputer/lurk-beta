@@ -2,8 +2,8 @@ use blstrs::Scalar as Fr;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lurk::{
     eval::{empty_sym_env, Evaluator},
-    store::{Ptr, Store},
     field::LurkField,
+    store::{Ptr, Store},
 };
 
 fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
