@@ -235,14 +235,17 @@ impl<F: LurkField> ReplState<F> {
     pub fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store<F>, path: P) -> Result<()> {
         println!("Loading from {}.", path.as_ref().to_str().unwrap());
         let input = read_to_string(path)?;
+        let mut chars = input.chars().peekable();
 
-        let expr = store.read(&input).unwrap();
-        let (result, _limit, _next_cont, _) = self.eval_expr(expr, store);
+        while let Some(expr) = store.read_next(&mut chars) {
+            let (result, _limit, _next_cont, _) = self.eval_expr(expr, store);
 
-        self.env = result;
+            self.env = result;
 
+            io::stdout().flush().unwrap();
+        }
         println!("Read: {}", input);
-        io::stdout().flush().unwrap();
+
         Ok(())
     }
 
