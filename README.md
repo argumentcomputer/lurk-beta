@@ -49,68 +49,11 @@ Lurk backend integration is still immature, so current performance is not repres
 Lurk source files used in tests are in the [lurk-lib](https://github.com/lurk-lang/lurk-lib) submodule. You must
 initialize and update submodules before test will pass.
 
-## Wasm Web Example
+## Wasm
 
-### Install prerequisites
+Lurk can be compiled to Wasm with `cargo build --target wasm32-unknown-unknown`
 
-- wasm32 target:
-```
-rustup target add wasm32-unknown-unknown
-```
-- wasm-pack:
-```
-cargo install wasm-pack
-```
-- wasm-ld linker:
-```
-# Ubuntu
-sudo apt install llvm lld-14
-# Mac
-brew install llvm
-# Add llvm to homebrew's PATH variable, e.g. one of the following
-export PATH=/usr/local/opt/llvm/bin:$PATH
-export PATH=/opt/homebrew/Cellar/llvm/13.0.1_1/bin:$PATH
-# Verify installation
-llc --version
-```
-- [clang](https://clang.llvm.org/get_started.html)
-- [yarn](https://classic.yarnpkg.com/lang/en/docs/install/#mac-stable) or [npm](https://nodejs.org/en/download/package-manager/)
-- [webpack](https://webpack.js.org/guides/installation/)
-
-### Build with wasm-pack
-
-* Linux
-```
-wasm-pack build --no-default-features --features wasm
-```
-* Mac
-```
-CC=clang AR=llvm-ar wasm-pack build --no-default-features --features wasm
-```
-### Build web evaluator
-
-Building with `wasm-pack` will generate a `pkg` folder with the javascript wasm artifacts (Lurk wasm bindings). Once this is available, we can launch the web example.
-
-Assuming we have `yarn` or `npm` installed, install `webpack` using the following command:
-
-```
-cd web
-
-# Using yarn
-yarn add -D webpack-cli 
-
-# Using npm
-npm install --save-dev webpack
-```
-
-After webpack installation, run the following yarn commands.
-```
-yarn install
-yarn start
-```
-
-Go to [localhost:8080](http://localhost:8080) to view the evaluator
-
+See https://github.com/alvin-reyes/lurk-wasm-eval and https://github.com/jlogelin/lurk-web-component for examples of Lurk running on the web via `wasm-pack`.
 
 ## Repl
 
