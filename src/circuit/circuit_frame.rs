@@ -804,6 +804,11 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         &result_cont_candidate,
     )?;
 
+    // dbg!(&result_expr.fetch_and_write_str(store));
+    // dbg!(&result_env.fetch_and_write_str(store));
+    // dbg!(&result_cont.fetch_and_write_cont_str(store));
+    // dbg!(expr, env, cont);
+
     Ok((result_expr, result_env, result_cont))
 }
 
@@ -2826,6 +2831,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let sum = constraints::add(&mut cs.namespace(|| "sum"), a, b)?;
         let diff = constraints::sub(&mut cs.namespace(|| "difference"), a, b)?;
         let product = constraints::mul(&mut cs.namespace(|| "product"), a, b)?;
+
         let secret = match arg1.hash().get_value() {
             Some(s) => s,
             None => F::zero(), //dummy
@@ -2877,6 +2883,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                     value: args_equal_ptr.hash(),
                 },
                 CaseClause {
+                    key: Op2::NumEqual.as_field(),
+                    value: args_equal_ptr.hash(),
+                },
+                CaseClause {
                     key: Op2::Cons.as_field(),
                     value: cons.hash(),
                 },
@@ -2896,6 +2906,18 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &mut cs.namespace(|| "Op2 is Equal"),
             op2.tag(),
             &g.op2_equal_tag,
+        )?;
+
+        let is_num_equal = alloc_equal(
+            &mut cs.namespace(|| "Op2 is NumEqual"),
+            op2.tag(),
+            &g.op2_numequal_tag,
+        )?;
+
+        let is_equal_or_num_equal = constraints::or(
+            &mut cs.namespace(|| "is_equal_or_num_equal"),
+            &is_equal,
+            &is_num_equal,
         )?;
 
         let is_cons = alloc_equal(
@@ -2984,8 +3006,14 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &is_equal,
         )?;
 
+        let is_cons_or_strcons_or_hide_or_equal_or_num_equal = constraints::or(
+            &mut cs.namespace(|| "is cons or srtcons or hide or equal or num_equal"),
+            &is_cons_or_strcons_or_hide_or_equal,
+            &is_num_equal,
+        )?;
+
         let res_tag0 = pick(
-            &mut cs.namespace(|| "Op2 result tag (part 1)"),
+            &mut cs.namespace(|| "Op2 result tag0"),
             &is_cons_or_strcons,
             &cons_tag,
             &comm_or_num_tag,
@@ -2993,7 +3021,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let res_tag = pick(
             &mut cs.namespace(|| "Op2 result tag"),
-            &is_equal,
+            &is_equal_or_num_equal,
             args_equal_ptr.tag(),
             &res_tag0,
         )?;
@@ -3024,10 +3052,11 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &Boolean::not(&real_div_and_b_is_zero),
         )?;
 
-        let op2_not_both_num_and_not_cons_or_strcons_or_hide_or_equal = Boolean::and(
-            &mut cs.namespace(|| "not both num and not cons or strcons or hide"),
+        let op2_not_both_num_and_not_cons_or_strcons_or_hide_or_equal_or_num_equal = Boolean::and(
+            &mut cs
+                .namespace(|| "not both num and not cons or strcons or hide or equal or num_equal"),
             &Boolean::not(&both_args_are_nums),
-            &Boolean::not(&is_cons_or_strcons_or_hide_or_equal),
+            &Boolean::not(&is_cons_or_strcons_or_hide_or_equal_or_num_equal),
         )?;
 
         let args_not_char_str = &Boolean::not(&args_are_char_str);
@@ -3040,7 +3069,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let any_error1 = constraints::or(
             &mut cs.namespace(|| "first two errors"),
             &Boolean::not(&valid_types_and_not_div_by_zero),
-            &op2_not_both_num_and_not_cons_or_strcons_or_hide_or_equal,
+            &op2_not_both_num_and_not_cons_or_strcons_or_hide_or_equal_or_num_equal,
         )?;
 
         let any_error = constraints::or(
