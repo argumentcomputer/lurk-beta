@@ -2933,6 +2933,8 @@ mod test {
 
         let most_negative = &format!("{}", Num::<Fr>::most_negative());
         let most_positive = &format!("{}", Num::<Fr>::most_positive());
+        use ff::Field;
+        let neg_one = &format!("{}", Num::<Fr>::Scalar(Fr::zero() - Fr::one()));
 
         relational_aux(s, lt, one, two, true);
         relational_aux(s, gt, one, two, false);
@@ -2998,22 +3000,55 @@ mod test {
         relational_aux(s, gt, most_negative, one, false);
         relational_aux(s, lte, most_negative, one, true);
         relational_aux(s, gte, most_negative, one, false);
+
+        relational_aux(s, lt, neg_one, most_positive, true);
+        relational_aux(s, gt, neg_one, most_positive, false);
+        relational_aux(s, lte, neg_one, most_positive, true);
+        relational_aux(s, gte, neg_one, most_positive, false);
+
+        relational_aux(s, lt, most_positive, neg_one, false);
+        relational_aux(s, gt, most_positive, neg_one, true);
+        relational_aux(s, lte, most_positive, neg_one, false);
+        relational_aux(s, gte, most_positive, neg_one, true);
+
+        relational_aux(s, lt, neg_one, most_negative, false);
+        relational_aux(s, gt, neg_one, most_negative, true);
+        relational_aux(s, lte, neg_one, most_negative, false);
+        relational_aux(s, gte, neg_one, most_negative, true);
+
+        relational_aux(s, lt, most_negative, neg_one, true);
+        relational_aux(s, gt, most_negative, neg_one, false);
+        relational_aux(s, lte, most_negative, neg_one, true);
+        relational_aux(s, gte, most_negative, neg_one, false);
     }
 
     #[test]
     fn test_relational_edge_case_identity() {
         let s = &mut Store::<Fr>::default();
+        let t = s.t();
+        let terminal = s.get_cont_terminal();
+
         // Normally, a value cannot be less than the result of incrementing it.
         // However, the most positive field element (when viewed as signed)
         // is the exception. Incrementing it yields the most negative element,
         // which is less than the most positive.
-        let expr = "(let ((most-positive (/ (- 0 1) 2))
+        {
+            let expr = "(let ((most-positive (/ (- 0 1) 2))
                           (most-negative (+ 1 most-positive)))
                       (< most-negative most-positive))";
-        let t = s.t();
-        let terminal = s.get_cont_terminal();
 
-        test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
+        }
+
+        // Regression: comparisons with negative numbers should *not* be exceptions.
+        {
+            let expr = "(let ((most-positive (/ (- 0 1) 2))
+                              (most-negative (+ 1 most-positive))
+                              (less-negative (+ 1 most-negative)))
+                      (< most-negative  less-negative)) ";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 24);
+        }
     }
 
     #[test]
