@@ -44,6 +44,7 @@ libipld = { package = "lurk-ipld", version = "0.1.0", default-features = false, 
 cid = { version = "0.8.4", default-features = false, features = ["alloc", "serde-codec"]}
 multihash = { version = "0.16.1", default-features = false, features = ["alloc", "blake3"] }
 
+
 [features]
 default = ["bellperson/default", "nova/default"]
 
