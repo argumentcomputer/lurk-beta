@@ -3170,7 +3170,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &Boolean::not(&a_is_negative),
             &b_is_negative,
         )?;
-        let a_negative_and_b_negative = Boolean::and(
+        let a_negative_and_b_positive = Boolean::and(
             &mut cs.namespace(|| "a negative and b positive"),
             &a_is_negative,
             &Boolean::not(&b_is_negative),
@@ -3372,7 +3372,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 },
                 CaseClause {
                     key: Op2::LessEqual.as_field(),
-                    value: &g.nil_ptr.tag(),
+                    value: &g.t_ptr.tag(),
                 },
                 CaseClause {
                     key: Op2::Greater.as_field(),
@@ -3380,7 +3380,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 },
                 CaseClause {
                     key: Op2::GreaterEqual.as_field(),
-                    value: &g.t_ptr.tag(),
+                    value: &g.nil_ptr.tag(),
                 },
             ],
             &g.default_num,
@@ -3395,7 +3395,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 },
                 CaseClause {
                     key: Op2::LessEqual.as_field(),
-                    value: &g.nil_ptr.hash(),
+                    value: &g.t_ptr.hash(),
                 },
                 CaseClause {
                     key: Op2::Greater.as_field(),
@@ -3432,7 +3432,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 },
                 CaseClause {
                     key: Op2::GreaterEqual.as_field(),
-                    value: &g.nil_ptr.tag(),
+                    value: &g.t_ptr.tag(),
                 },
             ],
             &g.default_num,
@@ -3455,7 +3455,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 },
                 CaseClause {
                     key: Op2::GreaterEqual.as_field(),
-                    value: &g.nil_ptr.hash(),
+                    value: &g.t_ptr.hash(),
                 },
             ],
             &g.default_num,
@@ -3466,10 +3466,13 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         );
 
 
+        dbg!(a_negative_and_b_positive.get_value());
+
+
 
         let comp_val1 = AllocatedPtr::pick(
             &mut cs.namespace(|| "comp_val1"),
-            &a_negative_and_b_negative,
+            &a_negative_and_b_positive,
             &comp_val_a_neg_and_b_pos,
             &comp_val_a_pos_and_b_neg,
         )?;
