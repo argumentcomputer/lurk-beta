@@ -5,7 +5,6 @@ use bellperson::{
     util_cs::Comparable,
     Circuit, ConstraintSystem, SynthesisError,
 };
-use ff::derive::bitvec::store::BitStore;
 
 use crate::{
     circuit::gadgets::{
@@ -278,11 +277,11 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
                     (i + 1, frame.synthesize(cs, i, allocated_io, &g).unwrap())
                 });
 
-            dbg!(
-                (&new_expr, &output_expr),
-                (&new_env, &output_env),
-                (&new_cont, &output_cont)
-            );
+            // dbg!(
+            //     (&new_expr, &output_expr),
+            //     (&new_env, &output_env),
+            //     (&new_cont, &output_cont)
+            // );
 
             output_expr.enforce_equal(
                 &mut cs.namespace(|| "outer output expr is correct"),
@@ -3165,11 +3164,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &both_negative,
             &both_positive,
         )?;
-        let a_positive_and_b_negative = Boolean::and(
-            &mut cs.namespace(|| "a positive and b negative"),
-            &Boolean::not(&a_is_negative),
-            &b_is_negative,
-        )?;
         let a_negative_and_b_positive = Boolean::and(
             &mut cs.namespace(|| "a negative and b positive"),
             &a_is_negative,
@@ -3237,8 +3231,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &is_comparison2,
             &is_greater_equal,
         )?;
-
-
 
         // LESS
         let is_less_and_boolean = Boolean::and(
@@ -3361,7 +3353,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         )?;
         let comp_val_both_same_sign = AllocatedPtr::from_parts(&comp_val_tag, &comp_val_hash);
 
-
         let comp_val_tag_a_neg_and_b_pos = case(
             &mut cs.namespace(|| "comp val tag a neg and b pos"),
             op2.tag(),
@@ -3412,7 +3403,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &comp_val_tag_a_neg_and_b_pos,
             &comp_val_hash_a_neg_and_b_pos
         );
-
 
         let comp_val_tag_a_pos_and_b_neg = case(
             &mut cs.namespace(|| "comp val tag a pos and b neg"),
@@ -3465,11 +3455,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &comp_val_hash_a_pos_and_b_neg
         );
 
-
-        dbg!(a_negative_and_b_positive.get_value());
-
-
-
         let comp_val1 = AllocatedPtr::pick(
             &mut cs.namespace(|| "comp_val1"),
             &a_negative_and_b_positive,
@@ -3482,8 +3467,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &comp_val_both_same_sign,
             &comp_val1,
         )?;
-
-
 
         let final_res = AllocatedPtr::pick(
             &mut cs.namespace(|| "final res"),

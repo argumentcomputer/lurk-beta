@@ -2375,10 +2375,9 @@ mod tests {
 
         let most_negative = &format!("{}", Num::<Fr>::most_negative());
         let most_positive = &format!("{}", Num::<Fr>::most_positive());
-        use ff::Field;
         let neg_one = &format!("{}", Num::<Fr>::Scalar(Fr::zero() - Fr::one()));
 
-        /*relational_aux(s, lt, one, two, true);
+        relational_aux(s, lt, one, two, true);
         relational_aux(s, gt, one, two, false);
         relational_aux(s, lte, one, two, true);
         relational_aux(s, gte, one, two, false);
@@ -2409,7 +2408,7 @@ mod tests {
         relational_aux(s, gte, zero, zero, true);
 
         relational_aux(s, lt, most_negative, most_positive, true);
-        relational_aux(s, gt, most_negative, most_positive, false);*/
+        relational_aux(s, gt, most_negative, most_positive, false);
         relational_aux(s, lte, most_negative, most_positive, true);
         relational_aux(s, gte, most_negative, most_positive, false);
 
