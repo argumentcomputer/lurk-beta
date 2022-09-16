@@ -3160,6 +3160,11 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &a_is_negative,
             &b_is_negative,
         )?;
+        let both_same_sign = constraints::or(
+            &mut cs.namespace(|| "both same sign"),
+            &both_negative,
+            &both_positive,
+        )?;
         let a_positive_and_b_negative = Boolean::and(
             &mut cs.namespace(|| "a positive and b negative"),
             &Boolean::not(&a_is_negative),
@@ -3308,8 +3313,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.nil_ptr,
         )?;
 
-        let comp_val_tag_both_positive = case(
-            &mut cs.namespace(|| "comp val tag both positive case"),
+        let comp_val_tag = case(
+            &mut cs.namespace(|| "comp val tag"),
             op2.tag(),
             &[
                 CaseClause {
@@ -3331,8 +3336,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             ],
             &g.default_num,
         )?;
-        let comp_val_hash_both_positive = case(
-            &mut cs.namespace(|| "comp val hash both positive case"),
+        let comp_val_hash = case(
+            &mut cs.namespace(|| "comp val hash"),
             op2.tag(),
             &[
                 CaseClause {
@@ -3354,8 +3359,126 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             ],
             &g.default_num,
         )?;
-        let comp_val = AllocatedPtr::from_parts(&comp_val_tag_both_positive, &comp_val_hash_both_positive);
+        let comp_val_both_same_sign = AllocatedPtr::from_parts(&comp_val_tag, &comp_val_hash);
 
+
+        let comp_val_tag_a_neg_and_b_pos = case(
+            &mut cs.namespace(|| "comp val tag a neg and b pos"),
+            op2.tag(),
+            &[
+                CaseClause {
+                    key: Op2::Less.as_field(),
+                    value: &g.t_ptr.tag(),
+                },
+                CaseClause {
+                    key: Op2::LessEqual.as_field(),
+                    value: &g.nil_ptr.tag(),
+                },
+                CaseClause {
+                    key: Op2::Greater.as_field(),
+                    value: &g.nil_ptr.tag(),
+                },
+                CaseClause {
+                    key: Op2::GreaterEqual.as_field(),
+                    value: &g.t_ptr.tag(),
+                },
+            ],
+            &g.default_num,
+        )?;
+        let comp_val_hash_a_neg_and_b_pos = case(
+            &mut cs.namespace(|| "comp val hash a neg and b pos"),
+            op2.tag(),
+            &[
+                CaseClause {
+                    key: Op2::Less.as_field(),
+                    value: &g.t_ptr.hash(),
+                },
+                CaseClause {
+                    key: Op2::LessEqual.as_field(),
+                    value: &g.nil_ptr.hash(),
+                },
+                CaseClause {
+                    key: Op2::Greater.as_field(),
+                    value: &g.nil_ptr.hash(),
+                },
+                CaseClause {
+                    key: Op2::GreaterEqual.as_field(),
+                    value: &g.nil_ptr.hash(),
+                },
+            ],
+            &g.default_num,
+        )?;
+        let comp_val_a_neg_and_b_pos = AllocatedPtr::from_parts(
+            &comp_val_tag_a_neg_and_b_pos,
+            &comp_val_hash_a_neg_and_b_pos
+        );
+
+
+        let comp_val_tag_a_pos_and_b_neg = case(
+            &mut cs.namespace(|| "comp val tag a pos and b neg"),
+            op2.tag(),
+            &[
+                CaseClause {
+                    key: Op2::Less.as_field(),
+                    value: &g.nil_ptr.tag(),
+                },
+                CaseClause {
+                    key: Op2::LessEqual.as_field(),
+                    value: &g.nil_ptr.tag(),
+                },
+                CaseClause {
+                    key: Op2::Greater.as_field(),
+                    value: &g.t_ptr.tag(),
+                },
+                CaseClause {
+                    key: Op2::GreaterEqual.as_field(),
+                    value: &g.nil_ptr.tag(),
+                },
+            ],
+            &g.default_num,
+        )?;
+        let comp_val_hash_a_pos_and_b_neg = case(
+            &mut cs.namespace(|| "comp val hash a pos and b neg"),
+            op2.tag(),
+            &[
+                CaseClause {
+                    key: Op2::Less.as_field(),
+                    value: &g.nil_ptr.hash(),
+                },
+                CaseClause {
+                    key: Op2::LessEqual.as_field(),
+                    value: &g.nil_ptr.hash(),
+                },
+                CaseClause {
+                    key: Op2::Greater.as_field(),
+                    value: &g.t_ptr.hash(),
+                },
+                CaseClause {
+                    key: Op2::GreaterEqual.as_field(),
+                    value: &g.nil_ptr.hash(),
+                },
+            ],
+            &g.default_num,
+        )?;
+        let comp_val_a_pos_and_b_neg = AllocatedPtr::from_parts(
+            &comp_val_tag_a_pos_and_b_neg,
+            &comp_val_hash_a_pos_and_b_neg
+        );
+
+
+
+        let comp_val1 = AllocatedPtr::pick(
+            &mut cs.namespace(|| "comp_val1"),
+            &a_negative_and_b_negative,
+            &comp_val_a_neg_and_b_pos,
+            &comp_val_a_pos_and_b_neg,
+        )?;
+        let comp_val = AllocatedPtr::pick(
+            &mut cs.namespace(|| "comp_val"),
+            &both_same_sign,
+            &comp_val_both_same_sign,
+            &comp_val1,
+        )?;
 
 
 
