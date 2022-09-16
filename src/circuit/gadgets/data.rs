@@ -9,7 +9,7 @@ use neptune::{
 
 use super::pointer::AsAllocatedHashComponents;
 use crate::field::LurkField;
-use crate::store::{ContPtr, ContTag, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk};
+use crate::store::{ContPtr, ContTag, Expression, Op1, Op2, Pointer, Ptr, Store, Tag, Thunk};
 use crate::store::{IntoHashComponents, ScalarPtr};
 use crate::store::{ScalarContPtr, ScalarPointer};
 
@@ -46,9 +46,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub unop_cont_tag: AllocatedNum<F>,
     pub emit_cont_tag: AllocatedNum<F>,
     pub binop_cont_tag: AllocatedNum<F>,
-    pub relop_cont_tag: AllocatedNum<F>,
     pub binop2_cont_tag: AllocatedNum<F>,
-    pub relop2_cont_tag: AllocatedNum<F>,
     pub if_cont_tag: AllocatedNum<F>,
 
     pub op1_car_tag: AllocatedNum<F>,
@@ -69,8 +67,8 @@ pub struct GlobalAllocations<F: LurkField> {
     pub op2_diff_tag: AllocatedNum<F>,
     pub op2_product_tag: AllocatedNum<F>,
     pub op2_quotient_tag: AllocatedNum<F>,
-    pub rel2_equal_tag: AllocatedNum<F>,
-    pub rel2_numequal_tag: AllocatedNum<F>,
+    pub op2_equal_tag: AllocatedNum<F>,
+    pub op2_numequal_tag: AllocatedNum<F>,
 
     pub true_num: AllocatedNum<F>,
     pub false_num: AllocatedNum<F>,
@@ -152,12 +150,8 @@ impl<F: LurkField> GlobalAllocations<F> {
             ContTag::Emit.allocate_constant(&mut cs.namespace(|| "emit_cont_tag"))?;
         let binop_cont_tag =
             ContTag::Binop.allocate_constant(&mut cs.namespace(|| "binop_cont_tag"))?;
-        let relop_cont_tag =
-            ContTag::Relop.allocate_constant(&mut cs.namespace(|| "relop_cont_tag"))?;
         let binop2_cont_tag =
             ContTag::Binop2.allocate_constant(&mut cs.namespace(|| "binop2_cont_tag"))?;
-        let relop2_cont_tag =
-            ContTag::Relop2.allocate_constant(&mut cs.namespace(|| "relop2_cont_tag"))?;
         let if_cont_tag = ContTag::If.allocate_constant(&mut cs.namespace(|| "if_cont_tag"))?;
 
         let op1_car_tag = Op1::Car.allocate_constant(&mut cs.namespace(|| "op1_car_tag"))?;
@@ -184,12 +178,12 @@ impl<F: LurkField> GlobalAllocations<F> {
             Op2::Product.allocate_constant(&mut cs.namespace(|| "op2_product_tag"))?;
         let op2_quotient_tag =
             Op2::Quotient.allocate_constant(&mut cs.namespace(|| "op2_quotient_tag"))?;
-        let rel2_numequal_tag =
-            AllocatedNum::alloc(&mut cs.namespace(|| "relop2_numequal_tag"), || {
-                Ok(Rel2::NumEqual.as_field())
+        let op2_numequal_tag =
+            AllocatedNum::alloc(&mut cs.namespace(|| "op2_numequal_tag"), || {
+                Ok(Op2::NumEqual.as_field())
             })?;
-        let rel2_equal_tag = AllocatedNum::alloc(&mut cs.namespace(|| "relop2_equal_tag"), || {
-            Ok(Rel2::Equal.as_field())
+        let op2_equal_tag = AllocatedNum::alloc(&mut cs.namespace(|| "op2_equal_tag"), || {
+            Ok(Op2::Equal.as_field())
         })?;
 
         let true_num = allocate_constant(&mut cs.namespace(|| "true"), F::one())?;
@@ -225,9 +219,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             unop_cont_tag,
             emit_cont_tag,
             binop_cont_tag,
-            relop_cont_tag,
             binop2_cont_tag,
-            relop2_cont_tag,
             if_cont_tag,
             op1_car_tag,
             op1_cdr_tag,
@@ -247,8 +239,8 @@ impl<F: LurkField> GlobalAllocations<F> {
             op2_diff_tag,
             op2_product_tag,
             op2_quotient_tag,
-            rel2_equal_tag,
-            rel2_numequal_tag,
+            op2_equal_tag,
+            op2_numequal_tag,
             true_num,
             false_num,
             default_num,
@@ -479,18 +471,6 @@ impl Op1 {
 }
 
 impl Op2 {
-    pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-    ) -> Result<AllocatedNum<F>, SynthesisError> {
-        allocate_constant(
-            &mut cs.namespace(|| format!("{:?} tag", self)),
-            self.as_field(),
-        )
-    }
-}
-
-impl Rel2 {
     pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,

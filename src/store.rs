@@ -90,8 +90,6 @@ pub struct Store<F: LurkField> {
     unop_store: IndexSet<(Op1, ContPtr<F>)>,
     binop_store: IndexSet<(Op2, Ptr<F>, Ptr<F>, ContPtr<F>)>,
     binop2_store: IndexSet<(Op2, Ptr<F>, ContPtr<F>)>,
-    relop_store: IndexSet<(Rel2, Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    relop2_store: IndexSet<(Rel2, Ptr<F>, ContPtr<F>)>,
     if_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
     let_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
     let_rec_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
@@ -432,7 +430,7 @@ impl<F: LurkField> Hash for RawPtr<F> {
     }
 }
 
-// Expressions, Continuations, Op1, Op2, and Rel2 occupy the same namespace in
+// Expressions, Continuations, Op1, Op2 occupy the same namespace in
 // their encoding.
 // As a 16bit integer their representation is as follows
 //    [typ] [value       ]
@@ -443,7 +441,6 @@ impl<F: LurkField> Hash for RawPtr<F> {
 // - `0b0001` for ContTag
 // - `0b0010` for Op1
 // - `0b0011` for Op2
-// - `0b0100` for Rel2
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Expression<'a, F: LurkField> {
@@ -515,17 +512,6 @@ pub enum Continuation<F: LurkField> {
     },
     Binop2 {
         operator: Op2,
-        evaled_arg: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Relop {
-        operator: Rel2,
-        saved_env: Ptr<F>,
-        unevaled_args: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Relop2 {
-        operator: Rel2,
         evaled_arg: Ptr<F>,
         continuation: ContPtr<F>,
     },
@@ -617,6 +603,8 @@ pub enum Op2 {
     Diff,
     Product,
     Quotient,
+    Equal,
+    NumEqual,
     Less,
     Greater,
     LessEqual,
@@ -634,6 +622,8 @@ impl Op2 {
             x if x == Op2::Diff as u16 => Some(Op2::Diff),
             x if x == Op2::Product as u16 => Some(Op2::Product),
             x if x == Op2::Quotient as u16 => Some(Op2::Quotient),
+            x if x == Op2::Equal as u16 => Some(Op2::Equal),
+            x if x == Op2::NumEqual as u16 => Some(Op2::NumEqual),
             x if x == Op2::Less as u16 => Some(Op2::Less),
             x if x == Op2::Greater as u16 => Some(Op2::Greater),
             x if x == Op2::LessEqual as u16 => Some(Op2::LessEqual),
@@ -656,6 +646,8 @@ impl fmt::Display for Op2 {
             Op2::Diff => write!(f, "Diff"),
             Op2::Product => write!(f, "Product"),
             Op2::Quotient => write!(f, "Quotient"),
+            Op2::Equal => write!(f, "Equal"),
+            Op2::NumEqual => write!(f, "NumEqual"),
             Op2::Less => write!(f, "Less"),
             Op2::Greater => write!(f, "Greater"),
             Op2::LessEqual => write!(f, "LessEqual"),
@@ -664,35 +656,6 @@ impl fmt::Display for Op2 {
             Op2::StrCons => write!(f, "StrCons"),
             Op2::Begin => write!(f, "Begin"),
             Op2::Hide => write!(f, "Hide"),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash, Serialize_repr, Deserialize_repr)]
-#[repr(u16)]
-pub enum Rel2 {
-    Equal = 0b0100_0000_0000_0000,
-    NumEqual,
-}
-
-impl Rel2 {
-    pub fn from_u16(x: u16) -> Option<Self> {
-        match x {
-            x if x == Rel2::Equal as u16 => Some(Rel2::Equal),
-            x if x == Rel2::NumEqual as u16 => Some(Rel2::NumEqual),
-            _ => None,
-        }
-    }
-    pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
-        F::from(*self as u64)
-    }
-}
-
-impl fmt::Display for Rel2 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Rel2::Equal => write!(f, "Equal"),
-            Rel2::NumEqual => write!(f, "NumEqual"),
         }
     }
 }
@@ -752,8 +715,6 @@ pub enum ContTag {
     Unop,
     Binop,
     Binop2,
-    Relop,
-    Relop2,
     If,
     Let,
     LetRec,
@@ -780,7 +741,7 @@ impl ContTag {
             f if f == ContTag::Lookup.as_field() => Some(ContTag::Lookup),
             f if f == ContTag::Unop.as_field() => Some(ContTag::Unop),
             f if f == ContTag::Binop.as_field() => Some(ContTag::Binop),
-            f if f == ContTag::Relop.as_field() => Some(ContTag::Relop),
+            f if f == ContTag::Binop2.as_field() => Some(ContTag::Binop2),
             f if f == ContTag::If.as_field() => Some(ContTag::If),
             f if f == ContTag::Let.as_field() => Some(ContTag::Let),
             f if f == ContTag::LetRec.as_field() => Some(ContTag::LetRec),
@@ -813,8 +774,6 @@ impl<F: LurkField> Default for Store<F> {
             unop_store: Default::default(),
             binop_store: Default::default(),
             binop2_store: Default::default(),
-            relop_store: Default::default(),
-            relop2_store: Default::default(),
             if_store: Default::default(),
             let_store: Default::default(),
             let_rec_store: Default::default(),
@@ -1211,32 +1170,6 @@ impl<F: LurkField> Store<F> {
                 let arg = self.intern_scalar_ptr(*evaled_arg, scalar_store)?;
                 let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
                 Some(self.intern_cont_binop2(*operator, arg, cont))
-            }
-            (
-                ContTag::Relop,
-                Some(Relop {
-                    operator,
-                    saved_env,
-                    unevaled_args,
-                    continuation,
-                }),
-            ) => {
-                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
-                let args = self.intern_scalar_ptr(*unevaled_args, scalar_store)?;
-                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
-                Some(self.intern_cont_relop(*operator, env, args, cont))
-            }
-            (
-                ContTag::Relop2,
-                Some(Relop2 {
-                    operator,
-                    evaled_arg,
-                    continuation,
-                }),
-            ) => {
-                let arg = self.intern_scalar_ptr(*evaled_arg, scalar_store)?;
-                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
-                Some(self.intern_cont_relop2(*operator, arg, cont))
             }
             (
                 ContTag::If,
@@ -1646,30 +1579,6 @@ impl<F: LurkField> Store<F> {
         ptr
     }
 
-    pub fn intern_cont_relop(
-        &mut self,
-        op: Rel2,
-        a: Ptr<F>,
-        b: Ptr<F>,
-        c: ContPtr<F>,
-    ) -> ContPtr<F> {
-        let (p, inserted) = self.relop_store.insert_full((op, a, b, c));
-        let ptr = ContPtr(ContTag::Relop, RawPtr::new(p));
-        if inserted {
-            self.dehydrated_cont.push(ptr)
-        }
-        ptr
-    }
-
-    pub fn intern_cont_relop2(&mut self, op: Rel2, a: Ptr<F>, b: ContPtr<F>) -> ContPtr<F> {
-        let (p, inserted) = self.relop2_store.insert_full((op, a, b));
-        let ptr = ContPtr(ContTag::Relop2, RawPtr::new(p));
-        if inserted {
-            self.dehydrated_cont.push(ptr)
-        }
-        ptr
-    }
-
     pub fn intern_cont_if(&mut self, a: Ptr<F>, b: ContPtr<F>) -> ContPtr<F> {
         let (p, inserted) = self.if_store.insert_full((a, b));
         let ptr = ContPtr(ContTag::If, RawPtr::new(p));
@@ -1866,25 +1775,6 @@ impl<F: LurkField> Store<F> {
                 self.binop2_store
                     .get_index(ptr.1.idx())
                     .map(|(a, b, c)| Continuation::Binop2 {
-                        operator: *a,
-                        evaled_arg: *b,
-                        continuation: *c,
-                    })
-            }
-            Relop => {
-                self.relop_store
-                    .get_index(ptr.1.idx())
-                    .map(|(a, b, c, d)| Continuation::Relop {
-                        operator: *a,
-                        saved_env: *b,
-                        unevaled_args: *c,
-                        continuation: *d,
-                    })
-            }
-            Relop2 => {
-                self.relop2_store
-                    .get_index(ptr.1.idx())
-                    .map(|(a, b, c)| Continuation::Relop2 {
                         operator: *a,
                         evaled_arg: *b,
                         continuation: *c,
@@ -2098,19 +1988,6 @@ impl<F: LurkField> Store<F> {
                 evaled_arg,
                 continuation,
             } => self.get_hash_components_binop2(operator, evaled_arg, continuation)?,
-            Relop {
-                operator,
-                saved_env,
-                unevaled_args,
-                continuation,
-            } => {
-                self.get_hash_components_relop(operator, saved_env, unevaled_args, continuation)?
-            }
-            Relop2 {
-                operator,
-                evaled_arg,
-                continuation,
-            } => self.get_hash_components_relop2(operator, evaled_arg, continuation)?,
             If {
                 unevaled_args,
                 continuation,
@@ -2173,33 +2050,6 @@ impl<F: LurkField> Store<F> {
         let unevaled_args = self.get_expr_hash(unevaled_args)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([unevaled_args, cont, def, def])
-    }
-
-    fn get_hash_components_relop2(
-        &self,
-        rel: &Rel2,
-        arg1: &Ptr<F>,
-        cont: &ContPtr<F>,
-    ) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
-        let rel = self.hash_rel2(rel).into_hash_components();
-        let arg1 = self.get_expr_hash(arg1)?.into_hash_components();
-        let cont = self.hash_cont(cont)?.into_hash_components();
-        Some([rel, arg1, cont, def])
-    }
-
-    fn get_hash_components_relop(
-        &self,
-        rel: &Rel2,
-        saved_env: &Ptr<F>,
-        unevaled_args: &Ptr<F>,
-        cont: &ContPtr<F>,
-    ) -> Option<[[F; 2]; 4]> {
-        let rel = self.hash_rel2(rel).into_hash_components();
-        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
-        let unevaled_args = self.get_expr_hash(unevaled_args)?.into_hash_components();
-        let cont = self.hash_cont(cont)?.into_hash_components();
-        Some([rel, saved_env, unevaled_args, cont])
     }
 
     fn get_hash_components_binop2(
@@ -2610,10 +2460,6 @@ impl<F: LurkField> Store<F> {
         ScalarPtr(op.as_field(), F::zero())
     }
 
-    fn hash_rel2(&self, op: &Rel2) -> ScalarPtr<F> {
-        ScalarPtr(op.as_field(), F::zero())
-    }
-
     // An opaque Ptr is one for which we have the hash, but not the preimages.
     // So we cannot open or traverse the enclosed data, but we can manipulate
     // it atomically and include it in containing structures, etc.
@@ -2773,8 +2619,6 @@ pub mod test {
                 (100, Box::new(|_| ContTag::Unop)),
                 (100, Box::new(|_| ContTag::Binop)),
                 (100, Box::new(|_| ContTag::Binop2)),
-                (100, Box::new(|_| ContTag::Relop)),
-                (100, Box::new(|_| ContTag::Relop2)),
                 (100, Box::new(|_| ContTag::If)),
                 (100, Box::new(|_| ContTag::Let)),
                 (100, Box::new(|_| ContTag::LetRec)),
@@ -2918,37 +2762,6 @@ pub mod test {
         );
     }
 
-    impl Arbitrary for Rel2 {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Rel2>)> = vec![
-                (100, Box::new(|_| Rel2::Equal)),
-                (100, Box::new(|_| Rel2::NumEqual)),
-            ];
-            frequency(g, input)
-        }
-    }
-
-    #[quickcheck]
-    fn prop_rel2_ipld(x: Rel2) -> bool {
-        if let Ok(ipld) = to_ipld(x) {
-            if let Ok(y) = from_ipld(ipld) {
-                x == y
-            } else {
-                false
-            }
-        } else {
-            false
-        }
-    }
-
-    #[test]
-    fn unit_rel2_ipld() {
-        assert_eq!(
-            to_ipld(Rel2::Equal).unwrap(),
-            Ipld::Integer(0b0100_0000_0000_0000 as i128)
-        );
-    }
-
     #[test]
     fn test_print_num() {
         let mut store = Store::<Fr>::default();
@@ -2984,13 +2797,12 @@ pub mod test {
         assert_eq!(0b0001_0000_0000_0111, Unop as u16);
         assert_eq!(0b0001_0000_0000_1000, Binop as u16);
         assert_eq!(0b0001_0000_0000_1001, Binop2 as u16);
-        assert_eq!(0b0001_0000_0000_1010, Relop as u16);
-        assert_eq!(0b0001_0000_0000_1011, Relop2 as u16);
-        assert_eq!(0b0001_0000_0000_1100, If as u16);
-        assert_eq!(0b0001_0000_0000_1101, Let as u16);
-        assert_eq!(0b0001_0000_0000_1110, LetRec as u16);
-        assert_eq!(0b0001_0000_0000_1111, Dummy as u16);
-        assert_eq!(0b0001_0000_0001_0000, Terminal as u16);
+        assert_eq!(0b0001_0000_0000_1010, If as u16);
+        assert_eq!(0b0001_0000_0000_1011, Let as u16);
+        assert_eq!(0b0001_0000_0000_1100, LetRec as u16);
+        assert_eq!(0b0001_0000_0000_1101, Dummy as u16);
+        assert_eq!(0b0001_0000_0000_1110, Terminal as u16);
+        assert_eq!(0b0001_0000_0000_1111, Emit as u16);
     }
 
     #[test]
