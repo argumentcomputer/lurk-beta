@@ -1,8 +1,8 @@
 use crate::eval::{empty_sym_env, Evaluator, IO};
+use crate::field::LurkField;
 use crate::store::{ContPtr, ContTag, Expression, Pointer, Ptr, Store, Tag};
 use crate::writer::Write;
 use anyhow::Result;
-use blstrs::Scalar as Fr;
 use rustyline::error::ReadlineError;
 use rustyline::validate::{
     MatchingBracketValidator, ValidationContext, ValidationResult, Validator,
@@ -25,19 +25,19 @@ impl Validator for InputValidator {
 }
 
 #[derive(Clone)]
-pub struct ReplState {
-    env: Ptr<Fr>,
+pub struct ReplState<F: LurkField> {
+    env: Ptr<F>,
     limit: usize,
 }
 
-pub struct Repl {
-    state: ReplState,
+pub struct Repl<F: LurkField> {
+    state: ReplState<F>,
     rl: Editor<InputValidator>,
     history_path: PathBuf,
 }
 
-impl Repl {
-    pub fn new(s: &mut Store<Fr>, limit: usize) -> Result<Self> {
+impl<F: LurkField> Repl<F> {
+    pub fn new(s: &mut Store<F>, limit: usize) -> Result<Self> {
         let history_path = dirs::home_dir()
             .expect("missing home directory")
             .join(".lurk-history");
@@ -69,10 +69,10 @@ impl Repl {
 }
 
 // For the moment, input must be on a single line.
-pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
+pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
     println!("Lurk REPL welcomes you.");
 
-    let mut s = Store::default();
+    let mut s = Store::<F>::default();
     let limit = 100_000_000;
     let mut repl = Repl::new(&mut s, limit)?;
 
@@ -88,6 +88,8 @@ pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
     loop {
         match repl.rl.readline("> ") {
             Ok(line) => {
+                repl.save_history()?;
+
                 let result = repl.state.maybe_handle_command(&mut s, &line);
 
                 match result {
@@ -113,6 +115,7 @@ pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
                             cont: next_cont,
                         },
                         iterations,
+                        _emitted,
                     ) = Evaluator::new(expr, repl.state.env, &mut s, limit).eval();
 
                     print!("[{} iterations] => ", iterations);
@@ -139,13 +142,11 @@ pub fn repl<P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
         }
     }
 
-    repl.save_history()?;
-
     Ok(())
 }
 
-impl ReplState {
-    pub fn new(s: &mut Store<Fr>, limit: usize) -> Self {
+impl<F: LurkField> ReplState<F> {
+    pub fn new(s: &mut Store<F>, limit: usize) -> Self {
         Self {
             env: empty_sym_env(s),
             limit,
@@ -153,9 +154,9 @@ impl ReplState {
     }
     pub fn eval_expr(
         &mut self,
-        expr: Ptr<Fr>,
-        store: &mut Store<Fr>,
-    ) -> (Ptr<Fr>, usize, ContPtr<Fr>) {
+        expr: Ptr<F>,
+        store: &mut Store<F>,
+    ) -> (Ptr<F>, usize, ContPtr<F>, Vec<Ptr<F>>) {
         let (
             IO {
                 expr: result,
@@ -163,9 +164,10 @@ impl ReplState {
                 cont: next_cont,
             },
             limit,
+            emitted,
         ) = Evaluator::new(expr, self.env, store, self.limit).eval();
 
-        (result, limit, next_cont)
+        (result, limit, next_cont, emitted)
     }
 
     /// Returns two bools.
@@ -173,7 +175,7 @@ impl ReplState {
     /// Second bool is true if processing should continue.
     pub fn maybe_handle_command(
         &mut self,
-        store: &mut Store<Fr>,
+        store: &mut Store<F>,
         line: &str,
     ) -> Result<(bool, bool)> {
         let mut chars = line.chars().peekable();
@@ -230,23 +232,26 @@ impl ReplState {
         Ok(result)
     }
 
-    pub fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store<Fr>, path: P) -> Result<()> {
+    pub fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store<F>, path: P) -> Result<()> {
         println!("Loading from {}.", path.as_ref().to_str().unwrap());
         let input = read_to_string(path)?;
+        let mut chars = input.chars().peekable();
 
-        let expr = store.read(&input).unwrap();
-        let (result, _limit, _next_cont) = self.eval_expr(expr, store);
+        while let Some(expr) = store.read_next(&mut chars) {
+            let (result, _limit, _next_cont, _) = self.eval_expr(expr, store);
 
-        self.env = result;
+            self.env = result;
 
+            io::stdout().flush().unwrap();
+        }
         println!("Read: {}", input);
-        io::stdout().flush().unwrap();
+
         Ok(())
     }
 
     pub fn handle_run<P: AsRef<Path> + Copy>(
         &mut self,
-        store: &mut Store<Fr>,
+        store: &mut Store<F>,
         path: P,
     ) -> Result<()> {
         println!("Running from {}.", path.as_ref().to_str().unwrap());
@@ -285,13 +290,13 @@ impl ReplState {
                                 let (first, rest) = store.car_cdr(&rest);
                                 let (second, rest) = store.car_cdr(&rest);
                                 assert!(rest.is_nil());
-                                let (first_evaled, _, _) = self.eval_expr(first, store);
-                                let (second_evaled, _, _) = self.eval_expr(second, store);
-                                assert_eq!(first_evaled, second_evaled);
+                                let (first_evaled, _, _, _) = self.eval_expr(first, store);
+                                let (second_evaled, _, _, _) = self.eval_expr(second, store);
+                                assert!(store.ptr_eq(&first_evaled, &second_evaled));
                             } else if s == &":ASSERT" {
                                 let (first, rest) = store.car_cdr(&rest);
                                 assert!(rest.is_nil());
-                                let (first_evaled, _, _) = self.eval_expr(first, store);
+                                let (first_evaled, _, _, _) = self.eval_expr(first, store);
                                 assert!(!first_evaled.is_nil());
                             } else if s == &":CLEAR" {
                                 self.env = empty_sym_env(store);
@@ -299,7 +304,7 @@ impl ReplState {
                                 let (first, rest) = store.car_cdr(&rest);
 
                                 assert!(rest.is_nil());
-                                let (_, _, continuation) = self.clone().eval_expr(first, store);
+                                let (_, _, continuation, _) = self.clone().eval_expr(first, store);
                                 assert!(continuation.is_error());
                                 // FIXME: bring back catching, or solve otherwise
                                 // std::panic::catch_unwind(||
@@ -308,6 +313,26 @@ impl ReplState {
                                 //     // FIXME: Never panic. Instead return Continuation::Error when evaluating.
                                 //     ()
                                 // }
+                            } else if s == &":ASSERT-EMITTED" {
+                                let (first, rest) = store.car_cdr(&rest);
+                                let (second, rest) = store.car_cdr(&rest);
+
+                                assert!(rest.is_nil());
+                                let (first_evaled, _, _, _) = self.clone().eval_expr(first, store);
+                                let (_, _, _, emitted) = self.eval_expr(second, store);
+                                let (mut first_emitted, mut rest_emitted) =
+                                    store.car_cdr(&first_evaled);
+                                for (i, elem) in emitted.iter().enumerate() {
+                                    if elem != &first_emitted {
+                                        panic!(
+                                            ":ASSERT-EMITTED failed at position {}. Expected {}, but found {}.",
+                                            i,
+                                            first_emitted.fmt_to_string(store),
+                                            elem.fmt_to_string(store),
+                                        );
+                                    }
+                                    (first_emitted, rest_emitted) = store.car_cdr(&rest_emitted);
+                                }
                             } else {
                                 panic!("!({} ...) is unsupported.", s);
                             }
@@ -317,7 +342,7 @@ impl ReplState {
                     _ => panic!("!<COMMAND> form is unsupported."),
                 }
             } else {
-                let (result, _limit, _next_cont) = self.eval_expr(ptr, store);
+                let (result, _limit, _next_cont, _) = self.eval_expr(ptr, store);
 
                 println!("Evaled: {}", result.fmt_to_string(store));
                 io::stdout().flush().unwrap();

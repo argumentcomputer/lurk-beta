@@ -1,6 +1,8 @@
 use crate::field::LurkField;
+use crate::num::Num;
 use crate::store::{
-    ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, Rel2, Store, Tag, Thunk,
+    ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, Rel2, ScalarPointer, Store,
+    Tag, Thunk,
 };
 use crate::writer::Write;
 use log::info;
@@ -120,6 +122,13 @@ impl<F: LurkField, W: Copy> Frame<IO<F>, W> {
             .skip_while(|frame| frame.is_complete())
             .count()
     }
+
+    pub fn input_vector(&self, store: &Store<F>) -> Vec<F> {
+        self.input.to_vector(store)
+    }
+    pub fn output_vector(&self, store: &Store<F>) -> Vec<F> {
+        self.output.to_vector(store)
+    }
 }
 
 pub trait Evaluable<F: LurkField, W> {
@@ -192,6 +201,20 @@ impl<F: LurkField> IO<F> {
             None
         }
     }
+
+    pub fn to_vector(&self, store: &Store<F>) -> Vec<F> {
+        let expr_scalar_ptr = store.get_expr_hash(&self.expr).unwrap();
+        let env_scalar_ptr = store.get_expr_hash(&self.env).unwrap();
+        let cont_scalar_ptr = store.hash_cont(&self.cont).unwrap();
+        vec![
+            *expr_scalar_ptr.tag(),
+            *expr_scalar_ptr.value(),
+            *env_scalar_ptr.tag(),
+            *env_scalar_ptr.value(),
+            *cont_scalar_ptr.tag(),
+            *cont_scalar_ptr.value(),
+        ]
+    }
 }
 
 impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame<T, Witness<F>> {
@@ -243,16 +266,28 @@ impl<'a, 'b, F: LurkField> FrameIt<'a, Witness<F>, F> {
 
     /// Like `.iter().take(n).last()`, but skips intermediary stages, to optimize
     /// for evaluation.
-    fn next_n(mut self, n: usize) -> Option<(Frame<IO<F>, Witness<F>>, Frame<IO<F>, Witness<F>>)> {
+    fn next_n(
+        mut self,
+        n: usize,
+    ) -> Option<(
+        Frame<IO<F>, Witness<F>>,
+        Frame<IO<F>, Witness<F>>,
+        Vec<Ptr<F>>,
+    )> {
         let mut previous_frame = self.frame.clone();
+        let mut emitted: Vec<Ptr<F>> = Vec::new();
         for _ in 0..n {
             if self.frame.is_complete() {
                 break;
             }
             let new_frame = self.frame.next(self.store);
+
+            if let Some(expr) = new_frame.output.maybe_emitted_expression(self.store) {
+                emitted.push(expr);
+            }
             previous_frame = std::mem::replace(&mut self.frame, new_frame);
         }
-        Some((self.frame, previous_frame))
+        Some((self.frame, previous_frame, emitted))
     }
 }
 
@@ -351,7 +386,10 @@ fn reduce_with_witness<F: LurkField>(
                 }
                 _ => unreachable!(),
             },
-            Tag::Nil => Control::ApplyContinuation(expr, env, cont),
+            // Self-evaluating
+            Tag::Nil | Tag::Num | Tag::Fun | Tag::Char | Tag::Str | Tag::Comm => {
+                Control::ApplyContinuation(expr, env, cont)
+            }
             Tag::Sym => {
                 if expr == store.sym("nil") || (expr == store.t()) {
                     // NIL and T are self-evaluating symbols, pass them to the continuation in a thunk.
@@ -496,10 +534,8 @@ fn reduce_with_witness<F: LurkField>(
                     }
                 }
             }
-            Tag::Str => unreachable!(),
-            Tag::Num => Control::ApplyContinuation(expr, env, cont),
-            Tag::Fun => Control::ApplyContinuation(expr, env, cont),
             Tag::Cons => {
+                // This should not fail, since expr is a Cons.
                 let (head, rest) = store.car_cdr(&expr);
                 let lambda = store.sym("lambda");
                 let quote = store.sym("quote");
@@ -592,24 +628,127 @@ fn reduce_with_witness<F: LurkField>(
                     }
                 } else if head == store.sym("cons") {
                     let (arg1, more) = store.car_cdr(&rest);
-                    Control::Return(
-                        arg1,
-                        env,
-                        store.intern_cont_binop(Op2::Cons, env, more, cont),
-                    )
+                    if more.is_nil() {
+                        Control::Return(arg1, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(
+                            arg1,
+                            env,
+                            store.intern_cont_binop(Op2::Cons, env, more, cont),
+                        )
+                    }
+                } else if head == store.sym("strcons") {
+                    let (arg1, more) = store.car_cdr(&rest);
+                    if more.is_nil() {
+                        Control::Return(arg1, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(
+                            arg1,
+                            env,
+                            store.intern_cont_binop(Op2::StrCons, env, more, cont),
+                        )
+                    }
+                } else if head == store.sym("hide") {
+                    let (arg1, more) = store.car_cdr(&rest);
+                    if more.is_nil() {
+                        Control::Return(arg1, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(
+                            arg1,
+                            env,
+                            store.intern_cont_binop(Op2::Hide, env, more, cont),
+                        )
+                    }
+                } else if head == store.sym("begin") {
+                    let (arg1, more) = store.car_cdr(&rest);
+                    if more.is_nil() {
+                        Control::Return(arg1, env, cont)
+                    } else {
+                        Control::Return(
+                            arg1,
+                            env,
+                            store.intern_cont_binop(Op2::Begin, env, more, cont),
+                        )
+                    }
                 } else if head == store.sym("car") {
-                    let (arg1, end) = store.car_cdr(&rest);
+                    let (arg1, end) = match store.car_cdr_mut(&rest) {
+                        Ok((car, cdr)) => (car, cdr),
+                        Err(e) => panic!("{}", e),
+                    };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {
                         Control::Return(arg1, env, store.intern_cont_unop(Op1::Car, cont))
                     }
                 } else if head == store.sym("cdr") {
-                    let (arg1, end) = store.car_cdr(&rest);
+                    let (arg1, end) = match store.car_cdr_mut(&rest) {
+                        Ok((car, cdr)) => (car, cdr),
+                        Err(e) => panic!("{}", e),
+                    };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {
                         Control::Return(arg1, env, store.intern_cont_unop(Op1::Cdr, cont))
+                    }
+                } else if head == store.sym("commit") {
+                    let (arg1, end) = match store.car_cdr_mut(&rest) {
+                        Ok((car, cdr)) => (car, cdr),
+                        Err(e) => panic!("{}", e),
+                    };
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Commit, cont))
+                    }
+                } else if head == store.sym("num") {
+                    let (arg1, end) = match store.car_cdr_mut(&rest) {
+                        Ok((car, cdr)) => (car, cdr),
+                        Err(e) => panic!("{}", e),
+                    };
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Num, cont))
+                    }
+                } else if head == store.sym("comm") {
+                    let (arg1, end) = match store.car_cdr_mut(&rest) {
+                        Ok((car, cdr)) => (car, cdr),
+                        Err(e) => panic!("{}", e),
+                    };
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Comm, cont))
+                    }
+                } else if head == store.sym("char") {
+                    let (arg1, end) = match store.car_cdr_mut(&rest) {
+                        Ok((car, cdr)) => (car, cdr),
+                        Err(e) => panic!("{}", e),
+                    };
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Char, cont))
+                    }
+                } else if head == store.sym("open") {
+                    let (arg1, end) = match store.car_cdr_mut(&rest) {
+                        Ok((car, cdr)) => (car, cdr),
+                        Err(e) => panic!("{}", e),
+                    };
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Open, cont))
+                    }
+                } else if head == store.sym("secret") {
+                    let (arg1, end) = match store.car_cdr_mut(&rest) {
+                        Ok((car, cdr)) => (car, cdr),
+                        Err(e) => panic!("{}", e),
+                    };
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Secret, cont))
                     }
                 } else if head == store.sym("atom") {
                     let (arg1, end) = store.car_cdr(&rest);
@@ -666,6 +805,34 @@ fn reduce_with_witness<F: LurkField>(
                         arg1,
                         env,
                         store.intern_cont_relop(Rel2::Equal, env, more, cont),
+                    )
+                } else if head == store.sym("<") {
+                    let (arg1, more) = store.car_cdr(&rest);
+                    Control::Return(
+                        arg1,
+                        env,
+                        store.intern_cont_binop(Op2::Less, env, more, cont),
+                    )
+                } else if head == store.sym(">") {
+                    let (arg1, more) = store.car_cdr(&rest);
+                    Control::Return(
+                        arg1,
+                        env,
+                        store.intern_cont_binop(Op2::Greater, env, more, cont),
+                    )
+                } else if head == store.sym("<=") {
+                    let (arg1, more) = store.car_cdr(&rest);
+                    Control::Return(
+                        arg1,
+                        env,
+                        store.intern_cont_binop(Op2::LessEqual, env, more, cont),
+                    )
+                } else if head == store.sym(">=") {
+                    let (arg1, more) = store.car_cdr(&rest);
+                    Control::Return(
+                        arg1,
+                        env,
+                        store.intern_cont_binop(Op2::GreaterEqual, env, more, cont),
                     )
                 } else if head == store.sym("if") {
                     let (condition, more) = store.car_cdr(&rest);
@@ -782,8 +949,8 @@ fn apply_continuation<F: LurkField>(
                 _ => unreachable!(),
             },
             _ => {
-                Control::Return(*result, *env, store.intern_cont_error())
                 // Bad function
+                Control::Return(*result, *env, store.intern_cont_error())
             }
         },
         ContTag::Call2 => match store.fetch_cont(cont).unwrap() {
@@ -805,8 +972,8 @@ fn apply_continuation<F: LurkField>(
                     _ => unreachable!(),
                 },
                 _ => {
+                    // Call2 continuation contains a non-function
                     Control::Return(*result, *env, store.intern_cont_error())
-                    // panic!("Call2 continuation contains a non-function: {:?}", function);
                 }
             },
             _ => unreachable!(),
@@ -845,8 +1012,15 @@ fn apply_continuation<F: LurkField>(
                 continuation,
             } => {
                 let val = match operator {
-                    Op1::Car => store.car(result),
-                    Op1::Cdr => store.cdr(result),
+                    Op1::Car => match store.car_cdr_mut(result) {
+                        Ok((car, _)) => car,
+                        Err(_) => return Control::Return(*result, *env, store.intern_cont_error()),
+                        //Err(_) => store.nil(),
+                    },
+                    Op1::Cdr => match store.car_cdr_mut(result) {
+                        Ok((_, cdr)) => cdr,
+                        Err(_) => return Control::Return(*result, *env, store.intern_cont_error()),
+                    },
                     Op1::Atom => match result.tag() {
                         Tag::Cons => store.nil(),
                         _ => store.t(),
@@ -859,6 +1033,39 @@ fn apply_continuation<F: LurkField>(
                             store.intern_cont_emit(continuation),
                         );
                     }
+                    Op1::Open => store
+                        .open_mut(*result)
+                        .expect("hidden value could not be opened"),
+                    Op1::Secret => store
+                        .secret_mut(*result)
+                        .expect("secret could not be extracted"),
+                    Op1::Commit => store.hide(F::zero(), *result),
+                    Op1::Num => match result.tag() {
+                        Tag::Num | Tag::Comm | Tag::Char => {
+                            let scalar_ptr =
+                                store.get_expr_hash(result).expect("expr hash missing");
+                            store.intern_num(crate::Num::Scalar::<F>(*scalar_ptr.value()))
+                        }
+                        _ => return Control::Return(*result, *env, store.intern_cont_error()),
+                    },
+                    Op1::Comm => match result.tag() {
+                        Tag::Num | Tag::Comm => {
+                            let scalar_ptr =
+                                store.get_expr_hash(result).expect("expr hash missing");
+                            store.intern_maybe_opaque_comm(*scalar_ptr.value())
+                        }
+                        _ => return Control::Return(*result, *env, store.intern_cont_error()),
+                    },
+                    Op1::Char => match result.tag() {
+                        Tag::Num | Tag::Char => {
+                            let scalar_ptr =
+                                store.get_expr_hash(result).expect("expr hash missing");
+                            store.get_char(
+                                char::from_u32(scalar_ptr.value().to_u32().unwrap()).unwrap(),
+                            )
+                        }
+                        _ => return Control::Return(*result, *env, store.intern_cont_error()),
+                    },
                 };
                 Control::MakeThunk(val, *env, continuation)
             }
@@ -872,7 +1079,15 @@ fn apply_continuation<F: LurkField>(
                 continuation,
             } => {
                 let (arg2, rest) = store.car_cdr(&unevaled_args);
-                if !rest.is_nil() {
+                if operator == Op2::Begin {
+                    if rest.is_nil() {
+                        Control::Return(arg2, saved_env, continuation)
+                    } else {
+                        let begin = store.sym("begin");
+                        let begin_again = store.cons(begin, unevaled_args);
+                        Control::Return(begin_again, saved_env, continuation)
+                    }
+                } else if !rest.is_nil() {
                     Control::Return(*result, *env, store.intern_cont_error())
                 } else {
                     Control::Return(
@@ -920,7 +1135,30 @@ fn apply_continuation<F: LurkField>(
                             tmp /= b;
                             store.intern_num(tmp)
                         }
+                        Op2::Less => store.less_than(a, b),
+                        Op2::Greater => store.less_than(b, a),
+                        Op2::LessEqual => store.less_equal(a, b),
+                        Op2::GreaterEqual => store.less_equal(b, a),
                         Op2::Cons => store.cons(evaled_arg, *arg2),
+                        Op2::StrCons => {
+                            return Control::Return(*result, *env, store.intern_cont_error())
+                        }
+                        Op2::Hide => store.hide(a.into_scalar(), *arg2),
+                        Op2::Begin => unreachable!(),
+                    },
+                    (Expression::Num(a), _) => match operator {
+                        Op2::Cons => store.cons(evaled_arg, *arg2),
+                        Op2::Hide => store.hide(a.into_scalar(), *arg2),
+                        _ => {
+                            return Control::Return(*result, *env, store.intern_cont_error());
+                        }
+                    },
+                    (Expression::Char(_), Expression::Str(_)) => match operator {
+                        Op2::StrCons => store.strcons(evaled_arg, *arg2),
+                        Op2::Cons => store.cons(evaled_arg, *arg2),
+                        _ => {
+                            return Control::Return(*result, *env, store.intern_cont_error());
+                        }
                     },
                     _ => match operator {
                         Op2::Cons => store.cons(evaled_arg, *arg2),
@@ -1139,12 +1377,14 @@ where
         }
     }
 
-    pub fn eval(&mut self) -> (IO<F>, usize) {
+    pub fn eval(&mut self) -> (IO<F>, usize, Vec<Ptr<F>>) {
         let initial_input = self.initial();
         let frame_iterator = FrameIt::new(initial_input, self.store);
 
         // Initial input performs one reduction, so we need limit - 1 more.
-        if let Some((ultimate_frame, _penultimate_frame)) = frame_iterator.next_n(self.limit - 1) {
+        if let Some((ultimate_frame, _penultimate_frame, emitted)) =
+            frame_iterator.next_n(self.limit - 1)
+        {
             let output = ultimate_frame.output;
 
             let was_terminal = ultimate_frame.is_complete();
@@ -1154,7 +1394,7 @@ where
             }
             let iterations = if was_terminal { i } else { i + 1 };
             // NOTE: We compute a terminal frame but don't include it in the iteration count.
-            (output, iterations)
+            (output, iterations, emitted)
         } else {
             panic!("xxx")
         }
@@ -1247,6 +1487,23 @@ fn extend_closure<F: LurkField>(fun: &Ptr<F>, rec_env: &Ptr<F>, store: &mut Stor
     }
 }
 
+impl<F: LurkField> Store<F> {
+    fn as_lurk_boolean(&mut self, x: bool) -> Ptr<F> {
+        if x {
+            self.t()
+        } else {
+            self.nil()
+        }
+    }
+    fn less_than(&mut self, a: Num<F>, b: Num<F>) -> Ptr<F> {
+        self.as_lurk_boolean(a.is_less_than(b))
+    }
+
+    fn less_equal(&mut self, a: Num<F>, b: Num<F>) -> Ptr<F> {
+        self.as_lurk_boolean(a.is_less_than(b) || a.is_equal(b))
+    }
+}
+
 #[allow(dead_code)]
 fn lookup<F: LurkField>(env: &Ptr<F>, var: &Ptr<F>, store: &Store<F>) -> Ptr<F> {
     assert!(matches!(var.tag(), Tag::Sym));
@@ -1265,11 +1522,91 @@ fn lookup<F: LurkField>(env: &Ptr<F>, var: &Ptr<F>, store: &Store<F>) -> Ptr<F> 
     }
 }
 
+// Convenience functions, mostly for use in tests.
+
+pub fn eval_to_ptr<F: LurkField>(s: &mut Store<F>, src: &str) -> Ptr<F> {
+    let expr = s.read(src).unwrap();
+    let limit = 1000000;
+    Evaluator::new(expr, empty_sym_env(s), s, limit)
+        .eval()
+        .0
+        .expr
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::writer::Write;
     use blstrs::Scalar as Fr;
+
+    fn test_aux(
+        s: &mut Store<Fr>,
+        expr: &str,
+        expected_result: Option<Ptr<Fr>>,
+        expected_env: Option<Ptr<Fr>>,
+        expected_cont: Option<ContPtr<Fr>>,
+        expected_emitted: Option<Vec<Ptr<Fr>>>,
+        expected_iterations: usize,
+    ) {
+        let ptr = s.read(expr).unwrap();
+
+        test_aux2(
+            s,
+            &ptr,
+            expected_result,
+            expected_env,
+            expected_cont,
+            expected_emitted,
+            expected_iterations,
+        )
+    }
+
+    fn test_aux2(
+        s: &mut Store<Fr>,
+        expr: &Ptr<Fr>,
+        expected_result: Option<Ptr<Fr>>,
+        expected_env: Option<Ptr<Fr>>,
+        expected_cont: Option<ContPtr<Fr>>,
+        expected_emitted: Option<Vec<Ptr<Fr>>>,
+        expected_iterations: usize,
+    ) {
+        let limit = 100000;
+        let env = empty_sym_env(&s);
+        let (
+            IO {
+                expr: new_expr,
+                env: new_env,
+                cont: new_cont,
+            },
+            iterations,
+            emitted,
+        ) = Evaluator::new(*expr, env, s, limit).eval();
+
+        if let Some(expected_result) = expected_result {
+            dbg!(
+                &expected_result.fmt_to_string(&s),
+                &new_expr.fmt_to_string(&s),
+            );
+            assert!(s.ptr_eq(&expected_result, &new_expr));
+        }
+        if let Some(expected_env) = expected_env {
+            assert!(s.ptr_eq(&expected_env, &new_env));
+        }
+        if let Some(expected_cont) = expected_cont {
+            assert_eq!(expected_cont, new_cont);
+        } else {
+            assert_eq!(s.intern_cont_terminal(), new_cont);
+        }
+        if let Some(expected_emitted) = expected_emitted {
+            assert_eq!(expected_emitted.len(), emitted.len());
+
+            assert!(expected_emitted
+                .iter()
+                .zip(emitted)
+                .all(|(a, b)| s.ptr_eq(a, &b)));
+        }
+        assert_eq!(expected_iterations, iterations);
+    }
 
     #[test]
     fn test_lookup() {
@@ -1312,21 +1649,11 @@ mod test {
 
     #[test]
     fn evaluate_simple() {
-        let mut store = Store::<Fr>::default();
+        let s = &mut Store::<Fr>::default();
 
-        let limit = 20;
-        let val = store.num(999);
-        let (
-            IO {
-                expr: result_expr,
-                env: _env,
-                cont: _cont,
-            },
-            iterations,
-        ) = Evaluator::new(val, empty_sym_env(&store), &mut store, limit).eval();
-
-        assert_eq!(1, iterations);
-        assert_eq!(&result_expr, &val);
+        let expr = "999";
+        let expected = s.num(999);
+        test_aux(s, expr, Some(expected), None, None, None, 1);
     }
 
     #[test]
@@ -1348,6 +1675,7 @@ mod test {
                     cont: _cont,
                 },
                 iterations,
+                _emitted,
             ) = Evaluator::new(var, env, &mut store, limit).eval();
 
             assert_eq!(1, iterations);
@@ -1362,6 +1690,7 @@ mod test {
                     cont: _cont,
                 },
                 iterations,
+                _emitted,
             ) = Evaluator::new(var, env2, &mut store, limit).eval();
 
             assert_eq!(2, iterations);
@@ -1389,554 +1718,302 @@ mod test {
 
     #[test]
     fn evaluate_cons() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
+        let s = &mut Store::<Fr>::default();
+        let expr = "(cons 1 2)";
+
         let car = s.num(1);
         let cdr = s.num(2);
-        let val = s.cons(car, cdr);
-        let expr = s.read("(cons 1 2)").unwrap();
-
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(3, iterations);
-        assert_eq!(val, result_expr);
-    }
-
-    #[test]
-    fn evaluate_emit() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let val = s.num(123);
-        let expr = s.read("(emit 123)").unwrap();
-
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(val, result_expr);
-        assert_eq!(3, iterations);
+        let expected = s.cons(car, cdr);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
     fn emit_output() {
-        let mut s = Store::<Fr>::default();
-        let limit = 2;
-        let val = s.num(123);
-        let expr = s.read("(emit 123)").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(emit 123)";
 
-        let (output, iterations) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(2, iterations);
-        assert_eq!(Some(val), output.maybe_emitted_expression(&s));
+        let expected = s.num(123);
+        let emitted = vec![expected];
+        let terminal = s.get_cont_terminal();
+        test_aux(
+            s,
+            expr,
+            Some(expected),
+            None,
+            Some(terminal),
+            Some(emitted),
+            3,
+        );
     }
 
     #[test]
     fn evaluate_lambda() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let val = s.num(123);
-        let expr = s.read("((lambda(x) x) 123)").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "((lambda(x) x) 123)";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(4, iterations);
-        assert_eq!(val, result_expr);
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
     }
 
     #[test]
     fn evaluate_lambda2() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let val = s.num(123);
-        let expr = s.read("((lambda (y) ((lambda (x) y) 321)) 123)").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "((lambda (y) ((lambda (x) y) 321)) 123)";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(9, iterations);
-        assert_eq!(val, result_expr);
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
     }
 
     #[test]
     fn evaluate_lambda3() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let val = s.num(123);
-        let expr = s
-            .read("((lambda (y) ((lambda (x) ((lambda (z) z) x)) y)) 123)")
-            .unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "((lambda (y) ((lambda (x) ((lambda (z) z) x)) y)) 123)";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(10, iterations);
-        assert_eq!(val, result_expr);
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 10);
     }
 
     #[test]
     fn evaluate_lambda4() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let _val = s.num(999);
-        let val2 = s.num(888);
-        let expr = s
+        let s = &mut Store::<Fr>::default();
+        let expr =
             // NOTE: We pass two different values. This tests which is returned.
-            .read("((lambda (y) ((lambda (x) ((lambda (z) z) x)) 888)) 999)")
-            .unwrap();
+            "((lambda (y) ((lambda (x) ((lambda (z) z) x)) 888)) 999)";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(10, iterations);
-        assert_eq!(val2, result_expr);
+        let expected = s.num(888);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 10);
     }
 
     #[test]
     fn evaluate_lambda5() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let val = s.num(999);
-        let expr = s
+        let s = &mut Store::<Fr>::default();
+        let expr =
             // Bind a function to the name FN, then call it.
-            .read("(((lambda (fn) (lambda (x) (fn x))) (lambda (y) y)) 999)")
-            .unwrap();
+            "(((lambda (fn) (lambda (x) (fn x))) (lambda (y) y)) 999)";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(13, iterations);
-        assert_eq!(val, result_expr);
+        let expected = s.num(999);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 13);
     }
 
     #[test]
     fn evaluate_sum() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let expr = s.read("(+ 2 (+ 3 4))").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(+ 2 (+ 3 4))";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(6, iterations);
-        assert_eq!(s.num(9), result_expr);
+        let expected = s.num(9);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 6);
     }
 
     #[test]
     fn evaluate_diff() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let expr = s.read("(- 9 5)").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(- 9 5)";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(3, iterations);
-        assert_eq!(s.num(4), result_expr);
+        let expected = s.num(4);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
     fn evaluate_product() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let expr = s.read("(* 9 5)").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(* 9 5)";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(3, iterations);
-        assert_eq!(s.num(45), result_expr);
+        let expected = s.num(45);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
     fn evaluate_quotient() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let expr = s.read("(/ 21 7)").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(/ 21 7)";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(3, iterations);
-        assert_eq!(s.num(3), result_expr);
+        let expected = s.num(3);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
     fn evaluate_quotient_divide_by_zero() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let expr = s.read("(/ 21 0)").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(/ 21 0)";
 
-        Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 3);
     }
 
     #[test]
     fn evaluate_num_equal() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
+        let s = &mut Store::<Fr>::default();
 
         {
-            let expr = s.read("(= 5 5)").unwrap();
+            let expr = "(= 5 5)";
 
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(3, iterations);
             // TODO: Consider special-casing T, like NIL, and force it to the
             // immediate value 1 (with Symbol type-tag). That way boolean logic
             // will work out. It might be more consistent to have an explicit
             // boolean type (like Scheme), though. Otherwise we will have to
             // think about handling of symbol names (if made explicit), since
             // neither T/NIL as 1/0 will *not* be hashes of their symbol names.
-            assert_eq!(s.t(), result_expr);
+            let expected = s.t();
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
         {
-            let expr = s.read("(= 5 6)").unwrap();
+            let expr = "(= 5 6)";
 
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(3, iterations);
-            assert!(result_expr.is_nil());
+            let expected = s.nil();
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
     }
 
     #[test]
     fn evaluate_adder1() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let expr = s.read("(((lambda (x) (lambda (y) (+ x y))) 2) 3)").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(((lambda (x) (lambda (y) (+ x y))) 2) 3)";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(13, iterations);
-        assert_eq!(s.num(5), result_expr);
+        let expected = s.num(5);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 13);
     }
 
     // Enable this when we have LET.
     #[test]
     fn evaluate_adder2() {
-        let mut s = Store::<Fr>::default();
-        let limit = 25;
-        let expr = s
-            .read(
-                "(let ((make-adder (lambda (x) (lambda (y) (+ x y)))))
-                   ((make-adder 2) 3))",
-            )
-            .unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(let ((make-adder (lambda (x) (lambda (y) (+ x y)))))
+                   ((make-adder 2) 3))";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(15, iterations);
-        assert_eq!(s.num(5), result_expr);
+        let expected = s.num(5);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 15);
     }
 
     #[test]
     fn evaluate_let_simple() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let expr = s.read("(let ((a 1)) a)").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(let ((a 1)) a)";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(3, iterations);
-        assert_eq!(s.num(1), result_expr);
+        let expected = s.num(1);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
     fn evaluate_empty_let_bug() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let expr = s.read("(let () (+ 1 2))").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(let () (+ 1 2))";
 
-        let mut evaluator = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit);
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = evaluator.eval();
-
-        assert_eq!(s.num(3), result_expr);
-        assert_eq!(4, iterations);
+        let expected = s.num(3);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
     }
 
     #[test]
     fn evaluate_let() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let expr = s
-            .read(
-                "(let ((a 1)
+        let s = &mut Store::<Fr>::default();
+        let expr = "(let ((a 1)
                         (b 2))
-                   (+ a b))",
-            )
-            .unwrap();
+                   (+ a b))";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(10, iterations);
-        assert_eq!(s.num(3), result_expr);
+        let expected = s.num(3);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 10);
     }
 
     #[test]
     fn evaluate_let_empty_error() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let expr = s.read("(let)").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(let)";
 
-        let (
-            IO {
-                expr: _result_expr,
-                env: _new_env,
-                cont: continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert!(continuation.is_error());
-        assert_eq!(1, iterations);
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
     }
 
     #[test]
     fn evaluate_let_empty_body_error() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let expr = s.read("(let ((a 1)))").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(let ((a 1)))";
 
-        let (
-            IO {
-                expr: _result_expr,
-                env: _new_env,
-                cont: continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert!(continuation.is_error());
-        assert_eq!(1, iterations);
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
     }
 
     #[test]
     fn evaluate_letrec_empty_error() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let expr = s.read("(letrec)").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(letrec)";
 
-        let (
-            IO {
-                expr: _result_expr,
-                env: _new_env,
-                cont: continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert!(continuation.is_error());
-        assert_eq!(1, iterations);
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
     }
 
     #[test]
     fn evaluate_letrec_empty_body_error() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let expr = s.read("(letrec ((a 1)))").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(letrec ((a 1)))";
 
-        let (
-            IO {
-                expr: _result_expr,
-                env: _new_env,
-                cont: continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert!(continuation.is_error());
-        assert_eq!(1, iterations);
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
     }
 
     #[test]
     fn evaluate_letrec_body_nil() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let expr = s.read("(eq nil (let () nil))").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(eq nil (let () nil))";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(4, iterations);
-        assert_eq!(s.t(), result_expr);
+        let expected = s.t();
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
     }
 
     #[test]
     fn evaluate_let_parallel_binding() {
-        let mut s = Store::<Fr>::default();
-        let limit = 20;
-        let expr = s.read("(let ((a 1) (b a)) b)").unwrap();
+        let s = &mut Store::<Fr>::default();
+        let expr = "(let ((a 1) (b a)) b)";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-        assert_eq!(5, iterations);
-        assert_eq!(s.num(1), result_expr);
+        let expected = s.num(1);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 5)
     }
 
     #[test]
     fn evaluate_arithmetic_let() {
-        let mut s = Store::<Fr>::default();
-        let limit = 100;
-        let expr = s
-            .read(
-                "(let ((a 5)
+        let s = &mut Store::<Fr>::default();
+        let expr = "(let ((a 5)
                         (b 1)
                         (c 2))
-                   (/ (+ a b) c))",
-            )
-            .unwrap();
+                   (/ (+ a b) c))";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-        assert_eq!(18, iterations);
-        assert_eq!(s.num(3), result_expr);
-
-        assert!(new_env.is_nil());
+        let expected = s.num(3);
+        let new_env = s.nil();
+        let terminal = s.get_cont_terminal();
+        test_aux(
+            s,
+            expr,
+            Some(expected),
+            Some(new_env),
+            Some(terminal),
+            None,
+            18,
+        );
     }
 
     #[test]
     // Not because it's efficient, but to prove we can.
     fn evaluate_fundamental_conditional() {
-        let limit = 100;
         {
-            let mut s = Store::<Fr>::default();
-            let expr = s
-                .read(
-                    "(let ((true (lambda (a)
+            let s = &mut Store::<Fr>::default();
+            let expr = "(let ((true (lambda (a)
                                     (lambda (b)
                                       a)))
                             (false (lambda (a)
@@ -1946,27 +2023,15 @@ mod test {
                                    (lambda (b)
                                      (lambda (cond)
                                        ((cond a) b))))))
-                       (((iff 5) 6) true))",
-                )
-                .unwrap();
+                       (((iff 5) 6) true))";
 
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(35, iterations);
-            assert_eq!(s.num(5), result_expr);
+            let expected = s.num(5);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 35);
         }
         {
-            let mut s = Store::<Fr>::default();
-            let expr = s
-                .read(
-                    "(let ((true (lambda (a)
+            let s = &mut Store::<Fr>::default();
+            let expr = "(let ((true (lambda (a)
                                     (lambda (b)
                                    a)))
                             (false (lambda (a)
@@ -1976,226 +2041,128 @@ mod test {
                                    (lambda (b)
                                      (lambda (cond)
                                        ((cond a) b))))))
-                       (((iff 5) 6) false))",
-                )
-                .unwrap();
+                       (((iff 5) 6) false))";
 
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(32, iterations);
-            assert_eq!(s.num(6), result_expr);
+            let expected = s.num(6);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 32);
         }
     }
 
     #[test]
     fn evaluate_if() {
-        let limit = 100;
         {
-            let mut s = Store::<Fr>::default();
-            let expr = s.read("(if t 5 6)").unwrap();
+            let s = &mut Store::<Fr>::default();
+            let expr = "(if t 5 6)";
 
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(3, iterations);
-            assert_eq!(s.num(5), result_expr);
+            let expected = s.num(5);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
         {
-            let mut s = Store::<Fr>::default();
-            let expr = s.read("(if nil 5 6)").unwrap();
+            let s = &mut Store::<Fr>::default();
+            let expr = "(if nil 5 6)";
 
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(3, iterations);
-            assert_eq!(s.num(6), result_expr);
+            let expected = s.num(6);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
     }
 
     #[test]
     fn evaluate_fully_evaluates() {
-        let limit = 100;
         {
-            let mut s = Store::<Fr>::default();
-            let expr = s.read("(if t (+ 5 5) 6)").unwrap();
+            let s = &mut Store::<Fr>::default();
+            let expr = "(if t (+ 5 5) 6)";
 
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(5, iterations);
-            assert_eq!(s.num(10), result_expr);
+            let expected = s.num(10);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
         }
     }
 
     #[test]
     fn evaluate_recursion1() {
-        let mut s = Store::<Fr>::default();
-        let limit = 200;
-        let expr = s
-            .read(
-                "(letrec ((exp (lambda (base)
+        let s = &mut Store::<Fr>::default();
+        let expr = "(letrec ((exp (lambda (base)
                                   (lambda (exponent)
                                     (if (= 0 exponent)
                                         1
                                         (* base ((exp base) (- exponent 1))))))))
-                   ((exp 5) 3))",
-            )
-            .unwrap();
+                   ((exp 5) 3))";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-        assert_eq!(91, iterations);
-        assert_eq!(s.num(125), result_expr);
+        let expected = s.num(125);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 91);
     }
 
     #[test]
     fn evaluate_recursion2() {
-        let mut s = Store::<Fr>::default();
-        let limit = 300;
-        let expr = s
-            .read(
-                "(letrec ((exp (lambda (base)
+        let s = &mut Store::<Fr>::default();
+        let expr = "(letrec ((exp (lambda (base)
                                   (lambda (exponent)
                                      (lambda (acc)
                                        (if (= 0 exponent)
                                           acc
                                           (((exp base) (- exponent 1)) (* acc base))))))))
-                   (((exp 5) 5) 1))",
-            )
-            .unwrap();
+                   (((exp 5) 5) 1))";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-        assert_eq!(201, iterations);
-        assert_eq!(s.num(3125), result_expr);
+        let expected = s.num(3125);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 201);
     }
 
     #[test]
     fn evaluate_recursion_multiarg() {
-        let mut s = Store::<Fr>::default();
-        let limit = 300;
-        let expr = s
-            .read(
-                "(letrec ((exp (lambda (base exponent)
+        let s = &mut Store::<Fr>::default();
+        let expr = "(letrec ((exp (lambda (base exponent)
                                   (if (= 0 exponent)
                                       1
                                       (* base (exp base (- exponent 1)))))))
-                          (exp 5 3))",
-            )
-            .unwrap();
+                          (exp 5 3))";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-        assert_eq!(95, iterations);
-        assert_eq!(s.num(125), result_expr);
+        let expected = s.num(125);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 95);
     }
 
     #[test]
     fn evaluate_recursion_optimized() {
-        let mut s = Store::<Fr>::default();
-        let limit = 300;
-        let expr = s
-            .read(
-                "(let ((exp (lambda (base)
+        let s = &mut Store::<Fr>::default();
+        let expr = "(let ((exp (lambda (base)
                                (letrec ((base-inner
                                           (lambda (exponent)
                                             (if (= 0 exponent)
                                                 1
                                                 (* base (base-inner (- exponent 1)))))))
                                         base-inner))))
-                    ((exp 5) 3))",
-            )
-            .unwrap();
+                    ((exp 5) 3))";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-        assert_eq!(75, iterations);
-        assert_eq!(s.num(125), result_expr);
+        let expected = s.num(125);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 75);
     }
 
     #[test]
     fn evaluate_tail_recursion() {
-        let mut s = Store::<Fr>::default();
-        let limit = 300;
-        let expr = s
-            .read(
-                "(letrec ((exp (lambda (base)
+        let s = &mut Store::<Fr>::default();
+        let expr = "(letrec ((exp (lambda (base)
                                   (lambda (exponent-remaining)
                                     (lambda (acc)
                                       (if (= 0 exponent-remaining)
                                           acc
                                           (((exp base) (- exponent-remaining 1)) (* acc base))))))))
-                          (((exp 5) 3) 1))",
-            )
-            .unwrap();
+                          (((exp 5) 3) 1))";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-        assert_eq!(129, iterations);
-        assert_eq!(s.num(125), result_expr);
+        let expected = s.num(125);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 129);
     }
 
     #[test]
     fn evaluate_tail_recursion_somewhat_optimized() {
-        let mut s = Store::<Fr>::default();
-        let limit = 300;
-        let expr = s
-            .read(
+        let s = &mut Store::<Fr>::default();
+        let expr =
                 "(letrec ((exp (lambda (base)
                              (letrec ((base-inner
                                         (lambda (exponent-remaining)
@@ -2204,77 +2171,41 @@ mod test {
                                               acc
                                              ((base-inner (- exponent-remaining 1)) (* acc base)))))))
                                       base-inner))))
-                   (((exp 5) 3) 1))",
-            )
-            .unwrap();
+                   (((exp 5) 3) 1))";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-        assert_eq!(110, iterations);
-        assert_eq!(s.num(125), result_expr);
+        let expected = s.num(125);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 110);
     }
 
     #[test]
     fn evaluate_multiple_letrec_bindings() {
-        let mut s = Store::<Fr>::default();
-        let limit = 300;
-        let expr = s
-            .read(
-                "(letrec ((double (lambda (x) (* 2 x)))
+        let s = &mut Store::<Fr>::default();
+        let expr = "(letrec ((double (lambda (x) (* 2 x)))
                            (square (lambda (x) (* x x))))
-                   (+ (square 3) (double 2)))",
-            )
-            .unwrap();
+                   (+ (square 3) (double 2)))";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-        assert_eq!(22, iterations);
-        assert_eq!(s.num(13), result_expr);
+        let expected = s.num(13);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 22);
     }
 
     #[test]
     fn evaluate_multiple_letrec_bindings_referencing() {
-        let mut s = Store::<Fr>::default();
-        let limit = 300;
-        let expr = s
-            .read(
-                "(letrec ((double (lambda (x) (* 2 x)))
+        let s = &mut Store::<Fr>::default();
+        let expr = "(letrec ((double (lambda (x) (* 2 x)))
                            (double-inc (lambda (x) (+ 1 (double x)))))
-                   (+ (double 3) (double-inc 2)))",
-            )
-            .unwrap();
+                   (+ (double 3) (double-inc 2)))";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-        assert_eq!(31, iterations);
-        assert_eq!(s.num(11), result_expr);
+        let expected = s.num(11);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 31);
     }
 
     #[test]
     fn evaluate_multiple_letrec_bindings_recursive() {
-        let mut s = Store::<Fr>::default();
-        let limit = 500;
-        let expr = s
-            .read(
-                "(letrec ((exp (lambda (base exponent)
+        let s = &mut Store::<Fr>::default();
+        let expr = "(letrec ((exp (lambda (base exponent)
                                   (if (= 0 exponent)
                                       1
                                       (* base (exp base (- exponent 1))))))
@@ -2287,98 +2218,52 @@ mod test {
                                       1
                                       (* base (exp3 base (- exponent 1)))))))
                    (+ (+ (exp 3 2) (exp2 2 3))
-                      (exp3 4 2)))",
-            )
-            .unwrap();
+                      (exp3 4 2)))";
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-        assert_eq!(242, iterations);
-        assert_eq!(s.num(33), result_expr);
+        let expected = s.num(33);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 242);
     }
 
     #[test]
     fn evaluate_eq() {
         {
-            let mut s = Store::<Fr>::default();
-            let limit = 20;
-            let expr = s.read("(eq 'a 'a)").unwrap();
+            let s = &mut Store::<Fr>::default();
+            let expr = "(eq 'a 'a)";
 
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(3, iterations);
-            assert_eq!(s.t(), result_expr);
+            let expected = s.t();
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
         {
-            let mut s = Store::<Fr>::default();
-            let limit = 20;
-            let expr = s.read("(eq 'a 1)").unwrap();
+            let s = &mut Store::<Fr>::default();
+            let expr = "(eq 'a 1)";
 
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(3, iterations);
-            assert!(result_expr.is_nil());
+            let expected = s.nil();
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
     }
     #[test]
     fn evaluate_zero_arg_lambda() {
         {
-            let mut s = Store::<Fr>::default();
-            let limit = 20;
-            let expr = s.read("((lambda () 123))").unwrap();
+            let s = &mut Store::<Fr>::default();
+            let expr = "((lambda () 123))";
 
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(3, iterations);
-            assert_eq!(s.num(123), result_expr);
+            let expected = s.num(123);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
         {
-            let mut s = Store::<Fr>::default();
-            let limit = 20;
-            let expr = s
-                .read("(letrec ((x 9) (f (lambda () (+ x 1)))) (f))")
-                .unwrap();
+            let s = &mut Store::<Fr>::default();
+            let expr = "(letrec ((x 9) (f (lambda () (+ x 1)))) (f))";
 
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(s.num(10), result_expr);
-            assert_eq!(12, iterations);
+            let expected = s.num(10);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 12);
         }
     }
+
     #[test]
     fn evaluate_zero_arg_lambda_variants() {
         {
@@ -2393,91 +2278,61 @@ mod test {
                     cont: _continuation,
                 },
                 iterations,
+                _emitted,
             ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(crate::store::Tag::Fun, result_expr.tag());
             assert_eq!(3, iterations);
         }
         {
-            let mut s = Store::<Fr>::default();
-            let limit = 20;
-            let expr = s.read("((lambda () 123) 1)").unwrap();
+            let s = &mut Store::<Fr>::default();
+            let expr = "((lambda () 123) 1)";
 
-            let (
-                IO {
-                    expr: _result_expr,
-                    env: _new_env,
-                    cont: continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(s.intern_cont_error(), continuation);
-            assert_eq!(3, iterations);
+            let error = s.get_cont_error();
+            test_aux(s, expr, None, None, Some(error), None, 3);
         }
         {
-            let mut s = Store::<Fr>::default();
-            let limit = 20;
-            let expr = s.read("(123)").unwrap();
+            let s = &mut Store::<Fr>::default();
+            let expr = "(123)";
 
-            let (
-                IO {
-                    expr: _result_expr,
-                    env: _new_env,
-                    cont: continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(s.intern_cont_error(), continuation);
-            assert_eq!(2, iterations);
+            let error = s.get_cont_error();
+            test_aux(s, expr, None, None, Some(error), None, 2);
         }
     }
 
     #[test]
     fn evaluate_make_tree() {
         {
-            let mut s = Store::<Fr>::default();
-            let limit = 800;
-            let expr = s.read("(letrec ((mapcar (lambda (f list)
-                                                             (if (eq list nil)
-                                                                 nil
-                                                                 (cons (f (car list)) (mapcar f (cdr list))))))
-                                         (make-row (lambda (list)
-                                                     (if (eq list nil)
-                                                         nil
-                                                         (let ((cdr (cdr list)))
-                                                           (cons (cons (car list) (car cdr))
-                                                                 (make-row (cdr cdr)))))))
-                                         (make-tree-aux (lambda (list)
-                                                          (let ((row (make-row list)))
-                                                            (if (eq (cdr row) nil)
-                                                                row
-                                                                (make-tree-aux row)))))
-                                         (make-tree (lambda (list)
-                                                      (car (make-tree-aux list))))
-                                         (reverse-tree (lambda (tree)
-                                                         (if (atom tree)
-                                                             tree
-                                                             (cons (reverse-tree (cdr tree))
-                                                                   (reverse-tree (car tree)))))))
-                                (reverse-tree (make-tree '(a b c d e f g h))))").unwrap();
+            let s = &mut Store::<Fr>::default();
+            let expr = "(letrec ((mapcar (lambda (f list)
+                                                        (if (eq list nil)
+                                                            nil
+                                                            (cons (f (car list)) (mapcar f (cdr list))))))
+                                    (make-row (lambda (list)
+                                                (if (eq list nil)
+                                                    nil
+                                                    (let ((cdr (cdr list)))
+                                                    (cons (cons (car list) (car cdr))
+                                                            (make-row (cdr cdr)))))))
+                                    (make-tree-aux (lambda (list)
+                                                    (let ((row (make-row list)))
+                                                    (if (eq (cdr row) nil)
+                                                        row
+                                                        (make-tree-aux row)))))
+                                    (make-tree (lambda (list)
+                                                (car (make-tree-aux list))))
+                                    (reverse-tree (lambda (tree)
+                                                    (if (atom tree)
+                                                        tree
+                                                        (cons (reverse-tree (cdr tree))
+                                                            (reverse-tree (car tree)))))))
+                        (reverse-tree (make-tree '(a b c d e f g h))))";
 
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(493, iterations);
-            assert_eq!(
-                s.read("(((h . g) . (f . e)) . ((d . c) . (b . a)))")
-                    .unwrap(),
-                result_expr
-            );
+            let expected = s
+                .read("(((h . g) . (f . e)) . ((d . c) . (b . a)))")
+                .unwrap();
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 493);
         }
     }
 
@@ -2505,6 +2360,7 @@ mod test {
                     cont: _continuation,
                 },
                 iterations,
+                _emitted,
             ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
 
             assert_eq!(100, iterations);
@@ -2513,63 +2369,35 @@ mod test {
     #[test]
     fn evaluate_map_tree_bug() {
         {
-            let mut s = Store::<Fr>::default();
-            let limit = 1000;
-            let expr = s
-                .read(
-                    "(letrec ((map-tree (lambda (f tree)
+            let s = &mut Store::<Fr>::default();
+            let expr = "(letrec ((map-tree (lambda (f tree)
                       (if (atom tree)
                           (f tree)
                           (cons (map-tree f (car tree))
                                 (map-tree f (cdr tree)))))))
-         (map-tree (lambda (x) (+ 1 x)) '((1 . 2) . (3 . 4))))",
-                )
-                .unwrap();
+         (map-tree (lambda (x) (+ 1 x)) '((1 . 2) . (3 . 4))))";
 
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(s.read("((2 . 3) . (4 . 5))").unwrap(), result_expr);
-
-            assert_eq!(170, iterations);
+            let expected = s.read("((2 . 3) . (4 . 5))").unwrap();
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 170);
         }
     }
+
     #[test]
     fn evaluate_map_tree_relop_bug() {
         {
             // Reuse map-tree failure case to test Relop behavior.
             // This failed initially and tests regression.
-            let mut s = Store::<Fr>::default();
-            let limit = 1000;
-            let expr = s
-                .read(
-                    "(letrec ((map-tree (lambda (f tree)
+            let s = &mut Store::<Fr>::default();
+            let expr = "(letrec ((map-tree (lambda (f tree)
                                            (if (atom tree)
                                              (f tree)
                                                (= (map-tree f (car tree))
                                                   (map-tree f (cdr tree)))))))
-                       (map-tree (lambda (x) (+ 1 x)) '((1 . 2) . (3 . 4))))",
-                )
-                .unwrap();
-
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert!(result_expr.is_nil());
-
-            assert_eq!(169, iterations);
+                       (map-tree (lambda (x) (+ 1 x)) '((1 . 2) . (3 . 4))))";
+            let expected = s.nil();
+            let error = s.get_cont_error();
+            test_aux(s, expr, Some(expected), None, Some(error), None, 169);
         }
     }
 
@@ -2577,11 +2405,8 @@ mod test {
     fn env_lost_bug() {
         {
             // previously, an unbound variable `u` error
-            let mut s = Store::<Fr>::default();
-            let limit = 1000;
-            let expr = s
-                .read(
-                    "
+            let s = &mut Store::<Fr>::default();
+            let expr = "
 (letrec
     (
      (id
@@ -2595,21 +2420,10 @@ mod test {
             0)))
      )
   (foo '()))
-",
-                )
-                .unwrap();
-
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert!(result_expr.is_nil());
-            assert_eq!(25, iterations);
+";
+            let expected = s.nil();
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 25);
         }
     }
 
@@ -2617,29 +2431,158 @@ mod test {
     fn dont_discard_rest_env() {
         {
             // previously: Unbound variable: Sym("Z")
-            let mut s = Store::<Fr>::default();
-            let limit = 1000;
-            let expr = s
-                .read(
-                    "(let ((z 9))
+            let s = &mut Store::<Fr>::default();
+            let expr = "(let ((z 9))
                        (letrec ((a 1)
                                  (b 2)
                                  (l (lambda (x) (+ z x))))
-                         (l 9)))",
-                )
-                .unwrap();
-            let (
-                IO {
-                    expr: result_expr,
-                    env: _new_env,
-                    cont: _continuation,
-                },
-                iterations,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
-
-            assert_eq!(s.num(18), result_expr);
-            assert_eq!(22, iterations);
+                         (l 9)))";
+            let expected = s.num(18);
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 22);
         }
+    }
+
+    #[test]
+    fn test_str_car_cdr_cons() {
+        let s = &mut Store::<Fr>::default();
+        let a = s.read(r#"#\a"#).unwrap();
+        let apple = s.read(r#" "apple" "#).unwrap();
+        let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
+        let pple = s.read(r#" "pple" "#).unwrap();
+        let empty = s.intern_str(&"");
+        let nil = s.nil();
+        let terminal = s.get_cont_terminal();
+        let error = s.get_cont_error();
+
+        test_aux(
+            s,
+            r#"(car "apple")"#,
+            Some(a),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
+        test_aux(
+            s,
+            r#"(cdr "apple")"#,
+            Some(pple),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
+        test_aux(s, r#"(car "")"#, Some(nil), None, Some(terminal), None, 2);
+        test_aux(s, r#"(cdr "")"#, Some(empty), None, Some(terminal), None, 2);
+        test_aux(
+            s,
+            r#"(cons #\a "pple")"#,
+            Some(a_pple),
+            None,
+            Some(terminal),
+            None,
+            3,
+        );
+        test_aux(
+            s,
+            r#"(strcons #\a "pple")"#,
+            Some(apple),
+            None,
+            Some(terminal),
+            None,
+            3,
+        );
+        test_aux(s, r#"(strcons #\a #\b)"#, None, None, Some(error), None, 3);
+        test_aux(s, r#"(strcons "a" "b")"#, None, None, Some(error), None, 3);
+        test_aux(s, r#"(strcons 1 2)"#, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn test_one_arg_cons_error() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        test_aux(s, r#"(cons "")"#, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn test_car_nil() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.nil();
+        let terminal = s.get_cont_terminal();
+        test_aux(
+            s,
+            r#"(car NIL)"#,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
+    }
+
+    #[test]
+    fn test_cdr_nil() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.nil();
+        let terminal = s.get_cont_terminal();
+        test_aux(
+            s,
+            r#"(cdr NIL)"#,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            2,
+        );
+    }
+
+    #[test]
+    fn test_car_cdr_invalid_tag_error_sym() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        test_aux(s, r#"(car car)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(cdr car)"#, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn test_car_cdr_invalid_tag_error_char() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        test_aux(s, r#"(car #\a)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(cdr #\a)"#, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn test_car_cdr_invalid_tag_error_num() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        test_aux(s, r#"(car 42)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(cdr 42)"#, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn test_car_cdr_invalid_tag_error_lambda() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        test_aux(
+            s,
+            r#"(car (lambda (x) x))"#,
+            None,
+            None,
+            Some(error),
+            None,
+            2,
+        );
+        test_aux(
+            s,
+            r#"(cdr (lambda (x) x))"#,
+            None,
+            None,
+            Some(error),
+            None,
+            2,
+        );
     }
 
     #[test]
@@ -2653,11 +2596,11 @@ mod test {
         //    return x
         // }
 
-        let mut s = Store::<Fr>::default();
-        let limit = 1000000;
-        let expr = s
-            .read(
-                r#"
+        let s = &mut Store::<Fr>::default();
+        let n = s.num(0x1044);
+        test_aux(
+            s,
+            r#"
 (let ((foo (lambda (a b)
               (letrec ((aux (lambda (i a x)
                                (if (= i b)
@@ -2669,19 +2612,454 @@ mod test {
                          (aux 0 a x))))))
   (foo 10 16))
 "#,
-            )
-            .unwrap();
+            Some(n),
+            None,
+            None,
+            None,
+            1114,
+        );
+    }
 
-        let (
-            IO {
-                expr: result_expr,
-                env: _new_env,
-                cont: _continuation,
-            },
-            iterations,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+    #[test]
+    fn begin_current_env() {
+        {
+            let s = &mut Store::<Fr>::default();
+            let expr = "(begin (current-env))";
+            let expected = s.nil();
+            test_aux(s, expr, Some(expected), None, None, None, 2);
+        }
+    }
 
-        assert_eq!(s.num(0x1044), result_expr);
-        assert_eq!(1114, iterations);
+    #[test]
+    fn begin_current_env1() {
+        {
+            let s = &mut Store::<Fr>::default();
+            let expr = "(let ((a 1))
+                       (begin 123 (current-env)))";
+            let a = s.sym("a");
+            let one = s.num(1);
+            let binding = s.cons(a, one);
+            let expected = s.list(&[binding]);
+            test_aux(s, expr, Some(expected), None, None, None, 5);
+        }
+    }
+
+    #[test]
+    fn hide_open() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (hide 123 'x))";
+        let x = s.sym("x");
+        test_aux(s, expr, Some(x), None, None, None, 5);
+    }
+
+    #[test]
+    fn hide_opaque_open_available() {
+        use crate::store::ScalarPointer;
+        use crate::Num;
+
+        let s = &mut Store::<Fr>::default();
+        let commitment = eval_to_ptr(s, "(hide 123 'x)");
+
+        let c_scalar = s.hash_expr(&commitment).unwrap();
+        let c = c_scalar.value();
+        let comm = s.intern_maybe_opaque_comm(*c);
+
+        assert!(!comm.is_opaque());
+
+        let open = s.sym("open");
+        let x = s.sym("x");
+
+        {
+            let expr = s.list(&[open, comm]);
+            test_aux2(s, &expr, Some(x), None, None, None, 2);
+        }
+
+        {
+            let secret = s.sym("secret");
+            let expr = s.list(&[secret, comm]);
+            let sec = s.num(123);
+            test_aux2(s, &expr, Some(sec), None, None, None, 2);
+        }
+
+        {
+            // We can open a commitment identified by its corresponding `Num`.
+            let comm_num = s.num(Num::from_scalar(*c));
+            let expr2 = s.list(&[open, comm_num]);
+            test_aux2(s, &expr2, Some(x), None, None, None, 2);
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn hide_opaque_open_unavailable() {
+        use crate::store::ScalarPointer;
+
+        let s = &mut Store::<Fr>::default();
+        let commitment = eval_to_ptr(s, "(hide 123 'x)");
+
+        let c_scalar = s.hash_expr(&commitment).unwrap();
+        let c = c_scalar.value();
+
+        let s2 = &mut Store::<Fr>::default();
+        let comm = s2.intern_maybe_opaque_comm(*c);
+        let open = s2.sym("open");
+        let x = s2.sym("x");
+
+        let expr = s2.list(&[open, comm]);
+
+        test_aux2(s2, &expr, Some(x), None, None, None, 2);
+    }
+
+    #[test]
+    fn commit_open_sym() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (commit 'x))";
+        let x = s.sym("x");
+        test_aux(s, expr, Some(x), None, None, None, 4);
+    }
+
+    #[test]
+    fn commit_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(commit 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn open_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn secret_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn num_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn comm_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(comm 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn char_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(char 123 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn prove_commit_secret() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (commit 123))";
+        let expected = s.num(0);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
+    }
+
+    #[test]
+    fn num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num 123)";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn num_char() {
+        let s = &mut Store::<Fr>::default();
+        let expr = r#"(num #\a)"#;
+        let expected = s.num(97);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn char_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = r#"(char 97)"#;
+        let expected_a = s.read(r#"#\a"#).unwrap();
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn commit_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num (commit 123))";
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, None, None, Some(terminal), None, 4);
+    }
+
+    #[test]
+    fn hide_open_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (comm (num (hide 123 456))))";
+        let expected = s.num(456);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+    }
+
+    #[test]
+    fn hide_secret_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (comm (num (hide 123 456))))";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+    }
+
+    #[test]
+    fn commit_open_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (comm (num (commit 123))))";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
+    }
+
+    #[test]
+    fn commit_secret_comm_num() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (comm (num (commit 123))))";
+        let expected = s.num(0);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
+    }
+
+    #[test]
+    fn commit_num_open() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open (num (commit 123)))";
+        let expected = s.num(123);
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 6);
+    }
+
+    #[test]
+    fn num_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num (quote x))";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn comm_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(comm (quote x))";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn char_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(char (quote x))";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn terminal_sym() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(quote x)";
+        let x = s.sym("x");
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(x), None, Some(terminal), None, 1);
+    }
+
+    #[test]
+    #[should_panic = "hidden value could not be opened"]
+    fn open_opaque_commit() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open 123)";
+        test_aux(s, expr, None, None, None, None, 2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn secret_invalid_tag() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret 123)";
+        test_aux(s, expr, None, None, None, None, 2);
+    }
+
+    #[test]
+    #[should_panic = "secret could not be extracted"]
+    fn secret_opaque_commit() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret (comm 123))";
+        test_aux(s, expr, None, None, None, None, 2);
+    }
+
+    fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
+        let expr = &format!("({} {} {})", op, a, b);
+        let expected = if res { s.t() } else { s.nil() };
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn test_relational() {
+        let s = &mut Store::<Fr>::default();
+        let lt = "<";
+        let gt = ">";
+        let lte = "<=";
+        let gte = ">=";
+        let zero = "0";
+        let one = "1";
+        let two = "2";
+
+        let most_negative = &format!("{}", Num::<Fr>::most_negative());
+        let most_positive = &format!("{}", Num::<Fr>::most_positive());
+        use ff::Field;
+        let neg_one = &format!("{}", Num::<Fr>::Scalar(Fr::zero() - Fr::one()));
+
+        relational_aux(s, lt, one, two, true);
+        relational_aux(s, gt, one, two, false);
+        relational_aux(s, lte, one, two, true);
+        relational_aux(s, gte, one, two, false);
+
+        relational_aux(s, lt, two, one, false);
+        relational_aux(s, gt, two, one, true);
+        relational_aux(s, lte, two, one, false);
+        relational_aux(s, gte, two, one, true);
+
+        relational_aux(s, lt, one, one, false);
+        relational_aux(s, gt, one, one, false);
+        relational_aux(s, lte, one, one, true);
+        relational_aux(s, gte, one, one, true);
+
+        relational_aux(s, lt, zero, two, true);
+        relational_aux(s, gt, zero, two, false);
+        relational_aux(s, lte, zero, two, true);
+        relational_aux(s, gte, zero, two, false);
+
+        relational_aux(s, lt, two, zero, false);
+        relational_aux(s, gt, two, zero, true);
+        relational_aux(s, lte, two, zero, false);
+        relational_aux(s, gte, two, zero, true);
+
+        relational_aux(s, lt, zero, zero, false);
+        relational_aux(s, gt, zero, zero, false);
+        relational_aux(s, lte, zero, zero, true);
+        relational_aux(s, gte, zero, zero, true);
+
+        relational_aux(s, lt, most_negative, most_positive, true);
+        relational_aux(s, gt, most_negative, most_positive, false);
+        relational_aux(s, lte, most_negative, most_positive, true);
+        relational_aux(s, gte, most_negative, most_positive, false);
+
+        relational_aux(s, lt, most_positive, most_negative, false);
+        relational_aux(s, gt, most_positive, most_negative, true);
+        relational_aux(s, lte, most_positive, most_negative, false);
+        relational_aux(s, gte, most_positive, most_negative, true);
+
+        relational_aux(s, lt, most_negative, most_negative, false);
+        relational_aux(s, gt, most_negative, most_negative, false);
+        relational_aux(s, lte, most_negative, most_negative, true);
+        relational_aux(s, gte, most_negative, most_negative, true);
+
+        relational_aux(s, lt, one, most_positive, true);
+        relational_aux(s, gt, one, most_positive, false);
+        relational_aux(s, lte, one, most_positive, true);
+        relational_aux(s, gte, one, most_positive, false);
+
+        relational_aux(s, lt, most_positive, one, false);
+        relational_aux(s, gt, most_positive, one, true);
+        relational_aux(s, lte, most_positive, one, false);
+        relational_aux(s, gte, most_positive, one, true);
+
+        relational_aux(s, lt, one, most_negative, false);
+        relational_aux(s, gt, one, most_negative, true);
+        relational_aux(s, lte, one, most_negative, false);
+        relational_aux(s, gte, one, most_negative, true);
+
+        relational_aux(s, lt, most_negative, one, true);
+        relational_aux(s, gt, most_negative, one, false);
+        relational_aux(s, lte, most_negative, one, true);
+        relational_aux(s, gte, most_negative, one, false);
+
+        relational_aux(s, lt, neg_one, most_positive, true);
+        relational_aux(s, gt, neg_one, most_positive, false);
+        relational_aux(s, lte, neg_one, most_positive, true);
+        relational_aux(s, gte, neg_one, most_positive, false);
+
+        relational_aux(s, lt, most_positive, neg_one, false);
+        relational_aux(s, gt, most_positive, neg_one, true);
+        relational_aux(s, lte, most_positive, neg_one, false);
+        relational_aux(s, gte, most_positive, neg_one, true);
+
+        relational_aux(s, lt, neg_one, most_negative, false);
+        relational_aux(s, gt, neg_one, most_negative, true);
+        relational_aux(s, lte, neg_one, most_negative, false);
+        relational_aux(s, gte, neg_one, most_negative, true);
+
+        relational_aux(s, lt, most_negative, neg_one, true);
+        relational_aux(s, gt, most_negative, neg_one, false);
+        relational_aux(s, lte, most_negative, neg_one, true);
+        relational_aux(s, gte, most_negative, neg_one, false);
+    }
+
+    #[test]
+    fn test_relational_edge_case_identity() {
+        let s = &mut Store::<Fr>::default();
+        let t = s.t();
+        let terminal = s.get_cont_terminal();
+
+        // Normally, a value cannot be less than the result of incrementing it.
+        // However, the most positive field element (when viewed as signed)
+        // is the exception. Incrementing it yields the most negative element,
+        // which is less than the most positive.
+        {
+            let expr = "(let ((most-positive (/ (- 0 1) 2))
+                          (most-negative (+ 1 most-positive)))
+                      (< most-negative most-positive))";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
+        }
+
+        // Regression: comparisons with negative numbers should *not* be exceptions.
+        {
+            let expr = "(let ((most-positive (/ (- 0 1) 2))
+                              (most-negative (+ 1 most-positive))
+                              (less-negative (+ 1 most-negative)))
+                      (< most-negative  less-negative)) ";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 24);
+        }
+    }
+
+    #[test]
+    fn test_quoted_symbols() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(let ((|foo bar| 9)
+                          (|Foo \\| Bar| (lambda (|X|) (* x x))))
+                      (|Foo \\| Bar| |foo bar|))";
+        let res = s.num(81);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 13);
     }
 }

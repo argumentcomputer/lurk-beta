@@ -1,4 +1,4 @@
-use lurk::repl::repl;
+use lurk::{proof, repl::repl};
 use std::path::Path;
 
 #[test]
@@ -13,9 +13,10 @@ fn lurk_tests() {
     ];
 
     let example_dir = Path::new("lurk-lib/example/");
-    dbg!(&example_dir);
+
     for f in test_files {
         let joined = example_dir.join(f);
-        repl(Some(joined)).unwrap();
+
+        repl::<_, proof::nova::S1>(Some(joined)).unwrap();
     }
 }

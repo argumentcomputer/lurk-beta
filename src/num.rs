@@ -159,6 +159,47 @@ impl<F: LurkField> Num<F> {
         }
     }
 
+    pub fn is_less_than(&self, other: Num<F>) -> bool {
+        match (self.is_negative(), other.is_negative()) {
+            // Both positive or both negative
+            (true, true) | (false, false) => self.is_less_than_aux(other),
+            (true, false) => true,
+            (false, true) => false,
+        }
+    }
+
+    fn is_less_than_aux(&self, other: Num<F>) -> bool {
+        match (self, other) {
+            (Num::U64(s), Num::U64(other)) => s < &other,
+            (Num::Scalar(s), Num::Scalar(other)) => Num::Scalar(*s - other).is_negative(),
+            (a, b) => Num::Scalar(a.into_scalar()).is_less_than(Num::Scalar(b.into_scalar())),
+        }
+    }
+
+    pub fn is_equal(&self, other: Num<F>) -> bool {
+        match (self, other) {
+            (Num::U64(s), Num::U64(other)) => s == &other,
+            (a, b) => a.into_scalar() == b.into_scalar(),
+        }
+    }
+
+    pub fn most_negative() -> Self {
+        Num::Scalar(F::most_negative())
+    }
+
+    pub fn most_positive() -> Self {
+        Num::Scalar(F::most_positive())
+    }
+
+    /// Returns true if `self` is negative.
+    pub fn is_negative(&self) -> bool {
+        match self {
+            // This assumes field modulus is >= 65 bits.
+            Num::U64(_) => false,
+            Num::Scalar(s) => s.is_negative(),
+        }
+    }
+
     pub fn into_scalar(self) -> F {
         match self {
             Num::U64(n) => F::from(n),
@@ -397,5 +438,18 @@ mod tests {
         };
 
         assert_eq!(a_hash, b_hash);
+    }
+
+    #[test]
+    fn test_negative_positive() {
+        let mns = Fr::most_negative();
+        let mps = mns - Fr::one();
+        let mn = Num::Scalar(mns);
+        let mp = Num::Scalar(mps);
+        let zero = Num::Scalar(Fr::zero());
+
+        assert!(mn.is_negative());
+        assert!(!mp.is_negative());
+        assert!(!zero.is_negative());
     }
 }

@@ -81,6 +81,7 @@ pub trait Prover<F: LurkField> {
             .enumerate()
             .map(|(_, multiframe)| {
                 let mut cs = TestConstraintSystem::new();
+
                 multiframe.clone().synthesize(&mut cs).unwrap(); // FIXME: unwrap
                 (multiframe.clone(), cs)
             })
