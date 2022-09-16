@@ -26,6 +26,7 @@ use crate::eval::{Evaluator, Frame, Witness, IO};
 use crate::field::LurkField;
 use crate::proof::Prover;
 use crate::store::{Ptr, Store};
+use crate::num::Num;
 
 pub type G1 = pallas::Point;
 pub type G2 = vesta::Point;
@@ -2351,5 +2352,179 @@ mod tests {
         nova_test_aux(s, r#"(strcons "a" "b")"#, None, None, Some(error), None, 3);
 
         nova_test_aux(s, r#"(strcons 1 2)"#, None, None, Some(error), None, 3);
+    }
+
+    fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
+        let expr = &format!("({} {} {})", op, a, b);
+        let expected = if res { s.t() } else { s.nil() };
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prover_test_relational() {
+        let s = &mut Store::<Fr>::default();
+        let lt = "<";
+        let gt = ">";
+        let lte = "<=";
+        let gte = ">=";
+        let zero = "0";
+        let one = "1";
+        let two = "2";
+
+        let most_negative = &format!("{}", Num::<Fr>::most_negative());
+        let most_positive = &format!("{}", Num::<Fr>::most_positive());
+
+        relational_aux(s, lt, one, two, true);
+        relational_aux(s, gt, one, two, false);
+        relational_aux(s, lte, one, two, true);
+        relational_aux(s, gte, one, two, false);
+
+        relational_aux(s, lt, two, one, false);
+        relational_aux(s, gt, two, one, true);
+        relational_aux(s, lte, two, one, false);
+        relational_aux(s, gte, two, one, true);
+
+        relational_aux(s, lt, one, one, false);
+        relational_aux(s, gt, one, one, false);
+        relational_aux(s, lte, one, one, true);
+        relational_aux(s, gte, one, one, true);
+
+        relational_aux(s, lt, zero, two, true);
+        relational_aux(s, gt, zero, two, false);
+        relational_aux(s, lte, zero, two, true);
+        relational_aux(s, gte, zero, two, false);
+
+        relational_aux(s, lt, two, zero, false);
+        relational_aux(s, gt, two, zero, true);
+        relational_aux(s, lte, two, zero, false);
+        relational_aux(s, gte, two, zero, true);
+
+        relational_aux(s, lt, zero, zero, false);
+        relational_aux(s, gt, zero, zero, false);
+        relational_aux(s, lte, zero, zero, true);
+        relational_aux(s, gte, zero, zero, true);
+
+        relational_aux(s, lt, most_negative, most_positive, true);
+        relational_aux(s, gt, most_negative, most_positive, false);
+        relational_aux(s, lte, most_negative, most_positive, true);
+        relational_aux(s, gte, most_negative, most_positive, false);
+
+        relational_aux(s, lt, most_positive, most_negative, false);
+        relational_aux(s, gt, most_positive, most_negative, true);
+        relational_aux(s, lte, most_positive, most_negative, false);
+        relational_aux(s, gte, most_positive, most_negative, true);
+
+        relational_aux(s, lt, most_negative, most_negative, false);
+        relational_aux(s, gt, most_negative, most_negative, false);
+        relational_aux(s, lte, most_negative, most_negative, true);
+        relational_aux(s, gte, most_negative, most_negative, true);
+
+        relational_aux(s, lt, one, most_positive, true);
+        relational_aux(s, gt, one, most_positive, false);
+        relational_aux(s, lte, one, most_positive, true);
+        relational_aux(s, gte, one, most_positive, false);
+
+        relational_aux(s, lt, most_positive, one, false);
+        relational_aux(s, gt, most_positive, one, true);
+        relational_aux(s, lte, most_positive, one, false);
+        relational_aux(s, gte, most_positive, one, true);
+
+        relational_aux(s, lt, one, most_negative, false);
+        relational_aux(s, gt, one, most_negative, true);
+        relational_aux(s, lte, one, most_negative, false);
+        relational_aux(s, gte, one, most_negative, true);
+
+        relational_aux(s, lt, most_negative, one, true);
+        relational_aux(s, gt, most_negative, one, false);
+        relational_aux(s, lte, most_negative, one, true);
+        relational_aux(s, gte, most_negative, one, false);
+    }
+
+    #[test]
+    fn test_relational_edge_case_identity() {
+        let s = &mut Store::<Fr>::default();
+        // Normally, a value cannot be less than the result of incrementing it.
+        // However, the most positive field element (when viewed as signed)
+        // is the exception. Incrementing it yields the most negative element,
+        // which is less than the most positive.
+        let expr = "(let ((most-positive (/ (- 0 1) 2))
+                          (most-negative (+ 1 most-positive)))
+                      (< most-negative most-positive))";
+        let t = s.t();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
+    }
+
+    #[test]
+    fn outer_prove_less_than_simple1() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(< 1 2)";
+        let t = s.t();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_less_than_simple2() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(< 2 1)";
+        let t = s.nil();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_less_than_simple3() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(< 1 1)";
+        let t = s.nil();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_less_equal_than_simple1() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(<= 1 2)";
+        let t = s.t();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_greater_than_simple1() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(> 2 1)";
+        let t = s.t();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_greater_than_simple2() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(> 1 2)";
+        let t = s.nil();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_greater_than_simple3() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(> 1 1)";
+        let t = s.nil();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
     }
 }

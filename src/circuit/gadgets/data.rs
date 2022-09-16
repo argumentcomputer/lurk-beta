@@ -69,6 +69,10 @@ pub struct GlobalAllocations<F: LurkField> {
     pub op2_quotient_tag: AllocatedNum<F>,
     pub op2_equal_tag: AllocatedNum<F>,
     pub op2_numequal_tag: AllocatedNum<F>,
+    pub op2_less_tag: AllocatedNum<F>,
+    pub op2_less_equal_tag: AllocatedNum<F>,
+    pub op2_greater_tag: AllocatedNum<F>,
+    pub op2_greater_equal_tag: AllocatedNum<F>,
 
     pub true_num: AllocatedNum<F>,
     pub false_num: AllocatedNum<F>,
@@ -182,6 +186,14 @@ impl<F: LurkField> GlobalAllocations<F> {
             AllocatedNum::alloc(&mut cs.namespace(|| "op2_numequal_tag"), || {
                 Ok(Op2::NumEqual.as_field())
             })?;
+        let op2_less_tag =
+            Op2::Less.allocate_constant(&mut cs.namespace(|| "op2_less_tag"))?;
+        let op2_less_equal_tag =
+            Op2::LessEqual.allocate_constant(&mut cs.namespace(|| "op2_less_equal_tag"))?;
+        let op2_greater_tag =
+            Op2::Greater.allocate_constant(&mut cs.namespace(|| "op2_greater_tag"))?;
+        let op2_greater_equal_tag =
+            Op2::GreaterEqual.allocate_constant(&mut cs.namespace(|| "op2_greater_equal_tag"))?;
         let op2_equal_tag = AllocatedNum::alloc(&mut cs.namespace(|| "op2_equal_tag"), || {
             Ok(Op2::Equal.as_field())
         })?;
@@ -241,6 +253,10 @@ impl<F: LurkField> GlobalAllocations<F> {
             op2_quotient_tag,
             op2_equal_tag,
             op2_numequal_tag,
+            op2_less_tag,
+            op2_less_equal_tag,
+            op2_greater_tag,
+            op2_greater_equal_tag,
             true_num,
             false_num,
             default_num,
