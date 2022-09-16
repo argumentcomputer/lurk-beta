@@ -13,9 +13,6 @@ use serde::{Deserialize, Serialize};
 use lurk::eval::IO;
 use lurk::field::LurkField;
 use lurk::store::{Ptr, Store};
-use lurk::ipfs::{dag_put, dag_get};
-use libipld::serde::{to_ipld, from_ipld};
-use futures::executor::block_on;
 
 use clap::{AppSettings, Args, Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
@@ -67,12 +64,6 @@ enum Command {
 
     /// Verifies a proof
     Verify(Verify),
-
-  /// Stores Lurk data on IPFS
-  Put(Put),
-  
-  /// Retrieves Lurk data from IPFS
-  Get(Get),
 }
 
 #[derive(Args, Debug)]
@@ -164,28 +155,6 @@ struct Verify {
     /// Path to proof input
     #[clap(short, long, value_parser)]
     proof: PathBuf,
-}
-
-#[derive(Args, Debug)]
-struct Put {
-  ///Input Lurk data
-  #[clap(long, parse(from_os_str))]
-  data: PathBuf,
-
-  ///IPFS host
-  #[clap(short, long, default_value = "localhost:5001")]
-  host: String,
-}
-
-#[derive(Args, Debug)]
-struct Get {
-  ///Input Lurk data
-  #[clap(long)]
-  cid: String,
-
-  ///IPFS host
-  #[clap(short, long, default_value = "localhost:5001")]
-  host: String,
 }
 
 impl Commit {
@@ -388,26 +357,6 @@ impl Verify {
     }
 }
 
-impl Put {
-  fn put(&self) -> Result<(), Error> {
-    let ipld = to_ipld(self.data).expect("Invalid Lurk data");
-    let cid = dag_put(self.host, ipld);
-    block_on(cid).expect("Failed to store on IPFS");
-    info!("{:?}\nstored on IPFS", cid);
-    Ok(())
-  }
-}
-
-impl Get {
-  fn get(&self) -> Result<(), Error> {
-    let ipld = dag_get(self.host, self.cid);
-    block_on(ipld).expect("Failed to store on IPFS");
-    let data = from_ipld(ipld).expect("Invalid IPLD");
-    info!("{:?}\nretrieved from IPFS", data);
-    Ok(())
-  }
-}
-
 fn read_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
     store: &mut Store<F>,
     path: P,
@@ -533,8 +482,6 @@ fn main() -> Result<(), Error> {
         Command::Open(o) => o.open(o.chain, cli.limit, cli.eval_input, o.quote_input),
         Command::Eval(e) => e.eval(cli.limit),
         Command::Prove(p) => p.prove(cli.limit),
-      Command::Verify(v) => v.verify(cli.error),
-      Command::Put(p) => p.put(),
-      Command::Get(g) => g.get(),
+        Command::Verify(v) => v.verify(cli.error),
     }
 }
