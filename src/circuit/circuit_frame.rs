@@ -537,6 +537,49 @@ impl<'a, F: LurkField> HashInputResults<'a, F> {
     }
 }
 
+#[derive(Default)]
+struct ComparisonResults<'a, F: LurkField> {
+    same_sign_tag: Vec<CaseClause<'a, F>>,
+    same_sign_hash: Vec<CaseClause<'a, F>>,
+    a_neg_and_b_pos_tag: Vec<CaseClause<'a, F>>,
+    a_neg_and_b_pos_hash: Vec<CaseClause<'a, F>>,
+    a_pos_and_b_neg_tag: Vec<CaseClause<'a, F>>,
+    a_pos_and_b_neg_hash: Vec<CaseClause<'a, F>>,
+}
+
+impl<'a, F: LurkField> ComparisonResults<'a, F> {
+    fn add_clauses_comparison(
+        &mut self,
+        key: F,
+        result_same_sign: &'a AllocatedPtr<F>,
+        result_a_neg_and_b_pos: &'a AllocatedPtr<F>,
+        result_a_pos_and_b_neg: &'a AllocatedPtr<F>,
+    ) {
+        add_clause_single(&mut self.same_sign_tag, key, result_same_sign.tag());
+        add_clause_single(&mut self.same_sign_hash, key, result_same_sign.hash());
+        add_clause_single(
+            &mut self.a_neg_and_b_pos_tag,
+            key,
+            result_a_neg_and_b_pos.tag(),
+        );
+        add_clause_single(
+            &mut self.a_neg_and_b_pos_hash,
+            key,
+            result_a_neg_and_b_pos.hash(),
+        );
+        add_clause_single(
+            &mut self.a_pos_and_b_neg_tag,
+            key,
+            result_a_pos_and_b_neg.tag(),
+        );
+        add_clause_single(
+            &mut self.a_pos_and_b_neg_hash,
+            key,
+            result_a_pos_and_b_neg.hash(),
+        );
+    }
+}
+
 fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     expr: &AllocatedPtr<F>,
@@ -1712,8 +1755,12 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == >= preimage
     /////////////////////////////////////////////////////////////////////////////
-    let greater_equal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
-        &[&[&g.op2_greater_equal_tag, &g.default_num], env, &more, cont];
+    let greater_equal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&g.op2_greater_equal_tag, &g.default_num],
+        env,
+        &more,
+        cont,
+    ];
     hash_default_results.add_hash_input_clauses(
         *greater_equal_hash.value(),
         &g.binop_cont_tag,
@@ -2065,7 +2112,13 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == <=, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*less_equal_hash.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(
+        *less_equal_hash.value(),
+        &arg1,
+        env,
+        &newer_cont,
+        &g.false_num,
+    );
 
     // head == >, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
@@ -2073,7 +2126,13 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == >=, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*greater_equal_hash.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(
+        *greater_equal_hash.value(),
+        &arg1,
+        env,
+        &newer_cont,
+        &g.false_num,
+    );
 
     // head == IF, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
@@ -3116,34 +3175,31 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let res = AllocatedPtr::from_parts(&res_tag, &val);
 
-
-
-        let double_a = constraints::add(&mut cs.namespace(|| "double a"), &a, &a)?;
-        let double_a_bits = double_a.to_bits_le_strict(&mut cs.namespace(|| "double a lsb")).unwrap();
+        let double_a = constraints::add(&mut cs.namespace(|| "double a"), a, a)?;
+        let double_a_bits = double_a
+            .to_bits_le_strict(&mut cs.namespace(|| "double a lsb"))
+            .unwrap();
         let lsb_a = double_a_bits.get(0);
         let bool_val_a = match lsb_a {
-            Some(Boolean::Is(v)) => {
-                v.get_value()
-            },
+            Some(Boolean::Is(v)) => v.get_value(),
             _ => {
                 Some(false) // Blank
-            },
+            }
         };
         let a_is_negative = Boolean::from(
             AllocatedBit::alloc(cs.namespace(|| "boolean val a"), bool_val_a).unwrap(),
         );
 
-
-        let double_b = constraints::add(&mut cs.namespace(|| "double b"), &b, &b)?;
-        let double_b_bits = double_b.to_bits_le_strict(&mut cs.namespace(|| "double b lsb")).unwrap();
+        let double_b = constraints::add(&mut cs.namespace(|| "double b"), b, b)?;
+        let double_b_bits = double_b
+            .to_bits_le_strict(&mut cs.namespace(|| "double b lsb"))
+            .unwrap();
         let lsb_b = double_b_bits.get(0);
         let bool_val_b = match lsb_b {
-            Some(Boolean::Is(v)) => {
-                v.get_value()
-            },
+            Some(Boolean::Is(v)) => v.get_value(),
             _ => {
                 Some(false) // Blank
-            },
+            }
         };
         let b_is_negative = Boolean::from(
             AllocatedBit::alloc(cs.namespace(|| "boolean val b"), bool_val_b).unwrap(),
@@ -3170,25 +3226,18 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &Boolean::not(&b_is_negative),
         )?;
 
-
-        let diff_is_zero = alloc_is_zero(
-            &mut cs.namespace(|| "diff is zero"),
-            &diff,
-        )?;
+        let diff_is_zero = alloc_is_zero(&mut cs.namespace(|| "diff is zero"), &diff)?;
         let double_diff = constraints::add(&mut cs.namespace(|| "double diff"), &diff, &diff)?;
         let double_diff_bits = double_diff.to_bits_le_strict(&mut cs).unwrap();
         let lsb = double_diff_bits.get(0);
         let bool_val = match lsb {
-            Some(Boolean::Is(v)) => {
-                v.get_value()
-            },
+            Some(Boolean::Is(v)) => v.get_value(),
             _ => {
                 Some(false) // Blank
-            },
+            }
         };
-        let boolean_val = Boolean::from(
-            AllocatedBit::alloc(cs.namespace(|| "a"), bool_val).unwrap(),
-        );
+        let boolean_val =
+            Boolean::from(AllocatedBit::alloc(cs.namespace(|| "a"), bool_val).unwrap());
 
         let is_less = alloc_equal(
             &mut cs.namespace(|| "Op2 is less"),
@@ -3250,7 +3299,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.nil_ptr,
         )?;
 
-
         // LESS EQUAL
         let is_less_or_equal_and_boolean = Boolean::and(
             &mut cs.namespace(|| "is less or equal and boolean"),
@@ -3305,155 +3353,61 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.nil_ptr,
         )?;
 
-        let comp_val_tag = case(
-            &mut cs.namespace(|| "comp val tag"),
-            op2.tag(),
-            &[
-                CaseClause {
-                    key: Op2::Less.as_field(),
-                    value: &comp_val_less.tag(),
-                },
-                CaseClause {
-                    key: Op2::LessEqual.as_field(),
-                    value: &comp_val_less_equal.tag(),
-                },
-                CaseClause {
-                    key: Op2::Greater.as_field(),
-                    value: &comp_val_greater.tag(),
-                },
-                CaseClause {
-                    key: Op2::GreaterEqual.as_field(),
-                    value: &comp_val_greater_equal.tag(),
-                },
-            ],
-            &g.default_num,
-        )?;
-        let comp_val_hash = case(
-            &mut cs.namespace(|| "comp val hash"),
-            op2.tag(),
-            &[
-                CaseClause {
-                    key: Op2::Less.as_field(),
-                    value: &comp_val_less.hash(),
-                },
-                CaseClause {
-                    key: Op2::LessEqual.as_field(),
-                    value: &comp_val_less_equal.hash(),
-                },
-                CaseClause {
-                    key: Op2::Greater.as_field(),
-                    value: &comp_val_greater.hash(),
-                },
-                CaseClause {
-                    key: Op2::GreaterEqual.as_field(),
-                    value: &comp_val_greater_equal.hash(),
-                },
-            ],
-            &g.default_num,
-        )?;
-        let comp_val_both_same_sign = AllocatedPtr::from_parts(&comp_val_tag, &comp_val_hash);
-
-        let comp_val_tag_a_neg_and_b_pos = case(
-            &mut cs.namespace(|| "comp val tag a neg and b pos"),
-            op2.tag(),
-            &[
-                CaseClause {
-                    key: Op2::Less.as_field(),
-                    value: &g.t_ptr.tag(),
-                },
-                CaseClause {
-                    key: Op2::LessEqual.as_field(),
-                    value: &g.t_ptr.tag(),
-                },
-                CaseClause {
-                    key: Op2::Greater.as_field(),
-                    value: &g.nil_ptr.tag(),
-                },
-                CaseClause {
-                    key: Op2::GreaterEqual.as_field(),
-                    value: &g.nil_ptr.tag(),
-                },
-            ],
-            &g.default_num,
-        )?;
-        let comp_val_hash_a_neg_and_b_pos = case(
-            &mut cs.namespace(|| "comp val hash a neg and b pos"),
-            op2.tag(),
-            &[
-                CaseClause {
-                    key: Op2::Less.as_field(),
-                    value: &g.t_ptr.hash(),
-                },
-                CaseClause {
-                    key: Op2::LessEqual.as_field(),
-                    value: &g.t_ptr.hash(),
-                },
-                CaseClause {
-                    key: Op2::Greater.as_field(),
-                    value: &g.nil_ptr.hash(),
-                },
-                CaseClause {
-                    key: Op2::GreaterEqual.as_field(),
-                    value: &g.nil_ptr.hash(),
-                },
-            ],
-            &g.default_num,
-        )?;
-        let comp_val_a_neg_and_b_pos = AllocatedPtr::from_parts(
-            &comp_val_tag_a_neg_and_b_pos,
-            &comp_val_hash_a_neg_and_b_pos
+        let mut comp_results = ComparisonResults::default();
+        comp_results.add_clauses_comparison(
+            Op2::Less.as_field(),
+            &comp_val_less,
+            &g.t_ptr,
+            &g.nil_ptr,
+        );
+        comp_results.add_clauses_comparison(
+            Op2::LessEqual.as_field(),
+            &comp_val_less_equal,
+            &g.t_ptr,
+            &g.nil_ptr,
+        );
+        comp_results.add_clauses_comparison(
+            Op2::Greater.as_field(),
+            &comp_val_greater,
+            &g.nil_ptr,
+            &g.t_ptr,
+        );
+        comp_results.add_clauses_comparison(
+            Op2::GreaterEqual.as_field(),
+            &comp_val_greater_equal,
+            &g.nil_ptr,
+            &g.t_ptr,
         );
 
-        let comp_val_tag_a_pos_and_b_neg = case(
-            &mut cs.namespace(|| "comp val tag a pos and b neg"),
-            op2.tag(),
-            &[
-                CaseClause {
-                    key: Op2::Less.as_field(),
-                    value: &g.nil_ptr.tag(),
-                },
-                CaseClause {
-                    key: Op2::LessEqual.as_field(),
-                    value: &g.nil_ptr.tag(),
-                },
-                CaseClause {
-                    key: Op2::Greater.as_field(),
-                    value: &g.t_ptr.tag(),
-                },
-                CaseClause {
-                    key: Op2::GreaterEqual.as_field(),
-                    value: &g.t_ptr.tag(),
-                },
-            ],
+        let comparison_defaults = [
             &g.default_num,
-        )?;
-        let comp_val_hash_a_pos_and_b_neg = case(
-            &mut cs.namespace(|| "comp val hash a pos and b neg"),
-            op2.tag(),
-            &[
-                CaseClause {
-                    key: Op2::Less.as_field(),
-                    value: &g.nil_ptr.hash(),
-                },
-                CaseClause {
-                    key: Op2::LessEqual.as_field(),
-                    value: &g.nil_ptr.hash(),
-                },
-                CaseClause {
-                    key: Op2::Greater.as_field(),
-                    value: &g.t_ptr.hash(),
-                },
-                CaseClause {
-                    key: Op2::GreaterEqual.as_field(),
-                    value: &g.t_ptr.hash(),
-                },
-            ],
             &g.default_num,
+            &g.default_num,
+            &g.default_num,
+            &g.default_num,
+            &g.default_num,
+            &g.false_num,
+        ];
+
+        let comp_clauses = [
+            &comp_results.same_sign_tag[..],
+            &comp_results.same_sign_hash[..],
+            &comp_results.a_neg_and_b_pos_tag[..],
+            &comp_results.a_neg_and_b_pos_hash[..],
+            &comp_results.a_pos_and_b_neg_tag[..],
+            &comp_results.a_pos_and_b_neg_hash[..],
+        ];
+
+        let comp_results = multi_case(
+            &mut cs.namespace(|| "comparison multicase results"),
+            op2.tag(),
+            &comp_clauses,
+            &comparison_defaults,
         )?;
-        let comp_val_a_pos_and_b_neg = AllocatedPtr::from_parts(
-            &comp_val_tag_a_pos_and_b_neg,
-            &comp_val_hash_a_pos_and_b_neg
-        );
+
+        let comp_val_same_sign = AllocatedPtr::by_index(0, &comp_results);
+        let comp_val_a_neg_and_b_pos = AllocatedPtr::by_index(1, &comp_results);
+        let comp_val_a_pos_and_b_neg = AllocatedPtr::by_index(2, &comp_results);
 
         let comp_val1 = AllocatedPtr::pick(
             &mut cs.namespace(|| "comp_val1"),
@@ -3464,7 +3418,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let comp_val = AllocatedPtr::pick(
             &mut cs.namespace(|| "comp_val"),
             &both_same_sign,
-            &comp_val_both_same_sign,
+            &comp_val_same_sign,
             &comp_val1,
         )?;
 
@@ -3474,8 +3428,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &comp_val,
             &res,
         )?;
-
-
 
         let valid_types = constraints::or(
             &mut cs.namespace(|| "Op2 called with valid types"),

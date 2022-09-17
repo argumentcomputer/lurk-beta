@@ -24,9 +24,9 @@ use crate::circuit::{
 use crate::error::Error;
 use crate::eval::{Evaluator, Frame, Witness, IO};
 use crate::field::LurkField;
+use crate::num::Num;
 use crate::proof::Prover;
 use crate::store::{Ptr, Store};
-use crate::num::Num;
 
 pub type G1 = pallas::Point;
 pub type G2 = vesta::Point;

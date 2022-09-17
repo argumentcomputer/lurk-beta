@@ -186,8 +186,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             AllocatedNum::alloc(&mut cs.namespace(|| "op2_numequal_tag"), || {
                 Ok(Op2::NumEqual.as_field())
             })?;
-        let op2_less_tag =
-            Op2::Less.allocate_constant(&mut cs.namespace(|| "op2_less_tag"))?;
+        let op2_less_tag = Op2::Less.allocate_constant(&mut cs.namespace(|| "op2_less_tag"))?;
         let op2_less_equal_tag =
             Op2::LessEqual.allocate_constant(&mut cs.namespace(|| "op2_less_equal_tag"))?;
         let op2_greater_tag =
