@@ -246,31 +246,6 @@ impl<F: LurkField> Write<F> for Continuation<F> {
                 continuation.fmt(store, w)?;
                 write!(w, " }}")
             }
-            Continuation::Relop {
-                operator,
-                saved_env,
-                unevaled_args,
-                continuation,
-            } => {
-                write!(w, "Relop{{ operator: {}, saved_env: ", operator)?;
-                saved_env.fmt(store, w)?;
-                write!(w, ", unevaled_args: ")?;
-                unevaled_args.fmt(store, w)?;
-                write!(w, ", continuation: ")?;
-                continuation.fmt(store, w)?;
-                write!(w, ")")
-            }
-            Continuation::Relop2 {
-                operator,
-                evaled_arg,
-                continuation,
-            } => {
-                write!(w, "Relop2{{ operator: {}, evaled_ag: ", operator)?;
-                evaled_arg.fmt(store, w)?;
-                write!(w, ", continuation: ")?;
-                continuation.fmt(store, w)?;
-                write!(w, " }}")
-            }
             Continuation::If {
                 unevaled_args,
                 continuation,

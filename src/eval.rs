@@ -1,8 +1,8 @@
 use crate::field::LurkField;
 use crate::num::Num;
 use crate::store::{
-    ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, Rel2, ScalarPointer, Store,
-    Tag, Thunk,
+    ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, ScalarPointer, Store, Tag,
+    Thunk,
 };
 use crate::writer::Write;
 use log::info;
@@ -797,14 +797,14 @@ fn reduce_with_witness<F: LurkField>(
                     Control::Return(
                         arg1,
                         env,
-                        store.intern_cont_relop(Rel2::NumEqual, env, more, cont),
+                        store.intern_cont_binop(Op2::NumEqual, env, more, cont),
                     )
                 } else if head == store.sym("eq") {
                     let (arg1, more) = store.car_cdr(&rest);
                     Control::Return(
                         arg1,
                         env,
-                        store.intern_cont_relop(Rel2::Equal, env, more, cont),
+                        store.intern_cont_binop(Op2::Equal, env, more, cont),
                     )
                 } else if head == store.sym("<") {
                     let (arg1, more) = store.car_cdr(&rest);
@@ -1135,6 +1135,9 @@ fn apply_continuation<F: LurkField>(
                             tmp /= b;
                             store.intern_num(tmp)
                         }
+                        Op2::Equal | Op2::NumEqual => {
+                            store.as_lurk_boolean(store.ptr_eq(&evaled_arg, arg2))
+                        }
                         Op2::Less => store.less_than(a, b),
                         Op2::Greater => store.less_than(b, a),
                         Op2::LessEqual => store.less_equal(a, b),
@@ -1147,6 +1150,7 @@ fn apply_continuation<F: LurkField>(
                         Op2::Begin => unreachable!(),
                     },
                     (Expression::Num(a), _) => match operator {
+                        Op2::Equal => store.nil(),
                         Op2::Cons => store.cons(evaled_arg, *arg2),
                         Op2::Hide => store.hide(a.into_scalar(), *arg2),
                         _ => {
@@ -1161,63 +1165,10 @@ fn apply_continuation<F: LurkField>(
                         }
                     },
                     _ => match operator {
+                        Op2::Equal => store.as_lurk_boolean(store.ptr_eq(&evaled_arg, arg2)),
                         Op2::Cons => store.cons(evaled_arg, *arg2),
                         _ => {
                             return Control::Return(*result, *env, store.intern_cont_error());
-                        }
-                    },
-                };
-                Control::MakeThunk(result, *env, continuation)
-            }
-            _ => unreachable!(),
-        },
-        ContTag::Relop => match store.fetch_cont(cont).unwrap() {
-            Continuation::Relop {
-                operator,
-                saved_env,
-                unevaled_args,
-                continuation,
-            } => {
-                let (arg2, rest) = store.car_cdr(&unevaled_args);
-                if !rest.is_nil() {
-                    Control::Return(*result, *env, store.intern_cont_error())
-                } else {
-                    Control::Return(
-                        arg2,
-                        saved_env,
-                        store.intern_cont_relop2(operator, *result, continuation),
-                    )
-                }
-            }
-            _ => unreachable!(),
-        },
-        ContTag::Relop2 => match store.fetch_cont(cont).unwrap() {
-            Continuation::Relop2 {
-                operator,
-                evaled_arg,
-                continuation,
-            } => {
-                let arg2 = result;
-                let result = match (evaled_arg.tag(), arg2.tag()) {
-                    (Tag::Num, Tag::Num) => match operator {
-                        Rel2::NumEqual | Rel2::Equal => {
-                            if store.ptr_eq(&evaled_arg, arg2) {
-                                store.t() // TODO: maybe explicit boolean.
-                            } else {
-                                store.nil()
-                            }
-                        }
-                    },
-                    (_, _) => match operator {
-                        Rel2::NumEqual => {
-                            return Control::Return(*result, *env, store.intern_cont_error());
-                        }
-                        Rel2::Equal => {
-                            if store.ptr_eq(&evaled_arg, arg2) {
-                                store.t()
-                            } else {
-                                store.nil()
-                            }
                         }
                     },
                 };
@@ -2237,7 +2188,24 @@ mod test {
         }
         {
             let s = &mut Store::<Fr>::default();
+            let expr = "(eq 1 1)";
+
+            let expected = s.t();
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        }
+        {
+            let s = &mut Store::<Fr>::default();
             let expr = "(eq 'a 1)";
+
+            let expected = s.nil();
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        }
+
+        {
+            let s = &mut Store::<Fr>::default();
+            let expr = "(eq 1 'a)";
 
             let expected = s.nil();
             let terminal = s.get_cont_terminal();
@@ -2384,7 +2352,7 @@ mod test {
     }
 
     #[test]
-    fn evaluate_map_tree_relop_bug() {
+    fn evaluate_map_tree_numequal_bug() {
         {
             // Reuse map-tree failure case to test Relop behavior.
             // This failed initially and tests regression.
@@ -2933,6 +2901,8 @@ mod test {
 
         let most_negative = &format!("{}", Num::<Fr>::most_negative());
         let most_positive = &format!("{}", Num::<Fr>::most_positive());
+        use ff::Field;
+        let neg_one = &format!("{}", Num::<Fr>::Scalar(Fr::zero() - Fr::one()));
 
         relational_aux(s, lt, one, two, true);
         relational_aux(s, gt, one, two, false);
@@ -2998,22 +2968,55 @@ mod test {
         relational_aux(s, gt, most_negative, one, false);
         relational_aux(s, lte, most_negative, one, true);
         relational_aux(s, gte, most_negative, one, false);
+
+        relational_aux(s, lt, neg_one, most_positive, true);
+        relational_aux(s, gt, neg_one, most_positive, false);
+        relational_aux(s, lte, neg_one, most_positive, true);
+        relational_aux(s, gte, neg_one, most_positive, false);
+
+        relational_aux(s, lt, most_positive, neg_one, false);
+        relational_aux(s, gt, most_positive, neg_one, true);
+        relational_aux(s, lte, most_positive, neg_one, false);
+        relational_aux(s, gte, most_positive, neg_one, true);
+
+        relational_aux(s, lt, neg_one, most_negative, false);
+        relational_aux(s, gt, neg_one, most_negative, true);
+        relational_aux(s, lte, neg_one, most_negative, false);
+        relational_aux(s, gte, neg_one, most_negative, true);
+
+        relational_aux(s, lt, most_negative, neg_one, true);
+        relational_aux(s, gt, most_negative, neg_one, false);
+        relational_aux(s, lte, most_negative, neg_one, true);
+        relational_aux(s, gte, most_negative, neg_one, false);
     }
 
     #[test]
     fn test_relational_edge_case_identity() {
         let s = &mut Store::<Fr>::default();
+        let t = s.t();
+        let terminal = s.get_cont_terminal();
+
         // Normally, a value cannot be less than the result of incrementing it.
         // However, the most positive field element (when viewed as signed)
         // is the exception. Incrementing it yields the most negative element,
         // which is less than the most positive.
-        let expr = "(let ((most-positive (/ (- 0 1) 2))
+        {
+            let expr = "(let ((most-positive (/ (- 0 1) 2))
                           (most-negative (+ 1 most-positive)))
                       (< most-negative most-positive))";
-        let t = s.t();
-        let terminal = s.get_cont_terminal();
 
-        test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
+        }
+
+        // Regression: comparisons with negative numbers should *not* be exceptions.
+        {
+            let expr = "(let ((most-positive (/ (- 0 1) 2))
+                              (most-negative (+ 1 most-positive))
+                              (less-negative (+ 1 most-negative)))
+                      (< most-negative  less-negative)) ";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 24);
+        }
     }
 
     #[test]
