@@ -1541,6 +1541,18 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_nested_let_closure_regression() {
+        let s = &mut Store::<Fr>::default();
+        let terminal = s.get_cont_terminal();
+        let expected = s.num(6);
+        let expr = "(let ((data-function (lambda () 123))
+                          (x 6)
+                          (data (data-function)))
+                      x)";
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 14);
+    }
+
+    #[test]
     #[ignore]
     fn outer_prove_evaluate_minimal_tail_call() {
         let s = &mut Store::<Fr>::default();
