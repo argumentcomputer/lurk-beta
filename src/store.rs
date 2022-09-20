@@ -82,7 +82,7 @@ pub struct Store<F: LurkField> {
 
     str_store: StringSet,
     thunk_store: IndexSet<Thunk<F>>,
-    call0_store: IndexSet<ContPtr<F>>,
+    call0_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
     call_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
     call2_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
     tail_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
@@ -479,6 +479,7 @@ impl<F: LurkField> Hash for Thunk<F> {
 pub enum Continuation<F: LurkField> {
     Outermost,
     Call0 {
+        saved_env: Ptr<F>,
         continuation: ContPtr<F>,
     },
     Call {
@@ -1445,8 +1446,8 @@ impl<F: LurkField> Store<F> {
         ContPtr(ContTag::Outermost, RawPtr::new(ptr.to_usize()))
     }
 
-    pub fn intern_cont_call0(&mut self, a: ContPtr<F>) -> ContPtr<F> {
-        let (p, inserted) = self.call0_store.insert_full(a);
+    pub fn intern_cont_call0(&mut self, saved_env: Ptr<F>, continuation: ContPtr<F>) -> ContPtr<F> {
+        let (p, inserted) = self.call0_store.insert_full((saved_env, continuation));
         let ptr = ContPtr(ContTag::Call0, RawPtr::new(p));
         if inserted {
             self.dehydrated_cont.push(ptr)
@@ -1722,7 +1723,10 @@ impl<F: LurkField> Store<F> {
             Call0 => self
                 .call0_store
                 .get_index(ptr.1.idx())
-                .map(|c| Continuation::Call0 { continuation: *c }),
+                .map(|(saved_env, continuation)| Continuation::Call0 {
+                    saved_env: *saved_env,
+                    continuation: *continuation,
+                }),
             Call => self
                 .call_store
                 .get_index(ptr.1.idx())
@@ -1952,7 +1956,10 @@ impl<F: LurkField> Store<F> {
 
         let hash = match &cont {
             Outermost | Terminal | Dummy | Error => self.get_hash_components_default(),
-            Call0 { continuation } => self.get_hash_components_call0(continuation)?,
+            Call0 {
+                saved_env,
+                continuation,
+            } => self.get_hash_components_call0(saved_env, continuation)?,
             Call {
                 unevaled_arg,
                 saved_env,
@@ -2108,12 +2115,17 @@ impl<F: LurkField> Store<F> {
         Some([saved_env, cont, def, def])
     }
 
-    fn get_hash_components_call0(&self, cont: &ContPtr<F>) -> Option<[[F; 2]; 4]> {
+    fn get_hash_components_call0(
+        &self,
+        saved_env: &Ptr<F>,
+        cont: &ContPtr<F>,
+    ) -> Option<[[F; 2]; 4]> {
         let def = [F::zero(), F::zero()];
 
+        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
 
-        Some([cont, def, def, def])
+        Some([saved_env, cont, def, def])
     }
 
     fn get_hash_components_call(
