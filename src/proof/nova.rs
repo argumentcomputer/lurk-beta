@@ -1503,6 +1503,7 @@ mod tests {
             10,
         );
     }
+
     #[test]
     fn outer_prove_evaluate_zero_arg_lambda3() {
         let s = &mut Store::<Fr>::default();

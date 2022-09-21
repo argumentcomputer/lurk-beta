@@ -1704,6 +1704,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.true_num,
     );
 
+    // head == fn . args preimage
+    /////////////////////////////////////////////////////////////////////////////
     let (
         cont_tag,
         component0_tag,
@@ -1719,28 +1721,16 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &g.call0_cont_tag,
             &g.call_cont_tag,
         )?;
-        let component0_tag = pick(
-            &mut cs.namespace(|| "pick component0_tag"),
-            &rest_is_nil,
-            cont.tag(),
-            env.tag(),
-        )?;
-        let component0_hash = pick(
-            &mut cs.namespace(|| "pick component0_hash"),
-            &rest_is_nil,
-            cont.hash(),
-            env.hash(),
-        )?;
         let component1_tag = pick(
             &mut cs.namespace(|| "pick component1_tag"),
             &rest_is_nil,
-            &g.default_num,
+            cont.tag(),
             arg1.tag(),
         )?;
         let component1_hash = pick(
             &mut cs.namespace(|| "pick component1_hash"),
             &rest_is_nil,
-            &g.default_num,
+            cont.hash(),
             arg1.hash(),
         )?;
         let component2_tag = pick(
@@ -1758,8 +1748,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
         (
             cont_tag,
-            component0_tag,
-            component0_hash,
+            env.tag(),
+            env.hash(),
             component1_tag,
             component1_hash,
             component2_tag,
@@ -1767,10 +1757,11 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         )
     };
 
+    // default has the `fn args` preimage
     let defaults = [
         &cont_tag,
-        &component0_tag,
-        &component0_hash,
+        component0_tag,
+        component0_hash,
         &component1_tag,
         &component1_hash,
         &component2_tag,
@@ -2047,19 +2038,25 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &more,
         )?;
 
+        let arg1_is_nil = arg1.alloc_equal(&mut cs.namespace(|| "arg1_is_nil"), &g.nil_ptr)?;
         let more_args_is_nil =
             more.alloc_equal(&mut cs.namespace(|| "more_args_is_nil"), &g.nil_ptr)?;
+        let args_is_nil_or_more_is_nil = constraints::or(
+            &mut cs.namespace(|| "args is nil or more is nil"),
+            &arg1_is_nil,
+            &more_args_is_nil,
+        )?;
 
         let res = AllocatedPtr::pick(
             &mut cs.namespace(|| "pick res"),
-            &more_args_is_nil,
+            &args_is_nil_or_more_is_nil,
             fun_form,
             &expanded,
         )?;
 
         let continuation = AllocatedContPtr::pick(
             &mut cs.namespace(|| "pick continuation"),
-            &more_args_is_nil,
+            &args_is_nil_or_more_is_nil,
             &newer_cont,
             cont,
         )?;
@@ -2243,16 +2240,22 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
     // Continuation::Call0 preimage
     /////////////////////////////////////////////////////////////////////////////
-    let old_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
-        &AllocatedPtr::by_index(0, &continuation_components),
-        &AllocatedPtr::by_index(1, &continuation_components),
-        &AllocatedPtr::by_index(2, &continuation_components),
-        &AllocatedPtr::by_index(3, &continuation_components),
+    let (saved_env, continuation) = {
+        (
+            AllocatedPtr::by_index(0, &continuation_components),
+            AllocatedContPtr::by_index(2, &continuation_components),
+        )
+    };
+    let call0_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &saved_env,
+        &continuation,
+        default_num_pair,
+        default_num_pair,
     ];
     hash_default_results.add_hash_input_clauses(
         ContTag::Call0.as_field(),
         &g.tail_cont_tag,
-        old_continuation_components,
+        call0_components,
     );
 
     // Continuation::Call preimage
@@ -2552,9 +2555,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
     // Continuation::Call0
     /////////////////////////////////////////////////////////////////////////////
-    let (body_form, closed_env, the_cont) = {
+    let (the_expr, the_env, the_cont) = {
         let mut cs = cs.namespace(|| "Call0");
-        let continuation = AllocatedContPtr::by_index(0, &continuation_components);
+        let continuation = AllocatedContPtr::by_index(1, &continuation_components);
         let (_, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
             &mut cs.namespace(|| "allocate fun"),
             store,
@@ -2566,39 +2569,63 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let args_is_dummy =
             arg_t.alloc_equal(&mut cs.namespace(|| "args_is_dummy"), &g.dummy_arg_ptr)?;
 
-        let next_exp = AllocatedPtr::pick(
-            &mut cs.namespace(|| "pick nexp exp"),
+        let result_is_fun =
+            alloc_equal(cs.namespace(|| "result_is_fun"), function.tag(), &g.fun_tag)?;
+
+        let continuation_is_tail = alloc_equal(
+            &mut cs.namespace(|| "continuation is tail"),
+            continuation.tag(),
+            &g.tail_cont_tag,
+        )?;
+
+        let tail_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "the tail continuation"),
+            &continuation_is_tail,
+            &continuation,
+            &newer_cont,
+        );
+
+        let next_expr = AllocatedPtr::pick(
+            &mut cs.namespace(|| "pick nexp expr"),
             &args_is_dummy,
             &body_form,
             result,
         )?;
-
-        let result_is_fun =
-            alloc_equal(cs.namespace(|| "result_is_fun"), function.tag(), &g.fun_tag)?;
-
-        let the_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "the_cont"),
-            &result_is_fun,
-            &continuation,
-            &g.error_ptr_cont,
-        )?;
-
-        let the_env = AllocatedPtr::pick(
-            &mut cs.namespace(|| "the_env"),
-            &result_is_fun,
+        let next_env = AllocatedPtr::pick(
+            &mut cs.namespace(|| "pick nexp env"),
+            &args_is_dummy,
             &closed_env,
             env,
         )?;
+        let next_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "pick nexp cont"),
+            &args_is_dummy,
+            &tail_cont.unwrap(),
+            &continuation,
+        )?;
 
-        (next_exp, the_env, the_cont)
+        let the_expr = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_expr"),
+            &result_is_fun,
+            &next_expr,
+            result,
+        )?;
+        let the_env = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_env"),
+            &result_is_fun,
+            &next_env,
+            env,
+        )?;
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "the_cont"),
+            &result_is_fun,
+            &next_cont,
+            &g.error_ptr_cont,
+        )?;
+
+        (the_expr, the_env, the_cont)
     };
-    results.add_clauses_cont(
-        ContTag::Call0,
-        &body_form,
-        &closed_env,
-        &the_cont,
-        &g.false_num,
-    );
+    results.add_clauses_cont(ContTag::Call0, &the_expr, &the_env, &the_cont, &g.false_num);
 
     // Continuation::Call, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
@@ -3877,9 +3904,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(19144, cs.num_constraints());
+            assert_eq!(19164, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(19072, cs.aux().len());
+            assert_eq!(19089, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
