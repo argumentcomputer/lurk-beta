@@ -122,6 +122,7 @@ impl<F: LurkField> Store<F> {
                         None
                     }
                 }
+                '-' => self.read_negative_number_or_symbol(chars),
                 x if is_symbol_char(&x, true) => self.read_symbol(chars),
                 _ => {
                     panic!("bad input character: {}", c);
@@ -172,6 +173,41 @@ impl<F: LurkField> Store<F> {
             }
         } else {
             panic!("premature end of input");
+        }
+    }
+
+    /// Reads a negative number or a symbol beginning with '-'.
+    fn read_negative_number_or_symbol<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut Peekable<T>,
+    ) -> Option<Ptr<F>> {
+        if let Some(&c) = chars.peek() {
+            chars.next();
+            match c {
+                '-' => {
+                    if let Some(&c) = chars.peek() {
+                        match c {
+                            '0'..='9' => {
+                                let n = self.read_number(chars)?;
+                                let num: &crate::num::Num<F> = self.fetch_num(&n)?;
+                                let mut tmp = crate::num::Num::<F>::U64(0);
+                                tmp -= *num;
+                                Some(self.intern_num(tmp))
+                            }
+                            _ => {
+                                let name = Self::read_unquoted_symbol_name(chars);
+
+                                Some(self.intern_sym(format!("-{}", name)))
+                            }
+                        }
+                    } else {
+                        Some(self.intern_sym("-"))
+                    }
+                }
+                _ => None,
+            }
+        } else {
+            None
         }
     }
 
@@ -401,6 +437,8 @@ mod test {
             assert_eq!(expected, expr.as_sym_str().unwrap());
         };
 
+        test("-", "-");
+        test("-xxx", "-XXX");
         test("asdf", "ASDF");
         test("asdf ", "ASDF");
         test("asdf(", "ASDF");
@@ -504,6 +542,11 @@ asdf(", "ASDF",
         test(
             "0x10000000000000000000000000000000000000000000000000000000000000000",
             "0x1824B159ACC5056F998C4FEFECBC4FF55884B7FA0003480200000001FFFFFFFE",
+        );
+
+        test(
+            "-1",
+            "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000",
         );
     }
 
