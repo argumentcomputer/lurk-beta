@@ -1,7 +1,7 @@
-use std::io;
-
 use crate::field::LurkField;
 use crate::store::{ContPtr, Continuation, Expression, Ptr, Store};
+use peekmore::PeekMore;
+use std::io;
 
 pub trait Write<F: LurkField> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()>;
@@ -44,7 +44,7 @@ impl<F: LurkField> Write<F> for ContPtr<F> {
 }
 
 fn write_symbol<F: LurkField, W: io::Write>(w: &mut W, symbol_name: &str) -> io::Result<()> {
-    let mut chars = symbol_name.chars().peekable();
+    let mut chars = symbol_name.chars().peekmore();
     let unquoted = Store::<F>::read_unquoted_symbol_name(&mut chars);
     if unquoted == symbol_name {
         write!(w, "{}", symbol_name)
