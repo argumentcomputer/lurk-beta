@@ -2586,19 +2586,19 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         );
 
         let next_expr = AllocatedPtr::pick(
-            &mut cs.namespace(|| "pick nexp expr"),
+            &mut cs.namespace(|| "pick next expr"),
             &args_is_dummy,
             &body_form,
             result,
         )?;
         let next_env = AllocatedPtr::pick(
-            &mut cs.namespace(|| "pick nexp env"),
+            &mut cs.namespace(|| "pick next env"),
             &args_is_dummy,
             &closed_env,
             env,
         )?;
         let next_cont = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "pick nexp cont"),
+            &mut cs.namespace(|| "pick next cont"),
             &args_is_dummy,
             &tail_cont.unwrap(),
             &continuation,
