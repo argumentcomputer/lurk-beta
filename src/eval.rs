@@ -848,7 +848,7 @@ fn reduce_with_witness<F: LurkField>(
                     let fun_form = head;
                     let args = rest;
                     if args.is_nil() {
-                        Control::Return(fun_form, env, store.intern_cont_call0(cont))
+                        Control::Return(fun_form, env, store.intern_cont_call0(env, cont))
                     } else {
                         let (arg, more_args) = store.car_cdr(&args);
                         match more_args.tag() {
@@ -913,16 +913,20 @@ fn apply_continuation<F: LurkField>(
             _ => unreachable!(),
         },
         ContTag::Call0 => match store.fetch_cont(cont).unwrap() {
-            Continuation::Call0 { continuation } => match result.tag() {
+            Continuation::Call0 {
+                saved_env,
+                continuation,
+            } => match result.tag() {
                 Tag::Fun => match store.fetch(result).unwrap() {
                     Expression::Fun(arg, body, closed_env) => {
-                        let body_form = store.car(&body);
                         if arg == store.sym("_") {
-                            Control::Return(body_form, closed_env, continuation)
+                            let body_form = store.car(&body);
+                            let cont = make_tail_continuation(saved_env, continuation, store);
+
+                            Control::Return(body_form, closed_env, cont)
                         } else {
-                            // Applying zero args to a non-zero arg function leaves it unchanged.
-                            // This is arguably consistent with auto-currying.
-                            // TODO: maybe it should be an error.
+                            // // Applying zero args to a non-zero arg function leaves it unchanged.
+                            // // This is arguably consistent with auto-currying.
                             Control::Return(*result, *env, continuation)
                         }
                     }
@@ -934,7 +938,6 @@ fn apply_continuation<F: LurkField>(
         },
 
         ContTag::Call => match result.tag() {
-            // (arg, saved_env, continuation)
             Tag::Fun => match store.fetch_cont(cont).unwrap() {
                 Continuation::Call {
                     unevaled_arg,
@@ -2177,6 +2180,30 @@ mod test {
     }
 
     #[test]
+    fn nested_let_closure_regression() {
+        let s = &mut Store::<Fr>::default();
+        let terminal = s.get_cont_terminal();
+        let expected = s.num(6);
+
+        {
+            // This always works.
+            let expr = "(let ((x 6)
+                              (data-function (lambda () 123))
+                              (data (data-function)))
+                          x)";
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 13);
+        }
+        {
+            // This fails if zero-arg functions don't save and restore the env.
+            let expr = "(let ((data-function (lambda () 123))
+                              (x 6)
+                              (data (data-function)))
+                          x)";
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 14);
+        }
+    }
+
+    #[test]
     fn evaluate_eq() {
         {
             let s = &mut Store::<Fr>::default();
@@ -2214,20 +2241,31 @@ mod test {
     }
     #[test]
     fn evaluate_zero_arg_lambda() {
+        let s = &mut Store::<Fr>::default();
+        let terminal = s.get_cont_terminal();
         {
-            let s = &mut Store::<Fr>::default();
             let expr = "((lambda () 123))";
 
             let expected = s.num(123);
-            let terminal = s.get_cont_terminal();
             test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
         {
-            let s = &mut Store::<Fr>::default();
+            let expected = {
+                let arg = s.sym("x");
+                let num = s.num(123);
+                let body = s.list(&[num]);
+                let env = s.nil();
+                s.intern_fun(arg, body, env)
+            };
+
+            // One arg expected but zero supplied.
+            let expr = "((lambda (x) 123))";
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        }
+        {
             let expr = "(letrec ((x 9) (f (lambda () (+ x 1)))) (f))";
 
             let expected = s.num(10);
-            let terminal = s.get_cont_terminal();
             test_aux(s, expr, Some(expected), None, Some(terminal), None, 12);
         }
     }

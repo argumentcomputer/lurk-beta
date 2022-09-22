@@ -1503,6 +1503,7 @@ mod tests {
             10,
         );
     }
+
     #[test]
     fn outer_prove_evaluate_zero_arg_lambda3() {
         let s = &mut Store::<Fr>::default();
@@ -1538,6 +1539,18 @@ mod tests {
         let expected = s.num(123);
         let error = s.get_cont_error();
         nova_test_aux(s, "(123)", Some(expected), None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_nested_let_closure_regression() {
+        let s = &mut Store::<Fr>::default();
+        let terminal = s.get_cont_terminal();
+        let expected = s.num(6);
+        let expr = "(let ((data-function (lambda () 123))
+                          (x 6)
+                          (data (data-function)))
+                      x)";
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 14);
     }
 
     #[test]
