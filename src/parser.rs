@@ -1,4 +1,4 @@
-use std::iter::Peekable;
+use peekmore::{PeekMore, PeekMoreIterator};
 
 use crate::field::LurkField;
 
@@ -6,14 +6,14 @@ use crate::store::{Ptr, Store};
 
 impl<F: LurkField> Store<F> {
     pub fn read(&mut self, input: &str) -> Option<Ptr<F>> {
-        let mut chars = input.chars().peekable();
+        let mut chars = input.chars().peekmore();
 
         self.read_next(&mut chars)
     }
 
     pub fn read_string<T: Iterator<Item = char>>(
         &mut self,
-        chars: &mut Peekable<T>,
+        chars: &mut PeekMoreIterator<T>,
     ) -> Option<Ptr<F>> {
         let mut result = String::new();
 
@@ -41,7 +41,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn read_quoted_symbol<T: Iterator<Item = char>>(
         &mut self,
-        chars: &mut Peekable<T>,
+        chars: &mut PeekMoreIterator<T>,
     ) -> Option<Ptr<F>> {
         let mut result = String::new();
 
@@ -69,7 +69,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn read_maybe_meta<T: Iterator<Item = char>>(
         &mut self,
-        chars: &mut Peekable<T>,
+        chars: &mut PeekMoreIterator<T>,
     ) -> Option<(Ptr<F>, bool)> {
         if let Some(c) = skip_whitespace_and_peek(chars) {
             match c {
@@ -93,12 +93,12 @@ impl<F: LurkField> Store<F> {
 
     pub fn read_next<T: Iterator<Item = char>>(
         &mut self,
-        chars: &mut Peekable<T>,
+        chars: &mut PeekMoreIterator<T>,
     ) -> Option<Ptr<F>> {
         while let Some(&c) = chars.peek() {
             if let Some(next_expr) = match c {
                 '(' => self.read_list(chars),
-                '0'..='9' => self.read_number(chars),
+                '0'..='9' => self.read_number(chars, true),
                 ' ' | '\t' | '\n' | '\r' => {
                     // Skip whitespace.
                     chars.next();
@@ -135,7 +135,10 @@ impl<F: LurkField> Store<F> {
     }
 
     // In this context, 'list' includes improper lists, i.e. dotted cons-pairs like (1 . 2).
-    fn read_list<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr<F>> {
+    fn read_list<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut PeekMoreIterator<T>,
+    ) -> Option<Ptr<F>> {
         if let Some(&c) = chars.peek() {
             match c {
                 '(' => {
@@ -150,7 +153,10 @@ impl<F: LurkField> Store<F> {
     }
 
     // Read the tail of a list.
-    fn read_tail<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr<F>> {
+    fn read_tail<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut PeekMoreIterator<T>,
+    ) -> Option<Ptr<F>> {
         if let Some(c) = skip_whitespace_and_peek(chars) {
             match c {
                 ')' => {
@@ -179,7 +185,7 @@ impl<F: LurkField> Store<F> {
     /// Reads a negative number or a symbol beginning with '-'.
     fn read_negative_number_or_symbol<T: Iterator<Item = char>>(
         &mut self,
-        chars: &mut Peekable<T>,
+        chars: &mut PeekMoreIterator<T>,
     ) -> Option<Ptr<F>> {
         if let Some(&c) = chars.peek() {
             chars.next();
@@ -188,7 +194,7 @@ impl<F: LurkField> Store<F> {
                     if let Some(&c) = chars.peek() {
                         match c {
                             '0'..='9' => {
-                                let n = self.read_number(chars)?;
+                                let n = self.read_number(chars, true)?;
                                 let num: &crate::num::Num<F> = self.fetch_num(&n)?;
                                 let mut tmp = crate::num::Num::<F>::U64(0);
                                 tmp -= *num;
@@ -211,23 +217,31 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    fn read_number<T: Iterator<Item = char>>(&mut self, chars: &mut Peekable<T>) -> Option<Ptr<F>> {
+    fn read_number<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut PeekMoreIterator<T>,
+        maybe_fraction: bool,
+    ) -> Option<Ptr<F>> {
         // As written, read_number assumes the next char is known to be a digit.
         // So it will never return None.
         let mut acc: u64 = 0;
         let ten = 10;
 
         if let Some(&c) = chars.peek() {
-            if c == '0' {
-                chars.next().unwrap();
-                if let Some(&c) = chars.peek() {
-                    if c.to_ascii_uppercase() == 'X' {
-                        chars.next();
-                        return self.read_hex_num(chars);
+            match c {
+                '0' => {
+                    chars.next().unwrap();
+                    if let Some(&c) = chars.peek() {
+                        if c.to_ascii_uppercase() == 'X' {
+                            chars.next();
+                            return self.read_hex_num(chars, maybe_fraction);
+                        }
                     }
                 }
+                '1'..='9' => (),
+                _ => return None,
             }
-        }
+        };
         while let Some(&c) = chars.peek() {
             if is_digit_char(&c) {
                 let digit_char = chars.next().unwrap();
@@ -239,7 +253,23 @@ impl<F: LurkField> Store<F> {
                 } else {
                     // If acc * 10 + n would overflow, convert to F-sized accumulator and continue.
                     let scalar_acc = F::from(acc) * F::from(ten) + F::from(n);
-                    return self.read_number_aux(scalar_acc, chars);
+                    return self.read_number_aux(scalar_acc, chars, maybe_fraction);
+                }
+            } else if maybe_fraction && c == '/' {
+                if let Some(c2) = chars.peek_nth(1) {
+                    if matches!(c2, '0'..='9') {
+                        let mut tmp = crate::num::Num::U64(acc);
+                        chars.next();
+                        if let Some(denominator) = self.read_number(chars, false) {
+                            let d = self.fetch_num(&denominator)?;
+                            tmp /= *d;
+                        };
+                        return Some(self.intern_num(tmp));
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
                 }
             } else {
                 break;
@@ -251,7 +281,8 @@ impl<F: LurkField> Store<F> {
     fn read_number_aux<T: Iterator<Item = char>>(
         &mut self,
         mut acc: F,
-        chars: &mut Peekable<T>,
+        chars: &mut PeekMoreIterator<T>,
+        maybe_fraction: bool,
     ) -> Option<Ptr<F>> {
         let zero = F::from(0);
         let ten = F::from(10);
@@ -267,6 +298,22 @@ impl<F: LurkField> Store<F> {
                 let n: u64 = digit.into();
                 let f: F = n.into();
                 acc += f;
+            } else if maybe_fraction && c == '/' {
+                if let Some(c2) = chars.peek_nth(1) {
+                    if matches!(c2, '0'..='9') {
+                        let mut tmp = crate::num::Num::Scalar(acc);
+                        chars.next();
+                        if let Some(denominator) = self.read_number(chars, false) {
+                            let d = self.fetch_num(&denominator)?;
+                            tmp /= *d;
+                        };
+                        return Some(self.intern_num(tmp));
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
             } else {
                 break;
             }
@@ -276,8 +323,11 @@ impl<F: LurkField> Store<F> {
 
     fn read_hex_num<T: Iterator<Item = char>>(
         &mut self,
-        chars: &mut Peekable<T>,
+        chars: &mut PeekMoreIterator<T>,
+        maybe_fraction: bool,
     ) -> Option<Ptr<F>> {
+        // NOTE: `read_hex_num` always interns `Num::Scalar`s,
+        // unlike `read_number`, which may return a `Num::U64`.
         let zero = F::from(0);
         let mut acc = zero;
         let sixteen = F::from(16);
@@ -293,23 +343,40 @@ impl<F: LurkField> Store<F> {
                 let n: u64 = digit.into();
                 let f: F = n.into();
                 acc += f;
+            } else if maybe_fraction && c == '/' {
+                if let Some(c2) = chars.peek_nth(1) {
+                    if is_hex_digit_char(c2) {
+                        let mut tmp = crate::num::Num::Scalar(acc);
+                        chars.next();
+                        if let Some(denominator) = self.read_number(chars, false) {
+                            let d = self.fetch_num(&denominator)?;
+                            tmp /= *d;
+                        };
+                        return Some(self.intern_num(tmp));
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
             } else {
                 break;
             }
         }
+
         Some(self.intern_num(crate::num::Num::Scalar(acc)))
     }
 
     pub(crate) fn read_symbol<T: Iterator<Item = char>>(
         &mut self,
-        chars: &mut Peekable<T>,
+        chars: &mut PeekMoreIterator<T>,
     ) -> Option<Ptr<F>> {
         let name = Self::read_unquoted_symbol_name(chars);
         Some(self.intern_sym(name))
     }
 
     pub(crate) fn read_unquoted_symbol_name<T: Iterator<Item = char>>(
-        chars: &mut Peekable<T>,
+        chars: &mut PeekMoreIterator<T>,
     ) -> String {
         let mut name = String::new();
         let mut is_initial = true;
@@ -328,7 +395,7 @@ impl<F: LurkField> Store<F> {
 
     pub(crate) fn read_pound<T: Iterator<Item = char>>(
         &mut self,
-        chars: &mut Peekable<T>,
+        chars: &mut PeekMoreIterator<T>,
     ) -> Option<Ptr<F>> {
         chars.next().unwrap();
         if let Some(&c) = chars.peek() {
@@ -390,7 +457,9 @@ fn is_line_end_char(c: &char) -> bool {
 }
 
 // Skips whitespace and comments, returning the next character, if any.
-fn skip_whitespace_and_peek<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> Option<char> {
+fn skip_whitespace_and_peek<T: Iterator<Item = char>>(
+    chars: &mut PeekMoreIterator<T>,
+) -> Option<char> {
     while let Some(&c) = chars.peek() {
         if is_whitespace_char(&c) {
             chars.next();
@@ -405,7 +474,7 @@ fn skip_whitespace_and_peek<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -
 
 // Returns true if comment ends with a line end character.
 // If false, this comment is unterminated and is the end of input.
-fn skip_line_comment<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> bool {
+fn skip_line_comment<T: Iterator<Item = char>>(chars: &mut PeekMoreIterator<T>) -> bool {
     while let Some(&c) = chars.peek() {
         if !is_line_end_char(&c) {
             chars.next();
@@ -548,6 +617,16 @@ asdf(", "ASDF",
             "-1",
             "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000",
         );
+        test(
+            "1/2",
+            "0x39f6d3a994cebea4199cec0404d0ec02a9ded2017fff2dff7fffffff80000001",
+        );
+        test(
+            "-1/2",
+            "0x39f6d3a994cebea4199cec0404d0ec02a9ded2017fff2dff7fffffff80000000",
+        );
+        test("0xe/2", "7");
+        test("-0xf/2", "-15/2");
     }
 
     #[test]
@@ -626,7 +705,7 @@ asdf(", "ASDF",
         let mut s = Store::<Fr>::default();
         let test =
             |store: &mut Store<Fr>, input: &str, expected_ptr: Ptr<Fr>, expected_meta: bool| {
-                let mut chars = input.chars().peekable();
+                let mut chars = input.chars().peekmore();
 
                 let (ptr, meta) = store.read_maybe_meta(&mut chars).unwrap();
                 {
@@ -689,7 +768,7 @@ asdf(", "ASDF",
 
         let test =
             |store: &mut Store<Fr>, input: &str, expected: Option<Ptr<Fr>>, expr: Option<&str>| {
-                let maybe_string = store.read_string(&mut input.chars().peekable());
+                let maybe_string = store.read_string(&mut input.chars().peekmore());
                 assert_eq!(expected, maybe_string);
                 if let Some(ptr) = maybe_string {
                     let res = store
@@ -707,7 +786,7 @@ asdf(", "ASDF",
         }
         {
             let input = "\"foo/bar/baz\"";
-            let ptr = s.read_string(&mut input.chars().peekable()).unwrap();
+            let ptr = s.read_string(&mut input.chars().peekmore()).unwrap();
             let res = s
                 .fetch(&ptr)
                 .unwrap_or_else(|| panic!("failed to fetch: {:?}", input));
@@ -760,5 +839,30 @@ asdf(", "ASDF",
 321",
             Some(num),
         );
+    }
+
+    #[test]
+    fn read_non_fractions() {
+        let mut s = Store::<Fr>::default();
+
+        let test = |store: &mut Store<Fr>, a: &str, b: &str| {
+            let res_a = store.read(a).unwrap();
+            let res_b = store.read(b).unwrap();
+            assert!(store.ptr_eq(&res_a, &res_b));
+        };
+        // These tests demonstrate that '/' behaves like other arithmetic operators
+        // when a fraction is not being parsed.
+
+        test(&mut s, "'(1+ 2)", "'(1 + 2)");
+        test(&mut s, "'(1/ 2)", "'(1 / 2)");
+
+        test(&mut s, "'(0xa+ 2)", "'(0xa + 2)");
+        test(&mut s, "'(0xa/ 2)", "'(0xa / 2)");
+
+        test(&mut s, "1+", "1");
+        test(&mut s, "1/", "1");
+
+        test(&mut s, "0xa+", "0xa");
+        test(&mut s, "0xa/", "0xa");
     }
 }
