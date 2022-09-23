@@ -3238,8 +3238,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 Some(false) // Blank
             }
         };
-        let diff_is_negative =
-            Boolean::from(AllocatedBit::alloc(cs.namespace(|| "diff is negative"), bool_val_diff).unwrap());
+        let diff_is_negative = Boolean::from(
+            AllocatedBit::alloc(cs.namespace(|| "diff is negative"), bool_val_diff).unwrap(),
+        );
 
         // LESS
         let comp_val_less = AllocatedPtr::pick(
