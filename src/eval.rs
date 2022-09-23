@@ -3058,6 +3058,69 @@ mod test {
     }
 
     #[test]
+    fn test_num_syntax_implications() {
+        let s = &mut Store::<Fr>::default();
+        let t = s.t();
+        let terminal = s.get_cont_terminal();
+
+        {
+            let expr = "(let ((most-positive -1/2)
+                              (most-negative 1/2))
+                          (< most-negative most-positive))";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 10);
+        }
+
+        {
+            let expr = "(= (* 6 3/2) 9)";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 6);
+        }
+
+        {
+            let expr = "(= (* 2/3 3/2) 1)";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 6);
+        }
+
+        {
+            let expr = "(= (* -2/3 3/2) -1)";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 6);
+        }
+
+        {
+            let expr = "(= (+ 1/3 1/2) 5/6)";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 6);
+        }
+
+        // Comparisons of field elements produced by fractional notation don't yield the results
+        // their rational equivalents would.
+        {
+            // This obviously must be true, since 1/2 is the most negative Num,
+            // but this violates expectations if you consider 1/2 to behave like a rational.
+            let expr = "(< 1/2 1/3)";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        }
+
+        {
+            // This isn't a weird edge case like the above, but it's also not the behavior
+            // expected if fractional notation yielded true rational numbers.
+            let expr = "(< 3/4 5/8)";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        }
+        {
+            // It's not that they *can't* compare in the naively expected way, though.
+            let expr = "(< 3/5 3/4)";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        }
+    }
+
+    #[test]
     fn test_quoted_symbols() {
         let s = &mut Store::<Fr>::default();
         let expr = "(let ((|foo bar| 9)
