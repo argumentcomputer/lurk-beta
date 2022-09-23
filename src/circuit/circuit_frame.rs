@@ -8,7 +8,7 @@ use bellperson::{
 
 use crate::{
     circuit::gadgets::{
-        case::{case, multi_case, CaseClause},
+        case::{case, multi_case, multi_case_aux, CaseClause},
         data::GlobalAllocations,
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
@@ -3175,6 +3175,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let res = AllocatedPtr::from_parts(&res_tag, &val);
 
+        // Next constraints are used for number comparisons
+        ///////////////////////////////////////////////////////////////////////
         let double_a = constraints::add(&mut cs.namespace(|| "double a"), a, a)?;
         let double_a_bits = double_a
             .to_bits_le_strict(&mut cs.namespace(|| "double a lsb"))
@@ -3229,126 +3231,59 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let diff_is_zero = alloc_is_zero(&mut cs.namespace(|| "diff is zero"), &diff)?;
         let double_diff = constraints::add(&mut cs.namespace(|| "double diff"), &diff, &diff)?;
         let double_diff_bits = double_diff.to_bits_le_strict(&mut cs).unwrap();
-        let lsb = double_diff_bits.get(0);
-        let bool_val = match lsb {
+        let lsb_diff = double_diff_bits.get(0);
+        let bool_val_diff = match lsb_diff {
             Some(Boolean::Is(v)) => v.get_value(),
             _ => {
                 Some(false) // Blank
             }
         };
-        let boolean_val =
-            Boolean::from(AllocatedBit::alloc(cs.namespace(|| "a"), bool_val).unwrap());
-
-        let is_less = alloc_equal(
-            &mut cs.namespace(|| "Op2 is less"),
-            op2.tag(),
-            &g.op2_less_tag,
-        )?;
-
-        let is_less_equal = alloc_equal(
-            &mut cs.namespace(|| "Op2 is less or equal"),
-            op2.tag(),
-            &g.op2_less_equal_tag,
-        )?;
-
-        let is_greater = alloc_equal(
-            &mut cs.namespace(|| "Op2 is greater"),
-            op2.tag(),
-            &g.op2_greater_tag,
-        )?;
-
-        let is_greater_equal = alloc_equal(
-            &mut cs.namespace(|| "Op2 is greater or equal"),
-            op2.tag(),
-            &g.op2_greater_equal_tag,
-        )?;
-
-        let is_comparison1 = constraints::or(
-            &mut cs.namespace(|| "is comparison1"),
-            &is_less,
-            &is_less_equal,
-        )?;
-
-        let is_comparison2 = constraints::or(
-            &mut cs.namespace(|| "is comparison2"),
-            &is_comparison1,
-            &is_greater,
-        )?;
-
-        let is_comparison = constraints::or(
-            &mut cs.namespace(|| "is comparison"),
-            &is_comparison2,
-            &is_greater_equal,
-        )?;
+        let diff_is_negative =
+            Boolean::from(AllocatedBit::alloc(cs.namespace(|| "diff is negative"), bool_val_diff).unwrap());
 
         // LESS
-        let is_less_and_boolean = Boolean::and(
-            &mut cs.namespace(|| "is less and boolean"),
-            &is_less,
-            &boolean_val,
-        )?;
-        let is_less_and_boolean_and_not_equal = Boolean::and(
-            &mut cs.namespace(|| "is less and boolean and not equal"),
-            &is_less_and_boolean,
-            &Boolean::not(&diff_is_zero),
-        )?;
         let comp_val_less = AllocatedPtr::pick(
             &mut cs.namespace(|| "comp val less"),
-            &is_less_and_boolean_and_not_equal,
+            &diff_is_negative,
             &g.t_ptr,
             &g.nil_ptr,
         )?;
 
         // LESS EQUAL
-        let is_less_or_equal_and_boolean = Boolean::and(
-            &mut cs.namespace(|| "is less or equal and boolean"),
-            &is_less_equal,
-            &boolean_val,
-        )?;
-        let is_less_or_equal_and_boolean_or_equal = constraints::or(
-            &mut cs.namespace(|| "is less or equal and boolean or equal"),
-            &is_less_or_equal_and_boolean,
+        let diff_is_negative_or_zero = constraints::or(
+            &mut cs.namespace(|| "is less or equal tag and diff is negative or zero"),
+            &diff_is_negative,
             &diff_is_zero,
         )?;
         let comp_val_less_equal = AllocatedPtr::pick(
             &mut cs.namespace(|| "comp val less equal"),
-            &is_less_or_equal_and_boolean_or_equal,
+            &diff_is_negative_or_zero,
             &g.t_ptr,
             &g.nil_ptr,
         )?;
 
         // GREATER
-        let is_greater_and_boolean = Boolean::and(
-            &mut cs.namespace(|| "is greater and boolean"),
-            &is_greater,
-            &Boolean::not(&boolean_val),
-        )?;
-        let is_greater_and_boolean_and_not_equal = Boolean::and(
-            &mut cs.namespace(|| "is greater and boolean and not equal"),
-            &is_greater_and_boolean,
+        let diff_is_strictly_positive = Boolean::and(
+            &mut cs.namespace(|| "is greater tag and diff is strictly positive"),
+            &diff_is_negative.not(),
             &Boolean::not(&diff_is_zero),
         )?;
         let comp_val_greater = AllocatedPtr::pick(
             &mut cs.namespace(|| "comp val greater"),
-            &is_greater_and_boolean_and_not_equal,
+            &diff_is_strictly_positive,
             &g.t_ptr,
             &g.nil_ptr,
         )?;
 
         // GREATER EQUAL
-        let is_greater_or_equal_and_boolean = Boolean::and(
-            &mut cs.namespace(|| "is greater or equal and boolean"),
-            &is_greater_equal,
-            &Boolean::not(&boolean_val),
-        )?;
-        let is_greater_or_equal_and_boolean_or_equal = constraints::or(
-            &mut cs.namespace(|| "is greater or equal and boolean or equal"),
-            &is_greater_or_equal_and_boolean,
+        let diff_is_positive_or_zero = constraints::or(
+            &mut cs.namespace(|| "diff is positive or zero"),
+            &diff_is_negative.not(),
             &diff_is_zero,
         )?;
         let comp_val_greater_equal = AllocatedPtr::pick(
             &mut cs.namespace(|| "comp val greater equal"),
-            &is_greater_or_equal_and_boolean_or_equal,
+            &diff_is_positive_or_zero,
             &g.t_ptr,
             &g.nil_ptr,
         )?;
@@ -3398,16 +3333,17 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &comp_results.a_pos_and_b_neg_hash[..],
         ];
 
-        let comp_results = multi_case(
+        let comp_results = multi_case_aux(
             &mut cs.namespace(|| "comparison multicase results"),
             op2.tag(),
             &comp_clauses,
             &comparison_defaults,
         )?;
 
-        let comp_val_same_sign = AllocatedPtr::by_index(0, &comp_results);
-        let comp_val_a_neg_and_b_pos = AllocatedPtr::by_index(1, &comp_results);
-        let comp_val_a_pos_and_b_neg = AllocatedPtr::by_index(2, &comp_results);
+        let comp_val_same_sign = AllocatedPtr::by_index(0, &comp_results.0);
+        let comp_val_a_neg_and_b_pos = AllocatedPtr::by_index(1, &comp_results.0);
+        let comp_val_a_pos_and_b_neg = AllocatedPtr::by_index(2, &comp_results.0);
+        let is_comparison_tag = comp_results.1.not();
 
         let comp_val1 = AllocatedPtr::pick(
             &mut cs.namespace(|| "comp_val1"),
@@ -3421,10 +3357,11 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &comp_val_same_sign,
             &comp_val1,
         )?;
+        ///////////////////////////////////////////////////////////////////////
 
         let final_res = AllocatedPtr::pick(
             &mut cs.namespace(|| "final res"),
-            &is_comparison,
+            &is_comparison_tag,
             &comp_val,
             &res,
         )?;
@@ -4278,9 +4215,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(20580, cs.num_constraints());
+            assert_eq!(20491, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(20497, cs.aux().len());
+            assert_eq!(20417, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
