@@ -3334,17 +3334,17 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &comp_results.a_pos_and_b_neg_hash[..],
         ];
 
-        let comp_results = multi_case_aux(
+        let comparison_result = multi_case_aux(
             &mut cs.namespace(|| "comparison multicase results"),
             op2.tag(),
             &comp_clauses,
             &comparison_defaults,
         )?;
 
-        let comp_val_same_sign = AllocatedPtr::by_index(0, &comp_results.0);
-        let comp_val_a_neg_and_b_pos = AllocatedPtr::by_index(1, &comp_results.0);
-        let comp_val_a_pos_and_b_neg = AllocatedPtr::by_index(2, &comp_results.0);
-        let is_comparison_tag = comp_results.1.not();
+        let comp_val_same_sign = AllocatedPtr::by_index(0, &comparison_result.0);
+        let comp_val_a_neg_and_b_pos = AllocatedPtr::by_index(1, &comparison_result.0);
+        let comp_val_a_pos_and_b_neg = AllocatedPtr::by_index(2, &comparison_result.0);
+        let is_comparison_tag = comparison_result.1.not();
 
         let comp_val1 = AllocatedPtr::pick(
             &mut cs.namespace(|| "comp_val1"),
