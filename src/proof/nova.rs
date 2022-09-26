@@ -24,7 +24,6 @@ use crate::circuit::{
 use crate::error::Error;
 use crate::eval::{Evaluator, Frame, Witness, IO};
 use crate::field::LurkField;
-use crate::num::Num;
 use crate::proof::Prover;
 use crate::store::{Ptr, Store};
 
@@ -279,6 +278,8 @@ impl<'a> Proof<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::num::Num;
+
     use super::*;
     use crate::eval::empty_sym_env;
     use crate::proof::Provable;
