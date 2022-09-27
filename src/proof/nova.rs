@@ -13,6 +13,7 @@ use nova::{
     CompressedSNARK, RecursiveSNARK,
 };
 use pasta_curves::{pallas, vesta};
+use thiserror::Error;
 
 use crate::circuit::{
     gadgets::{
@@ -23,6 +24,7 @@ use crate::circuit::{
 };
 use crate::eval::{Evaluator, Frame, Witness, IO};
 
+use crate::error::LurkError;
 use crate::field::LurkField;
 use crate::proof::Prover;
 use crate::store::{Ptr, Store};
@@ -99,8 +101,8 @@ impl<F: LurkField> NovaProver<F> {
         limit: usize,
     ) -> Result<(Proof, Vec<S1>, Vec<S1>, usize), Error> {
         let frames = self.get_evaluation_frames(expr, env, store, limit);
-        let z0 = frames[0].input_vector(store);
-        let zi = frames.last().unwrap().output_vector(store);
+        let z0 = frames[0].input_vector(store)?;
+        let zi = frames.last().unwrap().output_vector(store)?;
         let circuits = MultiFrame::from_frames(self.chunk_frame_count(), &frames, store);
         let num_steps = circuits.len();
         let proof =
@@ -110,10 +112,14 @@ impl<F: LurkField> NovaProver<F> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum Error {
+    #[error("Nova error")]
     Nova(NovaError),
+    #[error("Synthesis error: {0}")]
     Synthesis(SynthesisError),
+    #[error("Lurk error: {0}")]
+    Lurk(#[from] LurkError),
 }
 
 impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F, IO<F>, Witness<F>> {
@@ -171,12 +177,12 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F, IO<F>, Witness<F>> {
 
     fn output(&self, z: &[F]) -> Vec<F> {
         // sanity check
-        assert_eq!(z, self.input.unwrap().to_vector(self.get_store()));
+        assert_eq!(z, self.input.unwrap().to_vector(self.get_store()).unwrap());
         assert_eq!(
             self.frames.as_ref().unwrap().last().unwrap().output,
             self.output
         );
-        self.output.unwrap().to_vector(self.get_store())
+        self.output.unwrap().to_vector(self.get_store()).unwrap()
     }
 }
 
@@ -216,7 +222,7 @@ impl<'a> Proof<'a> {
                 let zi = circuit_primary.frames.as_ref().unwrap()[0]
                     .input
                     .unwrap()
-                    .to_vector(store);
+                    .to_vector(store)?;
                 let mut zi_allocated = Vec::with_capacity(zi.len());
 
                 for (i, x) in zi.iter().enumerate() {
@@ -2274,7 +2280,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "hidden value could not be opened"]
+    //#[should_panic = "hidden value could not be opened"]
+    #[should_panic = "eval error"]
     fn outer_prove_open_opaque_commit() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 123)";
@@ -2290,7 +2297,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "secret could not be extracted"]
+    //#[should_panic = "secret could not be extracted"]
+    #[should_panic = "eval error"]
     fn outer_prove_secret_opaque_commit() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret (comm 123))";

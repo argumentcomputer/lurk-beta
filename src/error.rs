@@ -7,5 +7,5 @@ pub enum LurkError {
     #[error("Reduction error: {0}")]
     Reduce(String),
     #[error("Lookup error: {0}")]
-    Lookup(String),
+    Store(String),
 }

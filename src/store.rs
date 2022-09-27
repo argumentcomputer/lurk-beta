@@ -10,11 +10,13 @@ use once_cell::sync::OnceCell;
 
 use libipld::Cid;
 
+use crate::error::LurkError;
 use crate::field::{FWrap, LurkField};
 use crate::scalar_store::ScalarContinuation;
 use crate::scalar_store::ScalarExpression;
 use crate::scalar_store::ScalarStore;
 use crate::Num;
+
 use serde::Deserialize;
 use serde::Serialize;
 use serde::{de, ser};
@@ -887,7 +889,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn open_mut(&mut self, ptr: Ptr<F>) -> Option<Ptr<F>> {
+    pub fn open_mut(&mut self, ptr: Ptr<F>) -> Result<Ptr<F>, LurkError> {
         assert!(ptr.0 == Tag::Comm || ptr.0 == Tag::Num);
 
         let p = match ptr.0 {
@@ -901,9 +903,9 @@ impl<F: LurkField> Store<F> {
         };
 
         if let Some((_secret, payload)) = self.fetch_comm(&p) {
-            Some(*payload)
+            Ok(*payload)
         } else {
-            None
+            Err(LurkError::Store("hidden value could not be opened".into()))
         }
     }
 
@@ -917,7 +919,7 @@ impl<F: LurkField> Store<F> {
             .and_then(|(secret, _payload)| self.get_num(Num::Scalar(secret.0)))
     }
 
-    pub fn secret_mut(&mut self, ptr: Ptr<F>) -> Option<Ptr<F>> {
+    pub fn secret_mut(&mut self, ptr: Ptr<F>) -> Result<Ptr<F>, LurkError> {
         assert_eq!(Tag::Comm, ptr.0);
 
         let p = match ptr.0 {
@@ -928,9 +930,9 @@ impl<F: LurkField> Store<F> {
         if let Some((secret, _payload)) = self.fetch_comm(&p) {
             let secret_element = Num::Scalar(secret.0);
             let secret_num = self.intern_num(secret_element);
-            Some(secret_num)
+            Ok(secret_num)
         } else {
-            None
+            Err(LurkError::Store("secret could not be extracted".into()))
         }
     }
 

@@ -173,7 +173,7 @@ impl Commit {
         } else {
             Function::read_from_path(&self.function)?
         };
-        let fun_ptr = function.fun_ptr(s, limit);
+        let fun_ptr = function.fun_ptr(s, limit)?;
         let function_map = committed_function_store();
 
         let commitment = if let Some(secret) = function.secret {
@@ -292,7 +292,7 @@ impl Eval {
 
         let expr = expression(s, &self.expression, self.lurk)?;
 
-        let evaluation = Evaluation::eval(s, expr, limit);
+        let evaluation = Evaluation::eval(s, expr, limit)?;
 
         match &self.claim {
             Some(out_path) => {
@@ -381,7 +381,7 @@ fn read_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
             cont: _,
         },
         _iterations,
-    ) = evaluate(store, src, limit);
+    ) = evaluate(store, src, limit)?;
 
     Ok((expr, src))
 }
