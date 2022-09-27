@@ -43,9 +43,16 @@ pub fn verify_sequential_css<F: LurkField + Copy>(
     }
     Ok(true)
 }
+pub trait PublicParameters {}
 
-pub trait Prover<F: LurkField> {
+pub trait Prover<'a, F: LurkField> {
+    type PublicParams: PublicParameters;
+
+    fn new(chunk_frame_count: usize, public_params: &'a Self::PublicParams) -> Self;
+
     fn chunk_frame_count(&self) -> usize;
+
+    fn public_params(&self) -> &'a Self::PublicParams;
 
     fn needs_frame_padding(&self, total_frames: usize) -> bool {
         self.frame_padding_count(total_frames) != 0
@@ -72,7 +79,7 @@ pub trait Prover<F: LurkField> {
         self.multiframe_padding_count(raw_multiframe_count) != 0
     }
 
-    fn outer_synthesize<'a>(
+    fn outer_synthesize(
         &self,
         multiframes: &'a [MultiFrame<F, IO<F>, Witness<F>>],
     ) -> Result<SequentialCS<'a, F, IO<F>, Witness<F>>, SynthesisError> {

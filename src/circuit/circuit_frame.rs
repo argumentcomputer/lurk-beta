@@ -4098,8 +4098,8 @@ pub(crate) fn print_cs<F: LurkField, C: Comparable<F>>(this: &C) -> String {
 mod tests {
     use super::*;
     use crate::eval::{empty_sym_env, Evaluable, IO};
-    use crate::proof::groth16::{Groth16, Groth16Prover};
     use crate::proof::Provable;
+    use crate::proof::{groth16::Groth16Prover, Prover};
     use crate::store::Store;
     use bellperson::groth16;
     use bellperson::util_cs::{
@@ -4124,8 +4124,10 @@ mod tests {
 
         let (_, witness) = input.reduce(&mut store).unwrap();
 
-        let groth_prover = Groth16Prover::new(DEFAULT_CHUNK_FRAME_COUNT);
-        let groth_params = groth_prover.groth_params().unwrap();
+        let public_params = Groth16Prover::create_groth_params(DEFAULT_CHUNK_FRAME_COUNT).unwrap();
+        let groth_prover = Groth16Prover::new(DEFAULT_CHUNK_FRAME_COUNT, &public_params);
+        let groth_params = &public_params.0;
+
         let vk = &groth_params.vk;
         let pvk = groth16::prepare_verifying_key(vk);
 
