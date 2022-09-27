@@ -1,7 +1,10 @@
 use std::fmt::Debug;
 
 use bellperson::{
-    gadgets::{boolean::Boolean, num::AllocatedNum},
+    gadgets::{
+        boolean::{Boolean},
+        num::AllocatedNum,
+    },
     util_cs::Comparable,
     Circuit, ConstraintSystem, SynthesisError,
 };
@@ -537,45 +540,22 @@ impl<'a, F: LurkField> HashInputResults<'a, F> {
 }
 
 #[derive(Default)]
-struct ComparisonResults<'a, F: LurkField> {
-    same_sign_tag: Vec<CaseClause<'a, F>>,
-    same_sign_hash: Vec<CaseClause<'a, F>>,
-    a_neg_and_b_pos_tag: Vec<CaseClause<'a, F>>,
-    a_neg_and_b_pos_hash: Vec<CaseClause<'a, F>>,
-    a_pos_and_b_neg_tag: Vec<CaseClause<'a, F>>,
-    a_pos_and_b_neg_hash: Vec<CaseClause<'a, F>>,
+struct CompResults<'a, F: LurkField> {
+    same_sign: Vec<CaseClause<'a, F>>,
+    a_neg_and_b_pos: Vec<CaseClause<'a, F>>,
+    a_pos_and_b_neg: Vec<CaseClause<'a, F>>,
 }
-
-impl<'a, F: LurkField> ComparisonResults<'a, F> {
-    fn add_clauses_comparison(
+impl<'a, F: LurkField> CompResults<'a, F> {
+    fn add_clauses_comp(
         &mut self,
         key: F,
-        result_same_sign: &'a AllocatedPtr<F>,
-        result_a_neg_and_b_pos: &'a AllocatedPtr<F>,
-        result_a_pos_and_b_neg: &'a AllocatedPtr<F>,
+        result_same_sign: &'a AllocatedNum<F>,
+        result_a_neg_and_b_pos: &'a AllocatedNum<F>,
+        result_a_pos_and_b_neg: &'a AllocatedNum<F>,
     ) {
-        add_clause_single(&mut self.same_sign_tag, key, result_same_sign.tag());
-        add_clause_single(&mut self.same_sign_hash, key, result_same_sign.hash());
-        add_clause_single(
-            &mut self.a_neg_and_b_pos_tag,
-            key,
-            result_a_neg_and_b_pos.tag(),
-        );
-        add_clause_single(
-            &mut self.a_neg_and_b_pos_hash,
-            key,
-            result_a_neg_and_b_pos.hash(),
-        );
-        add_clause_single(
-            &mut self.a_pos_and_b_neg_tag,
-            key,
-            result_a_pos_and_b_neg.tag(),
-        );
-        add_clause_single(
-            &mut self.a_pos_and_b_neg_hash,
-            key,
-            result_a_pos_and_b_neg.hash(),
-        );
+        add_clause_single(&mut self.same_sign, key, result_same_sign);
+        add_clause_single(&mut self.a_neg_and_b_pos, key, result_a_neg_and_b_pos);
+        add_clause_single(&mut self.a_pos_and_b_neg, key, result_a_pos_and_b_neg);
     }
 }
 
@@ -3200,106 +3180,128 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let b_is_negative = lsb_2b.unwrap();
         let diff_is_negative = lsb_2diff.unwrap();
 
-        // LESS
-        let comp_val_less = AllocatedPtr::pick(
-            &mut cs.namespace(|| "comp_val_less"),
-            &diff_is_negative,
-            &g.t_ptr,
-            &g.nil_ptr,
-        )?;
-
-        // LESS EQUAL
         let diff_is_negative_or_zero = constraints::or(
             &mut cs.namespace(|| "is less or equal tag and diff is negative or zero"),
-            &lsb_2diff.unwrap(),
+            lsb_2diff.unwrap(),
             &diff_is_zero,
         )?;
-        let comp_val_less_equal = AllocatedPtr::pick(
-            &mut cs.namespace(|| "comp val less equal"),
-            &diff_is_negative_or_zero,
-            &g.t_ptr,
-            &g.nil_ptr,
-        )?;
 
-        // GREATER
         let diff_is_strictly_positive = Boolean::and(
             &mut cs.namespace(|| "is greater tag and diff is strictly positive"),
             &diff_is_negative.not(),
             &Boolean::not(&diff_is_zero),
         )?;
-        let comp_val_greater = AllocatedPtr::pick(
-            &mut cs.namespace(|| "comp val greater"),
-            &diff_is_strictly_positive,
-            &g.t_ptr,
-            &g.nil_ptr,
-        )?;
 
-        // GREATER EQUAL
         let diff_is_positive_or_zero = constraints::or(
             &mut cs.namespace(|| "diff is positive or zero"),
             &diff_is_negative.not(),
             &diff_is_zero,
         )?;
-        let comp_val_greater_equal = AllocatedPtr::pick(
-            &mut cs.namespace(|| "comp val greater equal"),
-            &diff_is_positive_or_zero,
-            &g.t_ptr,
-            &g.nil_ptr,
-        )?;
 
         let both_same_sign = Boolean::xor(
             &mut cs.namespace(|| "both same sign"),
-            &a_is_negative,
-            &b_is_negative,
-        )?.not();
+            a_is_negative,
+            b_is_negative,
+        )?
+        .not();
         let a_negative_and_b_positive = Boolean::and(
             &mut cs.namespace(|| "a negative and b positive"),
-            &a_is_negative,
-            &Boolean::not(&b_is_negative),
+            a_is_negative,
+            &Boolean::not(b_is_negative),
         )?;
 
-        let mut comp_results = ComparisonResults::default();
-        comp_results.add_clauses_comparison(
+        let diff_is_negative_val = match diff_is_negative.get_value() {
+            Some(v) => {
+                if v {
+                    Ok(g.true_num.get_value().unwrap())
+                } else {
+                    Ok(g.false_num.get_value().unwrap())
+                }
+            }
+            None => Ok(F::zero()),
+        };
+        let alloc_num_diff_is_negative = AllocatedNum::alloc(
+            &mut cs.namespace(|| "Allocate num for diff_is_negative"),
+            || diff_is_negative_val,
+        )?;
+
+        let diff_is_negative_or_zero_val = match diff_is_negative_or_zero.get_value() {
+            Some(v) => {
+                if v {
+                    Ok(g.true_num.get_value().unwrap())
+                } else {
+                    Ok(g.false_num.get_value().unwrap())
+                }
+            }
+            None => Ok(F::zero()),
+        };
+        let alloc_num_diff_is_negative_or_zero = AllocatedNum::alloc(
+            &mut cs.namespace(|| "Allocate num for diff_is_negative_or_zero"),
+            || diff_is_negative_or_zero_val,
+        )?;
+
+        let diff_is_strictly_positive_val = match diff_is_strictly_positive.get_value() {
+            Some(v) => {
+                if v {
+                    Ok(g.true_num.get_value().unwrap())
+                } else {
+                    Ok(g.false_num.get_value().unwrap())
+                }
+            }
+            None => Ok(F::zero()),
+        };
+        let alloc_num_diff_is_strictly_positive = AllocatedNum::alloc(
+            &mut cs.namespace(|| "Allocate num for diff_is_strictly_positive"),
+            || diff_is_strictly_positive_val,
+        )?;
+
+        let diff_is_positive_or_zero_val = match diff_is_positive_or_zero.get_value() {
+            Some(v) => {
+                if v {
+                    Ok(g.true_num.get_value().unwrap())
+                } else {
+                    Ok(g.false_num.get_value().unwrap())
+                }
+            }
+            None => Ok(F::zero()),
+        };
+        let alloc_num_diff_is_positive_or_zero = AllocatedNum::alloc(
+            &mut cs.namespace(|| "Allocate num for diff_is_positive_or_zero"),
+            || diff_is_positive_or_zero_val,
+        )?;
+
+        let mut comp_results = CompResults::default();
+        comp_results.add_clauses_comp(
             Op2::Less.as_field(),
-            &comp_val_less,
-            &g.t_ptr,
-            &g.nil_ptr,
+            &alloc_num_diff_is_negative,
+            &g.true_num,
+            &g.false_num,
         );
-        comp_results.add_clauses_comparison(
+        comp_results.add_clauses_comp(
             Op2::LessEqual.as_field(),
-            &comp_val_less_equal,
-            &g.t_ptr,
-            &g.nil_ptr,
+            &alloc_num_diff_is_negative_or_zero,
+            &g.true_num,
+            &g.false_num,
         );
-        comp_results.add_clauses_comparison(
+        comp_results.add_clauses_comp(
             Op2::Greater.as_field(),
-            &comp_val_greater,
-            &g.nil_ptr,
-            &g.t_ptr,
+            &alloc_num_diff_is_strictly_positive,
+            &g.false_num,
+            &g.true_num,
         );
-        comp_results.add_clauses_comparison(
+        comp_results.add_clauses_comp(
             Op2::GreaterEqual.as_field(),
-            &comp_val_greater_equal,
-            &g.nil_ptr,
-            &g.t_ptr,
+            &alloc_num_diff_is_positive_or_zero,
+            &g.false_num,
+            &g.true_num,
         );
 
-        let comparison_defaults = [
-            &g.default_num,
-            &g.default_num,
-            &g.default_num,
-            &g.default_num,
-            &g.default_num,
-            &g.default_num,
-        ];
+        let comparison_defaults = [&g.default_num, &g.default_num, &g.default_num];
 
         let comp_clauses = [
-            &comp_results.same_sign_tag[..],
-            &comp_results.same_sign_hash[..],
-            &comp_results.a_neg_and_b_pos_tag[..],
-            &comp_results.a_neg_and_b_pos_hash[..],
-            &comp_results.a_pos_and_b_neg_tag[..],
-            &comp_results.a_pos_and_b_neg_hash[..],
+            &comp_results.same_sign[..],
+            &comp_results.a_neg_and_b_pos[..],
+            &comp_results.a_pos_and_b_neg[..],
         ];
 
         let comparison_result = multi_case_aux(
@@ -3309,23 +3311,34 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &comparison_defaults,
         )?;
 
-        let comp_val_same_sign = AllocatedPtr::by_index(0, &comparison_result.0);
-        let comp_val_a_neg_and_b_pos = AllocatedPtr::by_index(1, &comparison_result.0);
-        let comp_val_a_pos_and_b_neg = AllocatedPtr::by_index(2, &comparison_result.0);
+        let comp_val_same_sign_num = comparison_result.0[0].clone();
+        let comp_val_a_neg_and_b_pos_num = comparison_result.0[1].clone();
+        let comp_val_a_pos_and_b_neg_num = comparison_result.0[2].clone();
         let is_comparison_tag = comparison_result.1.not();
 
-        let comp_val1 = AllocatedPtr::pick(
+        let comp_val1 = pick(
             &mut cs.namespace(|| "comp_val1"),
             &a_negative_and_b_positive,
-            &comp_val_a_neg_and_b_pos,
-            &comp_val_a_pos_and_b_neg,
+            &comp_val_a_neg_and_b_pos_num,
+            &comp_val_a_pos_and_b_neg_num,
         )?;
-        let comp_val = AllocatedPtr::pick(
-            &mut cs.namespace(|| "comp_val"),
+        let comp_val2 = pick(
+            &mut cs.namespace(|| "comp_val2"),
             &both_same_sign,
-            &comp_val_same_sign,
+            &comp_val_same_sign_num,
             &comp_val1,
         )?;
+
+        let comp_val_res_is_zero =
+            alloc_is_zero(&mut cs.namespace(|| "comp_val_res_is_zero"), &comp_val2)?;
+
+        let comp_val = AllocatedPtr::pick(
+            &mut cs.namespace(|| "comp_val"),
+            &comp_val_res_is_zero,
+            &g.nil_ptr,
+            &g.t_ptr,
+        )?;
+
         ///////////////////////////////////////////////////////////////////////
 
         let final_res = AllocatedPtr::pick(
@@ -4184,9 +4197,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(20486, cs.num_constraints());
+            assert_eq!(20463, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(20412, cs.aux().len());
+            assert_eq!(20389, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
