@@ -1,10 +1,7 @@
 use std::fmt::Debug;
 
 use bellperson::{
-    gadgets::{
-        boolean::{Boolean},
-        num::AllocatedNum,
-    },
+    gadgets::{boolean::Boolean, num::AllocatedNum},
     util_cs::Comparable,
     Circuit, ConstraintSystem, SynthesisError,
 };
