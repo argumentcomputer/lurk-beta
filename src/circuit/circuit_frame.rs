@@ -23,7 +23,6 @@ use crate::circuit::ToInputs;
 use crate::eval::{Frame, Witness, IO};
 use crate::proof::Provable;
 use crate::store::{ContPtr, ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
-use bellperson::gadgets::boolean::AllocatedBit;
 
 #[derive(Clone, Copy, Debug)]
 pub struct CircuitFrame<'a, F: LurkField, T, W> {
@@ -3181,70 +3180,29 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let double_a_bits = double_a
             .to_bits_le_strict(&mut cs.namespace(|| "double a lsb"))
             .unwrap();
-        let lsb_a = double_a_bits.get(0);
-        let bool_val_a = match lsb_a {
-            Some(Boolean::Is(v)) => v.get_value(),
-            _ => {
-                Some(false) // Blank
-            }
-        };
-        let a_is_negative = Boolean::from(
-            AllocatedBit::alloc(cs.namespace(|| "boolean val a"), bool_val_a).unwrap(),
-        );
+        let lsb_2a = double_a_bits.get(0);
 
         let double_b = constraints::add(&mut cs.namespace(|| "double b"), b, b)?;
         let double_b_bits = double_b
             .to_bits_le_strict(&mut cs.namespace(|| "double b lsb"))
             .unwrap();
-        let lsb_b = double_b_bits.get(0);
-        let bool_val_b = match lsb_b {
-            Some(Boolean::Is(v)) => v.get_value(),
-            _ => {
-                Some(false) // Blank
-            }
-        };
-        let b_is_negative = Boolean::from(
-            AllocatedBit::alloc(cs.namespace(|| "boolean val b"), bool_val_b).unwrap(),
-        );
-
-        let both_positive = Boolean::and(
-            &mut cs.namespace(|| "both positive"),
-            &Boolean::not(&a_is_negative),
-            &Boolean::not(&b_is_negative),
-        )?;
-        let both_negative = Boolean::and(
-            &mut cs.namespace(|| "both negative"),
-            &a_is_negative,
-            &b_is_negative,
-        )?;
-        let both_same_sign = constraints::or(
-            &mut cs.namespace(|| "both same sign"),
-            &both_negative,
-            &both_positive,
-        )?;
-        let a_negative_and_b_positive = Boolean::and(
-            &mut cs.namespace(|| "a negative and b positive"),
-            &a_is_negative,
-            &Boolean::not(&b_is_negative),
-        )?;
+        let lsb_2b = double_b_bits.get(0);
 
         let diff_is_zero = alloc_is_zero(&mut cs.namespace(|| "diff is zero"), &diff)?;
         let double_diff = constraints::add(&mut cs.namespace(|| "double diff"), &diff, &diff)?;
         let double_diff_bits = double_diff.to_bits_le_strict(&mut cs).unwrap();
-        let lsb_diff = double_diff_bits.get(0);
-        let bool_val_diff = match lsb_diff {
-            Some(Boolean::Is(v)) => v.get_value(),
-            _ => {
-                Some(false) // Blank
-            }
-        };
-        let diff_is_negative = Boolean::from(
-            AllocatedBit::alloc(cs.namespace(|| "diff is negative"), bool_val_diff).unwrap(),
-        );
+        let lsb_2diff = double_diff_bits.get(0);
+
+        // We have that the difference is negative is the parity bit (the least significant bit)
+        // is odd after doubling, meaning that the field element is larger than the underlying prime
+        // number dividided by 2.
+        let a_is_negative = lsb_2a.unwrap();
+        let b_is_negative = lsb_2b.unwrap();
+        let diff_is_negative = lsb_2diff.unwrap();
 
         // LESS
         let comp_val_less = AllocatedPtr::pick(
-            &mut cs.namespace(|| "comp val less"),
+            &mut cs.namespace(|| "comp_val_less"),
             &diff_is_negative,
             &g.t_ptr,
             &g.nil_ptr,
@@ -3253,7 +3211,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         // LESS EQUAL
         let diff_is_negative_or_zero = constraints::or(
             &mut cs.namespace(|| "is less or equal tag and diff is negative or zero"),
-            &diff_is_negative,
+            &lsb_2diff.unwrap(),
             &diff_is_zero,
         )?;
         let comp_val_less_equal = AllocatedPtr::pick(
@@ -3289,6 +3247,17 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.nil_ptr,
         )?;
 
+        let both_same_sign = Boolean::xor(
+            &mut cs.namespace(|| "both same sign"),
+            &a_is_negative,
+            &b_is_negative,
+        )?.not();
+        let a_negative_and_b_positive = Boolean::and(
+            &mut cs.namespace(|| "a negative and b positive"),
+            &a_is_negative,
+            &Boolean::not(&b_is_negative),
+        )?;
+
         let mut comp_results = ComparisonResults::default();
         comp_results.add_clauses_comparison(
             Op2::Less.as_field(),
@@ -3322,7 +3291,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.default_num,
             &g.default_num,
             &g.default_num,
-            &g.false_num,
         ];
 
         let comp_clauses = [
@@ -4216,9 +4184,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(20491, cs.num_constraints());
+            assert_eq!(20486, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(20417, cs.aux().len());
+            assert_eq!(20412, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
