@@ -23,7 +23,8 @@ use lurk::{
     field::LurkField,
     proof::{
         self,
-        groth16::{Groth16, Groth16Prover, INNER_PRODUCT_SRS},
+        groth16::{Groth16Prover, INNER_PRODUCT_SRS},
+        Prover,
     },
     scalar_store::ScalarStore,
     store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store, Tag},
@@ -66,10 +67,9 @@ pub fn committed_function_store() -> FileMap<Commitment<Scalar>, Function<Scalar
 }
 
 fn get_pvk(rc: ReductionCount) -> groth16::PreparedVerifyingKey<Bls12> {
-    let groth_prover = Groth16Prover::new(rc.reduction_frame_count());
-
     info!("Getting Parameters");
-    let groth_params = groth_prover.groth_params().unwrap();
+    let public_params = Groth16Prover::create_groth_params(rc.reduction_frame_count()).unwrap();
+    let groth_params = &public_params.0;
 
     info!("Preparing verifying key");
     groth16::prepare_verifying_key(&groth_params.vk)
@@ -799,8 +799,11 @@ impl Proof<Bls12> {
         let reduction_count = DEFAULT_REDUCTION_COUNT;
 
         info!("Getting Parameters");
-        let groth_prover = Groth16Prover::new(reduction_count.reduction_frame_count());
-        let groth_params = groth_prover.groth_params().unwrap();
+        let public_params =
+            Groth16Prover::create_groth_params(reduction_count.reduction_frame_count()).unwrap();
+        let groth_prover =
+            Groth16Prover::new(reduction_count.reduction_frame_count(), &public_params);
+        let groth_params = &public_params.0;
 
         info!("Starting Proving");
 

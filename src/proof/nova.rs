@@ -1,7 +1,5 @@
 #![allow(non_snake_case)]
 
-use std::marker::PhantomData;
-
 use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 use nova::{
@@ -24,7 +22,7 @@ use crate::circuit::{
 use crate::error::Error;
 use crate::eval::{Evaluator, Frame, Witness, IO};
 use crate::field::LurkField;
-use crate::proof::Prover;
+use crate::proof::{Prover, PublicParameters};
 use crate::store::{Ptr, Store};
 
 pub type G1 = pallas::Point;
@@ -58,24 +56,33 @@ impl<'a> MultiFrame<'a, S1, IO<S1>, Witness<S1>> {
     }
 }
 
-pub struct NovaProver<F: LurkField> {
+pub struct NovaProver<'a> {
     chunk_frame_count: usize,
-    _p: PhantomData<F>,
+    pp: &'a PublicParams<'a>,
 }
 
-impl<F: LurkField> Prover<F> for NovaProver<F> {
+impl<'a> PublicParameters for PublicParams<'a> {}
+
+impl<'a> Prover<'a, S1> for NovaProver<'a> {
+    type PublicParams = PublicParams<'a>;
+
+    fn new(chunk_frame_count: usize, public_params: &'a Self::PublicParams) -> Self {
+        NovaProver {
+            chunk_frame_count,
+            pp: public_params,
+        }
+    }
+
     fn chunk_frame_count(&self) -> usize {
         self.chunk_frame_count
     }
+
+    fn public_params(&self) -> &'a Self::PublicParams {
+        self.pp
+    }
 }
 
-impl<F: LurkField> NovaProver<F> {
-    pub fn new(chunk_frame_count: usize) -> Self {
-        NovaProver::<F> {
-            chunk_frame_count,
-            _p: PhantomData::<F>,
-        }
-    }
+impl<'a> NovaProver<'a> {
     fn get_evaluation_frames(
         &self,
         expr: Ptr<S1>,
@@ -90,7 +97,7 @@ impl<F: LurkField> NovaProver<F> {
 
         Ok(frames)
     }
-    pub fn evaluate_and_prove<'a>(
+    pub fn evaluate_and_prove(
         &'a self,
         pp: &'a PublicParams,
         expr: Ptr<S1>,
@@ -331,10 +338,10 @@ mod tests {
 
         let e = empty_sym_env(&s);
 
-        let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
+        let pp = public_params(chunk_frame_count);
+        let nova_prover = NovaProver::new(chunk_frame_count, &pp);
 
         if check_nova {
-            let pp = public_params(chunk_frame_count);
             let (proof, z0, zi, num_steps) = nova_prover
                 .evaluate_and_prove(&pp, expr, empty_sym_env(&s), s, limit)
                 .unwrap();
