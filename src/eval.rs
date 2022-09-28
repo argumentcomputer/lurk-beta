@@ -254,6 +254,7 @@ impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame
     }
 }
 
+#[derive(Debug)]
 pub struct FrameIt<'a, W: Copy, F: LurkField> {
     first: bool,
     frame: Frame<IO<F>, W>,
@@ -290,7 +291,6 @@ impl<'a, 'b, F: LurkField> FrameIt<'a, Witness<F>, F> {
                 break;
             }
             let new_frame = self.frame.next(self.store)?;
-            //.ok_or_else(|| LurkError::Eval("Failed to reach next frame".into()))?;
 
             if let Some(expr) = new_frame.output.maybe_emitted_expression(self.store) {
                 emitted.push(expr);
@@ -298,6 +298,36 @@ impl<'a, 'b, F: LurkField> FrameIt<'a, Witness<F>, F> {
             previous_frame = std::mem::replace(&mut self.frame, new_frame);
         }
         Ok((self.frame, previous_frame, emitted))
+    }
+}
+
+// Wrapper struct to preserve errors that would otherwise be lost during iteration
+#[derive(Debug)]
+struct ResultFrame<'a, F: LurkField>(Result<FrameIt<'a, Witness<F>, F>, LurkError>);
+
+impl<'a, 'b, F: LurkField> Iterator for ResultFrame<'a, F> {
+    type Item = Result<Frame<IO<F>, Witness<F>>, LurkError>;
+    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        let mut frame_it = match &mut self.0 {
+            Ok(f) => f,
+            Err(e) => return Some(Err(e.clone())),
+        };
+        // skip first iteration, as one evaluation happens on construction
+        if frame_it.first {
+            frame_it.first = false;
+            return Some(Ok(frame_it.frame.clone()));
+        }
+
+        if frame_it.frame.is_complete() {
+            return None;
+        }
+
+        frame_it.frame = match frame_it.frame.next(frame_it.store) {
+            Ok(f) => f,
+            Err(e) => return Some(Err(e)),
+        };
+
+        Some(Ok(frame_it.frame.clone()))
     }
 }
 
@@ -314,6 +344,7 @@ impl<'a, 'b, F: LurkField> Iterator for FrameIt<'a, Witness<F>, F> {
             return None;
         }
 
+        // TODO: Error info lost here
         self.frame = self.frame.next(self.store).ok()?;
 
         Some(self.frame.clone())
@@ -1438,6 +1469,14 @@ where
         Ok(FrameIt::new(initial_input, self.store)?.take(self.limit))
     }
 
+    // Wraps frames in Result type in order to fail gracefully
+    pub fn get_frames(&mut self) -> Result<Vec<Frame<IO<F>, Witness<F>>>, LurkError> {
+        let frame = FrameIt::new(self.initial(), self.store)?;
+        let result_frame = ResultFrame(Ok(frame)).into_iter().take(self.limit);
+        let ret: Result<Vec<_>, _> = result_frame.collect();
+        ret
+    }
+
     pub fn generate_frames<Fp: Fn(usize) -> bool>(
         expr: Ptr<F>,
         env: Ptr<F>,
@@ -1446,7 +1485,8 @@ where
         needs_frame_padding: Fp,
     ) -> Result<Vec<Frame<IO<F>, Witness<F>>>, LurkError> {
         let mut evaluator = Self::new(expr, env, store, limit);
-        let mut frames: Vec<Frame<IO<F>, Witness<F>>> = evaluator.iter()?.collect::<Vec<_>>();
+
+        let mut frames = evaluator.get_frames()?;
         assert!(!frames.is_empty());
 
         // TODO: We previously had an optimization here. If the limit was not reached, the final frame should be an

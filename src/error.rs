@@ -12,7 +12,7 @@ pub enum Error {
     Lurk(#[from] LurkError),
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum LurkError {
     #[error("Evaluation error: {0}")]
     Eval(String),
