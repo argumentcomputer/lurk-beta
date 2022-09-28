@@ -3154,12 +3154,16 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         // Next constraints are used for number comparisons
         ///////////////////////////////////////////////////////////////////////
         let double_a = constraints::add(&mut cs.namespace(|| "double a"), a, a)?;
+        // Ideally we would compute the bit decomposition for a, not for 2a,
+        // since it would be possible to use it for future purposes.
+        // TODO: replace bit decompositon from 2a to a.
         let double_a_bits = double_a
             .to_bits_le_strict(&mut cs.namespace(|| "double a lsb"))
             .unwrap();
         let lsb_2a = double_a_bits.get(0);
 
         let double_b = constraints::add(&mut cs.namespace(|| "double b"), b, b)?;
+        // TODO: replace bit decompositon from 2b to b.
         let double_b_bits = double_b
             .to_bits_le_strict(&mut cs.namespace(|| "double b lsb"))
             .unwrap();
@@ -3167,12 +3171,16 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let diff_is_zero = alloc_is_zero(&mut cs.namespace(|| "diff is zero"), &diff)?;
         let double_diff = constraints::add(&mut cs.namespace(|| "double diff"), &diff, &diff)?;
+        // TODO: replace bit decompositon from 2diff to diff.
         let double_diff_bits = double_diff.to_bits_le_strict(&mut cs).unwrap();
         let lsb_2diff = double_diff_bits.get(0);
 
-        // We have that the difference is negative is the parity bit (the least significant bit)
-        // is odd after doubling, meaning that the field element is larger than the underlying prime
-        // number dividided by 2.
+        // We have that the difference is defined to be negative if the parity bit (the
+        // least significant bit) is odd after doubling, meaning that the field element
+        // (after doubling) is larger than the underlying prime p that defines the
+        // field, then a modular reduction must be carried out, changing the parity that
+        // should be even (since we multiplied by 2) to odd. In other words, we define
+        // negative numbers to be those field elements that are larger than p/2.
         let a_is_negative = lsb_2a.unwrap();
         let b_is_negative = lsb_2b.unwrap();
         let diff_is_negative = lsb_2diff.unwrap();
@@ -3201,6 +3209,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             b_is_negative,
         )?
         .not();
+
         let a_negative_and_b_positive = Boolean::and(
             &mut cs.namespace(|| "a negative and b positive"),
             a_is_negative,
@@ -3210,13 +3219,15 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let diff_is_negative_val = match diff_is_negative.get_value() {
             Some(v) => {
                 if v {
-                    Ok(g.true_num.get_value().unwrap())
+                    Ok(F::one())
                 } else {
-                    Ok(g.false_num.get_value().unwrap())
+                    Ok(F::zero())
                 }
             }
-            None => Ok(F::zero()),
+            None => Ok(F::zero()), // Blank
         };
+        // FIXME: constrain to prove correspondence with `diff_is_negative`
+        // or eliminate it by converting from Boolean to AllocatedNum.
         let alloc_num_diff_is_negative = AllocatedNum::alloc(
             &mut cs.namespace(|| "Allocate num for diff_is_negative"),
             || diff_is_negative_val,
@@ -3225,13 +3236,15 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let diff_is_negative_or_zero_val = match diff_is_negative_or_zero.get_value() {
             Some(v) => {
                 if v {
-                    Ok(g.true_num.get_value().unwrap())
+                    Ok(F::one())
                 } else {
-                    Ok(g.false_num.get_value().unwrap())
+                    Ok(F::zero())
                 }
             }
-            None => Ok(F::zero()),
+            None => Ok(F::zero()), // Blank
         };
+        // FIXME: constrain to prove correspondence with `diff_is_negative_or_zero`
+        // or eliminate it by converting from Boolean to AllocatedNum.
         let alloc_num_diff_is_negative_or_zero = AllocatedNum::alloc(
             &mut cs.namespace(|| "Allocate num for diff_is_negative_or_zero"),
             || diff_is_negative_or_zero_val,
@@ -3240,13 +3253,15 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let diff_is_strictly_positive_val = match diff_is_strictly_positive.get_value() {
             Some(v) => {
                 if v {
-                    Ok(g.true_num.get_value().unwrap())
+                    Ok(F::one())
                 } else {
-                    Ok(g.false_num.get_value().unwrap())
+                    Ok(F::zero())
                 }
             }
-            None => Ok(F::zero()),
+            None => Ok(F::zero()), // Blank
         };
+        // FIXME: constrain to prove correspondence with `diff_is_strictly_positive`
+        // or eliminate it by converting from Boolean to AllocatedNum.
         let alloc_num_diff_is_strictly_positive = AllocatedNum::alloc(
             &mut cs.namespace(|| "Allocate num for diff_is_strictly_positive"),
             || diff_is_strictly_positive_val,
@@ -3255,13 +3270,15 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let diff_is_positive_or_zero_val = match diff_is_positive_or_zero.get_value() {
             Some(v) => {
                 if v {
-                    Ok(g.true_num.get_value().unwrap())
+                    Ok(F::one())
                 } else {
-                    Ok(g.false_num.get_value().unwrap())
+                    Ok(F::zero())
                 }
             }
-            None => Ok(F::zero()),
+            None => Ok(F::zero()), // Blank
         };
+        // FIXME: constrain to prove correspondence with `diff_is_positive_or_zero`
+        // or eliminate it by converting from Boolean to AllocatedNum.
         let alloc_num_diff_is_positive_or_zero = AllocatedNum::alloc(
             &mut cs.namespace(|| "Allocate num for diff_is_positive_or_zero"),
             || diff_is_positive_or_zero_val,
