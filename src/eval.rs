@@ -242,16 +242,15 @@ impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame
 }
 
 impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame<T, Witness<F>> {
-    fn from_initial_input(input: T, store: &mut Store<F>) -> Self {
+    fn from_initial_input(input: T, store: &mut Store<F>) -> Result<Self, LurkError> {
         input.log(store, 0);
-        //TODO: Handle this unwrap, create default frame or make this function fallible
-        let (output, witness) = input.reduce(store).unwrap();
-        Self {
+        let (output, witness) = input.reduce(store)?;
+        Ok(Self {
             input,
             output,
             i: 0,
             witness,
-        }
+        })
     }
 }
 
@@ -262,13 +261,13 @@ pub struct FrameIt<'a, W: Copy, F: LurkField> {
 }
 
 impl<'a, 'b, F: LurkField> FrameIt<'a, Witness<F>, F> {
-    fn new(initial_input: IO<F>, store: &'a mut Store<F>) -> Self {
-        let frame = Frame::from_initial_input(initial_input, store);
-        Self {
+    fn new(initial_input: IO<F>, store: &'a mut Store<F>) -> Result<Self, LurkError> {
+        let frame = Frame::from_initial_input(initial_input, store)?;
+        Ok(Self {
             first: true,
             frame,
             store,
-        }
+        })
     }
 
     /// Like `.iter().take(n).last()`, but skips intermediary stages, to optimize
@@ -276,25 +275,31 @@ impl<'a, 'b, F: LurkField> FrameIt<'a, Witness<F>, F> {
     fn next_n(
         mut self,
         n: usize,
-    ) -> Option<(
-        Frame<IO<F>, Witness<F>>,
-        Frame<IO<F>, Witness<F>>,
-        Vec<Ptr<F>>,
-    )> {
+    ) -> Result<
+        (
+            Frame<IO<F>, Witness<F>>,
+            Frame<IO<F>, Witness<F>>,
+            Vec<Ptr<F>>,
+        ),
+        LurkError,
+    > {
         let mut previous_frame = self.frame.clone();
         let mut emitted: Vec<Ptr<F>> = Vec::new();
         for _ in 0..n {
             if self.frame.is_complete() {
                 break;
             }
-            let new_frame = self.frame.next(self.store)?;
+            let new_frame = self
+                .frame
+                .next(self.store)
+                .ok_or_else(|| LurkError::Eval("Failed to reach next frame".into()))?;
 
             if let Some(expr) = new_frame.output.maybe_emitted_expression(self.store) {
                 emitted.push(expr);
             }
             previous_frame = std::mem::replace(&mut self.frame, new_frame);
         }
-        Some((self.frame, previous_frame, emitted))
+        Ok((self.frame, previous_frame, emitted))
     }
 }
 
@@ -1404,25 +1409,21 @@ where
 
     pub fn eval(&mut self) -> Result<(IO<F>, usize, Vec<Ptr<F>>), LurkError> {
         let initial_input = self.initial();
-        let frame_iterator = FrameIt::new(initial_input, self.store);
+        let frame_iterator = FrameIt::new(initial_input, self.store)?;
 
         // Initial input performs one reduction, so we need limit - 1 more.
-        if let Some((ultimate_frame, _penultimate_frame, emitted)) =
-            frame_iterator.next_n(self.limit - 1)
-        {
-            let output = ultimate_frame.output;
+        let (ultimate_frame, _penultimate_frame, emitted) =
+            frame_iterator.next_n(self.limit - 1)?;
+        let output = ultimate_frame.output;
 
-            let was_terminal = ultimate_frame.is_complete();
-            let i = ultimate_frame.i;
-            if was_terminal {
-                self.terminal_frame = Some(ultimate_frame);
-            }
-            let iterations = if was_terminal { i } else { i + 1 };
-            // NOTE: We compute a terminal frame but don't include it in the iteration count.
-            Ok((output, iterations, emitted))
-        } else {
-            Err(LurkError::Eval("eval error".into()))
+        let was_terminal = ultimate_frame.is_complete();
+        let i = ultimate_frame.i;
+        if was_terminal {
+            self.terminal_frame = Some(ultimate_frame);
         }
+        let iterations = if was_terminal { i } else { i + 1 };
+        // NOTE: We compute a terminal frame but don't include it in the iteration count.
+        Ok((output, iterations, emitted))
     }
 
     pub fn initial(&mut self) -> IO<F> {
@@ -1433,10 +1434,10 @@ where
         }
     }
 
-    pub fn iter(&mut self) -> Take<FrameIt<'_, Witness<F>, F>> {
+    pub fn iter(&mut self) -> Result<Take<FrameIt<'_, Witness<F>, F>>, LurkError> {
         let initial_input = self.initial();
 
-        FrameIt::new(initial_input, self.store).take(self.limit)
+        Ok(FrameIt::new(initial_input, self.store)?.take(self.limit))
     }
 
     pub fn generate_frames<Fp: Fn(usize) -> bool>(
@@ -1445,9 +1446,9 @@ where
         store: &'a mut Store<F>,
         limit: usize,
         needs_frame_padding: Fp,
-    ) -> Vec<Frame<IO<F>, Witness<F>>> {
+    ) -> Result<Vec<Frame<IO<F>, Witness<F>>>, LurkError> {
         let mut evaluator = Self::new(expr, env, store, limit);
-        let mut frames: Vec<Frame<IO<F>, Witness<F>>> = evaluator.iter().collect::<Vec<_>>();
+        let mut frames: Vec<Frame<IO<F>, Witness<F>>> = evaluator.iter()?.collect::<Vec<_>>();
         assert!(!frames.is_empty());
 
         // TODO: We previously had an optimization here. If the limit was not reached, the final frame should be an
@@ -1464,7 +1465,7 @@ where
             }
         }
 
-        frames
+        Ok(frames)
     }
 }
 

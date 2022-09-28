@@ -13,7 +13,6 @@ use nova::{
     CompressedSNARK, RecursiveSNARK,
 };
 use pasta_curves::{pallas, vesta};
-use thiserror::Error;
 
 use crate::circuit::{
     gadgets::{
@@ -22,9 +21,8 @@ use crate::circuit::{
     },
     CircuitFrame, MultiFrame,
 };
+use crate::error::Error;
 use crate::eval::{Evaluator, Frame, Witness, IO};
-
-use crate::error::LurkError;
 use crate::field::LurkField;
 use crate::proof::Prover;
 use crate::store::{Ptr, Store};
@@ -84,13 +82,13 @@ impl<F: LurkField> NovaProver<F> {
         env: Ptr<S1>,
         store: &mut Store<S1>,
         limit: usize,
-    ) -> Vec<Frame<IO<S1>, Witness<S1>>> {
+    ) -> Result<Vec<Frame<IO<S1>, Witness<S1>>>, Error> {
         let padding_predicate = |count| self.needs_frame_padding(count);
 
-        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate);
+        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate)?;
         store.hydrate_scalar_cache();
 
-        frames
+        Ok(frames)
     }
     pub fn evaluate_and_prove<'a>(
         &'a self,
@@ -100,7 +98,7 @@ impl<F: LurkField> NovaProver<F> {
         store: &'a mut Store<S1>,
         limit: usize,
     ) -> Result<(Proof, Vec<S1>, Vec<S1>, usize), Error> {
-        let frames = self.get_evaluation_frames(expr, env, store, limit);
+        let frames = self.get_evaluation_frames(expr, env, store, limit)?;
         let z0 = frames[0].input_vector(store)?;
         let zi = frames.last().unwrap().output_vector(store)?;
         let circuits = MultiFrame::from_frames(self.chunk_frame_count(), &frames, store);
@@ -110,16 +108,6 @@ impl<F: LurkField> NovaProver<F> {
 
         Ok((proof, z0, zi, num_steps))
     }
-}
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("Nova error")]
-    Nova(NovaError),
-    #[error("Synthesis error: {0}")]
-    Synthesis(SynthesisError),
-    #[error("Lurk error: {0}")]
-    Lurk(#[from] LurkError),
 }
 
 impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F, IO<F>, Witness<F>> {
@@ -361,7 +349,9 @@ mod tests {
             assert!(res2.unwrap());
         }
 
-        let frames = nova_prover.get_evaluation_frames(expr, e, s, limit);
+        let frames = nova_prover
+            .get_evaluation_frames(expr, e, s, limit)
+            .unwrap();
 
         let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, &s);
 
