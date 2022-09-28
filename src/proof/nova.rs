@@ -2270,8 +2270,7 @@ mod tests {
     }
 
     #[test]
-    //#[should_panic = "hidden value could not be opened"]
-    #[should_panic = "eval error"]
+    #[should_panic = "hidden value could not be opened"]
     fn outer_prove_open_opaque_commit() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 123)";
@@ -2287,8 +2286,7 @@ mod tests {
     }
 
     #[test]
-    //#[should_panic = "secret could not be extracted"]
-    #[should_panic = "eval error"]
+    #[should_panic = "secret could not be extracted"]
     fn outer_prove_secret_opaque_commit() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret (comm 123))";

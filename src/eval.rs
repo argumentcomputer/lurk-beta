@@ -225,14 +225,14 @@ impl<F: LurkField> IO<F> {
 }
 
 impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame<T, Witness<F>> {
-    pub(crate) fn next(&self, store: &mut Store<F>) -> Option<Self> {
+    pub(crate) fn next(&self, store: &mut Store<F>) -> Result<Self, LurkError> {
         let input = self.output;
-        let (output, witness) = input.reduce(store).ok()?;
+        let (output, witness) = input.reduce(store)?;
 
         // FIXME: Why isn't this method found?
         // self.log(store);
         self.output.log(store, self.i + 1);
-        Some(Self {
+        Ok(Self {
             input,
             output,
             i: self.i + 1,
@@ -289,10 +289,8 @@ impl<'a, 'b, F: LurkField> FrameIt<'a, Witness<F>, F> {
             if self.frame.is_complete() {
                 break;
             }
-            let new_frame = self
-                .frame
-                .next(self.store)
-                .ok_or_else(|| LurkError::Eval("Failed to reach next frame".into()))?;
+            let new_frame = self.frame.next(self.store)?;
+            //.ok_or_else(|| LurkError::Eval("Failed to reach next frame".into()))?;
 
             if let Some(expr) = new_frame.output.maybe_emitted_expression(self.store) {
                 emitted.push(expr);
@@ -316,7 +314,7 @@ impl<'a, 'b, F: LurkField> Iterator for FrameIt<'a, Witness<F>, F> {
             return None;
         }
 
-        self.frame = self.frame.next(self.store)?;
+        self.frame = self.frame.next(self.store).ok()?;
 
         Some(self.frame.clone())
     }
@@ -2986,8 +2984,7 @@ mod test {
     }
 
     #[test]
-    //#[should_panic = "hidden value could not be opened"]
-    #[should_panic = "eval error"]
+    #[should_panic = "hidden value could not be opened"]
     fn open_opaque_commit() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 123)";
@@ -3003,8 +3000,7 @@ mod test {
     }
 
     #[test]
-    //#[should_panic = "secret could not be extracted"]
-    #[should_panic = "eval error"]
+    #[should_panic = "secret could not be extracted"]
     fn secret_opaque_commit() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret (comm 123))";
