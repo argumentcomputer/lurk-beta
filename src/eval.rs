@@ -1,8 +1,8 @@
 use crate::field::LurkField;
 use crate::num::Num;
 use crate::store::{
-    ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, Rel2, ScalarPointer, Store,
-    Tag, Thunk,
+    ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, ScalarPointer, Store, Tag,
+    Thunk,
 };
 use crate::writer::Write;
 use log::info;
@@ -797,14 +797,14 @@ fn reduce_with_witness<F: LurkField>(
                     Control::Return(
                         arg1,
                         env,
-                        store.intern_cont_relop(Rel2::NumEqual, env, more, cont),
+                        store.intern_cont_binop(Op2::NumEqual, env, more, cont),
                     )
                 } else if head == store.sym("eq") {
                     let (arg1, more) = store.car_cdr(&rest);
                     Control::Return(
                         arg1,
                         env,
-                        store.intern_cont_relop(Rel2::Equal, env, more, cont),
+                        store.intern_cont_binop(Op2::Equal, env, more, cont),
                     )
                 } else if head == store.sym("<") {
                     let (arg1, more) = store.car_cdr(&rest);
@@ -848,7 +848,7 @@ fn reduce_with_witness<F: LurkField>(
                     let fun_form = head;
                     let args = rest;
                     if args.is_nil() {
-                        Control::Return(fun_form, env, store.intern_cont_call0(cont))
+                        Control::Return(fun_form, env, store.intern_cont_call0(env, cont))
                     } else {
                         let (arg, more_args) = store.car_cdr(&args);
                         match more_args.tag() {
@@ -913,16 +913,20 @@ fn apply_continuation<F: LurkField>(
             _ => unreachable!(),
         },
         ContTag::Call0 => match store.fetch_cont(cont).unwrap() {
-            Continuation::Call0 { continuation } => match result.tag() {
+            Continuation::Call0 {
+                saved_env,
+                continuation,
+            } => match result.tag() {
                 Tag::Fun => match store.fetch(result).unwrap() {
                     Expression::Fun(arg, body, closed_env) => {
-                        let body_form = store.car(&body);
                         if arg == store.sym("_") {
-                            Control::Return(body_form, closed_env, continuation)
+                            let body_form = store.car(&body);
+                            let cont = make_tail_continuation(saved_env, continuation, store);
+
+                            Control::Return(body_form, closed_env, cont)
                         } else {
-                            // Applying zero args to a non-zero arg function leaves it unchanged.
-                            // This is arguably consistent with auto-currying.
-                            // TODO: maybe it should be an error.
+                            // // Applying zero args to a non-zero arg function leaves it unchanged.
+                            // // This is arguably consistent with auto-currying.
                             Control::Return(*result, *env, continuation)
                         }
                     }
@@ -934,7 +938,6 @@ fn apply_continuation<F: LurkField>(
         },
 
         ContTag::Call => match result.tag() {
-            // (arg, saved_env, continuation)
             Tag::Fun => match store.fetch_cont(cont).unwrap() {
                 Continuation::Call {
                     unevaled_arg,
@@ -1135,6 +1138,9 @@ fn apply_continuation<F: LurkField>(
                             tmp /= b;
                             store.intern_num(tmp)
                         }
+                        Op2::Equal | Op2::NumEqual => {
+                            store.as_lurk_boolean(store.ptr_eq(&evaled_arg, arg2))
+                        }
                         Op2::Less => store.less_than(a, b),
                         Op2::Greater => store.less_than(b, a),
                         Op2::LessEqual => store.less_equal(a, b),
@@ -1147,6 +1153,7 @@ fn apply_continuation<F: LurkField>(
                         Op2::Begin => unreachable!(),
                     },
                     (Expression::Num(a), _) => match operator {
+                        Op2::Equal => store.nil(),
                         Op2::Cons => store.cons(evaled_arg, *arg2),
                         Op2::Hide => store.hide(a.into_scalar(), *arg2),
                         _ => {
@@ -1161,63 +1168,10 @@ fn apply_continuation<F: LurkField>(
                         }
                     },
                     _ => match operator {
+                        Op2::Equal => store.as_lurk_boolean(store.ptr_eq(&evaled_arg, arg2)),
                         Op2::Cons => store.cons(evaled_arg, *arg2),
                         _ => {
                             return Control::Return(*result, *env, store.intern_cont_error());
-                        }
-                    },
-                };
-                Control::MakeThunk(result, *env, continuation)
-            }
-            _ => unreachable!(),
-        },
-        ContTag::Relop => match store.fetch_cont(cont).unwrap() {
-            Continuation::Relop {
-                operator,
-                saved_env,
-                unevaled_args,
-                continuation,
-            } => {
-                let (arg2, rest) = store.car_cdr(&unevaled_args);
-                if !rest.is_nil() {
-                    Control::Return(*result, *env, store.intern_cont_error())
-                } else {
-                    Control::Return(
-                        arg2,
-                        saved_env,
-                        store.intern_cont_relop2(operator, *result, continuation),
-                    )
-                }
-            }
-            _ => unreachable!(),
-        },
-        ContTag::Relop2 => match store.fetch_cont(cont).unwrap() {
-            Continuation::Relop2 {
-                operator,
-                evaled_arg,
-                continuation,
-            } => {
-                let arg2 = result;
-                let result = match (evaled_arg.tag(), arg2.tag()) {
-                    (Tag::Num, Tag::Num) => match operator {
-                        Rel2::NumEqual | Rel2::Equal => {
-                            if store.ptr_eq(&evaled_arg, arg2) {
-                                store.t() // TODO: maybe explicit boolean.
-                            } else {
-                                store.nil()
-                            }
-                        }
-                    },
-                    (_, _) => match operator {
-                        Rel2::NumEqual => {
-                            return Control::Return(*result, *env, store.intern_cont_error());
-                        }
-                        Rel2::Equal => {
-                            if store.ptr_eq(&evaled_arg, arg2) {
-                                store.t()
-                            } else {
-                                store.nil()
-                            }
                         }
                     },
                 };
@@ -2226,10 +2180,42 @@ mod test {
     }
 
     #[test]
+    fn nested_let_closure_regression() {
+        let s = &mut Store::<Fr>::default();
+        let terminal = s.get_cont_terminal();
+        let expected = s.num(6);
+
+        {
+            // This always works.
+            let expr = "(let ((x 6)
+                              (data-function (lambda () 123))
+                              (data (data-function)))
+                          x)";
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 13);
+        }
+        {
+            // This fails if zero-arg functions don't save and restore the env.
+            let expr = "(let ((data-function (lambda () 123))
+                              (x 6)
+                              (data (data-function)))
+                          x)";
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 14);
+        }
+    }
+
+    #[test]
     fn evaluate_eq() {
         {
             let s = &mut Store::<Fr>::default();
             let expr = "(eq 'a 'a)";
+
+            let expected = s.t();
+            let terminal = s.get_cont_terminal();
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        }
+        {
+            let s = &mut Store::<Fr>::default();
+            let expr = "(eq 1 1)";
 
             let expected = s.t();
             let terminal = s.get_cont_terminal();
@@ -2243,23 +2229,43 @@ mod test {
             let terminal = s.get_cont_terminal();
             test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
-    }
-    #[test]
-    fn evaluate_zero_arg_lambda() {
+
         {
             let s = &mut Store::<Fr>::default();
-            let expr = "((lambda () 123))";
+            let expr = "(eq 1 'a)";
 
-            let expected = s.num(123);
+            let expected = s.nil();
             let terminal = s.get_cont_terminal();
             test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
         }
+    }
+    #[test]
+    fn evaluate_zero_arg_lambda() {
+        let s = &mut Store::<Fr>::default();
+        let terminal = s.get_cont_terminal();
         {
-            let s = &mut Store::<Fr>::default();
+            let expr = "((lambda () 123))";
+
+            let expected = s.num(123);
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        }
+        {
+            let expected = {
+                let arg = s.sym("x");
+                let num = s.num(123);
+                let body = s.list(&[num]);
+                let env = s.nil();
+                s.intern_fun(arg, body, env)
+            };
+
+            // One arg expected but zero supplied.
+            let expr = "((lambda (x) 123))";
+            test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        }
+        {
             let expr = "(letrec ((x 9) (f (lambda () (+ x 1)))) (f))";
 
             let expected = s.num(10);
-            let terminal = s.get_cont_terminal();
             test_aux(s, expr, Some(expected), None, Some(terminal), None, 12);
         }
     }
@@ -2384,7 +2390,7 @@ mod test {
     }
 
     #[test]
-    fn evaluate_map_tree_relop_bug() {
+    fn evaluate_map_tree_numequal_bug() {
         {
             // Reuse map-tree failure case to test Relop behavior.
             // This failed initially and tests regression.
@@ -3048,6 +3054,69 @@ mod test {
                       (< most-negative  less-negative)) ";
 
             test_aux(s, expr, Some(t), None, Some(terminal), None, 24);
+        }
+    }
+
+    #[test]
+    fn test_num_syntax_implications() {
+        let s = &mut Store::<Fr>::default();
+        let t = s.t();
+        let terminal = s.get_cont_terminal();
+
+        {
+            let expr = "(let ((most-positive -1/2)
+                              (most-negative 1/2))
+                          (< most-negative most-positive))";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 10);
+        }
+
+        {
+            let expr = "(= (* 6 3/2) 9)";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 6);
+        }
+
+        {
+            let expr = "(= (* 2/3 3/2) 1)";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 6);
+        }
+
+        {
+            let expr = "(= (* -2/3 3/2) -1)";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 6);
+        }
+
+        {
+            let expr = "(= (+ 1/3 1/2) 5/6)";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 6);
+        }
+
+        // Comparisons of field elements produced by fractional notation don't yield the results
+        // their rational equivalents would.
+        {
+            // This obviously must be true, since 1/2 is the most negative Num,
+            // but this violates expectations if you consider 1/2 to behave like a rational.
+            let expr = "(< 1/2 1/3)";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        }
+
+        {
+            // This isn't a weird edge case like the above, but it's also not the behavior
+            // expected if fractional notation yielded true rational numbers.
+            let expr = "(< 3/4 5/8)";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        }
+        {
+            // It's not that they *can't* compare in the naively expected way, though.
+            let expr = "(< 3/5 3/4)";
+
+            test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
         }
     }
 

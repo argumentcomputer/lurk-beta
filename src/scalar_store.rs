@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::field::LurkField;
 
-use crate::store::{Op1, Op2, Pointer, Ptr, Rel2, ScalarContPtr, ScalarPtr, Store, Tag};
+use crate::store::{Op1, Op2, Pointer, Ptr, ScalarContPtr, ScalarPtr, Store, Tag};
 use crate::Num;
 use serde::Deserialize;
 use serde::Serialize;
@@ -265,17 +265,6 @@ pub enum ScalarContinuation<F: LurkField> {
         evaled_arg: ScalarPtr<F>,
         continuation: ScalarContPtr<F>,
     },
-    Relop {
-        operator: Rel2,
-        saved_env: ScalarPtr<F>,
-        unevaled_args: ScalarPtr<F>,
-        continuation: ScalarContPtr<F>,
-    },
-    Relop2 {
-        operator: Rel2,
-        evaled_arg: ScalarPtr<F>,
-        continuation: ScalarContPtr<F>,
-    },
     If {
         unevaled_args: ScalarPtr<F>,
         continuation: ScalarContPtr<F>,
@@ -422,23 +411,6 @@ mod test {
                     100,
                     Box::new(|g| Self::Binop2 {
                         operator: Op2::arbitrary(g),
-                        evaled_arg: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Relop {
-                        operator: Rel2::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        unevaled_args: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Relop2 {
-                        operator: Rel2::arbitrary(g),
                         evaled_arg: ScalarPtr::arbitrary(g),
                         continuation: ScalarContPtr::arbitrary(g),
                     }),

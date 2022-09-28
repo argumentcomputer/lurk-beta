@@ -1,7 +1,7 @@
-use std::io;
-
 use crate::field::LurkField;
 use crate::store::{ContPtr, Continuation, Expression, Ptr, Store};
+use peekmore::PeekMore;
+use std::io;
 
 pub trait Write<F: LurkField> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()>;
@@ -44,7 +44,7 @@ impl<F: LurkField> Write<F> for ContPtr<F> {
 }
 
 fn write_symbol<F: LurkField, W: io::Write>(w: &mut W, symbol_name: &str) -> io::Result<()> {
-    let mut chars = symbol_name.chars().peekable();
+    let mut chars = symbol_name.chars().peekmore();
     let unquoted = Store::<F>::read_unquoted_symbol_name(&mut chars);
     if unquoted == symbol_name {
         write!(w, "{}", symbol_name)
@@ -160,8 +160,13 @@ impl<F: LurkField> Write<F> for Continuation<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         match self {
             Continuation::Outermost => write!(w, "Outermost"),
-            Continuation::Call0 { continuation } => {
-                write!(w, "Call0{{ continuation: ")?;
+            Continuation::Call0 {
+                saved_env,
+                continuation,
+            } => {
+                write!(w, "Call0{{ saved_env: ")?;
+                saved_env.fmt(store, w)?;
+                write!(w, ", ")?;
                 continuation.fmt(store, w)?;
                 write!(w, " }}")
             }
@@ -241,31 +246,6 @@ impl<F: LurkField> Write<F> for Continuation<F> {
                 continuation,
             } => {
                 write!(w, "Binop2{{ operator: {}, evaled_arg: ", operator)?;
-                evaled_arg.fmt(store, w)?;
-                write!(w, ", continuation: ")?;
-                continuation.fmt(store, w)?;
-                write!(w, " }}")
-            }
-            Continuation::Relop {
-                operator,
-                saved_env,
-                unevaled_args,
-                continuation,
-            } => {
-                write!(w, "Relop{{ operator: {}, saved_env: ", operator)?;
-                saved_env.fmt(store, w)?;
-                write!(w, ", unevaled_args: ")?;
-                unevaled_args.fmt(store, w)?;
-                write!(w, ", continuation: ")?;
-                continuation.fmt(store, w)?;
-                write!(w, ")")
-            }
-            Continuation::Relop2 {
-                operator,
-                evaled_arg,
-                continuation,
-            } => {
-                write!(w, "Relop2{{ operator: {}, evaled_ag: ", operator)?;
                 evaled_arg.fmt(store, w)?;
                 write!(w, ", continuation: ")?;
                 continuation.fmt(store, w)?;

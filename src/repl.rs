@@ -3,6 +3,7 @@ use crate::field::LurkField;
 use crate::store::{ContPtr, ContTag, Expression, Pointer, Ptr, Store, Tag};
 use crate::writer::Write;
 use anyhow::Result;
+use peekmore::PeekMore;
 use rustyline::error::ReadlineError;
 use rustyline::validate::{
     MatchingBracketValidator, ValidationContext, ValidationResult, Validator,
@@ -178,7 +179,7 @@ impl<F: LurkField> ReplState<F> {
         store: &mut Store<F>,
         line: &str,
     ) -> Result<(bool, bool)> {
-        let mut chars = line.chars().peekable();
+        let mut chars = line.chars().peekmore();
         let maybe_command = store.read_next(&mut chars);
 
         let result = match &maybe_command {
@@ -235,7 +236,7 @@ impl<F: LurkField> ReplState<F> {
     pub fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store<F>, path: P) -> Result<()> {
         println!("Loading from {}.", path.as_ref().to_str().unwrap());
         let input = read_to_string(path)?;
-        let mut chars = input.chars().peekable();
+        let mut chars = input.chars().peekmore();
 
         while let Some(expr) = store.read_next(&mut chars) {
             let (result, _limit, _next_cont, _) = self.eval_expr(expr, store);
@@ -259,7 +260,7 @@ impl<F: LurkField> ReplState<F> {
 
         let input = read_to_string(path)?;
         println!("Read from {}: {}", path.as_ref().to_str().unwrap(), input);
-        let mut chars = input.chars().peekable();
+        let mut chars = input.chars().peekmore();
 
         while let Some((ptr, is_meta)) = store.read_maybe_meta(&mut chars) {
             let expr = store.fetch(&ptr).unwrap();

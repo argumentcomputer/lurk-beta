@@ -25,18 +25,18 @@ pub fn verify_sequential_css<F: LurkField + Copy>(
     for (i, (multiframe, cs)) in css.iter().enumerate() {
         if let Some(prev) = previous_frame {
             if !prev.precedes(multiframe) {
-                dbg!("not preceeding frame");
+                dbg!(i, "not preceeding frame");
                 return Ok(false);
             }
         }
         if !cs.is_satisfied() {
-            dbg!("cs {} not satisfied", i);
+            dbg!(i, "cs not satisfied");
             return Ok(false);
         }
 
         let public_inputs = multiframe.public_inputs();
         if !cs.verify(&public_inputs) {
-            dbg!("cs not verified");
+            dbg!(i, "cs not verified");
             return Ok(false);
         }
         previous_frame = Some(multiframe);

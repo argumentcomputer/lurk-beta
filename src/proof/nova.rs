@@ -491,6 +491,19 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_equal() {
+        let s = &mut Store::<Fr>::default();
+        let nil = s.nil();
+        let t = s.t();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, "(eq 5 nil)", Some(nil), None, Some(terminal), None, 3);
+        nova_test_aux(s, "(eq nil 5)", Some(nil), None, Some(terminal), None, 3);
+        nova_test_aux(s, "(eq nil nil)", Some(t), None, Some(terminal), None, 3);
+        nova_test_aux(s, "(eq 5 5)", Some(t), None, Some(terminal), None, 3);
+    }
+
+    #[test]
     fn outer_prove_quote_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
@@ -810,13 +823,6 @@ mod tests {
         let expected = s.num(9);
         let error = s.get_cont_error();
         nova_test_aux(s, "(- 9 8 7)", Some(expected), None, Some(error), None, 2);
-    }
-
-    #[test]
-    fn outer_prove_evaluate_relop_rest_is_nil() {
-        let s = &mut Store::<Fr>::default();
-        let expected = s.num(9);
-        let error = s.get_cont_error();
         nova_test_aux(s, "(= 9 8 7)", Some(expected), None, Some(error), None, 2);
     }
 
@@ -1497,6 +1503,7 @@ mod tests {
             10,
         );
     }
+
     #[test]
     fn outer_prove_evaluate_zero_arg_lambda3() {
         let s = &mut Store::<Fr>::default();
@@ -1532,6 +1539,18 @@ mod tests {
         let expected = s.num(123);
         let error = s.get_cont_error();
         nova_test_aux(s, "(123)", Some(expected), None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_nested_let_closure_regression() {
+        let s = &mut Store::<Fr>::default();
+        let terminal = s.get_cont_terminal();
+        let expected = s.num(6);
+        let expr = "(let ((data-function (lambda () 123))
+                          (x 6)
+                          (data (data-function)))
+                      x)";
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 14);
     }
 
     #[test]
