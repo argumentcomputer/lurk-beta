@@ -21,8 +21,8 @@ use crate::circuit::{
     },
     CircuitFrame, MultiFrame,
 };
+use crate::error::Error;
 use crate::eval::{Evaluator, Frame, Witness, IO};
-
 use crate::field::LurkField;
 use crate::proof::Prover;
 use crate::store::{Ptr, Store};
@@ -82,13 +82,13 @@ impl<F: LurkField> NovaProver<F> {
         env: Ptr<S1>,
         store: &mut Store<S1>,
         limit: usize,
-    ) -> Vec<Frame<IO<S1>, Witness<S1>>> {
+    ) -> Result<Vec<Frame<IO<S1>, Witness<S1>>>, Error> {
         let padding_predicate = |count| self.needs_frame_padding(count);
 
-        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate);
+        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate)?;
         store.hydrate_scalar_cache();
 
-        frames
+        Ok(frames)
     }
     pub fn evaluate_and_prove<'a>(
         &'a self,
@@ -98,9 +98,9 @@ impl<F: LurkField> NovaProver<F> {
         store: &'a mut Store<S1>,
         limit: usize,
     ) -> Result<(Proof, Vec<S1>, Vec<S1>, usize), Error> {
-        let frames = self.get_evaluation_frames(expr, env, store, limit);
-        let z0 = frames[0].input_vector(store);
-        let zi = frames.last().unwrap().output_vector(store);
+        let frames = self.get_evaluation_frames(expr, env, store, limit)?;
+        let z0 = frames[0].input_vector(store)?;
+        let zi = frames.last().unwrap().output_vector(store)?;
         let circuits = MultiFrame::from_frames(self.chunk_frame_count(), &frames, store);
         let num_steps = circuits.len();
         let proof =
@@ -108,12 +108,6 @@ impl<F: LurkField> NovaProver<F> {
 
         Ok((proof, z0, zi, num_steps))
     }
-}
-
-#[derive(Debug)]
-pub enum Error {
-    Nova(NovaError),
-    Synthesis(SynthesisError),
 }
 
 impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F, IO<F>, Witness<F>> {
@@ -171,12 +165,12 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F, IO<F>, Witness<F>> {
 
     fn output(&self, z: &[F]) -> Vec<F> {
         // sanity check
-        assert_eq!(z, self.input.unwrap().to_vector(self.get_store()));
+        assert_eq!(z, self.input.unwrap().to_vector(self.get_store()).unwrap());
         assert_eq!(
             self.frames.as_ref().unwrap().last().unwrap().output,
             self.output
         );
-        self.output.unwrap().to_vector(self.get_store())
+        self.output.unwrap().to_vector(self.get_store()).unwrap()
     }
 }
 
@@ -216,7 +210,7 @@ impl<'a> Proof<'a> {
                 let zi = circuit_primary.frames.as_ref().unwrap()[0]
                     .input
                     .unwrap()
-                    .to_vector(store);
+                    .to_vector(store)?;
                 let mut zi_allocated = Vec::with_capacity(zi.len());
 
                 for (i, x) in zi.iter().enumerate() {
@@ -355,7 +349,9 @@ mod tests {
             assert!(res2.unwrap());
         }
 
-        let frames = nova_prover.get_evaluation_frames(expr, e, s, limit);
+        let frames = nova_prover
+            .get_evaluation_frames(expr, e, s, limit)
+            .unwrap();
 
         let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, &s);
 

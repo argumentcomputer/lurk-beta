@@ -10,6 +10,7 @@ repository = "https://github.com/lurk-lang/lurk-rs"
 [dependencies]
 anyhow = "1.0.45"
 bellperson = "0.22"
+thiserror = "1.0.35"
 dirs = "4.0.0"
 blstrs = "0.5.0"
 ff = "0.12.0"
@@ -68,7 +69,6 @@ name = "lurkrs"
 path = "examples/repl.rs"
 
 [patch.crates-io]
-ec-gpu-gen = { git = "https://github.com/lurk-lang/ec-gpu", branch = "sb/wasm-lurk-compat" }
 bellperson = { git = "https://github.com/lurk-lang/bellperson", branch = "sb/wasm-lurk-compat" }
 bellperson-nonnative = { git = "https://github.com/lurk-lang/bellperson-nonnative", branch = "sb/wasm-lurk-compat" }
 neptune = { git = "https://github.com/lurk-lang/neptune", branch = "sb/wasm-lurk-compat" }

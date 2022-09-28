@@ -3864,7 +3864,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let (_, witness) = input.reduce(&mut store);
+        let (_, witness) = input.reduce(&mut store).unwrap();
 
         let groth_prover = Groth16Prover::new(DEFAULT_CHUNK_FRAME_COUNT);
         let groth_params = groth_prover.groth_params().unwrap();
@@ -3987,7 +3987,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let (_, witness) = input.reduce(&mut store);
+        let (_, witness) = input.reduce(&mut store).unwrap();
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
             let mut cs = TestConstraintSystem::<Fr>::new();
@@ -4064,7 +4064,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let (_, witness) = input.reduce(&mut store);
+        let (_, witness) = input.reduce(&mut store).unwrap();
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
             let mut cs = TestConstraintSystem::<Fr>::new();
@@ -4141,7 +4141,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let (_, witness) = input.reduce(&mut store);
+        let (_, witness) = input.reduce(&mut store).unwrap();
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
             let mut cs = TestConstraintSystem::<Fr>::new();
@@ -4219,7 +4219,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let (_, witness) = input.reduce(&mut store);
+        let (_, witness) = input.reduce(&mut store).unwrap();
 
         let test_with_output = |output, expect_success, store: &mut Store<Fr>| {
             let mut cs = TestConstraintSystem::<Fr>::new();

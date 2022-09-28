@@ -21,6 +21,7 @@ pub mod scalar_store;
 pub mod store;
 pub mod writer;
 
+mod error;
 mod num;
 pub use num::Num;
 
