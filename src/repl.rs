@@ -117,7 +117,9 @@ pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
                         },
                         iterations,
                         _emitted,
-                    ) = Evaluator::new(expr, repl.state.env, &mut s, limit).eval();
+                    ) = Evaluator::new(expr, repl.state.env, &mut s, limit)
+                        .eval()
+                        .unwrap();
 
                     print!("[{} iterations] => ", iterations);
 
@@ -166,7 +168,9 @@ impl<F: LurkField> ReplState<F> {
             },
             limit,
             emitted,
-        ) = Evaluator::new(expr, self.env, store, self.limit).eval();
+        ) = Evaluator::new(expr, self.env, store, self.limit)
+            .eval()
+            .unwrap();
 
         (result, limit, next_cont, emitted)
     }

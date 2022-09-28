@@ -565,7 +565,7 @@ mod test {
                 },
                 _lim,
                 _emitted,
-            ) = eval.eval();
+            ) = eval.eval().unwrap();
 
             let (scalar_store, _) = ScalarStore::new_with_expr(&s, &expr);
             println!("{:?}", scalar_store);

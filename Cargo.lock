@@ -1375,6 +1375,7 @@ dependencies = [
  "serde_repr",
  "string-interner",
  "structopt",
+ "thiserror",
 ]
 
 [[package]]

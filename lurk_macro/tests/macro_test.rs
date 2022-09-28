@@ -70,7 +70,9 @@ mod test {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit).eval();
+        ) = Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit)
+            .eval()
+            .unwrap();
 
         assert_eq!(91, iterations);
         assert_eq!(s_.num(125), result_expr);
@@ -92,7 +94,9 @@ mod test {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit).eval();
+        ) = Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit)
+            .eval()
+            .unwrap();
 
         assert_eq!(4, iterations);
         assert_eq!(val, result_expr);

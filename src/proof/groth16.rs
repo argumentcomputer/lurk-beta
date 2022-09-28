@@ -19,6 +19,7 @@ use rand_xorshift::XorShiftRng;
 use serde::{Deserialize, Serialize};
 
 use crate::circuit::MultiFrame;
+use crate::error::Error;
 use crate::eval::{Evaluator, Witness, IO};
 use crate::field::LurkField;
 use crate::proof::{Provable, Prover};
@@ -144,14 +145,14 @@ where
             IO<<Self::E as Engine>::Fr>,
             IO<<Self::E as Engine>::Fr>,
         ),
-        SynthesisError,
+        Error,
     >
     where
         <<Self as Groth16<F>>::E as Engine>::Fr: LurkField,
         <<Self as Groth16<F>>::E as Engine>::Fr: ff::PrimeField,
     {
         let padding_predicate = |count| self.needs_frame_padding(count);
-        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate);
+        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate)?;
         store.hydrate_scalar_cache();
 
         let multiframes = MultiFrame::from_frames(self.chunk_frame_count(), &frames, store);
@@ -438,7 +439,7 @@ mod tests {
 
         if check_constraint_systems {
             let padding_predicate = |count| groth_prover.needs_frame_padding(count);
-            let frames = Evaluator::generate_frames(expr, e, s, limit, padding_predicate);
+            let frames = Evaluator::generate_frames(expr, e, s, limit, padding_predicate).unwrap();
             s.hydrate_scalar_cache();
 
             let multi_frames = MultiFrame::from_frames(DEFAULT_CHUNK_FRAME_COUNT, &frames, &s);
@@ -677,7 +678,9 @@ mod tests {
             .unwrap();
         let limit = 300;
 
-        let (evaled, _, _) = Evaluator::new(fun_src, empty_sym_env(&s), &mut s, limit).eval();
+        let (evaled, _, _) = Evaluator::new(fun_src, empty_sym_env(&s), &mut s, limit)
+            .eval()
+            .unwrap();
 
         let fun = evaled.expr;
 
@@ -692,7 +695,9 @@ mod tests {
         let input = s.list(&[fun_from_comm, five]);
 
         let (output, _iterations, _emitted) =
-            Evaluator::new(input, empty_sym_env(&s), &mut s, limit).eval();
+            Evaluator::new(input, empty_sym_env(&s), &mut s, limit)
+                .eval()
+                .unwrap();
 
         let result_expr = output.expr;
 

@@ -466,15 +466,15 @@ impl Evaluation {
         store: &mut Store<F>,
         expr: Ptr<F>,
         limit: usize,
-    ) -> Self {
+    ) -> Result<Self, Error> {
         let env = empty_sym_env(store);
         let mut evaluator = Evaluator::new(expr, env, store, limit);
 
         let input = evaluator.initial();
 
-        let (output, iterations, _) = evaluator.eval();
+        let (output, iterations, _) = evaluator.eval().map_err(|_| Error::EvaluationFailure)?;
 
-        Self::new(store, input, output, Some(iterations))
+        Ok(Self::new(store, input, output, Some(iterations)))
     }
 }
 
@@ -511,8 +511,8 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
         function: Function<F>,
         input: Ptr<F>,
         limit: usize,
-    ) -> (Self, Ptr<F>) {
-        let fun_ptr = function.fun_ptr(s, limit);
+    ) -> Result<(Self, Ptr<F>), Error> {
+        let fun_ptr = function.fun_ptr(s, limit)?;
         let secret = function.secret.expect("Function secret missing");
 
         let commitment = Self::from_ptr_and_secret(s, &fun_ptr, secret);
@@ -526,7 +526,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
         // ((open <commitment>) input)
         let expression = s.list(&[fun_expr, input]);
 
-        (commitment, expression)
+        Ok((commitment, expression))
     }
 
     fn fun_application(&self, s: &mut Store<F>, input: Ptr<F>) -> Ptr<F> {
@@ -542,14 +542,14 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
 }
 
 impl<F: LurkField + Serialize + DeserializeOwned> Function<F> {
-    pub fn fun_ptr(&self, s: &mut Store<F>, limit: usize) -> Ptr<F> {
+    pub fn fun_ptr(&self, s: &mut Store<F>, limit: usize) -> Result<Ptr<F>, Error> {
         let source_ptr = self.fun.ptr(s);
 
         // Evaluate the source to get an actual function.
-        let (output, _iterations) = evaluate(s, source_ptr, limit);
+        let (output, _iterations) = evaluate(s, source_ptr, limit)?;
         // TODO: Verify that result actually is a function.
 
-        output.expr
+        Ok(output.expr)
     }
 }
 
@@ -592,7 +592,7 @@ impl Expression {
         limit: usize,
     ) -> Result<Ptr<F>, Error> {
         let expr = self.expr.ptr(s);
-        let (io, _iterations) = evaluate(s, expr, limit);
+        let (io, _iterations) = evaluate(s, expr, limit)?;
 
         Ok(io.expr)
     }
@@ -679,8 +679,8 @@ impl Opening<Scalar> {
         let function_map = committed_function_store();
 
         let (commitment, expression) =
-            Commitment::construct_with_fun_application(s, function, input, limit);
-        let (public_output, _iterations) = evaluate(s, expression, limit);
+            Commitment::construct_with_fun_application(s, function, input, limit)?;
+        let (public_output, _iterations) = evaluate(s, expression, limit)?;
 
         let (new_commitment, output_expr) = if chain {
             // FIXME: update for explicit commitments.
@@ -770,7 +770,7 @@ impl Proof<Bls12> {
         let cont = s.intern_cont_outermost();
         let input = IO { expr, env, cont };
 
-        let (public_output, _iterations) = evaluate(s, expr, limit);
+        let (public_output, _iterations) = evaluate(s, expr, limit)?;
         let evaluation = Evaluation::new(s, input, public_output, None);
         let claim = Claim::Evaluation(evaluation);
 
@@ -819,7 +819,7 @@ impl Proof<Bls12> {
 
                 let input = s.read(&o.input).expect("bad expression");
                 let (c, expression) =
-                    Commitment::construct_with_fun_application(s, function, input, limit);
+                    Commitment::construct_with_fun_application(s, function, input, limit)?;
 
                 assert_eq!(commitment, c);
                 (expression, empty_sym_env(s))
@@ -988,14 +988,18 @@ impl VerificationResult {
     }
 }
 
-pub fn evaluate<F: LurkField>(store: &mut Store<F>, expr: Ptr<F>, limit: usize) -> (IO<F>, usize) {
+pub fn evaluate<F: LurkField>(
+    store: &mut Store<F>,
+    expr: Ptr<F>,
+    limit: usize,
+) -> Result<(IO<F>, usize), Error> {
     let env = empty_sym_env(store);
     let mut evaluator = Evaluator::new(expr, env, store, limit);
 
-    let (io, iterations, _) = evaluator.eval();
+    let (io, iterations, _) = evaluator.eval().map_err(|_| Error::EvaluationFailure)?;
 
     assert!(io.is_terminal());
-    (io, iterations)
+    Ok((io, iterations))
 }
 
 #[cfg(test)]
