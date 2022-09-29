@@ -17,7 +17,7 @@ use crate::{
 };
 
 use super::gadgets::constraints::{
-    self, alloc_equal, alloc_is_zero, enforce_implication, or, pick,
+    self, alloc_equal, alloc_is_zero, convert_boolean_to_num, enforce_implication, or, pick,
 };
 use crate::circuit::ToInputs;
 use crate::eval::{Frame, Witness, IO};
@@ -3216,72 +3216,24 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &Boolean::not(b_is_negative),
         )?;
 
-        let diff_is_negative_val = match diff_is_negative.get_value() {
-            Some(v) => {
-                if v {
-                    Ok(F::one())
-                } else {
-                    Ok(F::zero())
-                }
-            }
-            None => Ok(F::zero()), // Blank
-        };
-        // FIXME: constrain to prove correspondence with `diff_is_negative`
-        // or eliminate it by converting from Boolean to AllocatedNum.
-        let alloc_num_diff_is_negative = AllocatedNum::alloc(
+        let alloc_num_diff_is_negative = convert_boolean_to_num(
             &mut cs.namespace(|| "Allocate num for diff_is_negative"),
-            || diff_is_negative_val,
+            diff_is_negative,
         )?;
 
-        let diff_is_negative_or_zero_val = match diff_is_negative_or_zero.get_value() {
-            Some(v) => {
-                if v {
-                    Ok(F::one())
-                } else {
-                    Ok(F::zero())
-                }
-            }
-            None => Ok(F::zero()), // Blank
-        };
-        // FIXME: constrain to prove correspondence with `diff_is_negative_or_zero`
-        // or eliminate it by converting from Boolean to AllocatedNum.
-        let alloc_num_diff_is_negative_or_zero = AllocatedNum::alloc(
+        let alloc_num_diff_is_negative_or_zero = convert_boolean_to_num(
             &mut cs.namespace(|| "Allocate num for diff_is_negative_or_zero"),
-            || diff_is_negative_or_zero_val,
+            &diff_is_negative_or_zero,
         )?;
 
-        let diff_is_strictly_positive_val = match diff_is_strictly_positive.get_value() {
-            Some(v) => {
-                if v {
-                    Ok(F::one())
-                } else {
-                    Ok(F::zero())
-                }
-            }
-            None => Ok(F::zero()), // Blank
-        };
-        // FIXME: constrain to prove correspondence with `diff_is_strictly_positive`
-        // or eliminate it by converting from Boolean to AllocatedNum.
-        let alloc_num_diff_is_strictly_positive = AllocatedNum::alloc(
+        let alloc_num_diff_is_strictly_positive = convert_boolean_to_num(
             &mut cs.namespace(|| "Allocate num for diff_is_strictly_positive"),
-            || diff_is_strictly_positive_val,
+            &diff_is_strictly_positive,
         )?;
 
-        let diff_is_positive_or_zero_val = match diff_is_positive_or_zero.get_value() {
-            Some(v) => {
-                if v {
-                    Ok(F::one())
-                } else {
-                    Ok(F::zero())
-                }
-            }
-            None => Ok(F::zero()), // Blank
-        };
-        // FIXME: constrain to prove correspondence with `diff_is_positive_or_zero`
-        // or eliminate it by converting from Boolean to AllocatedNum.
-        let alloc_num_diff_is_positive_or_zero = AllocatedNum::alloc(
+        let alloc_num_diff_is_positive_or_zero = convert_boolean_to_num(
             &mut cs.namespace(|| "Allocate num for diff_is_positive_or_zero"),
-            || diff_is_positive_or_zero_val,
+            &diff_is_positive_or_zero,
         )?;
 
         let mut comp_results = CompResults::default();
@@ -4211,9 +4163,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(20463, cs.num_constraints());
+            assert_eq!(20467, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(20389, cs.aux().len());
+            assert_eq!(20393, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

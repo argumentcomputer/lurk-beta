@@ -242,6 +242,36 @@ where
     Ok(c)
 }
 
+/// Convert from Boolean to AllocatedNum
+pub fn convert_boolean_to_num<F: PrimeField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    bit: &Boolean,
+) -> Result<AllocatedNum<F>, SynthesisError>
+where
+    CS: ConstraintSystem<F>,
+{
+    let num = AllocatedNum::alloc(cs.namespace(|| "Allocate num"), || match bit.get_value() {
+        Some(v) => {
+            if v {
+                Ok(F::one())
+            } else {
+                Ok(F::zero())
+            }
+        }
+        None => Ok(F::zero()),
+    })?;
+
+    // Constrain (bit) * 1 = num, ensuring bit = num
+    cs.enforce(
+        || "Bit is equal to Num",
+        |_| bit.lc(CS::one(), F::one()),
+        |lc| lc + CS::one(),
+        |lc| lc + num.get_variable(),
+    );
+
+    Ok(num)
+}
+
 // This could now use alloc_is_zero to avoid duplication.
 pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
