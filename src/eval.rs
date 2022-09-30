@@ -1,3 +1,4 @@
+use crate::error::LurkError;
 use crate::field::LurkField;
 use crate::num::Num;
 use crate::store::{
@@ -123,16 +124,16 @@ impl<F: LurkField, W: Copy> Frame<IO<F>, W> {
             .count()
     }
 
-    pub fn input_vector(&self, store: &Store<F>) -> Vec<F> {
+    pub fn input_vector(&self, store: &Store<F>) -> Result<Vec<F>, LurkError> {
         self.input.to_vector(store)
     }
-    pub fn output_vector(&self, store: &Store<F>) -> Vec<F> {
+    pub fn output_vector(&self, store: &Store<F>) -> Result<Vec<F>, LurkError> {
         self.output.to_vector(store)
     }
 }
 
 pub trait Evaluable<F: LurkField, W> {
-    fn reduce(&self, store: &mut Store<F>) -> (Self, W)
+    fn reduce(&self, store: &mut Store<F>) -> Result<(Self, W), LurkError>
     where
         Self: Sized;
 
@@ -145,9 +146,9 @@ pub trait Evaluable<F: LurkField, W> {
 }
 
 impl<F: LurkField> Evaluable<F, Witness<F>> for IO<F> {
-    fn reduce(&self, store: &mut Store<F>) -> (Self, Witness<F>) {
-        let (expr, env, cont, witness) = reduce(self.expr, self.env, self.cont, store);
-        (Self { expr, env, cont }, witness)
+    fn reduce(&self, store: &mut Store<F>) -> Result<(Self, Witness<F>), LurkError> {
+        let (expr, env, cont, witness) = reduce(self.expr, self.env, self.cont, store)?;
+        Ok((Self { expr, env, cont }, witness))
     }
 
     fn status(&self) -> Status {
@@ -202,52 +203,58 @@ impl<F: LurkField> IO<F> {
         }
     }
 
-    pub fn to_vector(&self, store: &Store<F>) -> Vec<F> {
-        let expr_scalar_ptr = store.get_expr_hash(&self.expr).unwrap();
-        let env_scalar_ptr = store.get_expr_hash(&self.env).unwrap();
-        let cont_scalar_ptr = store.hash_cont(&self.cont).unwrap();
-        vec![
+    pub fn to_vector(&self, store: &Store<F>) -> Result<Vec<F>, LurkError> {
+        let expr_scalar_ptr = store
+            .get_expr_hash(&self.expr)
+            .ok_or_else(|| LurkError::Store("expr hash missing".into()))?;
+        let env_scalar_ptr = store
+            .get_expr_hash(&self.env)
+            .ok_or_else(|| LurkError::Store("expr hash missing".into()))?;
+        let cont_scalar_ptr = store
+            .hash_cont(&self.cont)
+            .ok_or_else(|| LurkError::Store("expr hash missing".into()))?;
+        Ok(vec![
             *expr_scalar_ptr.tag(),
             *expr_scalar_ptr.value(),
             *env_scalar_ptr.tag(),
             *env_scalar_ptr.value(),
             *cont_scalar_ptr.tag(),
             *cont_scalar_ptr.value(),
-        ]
+        ])
     }
 }
 
 impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame<T, Witness<F>> {
-    pub(crate) fn next(&self, store: &mut Store<F>) -> Self {
+    pub(crate) fn next(&self, store: &mut Store<F>) -> Result<Self, LurkError> {
         let input = self.output;
-        let (output, witness) = input.reduce(store);
+        let (output, witness) = input.reduce(store)?;
 
         // FIXME: Why isn't this method found?
         // self.log(store);
         self.output.log(store, self.i + 1);
-        Self {
+        Ok(Self {
             input,
             output,
             i: self.i + 1,
             witness,
-        }
+        })
     }
 }
 
 impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame<T, Witness<F>> {
-    fn from_initial_input(input: T, store: &mut Store<F>) -> Self {
+    fn from_initial_input(input: T, store: &mut Store<F>) -> Result<Self, LurkError> {
         input.log(store, 0);
-        let (output, witness) = input.reduce(store);
-
-        Self {
+        let (output, witness) = input.reduce(store)?;
+        Ok(Self {
             input,
             output,
             i: 0,
             witness,
-        }
+        })
     }
 }
 
+#[derive(Debug)]
 pub struct FrameIt<'a, W: Copy, F: LurkField> {
     first: bool,
     frame: Frame<IO<F>, W>,
@@ -255,13 +262,13 @@ pub struct FrameIt<'a, W: Copy, F: LurkField> {
 }
 
 impl<'a, 'b, F: LurkField> FrameIt<'a, Witness<F>, F> {
-    fn new(initial_input: IO<F>, store: &'a mut Store<F>) -> Self {
-        let frame = Frame::from_initial_input(initial_input, store);
-        Self {
+    fn new(initial_input: IO<F>, store: &'a mut Store<F>) -> Result<Self, LurkError> {
+        let frame = Frame::from_initial_input(initial_input, store)?;
+        Ok(Self {
             first: true,
             frame,
             store,
-        }
+        })
     }
 
     /// Like `.iter().take(n).last()`, but skips intermediary stages, to optimize
@@ -269,25 +276,58 @@ impl<'a, 'b, F: LurkField> FrameIt<'a, Witness<F>, F> {
     fn next_n(
         mut self,
         n: usize,
-    ) -> Option<(
-        Frame<IO<F>, Witness<F>>,
-        Frame<IO<F>, Witness<F>>,
-        Vec<Ptr<F>>,
-    )> {
+    ) -> Result<
+        (
+            Frame<IO<F>, Witness<F>>,
+            Frame<IO<F>, Witness<F>>,
+            Vec<Ptr<F>>,
+        ),
+        LurkError,
+    > {
         let mut previous_frame = self.frame.clone();
         let mut emitted: Vec<Ptr<F>> = Vec::new();
         for _ in 0..n {
             if self.frame.is_complete() {
                 break;
             }
-            let new_frame = self.frame.next(self.store);
+            let new_frame = self.frame.next(self.store)?;
 
             if let Some(expr) = new_frame.output.maybe_emitted_expression(self.store) {
                 emitted.push(expr);
             }
             previous_frame = std::mem::replace(&mut self.frame, new_frame);
         }
-        Some((self.frame, previous_frame, emitted))
+        Ok((self.frame, previous_frame, emitted))
+    }
+}
+
+// Wrapper struct to preserve errors that would otherwise be lost during iteration
+#[derive(Debug)]
+struct ResultFrame<'a, F: LurkField>(Result<FrameIt<'a, Witness<F>, F>, LurkError>);
+
+impl<'a, 'b, F: LurkField> Iterator for ResultFrame<'a, F> {
+    type Item = Result<Frame<IO<F>, Witness<F>>, LurkError>;
+    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        let mut frame_it = match &mut self.0 {
+            Ok(f) => f,
+            Err(e) => return Some(Err(e.clone())),
+        };
+        // skip first iteration, as one evaluation happens on construction
+        if frame_it.first {
+            frame_it.first = false;
+            return Some(Ok(frame_it.frame.clone()));
+        }
+
+        if frame_it.frame.is_complete() {
+            return None;
+        }
+
+        frame_it.frame = match frame_it.frame.next(frame_it.store) {
+            Ok(f) => f,
+            Err(e) => return Some(Err(e)),
+        };
+
+        Some(Ok(frame_it.frame.clone()))
     }
 }
 
@@ -304,7 +344,8 @@ impl<'a, 'b, F: LurkField> Iterator for FrameIt<'a, Witness<F>, F> {
             return None;
         }
 
-        self.frame = self.frame.next(self.store);
+        // TODO: Error info lost here
+        self.frame = self.frame.next(self.store).ok()?;
 
         Some(self.frame.clone())
     }
@@ -327,11 +368,11 @@ fn reduce<F: LurkField>(
     env: Ptr<F>,
     cont: ContPtr<F>,
     store: &mut Store<F>,
-) -> (Ptr<F>, Ptr<F>, ContPtr<F>, Witness<F>) {
-    let (ctrl, witness) = reduce_with_witness(expr, env, cont, store);
+) -> Result<(Ptr<F>, Ptr<F>, ContPtr<F>, Witness<F>), LurkError> {
+    let (ctrl, witness) = reduce_with_witness(expr, env, cont, store)?;
     let (new_expr, new_env, new_cont) = ctrl.into_results();
 
-    (new_expr, new_env, new_cont, witness)
+    Ok((new_expr, new_env, new_cont, witness))
 }
 
 #[derive(Debug, Clone)]
@@ -374,13 +415,16 @@ fn reduce_with_witness<F: LurkField>(
     env: Ptr<F>,
     cont: ContPtr<F>,
     store: &mut Store<F>,
-) -> (Control<F>, Witness<F>) {
+) -> Result<(Control<F>, Witness<F>), LurkError> {
     let mut extended_closure = None;
     let control = if cont.tag() == ContTag::Terminal {
         Control::Return(expr, env, cont)
     } else {
         match expr.tag() {
-            Tag::Thunk => match store.fetch(&expr).unwrap() {
+            Tag::Thunk => match store
+                .fetch(&expr)
+                .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+            {
                 Expression::Thunk(thunk) => {
                     Control::ApplyContinuation(thunk.value, env, thunk.continuation)
                 }
@@ -491,7 +535,7 @@ fn reduce_with_witness<F: LurkField>(
                                                     // We just found a closure in a recursive env.
                                                     // We need to extend its environment to include that recursive env.
 
-                                                    extend_closure(&val2, &rec_env, store)
+                                                    extend_closure(&val2, &rec_env, store)?
                                                 }
                                                 _ => {
                                                     extended_closure = None;
@@ -528,7 +572,7 @@ fn reduce_with_witness<F: LurkField>(
                                         }
                                     }
                                 }
-                                _ => panic!("Bad form."),
+                                _ => return Err(LurkError::Reduce("Bad form.".into())),
                             }
                         }
                     }
@@ -673,7 +717,7 @@ fn reduce_with_witness<F: LurkField>(
                 } else if head == store.sym("car") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
-                        Err(e) => panic!("{}", e),
+                        Err(e) => return Err(LurkError::Reduce(e.into())),
                     };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
@@ -683,7 +727,7 @@ fn reduce_with_witness<F: LurkField>(
                 } else if head == store.sym("cdr") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
-                        Err(e) => panic!("{}", e),
+                        Err(e) => return Err(LurkError::Reduce(e.into())),
                     };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
@@ -693,7 +737,7 @@ fn reduce_with_witness<F: LurkField>(
                 } else if head == store.sym("commit") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
-                        Err(e) => panic!("{}", e),
+                        Err(e) => return Err(LurkError::Reduce(e.into())),
                     };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
@@ -703,7 +747,7 @@ fn reduce_with_witness<F: LurkField>(
                 } else if head == store.sym("num") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
-                        Err(e) => panic!("{}", e),
+                        Err(e) => return Err(LurkError::Reduce(e.into())),
                     };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
@@ -713,7 +757,7 @@ fn reduce_with_witness<F: LurkField>(
                 } else if head == store.sym("comm") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
-                        Err(e) => panic!("{}", e),
+                        Err(e) => return Err(LurkError::Reduce(e.into())),
                     };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
@@ -723,7 +767,7 @@ fn reduce_with_witness<F: LurkField>(
                 } else if head == store.sym("char") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
-                        Err(e) => panic!("{}", e),
+                        Err(e) => return Err(LurkError::Reduce(e.into())),
                     };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
@@ -733,7 +777,7 @@ fn reduce_with_witness<F: LurkField>(
                 } else if head == store.sym("open") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
-                        Err(e) => panic!("{}", e),
+                        Err(e) => return Err(LurkError::Reduce(e.into())),
                     };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
@@ -743,7 +787,7 @@ fn reduce_with_witness<F: LurkField>(
                 } else if head == store.sym("secret") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
-                        Err(e) => panic!("{}", e),
+                        Err(e) => return Err(LurkError::Reduce(e.into())),
                     };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
@@ -884,19 +928,19 @@ fn reduce_with_witness<F: LurkField>(
         apply_continuation_cont: None,
     };
 
-    let control = apply_continuation(control, store, &mut witness);
-    let ctrl = make_thunk(control, store, &mut witness);
+    let control = apply_continuation(control, store, &mut witness)?;
+    let ctrl = make_thunk(control, store, &mut witness)?;
 
-    (ctrl, witness)
+    Ok((ctrl, witness))
 }
 
 fn apply_continuation<F: LurkField>(
     control: Control<F>,
     store: &mut Store<F>,
     witness: &mut Witness<F>,
-) -> Control<F> {
+) -> Result<Control<F>, LurkError> {
     if !control.is_apply_continuation() {
-        return control;
+        return Ok(control);
     }
 
     let (result, env, cont) = control.as_results();
@@ -906,18 +950,27 @@ fn apply_continuation<F: LurkField>(
         ContTag::Terminal | ContTag::Error => Control::Return(*result, *env, *cont),
         ContTag::Dummy => unreachable!("Dummy Continuation should never be applied."),
         ContTag::Outermost => Control::Return(*result, *env, store.intern_cont_terminal()),
-        ContTag::Emit => match store.fetch_cont(cont).unwrap() {
+        ContTag::Emit => match store
+            .fetch_cont(cont)
+            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+        {
             // Although Emit has no effect within the computation, it has an externally-visible side effect of
             // manifesting an explicit Thunk in the expr register of the execution trace.
             Continuation::Emit { continuation } => Control::MakeThunk(*result, *env, continuation),
             _ => unreachable!(),
         },
-        ContTag::Call0 => match store.fetch_cont(cont).unwrap() {
+        ContTag::Call0 => match store
+            .fetch_cont(cont)
+            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+        {
             Continuation::Call0 {
                 saved_env,
                 continuation,
             } => match result.tag() {
-                Tag::Fun => match store.fetch(result).unwrap() {
+                Tag::Fun => match store
+                    .fetch(result)
+                    .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+                {
                     Expression::Fun(arg, body, closed_env) => {
                         if arg == store.sym("_") {
                             let body_form = store.car(&body);
@@ -938,7 +991,10 @@ fn apply_continuation<F: LurkField>(
         },
 
         ContTag::Call => match result.tag() {
-            Tag::Fun => match store.fetch_cont(cont).unwrap() {
+            Tag::Fun => match store
+                .fetch_cont(cont)
+                .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+            {
                 Continuation::Call {
                     unevaled_arg,
                     saved_env,
@@ -956,16 +1012,22 @@ fn apply_continuation<F: LurkField>(
                 Control::Return(*result, *env, store.intern_cont_error())
             }
         },
-        ContTag::Call2 => match store.fetch_cont(cont).unwrap() {
+        ContTag::Call2 => match store
+            .fetch_cont(cont)
+            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+        {
             Continuation::Call2 {
                 function,
                 saved_env,
                 continuation,
             } => match function.tag() {
-                Tag::Fun => match store.fetch(&function).unwrap() {
+                Tag::Fun => match store
+                    .fetch(&function)
+                    .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+                {
                     Expression::Fun(arg, body, closed_env) => {
                         if arg == store.sym("_") {
-                            return Control::Return(*result, *env, store.intern_cont_error());
+                            return Ok(Control::Return(*result, *env, store.intern_cont_error()));
                         }
                         let body_form = store.car(&body);
                         let newer_env = extend(closed_env, arg, *result, store);
@@ -981,7 +1043,10 @@ fn apply_continuation<F: LurkField>(
             },
             _ => unreachable!(),
         },
-        ContTag::Let => match store.fetch_cont(cont).unwrap() {
+        ContTag::Let => match store
+            .fetch_cont(cont)
+            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+        {
             Continuation::Let {
                 var,
                 body,
@@ -995,7 +1060,10 @@ fn apply_continuation<F: LurkField>(
             }
             _ => unreachable!(),
         },
-        ContTag::LetRec => match store.fetch_cont(cont).unwrap() {
+        ContTag::LetRec => match store
+            .fetch_cont(cont)
+            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+        {
             Continuation::LetRec {
                 var,
                 body,
@@ -1005,11 +1073,14 @@ fn apply_continuation<F: LurkField>(
                 let extended_env = extend_rec(*env, var, *result, store);
                 let c = make_tail_continuation(saved_env, continuation, store);
 
-                Control::Return(body, extended_env, c)
+                Control::Return(body, extended_env?, c)
             }
             _ => unreachable!(),
         },
-        ContTag::Unop => match store.fetch_cont(cont).unwrap() {
+        ContTag::Unop => match store
+            .fetch_cont(cont)
+            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+        {
             Continuation::Unop {
                 operator,
                 continuation,
@@ -1017,12 +1088,16 @@ fn apply_continuation<F: LurkField>(
                 let val = match operator {
                     Op1::Car => match store.car_cdr_mut(result) {
                         Ok((car, _)) => car,
-                        Err(_) => return Control::Return(*result, *env, store.intern_cont_error()),
-                        //Err(_) => store.nil(),
+                        //TODO: Replace with ControlError or StoreError
+                        Err(_) => {
+                            return Ok(Control::Return(*result, *env, store.intern_cont_error()))
+                        } //Err(_) => store.nil(),
                     },
                     Op1::Cdr => match store.car_cdr_mut(result) {
                         Ok((_, cdr)) => cdr,
-                        Err(_) => return Control::Return(*result, *env, store.intern_cont_error()),
+                        Err(_) => {
+                            return Ok(Control::Return(*result, *env, store.intern_cont_error()))
+                        }
                     },
                     Op1::Atom => match result.tag() {
                         Tag::Cons => store.nil(),
@@ -1030,51 +1105,58 @@ fn apply_continuation<F: LurkField>(
                     },
                     Op1::Emit => {
                         println!("{}", result.fmt_to_string(store));
-                        return Control::MakeThunk(
+                        return Ok(Control::MakeThunk(
                             *result,
                             *env,
                             store.intern_cont_emit(continuation),
-                        );
+                        ));
                     }
-                    Op1::Open => store
-                        .open_mut(*result)
-                        .expect("hidden value could not be opened"),
-                    Op1::Secret => store
-                        .secret_mut(*result)
-                        .expect("secret could not be extracted"),
+                    Op1::Open => store.open_mut(*result)?,
+                    Op1::Secret => store.secret_mut(*result)?,
                     Op1::Commit => store.hide(F::zero(), *result),
                     Op1::Num => match result.tag() {
                         Tag::Num | Tag::Comm | Tag::Char => {
-                            let scalar_ptr =
-                                store.get_expr_hash(result).expect("expr hash missing");
+                            let scalar_ptr = store
+                                .get_expr_hash(result)
+                                .ok_or_else(|| LurkError::Store("expr hash missing".into()))?;
                             store.intern_num(crate::Num::Scalar::<F>(*scalar_ptr.value()))
                         }
-                        _ => return Control::Return(*result, *env, store.intern_cont_error()),
+                        _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
                     },
                     Op1::Comm => match result.tag() {
                         Tag::Num | Tag::Comm => {
-                            let scalar_ptr =
-                                store.get_expr_hash(result).expect("expr hash missing");
+                            let scalar_ptr = store
+                                .get_expr_hash(result)
+                                .ok_or_else(|| LurkError::Store("expr hash missing".into()))?;
                             store.intern_maybe_opaque_comm(*scalar_ptr.value())
                         }
-                        _ => return Control::Return(*result, *env, store.intern_cont_error()),
+                        _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
                     },
                     Op1::Char => match result.tag() {
                         Tag::Num | Tag::Char => {
-                            let scalar_ptr =
-                                store.get_expr_hash(result).expect("expr hash missing");
+                            let scalar_ptr = store
+                                .get_expr_hash(result)
+                                .ok_or_else(|| LurkError::Store("expr hash missing".into()))?;
                             store.get_char(
-                                char::from_u32(scalar_ptr.value().to_u32().unwrap()).unwrap(),
+                                char::from_u32(
+                                    scalar_ptr.value().to_u32().ok_or_else(|| {
+                                        LurkError::Eval("Ptr is invalid u32".into())
+                                    })?,
+                                )
+                                .ok_or_else(|| LurkError::Eval("u32 is invalid char".into()))?,
                             )
                         }
-                        _ => return Control::Return(*result, *env, store.intern_cont_error()),
+                        _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
                     },
                 };
                 Control::MakeThunk(val, *env, continuation)
             }
             _ => unreachable!(),
         },
-        ContTag::Binop => match store.fetch_cont(cont).unwrap() {
+        ContTag::Binop => match store
+            .fetch_cont(cont)
+            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+        {
             Continuation::Binop {
                 operator,
                 saved_env,
@@ -1102,7 +1184,10 @@ fn apply_continuation<F: LurkField>(
             }
             _ => unreachable!(),
         },
-        ContTag::Binop2 => match store.fetch_cont(cont).unwrap() {
+        ContTag::Binop2 => match store
+            .fetch_cont(cont)
+            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+        {
             Continuation::Binop2 {
                 operator,
                 evaled_arg,
@@ -1110,8 +1195,12 @@ fn apply_continuation<F: LurkField>(
             } => {
                 let arg2 = result;
                 let result = match (
-                    store.fetch(&evaled_arg).unwrap(),
-                    store.fetch(arg2).unwrap(),
+                    store
+                        .fetch(&evaled_arg)
+                        .ok_or_else(|| LurkError::Store("Fetch failed".into()))?,
+                    store
+                        .fetch(arg2)
+                        .ok_or_else(|| LurkError::Store("Fetch failed".into()))?,
                 ) {
                     (Expression::Num(a), Expression::Num(b)) => match operator {
                         Op2::Sum => {
@@ -1133,7 +1222,11 @@ fn apply_continuation<F: LurkField>(
                             let mut tmp = a;
                             let b_is_zero: bool = b.is_zero();
                             if b_is_zero {
-                                return Control::Return(*result, *env, store.intern_cont_error());
+                                return Ok(Control::Return(
+                                    *result,
+                                    *env,
+                                    store.intern_cont_error(),
+                                ));
                             }
                             tmp /= b;
                             store.intern_num(tmp)
@@ -1147,7 +1240,7 @@ fn apply_continuation<F: LurkField>(
                         Op2::GreaterEqual => store.less_equal(b, a),
                         Op2::Cons => store.cons(evaled_arg, *arg2),
                         Op2::StrCons => {
-                            return Control::Return(*result, *env, store.intern_cont_error())
+                            return Ok(Control::Return(*result, *env, store.intern_cont_error()))
                         }
                         Op2::Hide => store.hide(a.into_scalar(), *arg2),
                         Op2::Begin => unreachable!(),
@@ -1157,21 +1250,21 @@ fn apply_continuation<F: LurkField>(
                         Op2::Cons => store.cons(evaled_arg, *arg2),
                         Op2::Hide => store.hide(a.into_scalar(), *arg2),
                         _ => {
-                            return Control::Return(*result, *env, store.intern_cont_error());
+                            return Ok(Control::Return(*result, *env, store.intern_cont_error()));
                         }
                     },
                     (Expression::Char(_), Expression::Str(_)) => match operator {
                         Op2::StrCons => store.strcons(evaled_arg, *arg2),
                         Op2::Cons => store.cons(evaled_arg, *arg2),
                         _ => {
-                            return Control::Return(*result, *env, store.intern_cont_error());
+                            return Ok(Control::Return(*result, *env, store.intern_cont_error()));
                         }
                     },
                     _ => match operator {
                         Op2::Equal => store.as_lurk_boolean(store.ptr_eq(&evaled_arg, arg2)),
                         Op2::Cons => store.cons(evaled_arg, *arg2),
                         _ => {
-                            return Control::Return(*result, *env, store.intern_cont_error());
+                            return Ok(Control::Return(*result, *env, store.intern_cont_error()));
                         }
                     },
                 };
@@ -1179,7 +1272,10 @@ fn apply_continuation<F: LurkField>(
             }
             _ => unreachable!(),
         },
-        ContTag::If => match store.fetch_cont(cont).unwrap() {
+        ContTag::If => match store
+            .fetch_cont(cont)
+            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+        {
             Continuation::If {
                 unevaled_args,
                 continuation,
@@ -1225,14 +1321,20 @@ fn apply_continuation<F: LurkField>(
             }
             _ => unreachable!(),
         },
-        ContTag::Lookup => match store.fetch_cont(cont).unwrap() {
+        ContTag::Lookup => match store
+            .fetch_cont(cont)
+            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+        {
             Continuation::Lookup {
                 saved_env,
                 continuation,
             } => Control::MakeThunk(*result, saved_env, continuation),
             _ => unreachable!(),
         },
-        ContTag::Tail => match store.fetch_cont(cont).unwrap() {
+        ContTag::Tail => match store
+            .fetch_cont(cont)
+            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+        {
             Continuation::Tail {
                 saved_env,
                 continuation,
@@ -1247,7 +1349,7 @@ fn apply_continuation<F: LurkField>(
         unreachable!();
     }
 
-    control
+    Ok(control)
 }
 
 // Returns (Expression::Thunk, Expression::Env, Continuation)
@@ -1255,9 +1357,9 @@ fn make_thunk<F: LurkField>(
     control: Control<F>,
     store: &mut Store<F>,
     _witness: &mut Witness<F>,
-) -> Control<F> {
+) -> Result<Control<F>, LurkError> {
     if !control.is_make_thunk() {
-        return control;
+        return Ok(control);
     }
 
     let (result, env, cont) = control.into_results();
@@ -1267,7 +1369,10 @@ fn make_thunk<F: LurkField>(
     };
 
     match cont.tag() {
-        ContTag::Tail => match store.fetch_cont(&cont).unwrap() {
+        ContTag::Tail => match store
+            .fetch_cont(&cont)
+            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+        {
             Continuation::Tail {
                 saved_env,
                 continuation,
@@ -1276,19 +1381,19 @@ fn make_thunk<F: LurkField>(
                     value: result,
                     continuation,
                 });
-                Control::Return(thunk, saved_env, store.intern_cont_dummy())
+                Ok(Control::Return(thunk, saved_env, store.intern_cont_dummy()))
             }
             _ => unreachable!(),
         },
         // If continuation is outermost, we don't actually make a thunk. Instead, we signal
         // that this is the terminal result by returning a Terminal continuation.
-        ContTag::Outermost => Control::Return(result, env, store.intern_cont_terminal()),
+        ContTag::Outermost => Ok(Control::Return(result, env, store.intern_cont_terminal())),
         _ => {
             let thunk = store.intern_thunk(Thunk {
                 value: result,
                 continuation: cont,
             });
-            Control::Return(thunk, env, store.intern_cont_dummy())
+            Ok(Control::Return(thunk, env, store.intern_cont_dummy()))
         }
     }
 }
@@ -1331,27 +1436,23 @@ where
         }
     }
 
-    pub fn eval(&mut self) -> (IO<F>, usize, Vec<Ptr<F>>) {
+    pub fn eval(&mut self) -> Result<(IO<F>, usize, Vec<Ptr<F>>), LurkError> {
         let initial_input = self.initial();
-        let frame_iterator = FrameIt::new(initial_input, self.store);
+        let frame_iterator = FrameIt::new(initial_input, self.store)?;
 
         // Initial input performs one reduction, so we need limit - 1 more.
-        if let Some((ultimate_frame, _penultimate_frame, emitted)) =
-            frame_iterator.next_n(self.limit - 1)
-        {
-            let output = ultimate_frame.output;
+        let (ultimate_frame, _penultimate_frame, emitted) =
+            frame_iterator.next_n(self.limit - 1)?;
+        let output = ultimate_frame.output;
 
-            let was_terminal = ultimate_frame.is_complete();
-            let i = ultimate_frame.i;
-            if was_terminal {
-                self.terminal_frame = Some(ultimate_frame);
-            }
-            let iterations = if was_terminal { i } else { i + 1 };
-            // NOTE: We compute a terminal frame but don't include it in the iteration count.
-            (output, iterations, emitted)
-        } else {
-            panic!("xxx")
+        let was_terminal = ultimate_frame.is_complete();
+        let i = ultimate_frame.i;
+        if was_terminal {
+            self.terminal_frame = Some(ultimate_frame);
         }
+        let iterations = if was_terminal { i } else { i + 1 };
+        // NOTE: We compute a terminal frame but don't include it in the iteration count.
+        Ok((output, iterations, emitted))
     }
 
     pub fn initial(&mut self) -> IO<F> {
@@ -1362,10 +1463,18 @@ where
         }
     }
 
-    pub fn iter(&mut self) -> Take<FrameIt<'_, Witness<F>, F>> {
+    pub fn iter(&mut self) -> Result<Take<FrameIt<'_, Witness<F>, F>>, LurkError> {
         let initial_input = self.initial();
 
-        FrameIt::new(initial_input, self.store).take(self.limit)
+        Ok(FrameIt::new(initial_input, self.store)?.take(self.limit))
+    }
+
+    // Wraps frames in Result type in order to fail gracefully
+    pub fn get_frames(&mut self) -> Result<Vec<Frame<IO<F>, Witness<F>>>, LurkError> {
+        let frame = FrameIt::new(self.initial(), self.store)?;
+        let result_frame = ResultFrame(Ok(frame)).into_iter().take(self.limit);
+        let ret: Result<Vec<_>, _> = result_frame.collect();
+        ret
     }
 
     pub fn generate_frames<Fp: Fn(usize) -> bool>(
@@ -1374,9 +1483,10 @@ where
         store: &'a mut Store<F>,
         limit: usize,
         needs_frame_padding: Fp,
-    ) -> Vec<Frame<IO<F>, Witness<F>>> {
+    ) -> Result<Vec<Frame<IO<F>, Witness<F>>>, LurkError> {
         let mut evaluator = Self::new(expr, env, store, limit);
-        let mut frames: Vec<Frame<IO<F>, Witness<F>>> = evaluator.iter().collect::<Vec<_>>();
+
+        let mut frames = evaluator.get_frames()?;
         assert!(!frames.is_empty());
 
         // TODO: We previously had an optimization here. If the limit was not reached, the final frame should be an
@@ -1393,7 +1503,7 @@ where
             }
         }
 
-        frames
+        Ok(frames)
     }
 }
 
@@ -1406,7 +1516,12 @@ fn extend<F: LurkField>(env: Ptr<F>, var: Ptr<F>, val: Ptr<F>, store: &mut Store
     store.cons(cons, env)
 }
 
-fn extend_rec<F: LurkField>(env: Ptr<F>, var: Ptr<F>, val: Ptr<F>, store: &mut Store<F>) -> Ptr<F> {
+fn extend_rec<F: LurkField>(
+    env: Ptr<F>,
+    var: Ptr<F>,
+    val: Ptr<F>,
+    store: &mut Store<F>,
+) -> Result<Ptr<F>, LurkError> {
     let (binding_or_env, rest) = store.car_cdr(&env);
     let (var_or_binding, _val_or_more_bindings) = store.car_cdr(&binding_or_env);
     match var_or_binding.tag() {
@@ -1414,30 +1529,38 @@ fn extend_rec<F: LurkField>(env: Ptr<F>, var: Ptr<F>, val: Ptr<F>, store: &mut S
         Tag::Sym | Tag::Nil => {
             let cons = store.cons(var, val);
             let list = store.list(&[cons]);
-            store.cons(list, env)
+            Ok(store.cons(list, env))
         }
         // It's a binding, so we are extending a recursive env.
         Tag::Cons => {
             let cons = store.cons(var, val);
             let cons2 = store.cons(cons, binding_or_env);
-            store.cons(cons2, rest)
+            Ok(store.cons(cons2, rest))
         }
-        _ => {
-            panic!("Bad input form.")
-        }
+        _ => Err(LurkError::Store("Bad input form.".into())),
     }
 }
 
-fn extend_closure<F: LurkField>(fun: &Ptr<F>, rec_env: &Ptr<F>, store: &mut Store<F>) -> Ptr<F> {
+fn extend_closure<F: LurkField>(
+    fun: &Ptr<F>,
+    rec_env: &Ptr<F>,
+    store: &mut Store<F>,
+) -> Result<Ptr<F>, LurkError> {
     match fun.tag() {
-        Tag::Fun => match store.fetch(fun).unwrap() {
+        Tag::Fun => match store
+            .fetch(fun)
+            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+        {
             Expression::Fun(arg, body, closed_env) => {
                 let extended = store.cons(*rec_env, closed_env);
-                store.intern_fun(arg, body, extended)
+                Ok(store.intern_fun(arg, body, extended))
             }
             _ => unreachable!(),
         },
-        _ => panic!("extend_closure received non-Fun: {:?}", fun),
+        _ => Err(LurkError::Eval(format!(
+            "extend_closure received non-Fun: {:?}",
+            fun
+        ))),
     }
 }
 
@@ -1459,32 +1582,32 @@ impl<F: LurkField> Store<F> {
 }
 
 #[allow(dead_code)]
-fn lookup<F: LurkField>(env: &Ptr<F>, var: &Ptr<F>, store: &Store<F>) -> Ptr<F> {
+fn lookup<F: LurkField>(env: &Ptr<F>, var: &Ptr<F>, store: &Store<F>) -> Result<Ptr<F>, LurkError> {
     assert!(matches!(var.tag(), Tag::Sym));
     match env.tag() {
-        Tag::Nil => store.get_nil(),
+        Tag::Nil => Ok(store.get_nil()),
         Tag::Cons => {
             let (binding, smaller_env) = store.car_cdr(env);
             let (v, val) = store.car_cdr(&binding);
             if v == *var {
-                val
+                Ok(val)
             } else {
                 lookup(&smaller_env, var, store)
             }
         }
-        _ => panic!("Env must be a list."),
+        _ => Err(LurkError::Store("Env must be a list.".into())),
     }
 }
 
 // Convenience functions, mostly for use in tests.
 
-pub fn eval_to_ptr<F: LurkField>(s: &mut Store<F>, src: &str) -> Ptr<F> {
+pub fn eval_to_ptr<F: LurkField>(s: &mut Store<F>, src: &str) -> Result<Ptr<F>, LurkError> {
     let expr = s.read(src).unwrap();
     let limit = 1000000;
-    Evaluator::new(expr, empty_sym_env(s), s, limit)
-        .eval()
+    Ok(Evaluator::new(expr, empty_sym_env(s), s, limit)
+        .eval()?
         .0
-        .expr
+        .expr)
 }
 
 #[cfg(test)]
@@ -1534,7 +1657,7 @@ mod test {
             },
             iterations,
             emitted,
-        ) = Evaluator::new(*expr, env, s, limit).eval();
+        ) = Evaluator::new(*expr, env, s, limit).eval().unwrap();
 
         if let Some(expected_result) = expected_result {
             dbg!(
@@ -1569,10 +1692,10 @@ mod test {
         let var = store.sym("variable");
         let val = store.num(123);
 
-        assert!(lookup(&env, &var, &store).is_nil());
+        assert!(lookup(&env, &var, &store).unwrap().is_nil());
 
         let new_env = extend(env, var, val, &mut store);
-        assert_eq!(val, lookup(&new_env, &var, &store));
+        assert_eq!(val, lookup(&new_env, &var, &store).unwrap());
     }
 
     #[test]
@@ -1586,7 +1709,8 @@ mod test {
                 empty_sym_env(&store),
                 store.intern_cont_outermost(),
                 &mut store,
-            );
+            )
+            .unwrap();
             assert_eq!(num, result);
         }
 
@@ -1596,7 +1720,8 @@ mod test {
                 empty_sym_env(&store),
                 store.intern_cont_outermost(),
                 &mut store,
-            );
+            )
+            .unwrap();
             assert!(result.is_nil());
         }
     }
@@ -1630,7 +1755,7 @@ mod test {
                 },
                 iterations,
                 _emitted,
-            ) = Evaluator::new(var, env, &mut store, limit).eval();
+            ) = Evaluator::new(var, env, &mut store, limit).eval().unwrap();
 
             assert_eq!(1, iterations);
             assert_eq!(&result_expr, &val);
@@ -1645,7 +1770,7 @@ mod test {
                 },
                 iterations,
                 _emitted,
-            ) = Evaluator::new(var, env2, &mut store, limit).eval();
+            ) = Evaluator::new(var, env2, &mut store, limit).eval().unwrap();
 
             assert_eq!(2, iterations);
             assert_eq!(&result_expr, &val);
@@ -2285,7 +2410,9 @@ mod test {
                 },
                 iterations,
                 _emitted,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit)
+                .eval()
+                .unwrap();
 
             assert_eq!(crate::store::Tag::Fun, result_expr.tag());
             assert_eq!(3, iterations);
@@ -2367,7 +2494,9 @@ mod test {
                 },
                 iterations,
                 _emitted,
-            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit).eval();
+            ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit)
+                .eval()
+                .unwrap();
 
             assert_eq!(100, iterations);
         }
@@ -2664,7 +2793,7 @@ mod test {
         use crate::Num;
 
         let s = &mut Store::<Fr>::default();
-        let commitment = eval_to_ptr(s, "(hide 123 'x)");
+        let commitment = eval_to_ptr(s, "(hide 123 'x)").unwrap();
 
         let c_scalar = s.hash_expr(&commitment).unwrap();
         let c = c_scalar.value();
@@ -2701,7 +2830,7 @@ mod test {
         use crate::store::ScalarPointer;
 
         let s = &mut Store::<Fr>::default();
-        let commitment = eval_to_ptr(s, "(hide 123 'x)");
+        let commitment = eval_to_ptr(s, "(hide 123 'x)").unwrap();
 
         let c_scalar = s.hash_expr(&commitment).unwrap();
         let c = c_scalar.value();
