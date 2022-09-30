@@ -3151,7 +3151,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let res = AllocatedPtr::from_parts(&res_tag, &val);
 
-        // Next constraints are used for number comparisons
+        // Next constraints are used for number comparisons: <, <=, >, >=
         ///////////////////////////////////////////////////////////////////////
         let double_a = constraints::add(&mut cs.namespace(|| "double a"), a, a)?;
         // Ideally we would compute the bit decomposition for a, not for 2a,
@@ -3175,7 +3175,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let double_diff_bits = double_diff.to_bits_le_strict(&mut cs).unwrap();
         let lsb_2diff = double_diff_bits.get(0);
 
-        // We have that the difference is defined to be negative if the parity bit (the
+        // We have that a number is defined to be negative if the parity bit (the
         // least significant bit) is odd after doubling, meaning that the field element
         // (after doubling) is larger than the underlying prime p that defines the
         // field, then a modular reduction must be carried out, changing the parity that
@@ -3186,13 +3186,13 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let diff_is_negative = lsb_2diff.unwrap();
 
         let diff_is_negative_or_zero = constraints::or(
-            &mut cs.namespace(|| "is less or equal tag and diff is negative or zero"),
+            &mut cs.namespace(|| "diff is negative or zero"),
             lsb_2diff.unwrap(),
             &diff_is_zero,
         )?;
 
         let diff_is_strictly_positive = Boolean::and(
-            &mut cs.namespace(|| "is greater tag and diff is strictly positive"),
+            &mut cs.namespace(|| "diff is strictly positive"),
             &diff_is_negative.not(),
             &Boolean::not(&diff_is_zero),
         )?;
@@ -3295,12 +3295,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &comp_val1,
         )?;
 
-        let comp_val_res_is_zero =
-            alloc_is_zero(&mut cs.namespace(|| "comp_val_res_is_zero"), &comp_val2)?;
+        let comp_val_is_zero =
+            alloc_is_zero(&mut cs.namespace(|| "comp_val_is_zero"), &comp_val2)?;
 
         let comp_val = AllocatedPtr::pick(
             &mut cs.namespace(|| "comp_val"),
-            &comp_val_res_is_zero,
+            &comp_val_is_zero,
             &g.nil_ptr,
             &g.t_ptr,
         )?;
