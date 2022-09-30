@@ -3295,8 +3295,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &comp_val1,
         )?;
 
-        let comp_val_is_zero =
-            alloc_is_zero(&mut cs.namespace(|| "comp_val_is_zero"), &comp_val2)?;
+        let comp_val_is_zero = alloc_is_zero(&mut cs.namespace(|| "comp_val_is_zero"), &comp_val2)?;
 
         let comp_val = AllocatedPtr::pick(
             &mut cs.namespace(|| "comp_val"),
