@@ -4165,7 +4165,7 @@ mod tests {
             //println!("{}", print_cs(&cs));
             assert_eq!(20467, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(20393, cs.aux().len());
+            assert_eq!(20389, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
