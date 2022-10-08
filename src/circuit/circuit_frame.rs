@@ -17,7 +17,7 @@ use crate::{
 };
 
 use super::gadgets::constraints::{
-    self, alloc_equal, alloc_is_zero, convert_boolean_to_num, enforce_implication, or, pick,
+    self, alloc_equal, alloc_is_zero, boolean_to_num, enforce_implication, or, pick,
 };
 use crate::circuit::ToInputs;
 use crate::eval::{Frame, Witness, IO};
@@ -3216,22 +3216,22 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &Boolean::not(b_is_negative),
         )?;
 
-        let alloc_num_diff_is_negative = convert_boolean_to_num(
+        let alloc_num_diff_is_negative = boolean_to_num(
             &mut cs.namespace(|| "Allocate num for diff_is_negative"),
             diff_is_negative,
         )?;
 
-        let alloc_num_diff_is_negative_or_zero = convert_boolean_to_num(
+        let alloc_num_diff_is_negative_or_zero = boolean_to_num(
             &mut cs.namespace(|| "Allocate num for diff_is_negative_or_zero"),
             &diff_is_negative_or_zero,
         )?;
 
-        let alloc_num_diff_is_strictly_positive = convert_boolean_to_num(
+        let alloc_num_diff_is_strictly_positive = boolean_to_num(
             &mut cs.namespace(|| "Allocate num for diff_is_strictly_positive"),
             &diff_is_strictly_positive,
         )?;
 
-        let alloc_num_diff_is_positive_or_zero = convert_boolean_to_num(
+        let alloc_num_diff_is_positive_or_zero = boolean_to_num(
             &mut cs.namespace(|| "Allocate num for diff_is_positive_or_zero"),
             &diff_is_positive_or_zero,
         )?;

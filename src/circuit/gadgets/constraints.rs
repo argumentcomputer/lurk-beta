@@ -243,22 +243,19 @@ where
 }
 
 /// Convert from Boolean to AllocatedNum
-pub fn convert_boolean_to_num<F: PrimeField, CS: ConstraintSystem<F>>(
+pub fn boolean_to_num<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     bit: &Boolean,
 ) -> Result<AllocatedNum<F>, SynthesisError>
 where
     CS: ConstraintSystem<F>,
 {
-    let num = AllocatedNum::alloc(cs.namespace(|| "Allocate num"), || match bit.get_value() {
-        Some(v) => {
-            if v {
-                Ok(F::one())
-            } else {
-                Ok(F::zero())
-            }
+    let num = AllocatedNum::alloc(cs.namespace(|| "Allocate num"), || {
+        if bit.get_value().ok_or(SynthesisError::AssignmentMissing)? {
+            Ok(F::one())
+        } else {
+            Ok(F::zero())
         }
-        None => Ok(F::zero()),
     })?;
 
     // Constrain (bit) * 1 = num, ensuring bit = num
