@@ -6,7 +6,7 @@ use lurk::{
     store::{Ptr, Store},
 };
 
-fn go_base<F: PrimeField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
+fn go_base<F: PrimeField + lurk::field::LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
     let program = format!(
         r#"
 (let ((foo (lambda (a b)
