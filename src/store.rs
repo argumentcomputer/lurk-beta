@@ -915,7 +915,11 @@ impl<F: LurkField> Store<F> {
 
                 self.intern_maybe_opaque_comm(scalar)
             }
-            _ => return Err(LurkError::Store("wrong type for hidden value tag".into())),
+            _ => {
+                return Err(LurkError::Store(
+                    "wrong type for commitment specifier".into(),
+                ))
+            }
         };
 
         if let Some((secret, payload)) = self.fetch_comm(&p) {
@@ -938,7 +942,11 @@ impl<F: LurkField> Store<F> {
     pub fn secret_mut(&mut self, ptr: Ptr<F>) -> Result<Ptr<F>, LurkError> {
         let p = match ptr.0 {
             Tag::Comm => ptr,
-            _ => return Err(LurkError::Store("secret tag is wrong type".into()))
+            _ => {
+                return Err(LurkError::Store(
+                    "wrong type for commitment specifier".into(),
+                ))
+            }
         };
 
         if let Some((secret, _payload)) = self.fetch_comm(&p) {

@@ -898,10 +898,11 @@ impl Proof<Bls12> {
         let input_io = {
             let expr = s
                 .read(&evaluation.expr)
-                .ok_or_else(|| Error::VerificationError("failed to read expr".into()))?;
+                .map_err(|_| Error::VerificationError("failed to read expr".into()))?;
+
             let env = s
                 .read(&evaluation.env)
-                .ok_or_else(|| Error::VerificationError("failed to read env".into()))?;
+                .map_err(|_| Error::VerificationError("failed to read env".into()))?;
 
             // FIXME: We ignore cont and assume Outermost, since we can't read a Cont.
             let cont = s.intern_cont_outermost();
@@ -914,8 +915,11 @@ impl Proof<Bls12> {
         let output_io = {
             let expr = s
                 .read(&evaluation.expr_out)
-                .ok_or_else(|| Error::VerificationError("failed to read expr_out".into()))?;
-            let env = s.read(&evaluation.env_out).expect("failed to read env_out");
+                .map_err(|_| Error::VerificationError("failed to read expr out".into()))?;
+
+            let env = s
+                .read(&evaluation.env_out)
+                .map_err(|_| Error::VerificationError("failed to read env out".into()))?;
             let cont = evaluation
                 .status
                 .to_cont(&mut s)
