@@ -908,8 +908,6 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn open_mut(&mut self, ptr: Ptr<F>) -> Result<(F, Ptr<F>), LurkError> {
-        assert!(ptr.0 == Tag::Comm || ptr.0 == Tag::Num);
-
         let p = match ptr.0 {
             Tag::Comm => ptr,
             Tag::Num => {
@@ -917,7 +915,7 @@ impl<F: LurkField> Store<F> {
 
                 self.intern_maybe_opaque_comm(scalar)
             }
-            _ => unreachable!(),
+            _ => return Err(LurkError::Store("wrong type for hidden value tag".into())),
         };
 
         if let Some((secret, payload)) = self.fetch_comm(&p) {
@@ -938,11 +936,9 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn secret_mut(&mut self, ptr: Ptr<F>) -> Result<Ptr<F>, LurkError> {
-        assert_eq!(Tag::Comm, ptr.0);
-
         let p = match ptr.0 {
             Tag::Comm => ptr,
-            _ => unreachable!(),
+            _ => return Err(LurkError::Store("secret tag is wrong type".into()))
         };
 
         if let Some((secret, _payload)) = self.fetch_comm(&p) {
