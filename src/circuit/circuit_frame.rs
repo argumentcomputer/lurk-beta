@@ -539,20 +539,28 @@ impl<'a, F: LurkField> HashInputResults<'a, F> {
 #[derive(Default)]
 struct CompResults<'a, F: LurkField> {
     same_sign: Vec<CaseClause<'a, F>>,
-    a_neg_and_b_pos: Vec<CaseClause<'a, F>>,
-    a_pos_and_b_neg: Vec<CaseClause<'a, F>>,
+    a_neg_and_b_not_neg: Vec<CaseClause<'a, F>>,
+    a_not_neg_and_b_neg: Vec<CaseClause<'a, F>>,
 }
 impl<'a, F: LurkField> CompResults<'a, F> {
     fn add_clauses_comp(
         &mut self,
         key: F,
         result_same_sign: &'a AllocatedNum<F>,
-        result_a_neg_and_b_pos: &'a AllocatedNum<F>,
-        result_a_pos_and_b_neg: &'a AllocatedNum<F>,
+        result_a_neg_and_b_not_neg: &'a AllocatedNum<F>,
+        result_a_not_neg_and_b_neg: &'a AllocatedNum<F>,
     ) {
         add_clause_single(&mut self.same_sign, key, result_same_sign);
-        add_clause_single(&mut self.a_neg_and_b_pos, key, result_a_neg_and_b_pos);
-        add_clause_single(&mut self.a_pos_and_b_neg, key, result_a_pos_and_b_neg);
+        add_clause_single(
+            &mut self.a_neg_and_b_not_neg,
+            key,
+            result_a_neg_and_b_not_neg,
+        );
+        add_clause_single(
+            &mut self.a_not_neg_and_b_neg,
+            key,
+            result_a_not_neg_and_b_neg,
+        );
     }
 }
 
@@ -3259,8 +3267,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let comp_clauses = [
             &comp_results.same_sign[..],
-            &comp_results.a_neg_and_b_pos[..],
-            &comp_results.a_pos_and_b_neg[..],
+            &comp_results.a_neg_and_b_not_neg[..],
+            &comp_results.a_not_neg_and_b_neg[..],
         ];
 
         let comparison_result = multi_case_aux(
@@ -3271,15 +3279,15 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         )?;
 
         let comp_val_same_sign_num = comparison_result.0[0].clone();
-        let comp_val_a_neg_and_b_pos_num = comparison_result.0[1].clone();
-        let comp_val_a_pos_and_b_neg_num = comparison_result.0[2].clone();
+        let comp_val_a_neg_and_b_not_neg_num = comparison_result.0[1].clone();
+        let comp_val_a_not_neg_and_b_neg_num = comparison_result.0[2].clone();
         let is_comparison_tag = comparison_result.1.not();
 
         let comp_val1 = pick(
             &mut cs.namespace(|| "comp_val1"),
             &a_negative_and_b_not_negative,
-            &comp_val_a_neg_and_b_pos_num,
-            &comp_val_a_pos_and_b_neg_num,
+            &comp_val_a_neg_and_b_not_neg_num,
+            &comp_val_a_not_neg_and_b_neg_num,
         )?;
         let comp_val2 = pick(
             &mut cs.namespace(|| "comp_val2"),
