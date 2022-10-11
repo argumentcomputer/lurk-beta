@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::field::LurkField;
 
-use crate::store::{Op1, Op2, Pointer, Ptr, ScalarContPtr, ScalarPtr, Store, Tag};
+use crate::store::{Op1, Op2, Pointer, Ptr, ScalarContPtr, ScalarPointer, ScalarPtr, Store, Tag};
 use crate::Num;
 use serde::Deserialize;
 use serde::Serialize;
@@ -96,14 +96,10 @@ impl<'a, F: LurkField> ScalarStore<F> {
             ScalarExpression::Nil => None,
             ScalarExpression::Cons(car, cdr) => Some([*car, *cdr].into()),
             ScalarExpression::Comm(_, payload) => Some([*payload].into()),
-            ScalarExpression::Sym(_str) => None,
-            ScalarExpression::Fun {
-                arg,
-                body,
-                closed_env,
-            } => Some([*arg, *body, *closed_env].into()),
+            ScalarExpression::Sym(_str) => Some([*_str].into()),
+            ScalarExpression::Fun(arg, body, closed_env) => Some([*arg, *body, *closed_env].into()),
             ScalarExpression::Num(_) => None,
-            ScalarExpression::Str(_) => None,
+            ScalarExpression::Str(_, tail) => Some([*tail].into()),
             ScalarExpression::Thunk(_) => None,
             ScalarExpression::Char(_) => None,
         }
@@ -153,6 +149,32 @@ impl<'a, F: LurkField> ScalarStore<F> {
         }
         Some(store)
     }
+
+    pub fn get_str_tails(&self, ptr: ScalarPtr<F>) -> Option<Vec<(char, ScalarPtr<F>)>> {
+        let mut vec = Vec::new();
+        let mut ptr = ptr;
+        while ptr != ScalarPtr::from_parts(Tag::Str.as_field(), F::zero()) {
+            let (head, tail) = self.scalar_map.get(&ptr).and_then(|x| match x {
+                ScalarExpression::Str(head, tail) => Some((head, tail)),
+                _ => None,
+            })?;
+            let chr = self.scalar_map.get(&head).and_then(|x| match x {
+                ScalarExpression::Char(f) => f.to_char(),
+                _ => None,
+            })?;
+            vec.push((chr, *tail));
+            ptr = *tail;
+        }
+        Some(vec)
+    }
+    pub fn get_str(&self, ptr: ScalarPtr<F>) -> Option<String> {
+        let s: String = self
+            .get_str_tails(ptr)?
+            .into_iter()
+            .map(|(x, _)| x)
+            .collect();
+        Some(s)
+    }
 }
 
 impl<'a, F: LurkField> ScalarExpression<F> {
@@ -171,19 +193,16 @@ impl<'a, F: LurkField> ScalarExpression<F> {
                     .get_expr_hash(payload)
                     .map(|payload| ScalarExpression::Comm(secret.0, payload))
             }),
-            Tag::Sym => store
-                .fetch_sym(ptr)
-                .map(|str| ScalarExpression::Sym(str.into())),
+            Tag::Sym => todo!(),
+            // store
+            // .fetch_sym(ptr)
+            // .map(|str| ScalarExpression::Sym(str.into())),
             Tag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
                 store.get_expr_hash(arg).and_then(|arg| {
                     store.get_expr_hash(body).and_then(|body| {
                         store
                             .get_expr_hash(closed_env)
-                            .map(|closed_env| ScalarExpression::Fun {
-                                arg,
-                                body,
-                                closed_env,
-                            })
+                            .map(|closed_env| ScalarExpression::Fun(arg, body, closed_env))
                     })
                 })
             }),
@@ -192,10 +211,15 @@ impl<'a, F: LurkField> ScalarExpression<F> {
                 Num::Scalar(x) => ScalarExpression::Num(*x),
             }),
 
-            Tag::Str => store
-                .fetch_str(ptr)
-                .map(|str| ScalarExpression::Str(str.to_string())),
-            Tag::Char => store.fetch_char(ptr).map(ScalarExpression::Char),
+            Tag::Str => {
+                todo!()
+                // store
+                //   .fetch_str(ptr)
+                //   .map(|str| ScalarExpression::Str(str.to_string())),
+            }
+            Tag::Char => store
+                .fetch_char(ptr)
+                .map(|x| ScalarExpression::Char((x as u64).into())),
             Tag::Thunk => unimplemented!(),
         }
     }
@@ -206,16 +230,12 @@ pub enum ScalarExpression<F: LurkField> {
     Nil,
     Cons(ScalarPtr<F>, ScalarPtr<F>),
     Comm(F, ScalarPtr<F>),
-    Sym(String),
-    Fun {
-        arg: ScalarPtr<F>,
-        body: ScalarPtr<F>,
-        closed_env: ScalarPtr<F>,
-    },
+    Sym(ScalarPtr<F>),
+    Fun(ScalarPtr<F>, ScalarPtr<F>, ScalarPtr<F>),
     Num(F),
-    Str(String),
+    Str(ScalarPtr<F>, ScalarPtr<F>),
     Thunk(ScalarThunk<F>),
-    Char(char),
+    Char(F),
 }
 
 impl<'a, F: LurkField> Default for ScalarExpression<F> {
@@ -338,8 +358,8 @@ mod test {
                     100,
                     Box::new(|g| Self::Cons(ScalarPtr::arbitrary(g), ScalarPtr::arbitrary(g))),
                 ),
-                (100, Box::new(|g| Self::Sym(String::arbitrary(g)))),
-                (100, Box::new(|g| Self::Str(String::arbitrary(g)))),
+                //(100, Box::new(|g| Self::Sym(String::arbitrary(g)))),
+                //(100, Box::new(|g| Self::Str(String::arbitrary(g)))),
                 (
                     100,
                     Box::new(|g| {
@@ -349,10 +369,12 @@ mod test {
                 ),
                 (
                     100,
-                    Box::new(|g| Self::Fun {
-                        arg: ScalarPtr::arbitrary(g),
-                        body: ScalarPtr::arbitrary(g),
-                        closed_env: ScalarPtr::arbitrary(g),
+                    Box::new(|g| {
+                        Self::Fun(
+                            ScalarPtr::arbitrary(g),
+                            ScalarPtr::arbitrary(g),
+                            ScalarPtr::arbitrary(g),
+                        )
                     }),
                 ),
                 (100, Box::new(|g| Self::Thunk(ScalarThunk::arbitrary(g)))),

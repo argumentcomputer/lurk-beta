@@ -44,6 +44,9 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         byte_array.copy_from_slice(&self.to_repr().as_ref()[0..8]);
         Some(u64::from_le_bytes(byte_array))
     }
+    fn to_char(&self) -> Option<char> {
+        self.to_u32().and_then(char::from_u32)
+    }
 
     fn most_negative() -> Self {
         Self::most_positive() + Self::one()

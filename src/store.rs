@@ -1240,8 +1240,18 @@ impl<F: LurkField> Store<F> {
                 let cdr = self.intern_scalar_ptr(*cdr, scalar_store)?;
                 Some(self.intern_cons(car, cdr))
             }
-            (Tag::Str, Some(Str(s))) => Some(self.intern_str(s)),
-            (Tag::Sym, Some(Sym(s))) => Some(self.intern_sym(s)),
+            (Tag::Str, Some(Str(_, _))) => {
+                // TODO: The tails and their hashes are already in the ScalarStore
+                // so we could remove hashes here using `get_str_tails`
+                let s = scalar_store.get_str(ptr)?;
+                Some(self.intern_str(s))
+            }
+            (Tag::Sym, Some(Sym(s))) => {
+                // TODO: The tails and their hashes are already in the ScalarStore
+                // so we could remove hashes here using `get_str_tails`
+                let s = scalar_store.get_str(*s)?;
+                Some(self.intern_sym(s))
+            }
             (Tag::Num, Some(Num(x))) => Some(self.intern_num(crate::Num::Scalar(*x))),
             (Tag::Thunk, Some(Thunk(t))) => {
                 let value = self.intern_scalar_ptr(t.value, scalar_store)?;
@@ -1251,14 +1261,7 @@ impl<F: LurkField> Store<F> {
                     continuation,
                 }))
             }
-            (
-                Tag::Fun,
-                Some(Fun {
-                    arg,
-                    body,
-                    closed_env,
-                }),
-            ) => {
+            (Tag::Fun, Some(Fun(arg, body, closed_env))) => {
                 let arg = self.intern_scalar_ptr(*arg, scalar_store)?;
                 let body = self.intern_scalar_ptr(*body, scalar_store)?;
                 let env = self.intern_scalar_ptr(*closed_env, scalar_store)?;
