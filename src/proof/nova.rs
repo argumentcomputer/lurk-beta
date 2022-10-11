@@ -2408,6 +2408,16 @@ mod tests {
         relational_aux(s, lte, zero, zero, true);
         relational_aux(s, gte, zero, zero, true);
 
+        relational_aux(s, lt, most_negative, zero, true);
+        relational_aux(s, gt, most_negative, zero, false);
+        relational_aux(s, lte, most_negative, zero, true);
+        relational_aux(s, gte, most_negative, zero, false);
+
+        relational_aux(s, lt, zero, most_negative, false);
+        relational_aux(s, gt, zero, most_negative, true);
+        relational_aux(s, lte, zero, most_negative, false);
+        relational_aux(s, gte, zero, most_negative, true);
+
         relational_aux(s, lt, most_negative, most_positive, true);
         relational_aux(s, gt, most_negative, most_positive, false);
         relational_aux(s, lte, most_negative, most_positive, true);
