@@ -3156,14 +3156,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let double_a = constraints::add(&mut cs.namespace(|| "double a"), a, a)?;
         // Ideally we would compute the bit decomposition for a, not for 2a,
         // since it would be possible to use it for future purposes.
-        // TODO: replace bit decompositon from 2a to a.
         let double_a_bits = double_a
             .to_bits_le_strict(&mut cs.namespace(|| "double a lsb"))
             .unwrap();
         let lsb_2a = double_a_bits.get(0);
 
         let double_b = constraints::add(&mut cs.namespace(|| "double b"), b, b)?;
-        // TODO: replace bit decompositon from 2b to b.
         let double_b_bits = double_b
             .to_bits_le_strict(&mut cs.namespace(|| "double b lsb"))
             .unwrap();
@@ -3171,22 +3169,21 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let diff_is_zero = alloc_is_zero(&mut cs.namespace(|| "diff is zero"), &diff)?;
         let double_diff = constraints::add(&mut cs.namespace(|| "double diff"), &diff, &diff)?;
-        // TODO: replace bit decompositon from 2diff to diff.
         let double_diff_bits = double_diff.to_bits_le_strict(&mut cs).unwrap();
         let lsb_2diff = double_diff_bits.get(0);
 
         // We have that a number is defined to be negative if the parity bit (the
         // least significant bit) is odd after doubling, meaning that the field element
         // (after doubling) is larger than the underlying prime p that defines the
-        // field, then a modular reduction must be carried out, changing the parity that
+        // field, then a modular reduction must have been carried out, changing the parity that
         // should be even (since we multiplied by 2) to odd. In other words, we define
         // negative numbers to be those field elements that are larger than p/2.
         let a_is_negative = lsb_2a.unwrap();
         let b_is_negative = lsb_2b.unwrap();
         let diff_is_negative = lsb_2diff.unwrap();
 
-        let diff_is_negative_or_zero = constraints::or(
-            &mut cs.namespace(|| "diff is negative or zero"),
+        let diff_is_not_positive = constraints::or(
+            &mut cs.namespace(|| "diff is not positive"),
             lsb_2diff.unwrap(),
             &diff_is_zero,
         )?;
@@ -3197,11 +3194,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &Boolean::not(&diff_is_zero),
         )?;
 
-        let diff_is_positive_or_zero = constraints::or(
-            &mut cs.namespace(|| "diff is positive or zero"),
-            &diff_is_negative.not(),
-            &diff_is_zero,
-        )?;
+        let diff_is_not_negative = diff_is_negative.not();
 
         let both_same_sign = Boolean::xor(
             &mut cs.namespace(|| "both same sign"),
@@ -3210,8 +3203,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         )?
         .not();
 
-        let a_negative_and_b_positive = Boolean::and(
-            &mut cs.namespace(|| "a negative and b positive"),
+        let a_negative_and_b_not_negative = Boolean::and(
+            &mut cs.namespace(|| "a negative and b not negative"),
             a_is_negative,
             &Boolean::not(b_is_negative),
         )?;
@@ -3221,19 +3214,19 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             diff_is_negative,
         )?;
 
-        let alloc_num_diff_is_negative_or_zero = boolean_to_num(
-            &mut cs.namespace(|| "Allocate num for diff_is_negative_or_zero"),
-            &diff_is_negative_or_zero,
+        let alloc_num_diff_is_not_positive = boolean_to_num(
+            &mut cs.namespace(|| "Allocate num for diff_is_not_positive"),
+            &diff_is_not_positive,
         )?;
 
-        let alloc_num_diff_is_strictly_positive = boolean_to_num(
-            &mut cs.namespace(|| "Allocate num for diff_is_strictly_positive"),
+        let alloc_num_diff_is_positive = boolean_to_num(
+            &mut cs.namespace(|| "Allocate num for diff_is_positive"),
             &diff_is_strictly_positive,
         )?;
 
-        let alloc_num_diff_is_positive_or_zero = boolean_to_num(
-            &mut cs.namespace(|| "Allocate num for diff_is_positive_or_zero"),
-            &diff_is_positive_or_zero,
+        let alloc_num_diff_is_not_negative = boolean_to_num(
+            &mut cs.namespace(|| "Allocate num for diff_is_not_negative"),
+            &diff_is_not_negative,
         )?;
 
         let mut comp_results = CompResults::default();
@@ -3245,19 +3238,19 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         );
         comp_results.add_clauses_comp(
             Op2::LessEqual.as_field(),
-            &alloc_num_diff_is_negative_or_zero,
+            &alloc_num_diff_is_not_positive,
             &g.true_num,
             &g.false_num,
         );
         comp_results.add_clauses_comp(
             Op2::Greater.as_field(),
-            &alloc_num_diff_is_strictly_positive,
+            &alloc_num_diff_is_positive,
             &g.false_num,
             &g.true_num,
         );
         comp_results.add_clauses_comp(
             Op2::GreaterEqual.as_field(),
-            &alloc_num_diff_is_positive_or_zero,
+            &alloc_num_diff_is_not_negative,
             &g.false_num,
             &g.true_num,
         );
@@ -3284,7 +3277,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let comp_val1 = pick(
             &mut cs.namespace(|| "comp_val1"),
-            &a_negative_and_b_positive,
+            &a_negative_and_b_not_negative,
             &comp_val_a_neg_and_b_pos_num,
             &comp_val_a_pos_and_b_neg_num,
         )?;
@@ -4162,9 +4155,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(20467, cs.num_constraints());
+            assert_eq!(20466, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(20389, cs.aux().len());
+            assert_eq!(20388, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
