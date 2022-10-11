@@ -3192,14 +3192,14 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let diff_is_not_positive = constraints::or(
             &mut cs.namespace(|| "diff is not positive"),
-            lsb_2diff.unwrap(),
+            diff_is_negative,
             &diff_is_zero,
         )?;
 
-        let diff_is_strictly_positive = Boolean::and(
-            &mut cs.namespace(|| "diff is strictly positive"),
+        let diff_is_positive = Boolean::and(
+            &mut cs.namespace(|| "diff is positive"),
             &diff_is_negative.not(),
-            &Boolean::not(&diff_is_zero),
+            &diff_is_zero.not(),
         )?;
 
         let diff_is_not_negative = diff_is_negative.not();
@@ -3214,7 +3214,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let a_negative_and_b_not_negative = Boolean::and(
             &mut cs.namespace(|| "a negative and b not negative"),
             a_is_negative,
-            &Boolean::not(b_is_negative),
+            &b_is_negative.not(),
         )?;
 
         let alloc_num_diff_is_negative = boolean_to_num(
@@ -3229,7 +3229,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let alloc_num_diff_is_positive = boolean_to_num(
             &mut cs.namespace(|| "Allocate num for diff_is_positive"),
-            &diff_is_strictly_positive,
+            &diff_is_positive,
         )?;
 
         let alloc_num_diff_is_not_negative = boolean_to_num(
