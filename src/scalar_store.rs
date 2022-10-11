@@ -240,10 +240,9 @@ impl<'a, F: LurkField> ScalarExpression<F> {
                     .get_expr_hash(payload)
                     .map(|payload| ScalarExpression::Comm(secret.0, payload))
             }),
-            Tag::Sym => todo!(),
-            // store
-            // .fetch_sym(ptr)
-            // .map(|str| ScalarExpression::Sym(str.into())),
+            Tag::Sym => store
+                .hash_sym(*ptr)
+                .map(|str| ScalarExpression::Sym(str.into())),
             Tag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
                 store.get_expr_hash(arg).and_then(|arg| {
                     store.get_expr_hash(body).and_then(|body| {
@@ -260,9 +259,6 @@ impl<'a, F: LurkField> ScalarExpression<F> {
 
             Tag::Str => {
                 todo!()
-                // store
-                //   .fetch_str(ptr)
-                //   .map(|str| ScalarExpression::Str(str.to_string())),
             }
             Tag::Char => store
                 .fetch_char(ptr)

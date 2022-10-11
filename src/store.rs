@@ -2683,7 +2683,7 @@ pub mod test {
         let tag = Tag::Num.as_field();
         let dig = 0.into();
         let ptr = ScalarPtr::<Fr>::from_parts(tag, dig);
-        let cid = Cid::new_v1(Fr::to_multicodec(tag).unwrap(), Fr::to_multihash(dig));
+        let cid = Cid::new_v1(Fr::LURK_MULTICODEC, Fr::to_multihash(tag, dig));
         assert_eq!(to_ipld(ptr).unwrap(), Ipld::Link(cid))
     }
 
@@ -2713,7 +2713,7 @@ pub mod test {
         let tag = ContTag::Dummy.as_field();
         let dig = 0.into();
         let ptr = ScalarContPtr::<Fr>::from_parts(tag, dig);
-        let cid = Cid::new_v1(Fr::to_multicodec(tag).unwrap(), Fr::to_multihash(dig));
+        let cid = Cid::new_v1(Fr::LURK_MULTICODEC, Fr::to_multihash(tag, dig));
         assert_eq!(to_ipld(ptr).unwrap(), Ipld::Link(cid))
     }
 
