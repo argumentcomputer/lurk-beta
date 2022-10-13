@@ -2388,6 +2388,7 @@ mod tests {
 
     #[ignore]
     #[test]
+    #[ignore]
     fn outer_prove_test_relational() {
         let s = &mut Store::<Fr>::default();
         let lt = "<";
