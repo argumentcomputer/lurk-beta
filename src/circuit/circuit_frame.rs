@@ -4125,7 +4125,7 @@ mod tests {
         let (_, witness) = input.reduce(&mut store).unwrap();
 
         let public_params = Groth16Prover::create_groth_params(DEFAULT_CHUNK_FRAME_COUNT).unwrap();
-        let groth_prover = Groth16Prover::new(DEFAULT_CHUNK_FRAME_COUNT, &public_params);
+        let groth_prover = Groth16Prover::new(DEFAULT_CHUNK_FRAME_COUNT);
         let groth_params = &public_params.0;
 
         let vk = &groth_params.vk;
@@ -4172,7 +4172,7 @@ mod tests {
             let mut rng = rand::thread_rng();
 
             let proof = groth_prover
-                .prove(multiframe.clone(), Some(groth_params), &mut rng)
+                .prove(multiframe.clone(), groth_params, &mut rng)
                 .unwrap();
             let cs_verified = cs.is_satisfied() && cs.verify(&public_inputs);
             let verified = multiframe

@@ -48,11 +48,9 @@ pub trait PublicParameters {}
 pub trait Prover<'a, F: LurkField> {
     type PublicParams: PublicParameters;
 
-    fn new(chunk_frame_count: usize, public_params: &'a Self::PublicParams) -> Self;
+    fn new(chunk_frame_count: usize) -> Self;
 
     fn chunk_frame_count(&self) -> usize;
-
-    fn public_params(&self) -> &'a Self::PublicParams;
 
     fn needs_frame_padding(&self, total_frames: usize) -> bool {
         self.frame_padding_count(total_frames) != 0
