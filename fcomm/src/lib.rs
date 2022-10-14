@@ -802,7 +802,7 @@ impl Proof<Bls12> {
         let public_params =
             Groth16Prover::create_groth_params(reduction_count.reduction_frame_count()).unwrap();
         let groth_prover =
-            Groth16Prover::new(reduction_count.reduction_frame_count(), &public_params);
+            Groth16Prover::new(reduction_count.reduction_frame_count());
         let groth_params = &public_params.0;
 
         info!("Starting Proving");

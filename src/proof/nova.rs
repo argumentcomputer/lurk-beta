@@ -1,5 +1,7 @@
 #![allow(non_snake_case)]
 
+use std::marker::PhantomData;
+
 use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 use nova::{
@@ -56,33 +58,27 @@ impl<'a> MultiFrame<'a, S1, IO<S1>, Witness<S1>> {
     }
 }
 
-pub struct NovaProver<'a> {
+pub struct NovaProver<F: LurkField> {
     chunk_frame_count: usize,
-    pp: &'a PublicParams<'a>,
+    _p: PhantomData<F>,
 }
 
 impl<'a> PublicParameters for PublicParams<'a> {}
 
-impl<'a> Prover<'a, S1> for NovaProver<'a> {
-    type PublicParams = PublicParams<'a>;
-
-    fn new(chunk_frame_count: usize, public_params: &'a Self::PublicParams) -> Self {
-        NovaProver {
+impl<'a, F: LurkField> Prover<'a, F> for NovaProver<F> {
+  type PublicParams = PublicParams<'a>;
+    fn new(chunk_frame_count: usize) -> Self {
+        NovaProver::<F> {
             chunk_frame_count,
-            pp: public_params,
+            _p: PhantomData::<F>,
         }
     }
-
     fn chunk_frame_count(&self) -> usize {
         self.chunk_frame_count
     }
-
-    fn public_params(&self) -> &'a Self::PublicParams {
-        self.pp
-    }
 }
 
-impl<'a> NovaProver<'a> {
+impl<F: LurkField> NovaProver<F> {
     fn get_evaluation_frames(
         &self,
         expr: Ptr<S1>,
@@ -97,7 +93,7 @@ impl<'a> NovaProver<'a> {
 
         Ok(frames)
     }
-    pub fn evaluate_and_prove(
+    pub fn evaluate_and_prove<'a>(
         &'a self,
         pp: &'a PublicParams,
         expr: Ptr<S1>,
@@ -338,10 +334,10 @@ mod tests {
 
         let e = empty_sym_env(&s);
 
-        let pp = public_params(chunk_frame_count);
-        let nova_prover = NovaProver::new(chunk_frame_count, &pp);
+        let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
 
         if check_nova {
+            let pp = public_params(chunk_frame_count);
             let (proof, z0, zi, num_steps) = nova_prover
                 .evaluate_and_prove(&pp, expr, empty_sym_env(&s), s, limit)
                 .unwrap();
@@ -2372,7 +2368,6 @@ mod tests {
 
     #[ignore]
     #[test]
-    #[ignore]
     fn outer_prove_test_relational() {
         let s = &mut Store::<Fr>::default();
         let lt = "<";

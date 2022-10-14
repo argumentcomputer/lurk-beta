@@ -27,6 +27,7 @@ use crate::store::{Ptr, Store};
 use std::env;
 use std::fs::File;
 use std::io;
+use std::marker::PhantomData;
 
 const DUMMY_RNG_SEED: [u8; 16] = [
     0x01, 0x03, 0x02, 0x04, 0x05, 0x07, 0x06, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0C, 0x0B, 0x0A,
@@ -82,11 +83,7 @@ where
     pub chunk_frame_count: usize,
 }
 
-impl<'a> Groth16Prover<'a, Bls12> {
-    pub fn groth_params(&self) -> Result<&'a PublicParams<Bls12>, SynthesisError> {
-        Ok(self.groth_params)
-    }
-
+impl Groth16Prover<Bls12> {
     pub fn create_groth_params(
         chunk_frame_count: usize,
     ) -> Result<PublicParams<Bls12>, SynthesisError> {
@@ -104,7 +101,7 @@ impl<'a> Groth16Prover<'a, Bls12> {
     pub fn prove<R: RngCore>(
         &self,
         multi_frame: MultiFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>>,
-        params: Option<&groth16::Parameters<Bls12>>,
+        params: &groth16::Parameters<Bls12>,
         mut rng: R,
     ) -> Result<groth16::Proof<Bls12>, SynthesisError> {
         self.generate_groth16_proof(multi_frame, params, &mut rng)
@@ -113,18 +110,11 @@ impl<'a> Groth16Prover<'a, Bls12> {
     fn generate_groth16_proof<R: RngCore>(
         &self,
         multiframe: MultiFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>>,
-        groth_params: Option<&groth16::Parameters<Bls12>>,
+        groth_params: &groth16::Parameters<Bls12>,
         rng: &mut R,
     ) -> Result<groth16::Proof<Bls12>, SynthesisError> {
         let create_proof = |p| groth16::create_random_proof(multiframe, p, rng);
-
-        if let Some(params) = groth_params {
-            let proof = create_proof(params)?;
-
-            Ok(proof)
-        } else {
-            create_proof(&self.groth_params()?.0)
-        }
+        create_proof(groth_params)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -134,7 +124,7 @@ impl<'a> Groth16Prover<'a, Bls12> {
         srs: &GenericSRS<Bls12>,
         expr: Ptr<Scalar>,
         env: Ptr<Scalar>,
-        store: &'a mut Store<Scalar>,
+        store: &mut Store<Scalar>,
         limit: usize,
         mut rng: R,
     ) -> Result<(Proof<Bls12>, IO<Scalar>, IO<Scalar>), Error> {
@@ -157,7 +147,7 @@ impl<'a> Groth16Prover<'a, Bls12> {
         for multiframe in multiframes.into_iter() {
             statements.push(multiframe.public_inputs());
             let proof = self
-                .generate_groth16_proof(multiframe.clone(), Some(params), &mut rng)
+                .generate_groth16_proof(multiframe.clone(), params, &mut rng)
                 .unwrap();
 
             proofs.push(proof.clone());
@@ -172,7 +162,7 @@ impl<'a> Groth16Prover<'a, Bls12> {
             );
 
             let dummy_proof = self
-                .generate_groth16_proof(dummy_multiframe.clone(), Some(params), &mut rng)
+                .generate_groth16_proof(dummy_multiframe.clone(), params, &mut rng)
                 .unwrap();
 
             let dummy_statement = dummy_multiframe.public_inputs();
@@ -240,30 +230,27 @@ impl<'a> Groth16Prover<'a, Bls12> {
     }
 }
 
-pub struct Groth16Prover<'a, E: Engine + MultiMillerLoop> {
+pub struct Groth16Prover<E: Engine + MultiMillerLoop> {
     chunk_frame_count: usize,
-    groth_params: &'a PublicParams<E>,
+    _p: PhantomData<E>,
 }
 
 pub struct PublicParams<E: Engine + MultiMillerLoop>(pub groth16::Parameters<E>);
+
 impl<'a> PublicParameters for PublicParams<Bls12> {}
 
-impl<'a> Prover<'a, Scalar> for Groth16Prover<'a, Bls12> {
+impl<'a> Prover<'a, Scalar> for Groth16Prover<Bls12> {
     type PublicParams = PublicParams<Bls12>;
 
-    fn new(chunk_frame_count: usize, params: &'a Self::PublicParams) -> Self {
+    fn new(chunk_frame_count: usize) -> Self {
         Groth16Prover {
             chunk_frame_count,
-            groth_params: params,
+            _p: PhantomData::<Bls12>,
         }
     }
 
     fn chunk_frame_count(&self) -> usize {
         self.chunk_frame_count
-    }
-
-    fn public_params(&self) -> &'a Self::PublicParams {
-        self.groth_params().unwrap()
     }
 }
 
@@ -367,7 +354,7 @@ mod tests {
         let rng = OsRng;
 
         let public_params = Groth16Prover::create_groth_params(DEFAULT_CHUNK_FRAME_COUNT).unwrap();
-        let groth_prover = Groth16Prover::new(DEFAULT_CHUNK_FRAME_COUNT, &public_params);
+        let groth_prover = Groth16Prover::new(DEFAULT_CHUNK_FRAME_COUNT);
         let groth_params = &public_params.0;
 
         let pvk = groth16::prepare_verifying_key(&groth_params.vk);
