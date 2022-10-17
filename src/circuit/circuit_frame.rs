@@ -8,7 +8,7 @@ use bellperson::{
 
 use crate::{
     circuit::gadgets::{
-        case::{case, multi_case, CaseClause},
+        case::{case, multi_case, multi_case_aux, CaseClause},
         data::GlobalAllocations,
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
@@ -17,7 +17,7 @@ use crate::{
 };
 
 use super::gadgets::constraints::{
-    self, alloc_equal, alloc_is_zero, enforce_implication, or, pick,
+    self, alloc_equal, alloc_is_zero, boolean_to_num, enforce_implication, or, pick,
 };
 use crate::circuit::ToInputs;
 use crate::eval::{Frame, Witness, IO};
@@ -532,6 +532,34 @@ impl<'a, F: LurkField> HashInputResults<'a, F> {
             &mut self.components_clauses[7],
             key,
             components[3].as_allocated_hash_components()[1],
+        );
+    }
+}
+
+#[derive(Default)]
+struct CompResults<'a, F: LurkField> {
+    same_sign: Vec<CaseClause<'a, F>>,
+    a_neg_and_b_not_neg: Vec<CaseClause<'a, F>>,
+    a_not_neg_and_b_neg: Vec<CaseClause<'a, F>>,
+}
+impl<'a, F: LurkField> CompResults<'a, F> {
+    fn add_clauses_comp(
+        &mut self,
+        key: F,
+        result_same_sign: &'a AllocatedNum<F>,
+        result_a_neg_and_b_not_neg: &'a AllocatedNum<F>,
+        result_a_not_neg_and_b_neg: &'a AllocatedNum<F>,
+    ) {
+        add_clause_single(&mut self.same_sign, key, result_same_sign);
+        add_clause_single(
+            &mut self.a_neg_and_b_not_neg,
+            key,
+            result_a_neg_and_b_not_neg,
+        );
+        add_clause_single(
+            &mut self.a_not_neg_and_b_neg,
+            key,
+            result_a_not_neg_and_b_neg,
         );
     }
 }
@@ -1190,6 +1218,10 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let quotient_hash = hash_sym("/");
     let numequal_hash = hash_sym("=");
     let equal_hash = hash_sym("eq");
+    let less_hash = hash_sym("<");
+    let less_equal_hash = hash_sym("<=");
+    let greater_hash = hash_sym(">");
+    let greater_equal_hash = hash_sym(">=");
     let current_env_hash = hash_sym("current-env");
     let if_hash = hash_sym("if");
     let hide_hash = hash_sym("hide");
@@ -1675,6 +1707,50 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         equal_continuation_components,
     );
 
+    // head == < preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let less_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&[&g.op2_less_tag, &g.default_num], env, &more, cont];
+    hash_default_results.add_hash_input_clauses(
+        *less_hash.value(),
+        &g.binop_cont_tag,
+        less_continuation_components,
+    );
+
+    // head == <= preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let less_equal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&[&g.op2_less_equal_tag, &g.default_num], env, &more, cont];
+    hash_default_results.add_hash_input_clauses(
+        *less_equal_hash.value(),
+        &g.binop_cont_tag,
+        less_equal_continuation_components,
+    );
+
+    // head == > preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let greater_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&[&g.op2_greater_tag, &g.default_num], env, &more, cont];
+    hash_default_results.add_hash_input_clauses(
+        *greater_hash.value(),
+        &g.binop_cont_tag,
+        greater_continuation_components,
+    );
+
+    // head == >= preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let greater_equal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&g.op2_greater_equal_tag, &g.default_num],
+        env,
+        &more,
+        cont,
+    ];
+    hash_default_results.add_hash_input_clauses(
+        *greater_equal_hash.value(),
+        &g.binop_cont_tag,
+        greater_equal_continuation_components,
+    );
+
     // head == IF preimage
     /////////////////////////////////////////////////////////////////////////////
     let if_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
@@ -2013,6 +2089,34 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == EQ, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(*equal_hash.value(), &arg1, env, &newer_cont, &g.false_num);
+
+    // head == <, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(*less_hash.value(), &arg1, env, &newer_cont, &g.false_num);
+
+    // head == <=, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(
+        *less_equal_hash.value(),
+        &arg1,
+        env,
+        &newer_cont,
+        &g.false_num,
+    );
+
+    // head == >, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(*greater_hash.value(), &arg1, env, &newer_cont, &g.false_num);
+
+    // head == >=, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(
+        *greater_equal_hash.value(),
+        &arg1,
+        env,
+        &newer_cont,
+        &g.false_num,
+    );
 
     // head == IF, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
@@ -3055,6 +3159,161 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let res = AllocatedPtr::from_parts(&res_tag, &val);
 
+        // Next constraints are used for number comparisons: <, <=, >, >=
+        ///////////////////////////////////////////////////////////////////////
+        let double_a = constraints::add(&mut cs.namespace(|| "double a"), a, a)?;
+        // Ideally we would compute the bit decomposition for a, not for 2a,
+        // since it would be possible to use it for future purposes.
+        let double_a_bits = double_a
+            .to_bits_le_strict(&mut cs.namespace(|| "double a lsb"))
+            .unwrap();
+        let lsb_2a = double_a_bits.get(0);
+
+        let double_b = constraints::add(&mut cs.namespace(|| "double b"), b, b)?;
+        let double_b_bits = double_b
+            .to_bits_le_strict(&mut cs.namespace(|| "double b lsb"))
+            .unwrap();
+        let lsb_2b = double_b_bits.get(0);
+
+        let diff_is_zero = alloc_is_zero(&mut cs.namespace(|| "diff is zero"), &diff)?;
+        let double_diff = constraints::add(&mut cs.namespace(|| "double diff"), &diff, &diff)?;
+        let double_diff_bits = double_diff.to_bits_le_strict(&mut cs).unwrap();
+        let lsb_2diff = double_diff_bits.get(0);
+
+        // We have that a number is defined to be negative if the parity bit (the
+        // least significant bit) is odd after doubling, meaning that the field element
+        // (after doubling) is larger than the underlying prime p that defines the
+        // field, then a modular reduction must have been carried out, changing the parity that
+        // should be even (since we multiplied by 2) to odd. In other words, we define
+        // negative numbers to be those field elements that are larger than p/2.
+        let a_is_negative = lsb_2a.unwrap();
+        let b_is_negative = lsb_2b.unwrap();
+        let diff_is_negative = lsb_2diff.unwrap();
+
+        let diff_is_not_positive = constraints::or(
+            &mut cs.namespace(|| "diff is not positive"),
+            diff_is_negative,
+            &diff_is_zero,
+        )?;
+
+        let diff_is_positive = Boolean::and(
+            &mut cs.namespace(|| "diff is positive"),
+            &diff_is_negative.not(),
+            &diff_is_zero.not(),
+        )?;
+
+        let diff_is_not_negative = diff_is_negative.not();
+
+        let both_same_sign = Boolean::xor(
+            &mut cs.namespace(|| "both same sign"),
+            a_is_negative,
+            b_is_negative,
+        )?
+        .not();
+
+        let a_negative_and_b_not_negative = Boolean::and(
+            &mut cs.namespace(|| "a negative and b not negative"),
+            a_is_negative,
+            &b_is_negative.not(),
+        )?;
+
+        let alloc_num_diff_is_negative = boolean_to_num(
+            &mut cs.namespace(|| "Allocate num for diff_is_negative"),
+            diff_is_negative,
+        )?;
+
+        let alloc_num_diff_is_not_positive = boolean_to_num(
+            &mut cs.namespace(|| "Allocate num for diff_is_not_positive"),
+            &diff_is_not_positive,
+        )?;
+
+        let alloc_num_diff_is_positive = boolean_to_num(
+            &mut cs.namespace(|| "Allocate num for diff_is_positive"),
+            &diff_is_positive,
+        )?;
+
+        let alloc_num_diff_is_not_negative = boolean_to_num(
+            &mut cs.namespace(|| "Allocate num for diff_is_not_negative"),
+            &diff_is_not_negative,
+        )?;
+
+        let mut comp_results = CompResults::default();
+        comp_results.add_clauses_comp(
+            Op2::Less.as_field(),
+            &alloc_num_diff_is_negative,
+            &g.true_num,
+            &g.false_num,
+        );
+        comp_results.add_clauses_comp(
+            Op2::LessEqual.as_field(),
+            &alloc_num_diff_is_not_positive,
+            &g.true_num,
+            &g.false_num,
+        );
+        comp_results.add_clauses_comp(
+            Op2::Greater.as_field(),
+            &alloc_num_diff_is_positive,
+            &g.false_num,
+            &g.true_num,
+        );
+        comp_results.add_clauses_comp(
+            Op2::GreaterEqual.as_field(),
+            &alloc_num_diff_is_not_negative,
+            &g.false_num,
+            &g.true_num,
+        );
+
+        let comparison_defaults = [&g.default_num, &g.default_num, &g.default_num];
+
+        let comp_clauses = [
+            &comp_results.same_sign[..],
+            &comp_results.a_neg_and_b_not_neg[..],
+            &comp_results.a_not_neg_and_b_neg[..],
+        ];
+
+        let comparison_result = multi_case_aux(
+            &mut cs.namespace(|| "comparison multicase results"),
+            op2.tag(),
+            &comp_clauses,
+            &comparison_defaults,
+        )?;
+
+        let comp_val_same_sign_num = comparison_result.0[0].clone();
+        let comp_val_a_neg_and_b_not_neg_num = comparison_result.0[1].clone();
+        let comp_val_a_not_neg_and_b_neg_num = comparison_result.0[2].clone();
+        let is_comparison_tag = comparison_result.1.not();
+
+        let comp_val1 = pick(
+            &mut cs.namespace(|| "comp_val1"),
+            &a_negative_and_b_not_negative,
+            &comp_val_a_neg_and_b_not_neg_num,
+            &comp_val_a_not_neg_and_b_neg_num,
+        )?;
+        let comp_val2 = pick(
+            &mut cs.namespace(|| "comp_val2"),
+            &both_same_sign,
+            &comp_val_same_sign_num,
+            &comp_val1,
+        )?;
+
+        let comp_val_is_zero = alloc_is_zero(&mut cs.namespace(|| "comp_val_is_zero"), &comp_val2)?;
+
+        let comp_val = AllocatedPtr::pick(
+            &mut cs.namespace(|| "comp_val"),
+            &comp_val_is_zero,
+            &g.nil_ptr,
+            &g.t_ptr,
+        )?;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        let final_res = AllocatedPtr::pick(
+            &mut cs.namespace(|| "final res"),
+            &is_comparison_tag,
+            &comp_val,
+            &res,
+        )?;
+
         let valid_types = constraints::or(
             &mut cs.namespace(|| "Op2 called with valid types"),
             &is_cons_or_strcons_or_hide_or_equal,
@@ -3116,7 +3375,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &mut cs.namespace(|| "maybe expr error"),
             &any_error,
             result,
-            &res,
+            &final_res,
         )?;
 
         (the_expr, the_cont)
@@ -3904,9 +4163,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(19164, cs.num_constraints());
+            assert_eq!(20466, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(19089, cs.aux().len());
+            assert_eq!(20388, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

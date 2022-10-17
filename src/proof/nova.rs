@@ -278,6 +278,8 @@ impl<'a> Proof<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::num::Num;
+
     use super::*;
     use crate::eval::empty_sym_env;
     use crate::proof::Provable;
@@ -2351,5 +2353,141 @@ mod tests {
         nova_test_aux(s, r#"(strcons "a" "b")"#, None, None, Some(error), None, 3);
 
         nova_test_aux(s, r#"(strcons 1 2)"#, None, None, Some(error), None, 3);
+    }
+
+    fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
+        let expr = &format!("({} {} {})", op, a, b);
+        let expected = if res { s.t() } else { s.nil() };
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+    }
+
+    #[ignore]
+    #[test]
+    fn outer_prove_test_relational() {
+        let s = &mut Store::<Fr>::default();
+        let lt = "<";
+        let gt = ">";
+        let lte = "<=";
+        let gte = ">=";
+        let zero = "0";
+        let one = "1";
+        let two = "2";
+
+        let most_negative = &format!("{}", Num::<Fr>::most_negative());
+        let most_positive = &format!("{}", Num::<Fr>::most_positive());
+        let neg_one = &format!("{}", Num::<Fr>::Scalar(Fr::zero() - Fr::one()));
+
+        relational_aux(s, lt, one, two, true);
+        relational_aux(s, gt, one, two, false);
+        relational_aux(s, lte, one, two, true);
+        relational_aux(s, gte, one, two, false);
+
+        relational_aux(s, lt, two, one, false);
+        relational_aux(s, gt, two, one, true);
+        relational_aux(s, lte, two, one, false);
+        relational_aux(s, gte, two, one, true);
+
+        relational_aux(s, lt, one, one, false);
+        relational_aux(s, gt, one, one, false);
+        relational_aux(s, lte, one, one, true);
+        relational_aux(s, gte, one, one, true);
+
+        relational_aux(s, lt, zero, two, true);
+        relational_aux(s, gt, zero, two, false);
+        relational_aux(s, lte, zero, two, true);
+        relational_aux(s, gte, zero, two, false);
+
+        relational_aux(s, lt, two, zero, false);
+        relational_aux(s, gt, two, zero, true);
+        relational_aux(s, lte, two, zero, false);
+        relational_aux(s, gte, two, zero, true);
+
+        relational_aux(s, lt, zero, zero, false);
+        relational_aux(s, gt, zero, zero, false);
+        relational_aux(s, lte, zero, zero, true);
+        relational_aux(s, gte, zero, zero, true);
+
+        relational_aux(s, lt, most_negative, zero, true);
+        relational_aux(s, gt, most_negative, zero, false);
+        relational_aux(s, lte, most_negative, zero, true);
+        relational_aux(s, gte, most_negative, zero, false);
+
+        relational_aux(s, lt, zero, most_negative, false);
+        relational_aux(s, gt, zero, most_negative, true);
+        relational_aux(s, lte, zero, most_negative, false);
+        relational_aux(s, gte, zero, most_negative, true);
+
+        relational_aux(s, lt, most_negative, most_positive, true);
+        relational_aux(s, gt, most_negative, most_positive, false);
+        relational_aux(s, lte, most_negative, most_positive, true);
+        relational_aux(s, gte, most_negative, most_positive, false);
+
+        relational_aux(s, lt, most_positive, most_negative, false);
+        relational_aux(s, gt, most_positive, most_negative, true);
+        relational_aux(s, lte, most_positive, most_negative, false);
+        relational_aux(s, gte, most_positive, most_negative, true);
+
+        relational_aux(s, lt, most_negative, most_negative, false);
+        relational_aux(s, gt, most_negative, most_negative, false);
+        relational_aux(s, lte, most_negative, most_negative, true);
+        relational_aux(s, gte, most_negative, most_negative, true);
+
+        relational_aux(s, lt, one, most_positive, true);
+        relational_aux(s, gt, one, most_positive, false);
+        relational_aux(s, lte, one, most_positive, true);
+        relational_aux(s, gte, one, most_positive, false);
+
+        relational_aux(s, lt, most_positive, one, false);
+        relational_aux(s, gt, most_positive, one, true);
+        relational_aux(s, lte, most_positive, one, false);
+        relational_aux(s, gte, most_positive, one, true);
+
+        relational_aux(s, lt, one, most_negative, false);
+        relational_aux(s, gt, one, most_negative, true);
+        relational_aux(s, lte, one, most_negative, false);
+        relational_aux(s, gte, one, most_negative, true);
+
+        relational_aux(s, lt, most_negative, one, true);
+        relational_aux(s, gt, most_negative, one, false);
+        relational_aux(s, lte, most_negative, one, true);
+        relational_aux(s, gte, most_negative, one, false);
+
+        relational_aux(s, lt, neg_one, most_positive, true);
+        relational_aux(s, gt, neg_one, most_positive, false);
+        relational_aux(s, lte, neg_one, most_positive, true);
+        relational_aux(s, gte, neg_one, most_positive, false);
+
+        relational_aux(s, lt, most_positive, neg_one, false);
+        relational_aux(s, gt, most_positive, neg_one, true);
+        relational_aux(s, lte, most_positive, neg_one, false);
+        relational_aux(s, gte, most_positive, neg_one, true);
+
+        relational_aux(s, lt, neg_one, most_negative, false);
+        relational_aux(s, gt, neg_one, most_negative, true);
+        relational_aux(s, lte, neg_one, most_negative, false);
+        relational_aux(s, gte, neg_one, most_negative, true);
+
+        relational_aux(s, lt, most_negative, neg_one, true);
+        relational_aux(s, gt, most_negative, neg_one, false);
+        relational_aux(s, lte, most_negative, neg_one, true);
+        relational_aux(s, gte, most_negative, neg_one, false);
+    }
+
+    #[test]
+    fn test_relational_edge_case_identity() {
+        let s = &mut Store::<Fr>::default();
+        // Normally, a value cannot be less than the result of incrementing it.
+        // However, the most positive field element (when viewed as signed)
+        // is the exception. Incrementing it yields the most negative element,
+        // which is less than the most positive.
+        let expr = "(let ((most-positive (/ (- 0 1) 2))
+                          (most-negative (+ 1 most-positive)))
+                      (< most-negative most-positive))";
+        let t = s.t();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
     }
 }

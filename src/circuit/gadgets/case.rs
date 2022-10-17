@@ -171,6 +171,21 @@ pub fn multi_case<F: PrimeField, CS: ConstraintSystem<F>>(
     cases: &[&[CaseClause<F>]],
     defaults: &[&AllocatedNum<F>],
 ) -> Result<Vec<AllocatedNum<F>>, SynthesisError> {
+    let result = multi_case_aux(cs, selected, cases, defaults)?;
+    let selected = result.0;
+    Ok(selected)
+}
+
+/*
+ * Returns not only the selected clause, but also a Boolean that can
+ * be used to determine if the default clause was returned.
+ */
+pub fn multi_case_aux<F: PrimeField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    selected: &AllocatedNum<F>,
+    cases: &[&[CaseClause<F>]],
+    defaults: &[&AllocatedNum<F>],
+) -> Result<(Vec<AllocatedNum<F>>, Boolean), SynthesisError> {
     assert!(!cases.is_empty());
     assert!(!defaults.is_empty());
     let mut result = Vec::new();
@@ -298,7 +313,7 @@ pub fn multi_case<F: PrimeField, CS: ConstraintSystem<F>>(
         )?);
     }
 
-    Ok(result)
+    Ok((result, is_default))
 }
 
 #[allow(unused_imports)]
