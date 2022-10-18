@@ -1,6 +1,7 @@
 use generic_array::typenum::{U4, U6, U8};
 use neptune::Poseidon;
 use rayon::prelude::*;
+use std::collections::HashSet;
 use std::hash::Hash;
 use std::{fmt, marker::PhantomData};
 use string_interner::symbol::{Symbol, SymbolUsize};
@@ -223,6 +224,51 @@ impl<F: LurkField> Pointer<F> for Ptr<F> {
 pub struct ScalarPtr<F: LurkField>(F, F);
 
 impl<F: LurkField> Copy for ScalarPtr<F> {}
+
+impl<'a, F: LurkField> fmt::Display for ScalarPtr<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match Tag::from_field(*self.tag()) {
+            Some(Tag::Nil) => {
+                write!(f, "(nil, {:?})", *self.value())
+            }
+            Some(Tag::Cons) => {
+                write!(f, "(cons, {:?})", *self.value())
+            }
+            Some(Tag::Sym) => {
+                write!(f, "(sym, {:?})", *self.value())
+            }
+            Some(Tag::Fun) => {
+                write!(f, "(fun, {:?})", *self.value())
+            }
+            Some(Tag::Num) => {
+                if let Some(x) = self.value().to_u64() {
+                    write!(f, "(num, {})", x)
+                } else {
+                    write!(f, "(num, {:?})", *self.value())
+                }
+            }
+            Some(Tag::Thunk) => {
+                write!(f, "(thunk, {:?})", *self.value())
+            }
+            Some(Tag::Str) => {
+                write!(f, "(str, {:?})", *self.value())
+            }
+            Some(Tag::Char) => {
+                if let Some(x) = self.value().to_char() {
+                    write!(f, "(char, {})", x)
+                } else {
+                    write!(f, "(char, {:?})", *self.value())
+                }
+            }
+            Some(Tag::Comm) => {
+                write!(f, "(comm, {:?})", *self.value())
+            }
+            _ => {
+                write!(f, "({:?}, {:?})", *self.tag(), *self.value())
+            }
+        }
+    }
+}
 
 impl<F: LurkField> PartialOrd for ScalarPtr<F> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
@@ -1244,13 +1290,13 @@ impl<F: LurkField> Store<F> {
         let expr = scalar_store.get_expr(&ptr);
         use ScalarExpression::*;
         match (tag, expr) {
-            (Tag::Nil, Some(Nil)) => Some(self.intern_nil()),
+            (Tag::Nil, Some(Sym(_))) => Some(self.intern_nil()),
             (Tag::Cons, Some(Cons(car, cdr))) => {
                 let car = self.intern_scalar_ptr(*car, scalar_store)?;
                 let cdr = self.intern_scalar_ptr(*cdr, scalar_store)?;
                 Some(self.intern_cons(car, cdr))
             }
-            (Tag::Str, Some(Str(_, _))) => {
+            (Tag::Str, Some(StrCons(_, _))) => {
                 // TODO: The tails and their hashes are already in the ScalarStore
                 // so we could remove hashes here using `get_str_tails`
                 let s = scalar_store.get_str(ptr)?;
@@ -2217,7 +2263,7 @@ impl<F: LurkField> Store<F> {
         Some(self.create_scalar_ptr(str, self.hash_string(s)))
     }
 
-    fn get_hash_str(&self, str: Ptr<F>) -> Option<ScalarPtr<F>> {
+    pub(crate) fn get_hash_str(&self, str: Ptr<F>) -> Option<ScalarPtr<F>> {
         if str.is_opaque() {
             return self.opaque_map.get(&str).map(|s| *s);
         }
@@ -2357,7 +2403,7 @@ impl<F: LurkField> Store<F> {
         Some(self.get_scalar_ptr(ptr, n.into_scalar()))
     }
 
-    fn hash_string(&self, s: &str) -> F {
+    pub(crate) fn hash_string(&self, s: &str) -> F {
         if s.is_empty() {
             return F::zero();
         };
@@ -2543,6 +2589,32 @@ impl<F: LurkField> Store<F> {
         self.dehydrated_cont.truncate(0);
 
         self.dehydrated_cont.clear();
+    }
+
+    pub fn extern_strings(&self) -> HashSet<String> {
+        self.str_store
+            .0
+            .into_iter()
+            .map(|(_, s)| String::from(s))
+            .collect()
+    }
+    pub fn extern_symbols(&self) -> HashSet<String> {
+        self.sym_store
+            .0
+            .into_iter()
+            .map(|(_, s)| String::from(s))
+            .collect()
+    }
+
+    pub fn expand_strings(&mut self) {
+        let strs: HashSet<String> = self.extern_strings();
+        let syms: HashSet<String> = self.extern_strings();
+        strs.iter().for_each(|s| {
+            self.intern_str(s);
+        });
+        syms.iter().for_each(|s| {
+            self.intern_sym(s);
+        });
     }
 }
 

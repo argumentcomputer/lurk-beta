@@ -157,9 +157,9 @@ impl<F: LurkField> Hash for FWrap<F> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use blstrs::Scalar as Fr;
+    //use blstrs::Scalar as Fr;
 
-    use crate::store::Tag;
+    //use crate::store::Tag;
     use quickcheck::{Arbitrary, Gen};
 
     impl<F: LurkField> Arbitrary for FWrap<F> {
