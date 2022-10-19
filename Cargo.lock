@@ -970,6 +970,7 @@ dependencies = [
  "lurk-ipld",
  "once_cell",
  "pairing",
+ "pasta_curves",
  "predicates",
  "pretty_env_logger",
  "rand 0.8.5",
@@ -1777,16 +1778,17 @@ dependencies = [
 
 [[package]]
 name = "pasta_curves"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "369d7785168ad7ff0cbe467d968ca3e19a927d8536b11ef9c21b4e454b15ba42"
+version = "0.4.1"
+source = "git+https://github.com/filecoin-project/fil_pasta_curves?rev=025362ad5af96e9ca54851d3554af6ca1d0c2cf6#025362ad5af96e9ca54851d3554af6ca1d0c2cf6"
 dependencies = [
  "blake2b_simd",
  "ec-gpu",
  "ff",
  "group",
+ "hex",
  "lazy_static",
  "rand 0.8.5",
+ "serde",
  "static_assertions",
  "subtle",
 ]

@@ -4,11 +4,12 @@ use std::fs::read_to_string;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use blstrs::{Bls12, Scalar};
+//use blstrs::{Bls12, Scalar};
 use hex::FromHex;
-use pairing_lib::{Engine, MultiMillerLoop};
+//use pairing_lib::{Engine, MultiMillerLoop};
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+//use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use lurk::eval::IO;
 use lurk::field::LurkField;
@@ -19,7 +20,7 @@ use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 use fcomm::{
     self, committed_function_store, evaluate, Claim, Commitment, Error, Evaluation, Expression,
-    FileStore, Function, LurkPtr, Opening, OpeningRequest, Proof,
+    FileStore, Function, LurkPtr, Opening, OpeningRequest, Proof, S1,
 };
 
 /// Functional commitments
@@ -159,7 +160,7 @@ struct Verify {
 
 impl Commit {
     fn commit(&self, limit: usize) -> Result<(), Error> {
-        let s = &mut Store::<Scalar>::default();
+        let s = &mut Store::<S1>::default();
 
         let mut function = if self.lurk {
             let path = env::current_dir()?.join(&self.function);
@@ -219,15 +220,15 @@ impl Open {
             "commitment and function must not both be supplied"
         );
 
-        let s = &mut Store::<Scalar>::default();
+        let s = &mut Store::<S1>::default();
         let function_map = committed_function_store();
 
-        let handle_proof = |out_path, proof: Proof<Bls12>| {
+        let handle_proof = |out_path, proof: Proof<S1>| {
             proof.write_to_path(out_path);
             proof.verify().expect("created opening doesn't verify");
         };
 
-        let handle_claim = |claim: Claim<Scalar>| serde_json::to_writer(io::stdout(), &claim);
+        let handle_claim = |claim: Claim<S1>| serde_json::to_writer(io::stdout(), &claim);
 
         if let Some(request_path) = &self.request {
             assert!(!chain, "chain and request may not both be specified");
@@ -288,7 +289,7 @@ impl Open {
 
 impl Eval {
     fn eval(&self, limit: usize) -> Result<(), Error> {
-        let s = &mut Store::<Scalar>::default();
+        let s = &mut Store::<S1>::default();
 
         let expr = expression(s, &self.expression, self.lurk)?;
 
@@ -296,7 +297,7 @@ impl Eval {
 
         match &self.claim {
             Some(out_path) => {
-                let claim = Claim::<Scalar>::Evaluation(evaluation);
+                let claim = Claim::<S1>::Evaluation(evaluation);
                 claim.write_to_path(out_path);
             }
             None => {
@@ -310,7 +311,7 @@ impl Eval {
 
 impl Prove {
     fn prove(&self, limit: usize) -> Result<(), Error> {
-        let s = &mut Store::<Scalar>::default();
+        let s = &mut Store::<S1>::default();
 
         let proof = match &self.claim {
             Some(claim) => {
@@ -452,18 +453,24 @@ fn opening_request<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
 }
 
 // Get proof from supplied path or else from stdin.
-fn proof<P: AsRef<Path>, E: Engine + MultiMillerLoop>(
-    proof_path: Option<P>,
-) -> Result<Proof<E>, Error>
-where
-    <E as Engine>::Fr: LurkField,
-    for<'de> <E as Engine>::Gt: blstrs::Compress + Serialize + Deserialize<'de>,
-    for<'de> <E as Engine>::G1: Serialize + Deserialize<'de>,
-    for<'de> <E as Engine>::G1Affine: Serialize + Deserialize<'de>,
-    for<'de> <E as Engine>::G2Affine: Serialize + Deserialize<'de>,
-    for<'de> <E as Engine>::Fr: Serialize + Deserialize<'de>,
-    for<'de> <E as Engine>::Gt: blstrs::Compress + Serialize + Deserialize<'de>,
-{
+//fn proof<P: AsRef<Path>, E: Engine + MultiMillerLoop>(
+//    proof_path: Option<P>,
+//) -> Result<Proof<E>, Error>
+//where
+//    <E as Engine>::Fr: LurkField,
+//    for<'de> <E as Engine>::Gt: blstrs::Compress + Serialize + Deserialize<'de>,
+//    for<'de> <E as Engine>::G1: Serialize + Deserialize<'de>,
+//    for<'de> <E as Engine>::G1Affine: Serialize + Deserialize<'de>,
+//    for<'de> <E as Engine>::G2Affine: Serialize + Deserialize<'de>,
+//    for<'de> <E as Engine>::Fr: Serialize + Deserialize<'de>,
+//    for<'de> <E as Engine>::Gt: blstrs::Compress + Serialize + Deserialize<'de>,
+//{
+//    match proof_path {
+//        Some(path) => Proof::read_from_path(path),
+//        None => Proof::read_from_stdin(),
+//    }
+//}
+fn proof<P: AsRef<Path>, F: LurkField>(proof_path: Option<P>) -> Result<Proof<F>, Error> {
     match proof_path {
         Some(path) => Proof::read_from_path(path),
         None => Proof::read_from_stdin(),

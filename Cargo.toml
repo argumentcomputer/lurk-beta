@@ -69,3 +69,6 @@ members = [
 [[bin]]
 name = "lurkrs"
 path = "examples/repl.rs"
+
+[patch.crates-io]
+pasta_curves = { git = "https://github.com/filecoin-project/fil_pasta_curves", rev = "025362ad5af96e9ca54851d3554af6ca1d0c2cf6" }
