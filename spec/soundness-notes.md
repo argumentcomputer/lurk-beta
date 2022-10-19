@@ -96,7 +96,7 @@ prover such that when combined with the secret (`12345`) a preimage hashing to t
 (`0x15f813972bc643451de5e87119c272d1f32a4492a7fdc12033c2e6ef29e47e35`) is formed. This means the hash used to construct
 the commitment must be proved soundly in the circuit -- and must also be collision resistant. If it is computationally
 infeasible to discover a collision, then *at most one* preimage for any given digest can be known. When the digest is
-the result of a previous commitment, then the committed value is already known. If it is not, then we assume it is
+the result of a previous commitment, then the committed value is already known. If it is not, then we assume it is not
 possible to find another such value-secret pair. In other words, if a proof of commitment opening can be created at all,
 then we claim that the private input used in the proof *must* have been one initially produced via `commit`.
 
