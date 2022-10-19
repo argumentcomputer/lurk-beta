@@ -59,7 +59,7 @@ the prover must know the original secret (as well as the original value).
 => 169
 ```
 
-Here, we see that the output is exactly as expected when calling the secret funciont. 169 is the sume of the squares (4,
+Here, we see that the output is exactly as expected when calling the secret funcion. 169 is the sume of the squares (4,
 16, 49, 100) of the input. However, we learn nothing *else* about the secret function even when we can fully inspect the
 input and output of evaluation.
 
@@ -72,10 +72,10 @@ terminate (even if the result is an error), a proof that the result was correctl
 
 It follows from the above that Lurk programs are deterministic. For every terminating input there is one and only one
 correct eventual output. Future versions of Lurk will introduce a non-deterministic option -- in which a single input
-may evaluate to more than correct output.
+may evaluate to more than one correct output.
 
 In either event, whenever `x` evalutes to `y` (whether `y` is unique or otherwise), it is possible to construct a proof
-which convinces a verifier that this is true. We claim that the circuit for the Lurk [reduction
+that convinces a verifier that this is true. We claim that the circuit for the Lurk [reduction
 step](reduction-notes.md) is complete in this sense, but will not otherwise address the claim in this document.
 
 ## Soundness
@@ -85,8 +85,8 @@ also be the case that we can generate a proof that `x` evaluates to `z` when Lur
 that this is true. In the case of the deterministic subset of Lurk (which is all that is implemented in the
 current/initial release), it *cannot* be the case that `x` evalutes to both `y` and `z` -- so any instance of such a
 proof would constitute *ipso facto* proof that Lurk proofs are unsound. This would be a show-stopping bug that needs to
-be addressed. We frame the discussion in this way to make clear that a Lurk auditors must be satisfied that no two such
-'contradictory proofs' must be obtainable if Lurk is to be declared sound (as we claim).
+be addressed. We frame the discussion in this way to make clear that Lurk auditors must be satisfied that no two such
+'contradictory proofs' are obtainable if Lurk is to be declared sound (as we claim).
 
 ### Explicit Commitments
 
@@ -117,7 +117,7 @@ of just three possible Lurk expressions, it is cheap and easy to hash all three 
 digest. This has no effect on soundness, only on data privacy -- but it is still worth noting.
 
 A second consideration which *does* relate directly to soundness is that because Lurk is dynamically typed, any given
-'value' could be of any type. If explicit type information were not a part of every epxression's concrete
+'value' could be of any type. If explicit type information were not a part of every expression's concrete
 representation, then soundness could be violated. Lurk resolves this problem by representing every datum as *two* field
 elements -- one that uniquely specifies the expression's *type* and one that specifies the value. Note that the data
 element for some types is 'immediate', and that for others is a hash digest.
@@ -128,7 +128,7 @@ use a notional hash function whose hash digests we will simply declare here for 
 
 Suppose Lurk had only two expresion types, Number (field element) and Cons (pair). We might imagine we could then
 represent Numbers literally, and use binary hashes to produce pairs -- using a single field element for values of either
-type. We certainly could produce such data. For example the pair `(1 . 2)` might produced by computing `H(1, 2)` where
+type. We certainly could produce such data. For example the pair `(1 . 2)` might be produced by computing `H(1, 2)` where
 `H` is our hash function. For sake of example, assume `H(1, 2) = 98765`. We could then produce a new value resulting
 from consing 3 onto the head of the resulting pair: `H(3, 98765)` would then represent `(3 2 . 1)`. For sake of example,
 assume `H(3, 98765)` is `34567`.
@@ -176,7 +176,7 @@ out the preimage differently. Continuations, in this sense, act somewhat like a 
 
 ## Mutually-exclusive Case
 
-Throught the circuit implementation, we make use of a `case` gadget, along with a more elaborate `multicase` built from
+Throughout the circuit implementation, we make use of a `case` gadget, along with a more elaborate `multicase` built from
 the simple `case`. The former allows selection of a single value from multiple alternatives, based on the identity of a
 tested key (a field element). The latter allows association of multiple values with each key. Both gadgets include a
 default to be selected if the key does not match any of the candidates.
@@ -187,7 +187,6 @@ carefully to ensure that multiple contradictory proofs cannot be obtained for a 
 might happen if the implementation were flawed is that it might be possible for the prover to select the default value
 even when the key does in fact match one of the specified candidates. A correct `case` gadget must prevent this
 possibility.
-
 
 ## Conclusion
 
