@@ -216,13 +216,17 @@ pub struct VerificationResult {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Proof<F: LurkField> {
+pub struct Proof<'a, F: LurkField> {
     #[serde(bound(
         serialize = "Claim<F>: Serialize",
         deserialize = "Claim<F>: Deserialize<'de>"
     ))]
     pub claim: Claim<F>,
-    //pub proof: proof::nova::Proof<'a>,
+    #[serde(bound(
+        serialize = "proof::nova::Proof<'a>: Serialize",
+        deserialize = "proof::nova::Proof<'a>: Deserialize<'de>"
+    ))]
+    pub proof: proof::nova::Proof<'a>,
     pub reduction_count: ReductionCount,
 }
 
@@ -747,9 +751,9 @@ impl Opening<S1> {
     }
 }
 
-impl Proof<S1> {
+impl<'a> Proof<'a, S1> {
     pub fn eval_and_prove(
-        s: &mut Store<S1>,
+        s: &'a mut Store<S1>,
         expr: Ptr<S1>,
         limit: usize,
         only_use_cached_proofs: bool,
@@ -766,7 +770,7 @@ impl Proof<S1> {
     }
 
     pub fn prove_claim(
-        s: &mut Store<S1>,
+        s: &'a mut Store<S1>,
         claim: Claim<S1>,
         limit: usize,
         _only_use_cached_proofs: bool,
@@ -848,6 +852,7 @@ impl Proof<S1> {
 
         Ok(Self {
             claim: claim.clone(),
+            proof: nova_proof,
             reduction_count,
         })
     }
@@ -979,7 +984,7 @@ impl Key<Commitment<S1>> for Function<S1> {
     }
 }
 
-impl Key<Cid> for Proof<S1> {
+impl<'a> Key<Cid> for Proof<'a, S1> {
     fn key(&self) -> Cid {
         self.claim.cid()
     }
