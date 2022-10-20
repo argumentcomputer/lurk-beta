@@ -23,10 +23,9 @@ use lurk::{
     field::LurkField,
     proof::{
         self,
-        nova::{public_params, NovaProver},
+        nova::{NovaProver, PublicParams},
         //groth16::{Groth16Prover, INNER_PRODUCT_SRS},
-        Prover,
-        PublicParameters,
+        //Prover,
     },
     scalar_store::ScalarStore,
     store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store, Tag},
@@ -227,6 +226,7 @@ pub struct Proof<'a, F: LurkField> {
         deserialize = "proof::nova::Proof<'a>: Deserialize<'de>"
     ))]
     pub proof: proof::nova::Proof<'a>,
+    pub num_steps: usize,
     pub reduction_count: ReductionCount,
 }
 
@@ -332,7 +332,7 @@ impl TryFrom<usize> for ReductionCount {
     }
 }
 impl ReductionCount {
-    fn reduction_frame_count(&self) -> usize {
+    pub fn reduction_frame_count(&self) -> usize {
         match self {
             Self::One => 1,
             Self::Five => 5,
@@ -409,6 +409,29 @@ where
         Ok(serde_json::from_reader(reader).expect("failed to read from stdin"))
     }
 }
+
+//impl<'a, T: Serialize> FileStore for &'a T
+//where
+//    for<'de> T: Deserialize<'de>, // + Decode<DagJsonCodec>,
+//{
+//    fn write_to_path<P: AsRef<Path>>(&self, path: P) {
+//        let file = File::create(path).expect("failed to create file");
+//        let writer = BufWriter::new(&file);
+//
+//        serde_json::to_writer(writer, &self).expect("failed to write file");
+//    }
+//
+//    fn read_from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+//        let file = File::open(path)?;
+//        let reader = BufReader::new(file);
+//        Ok(serde_json::from_reader(reader).expect("failed to read file"))
+//    }
+//
+//    fn read_from_stdin() -> Result<Self, Error> {
+//        let reader = BufReader::new(io::stdin());
+//        Ok(serde_json::from_reader(reader).expect("failed to read from stdin"))
+//    }
+//}
 
 impl Evaluation {
     fn new<F: LurkField>(
@@ -591,25 +614,28 @@ impl Expression {
 }
 
 impl Opening<S1> {
-    pub fn apply_and_prove(
-        s: &mut Store<S1>,
+    pub fn apply_and_prove<'a>(
+        s: &'a mut Store<S1>,
         input: Ptr<S1>,
         function: Function<S1>,
         limit: usize,
         chain: bool,
         only_use_cached_proofs: bool,
-    ) -> Result<Proof<S1>, Error> {
+        nova_prover: &'a NovaProver<S1>,
+        pp: &'a PublicParams,
+    ) -> Result<Proof<'a, S1>, Error> {
         let claim = Self::apply(s, input, function, limit, chain)?;
-
-        Proof::prove_claim(s, claim, limit, only_use_cached_proofs)
+        Proof::prove_claim(s, claim, limit, only_use_cached_proofs, nova_prover, pp)
     }
 
-    pub fn open_and_prove(
-        s: &mut Store<S1>,
+    pub fn open_and_prove<'a>(
+        s: &'a mut Store<S1>,
         request: OpeningRequest<S1>,
         limit: usize,
         only_use_cached_proofs: bool,
-    ) -> Result<Proof<S1>, Error> {
+        nova_prover: &'a NovaProver<S1>,
+        pp: &'a PublicParams,
+    ) -> Result<Proof<'a, S1>, Error> {
         let input = request.input.expr.ptr(s);
         let commitment = request.commitment;
 
@@ -625,6 +651,8 @@ impl Opening<S1> {
             limit,
             request.chain,
             only_use_cached_proofs,
+            nova_prover,
+            pp,
         )
     }
 
@@ -757,6 +785,8 @@ impl<'a> Proof<'a, S1> {
         expr: Ptr<S1>,
         limit: usize,
         only_use_cached_proofs: bool,
+        nova_prover: &'a NovaProver<S1>,
+        pp: &'a PublicParams,
     ) -> Result<Self, Error> {
         let env = empty_sym_env(s);
         let cont = s.intern_cont_outermost();
@@ -766,7 +796,7 @@ impl<'a> Proof<'a, S1> {
         let evaluation = Evaluation::new(s, input, public_output, None);
         let claim = Claim::Evaluation(evaluation);
 
-        Self::prove_claim(s, claim, limit, only_use_cached_proofs)
+        Self::prove_claim(s, claim, limit, only_use_cached_proofs, nova_prover, pp)
     }
 
     pub fn prove_claim(
@@ -774,6 +804,8 @@ impl<'a> Proof<'a, S1> {
         claim: Claim<S1>,
         limit: usize,
         _only_use_cached_proofs: bool,
+        nova_prover: &'a NovaProver<S1>,
+        pp: &'a PublicParams,
     ) -> Result<Self, Error> {
         //let rng = OsRng;
         //let proof_map = bls12_proof_cache();
@@ -791,8 +823,8 @@ impl<'a> Proof<'a, S1> {
         let reduction_count = DEFAULT_REDUCTION_COUNT;
 
         info!("Getting Parameters");
-        let pp = public_params(reduction_count.reduction_frame_count());
-        let nova_prover = NovaProver::<S1>::new(reduction_count.reduction_frame_count());
+        //let pp = public_params(reduction_count.reduction_frame_count());
+        //let nova_prover = NovaProver::<S1>::new(reduction_count.reduction_frame_count());
         //let nova_params = &public_params.0;
 
         info!("Starting Proving");
@@ -819,8 +851,8 @@ impl<'a> Proof<'a, S1> {
             }
         };
 
-        let (nova_proof, public_input, public_output, num_steps) = nova_prover
-            .evaluate_and_prove(&pp, expr, env, s, limit)
+        let (proof, _public_input, _public_output, num_steps) = nova_prover
+            .evaluate_and_prove(pp, expr, env, s, limit)
             .expect("Nova proof failed");
         //assert!(public_output.is_complete());
 
@@ -851,25 +883,24 @@ impl<'a> Proof<'a, S1> {
         //proof_map.set(claim.cid(), &proof).unwrap();
 
         Ok(Self {
+            //claim: claim.clone(),
             claim: claim.clone(),
-            proof: nova_proof,
+            proof,
+            num_steps,
             reduction_count,
         })
     }
 
-    pub fn verify(
-        &self,
-        proof: proof::nova::Proof<'_>,
-        num_steps: usize,
-    ) -> Result<VerificationResult, Error> {
+    pub fn verify(&self, pp: &'a PublicParams) -> Result<VerificationResult, Error> {
         let (public_inputs, public_outputs) = match self.claim {
             Claim::Evaluation(_) => self.verify_evaluation(),
             Claim::Opening(_) => self.verify_opening(),
         }?;
 
-        let pp = public_params(self.reduction_count.reduction_frame_count());
-        let verified = proof
-            .verify(&pp, num_steps, public_inputs, &public_outputs)
+        //let pp = public_params(self.reduction_count.reduction_frame_count());
+        let verified = self
+            .proof
+            .verify(pp, self.num_steps, public_inputs, &public_outputs)
             .expect("error verifying");
         //let mut rng = OsRng;
 
