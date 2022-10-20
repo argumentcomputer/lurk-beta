@@ -59,7 +59,7 @@ the prover must know the original secret (as well as the original value).
 => 169
 ```
 
-Here, we see that the output is exactly as expected when calling the secret funcion. 169 is the sume of the squares (4,
+Here, we see that the output is exactly as expected when calling the secret funcion. 169 is the sum of the squares (4,
 16, 49, 100) of the input. However, we learn nothing *else* about the secret function even when we can fully inspect the
 input and output of evaluation.
 
@@ -126,7 +126,7 @@ What this means is that interpretation of a 'data element' requires a 'type tag 
 clearer. Since the example includes counter-factual representation different from those Lurk actually uses, we will
 use a notional hash function whose hash digests we will simply declare here for example purposes.
 
-Suppose Lurk had only two expresion types, Number (field element) and Cons (pair). We might imagine we could then
+Suppose Lurk had only two expression types, Number (field element) and Cons (pair). We might imagine we could then
 represent Numbers literally, and use binary hashes to produce pairs -- using a single field element for values of either
 type. We certainly could produce such data. For example the pair `(1 . 2)` might be produced by computing `H(1, 2)` where
 `H` is our hash function. For sake of example, assume `H(1, 2) = 98765`. We could then produce a new value resulting
@@ -154,7 +154,7 @@ hash digest. When the expression's type is immediate data (as in the case of a n
 simply the data.
 
 Another way to think of this is that the type tag uniquely identifies the function used to derive the content-address
-from the expression. Immediate values are derived with the identify function, and compound values are derived by hashing
+from the expression. Immediate values are derived with the identity function, and compound values are derived by hashing
 their constituents (both type and value elements) using a hash of appropriate arity and a type-specific preimage layout.
 
 For example, an actual Lurk cons has type tag
@@ -187,6 +187,16 @@ carefully to ensure that multiple contradictory proofs cannot be obtained for a 
 might happen if the implementation were flawed is that it might be possible for the prover to select the default value
 even when the key does in fact match one of the specified candidates. A correct `case` gadget must prevent this
 possibility.
+
+## Other possibilities
+
+The circuit is tested against a set of Lurk programs, such that we ensure the circuit output corresponds to the expected
+output. One generic way to satisfy this requirement, but without soundness, is to compute the expected output outside of 
+the circuit, and allocate variables in the circuit containing this information that, from the circuit's perspective, came from 
+nowhere. Although the set of tests is going to pass, the circuit is not sound, because the intermediate steps to calculate the 
+output where not completely constrained. Hence, along the audit process, it is important to verify if all the intermediate 
+steps are indeed implemented inside the circuit, using subcircuits and other gadgets that fully computes their expected results, 
+without leaving unconstrained intermediate steps. 
 
 ## Conclusion
 
