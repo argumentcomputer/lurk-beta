@@ -41,9 +41,6 @@ pub type C2 = TrivialTestCircuit<<G2 as Group>::Scalar>;
 
 pub type PublicParams<'a> = nova::PublicParams<G1, G2, C1<'a>, C2>;
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize)]
 pub enum Proof<'a> {
     Recursive(Box<RecursiveSNARK<G1, G2, C1<'a>, C2>>),
     Compressed(Box<CompressedSNARK<G1, G2, C1<'a>, C2, SS1, SS2>>),

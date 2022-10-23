@@ -487,7 +487,7 @@ fn opening_request<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
 //}
 fn proof<'a, P: AsRef<Path>, F: LurkField>(proof_path: Option<P>) -> Result<Proof<'a, F>, Error> {
     match proof_path {
-        Some(path) => Proof::read_from_path(path),
+        Some(path) => Proof::read_from_path::<'a>(path),
         None => Proof::read_from_stdin(),
     }
 }

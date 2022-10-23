@@ -5,8 +5,6 @@ use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 use std::str::FromStr;
 
-//use bellperson::{groth16, SynthesisError};
-//use blstrs::{Bls12, Scalar};
 use ff::PrimeField;
 use hex::FromHex;
 use libipld::{
@@ -24,15 +22,12 @@ use lurk::{
     proof::{
         self,
         nova::{NovaProver, PublicParams},
-        //groth16::{Groth16Prover, INNER_PRODUCT_SRS},
-        //Prover,
     },
     scalar_store::ScalarStore,
     store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store, Tag},
     writer::Write,
 };
 use once_cell::sync::OnceCell;
-//use pairing_lib::{Engine, MultiMillerLoop};
 use pasta_curves::pallas;
 use rand::rngs::OsRng;
 use serde::de::DeserializeOwned;
@@ -64,22 +59,13 @@ mod base64 {
     }
 }
 
-//fn bls12_proof_cache() -> FileMap<Cid, Proof<S1>> {
-//    FileMap::<Cid, Proof<S1>>::new("bls12_proofs").unwrap()
-//}
+fn nova_proof_cache() -> FileMap<Cid, Proof<S1>> {
+    FileMap::<Cid, Proof<S1>>::new("nova_proofs").unwrap()
+}
 
 pub fn committed_function_store() -> FileMap<Commitment<S1>, Function<S1>> {
     FileMap::<Commitment<S1>, Function<S1>>::new("functions").unwrap()
 }
-
-//fn get_pvk(rc: ReductionCount) -> groth16::PreparedVerifyingKey<S1> {
-//    info!("Getting Parameters");
-//    let public_params = public_params(rc.reduction_frame_count());
-//    let nova_params = &public_params.0;
-//
-//    info!("Preparing verifying key");
-//    groth16::prepare_verifying_key(&groth_params.vk)
-//}
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReductionCount {
@@ -221,10 +207,11 @@ pub struct Proof<'a, F: LurkField> {
         deserialize = "Claim<F>: Deserialize<'de>"
     ))]
     pub claim: Claim<F>,
-    #[serde(bound(
-        serialize = "proof::nova::Proof<'a>: Serialize",
-        deserialize = "proof::nova::Proof<'a>: Deserialize<'de>"
-    ))]
+    //#[serde(bound(
+    //    serialize = "proof::nova::Proof<'a>: Serialize",
+    //    deserialize = "proof::nova::Proof<'a>: Deserialize<'de>"
+    //))]
+    #[serde(borrow)]
     pub proof: proof::nova::Proof<'a>,
     pub num_steps: usize,
     pub reduction_count: ReductionCount,
@@ -409,29 +396,6 @@ where
         Ok(serde_json::from_reader(reader).expect("failed to read from stdin"))
     }
 }
-
-//impl<'a, T: Serialize> FileStore for &'a T
-//where
-//    for<'de> T: Deserialize<'de>, // + Decode<DagJsonCodec>,
-//{
-//    fn write_to_path<P: AsRef<Path>>(&self, path: P) {
-//        let file = File::create(path).expect("failed to create file");
-//        let writer = BufWriter::new(&file);
-//
-//        serde_json::to_writer(writer, &self).expect("failed to write file");
-//    }
-//
-//    fn read_from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-//        let file = File::open(path)?;
-//        let reader = BufReader::new(file);
-//        Ok(serde_json::from_reader(reader).expect("failed to read file"))
-//    }
-//
-//    fn read_from_stdin() -> Result<Self, Error> {
-//        let reader = BufReader::new(io::stdin());
-//        Ok(serde_json::from_reader(reader).expect("failed to read from stdin"))
-//    }
-//}
 
 impl Evaluation {
     fn new<F: LurkField>(
@@ -807,22 +771,21 @@ impl<'a> Proof<'a, S1> {
         nova_prover: &'a NovaProver<S1>,
         pp: &'a PublicParams,
     ) -> Result<Self, Error> {
-        //let rng = OsRng;
-        //let proof_map = bls12_proof_cache();
+        let proof_map = nova_proof_cache();
         let function_map = committed_function_store();
 
-        //if let Some(proof) = proof_map.get(claim.cid()) {
-        //    return Ok(proof);
-        //}
+        if let Some(proof) = proof_map.get(claim.cid()) {
+            return Ok(proof);
+        }
 
-        //if only_use_cached_proofs {
-        //    // FIXME: Error handling.
-        //    panic!("no cached proof");
-        //}
+        if only_use_cached_proofs {
+            // FIXME: Error handling.
+            panic!("no cached proof");
+        }
 
         let reduction_count = DEFAULT_REDUCTION_COUNT;
 
-        info!("Getting Parameters");
+        //info!("Getting Parameters");
         //let pp = public_params(reduction_count.reduction_frame_count());
         //let nova_prover = NovaProver::<S1>::new(reduction_count.reduction_frame_count());
         //let nova_params = &public_params.0;
@@ -851,16 +814,17 @@ impl<'a> Proof<'a, S1> {
             }
         };
 
-        let (proof, _public_input, _public_output, num_steps) = nova_prover
+        let (proof, _public_input, public_output, num_steps) = nova_prover
             .evaluate_and_prove(pp, expr, env, s, limit)
             .expect("Nova proof failed");
-        //assert!(public_output.is_complete());
+        assert!(public_output.is_complete());
 
-        //let proof = Proof {
-        //    claim: claim.clone(),
-        //    proof: nova_proof,
-        //    reduction_count,
-        //};
+        let proof = Self {
+            claim: claim.clone(),
+            proof,
+	  num_steps,
+            reduction_count,
+        };
 
         match &claim {
             Claim::Opening(o) => {
@@ -875,20 +839,11 @@ impl<'a> Proof<'a, S1> {
             }
         };
 
-        //let verification_result = nova_proof
-        //    .verify(&pp, num_steps, public_input, &public_output)
-        //    .expect("Nova verification failed");
-        //assert!(verification_result.verified);
+        proof.verify(&pp, num_steps, public_input, &public_output).expect("Nova verification failed");
 
-        //proof_map.set(claim.cid(), &proof).unwrap();
+        proof_map.set(claim.cid(), &proof).unwrap();
 
-        Ok(Self {
-            //claim: claim.clone(),
-            claim: claim.clone(),
-            proof,
-            num_steps,
-            reduction_count,
-        })
+        Ok(proof)
     }
 
     pub fn verify(&self, pp: &'a PublicParams) -> Result<VerificationResult, Error> {
@@ -902,27 +857,6 @@ impl<'a> Proof<'a, S1> {
             .proof
             .verify(pp, self.num_steps, public_inputs, &public_outputs)
             .expect("error verifying");
-        //let mut rng = OsRng;
-
-        //info!("Getting Parameters");
-
-        //let count = self.proof.proof_count;
-        //let rc = self.reduction_count;
-        ////let pvk = get_pvk(rc);
-
-        //info!("Specializing SRS for {} sub-proofs.", count);
-        //let srs_vk = INNER_PRODUCT_SRS.specialize_vk(count);
-        //info!("Starting Verification");
-
-        //let verified = NovaProver::verify(
-        //    &pvk,
-        //    &srs_vk,
-        //    &public_inputs,
-        //    &public_outputs,
-        //    &self.proof.proof,
-        //    &mut rng,
-        //)
-        //.expect("error verifying");
 
         let result = VerificationResult::new(verified);
 

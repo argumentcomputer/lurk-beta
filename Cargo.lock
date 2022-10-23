@@ -1601,8 +1601,7 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 [[package]]
 name = "nova-snark"
 version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e24c070c574e8b10f9c57a76621168d1afa5ac7984fbb32cf2b0e5b7dc35008a"
+source = "git+https://github.com/lurk-lang/Nova.git?branch=sb/serde#7e0fa2946fead45fa61dc0f48329c73cbb53e158"
 dependencies = [
  "bellperson",
  "bellperson-nonnative",
@@ -1779,7 +1778,7 @@ dependencies = [
 [[package]]
 name = "pasta_curves"
 version = "0.4.1"
-source = "git+https://github.com/filecoin-project/fil_pasta_curves?rev=025362ad5af96e9ca54851d3554af6ca1d0c2cf6#025362ad5af96e9ca54851d3554af6ca1d0c2cf6"
+source = "git+https://github.com/lurk-lang/pasta_curves?branch=sb/serde#8e911c72677545e1031e5833f15fd3592e8054fe"
 dependencies = [
  "blake2b_simd",
  "ec-gpu",
