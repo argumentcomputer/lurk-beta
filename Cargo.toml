@@ -71,5 +71,7 @@ name = "lurkrs"
 path = "examples/repl.rs"
 
 [patch.crates-io]
+bellperson = { git = "https://github.com/lurk-lang/bellperson", branch = "sb/serde" }
 pasta_curves = { git = "https://github.com/lurk-lang/pasta_curves", branch = "sb/serde" }
-nova-snark = { git = "https://github.com/lurk-lang/Nova.git", branch = "sb/serde" }
+neptune = { git = "https://github.com/lurk-lang/neptune", branch = "sb/serde" }
+nova-snark = { git = "https://github.com/lurk-lang/Nova", branch = "sb/serde" }
