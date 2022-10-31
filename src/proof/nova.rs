@@ -2363,6 +2363,7 @@ mod tests {
         nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
     }
 
+    #[ignore]
     #[test]
     fn outer_prove_test_relational() {
         let s = &mut Store::<Fr>::default();

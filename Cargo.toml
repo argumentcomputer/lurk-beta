@@ -68,4 +68,4 @@ members = [
 
 [[bin]]
 name = "lurkrs"
-path = "examples/repl.rs"
+path = "src/main.rs"
