@@ -1986,11 +1986,30 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == OPEN, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
+
+    let arg1_tag_is_num = alloc_equal(&mut cs.namespace(|| "tag_is_num"), arg1.tag(), &g.num_tag)?;
+
+    let arg1_tag_is_comm =
+        alloc_equal(&mut cs.namespace(|| "tag_is_comm"), arg1.tag(), &g.comm_tag)?;
+
+    let arg1_tag_is_num_or_comm = constraints::or(
+        &mut cs.namespace(|| "tag_is_num_or_comm"),
+        &arg1_tag_is_num,
+        &arg1_tag_is_comm,
+    )?;
+
+    let the_cont_open = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "the_cont_open"),
+        &arg1_tag_is_num_or_comm,
+        &newer_cont_if_end_is_nil,
+        &g.error_ptr_cont,
+    )?;
+
     results.add_clauses_cons(
         *open_hash.value(),
         &arg1_or_expr,
         env,
-        &newer_cont_if_end_is_nil,
+        &the_cont_open,
         &g.false_num,
     );
 
@@ -2337,6 +2356,83 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
     let default_num_pair = &[&g.default_num, &g.default_num];
 
+    let (commitment, commitment_secret, committed_expr) = {
+        let operator = AllocatedPtr::by_index(0, &continuation_components);
+
+        let is_op2_hide = constraints::alloc_equal(
+            &mut cs.namespace(|| "operator tag == hide_tag"),
+            operator.tag(),
+            &g.op2_hide_tag,
+        )?;
+
+        let is_op1_open = constraints::alloc_equal(
+            &mut cs.namespace(|| "operator tag == open_tag"),
+            operator.tag(),
+            &g.op1_open_tag,
+        )?;
+
+        let is_op1_secret = constraints::alloc_equal(
+            &mut cs.namespace(|| "operator tag == secret_tag"),
+            operator.tag(),
+            &g.op1_secret_tag,
+        )?;
+
+        let is_op1_open_or_secret = constraints::or(
+            &mut cs.namespace(|| "is_op1_open_or_secret"),
+            &is_op1_open,
+            &is_op1_secret,
+        )?;
+
+        // IF this is open, we need to know what we are opening.
+        let digest = result.hash();
+
+        let (open_secret_scalar, open_ptr) = match store
+            .get_maybe_opaque(Tag::Comm, digest.get_value().unwrap_or_else(|| F::zero()))
+        {
+            Some(commit) => match store.open(commit) {
+                Some((secret, opening)) => (secret, opening),
+                None => (F::zero(), store.get_nil()), // nil is dummy
+            },
+            None => (F::zero(), store.get_nil()), // nil is dummy
+        };
+
+        let open_expr = AllocatedPtr::alloc(&mut cs.namespace(|| "open_expr"), || {
+            Ok(store.hash_expr(&open_ptr).unwrap())
+        })?;
+
+        let open_secret = AllocatedNum::alloc(&mut cs.namespace(|| "open_secret"), || {
+            Ok(open_secret_scalar)
+        })?;
+
+        let arg1 = AllocatedPtr::by_index(1, &continuation_components);
+
+        let commit_secret = pick(
+            &mut cs.namespace(|| "open secret"),
+            &is_op2_hide,
+            arg1.hash(),
+            &g.default_num,
+        )?;
+
+        let secret = pick(
+            &mut cs.namespace(|| "secret"),
+            &is_op1_open_or_secret,
+            &open_secret,
+            &commit_secret,
+        )?;
+
+        let committed = AllocatedPtr::pick(
+            &mut cs.namespace(|| "committed"),
+            &is_op1_open,
+            &open_expr,
+            result,
+        )?;
+        (
+            hide(&mut cs.namespace(|| "Hide"), g, &secret, &committed, store)?,
+            secret,
+            committed,
+        )
+    };
+
     // Next we add multicase clauses for each continuation that requires a newer
     // cont, which means it needs to constrain a new hash, which is expensive,
     // then we do it only once.
@@ -2453,31 +2549,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.t_ptr,
         )?;
 
-        let op1_is_open = alloc_equal(
-            &mut cs.namespace(|| "op1 is open"),
-            op1.tag(),
-            &g.op1_open_tag,
-        )?;
-
-        let op1_is_secret = alloc_equal(
-            &mut cs.namespace(|| "op1 is secret"),
-            op1.tag(),
-            &g.op1_secret_tag,
-        )?;
-
-        let hide = hide(&mut cs.namespace(|| "Unop hide"), F::zero(), result, store)?;
-        let open = open(
-            &mut cs.namespace(|| "Unop open"),
-            &op1_is_open,
-            result,
-            store,
-        )?;
-        let secret = secret(
-            &mut cs.namespace(|| "Unop secret"),
-            &op1_is_secret,
-            result,
-            store,
-        )?;
         let num = num(&mut cs.namespace(|| "Unop num"), result, store)?;
         let comm = comm(&mut cs.namespace(|| "Unop comm"), result, store)?;
         let c = char_op(&mut cs.namespace(|| "Unop char"), result, store)?;
@@ -2505,15 +2576,15 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                     },
                     CaseClause {
                         key: Op1::Commit.as_field(),
-                        value: hide.tag(),
+                        value: commitment.tag(),
                     },
                     CaseClause {
                         key: Op1::Open.as_field(),
-                        value: open.tag(),
+                        value: committed_expr.tag(),
                     },
                     CaseClause {
                         key: Op1::Secret.as_field(),
-                        value: secret.tag(),
+                        value: &g.num_tag,
                     },
                     CaseClause {
                         key: Op1::Num.as_field(),
@@ -2547,15 +2618,15 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                     },
                     CaseClause {
                         key: Op1::Commit.as_field(),
-                        value: hide.hash(),
+                        value: commitment.hash(),
                     },
                     CaseClause {
                         key: Op1::Open.as_field(),
-                        value: open.hash(),
+                        value: committed_expr.hash(),
                     },
                     CaseClause {
                         key: Op1::Secret.as_field(),
-                        value: secret.hash(),
+                        value: &commitment_secret,
                     },
                     CaseClause {
                         key: Op1::Num.as_field(),
@@ -2963,12 +3034,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let diff = constraints::sub(&mut cs.namespace(|| "difference"), a, b)?;
         let product = constraints::mul(&mut cs.namespace(|| "product"), a, b)?;
 
-        let secret = match arg1.hash().get_value() {
-            Some(s) => s,
-            None => F::zero(), //dummy
-        };
-        let hide = hide(&mut cs.namespace(|| "Binop2 hide"), secret, arg2, store)?;
-
         let op2_is_div = alloc_equal(
             cs.namespace(|| "op2_is_div"),
             op2.tag(),
@@ -3027,7 +3092,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 },
                 CaseClause {
                     key: Op2::Hide.as_field(),
-                    value: hide.hash(),
+                    value: commitment.hash(),
                 },
             ],
             &g.default_num,
@@ -3069,25 +3134,27 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.op2_hide_tag,
         )?;
 
-        let hide_tag_is_comm = alloc_equal(
-            &mut cs.namespace(|| "hide tag is comm"),
-            hide.tag(),
+        let commitment_tag_is_comm = alloc_equal(
+            &mut cs.namespace(|| "commitment tag is comm"),
+            commitment.tag(),
             &g.comm_tag,
         )?;
 
-        let hide_tag_is_dummy =
-            alloc_is_zero(&mut cs.namespace(|| "hide tag is dummy"), hide.tag())?;
+        let commitment_tag_is_dummy = alloc_is_zero(
+            &mut cs.namespace(|| "commitment tag is dummy"),
+            commitment.tag(),
+        )?;
 
-        let hide_tag_is_correct = constraints::or(
-            &mut cs.namespace(|| "hide tag is correct"),
-            &hide_tag_is_comm,
-            &hide_tag_is_dummy,
+        let commitment_tag_is_correct = constraints::or(
+            &mut cs.namespace(|| "commitment tag is correct"),
+            &commitment_tag_is_comm,
+            &commitment_tag_is_dummy,
         )?;
 
         enforce_implication(
-            &mut cs.namespace(|| "is hide implies hide tag is correct"),
+            &mut cs.namespace(|| "is hide implies commitment tag is correct"),
             &is_hide,
-            &hide_tag_is_correct,
+            &commitment_tag_is_correct,
         )?;
 
         let arg1_is_char = alloc_equal(
@@ -3637,18 +3704,18 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.op1_char_tag,
         )?;
 
+        let tag_is_char = alloc_equal(
+            &mut cs.namespace(|| "tag_is_char"),
+            result.tag(),
+            &g.char_tag,
+        )?;
+
         let tag_is_num = alloc_equal(&mut cs.namespace(|| "tag_is_num"), result.tag(), &g.num_tag)?;
 
         let tag_is_comm = alloc_equal(
             &mut cs.namespace(|| "tag_is_comm"),
             result.tag(),
             &g.comm_tag,
-        )?;
-
-        let tag_is_char = alloc_equal(
-            &mut cs.namespace(|| "tag_is_char"),
-            result.tag(),
-            &g.char_tag,
         )?;
 
         let tag_is_num_or_comm = constraints::or(
@@ -3755,96 +3822,18 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
 fn hide<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    secret: F,
+    g: &GlobalAllocations<F>,
+    secret: &AllocatedNum<F>,
     maybe_payload: &AllocatedPtr<F>,
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let hide_ptr = if let Some(ptr) = maybe_payload.ptr(store).as_ref() {
-        match store.hidden(secret, *ptr) {
-            Some(c) => c,
-            None => store.get_nil(), // dummy
-        }
-    } else {
-        store.get_nil() // dummy
-    };
-    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "hide"), store, || Ok(&hide_ptr))
-}
-
-fn open<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    not_dummy: &Boolean,
-    maybe_commit: &AllocatedPtr<F>,
-    store: &Store<F>,
-) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let hash = match maybe_commit.hash().get_value() {
-        Some(hash) => hash,
-        None => F::zero(), // dummy value
-    };
-
-    let dummy_check = || {
-        match not_dummy.get_value() {
-            Some(not_dummy) => {
-                if not_dummy {
-                    panic!("hidden value could not be opened")
-                } else {
-                    // TODO: replace by dummy pointer (bogus)
-                    store.get_nil()
-                }
-            }
-            None => {
-                // TODO: replace by dummy pointer (blank)
-                store.get_nil()
-            }
-        }
-    };
-
-    let open_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
-        Some(commit) => match store.open(commit) {
-            Some(openning) => openning,
-            None => dummy_check(),
-        },
-        None => dummy_check(),
-    };
-
-    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&open_ptr))
-}
-
-fn secret<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    not_dummy: &Boolean,
-    maybe_commit: &AllocatedPtr<F>,
-    store: &Store<F>,
-) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let hash = match maybe_commit.hash().get_value() {
-        Some(hash) => hash,
-        None => F::zero(), // dummy value
-    };
-
-    let dummy_check = || {
-        match not_dummy.get_value() {
-            Some(not_dummy) => {
-                if not_dummy {
-                    panic!("secret could not be extracted")
-                } else {
-                    // TODO: replace by dummy pointer (bogus)
-                    store.get_nil()
-                }
-            }
-            None => {
-                // TODO: replace by dummy pointer (blank)
-                store.get_nil()
-            }
-        }
-    };
-
-    let secret_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
-        Some(commit) => match store.secret(commit) {
-            Some(secret) => secret,
-            None => dummy_check(),
-        },
-        None => dummy_check(),
-    };
-    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "secret"), store, || Ok(&secret_ptr))
+    AllocatedPtr::construct_commitment(
+        &mut cs.namespace(|| "commitment hash"),
+        g,
+        store,
+        secret,
+        maybe_payload,
+    )
 }
 
 fn num<F: LurkField, CS: ConstraintSystem<F>>(
@@ -4163,9 +4152,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(20466, cs.num_constraints());
+            assert_eq!(20751, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(20388, cs.aux().len());
+            assert_eq!(20665, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

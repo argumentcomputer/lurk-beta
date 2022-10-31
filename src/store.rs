@@ -883,7 +883,7 @@ impl<F: LurkField> Store<F> {
         self.intern_comm(secret, payload)
     }
 
-    pub fn open(&self, ptr: Ptr<F>) -> Option<Ptr<F>> {
+    pub fn open(&self, ptr: Ptr<F>) -> Option<(F, Ptr<F>)> {
         let p = match ptr.0 {
             Tag::Comm => ptr,
             Tag::Num => {
@@ -898,14 +898,14 @@ impl<F: LurkField> Store<F> {
             _ => return None,
         };
 
-        if let Some((_secret, payload)) = self.fetch_comm(&p) {
-            Some(*payload)
+        if let Some((secret, payload)) = self.fetch_comm(&p) {
+            Some(((*secret).0, *payload))
         } else {
             None
         }
     }
 
-    pub fn open_mut(&mut self, ptr: Ptr<F>) -> Result<Ptr<F>, LurkError> {
+    pub fn open_mut(&mut self, ptr: Ptr<F>) -> Result<(F, Ptr<F>), LurkError> {
         assert!(ptr.0 == Tag::Comm || ptr.0 == Tag::Num);
 
         let p = match ptr.0 {
@@ -918,8 +918,8 @@ impl<F: LurkField> Store<F> {
             _ => unreachable!(),
         };
 
-        if let Some((_secret, payload)) = self.fetch_comm(&p) {
-            Ok(*payload)
+        if let Some((secret, payload)) = self.fetch_comm(&p) {
+            Ok(((*secret).0, *payload))
         } else {
             Err(LurkError::Store("hidden value could not be opened".into()))
         }
