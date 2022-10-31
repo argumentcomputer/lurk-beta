@@ -1,4 +1,4 @@
-use generic_array::typenum::{U4, U6, U8};
+use generic_array::typenum::{U3, U4, U6, U8};
 use neptune::Poseidon;
 use rayon::prelude::*;
 use std::hash::Hash;
@@ -25,6 +25,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 /// Holds the constants needed for poseidon hashing.
 #[derive(Debug)]
 pub(crate) struct HashConstants<F: LurkField> {
+    c3: OnceCell<PoseidonConstants<F, U3>>,
     c4: OnceCell<PoseidonConstants<F, U4>>,
     c6: OnceCell<PoseidonConstants<F, U6>>,
     c8: OnceCell<PoseidonConstants<F, U8>>,
@@ -33,6 +34,7 @@ pub(crate) struct HashConstants<F: LurkField> {
 impl<F: LurkField> Default for HashConstants<F> {
     fn default() -> Self {
         Self {
+            c3: OnceCell::new(),
             c4: OnceCell::new(),
             c6: OnceCell::new(),
             c8: OnceCell::new(),
@@ -41,6 +43,10 @@ impl<F: LurkField> Default for HashConstants<F> {
 }
 
 impl<F: LurkField> HashConstants<F> {
+    pub fn c3(&self) -> &PoseidonConstants<F, U3> {
+        self.c3.get_or_init(|| PoseidonConstants::new())
+    }
+
     pub fn c4(&self) -> &PoseidonConstants<F, U4> {
         self.c4.get_or_init(|| PoseidonConstants::new())
     }
@@ -113,6 +119,7 @@ pub struct Store<F: LurkField> {
 
 #[derive(Default, Debug)]
 struct PoseidonCache<F: LurkField> {
+    a3: dashmap::DashMap<CacheKey<F, 3>, F, ahash::RandomState>,
     a4: dashmap::DashMap<CacheKey<F, 4>, F, ahash::RandomState>,
     a6: dashmap::DashMap<CacheKey<F, 6>, F, ahash::RandomState>,
     a8: dashmap::DashMap<CacheKey<F, 8>, F, ahash::RandomState>,
@@ -133,6 +140,15 @@ impl<F: LurkField, const N: usize> Hash for CacheKey<F, N> {
 }
 
 impl<F: LurkField> PoseidonCache<F> {
+    fn hash3(&self, preimage: &[F; 3]) -> F {
+        let hash = self
+            .a3
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c3()).hash());
+
+        *hash
+    }
+
     fn hash4(&self, preimage: &[F; 4]) -> F {
         let hash = self
             .a4
@@ -2285,13 +2301,8 @@ impl<F: LurkField> Store<F> {
     }
 
     pub(crate) fn commitment_hash(&self, secret_scalar: F, payload: ScalarPtr<F>) -> F {
-        let preimage = [
-            Tag::Comm.as_field::<F>(),
-            secret_scalar,
-            payload.0,
-            payload.1,
-        ];
-        self.poseidon_cache.hash4(&preimage)
+        let preimage = [secret_scalar, payload.0, payload.1];
+        self.poseidon_cache.hash3(&preimage)
     }
 
     fn get_hash_comm(&self, comm: Ptr<F>) -> Option<ScalarPtr<F>> {

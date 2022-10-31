@@ -2854,6 +2854,16 @@ mod test {
     }
 
     #[test]
+    fn commitment_value() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num (commit 123))";
+        let x = s
+            .read("0x5655b8656a51cf3bb9f9c9ac7b7dd80c0e2481b039594c39f56efb1e0f81c64a")
+            .unwrap();
+        test_aux(s, expr, Some(x), None, None, None, 4);
+    }
+
+    #[test]
     fn commit_error() {
         let s = &mut Store::<Fr>::default();
         let expr = "(commit 123 456)";
