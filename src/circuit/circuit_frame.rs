@@ -1998,7 +1998,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &arg1_tag_is_comm,
     )?;
 
-    let the_cont_open = AllocatedContPtr::pick(
+    let the_cont_open_or_secret = AllocatedContPtr::pick(
         &mut cs.namespace(|| "the_cont_open"),
         &arg1_tag_is_num_or_comm,
         &newer_cont_if_end_is_nil,
@@ -2009,17 +2009,18 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *open_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_open,
+        &the_cont_open_or_secret,
         &g.false_num,
     );
 
     // head == SECRET, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
+
     results.add_clauses_cons(
         *secret_hash.value(),
         &arg1_or_expr,
         env,
-        &newer_cont_if_end_is_nil,
+        &the_cont_open_or_secret,
         &g.false_num,
     );
 

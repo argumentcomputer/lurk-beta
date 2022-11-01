@@ -1115,7 +1115,10 @@ fn apply_continuation<F: LurkField>(
                         Tag::Num | Tag::Comm => store.open_mut(*result)?.1,
                         _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
                     },
-                    Op1::Secret => store.secret_mut(*result)?,
+                    Op1::Secret => match result.tag() {
+                        Tag::Num | Tag::Comm => store.secret_mut(*result)?,
+                        _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
+                    },
                     Op1::Commit => store.hide(F::zero(), *result),
                     Op1::Num => match result.tag() {
                         Tag::Num | Tag::Comm | Tag::Char => {
@@ -3048,6 +3051,14 @@ mod test {
     fn open_wrong_type() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 'asdf)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn secret_wrong_type() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret 'asdf)";
         let error = s.get_cont_error();
         test_aux(s, expr, None, None, Some(error), None, 2);
     }
