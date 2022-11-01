@@ -774,6 +774,16 @@ fn reduce_with_witness<F: LurkField>(
                     } else {
                         Control::Return(arg1, env, store.intern_cont_unop(Op1::Char, cont))
                     }
+                } else if head == store.sym("eval") {
+                    let (arg1, end) = match store.car_cdr_mut(&rest) {
+                        Ok((car, cdr)) => (car, cdr),
+                        Err(e) => return Err(LurkError::Reduce(e.into())),
+                    };
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Eval, cont))
+                    }
                 } else if head == store.sym("open") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
@@ -1154,6 +1164,17 @@ fn apply_continuation<F: LurkField>(
                         }
                         _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
                     },
+                    Op1::Eval => {
+                        match store
+                            .fetch_cont(cont)
+                            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+                        {
+                            Continuation::Unop { continuation, .. } => {
+                                return Ok(Control::Return(*result, *env, continuation))
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
                 };
                 Control::MakeThunk(val, *env, continuation)
             }
@@ -3301,5 +3322,15 @@ mod test {
         let terminal = s.get_cont_terminal();
 
         test_aux(s, expr, Some(res), None, Some(terminal), None, 13);
+    }
+
+    #[test]
+    fn test_eval() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(* 3 (eval (cons '+ (cons 1 (cons 2 nil)))))";
+        let res = s.num(9);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 17);
     }
 }

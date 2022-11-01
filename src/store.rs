@@ -574,6 +574,7 @@ pub enum Op1 {
     Num,
     Comm,
     Char,
+    Eval,
 }
 
 impl fmt::Display for Op1 {
@@ -589,6 +590,7 @@ impl fmt::Display for Op1 {
             Op1::Num => write!(f, "Num"),
             Op1::Comm => write!(f, "Comm"),
             Op1::Char => write!(f, "Char"),
+            Op1::Eval => write!(f, "Eval"),
         }
     }
 }
@@ -606,6 +608,7 @@ impl Op1 {
             x if x == Op1::Num as u16 => Some(Op1::Num),
             x if x == Op1::Comm as u16 => Some(Op1::Comm),
             x if x == Op1::Char as u16 => Some(Op1::Char),
+            x if x == Op1::Eval as u16 => Some(Op1::Eval),
             _ => None,
         }
     }
@@ -711,7 +714,6 @@ impl Tag {
             f if f == Tag::Str.as_field() => Some(Tag::Str),
             f if f == Tag::Char.as_field() => Some(Tag::Char),
             f if f == Tag::Comm.as_field() => Some(Tag::Comm),
-            f if f == Tag::Char.as_field() => Some(Tag::Char),
             _ => None,
         }
     }
@@ -2726,6 +2728,8 @@ pub mod test {
                 (100, Box::new(|_| Op1::Commit)),
                 (100, Box::new(|_| Op1::Num)),
                 (100, Box::new(|_| Op1::Comm)),
+                (100, Box::new(|_| Op1::Char)),
+                (100, Box::new(|_| Op1::Eval)),
             ];
             frequency(g, input)
         }
