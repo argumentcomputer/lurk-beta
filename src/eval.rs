@@ -1111,8 +1111,14 @@ fn apply_continuation<F: LurkField>(
                             store.intern_cont_emit(continuation),
                         ));
                     }
-                    Op1::Open => store.open_mut(*result)?,
-                    Op1::Secret => store.secret_mut(*result)?,
+                    Op1::Open => match result.tag() {
+                        Tag::Num | Tag::Comm => store.open_mut(*result)?.1,
+                        _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
+                    },
+                    Op1::Secret => match result.tag() {
+                        Tag::Num | Tag::Comm => store.secret_mut(*result)?,
+                        _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
+                    },
                     Op1::Commit => store.hide(F::zero(), *result),
                     Op1::Num => match result.tag() {
                         Tag::Num | Tag::Comm | Tag::Char => {
@@ -2854,6 +2860,16 @@ mod test {
     }
 
     #[test]
+    fn commitment_value() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num (commit 123))";
+        let x = s
+            .read("0x5655b8656a51cf3bb9f9c9ac7b7dd80c0e2481b039594c39f56efb1e0f81c64a")
+            .unwrap();
+        test_aux(s, expr, Some(x), None, None, None, 4);
+    }
+
+    #[test]
     fn commit_error() {
         let s = &mut Store::<Fr>::default();
         let expr = "(commit 123 456)";
@@ -3029,6 +3045,22 @@ mod test {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 123)";
         test_aux(s, expr, None, None, None, None, 2);
+    }
+
+    #[test]
+    fn open_wrong_type() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open 'asdf)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn secret_wrong_type() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret 'asdf)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 2);
     }
 
     #[test]

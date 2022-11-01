@@ -228,6 +228,27 @@ impl<F: LurkField> AllocatedPtr<F> {
         })
     }
 
+    pub fn construct_commitment<CS: ConstraintSystem<F>>(
+        mut cs: CS,
+        g: &GlobalAllocations<F>,
+        store: &Store<F>,
+        secret: &AllocatedNum<F>,
+        expr: &AllocatedPtr<F>,
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        let preimage = vec![secret.clone(), expr.tag().clone(), expr.hash().clone()];
+
+        let hash = hash_poseidon(
+            cs.namespace(|| "Commitment hash"),
+            preimage,
+            store.poseidon_constants().c3(),
+        )?;
+
+        Ok(AllocatedPtr {
+            tag: g.comm_tag.clone(),
+            hash,
+        })
+    }
+
     pub fn construct_strcons<CS: ConstraintSystem<F>>(
         mut cs: CS,
         g: &GlobalAllocations<F>,
