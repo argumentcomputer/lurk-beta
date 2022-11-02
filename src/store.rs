@@ -15,7 +15,7 @@ use crate::field::{FWrap, LurkField};
 use crate::scalar_store::ScalarContinuation;
 use crate::scalar_store::ScalarExpression;
 use crate::scalar_store::ScalarStore;
-use crate::Num;
+use crate::{Num, UInt};
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -424,20 +424,19 @@ impl<F: LurkField> ContPtr<F> {
 // If .0 is negative, RawPtr is opaque. This lets us retain the efficiency and structure of the current implementation.
 // It cuts the local store's address space in half, which is likely not an issue. This representation does not affect
 // external data, so if we want to change it in the future, we can do so without a change of defined behavior.
-pub struct RawPtr<F: LurkField>(isize, PhantomData<F>);
+pub struct RawPtr<F: LurkField>((usize, bool), PhantomData<F>);
 
 impl<F: LurkField> RawPtr<F> {
     fn new(p: usize) -> Self {
-        assert!(p < isize::MAX as usize);
-        RawPtr(p as isize, Default::default())
+        RawPtr((p, false), Default::default())
     }
 
     fn is_opaque(&self) -> bool {
-        self.0 < 0
+        self.0 .1
     }
 
     pub fn idx(&self) -> usize {
-        self.0.unsigned_abs() as usize
+        self.0 .0
     }
 }
 
@@ -473,6 +472,7 @@ pub enum Expression<'a, F: LurkField> {
     Thunk(Thunk<F>),
     Opaque(Ptr<F>),
     Char(char),
+    UInt(UInt),
 }
 
 impl<F: LurkField> Object<F> for Expression<'_, F> {
@@ -575,6 +575,7 @@ pub enum Op1 {
     Comm,
     Char,
     Eval,
+    U64,
 }
 
 impl fmt::Display for Op1 {
@@ -591,6 +592,7 @@ impl fmt::Display for Op1 {
             Op1::Comm => write!(f, "Comm"),
             Op1::Char => write!(f, "Char"),
             Op1::Eval => write!(f, "Eval"),
+            Op1::U64 => write!(f, "U64"),
         }
     }
 }
@@ -609,6 +611,7 @@ impl Op1 {
             x if x == Op1::Comm as u16 => Some(Op1::Comm),
             x if x == Op1::Char as u16 => Some(Op1::Char),
             x if x == Op1::Eval as u16 => Some(Op1::Eval),
+            x if x == Op1::U64 as u16 => Some(Op1::U64),
             _ => None,
         }
     }
@@ -694,6 +697,7 @@ pub enum Tag {
     Str,
     Char,
     Comm,
+    U64,
 }
 
 impl From<Tag> for u64 {
@@ -964,6 +968,10 @@ impl<F: LurkField> Store<F> {
 
     pub fn num<T: Into<Num<F>>>(&mut self, num: T) -> Ptr<F> {
         self.intern_num(num)
+    }
+
+    pub fn uint64(&mut self, n: u64) -> Ptr<F> {
+        self.get_u64(n)
     }
 
     pub fn str<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
@@ -1413,6 +1421,10 @@ impl<F: LurkField> Store<F> {
         Ptr(Tag::Char, RawPtr::new(u32::from(c) as usize))
     }
 
+    pub fn get_u64(&self, n: u64) -> Ptr<F> {
+        Ptr(Tag::U64, RawPtr::new(n as usize))
+    }
+
     pub fn intern_str<T: AsRef<str>>(&mut self, str: T) -> Ptr<F> {
         // Hash string for side effect. This will cause all tails to be interned.
         self.hash_string_mut(str.as_ref());
@@ -1680,7 +1692,7 @@ impl<F: LurkField> Store<F> {
 
     pub(crate) fn fetch_char(&self, ptr: &Ptr<F>) -> Option<char> {
         debug_assert!(matches!(ptr.0, Tag::Char));
-        char::from_u32(ptr.1 .0 as u32)
+        char::from_u32(ptr.1 .0 .0 as u32)
     }
 
     pub(crate) fn fetch_fun(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>, Ptr<F>)> {
@@ -1721,6 +1733,15 @@ impl<F: LurkField> Store<F> {
         self.thunk_store.get_index(ptr.1.idx())
     }
 
+    pub(crate) fn fetch_uint(&self, ptr: &Ptr<F>) -> Option<UInt> {
+        // If more UInt variants are added, the following assertion should be relaxed to check for any of them.
+        debug_assert!(matches!(ptr.0, Tag::U64));
+        match ptr.0 {
+            Tag::U64 => Some(UInt::U64(ptr.1 .0 .0 as u64)),
+            _ => unreachable!(),
+        }
+    }
+
     pub fn fetch(&self, ptr: &Ptr<F>) -> Option<Expression<F>> {
         if ptr.is_opaque() {
             return Some(Expression::Opaque(*ptr));
@@ -1737,6 +1758,7 @@ impl<F: LurkField> Store<F> {
             Tag::Thunk => self.fetch_thunk(ptr).map(|thunk| Expression::Thunk(*thunk)),
             Tag::Str => self.fetch_str(ptr).map(|str| Expression::Str(str)),
             Tag::Char => self.fetch_char(ptr).map(Expression::Char),
+            Tag::U64 => self.fetch_uint(ptr).map(Expression::UInt),
         }
     }
 
@@ -1914,6 +1936,7 @@ impl<F: LurkField> Store<F> {
             Str => self.hash_str(*ptr),
             Char => self.hash_char(*ptr),
             Thunk => self.hash_thunk(*ptr),
+            U64 => self.hash_uint(*ptr),
         }
     }
 
@@ -1933,6 +1956,7 @@ impl<F: LurkField> Store<F> {
             Str => self.get_hash_str(*ptr),
             Char => self.get_hash_char(*ptr),
             Thunk => self.get_hash_thunk(*ptr),
+            U64 => self.get_hash_uint(*ptr),
         }
     }
 
@@ -2340,12 +2364,12 @@ impl<F: LurkField> Store<F> {
     }
 
     fn hash_char(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
-        let char_code = ptr.1 .0 as u32;
+        let char_code = ptr.1 .0 .0 as u32;
 
         Some(self.create_scalar_ptr(ptr, F::from(char_code as u64)))
     }
     fn get_hash_char(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
-        let char_code = ptr.1 .0 as u32;
+        let char_code = ptr.1 .0 .0 as u32;
 
         Some(self.get_scalar_ptr(ptr, F::from(char_code as u64)))
     }
@@ -2359,6 +2383,21 @@ impl<F: LurkField> Store<F> {
         let n = self.fetch_num(&ptr)?;
 
         Some(self.get_scalar_ptr(ptr, n.into_scalar()))
+    }
+
+    fn hash_uint(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
+        let n = self.fetch_uint(&ptr)?;
+
+        match n {
+            UInt::U64(x) => Some(self.create_scalar_ptr(ptr, F::from_u64(x)?)),
+        }
+    }
+    fn get_hash_uint(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
+        let n = self.fetch_uint(&ptr)?;
+
+        match n {
+            UInt::U64(x) => Some(self.get_scalar_ptr(ptr, F::from_u64(x)?)),
+        }
     }
 
     fn hash_string(&self, s: &str) -> F {
@@ -2504,11 +2543,8 @@ impl<F: LurkField> Store<F> {
     pub fn new_opaque_raw_ptr(&mut self) -> RawPtr<F> {
         self.opaque_raw_ptr_count += 1;
         let p = self.opaque_raw_ptr_count;
-        // We can't use 0 for both opaque and normal RawPtrs.
-        assert!(p > 0);
-        // Ensure there will be no overlow.
-        assert!(p < isize::MAX as usize);
-        RawPtr(0isize - p as isize, Default::default())
+
+        RawPtr((p, true), Default::default())
     }
 
     pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> bool {

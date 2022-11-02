@@ -100,6 +100,7 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
             Char(c) => {
                 write!(w, "#\\{}", c)
             }
+            UInt(n) => write!(w, "{}u64", n),
         }
     }
 }

@@ -7,8 +7,9 @@ use std::{
 };
 
 use crate::field::LurkField;
+use crate::uint::UInt;
 
-/// Number type for Lurk. Has different internal representations to optimize evaluation.
+/// Finite field element type for Lurk. Has different internal representations to optimize evaluation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Num<F: LurkField> {
     Scalar(F),
@@ -215,6 +216,14 @@ impl<F: LurkField> Num<F> {
 impl<F: LurkField> From<u64> for Num<F> {
     fn from(n: u64) -> Self {
         Num::<F>::U64(n)
+    }
+}
+
+impl<F: LurkField> From<UInt> for Num<F> {
+    fn from(n: UInt) -> Self {
+        match n {
+            UInt::U64(n) => Num::<F>::U64(n),
+        }
     }
 }
 

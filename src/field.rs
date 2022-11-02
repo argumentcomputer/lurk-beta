@@ -44,6 +44,17 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         byte_array.copy_from_slice(&self.to_repr().as_ref()[0..8]);
         Some(u64::from_le_bytes(byte_array))
     }
+    // Return a u64 corresponding to the first 8 little-endian bytes of this field element, discarding the remaining bytes.
+    fn to_u64_unchecked(&self) -> u64 {
+        let mut byte_array = [0u8; 8];
+        byte_array.copy_from_slice(&self.to_repr().as_ref()[0..8]);
+        u64::from_le_bytes(byte_array)
+    }
+    fn from_u64(x: u64) -> Option<Self> {
+        let mut bytes = vec![0; 32];
+        bytes[0..8].as_mut().copy_from_slice(&x.to_le_bytes());
+        Self::from_bytes(&bytes)
+    }
 
     fn most_negative() -> Self {
         Self::most_positive() + Self::one()
