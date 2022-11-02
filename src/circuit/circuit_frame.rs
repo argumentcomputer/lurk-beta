@@ -1240,6 +1240,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     let (arg1, more) = car_cdr(&mut cs.namespace(|| "car_cdr(rest)"), g, &rest, store)?;
 
+    let (car_args, cdr_args) = car_cdr(&mut cs.namespace(|| "car_cdr(arg1)"), g, &arg1, store)?;
+
     let end_is_nil = more.alloc_equal(&mut cs.namespace(|| "end_is_nil"), &g.nil_ptr)?;
 
     let mut results = Results::default();
@@ -1249,10 +1251,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         // head == LAMBDA
         let (args, body) = (arg1.clone(), more.clone());
         let args_is_nil = args.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
-
-        let (car_args, cdr_args) = car_cdr(&mut cs.namespace(|| "car_cdr args"), g, &args, store)?;
-
-        // FIXME: There may be some cases where cdr_args is wrong/differs from eval.rs.
 
         let arg = AllocatedPtr::pick(
             &mut cs.namespace(|| "maybe dummy arg"),
@@ -1342,12 +1340,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &body,
             store,
         )?;
-        let (binding1, rest_bindings) = car_cdr(
-            &mut cs_let_letrec.namespace(|| "car_cdr bindings"),
-            g,
-            &bindings,
-            store,
-        )?;
+        let (binding1, rest_bindings) = (car_args, cdr_args);
         let (var_let_letrec, vals) = car_cdr(
             &mut cs_let_letrec.namespace(|| "car_cdr binding1"),
             g,
@@ -4153,9 +4146,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(20751, cs.num_constraints());
+            assert_eq!(20443, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(20665, cs.aux().len());
+            assert_eq!(20358, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
