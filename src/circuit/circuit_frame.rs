@@ -4147,6 +4147,7 @@ mod tests {
 
             //println!("{}", print_cs(&cs));
             assert_eq!(20443, cs.num_constraints());
+            assert_eq!(13, cs.num_inputs());
             assert_eq!(20358, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
