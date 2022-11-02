@@ -20,4 +20,14 @@ pub enum LurkError {
     Reduce(String),
     #[error("Lookup error: {0}")]
     Store(String),
+    #[error("Parser error: {0}")]
+    Parser(#[from] ParserError),
+}
+
+#[derive(Error, Debug, Clone)]
+pub enum ParserError {
+    #[error("Empty input error")]
+    NoInput,
+    #[error("Syntax error: {0}")]
+    Syntax(String),
 }
