@@ -639,6 +639,7 @@ pub enum Op2 {
     Begin,
     Hide,
     Modulo,
+    Eval,
 }
 
 impl Op2 {
@@ -658,6 +659,7 @@ impl Op2 {
             x if x == Op2::Begin as u16 => Some(Op2::Begin),
             x if x == Op2::Hide as u16 => Some(Op2::Hide),
             x if x == Op2::Modulo as u16 => Some(Op2::Modulo),
+            x if x == Op2::Eval as u16 => Some(Op2::Eval),
             _ => None,
         }
     }
@@ -700,6 +702,7 @@ impl fmt::Display for Op2 {
             Op2::Begin => write!(f, "Begin"),
             Op2::Hide => write!(f, "Hide"),
             Op2::Modulo => write!(f, "Modulo"),
+            Op2::Eval => write!(f, "Eval"),
         }
     }
 }
@@ -2822,8 +2825,17 @@ pub mod test {
                 (100, Box::new(|_| Op2::Diff)),
                 (100, Box::new(|_| Op2::Product)),
                 (100, Box::new(|_| Op2::Quotient)),
+                (100, Box::new(|_| Op2::Equal)),
+                (100, Box::new(|_| Op2::NumEqual)),
+                (100, Box::new(|_| Op2::Less)),
+                (100, Box::new(|_| Op2::Greater)),
+                (100, Box::new(|_| Op2::LessEqual)),
+                (100, Box::new(|_| Op2::GreaterEqual)),
                 (100, Box::new(|_| Op2::Cons)),
+                (100, Box::new(|_| Op2::StrCons)),
+                (100, Box::new(|_| Op2::Begin)),
                 (100, Box::new(|_| Op2::Hide)),
+                (100, Box::new(|_| Op2::Eval)),
             ];
             frequency(g, input)
         }

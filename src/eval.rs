@@ -785,14 +785,18 @@ fn reduce_with_witness<F: LurkField>(
                         Control::Return(arg1, env, store.intern_cont_unop(Op1::Char, cont))
                     }
                 } else if head == store.sym("eval") {
-                    let (arg1, end) = match store.car_cdr_mut(&rest) {
+                    let (arg1, more) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
                         Err(e) => return Err(LurkError::Reduce(e.into())),
                     };
-                    if !end.is_nil() {
-                        Control::Return(expr, env, store.intern_cont_error())
-                    } else {
+                    if more.is_nil() {
                         Control::Return(arg1, env, store.intern_cont_unop(Op1::Eval, cont))
+                    } else {
+                        Control::Return(
+                            arg1,
+                            env,
+                            store.intern_cont_binop(Op2::Eval, env, more, cont),
+                        )
                     }
                 } else if head == store.sym("open") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
@@ -1356,6 +1360,9 @@ fn apply_continuation<F: LurkField>(
                     _ => match operator {
                         Op2::Equal => store.as_lurk_boolean(store.ptr_eq(&evaled_arg, arg2)),
                         Op2::Cons => store.cons(evaled_arg, *arg2),
+                        Op2::Eval => {
+                            return Ok(Control::Return(evaled_arg, *arg2, continuation));
+                        }
                         _ => {
                             return Ok(Control::Return(*result, *env, store.intern_cont_error()));
                         }
@@ -3387,10 +3394,13 @@ mod test {
     fn test_eval() {
         let s = &mut Store::<Fr>::default();
         let expr = "(* 3 (eval (cons '+ (cons 1 (cons 2 nil)))))";
+        let expr2 = "(* 5 (eval '(+ 1 a) '((a . 3))))"; // two-arg eval, optional second arg is env.
         let res = s.num(9);
+        let res2 = s.num(20);
         let terminal = s.get_cont_terminal();
 
         test_aux(s, expr, Some(res), None, Some(terminal), None, 17);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 9);
     }
 
     #[test]
