@@ -6,10 +6,13 @@ use std::io::Write;
 use std::process::Command;
 use tempdir::TempDir;
 
-use blstrs::{Bls12, Scalar};
+//use blstrs::{Bls12, Scalar};
+use pasta_curves::pallas;
 
 use fcomm::{Commitment, FileStore, Function, LurkPtr, Proof};
 use lurk::store::Store;
+
+pub type S1 = pallas::Scalar;
 
 fn fcomm_cmd() -> std::process::Command {
     Command::cargo_bin("fcomm").unwrap()
@@ -122,7 +125,8 @@ fn test_prove_and_verify_expression() {
             &fcomm_data_path,
         );
 
-        let proof = Proof::<Bls12>::read_from_path(&proof_path).unwrap();
+       // let proof = Proof::<Bls12>::read_from_path(&proof_path).unwrap();
+        let proof = Proof::<S1>::read_from_path(&proof_path).unwrap();
 
         assert_eq!(
             proof
@@ -178,7 +182,7 @@ fn test_aux(
     chained: bool,
     tmp_dir: TempDir,
 ) {
-    let function = Function::<Scalar> {
+    let function = Function::<S1> {
         fun: LurkPtr::Source(function_source.into()),
         secret: None,
         commitment: None,
@@ -188,7 +192,7 @@ fn test_aux(
 }
 
 fn test_function_aux(
-    function: Function<Scalar>,
+    function: Function<S1>,
     expected_io: Vec<(&str, &str)>,
     chained: bool,
     tmp_dir: TempDir,
@@ -207,7 +211,7 @@ fn test_function_aux(
 
     commit(&function_path, &commitment_path, &fcomm_data_path);
 
-    let mut commitment: Commitment<Scalar> = Commitment::read_from_path(&commitment_path).unwrap();
+    let mut commitment: Commitment<S1> = Commitment::read_from_path(&commitment_path).unwrap();
 
     for (function_input, expected_output) in io {
         let mut input_file = File::create(&input_path).unwrap();
@@ -223,11 +227,12 @@ fn test_function_aux(
             chained,
         );
 
-        let proof = Proof::<Bls12>::read_from_path(&proof_path).unwrap();
+        //let proof = Proof::<Bls12>::read_from_path(&proof_path).unwrap();
+        let proof = Proof::<S1>::read_from_path(&proof_path).unwrap();
         let opening = proof.claim.opening().expect("expected opening claim");
         dbg!(&opening);
 
-        let mut store = Store::<Scalar>::default();
+        let mut store = Store::<S1>::default();
 
         let input = store.read(function_input).unwrap();
         let canonical_input = input.fmt_to_string(&store);

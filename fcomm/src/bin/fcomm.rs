@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 use hex::FromHex;
 //use pairing_lib::{Engine, MultiMillerLoop};
 use serde::de::DeserializeOwned;
-//use serde::{Deserialize, Serialize};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+//use serde::Serialize;
 
 use lurk::eval::IO;
 use lurk::field::LurkField;
@@ -468,24 +468,10 @@ fn opening_request<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
 }
 
 // Get proof from supplied path or else from stdin.
-//fn proof<P: AsRef<Path>, E: Engine + MultiMillerLoop>(
-//    proof_path: Option<P>,
-//) -> Result<Proof<E>, Error>
-//where
-//    <E as Engine>::Fr: LurkField,
-//    for<'de> <E as Engine>::Gt: blstrs::Compress + Serialize + Deserialize<'de>,
-//    for<'de> <E as Engine>::G1: Serialize + Deserialize<'de>,
-//    for<'de> <E as Engine>::G1Affine: Serialize + Deserialize<'de>,
-//    for<'de> <E as Engine>::G2Affine: Serialize + Deserialize<'de>,
-//    for<'de> <E as Engine>::Fr: Serialize + Deserialize<'de>,
-//    for<'de> <E as Engine>::Gt: blstrs::Compress + Serialize + Deserialize<'de>,
-//{
-//    match proof_path {
-//        Some(path) => Proof::read_from_path(path),
-//        None => Proof::read_from_stdin(),
-//    }
-//}
-fn proof<'a, P: AsRef<Path>, F: LurkField>(proof_path: Option<P>) -> Result<Proof<'a, F>, Error> {
+fn proof<'a, P: AsRef<Path>, F: LurkField>(proof_path: Option<P>) -> Result<Proof<'a, F>, Error>
+where
+  F: Serialize + for<'de> Deserialize<'de>,
+{
     match proof_path {
         Some(path) => Proof::read_from_path(path),
         None => Proof::read_from_stdin(),

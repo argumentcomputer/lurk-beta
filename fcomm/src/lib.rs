@@ -207,10 +207,10 @@ pub struct Proof<'a, F: LurkField> {
         deserialize = "Claim<F>: Deserialize<'de>"
     ))]
     pub claim: Claim<F>,
-    //#[serde(bound(
-    //    serialize = "proof::nova::Proof<'a>: Serialize",
-    //    deserialize = "proof::nova::Proof<'a>: Deserialize<'de>"
-    //))]
+    #[serde(bound(
+        serialize = "proof::nova::Proof<'a>: Serialize",
+        deserialize = "proof::nova::Proof<'a>: Deserialize<'de>"
+    ))]
     //#[serde(borrow)]
     pub proof: proof::nova::Proof<'a>,
     pub num_steps: usize,
