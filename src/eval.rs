@@ -1274,11 +1274,11 @@ fn apply_continuation<F: LurkField>(
                                 Ok(store.intern_num(tmp))
                             }
                         }
-                        Op2::Equal | Op2::NumEqual => Ok(store.as_lurk_boolean(a.is_equal(b))),
-                        Op2::Less => Ok(store.less_than(a, b)),
-                        Op2::Greater => Ok(store.less_than(b, a)),
-                        Op2::LessEqual => Ok(store.less_equal(a, b)),
-                        Op2::GreaterEqual => Ok(store.less_equal(b, a)),
+                        Op2::Equal | Op2::NumEqual => Ok(store.as_lurk_boolean(a == b)),
+                        Op2::Less => Ok(store.as_lurk_boolean(a < b)),
+                        Op2::Greater => Ok(store.as_lurk_boolean(a > b)),
+                        Op2::LessEqual => Ok(store.as_lurk_boolean(a <= b)),
+                        Op2::GreaterEqual => Ok(store.as_lurk_boolean(a >= b)),
                         _ => unreachable!(),
                     }
                 };
@@ -1652,13 +1652,6 @@ impl<F: LurkField> Store<F> {
         } else {
             self.nil()
         }
-    }
-    fn less_than(&mut self, a: Num<F>, b: Num<F>) -> Ptr<F> {
-        self.as_lurk_boolean(a.is_less_than(b))
-    }
-
-    fn less_equal(&mut self, a: Num<F>, b: Num<F>) -> Ptr<F> {
-        self.as_lurk_boolean(a.is_less_than(b) || a.is_equal(b))
     }
 }
 
