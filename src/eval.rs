@@ -1279,10 +1279,7 @@ fn apply_continuation<F: LurkField>(
                         Op2::Greater => Ok(store.less_than(b, a)),
                         Op2::LessEqual => Ok(store.less_equal(a, b)),
                         Op2::GreaterEqual => Ok(store.less_equal(b, a)),
-                        Op2::Hide => unreachable!(),
-                        Op2::StrCons => unreachable!(),
-                        Op2::Cons => unreachable!(),
-                        Op2::Begin => unreachable!(),
+                        _ => unreachable!(),
                     }
                 };
 
