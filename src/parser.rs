@@ -1,8 +1,9 @@
-use crate::error::ParserError;
-use crate::field::LurkField;
 use peekmore::{PeekMore, PeekMoreIterator};
 
+use crate::error::ParserError;
+use crate::field::LurkField;
 use crate::store::{Ptr, Store};
+use crate::uint::UInt;
 
 impl<F: LurkField> Store<F> {
     pub fn read(&mut self, input: &str) -> Result<Ptr<F>, ParserError> {
@@ -279,7 +280,10 @@ impl<F: LurkField> Store<F> {
                 break;
             }
         }
-        Ok(self.intern_num(acc))
+        match self.read_number_suffix(chars) {
+            Some(UInt::U64(_)) => Ok(self.get_u64(acc)),
+            None => Ok(self.intern_num(acc)),
+        }
     }
 
     fn read_number_aux<T: Iterator<Item = char>>(
@@ -324,7 +328,13 @@ impl<F: LurkField> Store<F> {
                 break;
             }
         }
-        Ok(self.intern_num(crate::num::Num::Scalar(acc)))
+        match self.read_number_suffix(chars) {
+            Some(UInt::U64(_)) => Ok(self.get_u64(
+                acc.to_u64()
+                    .ok_or_else(|| ParserError::Syntax("Number too large for u64.".into()))?,
+            )),
+            None => Ok(self.intern_num(crate::num::Num::Scalar(acc))),
+        }
     }
 
     fn read_hex_num<T: Iterator<Item = char>>(
@@ -372,7 +382,49 @@ impl<F: LurkField> Store<F> {
             }
         }
 
-        Ok(self.intern_num(crate::num::Num::Scalar(acc)))
+        match self.read_number_suffix(chars) {
+            Some(UInt::U64(_)) => Ok(self.get_u64(
+                acc.to_u64()
+                    .ok_or_else(|| ParserError::Syntax("Number too large for u64.".into()))?,
+            )),
+            None => Ok(self.intern_num(crate::num::Num::Scalar(acc))),
+        }
+    }
+
+    /// If a number suffix can be read, return a UInt, specifying that suffix. Otherwise return None.
+    /// Initially, only `u64` and `U64` are valid suffixes.
+    fn read_number_suffix<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut PeekMoreIterator<T>,
+    ) -> Option<UInt> {
+        if let Some(c) = chars.peek() {
+            if matches!(c, 'U' | 'u') {
+                if let Some(c2) = chars.peek_nth(1) {
+                    if *c2 == '6' {
+                        if let Some(c3) = chars.peek_nth(2) {
+                            if *c3 == '4' {
+                                chars.next();
+                                chars.next();
+                                chars.next();
+                                Some(UInt::U64(0))
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 
     pub(crate) fn read_symbol<T: Iterator<Item = char>>(
@@ -635,6 +687,36 @@ asdf(", "ASDF",
         );
         test("0xe/2", "7");
         test("-0xf/2", "-15/2");
+    }
+
+    #[test]
+    fn read_u64() {
+        let test = |input, expected: u64| {
+            let mut store = Store::<Fr>::default();
+            let expr = store.read(input).unwrap();
+            let expected = store.get_u64(expected);
+            assert!(store.ptr_eq(&expected, &expr));
+        };
+
+        test("123u64", 123);
+        test("0xffu64", 255);
+        test("123U64", 123);
+        test("0XFFU64", 255);
+
+        // This is the largest U64.
+        test("0xffffffffffffffffu64", 18446744073709551615);
+    }
+
+    #[test]
+    fn read_u64_overflows() {
+        let test = |input| {
+            let mut store = Store::<Fr>::default();
+            let expr = store.read(input);
+            assert!(expr.is_err());
+        };
+
+        test("0xffffffffffffffffffu64");
+        test("999999999999999999999999999999999999u64");
     }
 
     #[test]
