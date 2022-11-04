@@ -1274,18 +1274,14 @@ fn apply_continuation<F: LurkField>(
                                 Ok(store.intern_num(tmp))
                             }
                         }
-                        Op2::Equal | Op2::NumEqual => {
-                            Ok(store.as_lurk_boolean(store.ptr_eq(&evaled_arg, arg2)))
-                        }
+                        Op2::Equal | Op2::NumEqual => Ok(store.as_lurk_boolean(a.is_equal(b))),
                         Op2::Less => Ok(store.less_than(a, b)),
                         Op2::Greater => Ok(store.less_than(b, a)),
                         Op2::LessEqual => Ok(store.less_equal(a, b)),
                         Op2::GreaterEqual => Ok(store.less_equal(b, a)),
-                        Op2::Cons => Ok(store.cons(evaled_arg, *arg2)),
-                        Op2::StrCons => {
-                            Err(Control::Return(*result, *env, store.intern_cont_error()))
-                        }
-                        Op2::Hide => Ok(store.hide(a.into_scalar(), *arg2)),
+                        Op2::Hide => unreachable!(),
+                        Op2::StrCons => unreachable!(),
+                        Op2::Cons => unreachable!(),
                         Op2::Begin => unreachable!(),
                     }
                 };
@@ -1298,75 +1294,56 @@ fn apply_continuation<F: LurkField>(
                         .fetch(arg2)
                         .ok_or_else(|| LurkError::Store("Fetch failed".into()))?,
                 ) {
-                    (Expression::Num(a), Expression::Num(b)) => {
+                    (Expression::Num(a), Expression::Num(b)) if operator.is_numeric() => {
                         match num_num(store, operator, a, b) {
                             Ok(x) => x,
                             Err(control) => return Ok(control),
                         }
                     }
-                    (Expression::UInt(a), Expression::UInt(b)) => match operator {
-                        Op2::Sum => store.get_u64((a + b).into()),
-                        Op2::Diff => store.get_u64((a - b).into()),
-                        Op2::Product => store.get_u64((a * b).into()),
-                        Op2::Quotient => {
-                            if b.is_zero() {
-                                return Ok(Control::Return(
-                                    *result,
-                                    *env,
-                                    store.intern_cont_error(),
-                                ));
-                            } else {
-                                store.get_u64((a / b).into())
+                    (Expression::Num(a), _) if operator == Op2::Hide => {
+                        store.hide(a.into_scalar(), *arg2)
+                    }
+                    (Expression::UInt(a), Expression::UInt(b)) if operator.is_numeric() => {
+                        match operator {
+                            Op2::Sum => store.get_u64((a + b).into()),
+                            Op2::Diff => store.get_u64((a - b).into()),
+                            Op2::Product => store.get_u64((a * b).into()),
+                            Op2::Quotient => {
+                                if b.is_zero() {
+                                    return Ok(Control::Return(
+                                        *result,
+                                        *env,
+                                        store.intern_cont_error(),
+                                    ));
+                                } else {
+                                    store.get_u64((a / b).into())
+                                }
                             }
+                            Op2::Equal | Op2::NumEqual => store.as_lurk_boolean(a == b),
+                            Op2::Less => store.as_lurk_boolean(a < b),
+                            Op2::Greater => store.as_lurk_boolean(a > b),
+                            Op2::LessEqual => store.as_lurk_boolean(a <= b),
+                            Op2::GreaterEqual => store.as_lurk_boolean(a >= b),
+                            _ => unreachable!(),
                         }
-                        Op2::Equal | Op2::NumEqual => store.as_lurk_boolean(a == b),
-                        Op2::Less => store.as_lurk_boolean(a < b),
-                        Op2::Greater => store.as_lurk_boolean(a > b),
-                        Op2::LessEqual => store.as_lurk_boolean(a <= b),
-                        Op2::GreaterEqual => store.as_lurk_boolean(a >= b),
-                        Op2::Cons => store.cons(evaled_arg, *arg2),
-                        Op2::StrCons => {
-                            return Ok(Control::Return(*result, *env, store.intern_cont_error()))
-                        }
-                        Op2::Hide => {
-                            return Ok(Control::Return(*result, *env, store.intern_cont_error()))
-                        }
-                        Op2::Begin => unreachable!(),
-                    },
-                    (Expression::Num(a), Expression::UInt(b)) => {
+                    }
+                    (Expression::Num(a), Expression::UInt(b)) if operator.is_numeric() => {
                         match num_num(store, operator, a, b.into()) {
                             Ok(x) => x,
                             Err(control) => return Ok(control),
                         }
                     }
-                    (Expression::UInt(a), Expression::Num(b)) => {
+                    (Expression::UInt(a), Expression::Num(b)) if operator.is_numeric() => {
                         match num_num(store, operator, a.into(), b) {
                             Ok(x) => x,
                             Err(control) => return Ok(control),
                         }
                     }
-                    (Expression::Num(a), _) => match operator {
-                        Op2::Equal => store.nil(),
-                        Op2::Cons => store.cons(evaled_arg, *arg2),
-                        Op2::Hide => store.hide(a.into_scalar(), *arg2),
-                        _ => {
-                            return Ok(Control::Return(*result, *env, store.intern_cont_error()));
-                        }
-                    },
-                    (Expression::UInt(_), _) => match operator {
-                        Op2::Equal => store.nil(),
-                        Op2::Cons => store.cons(evaled_arg, *arg2),
-                        _ => {
-                            return Ok(Control::Return(*result, *env, store.intern_cont_error()));
-                        }
-                    },
-                    (Expression::Char(_), Expression::Str(_)) => match operator {
-                        Op2::StrCons => store.strcons(evaled_arg, *arg2),
-                        Op2::Cons => store.cons(evaled_arg, *arg2),
-                        _ => {
-                            return Ok(Control::Return(*result, *env, store.intern_cont_error()));
-                        }
-                    },
+                    (Expression::Char(_), Expression::Str(_))
+                        if matches!(operator, Op2::StrCons) =>
+                    {
+                        store.strcons(evaled_arg, *arg2)
+                    }
                     _ => match operator {
                         Op2::Equal => store.as_lurk_boolean(store.ptr_eq(&evaled_arg, arg2)),
                         Op2::Cons => store.cons(evaled_arg, *arg2),
@@ -3531,5 +3508,43 @@ mod test {
         test_aux(s, expr2, Some(res), None, Some(terminal), None, 2);
         test_aux(s, expr3, Some(res2), None, Some(terminal), None, 3);
         test_aux(s, expr4, Some(res3), None, Some(terminal), None, 5);
+    }
+
+    #[test]
+    fn test_u64_num_comparison() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(= 1 1u64)";
+        let expr2 = "(= 1 2u64)";
+        let t = s.t();
+        let nil = s.nil();
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn test_u64_num_cons() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(cons 1 1u64)";
+        let expr2 = "(cons 1u64 1)";
+        let res = s.read("(1 . 1u64)").unwrap();
+        let res2 = s.read("(1u64 . 1)").unwrap();
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn test_hide_u64_secret() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(hide 0u64 123)";
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, None, None, Some(error), None, 3);
     }
 }

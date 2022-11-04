@@ -662,6 +662,21 @@ impl Op2 {
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
+
+    pub fn is_numeric(&self) -> bool {
+        matches!(
+            self,
+            Op2::Sum
+                | Op2::Diff
+                | Op2::Product
+                | Op2::Quotient
+                | Op2::Less
+                | Op2::Greater
+                | Op2::LessEqual
+                | Op2::GreaterEqual
+                | Op2::NumEqual
+        )
+    }
 }
 
 impl fmt::Display for Op2 {
