@@ -3392,6 +3392,17 @@ mod test {
     }
 
     #[test]
+    fn test_u64_self_evaluating() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "123u64";
+        let res = s.uint64(123);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
+    }
+
+    #[test]
     fn test_u64_mul() {
         let s = &mut Store::<Fr>::default();
 
