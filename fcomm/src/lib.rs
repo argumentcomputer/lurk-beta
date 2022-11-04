@@ -59,9 +59,9 @@ mod base64 {
     }
 }
 
-fn nova_proof_cache() -> FileMap<Cid, Proof<S1>> {
-    FileMap::<Cid, Proof<S1>>::new("nova_proofs").unwrap()
-}
+//fn nova_proof_cache<'a>() -> FileMap<Cid, Proof<'a, S1>> {
+//    FileMap::<Cid, Proof<S1>>::new("nova_proofs").unwrap()
+//}
 
 pub fn committed_function_store() -> FileMap<Commitment<S1>, Function<S1>> {
     FileMap::<Commitment<S1>, Function<S1>>::new("functions").unwrap()
@@ -211,7 +211,7 @@ pub struct Proof<'a, F: LurkField> {
     //    serialize = "proof::nova::Proof<'a>: Serialize",
     //    deserialize = "proof::nova::Proof<'a>: Deserialize<'de>"
     //))]
-    #[serde(borrow)]
+    //#[serde(borrow)]
     pub proof: proof::nova::Proof<'a>,
     pub num_steps: usize,
     pub reduction_count: ReductionCount,
@@ -767,16 +767,16 @@ impl<'a> Proof<'a, S1> {
         s: &'a mut Store<S1>,
         claim: Claim<S1>,
         limit: usize,
-        _only_use_cached_proofs: bool,
+        only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1>,
         pp: &'a PublicParams,
     ) -> Result<Self, Error> {
-        let proof_map = nova_proof_cache();
+        //let proof_map = nova_proof_cache();
         let function_map = committed_function_store();
 
-        if let Some(proof) = proof_map.get(claim.cid()) {
-            return Ok(proof);
-        }
+        //if let Some(proof) = proof_map.get(claim.cid()) {
+        //    return Ok(proof);
+        //}
 
         if only_use_cached_proofs {
             // FIXME: Error handling.
@@ -814,15 +814,15 @@ impl<'a> Proof<'a, S1> {
             }
         };
 
-        let (proof, _public_input, public_output, num_steps) = nova_prover
+        let (proof, public_input, public_output, num_steps) = nova_prover
             .evaluate_and_prove(pp, expr, env, s, limit)
             .expect("Nova proof failed");
-        assert!(public_output.is_complete());
+        //assert!(public_output.is_complete());
 
         let proof = Self {
             claim: claim.clone(),
             proof,
-	  num_steps,
+            num_steps,
             reduction_count,
         };
 
@@ -839,9 +839,9 @@ impl<'a> Proof<'a, S1> {
             }
         };
 
-        proof.verify(&pp, num_steps, public_input, &public_output).expect("Nova verification failed");
+        proof.verify(&pp).expect("Nova verification failed");
 
-        proof_map.set(claim.cid(), &proof).unwrap();
+        //proof_map.set(claim.cid(), &proof).unwrap();
 
         Ok(proof)
     }
