@@ -638,6 +638,7 @@ pub enum Op2 {
     StrCons,
     Begin,
     Hide,
+    Modulo,
 }
 
 impl Op2 {
@@ -656,6 +657,7 @@ impl Op2 {
             x if x == Op2::Cons as u16 => Some(Op2::Cons),
             x if x == Op2::Begin as u16 => Some(Op2::Begin),
             x if x == Op2::Hide as u16 => Some(Op2::Hide),
+            x if x == Op2::Modulo as u16 => Some(Op2::Modulo),
             _ => None,
         }
     }
@@ -675,6 +677,7 @@ impl Op2 {
                 | Op2::LessEqual
                 | Op2::GreaterEqual
                 | Op2::NumEqual
+                | Op2::Modulo
         )
     }
 }
@@ -696,6 +699,7 @@ impl fmt::Display for Op2 {
             Op2::StrCons => write!(f, "StrCons"),
             Op2::Begin => write!(f, "Begin"),
             Op2::Hide => write!(f, "Hide"),
+            Op2::Modulo => write!(f, "Modulo"),
         }
     }
 }

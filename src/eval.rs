@@ -856,6 +856,13 @@ fn reduce_with_witness<F: LurkField>(
                         env,
                         store.intern_cont_binop(Op2::Quotient, env, more, cont),
                     )
+                } else if head == store.sym("%") {
+                    let (arg1, more) = store.car_cdr(&rest);
+                    Control::Return(
+                        arg1,
+                        env,
+                        store.intern_cont_binop(Op2::Modulo, env, more, cont),
+                    )
                 } else if head == store.sym("=") {
                     let (arg1, more) = store.car_cdr(&rest);
                     Control::Return(
@@ -1274,6 +1281,10 @@ fn apply_continuation<F: LurkField>(
                                 Ok(store.intern_num(tmp))
                             }
                         }
+                        Op2::Modulo => {
+                            // Modulo requires both args be UInt.
+                            Err(Control::Return(*result, *env, store.intern_cont_error()))
+                        }
                         Op2::Equal | Op2::NumEqual => Ok(store.as_lurk_boolean(a == b)),
                         Op2::Less => Ok(store.as_lurk_boolean(a < b)),
                         Op2::Greater => Ok(store.as_lurk_boolean(a > b)),
@@ -1316,6 +1327,7 @@ fn apply_continuation<F: LurkField>(
                                     store.get_u64((a / b).into())
                                 }
                             }
+                            Op2::Modulo => store.get_u64((a % b).into()),
                             Op2::Equal | Op2::NumEqual => store.as_lurk_boolean(a == b),
                             Op2::Less => store.as_lurk_boolean(a < b),
                             Op2::Greater => store.as_lurk_boolean(a > b),
@@ -3458,6 +3470,41 @@ mod test {
     }
 
     #[test]
+    fn test_u64_mod() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 100u64 2u64)";
+        let res = s.uint64(0);
+
+        let expr2 = "(% 100u64 3u64)";
+        let res2 = s.uint64(1);
+
+        let expr3 = "(/ 100u64 0u64)";
+
+        let terminal = s.get_cont_terminal();
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn test_num_mod() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 100 3)";
+        let expr2 = "(% 100 3u64)";
+        let expr3 = "(% 100u64 3)";
+
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, None, None, Some(error), None, 3);
+        test_aux(s, expr2, None, None, Some(error), None, 3);
+        test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
     fn test_u64_comp() {
         let s = &mut Store::<Fr>::default();
 
@@ -3509,6 +3556,31 @@ mod test {
         test_aux(s, expr2, Some(res), None, Some(terminal), None, 2);
         test_aux(s, expr3, Some(res2), None, Some(terminal), None, 3);
         test_aux(s, expr4, Some(res3), None, Some(terminal), None, 5);
+    }
+
+    #[test]
+    fn test_numeric_type_error() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+
+        let mut test = |op| {
+            let expr = &format!("({} 0 'a)", op);
+            let expr2 = &format!("({} 0u64 'a)", op);
+
+            test_aux(s, expr, None, None, Some(error), None, 3);
+            test_aux(s, expr2, None, None, Some(error), None, 3);
+        };
+
+        test("+");
+        test("-");
+        test("*");
+        test("/");
+        test("%");
+        test(">");
+        test("<");
+        test(">=");
+        test("<=");
+        test("=");
     }
 
     #[test]
