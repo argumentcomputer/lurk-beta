@@ -368,8 +368,9 @@ mod tests {
                 value: &val0,
             }];
 
-        let default_chosen =
-            AllocatedNum::alloc(cs.namespace(|| "default chosen"), || Ok(Fr::from(999))).unwrap();
+            let default_chosen =
+                AllocatedNum::alloc(cs.namespace(|| "default chosen"), || Ok(Fr::from(999)))
+                    .unwrap();
             let result = case(
                 &mut cs.namespace(|| "default case"),
                 &selected,
