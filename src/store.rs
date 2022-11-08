@@ -500,6 +500,8 @@ pub enum Expression<'a, F: LurkField> {
     Fun(Ptr<F>, Ptr<F>, Ptr<F>),
     Num(Num<F>),
     Str(&'a str),
+    //StrCons(&'a str),
+    //StrNil,
     Thunk(Thunk<F>),
     Opaque(Ptr<F>),
     Char(char),
@@ -732,7 +734,7 @@ pub enum Tag {
     Char,
     Comm,
     StrCons,
-    StrNil
+    StrNil,
 }
 
 impl From<Tag> for u64 {
@@ -754,6 +756,8 @@ impl Tag {
             f if f == Tag::Char.as_field() => Some(Tag::Char),
             f if f == Tag::Comm.as_field() => Some(Tag::Comm),
             f if f == Tag::Char.as_field() => Some(Tag::Char),
+            f if f == Tag::StrCons.as_field() => Some(Tag::StrCons),
+            f if f == Tag::StrNil.as_field() => Some(Tag::StrNil),
             _ => None,
         }
     }
@@ -1065,7 +1069,8 @@ impl<F: LurkField> Store<F> {
             self.hash_expr(&car);
             self.hash_expr(&cdr);
         }
-        assert_eq!((car.tag(), cdr.tag()), (Tag::Char, Tag::Str));
+        assert_eq!(car.tag(), Tag::Char);
+        assert!(cdr.tag() == Tag::StrCons || cdr.tag() == Tag::StrNil);
         let (c, s) = (
             self.fetch_char(&car).unwrap(),
             self.fetch_str(&cdr).unwrap(),
@@ -1298,13 +1303,19 @@ impl<F: LurkField> Store<F> {
                 let cdr = self.intern_scalar_ptr(*cdr, scalar_store)?;
                 Some(self.intern_cons(car, cdr))
             }
-            (Tag::Str, Some(StrCons(_, _))) => {
+            (Tag::StrCons, Some(StrCons(_, _))) => {
                 // TODO: The tails and their hashes are already in the ScalarStore
                 // so we could remove hashes here using `get_str_tails`
                 let s = scalar_store.get_str(ptr)?;
                 Some(self.intern_str(s))
             }
             (Tag::Sym, Some(Sym(s))) => {
+                // TODO: The tails and their hashes are already in the ScalarStore
+                // so we could remove hashes here using `get_str_tails`
+                let s = scalar_store.get_str(*s)?;
+                Some(self.intern_sym(s))
+            }
+            (Tag::Str, Some(Str(s))) => {
                 // TODO: The tails and their hashes are already in the ScalarStore
                 // so we could remove hashes here using `get_str_tails`
                 let s = scalar_store.get_str(*s)?;
@@ -2459,7 +2470,7 @@ impl<F: LurkField> Store<F> {
             let hash = self.hash_scalar_ptrs_2(&[c, acc]);
             // This bypasses create_scalar_ptr but is okay because we will call it to correctly create each of these
             // ScalarPtrs belwo, in hash_string_mut_aux.
-            let new_scalar_ptr = ScalarPtr(Tag::Str.as_field(), hash);
+            let new_scalar_ptr = ScalarPtr(Tag::StrCons.as_field(), hash);
             hashes.push(hash);
             new_scalar_ptr
         });

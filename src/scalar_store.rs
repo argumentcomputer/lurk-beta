@@ -98,7 +98,7 @@ impl<'a, F: LurkField> ScalarStore<F> {
                 )))
             }
             Tag::Str => {
-                let scalar_ptr = store.get_hash_sym(*ptr)?;
+                let scalar_ptr = store.get_hash_str(*ptr)?;
                 Some(ScalarExpression::Str(ScalarPtr::from_parts(
                     Tag::StrCons.as_field(),
                     *scalar_ptr.value(),
@@ -1063,18 +1063,18 @@ mod test {
             }
         };
 
-        test("(1 . 2)", 3);
+        //test("(1 . 2)", 3);
         test("symbol", 8);
-        test("|symbol|", 8);
-        test("\"foo\"", 4);
-        test("+", 3);
-        test("t", 3);
-        test("(+ 1 2 3)", 14);
-        test("(+ 1 2 (* 3 4))", 20);
-        // String are handled.
-        test("(+ 1 2 (* 3 4) \"asdf\" )", 25);
-        // Duplicate strings or symbols appear only once.
-        test("(+ 1 2 2 (* 3 4) \"asdf\" \"asdf\")", 27);
+        //test("|symbol|", 8);
+        //test("\"foo\"", 4);
+        //test("+", 3);
+        //test("t", 3);
+        //test("(+ 1 2 3)", 14);
+        //test("(+ 1 2 (* 3 4))", 20);
+        //// String are handled.
+        //test("(+ 1 2 (* 3 4) \"asdf\" )", 25);
+        //// Duplicate strings or symbols appear only once.
+        //test("(+ 1 2 2 (* 3 4) \"asdf\" \"asdf\")", 27);
         assert!(false)
     }
 
