@@ -255,7 +255,7 @@ impl<'a, F: LurkField> fmt::Display for ScalarPtr<F> {
             }
             Some(Tag::Char) => {
                 if let Some(x) = self.value().to_char() {
-                    write!(f, "(char, \'{}\')", x)
+                    write!(f, "(char, '{}')", x)
                 } else {
                     write!(f, "(char, {:?})", *self.value())
                 }
@@ -729,10 +729,10 @@ pub enum Tag {
     Num,
     Thunk,
     Str,
-    StrCons,
-    StrNil,
     Char,
     Comm,
+    StrCons,
+    StrNil
 }
 
 impl From<Tag> for u64 {
