@@ -280,6 +280,7 @@ pub fn multi_case_aux<F: PrimeField, CS: ConstraintSystem<F>>(
         (selector, is_default)
     };
 
+    assert_eq!(cases.len(), defaults.len());
     // Now that we constrained the selector, we can constrain the selection
     // of the corresponding values in next clauses
     // 1..n
