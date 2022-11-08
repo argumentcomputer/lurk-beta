@@ -431,7 +431,7 @@ fn reduce_with_witness<F: LurkField>(
                 _ => unreachable!(),
             },
             // Self-evaluating
-            Tag::Nil | Tag::Num | Tag::Fun | Tag::Char | Tag::Str | Tag::Comm => {
+            Tag::Nil | Tag::Num | Tag::Fun | Tag::Char | Tag::Str | Tag::StrCons | Tag::StrNil | Tag::Comm => {
                 Control::ApplyContinuation(expr, env, cont)
             }
             Tag::Sym => {

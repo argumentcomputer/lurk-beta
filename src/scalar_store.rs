@@ -115,8 +115,9 @@ impl<'a, F: LurkField> ScalarStore<F> {
             ScalarExpression::Sym(_str) => Some([*_str].into()),
             ScalarExpression::Fun(arg, body, closed_env) => Some([*arg, *body, *closed_env].into()),
             ScalarExpression::Num(_) => None,
-            ScalarExpression::StrNil => None,
+            ScalarExpression::Str(_str) => Some([*_str].into()),
             ScalarExpression::StrCons(head, tail) => Some([*head, *tail].into()),
+            ScalarExpression::StrNil => None,
             ScalarExpression::Thunk(_) => None,
             ScalarExpression::Char(_) => None,
         }
@@ -281,7 +282,6 @@ impl<'a, F: LurkField> ScalarExpression<F> {
                 Num::U64(x) => ScalarExpression::Num((*x).into()),
                 Num::Scalar(x) => ScalarExpression::Num(*x),
             }),
-
             Tag::Str => {
                 let string = store.fetch_str(ptr)?;
                 if string.is_empty() {
@@ -296,6 +296,14 @@ impl<'a, F: LurkField> ScalarExpression<F> {
                     ))
                 }
             }
+            Tag::StrCons => store.fetch_cons(ptr).and_then(|(car, cdr)| {
+                store.get_expr_hash(car).and_then(|car| {
+                    store
+                        .get_expr_hash(cdr)
+                        .map(|cdr| ScalarExpression::StrCons(car, cdr))
+                })
+            }),
+            Tag::StrNil => Some(ScalarExpression::StrNil),
             Tag::Char => store
                 .fetch_char(ptr)
                 .map(|x| ScalarExpression::Char((x as u64).into())),
@@ -323,6 +331,7 @@ impl<'a, F: LurkField> ScalarExpression<F> {
                     *closed_env.value(),
                 ]
             }
+            ScalarExpression::Str(string) => vec![*string.tag(), *string.value()],
             ScalarExpression::StrCons(head, tail) => {
                 vec![*head.tag(), *head.value(), *tail.tag(), *tail.value()]
             }
@@ -371,12 +380,16 @@ impl<'a, F: LurkField> ScalarExpression<F> {
                 let closed_env = ScalarPtr::from_parts(stream[idx + 4], stream[idx + 5]);
                 Ok((idx + 6, ScalarExpression::Fun(arg, body, closed_env)))
             }
-            Tag::Str if val == F::zero() => Ok((idx, ScalarExpression::StrNil)),
             Tag::Str => {
+                let s = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
+                Ok((idx + 2, ScalarExpression::Str(s)))
+            }
+            Tag::StrCons => {
                 let head = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
                 let tail = ScalarPtr::from_parts(stream[idx + 2], stream[idx + 3]);
                 Ok((idx + 4, ScalarExpression::StrCons(head, tail)))
             }
+            Tag::StrNil => Ok((idx, ScalarExpression::StrNil)),
             Tag::Thunk => {
                 let value = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
                 let continuation = ScalarContPtr::from_parts(stream[idx + 2], stream[idx + 3]);
@@ -401,8 +414,9 @@ pub enum ScalarExpression<F: LurkField> {
     Sym(ScalarPtr<F>),
     Fun(ScalarPtr<F>, ScalarPtr<F>, ScalarPtr<F>),
     Num(F),
-    StrNil,
+    Str(ScalarPtr<F>),
     StrCons(ScalarPtr<F>, ScalarPtr<F>),
+    StrNil,
     Thunk(ScalarThunk<F>),
     Char(F),
 }
@@ -428,8 +442,9 @@ impl<'a, F: LurkField> fmt::Display for ScalarExpression<F> {
                     write!(f, "Char({:?})", x)
                 }
             }
-            Self::StrNil => write!(f, "StrNil"),
+            Self::Str(x) => write!(f, "Str({})", x),
             Self::StrCons(x, y) => write!(f, "StrCons({}, {})", x, y),
+            Self::StrNil => write!(f, "StrNil"),
             Self::Thunk(x) => write!(f, "Thunk({:?})", x),
         }
     }
@@ -1109,18 +1124,21 @@ mod test {
             assert_eq!(expected, scalar_store.scalar_map.len());
         };
 
+        // test("symbol", 8);
+        // test("|symbol|", 8);
+        // test("(1 . 2)", 3);
+        // test("\"foo\"", 4);
+        // test("+", 3);
+        // test("t", 3);
+        // test("(+ 1 2 3)", 14);
+        // test("(+ 1 2 (* 3 4))", 20);
+        // // String are handled.
+        // test("(+ 1 2 (* 3 4) \"asdf\" )", 25);
+        // // Duplicate strings or symbols appear only once.
+        // test("(+ 1 2 2 (* 3 4) \"asdf\" \"asdf\")", 27);
+
         test("symbol", 8);
-        test("|symbol|", 8);
-        test("(1 . 2)", 3);
-        test("\"foo\"", 4);
-        test("+", 3);
-        test("t", 3);
-        test("(+ 1 2 3)", 14);
-        test("(+ 1 2 (* 3 4))", 20);
-        // String are handled.
-        test("(+ 1 2 (* 3 4) \"asdf\" )", 25);
-        // Duplicate strings or symbols appear only once.
-        test("(+ 1 2 2 (* 3 4) \"asdf\" \"asdf\")", 27);
+        assert!(false)
     }
 
     #[test]

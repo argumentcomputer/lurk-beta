@@ -255,7 +255,7 @@ impl<'a, F: LurkField> fmt::Display for ScalarPtr<F> {
             }
             Some(Tag::Char) => {
                 if let Some(x) = self.value().to_char() {
-                    write!(f, "(char, {})", x)
+                    write!(f, "(char, \'{}\')", x)
                 } else {
                     write!(f, "(char, {:?})", *self.value())
                 }
@@ -729,6 +729,8 @@ pub enum Tag {
     Num,
     Thunk,
     Str,
+    StrCons,
+    StrNil,
     Char,
     Comm,
 }
@@ -1773,6 +1775,8 @@ impl<F: LurkField> Store<F> {
                 .map(|(a, b, c)| Expression::Fun(*a, *b, *c)),
             Tag::Thunk => self.fetch_thunk(ptr).map(|thunk| Expression::Thunk(*thunk)),
             Tag::Str => self.fetch_str(ptr).map(|str| Expression::Str(str)),
+            Tag::StrCons => self.fetch_cons(ptr).map(|(a, b)| Expression::Cons(*a, *b)),
+            Tag::StrNil => Some(Expression::Str("")),
             Tag::Char => self.fetch_char(ptr).map(Expression::Char),
         }
     }
@@ -1949,6 +1953,8 @@ impl<F: LurkField> Store<F> {
             Fun => self.hash_fun(*ptr),
             Num => self.hash_num(*ptr),
             Str => self.hash_str(*ptr),
+            StrCons => self.hash_str(*ptr),
+            StrNil => self.hash_str(*ptr),
             Char => self.hash_char(*ptr),
             Thunk => self.hash_thunk(*ptr),
         }
@@ -1968,6 +1974,8 @@ impl<F: LurkField> Store<F> {
             Fun => self.get_hash_fun(*ptr),
             Num => self.get_hash_num(*ptr),
             Str => self.get_hash_str(*ptr),
+            StrCons => self.get_hash_str(*ptr),
+            StrNil => self.get_hash_str(*ptr),
             Char => self.get_hash_char(*ptr),
             Thunk => self.get_hash_thunk(*ptr),
         }
