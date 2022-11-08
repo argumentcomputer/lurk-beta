@@ -33,107 +33,104 @@ impl<'a, F: LurkField> fmt::Display for ScalarStore<F> {
 }
 
 impl<'a, F: LurkField> ScalarStore<F> {
-    /// Create a new `ScalarStore` and add all `ScalarPtr`s reachable in the scalar representation of `expr`.
-    pub fn new_with_expr(store: &Store<F>, expr: &Ptr<F>) -> (Self, Option<ScalarPtr<F>>) {
-        let mut new = Self::default();
-        let mut pending = Vec::new();
-        let scalar_ptr = new.add_one_ptr(&mut pending, store, expr);
-        if let Some(scalar_ptr) = scalar_ptr {
-            (new, Some(scalar_ptr))
-        } else {
-            (new, None)
-        }
-    }
+    pub fn new_with_root(store: &Store<F>, root: &Ptr<F>) -> Option<(Self, ScalarPtr<F>)> {
+        let mut scalar_store = Self::default();
+        let mut scalars = Vec::new();
 
-    /// Add all ScalarPtrs representing and reachable from expr.
-    pub fn add_one_ptr(
-        &mut self,
-        pending: &mut Vec<ScalarPtr<F>>,
-        store: &Store<F>,
-        expr: &Ptr<F>,
-    ) -> Option<ScalarPtr<F>> {
-        let scalar_ptr = self.add_ptr(pending, store, expr);
-        self.finalize(pending, store);
-        scalar_ptr
-    }
+        let root_scalar = store.get_expr_hash(root)?;
+        scalars.push(root_scalar);
 
-    /// Add the `ScalarPtr` representing `expr`, and queue it for proceessing.
-    pub fn add_ptr(
-        &mut self,
-        pending: &mut Vec<ScalarPtr<F>>,
-        store: &Store<F>,
-        expr: &Ptr<F>,
-    ) -> Option<ScalarPtr<F>> {
-        // Find the scalar_ptr representing ptr.
-        if let Some(scalar_ptr) = store.get_expr_hash(expr) {
-            self.add(pending, store, expr, scalar_ptr);
-            Some(scalar_ptr)
-        } else {
-            None
-        }
-    }
-
-    /// Add a single `ScalarPtr` and queue it for processing.
-    /// NOTE: This requires that `store.scalar_cache` has been hydrated.
-    fn add_scalar_ptr(
-        &mut self,
-        pending: &mut Vec<ScalarPtr<F>>,
-        store: &Store<F>,
-        scalar_ptr: ScalarPtr<F>,
-    ) {
-        // Find the ptr corresponding to scalar_ptr.
-        if let Some(ptr) = store.scalar_ptr_map.get(&scalar_ptr) {
-            self.add(pending, store, &*ptr, scalar_ptr);
-        }
-    }
-
-    /// Add the `ScalarPtr` and `ScalarExpression` associated with `ptr`. The relationship between `ptr` and
-    /// `scalar_ptr` is not checked here, so `add` should only be called by `add_ptr` and `add_scalar_ptr`, which
-    /// enforce this relationship.
-    fn add(
-        &mut self,
-        pending: &mut Vec<ScalarPtr<F>>,
-        store: &Store<F>,
-        ptr: &Ptr<F>,
-        scalar_ptr: ScalarPtr<F>,
-    ) {
-        if !self.scalar_map.contains_key(&scalar_ptr) {
-            if let Some(scalar_expression) = ScalarExpression::from_ptr(store, ptr) {
-                if let Some(more_scalar_ptrs) = Self::child_scalar_ptrs(&scalar_expression) {
-                    pending.extend(more_scalar_ptrs);
-                }
-                self.scalar_map.insert(scalar_ptr, scalar_expression);
+        // TODO: Ensure the store is actually a DAG so this doesn't loop
+        while let Some(scalar) = scalars.pop() {
+            let ptr = store.scalar_ptr_map.get(&scalar)?;
+            let scalar_expr = ScalarStore::<F>::expr_from_ptr(store, &ptr)?;
+            if !scalar_store.scalar_map.contains_key(&scalar) {
+                let child_scalars = ScalarStore::<F>::child_scalars(&scalar_expr);
+                scalars.extend(child_scalars);
+                scalar_store.scalar_map.insert(scalar, scalar_expr);
             }
         }
+
+        Some((scalar_store, root_scalar))
     }
 
-    /// All the `ScalarPtr`s directly reachable from `scalar_expression`, if any.
-    fn child_scalar_ptrs(scalar_expression: &ScalarExpression<F>) -> Option<Vec<ScalarPtr<F>>> {
+    fn child_scalars(scalar_expression: &ScalarExpression<F>) -> Vec<ScalarPtr<F>> {
         match scalar_expression {
-            ScalarExpression::Cons(car, cdr) => Some([*car, *cdr].into()),
-            ScalarExpression::Comm(_, payload) => Some([*payload].into()),
-            ScalarExpression::Sym(_str) => Some([*_str].into()),
-            ScalarExpression::Fun(arg, body, closed_env) => Some([*arg, *body, *closed_env].into()),
-            ScalarExpression::Num(_) => None,
-            ScalarExpression::StrNil => None,
-            ScalarExpression::StrCons(head, tail) => Some([*head, *tail].into()),
-            ScalarExpression::Thunk(_) => None,
-            ScalarExpression::Char(_) => None,
+            ScalarExpression::Cons(car, cdr) => [*car, *cdr].into(),
+            ScalarExpression::Comm(_, payload) => [*payload].into(),
+            ScalarExpression::Sym(_str) => [*_str].into(),
+            ScalarExpression::Fun(arg, body, closed_env) => [*arg, *body, *closed_env].into(),
+            ScalarExpression::Num(_) => vec![],
+            ScalarExpression::StrNil => vec![],
+            ScalarExpression::StrCons(_, tail) => [*tail].into(),
+            ScalarExpression::Thunk(_) => vec![],
+            ScalarExpression::Char(_) => vec![],
         }
     }
 
-    /// Unqueue all the pending `ScalarPtr`s and add them, queueing all of their children, then repeat until the queue
-    /// is pending queue is empty.
-    fn add_pending_scalar_ptrs(&mut self, pending: &mut Vec<ScalarPtr<F>>, store: &Store<F>) {
-        while let Some(scalar_ptr) = pending.pop() {
-            self.add_scalar_ptr(pending, store, scalar_ptr);
+    fn expr_from_ptr(store: &Store<F>, ptr: &Ptr<F>) -> Option<ScalarExpression<F>> {
+        match ptr.tag() {
+            Tag::Nil => {
+                let hash = store.hash_string("NIL");
+                Some(ScalarExpression::Sym(ScalarPtr::from_parts(
+                    Tag::Str.as_field(),
+                    hash,
+                )))
+            }
+            Tag::Cons => store.fetch_cons(ptr).and_then(|(car, cdr)| {
+                store.get_expr_hash(car).and_then(|car| {
+                    store
+                        .get_expr_hash(cdr)
+                        .map(|cdr| ScalarExpression::Cons(car, cdr))
+                })
+            }),
+            Tag::Comm => store.fetch_comm(ptr).and_then(|(secret, payload)| {
+                store
+                    .get_expr_hash(payload)
+                    .map(|payload| ScalarExpression::Comm(secret.0, payload))
+            }),
+            Tag::Sym => {
+                let scalar_ptr = store.get_hash_sym(*ptr)?;
+                Some(ScalarExpression::Sym(ScalarPtr::from_parts(
+                    Tag::Str.as_field(),
+                    *scalar_ptr.value(),
+                )))
+            }
+            Tag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
+                store.get_expr_hash(arg).and_then(|arg| {
+                    store.get_expr_hash(body).and_then(|body| {
+                        store
+                            .get_expr_hash(closed_env)
+                            .map(|closed_env| ScalarExpression::Fun(arg, body, closed_env))
+                    })
+                })
+            }),
+            Tag::Num => store.fetch_num(ptr).map(|num| match num {
+                Num::U64(x) => ScalarExpression::Num((*x).into()),
+                Num::Scalar(x) => ScalarExpression::Num(*x),
+            }),
+
+            Tag::Str => {
+                let string = store.fetch_str(ptr)?;
+                if string.is_empty() {
+                    Some(ScalarExpression::StrNil)
+                } else {
+                    let head: char = string.chars().nth(0)?;
+                    let tail = &string[1..];
+                    let tail_hash = store.hash_string(tail);
+                    Some(ScalarExpression::StrCons(
+                        ScalarPtr::from_parts(Tag::Char.as_field(), (head as u64).into()),
+                        ScalarPtr::from_parts(Tag::Str.as_field(), tail_hash),
+                    ))
+                }
+            }
+            Tag::Char => store
+                .fetch_char(ptr)
+                .map(|x| ScalarExpression::Char((x as u64).into())),
+            Tag::Thunk => unimplemented!(),
         }
     }
 
-    /// Method which finalizes the `ScalarStore`, ensuring that all reachable `ScalarPtr`s have been added.
-    pub fn finalize(&mut self, pending: &mut Vec<ScalarPtr<F>>, store: &Store<F>) {
-        self.add_pending_scalar_ptrs(pending, store);
-    }
     pub fn get_expr(&self, ptr: &ScalarPtr<F>) -> Option<&ScalarExpression<F>> {
         self.scalar_map.get(ptr)
     }
@@ -240,69 +237,6 @@ impl<'a, F: LurkField> ScalarStore<F> {
 }
 
 impl<'a, F: LurkField> ScalarExpression<F> {
-    fn from_ptr(store: &Store<F>, ptr: &Ptr<F>) -> Option<Self> {
-        match ptr.tag() {
-            Tag::Nil => {
-                let hash = store.hash_string("NIL");
-                Some(ScalarExpression::Sym(ScalarPtr::from_parts(
-                    Tag::Str.as_field(),
-                    hash,
-                )))
-            }
-            Tag::Cons => store.fetch_cons(ptr).and_then(|(car, cdr)| {
-                store.get_expr_hash(car).and_then(|car| {
-                    store
-                        .get_expr_hash(cdr)
-                        .map(|cdr| ScalarExpression::Cons(car, cdr))
-                })
-            }),
-            Tag::Comm => store.fetch_comm(ptr).and_then(|(secret, payload)| {
-                store
-                    .get_expr_hash(payload)
-                    .map(|payload| ScalarExpression::Comm(secret.0, payload))
-            }),
-            Tag::Sym => {
-                let scalar_ptr = store.get_hash_sym(*ptr)?;
-                Some(ScalarExpression::Sym(ScalarPtr::from_parts(
-                    Tag::Str.as_field(),
-                    *scalar_ptr.value(),
-                )))
-            }
-            Tag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
-                store.get_expr_hash(arg).and_then(|arg| {
-                    store.get_expr_hash(body).and_then(|body| {
-                        store
-                            .get_expr_hash(closed_env)
-                            .map(|closed_env| ScalarExpression::Fun(arg, body, closed_env))
-                    })
-                })
-            }),
-            Tag::Num => store.fetch_num(ptr).map(|num| match num {
-                Num::U64(x) => ScalarExpression::Num((*x).into()),
-                Num::Scalar(x) => ScalarExpression::Num(*x),
-            }),
-
-            Tag::Str => {
-                let string = store.fetch_str(ptr)?;
-                if string.is_empty() {
-                    Some(ScalarExpression::StrNil)
-                } else {
-                    let head: char = string.chars().nth(0)?;
-                    let tail = &string[1..];
-                    let tail_hash = store.hash_string(tail);
-                    Some(ScalarExpression::StrCons(
-                        ScalarPtr::from_parts(Tag::Char.as_field(), (head as u64).into()),
-                        ScalarPtr::from_parts(Tag::Str.as_field(), tail_hash),
-                    ))
-                }
-            }
-            Tag::Char => store
-                .fetch_char(ptr)
-                .map(|x| ScalarExpression::Char((x as u64).into())),
-            Tag::Thunk => unimplemented!(),
-        }
-    }
-
     pub fn ser_f(self) -> Vec<F> {
         match self {
             // TODO: replace F::zero() with the actual hash of Str("nil")
@@ -423,7 +357,7 @@ impl<'a, F: LurkField> fmt::Display for ScalarExpression<F> {
             }
             Self::Char(x) => {
                 if let Some(x) = x.to_char() {
-                    write!(f, "Char({})", x)
+                    write!(f, "Char('{}')", x)
                 } else {
                     write!(f, "Char({:?})", x)
                 }
@@ -1037,13 +971,13 @@ mod test {
             let expr1 = store1.read(src).unwrap();
             store1.hydrate_scalar_cache();
 
-            if let (scalar_store, Some(scalar_expr)) = ScalarStore::new_with_expr(&store1, &expr1) {
+            if let Some((scalar_store, scalar_expr)) = ScalarStore::new_with_root(&store1, &expr1) {
                 let ipld = to_ipld(scalar_store.clone()).unwrap();
                 let mut scalar_store2 = from_ipld(ipld).unwrap();
                 assert_eq!(scalar_store, scalar_store2);
                 if let Some((mut store2, expr2)) = scalar_store2.to_store_with_expr(&scalar_expr) {
                     store2.hydrate_scalar_cache();
-                    let (scalar_store3, _) = ScalarStore::new_with_expr(&store2, &expr2);
+                    let (scalar_store3, _) = ScalarStore::new_with_root(&store2, &expr2).unwrap();
                     assert_eq!(scalar_store2, scalar_store3)
                 } else {
                     assert!(false)
@@ -1085,7 +1019,7 @@ mod test {
                 _emitted,
             ) = eval.eval().unwrap();
 
-            let (scalar_store, _) = ScalarStore::new_with_expr(&s, &expr);
+            let (scalar_store, _) = ScalarStore::new_with_root(&s, &expr).unwrap();
             println!("{:?}", scalar_store);
             let ipld = to_ipld(scalar_store.clone()).unwrap();
             let scalar_store2 = from_ipld(ipld).unwrap();
@@ -1097,21 +1031,26 @@ mod test {
     }
 
     #[test]
-    fn test_scalar_store() {
+    fn test_scalar_store_top() {
         let test = |src, expected| {
             let mut s = Store::<Fr>::default();
             let expr = s.read(src).unwrap();
             s.hydrate_scalar_cache();
 
-            let (scalar_store, _) = ScalarStore::new_with_expr(&s, &expr);
-            println!("scalar_store: {}", scalar_store);
-
-            assert_eq!(expected, scalar_store.scalar_map.len());
+            let (scalar_store, _) = ScalarStore::new_with_root(&s, &expr).unwrap();
+            //println!("scalar_store: {}", scalar_store);
+            if let Some((scalar_store2, _)) = ScalarStore::new_with_root(&s, &expr) {
+                println!("scalar_store2: {}", scalar_store2);
+                assert_eq!(expected, scalar_store.scalar_map.len());
+                assert_eq!(scalar_store, scalar_store2);
+            } else {
+                assert!(false)
+            }
         };
 
+        test("(1 . 2)", 3);
         test("symbol", 8);
         test("|symbol|", 8);
-        test("(1 . 2)", 3);
         test("\"foo\"", 4);
         test("+", 3);
         test("t", 3);
@@ -1121,6 +1060,7 @@ mod test {
         test("(+ 1 2 (* 3 4) \"asdf\" )", 25);
         // Duplicate strings or symbols appear only once.
         test("(+ 1 2 2 (* 3 4) \"asdf\" \"asdf\")", 27);
+        assert!(false)
     }
 
     #[test]
@@ -1135,7 +1075,7 @@ mod test {
 
         store.hydrate_scalar_cache();
 
-        let (scalar_store, _) = ScalarStore::new_with_expr(&store, &opaque_cons);
+        let (scalar_store, _) = ScalarStore::new_with_root(&store, &opaque_cons).unwrap();
         println!("{:?}", scalar_store.scalar_map);
         println!("{:?}", scalar_store.scalar_map.len());
         // If a non-opaque version has been found when interning opaque, children appear in `ScalarStore`.
@@ -1153,7 +1093,7 @@ mod test {
         let opaque_fun = store.intern_maybe_opaque_fun(*fun_hash.value());
         store.hydrate_scalar_cache();
 
-        let (scalar_store, _) = ScalarStore::new_with_expr(&store, &opaque_fun);
+        let (scalar_store, _) = ScalarStore::new_with_root(&store, &opaque_fun).unwrap();
         // If a non-opaque version has been found when interning opaque, children appear in `ScalarStore`.
         assert_eq!(4, scalar_store.scalar_map.len());
     }
@@ -1167,7 +1107,7 @@ mod test {
 
         store.hydrate_scalar_cache();
 
-        let (scalar_store, _) = ScalarStore::new_with_expr(&store, &opaque_sym);
+        let (scalar_store, _) = ScalarStore::new_with_root(&store, &opaque_sym).unwrap();
         // Only the symbol's string itself, not all of its substrings, appears in `ScalarStore`.
         assert_eq!(1, scalar_store.scalar_map.len());
     }
@@ -1181,7 +1121,7 @@ mod test {
 
         store.hydrate_scalar_cache();
 
-        let (scalar_store, _) = ScalarStore::new_with_expr(&store, &opaque_str);
+        let (scalar_store, _) = ScalarStore::new_with_root(&store, &opaque_str).unwrap();
         // Only the string itself, not all of its substrings, appears in `ScalarStore`.
         assert_eq!(1, scalar_store.scalar_map.len());
     }
@@ -1196,7 +1136,7 @@ mod test {
 
         store.hydrate_scalar_cache();
 
-        let (scalar_store, _) = ScalarStore::new_with_expr(&store, &opaque_comm);
+        let (scalar_store, _) = ScalarStore::new_with_root(&store, &opaque_comm).unwrap();
         println!("{:?}", scalar_store.scalar_map);
         println!("{:?}", scalar_store.scalar_map.len());
         // If a non-opaque version has been found when interning opaque, children appear in `ScalarStore`.
