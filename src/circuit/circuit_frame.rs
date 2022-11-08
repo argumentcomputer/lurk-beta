@@ -702,6 +702,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         expr.tag(),
         &all_clauses,
         &defaults,
+        g,
     )?;
 
     let first_result_expr_0 = AllocatedPtr::by_index(0, &case_results);
@@ -1857,6 +1858,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         head.hash(),
         &all_hash_input_clauses,
         &defaults,
+        g,
     )?;
 
     // construct newer continuation from multicase results
@@ -2206,6 +2208,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         head.hash(),
         &all_clauses,
         &defaults,
+        g,
     )?;
 
     let result_expr = AllocatedPtr::by_index(0, &case_results);
@@ -2290,6 +2293,7 @@ fn make_thunk<F: LurkField, CS: ConstraintSystem<F>>(
         cont.tag(),
         &all_clauses,
         &defaults,
+        g,
     )?;
 
     let result_expr = AllocatedPtr::by_index(0, &case_results);
@@ -2637,6 +2641,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 ],
             ],
             &[&g.default_num, &g.default_num],
+            g,
         )?;
 
         (AllocatedPtr::by_index(0, &res), unop_continuation)
@@ -2704,6 +2709,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         cont.tag(),
         &all_hash_input_clauses,
         &preimage_defaults,
+        g,
     )?;
 
     // construct newer continuation from multicase results
@@ -3087,6 +3093,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 },
             ],
             &g.default_num,
+            g,
         )?;
 
         let is_equal = alloc_equal(
@@ -3334,6 +3341,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             op2.tag(),
             &comp_clauses,
             &comparison_defaults,
+            g,
         )?;
 
         let comp_val_same_sign_num = comparison_result.0[0].clone();
@@ -3811,6 +3819,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         cont.tag(),
         &all_clauses,
         &apply_cont_defaults,
+        g,
     )?;
 
     let result_expr = AllocatedPtr::by_index(0, &case_results);
@@ -4155,7 +4164,7 @@ mod tests {
             //println!("{}", print_cs(&cs));
             assert_eq!(20461, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(20378, cs.aux().len());
+            assert_eq!(20318, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
