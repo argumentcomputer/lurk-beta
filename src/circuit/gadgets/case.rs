@@ -280,6 +280,7 @@ pub fn multi_case_aux<F: PrimeField, CS: ConstraintSystem<F>>(
         (selector, is_default)
     };
 
+    assert_eq!(cases.len(), defaults.len());
     // Now that we constrained the selector, we can constrain the selection
     // of the corresponding values in next clauses
     // 1..n
@@ -367,11 +368,14 @@ mod tests {
                 value: &val0,
             }];
 
+            let default_chosen =
+                AllocatedNum::alloc(cs.namespace(|| "default chosen"), || Ok(Fr::from(999)))
+                    .unwrap();
             let result = case(
                 &mut cs.namespace(|| "default case"),
                 &selected,
                 &clauses,
-                &default,
+                &default_chosen,
             )
             .unwrap();
 

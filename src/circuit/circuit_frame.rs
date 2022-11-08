@@ -2636,12 +2636,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                     },
                 ],
             ],
-            &[
-                &g.default_num,
-                &g.default_num,
-                &g.default_num,
-                &g.default_num,
-            ],
+            &[&g.default_num, &g.default_num],
         )?;
 
         (AllocatedPtr::by_index(0, &res), unop_continuation)
@@ -2679,7 +2674,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         binop_components,
     );
 
-    let defaults = [
+    let preimage_defaults = [
+        &g.default_num,
+        &g.default_num,
         &g.default_num,
         &g.default_num,
         &g.default_num,
@@ -2706,7 +2703,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         &mut cs.namespace(|| "hash preimage selection"),
         cont.tag(),
         &all_hash_input_clauses,
-        &defaults,
+        &preimage_defaults,
     )?;
 
     // construct newer continuation from multicase results
@@ -3799,11 +3796,21 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         &results.make_thunk_num_clauses[..],
     ];
 
+    let apply_cont_defaults = [
+        &g.default_num,
+        &g.default_num,
+        &g.default_num,
+        &g.default_num,
+        &g.default_num,
+        &g.default_num,
+        &g.false_num,
+    ];
+
     let case_results = multi_case(
         &mut cs.namespace(|| "apply_continuation multicase"),
         cont.tag(),
         &all_clauses,
-        &defaults,
+        &apply_cont_defaults,
     )?;
 
     let result_expr = AllocatedPtr::by_index(0, &case_results);
@@ -4146,9 +4153,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(20443, cs.num_constraints());
+            assert_eq!(20461, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(20358, cs.aux().len());
+            assert_eq!(20378, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
