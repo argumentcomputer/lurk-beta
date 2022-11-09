@@ -34,6 +34,10 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         byte_array.copy_from_slice(&self.to_repr().as_ref()[0..4]);
         Some(u32::from_le_bytes(byte_array))
     }
+    fn to_char(&self) -> Option<char> {
+        let x = self.to_u32()?;
+        char::from_u32(x)
+    }
     fn to_u64(&self) -> Option<u64> {
         for x in &self.to_repr().as_ref()[8..] {
             if *x != 0 {

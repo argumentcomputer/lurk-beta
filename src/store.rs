@@ -740,6 +740,7 @@ impl Tag {
             f if f == Tag::Str.as_field() => Some(Tag::Str),
             f if f == Tag::Char.as_field() => Some(Tag::Char),
             f if f == Tag::Comm.as_field() => Some(Tag::Comm),
+            f if f == Tag::U64.as_field() => Some(Tag::Num),
             _ => None,
         }
     }
@@ -1294,7 +1295,8 @@ impl<F: LurkField> Store<F> {
             }
             (Tag::Str, Some(Str(s))) => Some(self.intern_str(s)),
             (Tag::Sym, Some(Sym(s))) => Some(self.intern_sym(s)),
-            (Tag::Num, Some(Num(x))) => Some(self.intern_num(crate::Num::Scalar(*x))),
+            (Tag::Num, _) => Some(self.intern_num(crate::Num::Scalar(*ptr.value()))),
+            (Tag::Char, _) => (*ptr.value()).to_char().map(|x| x.into()),
             (Tag::Thunk, Some(Thunk(t))) => {
                 let value = self.intern_scalar_ptr(t.value, scalar_store)?;
                 let continuation = self.intern_scalar_cont_ptr(t.continuation, scalar_store)?;
@@ -2605,6 +2607,48 @@ impl<F: LurkField> Store<F> {
         self.dehydrated_cont.truncate(0);
 
         self.dehydrated_cont.clear();
+    }
+
+    pub(crate) fn get_scalar_expr(&self, ptr: &Ptr<F>) -> Option<ScalarExpression<F>> {
+        match ptr.tag() {
+            Tag::Nil => Some(ScalarExpression::Nil),
+            Tag::Cons => self.fetch_cons(ptr).and_then(|(car, cdr)| {
+                self.get_expr_hash(car).and_then(|car| {
+                    self.get_expr_hash(cdr)
+                        .map(|cdr| ScalarExpression::Cons(car, cdr))
+                })
+            }),
+            Tag::Comm => self.fetch_comm(ptr).and_then(|(secret, payload)| {
+                self.get_expr_hash(payload)
+                    .map(|payload| ScalarExpression::Comm(secret.0, payload))
+            }),
+            Tag::Sym => self
+                .fetch_sym(ptr)
+                .map(|str| ScalarExpression::Sym(str.into())),
+            Tag::Fun => self.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
+                self.get_expr_hash(arg).and_then(|arg| {
+                    self.get_expr_hash(body).and_then(|body| {
+                        self.get_expr_hash(closed_env)
+                            .map(|closed_env| ScalarExpression::Fun {
+                                arg,
+                                body,
+                                closed_env,
+                            })
+                    })
+                })
+            }),
+            Tag::Num => self.fetch_num(ptr).map(|num| match num {
+                Num::U64(x) => ScalarExpression::Num((*x).into()),
+                Num::Scalar(x) => ScalarExpression::Num(*x),
+            }),
+
+            Tag::Str => self
+                .fetch_str(ptr)
+                .map(|str| ScalarExpression::Str(str.to_string())),
+            Tag::Char => self.fetch_char(ptr).map(ScalarExpression::Char),
+            Tag::U64 => self.fetch_uint(ptr).map(ScalarExpression::UInt),
+            Tag::Thunk => unimplemented!(),
+        }
     }
 }
 
