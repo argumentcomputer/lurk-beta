@@ -66,7 +66,7 @@ pub struct NovaProver<F: LurkField> {
 impl<'a> PublicParameters for PublicParams<'a> {}
 
 impl<'a, F: LurkField> Prover<'a, F> for NovaProver<F> {
-  type PublicParams = PublicParams<'a>;
+    type PublicParams = PublicParams<'a>;
     fn new(chunk_frame_count: usize) -> Self {
         NovaProver::<F> {
             chunk_frame_count,
