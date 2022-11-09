@@ -24,7 +24,7 @@ use crate::circuit::{
 use crate::error::Error;
 use crate::eval::{Evaluator, Frame, Witness, IO};
 use crate::field::LurkField;
-use crate::proof::Prover;
+use crate::proof::{Prover, PublicParameters};
 use crate::store::{Ptr, Store};
 
 pub type G1 = pallas::Point;
@@ -63,19 +63,22 @@ pub struct NovaProver<F: LurkField> {
     _p: PhantomData<F>,
 }
 
-impl<F: LurkField> Prover<F> for NovaProver<F> {
+impl<'a> PublicParameters for PublicParams<'a> {}
+
+impl<'a, F: LurkField> Prover<'a, F> for NovaProver<F> {
+    type PublicParams = PublicParams<'a>;
+    fn new(chunk_frame_count: usize) -> Self {
+        NovaProver::<F> {
+            chunk_frame_count,
+            _p: PhantomData::<F>,
+        }
+    }
     fn chunk_frame_count(&self) -> usize {
         self.chunk_frame_count
     }
 }
 
 impl<F: LurkField> NovaProver<F> {
-    pub fn new(chunk_frame_count: usize) -> Self {
-        NovaProver::<F> {
-            chunk_frame_count,
-            _p: PhantomData::<F>,
-        }
-    }
     fn get_evaluation_frames(
         &self,
         expr: Ptr<S1>,
