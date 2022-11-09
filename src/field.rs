@@ -24,6 +24,20 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         def.as_mut().copy_from_slice(bs);
         Self::from_repr(def).into()
     }
+
+    fn to_bytes(self) -> Vec<u8> {
+        let repr = self.to_repr();
+        repr.as_ref().to_vec()
+    }
+
+    fn display_string(self) -> String {
+        let mut s = String::from("0x");
+        let bytes = self.to_bytes();
+        for b in bytes {
+            s.push_str(&format!("{:02x?}", b));
+        }
+        s
+    }
     fn to_u32(&self) -> Option<u32> {
         for x in &self.to_repr().as_ref()[4..] {
             if *x != 0 {
@@ -54,10 +68,20 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         byte_array.copy_from_slice(&self.to_repr().as_ref()[0..8]);
         u64::from_le_bytes(byte_array)
     }
+
     fn from_u64(x: u64) -> Option<Self> {
         let mut bytes = vec![0; 32];
         bytes[0..8].as_mut().copy_from_slice(&x.to_le_bytes());
         Self::from_bytes(&bytes)
+    }
+
+    fn from_u32(x: u32) -> Option<Self> {
+        let mut bytes = vec![0; 32];
+        bytes[0..4].as_mut().copy_from_slice(&x.to_le_bytes());
+        Self::from_bytes(&bytes)
+    }
+    fn from_char(x: char) -> Option<Self> {
+        Self::from_u32(x as u32)
     }
 
     fn most_negative() -> Self {

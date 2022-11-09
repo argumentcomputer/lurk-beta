@@ -238,6 +238,63 @@ impl<F: LurkField> Pointer<F> for Ptr<F> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScalarPtr<F: LurkField>(F, F);
 
+impl<'a, F: LurkField> fmt::Display for ScalarPtr<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match Tag::from_field(*self.tag()) {
+            Some(Tag::Nil) => {
+                write!(f, "(nil, {})", (*self.value()).display_string())
+            }
+            Some(Tag::Cons) => {
+                write!(f, "(cons, {})", (*self.value()).display_string())
+            }
+            Some(Tag::Sym) => {
+                write!(f, "(sym, {})", (*self.value()).display_string())
+            }
+            Some(Tag::Fun) => {
+                write!(f, "(fun, {})", (*self.value()).display_string())
+            }
+            Some(Tag::Num) => {
+                if let Some(x) = self.value().to_u64() {
+                    write!(f, "(num, {})", x)
+                } else {
+                    write!(f, "(num, {})", (*self.value()).display_string())
+                }
+            }
+            Some(Tag::U64) => {
+                if let Some(x) = self.value().to_u64() {
+                    write!(f, "(u64, {})", x)
+                } else {
+                    write!(f, "(u64, {})", (*self.value()).display_string())
+                }
+            }
+            Some(Tag::Thunk) => {
+                write!(f, "(thunk, {})", (*self.value()).display_string())
+            }
+            Some(Tag::Str) => {
+                write!(f, "(str, {})", (*self.value()).display_string())
+            }
+            Some(Tag::Char) => {
+                if let Some(x) = self.value().to_char() {
+                    write!(f, "(char, '{}')", x)
+                } else {
+                    write!(f, "(char, {})", (*self.value()).display_string())
+                }
+            }
+            Some(Tag::Comm) => {
+                write!(f, "(comm, {})", (*self.value()).display_string())
+            }
+            _ => {
+                write!(
+                    f,
+                    "({}, {})",
+                    (*self.tag()).display_string(),
+                    (*self.value()).display_string()
+                )
+            }
+        }
+    }
+}
+
 impl<F: LurkField> Copy for ScalarPtr<F> {}
 
 impl<F: LurkField> PartialOrd for ScalarPtr<F> {
@@ -1293,8 +1350,15 @@ impl<F: LurkField> Store<F> {
                 let cdr = self.intern_scalar_ptr(*cdr, scalar_store)?;
                 Some(self.intern_cons(car, cdr))
             }
-            (Tag::Str, Some(Str(s))) => Some(self.intern_str(s)),
-            (Tag::Sym, Some(Sym(s))) => Some(self.intern_sym(s)),
+            (Tag::Str, Some(StrCons(_, _))) => {
+                let string = scalar_store.get_str(ptr)?;
+                Some(self.intern_str(string))
+            }
+            (Tag::Str, Some(StrNil)) => Some(self.intern_str("")),
+            (Tag::Sym, Some(Sym(s))) => {
+                let s = scalar_store.get_str(*s)?;
+                Some(self.intern_sym(s))
+            }
             (Tag::Num, _) => Some(self.intern_num(crate::Num::Scalar(*ptr.value()))),
             (Tag::Char, _) => (*ptr.value()).to_char().map(|x| x.into()),
             (Tag::Thunk, Some(Thunk(t))) => {
@@ -1305,14 +1369,7 @@ impl<F: LurkField> Store<F> {
                     continuation,
                 }))
             }
-            (
-                Tag::Fun,
-                Some(Fun {
-                    arg,
-                    body,
-                    closed_env,
-                }),
-            ) => {
+            (Tag::Fun, Some(Fun(arg, body, closed_env))) => {
                 let arg = self.intern_scalar_ptr(*arg, scalar_store)?;
                 let body = self.intern_scalar_ptr(*body, scalar_store)?;
                 let env = self.intern_scalar_ptr(*closed_env, scalar_store)?;
@@ -2609,44 +2666,63 @@ impl<F: LurkField> Store<F> {
         self.dehydrated_cont.clear();
     }
 
-    pub(crate) fn get_scalar_expr(&self, ptr: &Ptr<F>) -> Option<ScalarExpression<F>> {
-        match ptr.tag() {
+    pub(crate) fn get_scalar_expr(&self, scalar: &ScalarPtr<F>) -> Option<ScalarExpression<F>> {
+        let tag = Tag::from_field(*scalar.tag())?;
+        match tag {
             Tag::Nil => Some(ScalarExpression::Nil),
-            Tag::Cons => self.fetch_cons(ptr).and_then(|(car, cdr)| {
-                self.get_expr_hash(car).and_then(|car| {
-                    self.get_expr_hash(cdr)
-                        .map(|cdr| ScalarExpression::Cons(car, cdr))
-                })
-            }),
-            Tag::Comm => self.fetch_comm(ptr).and_then(|(secret, payload)| {
-                self.get_expr_hash(payload)
-                    .map(|payload| ScalarExpression::Comm(secret.0, payload))
-            }),
-            Tag::Sym => self
-                .fetch_sym(ptr)
-                .map(|str| ScalarExpression::Sym(str.into())),
-            Tag::Fun => self.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
-                self.get_expr_hash(arg).and_then(|arg| {
-                    self.get_expr_hash(body).and_then(|body| {
-                        self.get_expr_hash(closed_env)
-                            .map(|closed_env| ScalarExpression::Fun {
-                                arg,
-                                body,
-                                closed_env,
-                            })
+            Tag::Cons => {
+                let ptr = self.scalar_ptr_map.get(scalar)?;
+                self.fetch_cons(&ptr).and_then(|(car, cdr)| {
+                    self.get_expr_hash(car).and_then(|car| {
+                        self.get_expr_hash(cdr)
+                            .map(|cdr| ScalarExpression::Cons(car, cdr))
                     })
                 })
-            }),
-            Tag::Num => self.fetch_num(ptr).map(|num| match num {
-                Num::U64(x) => ScalarExpression::Num((*x).into()),
-                Num::Scalar(x) => ScalarExpression::Num(*x),
-            }),
-
-            Tag::Str => self
-                .fetch_str(ptr)
-                .map(|str| ScalarExpression::Str(str.to_string())),
-            Tag::Char => self.fetch_char(ptr).map(ScalarExpression::Char),
-            Tag::U64 => self.fetch_uint(ptr).map(ScalarExpression::UInt),
+            }
+            Tag::Comm => {
+                let ptr = self.scalar_ptr_map.get(scalar)?;
+                self.fetch_comm(&ptr).and_then(|(secret, payload)| {
+                    self.get_expr_hash(payload)
+                        .map(|payload| ScalarExpression::Comm(secret.0, payload))
+                })
+            }
+            Tag::Sym => {
+                let ptr = self.scalar_ptr_map.get(scalar)?;
+                let scalar_ptr = self.get_hash_sym(*ptr)?;
+                Some(ScalarExpression::Sym(ScalarPtr::from_parts(
+                    Tag::Str.as_field(),
+                    *scalar_ptr.value(),
+                )))
+            }
+            Tag::Fun => {
+                let ptr = self.scalar_ptr_map.get(scalar)?;
+                self.fetch_fun(&ptr).and_then(|(arg, body, closed_env)| {
+                    self.get_expr_hash(arg).and_then(|arg| {
+                        self.get_expr_hash(body).and_then(|body| {
+                            self.get_expr_hash(closed_env)
+                                .map(|closed_env| ScalarExpression::Fun(arg, body, closed_env))
+                        })
+                    })
+                })
+            }
+            Tag::Num => Some(ScalarExpression::Num(*scalar.value())),
+            Tag::Str => {
+                let ptr = self.scalar_ptr_map.get(scalar)?;
+                let string = self.fetch_str(&ptr)?;
+                if string.is_empty() {
+                    Some(ScalarExpression::StrNil)
+                } else {
+                    let head: char = string.chars().nth(0)?;
+                    let tail = &string[1..];
+                    let tail_hash = self.hash_string(tail);
+                    Some(ScalarExpression::StrCons(
+                        ScalarPtr::from_parts(Tag::Char.as_field(), (head as u64).into()),
+                        ScalarPtr::from_parts(Tag::Str.as_field(), tail_hash),
+                    ))
+                }
+            }
+            Tag::Char => Some(ScalarExpression::Char(*scalar.value())),
+            Tag::U64 => Some(ScalarExpression::UInt(*scalar.value())),
             Tag::Thunk => unimplemented!(),
         }
     }
