@@ -1,12 +1,11 @@
 use log::info;
+use std::convert::TryFrom;
 use std::env;
 use std::fs::read_to_string;
 use std::io;
 use std::path::{Path, PathBuf};
 
-//use blstrs::{Bls12, Scalar};
 use hex::FromHex;
-//use pairing_lib::{Engine, MultiMillerLoop};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +22,7 @@ use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 use fcomm::{
     self, committed_function_store, error::Error, evaluate, Claim, Commitment, Evaluation,
-    Expression, FileStore, Function, LurkPtr, Opening, OpeningRequest, Proof, S1,
+    Expression, FileStore, Function, LurkPtr, Opening, OpeningRequest, Proof, ReductionCount, S1,
 };
 
 /// Functional commitments
@@ -95,6 +94,10 @@ struct Open {
     #[clap(short, long, value_parser)]
     proof: Option<PathBuf>,
 
+    /// Number of circuit reductions per step
+    #[clap(short = 'r', long, default_value = "1", value_parser)]
+    reduction_count: usize,
+
     /// Optional commitment value (hex string). Function will be looked-up by commitment if supplied.
     #[clap(short, long, value_parser)]
     commitment: Option<String>,
@@ -144,6 +147,10 @@ struct Prove {
     /// Path to proof input
     #[clap(short, long, value_parser)]
     proof: PathBuf,
+
+    /// Number of circuit reductions per step
+    #[clap(short = 'r', long, default_value = "1", value_parser)]
+    reduction_count: usize,
 
     /// Path to claim to prove
     #[clap(long, value_parser)]
@@ -224,9 +231,9 @@ impl<'a> Open {
         );
 
         let s = &mut Store::<S1>::default();
-        let chunk_frame_count = 5;
-        let prover = NovaProver::<S1>::new(chunk_frame_count);
-        let pp = public_params(chunk_frame_count);
+        let rc = ReductionCount::try_from(self.reduction_count)?;
+        let prover = NovaProver::<S1>::new(rc.count());
+        let pp = public_params(rc.count());
         let function_map = committed_function_store();
 
         let handle_proof = |out_path, proof: Proof<'a, S1>| {
@@ -241,15 +248,7 @@ impl<'a> Open {
             let request = opening_request(request_path).expect("failed to read opening request");
 
             if let Some(out_path) = &self.proof {
-                let proof = Opening::open_and_prove(
-                    s,
-                    request,
-                    limit,
-                    false,
-                    &prover,
-                    &pp,
-                    chunk_frame_count,
-                )?;
+                let proof = Opening::open_and_prove(s, request, limit, false, &prover, &pp)?;
 
                 handle_proof(out_path, proof);
             } else {
@@ -289,15 +288,7 @@ impl<'a> Open {
 
             if let Some(out_path) = &self.proof {
                 let proof = Opening::apply_and_prove(
-                    s,
-                    input,
-                    function,
-                    limit,
-                    chain,
-                    false,
-                    &prover,
-                    &pp,
-                    chunk_frame_count,
+                    s, input, function, limit, chain, false, &prover, &pp,
                 )?;
 
                 handle_proof(out_path, proof);
@@ -336,9 +327,9 @@ impl Eval {
 impl Prove {
     fn prove(&self, limit: usize) -> Result<(), Error> {
         let s = &mut Store::<S1>::default();
-        let chunk_frame_count = 5;
-        let prover = NovaProver::<S1>::new(chunk_frame_count);
-        let pp = public_params(chunk_frame_count);
+        let rc = ReductionCount::try_from(self.reduction_count)?;
+        let prover = NovaProver::<S1>::new(rc.count());
+        let pp = public_params(rc.count());
 
         let proof = match &self.claim {
             Some(claim) => {
@@ -346,15 +337,7 @@ impl Prove {
                     self.expression.is_none(),
                     "claim and expression must not both be supplied"
                 );
-                Proof::prove_claim(
-                    s,
-                    Claim::read_from_path(claim)?,
-                    limit,
-                    false,
-                    &prover,
-                    &pp,
-                    chunk_frame_count,
-                )?
+                Proof::prove_claim(s, Claim::read_from_path(claim)?, limit, false, &prover, &pp)?
             }
 
             None => {
@@ -364,7 +347,7 @@ impl Prove {
                     self.lurk,
                 )?;
 
-                Proof::eval_and_prove(s, expr, limit, false, &prover, &pp, chunk_frame_count)?
+                Proof::eval_and_prove(s, expr, limit, false, &prover, &pp)?
             }
         };
 
@@ -379,9 +362,8 @@ impl Prove {
 impl Verify {
     fn verify(&self, cli_error: bool) -> Result<(), Error> {
         let proof = proof(Some(&self.proof))?;
-        let pp = public_params(proof.chunk_frame_count);
+        let pp = public_params(proof.reduction_count.count());
         let result = proof.verify(&pp)?;
-        //let result = proof(Some(&self.proof))?.verify(self.proof.num_steps)?;
 
         serde_json::to_writer(io::stdout(), &result)?;
 

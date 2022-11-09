@@ -67,6 +67,7 @@ pub fn committed_function_store() -> FileMap<Commitment<S1>, Function<S1>> {
     FileMap::<Commitment<S1>, Function<S1>>::new("functions").unwrap()
 }
 
+// Number circuit reductions per step, equivalent to `chunk_frame_count`
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReductionCount {
     One,
@@ -214,30 +215,7 @@ pub struct Proof<'a, F: LurkField> {
     pub proof: proof::nova::Proof<'a>,
     pub num_steps: usize,
     pub reduction_count: ReductionCount,
-    pub chunk_frame_count: usize,
 }
-
-//pub struct Proof<E: Engine + MultiMillerLoop>
-//where
-//    <E as Engine>::Gt: blstrs::Compress + Serialize,
-//    <E as Engine>::G1: Serialize,
-//    <E as Engine>::G1Affine: Serialize,
-//    <E as Engine>::G2Affine: Serialize,
-//    <E as Engine>::Fr: Serialize + LurkField,
-//    <E as Engine>::Gt: blstrs::Compress + Serialize,
-//{
-//    #[serde(bound(
-//        serialize = "Claim<E::Fr>: Serialize",
-//        deserialize = "Claim<E::Fr>: Deserialize<'de>"
-//    ))]
-//    pub claim: Claim<E::Fr>,
-//    #[serde(bound(
-//        serialize = "proof::groth16::Proof<E>: Serialize",
-//        deserialize = "proof::groth16::Proof<E>: Deserialize<'de>"
-//    ))]
-//    pub proof: proof::groth16::Proof<E>,
-//    pub reduction_count: ReductionCount,
-//}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Claim<F: LurkField> {
@@ -319,7 +297,7 @@ impl TryFrom<usize> for ReductionCount {
     }
 }
 impl ReductionCount {
-    pub fn reduction_frame_count(&self) -> usize {
+    pub fn count(&self) -> usize {
         match self {
             Self::One => 1,
             Self::Five => 5,
@@ -587,18 +565,9 @@ impl Opening<S1> {
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1>,
         pp: &'a PublicParams,
-        chunk_frame_count: usize,
     ) -> Result<Proof<'a, S1>, Error> {
         let claim = Self::apply(s, input, function, limit, chain)?;
-        Proof::prove_claim(
-            s,
-            claim,
-            limit,
-            only_use_cached_proofs,
-            nova_prover,
-            pp,
-            chunk_frame_count,
-        )
+        Proof::prove_claim(s, claim, limit, only_use_cached_proofs, nova_prover, pp)
     }
 
     pub fn open_and_prove<'a>(
@@ -608,7 +577,6 @@ impl Opening<S1> {
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1>,
         pp: &'a PublicParams,
-        chunk_frame_count: usize,
     ) -> Result<Proof<'a, S1>, Error> {
         let input = request.input.expr.ptr(s);
         let commitment = request.commitment;
@@ -627,7 +595,6 @@ impl Opening<S1> {
             only_use_cached_proofs,
             nova_prover,
             pp,
-            chunk_frame_count,
         )
     }
 
@@ -762,7 +729,6 @@ impl<'a> Proof<'a, S1> {
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1>,
         pp: &'a PublicParams,
-        chunk_frame_count: usize,
     ) -> Result<Self, Error> {
         let env = empty_sym_env(s);
         let cont = s.intern_cont_outermost();
@@ -772,15 +738,7 @@ impl<'a> Proof<'a, S1> {
         let evaluation = Evaluation::new(s, input, public_output, None);
         let claim = Claim::Evaluation(evaluation);
 
-        Self::prove_claim(
-            s,
-            claim,
-            limit,
-            only_use_cached_proofs,
-            nova_prover,
-            pp,
-            chunk_frame_count,
-        )
+        Self::prove_claim(s, claim, limit, only_use_cached_proofs, nova_prover, pp)
     }
 
     pub fn prove_claim(
@@ -790,7 +748,6 @@ impl<'a> Proof<'a, S1> {
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1>,
         pp: &'a PublicParams,
-        chunk_frame_count: usize,
     ) -> Result<Self, Error> {
         let proof_map = nova_proof_cache();
         let function_map = committed_function_store();
@@ -805,11 +762,6 @@ impl<'a> Proof<'a, S1> {
         }
 
         let reduction_count = DEFAULT_REDUCTION_COUNT;
-
-        //info!("Getting Parameters");
-        //let pp = public_params(reduction_count.reduction_frame_count());
-        //let nova_prover = NovaProver::<S1>::new(reduction_count.reduction_frame_count());
-        //let nova_params = &public_params.0;
 
         info!("Starting Proving");
 
@@ -845,7 +797,6 @@ impl<'a> Proof<'a, S1> {
             proof,
             num_steps,
             reduction_count,
-            chunk_frame_count,
         };
 
         match &claim {
@@ -874,7 +825,6 @@ impl<'a> Proof<'a, S1> {
             Claim::Opening(_) => self.verify_opening(),
         }?;
 
-        //let pp = public_params(self.reduction_count.reduction_frame_count());
         let verified = self
             .proof
             .verify(pp, self.num_steps, public_inputs, &public_outputs)

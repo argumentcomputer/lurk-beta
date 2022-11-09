@@ -6,7 +6,6 @@ use std::io::Write;
 use std::process::Command;
 use tempdir::TempDir;
 
-//use blstrs::{Bls12, Scalar};
 use pasta_curves::pallas;
 
 use fcomm::{Commitment, FileStore, Function, LurkPtr, Proof};
@@ -227,7 +226,6 @@ fn test_function_aux(
             chained,
         );
 
-        //let proof = Proof::<Bls12>::read_from_path(&proof_path).unwrap();
         let proof = Proof::<S1>::read_from_path(&proof_path).unwrap();
         let opening = proof.claim.opening().expect("expected opening claim");
         dbg!(&opening);
