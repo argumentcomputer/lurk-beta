@@ -1202,7 +1202,11 @@ fn apply_continuation<F: LurkField>(
                             .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
                         {
                             Continuation::Unop { continuation, .. } => {
-                                return Ok(Control::Return(*result, *env, continuation))
+                                return Ok(Control::Return(
+                                    *result,
+                                    empty_sym_env(store),
+                                    continuation,
+                                ))
                             }
                             _ => unreachable!(),
                         }
@@ -3401,6 +3405,19 @@ mod test {
 
         test_aux(s, expr, Some(res), None, Some(terminal), None, 17);
         test_aux(s, expr2, Some(res2), None, Some(terminal), None, 9);
+    }
+
+    #[test]
+    fn test_eval_env_regression() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(let ((a 1)) (eval 'a))";
+        let expr2 = "(let ((a 1)) (eval 'a (current-env)))";
+        let res = s.num(1);
+        let error = s.get_cont_error();
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, None, None, Some(error), None, 5);
+        test_aux(s, expr2, Some(res), None, Some(terminal), None, 6);
     }
 
     #[test]
