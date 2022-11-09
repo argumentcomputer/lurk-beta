@@ -68,7 +68,7 @@ members = [
 
 [[bin]]
 name = "lurkrs"
-path = "examples/repl.rs"
+path = "src/main.rs"
 
 [patch.crates-io]
 bellperson = { git = "https://github.com/lurk-lang/bellperson", branch = "sb/serde" }

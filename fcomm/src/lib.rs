@@ -655,7 +655,7 @@ impl Opening<S1> {
             let new_secret0 = s.secret(new_comm).expect("secret missing");
             let new_secret = *s.get_expr_hash(&new_secret0).expect("hash missing").value();
 
-            let new_fun = s.open(new_comm).expect("opening missing");
+            let (_, new_fun) = s.open(new_comm).expect("opening missing");
             let new_commitment = Commitment::from_comm(s, &new_comm);
 
             s.hydrate_scalar_cache();
@@ -843,10 +843,11 @@ impl<'a> Proof<'a, S1> {
         let input_io = {
             let expr = s
                 .read(&evaluation.expr)
-                .ok_or_else(|| Error::VerificationError("failed to read expr".into()))?;
+                .map_err(|_| Error::VerificationError("failed to read expr".into()))?;
+
             let env = s
                 .read(&evaluation.env)
-                .ok_or_else(|| Error::VerificationError("failed to read env".into()))?;
+                .map_err(|_| Error::VerificationError("failed to read env".into()))?;
 
             // FIXME: We ignore cont and assume Outermost, since we can't read a Cont.
             let cont = s.intern_cont_outermost();
@@ -859,8 +860,11 @@ impl<'a> Proof<'a, S1> {
         let output_io = {
             let expr = s
                 .read(&evaluation.expr_out)
-                .ok_or_else(|| Error::VerificationError("failed to read expr_out".into()))?;
-            let env = s.read(&evaluation.env_out).expect("failed to read env_out");
+                .map_err(|_| Error::VerificationError("failed to read expr out".into()))?;
+
+            let env = s
+                .read(&evaluation.env_out)
+                .map_err(|_| Error::VerificationError("failed to read env out".into()))?;
             let cont = evaluation
                 .status
                 .to_cont(&mut s)

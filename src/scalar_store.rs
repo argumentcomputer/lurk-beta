@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crate::field::LurkField;
 
 use crate::store::{Op1, Op2, Pointer, Ptr, ScalarContPtr, ScalarPtr, Store, Tag};
-use crate::Num;
+use crate::{Num, UInt};
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -90,6 +90,7 @@ impl<'a, F: LurkField> ScalarStore<F> {
             ScalarExpression::Str(_) => None,
             ScalarExpression::Thunk(_) => None,
             ScalarExpression::Char(_) => None,
+            ScalarExpression::UInt(_) => None,
         }
     }
 
@@ -191,6 +192,7 @@ impl<'a, F: LurkField> ScalarExpression<F> {
                 .fetch_str(ptr)
                 .map(|str| ScalarExpression::Str(str.to_string())),
             Tag::Char => store.fetch_char(ptr).map(ScalarExpression::Char),
+            Tag::U64 => store.fetch_uint(ptr).map(ScalarExpression::UInt),
             Tag::Thunk => unimplemented!(),
         }
     }
@@ -211,6 +213,7 @@ pub enum ScalarExpression<F: LurkField> {
     Str(String),
     Thunk(ScalarThunk<F>),
     Char(char),
+    UInt(UInt),
 }
 
 impl<'a, F: LurkField> Default for ScalarExpression<F> {

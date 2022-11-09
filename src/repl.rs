@@ -1,3 +1,4 @@
+use crate::error::ParserError;
 use crate::eval::{empty_sym_env, Evaluator, IO};
 use crate::field::LurkField;
 use crate::store::{ContPtr, ContTag, Expression, Pointer, Ptr, Store, Tag};
@@ -108,29 +109,39 @@ pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
                     }
                 };
 
-                if let Some(expr) = s.read(&line) {
-                    let (
-                        IO {
-                            expr: result,
-                            env: _env,
-                            cont: next_cont,
-                        },
-                        iterations,
-                        _emitted,
-                    ) = Evaluator::new(expr, repl.state.env, &mut s, limit)
-                        .eval()
-                        .unwrap();
+                match s.read(&line) {
+                    Ok(expr) => match Evaluator::new(expr, repl.state.env, &mut s, limit).eval() {
+                        Ok((
+                            IO {
+                                expr: result,
+                                env: _env,
+                                cont: next_cont,
+                            },
+                            iterations,
+                            _emitted,
+                        )) => {
+                            print!("[{} iterations] => ", iterations);
 
-                    print!("[{} iterations] => ", iterations);
-
-                    match next_cont.tag() {
-                        ContTag::Outermost | ContTag::Terminal => {
-                            let mut handle = stdout.lock();
-                            result.fmt(&s, &mut handle)?;
-                            println!();
+                            match next_cont.tag() {
+                                ContTag::Outermost | ContTag::Terminal => {
+                                    let mut handle = stdout.lock();
+                                    result.fmt(&s, &mut handle)?;
+                                    println!();
+                                }
+                                ContTag::Error => println!("ERROR!"),
+                                _ => println!("Computation incomplete after limit: {}", limit),
+                            }
                         }
-                        ContTag::Error => println!("ERROR!"),
-                        _ => println!("Computation incomplete after limit: {}", limit),
+                        Err(e) => {
+                            println!("Evaluation error: {:?}", e);
+                            continue;
+                        }
+                    },
+                    Err(ParserError::NoInput) => {
+                        continue;
+                    }
+                    Err(e) => {
+                        println!("Read error: {:?}", e)
                     }
                 }
             }
@@ -187,11 +198,11 @@ impl<F: LurkField> ReplState<F> {
         let maybe_command = store.read_next(&mut chars);
 
         let result = match &maybe_command {
-            Some(maybe_command) => match maybe_command.tag() {
+            Ok(maybe_command) => match maybe_command.tag() {
                 Tag::Sym => match store.fetch(maybe_command).unwrap().as_sym_str().unwrap() {
                     ":QUIT" => (true, false),
                     ":LOAD" => match store.read_string(&mut chars) {
-                        Some(s) => match s.tag() {
+                        Ok(s) => match s.tag() {
                             Tag::Str => {
                                 let path = store.fetch(&s).unwrap();
                                 let path = PathBuf::from(path.as_str().unwrap());
@@ -202,12 +213,12 @@ impl<F: LurkField> ReplState<F> {
                                 anyhow::bail!("No valid path found: {:?}", other);
                             }
                         },
-                        None => {
+                        Err(_) => {
                             anyhow::bail!("No path found");
                         }
                     },
                     ":RUN" => {
-                        if let Some(s) = store.read_string(&mut chars) {
+                        if let Ok(s) = store.read_string(&mut chars) {
                             if s.tag() == Tag::Str {
                                 let path = store.fetch(&s).unwrap();
                                 let path = PathBuf::from(path.as_str().unwrap());
@@ -242,7 +253,7 @@ impl<F: LurkField> ReplState<F> {
         let input = read_to_string(path)?;
         let mut chars = input.chars().peekmore();
 
-        while let Some(expr) = store.read_next(&mut chars) {
+        while let Ok(expr) = store.read_next(&mut chars) {
             let (result, _limit, _next_cont, _) = self.eval_expr(expr, store);
 
             self.env = result;
@@ -266,7 +277,7 @@ impl<F: LurkField> ReplState<F> {
         println!("Read from {}: {}", path.as_ref().to_str().unwrap(), input);
         let mut chars = input.chars().peekmore();
 
-        while let Some((ptr, is_meta)) = store.read_maybe_meta(&mut chars) {
+        while let Ok((ptr, is_meta)) = store.read_maybe_meta(&mut chars) {
             let expr = store.fetch(&ptr).unwrap();
             if is_meta {
                 match expr {

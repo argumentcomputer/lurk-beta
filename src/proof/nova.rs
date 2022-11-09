@@ -2124,6 +2124,22 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_open_wrong_type() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open 'asdf)";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_secret_wrong_type() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret 'asdf)";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
     fn outer_prove_secret_error() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret 123 456)";

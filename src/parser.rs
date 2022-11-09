@@ -1,20 +1,24 @@
 use peekmore::{PeekMore, PeekMoreIterator};
 
+use crate::error::ParserError;
 use crate::field::LurkField;
-
 use crate::store::{Ptr, Store};
+use crate::uint::UInt;
 
 impl<F: LurkField> Store<F> {
-    pub fn read(&mut self, input: &str) -> Option<Ptr<F>> {
+    pub fn read(&mut self, input: &str) -> Result<Ptr<F>, ParserError> {
         let mut chars = input.chars().peekmore();
-
-        self.read_next(&mut chars)
+        if skip_whitespace_and_peek(&mut chars).is_some() {
+            self.read_next(&mut chars)
+        } else {
+            Err(ParserError::NoInput)
+        }
     }
 
     pub fn read_string<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
-    ) -> Option<Ptr<F>> {
+    ) -> Result<Ptr<F>, ParserError> {
         let mut result = String::new();
 
         if let Some('"') = skip_whitespace_and_peek(chars) {
@@ -28,21 +32,21 @@ impl<F: LurkField> Store<F> {
                     }
                 } else if c == '"' {
                     let str = self.intern_str(result);
-                    return Some(str);
+                    return Ok(str);
                 } else {
                     result.push(c);
                 }
             }
-            None
+            Err(ParserError::Syntax("Could not read string".into()))
         } else {
-            None
+            Err(ParserError::Syntax("Could not read string".into()))
         }
     }
 
     pub fn read_quoted_symbol<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
-    ) -> Option<Ptr<F>> {
+    ) -> Result<Ptr<F>, ParserError> {
         let mut result = String::new();
 
         if let Some('|') = skip_whitespace_and_peek(chars) {
@@ -56,47 +60,47 @@ impl<F: LurkField> Store<F> {
                     }
                 } else if c == '|' {
                     let sym = self.intern_sym(result);
-                    return Some(sym);
+                    return Ok(sym);
                 } else {
                     result.push(c);
                 }
             }
-            None
+            Err(ParserError::Syntax("Could not read quoted symbol".into()))
         } else {
-            None
+            Err(ParserError::Syntax("Could not read quoted symbol".into()))
         }
     }
 
     pub fn read_maybe_meta<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
-    ) -> Option<(Ptr<F>, bool)> {
+    ) -> Result<(Ptr<F>, bool), ParserError> {
         if let Some(c) = skip_whitespace_and_peek(chars) {
             match c {
                 '!' => {
                     chars.next();
-                    if let Some(s) = self.read_string(chars) {
-                        Some((s, true))
-                    } else if let Some((e, is_meta)) = self.read_maybe_meta(chars) {
+                    if let Ok(s) = self.read_string(chars) {
+                        Ok((s, true))
+                    } else if let Ok((e, is_meta)) = self.read_maybe_meta(chars) {
                         assert!(!is_meta);
-                        Some((e, true))
+                        Ok((e, true))
                     } else {
-                        None
+                        Err(ParserError::Syntax("Could not read meta".into()))
                     }
                 }
                 _ => self.read_next(chars).map(|expr| (expr, false)),
             }
         } else {
-            None
+            Err(ParserError::Syntax("Could not read meta".into()))
         }
     }
 
     pub fn read_next<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
-    ) -> Option<Ptr<F>> {
+    ) -> Result<Ptr<F>, ParserError> {
         while let Some(&c) = chars.peek() {
-            if let Some(next_expr) = match c {
+            return match c {
                 '(' => self.read_list(chars),
                 '0'..='9' => self.read_number(chars, true),
                 ' ' | '\t' | '\n' | '\r' => {
@@ -109,7 +113,7 @@ impl<F: LurkField> Store<F> {
                     let quote = self.sym("quote");
                     let quoted = self.read_next(chars)?;
                     let inner = self.intern_list(&[quoted]);
-                    Some(self.cons(quote, inner))
+                    Ok(self.cons(quote, inner))
                 }
                 '\"' => self.read_string(chars),
                 '|' => self.read_quoted_symbol(chars),
@@ -119,36 +123,32 @@ impl<F: LurkField> Store<F> {
                     if skip_line_comment(chars) {
                         continue;
                     } else {
-                        None
+                        Err(ParserError::Syntax("Bad comment syntax".into()))
                     }
                 }
                 '-' => self.read_negative_number_or_symbol(chars),
                 x if is_symbol_char(&x, true) => self.read_symbol(chars),
-                _ => {
-                    panic!("bad input character: {}", c);
-                }
-            } {
-                return Some(next_expr);
-            }
+                _ => Err(ParserError::Syntax(format!("bad input character: {}", c))),
+            };
         }
-        None
+        Err(ParserError::Syntax("Could not read input".into()))
     }
 
     // In this context, 'list' includes improper lists, i.e. dotted cons-pairs like (1 . 2).
     fn read_list<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
-    ) -> Option<Ptr<F>> {
+    ) -> Result<Ptr<F>, ParserError> {
         if let Some(&c) = chars.peek() {
             match c {
                 '(' => {
                     chars.next(); // Discard.
                     self.read_tail(chars)
                 }
-                _ => None,
+                _ => Err(ParserError::Syntax("Could not read list".into())),
             }
         } else {
-            None
+            Err(ParserError::Syntax("Could not read list".into()))
         }
     }
 
@@ -156,29 +156,29 @@ impl<F: LurkField> Store<F> {
     fn read_tail<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
-    ) -> Option<Ptr<F>> {
+    ) -> Result<Ptr<F>, ParserError> {
         if let Some(c) = skip_whitespace_and_peek(chars) {
             match c {
                 ')' => {
                     chars.next();
-                    Some(self.nil())
+                    Ok(self.nil())
                 }
                 '.' => {
                     chars.next();
-                    let cdr = self.read_next(chars).unwrap();
-                    let remaining_tail = self.read_tail(chars).unwrap();
+                    let cdr = self.read_next(chars)?;
+                    let remaining_tail = self.read_tail(chars)?;
                     assert!(remaining_tail.is_nil());
 
-                    Some(cdr)
+                    Ok(cdr)
                 }
                 _ => {
-                    let car = self.read_next(chars).unwrap();
-                    let rest = self.read_tail(chars).unwrap();
-                    Some(self.cons(car, rest))
+                    let car = self.read_next(chars)?;
+                    let rest = self.read_tail(chars)?;
+                    Ok(self.cons(car, rest))
                 }
             }
         } else {
-            panic!("premature end of input");
+            Err(ParserError::Syntax("premature end of input".into()))
         }
     }
 
@@ -186,7 +186,7 @@ impl<F: LurkField> Store<F> {
     fn read_negative_number_or_symbol<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
-    ) -> Option<Ptr<F>> {
+    ) -> Result<Ptr<F>, ParserError> {
         if let Some(&c) = chars.peek() {
             chars.next();
             match c {
@@ -195,25 +195,28 @@ impl<F: LurkField> Store<F> {
                         match c {
                             '0'..='9' => {
                                 let n = self.read_number(chars, true)?;
-                                let num: &crate::num::Num<F> = self.fetch_num(&n)?;
+                                let num: &crate::num::Num<F> =
+                                    self.fetch_num(&n).ok_or_else(|| {
+                                        ParserError::Syntax("Could not fetch number".into())
+                                    })?;
                                 let mut tmp = crate::num::Num::<F>::U64(0);
                                 tmp -= *num;
-                                Some(self.intern_num(tmp))
+                                Ok(self.intern_num(tmp))
                             }
                             _ => {
                                 let name = Self::read_unquoted_symbol_name(chars);
 
-                                Some(self.intern_sym(format!("-{}", name)))
+                                Ok(self.intern_sym(format!("-{}", name)))
                             }
                         }
                     } else {
-                        Some(self.intern_sym("-"))
+                        Ok(self.intern_sym("-"))
                     }
                 }
-                _ => None,
+                _ => Err(ParserError::Syntax("Could not read nagative number".into())),
             }
         } else {
-            None
+            Err(ParserError::Syntax("Could not read negative number".into()))
         }
     }
 
@@ -221,7 +224,7 @@ impl<F: LurkField> Store<F> {
         &mut self,
         chars: &mut PeekMoreIterator<T>,
         maybe_fraction: bool,
-    ) -> Option<Ptr<F>> {
+    ) -> Result<Ptr<F>, ParserError> {
         // As written, read_number assumes the next char is known to be a digit.
         // So it will never return None.
         let mut acc: u64 = 0;
@@ -239,7 +242,7 @@ impl<F: LurkField> Store<F> {
                     }
                 }
                 '1'..='9' => (),
-                _ => return None,
+                _ => return Err(ParserError::Syntax("Could not read number".into())),
             }
         };
         while let Some(&c) = chars.peek() {
@@ -260,11 +263,13 @@ impl<F: LurkField> Store<F> {
                     if matches!(c2, '0'..='9') {
                         let mut tmp = crate::num::Num::U64(acc);
                         chars.next();
-                        if let Some(denominator) = self.read_number(chars, false) {
-                            let d = self.fetch_num(&denominator)?;
+                        if let Ok(denominator) = self.read_number(chars, false) {
+                            let d = self.fetch_num(&denominator).ok_or_else(|| {
+                                ParserError::Syntax("Could not fetch number".into())
+                            })?;
                             tmp /= *d;
                         };
-                        return Some(self.intern_num(tmp));
+                        return Ok(self.intern_num(tmp));
                     } else {
                         break;
                     }
@@ -275,7 +280,10 @@ impl<F: LurkField> Store<F> {
                 break;
             }
         }
-        Some(self.intern_num(acc))
+        match self.read_number_suffix(chars) {
+            Some(UInt::U64(_)) => Ok(self.get_u64(acc)),
+            None => Ok(self.intern_num(acc)),
+        }
     }
 
     fn read_number_aux<T: Iterator<Item = char>>(
@@ -283,7 +291,7 @@ impl<F: LurkField> Store<F> {
         mut acc: F,
         chars: &mut PeekMoreIterator<T>,
         maybe_fraction: bool,
-    ) -> Option<Ptr<F>> {
+    ) -> Result<Ptr<F>, ParserError> {
         let zero = F::from(0);
         let ten = F::from(10);
 
@@ -303,11 +311,13 @@ impl<F: LurkField> Store<F> {
                     if matches!(c2, '0'..='9') {
                         let mut tmp = crate::num::Num::Scalar(acc);
                         chars.next();
-                        if let Some(denominator) = self.read_number(chars, false) {
-                            let d = self.fetch_num(&denominator)?;
+                        if let Ok(denominator) = self.read_number(chars, false) {
+                            let d = self.fetch_num(&denominator).ok_or_else(|| {
+                                ParserError::Syntax("Could not fetch number".into())
+                            })?;
                             tmp /= *d;
                         };
-                        return Some(self.intern_num(tmp));
+                        return Ok(self.intern_num(tmp));
                     } else {
                         break;
                     }
@@ -318,14 +328,20 @@ impl<F: LurkField> Store<F> {
                 break;
             }
         }
-        Some(self.intern_num(crate::num::Num::Scalar(acc)))
+        match self.read_number_suffix(chars) {
+            Some(UInt::U64(_)) => Ok(self.get_u64(
+                acc.to_u64()
+                    .ok_or_else(|| ParserError::Syntax("Number too large for u64.".into()))?,
+            )),
+            None => Ok(self.intern_num(crate::num::Num::Scalar(acc))),
+        }
     }
 
     fn read_hex_num<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
         maybe_fraction: bool,
-    ) -> Option<Ptr<F>> {
+    ) -> Result<Ptr<F>, ParserError> {
         // NOTE: `read_hex_num` always interns `Num::Scalar`s,
         // unlike `read_number`, which may return a `Num::U64`.
         let zero = F::from(0);
@@ -348,11 +364,13 @@ impl<F: LurkField> Store<F> {
                     if is_hex_digit_char(c2) {
                         let mut tmp = crate::num::Num::Scalar(acc);
                         chars.next();
-                        if let Some(denominator) = self.read_number(chars, false) {
-                            let d = self.fetch_num(&denominator)?;
+                        if let Ok(denominator) = self.read_number(chars, false) {
+                            let d = self.fetch_num(&denominator).ok_or_else(|| {
+                                ParserError::Syntax("Could not fetch number".into())
+                            })?;
                             tmp /= *d;
                         };
-                        return Some(self.intern_num(tmp));
+                        return Ok(self.intern_num(tmp));
                     } else {
                         break;
                     }
@@ -364,15 +382,57 @@ impl<F: LurkField> Store<F> {
             }
         }
 
-        Some(self.intern_num(crate::num::Num::Scalar(acc)))
+        match self.read_number_suffix(chars) {
+            Some(UInt::U64(_)) => Ok(self.get_u64(
+                acc.to_u64()
+                    .ok_or_else(|| ParserError::Syntax("Number too large for u64.".into()))?,
+            )),
+            None => Ok(self.intern_num(crate::num::Num::Scalar(acc))),
+        }
+    }
+
+    /// If a number suffix can be read, return a UInt, specifying that suffix. Otherwise return None.
+    /// Initially, only `u64` and `U64` are valid suffixes.
+    fn read_number_suffix<T: Iterator<Item = char>>(
+        &mut self,
+        chars: &mut PeekMoreIterator<T>,
+    ) -> Option<UInt> {
+        if let Some(c) = chars.peek() {
+            if matches!(c, 'U' | 'u') {
+                if let Some(c2) = chars.peek_nth(1) {
+                    if *c2 == '6' {
+                        if let Some(c3) = chars.peek_nth(2) {
+                            if *c3 == '4' {
+                                chars.next();
+                                chars.next();
+                                chars.next();
+                                Some(UInt::U64(0))
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 
     pub(crate) fn read_symbol<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
-    ) -> Option<Ptr<F>> {
+    ) -> Result<Ptr<F>, ParserError> {
         let name = Self::read_unquoted_symbol_name(chars);
-        Some(self.intern_sym(name))
+        Ok(self.intern_sym(name))
     }
 
     pub(crate) fn read_unquoted_symbol_name<T: Iterator<Item = char>>(
@@ -396,7 +456,7 @@ impl<F: LurkField> Store<F> {
     pub(crate) fn read_pound<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
-    ) -> Option<Ptr<F>> {
+    ) -> Result<Ptr<F>, ParserError> {
         chars.next().unwrap();
         if let Some(&c) = chars.peek() {
             match c {
@@ -404,15 +464,15 @@ impl<F: LurkField> Store<F> {
                     chars.next();
                     if let Some(&c) = chars.peek() {
                         chars.next();
-                        Some(c.into())
+                        Ok(c.into())
                     } else {
-                        None
+                        Err(ParserError::Syntax("Could not read character".into()))
                     }
                 }
-                _ => None,
+                _ => Err(ParserError::Syntax("Could not read character".into())),
             }
         } else {
-            None
+            Err(ParserError::Syntax("Could not read character".into()))
         }
     }
 }
@@ -420,7 +480,7 @@ impl<F: LurkField> Store<F> {
 fn is_symbol_char(c: &char, initial: bool) -> bool {
     match c {
         // FIXME: suppport more than just alpha.
-        'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' | '=' | '<' | '>' | ':' | '_' => true,
+        'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' | '%' | '=' | '<' | '>' | ':' | '_' => true,
         _ => {
             if initial {
                 false
@@ -630,6 +690,36 @@ asdf(", "ASDF",
     }
 
     #[test]
+    fn read_u64() {
+        let test = |input, expected: u64| {
+            let mut store = Store::<Fr>::default();
+            let expr = store.read(input).unwrap();
+            let expected = store.get_u64(expected);
+            assert!(store.ptr_eq(&expected, &expr));
+        };
+
+        test("123u64", 123);
+        test("0xffu64", 255);
+        test("123U64", 123);
+        test("0XFFU64", 255);
+
+        // This is the largest U64.
+        test("0xffffffffffffffffu64", 18446744073709551615);
+    }
+
+    #[test]
+    fn read_u64_overflows() {
+        let test = |input| {
+            let mut store = Store::<Fr>::default();
+            let expr = store.read(input);
+            assert!(expr.is_err());
+        };
+
+        test("0xffffffffffffffffffu64");
+        test("999999999999999999999999999999999999u64");
+    }
+
+    #[test]
     fn read_list() {
         let mut s = Store::<Fr>::default();
         let test = |store: &mut Store<Fr>, input, expected| {
@@ -680,7 +770,10 @@ asdf(", "ASDF",
         let expected = s.cons(a, b);
         test(&mut s, "(123 . 321)", &expected);
 
-        assert_eq!(s.read("(123 321)"), s.read("(123 . ( 321 ))"))
+        assert_eq!(
+            s.read("(123 321)").unwrap(),
+            s.read("(123 . ( 321 ))").unwrap()
+        )
     }
     #[test]
     fn read_print_expr() {
@@ -768,7 +861,7 @@ asdf(", "ASDF",
 
         let test =
             |store: &mut Store<Fr>, input: &str, expected: Option<Ptr<Fr>>, expr: Option<&str>| {
-                let maybe_string = store.read_string(&mut input.chars().peekmore());
+                let maybe_string = store.read_string(&mut input.chars().peekmore()).ok();
                 assert_eq!(expected, maybe_string);
                 if let Some(ptr) = maybe_string {
                     let res = store
@@ -828,7 +921,7 @@ asdf(", "ASDF",
         let mut s = Store::<Fr>::default();
 
         let test = |store: &mut Store<Fr>, input: &str, expected: Option<Ptr<Fr>>| {
-            let res = store.read(input);
+            let res = store.read(input).ok();
             assert_eq!(expected, res);
         };
 

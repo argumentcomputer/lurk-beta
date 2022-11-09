@@ -431,7 +431,7 @@ fn reduce_with_witness<F: LurkField>(
                 _ => unreachable!(),
             },
             // Self-evaluating
-            Tag::Nil | Tag::Num | Tag::Fun | Tag::Char | Tag::Str | Tag::Comm => {
+            Tag::Nil | Tag::Num | Tag::Fun | Tag::Char | Tag::Str | Tag::Comm | Tag::U64 => {
                 Control::ApplyContinuation(expr, env, cont)
             }
             Tag::Sym => {
@@ -754,6 +754,16 @@ fn reduce_with_witness<F: LurkField>(
                     } else {
                         Control::Return(arg1, env, store.intern_cont_unop(Op1::Num, cont))
                     }
+                } else if head == store.sym("u64") {
+                    let (arg1, end) = match store.car_cdr_mut(&rest) {
+                        Ok((car, cdr)) => (car, cdr),
+                        Err(e) => return Err(LurkError::Reduce(e.into())),
+                    };
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::U64, cont))
+                    }
                 } else if head == store.sym("comm") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
                         Ok((car, cdr)) => (car, cdr),
@@ -773,6 +783,20 @@ fn reduce_with_witness<F: LurkField>(
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {
                         Control::Return(arg1, env, store.intern_cont_unop(Op1::Char, cont))
+                    }
+                } else if head == store.sym("eval") {
+                    let (arg1, more) = match store.car_cdr_mut(&rest) {
+                        Ok((car, cdr)) => (car, cdr),
+                        Err(e) => return Err(LurkError::Reduce(e.into())),
+                    };
+                    if more.is_nil() {
+                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Eval, cont))
+                    } else {
+                        Control::Return(
+                            arg1,
+                            env,
+                            store.intern_cont_binop(Op2::Eval, env, more, cont),
+                        )
                     }
                 } else if head == store.sym("open") {
                     let (arg1, end) = match store.car_cdr_mut(&rest) {
@@ -835,6 +859,13 @@ fn reduce_with_witness<F: LurkField>(
                         arg1,
                         env,
                         store.intern_cont_binop(Op2::Quotient, env, more, cont),
+                    )
+                } else if head == store.sym("%") {
+                    let (arg1, more) = store.car_cdr(&rest);
+                    Control::Return(
+                        arg1,
+                        env,
+                        store.intern_cont_binop(Op2::Modulo, env, more, cont),
                     )
                 } else if head == store.sym("=") {
                     let (arg1, more) = store.car_cdr(&rest);
@@ -1111,16 +1142,33 @@ fn apply_continuation<F: LurkField>(
                             store.intern_cont_emit(continuation),
                         ));
                     }
-                    Op1::Open => store.open_mut(*result)?,
-                    Op1::Secret => store.secret_mut(*result)?,
+                    Op1::Open => match result.tag() {
+                        Tag::Num | Tag::Comm => store.open_mut(*result)?.1,
+                        _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
+                    },
+                    Op1::Secret => match result.tag() {
+                        Tag::Num | Tag::Comm => store.secret_mut(*result)?,
+                        _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
+                    },
                     Op1::Commit => store.hide(F::zero(), *result),
                     Op1::Num => match result.tag() {
-                        Tag::Num | Tag::Comm | Tag::Char => {
+                        Tag::Num | Tag::Comm | Tag::Char | Tag::U64 => {
                             let scalar_ptr = store
                                 .get_expr_hash(result)
                                 .ok_or_else(|| LurkError::Store("expr hash missing".into()))?;
                             store.intern_num(crate::Num::Scalar::<F>(*scalar_ptr.value()))
                         }
+                        _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
+                    },
+                    Op1::U64 => match result.tag() {
+                        Tag::Num => {
+                            let scalar_ptr = store
+                                .get_expr_hash(result)
+                                .ok_or_else(|| LurkError::Store("expr hash missing".into()))?;
+
+                            store.get_u64(scalar_ptr.value().to_u64_unchecked())
+                        }
+                        Tag::U64 => *result,
                         _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
                     },
                     Op1::Comm => match result.tag() {
@@ -1148,6 +1196,21 @@ fn apply_continuation<F: LurkField>(
                         }
                         _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
                     },
+                    Op1::Eval => {
+                        match store
+                            .fetch_cont(cont)
+                            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+                        {
+                            Continuation::Unop { continuation, .. } => {
+                                return Ok(Control::Return(
+                                    *result,
+                                    empty_sym_env(store),
+                                    continuation,
+                                ))
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
                 };
                 Control::MakeThunk(val, *env, continuation)
             }
@@ -1194,6 +1257,51 @@ fn apply_continuation<F: LurkField>(
                 continuation,
             } => {
                 let arg2 = result;
+
+                let num_num = |store: &mut Store<F>,
+                               operator,
+                               a: Num<F>,
+                               b: Num<F>|
+                 -> Result<Ptr<F>, Control<F>> {
+                    match operator {
+                        Op2::Sum => {
+                            let mut tmp = a;
+                            tmp += b;
+                            Ok(store.intern_num(tmp))
+                        }
+                        Op2::Diff => {
+                            let mut tmp = a;
+                            tmp -= b;
+                            Ok(store.intern_num(tmp))
+                        }
+                        Op2::Product => {
+                            let mut tmp = a;
+                            tmp *= b;
+                            Ok(store.intern_num(tmp))
+                        }
+                        Op2::Quotient => {
+                            let mut tmp = a;
+                            let b_is_zero: bool = b.is_zero();
+                            if b_is_zero {
+                                Err(Control::Return(*result, *env, store.intern_cont_error()))
+                            } else {
+                                tmp /= b;
+                                Ok(store.intern_num(tmp))
+                            }
+                        }
+                        Op2::Modulo => {
+                            // Modulo requires both args be UInt.
+                            Err(Control::Return(*result, *env, store.intern_cont_error()))
+                        }
+                        Op2::Equal | Op2::NumEqual => Ok(store.as_lurk_boolean(a == b)),
+                        Op2::Less => Ok(store.as_lurk_boolean(a < b)),
+                        Op2::Greater => Ok(store.as_lurk_boolean(a > b)),
+                        Op2::LessEqual => Ok(store.as_lurk_boolean(a <= b)),
+                        Op2::GreaterEqual => Ok(store.as_lurk_boolean(a >= b)),
+                        _ => unreachable!(),
+                    }
+                };
+
                 let result = match (
                     store
                         .fetch(&evaled_arg)
@@ -1202,67 +1310,63 @@ fn apply_continuation<F: LurkField>(
                         .fetch(arg2)
                         .ok_or_else(|| LurkError::Store("Fetch failed".into()))?,
                 ) {
-                    (Expression::Num(a), Expression::Num(b)) => match operator {
-                        Op2::Sum => {
-                            let mut tmp = a;
-                            tmp += b;
-                            store.intern_num(tmp)
+                    (Expression::Num(a), Expression::Num(b)) if operator.is_numeric() => {
+                        match num_num(store, operator, a, b) {
+                            Ok(x) => x,
+                            Err(control) => return Ok(control),
                         }
-                        Op2::Diff => {
-                            let mut tmp = a;
-                            tmp -= b;
-                            store.intern_num(tmp)
-                        }
-                        Op2::Product => {
-                            let mut tmp = a;
-                            tmp *= b;
-                            store.intern_num(tmp)
-                        }
-                        Op2::Quotient => {
-                            let mut tmp = a;
-                            let b_is_zero: bool = b.is_zero();
-                            if b_is_zero {
-                                return Ok(Control::Return(
-                                    *result,
-                                    *env,
-                                    store.intern_cont_error(),
-                                ));
+                    }
+                    (Expression::Num(a), _) if operator == Op2::Hide => {
+                        store.hide(a.into_scalar(), *arg2)
+                    }
+                    (Expression::UInt(a), Expression::UInt(b)) if operator.is_numeric() => {
+                        match operator {
+                            Op2::Sum => store.get_u64((a + b).into()),
+                            Op2::Diff => store.get_u64((a - b).into()),
+                            Op2::Product => store.get_u64((a * b).into()),
+                            Op2::Quotient => {
+                                if b.is_zero() {
+                                    return Ok(Control::Return(
+                                        *result,
+                                        *env,
+                                        store.intern_cont_error(),
+                                    ));
+                                } else {
+                                    store.get_u64((a / b).into())
+                                }
                             }
-                            tmp /= b;
-                            store.intern_num(tmp)
+                            Op2::Modulo => store.get_u64((a % b).into()),
+                            Op2::Equal | Op2::NumEqual => store.as_lurk_boolean(a == b),
+                            Op2::Less => store.as_lurk_boolean(a < b),
+                            Op2::Greater => store.as_lurk_boolean(a > b),
+                            Op2::LessEqual => store.as_lurk_boolean(a <= b),
+                            Op2::GreaterEqual => store.as_lurk_boolean(a >= b),
+                            _ => unreachable!(),
                         }
-                        Op2::Equal | Op2::NumEqual => {
-                            store.as_lurk_boolean(store.ptr_eq(&evaled_arg, arg2))
+                    }
+                    (Expression::Num(a), Expression::UInt(b)) if operator.is_numeric() => {
+                        match num_num(store, operator, a, b.into()) {
+                            Ok(x) => x,
+                            Err(control) => return Ok(control),
                         }
-                        Op2::Less => store.less_than(a, b),
-                        Op2::Greater => store.less_than(b, a),
-                        Op2::LessEqual => store.less_equal(a, b),
-                        Op2::GreaterEqual => store.less_equal(b, a),
-                        Op2::Cons => store.cons(evaled_arg, *arg2),
-                        Op2::StrCons => {
-                            return Ok(Control::Return(*result, *env, store.intern_cont_error()))
+                    }
+                    (Expression::UInt(a), Expression::Num(b)) if operator.is_numeric() => {
+                        match num_num(store, operator, a.into(), b) {
+                            Ok(x) => x,
+                            Err(control) => return Ok(control),
                         }
-                        Op2::Hide => store.hide(a.into_scalar(), *arg2),
-                        Op2::Begin => unreachable!(),
-                    },
-                    (Expression::Num(a), _) => match operator {
-                        Op2::Equal => store.nil(),
-                        Op2::Cons => store.cons(evaled_arg, *arg2),
-                        Op2::Hide => store.hide(a.into_scalar(), *arg2),
-                        _ => {
-                            return Ok(Control::Return(*result, *env, store.intern_cont_error()));
-                        }
-                    },
-                    (Expression::Char(_), Expression::Str(_)) => match operator {
-                        Op2::StrCons => store.strcons(evaled_arg, *arg2),
-                        Op2::Cons => store.cons(evaled_arg, *arg2),
-                        _ => {
-                            return Ok(Control::Return(*result, *env, store.intern_cont_error()));
-                        }
-                    },
+                    }
+                    (Expression::Char(_), Expression::Str(_))
+                        if matches!(operator, Op2::StrCons) =>
+                    {
+                        store.strcons(evaled_arg, *arg2)
+                    }
                     _ => match operator {
                         Op2::Equal => store.as_lurk_boolean(store.ptr_eq(&evaled_arg, arg2)),
                         Op2::Cons => store.cons(evaled_arg, *arg2),
+                        Op2::Eval => {
+                            return Ok(Control::Return(evaled_arg, *arg2, continuation));
+                        }
                         _ => {
                             return Ok(Control::Return(*result, *env, store.intern_cont_error()));
                         }
@@ -1571,13 +1675,6 @@ impl<F: LurkField> Store<F> {
         } else {
             self.nil()
         }
-    }
-    fn less_than(&mut self, a: Num<F>, b: Num<F>) -> Ptr<F> {
-        self.as_lurk_boolean(a.is_less_than(b))
-    }
-
-    fn less_equal(&mut self, a: Num<F>, b: Num<F>) -> Ptr<F> {
-        self.as_lurk_boolean(a.is_less_than(b) || a.is_equal(b))
     }
 }
 
@@ -2854,6 +2951,16 @@ mod test {
     }
 
     #[test]
+    fn commitment_value() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(num (commit 123))";
+        let x = s
+            .read("0x5655b8656a51cf3bb9f9c9ac7b7dd80c0e2481b039594c39f56efb1e0f81c64a")
+            .unwrap();
+        test_aux(s, expr, Some(x), None, None, None, 4);
+    }
+
+    #[test]
     fn commit_error() {
         let s = &mut Store::<Fr>::default();
         let expr = "(commit 123 456)";
@@ -3029,6 +3136,22 @@ mod test {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 123)";
         test_aux(s, expr, None, None, None, None, 2);
+    }
+
+    #[test]
+    fn open_wrong_type() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open 'asdf)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn secret_wrong_type() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret 'asdf)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 2);
     }
 
     #[test]
@@ -3269,5 +3392,259 @@ mod test {
         let terminal = s.get_cont_terminal();
 
         test_aux(s, expr, Some(res), None, Some(terminal), None, 13);
+    }
+
+    #[test]
+    fn test_eval() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(* 3 (eval (cons '+ (cons 1 (cons 2 nil)))))";
+        let expr2 = "(* 5 (eval '(+ 1 a) '((a . 3))))"; // two-arg eval, optional second arg is env.
+        let res = s.num(9);
+        let res2 = s.num(20);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 17);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 9);
+    }
+
+    #[test]
+    fn test_eval_env_regression() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(let ((a 1)) (eval 'a))";
+        let expr2 = "(let ((a 1)) (eval 'a (current-env)))";
+        let res = s.num(1);
+        let error = s.get_cont_error();
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, None, None, Some(error), None, 5);
+        test_aux(s, expr2, Some(res), None, Some(terminal), None, 6);
+    }
+
+    #[test]
+    fn test_u64_self_evaluating() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "123u64";
+        let res = s.uint64(123);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
+    }
+
+    #[test]
+    fn test_u64_mul() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(* (u64 18446744073709551615) (u64 2))";
+        let expr2 = "(* 18446744073709551615u64 2u64)";
+        let expr3 = "(* (- 0u64 1u64) 2u64)";
+        let res = s.uint64(18446744073709551614);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 7);
+        test_aux(s, expr2, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr3, Some(res), None, Some(terminal), None, 6);
+    }
+
+    #[test]
+    fn test_u64_add() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(+ 18446744073709551615u64 2u64)";
+        let expr2 = "(+ (- 0u64 1u64) 2u64)";
+        let res = s.uint64(1);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res), None, Some(terminal), None, 6);
+    }
+
+    #[test]
+    fn test_u64_sub() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(- 2u64 1u64)";
+        let expr2 = "(- 0u64 1u64)";
+        let expr3 = "(+ 1u64 (- 0u64 1u64))";
+        let res = s.uint64(1);
+        let res2 = s.uint64(18446744073709551615);
+        let res3 = s.uint64(0);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr3, Some(res3), None, Some(terminal), None, 6);
+    }
+
+    #[test]
+    fn test_u64_div() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(/ 100u64 2u64)";
+        let res = s.uint64(50);
+
+        let expr2 = "(/ 100u64 3u64)";
+        let res2 = s.uint64(33);
+
+        let expr3 = "(/ 100u64 0u64)";
+
+        let terminal = s.get_cont_terminal();
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn test_u64_mod() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 100u64 2u64)";
+        let res = s.uint64(0);
+
+        let expr2 = "(% 100u64 3u64)";
+        let res2 = s.uint64(1);
+
+        let expr3 = "(/ 100u64 0u64)";
+
+        let terminal = s.get_cont_terminal();
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn test_num_mod() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 100 3)";
+        let expr2 = "(% 100 3u64)";
+        let expr3 = "(% 100u64 3)";
+
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, None, None, Some(error), None, 3);
+        test_aux(s, expr2, None, None, Some(error), None, 3);
+        test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn test_u64_comp() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(< 0u64 1u64)";
+        let expr2 = "(< 1u64 0u64)";
+        let expr3 = "(<= 0u64 1u64)";
+        let expr4 = "(<= 1u64 0u64)";
+
+        let expr5 = "(> 0u64 1u64)";
+        let expr6 = "(> 1u64 0u64)";
+        let expr7 = "(>= 0u64 1u64)";
+        let expr8 = "(>= 1u64 0u64)";
+
+        let expr9 = "(<= 0u64 0u64)";
+        let expr10 = "(>= 0u64 0u64)";
+
+        let t = s.t();
+        let nil = s.nil();
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3);
+        test_aux(s, expr3, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr4, Some(nil), None, Some(terminal), None, 3);
+
+        test_aux(s, expr5, Some(nil), None, Some(terminal), None, 3);
+        test_aux(s, expr6, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr7, Some(nil), None, Some(terminal), None, 3);
+        test_aux(s, expr8, Some(t), None, Some(terminal), None, 3);
+
+        test_aux(s, expr9, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr10, Some(t), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn test_u64_conversion() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(+ 0 1u64)";
+        let expr2 = "(num 1u64)";
+        let expr3 = "(+ 1 1u64)";
+        let expr4 = "(u64 (+ 1 1))";
+        let res = s.intern_num(1);
+        let res2 = s.intern_num(2);
+        let res3 = s.get_u64(2);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res), None, Some(terminal), None, 2);
+        test_aux(s, expr3, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr4, Some(res3), None, Some(terminal), None, 5);
+    }
+
+    #[test]
+    fn test_numeric_type_error() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+
+        let mut test = |op| {
+            let expr = &format!("({} 0 'a)", op);
+            let expr2 = &format!("({} 0u64 'a)", op);
+
+            test_aux(s, expr, None, None, Some(error), None, 3);
+            test_aux(s, expr2, None, None, Some(error), None, 3);
+        };
+
+        test("+");
+        test("-");
+        test("*");
+        test("/");
+        test("%");
+        test(">");
+        test("<");
+        test(">=");
+        test("<=");
+        test("=");
+    }
+
+    #[test]
+    fn test_u64_num_comparison() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(= 1 1u64)";
+        let expr2 = "(= 1 2u64)";
+        let t = s.t();
+        let nil = s.nil();
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn test_u64_num_cons() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(cons 1 1u64)";
+        let expr2 = "(cons 1u64 1)";
+        let res = s.read("(1 . 1u64)").unwrap();
+        let res2 = s.read("(1u64 . 1)").unwrap();
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn test_hide_u64_secret() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(hide 0u64 123)";
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, None, None, Some(error), None, 3);
     }
 }

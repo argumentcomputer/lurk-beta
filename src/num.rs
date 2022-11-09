@@ -1,14 +1,16 @@
 use crate::field::FWrap;
 use serde::{Deserialize, Serialize};
 use std::{
+    cmp::Ordering,
     fmt::Display,
     hash::Hash,
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
 use crate::field::LurkField;
+use crate::uint::UInt;
 
-/// Number type for Lurk. Has different internal representations to optimize evaluation.
+/// Finite field element type for Lurk. Has different internal representations to optimize evaluation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Num<F: LurkField> {
     Scalar(F),
@@ -45,6 +47,20 @@ impl<F: LurkField> Hash for Num<F> {
                 bytes.as_mut()[..8].copy_from_slice(&n.to_le_bytes());
                 bytes.as_ref().hash(state);
             }
+        }
+    }
+}
+
+impl<F: LurkField> PartialOrd for Num<F> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        if self == other {
+            return Some(Ordering::Equal);
+        };
+
+        if self.is_less_than(other) {
+            Some(Ordering::Less)
+        } else {
+            Some(Ordering::Greater)
         }
     }
 }
@@ -159,10 +175,10 @@ impl<F: LurkField> Num<F> {
         }
     }
 
-    pub fn is_less_than(&self, other: Num<F>) -> bool {
+    fn is_less_than(&self, other: &Num<F>) -> bool {
         match (self.is_negative(), other.is_negative()) {
             // Both positive or both negative
-            (true, true) | (false, false) => self.is_less_than_aux(other),
+            (true, true) | (false, false) => self.is_less_than_aux(*other),
             (true, false) => true,
             (false, true) => false,
         }
@@ -172,14 +188,7 @@ impl<F: LurkField> Num<F> {
         match (self, other) {
             (Num::U64(s), Num::U64(other)) => s < &other,
             (Num::Scalar(s), Num::Scalar(other)) => Num::Scalar(*s - other).is_negative(),
-            (a, b) => Num::Scalar(a.into_scalar()).is_less_than(Num::Scalar(b.into_scalar())),
-        }
-    }
-
-    pub fn is_equal(&self, other: Num<F>) -> bool {
-        match (self, other) {
-            (Num::U64(s), Num::U64(other)) => s == &other,
-            (a, b) => a.into_scalar() == b.into_scalar(),
+            (a, b) => Num::Scalar(a.into_scalar()) < Num::Scalar(b.into_scalar()),
         }
     }
 
@@ -215,6 +224,14 @@ impl<F: LurkField> Num<F> {
 impl<F: LurkField> From<u64> for Num<F> {
     fn from(n: u64) -> Self {
         Num::<F>::U64(n)
+    }
+}
+
+impl<F: LurkField> From<UInt> for Num<F> {
+    fn from(n: UInt) -> Self {
+        match n {
+            UInt::U64(n) => Num::<F>::U64(n),
+        }
     }
 }
 
