@@ -9,7 +9,6 @@ use hex::FromHex;
 //use pairing_lib::{Engine, MultiMillerLoop};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-//use serde::Serialize;
 
 use lurk::eval::IO;
 use lurk::field::LurkField;
@@ -242,7 +241,15 @@ impl<'a> Open {
             let request = opening_request(request_path).expect("failed to read opening request");
 
             if let Some(out_path) = &self.proof {
-                let proof = Opening::open_and_prove(s, request, limit, false, &prover, &pp)?;
+                let proof = Opening::open_and_prove(
+                    s,
+                    request,
+                    limit,
+                    false,
+                    &prover,
+                    &pp,
+                    chunk_frame_count,
+                )?;
 
                 handle_proof(out_path, proof);
             } else {
@@ -282,7 +289,15 @@ impl<'a> Open {
 
             if let Some(out_path) = &self.proof {
                 let proof = Opening::apply_and_prove(
-                    s, input, function, limit, chain, false, &prover, &pp,
+                    s,
+                    input,
+                    function,
+                    limit,
+                    chain,
+                    false,
+                    &prover,
+                    &pp,
+                    chunk_frame_count,
                 )?;
 
                 handle_proof(out_path, proof);
@@ -331,7 +346,15 @@ impl Prove {
                     self.expression.is_none(),
                     "claim and expression must not both be supplied"
                 );
-                Proof::prove_claim(s, Claim::read_from_path(claim)?, limit, false, &prover, &pp)?
+                Proof::prove_claim(
+                    s,
+                    Claim::read_from_path(claim)?,
+                    limit,
+                    false,
+                    &prover,
+                    &pp,
+                    chunk_frame_count,
+                )?
             }
 
             None => {
@@ -341,7 +364,7 @@ impl Prove {
                     self.lurk,
                 )?;
 
-                Proof::eval_and_prove(s, expr, limit, false, &prover, &pp)?
+                Proof::eval_and_prove(s, expr, limit, false, &prover, &pp, chunk_frame_count)?
             }
         };
 
@@ -356,7 +379,7 @@ impl Prove {
 impl Verify {
     fn verify(&self, cli_error: bool) -> Result<(), Error> {
         let proof = proof(Some(&self.proof))?;
-        let pp = public_params(proof.reduction_count.reduction_frame_count());
+        let pp = public_params(proof.chunk_frame_count);
         let result = proof.verify(&pp)?;
         //let result = proof(Some(&self.proof))?.verify(self.proof.num_steps)?;
 
@@ -470,7 +493,7 @@ fn opening_request<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
 // Get proof from supplied path or else from stdin.
 fn proof<'a, P: AsRef<Path>, F: LurkField>(proof_path: Option<P>) -> Result<Proof<'a, F>, Error>
 where
-  F: Serialize + for<'de> Deserialize<'de>,
+    F: Serialize + for<'de> Deserialize<'de>,
 {
     match proof_path {
         Some(path) => Proof::read_from_path(path),
