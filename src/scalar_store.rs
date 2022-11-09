@@ -67,7 +67,7 @@ impl<'a, F: LurkField> ScalarStore<F> {
         (*x).as_ref()
     }
 
-    pub fn to_store_with_expr(&mut self, ptr: &ScalarPtr<F>) -> Option<(Store<F>, Ptr<F>)> {
+    pub fn to_store_with_expr(&self, ptr: &ScalarPtr<F>) -> Option<(Store<F>, Ptr<F>)> {
         let mut store = Store::new();
 
         let ptr = store.intern_scalar_ptr(*ptr, self)?;
@@ -411,6 +411,34 @@ mod test {
         } else {
             false
         }
+    }
+
+    #[test]
+    fn units_scalar_store_conversion() {
+        let test = |src| {
+            let mut store1 = Store::<Fr>::default();
+            let expr1 = store1.read(src).unwrap();
+            store1.hydrate_scalar_cache();
+            let (scalar_store1, scalar_expr1) = ScalarStore::new_with_expr(&store1, &expr1)?;
+            let (mut store2, expr2) =
+                ScalarStore::to_store_with_expr(&scalar_store1, &scalar_expr1)?;
+            store2.hydrate_scalar_cache();
+            let (scalar_store2, scalar_expr2) = ScalarStore::new_with_expr(&store2, &expr2)?;
+            Some(scalar_store1 == scalar_store2 && scalar_expr1 == scalar_expr2)
+        };
+        let test = |src| test(src) == Some(true);
+
+        assert!(test("symbol"));
+        assert!(test("1"));
+        assert!(test("#\\a#"));
+        assert!(test("(1 . 2)"));
+        assert!(test("(\"foo\" . \"bar\")"));
+        assert!(test("(foo . bar)"));
+        assert!(test("(1 . 2)"));
+        assert!(test("(+ 1 2 3)"));
+        assert!(test("(+ 1 2 (* 3 4))"));
+        assert!(test("(+ 1 2 (* 3 4) \"asdf\" )"));
+        assert!(test("(+ 1 2 2 (* 3 4) \"asdf\" \"asdf\")"));
     }
 
     #[test]
