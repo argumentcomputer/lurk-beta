@@ -143,7 +143,7 @@ jobs:
       - run: cargo fetch
       - run:
           name: Arm64 Tests
-          command: cargo test --workspace
+          command: cargo test --workspace --release
           no_output_timeout: 120m
 
   mac:
@@ -167,7 +167,7 @@ jobs:
       - run: cargo fetch
       - run:
           name: MacOS Tests
-          command: cargo test --workspace
+          command: cargo test --workspace --release
           no_output_timeout: 120m
 
   clippy:
