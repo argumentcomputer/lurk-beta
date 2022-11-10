@@ -797,7 +797,7 @@ impl Tag {
             f if f == Tag::Str.as_field() => Some(Tag::Str),
             f if f == Tag::Char.as_field() => Some(Tag::Char),
             f if f == Tag::Comm.as_field() => Some(Tag::Comm),
-            f if f == Tag::U64.as_field() => Some(Tag::Num),
+            f if f == Tag::U64.as_field() => Some(Tag::U64),
             _ => None,
         }
     }
