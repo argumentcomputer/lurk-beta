@@ -611,6 +611,9 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
             &expr_thunk_hash,
             expr.hash(),
         )?;
+        dbg!("{:?}", expr_is_a_thunk.get_value());
+        dbg!("{:?}", expr_is_the_thunk.get_value());
+        dbg!("{:?}", expr_thunk_hash.get_value());
 
         enforce_implication(
             &mut cs.namespace(|| "(expr.tag == thunk_tag) implies (expr_thunk_hash == expr.hash)"),
@@ -2062,6 +2065,16 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
+        &g.false_num,
+    );
+
+    // head == EVAL, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(
+        *eval_hash.value(),
+        &arg1,
+        env,
+        &newer_cont,
         &g.false_num,
     );
 
