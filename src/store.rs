@@ -1344,7 +1344,7 @@ impl<F: LurkField> Store<F> {
         let expr = scalar_store.get_expr(&ptr);
         use ScalarExpression::*;
         match (tag, expr) {
-            (Tag::Nil, Some(Nil)) => Some(self.intern_nil()),
+            (Tag::Nil, Some(_)) => Some(self.intern_nil()),
             (Tag::Cons, Some(Cons(car, cdr))) => {
                 let car = self.intern_scalar_ptr(*car, scalar_store)?;
                 let cdr = self.intern_scalar_ptr(*cdr, scalar_store)?;

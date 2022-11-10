@@ -673,7 +673,7 @@ mod test {
             println!("{}", scalar_store);
             println!("{:?}", scalar_store.scalar_map.len());
             // If a non-opaque version has been found when interning opaque, children appear in `ScalarStore`.
-            assert_eq!(7, scalar_store.scalar_map.len());
+            assert_eq!(13, scalar_store.scalar_map.len());
         } else {
             assert!(false);
         }
