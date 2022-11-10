@@ -32,7 +32,8 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
 
     fn display_string(self) -> String {
         let mut s = String::from("0x");
-        let bytes = self.to_bytes();
+        let mut bytes = self.to_bytes();
+        bytes.reverse();
         for b in bytes {
             s.push_str(&format!("{:02x?}", b));
         }
