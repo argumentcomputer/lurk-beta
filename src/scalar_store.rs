@@ -61,7 +61,6 @@ impl<'a, F: LurkField> ScalarStore<F> {
     /// All the `ScalarPtr`s directly reachable from `scalar_expression`, if any.
     fn child_scalar_ptrs(scalar_expression: &ScalarExpression<F>) -> Vec<ScalarPtr<F>> {
         match scalar_expression {
-            ScalarExpression::Nil => vec![],
             ScalarExpression::StrNil => vec![],
             ScalarExpression::Cons(car, cdr) => vec![*car, *cdr],
             ScalarExpression::Comm(_, payload) => vec![*payload],
@@ -114,7 +113,7 @@ impl<'a, F: LurkField> ScalarStore<F> {
         let mut vec = Vec::new();
         let mut ptr = ptr;
         while ptr != ScalarPtr::from_parts(Tag::Str.as_field(), F::zero()) {
-            println!("str_tails ptr {}", ptr);
+            //println!("str_tails ptr {}", ptr);
             let (head, tail) = self.scalar_map.get(&ptr).and_then(|x| match x {
                 Some(ScalarExpression::StrCons(head, tail)) => Some((head, tail)),
                 _ => None,
@@ -140,7 +139,6 @@ impl<'a, F: LurkField> ScalarStore<F> {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ScalarExpression<F: LurkField> {
-    Nil,
     Cons(ScalarPtr<F>, ScalarPtr<F>),
     Comm(F, ScalarPtr<F>),
     Sym(ScalarPtr<F>),
@@ -156,7 +154,6 @@ pub enum ScalarExpression<F: LurkField> {
 impl<'a, F: LurkField> fmt::Display for ScalarExpression<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Nil => write!(f, "Nil"),
             Self::Cons(x, y) => write!(f, "Cons({}, {})", x, y),
             Self::Comm(x, y) => write!(f, "Comm({:?}, {})", x, y),
             Self::Sym(x) => write!(f, "Sym({})", x),
@@ -191,7 +188,7 @@ impl<'a, F: LurkField> fmt::Display for ScalarExpression<F> {
 
 impl<'a, F: LurkField> Default for ScalarExpression<F> {
     fn default() -> Self {
-        Self::Nil
+        Self::Num(F::zero())
     }
 }
 
@@ -304,7 +301,6 @@ mod test {
     impl Arbitrary for ScalarExpression<Fr> {
         fn arbitrary(g: &mut Gen) -> Self {
             let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> ScalarExpression<Fr>>)> = vec![
-                (100, Box::new(|_| Self::Nil)),
                 (100, Box::new(|_| Self::StrNil)),
                 (
                     100,
@@ -516,7 +512,7 @@ mod test {
 
         assert!(test("1"));
         assert!(test("\"s\""));
-        assert!(test("s"));
+        assert!(test("symbol"));
         assert!(test("#\\a#"));
         assert!(test("(1 . 2)"));
         assert!(test("(\"foo\" . \"bar\")"));
@@ -632,12 +628,12 @@ mod test {
         test("(1 . 2)", 3);
         test("(\"foo\" . \"bar\")", 13);
         test("(foo . bar)", 15);
-        test("(+ 1 2 3)", 12);
-        test("(+ 1 2 (* 3 4))", 19);
+        test("(+ 1 2 3)", 18);
+        test("(+ 1 2 (* 3 4))", 25);
         // String are handled.
-        test("(+ 1 2 (* 3 4) \"asdf\" )", 28);
+        test("(+ 1 2 (* 3 4) \"asdf\" )", 34);
         // Duplicate strings or symbols appear only once.
-        test("(+ 1 2 2 (* 3 4) \"asdf\" \"asdf\")", 30);
+        test("(+ 1 2 2 (* 3 4) \"asdf\" \"asdf\")", 36);
     }
 
     #[test]

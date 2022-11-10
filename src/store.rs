@@ -2669,7 +2669,13 @@ impl<F: LurkField> Store<F> {
     pub(crate) fn get_scalar_expr(&self, scalar: &ScalarPtr<F>) -> Option<ScalarExpression<F>> {
         let tag = Tag::from_field(*scalar.tag())?;
         match tag {
-            Tag::Nil => Some(ScalarExpression::Nil),
+            Tag::Nil => {
+                let scalar_ptr = self.hash_nil()?;
+                Some(ScalarExpression::Sym(ScalarPtr::from_parts(
+                    Tag::Str.as_field(),
+                    *scalar_ptr.value(),
+                )))
+            }
             Tag::Cons => {
                 let ptr = self.scalar_ptr_map.get(scalar)?;
                 self.fetch_cons(&ptr).and_then(|(car, cdr)| {
