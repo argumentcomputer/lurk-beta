@@ -276,11 +276,11 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
                     (i + 1, frame.synthesize(cs, i, allocated_io, &g).unwrap())
                 });
 
-            // dbg!(
-            //     (&new_expr, &output_expr),
-            //     (&new_env, &output_env),
-            //     (&new_cont, &output_cont)
-            // );
+            dbg!(
+                (&new_expr, &output_expr),
+                (&new_env, &output_env),
+                (&new_cont, &output_cont)
+            );
 
             output_expr.enforce_equal(
                 &mut cs.namespace(|| "outer output expr is correct"),
@@ -573,11 +573,11 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-    // dbg!("reduce_expression");
-    // dbg!(&expr.fetch_and_write_str(store));
-    // dbg!(&expr);
-    // dbg!(&env.fetch_and_write_str(store));
-    // dbg!(&cont.fetch_and_write_cont_str(store), &cont);
+    dbg!("reduce_expression");
+    dbg!(&expr.fetch_and_write_str(store));
+    dbg!(&expr);
+    dbg!(&env.fetch_and_write_str(store));
+    dbg!(&cont.fetch_and_write_cont_str(store), &cont);
     let mut results = Results::default();
     {
         // Self-evaluating expressions
@@ -1054,6 +1054,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     // but the original structure is left intact so it can be checked against
     // the manual optimization.
 
+    dbg!("expr: {:?}", expr);
     let cs = &mut cs.namespace(|| "env_is_nil");
     let cond0_ = and!(cs, &env_is_nil, not_dummy)?;
     let cond0 = and!(cs, &cond0_, &sym_otherwise)?;
@@ -1230,6 +1231,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let num_hash = hash_sym("num");
     let comm_hash = hash_sym("comm");
     let char_hash = hash_sym("char");
+    let eval_hash = hash_sym("eval");
     let open_hash = hash_sym("open");
     let secret_hash = hash_sym("secret");
 
@@ -1571,6 +1573,20 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *char_hash.value(),
         &g.unop_cont_tag,
         char_continuation_components,
+    );
+
+    // head == EVAL preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let eval_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&g.op1_eval_tag, &g.default_num],
+        &[cont.tag(), cont.hash()],
+        &[&g.default_num, &g.default_num],
+        &[&g.default_num, &g.default_num],
+    ];
+    hash_default_results.add_hash_input_clauses(
+        *eval_hash.value(),
+        &g.unop_cont_tag,
+        eval_continuation_components,
     );
 
     // head == BEGIN preimage
@@ -2596,6 +2612,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                         key: Op1::Char.as_field(),
                         value: c.tag(),
                     },
+                    CaseClause {
+                        key: Op1::Eval.as_field(),
+                        value: result.tag(),
+                    },
                 ],
                 &[
                     CaseClause {
@@ -2637,6 +2657,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                     CaseClause {
                         key: Op1::Char.as_field(),
                         value: c.hash(),
+                    },
+                    CaseClause {
+                        key: Op1::Eval.as_field(),
+                        value: result.hash(),
                     },
                 ],
             ],
@@ -3619,13 +3643,18 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
     // Continuation::Unop newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    let (the_expr, the_cont) = {
+    let (the_expr, the_env, the_cont) = {
         let unop_op1 = AllocatedPtr::by_index(0, &continuation_components);
         let other_unop_continuation = AllocatedContPtr::by_index(1, &continuation_components);
         let op1_is_emit = alloc_equal(
             &mut cs.namespace(|| "op1_is_emit"),
             unop_op1.tag(),
             &g.op1_emit_tag,
+        )?;
+        let op1_is_eval = alloc_equal(
+            &mut cs.namespace(|| "op1_is_eval"),
+            unop_op1.tag(),
+            &g.op1_eval_tag,
         )?;
         let unop_continuation = AllocatedContPtr::pick(
             &mut cs.namespace(|| "continuation"),
@@ -3779,6 +3808,13 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &unop_val,
         )?;
 
+        let the_env = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_env"),
+            &op1_is_eval,
+            &g.nil_ptr,
+            &env,
+        )?;
+
         let the_cont = AllocatedContPtr::pick(
             &mut cs.namespace(|| "the_cont"),
             &any_error,
@@ -3786,10 +3822,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &unop_continuation,
         )?;
 
-        (the_expr, the_cont)
+        (the_expr, the_env, the_cont)
     };
 
-    results.add_clauses_cont(ContTag::Unop, &the_expr, env, &the_cont, &g.true_num);
+    results.add_clauses_cont(ContTag::Unop, &the_expr, &the_env, &the_cont, &g.true_num);
 
     // Main multi_case
     /////////////////////////////////////////////////////////////////////////////

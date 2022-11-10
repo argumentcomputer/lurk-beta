@@ -853,6 +853,7 @@ impl<F: LurkField> Default for Store<F> {
             "num",
             "comm",
             "char",
+            "eval",
             "open",
             "secret",
             "atom",
