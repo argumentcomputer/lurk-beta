@@ -3,7 +3,7 @@ use std::fmt;
 
 use crate::field::LurkField;
 
-use crate::store::{Op1, Op2, Ptr, ScalarContPtr, ScalarPointer, ScalarPtr, Store, Tag};
+use crate::store::{ContTag, Op1, Op2, Ptr, ScalarContPtr, ScalarPointer, ScalarPtr, Store, Tag};
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -135,6 +135,82 @@ impl<'a, F: LurkField> ScalarStore<F> {
             .collect();
         Some(s)
     }
+    pub fn ser_f(self) -> Vec<F> {
+        let mut exprs = Vec::new();
+        let mut opaqs = Vec::new();
+        for (ptr, expr) in self.scalar_map {
+            if let Some(expr) = expr {
+                exprs.push(*ptr.tag());
+                exprs.push(*ptr.value());
+                exprs.extend(expr.ser_f().into_iter());
+            } else {
+                opaqs.push(*ptr.tag());
+                opaqs.push(*ptr.value());
+            }
+        }
+        //for (ptr, cont) in self.scalar_cont_map {
+        //    res.push(*ptr.tag());
+        //    res.push(*ptr.value());
+        //    res.extend(cont.ser_f().into_iter());
+        //}
+        let mut res = vec![(opaqs.len() as u64).into()];
+        res.extend(opaqs);
+        res.extend(exprs);
+        res
+    }
+
+    pub fn de_f(stream: &Vec<F>) -> Result<Self, ()> {
+        let mut scalar_map: BTreeMap<ScalarPtr<F>, Option<ScalarExpression<F>>> = BTreeMap::new();
+        let mut scalar_cont_map: BTreeMap<ScalarContPtr<F>, Option<ScalarContinuation<F>>> =
+            BTreeMap::new();
+
+        let len = stream.len();
+        let opaqs: u64 = if len == 0 {
+            Err(())
+        } else {
+            stream[0].to_u64().ok_or(())
+        }?;
+
+        let mut idx: usize = 1;
+
+        while idx < opaqs as usize {
+            if let Some(tag) = Tag::from_field(stream[idx]) {
+                let value = stream[idx + 1];
+                let ptr = ScalarPtr::from_parts(tag.as_field(), value);
+                scalar_map.insert(ptr, None);
+            }
+            if let Some(tag) = ContTag::from_field(stream[idx]) {
+                let value = stream[idx + 1];
+                let ptr = ScalarContPtr::from_parts(tag.as_field(), value);
+                scalar_cont_map.insert(ptr, None);
+            } else {
+                return Err(());
+            }
+        }
+
+        while idx < len {
+            if let Some(tag) = Tag::from_field(stream[idx]) {
+                let value = stream[idx + 1];
+                let ptr = ScalarPtr::from_parts(tag.as_field(), value);
+                let (idx2, expr) = ScalarExpression::de_f(stream, idx + 2, tag, value)?;
+                scalar_map.insert(ptr, Some(expr));
+                idx = idx2
+            //}
+            //if let Some(cont_tag) = ContTag::from_field(stream[idx]) {
+            //    let value = stream[idx + 1];
+            //    let ptr = ScalarContPtr::from_parts(cont_tag.as_field(), value);
+            //    let (idx2, expr) = ScalarContinuation::de_f(stream, idx + 2, cont_tag, value)?;
+            //    scalar_cont_map.insert(ptr, Some(expr));
+            //    idx = idx2
+            } else {
+                return Err(());
+            }
+        }
+        Ok(ScalarStore {
+            scalar_map,
+            scalar_cont_map,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -192,6 +268,102 @@ impl<'a, F: LurkField> Default for ScalarExpression<F> {
     }
 }
 
+impl<'a, F: LurkField> ScalarExpression<F> {
+    pub fn ser_f(self) -> Vec<F> {
+        match self {
+            ScalarExpression::Cons(car, cdr) => {
+                vec![*car.tag(), *car.value(), *cdr.tag(), *cdr.value()]
+            }
+            ScalarExpression::Comm(a, b) => {
+                vec![a, *b.tag(), *b.value()]
+            }
+            ScalarExpression::Sym(string) => vec![*string.tag(), *string.value()],
+            ScalarExpression::Fun(arg, body, closed_env) => {
+                vec![
+                    *arg.tag(),
+                    *arg.value(),
+                    *body.tag(),
+                    *body.value(),
+                    *closed_env.tag(),
+                    *closed_env.value(),
+                ]
+            }
+            ScalarExpression::StrCons(head, tail) => {
+                vec![*head.tag(), *head.value(), *tail.tag(), *tail.value()]
+            }
+            ScalarExpression::Thunk(thunk) => {
+                vec![
+                    *thunk.value.tag(),
+                    *thunk.value.value(),
+                    *thunk.continuation.tag(),
+                    *thunk.continuation.value(),
+                ]
+            }
+            ScalarExpression::Char(_) => vec![],
+            ScalarExpression::Num(_) => vec![],
+            ScalarExpression::UInt(_) => vec![],
+            ScalarExpression::StrNil => vec![],
+        }
+    }
+    pub fn de_f(
+        stream: &Vec<F>,
+        idx: usize,
+        tag: Tag,
+        val: F,
+    ) -> Result<(usize, ScalarExpression<F>), ()> {
+        match tag {
+            Tag::Nil => {
+                //let s = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
+                //Ok((idx + 2, ScalarExpression::Sym(s)))
+                //
+                // We shouldn't ever have Nil tags (which is a Store
+                // optimizaation) in the codec
+                Err(())
+            }
+            Tag::Cons => {
+                let car = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
+                let cdr = ScalarPtr::from_parts(stream[idx + 2], stream[idx + 3]);
+                Ok((idx + 4, ScalarExpression::Cons(car, cdr)))
+            }
+            Tag::Sym => {
+                let s = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
+                Ok((idx + 2, ScalarExpression::Sym(s)))
+            }
+            Tag::Comm => {
+                let a = stream[idx];
+                let b = ScalarPtr::from_parts(stream[idx + 1], stream[idx + 2]);
+                Ok((idx + 3, ScalarExpression::Comm(a, b)))
+            }
+            Tag::Fun => {
+                let arg = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
+                let body = ScalarPtr::from_parts(stream[idx + 2], stream[idx + 3]);
+                let closed_env = ScalarPtr::from_parts(stream[idx + 4], stream[idx + 5]);
+                Ok((idx + 6, ScalarExpression::Fun(arg, body, closed_env)))
+            }
+            Tag::Str if val == F::zero() => Ok((idx, ScalarExpression::StrNil)),
+            Tag::Str => {
+                let head = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
+                let tail = ScalarPtr::from_parts(stream[idx + 2], stream[idx + 3]);
+                Ok((idx + 4, ScalarExpression::StrCons(head, tail)))
+            }
+            Tag::Thunk => {
+                let value = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
+                let continuation = ScalarContPtr::from_parts(stream[idx + 2], stream[idx + 3]);
+                Ok((
+                    idx + 4,
+                    ScalarExpression::Thunk(ScalarThunk {
+                        value,
+                        continuation,
+                    }),
+                ))
+            }
+            Tag::Char => Ok((idx, ScalarExpression::Char(val))),
+            Tag::Num => Ok((idx, ScalarExpression::Num(val))),
+            Tag::U64 => Ok((idx, ScalarExpression::UInt(val))),
+        }
+    }
+}
+
 // Unused for now, but will be needed when we serialize Thunks to IPLD.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScalarThunk<F: LurkField> {
@@ -206,6 +378,10 @@ pub enum ScalarContinuation<F: LurkField> {
     Outermost,
     Call {
         unevaled_arg: ScalarPtr<F>,
+        saved_env: ScalarPtr<F>,
+        continuation: ScalarContPtr<F>,
+    },
+    Call0 {
         saved_env: ScalarPtr<F>,
         continuation: ScalarContPtr<F>,
     },
@@ -259,6 +435,322 @@ pub enum ScalarContinuation<F: LurkField> {
     },
     Dummy,
     Terminal,
+}
+
+impl<F: LurkField> ScalarContinuation<F> {
+    pub fn ser_f(self) -> Vec<F> {
+        match self {
+            ScalarContinuation::Outermost => vec![],
+            ScalarContinuation::Call0 {
+                saved_env,
+                continuation,
+            } => {
+                vec![
+                    *saved_env.tag(),
+                    *saved_env.value(),
+                    *continuation.tag(),
+                    *continuation.value(),
+                ]
+            }
+            ScalarContinuation::Call {
+                unevaled_arg,
+                saved_env,
+                continuation,
+            } => {
+                vec![
+                    *unevaled_arg.tag(),
+                    *unevaled_arg.value(),
+                    *saved_env.tag(),
+                    *saved_env.value(),
+                    *continuation.tag(),
+                    *continuation.value(),
+                ]
+            }
+            ScalarContinuation::Call2 {
+                function,
+                saved_env,
+                continuation,
+            } => {
+                vec![
+                    *function.tag(),
+                    *function.value(),
+                    *saved_env.tag(),
+                    *saved_env.value(),
+                    *continuation.tag(),
+                    *continuation.value(),
+                ]
+            }
+            ScalarContinuation::Tail {
+                saved_env,
+                continuation,
+            } => {
+                vec![
+                    *saved_env.tag(),
+                    *saved_env.value(),
+                    *continuation.tag(),
+                    *continuation.value(),
+                ]
+            }
+            ScalarContinuation::Error => todo!(),
+            ScalarContinuation::Lookup {
+                saved_env,
+                continuation,
+            } => {
+                vec![
+                    *saved_env.tag(),
+                    *saved_env.value(),
+                    *continuation.tag(),
+                    *continuation.value(),
+                ]
+            }
+            ScalarContinuation::Unop {
+                operator,
+                continuation,
+            } => {
+                vec![
+                    operator.as_field(),
+                    *continuation.tag(),
+                    *continuation.value(),
+                ]
+            }
+            ScalarContinuation::Binop {
+                operator,
+                saved_env,
+                unevaled_args,
+                continuation,
+            } => {
+                vec![
+                    operator.as_field(),
+                    *saved_env.tag(),
+                    *saved_env.value(),
+                    *unevaled_args.tag(),
+                    *unevaled_args.value(),
+                    *continuation.tag(),
+                    *continuation.value(),
+                ]
+            }
+            ScalarContinuation::Binop2 {
+                operator,
+                evaled_arg,
+                continuation,
+            } => {
+                vec![
+                    operator.as_field(),
+                    *evaled_arg.tag(),
+                    *evaled_arg.value(),
+                    *continuation.tag(),
+                    *continuation.value(),
+                ]
+            }
+            ScalarContinuation::If {
+                unevaled_args,
+                continuation,
+            } => {
+                vec![
+                    *unevaled_args.tag(),
+                    *unevaled_args.value(),
+                    *continuation.tag(),
+                    *continuation.value(),
+                ]
+            }
+            ScalarContinuation::Let {
+                var,
+                body,
+                saved_env,
+                continuation,
+            } => {
+                vec![
+                    *var.tag(),
+                    *var.value(),
+                    *body.tag(),
+                    *body.value(),
+                    *saved_env.tag(),
+                    *saved_env.value(),
+                    *continuation.tag(),
+                    *continuation.value(),
+                ]
+            }
+            ScalarContinuation::LetRec {
+                var,
+                body,
+                saved_env,
+                continuation,
+            } => {
+                vec![
+                    *var.tag(),
+                    *var.value(),
+                    *body.tag(),
+                    *body.value(),
+                    *saved_env.tag(),
+                    *saved_env.value(),
+                    *continuation.tag(),
+                    *continuation.value(),
+                ]
+            }
+            ScalarContinuation::Emit { continuation } => {
+                vec![*continuation.tag(), *continuation.value()]
+            }
+            ScalarContinuation::Dummy => vec![],
+            ScalarContinuation::Terminal => vec![],
+        }
+    }
+    pub fn de_f(
+        stream: &Vec<F>,
+        idx: usize,
+        tag: ContTag,
+        _val: F,
+    ) -> Result<(usize, ScalarContinuation<F>), ()> {
+        match tag {
+            ContTag::Outermost => Ok((idx, ScalarContinuation::Outermost)),
+            ContTag::Call0 => {
+                let saved_env = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
+                let continuation = ScalarContPtr::from_parts(stream[idx + 2], stream[idx + 3]);
+                Ok((
+                    idx + 4,
+                    ScalarContinuation::Call0 {
+                        saved_env,
+                        continuation,
+                    },
+                ))
+            }
+            ContTag::Call => {
+                let unevaled_arg = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
+                let saved_env = ScalarPtr::from_parts(stream[idx + 2], stream[idx + 3]);
+                let continuation = ScalarContPtr::from_parts(stream[idx + 4], stream[idx + 5]);
+                Ok((
+                    idx + 6,
+                    ScalarContinuation::Call {
+                        unevaled_arg,
+                        saved_env,
+                        continuation,
+                    },
+                ))
+            }
+            ContTag::Call2 => {
+                let function = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
+                let saved_env = ScalarPtr::from_parts(stream[idx + 2], stream[idx + 3]);
+                let continuation = ScalarContPtr::from_parts(stream[idx + 4], stream[idx + 5]);
+                Ok((
+                    idx + 6,
+                    ScalarContinuation::Call2 {
+                        function,
+                        saved_env,
+                        continuation,
+                    },
+                ))
+            }
+            ContTag::Tail => {
+                let saved_env = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
+                let continuation = ScalarContPtr::from_parts(stream[idx + 2], stream[idx + 3]);
+                Ok((
+                    idx + 4,
+                    ScalarContinuation::Tail {
+                        saved_env,
+                        continuation,
+                    },
+                ))
+            }
+            ContTag::Lookup => {
+                let saved_env = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
+                let continuation = ScalarContPtr::from_parts(stream[idx + 2], stream[idx + 3]);
+                Ok((
+                    idx + 4,
+                    ScalarContinuation::Lookup {
+                        saved_env,
+                        continuation,
+                    },
+                ))
+            }
+            ContTag::Unop => {
+                let operator = Op1::from_field(stream[idx]).map_or_else(|| Err(()), Ok)?;
+                let continuation = ScalarContPtr::from_parts(stream[idx + 1], stream[idx + 2]);
+                Ok((
+                    idx + 3,
+                    ScalarContinuation::Unop {
+                        operator,
+                        continuation,
+                    },
+                ))
+            }
+            ContTag::Binop => {
+                let operator = Op2::from_field(stream[idx]).map_or_else(|| Err(()), Ok)?;
+                let saved_env = ScalarPtr::from_parts(stream[idx + 1], stream[idx + 2]);
+                let unevaled_args = ScalarPtr::from_parts(stream[idx + 3], stream[idx + 4]);
+                let continuation = ScalarContPtr::from_parts(stream[idx + 5], stream[idx + 6]);
+                Ok((
+                    idx + 7,
+                    ScalarContinuation::Binop {
+                        operator,
+                        saved_env,
+                        unevaled_args,
+                        continuation,
+                    },
+                ))
+            }
+            ContTag::Binop2 => {
+                let operator = Op2::from_field(stream[idx]).map_or_else(|| Err(()), Ok)?;
+                let evaled_arg = ScalarPtr::from_parts(stream[idx + 1], stream[idx + 2]);
+                let continuation = ScalarContPtr::from_parts(stream[idx + 3], stream[idx + 4]);
+                Ok((
+                    idx + 5,
+                    ScalarContinuation::Binop2 {
+                        operator,
+                        evaled_arg,
+                        continuation,
+                    },
+                ))
+            }
+            ContTag::If => {
+                let unevaled_args = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
+                let continuation = ScalarContPtr::from_parts(stream[idx + 2], stream[idx + 3]);
+                Ok((
+                    idx + 4,
+                    ScalarContinuation::If {
+                        unevaled_args,
+                        continuation,
+                    },
+                ))
+            }
+            ContTag::Let => {
+                let var = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
+                let body = ScalarPtr::from_parts(stream[idx + 2], stream[idx + 3]);
+                let saved_env = ScalarPtr::from_parts(stream[idx + 4], stream[idx + 5]);
+                let continuation = ScalarContPtr::from_parts(stream[idx + 6], stream[idx + 7]);
+                Ok((
+                    idx + 8,
+                    ScalarContinuation::Let {
+                        var,
+                        body,
+                        saved_env,
+                        continuation,
+                    },
+                ))
+            }
+            ContTag::LetRec => {
+                let var = ScalarPtr::from_parts(stream[idx], stream[idx + 1]);
+                let body = ScalarPtr::from_parts(stream[idx + 2], stream[idx + 3]);
+                let saved_env = ScalarPtr::from_parts(stream[idx + 4], stream[idx + 5]);
+                let continuation = ScalarContPtr::from_parts(stream[idx + 6], stream[idx + 7]);
+                Ok((
+                    idx + 8,
+                    ScalarContinuation::LetRec {
+                        var,
+                        body,
+                        saved_env,
+                        continuation,
+                    },
+                ))
+            }
+            ContTag::Emit => {
+                let continuation = ScalarContPtr::from_parts(stream[idx], stream[idx + 1]);
+                Ok((idx + 1, ScalarContinuation::Emit { continuation }))
+            }
+            ContTag::Dummy => Ok((idx, ScalarContinuation::Dummy)),
+            ContTag::Terminal => Ok((idx, ScalarContinuation::Terminal)),
+
+            _ => Err(()),
+        }
+    }
 }
 
 #[cfg(test)]

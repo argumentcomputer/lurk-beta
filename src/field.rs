@@ -33,10 +33,20 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     fn display_string(self) -> String {
         let mut s = String::from("0x");
         let bytes = self.to_bytes();
-        for b in bytes {
+        for b in bytes.iter().rev() {
             s.push_str(&format!("{:02x?}", b));
         }
         s
+    }
+    fn to_u16(&self) -> Option<u16> {
+        for x in &self.to_repr().as_ref()[2..] {
+            if *x != 0 {
+                return None;
+            }
+        }
+        let mut byte_array = [0u8; 2];
+        byte_array.copy_from_slice(&self.to_repr().as_ref()[0..2]);
+        Some(u16::from_le_bytes(byte_array))
     }
     fn to_u32(&self) -> Option<u32> {
         for x in &self.to_repr().as_ref()[4..] {
