@@ -379,7 +379,9 @@ mod tests {
                 // all the padding logic required for SnarkPack. It might be nice to eventually refactor such taht it does,
                 // in which case this check will be useful. So let's leave it around for now.
                 // assert_eq!(adjusted_iterations, cs.len());
-                assert_eq!(expected_result, cs[cs.len() - 1].0.output.unwrap().expr);
+                assert!(s
+                    .ptr_eq(&expected_result, &cs[cs.len() - 1].0.output.unwrap().expr)
+                    .unwrap());
             }
 
             let constraint_systems_verified = verify_sequential_css::<Scalar>(&cs).unwrap();
