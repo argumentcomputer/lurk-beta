@@ -556,6 +556,7 @@ impl Expression {
 }
 
 impl Opening<S1> {
+    #[allow(clippy::too_many_arguments)]
     pub fn apply_and_prove<'a>(
         s: &'a mut Store<S1>,
         input: Ptr<S1>,
@@ -812,7 +813,7 @@ impl<'a> Proof<'a, S1> {
             }
         };
 
-        proof.verify(&pp).expect("Nova verification failed");
+        proof.verify(pp).expect("Nova verification failed");
 
         proof_map.set(claim.cid(), &proof).unwrap();
 

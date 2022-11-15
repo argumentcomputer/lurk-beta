@@ -124,7 +124,6 @@ fn test_prove_and_verify_expression() {
             &fcomm_data_path,
         );
 
-        // let proof = Proof::<Bls12>::read_from_path(&proof_path).unwrap();
         let proof = Proof::<S1>::read_from_path(&proof_path).unwrap();
 
         assert_eq!(
