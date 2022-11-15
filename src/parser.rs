@@ -603,7 +603,7 @@ asdf(", "ASDF",
             let mut store = Store::<Fr>::default();
             let expr = store.read(input).unwrap();
             let expected = store.intern_num(expected);
-            assert!(store.ptr_eq(&expected, &expr));
+            assert!(store.ptr_eq(&expected, &expr).unwrap());
         };
         test("123", 123);
         test("0987654321", 987654321);
@@ -621,7 +621,7 @@ asdf(", "ASDF",
             let mut store = Store::<Fr>::default();
             let expr = store.read(input).unwrap();
             let expected = store.intern_num(crate::num::Num::from_scalar(expected));
-            assert!(store.ptr_eq(&expected, &expr));
+            assert!(store.ptr_eq(&expected, &expr).unwrap());
         };
         test("0x10", Fr::from(16));
         test("0x22", Fr::from(34));
@@ -658,7 +658,7 @@ asdf(", "ASDF",
             let a_num = store.read(a).unwrap();
             let b_num = store.read(b).unwrap();
             dbg!(a_num.fmt_to_string(&store), b_num.fmt_to_string(&store));
-            assert!(store.ptr_eq(&a_num, &b_num));
+            assert!(store.ptr_eq(&a_num, &b_num).unwrap());
         };
 
         test("18446744073709551616", "0x10000000000000000");
@@ -695,7 +695,7 @@ asdf(", "ASDF",
             let mut store = Store::<Fr>::default();
             let expr = store.read(input).unwrap();
             let expected = store.get_u64(expected);
-            assert!(store.ptr_eq(&expected, &expr));
+            assert!(store.ptr_eq(&expected, &expr).unwrap());
         };
 
         test("123u64", 123);
@@ -941,7 +941,7 @@ asdf(", "ASDF",
         let test = |store: &mut Store<Fr>, a: &str, b: &str| {
             let res_a = store.read(a).unwrap();
             let res_b = store.read(b).unwrap();
-            assert!(store.ptr_eq(&res_a, &res_b));
+            assert!(store.ptr_eq(&res_a, &res_b).unwrap());
         };
         // These tests demonstrate that '/' behaves like other arithmetic operators
         // when a fraction is not being parsed.

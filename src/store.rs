@@ -1410,7 +1410,6 @@ impl<F: LurkField> Store<F> {
             }
             Num::U64(_) => num,
         };
-
         let (ptr, _) = self.num_store.insert_full(num);
 
         Ptr(Tag::Num, RawPtr::new(ptr))
@@ -1963,6 +1962,7 @@ impl<F: LurkField> Store<F> {
     // and the 'get' versions of hash_cons, hash_sym, etc.
     pub fn get_expr_hash(&self, ptr: &Ptr<F>) -> Option<ScalarPtr<F>> {
         use Tag::*;
+
         match ptr.tag() {
             Nil => self.get_hash_nil(),
             Cons => self.get_hash_cons(*ptr),
@@ -2564,10 +2564,15 @@ impl<F: LurkField> Store<F> {
         RawPtr((p, true), Default::default())
     }
 
-    pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> bool {
+    pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> Result<bool, LurkError> {
         // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
         // compound data with opaque data in either element's transitive closure.
-        self.get_expr_hash(a) == self.get_expr_hash(b)
+        match (self.get_expr_hash(a), self.get_expr_hash(b)) {
+            (Some(a_hash), Some(b_hash)) => Ok(a.0 == b.0 && a_hash == b_hash),
+            _ => Err(LurkError::Store(
+                "one or more values missing when comparing Ptrs for equality".into(),
+            )),
+        }
     }
 
     pub fn cons_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> bool {

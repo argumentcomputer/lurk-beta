@@ -1362,7 +1362,7 @@ fn apply_continuation<F: LurkField>(
                         store.strcons(evaled_arg, *arg2)
                     }
                     _ => match operator {
-                        Op2::Equal => store.as_lurk_boolean(store.ptr_eq(&evaled_arg, arg2)),
+                        Op2::Equal => store.as_lurk_boolean(store.ptr_eq(&evaled_arg, arg2)?),
                         Op2::Cons => store.cons(evaled_arg, *arg2),
                         Op2::Eval => {
                             return Ok(Control::Return(evaled_arg, *arg2, continuation));
@@ -1761,10 +1761,10 @@ mod test {
                 &expected_result.fmt_to_string(&s),
                 &new_expr.fmt_to_string(&s),
             );
-            assert!(s.ptr_eq(&expected_result, &new_expr));
+            assert!(s.ptr_eq(&expected_result, &new_expr).unwrap());
         }
         if let Some(expected_env) = expected_env {
-            assert!(s.ptr_eq(&expected_env, &new_env));
+            assert!(s.ptr_eq(&expected_env, &new_env).unwrap());
         }
         if let Some(expected_cont) = expected_cont {
             assert_eq!(expected_cont, new_cont);
@@ -1777,7 +1777,7 @@ mod test {
             assert!(expected_emitted
                 .iter()
                 .zip(emitted)
-                .all(|(a, b)| s.ptr_eq(a, &b)));
+                .all(|(a, b)| s.ptr_eq(a, &b).unwrap()));
         }
         assert_eq!(expected_iterations, iterations);
     }

@@ -369,7 +369,6 @@ mod tests {
         let mut previous_frame: Option<MultiFrame<Fr, IO<Fr>, Witness<Fr>>> = None;
 
         let mut cs_blank = MetricCS::<Fr>::new();
-        let store = Store::<Fr>::default();
 
         let blank = MultiFrame::<Fr, IO<Fr>, Witness<Fr>>::blank(chunk_frame_count);
         blank
@@ -403,10 +402,10 @@ mod tests {
         }
 
         if let Some(expected_result) = expected_result {
-            assert!(store.ptr_eq(&expected_result, &output.expr));
+            assert!(s.ptr_eq(&expected_result, &output.expr).unwrap());
         }
         if let Some(expected_env) = expected_env {
-            assert!(store.ptr_eq(&expected_env, &output.env));
+            assert!(s.ptr_eq(&expected_env, &output.env).unwrap());
         }
         if let Some(expected_cont) = expected_cont {
             assert_eq!(expected_cont, output.cont);
@@ -427,6 +426,17 @@ mod tests {
     fn test_outer_prove_binop() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    #[should_panic]
+    // This tests the testing mechanism. Since the supplied expected value is wrong,
+    // the test should panic on an assertion failure.
+    fn test_outer_prove_binop_fail() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(2);
         let terminal = s.get_cont_terminal();
         nova_test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
     }
