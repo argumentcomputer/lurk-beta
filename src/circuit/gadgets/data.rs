@@ -2,7 +2,10 @@ use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem, SynthesisError,
 };
-use neptune::{circuit2::poseidon_hash_allocated as poseidon_hash, poseidon::PoseidonConstants};
+use neptune::{
+    circuit2::poseidon_hash_allocated as poseidon_hash,
+    poseidon::{Arity, PoseidonConstants},
+};
 
 use super::pointer::AsAllocatedHashComponents;
 use crate::field::LurkField;
@@ -260,11 +263,16 @@ impl<F: LurkField> GlobalAllocations<F> {
     }
 }
 
-pub fn hash_poseidon<CS: ConstraintSystem<F>, F: LurkField, const A: usize>(
+pub fn hash_poseidon<CS, F, A>(
     cs: CS,
     preimage: Vec<AllocatedNum<F>>,
     constants: &PoseidonConstants<F, A>,
-) -> Result<AllocatedNum<F>, SynthesisError> {
+) -> Result<AllocatedNum<F>, SynthesisError>
+where
+    CS: ConstraintSystem<F>,
+    F: LurkField,
+    A: Arity<F>,
+{
     poseidon_hash(cs, preimage, constants)
 }
 
