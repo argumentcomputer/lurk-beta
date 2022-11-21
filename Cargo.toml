@@ -47,7 +47,7 @@ cid = { version = "0.8.4", default-features = false, features = ["alloc", "serde
 multihash = { version = "0.16.1", default-features = false, features = ["alloc", "blake3"] }
 
 [features]
-default = []
+default = ["bellperson/default"]
 gpu = ["neptune/opencl"]
 
 [dev-dependencies]

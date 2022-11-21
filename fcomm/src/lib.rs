@@ -67,7 +67,7 @@ pub fn committed_function_store() -> FileMap<Commitment<S1>, Function<S1>> {
     FileMap::<Commitment<S1>, Function<S1>>::new("functions").unwrap()
 }
 
-// Number circuit reductions per step, equivalent to `chunk_frame_count`
+// Number of circuit reductions per step, equivalent to `chunk_frame_count`
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReductionCount {
     One,
@@ -791,7 +791,6 @@ impl<'a> Proof<'a, S1> {
         let (proof, _public_input, _public_output, num_steps) = nova_prover
             .evaluate_and_prove(pp, expr, env, s, limit)
             .expect("Nova proof failed");
-        //assert!(public_output.is_complete());
 
         let proof = Self {
             claim: claim.clone(),
