@@ -2523,19 +2523,13 @@ mod tests {
     #[test]
     fn outer_prove_test_eval() {
         let s = &mut Store::<Fr>::default();
-        let expr0 = "(eval '3)";
-        let expr1 = "(eval (+ 1 2))";
-        let expr11 = "(* 3 (eval (cons '+ (cons 1 (cons 2 nil)))))";
-        let expr1 = "(eval (cons '+ (cons 1 (cons 2 nil))))";
+        let expr = "(* 3 (eval (cons '+ (cons 1 (cons 2 nil)))))";
         let expr2 = "(* 5 (eval '(+ 1 a) '((a . 3))))"; // two-arg eval, optional second arg is env.
-        let res0 = s.num(3);
         let res = s.num(9);
         let res2 = s.num(20);
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr0, Some(res0), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr1, Some(res0), None, Some(terminal), None, 3);
-        //nova_test_aux(s, expr11, Some(res), None, Some(terminal), None, 17);
-        //nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 9);
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 17);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 9);
     }
 }
