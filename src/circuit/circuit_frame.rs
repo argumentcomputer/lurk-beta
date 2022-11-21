@@ -611,9 +611,6 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
             &expr_thunk_hash,
             expr.hash(),
         )?;
-        // dbg!("{:?}", expr_is_a_thunk.get_value());
-        // dbg!("{:?}", expr_is_the_thunk.get_value());
-        // dbg!("{:?}", expr_thunk_hash.get_value());
 
         enforce_implication(
             &mut cs.namespace(|| "(expr.tag == thunk_tag) implies (expr_thunk_hash == expr.hash)"),
