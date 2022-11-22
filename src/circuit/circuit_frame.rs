@@ -3560,8 +3560,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let the_env = AllocatedPtr::pick(
             &mut cs.namespace(|| "maybe eval env"),
             &op2_is_eval,
-            &arg2,
-            &env,
+            arg2,
+            env,
         )?;
 
         let make_thunk_num = pick(
@@ -3921,7 +3921,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &mut cs.namespace(|| "the_env"),
             &op1_is_eval,
             &g.nil_ptr,
-            &env,
+            env,
         )?;
 
         let the_cont = AllocatedContPtr::pick(
