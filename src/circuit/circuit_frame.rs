@@ -1230,6 +1230,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let num_hash = hash_sym("num");
     let comm_hash = hash_sym("comm");
     let char_hash = hash_sym("char");
+    let eval_hash = hash_sym("eval");
     let open_hash = hash_sym("open");
     let secret_hash = hash_sym("secret");
 
@@ -1441,6 +1442,90 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             cond_error,
         )
     };
+
+    // head == EVAL preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let (
+        the_op,
+        op1_or_op2,
+        env_or_cont_tag,
+        env_or_cont_hash,
+        default_or_expr_tag,
+        default_or_expr_hash,
+        default_or_cont_tag,
+        default_or_cont_hash,
+    ) = {
+        let the_op = pick(
+            &mut cs.namespace(|| "eval op"),
+            &end_is_nil,
+            &g.unop_cont_tag,
+            &g.binop_cont_tag,
+        )?;
+        let op1_or_op2 = pick(
+            &mut cs.namespace(|| "op1 or op2"),
+            &end_is_nil,
+            &g.op1_eval_tag,
+            &g.op2_eval_tag,
+        )?;
+        let env_or_cont_tag = pick(
+            &mut cs.namespace(|| "env or cont tag"),
+            &end_is_nil,
+            env.tag(),
+            cont.tag(),
+        )?;
+        let env_or_cont_hash = pick(
+            &mut cs.namespace(|| "env or cont hash"),
+            &end_is_nil,
+            env.hash(),
+            cont.hash(),
+        )?;
+        let default_or_expr_tag = pick(
+            &mut cs.namespace(|| "default or expr tag"),
+            &end_is_nil,
+            &g.default_num,
+            more.tag(),
+        )?;
+        let default_or_expr_hash = pick(
+            &mut cs.namespace(|| "default or expr hash"),
+            &end_is_nil,
+            &g.default_num,
+            more.hash(),
+        )?;
+        let default_or_cont_tag = pick(
+            &mut cs.namespace(|| "default or cont tag"),
+            &end_is_nil,
+            &g.default_num,
+            cont.tag(),
+        )?;
+        let default_or_cont_hash = pick(
+            &mut cs.namespace(|| "default or cont hash"),
+            &end_is_nil,
+            &g.default_num,
+            cont.hash(),
+        )?;
+        (
+            the_op,
+            op1_or_op2,
+            env_or_cont_tag,
+            env_or_cont_hash,
+            default_or_expr_tag,
+            default_or_expr_hash,
+            default_or_cont_tag,
+            default_or_cont_hash,
+        )
+    };
+
+    let eval_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &[&op1_or_op2, &g.default_num],
+        &[&env_or_cont_tag, &env_or_cont_hash],
+        &[&default_or_expr_tag, &default_or_expr_hash],
+        &[&default_or_cont_tag, &default_or_cont_hash],
+    ];
+    hash_default_results.add_hash_input_clauses(
+        *eval_hash.value(),
+        &the_op,
+        eval_continuation_components,
+    );
 
     // head == LET and LETREC preimage
     /////////////////////////////////////////////////////////////////////////////
@@ -2049,6 +2134,10 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.false_num,
     );
 
+    // head == EVAL, newer_cont is allocated
+    /////////////////////////////////////////////////////////////////////////////
+    results.add_clauses_cons(*eval_hash.value(), &arg1, env, &newer_cont, &g.false_num);
+
     // head == ATOM, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
@@ -2596,6 +2685,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                         key: Op1::Char.as_field(),
                         value: c.tag(),
                     },
+                    CaseClause {
+                        key: Op1::Eval.as_field(),
+                        value: result.tag(),
+                    },
                 ],
                 &[
                     CaseClause {
@@ -2637,6 +2730,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                     CaseClause {
                         key: Op1::Char.as_field(),
                         value: c.hash(),
+                    },
+                    CaseClause {
+                        key: Op1::Eval.as_field(),
+                        value: result.hash(),
                     },
                 ],
             ],
@@ -2992,7 +3089,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
     // Continuation::Binop2
     /////////////////////////////////////////////////////////////////////////////
-    let (the_expr, the_cont) = {
+    let (the_expr, the_env, the_cont, make_thunk_num) = {
         let op2 = AllocatedPtr::by_index(0, &continuation_components);
         let arg1 = AllocatedPtr::by_index(1, &continuation_components);
         let continuation = AllocatedContPtr::by_index(2, &continuation_components);
@@ -3430,24 +3527,60 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &invalid_strcons_tag,
         )?;
 
-        let the_cont = AllocatedContPtr::pick(
+        let op2_is_eval = alloc_equal(cs.namespace(|| "op2_is_eval"), op2.tag(), &g.op2_eval_tag)?;
+
+        let the_cont_ = AllocatedContPtr::pick(
             &mut cs.namespace(|| "maybe type or div by zero error"),
             &any_error,
             &g.error_ptr_cont,
             &continuation,
         )?;
 
-        let the_expr = AllocatedPtr::pick(
+        let the_cont = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "maybe eval cont"),
+            &op2_is_eval,
+            &continuation,
+            &the_cont_,
+        )?;
+
+        let the_expr_ = AllocatedPtr::pick(
             &mut cs.namespace(|| "maybe expr error"),
             &any_error,
             result,
             &final_res,
         )?;
 
-        (the_expr, the_cont)
+        let the_expr = AllocatedPtr::pick(
+            &mut cs.namespace(|| "maybe eval expr"),
+            &op2_is_eval,
+            &arg1,
+            &the_expr_,
+        )?;
+
+        let the_env = AllocatedPtr::pick(
+            &mut cs.namespace(|| "maybe eval env"),
+            &op2_is_eval,
+            arg2,
+            env,
+        )?;
+
+        let make_thunk_num = pick(
+            &mut cs.namespace(|| "maybe eval make_thunk_num"),
+            &op2_is_eval,
+            &g.false_num,
+            &g.true_num,
+        )?;
+
+        (the_expr, the_env, the_cont, make_thunk_num)
     };
 
-    results.add_clauses_cont(ContTag::Binop2, &the_expr, env, &the_cont, &g.true_num);
+    results.add_clauses_cont(
+        ContTag::Binop2,
+        &the_expr,
+        &the_env,
+        &the_cont,
+        &make_thunk_num,
+    );
 
     // Continuation::If
     /////////////////////////////////////////////////////////////////////////////
@@ -3619,13 +3752,18 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
     // Continuation::Unop newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    let (the_expr, the_cont) = {
+    let (the_expr, the_env, the_cont, make_thunk_num) = {
         let unop_op1 = AllocatedPtr::by_index(0, &continuation_components);
         let other_unop_continuation = AllocatedContPtr::by_index(1, &continuation_components);
         let op1_is_emit = alloc_equal(
             &mut cs.namespace(|| "op1_is_emit"),
             unop_op1.tag(),
             &g.op1_emit_tag,
+        )?;
+        let op1_is_eval = alloc_equal(
+            &mut cs.namespace(|| "op1_is_eval"),
+            unop_op1.tag(),
+            &g.op1_eval_tag,
         )?;
         let unop_continuation = AllocatedContPtr::pick(
             &mut cs.namespace(|| "continuation"),
@@ -3779,6 +3917,13 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &unop_val,
         )?;
 
+        let the_env = AllocatedPtr::pick(
+            &mut cs.namespace(|| "the_env"),
+            &op1_is_eval,
+            &g.nil_ptr,
+            env,
+        )?;
+
         let the_cont = AllocatedContPtr::pick(
             &mut cs.namespace(|| "the_cont"),
             &any_error,
@@ -3786,10 +3931,23 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &unop_continuation,
         )?;
 
-        (the_expr, the_cont)
+        let make_thunk_num = pick(
+            &mut cs.namespace(|| "pick make_thunk_num"),
+            &op1_is_eval,
+            &g.false_num,
+            &g.true_num,
+        )?;
+
+        (the_expr, the_env, the_cont, make_thunk_num)
     };
 
-    results.add_clauses_cont(ContTag::Unop, &the_expr, env, &the_cont, &g.true_num);
+    results.add_clauses_cont(
+        ContTag::Unop,
+        &the_expr,
+        &the_env,
+        &the_cont,
+        &make_thunk_num,
+    );
 
     // Main multi_case
     /////////////////////////////////////////////////////////////////////////////
@@ -4164,9 +4322,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(20461, cs.num_constraints());
+            assert_eq!(20513, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(20318, cs.aux().len());
+            assert_eq!(20368, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
