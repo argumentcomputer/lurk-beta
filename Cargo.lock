@@ -32,9 +32,9 @@ dependencies = [
 
 [[package]]
 name = "aho-corasick"
-version = "0.7.19"
+version = "0.7.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4f55bd91a0978cbfd91c457a164bab8b4001c833b7f323132c0a4e1922dd44e"
+checksum = "cc936419f96fa211c1b9166887b38e5e40b19958e5b895be7c1f93adec7071ac"
 dependencies = [
  "memchr",
 ]
@@ -117,13 +117,14 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "bellperson"
-version = "0.24.0"
-source = "git+https://github.com/lurk-lang/bellperson?branch=serde-allocatednum#506b2d3aef4458799f34d06015fd1ad859d41ab1"
+version = "0.24.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1a8623f815c0b1fd89efd9b5f4afbb937f91f51c1ebe3f6dda399c69fa938f3"
 dependencies = [
  "bincode",
  "blake2s_simd 1.0.0",
  "blstrs",
- "byteorder 1.4.3",
+ "byteorder",
  "crossbeam-channel",
  "digest 0.10.6",
  "ec-gpu",
@@ -144,11 +145,12 @@ dependencies = [
 
 [[package]]
 name = "bellperson-nonnative"
-version = "0.3.1"
-source = "git+https://github.com/lurk-lang/bellperson-nonnative?branch=update-bellperson#d472c097cf924a07eb3604fc7b4bbd5f930a6ed5"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6d874da58a706dd37773582e51e5a547c3197128fb4c110e7702d403528b7ec"
 dependencies = [
  "bellperson",
- "byteorder 0.3.13",
+ "byteorder",
  "ff",
  "num-bigint 0.4.3",
  "num-integer",
@@ -200,7 +202,7 @@ checksum = "72936ee4afc7f8f736d1c38383b56480b5497b4617b4a77bdbf1d2ababc76127"
 dependencies = [
  "arrayref",
  "arrayvec 0.7.2",
- "constant_time_eq",
+ "constant_time_eq 0.1.5",
 ]
 
 [[package]]
@@ -211,7 +213,7 @@ checksum = "9e461a7034e85b211a4acb57ee2e6730b32912b06c08cc242243c39fc21ae6a2"
 dependencies = [
  "arrayref",
  "arrayvec 0.5.2",
- "constant_time_eq",
+ "constant_time_eq 0.1.5",
 ]
 
 [[package]]
@@ -222,20 +224,20 @@ checksum = "db539cc2b5f6003621f1cd9ef92d7ded8ea5232c7de0f9faa2de251cd98730d4"
 dependencies = [
  "arrayref",
  "arrayvec 0.7.2",
- "constant_time_eq",
+ "constant_time_eq 0.1.5",
 ]
 
 [[package]]
 name = "blake3"
-version = "1.3.1"
+version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a08e53fc5a564bb15bfe6fae56bd71522205f1f91893f9c0116edad6496c183f"
+checksum = "895adc16c8b3273fbbc32685a7d55227705eda08c01e77704020f3491924b44b"
 dependencies = [
  "arrayref",
  "arrayvec 0.7.2",
  "cc",
  "cfg-if",
- "constant_time_eq",
+ "constant_time_eq 0.2.4",
 ]
 
 [[package]]
@@ -246,7 +248,7 @@ checksum = "c0940dc441f31689269e10ac70eb1002a3a1d3ad1390e030043662eb7fe4688b"
 dependencies = [
  "block-padding",
  "byte-tools",
- "byteorder 1.4.3",
+ "byteorder",
  "generic-array 0.12.4",
 ]
 
@@ -342,12 +344,6 @@ checksum = "e3b5ca7a04898ad4bcd41c90c5285445ff5b791899bb1b0abdd2a2aa791211d7"
 
 [[package]]
 name = "byteorder"
-version = "0.3.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29b2aa490a8f546381308d68fc79e6bd753cd3ad839f7a7172897f1feedfa175"
-
-[[package]]
-name = "byteorder"
 version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
@@ -360,9 +356,9 @@ checksum = "37b2a672a2cb129a2e41c10b1224bb368f9f37a2b16b612598138befd7b37eb5"
 
 [[package]]
 name = "cc"
-version = "1.0.76"
+version = "1.0.77"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76a284da2e6fe2092f2353e51713435363112dfd60030e22add80be333fb928f"
+checksum = "e9f73505338f7d905b19d18738976aae232eb46b8efc15554ffc56deb5d9ebe4"
 
 [[package]]
 name = "cfg-if"
@@ -490,6 +486,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
+name = "constant_time_eq"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3ad85c1f65dc7b37604eb0e89748faf0b9653065f2a8ef69f96a687ec1e9279"
+
+[[package]]
 name = "core2"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -575,9 +577,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-epoch"
-version = "0.9.12"
+version = "0.9.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96bf8df95e795db1a4aca2957ad884a2df35413b24bbeb3114422f3cc21498e8"
+checksum = "01a9af1f4c2ef74bb8aa1f7e19706bc72d03598c8a570bb5de72243c7a9d9d5a"
 dependencies = [
  "autocfg 1.1.0",
  "cfg-if",
@@ -588,9 +590,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.13"
+version = "0.8.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "422f23e724af1240ec469ea1e834d87a4b59ce2efe2c6a96256b0c47e2fd86aa"
+checksum = "4fb766fa798726286dbbb842f174001dab8abc7b627a1dd86e0b7222a95d929f"
 dependencies = [
  "cfg-if",
 ]
@@ -916,7 +918,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d013fc25338cc558c5c2cfbad646908fb23591e2404481826742b651c9af7160"
 dependencies = [
  "bitvec",
- "byteorder 1.4.3",
+ "byteorder",
  "ff_derive",
  "rand_core 0.6.4",
  "subtle",
@@ -1295,8 +1297,9 @@ dependencies = [
 
 [[package]]
 name = "lurk-ipld"
-version = "0.1.0"
-source = "git+https://github.com/lurk-lang/libipld?branch=master#54f7964965759a6e4519eda0348ec09c75003499"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ada37fd13f97d2c28397acea958425781071119586717f47104b743e387a081"
 dependencies = [
  "fnv",
  "log",
@@ -1311,9 +1314,10 @@ dependencies = [
 [[package]]
 name = "lurk-ipld-cbor"
 version = "0.1.0"
-source = "git+https://github.com/lurk-lang/libipld?branch=master#54f7964965759a6e4519eda0348ec09c75003499"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f04538a7157c1782ddf2806355046adc01d2371a99502b66ac26df9149b62f3"
 dependencies = [
- "byteorder 1.4.3",
+ "byteorder",
  "lurk-ipld-core",
  "thiserror",
 ]
@@ -1321,7 +1325,8 @@ dependencies = [
 [[package]]
 name = "lurk-ipld-core"
 version = "0.1.0"
-source = "git+https://github.com/lurk-lang/libipld?branch=master#54f7964965759a6e4519eda0348ec09c75003499"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfd43b843c3cdc52d0df1ccdfdc75c65e412c25ff696cbc29be069d6d5e8261e"
 dependencies = [
  "anyhow",
  "cid",
@@ -1335,7 +1340,8 @@ dependencies = [
 [[package]]
 name = "lurk-ipld-json"
 version = "0.1.0"
-source = "git+https://github.com/lurk-lang/libipld?branch=master#54f7964965759a6e4519eda0348ec09c75003499"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db548002b1710ab2eaab21404087d0114f9069f18705c0ab6f9b26d46c614614"
 dependencies = [
  "lurk-ipld-core",
  "multihash",
@@ -1346,7 +1352,8 @@ dependencies = [
 [[package]]
 name = "lurk-ipld-macro"
 version = "0.1.0"
-source = "git+https://github.com/lurk-lang/libipld?branch=master#54f7964965759a6e4519eda0348ec09c75003499"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b797538f4712f28003260eba722e4732668b9738fb88fa0d5202707a48c0272"
 dependencies = [
  "lurk-ipld-core",
 ]
@@ -1404,7 +1411,7 @@ version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e261cf0f8b3c42ded9f7d2bb59dea03aa52bc8a1cbc7482f9fc3fd1229d3b42"
 dependencies = [
- "byteorder 1.4.3",
+ "byteorder",
  "keccak",
  "rand_core 0.5.1",
  "zeroize",
@@ -1471,7 +1478,7 @@ dependencies = [
  "bellperson",
  "blake2s_simd 0.5.11",
  "blstrs",
- "byteorder 1.4.3",
+ "byteorder",
  "ec-gpu",
  "ec-gpu-gen",
  "ff",
@@ -1514,8 +1521,8 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 
 [[package]]
 name = "nova-snark"
-version = "0.8.1"
-source = "git+https://github.com/lurk-lang/Nova?branch=serde#8b9a868ae7fde541083718879852422c8c53601b"
+version = "0.9.0"
+source = "git+https://github.com/lurk-lang/Nova?branch=serde#6ee92046e069fa112ba52af633abc8f5cc616ebe"
 dependencies = [
  "bellperson",
  "bellperson-nonnative",
@@ -1624,9 +1631,9 @@ dependencies = [
 
 [[package]]
 name = "os_str_bytes"
-version = "6.4.0"
+version = "6.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b5bf27447411e9ee3ff51186bf7a08e16c341efdde93f4d823e8844429bed7e"
+checksum = "9b7820b9daea5457c9f21c69448905d723fbd21136ccf521748f23fd49e723ee"
 
 [[package]]
 name = "pairing"
@@ -1653,6 +1660,7 @@ dependencies = [
 [[package]]
 name = "pasta-msm"
 version = "0.1.3"
+source = "git+https://github.com/lurk-lang/pasta-msm?branch=update-pasta#d42441acfc577af7bc0ee46028bbdc616b7e2958"
 dependencies = [
  "cc",
  "pasta_curves",
@@ -2284,9 +2292,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.88"
+version = "1.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e8b3801309262e8184d9687fb697586833e939767aea0dda89f5a8e650e8bd7"
+checksum = "020ff22c755c2ed3f8cf162dbb41a7268d934702f3ed3631656ea597e08fc3db"
 dependencies = [
  "itoa 1.0.4",
  "ryu",
