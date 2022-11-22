@@ -1445,64 +1445,81 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == EVAL preimage
     /////////////////////////////////////////////////////////////////////////////
-
-    let (the_op, comp0, comp2, comp3, comp4, comp5, comp6, comp7) = {
+    let (
+        the_op,
+        op1_or_op2,
+        env_or_cont_tag,
+        env_or_cont_hash,
+        default_or_expr_tag,
+        default_or_expr_hash,
+        default_or_cont_tag,
+        default_or_cont_hash,
+    ) = {
         let the_op = pick(
             &mut cs.namespace(|| "eval op"),
             &end_is_nil,
             &g.unop_cont_tag,
             &g.binop_cont_tag,
         )?;
-        let comp0 = pick(
-            &mut cs.namespace(|| "eval comp0"),
+        let op1_or_op2 = pick(
+            &mut cs.namespace(|| "op1 or op2"),
             &end_is_nil,
             &g.op1_eval_tag,
             &g.op2_eval_tag,
         )?;
-        let comp2 = pick(
-            &mut cs.namespace(|| "eval comp2"),
+        let env_or_cont_tag = pick(
+            &mut cs.namespace(|| "env or cont tag"),
             &end_is_nil,
             env.tag(),
             cont.tag(),
         )?;
-        let comp3 = pick(
-            &mut cs.namespace(|| "eval comp3"),
+        let env_or_cont_hash = pick(
+            &mut cs.namespace(|| "env or cont hash"),
             &end_is_nil,
             env.hash(),
             cont.hash(),
         )?;
-        let comp4 = pick(
-            &mut cs.namespace(|| "eval comp4"),
+        let default_or_expr_tag = pick(
+            &mut cs.namespace(|| "default or expr tag"),
             &end_is_nil,
             &g.default_num,
             more.tag(),
         )?;
-        let comp5 = pick(
-            &mut cs.namespace(|| "eval comp5"),
+        let default_or_expr_hash = pick(
+            &mut cs.namespace(|| "default or expr hash"),
             &end_is_nil,
             &g.default_num,
             more.hash(),
         )?;
-        let comp6 = pick(
-            &mut cs.namespace(|| "eval comp6"),
+        let default_or_cont_tag = pick(
+            &mut cs.namespace(|| "default or cont tag"),
             &end_is_nil,
             &g.default_num,
             cont.tag(),
         )?;
-        let comp7 = pick(
-            &mut cs.namespace(|| "eval comp7"),
+        let default_or_cont_hash = pick(
+            &mut cs.namespace(|| "default or cont hash"),
             &end_is_nil,
             &g.default_num,
             cont.hash(),
         )?;
-        (the_op, comp0, comp2, comp3, comp4, comp5, comp6, comp7)
+        (
+            the_op,
+            op1_or_op2,
+            env_or_cont_tag,
+            env_or_cont_hash,
+            default_or_expr_tag,
+            default_or_expr_hash,
+            default_or_cont_tag,
+            default_or_cont_hash,
+        )
     };
 
     let eval_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
-        &[&comp0, &g.default_num],
-        &[&comp2, &comp3],
-        &[&comp4, &comp5],
-        &[&comp6, &comp7],
+        &[&op1_or_op2, &g.default_num],
+        &[&env_or_cont_tag, &env_or_cont_hash],
+        &[&default_or_expr_tag, &default_or_expr_hash],
+        &[&default_or_cont_tag, &default_or_cont_hash],
     ];
     hash_default_results.add_hash_input_clauses(
         *eval_hash.value(),
