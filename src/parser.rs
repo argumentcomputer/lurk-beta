@@ -2,14 +2,26 @@ use peekmore::{PeekMore, PeekMoreIterator};
 
 use crate::error::ParserError;
 use crate::field::LurkField;
+use crate::package::Package;
 use crate::store::{Ptr, Store};
+use crate::sym::Sym;
 use crate::uint::UInt;
 
 impl<F: LurkField> Store<F> {
     pub fn read(&mut self, input: &str) -> Result<Ptr<F>, ParserError> {
+        let package = Default::default();
+
+        self.read_in_package(input, &package)
+    }
+
+    pub fn read_in_package(
+        &mut self,
+        input: &str,
+        package: &Package,
+    ) -> Result<Ptr<F>, ParserError> {
         let mut chars = input.chars().peekmore();
         if skip_whitespace_and_peek(&mut chars).is_some() {
-            self.read_next(&mut chars)
+            self.read_next(&mut chars, package)
         } else {
             Err(ParserError::NoInput)
         }
@@ -43,37 +55,10 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn read_quoted_symbol<T: Iterator<Item = char>>(
-        &mut self,
-        chars: &mut PeekMoreIterator<T>,
-    ) -> Result<Ptr<F>, ParserError> {
-        let mut result = String::new();
-
-        if let Some('|') = skip_whitespace_and_peek(chars) {
-            chars.next();
-            while let Some(&c) = chars.peek() {
-                chars.next();
-                if c == '\\' {
-                    if let Some(&c) = chars.peek() {
-                        result.push(c);
-                        chars.next();
-                    }
-                } else if c == '|' {
-                    let sym = self.intern_sym(result);
-                    return Ok(sym);
-                } else {
-                    result.push(c);
-                }
-            }
-            Err(ParserError::Syntax("Could not read quoted symbol".into()))
-        } else {
-            Err(ParserError::Syntax("Could not read quoted symbol".into()))
-        }
-    }
-
     pub fn read_maybe_meta<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
+        package: &Package,
     ) -> Result<(Ptr<F>, bool), ParserError> {
         if let Some(c) = skip_whitespace_and_peek(chars) {
             match c {
@@ -81,14 +66,14 @@ impl<F: LurkField> Store<F> {
                     chars.next();
                     if let Ok(s) = self.read_string(chars) {
                         Ok((s, true))
-                    } else if let Ok((e, is_meta)) = self.read_maybe_meta(chars) {
+                    } else if let Ok((e, is_meta)) = self.read_maybe_meta(chars, package) {
                         assert!(!is_meta);
                         Ok((e, true))
                     } else {
                         Err(ParserError::Syntax("Could not read meta".into()))
                     }
                 }
-                _ => self.read_next(chars).map(|expr| (expr, false)),
+                _ => self.read_next(chars, package).map(|expr| (expr, false)),
             }
         } else {
             Err(ParserError::Syntax("Could not read meta".into()))
@@ -98,10 +83,11 @@ impl<F: LurkField> Store<F> {
     pub fn read_next<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
+        package: &Package,
     ) -> Result<Ptr<F>, ParserError> {
         while let Some(&c) = chars.peek() {
             return match c {
-                '(' => self.read_list(chars),
+                '(' => self.read_list(chars, package),
                 '0'..='9' => self.read_number(chars, true),
                 ' ' | '\t' | '\n' | '\r' => {
                     // Skip whitespace.
@@ -110,13 +96,13 @@ impl<F: LurkField> Store<F> {
                 }
                 '\'' => {
                     chars.next();
-                    let quote = self.sym("quote");
-                    let quoted = self.read_next(chars)?;
+                    let quote = self.lurk_sym("quote");
+                    let quoted = self.read_next(chars, package)?;
                     let inner = self.intern_list(&[quoted]);
                     Ok(self.cons(quote, inner))
                 }
                 '\"' => self.read_string(chars),
-                '|' => self.read_quoted_symbol(chars),
+                '|' => self.read_symbol(chars, package),
                 '#' => self.read_pound(chars),
                 ';' => {
                     chars.next();
@@ -126,8 +112,8 @@ impl<F: LurkField> Store<F> {
                         Err(ParserError::Syntax("Bad comment syntax".into()))
                     }
                 }
-                '-' => self.read_negative_number_or_symbol(chars),
-                x if is_symbol_char(&x, true) => self.read_symbol(chars),
+                '-' => self.read_negative_number_or_symbol(chars, package),
+                x if is_symbol_char(&x, true) => self.read_symbol(chars, package),
                 _ => Err(ParserError::Syntax(format!("bad input character: {}", c))),
             };
         }
@@ -138,12 +124,13 @@ impl<F: LurkField> Store<F> {
     fn read_list<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
+        package: &Package,
     ) -> Result<Ptr<F>, ParserError> {
         if let Some(&c) = chars.peek() {
             match c {
                 '(' => {
                     chars.next(); // Discard.
-                    self.read_tail(chars)
+                    self.read_tail(true, chars, package)
                 }
                 _ => Err(ParserError::Syntax("Could not read list".into())),
             }
@@ -155,7 +142,9 @@ impl<F: LurkField> Store<F> {
     // Read the tail of a list.
     fn read_tail<T: Iterator<Item = char>>(
         &mut self,
+        first: bool,
         chars: &mut PeekMoreIterator<T>,
+        package: &Package,
     ) -> Result<Ptr<F>, ParserError> {
         if let Some(c) = skip_whitespace_and_peek(chars) {
             match c {
@@ -163,17 +152,30 @@ impl<F: LurkField> Store<F> {
                     chars.next();
                     Ok(self.nil())
                 }
-                '.' => {
-                    chars.next();
-                    let cdr = self.read_next(chars)?;
-                    let remaining_tail = self.read_tail(chars)?;
-                    assert!(remaining_tail.is_nil());
+                '.' if !first => {
+                    if is_symbol_char(chars.peek_nth(1).unwrap(), false) {
+                        self.read_tail(true, chars, package)
+                    } else {
+                        chars.next();
+                        let cdr = self.read_next(chars, package)?;
+                        let remaining_tail = self.read_tail(false, chars, package)?;
+                        assert!(remaining_tail.is_nil());
 
-                    Ok(cdr)
+                        Ok(cdr)
+                    }
                 }
                 _ => {
-                    let car = self.read_next(chars)?;
-                    let rest = self.read_tail(chars)?;
+                    let res = self.read_next(chars, package);
+                    match res {
+                        Err(ParserError::NoInput) if c == '.' => {
+                            Err(ParserError::Syntax(
+                                "nothing appears before . in list.".into(),
+                            ))?;
+                        }
+                        _ => (),
+                    };
+                    let car = res?;
+                    let rest = self.read_tail(false, chars, package)?;
                     Ok(self.cons(car, rest))
                 }
             }
@@ -186,14 +188,15 @@ impl<F: LurkField> Store<F> {
     fn read_negative_number_or_symbol<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
+        package: &Package,
     ) -> Result<Ptr<F>, ParserError> {
         if let Some(&c) = chars.peek() {
-            chars.next();
             match c {
                 '-' => {
-                    if let Some(&c) = chars.peek() {
+                    if let Some(&c) = chars.peek_nth(1) {
                         match c {
                             '0'..='9' => {
+                                chars.next();
                                 let n = self.read_number(chars, true)?;
                                 let num: &crate::num::Num<F> =
                                     self.fetch_num(&n).ok_or_else(|| {
@@ -204,13 +207,15 @@ impl<F: LurkField> Store<F> {
                                 Ok(self.intern_num(tmp))
                             }
                             _ => {
-                                let name = Self::read_unquoted_symbol_name(chars);
-
-                                Ok(self.intern_sym(format!("-{}", name)))
+                                if let Some(sym) = read_sym(chars)? {
+                                    Ok(self.intern_sym_in_package(sym, package))
+                                } else {
+                                    Ok(self.intern_sym_in_package(Sym::new("-".into()), package))
+                                }
                             }
                         }
                     } else {
-                        Ok(self.intern_sym("-"))
+                        Ok(self.intern_sym_in_package(Sym::new("-".into()), package))
                     }
                 }
                 _ => Err(ParserError::Syntax("Could not read nagative number".into())),
@@ -427,30 +432,32 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    pub(crate) fn intern_sym_in_package(&mut self, sym: Sym, package: &Package) -> Ptr<F> {
+        if sym.is_toplevel() {
+            self.intern_sym(&sym)
+        } else {
+            let parent_sym = package.name();
+            let new_sym = parent_sym.extend(sym.path());
+
+            self.intern_sym(&new_sym)
+        }
+    }
+
     pub(crate) fn read_symbol<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
+        package: &Package,
     ) -> Result<Ptr<F>, ParserError> {
-        let name = Self::read_unquoted_symbol_name(chars);
-        Ok(self.intern_sym(name))
-    }
-
-    pub(crate) fn read_unquoted_symbol_name<T: Iterator<Item = char>>(
-        chars: &mut PeekMoreIterator<T>,
-    ) -> String {
-        let mut name = String::new();
-        let mut is_initial = true;
-        while let Some(&c) = chars.peek() {
-            if is_symbol_char(&c, is_initial) {
-                let c = chars.next().unwrap();
-                name.push(c);
+        if let Some(sym) = read_sym(chars)? {
+            if sym.is_root() {
+                // The root symbol cannot (currently) be read. A naked dot is an error except in the context of a list tail.
+                Err(ParserError::Syntax("Misplaced dot".into()))
             } else {
-                break;
+                Ok(self.intern_sym_in_package(sym, package))
             }
-            is_initial = false;
+        } else {
+            Err(ParserError::NoInput)
         }
-        Self::convert_sym_case(&mut name);
-        name
     }
 
     pub(crate) fn read_pound<T: Iterator<Item = char>>(
@@ -477,10 +484,174 @@ impl<F: LurkField> Store<F> {
     }
 }
 
+// Read a symbol's canonical full name by first reading the path,
+// then constructing the canonical full name from the resulting path.
+fn read_sym<T: Iterator<Item = char>>(
+    chars: &mut PeekMoreIterator<T>,
+) -> Result<Option<Sym>, ParserError> {
+    let (is_keyword, path) = read_symbol_path(chars)?;
+
+    if path.is_empty() {
+        Ok(None)
+    } else {
+        let sym = Sym::new_from_path(is_keyword, path);
+        Ok(Some(sym))
+    }
+}
+
+pub fn read_symbol_path<T: Iterator<Item = char>>(
+    chars: &mut PeekMoreIterator<T>,
+) -> Result<(bool, Vec<String>), ParserError> {
+    let mut path = Vec::new();
+
+    let is_keyword = if chars.peek() == Some(&KEYWORD_MARKER) {
+        chars.next();
+        path.push("".into());
+        true
+    } else {
+        false
+    };
+
+    if chars.peek() == Some(&SYM_MARKER) {
+        chars.next();
+        path.push("".into());
+    };
+
+    while let Ok(name) = read_symbol_name(chars) {
+        path.push(name);
+        if chars.peek() == Some(&SYM_MARKER) {
+            chars.next();
+            continue;
+        } else {
+            break;
+        }
+    }
+
+    Ok((is_keyword, path))
+}
+
+fn read_symbol_name<T: Iterator<Item = char>>(
+    chars: &mut PeekMoreIterator<T>,
+) -> Result<String, ParserError> {
+    read_unquoted_symbol_name(chars).or_else(|_| read_quoted_symbol_name(chars))
+}
+
+fn read_quoted_symbol_name<T: Iterator<Item = char>>(
+    chars: &mut PeekMoreIterator<T>,
+) -> Result<String, ParserError> {
+    let mut result = String::new();
+
+    if let Some('|') = chars.peek() {
+        chars.next();
+        while let Some(&c) = chars.peek() {
+            chars.next();
+            if c == '\\' {
+                if let Some(&c) = chars.peek() {
+                    result.push(c);
+                    chars.next();
+                }
+            } else if c == '|' {
+                return Ok(result);
+            } else {
+                result.push(c);
+            }
+        }
+        Err(ParserError::Syntax("Could not read quoted symbol".into()))
+    } else {
+        Err(ParserError::Syntax(
+            "End of input when trying to read quoted symbol".into(),
+        ))
+    }
+}
+
+pub(crate) fn convert_sym_case(raw_name: &mut str) {
+    // In the future, we could support optional alternate case conventions,
+    // so all case conversion should be performed here.
+    raw_name.make_ascii_uppercase();
+}
+
+pub(crate) fn read_unquoted_symbol_name<T: Iterator<Item = char>>(
+    chars: &mut PeekMoreIterator<T>,
+) -> Result<String, ParserError> {
+    let mut name = String::new();
+    let mut is_initial = true;
+
+    if let Some(c) = chars.peek() {
+        if is_symbol_char(c, true) {
+            while let Some(&c) = chars.peek() {
+                if is_symbol_char(&c, is_initial) {
+                    let c = chars.next().unwrap();
+                    name.push(c);
+                } else {
+                    break;
+                }
+                is_initial = false;
+            }
+            convert_sym_case(&mut name);
+            Ok(name)
+        } else {
+            Err(ParserError::Syntax("Could not read unquoted symbol".into()))
+        }
+    } else {
+        Err(ParserError::Syntax(
+            "End of input when trying to read unquoted symbol".into(),
+        ))
+    }
+}
+
+pub(crate) fn maybe_quote_symbol_name_string(symbol_name: &str) -> Result<String, std::fmt::Error> {
+    if symbol_name.is_empty() {
+        return Ok("||".into());
+    }
+    let contains_dot = symbol_name.contains(SYM_SEPARATOR);
+    let mut chars = symbol_name.chars().peekmore();
+    if let Ok(unquoted) = read_unquoted_symbol_name(&mut chars) {
+        if !contains_dot && unquoted == symbol_name {
+            Ok(symbol_name.into())
+        } else {
+            use std::fmt::Write;
+            let mut out = String::new();
+            write!(out, "|")?;
+
+            for c in symbol_name.chars() {
+                if c == '|' {
+                    write!(out, "\\{}", c)?;
+                } else {
+                    write!(out, "{}", c)?;
+                }
+            }
+
+            write!(out, "|")?;
+
+            Ok(out)
+        }
+    } else {
+        Ok(symbol_name.into())
+    }
+}
+
+pub const KEYWORD_MARKER: char = ':';
+pub const SYM_SEPARATOR: &str = ".";
+pub const SYM_MARKER: char = '.';
+
+pub fn names_keyword(name: &str) -> (bool, &str) {
+    let names_keyword = name.starts_with(KEYWORD_MARKER);
+    let names_sym = name.starts_with(SYM_MARKER);
+
+    if name.is_empty() {
+        return (false, "");
+    }
+
+    // must only be called on a full name.
+    assert!(names_sym || names_keyword);
+
+    (names_keyword, &name[1..])
+}
+
 fn is_symbol_char(c: &char, initial: bool) -> bool {
     match c {
-        // FIXME: suppport more than just alpha.
-        'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' | '%' | '=' | '<' | '>' | ':' | '_' => true,
+        c if is_initial_symbol_marker(c) => initial,
+        'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' | '%' | '=' | '<' | '>' | '_' => true,
         _ => {
             if initial {
                 false
@@ -491,17 +662,16 @@ fn is_symbol_char(c: &char, initial: bool) -> bool {
     }
 }
 
+fn is_initial_symbol_marker(c: &char) -> bool {
+    matches!(c, &SYM_MARKER | &KEYWORD_MARKER)
+}
+
 fn is_digit_char(c: &char) -> bool {
     matches!(c, '0'..='9')
 }
 
 fn is_hex_digit_char(c: &char) -> bool {
     matches!(c, '0'..='9' | 'a'..='f' | 'A'..='F')
-}
-
-#[allow(dead_code)]
-fn is_reserved_char(c: &char) -> bool {
-    matches!(c, '(' | ')' | '.')
 }
 
 fn is_whitespace_char(c: &char) -> bool {
@@ -543,10 +713,6 @@ fn skip_line_comment<T: Iterator<Item = char>>(chars: &mut PeekMoreIterator<T>) 
         }
     }
     false
-
-    //chars.skip_while(|c| *c != '\n' && *c != '\r');
-    //     }
-    // };
 }
 
 #[cfg(test)]
@@ -562,39 +728,154 @@ mod test {
             let mut store = Store::<Fr>::default();
             let ptr = &store.read(input).unwrap();
             let expr = store.fetch(ptr).unwrap();
-
-            assert_eq!(expected, expr.as_sym_str().unwrap());
+            dbg!(&expected, &expr.as_sym_str());
+            assert_eq!(expr.as_sym_str().unwrap(), expected);
         };
 
-        test("-", "-");
-        test("-xxx", "-XXX");
-        test("asdf", "ASDF");
-        test("asdf ", "ASDF");
-        test("asdf(", "ASDF");
-        test(" asdf", "ASDF");
-        test(" asdf ", "ASDF");
+        test(".lurk.+", ".LURK.+");
+        test(".lurk.-", ".LURK.-");
+        test("-", ".LURK.-");
+        test("-xxx", ".LURK.-XXX");
+        test("asdf", ".LURK.ASDF");
+        test("asdf ", ".LURK.ASDF");
+        test("asdf(", ".LURK.ASDF");
+        test(" asdf", ".LURK.ASDF");
+        test(" asdf ", ".LURK.ASDF");
         test(
             "
-asdf(", "ASDF",
+        asdf(",
+            ".LURK.ASDF",
         );
-        test("foo-bar", "FOO-BAR");
-        test("foo_bar", "FOO_BAR");
+        test("foo-bar", ".LURK.FOO-BAR");
+        test("foo_bar", ".LURK.FOO_BAR");
+
+        test("|foo_BAR|", ".LURK.|foo_BAR|");
+
+        test(":asdf", ":ASDF");
+        test(":asdf.fdsa", ":ASDF.FDSA");
+        test("asdf.fdsa", ".LURK.ASDF.FDSA");
 
         test(
-            "|A quoted symbol: α, β, ∧, ∨, ∑.|",
-            "A quoted symbol: α, β, ∧, ∨, ∑.",
+            "|A quoted symbol: α, β, ∧, ∨, ∑|",
+            ".LURK.|A quoted symbol: α, β, ∧, ∨, ∑|",
+        );
+        test("|UNNECESSARY-QUOTING|", ".LURK.UNNECESSARY-QUOTING");
+        test(
+            "|A quoted symbol with a dot.|",
+            ".LURK.|A quoted symbol with a dot.|",
         );
         test(
-            r#"|Symbol with \|escaped pipes\| contained.|"#,
-            "Symbol with |escaped pipes| contained.",
-        )
+            r#"|Symbol with \|escaped pipes\| contained|"#,
+            r#".LURK.|Symbol with \|escaped pipes\| contained|"#,
+        );
+
+        test("|asdf|.fdsa", ".LURK.|asdf|.FDSA");
+        test("|ASDF|.fdsa", ".LURK.ASDF.FDSA");
+        test("|ASDF.FDSA|.xxx", ".LURK.|ASDF.FDSA|.XXX");
+        test("|ASDF.fdsa|", ".LURK.|ASDF.fdsa|");
+        test("|ASDF.FDSA|", ".LURK.|ASDF.FDSA|");
+
+        // TODO: Test that this is an error: "asdf:fdsa"
+    }
+
+    #[test]
+    fn test_sym_path() {
+        let test = |input, expected: Vec<&str>| {
+            let mut store = Store::<Fr>::default();
+
+            let ptr = &store.read(input).unwrap();
+            let expr = store.fetch(ptr).unwrap();
+            let sym = expr.as_sym().unwrap();
+
+            assert_eq!(sym.path(), &expected);
+        };
+
+        test("asdf", vec!["", "LURK", "ASDF"]);
+        test("asdf.fdsa", vec!["", "LURK", "ASDF", "FDSA"]);
+
+        test(".asdf", vec!["", "ASDF"]);
+        test(".asdf.fdsa", vec!["", "ASDF", "FDSA"]);
+        test(".|APPLE.ORANGE|.pear", vec!["", "APPLE.ORANGE", "PEAR"]);
+        test(".|asdf|.fdsa", vec!["", "asdf", "FDSA"]);
+
+        test(".asdf.|fdsa|", vec!["", "ASDF", "fdsa"]);
+
+        test(":asdf", vec!["", "ASDF"]);
+        test(":asdf.|fdsa|", vec!["", "ASDF", "fdsa"]);
+
+        test(".||", vec!["", ""]);
+        test(".||.||", vec!["", "", ""]);
+        test(":||", vec!["", ""]);
+        test(":||.||", vec!["", "", ""]);
+        test(".asdf.||.fdsa.||", vec!["", "ASDF", "", "FDSA", ""]);
+    }
+
+    #[test]
+    fn symbol_in_list() {
+        let mut store = Store::<Fr>::default();
+        let expr = store.read("'(+)").unwrap();
+        let expr2 = store.read("'(.lurk.+)").unwrap();
+
+        assert!(store.ptr_eq(&expr, &expr2).unwrap());
+    }
+
+    #[test]
+    fn naked_dot_in_list() {
+        let mut store = Store::<Fr>::default();
+
+        let expected_error = match store.read("(.)").err().unwrap() {
+            ParserError::Syntax(s) => s == "Misplaced dot".to_string(),
+            _ => false,
+        };
+
+        assert!(expected_error);
+    }
+
+    #[test]
+    fn absolute_symbol_in_list() {
+        let mut store = Store::<Fr>::default();
+
+        let expr = store.read("(a .b)").unwrap();
+        let expr2 = store.read("(.b)").unwrap();
+        let a = store.read("a").unwrap();
+        let b = store.read(".b").unwrap();
+        let nil = store.nil();
+
+        let b_list = store.cons(b, nil);
+        let a_b_list = store.cons(a, b_list);
+
+        assert!(store.ptr_eq(&a_b_list, &expr).unwrap());
+        assert!(store.ptr_eq(&b_list, &expr2).unwrap());
+    }
+
+    #[test]
+    fn naked_dot() {
+        let mut store = Store::<Fr>::default();
+
+        let expected_error = match store.read(".").err().unwrap() {
+            ParserError::Syntax(s) => s == "Misplaced dot".to_string(),
+            _ => false,
+        };
+
+        assert!(expected_error);
+    }
+
+    #[test]
+    fn list_tail() {
+        let mut store = Store::<Fr>::default();
+        let expr = store.read("'(+)").unwrap();
+        let expr2 = store.read("'(.lurk.+)").unwrap();
+
+        assert!(store.ptr_eq(&expr, &expr2).unwrap());
     }
 
     #[test]
     fn read_nil() {
         let mut store = Store::<Fr>::default();
-        let expr = store.read("nil").unwrap();
+        let expr = store.read(".lurk.nil").unwrap();
+        let expr2 = store.read("nil").unwrap();
         assert!(expr.is_nil());
+        assert!(expr2.is_nil());
     }
 
     #[test]
@@ -736,7 +1017,7 @@ asdf(", "ASDF",
         let expected2 = s.cons(a, expected);
         test(&mut s, "(321 123)", &expected2);
 
-        let a = s.sym("PUMPKIN");
+        let a = s.sym("pumpkin");
         let expected3 = s.cons(a, expected2);
         test(&mut s, "(pumpkin 321 123)", &expected3);
 
@@ -789,6 +1070,7 @@ asdf(", "ASDF",
         test(&mut s, "(A B C)");
         test(&mut s, "(A (B) C)");
         test(&mut s, "(A (B . C) (D E (F)) G)");
+        // TODO: Writer should replace (quote a) with 'a.
         // test(&mut s, "'A");
         // test(&mut s, "'(A B)");
     }
@@ -796,11 +1078,12 @@ asdf(", "ASDF",
     #[test]
     fn read_maybe_meta() {
         let mut s = Store::<Fr>::default();
+        let package = Package::default();
         let test =
             |store: &mut Store<Fr>, input: &str, expected_ptr: Ptr<Fr>, expected_meta: bool| {
                 let mut chars = input.chars().peekmore();
 
-                let (ptr, meta) = store.read_maybe_meta(&mut chars).unwrap();
+                let (ptr, meta) = store.read_maybe_meta(&mut chars, &package).unwrap();
                 {
                     assert_eq!(expected_ptr, ptr);
                     assert_eq!(expected_meta, meta);
@@ -848,11 +1131,17 @@ asdf(", "ASDF",
     #[test]
     fn is_keyword() {
         let mut s = Store::<Fr>::default();
-        let kw = s.sym(":UIOP");
-        let not_kw = s.sym("UIOP");
+        let kw = s.read(":uiop").unwrap();
+        let kw2 = s.sym(":UIOP");
+        let not_kw = s.sym(".UIOP");
 
-        assert!(s.fetch(&kw).unwrap().is_keyword_sym());
-        assert!(!s.fetch(&not_kw).unwrap().is_keyword_sym());
+        let kw_fetched = s.fetch(&kw).unwrap();
+        let kw2_fetched = s.fetch(&kw2).unwrap();
+        let not_kw_fetched = s.fetch(&not_kw).unwrap();
+
+        assert!(kw_fetched.is_keyword_sym());
+        assert!(kw2_fetched.is_keyword_sym());
+        assert!(!not_kw_fetched.is_keyword_sym());
     }
 
     #[test]

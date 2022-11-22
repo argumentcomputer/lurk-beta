@@ -118,12 +118,12 @@ impl<F: LurkField> GlobalAllocations<F> {
         let lambda_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "LAMBDA"),
             store,
-            &store.get_sym("lambda", true).unwrap(),
+            &store.get_lurk_sym("lambda", true).unwrap(),
         )?;
         let dummy_arg_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "_"),
             store,
-            &store.get_sym("_", true).unwrap(),
+            &store.get_lurk_sym("_", true).unwrap(),
         )?;
 
         let sym_tag = Tag::Sym.allocate_constant(&mut cs.namespace(|| "sym_tag"))?;

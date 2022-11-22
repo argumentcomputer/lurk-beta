@@ -1,1 +1,1 @@
-{"fun":{"Source":"(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))"},"secret":[0,0,0,0],"commitment":"515d78bf9f2b13e62bf1a1d0d2380f79df6b85c5d1392dfbf5207b1ad3028b41"}
+{"fun":{"Source":"(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))"},"secret":[6554862527343526334,2160868500680716915,16984826678251835394,7230090262321715390],"commitment":"4dcfb8ecc1ab38c9557a0de7a8fbd9489dbc388e3c3d75741db5668fa6b416ae"}

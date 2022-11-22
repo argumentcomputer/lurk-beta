@@ -33,6 +33,7 @@ verify-num-list-opening :
 	cargo run --release -- verify --proof num-list-opening.json
 
 chained-commitment.json : chained-function.json
+	cargo run --release -- commit --function chained-function.json --commitment chained-commitment.json
 
 chained-opening: chained-opening.json
 
