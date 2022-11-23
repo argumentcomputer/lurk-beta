@@ -141,32 +141,36 @@ impl<F: LurkField, const N: usize> Hash for CacheKey<F, N> {
 
 impl<F: LurkField> PoseidonCache<F> {
     fn hash3(&self, preimage: &[F; 3]) -> F {
-        let hash = self.a3.entry(CacheKey(*preimage)).or_insert_with(|| {
-            Poseidon::<F, U3>::new_with_preimage(preimage, self.constants.c3()).hash()
-        });
+        let hash = self
+            .a3
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c3()).hash());
 
         *hash
     }
 
     fn hash4(&self, preimage: &[F; 4]) -> F {
-        let hash = self.a4.entry(CacheKey(*preimage)).or_insert_with(|| {
-            Poseidon::<F, U4>::new_with_preimage(preimage, self.constants.c4()).hash()
-        });
+        let hash = self
+            .a4
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c4()).hash());
 
         *hash
     }
 
     fn hash6(&self, preimage: &[F; 6]) -> F {
-        let hash = self.a6.entry(CacheKey(*preimage)).or_insert_with(|| {
-            Poseidon::<F, U6>::new_with_preimage(preimage, self.constants.c6()).hash()
-        });
+        let hash = self
+            .a6
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c6()).hash());
         *hash
     }
 
     fn hash8(&self, preimage: &[F; 8]) -> F {
-        let hash = self.a8.entry(CacheKey(*preimage)).or_insert_with(|| {
-            Poseidon::<F, U8>::new_with_preimage(preimage, self.constants.c8()).hash()
-        });
+        let hash = self
+            .a8
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c8()).hash());
         *hash
     }
 }

@@ -74,4 +74,3 @@ pasta_curves = { git = "https://github.com/lurk-lang/pasta_curves", branch = "se
 neptune = { git = "https://github.com/lurk-lang/neptune", branch = "update-pasta" }
 pasta-msm = { git = "https://github.com/lurk-lang/pasta-msm", branch = "update-pasta" }
 nova-snark = { git = "https://github.com/lurk-lang/Nova", branch = "serde" }
-#lurk-ipld = { git = "https://github.com/lurk-lang/libipld" }
