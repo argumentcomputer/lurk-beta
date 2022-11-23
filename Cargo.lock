@@ -1297,9 +1297,9 @@ dependencies = [
 
 [[package]]
 name = "lurk-ipld"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ada37fd13f97d2c28397acea958425781071119586717f47104b743e387a081"
+checksum = "0f4eb3cb4f455f7b34931650e9a80477eaa33059fbc793833b747c241a1a73b4"
 dependencies = [
  "fnv",
  "log",
@@ -1313,9 +1313,9 @@ dependencies = [
 
 [[package]]
 name = "lurk-ipld-cbor"
-version = "0.1.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f04538a7157c1782ddf2806355046adc01d2371a99502b66ac26df9149b62f3"
+checksum = "8be507a7a240db891b719fc55f1cb8dafe125bee5583e7c401ea28079448275a"
 dependencies = [
  "byteorder",
  "lurk-ipld-core",
@@ -1324,9 +1324,9 @@ dependencies = [
 
 [[package]]
 name = "lurk-ipld-core"
-version = "0.1.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cfd43b843c3cdc52d0df1ccdfdc75c65e412c25ff696cbc29be069d6d5e8261e"
+checksum = "9f1f71796127aafce18db0dbc9ddd0daaa54ac1b7a93b2512c75f20e9a5dacde"
 dependencies = [
  "anyhow",
  "cid",
@@ -1339,9 +1339,9 @@ dependencies = [
 
 [[package]]
 name = "lurk-ipld-json"
-version = "0.1.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db548002b1710ab2eaab21404087d0114f9069f18705c0ab6f9b26d46c614614"
+checksum = "3147fdba7b8e702337cae69bf5561b6f3bcef7668d6bd2d6945026251d68d9e6"
 dependencies = [
  "lurk-ipld-core",
  "multihash",
@@ -1351,9 +1351,9 @@ dependencies = [
 
 [[package]]
 name = "lurk-ipld-macro"
-version = "0.1.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b797538f4712f28003260eba722e4732668b9738fb88fa0d5202707a48c0272"
+checksum = "dda80a5eeced9ef0ff7bf7c836493c953420a2fb368ac179c45960e6016dff4a"
 dependencies = [
  "lurk-ipld-core",
 ]
