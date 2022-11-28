@@ -768,14 +768,14 @@ mod test {
     use libipld::serde::from_ipld;
     use libipld::serde::to_ipld;
 
-    impl Arbitrary for ScalarThunk<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            ScalarThunk {
-                value: Arbitrary::arbitrary(g),
-                continuation: Arbitrary::arbitrary(g),
-            }
-        }
-    }
+    //impl Arbitrary for ScalarThunk<Fr> {
+    //    fn arbitrary(g: &mut Gen) -> Self {
+    //        ScalarThunk {
+    //            value: Arbitrary::arbitrary(g),
+    //            continuation: Arbitrary::arbitrary(g),
+    //        }
+    //    }
+    //}
 
     //#[quickcheck]
     //fn prop_scalar_thunk_ipld(x: ScalarThunk<Fr>) -> bool {
@@ -790,132 +790,96 @@ mod test {
     //    }
     //}
 
-    impl Arbitrary for ScalarExpression<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> ScalarExpression<Fr>>)> = vec![
-                (100, Box::new(|_| Self::StrNil)),
-                (
-                    100,
-                    Box::new(|g| Self::Cons(ScalarPtr::arbitrary(g), ScalarPtr::arbitrary(g))),
-                ),
-                (100, Box::new(|g| Self::Sym(ScalarPtr::arbitrary(g)))),
-                (
-                    100,
-                    Box::new(|g| Self::StrCons(ScalarPtr::arbitrary(g), ScalarPtr::arbitrary(g))),
-                ),
-                (
-                    100,
-                    Box::new(|g| {
-                        let f = FWrap::arbitrary(g);
-                        Self::Num(f.0)
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| {
-                        Self::Fun(
-                            ScalarPtr::arbitrary(g),
-                            ScalarPtr::arbitrary(g),
-                            ScalarPtr::arbitrary(g),
-                        )
-                    }),
-                ),
-                (100, Box::new(|g| Self::Thunk(ScalarThunk::arbitrary(g)))),
-            ];
-            frequency(g, input)
-        }
-    }
-
-    impl Arbitrary for ScalarContinuation<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> ScalarContinuation<Fr>>)> = vec![
-                (100, Box::new(|_| Self::Outermost)),
-                (
-                    100,
-                    Box::new(|g| Self::Call {
-                        unevaled_arg: ScalarPtr::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Call2 {
-                        function: ScalarPtr::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Tail {
-                        saved_env: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (100, Box::new(|_| Self::Error)),
-                (
-                    100,
-                    Box::new(|g| Self::Lookup {
-                        saved_env: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Unop {
-                        operator: Op1::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Binop {
-                        operator: Op2::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        unevaled_args: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Binop2 {
-                        operator: Op2::arbitrary(g),
-                        evaled_arg: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::If {
-                        unevaled_args: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Let {
-                        var: ScalarPtr::arbitrary(g),
-                        body: ScalarPtr::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::LetRec {
-                        var: ScalarPtr::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        body: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (100, Box::new(|_| Self::Dummy)),
-                (100, Box::new(|_| Self::Terminal)),
-            ];
-            frequency(g, input)
-        }
-    }
+    //impl Arbitrary for ScalarContinuation<Fr> {
+    //    fn arbitrary(g: &mut Gen) -> Self {
+    //        let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> ScalarContinuation<Fr>>)> = vec![
+    //            (100, Box::new(|_| Self::Outermost)),
+    //            (
+    //                100,
+    //                Box::new(|g| Self::Call {
+    //                    unevaled_arg: ScalarPtr::arbitrary(g),
+    //                    saved_env: ScalarPtr::arbitrary(g),
+    //                    continuation: ScalarContPtr::arbitrary(g),
+    //                }),
+    //            ),
+    //            (
+    //                100,
+    //                Box::new(|g| Self::Call2 {
+    //                    function: ScalarPtr::arbitrary(g),
+    //                    saved_env: ScalarPtr::arbitrary(g),
+    //                    continuation: ScalarContPtr::arbitrary(g),
+    //                }),
+    //            ),
+    //            (
+    //                100,
+    //                Box::new(|g| Self::Tail {
+    //                    saved_env: ScalarPtr::arbitrary(g),
+    //                    continuation: ScalarContPtr::arbitrary(g),
+    //                }),
+    //            ),
+    //            (100, Box::new(|_| Self::Error)),
+    //            (
+    //                100,
+    //                Box::new(|g| Self::Lookup {
+    //                    saved_env: ScalarPtr::arbitrary(g),
+    //                    continuation: ScalarContPtr::arbitrary(g),
+    //                }),
+    //            ),
+    //            (
+    //                100,
+    //                Box::new(|g| Self::Unop {
+    //                    operator: Op1::arbitrary(g),
+    //                    continuation: ScalarContPtr::arbitrary(g),
+    //                }),
+    //            ),
+    //            (
+    //                100,
+    //                Box::new(|g| Self::Binop {
+    //                    operator: Op2::arbitrary(g),
+    //                    saved_env: ScalarPtr::arbitrary(g),
+    //                    unevaled_args: ScalarPtr::arbitrary(g),
+    //                    continuation: ScalarContPtr::arbitrary(g),
+    //                }),
+    //            ),
+    //            (
+    //                100,
+    //                Box::new(|g| Self::Binop2 {
+    //                    operator: Op2::arbitrary(g),
+    //                    evaled_arg: ScalarPtr::arbitrary(g),
+    //                    continuation: ScalarContPtr::arbitrary(g),
+    //                }),
+    //            ),
+    //            (
+    //                100,
+    //                Box::new(|g| Self::If {
+    //                    unevaled_args: ScalarPtr::arbitrary(g),
+    //                    continuation: ScalarContPtr::arbitrary(g),
+    //                }),
+    //            ),
+    //            (
+    //                100,
+    //                Box::new(|g| Self::Let {
+    //                    var: ScalarPtr::arbitrary(g),
+    //                    body: ScalarPtr::arbitrary(g),
+    //                    saved_env: ScalarPtr::arbitrary(g),
+    //                    continuation: ScalarContPtr::arbitrary(g),
+    //                }),
+    //            ),
+    //            (
+    //                100,
+    //                Box::new(|g| Self::LetRec {
+    //                    var: ScalarPtr::arbitrary(g),
+    //                    saved_env: ScalarPtr::arbitrary(g),
+    //                    body: ScalarPtr::arbitrary(g),
+    //                    continuation: ScalarContPtr::arbitrary(g),
+    //                }),
+    //            ),
+    //            (100, Box::new(|_| Self::Dummy)),
+    //            (100, Box::new(|_| Self::Terminal)),
+    //        ];
+    //        frequency(g, input)
+    //    }
+    //}
 
     #[quickcheck]
     fn prop_scalar_expression_ipld(x: ScalarExpression<Fr>) -> bool {
@@ -953,20 +917,39 @@ mod test {
             false
         }
     }
-
-    // This doesn't create well-defined ScalarStores, so is only useful for
-    // testing ipld
-    impl Arbitrary for ScalarStore<Fr> {
+    impl Arbitrary for ScalarExpression<Fr> {
         fn arbitrary(g: &mut Gen) -> Self {
-            let map: Vec<(ScalarPtr<Fr>, Option<ScalarExpression<Fr>>)> = Arbitrary::arbitrary(g);
-            let cont_map: Vec<(ScalarContPtr<Fr>, Option<ScalarContinuation<Fr>>)> =
-                Arbitrary::arbitrary(g);
-            ScalarStore {
-                scalar_map: map.into_iter().collect(),
-                scalar_cont_map: cont_map.into_iter().collect(),
-            }
+            let syn = Arbitrary::arbitrary(g);
+            let (mut store, ptr1) = Store::<Fr>::new_from_syn(syn);
+            store.hydrate_scalar_cache();
+            let (scalar_store, scalar_ptr) = ScalarStore::new_with_expr(&store, &ptr1).unwrap();
+            scalar_store.get_expr(&scalar_ptr).unwrap().clone()
         }
     }
+
+    impl Arbitrary for ScalarStore<Fr> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let syn = Arbitrary::arbitrary(g);
+            let (mut store, ptr1) = Store::<Fr>::new_from_syn(syn);
+            store.hydrate_scalar_cache();
+            let (scalar_store, _) = ScalarStore::new_with_expr(&store, &ptr1).unwrap();
+            scalar_store
+        }
+    }
+
+    //// This doesn't create well-defined ScalarStores, so is only useful for
+    //// testing ipld
+    //impl Arbitrary for ScalarStore<Fr> {
+    //    fn arbitrary(g: &mut Gen) -> Self {
+    //        let map: Vec<(ScalarPtr<Fr>, Option<ScalarExpression<Fr>>)> = Arbitrary::arbitrary(g);
+    //        let cont_map: Vec<(ScalarContPtr<Fr>, Option<ScalarContinuation<Fr>>)> =
+    //            Arbitrary::arbitrary(g);
+    //        ScalarStore {
+    //            scalar_map: map.into_iter().collect(),
+    //            scalar_cont_map: cont_map.into_iter().collect(),
+    //        }
+    //    }
+    //}
 
     #[quickcheck]
     fn prop_scalar_store_ipld(x: ScalarStore<Fr>) -> bool {
@@ -1233,4 +1216,9 @@ mod test {
             assert!(false);
         }
     }
+
+    //#[quickcheck]
+    //fn prop_scalar_store_serialize(syn: ScalarStore<Fr>) -> bool {
+    //
+    //}
 }

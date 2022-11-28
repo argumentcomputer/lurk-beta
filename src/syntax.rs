@@ -230,6 +230,12 @@ impl<F: LurkField> Store<F> {
             }
         }
     }
+
+    pub fn new_from_syn(input: Syn<F>) -> (Self, Ptr<F>) {
+        let mut store = Store::new();
+        let ptr = store.intern_syn(input);
+        (store, ptr)
+    }
 }
 
 #[cfg(test)]
@@ -395,7 +401,7 @@ mod test {
 
     #[quickcheck]
     fn prop_syn_generates(syn: Syn<Fr>) -> bool {
-        println!("-------------");
+        //println!("-------------");
         let mut store1 = Store::<Fr>::default();
         let ptr1 = store1.intern_syn(syn.clone());
         let mut store2 = Store::<Fr>::default();
