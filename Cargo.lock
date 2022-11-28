@@ -1445,6 +1445,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "lurk_ff"
+version = "0.1.0"
+dependencies = [
+ "blstrs",
+ "ff",
+ "pasta_curves",
+ "quickcheck",
+ "quickcheck_macros",
+ "rand 0.8.5",
+]
+
+[[package]]
 name = "lurk_macro"
 version = "0.1.0"
 dependencies = [
