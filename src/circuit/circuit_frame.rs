@@ -13,7 +13,7 @@ use crate::{
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
     field::LurkField,
-    store::ScalarPointer,
+    store::{HashScalar, ScalarPointer},
 };
 
 use super::gadgets::constraints::{
@@ -587,6 +587,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         results.add_clauses_expr(Tag::Char, expr, env, cont, &g.true_num);
         results.add_clauses_expr(Tag::Str, expr, env, cont, &g.true_num);
         results.add_clauses_expr(Tag::Comm, expr, env, cont, &g.true_num);
+        results.add_clauses_expr(Tag::Key, expr, env, cont, &g.true_num);
     };
 
     let cont_is_terminal = alloc_equal(
@@ -1191,10 +1192,10 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     let lambda = g.lambda_ptr.clone();
 
-    let hash_sym = |sym: &str| {
+    let hash_sym = |name: &str| {
         store
-            .get_sym(sym, true)
-            .and_then(|s| store.get_hash_sym(s))
+            .get_lurk_sym(name, true)
+            .and_then(|s| store.hash_sym(s, HashScalar::Get))
             .unwrap()
     };
 
@@ -4322,9 +4323,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(20513, cs.num_constraints());
+            assert_eq!(20522, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(20368, cs.aux().len());
+            assert_eq!(20377, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

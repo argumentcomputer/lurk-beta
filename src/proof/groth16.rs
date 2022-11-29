@@ -237,9 +237,9 @@ pub struct Groth16Prover<E: Engine + MultiMillerLoop> {
 
 pub struct PublicParams<E: Engine + MultiMillerLoop>(pub groth16::Parameters<E>);
 
-impl<'a> PublicParameters for PublicParams<Bls12> {}
+impl PublicParameters for PublicParams<Bls12> {}
 
-impl<'a> Prover<'a, Scalar> for Groth16Prover<Bls12> {
+impl Prover<'_, Scalar> for Groth16Prover<Bls12> {
     type PublicParams = PublicParams<Bls12>;
 
     fn new(chunk_frame_count: usize) -> Self {

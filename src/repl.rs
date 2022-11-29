@@ -1,6 +1,7 @@
 use crate::error::ParserError;
 use crate::eval::{empty_sym_env, Evaluator, IO};
 use crate::field::LurkField;
+use crate::package::Package;
 use crate::store::{ContPtr, ContTag, Expression, Pointer, Ptr, Store, Tag};
 use crate::writer::Write;
 use anyhow::Result;
@@ -77,10 +78,11 @@ pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
     let mut s = Store::<F>::default();
     let limit = 100_000_000;
     let mut repl = Repl::new(&mut s, limit)?;
+    let package = Package::lurk();
 
     {
         if let Some(lurk_file) = lurk_file {
-            repl.state.handle_run(&mut s, &lurk_file).unwrap();
+            repl.state.handle_run(&mut s, &lurk_file, &package).unwrap();
             return Ok(());
         }
     }
@@ -92,7 +94,7 @@ pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
             Ok(line) => {
                 repl.save_history()?;
 
-                let result = repl.state.maybe_handle_command(&mut s, &line);
+                let result = repl.state.maybe_handle_command(&mut s, &line, &package);
 
                 match result {
                     Ok((handled_command, should_continue)) if handled_command => {
@@ -109,7 +111,7 @@ pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
                     }
                 };
 
-                match s.read(&line) {
+                match s.read_in_package(&line, &package) {
                     Ok(expr) => match Evaluator::new(expr, repl.state.env, &mut s, limit).eval() {
                         Ok((
                             IO {
@@ -193,53 +195,57 @@ impl<F: LurkField> ReplState<F> {
         &mut self,
         store: &mut Store<F>,
         line: &str,
+        package: &Package,
     ) -> Result<(bool, bool)> {
         let mut chars = line.chars().peekmore();
-        let maybe_command = store.read_next(&mut chars);
+        let maybe_command = store.read_next(&mut chars, package);
 
         let result = match &maybe_command {
             Ok(maybe_command) => match maybe_command.tag() {
-                Tag::Sym => match store.fetch(maybe_command).unwrap().as_sym_str().unwrap() {
-                    ":QUIT" => (true, false),
-                    ":LOAD" => match store.read_string(&mut chars) {
-                        Ok(s) => match s.tag() {
-                            Tag::Str => {
-                                let path = store.fetch(&s).unwrap();
-                                let path = PathBuf::from(path.as_str().unwrap());
-                                self.handle_load(store, path)?;
+                Tag::Sym => {
+                    if let Some(key_string) = store
+                        .fetch(maybe_command)
+                        .unwrap()
+                        .as_simple_keyword_string()
+                    {
+                        match key_string.as_str() {
+                            "QUIT" => (true, false),
+                            "LOAD" => match store.read_string(&mut chars) {
+                                Ok(s) => match s.tag() {
+                                    Tag::Str => {
+                                        let path = store.fetch(&s).unwrap();
+                                        let path = PathBuf::from(path.as_str().unwrap());
+                                        self.handle_load(store, path, package)?;
+                                        (true, true)
+                                    }
+                                    other => {
+                                        anyhow::bail!("No valid path found: {:?}", other);
+                                    }
+                                },
+                                Err(_) => {
+                                    anyhow::bail!("No path found");
+                                }
+                            },
+                            "RUN" => {
+                                if let Ok(s) = store.read_string(&mut chars) {
+                                    if s.tag() == Tag::Str {
+                                        let path = store.fetch(&s).unwrap();
+                                        let path = PathBuf::from(path.as_str().unwrap());
+                                        self.handle_run(store, &path, package)?;
+                                    }
+                                }
                                 (true, true)
                             }
-                            other => {
-                                anyhow::bail!("No valid path found: {:?}", other);
+                            "CLEAR" => {
+                                self.env = empty_sym_env(store);
+                                (true, true)
                             }
-                        },
-                        Err(_) => {
-                            anyhow::bail!("No path found");
+                            _ => (true, true),
                         }
-                    },
-                    ":RUN" => {
-                        if let Ok(s) = store.read_string(&mut chars) {
-                            if s.tag() == Tag::Str {
-                                let path = store.fetch(&s).unwrap();
-                                let path = PathBuf::from(path.as_str().unwrap());
-                                self.handle_run(store, &path)?;
-                            }
-                        }
-                        (true, true)
+                    } else {
+                        (false, true)
                     }
-                    ":CLEAR" => {
-                        self.env = empty_sym_env(store);
-                        (true, true)
-                    }
-                    s => {
-                        if s.starts_with(':') {
-                            println!("Unkown command: {}", s);
-                            (true, true)
-                        } else {
-                            (false, true)
-                        }
-                    }
-                },
+                }
                 _ => (false, true),
             },
             _ => (false, true),
@@ -248,12 +254,17 @@ impl<F: LurkField> ReplState<F> {
         Ok(result)
     }
 
-    pub fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store<F>, path: P) -> Result<()> {
+    pub fn handle_load<P: AsRef<Path>>(
+        &mut self,
+        store: &mut Store<F>,
+        path: P,
+        package: &Package,
+    ) -> Result<()> {
         println!("Loading from {}.", path.as_ref().to_str().unwrap());
         let input = read_to_string(path)?;
         let mut chars = input.chars().peekmore();
 
-        while let Ok(expr) = store.read_next(&mut chars) {
+        while let Ok(expr) = store.read_next(&mut chars, package) {
             let (result, _limit, _next_cont, _) = self.eval_expr(expr, store);
 
             self.env = result;
@@ -269,6 +280,7 @@ impl<F: LurkField> ReplState<F> {
         &mut self,
         store: &mut Store<F>,
         path: P,
+        package: &Package,
     ) -> Result<()> {
         println!("Running from {}.", path.as_ref().to_str().unwrap());
         let p = path;
@@ -277,80 +289,87 @@ impl<F: LurkField> ReplState<F> {
         println!("Read from {}: {}", path.as_ref().to_str().unwrap(), input);
         let mut chars = input.chars().peekmore();
 
-        while let Ok((ptr, is_meta)) = store.read_maybe_meta(&mut chars) {
+        while let Ok((ptr, is_meta)) = store.read_maybe_meta(&mut chars, package) {
             let expr = store.fetch(&ptr).unwrap();
             if is_meta {
                 match expr {
                     Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
                         Expression::Sym(s) => {
-                            if s == &":LOAD" {
-                                match store.fetch(&store.car(&rest)).unwrap() {
-                                    Expression::Str(path) => {
-                                        let joined =
-                                            p.as_ref().parent().unwrap().join(Path::new(&path));
-                                        self.handle_load(store, &joined)?
+                            if let Some(name) = s.simple_keyword_name() {
+                                if &name == "LOAD" {
+                                    match store.fetch(&store.car(&rest)).unwrap() {
+                                        Expression::Str(path) => {
+                                            let joined =
+                                                p.as_ref().parent().unwrap().join(Path::new(&path));
+                                            self.handle_load(store, &joined, package)?
+                                        }
+                                        _ => panic!("Argument to :LOAD must be a string."),
                                     }
-                                    _ => panic!("Argument to :LOAD must be a string."),
-                                }
-                                io::stdout().flush().unwrap();
-                            } else if s == &":RUN" {
-                                match store.fetch(&store.car(&rest)).unwrap() {
-                                    Expression::Str(path) => {
-                                        let joined =
-                                            p.as_ref().parent().unwrap().join(Path::new(&path));
-                                        self.handle_run(store, &joined)?
+                                    io::stdout().flush().unwrap();
+                                } else if &name == "RUN" {
+                                    match store.fetch(&store.car(&rest)).unwrap() {
+                                        Expression::Str(path) => {
+                                            let joined =
+                                                p.as_ref().parent().unwrap().join(Path::new(&path));
+                                            self.handle_run(store, &joined, package)?
+                                        }
+                                        _ => panic!("Argument to :RUN must be a string."),
                                     }
-                                    _ => panic!("Argument to :RUN must be a string."),
-                                }
-                            } else if s == &":ASSERT-EQ" {
-                                let (first, rest) = store.car_cdr(&rest);
-                                let (second, rest) = store.car_cdr(&rest);
-                                assert!(rest.is_nil());
-                                let (first_evaled, _, _, _) = self.eval_expr(first, store);
-                                let (second_evaled, _, _, _) = self.eval_expr(second, store);
-                                assert!(store.ptr_eq(&first_evaled, &second_evaled)?);
-                            } else if s == &":ASSERT" {
-                                let (first, rest) = store.car_cdr(&rest);
-                                assert!(rest.is_nil());
-                                let (first_evaled, _, _, _) = self.eval_expr(first, store);
-                                assert!(!first_evaled.is_nil());
-                            } else if s == &":CLEAR" {
-                                self.env = empty_sym_env(store);
-                            } else if s == &":ASSERT-ERROR" {
-                                let (first, rest) = store.car_cdr(&rest);
+                                } else if &name == "ASSERT-EQ" {
+                                    let (first, rest) = store.car_cdr(&rest);
+                                    let (second, rest) = store.car_cdr(&rest);
+                                    assert!(rest.is_nil());
+                                    let (first_evaled, _, _, _) = self.eval_expr(first, store);
+                                    let (second_evaled, _, _, _) = self.eval_expr(second, store);
+                                    assert!(store.ptr_eq(&first_evaled, &second_evaled)?);
+                                } else if &name == "ASSERT" {
+                                    let (first, rest) = store.car_cdr(&rest);
+                                    assert!(rest.is_nil());
+                                    let (first_evaled, _, _, _) = self.eval_expr(first, store);
+                                    assert!(!first_evaled.is_nil());
+                                } else if &name == "CLEAR" {
+                                    self.env = empty_sym_env(store);
+                                } else if &name == "ASSERT-ERROR" {
+                                    let (first, rest) = store.car_cdr(&rest);
 
-                                assert!(rest.is_nil());
-                                let (_, _, continuation, _) = self.clone().eval_expr(first, store);
-                                assert!(continuation.is_error());
-                                // FIXME: bring back catching, or solve otherwise
-                                // std::panic::catch_unwind(||
-                                // } else {
-                                //     // There was a panic, so this is okay.
-                                //     // FIXME: Never panic. Instead return Continuation::Error when evaluating.
-                                //     ()
-                                // }
-                            } else if s == &":ASSERT-EMITTED" {
-                                let (first, rest) = store.car_cdr(&rest);
-                                let (second, rest) = store.car_cdr(&rest);
+                                    assert!(rest.is_nil());
+                                    let (_, _, continuation, _) =
+                                        self.clone().eval_expr(first, store);
+                                    assert!(continuation.is_error());
+                                    // FIXME: bring back catching, or solve otherwise
+                                    // std::panic::catch_unwind(||
+                                    // } else {
+                                    //     // There was a panic, so this is okay.
+                                    //     // FIXME: Never panic. Instead return Continuation::Error when evaluating.
+                                    //     ()
+                                    // }
+                                } else if name == "ASSERT-EMITTED" {
+                                    let (first, rest) = store.car_cdr(&rest);
+                                    let (second, rest) = store.car_cdr(&rest);
 
-                                assert!(rest.is_nil());
-                                let (first_evaled, _, _, _) = self.clone().eval_expr(first, store);
-                                let (_, _, _, emitted) = self.eval_expr(second, store);
-                                let (mut first_emitted, mut rest_emitted) =
-                                    store.car_cdr(&first_evaled);
-                                for (i, elem) in emitted.iter().enumerate() {
-                                    if elem != &first_emitted {
-                                        panic!(
+                                    assert!(rest.is_nil());
+                                    let (first_evaled, _, _, _) =
+                                        self.clone().eval_expr(first, store);
+                                    let (_, _, _, emitted) = self.eval_expr(second, store);
+                                    let (mut first_emitted, mut rest_emitted) =
+                                        store.car_cdr(&first_evaled);
+                                    for (i, elem) in emitted.iter().enumerate() {
+                                        if elem != &first_emitted {
+                                            panic!(
                                             ":ASSERT-EMITTED failed at position {}. Expected {}, but found {}.",
                                             i,
                                             first_emitted.fmt_to_string(store),
                                             elem.fmt_to_string(store),
                                         );
+                                        }
+                                        (first_emitted, rest_emitted) =
+                                            store.car_cdr(&rest_emitted);
                                     }
-                                    (first_emitted, rest_emitted) = store.car_cdr(&rest_emitted);
+                                } else {
+                                    panic!("!({} ...) is unsupported.", s.name());
                                 }
                             } else {
-                                panic!("!({} ...) is unsupported.", s);
+                                panic!("!({} ...) is unsupported.", s.name());
                             }
                         }
                         _ => panic!("!(<COMMAND> ...) must be a (:keyword) symbol."),

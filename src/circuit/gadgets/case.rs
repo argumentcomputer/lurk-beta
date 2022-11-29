@@ -85,7 +85,7 @@ impl<F: LurkField> CaseConstraint<'_, F> {
             |lc| {
                 selector
                     .iter()
-                    .zip(&*self.clauses)
+                    .zip(self.clauses)
                     .fold(lc, |lc, (selector, clause)| {
                         lc + (clause.key, selector.get_variable())
                     })
