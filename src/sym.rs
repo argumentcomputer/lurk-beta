@@ -216,19 +216,17 @@ impl Sym {
     pub fn full_name(&self) -> String {
         match self {
             Self::Sym(s) => {
-                if self.path()[0].is_empty() {
-                    if self.path().len() > 1 {
-                        format!(".{}", s.full_name())
-                    } else {
-                        "".into()
-                    }
+                if self.is_root() {
+                    "".into()
+                } else if self.is_toplevel() {
+                    format!(".{}", s.full_name())
                 } else {
                     s.full_name()
                 }
             }
             Self::Key(s) => {
                 assert!(
-                    self.path()[0].is_empty(),
+                    self.is_root() || self.is_toplevel(),
                     "keywords must be fully-qualified."
                 );
                 format!(":{}", s.full_name())
