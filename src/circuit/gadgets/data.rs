@@ -34,6 +34,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub char_tag: AllocatedNum<F>,
     pub str_tag: AllocatedNum<F>,
     pub num_tag: AllocatedNum<F>,
+    pub u64_tag: AllocatedNum<F>,
     pub comm_tag: AllocatedNum<F>,
     pub fun_tag: AllocatedNum<F>,
     pub let_cont_tag: AllocatedNum<F>,
@@ -56,6 +57,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub op1_num_tag: AllocatedNum<F>,
     pub op1_char_tag: AllocatedNum<F>,
     pub op1_eval_tag: AllocatedNum<F>,
+    pub op1_u64_tag: AllocatedNum<F>,
     pub op1_comm_tag: AllocatedNum<F>,
     pub op1_open_tag: AllocatedNum<F>,
     pub op1_secret_tag: AllocatedNum<F>,
@@ -70,6 +72,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub op2_diff_tag: AllocatedNum<F>,
     pub op2_product_tag: AllocatedNum<F>,
     pub op2_quotient_tag: AllocatedNum<F>,
+    pub op2_modulo_tag: AllocatedNum<F>,
     pub op2_equal_tag: AllocatedNum<F>,
     pub op2_numequal_tag: AllocatedNum<F>,
     pub op2_less_tag: AllocatedNum<F>,
@@ -113,6 +116,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub true_num: AllocatedNum<F>,
     pub false_num: AllocatedNum<F>,
     pub default_num: AllocatedNum<F>,
+    pub t64_num: AllocatedNum<F>,
 }
 
 impl<F: LurkField> GlobalAllocations<F> {
@@ -172,6 +176,7 @@ impl<F: LurkField> GlobalAllocations<F> {
         let char_tag = Tag::Char.allocate_constant(&mut cs.namespace(|| "char_tag"))?;
         let str_tag = Tag::Str.allocate_constant(&mut cs.namespace(|| "str_tag"))?;
         let num_tag = Tag::Num.allocate_constant(&mut cs.namespace(|| "num_tag"))?;
+        let u64_tag = Tag::U64.allocate_constant(&mut cs.namespace(|| "u64_tag"))?;
         let comm_tag = Tag::Comm.allocate_constant(&mut cs.namespace(|| "comm_tag"))?;
         let fun_tag = Tag::Fun.allocate_constant(&mut cs.namespace(|| "fun_tag"))?;
 
@@ -207,6 +212,7 @@ impl<F: LurkField> GlobalAllocations<F> {
         let op1_num_tag = Op1::Num.allocate_constant(&mut cs.namespace(|| "op1_num_tag"))?;
         let op1_char_tag = Op1::Char.allocate_constant(&mut cs.namespace(|| "op1_char_tag"))?;
         let op1_eval_tag = Op1::Eval.allocate_constant(&mut cs.namespace(|| "op1_eval_tag"))?;
+        let op1_u64_tag = Op1::U64.allocate_constant(&mut cs.namespace(|| "op1_u64_tag"))?;
         let op1_comm_tag = Op1::Comm.allocate_constant(&mut cs.namespace(|| "op1_comm_tag"))?;
         let op1_open_tag = Op1::Open.allocate_constant(&mut cs.namespace(|| "op1_open_tag"))?;
         let op1_secret_tag =
@@ -226,6 +232,8 @@ impl<F: LurkField> GlobalAllocations<F> {
             Op2::Product.allocate_constant(&mut cs.namespace(|| "op2_product_tag"))?;
         let op2_quotient_tag =
             Op2::Quotient.allocate_constant(&mut cs.namespace(|| "op2_quotient_tag"))?;
+        let op2_modulo_tag =
+            Op2::Modulo.allocate_constant(&mut cs.namespace(|| "op2_modulo_tag"))?;
         let op2_numequal_tag =
             AllocatedNum::alloc(&mut cs.namespace(|| "op2_numequal_tag"), || {
                 Ok(Op2::NumEqual.as_field())
@@ -296,6 +304,13 @@ impl<F: LurkField> GlobalAllocations<F> {
         let true_num = allocate_constant(&mut cs.namespace(|| "true"), F::one())?;
         let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::zero())?;
         let default_num = allocate_constant(&mut cs.namespace(|| "default"), F::zero())?;
+        let one = F::one();
+        let two = one + one;
+        let mut t64 = two;
+        for _ in 0..64 {
+            t64 *= two;
+        };
+        let t64_num = allocate_constant(&mut cs.namespace(|| "pow(2,64)"), t64)?;
 
         Ok(Self {
             terminal_ptr,
@@ -314,6 +329,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             char_tag,
             str_tag,
             num_tag,
+            u64_tag,
             comm_tag,
             fun_tag,
             outermost_cont_tag,
@@ -335,6 +351,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             op1_num_tag,
             op1_char_tag,
             op1_eval_tag,
+            op1_u64_tag,
             op1_comm_tag,
             op1_open_tag,
             op1_secret_tag,
@@ -349,6 +366,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             op2_diff_tag,
             op2_product_tag,
             op2_quotient_tag,
+            op2_modulo_tag,
             op2_equal_tag,
             op2_numequal_tag,
             op2_less_tag,
@@ -389,6 +407,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             true_num,
             false_num,
             default_num,
+            t64_num,
         })
     }
 }
