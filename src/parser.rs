@@ -76,7 +76,7 @@ impl<F: LurkField> Store<F> {
                 _ => self.read_next(chars, package).map(|expr| (expr, false)),
             }
         } else {
-            Err(ParserError::Syntax("Could not read meta".into()))
+            Err(ParserError::NoInput)
         }
     }
 
