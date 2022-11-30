@@ -69,7 +69,7 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                         .expect("dummy_arg (_) missing");
                 let arg = store.fetch(arg).unwrap();
                 let body = store.fetch(body).unwrap();
-                write!(w, "<FUNCTION (")?;
+                write!(w, "<(FUNCTION (")?;
                 if !is_zero_arg {
                     arg.fmt(store, w)?;
                 }
