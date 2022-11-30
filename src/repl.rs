@@ -87,8 +87,8 @@ pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
         }
     }
 
-    let stdout = io::stdout();
-
+    let exe_path = std::env::current_exe().unwrap();
+    let p: &Path = exe_path.as_ref();
     loop {
         match repl.rl.readline("> ") {
             Ok(line) => {
@@ -111,34 +111,16 @@ pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
                     }
                 };
 
-                match s.read_in_package(&line, &package) {
-                    Ok(expr) => match Evaluator::new(expr, repl.state.env, &mut s, limit).eval() {
-                        Ok((
-                            IO {
-                                expr: result,
-                                env: _env,
-                                cont: next_cont,
-                            },
-                            iterations,
-                            _emitted,
-                        )) => {
-                            print!("[{} iterations] => ", iterations);
+                let mut chars = line.chars().peekmore();
 
-                            match next_cont.tag() {
-                                ContTag::Outermost | ContTag::Terminal => {
-                                    let mut handle = stdout.lock();
-                                    result.fmt(&s, &mut handle)?;
-                                    println!();
-                                }
-                                ContTag::Error => println!("ERROR!"),
-                                _ => println!("Computation incomplete after limit: {}", limit),
-                            }
+                match s.read_maybe_meta(&mut chars, &package) {
+                    Ok((expr, is_meta)) => {
+                        if is_meta {
+                            repl.state.handle_meta(&mut s, expr, &package, p)?
+                        } else {
+                            repl.state.handle_non_meta(&mut s, expr, false)?
                         }
-                        Err(e) => {
-                            println!("Evaluation error: {:?}", e);
-                            continue;
-                        }
-                    },
+                    }
                     Err(ParserError::NoInput) => {
                         continue;
                     }
@@ -179,13 +161,13 @@ impl<F: LurkField> ReplState<F> {
                 env: _env,
                 cont: next_cont,
             },
-            limit,
+            iterations,
             emitted,
         ) = Evaluator::new(expr, self.env, store, self.limit)
             .eval()
             .unwrap();
 
-        (result, limit, next_cont, emitted)
+        (result, iterations, next_cont, emitted)
     }
 
     /// Returns two bools.
@@ -261,19 +243,7 @@ impl<F: LurkField> ReplState<F> {
         package: &Package,
     ) -> Result<()> {
         println!("Loading from {}.", path.as_ref().to_str().unwrap());
-        let input = read_to_string(path)?;
-        let mut chars = input.chars().peekmore();
-
-        while let Ok(expr) = store.read_next(&mut chars, package) {
-            let (result, _limit, _next_cont, _) = self.eval_expr(expr, store);
-
-            self.env = result;
-
-            io::stdout().flush().unwrap();
-        }
-        println!("Read: {}", input);
-
-        Ok(())
+        self.handle_file(store, path.as_ref(), package, true)
     }
 
     pub fn handle_run<P: AsRef<Path> + Copy>(
@@ -283,105 +253,178 @@ impl<F: LurkField> ReplState<F> {
         package: &Package,
     ) -> Result<()> {
         println!("Running from {}.", path.as_ref().to_str().unwrap());
+        self.handle_file(store, path, package, false)
+    }
+
+    pub fn handle_file<P: AsRef<Path> + Copy>(
+        &mut self,
+        store: &mut Store<F>,
+        path: P,
+        package: &Package,
+        update_env: bool,
+    ) -> Result<()> {
         let p = path;
 
         let input = read_to_string(path)?;
         println!("Read from {}: {}", path.as_ref().to_str().unwrap(), input);
         let mut chars = input.chars().peekmore();
 
-        while let Ok((ptr, is_meta)) = store.read_maybe_meta(&mut chars, package) {
-            let expr = store.fetch(&ptr).unwrap();
-            if is_meta {
-                match expr {
-                    Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
-                        Expression::Sym(s) => {
-                            if let Some(name) = s.simple_keyword_name() {
-                                if &name == "LOAD" {
-                                    match store.fetch(&store.car(&rest)).unwrap() {
-                                        Expression::Str(path) => {
-                                            let joined =
-                                                p.as_ref().parent().unwrap().join(Path::new(&path));
-                                            self.handle_load(store, &joined, package)?
-                                        }
-                                        _ => panic!("Argument to :LOAD must be a string."),
-                                    }
-                                    io::stdout().flush().unwrap();
-                                } else if &name == "RUN" {
-                                    match store.fetch(&store.car(&rest)).unwrap() {
-                                        Expression::Str(path) => {
-                                            let joined =
-                                                p.as_ref().parent().unwrap().join(Path::new(&path));
-                                            self.handle_run(store, &joined, package)?
-                                        }
-                                        _ => panic!("Argument to :RUN must be a string."),
-                                    }
-                                } else if &name == "ASSERT-EQ" {
-                                    let (first, rest) = store.car_cdr(&rest);
-                                    let (second, rest) = store.car_cdr(&rest);
-                                    assert!(rest.is_nil());
-                                    let (first_evaled, _, _, _) = self.eval_expr(first, store);
-                                    let (second_evaled, _, _, _) = self.eval_expr(second, store);
-                                    assert!(store.ptr_eq(&first_evaled, &second_evaled)?);
-                                } else if &name == "ASSERT" {
-                                    let (first, rest) = store.car_cdr(&rest);
-                                    assert!(rest.is_nil());
-                                    let (first_evaled, _, _, _) = self.eval_expr(first, store);
-                                    assert!(!first_evaled.is_nil());
-                                } else if &name == "CLEAR" {
-                                    self.env = empty_sym_env(store);
-                                } else if &name == "ASSERT-ERROR" {
-                                    let (first, rest) = store.car_cdr(&rest);
+        while self
+            .handle_form(store, &mut chars, package, p, update_env)
+            .is_ok()
+        {}
 
-                                    assert!(rest.is_nil());
-                                    let (_, _, continuation, _) =
-                                        self.clone().eval_expr(first, store);
-                                    assert!(continuation.is_error());
-                                    // FIXME: bring back catching, or solve otherwise
-                                    // std::panic::catch_unwind(||
-                                    // } else {
-                                    //     // There was a panic, so this is okay.
-                                    //     // FIXME: Never panic. Instead return Continuation::Error when evaluating.
-                                    //     ()
-                                    // }
-                                } else if name == "ASSERT-EMITTED" {
-                                    let (first, rest) = store.car_cdr(&rest);
-                                    let (second, rest) = store.car_cdr(&rest);
+        Ok(())
+    }
 
-                                    assert!(rest.is_nil());
-                                    let (first_evaled, _, _, _) =
-                                        self.clone().eval_expr(first, store);
-                                    let (_, _, _, emitted) = self.eval_expr(second, store);
-                                    let (mut first_emitted, mut rest_emitted) =
-                                        store.car_cdr(&first_evaled);
-                                    for (i, elem) in emitted.iter().enumerate() {
-                                        if elem != &first_emitted {
-                                            panic!(
+    fn handle_form<P: AsRef<Path> + Copy, T: Iterator<Item = char>>(
+        &mut self,
+        store: &mut Store<F>,
+        chars: &mut peekmore::PeekMoreIterator<T>,
+        package: &Package,
+        p: P,
+        update_env: bool,
+    ) -> Result<()> {
+        let (ptr, is_meta) = store.read_maybe_meta(chars, package)?;
+
+        if is_meta {
+            let p: &Path = p.as_ref();
+            self.handle_meta(store, ptr, package, p)
+        } else {
+            self.handle_non_meta(store, ptr, update_env)
+        }
+    }
+
+    fn handle_non_meta(
+        &mut self,
+        store: &mut Store<F>,
+        expr_ptr: Ptr<F>,
+        update_env: bool,
+    ) -> Result<()> {
+        match Evaluator::new(expr_ptr, self.env, store, self.limit).eval() {
+            Ok((
+                IO {
+                    expr: result,
+                    env: _env,
+                    cont: next_cont,
+                },
+                iterations,
+                _emitted,
+            )) => {
+                if !update_env {
+                    print!("[{} iterations] => ", iterations);
+                }
+
+                match next_cont.tag() {
+                    ContTag::Outermost | ContTag::Terminal => {
+                        let mut handle = io::stdout().lock();
+
+                        // We are either loading/running and update the env, or evaluating and don't.
+                        if update_env {
+                            self.env = result
+                        } else {
+                            result.fmt(store, &mut handle)?;
+
+                            println!();
+                        }
+                    }
+                    ContTag::Error => println!("ERROR!"),
+                    _ => println!("Computation incomplete after limit: {}", self.limit),
+                }
+
+                Ok(())
+            }
+            Err(e) => {
+                println!("Evaluation error: {:?}", e);
+                Err(e.into())
+            }
+        }
+    }
+
+    fn handle_meta<P: AsRef<Path> + Copy>(
+        &mut self,
+        store: &mut Store<F>,
+        expr_ptr: Ptr<F>,
+        package: &Package,
+        p: P,
+    ) -> Result<()> {
+        let expr = store.fetch(&expr_ptr).unwrap();
+
+        match expr {
+            Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
+                Expression::Sym(s) => {
+                    if let Some(name) = s.simple_keyword_name() {
+                        if &name == "LOAD" {
+                            match store.fetch(&store.car(&rest)).unwrap() {
+                                Expression::Str(path) => {
+                                    let joined =
+                                        p.as_ref().parent().unwrap().join(Path::new(&path));
+                                    self.handle_load(store, &joined, package)?
+                                }
+                                _ => panic!("Argument to :LOAD must be a string."),
+                            }
+                            io::stdout().flush().unwrap();
+                        } else if &name == "RUN" {
+                            // Running and loading are equivalent, except that :RUN does not modify the env.
+                            match store.fetch(&store.car(&rest)).unwrap() {
+                                Expression::Str(path) => {
+                                    let joined =
+                                        p.as_ref().parent().unwrap().join(Path::new(&path));
+                                    self.handle_run(store, &joined, package)?
+                                }
+                                _ => panic!("Argument to :RUN must be a string."),
+                            }
+                            io::stdout().flush().unwrap();
+                        } else if &name == "ASSERT-EQ" {
+                            let (first, rest) = store.car_cdr(&rest);
+                            let (second, rest) = store.car_cdr(&rest);
+                            assert!(rest.is_nil());
+                            let (first_evaled, _, _, _) = self.eval_expr(first, store);
+                            let (second_evaled, _, _, _) = self.eval_expr(second, store);
+                            assert!(store.ptr_eq(&first_evaled, &second_evaled)?);
+                        } else if &name == "ASSERT" {
+                            let (first, rest) = store.car_cdr(&rest);
+                            assert!(rest.is_nil());
+                            let (first_evaled, _, _, _) = self.eval_expr(first, store);
+                            assert!(!first_evaled.is_nil());
+                        } else if &name == "CLEAR" {
+                            self.env = empty_sym_env(store);
+                        } else if &name == "ASSERT-ERROR" {
+                            let (first, rest) = store.car_cdr(&rest);
+
+                            assert!(rest.is_nil());
+                            let (_, _, continuation, _) = self.clone().eval_expr(first, store);
+                            assert!(continuation.is_error());
+                        } else if name == "ASSERT-EMITTED" {
+                            let (first, rest) = store.car_cdr(&rest);
+                            let (second, rest) = store.car_cdr(&rest);
+
+                            assert!(rest.is_nil());
+                            let (first_evaled, _, _, _) = self.clone().eval_expr(first, store);
+                            let (_, _, _, emitted) = self.eval_expr(second, store);
+                            let (mut first_emitted, mut rest_emitted) =
+                                store.car_cdr(&first_evaled);
+                            for (i, elem) in emitted.iter().enumerate() {
+                                if elem != &first_emitted {
+                                    panic!(
                                             ":ASSERT-EMITTED failed at position {}. Expected {}, but found {}.",
                                             i,
                                             first_emitted.fmt_to_string(store),
                                             elem.fmt_to_string(store),
                                         );
-                                        }
-                                        (first_emitted, rest_emitted) =
-                                            store.car_cdr(&rest_emitted);
-                                    }
-                                } else {
-                                    panic!("!({} ...) is unsupported.", s.name());
                                 }
-                            } else {
-                                panic!("!({} ...) is unsupported.", s.name());
+                                (first_emitted, rest_emitted) = store.car_cdr(&rest_emitted);
                             }
+                        } else {
+                            panic!("!({} ...) is unsupported.", s.name());
                         }
-                        _ => panic!("!(<COMMAND> ...) must be a (:keyword) symbol."),
-                    },
-                    _ => panic!("!<COMMAND> form is unsupported."),
+                    } else {
+                        panic!("!({} ...) is unsupported.", s.name());
+                    }
                 }
-            } else {
-                let (result, _limit, _next_cont, _) = self.eval_expr(ptr, store);
-
-                println!("Evaled: {}", result.fmt_to_string(store));
-                io::stdout().flush().unwrap();
-            }
+                _ => panic!("!(<COMMAND> ...) must be a (:keyword) symbol."),
+            },
+            _ => panic!("!<COMMAND> form is unsupported."),
         }
 
         Ok(())

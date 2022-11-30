@@ -74,7 +74,11 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                     arg.fmt(store, w)?;
                 }
                 write!(w, ") ")?;
-                assert!(body.is_cons(), "Fun body should be a non-empty list.");
+                assert!(
+                    body.is_list(),
+                    "Fun body should be a list: {}",
+                    body.fmt_to_string(store)
+                );
                 body.print_tail(store, w)?;
                 write!(w, ">")
             }
