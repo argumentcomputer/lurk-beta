@@ -2696,6 +2696,41 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_test_u64_mod() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 100u64 2u64)";
+        let res = s.uint64(0);
+
+        let expr2 = "(% 100u64 3u64)";
+        let res2 = s.uint64(1);
+
+        let expr3 = "(/ 100u64 0u64)";
+
+        let terminal = s.get_cont_terminal();
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_num_mod() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 100 3)";
+        let expr2 = "(% 100 3u64)";
+        let expr3 = "(% 100u64 3)";
+
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, None, None, Some(error), None, 3);
+        nova_test_aux(s, expr2, None, None, Some(error), None, 3);
+        nova_test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
     fn outer_prove_test_u64_comp() {
         let s = &mut Store::<Fr>::default();
 
