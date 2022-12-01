@@ -211,10 +211,10 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
     defaults: &[&AllocatedNum<F>],
     g: &GlobalAllocations<F>,
 ) -> Result<(Vec<AllocatedNum<F>>, Boolean), SynthesisError> {
-    assert!(!cases.is_empty());
-    assert_eq!(cases.len(), defaults.len());
-    assert!(!cases[0].is_empty());
-    assert!(cases.iter().map(|case| case.len()).all_equal());
+    debug_assert!(!cases.is_empty());
+    debug_assert_eq!(cases.len(), defaults.len());
+    debug_assert!(!cases[0].is_empty());
+    debug_assert!(cases.iter().map(|case| case.len()).all_equal());
 
     let mut result = Vec::new();
 
@@ -315,7 +315,7 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
     for (i, (c, default)) in cases.iter().zip(defaults).enumerate().skip(1) {
         // Ensure key ordering actually matches
         for (j, case) in c.iter().enumerate() {
-            assert_eq!(
+            debug_assert_eq!(
                 case.key, cases[0][j].key,
                 "Key ordering missmatch {}:{}",
                 i, j
@@ -504,8 +504,20 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     #[should_panic]
-    fn multicase_negative1() {
+    fn multicase_negative1_panic() {
+        multicase_negative1_aux();
+    }
+
+    #[test]
+    #[cfg(not(debug_assertions))]
+    fn multicase_negative1_unsatisfied() {
+        multicase_negative1_aux();
+    }
+
+    #[allow(dead_code)]
+    fn multicase_negative1_aux() {
         // Test invalid multicase (repeated keys)
         let mut cs = TestConstraintSystem::<Fr>::new();
         let s = &mut Store::<Fr>::default();
@@ -558,7 +570,7 @@ mod tests {
     }
 
     #[test]
-    // #[should_panic]
+    #[cfg(debug_assertions)]
     #[should_panic(expected = "assertion failed: `(left == right)")]
     fn multicase_negative2() {
         // Test invalid multicase (keys ording doesn't match)
@@ -614,8 +626,8 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     #[should_panic]
-    // #[should_panic(expected = "index out of bounds: the len is 2 but the index is 2")]
     fn multicase_negative3() {
         // Test invalid multicase (clauses sizes doesn't match)
         let mut cs = TestConstraintSystem::<Fr>::new();
@@ -673,8 +685,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    // #[should_panic(expected = "assertion failed: !cases.is_empty()")]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "assertion failed: !cases.is_empty()")]
     fn multicase_negative4() {
         // Test invalid multicase (empty clauses)
         let mut cs = TestConstraintSystem::<Fr>::new();
@@ -698,8 +710,8 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     #[should_panic]
-    // #[should_panic(expected = "assertion failed: !defaults.is_empty()")]
     fn multicase_negative5() {
         // Test invalid multicase (empty defaults)
         let mut cs = TestConstraintSystem::<Fr>::new();
@@ -749,8 +761,8 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     #[should_panic]
-    // #[should_panic(expected = "assertion failed: !c.is_empty()")]
     fn multicase_negative6() {
         // Test invalid multicase (empty case).
         let mut cs = TestConstraintSystem::<Fr>::new();
