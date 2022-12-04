@@ -4,13 +4,13 @@ use std::convert::TryFrom;
 pub struct Tag {
     pub version: Version, // u32
     pub field: FieldKind, // u16
-    pub tag: TagKind,     // u16
+    pub kind: TagKind,    // u16
 }
 
 impl Into<u64> for Tag {
     fn into(self) -> u64 {
         let v: u32 = self.version.into();
-        let t: u16 = self.tag.into();
+        let t: u16 = self.kind.into();
         ((v as u64) << 32) + ((self.field as u64) << 16) + (t as u64)
     }
 }
@@ -21,11 +21,11 @@ impl TryFrom<u64> for Tag {
     fn try_from(f: u64) -> Result<Self, Self::Error> {
         let version = Version::from((f >> 32) as u32);
         let field = FieldKind::try_from(((f & 0xffff_0000) >> 16) as u16)?;
-        let tag = TagKind::try_from((f & 0xffff) as u16)?;
+        let kind = TagKind::try_from((f & 0xffff) as u16)?;
         Ok(Tag {
             version,
             field,
-            tag,
+            kind,
         })
     }
 }
@@ -119,8 +119,7 @@ impl TryFrom<u16> for TagKind {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u16)]
 pub enum ExprTag {
-    Nil = 0b0000_0000_0000_0000,
-    Cons,
+    Cons = 0b0000_0000_0000_0001,
     Sym,
     Fun,
     Num,
@@ -129,6 +128,9 @@ pub enum ExprTag {
     Char,
     Comm,
     U64,
+    Key,
+    Map,
+    Link,
 }
 
 impl Into<u16> for ExprTag {
@@ -142,7 +144,6 @@ impl TryFrom<u16> for ExprTag {
 
     fn try_from(x: u16) -> Result<Self, Self::Error> {
         match x {
-            f if f == ExprTag::Nil as u16 => Ok(ExprTag::Nil),
             f if f == ExprTag::Cons as u16 => Ok(ExprTag::Cons),
             f if f == ExprTag::Sym as u16 => Ok(ExprTag::Sym),
             f if f == ExprTag::Fun as u16 => Ok(ExprTag::Fun),
@@ -152,6 +153,9 @@ impl TryFrom<u16> for ExprTag {
             f if f == ExprTag::Char as u16 => Ok(ExprTag::Char),
             f if f == ExprTag::Comm as u16 => Ok(ExprTag::Comm),
             f if f == ExprTag::U64 as u16 => Ok(ExprTag::U64),
+            f if f == ExprTag::Key as u16 => Ok(ExprTag::Key),
+            f if f == ExprTag::Map as u16 => Ok(ExprTag::Map),
+            f if f == ExprTag::Link as u16 => Ok(ExprTag::Link),
             x => Err(format!("Invalid ExprTag value: {}", x)),
         }
     }
@@ -338,7 +342,6 @@ mod tests {
     impl Arbitrary for ExprTag {
         fn arbitrary(g: &mut Gen) -> Self {
             let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Self>)> = vec![
-                (100, Box::new(|_| Self::Nil)),
                 (100, Box::new(|_| Self::Cons)),
                 (100, Box::new(|_| Self::Sym)),
                 (100, Box::new(|_| Self::Fun)),
@@ -435,7 +438,7 @@ mod tests {
             Tag {
                 version: Arbitrary::arbitrary(g),
                 field: Arbitrary::arbitrary(g),
-                tag: Arbitrary::arbitrary(g),
+                kind: Arbitrary::arbitrary(g),
             }
         }
     }

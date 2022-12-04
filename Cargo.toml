@@ -63,7 +63,7 @@ harness = false
 
 [workspace]
 members = [
-  "lurk_macro", "fcomm", "lurk_ff"
+  "lurk_macro", "fcomm", "lurk_ff", "ldon"
 ]
 
 [[bin]]

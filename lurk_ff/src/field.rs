@@ -22,14 +22,15 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         repr.as_ref().to_vec()
     }
 
-    fn display_string(self) -> String {
-        let mut s = String::from("0x");
+    fn hex_digits(self) -> String {
+        let mut s = String::new();
         let bytes = self.to_bytes();
         for b in bytes.iter().rev() {
             s.push_str(&format!("{:02x?}", b));
         }
         s
     }
+
     fn to_u16(&self) -> Option<u16> {
         for x in &self.to_repr().as_ref()[2..] {
             if *x != 0 {
@@ -118,49 +119,44 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         }
     }
 
-    fn from_tag_kind(tag: TagKind) -> Self {
-        let tag = Tag {
+    fn make_tag(kind: TagKind) -> Tag {
+        Tag {
             version: Self::VERSION,
             field: Self::FIELD_KIND,
-            tag,
-        };
-        Self::from_u64(tag.into())
+            kind,
+        }
     }
 
-    fn from_expr_tag(tag: ExprTag) -> Self {
-        let tag = Tag {
+    fn make_expr_tag(expr_tag: ExprTag) -> Tag {
+        Tag {
             version: Self::VERSION,
             field: Self::FIELD_KIND,
-            tag: TagKind::Expr(tag),
-        };
-        Self::from_u64(tag.into())
+            kind: TagKind::Expr(expr_tag),
+        }
     }
 
-    fn from_cont_tag(tag: ContTag) -> Self {
-        let tag = Tag {
+    fn make_cont_tag(cont_tag: ContTag) -> Tag {
+        Tag {
             version: Self::VERSION,
             field: Self::FIELD_KIND,
-            tag: TagKind::Cont(tag),
-        };
-        Self::from_u64(tag.into())
+            kind: TagKind::Cont(cont_tag),
+        }
     }
 
-    fn from_op1_tag(tag: Op1Tag) -> Self {
-        let tag = Tag {
+    fn make_op1_tag(op1_tag: Op1Tag) -> Tag {
+        Tag {
             version: Self::VERSION,
             field: Self::FIELD_KIND,
-            tag: TagKind::Op1(tag),
-        };
-        Self::from_u64(tag.into())
+            kind: TagKind::Op1(op1_tag),
+        }
     }
 
-    fn from_op2_tag(tag: Op2Tag) -> Self {
-        let tag = Tag {
+    fn make_op2_tag(kind: Op2Tag) -> Tag {
+        Tag {
             version: Self::VERSION,
             field: Self::FIELD_KIND,
-            tag: TagKind::Op2(tag),
-        };
-        Self::from_u64(tag.into())
+            kind: TagKind::Op2(kind),
+        }
     }
 
     fn to_tag(&self) -> Option<Tag> {
@@ -173,7 +169,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     }
 
     fn get_tag_kind(&self) -> Option<TagKind> {
-        Some(Self::to_tag(self)?.tag)
+        Some(Self::to_tag(self)?.kind)
     }
 
     fn get_field_kind(&self) -> Option<FieldKind> {
@@ -196,15 +192,15 @@ impl LurkField for pasta_curves::Fq {
     const FIELD_KIND: FieldKind = FieldKind::Vesta;
 }
 
-// For working around the orphan trait impl rule
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct FWrap<F: LurkField>(pub F);
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use blstrs::Scalar as Fr;
     use quickcheck::{Arbitrary, Gen};
+
+    // For working around the orphan trait impl rule
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct FWrap<F: LurkField>(pub F);
 
     impl<F: LurkField> Arbitrary for FWrap<F> {
         fn arbitrary(_: &mut Gen) -> Self {
