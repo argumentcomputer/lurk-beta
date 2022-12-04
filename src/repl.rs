@@ -381,7 +381,14 @@ impl<F: LurkField> ReplState<F> {
                             assert!(rest.is_nil());
                             let (first_evaled, _, _, _) = self.eval_expr(first, store);
                             let (second_evaled, _, _, _) = self.eval_expr(second, store);
-                            assert!(store.ptr_eq(&first_evaled, &second_evaled)?);
+                            assert!(
+                                store.ptr_eq(&first_evaled, &second_evaled)?,
+                                "Assertion failed {:?} = {:?},\n {:?} != {:?}",
+                                first.fmt_to_string(store),
+                                second.fmt_to_string(store),
+                                first_evaled.fmt_to_string(store),
+                                second_evaled.fmt_to_string(store)
+                            );
                         } else if &name == "ASSERT" {
                             let (first, rest) = store.car_cdr(&rest);
                             assert!(rest.is_nil());
