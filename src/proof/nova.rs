@@ -2519,4 +2519,35 @@ mod tests {
 
         nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
     }
+
+    #[test]
+    fn outer_prove_test_eval() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(* 3 (eval (cons '+ (cons 1 (cons 2 nil)))))";
+        let expr2 = "(* 5 (eval '(+ 1 a) '((a . 3))))"; // two-arg eval, optional second arg is env.
+        let res = s.num(9);
+        let res2 = s.num(20);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 17);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 9);
+    }
+
+    #[test]
+    fn outer_prove_test_keyword() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = ":asdf";
+        let expr2 = "(eq :asdf :asdf)";
+        let expr3 = "(eq :asdf 'asdf)";
+        let res = s.key("ASDF");
+        let res2 = s.get_t();
+        let res3 = s.get_nil();
+
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr3, Some(res3), None, Some(terminal), None, 3);
+    }
 }

@@ -17,7 +17,7 @@ pub struct FileMap<K: ToString, T: Key<K> + FileStore> {
     _t: PhantomData<(K, T)>,
 }
 
-impl<'a, K: ToString + Copy, T: Key<K> + FileStore> FileMap<K, T> {
+impl<K: ToString + Copy, T: Key<K> + FileStore> FileMap<K, T> {
     pub fn new<P: AsRef<Path>>(name: P) -> Result<Self, Error> {
         let data_dir = data_dir();
         let dir = PathBuf::from(&data_dir).join(name.as_ref());

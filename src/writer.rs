@@ -1,6 +1,6 @@
 use crate::field::LurkField;
 use crate::store::{ContPtr, Continuation, Expression, Ptr, Store};
-use peekmore::PeekMore;
+use crate::Sym;
 use std::io;
 
 pub trait Write<F: LurkField> {
@@ -43,16 +43,15 @@ impl<F: LurkField> Write<F> for ContPtr<F> {
     }
 }
 
-fn write_symbol<F: LurkField, W: io::Write>(w: &mut W, symbol_name: &str) -> io::Result<()> {
-    let mut chars = symbol_name.chars().peekmore();
-    let unquoted = Store::<F>::read_unquoted_symbol_name(&mut chars);
-    if unquoted == symbol_name {
-        write!(w, "{}", symbol_name)
-    } else {
-        write!(w, "|")?;
-        write!(w, "{}", symbol_name)?;
-        write!(w, "|")
-    }
+fn write_symbol<F: LurkField, W: io::Write>(
+    w: &mut W,
+    store: &Store<F>,
+    sym: &Sym,
+) -> io::Result<()> {
+    let package = &store.lurk_package;
+    let maybe_abbr = package.relative_abbreviation(sym);
+    let symbol_name = maybe_abbr.full_name();
+    write!(w, "{}", symbol_name)
 }
 
 impl<F: LurkField> Write<F> for Expression<'_, F> {
@@ -61,10 +60,13 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
 
         match self {
             Nil => write!(w, "NIL"),
-            Sym(s) => write_symbol::<F, _>(w, s),
+            Sym(s) => write_symbol::<F, _>(w, store, s),
             Str(s) => write!(w, "\"{}\"", s),
             Fun(arg, body, _closed_env) => {
-                let is_zero_arg = *arg == store.get_sym("_", true).expect("dummy_arg (_) missing");
+                let is_zero_arg = *arg
+                    == store
+                        .get_lurk_sym("_", true)
+                        .expect("dummy_arg (_) missing");
                 let arg = store.fetch(arg).unwrap();
                 let body = store.fetch(body).unwrap();
                 write!(w, "<FUNCTION (")?;
@@ -72,7 +74,11 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                     arg.fmt(store, w)?;
                 }
                 write!(w, ") ")?;
-                assert!(body.is_cons(), "Fun body should be a non-empty list.");
+                assert!(
+                    body.is_list(),
+                    "Fun body should be a list: {}",
+                    body.fmt_to_string(store)
+                );
                 body.print_tail(store, w)?;
                 write!(w, ">")
             }
@@ -120,7 +126,7 @@ impl<F: LurkField> Expression<'_, F> {
                     }
                 };
                 let fmt_cdr = |store, w: &mut W| {
-                    if let Some(cdr) = cdr {
+                    if let Some(cdr) = &cdr {
                         cdr.fmt(store, w)
                     } else {
                         write!(w, "<Opaque>")

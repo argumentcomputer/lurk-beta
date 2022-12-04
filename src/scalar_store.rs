@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crate::field::LurkField;
 
 use crate::store::{Op1, Op2, Pointer, Ptr, ScalarContPtr, ScalarPtr, Store, Tag};
-use crate::{Num, UInt};
+use crate::{Num, Sym, UInt};
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -17,7 +17,7 @@ pub struct ScalarStore<F: LurkField> {
     pending_scalar_ptrs: Vec<ScalarPtr<F>>,
 }
 
-impl<'a, F: LurkField> ScalarStore<F> {
+impl<F: LurkField> ScalarStore<F> {
     /// Create a new `ScalarStore` and add all `ScalarPtr`s reachable in the scalar representation of `expr`.
     pub fn new_with_expr(store: &Store<F>, expr: &Ptr<F>) -> (Self, Option<ScalarPtr<F>>) {
         let mut new = Self::default();
@@ -151,7 +151,7 @@ impl<'a, F: LurkField> ScalarStore<F> {
     }
 }
 
-impl<'a, F: LurkField> ScalarExpression<F> {
+impl<F: LurkField> ScalarExpression<F> {
     fn from_ptr(store: &Store<F>, ptr: &Ptr<F>) -> Option<Self> {
         match ptr.tag() {
             Tag::Nil => Some(ScalarExpression::Nil),
@@ -167,9 +167,8 @@ impl<'a, F: LurkField> ScalarExpression<F> {
                     .get_expr_hash(payload)
                     .map(|payload| ScalarExpression::Comm(secret.0, payload))
             }),
-            Tag::Sym => store
-                .fetch_sym(ptr)
-                .map(|str| ScalarExpression::Sym(str.into())),
+            Tag::Sym => store.fetch_sym(ptr).map(|sym| ScalarExpression::Sym(sym)),
+            Tag::Key => store.fetch_sym(ptr).map(|sym| ScalarExpression::Sym(sym)),
             Tag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
                 store.get_expr_hash(arg).and_then(|arg| {
                     store.get_expr_hash(body).and_then(|body| {
@@ -203,7 +202,7 @@ pub enum ScalarExpression<F: LurkField> {
     Nil,
     Cons(ScalarPtr<F>, ScalarPtr<F>),
     Comm(F, ScalarPtr<F>),
-    Sym(String),
+    Sym(Sym),
     Fun {
         arg: ScalarPtr<F>,
         body: ScalarPtr<F>,
@@ -216,7 +215,7 @@ pub enum ScalarExpression<F: LurkField> {
     UInt(UInt),
 }
 
-impl<'a, F: LurkField> Default for ScalarExpression<F> {
+impl<F: LurkField> Default for ScalarExpression<F> {
     fn default() -> Self {
         Self::Nil
     }
@@ -297,6 +296,7 @@ mod test {
     use crate::eval::empty_sym_env;
     use crate::field::FWrap;
     use crate::store::ScalarPointer;
+    use crate::{Sym, Symbol};
     use blstrs::Scalar as Fr;
 
     use quickcheck::{Arbitrary, Gen};
@@ -311,6 +311,15 @@ mod test {
             ScalarThunk {
                 value: Arbitrary::arbitrary(g),
                 continuation: Arbitrary::arbitrary(g),
+            }
+        }
+    }
+
+    impl Arbitrary for Symbol {
+        fn arbitrary(g: &mut Gen) -> Self {
+            Symbol {
+                path: Arbitrary::arbitrary(g),
+                opaque: Arbitrary::arbitrary(g),
             }
         }
     }
@@ -336,7 +345,7 @@ mod test {
                     100,
                     Box::new(|g| Self::Cons(ScalarPtr::arbitrary(g), ScalarPtr::arbitrary(g))),
                 ),
-                (100, Box::new(|g| Self::Sym(String::arbitrary(g)))),
+                (100, Box::new(|g| Self::Sym(Sym::Sym(Symbol::arbitrary(g))))),
                 (100, Box::new(|g| Self::Str(String::arbitrary(g)))),
                 (
                     100,
@@ -541,11 +550,14 @@ mod test {
         test("symbol");
         test("1");
         test("(1 . 2)");
+        test("(1 2)");
         test("\"foo\" . \"bar\")");
         test("(foo . bar)");
+
         test("(1 . 2)");
         test("(+ 1 2 3)");
         test("(+ 1 2 (* 3 4))");
+
         test("(+ 1 2 (* 3 4) \"asdf\" )");
         test("(+ 1 2 2 (* 3 4) \"asdf\" \"asdf\")");
     }
