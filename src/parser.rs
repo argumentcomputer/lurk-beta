@@ -76,7 +76,7 @@ impl<F: LurkField> Store<F> {
                 _ => self.read_next(chars, package).map(|expr| (expr, false)),
             }
         } else {
-            Err(ParserError::Syntax("Could not read meta".into()))
+            Err(ParserError::NoInput)
         }
     }
 
@@ -651,7 +651,7 @@ pub fn names_keyword(name: &str) -> (bool, &str) {
 fn is_symbol_char(c: &char, initial: bool) -> bool {
     match c {
         c if is_initial_symbol_marker(c) => initial,
-        'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' | '%' | '=' | '<' | '>' | '_' => true,
+        'a'..='z' | 'A'..='Z' | '+' | '-' | '*' | '/' | '%' | '=' | '<' | '>' | '_' | '?' => true,
         _ => {
             if initial {
                 false
