@@ -84,7 +84,7 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                         store.get_nil().fmt(store, w)?;
                     }
                     _ => {
-                        panic!("Function body was neither a Cons nor nil");
+                        panic!("Function body was neither a Cons nor Nil");
                     }
                 }
                 write!(w, ">")
