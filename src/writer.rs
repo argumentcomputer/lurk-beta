@@ -78,11 +78,11 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                 if let Expression::Cons(expr, _) = store.fetch(body).unwrap() {
                     let expr = store.fetch(&expr).unwrap();
                     expr.fmt(store, w)?;
-                    write!(w, ">")
                 } else {
                     // expression is empty
-                    write!(w, "NIL>")
+                    store.get_nil().fmt(store, w)?;
                 }
+                write!(w, ">")
             }
             Num(n) => write!(w, "{}", n),
             Thunk(f) => {
