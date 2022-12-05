@@ -68,19 +68,21 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                         .get_lurk_sym("_", true)
                         .expect("dummy_arg (_) missing");
                 let arg = store.fetch(arg).unwrap();
-                let body = store.fetch(body).unwrap();
                 write!(w, "<FUNCTION (")?;
                 if !is_zero_arg {
                     arg.fmt(store, w)?;
                 }
                 write!(w, ") ")?;
-                assert!(
-                    body.is_list(),
-                    "Fun body should be a list: {}",
-                    body.fmt_to_string(store)
-                );
-                body.print_tail(store, w)?;
-                write!(w, ">")
+
+                //Assume body is a single-element cons, ignore the cdr
+                if let Expression::Cons(expr, _) = store.fetch(body).unwrap() {
+                    let expr = store.fetch(&expr).unwrap();
+                    expr.fmt(store, w)?;
+                    write!(w, ">")
+                } else {
+                    // expression is empty
+                    write!(w, "NIL>")
+                }
             }
             Num(n) => write!(w, "{}", n),
             Thunk(f) => {
@@ -156,9 +158,7 @@ impl<F: LurkField> Expression<'_, F> {
                     None => write!(w, "<Opaque>"),
                 }
             }
-            _ => {
-                unreachable!()
-            }
+            expr => expr.fmt(store, w),
         }
     }
 }
