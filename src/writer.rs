@@ -75,12 +75,17 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                 write!(w, ") ")?;
 
                 //Assume body is a single-element cons, ignore the cdr
-                if let Expression::Cons(expr, _) = store.fetch(body).unwrap() {
-                    let expr = store.fetch(&expr).unwrap();
-                    expr.fmt(store, w)?;
-                } else {
-                    // expression is empty
-                    store.get_nil().fmt(store, w)?;
+                match store.fetch(body).unwrap() {
+                    Expression::Cons(expr, _) => {
+                        let expr = store.fetch(&expr).unwrap();
+                        expr.fmt(store, w)?;
+                    }
+                    Expression::Nil => {
+                        store.get_nil().fmt(store, w)?;
+                    }
+                    _ => {
+                        panic!("Function body was neither a Cons nor nil");
+                    }
                 }
                 write!(w, ">")
             }
