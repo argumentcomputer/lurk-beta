@@ -118,7 +118,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub true_num: AllocatedNum<F>,
     pub false_num: AllocatedNum<F>,
     pub default_num: AllocatedNum<F>,
-    pub t64_num: AllocatedNum<F>,
+    pub power2_64_num: AllocatedNum<F>,
 }
 
 impl<F: LurkField> GlobalAllocations<F> {
@@ -306,13 +306,15 @@ impl<F: LurkField> GlobalAllocations<F> {
         let true_num = allocate_constant(&mut cs.namespace(|| "true"), F::one())?;
         let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::zero())?;
         let default_num = allocate_constant(&mut cs.namespace(|| "default"), F::zero())?;
+
+        // TODO: find a better approach
         let one = F::one();
         let two = one + one;
         let mut t64 = two;
-        for _ in 0..64 {
+        for _ in 0..63 {
             t64 *= two;
-        };
-        let t64_num = allocate_constant(&mut cs.namespace(|| "pow(2,64)"), t64)?;
+        }
+        let power2_64_num = allocate_constant(&mut cs.namespace(|| "pow(2,64)"), t64)?;
 
         Ok(Self {
             terminal_ptr,
@@ -409,7 +411,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             true_num,
             false_num,
             default_num,
-            t64_num,
+            power2_64_num,
         })
     }
 }
