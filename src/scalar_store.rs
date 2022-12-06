@@ -3,7 +3,10 @@ use std::fmt;
 
 use crate::field::LurkField;
 
-use crate::store::{ContTag, Op1, Op2, Ptr, ScalarContPtr, ScalarPointer, ScalarPtr, Store, Tag};
+use crate::store::{
+    ContTag, HashScalar, Op1, Op2, Ptr, ScalarContPtr, ScalarPointer, ScalarPtr, Store, Tag,
+};
+use crate::{Num, Sym, UInt};
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -49,7 +52,7 @@ impl<'a, F: LurkField> ScalarStore<F> {
 
         while let Some(scalar) = scalars.pop() {
             scalar_store.scalar_map.entry(scalar).or_insert_with(|| {
-                let scalar_expr = store.get_scalar_expr(&scalar)?;
+                let scalar_expr = store.get_scalar_expr(HashScalar::Get, &scalar)?;
                 scalars.extend(Self::child_scalar_ptrs(&scalar_expr));
                 Some(scalar_expr)
             });
@@ -187,25 +190,6 @@ impl<'a, F: LurkField> ScalarStore<F> {
                 return Err(());
             }
         }
-
-        while idx < len {
-            if let Some(tag) = Tag::from_field(stream[idx]) {
-                let value = stream[idx + 1];
-                let ptr = ScalarPtr::from_parts(tag.as_field(), value);
-                let (idx2, expr) = ScalarExpression::de_f(stream, idx + 2, tag, value)?;
-                scalar_map.insert(ptr, Some(expr));
-                idx = idx2
-            //}
-            //if let Some(cont_tag) = ContTag::from_field(stream[idx]) {
-            //    let value = stream[idx + 1];
-            //    let ptr = ScalarContPtr::from_parts(cont_tag.as_field(), value);
-            //    let (idx2, expr) = ScalarContinuation::de_f(stream, idx + 2, cont_tag, value)?;
-            //    scalar_cont_map.insert(ptr, Some(expr));
-            //    idx = idx2
-            } else {
-                return Err(());
-            }
-        }
         Ok(ScalarStore {
             scalar_map,
             scalar_cont_map,
@@ -262,7 +246,7 @@ impl<'a, F: LurkField> fmt::Display for ScalarExpression<F> {
     }
 }
 
-impl<'a, F: LurkField> Default for ScalarExpression<F> {
+impl<F: LurkField> Default for ScalarExpression<F> {
     fn default() -> Self {
         Self::Num(F::zero())
     }
@@ -360,6 +344,7 @@ impl<'a, F: LurkField> ScalarExpression<F> {
             Tag::Char => Ok((idx, ScalarExpression::Char(val))),
             Tag::Num => Ok((idx, ScalarExpression::Num(val))),
             Tag::U64 => Ok((idx, ScalarExpression::UInt(val))),
+            _ => todo!(),
         }
     }
 }
@@ -759,6 +744,7 @@ mod test {
     use crate::eval::empty_sym_env;
     use crate::field::FWrap;
     use crate::store::ScalarPointer;
+    use crate::{Sym, Symbol};
     use blstrs::Scalar as Fr;
 
     use quickcheck::{Arbitrary, Gen};
@@ -880,6 +866,14 @@ mod test {
     //        frequency(g, input)
     //    }
     //}
+    impl Arbitrary for Symbol {
+        fn arbitrary(g: &mut Gen) -> Self {
+            Symbol {
+                path: Arbitrary::arbitrary(g),
+                opaque: Arbitrary::arbitrary(g),
+            }
+        }
+    }
 
     #[quickcheck]
     fn prop_scalar_expression_ipld(x: ScalarExpression<Fr>) -> bool {
@@ -1034,7 +1028,7 @@ mod test {
 
         //test("symbol");
         //test("1");
-        test("#\\a#");
+        //test("#\\a#");
         //test("(1 . 2)");
         //test("(\"foo\" . \"bar\")");
         //test("(foo . bar)");

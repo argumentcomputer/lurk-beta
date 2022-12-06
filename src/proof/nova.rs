@@ -24,7 +24,7 @@ use crate::circuit::{
 use crate::error::Error;
 use crate::eval::{Evaluator, Frame, Witness, IO};
 use crate::field::LurkField;
-use crate::proof::Prover;
+use crate::proof::{Prover, PublicParameters};
 use crate::store::{Ptr, Store};
 
 pub type G1 = pallas::Point;
@@ -63,19 +63,22 @@ pub struct NovaProver<F: LurkField> {
     _p: PhantomData<F>,
 }
 
-impl<F: LurkField> Prover<F> for NovaProver<F> {
+impl<'a> PublicParameters for PublicParams<'a> {}
+
+impl<'a, F: LurkField> Prover<'a, F> for NovaProver<F> {
+    type PublicParams = PublicParams<'a>;
+    fn new(chunk_frame_count: usize) -> Self {
+        NovaProver::<F> {
+            chunk_frame_count,
+            _p: PhantomData::<F>,
+        }
+    }
     fn chunk_frame_count(&self) -> usize {
         self.chunk_frame_count
     }
 }
 
 impl<F: LurkField> NovaProver<F> {
-    pub fn new(chunk_frame_count: usize) -> Self {
-        NovaProver::<F> {
-            chunk_frame_count,
-            _p: PhantomData::<F>,
-        }
-    }
     fn get_evaluation_frames(
         &self,
         expr: Ptr<S1>,
@@ -363,7 +366,6 @@ mod tests {
         let mut previous_frame: Option<MultiFrame<Fr, IO<Fr>, Witness<Fr>>> = None;
 
         let mut cs_blank = MetricCS::<Fr>::new();
-        let store = Store::<Fr>::default();
 
         let blank = MultiFrame::<Fr, IO<Fr>, Witness<Fr>>::blank(chunk_frame_count);
         blank
@@ -397,10 +399,10 @@ mod tests {
         }
 
         if let Some(expected_result) = expected_result {
-            assert!(store.ptr_eq(&expected_result, &output.expr));
+            assert!(s.ptr_eq(&expected_result, &output.expr).unwrap());
         }
         if let Some(expected_env) = expected_env {
-            assert!(store.ptr_eq(&expected_env, &output.env));
+            assert!(s.ptr_eq(&expected_env, &output.env).unwrap());
         }
         if let Some(expected_cont) = expected_cont {
             assert_eq!(expected_cont, output.cont);
@@ -421,6 +423,17 @@ mod tests {
     fn test_outer_prove_binop() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    #[should_panic]
+    // This tests the testing mechanism. Since the supplied expected value is wrong,
+    // the test should panic on an assertion failure.
+    fn test_outer_prove_binop_fail() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(2);
         let terminal = s.get_cont_terminal();
         nova_test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
     }
@@ -2505,5 +2518,36 @@ mod tests {
         let terminal = s.get_cont_terminal();
 
         nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
+    }
+
+    #[test]
+    fn outer_prove_test_eval() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(* 3 (eval (cons '+ (cons 1 (cons 2 nil)))))";
+        let expr2 = "(* 5 (eval '(+ 1 a) '((a . 3))))"; // two-arg eval, optional second arg is env.
+        let res = s.num(9);
+        let res2 = s.num(20);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 17);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 9);
+    }
+
+    #[test]
+    fn outer_prove_test_keyword() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = ":asdf";
+        let expr2 = "(eq :asdf :asdf)";
+        let expr3 = "(eq :asdf 'asdf)";
+        let res = s.key("ASDF");
+        let res2 = s.get_t();
+        let res3 = s.get_nil();
+
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr3, Some(res3), None, Some(terminal), None, 3);
     }
 }

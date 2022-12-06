@@ -134,7 +134,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         if lurk_prefix != Self::LURK_CODEC_PREFIX || field_prefix != Self::FIELD_CODEC {
             None
         } else {
-            Some(Self::from(digest as u64))
+            Some(Self::from(digest))
         }
     }
 
