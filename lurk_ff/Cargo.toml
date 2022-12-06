@@ -7,10 +7,19 @@ edition = "2021"
 
 [dependencies]
 ff = "0.12.0"
-blstrs = "0.5.0"
+blstrs = "0.6.0"
 pasta_curves = { version = "0.4.0", features = ["repr-c"] }
+# test-utils dependencies
+rand = {version = "0.8", optional = true }
+quickcheck = {version = "1.0.3", optional = true }
+quickcheck_macros = {version = "1.0.0", optional = true }
+
+[features]
+default = []
+test-utils = ["dep:rand", "dep:quickcheck", "dep:quickcheck_macros"]
 
 [dev-dependencies]
-quickcheck = "1.0.3"
-quickcheck_macros = "1.0.0"
-rand = "0.8"
+lurk_ff = { path = ".", features = ["test-utils"] } # enable "test-utils" feature
+rand = {version = "0.8" }
+quickcheck = {version = "1.0.3"}
+quickcheck_macros = {version = "1.0.0"}

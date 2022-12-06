@@ -132,41 +132,20 @@ impl<F: LurkField> fmt::Display for Syn<F> {
   }
 }
 
-#[cfg(test)]
-mod test {
+#[cfg(feature = "test-utils")]
+pub mod test_utils {
   use blstrs::Scalar as Fr;
-  use im::Vector;
+  // use im::Vector;
+  use lurk_ff::{
+    field::test_utils::FWrap,
+    test_utils::frequency,
+  };
   use quickcheck::{
     Arbitrary,
     Gen,
   };
 
   use super::*;
-  use crate::test::frequency;
-
-  //#[test]
-  // fn display_link() {
-  //    println!(
-  //        "{}",
-  //        Syn::<Fr>::Link(
-  //            Pos::No,
-  //            Box::new(Syn::Symbol(Pos::No,
-  // vec![Sym::Sym("sha256".to_string())])),            vec![u64::MAX,
-  // u64::MAX, u64::MAX, u64::MAX]        )
-  //    );
-  //    assert!(false)
-  //}
-
-  // For working around the orphan trait impl rule
-  #[derive(Clone, Debug, PartialEq, Eq)]
-  pub struct FWrap<F: LurkField>(pub F);
-
-  impl<F: LurkField> Arbitrary for FWrap<F> {
-    fn arbitrary(_: &mut Gen) -> Self {
-      let f = F::random(rand::thread_rng());
-      FWrap(f)
-    }
-  }
 
   impl Syn<Fr> {
     fn arbitrary_syn(g: &mut Gen) -> Self {
@@ -238,6 +217,34 @@ mod test {
   impl Arbitrary for Syn<Fr> {
     fn arbitrary(g: &mut Gen) -> Self { Syn::arbitrary_syn(g) }
   }
+}
+
+#[cfg(all(test, feature = "test-utils"))]
+mod test {
+  use blstrs::Scalar as Fr;
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+
+  use super::{
+    test_utils::*,
+    *,
+  };
+
+  //#[test]
+  // fn display_link() {
+  //    println!(
+  //        "{}",
+  //        Syn::<Fr>::Link(
+  //            Pos::No,
+  //            Box::new(Syn::Symbol(Pos::No,
+  // vec![Sym::Sym("sha256".to_string())])),            vec![u64::MAX,
+  // u64::MAX, u64::MAX, u64::MAX]        )
+  //    );
+  //    assert!(false)
+  //}
+
   #[quickcheck]
   fn prop_syn_generates(syn: Syn<Fr>) -> bool {
     // println!("-------------");

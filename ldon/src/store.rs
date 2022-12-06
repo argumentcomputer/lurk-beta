@@ -12,13 +12,15 @@ use lurk_ff::{
 };
 
 use crate::{
-  expr::{
-    Cont,
-    Expr,
-  },
+  cont::Cont,
+  expr::Expr,
   hash::PoseidonCache,
   parser::position::Pos,
   ptr::Ptr,
+  serde_f::{
+    SerdeF,
+    SerdeFError,
+  },
   syntax::Syn,
 };
 
@@ -54,7 +56,7 @@ impl<'a, F: LurkField> Store<F> {
     expr: Expr<F>,
   ) -> Ptr<F> {
     let ptr = expr.ptr(cache);
-    if !ptr.is_immediate() {
+    if !ptr.immediate_expr().is_some() {
       self.0.insert(ptr, Entry::Expr(expr));
     }
     ptr
@@ -169,8 +171,11 @@ impl<'a, F: LurkField> Store<F> {
   }
 
   pub fn get_entry(&self, ptr: Ptr<F>) -> Result<Entry<F>, StoreError<F>> {
-    if let Some(entry) = ptr.immediate() {
-      Ok(entry)
+    if let Some(expr) = ptr.immediate_expr() {
+      Ok(Entry::Expr(expr))
+    }
+    else if let Some(cont) = ptr.immediate_cont() {
+      Ok(Entry::Cont(cont))
     }
     else {
       let entry =
@@ -330,7 +335,7 @@ impl<'a, F: LurkField> fmt::Display for Store<F> {
     for (k, v) in self.0.iter() {
       match v {
         Entry::Expr(x) => {
-          writeln!(f, "  {}: {:?},", k, x)?;
+          writeln!(f, "  {}: {},", k, x)?;
         },
         Entry::Cont(x) => {
           writeln!(f, "  {}: {:?},", k, x)?;
@@ -345,7 +350,100 @@ impl<'a, F: LurkField> fmt::Display for Store<F> {
   }
 }
 
-#[cfg(test)]
+impl<F: LurkField> SerdeF<F> for Store<F> {
+  fn ser_f(&self) -> Vec<F> {
+    let mut exprs = Vec::new();
+    let mut opaqs = Vec::new();
+    for (ptr, entry) in self.0.iter() {
+      match entry {
+        Entry::Expr(x) => exprs.extend(x.ser_f().into_iter()),
+        Entry::Cont(x) => todo!(),
+        Entry::Opaque => opaqs.extend(ptr.ser_f()),
+      }
+    }
+    let mut res = vec![(opaqs.len() as u64).into()];
+    res.extend(opaqs);
+    res.extend(exprs);
+    res
+  }
+
+  fn de_f(fs: &[F]) -> Result<Store<F>, SerdeFError<F>> {
+    let mut map: BTreeMap<Ptr<F>, Entry<F>> = BTreeMap::new();
+    if fs.len() < 1 {
+      return Err(SerdeFError::UnexpectedEnd);
+    }
+    let opaqs: u64 =
+      fs[0].to_u64().ok_or_else(|| SerdeFError::ExpectedU64(fs[0]))?;
+    // TODO: This will break on 32-bit targets, but maybe we don't care.
+    let opaqs: usize = opaqs as usize;
+    if fs.len() < opaqs {
+      return Err(SerdeFError::UnexpectedEnd);
+    }
+    let mut i = 1;
+    while i <= opaqs {
+      map.insert(Ptr::de_f(&fs[i..])?, Entry::Opaque);
+      i = i + 2;
+    }
+    while i < fs.len() {
+      let ptr = Ptr::de_f(&fs[i..])?;
+      match ptr.tag.kind {
+        TagKind::Expr(_) => {
+          let expr = Expr::de_f(&fs[i..])?;
+          map.insert(ptr, Entry::Expr(expr));
+          i = i + 2 + expr.child_ptrs().len() * 2;
+        },
+        TagKind::Cont(_) => todo!(),
+        TagKind::Op1(_) => todo!(),
+        TagKind::Op2(_) => todo!(),
+      }
+    }
+    Ok(Store(map))
+  }
+}
+#[cfg(feature = "test-utils")]
+pub mod test_utils {
+  use blstrs::Scalar as Fr;
+  use im::Vector;
+  use lurk_ff::{
+    field::test_utils::*,
+    tag::test_utils::*,
+    test_utils::frequency,
+  };
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+
+  use super::*;
+  impl Arbitrary for Entry<Fr> {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Entry<Fr>>)> = vec![
+        (100, Box::new(|_| Self::Opaque)),
+        (100, Box::new(|g| Self::Expr(Expr::arbitrary(g)))),
+      ];
+      frequency(g, input)
+    }
+  }
+
+  impl Arbitrary for Store<Fr> {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let mut map: BTreeMap<Ptr<Fr>, Entry<Fr>> = BTreeMap::new();
+      let n: usize = usize::arbitrary(g) % 5;
+      let cache = PoseidonCache::default();
+      for _ in 0..n {
+        let entry = Entry::arbitrary(g);
+        match entry {
+          Entry::Opaque => map.insert(Ptr::arbitrary(g), entry),
+          Entry::Expr(x) => map.insert(x.ptr(&cache), entry),
+          Entry::Cont(_) => todo!(),
+        };
+      }
+      Store(map)
+    }
+  }
+}
+
+#[cfg(all(test, feature = "test-utils"))]
 mod test {
   use blstrs::Scalar as Fr;
   use im::Vector;
@@ -355,7 +453,6 @@ mod test {
   };
 
   use super::*;
-  use crate::test::frequency;
 
   #[test]
   fn unit_expr_store_get() {
@@ -424,5 +521,84 @@ mod test {
     println!("{:?}", syn1);
     println!("{:?}", syn2);
     syn1 == syn2
+  }
+
+  #[test]
+  fn unit_syn_store_serdef() {
+    let mut store1 = Store::<Fr>::default();
+    let cache = PoseidonCache::default();
+
+    let mut test = |syn1| {
+      let ptr = store1.intern_syn(&cache, &syn1);
+      let vec = &store1.ser_f();
+      println!("syn: {:?}", syn1);
+      println!("store: {}", store1);
+      println!("vec: {:?} {:?}", vec.len(), vec);
+      match Store::de_f(&vec) {
+        Ok(store2) => {
+          println!("store1: {}", store1);
+          println!("store2: {}", store2);
+          assert!(store1 == store2)
+        },
+        Err(e) => {
+          println!("{:?}", e);
+          assert!(false)
+        },
+      }
+    };
+
+    test(Syn::Num(Pos::No, 0u64.into()));
+    test(Syn::U64(Pos::No, 0u64.into()));
+    test(Syn::Char(Pos::No, 'a'));
+    test(Syn::String(Pos::No, "".to_string()));
+    test(Syn::String(Pos::No, "a".to_string()));
+    test(Syn::String(Pos::No, "ab".to_string()));
+    test(Syn::List(Pos::No, vec![Syn::Num(Pos::No, 0u64.into())], None));
+    test(Syn::List(
+      Pos::No,
+      vec![Syn::Num(Pos::No, 0u64.into())],
+      Some(Box::new(Syn::Num(Pos::No, 0u64.into()))),
+    ));
+    test(Syn::Symbol(Pos::No, vec![]));
+    test(Syn::Symbol(Pos::No, vec!["foo".to_string()]));
+    test(Syn::Symbol(Pos::No, vec!["foo".to_string(), "bar".to_string()]));
+  }
+
+  #[quickcheck]
+  fn prop_syn_store_serdef(syn1: Syn<Fr>) -> bool {
+    println!("==================");
+    let mut store1 = Store::<Fr>::default();
+    let cache = PoseidonCache::default();
+    store1.intern_syn(&cache, &syn1);
+    let vec = &store1.ser_f();
+    match Store::de_f(&vec) {
+      Ok(store2) => {
+        println!("store1: {}", store1);
+        println!("store2: {}", store2);
+        store1 == store2
+      },
+      Err(e) => {
+        println!("{:?}", e);
+        false
+      },
+    }
+  }
+
+  #[quickcheck]
+  fn prop_store_serdef(store1: Store<Fr>) -> bool {
+    println!("==================");
+    let vec = &store1.ser_f();
+    // println!("store1: {}", store1);
+    match Store::de_f(&vec) {
+      Ok(store2) => {
+        println!("store1: {}", store1);
+        println!("store2: {}", store2);
+        store1 == store2
+      },
+      Err(e) => {
+        println!("{:?}", e);
+        false
+      },
+    }
   }
 }

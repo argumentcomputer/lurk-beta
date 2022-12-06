@@ -1,22 +1,27 @@
+use std::fmt;
+
 use lurk_ff::{
   field::LurkField,
   tag::{
     ExprTag,
-    Op1Tag,
-    Op2Tag,
+    TagKind,
   },
 };
 
 use crate::{
   hash::PoseidonCache,
   ptr::Ptr,
+  serde_f::{
+    SerdeF,
+    SerdeFError,
+  },
 };
 // user-level expressions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Expr<F: LurkField> {
   ConsNil,
   Cons(Ptr<F>, Ptr<F>),        // car, cdr
-  Comm(F, Ptr<F>),             // secret, val
+  Comm(Ptr<F>, Ptr<F>),        // secret, val
   SymNil,                      //
   SymCons(Ptr<F>, Ptr<F>),     // head, tail
   Keyword(Ptr<F>),             // symbol
@@ -31,33 +36,13 @@ pub enum Expr<F: LurkField> {
   Link(Ptr<F>, Ptr<F>),        // ctx, data
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Cont<F: LurkField> {
-  Outermost,
-  Call(Ptr<F>, Ptr<F>, Ptr<F>),  // arg, env, cont
-  Call0(Ptr<F>, Ptr<F>),         // env, cont
-  Call2(Ptr<F>, Ptr<F>, Ptr<F>), // fun, env, cont
-  Tail(Ptr<F>, Ptr<F>),          // env, cont
-  Error,
-  Lookup(Ptr<F>, Ptr<F>),                 // env, cont
-  Unop(Op1Tag, Ptr<F>),                   // op, cont
-  Binop(Op2Tag, Ptr<F>, Ptr<F>, Ptr<F>),  // op, env, args cont
-  Binop2(Op2Tag, Ptr<F>, Ptr<F>),         // op, arg, cont
-  If(Ptr<F>, Ptr<F>),                     // args, cont
-  Let(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>),    // var, body, env, cont
-  LetRec(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>), // var, body, env, cont
-  Emit(Ptr<F>),                           // cont
-  Dummy,
-  Terminal,
-}
-
 impl<'a, F: LurkField> Expr<F> {
   /// All the `Ptr`s directly reachable from `expr`, if any.
-  pub fn child_ptrs(expr: &Expr<F>) -> Vec<Ptr<F>> {
-    match expr {
+  pub fn child_ptrs(&self) -> Vec<Ptr<F>> {
+    match self {
       Expr::ConsNil => vec![],
       Expr::Cons(car, cdr) => vec![*car, *cdr],
-      Expr::Comm(_, payload) => vec![*payload],
+      Expr::Comm(secret, payload) => vec![*secret, *payload],
       Expr::SymNil => vec![],
       Expr::SymCons(head, tail) => vec![*head, *tail],
       Expr::Keyword(symbol) => vec![*symbol],
@@ -89,7 +74,12 @@ impl<'a, F: LurkField> Expr<F> {
       },
       Expr::Comm(secret, val) => Ptr {
         tag: F::make_expr_tag(ExprTag::Comm),
-        val: cache.hash3(&[*secret, F::from_tag_unchecked(val.tag), val.val]),
+        val: cache.hash4(&[
+          F::from_tag_unchecked(secret.tag),
+          secret.val,
+          F::from_tag_unchecked(val.tag),
+          val.val,
+        ]),
       },
       Expr::SymNil => {
         Ptr { tag: F::make_expr_tag(ExprTag::Sym), val: F::zero() }
@@ -152,6 +142,194 @@ impl<'a, F: LurkField> Expr<F> {
           F::from_tag_unchecked(data.tag),
           data.val,
         ]),
+      },
+    }
+  }
+}
+
+#[cfg(feature = "test-utils")]
+pub mod test_utils {
+  use blstrs::Scalar as Fr;
+  use im::Vector;
+  use lurk_ff::{
+    field::test_utils::*,
+    tag::test_utils::*,
+    test_utils::frequency,
+  };
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+
+  use super::*;
+
+  // These expressions are not necessarily well-formed
+  impl Arbitrary for Expr<Fr> {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Expr<Fr>>)> = vec![
+        (100, Box::new(|_| Self::ConsNil)),
+        (100, Box::new(|g| Self::Cons(Ptr::arbitrary(g), Ptr::arbitrary(g)))),
+        (100, Box::new(|g| Self::Comm(Ptr::arbitrary(g), Ptr::arbitrary(g)))),
+        (100, Box::new(|_| Self::StrNil)),
+        (
+          100,
+          Box::new(|g| Self::StrCons(Ptr::arbitrary(g), Ptr::arbitrary(g))),
+        ),
+        (100, Box::new(|_| Self::SymNil)),
+        (
+          100,
+          Box::new(|g| Self::SymCons(Ptr::arbitrary(g), Ptr::arbitrary(g))),
+        ),
+        (100, Box::new(|g| Self::Keyword(Ptr::arbitrary(g)))),
+        (100, Box::new(|g| Self::Num(FWrap::arbitrary(g).0))),
+        (100, Box::new(|g| Self::Char(FWrap::arbitrary(g).0))),
+        (100, Box::new(|g| Self::U64(FWrap::arbitrary(g).0))),
+        (
+          100,
+          Box::new(|g| {
+            Self::Fun(Ptr::arbitrary(g), Ptr::arbitrary(g), Ptr::arbitrary(g))
+          }),
+        ),
+        (100, Box::new(|g| Self::Thunk(Ptr::arbitrary(g), Ptr::arbitrary(g)))),
+        (100, Box::new(|g| Self::Map(Ptr::arbitrary(g)))),
+        (100, Box::new(|g| Self::Link(Ptr::arbitrary(g), Ptr::arbitrary(g)))),
+      ];
+      frequency(g, input)
+    }
+  }
+}
+
+impl<F: LurkField> SerdeF<F> for Expr<F> {
+  fn ser_f(&self) -> Vec<F> {
+    let mut res = self.ptr(&PoseidonCache::default()).ser_f();
+    for ptr in self.child_ptrs() {
+      res.append(&mut ptr.ser_f());
+    }
+    res
+  }
+
+  fn de_f(fs: &[F]) -> Result<Expr<F>, SerdeFError<F>> {
+    let ptr = Ptr::de_f(&fs[0..])?;
+    if fs.len() < ptr.child_ptr_arity() * 2 {
+      return Err(SerdeFError::UnexpectedEnd);
+    }
+    if let Some(expr) = ptr.immediate_expr() {
+      Ok(expr)
+    }
+    else {
+      match ptr.tag.kind {
+        TagKind::Expr(ExprTag::Fun) => {
+          let arg = Ptr::de_f(&fs[2..])?;
+          let bod = Ptr::de_f(&fs[4..])?;
+          let env = Ptr::de_f(&fs[6..])?;
+          Ok(Expr::Fun(arg, bod, env))
+        },
+        TagKind::Expr(ExprTag::Cons) => {
+          let car = Ptr::de_f(&fs[2..])?;
+          let cdr = Ptr::de_f(&fs[4..])?;
+          Ok(Expr::Cons(car, cdr))
+        },
+        TagKind::Expr(ExprTag::Str) => {
+          let car = Ptr::de_f(&fs[2..])?;
+          let cdr = Ptr::de_f(&fs[4..])?;
+          Ok(Expr::StrCons(car, cdr))
+        },
+        TagKind::Expr(ExprTag::Sym) => {
+          let car = Ptr::de_f(&fs[2..])?;
+          let cdr = Ptr::de_f(&fs[4..])?;
+          Ok(Expr::SymCons(car, cdr))
+        },
+        TagKind::Expr(ExprTag::Comm) => {
+          let sec = Ptr::de_f(&fs[2..])?;
+          let val = Ptr::de_f(&fs[4..])?;
+          Ok(Expr::Comm(sec, val))
+        },
+        TagKind::Expr(ExprTag::Link) => {
+          let ctx = Ptr::de_f(&fs[2..])?;
+          let val = Ptr::de_f(&fs[4..])?;
+          Ok(Expr::Link(ctx, val))
+        },
+        TagKind::Expr(ExprTag::Thunk) => {
+          let val = Ptr::de_f(&fs[2..])?;
+          let cont = Ptr::de_f(&fs[4..])?;
+          Ok(Expr::Thunk(val, cont))
+        },
+        TagKind::Expr(ExprTag::Map) => {
+          let map = Ptr::de_f(&fs[2..])?;
+          Ok(Expr::Map(map))
+        },
+        TagKind::Expr(ExprTag::Key) => {
+          let sym = Ptr::de_f(&fs[2..])?;
+          Ok(Expr::Keyword(sym))
+        },
+        TagKind::Expr(x) => {
+          Err(SerdeFError::Custom(format!("Unknown ExprTag {:?}", x)))
+        },
+        _ => Err(SerdeFError::Expected("Expr".to_string())),
+      }
+    }
+  }
+}
+
+impl<'a, F: LurkField> fmt::Display for Expr<F> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let ptr = self.ptr(&PoseidonCache::default());
+    let child_ptrs = self.child_ptrs();
+    write!(f, "{}", ptr)?;
+    write!(f, "(")?;
+    for child in child_ptrs {
+      writeln!(f, " {},", child)?;
+    }
+    write!(f, ")")
+  }
+}
+
+#[cfg(all(test, feature = "test-utils"))]
+pub mod tests {
+  use blstrs::Scalar as Fr;
+  use lurk_ff::test_utils::frequency;
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+
+  use super::{
+    test_utils::*,
+    *,
+  };
+
+  #[quickcheck]
+  fn prop_expr_serdef(expr1: Expr<Fr>) -> bool {
+    println!("===============================");
+    let vec = &expr1.ser_f();
+    println!("{:?}", vec);
+    match Expr::de_f(&vec) {
+      Ok(expr2) => {
+        println!("expr1: {}", expr1);
+        println!("expr2: {}", expr2);
+        expr1 == expr2
+      },
+      Err(e) => {
+        println!("{:?}", e);
+        false
+      },
+    }
+  }
+
+  #[quickcheck]
+  fn prop_expr_serde(expr1: Expr<Fr>) -> bool {
+    println!("===============================");
+    let vec = &expr1.ser();
+    println!("{:?}", vec);
+    match Expr::de(&vec) {
+      Ok(expr2) => {
+        println!("expr1: {}", expr1);
+        println!("expr2: {}", expr2);
+        expr1 == expr2
+      },
+      Err(e) => {
+        println!("{:?}", e);
+        false
       },
     }
   }
