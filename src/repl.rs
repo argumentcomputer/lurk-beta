@@ -87,8 +87,8 @@ pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
         }
     }
 
-    let exe_path = std::env::current_exe().unwrap();
-    let p: &Path = exe_path.as_ref();
+    let pwd_path = std::env::current_dir().unwrap();
+    let p: &Path = pwd_path.as_ref();
     loop {
         match repl.rl.readline("> ") {
             Ok(line) => {
@@ -357,8 +357,7 @@ impl<F: LurkField> ReplState<F> {
                         if &name == "LOAD" {
                             match store.fetch(&store.car(&rest)).unwrap() {
                                 Expression::Str(path) => {
-                                    let joined =
-                                        p.as_ref().parent().unwrap().join(Path::new(&path));
+                                    let joined = p.as_ref().join(Path::new(&path));
                                     self.handle_load(store, &joined, package)?
                                 }
                                 _ => panic!("Argument to :LOAD must be a string."),
