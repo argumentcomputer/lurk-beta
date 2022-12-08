@@ -13,7 +13,7 @@ LDON syntax is defined as follows:
 ```rust
 pub enum Syn<F: LurkField> {
   // A field element: 1, 0xff
-  Num(Pos, F)
+  Num(Pos, F),
   // A u64 integer: 1u64, 0xffu64
   U64(Pos, u64),
   // A hierarchical symbol: foo, foo.bar.baz
@@ -23,7 +23,7 @@ pub enum Syn<F: LurkField> {
   // A string literal: "foobar", "foo\nbar"
   String(Pos, String),
   // A character literal: 'a', 'b', '\n'
-  Char(Pos, char),bin
+  Char(Pos, char),
   // A cons-list of expressions, which can be terminated by nil: (1 2 3)
   // or can be terminated with the right-most expression (1, 2, 3)
   List(Pos, Vec<Syn<F>>, Option<Box<Syn<F>>>), 

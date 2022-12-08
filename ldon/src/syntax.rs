@@ -15,7 +15,7 @@ use crate::{
 #[derive(Clone, Debug)]
 pub enum Syn<F: LurkField> {
   // A field element: 1, 0xff
-  Num(Pos, F)
+  Num(Pos, F),
   // A u64 integer: 1u64, 0xffu64
   U64(Pos, u64),
   // A hierarchical symbol: foo, foo.bar.baz
@@ -28,12 +28,13 @@ pub enum Syn<F: LurkField> {
   Char(Pos, char),
   // A cons-list of expressions, which can be terminated by nil: (1 2 3)
   // or can be terminated with the right-most expression (1, 2, 3)
-  List(Pos, Vec<Syn<F>>, Option<Box<Syn<F>>>), 
+  List(Pos, Vec<Syn<F>>, Option<Box<Syn<F>>>),
   // A map of expressions to expressions: { foo = 1, blue = true, 3 = 4 }
   Map(Pos, Vec<(Syn<F>, Syn<F>)>),
   // A contextual link or descriptor of some piece of foreign data:
-  // [sha256 0xffff_ffff_ffff_ffff 0xffff_ffff_ffff_ffff 0xffff_ffff_ffff_ffff 0xffff_ffff_ffff_ffff]
-  Link(Pos, Box<Syn<F>>, Vec<u64>),            
+  // [sha256 0xffff_ffff_ffff_ffff 0xffff_ffff_ffff_ffff 0xffff_ffff_ffff_ffff
+  // 0xffff_ffff_ffff_ffff]
+  Link(Pos, Box<Syn<F>>, Vec<u64>),
 }
 
 impl<F: LurkField> Syn<F> {

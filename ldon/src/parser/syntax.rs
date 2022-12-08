@@ -656,6 +656,23 @@ pub mod tests {
     );
     test_parse(
       parse_syn(),
+      "(lambda (🚀) 🚀)",
+      Some(Syn::List(
+        Pos::No,
+        vec![
+          Syn::Symbol(Pos::No, vec!["lambda".to_string()]),
+          Syn::List(
+            Pos::No,
+            vec![Syn::Symbol(Pos::No, vec!["🚀".to_string()])],
+            None,
+          ),
+          Syn::Symbol(Pos::No, vec!["🚀".to_string()]),
+        ],
+        None,
+      )),
+    );
+    test_parse(
+      parse_syn(),
       ".\\'",
       Some(Syn::Symbol(Pos::No, vec!["'".to_string()])),
     );
