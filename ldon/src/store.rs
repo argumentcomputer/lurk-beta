@@ -357,7 +357,7 @@ impl<F: LurkField> SerdeF<F> for Store<F> {
     for (ptr, entry) in self.0.iter() {
       match entry {
         Entry::Expr(x) => exprs.extend(x.ser_f().into_iter()),
-        Entry::Cont(x) => todo!(),
+        Entry::Cont(_x) => todo!(),
         Entry::Opaque => opaqs.extend(ptr.ser_f()),
       }
     }
@@ -403,12 +403,7 @@ impl<F: LurkField> SerdeF<F> for Store<F> {
 #[cfg(feature = "test-utils")]
 pub mod test_utils {
   use blstrs::Scalar as Fr;
-  use im::Vector;
-  use lurk_ff::{
-    field::test_utils::*,
-    tag::test_utils::*,
-    test_utils::frequency,
-  };
+  use lurk_ff::test_utils::frequency;
   use quickcheck::{
     Arbitrary,
     Gen,
@@ -446,11 +441,6 @@ pub mod test_utils {
 #[cfg(all(test, feature = "test-utils"))]
 mod test {
   use blstrs::Scalar as Fr;
-  use im::Vector;
-  use quickcheck::{
-    Arbitrary,
-    Gen,
-  };
 
   use super::*;
 
@@ -529,7 +519,7 @@ mod test {
     let cache = PoseidonCache::default();
 
     let mut test = |syn1| {
-      let ptr = store1.intern_syn(&cache, &syn1);
+      let _ptr = store1.intern_syn(&cache, &syn1);
       let vec = &store1.ser_f();
       println!("syn: {:?}", syn1);
       println!("store: {}", store1);
@@ -583,7 +573,6 @@ mod test {
       },
     }
   }
-
   #[quickcheck]
   fn prop_store_serdef(store1: Store<Fr>) -> bool {
     println!("==================");

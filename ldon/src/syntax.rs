@@ -12,16 +12,16 @@ use crate::{
 };
 
 // LDON syntax
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub enum Syn<F: LurkField> {
   Num(Pos, F),               // 1, 0xff
   U64(Pos, u64),             // 1u64, 0xffu64
   Symbol(Pos, Vec<String>),  // _ .foo.bar.baz.
-  Keyword(Pos, Vec<String>), // :_ :lambda, :lurk:lambda
+  Keyword(Pos, Vec<String>), // :_ :lambda, :lurk.lambda
   String(Pos, String),       // "foobar", "foo\nbar"
   Char(Pos, char),           // 'a'
   // The end term of an improper list is not allowed to be a list
-  List(Pos, Vec<Syn<F>>, Option<Box<Syn<F>>>), // (1 2 3) (1 2 . 3)
+  List(Pos, Vec<Syn<F>>, Option<Box<Syn<F>>>), // (1 2 3) (1, 2, 3)
   // Note: The assoc-list in a Syn::Map must be in canonical order according
   // to the order of key's corresponding Ptr<F>.
   Map(Pos, Vec<(Syn<F>, Syn<F>)>), // { foo: 1, blue: true }
@@ -92,18 +92,28 @@ impl<F: LurkField> fmt::Display for Syn<F> {
       },
       Self::String(_, x) => write!(f, "\"{}\"", x),
       Self::Char(_, x) => write!(f, "'{}'", x),
-      Self::List(_, xs, end) => {
+      Self::List(_, xs, None) => {
         let mut iter = xs.iter().peekable();
         write!(f, "(")?;
         while let Some(x) = iter.next() {
           if let None = iter.peek() {
-            match end {
-              Some(end) => write!(f, "{} . {}", x, end)?,
-              None => write!(f, "{}", x)?,
-            }
+            write!(f, "{}", x)?;
           }
           else {
             write!(f, "{} ", x)?;
+          }
+        }
+        write!(f, ")")
+      },
+      Self::List(_, xs, Some(end)) => {
+        let mut iter = xs.iter().peekable();
+        write!(f, "(")?;
+        while let Some(x) = iter.next() {
+          if let None = iter.peek() {
+            write!(f, "{}", x)?;
+          }
+          else {
+            write!(f, "{}, {}", x, end)?;
           }
         }
         write!(f, ")")
@@ -131,6 +141,27 @@ impl<F: LurkField> fmt::Display for Syn<F> {
     }
   }
 }
+
+// Redefine Equality for Syn to ignore the Pos arguments, which only matter for
+// parser errors
+impl<F: LurkField> PartialEq for Syn<F> {
+  fn eq(&self, other: &Self) -> bool {
+    match (self, other) {
+      (Self::Num(_, x), Self::Num(_, y)) => x == y,
+      (Self::U64(_, x), Self::U64(_, y)) => x == y,
+      (Self::Symbol(_, x), Self::Symbol(_, y)) => x == y,
+      (Self::Keyword(_, x), Self::Keyword(_, y)) => x == y,
+      (Self::String(_, x), Self::String(_, y)) => x == y,
+      (Self::Char(_, x), Self::Char(_, y)) => x == y,
+      (Self::List(_, x, x1), Self::List(_, y, y1)) => x == y && x1 == y1,
+      (Self::Map(_, x), Self::Map(_, y)) => x == y,
+      (Self::Link(_, x, x1), Self::Link(_, y, y1)) => x == y && x1 == y1,
+      _ => false,
+    }
+  }
+}
+
+impl<F: LurkField> Eq for Syn<F> {}
 
 #[cfg(feature = "test-utils")]
 pub mod test_utils {
@@ -222,15 +253,8 @@ pub mod test_utils {
 #[cfg(all(test, feature = "test-utils"))]
 mod test {
   use blstrs::Scalar as Fr;
-  use quickcheck::{
-    Arbitrary,
-    Gen,
-  };
 
-  use super::{
-    test_utils::*,
-    *,
-  };
+  use super::*;
 
   //#[test]
   // fn display_link() {
@@ -250,7 +274,7 @@ mod test {
     // println!("-------------");
     let mut store1 = Store::<Fr>::default();
     let cache = PoseidonCache::default();
-    let ptr1 = store1.intern_syn(&cache, &syn);
+    let _ptr1 = store1.intern_syn(&cache, &syn);
     true
   }
 }

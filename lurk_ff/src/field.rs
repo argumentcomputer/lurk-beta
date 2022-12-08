@@ -20,13 +20,59 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
   const VERSION: Version;
   const FIELD_KIND: FieldKind;
 
-  fn from_bytes(bs: &[u8]) -> Option<Self> {
+  fn from_repr_bytes(bs: &[u8]) -> Option<Self> {
     let mut def: Self::Repr = Self::default().to_repr();
     def.as_mut().copy_from_slice(bs);
     Self::from_repr(def).into()
   }
 
-  fn to_bytes(self) -> Vec<u8> {
+  fn to_le_bytes(self) -> Vec<u8> {
+    let mut vec = vec![];
+    let bits = self.to_le_bits();
+
+    let len = bits.len();
+    let len_bytes = if len % 8 != 0 { len / 8 + 1 } else { len / 8 };
+    for _ in 0..len_bytes {
+      vec.push(0u8)
+    }
+    let mut n = 0;
+    for b in bits {
+      let (byte_i, bit_i) = (n / 8, n % 8);
+      if b {
+        vec[byte_i] = vec[byte_i] | (1u8 << bit_i);
+      }
+      n += 1;
+    }
+    vec
+  }
+
+  fn hex_digits(self) -> String {
+    let mut s = String::new();
+    let bytes = self.to_le_bytes();
+    for b in bytes.iter().rev() {
+      s.push_str(&format!("{:02x?}", b));
+    }
+    s
+  }
+
+  // TODO: detect overflow?
+  fn from_le_bytes(bs: &[u8]) -> Self {
+    let mut res = Self::zero();
+    let mut bs = bs.iter().rev().peekable();
+    while let Some(b) = bs.next() {
+      let b: Self = (*b as u64).into();
+      if let None = bs.peek() {
+        res.add_assign(b)
+      }
+      else {
+        res.add_assign(b);
+        res.mul_assign(Self::from(256u64.into()));
+      }
+    }
+    res
+  }
+
+  fn to_repr_bytes(self) -> Vec<u8> {
     let repr = self.to_repr();
     repr.as_ref().to_vec()
   }
@@ -34,7 +80,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
   fn vec_f_to_bytes(vec_f: Vec<Self>) -> Vec<u8> {
     let mut vec = vec![];
     for f in vec_f {
-      for byte in f.to_bytes() {
+      for byte in f.to_repr_bytes() {
         vec.push(byte)
       }
     }
@@ -44,19 +90,10 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     let num_bytes: usize = (Self::NUM_BITS / 8 + 1) as usize;
     let mut vec_f: Vec<Self> = vec![];
     for chunk in vec.chunks(num_bytes) {
-      let f: Self = Self::from_bytes(&chunk)?;
+      let f: Self = Self::from_repr_bytes(&chunk)?;
       vec_f.push(f);
     }
     Some(vec_f)
-  }
-
-  fn hex_digits(self) -> String {
-    let mut s = String::new();
-    let bytes = self.to_bytes();
-    for b in bytes.iter().rev() {
-      s.push_str(&format!("{:02x?}", b));
-    }
-    s
   }
 
   fn to_u16(&self) -> Option<u16> {
@@ -204,7 +241,6 @@ impl LurkField for pasta_curves::Fq {
 
 #[cfg(feature = "test-utils")]
 pub mod test_utils {
-  use blstrs::Scalar as Fr;
   use quickcheck::{
     Arbitrary,
     Gen,
@@ -249,10 +285,20 @@ pub mod tests {
   };
 
   #[quickcheck]
-  fn prop_bytes_consistency(f1: FWrap<Fr>) -> bool {
+  fn prop_repr_bytes_consistency(f1: FWrap<Fr>) -> bool {
     let bytes = f1.0.to_repr().as_ref().to_owned();
-    let f2 = <Fr as LurkField>::from_bytes(&bytes);
+    let f2 = <Fr as LurkField>::from_repr_bytes(&bytes);
     Some(f1.0) == f2
+  }
+
+  #[quickcheck]
+  fn prop_byte_digits_consistency(f1: FWrap<Fr>) -> bool {
+    let bytes = f1.0.to_le_bytes();
+    let f2 = Fr::from_le_bytes(&bytes);
+    println!("{:?}", bytes);
+    println!("f1 0x{}", f1.0.hex_digits());
+    println!("f2 0x{}", f2.hex_digits());
+    Some(f1.0) == Some(f2)
   }
 
   #[quickcheck]

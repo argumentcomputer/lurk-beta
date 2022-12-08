@@ -1,4 +1,5 @@
 // pub mod base;
+pub mod base;
 pub mod error;
 pub mod position;
 pub mod string;

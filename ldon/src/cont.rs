@@ -6,14 +6,15 @@ use lurk_ff::{
   },
 };
 
-use crate::{
-  hash::PoseidonCache,
-  ptr::Ptr,
-  serde_f::{
-    SerdeF,
-    SerdeFError,
-  },
-};
+use crate::ptr::Ptr;
+// use crate::{
+//  hash::PoseidonCache,
+//  ptr::Ptr,
+//  serde_f::{
+//    SerdeF,
+//    SerdeFError,
+//  },
+//};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cont<F: LurkField> {
@@ -38,12 +39,7 @@ pub enum Cont<F: LurkField> {
 #[cfg(feature = "test-utils")]
 pub mod test_utils {
   use blstrs::Scalar as Fr;
-  use im::Vector;
-  use lurk_ff::{
-    field::test_utils::*,
-    tag::test_utils::*,
-    test_utils::frequency,
-  };
+  use lurk_ff::test_utils::frequency;
   use quickcheck::{
     Arbitrary,
     Gen,

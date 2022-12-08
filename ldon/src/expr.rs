@@ -150,10 +150,8 @@ impl<'a, F: LurkField> Expr<F> {
 #[cfg(feature = "test-utils")]
 pub mod test_utils {
   use blstrs::Scalar as Fr;
-  use im::Vector;
   use lurk_ff::{
     field::test_utils::*,
-    tag::test_utils::*,
     test_utils::frequency,
   };
   use quickcheck::{
@@ -287,16 +285,8 @@ impl<'a, F: LurkField> fmt::Display for Expr<F> {
 #[cfg(all(test, feature = "test-utils"))]
 pub mod tests {
   use blstrs::Scalar as Fr;
-  use lurk_ff::test_utils::frequency;
-  use quickcheck::{
-    Arbitrary,
-    Gen,
-  };
 
-  use super::{
-    test_utils::*,
-    *,
-  };
+  use super::*;
 
   #[quickcheck]
   fn prop_expr_serdef(expr1: Expr<Fr>) -> bool {

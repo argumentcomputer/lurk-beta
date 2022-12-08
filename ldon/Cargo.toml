@@ -20,6 +20,8 @@ ahash = "0.7.6"
 nom = "7.1.1"
 nom_locate = "4.0.0"
 im = "15.1.0"
+base-x = "0.2.11"
+num-bigint = "0.4"
 # test-utils dependencies
 rand = {version = "0.8", optional = true }
 quickcheck = {version = "1.0.3", optional = true}
@@ -36,5 +38,3 @@ rand = {version = "0.8" }
 quickcheck = {version = "1.0.3"}
 quickcheck_macros = {version = "1.0.0"}
 
-[profile.test]
-opt-level = 3

@@ -68,3 +68,7 @@ members = [
 [[bin]]
 name = "lurkrs"
 path = "src/main.rs"
+
+[profile.test]
+opt-level = 3
+

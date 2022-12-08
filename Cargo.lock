@@ -1268,16 +1268,19 @@ name = "ldon"
 version = "0.1.0"
 dependencies = [
  "ahash",
+ "base-x",
  "blstrs",
  "dashmap",
  "ff",
  "generic-array 0.14.6",
  "im",
+ "ldon",
  "lurk_ff",
  "neptune",
  "nom",
  "nom_locate",
  "nova-snark",
+ "num-bigint 0.4.3",
  "once_cell",
  "pasta_curves",
  "quickcheck",
@@ -1434,6 +1437,7 @@ version = "0.1.0"
 dependencies = [
  "blstrs",
  "ff",
+ "lurk_ff",
  "pasta_curves",
  "quickcheck",
  "quickcheck_macros",

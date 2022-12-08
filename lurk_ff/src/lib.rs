@@ -1,6 +1,7 @@
 #[cfg(any(test, feature = "test-utils"))]
 extern crate quickcheck;
 #[cfg(any(test, feature = "test-utils"))]
+#[allow(unused_imports)]
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
 
