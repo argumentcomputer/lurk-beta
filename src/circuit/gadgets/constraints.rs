@@ -71,6 +71,40 @@ pub fn add<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(res)
 }
 
+/// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v` is equal to `sum`.
+///
+/// summation(v) = sum
+pub fn boolean_summation<F: PrimeField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    v: &Vec<Boolean>,
+    sum: &AllocatedNum<F>,
+) {
+    let v_lc = LinearCombination::<F>::zero();
+    for i in 0..v.len() {
+        match v[i] {
+            Boolean::Constant(c) => {
+                if c {
+                    v_lc.clone() + (F::one(), CS::one())
+                } else {
+                    v_lc.clone()
+                }
+            }
+            Boolean::Is(ref v) => v_lc.clone() + (F::one(), v.get_variable()),
+            Boolean::Not(ref v) => {
+                v_lc.clone() + (F::one(), CS::one()) - (F::one(), v.get_variable())
+            }
+        };
+    }
+
+    // (summation(v)) * 1 = sum
+    cs.enforce(
+        || "boolean summation",
+        |_| v_lc,
+        |lc| lc + CS::one(),
+        |lc| lc + sum.get_variable(),
+    );
+}
+
 /// Adds a constraint to CS, enforcing a difference relationship between the allocated numbers a, b, and difference.
 ///
 /// a - b = difference
