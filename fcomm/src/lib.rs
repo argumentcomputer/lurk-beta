@@ -697,8 +697,8 @@ impl Opening<Scalar> {
             let new_commitment = Commitment::from_comm(s, &new_comm);
 
             s.hydrate_scalar_cache();
-            let (scalar_store, scalar_ptr) = ScalarStore::new_with_expr(s, &new_fun).unwrap();
-            let scalar_ptr = scalar_ptr;
+            let (scalar_store, scalar_ptr) = ScalarStore::new_with_expr(s, &new_fun);
+            let scalar_ptr = scalar_ptr.unwrap();
 
             let scalar_store_ipld = to_ipld(scalar_store).unwrap();
             let new_fun_ipld = to_ipld(scalar_ptr).unwrap();
