@@ -367,8 +367,7 @@ impl<F: LurkField> ReplState<F> {
                             // Running and loading are equivalent, except that :RUN does not modify the env.
                             match store.fetch(&store.car(&rest)).unwrap() {
                                 Expression::Str(path) => {
-                                    let joined =
-                                        p.as_ref().parent().unwrap().join(Path::new(&path));
+                                    let joined = p.as_ref().join(Path::new(&path));
                                     self.handle_run(store, &joined, package)?
                                 }
                                 _ => panic!("Argument to :RUN must be a string."),
