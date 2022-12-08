@@ -5,7 +5,6 @@ use bellperson::{
     util_cs::Comparable,
     Circuit, ConstraintSystem, SynthesisError,
 };
-use itertools::ConsTuples;
 
 use crate::{
     circuit::gadgets::{
@@ -3648,7 +3647,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &mut cs.namespace(|| "arg2_final"),
             &arg1_is_num_and_arg2_is_u64,
             &arg2_u64_to_num,
-            &arg2,
+            arg2,
         )?;
 
         let (a, b) = (arg1_final.hash(), arg2_final.hash()); // For Nums, the 'hash' is an immediate value.
@@ -4055,7 +4054,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let final_res_plus_2p64 = constraints::add(
             &mut cs.namespace(|| "final res plus 2 to the 64"),
-            &final_res.hash(),
+            final_res.hash(),
             &g.power2_64_num,
         )?;
         let alloc_final_res_plus_2p64 = AllocatedPtr::from_parts(&g.u64_tag, &final_res_plus_2p64);
@@ -4064,7 +4063,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let diff_is_negative_and_op2_is_diff = Boolean::and(
             &mut cs.namespace(|| "diff is negative and op2 is diff"),
-            &diff_is_negative,
+            diff_is_negative,
             &op2_is_diff,
         )?;
         let final_result = AllocatedPtr::pick(
@@ -4127,13 +4126,13 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         // a = b * q + r
         let product_u64mod = constraints::mul(
             &mut cs.namespace(|| "product(q,arg2)"),
-            &alloc_q.hash(),
-            &alloc_arg2.hash(),
+            alloc_q.hash(),
+            alloc_arg2.hash(),
         )?;
         let sum_u64mod = constraints::add(
             &mut cs.namespace(|| "sum remainder mod u64"),
             &product_u64mod,
-            &alloc_r.hash(),
+            alloc_r.hash(),
         )?;
         let u64mod_decomp = alloc_equal(
             &mut cs.namespace(|| "check u64 mod decomposition"),
@@ -4146,7 +4145,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &u64mod_decomp,
         )?;
         // TODO: Implement comparison gadget for u64?
-        enforce_less_than_bound(&mut cs.namespace(|| "remainder in range b" ), g, op2_is_mod.clone(), alloc_r.clone(), alloc_arg2.clone(), 64)?;
+        enforce_less_than_bound(
+            &mut cs.namespace(|| "remainder in range b"),
+            op2_is_mod.clone(),
+            alloc_r.clone(),
+            alloc_arg2.clone(),
+        )?;
 
         let arg1_u64_tag = alloc_equal(
             &mut cs.namespace(|| "arg1 u64 tag"),
@@ -4748,13 +4752,18 @@ fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     // enforce remainder range
-    enforce_n_bits(&mut cs.namespace(|| "remainder u64 range"), g, r_num.clone(), 64)?;
+    enforce_n_bits(
+        &mut cs.namespace(|| "remainder u64 range"),
+        g,
+        r_num.clone(),
+        64,
+    )?;
 
     let output = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "u64_op"), store, || Ok(&u64_ptr))?;
     let u64_is_remainder = alloc_equal(
         &mut cs.namespace(|| "check u64 value is the remainder"),
         &r_num,
-        &output.hash(),
+        output.hash(),
     )?;
     constraints::enforce_true(
         &mut cs.namespace(|| "enforce u64 decomposition output"),
@@ -4797,21 +4806,24 @@ fn enforce_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
     g: &GlobalAllocations<F>,
     num: AllocatedNum<F>,
     n: usize,
-) -> Result<(),  SynthesisError> {
+) -> Result<(), SynthesisError> {
     let num_bits = num.to_bits_le(&mut cs.namespace(|| "u64 remainder bit decomp"))?;
     let v = num_bits[(n + 1)..255].to_vec();
-    Ok(constraints::boolean_summation(&mut cs.namespace(|| "add all MSBs"), &v, &g.false_num))
+    constraints::boolean_summation(
+        &mut cs.namespace(|| "add all MSBs"),
+        &v,
+        &g.false_num,
+    );
+    Ok(())
 }
 
 // Enforce the 0 <= num < b, using n bits (num and b must fit in n bits).
 fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    g: &GlobalAllocations<F>,
     cond: Boolean,
     num: AllocatedPtr<F>,
     bound: AllocatedPtr<F>,
-    n: usize,
-) -> Result<(),  SynthesisError> {
+) -> Result<(), SynthesisError> {
     let diff_bound_num = constraints::sub(
         &mut cs.namespace(|| "bound minus num"),
         bound.hash(),
@@ -4828,31 +4840,17 @@ fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
     let lsb_2diff_bound_num = double_diff_bound_num_bits.get(0);
     let diff_bound_num_is_negative = lsb_2diff_bound_num.unwrap();
 
-    Ok(constraints::enforce_implication(
+    constraints::enforce_implication(
         &mut cs.namespace(|| "enforce u64 range"),
         &cond,
         &diff_bound_num_is_negative.not(),
-    )?)
-}
-
-// Enforce the AllocatedNum has n bits, therefore it is a positive number less than 2ˆn.
-fn enforce_range<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    g: &GlobalAllocations<F>,
-    num: AllocatedNum<F>,
-    a: AllocatedNum<F>,
-    b: AllocatedNum<F>,
-    n: usize,
-) -> Result<(),  SynthesisError> {
-    let num_bits = num.to_bits_le(&mut cs.namespace(|| "u64 remainder bit decomp"))?;
-    let v = num_bits[(n + 1)..255].to_vec();
-    Ok(constraints::boolean_summation(&mut cs.namespace(|| "add all MSBs"), &v, &g.false_num))
+    )
 }
 
 fn bn_to_num<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    bn: BigUint
-) -> Result<AllocatedNum<F>, SynthesisError>{
+    bn: BigUint,
+) -> Result<AllocatedNum<F>, SynthesisError> {
     let bytes_le = bn.to_bytes_le();
     let mut bytes_padded = [0u8; 32];
     bytes_padded[0..bytes_le.len()].copy_from_slice(&bytes_le);
