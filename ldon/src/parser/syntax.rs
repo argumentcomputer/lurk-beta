@@ -91,10 +91,10 @@ pub fn parse_syn_sym<F: LurkField>(
 ) -> impl Fn(Span) -> IResult<Span, Syn<F>, ParseError<Span, F>> {
   move |from: Span| {
     let (i, root) =
-      alt((char('.'), char(':'), value('.', peek(none_of(",=(){}")))))(from)?;
+      alt((char('.'), char(':'), value('.', peek(none_of(",=(){}[]")))))(from)?;
     let (upto, limbs) = separated_list1(
       char(root),
-      string::parse_string_inner(root, false, ".:,=(){}"),
+      string::parse_string_inner(root, false, ".:,=(){}[]"),
     )(i)?;
     // println!("limbs {:?}", limbs);
     let pos = Pos::from_upto(from, upto);
@@ -168,7 +168,7 @@ pub fn parse_syn_str<F: LurkField>(
 pub fn parse_syn_char<F: LurkField>(
 ) -> impl Fn(Span) -> IResult<Span, Syn<F>, ParseError<Span, F>> {
   move |from: Span| {
-    let (upto, mut s) = string::parse_string('\'')(from)?;
+    let (upto, s) = string::parse_string('\'')(from)?;
     let mut chars: Vec<char> = s.chars().collect();
     if chars.len() == 1 {
       let c = chars.pop().unwrap();
@@ -182,6 +182,7 @@ pub fn parse_syn_char<F: LurkField>(
 }
 
 // (1, 2)
+// FIXME: if the end of an improper list is a list, the result is a single list
 pub fn parse_syn_list_improper<F: LurkField>(
 ) -> impl Fn(Span) -> IResult<Span, Syn<F>, ParseError<Span, F>> {
   move |from: Span| {
@@ -192,15 +193,21 @@ pub fn parse_syn_list_improper<F: LurkField>(
     )(i)?;
     let (upto, _) = preceded(parse_space, tag(")"))(i)?;
     // separated_list1 is guaranteed to return at least 1 thing
-    let end = xs.pop().unwrap();
+    let end = match xs.pop().unwrap() {
+      // if the end is a list, we want to merge it into our current list
+      Syn::List(_, end_xs, end_end) => {
+        xs.extend(end_xs);
+        end_end
+      },
+      x => Some(Box::new(x)),
+    };
     let pos = Pos::from_upto(from, upto);
     // improper lists require at least 2 elements, if this parser gets called
     // on a list of 1 element, return a proper list instead
-    if xs.is_empty() {
-      Ok((upto, Syn::List(pos, vec![end], None)))
-    }
-    else {
-      Ok((upto, Syn::List(pos, xs, Some(Box::new(end)))))
+    match (end, xs.is_empty()) {
+      (Some(end), true) => Ok((upto, Syn::List(pos, vec![*end], None))),
+      (None, true) => Ok((upto, Syn::List(pos, vec![], None))),
+      (end, false) => Ok((upto, Syn::List(pos, xs, end))),
     }
   }
 }
@@ -215,6 +222,29 @@ pub fn parse_syn_list_proper<F: LurkField>(
     let (upto, _) = tag(")")(i)?;
     let pos = Pos::from_upto(from, upto);
     Ok((upto, Syn::List(pos, xs, None)))
+  }
+}
+
+pub fn parse_syn_link<F: LurkField>(
+) -> impl Fn(Span) -> IResult<Span, Syn<F>, ParseError<Span, F>> {
+  move |from: Span| {
+    let (i, _) = tag("[")(from)?;
+    let (i, _) = parse_space(i)?;
+    let (i, ctx) = parse_syn()(i)?;
+    let (i, _) = parse_space1(i)?;
+    let (i, xs) = separated_list0(parse_space1, parse_syn_u64())(i)?;
+    let mut xs2 = vec![];
+    for x in xs {
+      match x {
+        Syn::U64(_, x) => xs2.push(x),
+        _ => unreachable!(
+          "xs should only be generated from a list of Syn from parse_syn_u64"
+        ),
+      }
+    }
+    let (upto, _) = tag("]")(i)?;
+    let pos = Pos::from_upto(from, upto);
+    Ok((upto, Syn::Link(pos, Box::new(ctx), xs2)))
   }
 }
 
@@ -255,6 +285,7 @@ pub fn parse_syn<F: LurkField>(
       parse_syn_num(),
       parse_syn_list_proper(),
       parse_syn_list_improper(),
+      parse_syn_link(),
       parse_syn_map(),
       parse_syn_symnil(),
       parse_syn_sym(),
@@ -273,7 +304,7 @@ pub mod tests {
   fn test_parse<'a, P>(mut p: P, i: &'a str, expected: Option<Syn<Fr>>)
   where P: Parser<Span<'a>, Syn<Fr>, ParseError<Span<'a>, Fr>> {
     match (expected, p.parse(Span::new(i))) {
-      (Some(expected), Ok((i, x))) if x == expected => (),
+      (Some(expected), Ok((_i, x))) if x == expected => (),
       (Some(expected), Ok((i, x))) => {
         println!("input: {:?}", i);
         println!("expected: {}", expected);
@@ -290,7 +321,7 @@ pub mod tests {
         println!("detected: {:?}", x);
         assert!(false)
       },
-      (None, Err(e)) => (),
+      (None, Err(_e)) => (),
     }
   }
 
@@ -497,6 +528,18 @@ pub mod tests {
           Syn::Symbol(Pos::No, vec!["b".to_string()]),
         ],
         None,
+      )),
+    );
+    test_parse(
+      parse_syn_list_improper(),
+      "(a, (b, c))",
+      Some(Syn::List(
+        Pos::No,
+        vec![
+          Syn::Symbol(Pos::No, vec!["a".to_string()]),
+          Syn::Symbol(Pos::No, vec!["b".to_string()]),
+        ],
+        Some(Box::new(Syn::Symbol(Pos::No, vec!["c".to_string()]))),
       )),
     );
 

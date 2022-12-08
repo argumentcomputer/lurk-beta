@@ -109,7 +109,7 @@ impl<'a, F: LurkField> Store<F> {
     if let (Some(end), true) = (end, xs.is_empty()) {
       let nil_ptr = self.intern_expr(cache, Expr::ConsNil);
       let end_ptr = self.intern_syn(cache, &end);
-      return self.intern_expr(cache, Expr::Cons(nil_ptr, end_ptr));
+      return self.intern_expr(cache, Expr::Cons(end_ptr, nil_ptr));
     }
     let mut ptr = match end {
       Some(end) => self.intern_syn(cache, &end),
@@ -127,11 +127,17 @@ impl<'a, F: LurkField> Store<F> {
     cache: &PoseidonCache<F>,
     xs: &Vec<(Syn<F>, Syn<F>)>,
   ) -> Ptr<F> {
-    let mut ptr = self.intern_expr(cache, Expr::ConsNil);
-    for (k, v) in xs.iter().rev() {
+    // We need to sort the entries by Ptr value first
+    let mut sorted: BTreeMap<Ptr<F>, Ptr<F>> = BTreeMap::new();
+    for (k, v) in xs {
       let key_ptr = self.intern_syn(cache, k);
       let val_ptr = self.intern_syn(cache, v);
-      let head_ptr = self.intern_expr(cache, Expr::Cons(key_ptr, val_ptr));
+      sorted.insert(key_ptr, val_ptr);
+    }
+    // Then construct the cons-list of pairs
+    let mut ptr = self.intern_expr(cache, Expr::ConsNil);
+    for (key_ptr, val_ptr) in sorted.iter().rev() {
+      let head_ptr = self.intern_expr(cache, Expr::Cons(*key_ptr, *val_ptr));
       ptr = self.intern_expr(cache, Expr::Cons(head_ptr, ptr));
     }
     self.intern_expr(cache, Expr::Map(ptr))
@@ -236,6 +242,27 @@ impl<'a, F: LurkField> Store<F> {
     }
   }
 
+  pub fn get_syn_link(
+    &self,
+    ctx: Ptr<F>,
+    data: Ptr<F>,
+  ) -> Result<Syn<F>, StoreError<F>> {
+    let mut list = vec![];
+    let ctx = self.get_syn(ctx)?;
+    let mut ptr = data;
+
+    while let Expr::Cons(car, cdr) = self.get_expr(ptr)? {
+      list.push(self.get_u64(car)?);
+      ptr = cdr;
+    }
+    if let Expr::ConsNil = self.get_expr(ptr)? {
+      Ok(Syn::Link(Pos::No, Box::new(ctx), list))
+    }
+    else {
+      Err(StoreError::ExpectedLink(ptr))
+    }
+  }
+
   pub fn get_u64(&self, ptr: Ptr<F>) -> Result<u64, StoreError<F>> {
     if let Expr::U64(f) = self.get_expr(ptr)? {
       let x = F::to_u64(&f).ok_or_else(|| StoreError::ExpectedU64(ptr))?;
@@ -288,7 +315,7 @@ impl<'a, F: LurkField> Store<F> {
     }
   }
 
-  pub fn get_map(
+  pub fn get_syn_map(
     &self,
     ptr: Ptr<F>,
   ) -> Result<Vec<(Syn<F>, Syn<F>)>, StoreError<F>> {
@@ -320,7 +347,8 @@ impl<'a, F: LurkField> Store<F> {
       Expr::StrCons(..) => Ok(Syn::String(Pos::No, self.get_string(ptr)?)),
       Expr::SymCons(..) => Ok(Syn::Symbol(Pos::No, self.get_symbol(ptr)?)),
       Expr::Keyword(sym) => Ok(Syn::Keyword(Pos::No, self.get_symbol(sym)?)),
-      Expr::Map(map) => Ok(Syn::Map(Pos::No, self.get_map(map)?)),
+      Expr::Map(map) => Ok(Syn::Map(Pos::No, self.get_syn_map(map)?)),
+      Expr::Link(ctx, data) => self.get_syn_link(ctx, data),
       _ => todo!(),
       // Expr::Comm(F, Ptr<F>),             // secret, val
       // Expr::Thunk(Ptr<F>, Ptr<F>),       // val, cont

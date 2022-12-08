@@ -16,16 +16,14 @@ use crate::{
 pub enum Syn<F: LurkField> {
   Num(Pos, F),               // 1, 0xff
   U64(Pos, u64),             // 1u64, 0xffu64
-  Symbol(Pos, Vec<String>),  // _ .foo.bar.baz.
+  Symbol(Pos, Vec<String>),  // _, foo, foo.bar.baz,
   Keyword(Pos, Vec<String>), // :_ :lambda, :lurk.lambda
   String(Pos, String),       // "foobar", "foo\nbar"
   Char(Pos, char),           // 'a'
   // The end term of an improper list is not allowed to be a list
   List(Pos, Vec<Syn<F>>, Option<Box<Syn<F>>>), // (1 2 3) (1, 2, 3)
-  // Note: The assoc-list in a Syn::Map must be in canonical order according
-  // to the order of key's corresponding Ptr<F>.
-  Map(Pos, Vec<(Syn<F>, Syn<F>)>), // { foo: 1, blue: true }
-  Link(Pos, Box<Syn<F>>, Vec<u64>), /* sha256::ffff_ffff_ffff_ffff_ffff_ffff_ffff_ffff */
+  Map(Pos, Vec<(Syn<F>, Syn<F>)>),             // { foo: 1, blue: true }
+  Link(Pos, Box<Syn<F>>, Vec<u64>),            // [sha256 0xff 0xff 0xff]
 }
 
 impl<F: LurkField> Syn<F> {
@@ -61,7 +59,7 @@ impl<F: LurkField> Syn<F> {
   pub fn escape_symbol(xs: &String) -> String {
     let mut res = String::new();
     for x in xs.chars() {
-      if "(){}=,.:".chars().any(|c| c == x) {
+      if "(){}[]=,.:".chars().any(|c| c == x) {
         res.push_str(&format!("\\{}", x));
       }
       else if Self::is_whitespace(x) {
@@ -79,7 +77,7 @@ impl<F: LurkField> Syn<F> {
       return true;
     };
     let c = xs[0].chars().nth(0).unwrap();
-    "1234567890.:'(){}=,\"\\".chars().any(|x| x == c)
+    "1234567890.:'[](){}=,\"\\".chars().any(|x| x == c)
       || char::is_whitespace(c)
       || char::is_control(c)
   }
@@ -169,11 +167,17 @@ impl<F: LurkField> fmt::Display for Syn<F> {
         write!(f, "}}")
       },
       Self::Link(_, ctx, xs) => {
-        write!(f, "{}::", ctx)?;
-        for x in xs {
-          write!(f, "{:016x}", x)?;
+        let mut iter = xs.iter().peekable();
+        write!(f, "[{} ", ctx)?;
+        while let Some(x) = iter.next() {
+          if let None = iter.peek() {
+            write!(f, "{}", Self::U64(Pos::No, *x))?;
+          }
+          else {
+            write!(f, "{} ", Self::U64(Pos::No, *x))?;
+          }
         }
-        Ok(())
+        write!(f, "]")
       },
     }
   }
@@ -220,12 +224,13 @@ pub mod test_utils {
       let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Syn<Fr>>)> = vec![
         (100, Box::new(|g| Self::Num(Pos::No, FWrap::arbitrary(g).0))),
         (100, Box::new(|g| Self::U64(Pos::No, u64::arbitrary(g)))),
-        (100, Box::new(|g| Self::Char(Pos::No, char::arbitrary(g)))),
-        (100, Box::new(|g| Self::String(Pos::No, Self::arbitrary_string(g)))),
+        //(100, Box::new(|g| Self::Char(Pos::No, char::arbitrary(g)))),
+        //(100, Box::new(|g| Self::String(Pos::No, Self::arbitrary_string(g)))),
         (50, Box::new(|g| Self::Symbol(Pos::No, Self::arbitrary_symbol(g)))),
         (50, Box::new(|g| Self::Keyword(Pos::No, Self::arbitrary_symbol(g)))),
-        (50, Box::new(|g| Self::arbitrary_list(g))),
-        (50, Box::new(|g| Self::arbitrary_map(g))),
+        //(50, Box::new(|g| Self::arbitrary_list(g))),
+        //(50, Box::new(|g| Self::arbitrary_map(g))),
+        (50, Box::new(|g| Self::arbitrary_link(g))),
       ];
       frequency(g, input)
     }
@@ -292,6 +297,17 @@ pub mod test_utils {
         map.insert(key, val);
       }
       Syn::Map(Pos::No, map.into_iter().collect())
+    }
+
+    fn arbitrary_link(g: &mut Gen) -> Self {
+      let num_xs: usize = Arbitrary::arbitrary(g);
+      let num_xs = num_xs % 4;
+      let mut xs = Vec::new();
+      for _ in 0..num_xs {
+        let x = u64::arbitrary(g);
+        xs.push(x);
+      }
+      Syn::Link(Pos::No, Box::new(Syn::arbitrary_syn(g)), xs)
     }
   }
 
