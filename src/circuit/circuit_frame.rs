@@ -4809,11 +4809,7 @@ fn enforce_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<(), SynthesisError> {
     let num_bits = num.to_bits_le(&mut cs.namespace(|| "u64 remainder bit decomp"))?;
     let v = num_bits[(n + 1)..255].to_vec();
-    constraints::boolean_summation(
-        &mut cs.namespace(|| "add all MSBs"),
-        &v,
-        &g.false_num,
-    );
+    constraints::boolean_summation(&mut cs.namespace(|| "add all MSBs"), &v, &g.false_num);
     Ok(())
 }
 
