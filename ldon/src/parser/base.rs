@@ -259,7 +259,7 @@ pub mod tests {
   fn test_parse<'a, P>(mut p: P, i: &'a str, expected: Option<Vec<u8>>)
   where P: Parser<Span<'a>, Vec<u8>, ParseError<Span<'a>, Fr>> {
     match (expected, p.parse(Span::new(i))) {
-      (Some(expected), Ok((i, x))) if x == expected => (),
+      (Some(expected), Ok((_i, x))) if x == expected => (),
       (Some(expected), Ok((i, x))) => {
         println!("input: {:?}", i);
         println!("expected: {:?}", expected);
@@ -276,7 +276,7 @@ pub mod tests {
         println!("detected: {:?}", x);
         assert!(false)
       },
-      (None, Err(e)) => (),
+      (None, Err(_e)) => (),
     }
   }
 

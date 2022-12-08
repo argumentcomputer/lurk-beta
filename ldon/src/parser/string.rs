@@ -24,7 +24,6 @@ use nom::{
   sequence::{
     delimited,
     preceded,
-    terminated,
   },
   IResult,
 };
@@ -198,7 +197,6 @@ pub fn parse_string<'a, F: LurkField>(
 #[cfg(test)]
 pub mod tests {
   use blstrs::Scalar as Fr;
-  use lurk_ff::field::test_utils::FWrap;
   use nom::Parser;
 
   use super::*;
@@ -206,7 +204,7 @@ pub mod tests {
   fn test_parse<'a, P>(mut p: P, i: &'a str, expected: Option<String>)
   where P: Parser<Span<'a>, String, ParseError<Span<'a>, Fr>> {
     match (expected, p.parse(Span::new(i))) {
-      (Some(expected), Ok((i, x))) if x == expected => (),
+      (Some(expected), Ok((_i, x))) if x == expected => (),
       (Some(expected), Ok((i, x))) => {
         println!("input: {:?}", i);
         println!("expected: {:?}", expected);
@@ -223,7 +221,7 @@ pub mod tests {
         println!("detected: {:?}", x);
         assert!(false)
       },
-      (None, Err(e)) => (),
+      (None, Err(_e)) => (),
     }
   }
 

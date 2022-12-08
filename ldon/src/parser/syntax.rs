@@ -4,37 +4,27 @@ use nom::{
   bytes::complete::{
     tag,
     take_till,
-    take_till1,
   },
   character::complete::{
     char,
-    digit1,
     multispace0,
     multispace1,
     none_of,
-    satisfy,
   },
   combinator::{
-    eof,
-    map,
-    opt,
     peek,
     success,
     value,
   },
-  error::context,
   multi::{
     many0,
-    many1,
     separated_list0,
     separated_list1,
   },
   sequence::{
-    delimited,
     preceded,
     terminated,
   },
-  Err,
   IResult,
 };
 
@@ -231,7 +221,7 @@ pub fn parse_syn_link<F: LurkField>(
     let (i, _) = tag("[")(from)?;
     let (i, _) = parse_space(i)?;
     let (i, ctx) = parse_syn()(i)?;
-    let (i, _) = parse_space1(i)?;
+    let (i, _) = parse_space(i)?;
     let (i, xs) = separated_list0(parse_space1, parse_syn_u64())(i)?;
     let mut xs2 = vec![];
     for x in xs {

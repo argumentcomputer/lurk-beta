@@ -224,12 +224,12 @@ pub mod test_utils {
       let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Syn<Fr>>)> = vec![
         (100, Box::new(|g| Self::Num(Pos::No, FWrap::arbitrary(g).0))),
         (100, Box::new(|g| Self::U64(Pos::No, u64::arbitrary(g)))),
-        //(100, Box::new(|g| Self::Char(Pos::No, char::arbitrary(g)))),
-        //(100, Box::new(|g| Self::String(Pos::No, Self::arbitrary_string(g)))),
+        (100, Box::new(|g| Self::Char(Pos::No, char::arbitrary(g)))),
+        (100, Box::new(|g| Self::String(Pos::No, Self::arbitrary_string(g)))),
         (50, Box::new(|g| Self::Symbol(Pos::No, Self::arbitrary_symbol(g)))),
         (50, Box::new(|g| Self::Keyword(Pos::No, Self::arbitrary_symbol(g)))),
-        //(50, Box::new(|g| Self::arbitrary_list(g))),
-        //(50, Box::new(|g| Self::arbitrary_map(g))),
+        (50, Box::new(|g| Self::arbitrary_list(g))),
+        (50, Box::new(|g| Self::arbitrary_map(g))),
         (50, Box::new(|g| Self::arbitrary_link(g))),
       ];
       frequency(g, input)
