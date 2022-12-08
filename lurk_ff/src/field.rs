@@ -26,7 +26,9 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     Self::from_repr(def).into()
   }
 
-  fn to_le_bytes(self) -> Vec<u8> {
+  // Construct bytes from a field element *ignoring* the trait specific
+  // implementation of Repr
+  fn to_le_bytes_noncanonical(self) -> Vec<u8> {
     let mut vec = vec![];
     let bits = self.to_le_bits();
 
@@ -48,15 +50,15 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
 
   fn hex_digits(self) -> String {
     let mut s = String::new();
-    let bytes = self.to_le_bytes();
+    let bytes = self.to_le_bytes_noncanonical();
     for b in bytes.iter().rev() {
       s.push_str(&format!("{:02x?}", b));
     }
     s
   }
 
-  // TODO: detect overflow?
-  fn from_le_bytes(bs: &[u8]) -> Self {
+  // Construct field element from possibly noncanonical bytes
+  fn from_le_bytes_noncanonical(bs: &[u8]) -> Self {
     let mut res = Self::zero();
     let mut bs = bs.iter().rev().peekable();
     while let Some(b) = bs.next() {
@@ -293,8 +295,8 @@ pub mod tests {
 
   #[quickcheck]
   fn prop_byte_digits_consistency(f1: FWrap<Fr>) -> bool {
-    let bytes = f1.0.to_le_bytes();
-    let f2 = Fr::from_le_bytes(&bytes);
+    let bytes = f1.0.to_le_bytes_noncanonical();
+    let f2 = Fr::from_le_bytes_noncanonical(&bytes);
     println!("{:?}", bytes);
     println!("f1 0x{}", f1.0.hex_digits());
     println!("f2 0x{}", f2.hex_digits());

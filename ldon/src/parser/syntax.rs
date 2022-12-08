@@ -7,9 +7,11 @@ use nom::{
     take_till1,
   },
   character::complete::{
+    char,
     digit1,
     multispace0,
     multispace1,
+    none_of,
     satisfy,
   },
   combinator::{
@@ -70,50 +72,33 @@ pub fn parse_space1<F: LurkField>(
   let (i, com) = many0(terminated(parse_line_comment, multispace1))(i)?;
   Ok((i, com))
 }
-pub fn is_sym_terminator(x: char) -> bool {
-  char::is_whitespace(x)
-    | (x == ')')
-    | (x == '(')
-    | (x == '{')
-    | (x == '}')
-    | (x == ',')
-}
 
-pub fn parse_syn_sym_root<F: LurkField>(
+pub fn parse_syn_symnil<F: LurkField>(
 ) -> impl Fn(Span) -> IResult<Span, Syn<F>, ParseError<Span, F>> {
   move |from: Span| {
-    let (upto, is_key) =
-      alt((value(true, tag("_:")), value(false, tag("_"))))(from)?;
+    let (upto, tag) = alt((tag("_:"), tag("_.")))(from)?;
     let pos = Pos::from_upto(from, upto);
-    if is_key {
-      Ok((upto, Syn::Keyword(pos, vec![])))
-    }
-    else {
+    if *tag.fragment() == "_." {
       Ok((upto, Syn::Symbol(pos, vec![])))
     }
-  }
-}
-
-pub fn parse_symkey_limb<F: LurkField>(
-) -> impl Fn(Span) -> IResult<Span, String, ParseError<Span, F>> {
-  move |from: Span| {
-    let (i, s) = take_till(|x| is_sym_terminator(x) || x == '.')(from)?;
-    let s: String = String::from(s.fragment().to_owned());
-    Ok((i, s))
+    else {
+      Ok((upto, Syn::Keyword(pos, vec![])))
+    }
   }
 }
 
 pub fn parse_syn_sym<F: LurkField>(
 ) -> impl Fn(Span) -> IResult<Span, Syn<F>, ParseError<Span, F>> {
   move |from: Span| {
-    let (i, is_key) =
-      alt((value(false, tag(".")), value(true, tag(":"))))(from)?;
-    let (i, root_limb) = parse_symkey_limb()(i)?;
-    let (upto, rest) = many0(preceded(tag("."), parse_symkey_limb()))(i)?;
-    let mut limbs: Vec<String> = vec![root_limb];
-    limbs.extend(rest);
+    let (i, root) =
+      alt((char('.'), char(':'), value('.', peek(none_of(",=(){}")))))(from)?;
+    let (upto, limbs) = separated_list1(
+      char(root),
+      string::parse_string_inner(root, false, ".:,=(){}"),
+    )(i)?;
+    // println!("limbs {:?}", limbs);
     let pos = Pos::from_upto(from, upto);
-    if is_key {
+    if root == ':' {
       Ok((upto, Syn::Keyword(pos, limbs)))
     }
     else {
@@ -156,7 +141,7 @@ pub fn parse_syn_num<F: LurkField>(
       success(base::LitBase::Dec),
     ))(from)?;
     let (upto, bytes): (Span, Vec<u8>) = base::parse_litbase_le_bytes(base)(i)?;
-    let max_bytes = (F::zero() - F::one()).to_le_bytes();
+    let max_bytes = (F::zero() - F::one()).to_le_bytes_noncanonical();
     let max_uint = num_bigint::BigUint::from_bytes_le(&max_bytes);
     if num_bigint::BigUint::from_bytes_le(&bytes) > max_uint {
       return ParseError::throw(
@@ -166,7 +151,7 @@ pub fn parse_syn_num<F: LurkField>(
     }
     else {
       let pos = Pos::from_upto(from, upto);
-      Ok((upto, Syn::Num(pos, F::from_le_bytes(&bytes))))
+      Ok((upto, Syn::Num(pos, F::from_le_bytes_noncanonical(&bytes))))
     }
   }
 }
@@ -184,8 +169,9 @@ pub fn parse_syn_char<F: LurkField>(
 ) -> impl Fn(Span) -> IResult<Span, Syn<F>, ParseError<Span, F>> {
   move |from: Span| {
     let (upto, mut s) = string::parse_string('\'')(from)?;
-    if s.len() == 1 {
-      let c = s.pop().unwrap();
+    let mut chars: Vec<char> = s.chars().collect();
+    if chars.len() == 1 {
+      let c = chars.pop().unwrap();
       let pos = Pos::from_upto(from, upto);
       Ok((upto, Syn::Char(pos, c)))
     }
@@ -195,6 +181,7 @@ pub fn parse_syn_char<F: LurkField>(
   }
 }
 
+// (1, 2)
 pub fn parse_syn_list_improper<F: LurkField>(
 ) -> impl Fn(Span) -> IResult<Span, Syn<F>, ParseError<Span, F>> {
   move |from: Span| {
@@ -204,9 +191,17 @@ pub fn parse_syn_list_improper<F: LurkField>(
       preceded(parse_space, parse_syn()),
     )(i)?;
     let (upto, _) = preceded(parse_space, tag(")"))(i)?;
-    let end = xs.pop();
+    // separated_list1 is guaranteed to return at least 1 thing
+    let end = xs.pop().unwrap();
     let pos = Pos::from_upto(from, upto);
-    Ok((upto, Syn::List(pos, xs, end.map(Box::new))))
+    // improper lists require at least 2 elements, if this parser gets called
+    // on a list of 1 element, return a proper list instead
+    if xs.is_empty() {
+      Ok((upto, Syn::List(pos, vec![end], None)))
+    }
+    else {
+      Ok((upto, Syn::List(pos, xs, Some(Box::new(end)))))
+    }
   }
 }
 
@@ -214,8 +209,10 @@ pub fn parse_syn_list_proper<F: LurkField>(
 ) -> impl Fn(Span) -> IResult<Span, Syn<F>, ParseError<Span, F>> {
   move |from: Span| {
     let (i, _) = tag("(")(from)?;
-    let (i, xs) = many0(preceded(parse_space, parse_syn()))(i)?;
-    let (upto, _) = preceded(parse_space, tag(")"))(i)?;
+    let (i, _) = parse_space(i)?;
+    let (i, xs) = separated_list0(parse_space1, parse_syn())(i)?;
+    // println!("list xs {:?}", xs);
+    let (upto, _) = tag(")")(i)?;
     let pos = Pos::from_upto(from, upto);
     Ok((upto, Syn::List(pos, xs, None)))
   }
@@ -226,7 +223,7 @@ pub fn parse_syn_map_entry<F: LurkField>(
   move |from: Span| {
     let (i, key) = parse_syn()(from)?;
     let (i, _) = parse_space(i)?;
-    let (i, _) = tag(":")(i)?;
+    let (i, _) = tag("=")(i)?;
     let (i, _) = parse_space(i)?;
     let (i, val) = parse_syn()(i)?;
     Ok((i, (key, val)))
@@ -237,7 +234,7 @@ pub fn parse_syn_map<F: LurkField>(
 ) -> impl Fn(Span) -> IResult<Span, Syn<F>, ParseError<Span, F>> {
   move |from: Span| {
     let (i, _) = tag("{")(from)?;
-    let (i, xs) = separated_list1(
+    let (i, xs) = separated_list0(
       preceded(parse_space, tag(",")),
       preceded(parse_space, parse_syn_map_entry()),
     )(i)?;
@@ -247,16 +244,20 @@ pub fn parse_syn_map<F: LurkField>(
   }
 }
 
+// top-level syntax parser
 pub fn parse_syn<F: LurkField>(
 ) -> impl Fn(Span) -> IResult<Span, Syn<F>, ParseError<Span, F>> {
   move |from: Span| {
     alt((
-      parse_syn_sym_root(),
-      parse_syn_sym(),
+      parse_syn_char(),
       parse_syn_str(),
-      parse_syn_list_improper(),
+      parse_syn_u64(),
+      parse_syn_num(),
       parse_syn_list_proper(),
+      parse_syn_list_improper(),
       parse_syn_map(),
+      parse_syn_symnil(),
+      parse_syn_sym(),
     ))(from)
   }
 }
@@ -275,8 +276,8 @@ pub mod tests {
       (Some(expected), Ok((i, x))) if x == expected => (),
       (Some(expected), Ok((i, x))) => {
         println!("input: {:?}", i);
-        println!("expected: {:?}", expected);
-        println!("detected: {:?}", x);
+        println!("expected: {}", expected);
+        println!("detected: {}", x);
         assert!(false)
       },
       (Some(..), Err(e)) => {
@@ -302,6 +303,11 @@ pub mod tests {
     );
     test_parse(
       parse_syn_str(),
+      "\"foo\"",
+      Some(Syn::String(Pos::No, String::from("foo"))),
+    );
+    test_parse(
+      parse_syn_str(),
       "\"fo\\no\"",
       Some(Syn::String(Pos::No, String::from("fo\no"))),
     );
@@ -319,21 +325,50 @@ pub mod tests {
 
   #[test]
   fn unit_parse_symbol() {
-    test_parse(parse_syn_sym_root(), "_", Some(Syn::Symbol(Pos::No, vec![])));
+    test_parse(parse_syn_sym(), "", None);
+    test_parse(parse_syn(), "_.", Some(Syn::Symbol(Pos::No, vec![])));
     test_parse(
       parse_syn_sym(),
-      ".foo",
+      ".",
+      Some(Syn::Symbol(Pos::No, vec!["".to_string()])),
+    );
+    test_parse(
+      parse_syn_sym(),
+      "..",
+      Some(Syn::Symbol(Pos::No, vec!["".to_string(), "".to_string()])),
+    );
+    test_parse(
+      parse_syn_sym(),
+      "foo",
       Some(Syn::Symbol(Pos::No, vec!["foo".to_string()])),
     );
     test_parse(
-      parse_syn(),
-      ".foo",
+      parse_syn_sym(),
+      "foo",
       Some(Syn::Symbol(Pos::No, vec!["foo".to_string()])),
     );
     test_parse(
       parse_syn_sym(),
       "..foo",
       Some(Syn::Symbol(Pos::No, vec!["".to_string(), "foo".to_string()])),
+    );
+    test_parse(
+      parse_syn_sym(),
+      "foo.",
+      Some(Syn::Symbol(Pos::No, vec!["foo".to_string(), "".to_string()])),
+    );
+    test_parse(
+      parse_syn_sym(),
+      ".foo.",
+      Some(Syn::Symbol(Pos::No, vec!["foo".to_string(), "".to_string()])),
+    );
+    test_parse(
+      parse_syn_sym(),
+      ".foo..",
+      Some(Syn::Symbol(
+        Pos::No,
+        vec!["foo".to_string(), "".to_string(), "".to_string()],
+      )),
     );
     test_parse(
       parse_syn_sym(),
@@ -352,14 +387,30 @@ pub mod tests {
     );
     test_parse(
       parse_syn_sym(),
-      ".foo.:bar",
-      Some(Syn::Symbol(Pos::No, vec!["foo".to_string(), ":bar".to_string()])),
+      ".foo\\n.bar\\n",
+      Some(Syn::Symbol(
+        Pos::No,
+        vec!["foo\n".to_string(), "bar\n".to_string()],
+      )),
+    );
+    test_parse(
+      parse_syn_sym(),
+      ".foo\\u{00}.bar\\u{00}",
+      Some(Syn::Symbol(
+        Pos::No,
+        vec!["foo\u{00}".to_string(), "bar\u{00}".to_string()],
+      )),
+    );
+    test_parse(
+      parse_syn_sym(),
+      ".foo\\.bar",
+      Some(Syn::Symbol(Pos::No, vec!["foo.bar".to_string()])),
     );
   }
 
   #[test]
   fn unit_parse_keyword() {
-    test_parse(parse_syn_sym_root(), "_:", Some(Syn::Keyword(Pos::No, vec![])));
+    test_parse(parse_syn(), "_:", Some(Syn::Keyword(Pos::No, vec![])));
     test_parse(
       parse_syn_sym(),
       ":foo",
@@ -367,18 +418,47 @@ pub mod tests {
     );
     test_parse(
       parse_syn_sym(),
-      ":foo.bar",
+      ":foo:bar",
       Some(Syn::Keyword(Pos::No, vec!["foo".to_string(), "bar".to_string()])),
     );
     test_parse(
       parse_syn_sym(),
-      ":foo?.bar?",
+      ":foo?:bar?",
       Some(Syn::Keyword(Pos::No, vec!["foo?".to_string(), "bar?".to_string()])),
     );
     test_parse(
       parse_syn_sym(),
-      ":fooλ.barλ",
+      ":fooλ:barλ",
       Some(Syn::Keyword(Pos::No, vec!["fooλ".to_string(), "barλ".to_string()])),
+    );
+  }
+
+  #[test]
+  fn unit_parse_map() {
+    test_parse(parse_syn_map(), "{}", Some(Syn::Map(Pos::No, vec![])));
+    test_parse(
+      parse_syn_map(),
+      "{ 'a' = 1u64,  'b' = 2u64,  'c' = 3u64 }",
+      Some(Syn::Map(
+        Pos::No,
+        vec![
+          (Syn::Char(Pos::No, 'a'), Syn::U64(Pos::No, 1)),
+          (Syn::Char(Pos::No, 'b'), Syn::U64(Pos::No, 2)),
+          (Syn::Char(Pos::No, 'c'), Syn::U64(Pos::No, 3)),
+        ],
+      )),
+    );
+    test_parse(
+      parse_syn_map(),
+      "{ 'a' = 1u64,  'b' = 2u64,  'c' = 3u64 }",
+      Some(Syn::Map(
+        Pos::No,
+        vec![
+          (Syn::Char(Pos::No, 'a'), Syn::U64(Pos::No, 1)),
+          (Syn::Char(Pos::No, 'b'), Syn::U64(Pos::No, 2)),
+          (Syn::Char(Pos::No, 'c'), Syn::U64(Pos::No, 3)),
+        ],
+      )),
     );
   }
 
@@ -394,8 +474,22 @@ pub mod tests {
       )),
     );
     test_parse(
+      parse_syn_list_improper(),
+      "(a, b)",
+      Some(Syn::List(
+        Pos::No,
+        vec![Syn::Symbol(Pos::No, vec!["a".to_string()])],
+        Some(Box::new(Syn::Symbol(Pos::No, vec!["b".to_string()]))),
+      )),
+    );
+    test_parse(
       parse_syn_list_proper(),
-      "(.a .b)",
+      "()",
+      Some(Syn::List(Pos::No, vec![], None)),
+    );
+    test_parse(
+      parse_syn_list_proper(),
+      "(a b)",
       Some(Syn::List(
         Pos::No,
         vec![
@@ -432,6 +526,42 @@ pub mod tests {
         Some(Box::new(Syn::Symbol(Pos::No, vec!["c".to_string()]))),
       )),
     );
+    test_parse(
+      parse_syn_list_proper(),
+      "('a' 'b' 'c')",
+      Some(Syn::List(
+        Pos::No,
+        vec![
+          Syn::Char(Pos::No, 'a'),
+          Syn::Char(Pos::No, 'b'),
+          Syn::Char(Pos::No, 'c'),
+        ],
+        None,
+      )),
+    );
+    test_parse(
+      parse_syn_list_proper(),
+      "('a' 'b' 'c')",
+      Some(Syn::List(
+        Pos::No,
+        vec![
+          Syn::Char(Pos::No, 'a'),
+          Syn::Char(Pos::No, 'b'),
+          Syn::Char(Pos::No, 'c'),
+        ],
+        None,
+      )),
+    );
+  }
+  #[test]
+  fn unit_parse_char() {
+    test_parse(parse_syn_char(), "'a'", Some(Syn::Char(Pos::No, 'a')));
+    test_parse(parse_syn_char(), "'b'", Some(Syn::Char(Pos::No, 'b')));
+    test_parse(
+      parse_syn_char(),
+      "'\\u{8f}'",
+      Some(Syn::Char(Pos::No, '\u{8f}')),
+    );
   }
 
   #[test]
@@ -467,6 +597,56 @@ pub mod tests {
       None,
     );
   }
+  #[test]
+  fn unit_parse_syn() {
+    let vec: Vec<u8> = vec![
+      0x6e, 0x2e, 0x50, 0x55, 0xdc, 0xf6, 0x14, 0x86, 0xb0, 0x3b, 0xb8, 0x0e,
+      0xd2, 0xb3, 0xf1, 0xa3, 0x5c, 0x30, 0xe1, 0x22, 0xde, 0xfe, 0xba, 0xe8,
+      0x24, 0xfa, 0xe4, 0xed, 0x32, 0x40, 0x8e, 0x87,
+    ]
+    .into_iter()
+    .rev()
+    .collect();
+    test_parse(
+      parse_syn(),
+      "(0x6e2e5055dcf61486b03bb80ed2b3f1a35c30e122defebae824fae4ed32408e87)",
+      Some(Syn::List(
+        Pos::No,
+        vec![Syn::Num(Pos::No, Fr::from_le_bytes_noncanonical(&vec))],
+        None,
+      )),
+    );
+    test_parse(
+      parse_syn(),
+      ".\\.",
+      Some(Syn::Symbol(Pos::No, vec![".".to_string()])),
+    );
+    test_parse(
+      parse_syn(),
+      ".\\'",
+      Some(Syn::Symbol(Pos::No, vec!["'".to_string()])),
+    );
+    test_parse(
+      parse_syn(),
+      ".\\'\\u{8e}\\u{fffc}\\u{201b}",
+      Some(Syn::Symbol(Pos::No, vec!["'\u{8e}\u{fffc}\u{201b}".to_string()])),
+    );
+    test_parse(
+      parse_syn(),
+      "(_:, 11242421860377074631u64, :\u{ae}\u{60500}\u{87}::)",
+      Some(Syn::List(
+        Pos::No,
+        vec![
+          Syn::Keyword(Pos::No, vec![]),
+          Syn::U64(Pos::No, 11242421860377074631),
+        ],
+        Some(Box::new(Syn::Keyword(
+          Pos::No,
+          vec!["®\u{60500}\u{87}".to_string(), "".to_string(), "".to_string()],
+        ))),
+      )),
+    );
+  }
 
   #[quickcheck]
   fn prop_parse_num(f: FWrap<Fr>) -> bool {
@@ -476,6 +656,21 @@ pub mod tests {
         println!("f1 0x{}", f.0.hex_digits());
         println!("f2 0x{}", f2.hex_digits());
         f.0 == f2
+      },
+      _ => false,
+    }
+  }
+  #[quickcheck]
+  fn prop_syn_parse_print(syn: Syn<Fr>) -> bool {
+    println!("==================");
+    println!("syn1 {}", syn);
+    println!("syn1 {:?}", syn);
+    let hex = format!("{}", syn);
+    match parse_syn::<Fr>()(Span::new(&hex)) {
+      Ok((_, syn2)) => {
+        println!("syn2 {}", syn2);
+        println!("syn2 {:?}", syn2);
+        syn == syn2
       },
       _ => false,
     }

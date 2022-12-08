@@ -42,6 +42,47 @@ impl<F: LurkField> Syn<F> {
     let other_ptr = store.intern_syn(&cache, other);
     self_ptr.cmp(&other_ptr)
   }
+
+  // see https://github.com/sg16-unicode/sg16/issues/69
+  pub fn whitespace() -> Vec<char> {
+    vec![
+      '\u{0009}', '\u{000A}', '\u{000B}', '\u{000C}', '\u{000D}', '\u{0020}',
+      '\u{0085}', '\u{200E}', '\u{200F}', '\u{2028}', '\u{2029}', '\u{20A0}',
+      '\u{1680}', '\u{2000}', '\u{2001}', '\u{2002}', '\u{2003}', '\u{2004}',
+      '\u{2005}', '\u{2006}', '\u{2007}', '\u{2008}', '\u{2009}', '\u{200A}',
+      '\u{202F}', '\u{205F}', '\u{3000}',
+    ]
+  }
+
+  pub fn is_whitespace(c: char) -> bool {
+    Self::whitespace().iter().any(|x| *x == c)
+  }
+
+  pub fn escape_symbol(xs: &String) -> String {
+    let mut res = String::new();
+    for x in xs.chars() {
+      if "(){}=,.:".chars().any(|c| c == x) {
+        res.push_str(&format!("\\{}", x));
+      }
+      else if Self::is_whitespace(x) {
+        res.push_str(&format!("{}", x.escape_unicode()));
+      }
+      else {
+        res.push(x)
+      }
+    }
+    res
+  }
+
+  pub fn sym_needs_leading_dot(xs: &Vec<String>) -> bool {
+    if xs.len() == 0 || xs[0] == "" || xs[0] == "_" || xs[0] == "_." {
+      return true;
+    };
+    let c = xs[0].chars().nth(0).unwrap();
+    "1234567890.:'(){}=,\"\\".chars().any(|x| x == c)
+      || char::is_whitespace(c)
+      || char::is_control(c)
+  }
 }
 
 impl<F: LurkField> PartialOrd for Syn<F> {
@@ -60,38 +101,34 @@ impl<F: LurkField> fmt::Display for Syn<F> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
       Self::Num(_, x) => {
-        let le_bytes = x.to_repr();
-        write!(f, "0x")?;
-        for &b in le_bytes.as_ref().iter().rev() {
-          write!(f, "{:02x}", b)?;
-        }
+        write!(f, "0x{}", x.hex_digits())?;
         Ok(())
       },
       Self::U64(_, x) => write!(f, "{}u64", x),
+      Self::Symbol(_, xs) if xs.is_empty() => write!(f, "_."),
       Self::Symbol(_, xs) => {
-        if xs.is_empty() {
-          write!(f, ".")
+        if !Self::sym_needs_leading_dot(&xs) {
+          write!(f, "{}", Self::escape_symbol(&xs[0]))?;
+          for x in xs[1..].iter() {
+            write!(f, ".{}", Self::escape_symbol(x))?;
+          }
         }
         else {
           for x in xs {
-            write!(f, ".{}", x)?;
+            write!(f, ".{}", Self::escape_symbol(x))?;
           }
-          Ok(())
         }
+        Ok(())
       },
+      Self::Keyword(_, xs) if xs.is_empty() => write!(f, "_:"),
       Self::Keyword(_, xs) => {
-        if xs.is_empty() {
-          write!(f, ":")
+        for x in xs {
+          write!(f, ":{}", Self::escape_symbol(x))?;
         }
-        else {
-          for x in xs {
-            write!(f, ":{}", x)?;
-          }
-          Ok(())
-        }
+        Ok(())
       },
-      Self::String(_, x) => write!(f, "\"{}\"", x),
-      Self::Char(_, x) => write!(f, "'{}'", x),
+      Self::String(_, x) => write!(f, "\"{}\"", x.escape_default()),
+      Self::Char(_, x) => write!(f, "'{}'", x.escape_default()),
       Self::List(_, xs, None) => {
         let mut iter = xs.iter().peekable();
         write!(f, "(")?;
@@ -110,10 +147,10 @@ impl<F: LurkField> fmt::Display for Syn<F> {
         write!(f, "(")?;
         while let Some(x) = iter.next() {
           if let None = iter.peek() {
-            write!(f, "{}", x)?;
+            write!(f, "{}, {}", x, end)?;
           }
           else {
-            write!(f, "{}, {}", x, end)?;
+            write!(f, "{}, ", x)?;
           }
         }
         write!(f, ")")
@@ -123,10 +160,10 @@ impl<F: LurkField> fmt::Display for Syn<F> {
         write!(f, "{{")?;
         while let Some((key, val)) = iter.next() {
           if let None = iter.peek() {
-            write!(f, "{}: {}", key, val)?;
+            write!(f, "{} = {}", key, val)?;
           }
           else {
-            write!(f, "{}: {}, ", key, val)?;
+            write!(f, "{} = {}, ", key, val)?;
           }
         }
         write!(f, "}}")
@@ -203,11 +240,23 @@ pub mod test_utils {
       s
     }
 
+    fn arbitrary_limb(g: &mut Gen) -> String {
+      let num_chars = usize::arbitrary(g) % 5;
+      let mut s = String::new();
+      for _ in 0..num_chars {
+        let c = char::arbitrary(g);
+        if !char::is_whitespace(c) && c != '\\' {
+          s.push(c);
+        }
+      }
+      s
+    }
+
     fn arbitrary_symbol(g: &mut Gen) -> Vec<String> {
       let num_syms = usize::arbitrary(g) % 3;
       let mut sym = Vec::new();
       for _ in 0..num_syms {
-        let s = Self::arbitrary_string(g);
+        let s = Self::arbitrary_limb(g);
         sym.push(s);
       }
       sym
@@ -215,16 +264,17 @@ pub mod test_utils {
 
     fn arbitrary_list(g: &mut Gen) -> Self {
       let num_exprs: usize = Arbitrary::arbitrary(g);
-      let num_exprs = num_exprs % 3;
+      let num_exprs = num_exprs % 4;
       let mut exprs = Vec::new();
       for _ in 0..num_exprs {
         let expr = Syn::arbitrary_syn(g);
         exprs.push(expr);
       }
       let improper: bool = Arbitrary::arbitrary(g);
-      let end = Syn::arbitrary_syn(g);
-      if improper && num_exprs != 0 && !matches!(end, Syn::List(_, _, _)) {
-        Syn::List(Pos::No, exprs, Some(Box::new(end)))
+      let end = exprs.pop();
+      if improper && num_exprs >= 2 && !matches!(end, Some(Syn::List(_, _, _)))
+      {
+        Syn::List(Pos::No, exprs, end.map(Box::new))
       }
       else {
         Syn::List(Pos::No, exprs, None)
@@ -268,6 +318,105 @@ mod test {
   //    );
   //    assert!(false)
   //}
+  #[test]
+  fn unit_syn_print() {
+    assert_eq!(
+      format!("{}", Syn::<Fr>::Symbol(Pos::No, vec![])),
+      "_.".to_string()
+    );
+    assert_eq!(
+      format!("{}", Syn::<Fr>::Keyword(Pos::No, vec![])),
+      "_:".to_string()
+    );
+    assert_eq!(
+      format!("{}", Syn::<Fr>::Symbol(Pos::No, vec!["".to_string()])),
+      ".".to_string()
+    );
+    assert_eq!(
+      format!("{}", Syn::<Fr>::Keyword(Pos::No, vec!["".to_string()])),
+      ":".to_string()
+    );
+    assert_eq!(
+      format!("{}", Syn::<Fr>::Symbol(Pos::No, vec!["foo".to_string()])),
+      "foo".to_string()
+    );
+    assert_eq!(
+      format!(
+        "{}",
+        Syn::<Fr>::Symbol(
+          Pos::No,
+          vec!["foo".to_string(), "".to_string(), "".to_string(),]
+        )
+      ),
+      "foo..".to_string()
+    );
+    assert_eq!(
+      format!("{}", Syn::<Fr>::Keyword(Pos::No, vec!["foo".to_string()])),
+      ":foo".to_string()
+    );
+    assert_eq!(
+      format!(
+        "{}",
+        Syn::<Fr>::Symbol(Pos::No, vec!["".to_string(), "foo".to_string()])
+      ),
+      "..foo".to_string()
+    );
+    assert_eq!(
+      format!(
+        "{}",
+        Syn::<Fr>::Keyword(Pos::No, vec!["".to_string(), "foo".to_string()])
+      ),
+      "::foo".to_string()
+    );
+    assert_eq!(
+      format!("{}", Syn::<Fr>::List(Pos::No, vec![], None)),
+      "()".to_string()
+    );
+    assert_eq!(
+      format!(
+        "{}",
+        Syn::<Fr>::List(
+          Pos::No,
+          vec![
+            Syn::U64(Pos::No, 1),
+            Syn::U64(Pos::No, 2),
+            Syn::U64(Pos::No, 3),
+          ],
+          None
+        )
+      ),
+      "(1u64 2u64 3u64)".to_string()
+    );
+    assert_eq!(
+      format!(
+        "{}",
+        Syn::<Fr>::List(
+          Pos::No,
+          vec![
+            Syn::U64(Pos::No, 1),
+            Syn::U64(Pos::No, 2),
+            Syn::U64(Pos::No, 3),
+          ],
+          Some(Box::new(Syn::U64(Pos::No, 4)))
+        )
+      ),
+      "(1u64, 2u64, 3u64, 4u64)".to_string()
+    );
+    assert_eq!(
+      format!(
+        "{}",
+        Syn::<Fr>::Map(
+          Pos::No,
+          vec![
+            (Syn::Symbol(Pos::No, vec!["a".to_string()]), Syn::U64(Pos::No, 1)),
+            (Syn::Symbol(Pos::No, vec!["b".to_string()]), Syn::U64(Pos::No, 2)),
+            (Syn::Symbol(Pos::No, vec!["c".to_string()]), Syn::U64(Pos::No, 3)),
+          ],
+        )
+      ),
+      "{a = 1u64, b = 2u64, c = 3u64}".to_string()
+    );
+  }
 
   #[quickcheck]
   fn prop_syn_generates(syn: Syn<Fr>) -> bool {
