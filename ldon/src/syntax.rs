@@ -14,16 +14,26 @@ use crate::{
 // LDON syntax
 #[derive(Clone, Debug)]
 pub enum Syn<F: LurkField> {
-  Num(Pos, F),               // 1, 0xff
-  U64(Pos, u64),             // 1u64, 0xffu64
-  Symbol(Pos, Vec<String>),  // _, foo, foo.bar.baz,
-  Keyword(Pos, Vec<String>), // :_ :lambda, :lurk.lambda
-  String(Pos, String),       // "foobar", "foo\nbar"
-  Char(Pos, char),           // 'a'
-  // The end term of an improper list is not allowed to be a list
-  List(Pos, Vec<Syn<F>>, Option<Box<Syn<F>>>), // (1 2 3) (1, 2, 3)
-  Map(Pos, Vec<(Syn<F>, Syn<F>)>),             // { foo: 1, blue: true }
-  Link(Pos, Box<Syn<F>>, Vec<u64>),            // [sha256 0xff 0xff 0xff]
+  // A field element: 1, 0xff
+  Num(Pos, F)
+  // A u64 integer: 1u64, 0xffu64
+  U64(Pos, u64),
+  // A hierarchical symbol: foo, foo.bar.baz
+  Symbol(Pos, Vec<String>),
+  // A hierarchical keyword: :lambda, :lurk:lambda
+  Keyword(Pos, Vec<String>),
+  // A string literal: "foobar", "foo\nbar"
+  String(Pos, String),
+  // A character literal: 'a', 'b', '\n'
+  Char(Pos, char),
+  // A cons-list of expressions, which can be terminated by nil: (1 2 3)
+  // or can be terminated with the right-most expression (1, 2, 3)
+  List(Pos, Vec<Syn<F>>, Option<Box<Syn<F>>>), 
+  // A map of expressions to expressions: { foo = 1, blue = true, 3 = 4 }
+  Map(Pos, Vec<(Syn<F>, Syn<F>)>),
+  // A contextual link or descriptor of some piece of foreign data:
+  // [sha256 0xffff_ffff_ffff_ffff 0xffff_ffff_ffff_ffff 0xffff_ffff_ffff_ffff 0xffff_ffff_ffff_ffff]
+  Link(Pos, Box<Syn<F>>, Vec<u64>),            
 }
 
 impl<F: LurkField> Syn<F> {

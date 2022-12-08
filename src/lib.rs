@@ -15,21 +15,17 @@ extern crate quickcheck_macros;
 pub mod circuit;
 pub mod eval;
 pub mod field;
-pub mod package;
 pub mod parser;
 pub mod proof;
 pub mod repl;
 pub mod scalar_store;
 pub mod store;
-pub mod sym;
-//pub mod syntax;
 pub mod uint;
 pub mod writer;
 
 mod error;
 mod num;
 pub use num::Num;
-pub use sym::{Sym, Symbol};
 pub use uint::UInt;
 
 pub const TEST_SEED: [u8; 16] = [
