@@ -11,12 +11,12 @@ IPLD.
 The primary distinction between LDON and Lurk proper is that LDON makes no
 assumptions about reserved symbols or reduction rules. 
 
-For example, the ldon expression `(lambda (x) x)` corresponds to the Lurk
-expression `(lambda (x) x)`, but in Lurk this will evaluate to a function
+For example, the Lurk expression `(lambda (x) x)` corresponds to the LDON
+expression `(LURK.LAMBDA (X) X)` , but in Lurk this will evaluate to a function
 object, whereas `ldon` considers expressions to be static. Furthermore, `ldon`
 is agnostic to what is built on top of it. One could define a language with
 evaluation rules totally different from Lurk, where functions are built out of
-expressions that look like the `ldon` expression `(fun x :=> x)`.
+expressions that look like the `ldon` expression `(fun x => x)`.
 
 LDON syntax is defined as follows:
 
