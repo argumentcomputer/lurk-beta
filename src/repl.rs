@@ -273,19 +273,23 @@ impl<F: LurkField> ReplState<F> {
         );
         let mut chars = input.chars().peekmore();
 
-        while self
-            .handle_form(
+        loop {
+            if let Err(e) = self.handle_form(
                 store,
                 &mut chars,
                 package,
                 // use this file's dir as pwd for further loading
                 file_path.as_ref().parent().unwrap(),
                 update_env,
-            )
-            .is_ok()
-        {}
-
-        Ok(())
+            ) {
+                if let Some(ParserError::NoInput) = e.downcast_ref::<ParserError>() {
+                    // It's ok, it just means we've hit the EOF
+                    return Ok(());
+                } else {
+                    return Err(e);
+                }
+            }
+        }
     }
 
     fn handle_form<P: AsRef<Path> + Copy, T: Iterator<Item = char>>(
