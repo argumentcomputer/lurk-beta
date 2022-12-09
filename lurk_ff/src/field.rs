@@ -276,10 +276,6 @@ pub mod test_utils {
 #[cfg(test)]
 pub mod tests {
   use blstrs::Scalar as Fr;
-  use quickcheck::{
-    Arbitrary,
-    Gen,
-  };
 
   use super::{
     test_utils::*,

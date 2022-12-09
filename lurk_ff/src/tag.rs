@@ -540,15 +540,8 @@ pub mod test_utils {
 #[cfg(test)]
 #[cfg(feature = "test-utils")]
 pub mod tests {
-  use quickcheck::{
-    Arbitrary,
-    Gen,
-  };
 
-  use super::{
-    test_utils::*,
-    *,
-  };
+  use super::*;
 
   #[quickcheck]
   fn prop_version_into_u32(v: Version) -> bool {
