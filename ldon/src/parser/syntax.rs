@@ -80,8 +80,17 @@ pub fn parse_syn_symnil<F: LurkField>(
 pub fn parse_syn_sym<F: LurkField>(
 ) -> impl Fn(Span) -> IResult<Span, Syn<F>, ParseError<Span, F>> {
   move |from: Span| {
-    let (i, root) =
-      alt((char('.'), char(':'), value('.', peek(none_of(",=(){}[]")))))(from)?;
+    let (i, root) = alt((
+      char('.'),
+      char(':'),
+      value(
+        '.',
+        peek(none_of(
+          ",=(){}[]1234567890
+      ",
+        )),
+      ),
+    ))(from)?;
     let (upto, limbs) = separated_list1(
       char(root),
       string::parse_string_inner(root, false, ".:,=(){}[]"),
@@ -290,348 +299,215 @@ pub mod tests {
   use nom::Parser;
 
   use super::*;
+  #[allow(unused_imports)]
+  use crate::{
+    char,
+    key,
+    list,
+    map,
+    num,
+    str,
+    sym,
+    u64,
+  };
 
-  fn test_parse<'a, P>(mut p: P, i: &'a str, expected: Option<Syn<Fr>>)
+  fn test<'a, P>(mut p: P, i: &'a str, expected: Option<Syn<Fr>>) -> bool
   where P: Parser<Span<'a>, Syn<Fr>, ParseError<Span<'a>, Fr>> {
     match (expected, p.parse(Span::new(i))) {
-      (Some(expected), Ok((_i, x))) if x == expected => (),
+      (Some(expected), Ok((_i, x))) if x == expected => true,
       (Some(expected), Ok((i, x))) => {
         println!("input: {:?}", i);
         println!("expected: {}", expected);
         println!("detected: {}", x);
-        assert!(false)
+        false
       },
       (Some(..), Err(e)) => {
         println!("{}", e);
-        assert!(false)
+        false
       },
       (None, Ok((i, x))) => {
         println!("input: {:?}", i);
         println!("expected parse error");
         println!("detected: {:?}", x);
-        assert!(false)
+        false
       },
-      (None, Err(_e)) => (),
+      (None, Err(_e)) => true,
     }
   }
 
   #[test]
   fn unit_parse_string() {
-    test_parse(
-      parse_syn_str(),
-      "\"foo\"",
-      Some(Syn::String(Pos::No, String::from("foo"))),
-    );
-    test_parse(
-      parse_syn_str(),
-      "\"foo\"",
-      Some(Syn::String(Pos::No, String::from("foo"))),
-    );
-    test_parse(
-      parse_syn_str(),
-      "\"fo\\no\"",
-      Some(Syn::String(Pos::No, String::from("fo\no"))),
-    );
-    test_parse(
-      parse_syn_str(),
-      "\"fo\\u{00}o\"",
-      Some(Syn::String(Pos::No, String::from("fo\u{00}o"))),
-    );
-    test_parse(
-      parse_syn_str(),
-      "\"foo\\    \"",
-      Some(Syn::String(Pos::No, String::from("foo"))),
-    );
+    assert!(test(parse_syn_str(), "\"foo\"", Some(str!("foo"))));
+    assert!(test(parse_syn_str(), "\"fo\\no\"", Some(str!("fo\no"))));
+    assert!(test(parse_syn_str(), "\"fo\\u{00}o\"", Some(str!("fo\u{00}o"))));
+    assert!(test(parse_syn_str(), "\"foo\\   \"", Some(str!("foo"))));
   }
 
   #[test]
   fn unit_parse_symbol() {
-    test_parse(parse_syn_sym(), "", None);
-    test_parse(parse_syn(), "_.", Some(Syn::Symbol(Pos::No, vec![])));
-    test_parse(
-      parse_syn_sym(),
-      ".",
-      Some(Syn::Symbol(Pos::No, vec!["".to_string()])),
-    );
-    test_parse(
-      parse_syn_sym(),
-      "..",
-      Some(Syn::Symbol(Pos::No, vec!["".to_string(), "".to_string()])),
-    );
-    test_parse(
-      parse_syn_sym(),
-      "foo",
-      Some(Syn::Symbol(Pos::No, vec!["foo".to_string()])),
-    );
-    test_parse(
-      parse_syn_sym(),
-      "foo",
-      Some(Syn::Symbol(Pos::No, vec!["foo".to_string()])),
-    );
-    test_parse(
-      parse_syn_sym(),
-      "..foo",
-      Some(Syn::Symbol(Pos::No, vec!["".to_string(), "foo".to_string()])),
-    );
-    test_parse(
-      parse_syn_sym(),
-      "foo.",
-      Some(Syn::Symbol(Pos::No, vec!["foo".to_string(), "".to_string()])),
-    );
-    test_parse(
-      parse_syn_sym(),
-      ".foo.",
-      Some(Syn::Symbol(Pos::No, vec!["foo".to_string(), "".to_string()])),
-    );
-    test_parse(
-      parse_syn_sym(),
-      ".foo..",
-      Some(Syn::Symbol(
-        Pos::No,
-        vec!["foo".to_string(), "".to_string(), "".to_string()],
-      )),
-    );
-    test_parse(
-      parse_syn_sym(),
-      ".foo.bar",
-      Some(Syn::Symbol(Pos::No, vec!["foo".to_string(), "bar".to_string()])),
-    );
-    test_parse(
-      parse_syn_sym(),
-      ".foo?.bar?",
-      Some(Syn::Symbol(Pos::No, vec!["foo?".to_string(), "bar?".to_string()])),
-    );
-    test_parse(
-      parse_syn_sym(),
-      ".fooλ.barλ",
-      Some(Syn::Symbol(Pos::No, vec!["fooλ".to_string(), "barλ".to_string()])),
-    );
-    test_parse(
-      parse_syn_sym(),
+    assert!(test(parse_syn_sym(), "", None));
+    assert!(test(parse_syn(), "_.", Some(sym!([]))));
+    assert!(test(parse_syn(), ".", Some(sym!([""]))));
+    assert!(test(parse_syn(), "..", Some(sym!(["", ""]))));
+    assert!(test(parse_syn(), "foo", Some(sym!(["foo"]))));
+    assert!(test(parse_syn(), ".foo", Some(sym!(["foo"]))));
+    assert!(test(parse_syn(), "..foo", Some(sym!(["", "foo"]))));
+    assert!(test(parse_syn(), "foo.", Some(sym!(["foo", ""]))));
+    assert!(test(parse_syn(), ".foo.", Some(sym!(["foo", ""]))));
+    assert!(test(parse_syn(), ".foo..", Some(sym!(["foo", "", ""]))));
+    assert!(test(parse_syn(), ".foo.bar", Some(sym!(["foo", "bar"]))));
+    assert!(test(parse_syn(), ".foo?.bar?", Some(sym!(["foo?", "bar?"]))));
+    assert!(test(parse_syn(), ".fooλ.barλ", Some(sym!(["fooλ", "barλ"]))));
+    assert!(test(
+      parse_syn(),
       ".foo\\n.bar\\n",
-      Some(Syn::Symbol(
-        Pos::No,
-        vec!["foo\n".to_string(), "bar\n".to_string()],
-      )),
-    );
-    test_parse(
-      parse_syn_sym(),
+      Some(sym!(["foo\n", "bar\n"]))
+    ));
+    assert!(test(
+      parse_syn(),
       ".foo\\u{00}.bar\\u{00}",
-      Some(Syn::Symbol(
-        Pos::No,
-        vec!["foo\u{00}".to_string(), "bar\u{00}".to_string()],
-      )),
-    );
-    test_parse(
-      parse_syn_sym(),
-      ".foo\\.bar",
-      Some(Syn::Symbol(Pos::No, vec!["foo.bar".to_string()])),
-    );
+      Some(sym!(["foo\u{00}", "bar\u{00}"]))
+    ));
+    assert!(test(parse_syn(), ".foo\\.bar", Some(sym!(["foo.bar"]))));
   }
 
   #[test]
   fn unit_parse_keyword() {
-    test_parse(parse_syn(), "_:", Some(Syn::Keyword(Pos::No, vec![])));
-    test_parse(
-      parse_syn_sym(),
-      ":foo",
-      Some(Syn::Keyword(Pos::No, vec!["foo".to_string()])),
-    );
-    test_parse(
-      parse_syn_sym(),
-      ":foo:bar",
-      Some(Syn::Keyword(Pos::No, vec!["foo".to_string(), "bar".to_string()])),
-    );
-    test_parse(
-      parse_syn_sym(),
-      ":foo?:bar?",
-      Some(Syn::Keyword(Pos::No, vec!["foo?".to_string(), "bar?".to_string()])),
-    );
-    test_parse(
-      parse_syn_sym(),
-      ":fooλ:barλ",
-      Some(Syn::Keyword(Pos::No, vec!["fooλ".to_string(), "barλ".to_string()])),
-    );
+    assert!(test(parse_syn_sym(), "", None));
+    assert!(test(parse_syn(), "_:", Some(key!([]))));
+    assert!(test(parse_syn(), ":", Some(key!([""]))));
+    assert!(test(parse_syn(), "::", Some(key!(["", ""]))));
+    assert!(test(parse_syn(), ":foo", Some(key!(["foo"]))));
+    assert!(test(parse_syn(), "::foo", Some(key!(["", "foo"]))));
+    assert!(test(parse_syn(), ":foo:", Some(key!(["foo", ""]))));
+    assert!(test(parse_syn(), ":foo::", Some(key!(["foo", "", ""]))));
+    assert!(test(parse_syn(), ":foo:bar", Some(key!(["foo", "bar"]))));
+    assert!(test(parse_syn(), ":foo?:bar?", Some(key!(["foo?", "bar?"]))));
+    assert!(test(parse_syn(), ":fooλ:barλ", Some(key!(["fooλ", "barλ"]))));
+    assert!(test(
+      parse_syn(),
+      ":foo\\n:bar\\n",
+      Some(key!(["foo\n", "bar\n"]))
+    ));
+    assert!(test(
+      parse_syn(),
+      ":foo\\u{00}:bar\\u{00}",
+      Some(key!(["foo\u{00}", "bar\u{00}"]))
+    ));
+    assert!(test(parse_syn(), ":foo\\:bar", Some(key!(["foo:bar"]))));
   }
 
   #[test]
   fn unit_parse_map() {
-    test_parse(parse_syn_map(), "{}", Some(Syn::Map(Pos::No, vec![])));
-    test_parse(
-      parse_syn_map(),
+    assert!(test(parse_syn(), "{}", Some(map!([]))));
+    assert!(test(
+      parse_syn(),
       "{ 'a' = 1u64,  'b' = 2u64,  'c' = 3u64 }",
-      Some(Syn::Map(
-        Pos::No,
-        vec![
-          (Syn::Char(Pos::No, 'a'), Syn::U64(Pos::No, 1)),
-          (Syn::Char(Pos::No, 'b'), Syn::U64(Pos::No, 2)),
-          (Syn::Char(Pos::No, 'c'), Syn::U64(Pos::No, 3)),
-        ],
-      )),
-    );
-    test_parse(
-      parse_syn_map(),
-      "{ 'a' = 1u64,  'b' = 2u64,  'c' = 3u64 }",
-      Some(Syn::Map(
-        Pos::No,
-        vec![
-          (Syn::Char(Pos::No, 'a'), Syn::U64(Pos::No, 1)),
-          (Syn::Char(Pos::No, 'b'), Syn::U64(Pos::No, 2)),
-          (Syn::Char(Pos::No, 'c'), Syn::U64(Pos::No, 3)),
-        ],
-      )),
-    );
+      Some(map!([
+        (char!('a'), u64!(1)),
+        (char!('b'), u64!(2)),
+        (char!('c'), u64!(3))
+      ]))
+    ));
+    assert!(test(
+      parse_syn(),
+      "{ :a = 1u64,  :b = 2u64,  :c = 3u64 }",
+      Some(map!([
+        (key!(["a"]), u64!(1)),
+        (key!(["b"]), u64!(2)),
+        (key!(["c"]), u64!(3))
+      ]))
+    ));
   }
 
   #[test]
   fn unit_parse_list() {
-    test_parse(
-      parse_syn_list_improper(),
-      "(.a, .b)",
-      Some(Syn::List(
-        Pos::No,
-        vec![Syn::Symbol(Pos::No, vec!["a".to_string()])],
-        Some(Box::new(Syn::Symbol(Pos::No, vec!["b".to_string()]))),
-      )),
-    );
-    test_parse(
-      parse_syn_list_improper(),
-      "(a, b)",
-      Some(Syn::List(
-        Pos::No,
-        vec![Syn::Symbol(Pos::No, vec!["a".to_string()])],
-        Some(Box::new(Syn::Symbol(Pos::No, vec!["b".to_string()]))),
-      )),
-    );
-    test_parse(
-      parse_syn_list_proper(),
-      "()",
-      Some(Syn::List(Pos::No, vec![], None)),
-    );
-    test_parse(
-      parse_syn_list_proper(),
+    assert!(test(parse_syn(), "()", Some(list!([])),));
+    assert!(test(
+      parse_syn(),
       "(a b)",
-      Some(Syn::List(
-        Pos::No,
-        vec![
-          Syn::Symbol(Pos::No, vec!["a".to_string()]),
-          Syn::Symbol(Pos::No, vec!["b".to_string()]),
-        ],
-        None,
-      )),
-    );
-    test_parse(
-      parse_syn_list_improper(),
+      Some(list!([sym!(["a"]), sym!(["b"])])),
+    ));
+    assert!(test(
+      parse_syn(),
+      "(.a .b)",
+      Some(list!([sym!(["a"]), sym!(["b"])])),
+    ));
+    assert!(test(
+      parse_syn(),
+      "(a, b)",
+      Some(list!([sym!(["a"])], sym!(["b"]))),
+    ));
+    assert!(test(
+      parse_syn(),
+      "(.a, .b)",
+      Some(list!([sym!(["a"])], sym!(["b"]))),
+    ));
+    assert!(test(
+      parse_syn(),
+      "(a, b, c)",
+      Some(list!([sym!(["a"]), sym!(["b"])], sym!(["c"]))),
+    ));
+    assert!(test(
+      parse_syn(),
       "(a, (b, c))",
-      Some(Syn::List(
-        Pos::No,
-        vec![
-          Syn::Symbol(Pos::No, vec!["a".to_string()]),
-          Syn::Symbol(Pos::No, vec!["b".to_string()]),
-        ],
-        Some(Box::new(Syn::Symbol(Pos::No, vec!["c".to_string()]))),
-      )),
-    );
-
-    test_parse(
-      parse_syn_list_proper(),
-      "(.a .b .c)",
-      Some(Syn::List(
-        Pos::No,
-        vec![
-          Syn::Symbol(Pos::No, vec!["a".to_string()]),
-          Syn::Symbol(Pos::No, vec!["b".to_string()]),
-          Syn::Symbol(Pos::No, vec!["c".to_string()]),
-        ],
-        None,
-      )),
-    );
-
-    test_parse(
-      parse_syn_list_improper(),
-      "(.a, .b, .c)",
-      Some(Syn::List(
-        Pos::No,
-        vec![
-          Syn::Symbol(Pos::No, vec!["a".to_string()]),
-          Syn::Symbol(Pos::No, vec!["b".to_string()]),
-        ],
-        Some(Box::new(Syn::Symbol(Pos::No, vec!["c".to_string()]))),
-      )),
-    );
-    test_parse(
-      parse_syn_list_proper(),
+      Some(list!([sym!(["a"]), sym!(["b"])], sym!(["c"]))),
+    ));
+    assert!(test(
+      parse_syn(),
+      "(a b c)",
+      Some(list!([sym!(["a"]), sym!(["b"]), sym!(["c"])])),
+    ));
+    assert!(test(
+      parse_syn(),
       "('a' 'b' 'c')",
-      Some(Syn::List(
-        Pos::No,
-        vec![
-          Syn::Char(Pos::No, 'a'),
-          Syn::Char(Pos::No, 'b'),
-          Syn::Char(Pos::No, 'c'),
-        ],
-        None,
-      )),
-    );
-    test_parse(
-      parse_syn_list_proper(),
-      "('a' 'b' 'c')",
-      Some(Syn::List(
-        Pos::No,
-        vec![
-          Syn::Char(Pos::No, 'a'),
-          Syn::Char(Pos::No, 'b'),
-          Syn::Char(Pos::No, 'c'),
-        ],
-        None,
-      )),
-    );
+      Some(list!([char!('a'), char!('b'), char!('c')])),
+    ));
   }
+
   #[test]
   fn unit_parse_char() {
-    test_parse(parse_syn_char(), "'a'", Some(Syn::Char(Pos::No, 'a')));
-    test_parse(parse_syn_char(), "'b'", Some(Syn::Char(Pos::No, 'b')));
-    test_parse(
-      parse_syn_char(),
-      "'\\u{8f}'",
-      Some(Syn::Char(Pos::No, '\u{8f}')),
-    );
+    assert!(test(parse_syn(), "'a'", Some(char!('a'))));
+    assert!(test(parse_syn(), "'b'", Some(char!('b'))));
+    assert!(test(parse_syn(), "'\\u{8f}'", Some(char!('\u{8f}'))));
   }
 
   #[test]
   fn unit_parse_num() {
-    test_parse(parse_syn_num(), "0", Some(Syn::Num(Pos::No, 0u64.into())));
-    test_parse(parse_syn_num(), "0b0", Some(Syn::Num(Pos::No, 0u64.into())));
-    test_parse(parse_syn_num(), "0o0", Some(Syn::Num(Pos::No, 0u64.into())));
-    test_parse(parse_syn_num(), "0d0", Some(Syn::Num(Pos::No, 0u64.into())));
-    test_parse(parse_syn_num(), "0x0", Some(Syn::Num(Pos::No, 0u64.into())));
-    test_parse(
-      parse_syn_num(),
-      "0xffffffffffffffff",
-      Some(Syn::Num(Pos::No, 0xffffffffffffffffu64.into())),
-    );
-    test_parse(
-      parse_syn_num(),
+    assert!(test(parse_syn(), "0", Some(num!(0))));
+    assert!(test(parse_syn(), "0b0", Some(num!(0))));
+    assert!(test(parse_syn(), "0o0", Some(num!(0))));
+    assert!(test(parse_syn(), "0d0", Some(num!(0))));
+    assert!(test(parse_syn(), "0x0", Some(num!(0))));
+    assert!(test(
+      parse_syn(),
+      "0xffff_ffff_ffff_ffff",
+      Some(num!(0xffff_ffff_ffff_ffff))
+    ));
+    assert!(test(
+      parse_syn(),
       "0x1234_5678_9abc_def0",
-      Some(Syn::Num(Pos::No, 0x1234_5678_9abc_def0u64.into())),
-    );
-    test_parse(
-      parse_syn_num(),
+      Some(num!(0x1234_5678_9abc_def0))
+    ));
+    assert!(test(
+      parse_syn(),
       &format!("0x{}", Fr::most_positive().hex_digits()),
-      Some(Syn::Num(Pos::No, Fr::most_positive())),
-    );
-    test_parse(
-      parse_syn_num(),
+      Some(num!(Fr::most_positive()))
+    ));
+    assert!(test(
+      parse_syn(),
       "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000",
       Some(Syn::Num(Pos::No, <Fr as ff::Field>::zero() - Fr::from(1u64))),
-    );
-    test_parse(
-      parse_syn_num(),
+    ));
+    assert!(test(
+      parse_syn(),
       "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
       None,
-    );
+    ));
   }
+
   #[test]
-  fn unit_parse_syn() {
+  fn unit_parse_syn_misc() {
     let vec: Vec<u8> = vec![
       0x6e, 0x2e, 0x50, 0x55, 0xdc, 0xf6, 0x14, 0x86, 0xb0, 0x3b, 0xb8, 0x0e,
       0xd2, 0xb3, 0xf1, 0xa3, 0x5c, 0x30, 0xe1, 0x22, 0xde, 0xfe, 0xba, 0xe8,
@@ -640,62 +516,32 @@ pub mod tests {
     .into_iter()
     .rev()
     .collect();
-    test_parse(
+    assert!(test(
       parse_syn(),
       "(0x6e2e5055dcf61486b03bb80ed2b3f1a35c30e122defebae824fae4ed32408e87)",
-      Some(Syn::List(
-        Pos::No,
-        vec![Syn::Num(Pos::No, Fr::from_le_bytes_noncanonical(&vec))],
-        None,
-      )),
-    );
-    test_parse(
-      parse_syn(),
-      ".\\.",
-      Some(Syn::Symbol(Pos::No, vec![".".to_string()])),
-    );
-    test_parse(
-      parse_syn(),
-      "(lambda (🚀) 🚀)",
-      Some(Syn::List(
-        Pos::No,
-        vec![
-          Syn::Symbol(Pos::No, vec!["lambda".to_string()]),
-          Syn::List(
-            Pos::No,
-            vec![Syn::Symbol(Pos::No, vec!["🚀".to_string()])],
-            None,
-          ),
-          Syn::Symbol(Pos::No, vec!["🚀".to_string()]),
-        ],
-        None,
-      )),
-    );
-    test_parse(
-      parse_syn(),
-      ".\\'",
-      Some(Syn::Symbol(Pos::No, vec!["'".to_string()])),
-    );
-    test_parse(
+      Some(list!([num!(Fr::from_le_bytes_noncanonical(&vec))])),
+    ));
+
+    assert!(test(parse_syn(), ".\\.", Some(sym!(["."]))));
+    assert!(test(parse_syn(), ".\\'", Some(sym!(["'"]))));
+    assert!(test(
       parse_syn(),
       ".\\'\\u{8e}\\u{fffc}\\u{201b}",
-      Some(Syn::Symbol(Pos::No, vec!["'\u{8e}\u{fffc}\u{201b}".to_string()])),
-    );
-    test_parse(
+      Some(sym!(["'\u{8e}\u{fffc}\u{201b}"])),
+    ));
+    assert!(test(
+      parse_syn(),
+      "(lambda (🚀) 🚀)",
+      Some(list!([sym!(["lambda"]), list!([sym!(["🚀"])]), sym!(["🚀"])])),
+    ));
+    assert!(test(
       parse_syn(),
       "(_:, 11242421860377074631u64, :\u{ae}\u{60500}\u{87}::)",
-      Some(Syn::List(
-        Pos::No,
-        vec![
-          Syn::Keyword(Pos::No, vec![]),
-          Syn::U64(Pos::No, 11242421860377074631),
-        ],
-        Some(Box::new(Syn::Keyword(
-          Pos::No,
-          vec!["®\u{60500}\u{87}".to_string(), "".to_string(), "".to_string()],
-        ))),
-      )),
-    );
+      Some(list!(
+        [key!([]), u64!(11242421860377074631)],
+        key!(["®\u{60500}\u{87}", "", ""])
+      ))
+    ));
   }
 
   #[quickcheck]

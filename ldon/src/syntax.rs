@@ -332,6 +332,17 @@ mod test {
   use blstrs::Scalar as Fr;
 
   use super::*;
+  #[allow(unused_imports)]
+  use crate::{
+    char,
+    key,
+    list,
+    map,
+    num,
+    str,
+    sym,
+    u64,
+  };
 
   //#[test]
   // fn display_link() {
@@ -345,104 +356,50 @@ mod test {
   //    );
   //    assert!(false)
   //}
+  fn test_print(syn: Syn<Fr>, expected: &'static str) -> bool {
+    let syn_print = format!("{}", syn);
+    let res = syn_print == expected;
+    if !res {
+      println!("syntax: {:?}", syn);
+      println!("expected: {}", expected);
+      println!("detected: {}", syn_print);
+    }
+    res
+  }
+
   #[test]
   fn unit_syn_print() {
-    assert_eq!(
-      format!("{}", Syn::<Fr>::Symbol(Pos::No, vec![])),
-      "_.".to_string()
-    );
-    assert_eq!(
-      format!("{}", Syn::<Fr>::Keyword(Pos::No, vec![])),
-      "_:".to_string()
-    );
-    assert_eq!(
-      format!("{}", Syn::<Fr>::Symbol(Pos::No, vec!["".to_string()])),
-      ".".to_string()
-    );
-    assert_eq!(
-      format!("{}", Syn::<Fr>::Keyword(Pos::No, vec!["".to_string()])),
-      ":".to_string()
-    );
-    assert_eq!(
-      format!("{}", Syn::<Fr>::Symbol(Pos::No, vec!["foo".to_string()])),
-      "foo".to_string()
-    );
-    assert_eq!(
-      format!(
-        "{}",
-        Syn::<Fr>::Symbol(
-          Pos::No,
-          vec!["foo".to_string(), "".to_string(), "".to_string(),]
-        )
-      ),
-      "foo..".to_string()
-    );
-    assert_eq!(
-      format!("{}", Syn::<Fr>::Keyword(Pos::No, vec!["foo".to_string()])),
-      ":foo".to_string()
-    );
-    assert_eq!(
-      format!(
-        "{}",
-        Syn::<Fr>::Symbol(Pos::No, vec!["".to_string(), "foo".to_string()])
-      ),
-      "..foo".to_string()
-    );
-    assert_eq!(
-      format!(
-        "{}",
-        Syn::<Fr>::Keyword(Pos::No, vec!["".to_string(), "foo".to_string()])
-      ),
-      "::foo".to_string()
-    );
-    assert_eq!(
-      format!("{}", Syn::<Fr>::List(Pos::No, vec![], None)),
-      "()".to_string()
-    );
-    assert_eq!(
-      format!(
-        "{}",
-        Syn::<Fr>::List(
-          Pos::No,
-          vec![
-            Syn::U64(Pos::No, 1),
-            Syn::U64(Pos::No, 2),
-            Syn::U64(Pos::No, 3),
-          ],
-          None
-        )
-      ),
-      "(1u64 2u64 3u64)".to_string()
-    );
-    assert_eq!(
-      format!(
-        "{}",
-        Syn::<Fr>::List(
-          Pos::No,
-          vec![
-            Syn::U64(Pos::No, 1),
-            Syn::U64(Pos::No, 2),
-            Syn::U64(Pos::No, 3),
-          ],
-          Some(Box::new(Syn::U64(Pos::No, 4)))
-        )
-      ),
-      "(1u64, 2u64, 3u64, 4u64)".to_string()
-    );
-    assert_eq!(
-      format!(
-        "{}",
-        Syn::<Fr>::Map(
-          Pos::No,
-          vec![
-            (Syn::Symbol(Pos::No, vec!["a".to_string()]), Syn::U64(Pos::No, 1)),
-            (Syn::Symbol(Pos::No, vec!["b".to_string()]), Syn::U64(Pos::No, 2)),
-            (Syn::Symbol(Pos::No, vec!["c".to_string()]), Syn::U64(Pos::No, 3)),
-          ],
-        )
-      ),
-      "{a = 1u64, b = 2u64, c = 3u64}".to_string()
-    );
+    assert!(test_print(sym!([]), "_."));
+    assert!(test_print(sym!(Fr, []), "_."));
+    assert!(test_print(key!([]), "_:"));
+    assert!(test_print(key!(Fr, []), "_:"));
+    assert!(test_print(sym!([""]), "."));
+    assert!(test_print(key!([""]), ":"));
+    assert!(test_print(sym!(["foo"]), "foo"));
+    assert!(test_print(sym!(["foo", ""]), "foo."));
+    assert!(test_print(sym!(["foo", "", ""]), "foo.."));
+    assert!(test_print(sym!(["", "foo"]), "..foo"));
+    assert!(test_print(sym!(["", "", "foo"]), "...foo"));
+    assert!(test_print(key!(["foo"]), ":foo"));
+    assert!(test_print(key!(["foo", ""]), ":foo:"));
+    assert!(test_print(key!(["foo", "", ""]), ":foo::"));
+    assert!(test_print(key!(["", "foo"]), "::foo"));
+    assert!(test_print(key!(["", "", "foo"]), ":::foo"));
+    assert!(test_print(list!([]), "()"));
+    assert!(test_print(list!(Fr, []), "()"));
+    assert!(test_print(list!([u64!(1), u64!(2), u64!(3)]), "(1u64 2u64 3u64)"));
+    assert!(test_print(
+      list!([u64!(1), u64!(2), u64!(3)], u64!(4)),
+      "(1u64, 2u64, 3u64, 4u64)"
+    ));
+    assert!(test_print(
+      map!([
+        (sym!(["a"]), u64!(1)),
+        (sym!(["b"]), u64!(2)),
+        (sym!(["c"]), u64!(3))
+      ]),
+      "{a = 1u64, b = 2u64, c = 3u64}"
+    ));
   }
 
   #[quickcheck]

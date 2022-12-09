@@ -15,6 +15,8 @@ pub mod ptr;
 pub mod serde_f;
 pub mod store;
 pub mod syntax;
+#[macro_use]
+pub mod macros;
 
 #[cfg(all(test, not(feature = "test-utils")))]
 pub mod test {
