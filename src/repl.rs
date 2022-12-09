@@ -271,13 +271,12 @@ impl<F: LurkField> ReplState<F> {
 
         loop {
             if let Err(e) = self.handle_form(store, &mut chars, package, p, update_env) {
-                if let Some(pe) = e.downcast_ref::<ParserError>() {
-                    if let ParserError::NoInput = pe {
-                        // It's ok, it just means we've hit the EOF
-                        return Ok(());
-                    }
+                if let Some(ParserError::NoInput) = e.downcast_ref::<ParserError>() {
+                    // It's ok, it just means we've hit the EOF
+                    return Ok(());
+                } else {
+                    return Err(e);
                 }
-                return Err(e);
             }
         }
     }
