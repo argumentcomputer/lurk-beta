@@ -3002,7 +3002,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let num = to_num(result, g);
         let comm = to_comm(result, g);
         let c = to_char(result, g);
-        let u64_elem = u64_op(&mut cs.namespace(|| "Unop u64"), result, store)?;
+        let u64_elem = u64_op(&mut cs.namespace(|| "Unop u64"), g, result, store)?;
 
         let res = multi_case(
             &mut cs.namespace(|| "Unop case"),
@@ -4047,7 +4047,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &field_arithmetic_result,
         )?;
 
-        let (alloc_q, alloc_r) = enforce_u64_div_mod_equation(
+        let (alloc_q, alloc_r) = enforce_u64_div_mod(
             &mut cs.namespace(|| "u64 div mod equation"),
             g,
             op2_is_mod.clone(),
@@ -4706,6 +4706,7 @@ fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let p64_bn = match g.power2_64_num.get_value() {
         Some(v) => BigUint::from_bytes_le(v.to_repr().as_ref()),
+        // Since it is will be in the denominator, it can't be zero
         None => BigUint::one(), // blank and dummy
     };
     let (u64_ptr, v) = match maybe_u64.hash().get_value() {
@@ -4720,6 +4721,7 @@ fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
     let r_num = bn_to_num(&mut cs.namespace(|| "r"), r_bn)?;
     let p64_num = bn_to_num(&mut cs.namespace(|| "p64"), p64_bn)?;
 
+    // a = b.q + r
     let product = constraints::mul(
         &mut cs.namespace(|| "product(q,pow(2,64))"),
         &q_num,
@@ -4767,7 +4769,164 @@ fn to_char<F: LurkField>(x: &AllocatedPtr<F>, g: &GlobalAllocations<F>) -> Alloc
     AllocatedPtr::from_parts(&g.char_tag, x.hash())
 }
 
-// Enforce the a < num < b, using n bits.
+
+fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    g: &GlobalAllocations<F>,
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
+    diff: &AllocatedNum<F>,
+    op2: &AllocatedPtr<F>,
+) -> Result<(Boolean, AllocatedPtr<F>, Boolean), SynthesisError> {
+    let double_a = constraints::add(&mut cs.namespace(|| "double a"), a, a)?;
+    // Ideally we would compute the bit decomposition for a, not for 2a,
+    // since it would be possible to use it for future purposes.
+    let double_a_bits = double_a
+        .to_bits_le_strict(&mut cs.namespace(|| "double a lsb"))
+        .unwrap();
+    let lsb_2a = double_a_bits.get(0);
+
+    let double_b = constraints::add(&mut cs.namespace(|| "double b"), b, b)?;
+    let double_b_bits = double_b
+        .to_bits_le_strict(&mut cs.namespace(|| "double b lsb"))
+        .unwrap();
+    let lsb_2b = double_b_bits.get(0);
+
+    let diff_is_zero = alloc_is_zero(&mut cs.namespace(|| "diff is zero"), diff)?;
+    let double_diff = constraints::add(&mut cs.namespace(|| "double diff"), diff, diff)?;
+    let double_diff_bits = double_diff.to_bits_le_strict(&mut cs).unwrap();
+    let lsb_2diff = double_diff_bits.get(0);
+
+    // We have that a number is defined to be negative if the parity bit (the
+    // least significant bit) is odd after doubling, meaning that the field element
+    // (after doubling) is larger than the underlying prime p that defines the
+    // field, then a modular reduction must have been carried out, changing the parity that
+    // should be even (since we multiplied by 2) to odd. In other words, we define
+    // negative numbers to be those field elements that are larger than p/2.
+    let a_is_negative = lsb_2a.unwrap();
+    let b_is_negative = lsb_2b.unwrap();
+    let diff_is_negative = lsb_2diff.unwrap();
+
+    let diff_is_not_positive = constraints::or(
+        &mut cs.namespace(|| "diff is not positive"),
+        diff_is_negative,
+        &diff_is_zero,
+    )?;
+
+    let diff_is_positive = Boolean::and(
+        &mut cs.namespace(|| "diff is positive"),
+        &diff_is_negative.not(),
+        &diff_is_zero.not(),
+    )?;
+
+    let diff_is_not_negative = diff_is_negative.not();
+
+    let both_same_sign = Boolean::xor(
+        &mut cs.namespace(|| "both same sign"),
+        a_is_negative,
+        b_is_negative,
+    )?
+    .not();
+
+    let a_negative_and_b_not_negative = Boolean::and(
+        &mut cs.namespace(|| "a negative and b not negative"),
+        a_is_negative,
+        &b_is_negative.not(),
+    )?;
+
+    let alloc_num_diff_is_negative = boolean_to_num(
+        &mut cs.namespace(|| "Allocate num for diff_is_negative"),
+        diff_is_negative,
+    )?;
+
+    let alloc_num_diff_is_not_positive = boolean_to_num(
+        &mut cs.namespace(|| "Allocate num for diff_is_not_positive"),
+        &diff_is_not_positive,
+    )?;
+
+    let alloc_num_diff_is_positive = boolean_to_num(
+        &mut cs.namespace(|| "Allocate num for diff_is_positive"),
+        &diff_is_positive,
+    )?;
+
+    let alloc_num_diff_is_not_negative = boolean_to_num(
+        &mut cs.namespace(|| "Allocate num for diff_is_not_negative"),
+        &diff_is_not_negative,
+    )?;
+
+    let mut comp_results = CompResults::default();
+    comp_results.add_clauses_comp(
+        Op2::Less.as_field(),
+        &alloc_num_diff_is_negative,
+        &g.true_num,
+        &g.false_num,
+    );
+    comp_results.add_clauses_comp(
+        Op2::LessEqual.as_field(),
+        &alloc_num_diff_is_not_positive,
+        &g.true_num,
+        &g.false_num,
+    );
+    comp_results.add_clauses_comp(
+        Op2::Greater.as_field(),
+        &alloc_num_diff_is_positive,
+        &g.false_num,
+        &g.true_num,
+    );
+    comp_results.add_clauses_comp(
+        Op2::GreaterEqual.as_field(),
+        &alloc_num_diff_is_not_negative,
+        &g.false_num,
+        &g.true_num,
+    );
+
+    let comparison_defaults = [&g.default_num, &g.default_num, &g.default_num];
+
+    let comp_clauses = [
+        &comp_results.same_sign[..],
+        &comp_results.a_neg_and_b_not_neg[..],
+        &comp_results.a_not_neg_and_b_neg[..],
+    ];
+
+    let comparison_result = multi_case_aux(
+        &mut cs.namespace(|| "comparison multicase results"),
+        op2.tag(),
+        &comp_clauses,
+        &comparison_defaults,
+        g,
+    )?;
+
+    let comp_val_same_sign_num = comparison_result.0[0].clone();
+    let comp_val_a_neg_and_b_not_neg_num = comparison_result.0[1].clone();
+    let comp_val_a_not_neg_and_b_neg_num = comparison_result.0[2].clone();
+    let is_comparison_tag = comparison_result.1.not();
+
+    let comp_val1 = pick(
+        &mut cs.namespace(|| "comp_val1"),
+        &a_negative_and_b_not_negative,
+        &comp_val_a_neg_and_b_not_neg_num,
+        &comp_val_a_not_neg_and_b_neg_num,
+    )?;
+    let comp_val2 = pick(
+        &mut cs.namespace(|| "comp_val2"),
+        &both_same_sign,
+        &comp_val_same_sign_num,
+        &comp_val1,
+    )?;
+
+    let comp_val_is_zero = alloc_is_zero(&mut cs.namespace(|| "comp_val_is_zero"), &comp_val2)?;
+
+    let comp_val = AllocatedPtr::pick(
+        &mut cs.namespace(|| "comp_val"),
+        &comp_val_is_zero,
+        &g.nil_ptr,
+        &g.t_ptr,
+    )?;
+
+    Ok((is_comparison_tag, comp_val, diff_is_negative.clone()))
+}
+
+// Enforce 0 < num < 2ˆn.
 fn enforce_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
@@ -4780,7 +4939,9 @@ fn enforce_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
     Ok(())
 }
 
-fn enforce_u64_div_mod_equation<F: LurkField, CS: ConstraintSystem<F>>(
+// Enforce div/mod operation for U64. We need to show that
+// arg1 = q.arg2 + r, such that 0 <= r < b
+fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
     cond: Boolean,
