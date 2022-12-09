@@ -73,7 +73,9 @@ impl<F: LurkField> Repl<F> {
 
 // For the moment, input must be on a single line.
 pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
-    println!("Lurk REPL welcomes you.");
+    if lurk_file.is_none() {
+        println!("Lurk REPL welcomes you.");
+    }
 
     let mut s = Store::<F>::default();
     let limit = 100_000_000;
