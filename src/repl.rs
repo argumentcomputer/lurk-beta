@@ -278,6 +278,7 @@ impl<F: LurkField> ReplState<F> {
                 store,
                 &mut chars,
                 package,
+                // use this file's dir as pwd for further loading
                 file_path.as_ref().parent().unwrap(),
                 update_env,
             ) {
