@@ -92,6 +92,15 @@ impl<F: LurkField> Syn<F> {
       || char::is_whitespace(c)
       || char::is_control(c)
   }
+
+  pub fn parse(
+    xs: &str,
+  ) -> Result<Self, crate::parser::error::ParseError<crate::parser::Span, F>>
+  {
+    let res = crate::parser::syntax::parse_syn()(crate::parser::Span::new(xs));
+    use nom::Finish;
+    res.finish().map(|(_, s)| s)
+  }
 }
 
 impl<F: LurkField> PartialOrd for Syn<F> {
@@ -369,6 +378,7 @@ mod test {
     assert!(test_print(sym!([""]), "."));
     assert!(test_print(key!([""]), ":"));
     assert!(test_print(sym!(["foo"]), "foo"));
+    assert!(test_print(sym!(["fλoo"]), "fλoo"));
     assert!(test_print(sym!(["foo", ""]), "foo."));
     assert!(test_print(sym!(["foo", "", ""]), "foo.."));
     assert!(test_print(sym!(["", "foo"]), "..foo"));

@@ -122,6 +122,9 @@ impl<F: LurkField> Store<F> {
     ptr
   }
 
+  // { a = 1, b = 2, c = 3 }
+  // { a = 1, c = 3, b = 2 }
+  // ( (a, 1) (b, 2) (c, 3) )
   pub fn intern_map(
     &mut self,
     cache: &PoseidonCache<F>,
@@ -327,6 +330,7 @@ impl<F: LurkField> Store<F> {
         return Err(StoreError::ExpectedMap(ptr));
       }
     }
+    // could test for correctness here
     Ok(Syn::Map(Pos::No, assoc))
   }
 
@@ -468,6 +472,17 @@ mod test {
   use blstrs::Scalar as Fr;
 
   use super::*;
+  #[allow(unused_imports)]
+  use crate::{
+    char,
+    key,
+    list,
+    map,
+    num,
+    str,
+    sym,
+    u64,
+  };
 
   #[test]
   fn unit_expr_store_get() {
@@ -525,6 +540,31 @@ mod test {
     test(Syn::Symbol(Pos::No, vec![]));
     test(Syn::Symbol(Pos::No, vec!["foo".to_string()]));
     test(Syn::Symbol(Pos::No, vec!["foo".to_string(), "bar".to_string()]));
+  }
+  #[test]
+  fn unit_syn_store_demo() {
+    // (lambda (x) x)
+    let syn_from_macro =
+      list!(Fr, [sym!(["lambda"]), list!([sym!(["x"])]), sym!(["x"])]);
+    println!("syntax from macro {}", syn_from_macro);
+    let syn_from_text = Syn::<Fr>::parse("(lambda (x) x)").unwrap();
+    println!("syntax from text  {}", syn_from_text);
+    assert_eq!(syn_from_macro, syn_from_text);
+    let syn = syn_from_text;
+
+    let mut store = Store::default();
+    let cache = PoseidonCache::default();
+
+    let ptr = store.intern_syn(&cache, &syn);
+    println!("ptr: {}", ptr);
+    println!("store: {}", store);
+    let syn2 = store.get_syn(ptr).unwrap();
+    assert_eq!(syn, syn2);
+    let bytes = store.ser();
+    println!("bytes: {:?}", bytes);
+    let store2 = Store::de(&bytes).unwrap();
+
+    assert_eq!(store, store2);
   }
 
   #[quickcheck]

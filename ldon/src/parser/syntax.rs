@@ -435,6 +435,11 @@ pub mod tests {
     ));
     assert!(test(
       parse_syn(),
+      "(.LURK.LAMBDA .LURK.LAMBDA)",
+      Some(list!([sym!(["LURK", "LAMBDA"]), sym!(["LURK", "LAMBDA"])])),
+    ));
+    assert!(test(
+      parse_syn(),
       "(a, b)",
       Some(list!([sym!(["a"])], sym!(["b"]))),
     ));

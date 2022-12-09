@@ -274,10 +274,10 @@ impl<F: LurkField> fmt::Display for Expr<F> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let ptr = self.ptr(&PoseidonCache::default());
     let child_ptrs = self.child_ptrs();
-    write!(f, "{}", ptr)?;
+    write!(f, "{}", ptr.tag.kind)?;
     write!(f, "(")?;
     for child in child_ptrs {
-      writeln!(f, " {},", child)?;
+      write!(f, " {},", child)?;
     }
     write!(f, ")")
   }

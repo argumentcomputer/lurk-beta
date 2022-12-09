@@ -132,6 +132,7 @@ impl TryFrom<u16> for TagKind {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u16)]
 pub enum ExprTag {
+  // Nil = Ptr { tag: Cons, val: F::zero()}
   Cons = 0b0000_0000_0000_0001,
   Sym,
   Fun,
