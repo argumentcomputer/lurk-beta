@@ -120,8 +120,7 @@ impl<F: LurkField> SerdeF<F> for Ptr<F> {
   fn de_f(fs: &[F]) -> Result<Ptr<F>, SerdeFError<F>> {
     match fs {
       &[tag, val, ..] => {
-        let tag =
-          F::to_tag(&tag).ok_or_else(|| SerdeFError::UnknownTag(tag))?;
+        let tag = F::to_tag(&tag).ok_or(SerdeFError::UnknownTag(tag))?;
         Ok(Ptr { tag, val })
       },
       _ => Err(SerdeFError::Expected("Ptr".to_string())),

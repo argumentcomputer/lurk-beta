@@ -108,8 +108,8 @@ pub fn parse_literal<'a, F: LurkField>(
         s.push(c);
       }
     }
-    let x = verify(is_not(&*s), |s: &Span<'a>| !s.fragment().is_empty())(from);
-    x
+    let mut p = verify(is_not(&*s), |s: &Span<'a>| !s.fragment().is_empty());
+    p(from)
   }
 }
 

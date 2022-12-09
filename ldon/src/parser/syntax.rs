@@ -143,10 +143,10 @@ pub fn parse_syn_num<F: LurkField>(
     let max_bytes = (F::zero() - F::one()).to_le_bytes_noncanonical();
     let max_uint = num_bigint::BigUint::from_bytes_le(&max_bytes);
     if num_bigint::BigUint::from_bytes_le(&bytes) > max_uint {
-      return ParseError::throw(
+      ParseError::throw(
         from,
         ParseErrorKind::NumLiteralTooBig(F::most_positive(), max_uint),
-      );
+      )
     }
     else {
       let pos = Pos::from_upto(from, upto);
@@ -175,7 +175,7 @@ pub fn parse_syn_char<F: LurkField>(
       Ok((upto, Syn::Char(pos, c)))
     }
     else {
-      ParseError::throw(from, ParseErrorKind::InvalidChar(s.clone()))
+      ParseError::throw(from, ParseErrorKind::InvalidChar(s))
     }
   }
 }

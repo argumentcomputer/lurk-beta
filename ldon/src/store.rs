@@ -47,7 +47,7 @@ pub enum StoreError<F: LurkField> {
   Custom(&'static str),
 }
 
-impl<'a, F: LurkField> Store<F> {
+impl<F: LurkField> Store<F> {
   pub fn new() -> Self { Self::default() }
 
   pub fn intern_expr(
@@ -56,7 +56,7 @@ impl<'a, F: LurkField> Store<F> {
     expr: Expr<F>,
   ) -> Ptr<F> {
     let ptr = expr.ptr(cache);
-    if !ptr.immediate_expr().is_some() {
+    if ptr.immediate_expr().is_none() {
       self.0.insert(ptr, Entry::Expr(expr));
     }
     ptr
@@ -65,7 +65,7 @@ impl<'a, F: LurkField> Store<F> {
   pub fn intern_string(
     &mut self,
     cache: &PoseidonCache<F>,
-    string: &String,
+    string: &str,
   ) -> Ptr<F> {
     let mut ptr = self.intern_expr(cache, Expr::StrNil);
 
@@ -85,7 +85,7 @@ impl<'a, F: LurkField> Store<F> {
     let mut ptr = self.intern_expr(cache, Expr::SymNil);
 
     for s in strs {
-      let str_ptr = self.intern_string(&cache, s);
+      let str_ptr = self.intern_string(cache, s);
       ptr = self.intern_expr(cache, Expr::SymCons(str_ptr, ptr));
     }
     ptr
@@ -108,11 +108,11 @@ impl<'a, F: LurkField> Store<F> {
   ) -> Ptr<F> {
     if let (Some(end), true) = (end, xs.is_empty()) {
       let nil_ptr = self.intern_expr(cache, Expr::ConsNil);
-      let end_ptr = self.intern_syn(cache, &end);
+      let end_ptr = self.intern_syn(cache, end);
       return self.intern_expr(cache, Expr::Cons(end_ptr, nil_ptr));
     }
     let mut ptr = match end {
-      Some(end) => self.intern_syn(cache, &end),
+      Some(end) => self.intern_syn(cache, end),
       None => self.intern_expr(cache, Expr::ConsNil),
     };
     for x in xs.iter().rev() {
@@ -146,8 +146,8 @@ impl<'a, F: LurkField> Store<F> {
   pub fn intern_link(
     &mut self,
     cache: &PoseidonCache<F>,
-    ctx: &Box<Syn<F>>,
-    val: &Vec<u64>,
+    ctx: &Syn<F>,
+    val: &[u64],
   ) -> Ptr<F> {
     let ctx_ptr = self.intern_syn(cache, ctx);
     let val_ptr = self.intern_list(
@@ -167,7 +167,7 @@ impl<'a, F: LurkField> Store<F> {
       Syn::Num(_, f) => self.intern_expr(cache, Expr::Num(*f)),
       Syn::Char(_, c) => self.intern_expr(cache, Expr::Char(F::from_char(*c))),
       Syn::U64(_, x) => self.intern_expr(cache, Expr::U64((*x).into())),
-      Syn::String(_, s) => self.intern_string(cache, &s),
+      Syn::String(_, s) => self.intern_string(cache, s),
       Syn::Symbol(_, sym) => self.intern_symbol(cache, sym),
       Syn::Keyword(_, sym) => self.intern_keyword(cache, sym),
       Syn::List(_, xs, end) => self.intern_list(cache, xs, end),
@@ -184,8 +184,7 @@ impl<'a, F: LurkField> Store<F> {
       Ok(Entry::Cont(cont))
     }
     else {
-      let entry =
-        self.0.get(&ptr).ok_or_else(|| StoreError::UnknownPtr(ptr))?;
+      let entry = self.0.get(&ptr).ok_or(StoreError::UnknownPtr(ptr))?;
       Ok(entry.clone())
     }
   }
@@ -265,7 +264,7 @@ impl<'a, F: LurkField> Store<F> {
 
   pub fn get_u64(&self, ptr: Ptr<F>) -> Result<u64, StoreError<F>> {
     if let Expr::U64(f) = self.get_expr(ptr)? {
-      let x = F::to_u64(&f).ok_or_else(|| StoreError::ExpectedU64(ptr))?;
+      let x = F::to_u64(&f).ok_or(StoreError::ExpectedU64(ptr))?;
       Ok(x)
     }
     else {
@@ -275,7 +274,7 @@ impl<'a, F: LurkField> Store<F> {
 
   pub fn get_char(&self, ptr: Ptr<F>) -> Result<char, StoreError<F>> {
     if let Expr::Char(f) = self.get_expr(ptr)? {
-      let c = F::to_char(&f).ok_or_else(|| StoreError::ExpectedChar(ptr))?;
+      let c = F::to_char(&f).ok_or(StoreError::ExpectedChar(ptr))?;
       Ok(c)
     }
     else {
@@ -315,10 +314,7 @@ impl<'a, F: LurkField> Store<F> {
     }
   }
 
-  pub fn get_syn_map(
-    &self,
-    ptr: Ptr<F>,
-  ) -> Result<Vec<(Syn<F>, Syn<F>)>, StoreError<F>> {
+  pub fn get_syn_map(&self, ptr: Ptr<F>) -> Result<Syn<F>, StoreError<F>> {
     let mut assoc = vec![];
     let mut next = ptr;
 
@@ -331,7 +327,7 @@ impl<'a, F: LurkField> Store<F> {
         return Err(StoreError::ExpectedMap(ptr));
       }
     }
-    Ok(assoc)
+    Ok(Syn::Map(Pos::No, assoc))
   }
 
   pub fn get_syn(&self, ptr: Ptr<F>) -> Result<Syn<F>, StoreError<F>> {
@@ -347,7 +343,7 @@ impl<'a, F: LurkField> Store<F> {
       Expr::StrCons(..) => Ok(Syn::String(Pos::No, self.get_string(ptr)?)),
       Expr::SymCons(..) => Ok(Syn::Symbol(Pos::No, self.get_symbol(ptr)?)),
       Expr::Keyword(sym) => Ok(Syn::Keyword(Pos::No, self.get_symbol(sym)?)),
-      Expr::Map(map) => Ok(Syn::Map(Pos::No, self.get_syn_map(map)?)),
+      Expr::Map(map) => self.get_syn_map(map),
       Expr::Link(ctx, data) => self.get_syn_link(ctx, data),
       _ => todo!(),
       // Expr::Comm(F, Ptr<F>),             // secret, val
@@ -357,7 +353,7 @@ impl<'a, F: LurkField> Store<F> {
   }
 }
 
-impl<'a, F: LurkField> fmt::Display for Store<F> {
+impl<F: LurkField> fmt::Display for Store<F> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     writeln!(f, "{{")?;
     for (k, v) in self.0.iter() {
@@ -397,7 +393,7 @@ impl<F: LurkField> SerdeF<F> for Store<F> {
 
   fn de_f(fs: &[F]) -> Result<Store<F>, SerdeFError<F>> {
     let mut map: BTreeMap<Ptr<F>, Entry<F>> = BTreeMap::new();
-    if fs.len() < 1 {
+    if fs.is_empty() {
       return Err(SerdeFError::UnexpectedEnd);
     }
     let opaqs: u64 =
@@ -410,7 +406,7 @@ impl<F: LurkField> SerdeF<F> for Store<F> {
     let mut i = 1;
     while i <= opaqs {
       map.insert(Ptr::de_f(&fs[i..])?, Entry::Opaque);
-      i = i + 2;
+      i += 2;
     }
     while i < fs.len() {
       let ptr = Ptr::de_f(&fs[i..])?;
@@ -418,7 +414,7 @@ impl<F: LurkField> SerdeF<F> for Store<F> {
         TagKind::Expr(_) => {
           let expr = Expr::de_f(&fs[i..])?;
           map.insert(ptr, Entry::Expr(expr));
-          i = i + 2 + expr.child_ptrs().len() * 2;
+          i += 2 + expr.child_ptrs().len() * 2;
         },
         TagKind::Cont(_) => todo!(),
         TagKind::Op1(_) => todo!(),
@@ -440,6 +436,7 @@ pub mod test_utils {
   use super::*;
   impl Arbitrary for Entry<Fr> {
     fn arbitrary(g: &mut Gen) -> Self {
+      #[allow(clippy::type_complexity)]
       let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Entry<Fr>>)> = vec![
         (100, Box::new(|_| Self::Opaque)),
         (100, Box::new(|g| Self::Expr(Expr::arbitrary(g)))),

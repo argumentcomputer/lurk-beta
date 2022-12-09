@@ -36,7 +36,7 @@ pub enum Expr<F: LurkField> {
   Link(Ptr<F>, Ptr<F>),        // ctx, data
 }
 
-impl<'a, F: LurkField> Expr<F> {
+impl<F: LurkField> Expr<F> {
   /// All the `Ptr`s directly reachable from `expr`, if any.
   pub fn child_ptrs(&self) -> Vec<Ptr<F>> {
     match self {
@@ -164,6 +164,7 @@ pub mod test_utils {
   // These expressions are not necessarily well-formed
   impl Arbitrary for Expr<Fr> {
     fn arbitrary(g: &mut Gen) -> Self {
+      #[allow(clippy::type_complexity)]
       let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Expr<Fr>>)> = vec![
         (100, Box::new(|_| Self::ConsNil)),
         (100, Box::new(|g| Self::Cons(Ptr::arbitrary(g), Ptr::arbitrary(g)))),
@@ -269,7 +270,7 @@ impl<F: LurkField> SerdeF<F> for Expr<F> {
   }
 }
 
-impl<'a, F: LurkField> fmt::Display for Expr<F> {
+impl<F: LurkField> fmt::Display for Expr<F> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let ptr = self.ptr(&PoseidonCache::default());
     let child_ptrs = self.child_ptrs();

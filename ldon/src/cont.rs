@@ -50,6 +50,7 @@ pub mod test_utils {
   // These continuationsare not necessarily well-formed
   impl Arbitrary for Cont<Fr> {
     fn arbitrary(g: &mut Gen) -> Self {
+      #[allow(clippy::type_complexity)]
       let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Cont<Fr>>)> = vec![
         (100, Box::new(|_| Self::Outermost)),
         (

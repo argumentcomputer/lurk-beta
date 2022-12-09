@@ -1,43 +1,43 @@
 #[macro_export]
 macro_rules! num {
   ($f:ty, $i:literal) => {
-    crate::syntax::Syn::<$f>::Num(Pos::No, ($i as u64).into())
+    $crate::syntax::Syn::<$f>::Num(Pos::No, ($i as u64).into())
   };
   ($i:literal) => {
-    crate::syntax::Syn::Num(Pos::No, ($i as u64).into())
+    $crate::syntax::Syn::Num(Pos::No, ($i as u64).into())
   };
   ($i:expr) => {
-    crate::syntax::Syn::Num(Pos::No, $i)
+    $crate::syntax::Syn::Num(Pos::No, $i)
   };
 }
 
 #[macro_export]
 macro_rules! u64 {
   ($f:ty, $i:literal) => {
-    crate::syntax::Syn::<$f>::U64(Pos::No, ($i as u64))
+    $crate::syntax::Syn::<$f>::U64(Pos::No, ($i as u64))
   };
   ($i:literal) => {
-    crate::syntax::Syn::U64(Pos::No, ($i as u64))
+    $crate::syntax::Syn::U64(Pos::No, ($i as u64))
   };
 }
 
 #[macro_export]
 macro_rules! str {
   ($f:ty, $i:literal) => {
-    crate::syntax::Syn::<$f>::String(Pos::No, $i.to_string())
+    $crate::syntax::Syn::<$f>::String(Pos::No, $i.to_string())
   };
   ($i:literal) => {
-    crate::syntax::Syn::String(Pos::No, $i.to_string())
+    $crate::syntax::Syn::String(Pos::No, $i.to_string())
   };
 }
 
 #[macro_export]
 macro_rules! char {
   ($f:ty, $i:literal) => {
-    crate::syntax::Syn::<$f>::Char(Pos::No, $i as char)
+    $crate::syntax::Syn::<$f>::Char(Pos::No, $i as char)
   };
   ($i:literal) => {
-    crate::syntax::Syn::Char(Pos::No, $i as char)
+    $crate::syntax::Syn::Char(Pos::No, $i as char)
   };
 }
 
@@ -51,7 +51,7 @@ macro_rules! sym {
             $(
                 temp_vec.push($x.to_string());
             )*
-            crate::syntax::Syn::Symbol(Pos::No, temp_vec)
+            $crate::syntax::Syn::Symbol(Pos::No, temp_vec)
         }
     };
     ($f:ty,  [$( $x:literal ),*] ) => {
@@ -61,7 +61,7 @@ macro_rules! sym {
             $(
                 temp_vec.push($x.to_string());
             )*
-            crate::syntax::Syn::<$f>::Symbol(Pos::No, temp_vec)
+            $crate::syntax::Syn::<$f>::Symbol(Pos::No, temp_vec)
         }
     };
 }
@@ -75,7 +75,7 @@ macro_rules! key {
             $(
                 temp_vec.push($x.to_string());
             )*
-            crate::syntax::Syn::Keyword(Pos::No, temp_vec)
+            $crate::syntax::Syn::Keyword(Pos::No, temp_vec)
         }
     };
     ($f:ty,  [$( $x:literal ),*] ) => {
@@ -85,7 +85,7 @@ macro_rules! key {
             $(
                 temp_vec.push($x.to_string());
             )*
-            crate::syntax::Syn::<$f>::Keyword(Pos::No, temp_vec)
+            $crate::syntax::Syn::<$f>::Keyword(Pos::No, temp_vec)
         }
     };
 }
@@ -99,7 +99,7 @@ macro_rules! list {
             $(
                 temp_vec.push($x);
             )*
-            crate::syntax::Syn::List(Pos::No, temp_vec, Some(Box::new($end)))
+            $crate::syntax::Syn::List(Pos::No, temp_vec, Some(Box::new($end)))
         }
     };
     ([$( $x:expr ),*] ) => {
@@ -109,7 +109,7 @@ macro_rules! list {
             $(
                 temp_vec.push($x);
             )*
-            crate::syntax::Syn::List(Pos::No, temp_vec, None)
+            $crate::syntax::Syn::List(Pos::No, temp_vec, None)
         }
     };
     ($f:ty,  [$( $x:expr ),*], $end:expr ) => {
@@ -119,7 +119,7 @@ macro_rules! list {
             $(
                 temp_vec.push($x);
             )*
-            crate::syntax::Syn::<$f>::List(Pos::No, temp_vec, Some(Box::new($end)))
+            $crate::syntax::Syn::<$f>::List(Pos::No, temp_vec, Some(Box::new($end)))
         }
     };
     ($f:ty,  [$( $x:expr ),*] ) => {
@@ -129,7 +129,7 @@ macro_rules! list {
             $(
                 temp_vec.push($x);
             )*
-            crate::syntax::Syn::<$f>::List(Pos::No, temp_vec, None)
+            $crate::syntax::Syn::<$f>::List(Pos::No, temp_vec, None)
         }
     };
 }
@@ -143,7 +143,7 @@ macro_rules! map {
             $(
                 temp_vec.push(($x, $y));
             )*
-            crate::syntax::Syn::Map(Pos::No, temp_vec)
+            $crate::syntax::Syn::Map(Pos::No, temp_vec)
         }
     };
     ($f:ty, [$( ($x:expr, $y:expr) ),*]) => {
@@ -153,7 +153,7 @@ macro_rules! map {
             $(
                 temp_vec.push(($x, $y));
             )*
-            crate::syntax::Syn::<$f>::Map(Pos::No, temp_vec)
+            $crate::syntax::Syn::<$f>::Map(Pos::No, temp_vec)
         }
     };
   }

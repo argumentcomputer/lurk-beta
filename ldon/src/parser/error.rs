@@ -120,15 +120,15 @@ impl<'a, F: LurkField> fmt::Display for ParseError<Span<'a>, F> {
     }
 
     let mut errs = self.errors.iter().filter(|x| !x.is_nom_err()).peekable();
-    if errs.peek() == None {
+    match errs.peek() {
       // TODO: Nom verbose mode
-      writeln!(&mut res, "Internal parser error")?;
-    }
-    else {
-      writeln!(&mut res, "Reported errors:")?;
-      for kind in errs {
-        writeln!(&mut res, "- {}", kind)?;
-      }
+      None => writeln!(&mut res, "Internal parser error")?,
+      Some(_) => {
+        writeln!(&mut res, "Reported errors:")?;
+        for kind in errs {
+          writeln!(&mut res, "- {}", kind)?;
+        }
+      },
     }
 
     write!(f, "{}", res)

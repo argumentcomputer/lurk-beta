@@ -214,6 +214,7 @@ pub fn parse_litbase_code<F: LurkField>(
 //    }
 //}
 
+#[allow(clippy::type_complexity)]
 pub fn parse_litbase_digits<F: LurkField>(
   base: LitBase,
 ) -> Box<dyn Fn(Span) -> IResult<Span, String, ParseError<Span, F>>> {

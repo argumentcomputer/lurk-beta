@@ -47,8 +47,8 @@ impl<F: LurkField> Syn<F> {
     cache: &PoseidonCache<F>,
   ) -> core::cmp::Ordering {
     let mut store = Store::new();
-    let self_ptr = store.intern_syn(&cache, self);
-    let other_ptr = store.intern_syn(&cache, other);
+    let self_ptr = store.intern_syn(cache, self);
+    let other_ptr = store.intern_syn(cache, other);
     self_ptr.cmp(&other_ptr)
   }
 
@@ -67,7 +67,7 @@ impl<F: LurkField> Syn<F> {
     Self::whitespace().iter().any(|x| *x == c)
   }
 
-  pub fn escape_symbol(xs: &String) -> String {
+  pub fn escape_symbol(xs: &str) -> String {
     let mut res = String::new();
     for x in xs.chars() {
       if "(){}[]=,.:".chars().any(|c| c == x) {
@@ -84,10 +84,10 @@ impl<F: LurkField> Syn<F> {
   }
 
   pub fn sym_needs_leading_dot(xs: &Vec<String>) -> bool {
-    if xs.len() == 0 || xs[0] == "" || xs[0] == "_" || xs[0] == "_." {
+    if xs.is_empty() || xs[0].is_empty() || xs[0] == "_" || xs[0] == "_." {
       return true;
     };
-    let c = xs[0].chars().nth(0).unwrap();
+    let c = xs[0].chars().next().unwrap();
     "1234567890.:'[](){}=,\"\\".chars().any(|x| x == c)
       || char::is_whitespace(c)
       || char::is_control(c)
@@ -116,7 +116,7 @@ impl<F: LurkField> fmt::Display for Syn<F> {
       Self::U64(_, x) => write!(f, "{}u64", x),
       Self::Symbol(_, xs) if xs.is_empty() => write!(f, "_."),
       Self::Symbol(_, xs) => {
-        if !Self::sym_needs_leading_dot(&xs) {
+        if !Self::sym_needs_leading_dot(xs) {
           write!(f, "{}", Self::escape_symbol(&xs[0]))?;
           for x in xs[1..].iter() {
             write!(f, ".{}", Self::escape_symbol(x))?;
@@ -142,11 +142,9 @@ impl<F: LurkField> fmt::Display for Syn<F> {
         let mut iter = xs.iter().peekable();
         write!(f, "(")?;
         while let Some(x) = iter.next() {
-          if let None = iter.peek() {
-            write!(f, "{}", x)?;
-          }
-          else {
-            write!(f, "{} ", x)?;
+          match iter.peek() {
+            Some(_) => write!(f, "{} ", x)?,
+            None => write!(f, "{}", x)?,
           }
         }
         write!(f, ")")
@@ -155,11 +153,9 @@ impl<F: LurkField> fmt::Display for Syn<F> {
         let mut iter = xs.iter().peekable();
         write!(f, "(")?;
         while let Some(x) = iter.next() {
-          if let None = iter.peek() {
-            write!(f, "{}, {}", x, end)?;
-          }
-          else {
-            write!(f, "{}, ", x)?;
+          match iter.peek() {
+            Some(_) => write!(f, "{}, ", x)?,
+            None => write!(f, "{}, {}", x, end)?,
           }
         }
         write!(f, ")")
@@ -168,11 +164,9 @@ impl<F: LurkField> fmt::Display for Syn<F> {
         let mut iter = xs.iter().peekable();
         write!(f, "{{")?;
         while let Some((key, val)) = iter.next() {
-          if let None = iter.peek() {
-            write!(f, "{} = {}", key, val)?;
-          }
-          else {
-            write!(f, "{} = {}, ", key, val)?;
+          match iter.peek() {
+            Some(_) => write!(f, "{} = {}, ", key, val)?,
+            None => write!(f, "{} = {}", key, val)?,
           }
         }
         write!(f, "}}")
@@ -181,11 +175,9 @@ impl<F: LurkField> fmt::Display for Syn<F> {
         let mut iter = xs.iter().peekable();
         write!(f, "[{} ", ctx)?;
         while let Some(x) = iter.next() {
-          if let None = iter.peek() {
-            write!(f, "{}", Self::U64(Pos::No, *x))?;
-          }
-          else {
-            write!(f, "{} ", Self::U64(Pos::No, *x))?;
+          match iter.peek() {
+            Some(_) => write!(f, "{} ", Self::U64(Pos::No, *x))?,
+            None => write!(f, "{}", Self::U64(Pos::No, *x))?,
           }
         }
         write!(f, "]")
@@ -232,6 +224,7 @@ pub mod test_utils {
 
   impl Syn<Fr> {
     fn arbitrary_syn(g: &mut Gen) -> Self {
+      #[allow(clippy::type_complexity)]
       let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Syn<Fr>>)> = vec![
         (100, Box::new(|g| Self::Num(Pos::No, FWrap::arbitrary(g).0))),
         (100, Box::new(|g| Self::U64(Pos::No, u64::arbitrary(g)))),
@@ -239,9 +232,9 @@ pub mod test_utils {
         (100, Box::new(|g| Self::String(Pos::No, Self::arbitrary_string(g)))),
         (50, Box::new(|g| Self::Symbol(Pos::No, Self::arbitrary_symbol(g)))),
         (50, Box::new(|g| Self::Keyword(Pos::No, Self::arbitrary_symbol(g)))),
-        (50, Box::new(|g| Self::arbitrary_list(g))),
-        (50, Box::new(|g| Self::arbitrary_map(g))),
-        (50, Box::new(|g| Self::arbitrary_link(g))),
+        (50, Box::new(Self::arbitrary_list)),
+        (50, Box::new(Self::arbitrary_map)),
+        (50, Box::new(Self::arbitrary_link)),
       ];
       frequency(g, input)
     }
