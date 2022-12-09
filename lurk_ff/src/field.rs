@@ -37,13 +37,11 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     for _ in 0..len_bytes {
       vec.push(0u8)
     }
-    let mut n = 0;
-    for b in bits {
+    for (n, b) in bits.into_iter().enumerate() {
       let (byte_i, bit_i) = (n / 8, n % 8);
       if b {
-        vec[byte_i] = vec[byte_i] | (1u8 << bit_i);
+        vec[byte_i] += 1u8 << bit_i;
       }
-      n += 1;
     }
     vec
   }
@@ -63,12 +61,12 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     let mut bs = bs.iter().rev().peekable();
     while let Some(b) = bs.next() {
       let b: Self = (*b as u64).into();
-      if let None = bs.peek() {
+      if bs.peek().is_none() {
         res.add_assign(b)
       }
       else {
         res.add_assign(b);
-        res.mul_assign(Self::from(256u64.into()));
+        res.mul_assign(Self::from(256u64));
       }
     }
     res
@@ -92,7 +90,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     let num_bytes: usize = (Self::NUM_BITS / 8 + 1) as usize;
     let mut vec_f: Vec<Self> = vec![];
     for chunk in vec.chunks(num_bytes) {
-      let f: Self = Self::from_repr_bytes(&chunk)?;
+      let f: Self = Self::from_repr_bytes(chunk)?;
       vec_f.push(f);
     }
     Some(vec_f)

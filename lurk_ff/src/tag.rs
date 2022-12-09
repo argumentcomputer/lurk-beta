@@ -10,11 +10,11 @@ pub struct Tag {
   pub kind: TagKind,    // u16
 }
 
-impl Into<u64> for Tag {
-  fn into(self) -> u64 {
-    let v: u32 = self.version.into();
-    let t: u16 = self.kind.into();
-    ((v as u64) << 32) + ((self.field as u64) << 16) + (t as u64)
+impl From<Tag> for u64 {
+  fn from(val: Tag) -> Self {
+    let v: u32 = val.version.into();
+    let t: u16 = val.kind.into();
+    ((v as u64) << 32) + ((val.field as u64) << 16) + (t as u64)
   }
 }
 
@@ -37,8 +37,8 @@ pub enum FieldKind {
   Vesta,
 }
 
-impl Into<u16> for FieldKind {
-  fn into(self) -> u16 { self as u16 }
+impl From<FieldKind> for u16 {
+  fn from(val: FieldKind) -> Self { val as u16 }
 }
 
 impl TryFrom<u16> for FieldKind {
@@ -61,11 +61,9 @@ pub struct Version {
   pub patch: u8,
 }
 
-impl Into<u32> for Version {
-  fn into(self) -> u32 {
-    ((self.major as u32) << 16)
-      + ((self.minor as u32) << 8)
-      + (self.patch as u32)
+impl From<Version> for u32 {
+  fn from(val: Version) -> Self {
+    ((val.major as u32) << 16) + ((val.minor as u32) << 8) + (val.patch as u32)
   }
 }
 
@@ -98,13 +96,13 @@ impl fmt::Display for TagKind {
   }
 }
 
-impl Into<u16> for TagKind {
-  fn into(self) -> u16 {
-    match self {
-      Self::Expr(x) => x as u16,
-      Self::Cont(x) => x as u16,
-      Self::Op1(x) => x as u16,
-      Self::Op2(x) => x as u16,
+impl From<TagKind> for u16 {
+  fn from(val: TagKind) -> Self {
+    match val {
+      TagKind::Expr(x) => x as u16,
+      TagKind::Cont(x) => x as u16,
+      TagKind::Op1(x) => x as u16,
+      TagKind::Op2(x) => x as u16,
     }
   }
 }
@@ -148,8 +146,8 @@ pub enum ExprTag {
   Link,
 }
 
-impl Into<u16> for ExprTag {
-  fn into(self) -> u16 { self as u16 }
+impl From<ExprTag> for u16 {
+  fn from(val: ExprTag) -> Self { val as u16 }
 }
 
 impl TryFrom<u16> for ExprTag {
@@ -237,8 +235,8 @@ impl fmt::Display for ContTag {
   }
 }
 
-impl Into<u16> for ContTag {
-  fn into(self) -> u16 { self as u16 }
+impl From<ContTag> for u16 {
+  fn from(val: ContTag) -> Self { val as u16 }
 }
 
 impl TryFrom<u16> for ContTag {
@@ -303,8 +301,8 @@ impl fmt::Display for Op1 {
   }
 }
 
-impl Into<u16> for Op1 {
-  fn into(self) -> u16 { self as u16 }
+impl From<Op1> for u16 {
+  fn from(val: Op1) -> Self { val as u16 }
 }
 
 impl TryFrom<u16> for Op1 {
@@ -372,8 +370,8 @@ impl fmt::Display for Op2 {
   }
 }
 
-impl Into<u16> for Op2 {
-  fn into(self) -> u16 { self as u16 }
+impl From<Op2> for u16 {
+  fn from(val: Op2) -> Self { val as u16 }
 }
 
 impl TryFrom<u16> for Op2 {
@@ -423,6 +421,7 @@ pub mod test_utils {
 
   impl Arbitrary for FieldKind {
     fn arbitrary(g: &mut Gen) -> Self {
+      #[allow(clippy::type_complexity)]
       let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Self>)> = vec![
         (100, Box::new(|_| Self::BLS12_381)),
         (100, Box::new(|_| Self::Pallas)),
@@ -434,6 +433,7 @@ pub mod test_utils {
 
   impl Arbitrary for ExprTag {
     fn arbitrary(g: &mut Gen) -> Self {
+      #[allow(clippy::type_complexity)]
       let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Self>)> = vec![
         (100, Box::new(|_| Self::Cons)),
         (100, Box::new(|_| Self::Sym)),
@@ -451,6 +451,7 @@ pub mod test_utils {
 
   impl Arbitrary for ContTag {
     fn arbitrary(g: &mut Gen) -> Self {
+      #[allow(clippy::type_complexity)]
       let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Self>)> = vec![
         (100, Box::new(|_| Self::Outermost)),
         (100, Box::new(|_| Self::Call0)),
@@ -474,6 +475,7 @@ pub mod test_utils {
   }
   impl Arbitrary for Op1 {
     fn arbitrary(g: &mut Gen) -> Self {
+      #[allow(clippy::type_complexity)]
       let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Self>)> = vec![
         (100, Box::new(|_| Self::Car)),
         (100, Box::new(|_| Self::Cdr)),
@@ -493,6 +495,7 @@ pub mod test_utils {
   }
   impl Arbitrary for Op2 {
     fn arbitrary(g: &mut Gen) -> Self {
+      #[allow(clippy::type_complexity)]
       let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Self>)> = vec![
         (100, Box::new(|_| Self::Sum)),
         (100, Box::new(|_| Self::Diff)),
@@ -516,6 +519,7 @@ pub mod test_utils {
   }
   impl Arbitrary for TagKind {
     fn arbitrary(g: &mut Gen) -> Self {
+      #[allow(clippy::type_complexity)]
       let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Self>)> = vec![
         (100, Box::new(|g| TagKind::Expr(Arbitrary::arbitrary(g)))),
         (100, Box::new(|g| TagKind::Cont(Arbitrary::arbitrary(g)))),
