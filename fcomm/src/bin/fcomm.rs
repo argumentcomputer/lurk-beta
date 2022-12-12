@@ -233,7 +233,7 @@ impl<'a> Open {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count)?;
         let prover = NovaProver::<S1>::new(rc.count());
-        let pp = public_params(rc.count());
+        let pp = cache::public_params(Some(&mut cache::PUBLIC_PARAMS_CACHE), rc.count());
         let function_map = committed_function_store();
 
         let handle_proof = |out_path, proof: Proof<'a, S1>| {
@@ -329,7 +329,7 @@ impl Prove {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count)?;
         let prover = NovaProver::<S1>::new(rc.count());
-        let pp = public_params(rc.count());
+        let pp = cache::public_params(Some(&mut cache::PUBLIC_PARAMS_CACHE), rc.count());
 
         let proof = match &self.claim {
             Some(claim) => {
@@ -362,7 +362,10 @@ impl Prove {
 impl Verify {
     fn verify(&self, cli_error: bool) -> Result<(), Error> {
         let proof = proof(Some(&self.proof))?;
-        let pp = public_params(proof.reduction_count.count());
+        let pp = cache::public_params(
+            Some(&mut cache::PUBLIC_PARAMS_CACHE),
+            proof.reduction_count.count(),
+        );
         let result = proof.verify(&pp)?;
 
         serde_json::to_writer(io::stdout(), &result)?;
@@ -496,5 +499,41 @@ fn main() -> Result<(), Error> {
         Command::Eval(e) => e.eval(cli.limit),
         Command::Prove(p) => p.prove(cli.limit),
         Command::Verify(v) => v.verify(cli.error),
+    }
+}
+
+mod cache {
+    use fcomm::ReductionCount;
+    use structopt::lazy_static::lazy_static;
+
+    type Cache = HashMap<ReductionCount, PublicParams>;
+
+    lazy_static! {
+        pub static ref PUBLIC_PARAMS_CACHE: Cache = Cache::new();
+    }
+
+    const PREFIX: &str = "LURK";
+
+    /// All cache files and directories paths should be constructed using this function,
+    /// which its base directory from the FIL_PROOFS_CACHE_DIR env var, and defaults to /var/tmp.
+    /// Note that LURK_CACHE_DIR is not a first class setting and can only be set by env var.
+    fn dir(s: &str) -> String {
+        let cache_var = format!("{}_CACHE_DIR", PREFIX);
+        let mut cache_name = env::var(cache_var).unwrap_or_else(|_| "/var/tmp/".to_string());
+        cache_name.push_str(s);
+        cache_name
+    }
+
+    pub fn public_params<'a>(
+        cache: Option<&mut Cache>,
+        num_iters_per_step: usize,
+    ) -> PublicParams<'a> {
+        if let Some(cached) = cache.and_then(|cache| cache.get(num_iters_per_step)) {
+            cached
+        } else {
+            let params = super::public_params(num_iters_per_step);
+            cached.put(num_iters_per_step, params);
+            params
+        }
     }
 }
