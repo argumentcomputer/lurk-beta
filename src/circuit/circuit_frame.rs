@@ -4665,10 +4665,11 @@ fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
         // Since it is will be in the denominator, it can't be zero
         None => BigUint::one(), // blank and dummy
     };
-    let (u64_ptr, v) = match maybe_u64.hash().get_value() {
-        Some(v) => (store.get_u64(v.to_u64_unchecked()), v),
-        None => (store.get_nil(), F::zero()),
+    let v = match maybe_u64.hash().get_value() {
+        Some(v) => v,
+        None => F::zero(),
     };
+    let u64_ptr = store.get_u64(v.to_u64_unchecked());
     let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
 
     let (q_bn, r_bn) = field_bn.div_rem(&p64_bn);
@@ -5052,8 +5053,17 @@ fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
     not_dummy: &Boolean,
     _store: &Store<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
-    let maybe_cons_is_nil =
-        maybe_cons.alloc_equal(&mut cs.namespace(|| "maybe_cons_is_nil"), &g.nil_ptr)?;
+    let maybe_cons_is_cons = alloc_equal(
+        &mut cs.namespace(|| "maybe_cons_is_cons"),
+        maybe_cons.tag(),
+        &g.cons_tag,
+    )?;
+
+    let maybe_cons_is_nil = alloc_equal(
+        &mut cs.namespace(|| "maybe_cons_is_nil"),
+        maybe_cons.tag(),
+        &g.nil_ptr.tag(),
+    )?;
 
     let cons_not_dummy = and!(cs, &maybe_cons_is_nil.not(), not_dummy)?;
 
