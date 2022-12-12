@@ -4709,10 +4709,11 @@ fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
         // Since it is will be in the denominator, it can't be zero
         None => BigUint::one(), // blank and dummy
     };
-    let (u64_ptr, v) = match maybe_u64.hash().get_value() {
-        Some(v) => (store.get_u64(v.to_u64_unchecked()), v),
-        None => (store.get_nil(), F::zero()),
+    let v = match maybe_u64.hash().get_value() {
+        Some(v) => v,
+        None => F::zero(),
     };
+    let u64_ptr = store.get_u64(v.to_u64_unchecked());
     let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
 
     let (q_bn, r_bn) = field_bn.div_rem(&p64_bn);
@@ -5078,13 +5079,61 @@ fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
     not_dummy: &Boolean,
     _store: &Store<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
-    let maybe_cons_is_nil =
-        maybe_cons.alloc_equal(&mut cs.namespace(|| "maybe_cons_is_nil"), &g.nil_ptr)?;
+    let maybe_cons_is_cons = alloc_equal(
+        &mut cs.namespace(|| "maybe_cons_is_cons"),
+        maybe_cons.tag(),
+        &g.cons_tag,
+    )?;
 
-    let cons_not_dummy = Boolean::and(
-        &mut cs.namespace(|| "cons_not_dummy"),
-        &Boolean::not(&maybe_cons_is_nil),
-        not_dummy,
+    let maybe_cons_is_str = alloc_equal(
+        &mut cs.namespace(|| "maybe_cons_is_string"),
+        maybe_cons.tag(),
+        &g.str_tag,
+    )?;
+
+    let maybe_str_is_empty = alloc_is_zero(
+        &mut cs.namespace(|| "maybe_string_is_empty"),
+        maybe_cons.hash(),
+    )?;
+
+    let maybe_cons_is_non_empty_str = Boolean::and(
+        &mut cs.namespace(|| "maybe_cons_is_non_empty_str"),
+        &maybe_cons_is_str,
+        &Boolean::not(&maybe_str_is_empty),
+    )?;
+
+    let is_cons = constraints::or(
+        &mut cs.namespace(|| "is_cons"),
+        &maybe_cons_is_cons,
+        &maybe_cons_is_non_empty_str,
+    )?;
+
+    let (car, cdr) = if let Some(ptr) = maybe_cons.ptr(store).as_ref() {
+        if maybe_cons_is_cons
+            .get_value()
+            .expect("maybe_cons_is_cons is missing")
+            || maybe_cons_is_str
+                .get_value()
+                .expect("maybe_cons_is_str is missing")
+        {
+            store.car_cdr(ptr)
+        } else {
+            (store.get_nil(), store.get_nil())
+        }
+    } else {
+        // Dummy
+        (store.get_nil(), store.get_nil())
+    };
+
+    let allocated_car = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "car"), store, || Ok(&car))?;
+    let allocated_cdr = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "cdr"), store, || Ok(&cdr))?;
+
+    let constructed_cons = AllocatedPtr::construct_cons(
+        &mut cs.namespace(|| "cons"),
+        g,
+        store,
+        &allocated_car,
+        &allocated_cdr,
     )?;
 
     let expect_dummy = !(cons_not_dummy.get_value().unwrap_or(false));
