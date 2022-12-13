@@ -554,7 +554,7 @@ mod cache {
     const PREFIX: &str = "LURK";
 
     /// All cache files and directories paths should be constructed using this function,
-    /// which its base directory from the FIL_PROOFS_CACHE_DIR env var, and defaults to /var/tmp.
+    /// which its base directory from the LURK_CACHE_DIR env var, and defaults to /var/tmp.
     /// Note that LURK_CACHE_DIR is not a first class setting and can only be set by env var.
     pub fn dir(s: &str) -> String {
         let cache_var = format!("{}_CACHE_DIR", PREFIX);
