@@ -545,8 +545,8 @@ mod cache {
         }
 
         pub fn write(&mut self) -> Result<(), Error> {
-            let db = serde_json::to_string(&self.data)?;
             std::fs::create_dir_all(self.persistence.as_path().parent().unwrap())?;
+            let db = serde_json::to_string(&self.data)?;
             std::fs::write(self.persistence.clone(), db)?;
             Ok(())
         }
