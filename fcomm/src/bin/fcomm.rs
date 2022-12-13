@@ -226,7 +226,7 @@ impl<'a> Open {
         limit: usize,
         eval_input: bool,
         quote_input: bool,
-        cache: Box<cache::PublicParams>,
+        cache: &'static mut cache::PublicParams,
     ) -> Result<(), Error> {
         assert!(
             !(self.commitment.is_some() && self.function.is_some()),
@@ -241,7 +241,7 @@ impl<'a> Open {
 
         let handle_proof = |out_path, proof: Proof<'a, S1>| {
             proof.write_to_path(out_path);
-            proof.verify(&pp).expect("created opening doesn't verify");
+            proof.verify(pp).expect("created opening doesn't verify");
         };
 
         let handle_claim = |claim: Claim<S1>| serde_json::to_writer(io::stdout(), &claim);
@@ -328,7 +328,7 @@ impl Eval {
 }
 
 impl Prove {
-    fn prove(&self, limit: usize, cache: Box<cache::PublicParams>) -> Result<(), Error> {
+    fn prove(&self, limit: usize, cache: &'static mut cache::PublicParams) -> Result<(), Error> {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count)?;
         let prover = NovaProver::<S1>::new(rc.count());
@@ -340,7 +340,7 @@ impl Prove {
                     self.expression.is_none(),
                     "claim and expression must not both be supplied"
                 );
-                Proof::prove_claim(s, Claim::read_from_path(claim)?, limit, false, &prover, &pp)?
+                Proof::prove_claim(s, Claim::read_from_path(claim)?, limit, false, &prover, pp)?
             }
 
             None => {
@@ -363,10 +363,14 @@ impl Prove {
 }
 
 impl Verify {
-    fn verify(&self, cli_error: bool, cache: Box<cache::PublicParams>) -> Result<(), Error> {
+    fn verify(
+        &self,
+        cli_error: bool,
+        cache: &'static mut cache::PublicParams,
+    ) -> Result<(), Error> {
         let proof = proof(Some(&self.proof))?;
         let pp = cache::public_params(cache, proof.reduction_count.count());
-        let result = proof.verify(&pp)?;
+        let result = proof.verify(pp)?;
 
         serde_json::to_writer(io::stdout(), &result)?;
 
@@ -493,10 +497,14 @@ fn main() -> Result<(), Error> {
         .filter_level(cli.verbose.log_level_filter())
         .init();
 
-    let cache = Box::new(cache::PublicParams {
+    // cache lives as long as the process
+    let cache = Box::leak(Box::new(cache::PublicParams {
         persistence: Path::new(&cache::dir("lurk")).join("pubparams"),
         data: HashMap::<usize, PublicParams>::new(),
-    });
+    }));
+
+    cache.read().ok();
+
     match &cli.command {
         Command::Commit(c) => c.commit(cli.limit),
         Command::Open(o) => o.open(o.chain, cli.limit, cli.eval_input, o.quote_input, cache),
@@ -507,19 +515,43 @@ fn main() -> Result<(), Error> {
 }
 
 mod cache {
+    use fcomm::error::Error;
     use lurk::proof::nova;
     use std::boxed::Box;
     use std::collections::HashMap;
     use std::env;
+    use std::hash::Hash;
     use std::path::PathBuf;
 
-    pub struct Cache<K, V> {
+    pub struct Cache<
+        K: Eq + Hash + serde::Serialize + serde::de::DeserializeOwned,
+        V: serde::Serialize + serde::de::DeserializeOwned,
+    > {
         pub data: HashMap<K, V>,
         pub persistence: PathBuf,
     }
 
     pub type PublicParams<'a> = Cache<usize, nova::PublicParams<'a>>;
 
+    impl<
+            'a,
+            K: Eq + Hash + serde::Serialize + serde::de::DeserializeOwned,
+            V: serde::Serialize + serde::de::DeserializeOwned,
+        > Cache<K, V>
+    {
+        pub fn read(&mut self) -> Result<(), Error> {
+            let serialization = std::fs::read(self.persistence.clone())?;
+            self.data = serde_json::from_slice(serialization.as_slice())?;
+            Ok(())
+        }
+
+        pub fn write(&mut self) -> Result<(), Error> {
+            let db = serde_json::to_string(&self.data)?;
+            std::fs::create_dir_all(self.persistence.as_path().parent().unwrap())?;
+            std::fs::write(self.persistence.clone(), db)?;
+            Ok(())
+        }
+    }
     const PREFIX: &str = "LURK";
 
     /// All cache files and directories paths should be constructed using this function,
@@ -533,19 +565,19 @@ mod cache {
     }
 
     pub fn public_params<'a>(
-        cache: Box<PublicParams>,
+        cache: &'static mut PublicParams,
         num_iters_per_step: usize,
-    ) -> super::PublicParams<'a> {
-        if let Some(cached) = cache.data.get(&num_iters_per_step) {
-            cached.clone()
-        } else {
-            let params = super::public_params(num_iters_per_step);
-            cache.data.insert(num_iters_per_step, params);
-            if let Ok(db) = serde_json::to_string(&cache.data) {
-                std::fs::write(cache.persistence, db);
-            }
+    ) -> &'static super::PublicParams<'static> {
+        let mut modified = false;
 
-            params
+        cache.data.entry(num_iters_per_step).or_insert_with(|| {
+            modified = true;
+            super::public_params(num_iters_per_step)
+        });
+
+        if modified {
+            cache.write().ok();
         }
+        Box::leak(Box::new(cache.data.get(&num_iters_per_step).unwrap()))
     }
 }
