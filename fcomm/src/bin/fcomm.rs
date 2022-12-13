@@ -251,7 +251,7 @@ impl<'a> Open {
             let request = opening_request(request_path).expect("failed to read opening request");
 
             if let Some(out_path) = &self.proof {
-                let proof = Opening::open_and_prove(s, request, limit, false, &prover, &pp)?;
+                let proof = Opening::open_and_prove(s, request, limit, false, &prover, pp)?;
 
                 handle_proof(out_path, proof);
             } else {
@@ -290,9 +290,8 @@ impl<'a> Open {
             let input = input(s, &input_path, eval_input, limit, quote_input)?;
 
             if let Some(out_path) = &self.proof {
-                let proof = Opening::apply_and_prove(
-                    s, input, function, limit, chain, false, &prover, &pp,
-                )?;
+                let proof =
+                    Opening::apply_and_prove(s, input, function, limit, chain, false, &prover, pp)?;
 
                 handle_proof(out_path, proof);
             } else {
@@ -350,13 +349,13 @@ impl Prove {
                     self.lurk,
                 )?;
 
-                Proof::eval_and_prove(s, expr, limit, false, &prover, &pp)?
+                Proof::eval_and_prove(s, expr, limit, false, &prover, pp)?
             }
         };
 
         // Write first, so prover can debug if proof doesn't verify (it should).
         proof.write_to_path(&self.proof);
-        proof.verify(&pp).expect("created proof doesn't verify");
+        proof.verify(pp).expect("created proof doesn't verify");
 
         Ok(())
     }
@@ -564,7 +563,7 @@ mod cache {
         cache_name
     }
 
-    pub fn public_params<'a>(
+    pub fn public_params(
         cache: &'static mut PublicParams,
         num_iters_per_step: usize,
     ) -> &'static super::PublicParams<'static> {
