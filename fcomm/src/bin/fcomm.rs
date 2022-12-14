@@ -498,7 +498,7 @@ fn main() -> Result<(), Error> {
 
     // cache lives as long as the process
     let cache = Box::leak(Box::new(cache::PublicParams {
-        persistence: Path::new(&cache::dir("lurk")).join("pubparams"),
+        file_store: Path::new(&cache::dir("lurk")).join("pubparams.json"),
         data: HashMap::<usize, PublicParams>::new(),
     }));
 
@@ -527,7 +527,7 @@ mod cache {
         V: serde::Serialize + serde::de::DeserializeOwned,
     > {
         pub data: HashMap<K, V>,
-        pub persistence: PathBuf,
+        pub file_store: PathBuf,
     }
 
     pub type PublicParams<'a> = Cache<usize, nova::PublicParams<'a>>;
@@ -539,15 +539,15 @@ mod cache {
         > Cache<K, V>
     {
         pub fn read(&mut self) -> Result<(), Error> {
-            let serialization = std::fs::read(self.persistence.clone())?;
+            let serialization = std::fs::read(self.file_store.clone())?;
             self.data = serde_json::from_slice(serialization.as_slice())?;
             Ok(())
         }
 
         pub fn write(&mut self) -> Result<(), Error> {
-            std::fs::create_dir_all(self.persistence.as_path().parent().unwrap())?;
+            std::fs::create_dir_all(self.file_store.as_path().parent().unwrap())?;
             let db = serde_json::to_string(&self.data)?;
-            std::fs::write(self.persistence.clone(), db)?;
+            std::fs::write(self.file_store.clone(), db)?;
             Ok(())
         }
     }
