@@ -286,7 +286,6 @@ fn test_create_open_and_verify_chained_functional_commitment() {
 
 #[test]
 #[ignore]
-#[allow(dead_code)]
 fn test_create_open_and_verify_complicated_higher_order_functional_commitment1() {
     let function_source = "(let ((nums '(1 2 3 4 5))) (lambda (f) (f nums)))";
     let function_input = "(letrec ((sum-aux (lambda (acc nums)

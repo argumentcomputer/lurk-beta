@@ -15,6 +15,7 @@ extern crate quickcheck_macros;
 pub mod circuit;
 pub mod eval;
 pub mod field;
+pub mod hash_witness;
 pub mod package;
 pub mod parser;
 pub mod proof;

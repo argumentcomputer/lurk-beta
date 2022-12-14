@@ -13,13 +13,14 @@ use crate::{
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
     field::LurkField,
+    hash_witness::ConsName,
     store::{HashScalar, ScalarPointer},
 };
 
 use super::gadgets::constraints::{
     self, alloc_equal, alloc_is_zero, boolean_to_num, enforce_implication, or, pick,
 };
-use crate::circuit::ToInputs;
+use crate::circuit::{gadgets::hashes::AllocatedHashWitness, ToInputs};
 use crate::eval::{Frame, Witness, IO};
 use crate::proof::Provable;
 use crate::store::{ContPtr, ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
@@ -195,13 +196,24 @@ impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
         g: &GlobalAllocations<F>,
     ) -> Result<AllocatedIO<F>, SynthesisError> {
         let (input_expr, input_env, input_cont) = inputs;
+
         let mut reduce = |store| {
+            let hash_witness = match self.witness.map(|x| x.hashes) {
+                Some(hw) => hw,
+                None => Default::default(),
+            };
+            let allocated_hash_witness = AllocatedHashWitness::from_hash_witness(
+                &mut cs.namespace(|| format!("allocated_hash_witness {}", i)),
+                store,
+                &hash_witness,
+            )?;
             reduce_expression(
                 &mut cs.namespace(|| format!("reduce expression {}", i)),
                 &input_expr,
                 &input_env,
                 &input_cont,
                 &self.witness,
+                &allocated_hash_witness,
                 store,
                 g,
             )
@@ -570,6 +582,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     env: &AllocatedPtr<F>,
     cont: &AllocatedContPtr<F>,
     witness: &Option<Witness<F>>,
+    allocated_hash_witness: &AllocatedHashWitness<F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
@@ -595,18 +608,24 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         cont.tag(),
         g.terminal_ptr.tag(),
     )?;
+    let cont_is_error = alloc_equal(
+        &mut cs.namespace(|| "cont_is_error"),
+        cont.tag(),
+        g.error_ptr.tag(),
+    )?;
+
+    // Enforce (expr.tag == thunk_tag) implies (expr_thunk_hash == expr.hash).
+    let expr_is_a_thunk = constraints::alloc_equal(
+        &mut cs.namespace(|| "expr.tag == thunk_tag"),
+        expr.tag(),
+        &g.thunk_tag,
+    )?;
 
     // If expr is a thunk, this will allocate its components and hash, etc.
     // If not, these will be dummies.
     let (expr_thunk_hash, expr_thunk_value, expr_thunk_continuation) =
         expr.allocate_thunk_components(&mut cs.namespace(|| "allocate thunk components"), store)?;
     {
-        // Enforce (expr.tag == thunk_tag) implies (expr_thunk_hash == expr.hash).
-        let expr_is_a_thunk = constraints::alloc_equal(
-            &mut cs.namespace(|| "expr.tag == thunk_tag"),
-            expr.tag(),
-            &g.thunk_tag,
-        )?;
         let expr_is_the_thunk = constraints::alloc_equal(
             &mut cs.namespace(|| "expr_thunk_hash == expr.hash"),
             &expr_thunk_hash,
@@ -635,6 +654,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         &g.sym_tag,
     )?;
     let cont_is_not_terminal = Boolean::not(&cont_is_terminal);
+    let cont_is_not_error = Boolean::not(&cont_is_error);
     let reduce_sym_not_dummy = and!(cs, &reduce_sym_not_dummy, &cont_is_not_terminal)?;
 
     let (sym_result, sym_env, sym_cont, sym_apply_cont) = reduce_sym(
@@ -644,6 +664,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         cont,
         &reduce_sym_not_dummy,
         witness,
+        allocated_hash_witness,
         store,
         g,
     )?;
@@ -652,11 +673,13 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     // --
 
     // --
-    let reduce_cons_not_dummy = alloc_equal(
-        &mut cs.namespace(|| "reduce_cons_not_dummy"),
+    let expr_is_cons = alloc_equal(
+        &mut cs.namespace(|| "reduce_cons_not_dummy0"),
         expr.tag(),
         &g.cons_tag,
     )?;
+
+    let reduce_cons_not_dummy = and!(cs, &expr_is_cons, &cont_is_not_error, &cont_is_not_terminal)?;
 
     let (cons_result, cons_env, cons_cont, cons_apply_cont) = reduce_cons(
         &mut cs.namespace(|| "eval Cons"),
@@ -665,6 +688,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         cont,
         &reduce_cons_not_dummy,
         witness,
+        allocated_hash_witness,
         store,
         g,
     )?;
@@ -736,6 +760,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         &first_result_env,
         &apply_continuation_boolean,
         witness,
+        allocated_hash_witness,
         store,
         g,
     )?;
@@ -849,6 +874,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     cont: &AllocatedContPtr<F>,
     not_dummy: &Boolean,
     witness: &Option<Witness<F>>,
+    allocated_hash_witness: &AllocatedHashWitness<F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<
@@ -886,8 +912,16 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     let sym_is_self_evaluating = or!(cs, &sym_is_nil, &sym_is_t)?;
     let sym_otherwise = Boolean::not(&sym_is_self_evaluating);
 
-    let (binding, smaller_env) =
-        car_cdr(&mut cs.namespace(|| "If unevaled_args cons"), g, env, store)?;
+    let env_not_dummy = and!(cs, &sym_otherwise, not_dummy)?;
+    let (binding, smaller_env) = car_cdr_named(
+        &mut cs.namespace(|| "If unevaled_args cons"),
+        g,
+        env,
+        ConsName::Env,
+        allocated_hash_witness,
+        &env_not_dummy,
+        store,
+    )?;
 
     let env_is_nil = env.alloc_equal(&mut cs.namespace(|| "env is nil"), &g.nil_ptr)?;
     let env_not_nil = Boolean::not(&env_is_nil);
@@ -901,11 +935,24 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     let binding_is_nil = binding.alloc_equal(&mut cs.namespace(|| "binding is nil"), &g.nil_ptr)?;
     let binding_not_nil = Boolean::not(&binding_is_nil);
 
+    let binding_is_cons = alloc_equal(
+        &mut cs.namespace(|| "binding_is_cons"),
+        binding.tag(),
+        &g.cons_tag,
+    )?;
     let otherwise_and_binding_is_nil = and!(cs, &otherwise, &binding_is_nil)?;
     let otherwise_and_binding_not_nil = and!(cs, &otherwise, &binding_not_nil)?;
 
-    let (var_or_rec_binding, val_or_more_rec_env) =
-        car_cdr(&mut cs.namespace(|| "car_cdr binding"), g, &binding, store)?;
+    let env_car_not_dummy = and!(cs, &otherwise, &binding_is_cons, not_dummy)?;
+    let (var_or_rec_binding, val_or_more_rec_env) = car_cdr_named(
+        &mut cs.namespace(|| "car_cdr binding"),
+        g,
+        &binding,
+        ConsName::EnvCar,
+        allocated_hash_witness,
+        &env_car_not_dummy,
+        store,
+    )?;
 
     let var_or_rec_binding_is_sym_ = alloc_equal(
         &mut cs.namespace(|| "var_or_rec_binding_is_sym_"),
@@ -938,10 +985,14 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         &var_or_rec_binding_is_cons
     )?;
 
-    let (v2, val2) = car_cdr(
+    let envcaar_not_dummy = and!(cs, &otherwise_and_cons, not_dummy)?;
+    let (v2, val2) = car_cdr_named(
         &mut cs.namespace(|| "car_cdr var_or_rec_binding"),
         g,
         &var_or_rec_binding,
+        ConsName::EnvCaar,
+        allocated_hash_witness,
+        &envcaar_not_dummy,
         store,
     )?;
 
@@ -1003,15 +1054,19 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     let (_fun_hash, fun_arg, fun_body, fun_closed_env) = Ptr::allocate_maybe_fun(
         &mut cs.namespace(|| "extend closure"),
         store,
-        witness.as_ref().and_then(|w| w.extended_closure.as_ref()),
+        witness.as_ref().and_then(|w| w.closure_to_extend.as_ref()),
     )?;
 
-    let extended_env = AllocatedPtr::construct_cons(
+    let extended_env_not_dummy0 = and!(cs, &val2_is_fun, not_dummy)?;
+    let extended_env_not_dummy = and!(cs, &extended_env_not_dummy0, &v2_is_expr_real)?;
+    let extended_env = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "extended_env"),
         g,
-        store,
         &rec_env,
         &fun_closed_env,
+        ConsName::ExtendedClosureEnv,
+        allocated_hash_witness,
+        &extended_env_not_dummy,
     )?;
 
     let extended_fun = AllocatedPtr::construct_fun(
@@ -1033,13 +1088,20 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     let smaller_rec_env = val_or_more_rec_env;
     let smaller_rec_env_is_nil =
         smaller_rec_env.alloc_equal(&mut cs.namespace(|| "smaller_rec_env_is_nil"), &g.nil_ptr)?;
+    let smaller_rec_env_not_nil = Boolean::not(&smaller_rec_env_is_nil);
 
-    let with_smaller_rec_env = AllocatedPtr::construct_cons(
+    let smaller_rec_env_not_dummy0 = and!(cs, &smaller_rec_env_not_nil, not_dummy)?;
+    let smaller_rec_env_not_dummy =
+        and!(cs, &smaller_rec_env_not_dummy0, &otherwise_and_v2_not_expr)?;
+
+    let with_smaller_rec_env = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "with_smaller_rec_env"),
         g,
-        store,
         &smaller_rec_env,
         &smaller_env,
+        ConsName::EnvToUse,
+        allocated_hash_witness,
+        &smaller_rec_env_not_dummy,
     )?;
 
     let env_to_use = ifx_t!(
@@ -1175,8 +1237,9 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     expr: &AllocatedPtr<F>,
     env: &AllocatedPtr<F>,
     cont: &AllocatedContPtr<F>,
-    _not_dummy: &Boolean,
+    not_dummy: &Boolean,
     _witness: &Option<Witness<F>>,
+    allocated_hash_witness: &AllocatedHashWitness<F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<
@@ -1190,8 +1253,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 > {
     let mut hash_default_results = HashInputResults::<'_, F>::default();
 
-    let lambda = g.lambda_ptr.clone();
-
     let hash_sym = |name: &str| {
         store
             .get_lurk_sym(name, true)
@@ -1202,10 +1263,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let lambda_hash = hash_sym("lambda");
     let quote_hash = hash_sym("quote");
     let let_sym = hash_sym("let");
-    let let_t = AllocatedPtr::alloc_constant(&mut cs.namespace(|| "let"), let_sym)?;
     let let_hash = let_sym.value();
     let letrec = hash_sym("letrec");
-    let letrec_t = AllocatedPtr::alloc_constant(&mut cs.namespace(|| "letrec"), letrec)?;
     let letrec_hash = letrec.value();
     let cons_hash = hash_sym("cons");
     let strcons_hash = hash_sym("strcons");
@@ -1235,15 +1294,144 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let open_hash = hash_sym("open");
     let secret_hash = hash_sym("secret");
 
-    let (head, rest) = car_cdr(&mut cs.namespace(|| "reduce_cons expr"), g, expr, store)?;
+    let (head, rest) = car_cdr_named(
+        &mut cs.namespace(|| "reduce_cons expr"),
+        g,
+        expr,
+        ConsName::Expr,
+        allocated_hash_witness,
+        not_dummy,
+        store,
+    )?;
+
+    macro_rules! def_head_sym {
+        ($var:ident, $field:ident) => {
+            let $var = head.alloc_equal(&mut cs.namespace(|| stringify!($var)), &g.$field)?;
+        };
+    }
+
+    // TODO: This currently incurs a lot of extra constraints:
+    // - global constant allocation for each symbol
+    // - the boolean equality allocation for each symbol checked against head
+    // - one constraint for each member of the or!
+    //
+    // Possible optimizations:
+    // - The variadic or! (and and!) can be optimized to a single constraint.
+    // - We can optimize the alloc_equals to use the constant sym.
+    // - We only need to check the tag once, so can just check value/hash equality.
+    def_head_sym!(head_is_lambda, lambda_sym);
+    def_head_sym!(head_is_let, let_sym);
+    def_head_sym!(head_is_letrec, letrec_sym);
+    def_head_sym!(head_is_eval, eval_sym);
+    def_head_sym!(head_is_quote, quote_sym);
+
+    def_head_sym!(head_is_cons, cons_sym);
+    def_head_sym!(head_is_strcons, strcons_sym);
+    def_head_sym!(head_is_hide, hide_sym);
+    def_head_sym!(head_is_commit, commit_sym);
+    def_head_sym!(head_is_open, open_sym);
+    def_head_sym!(head_is_secret, secret_sym);
+    def_head_sym!(head_is_num, num_sym);
+    def_head_sym!(head_is_comm, comm_sym);
+    def_head_sym!(head_is_char, char_sym);
+    def_head_sym!(head_is_begin, begin_sym);
+    def_head_sym!(head_is_car, car_sym);
+    def_head_sym!(head_is_cdr, cdr_sym);
+    def_head_sym!(head_is_atom, atom_sym);
+    def_head_sym!(head_is_emit, emit_sym);
+    def_head_sym!(head_is_plus, plus_sym);
+    def_head_sym!(head_is_minus, minus_sym);
+    def_head_sym!(head_is_times, times_sym);
+    def_head_sym!(head_is_div, div_sym);
+    def_head_sym!(head_is_equal, equal_sym);
+    def_head_sym!(head_is_eq, eq_sym);
+    def_head_sym!(head_is_less, less_sym);
+    def_head_sym!(head_is_less_equal, less_equal_sym);
+    def_head_sym!(head_is_greater, greater_sym);
+    def_head_sym!(head_is_greater_equal, greater_equal_sym);
+    def_head_sym!(head_is_if, if_sym);
+    def_head_sym!(head_is_current_env, current_env_sym);
+
+    let head_is_any = or!(
+        cs,
+        &head_is_lambda,
+        &head_is_let,
+        &head_is_letrec,
+        &head_is_eval,
+        &head_is_quote,
+        &head_is_cons,
+        &head_is_strcons,
+        &head_is_hide,
+        &head_is_commit,
+        &head_is_open,
+        &head_is_secret,
+        &head_is_num,
+        &head_is_comm,
+        &head_is_char,
+        &head_is_begin,
+        &head_is_car,
+        &head_is_cdr,
+        &head_is_atom,
+        &head_is_emit,
+        &head_is_plus,
+        &head_is_minus,
+        &head_is_times,
+        &head_is_div,
+        &head_is_equal,
+        &head_is_eq,
+        &head_is_less,
+        &head_is_less_equal,
+        &head_is_greater,
+        &head_is_greater_equal,
+        &head_is_if,
+        &head_is_current_env
+    )?;
 
     let rest_is_nil = rest.alloc_equal(&mut cs.namespace(|| "rest_is_nil"), &g.nil_ptr)?;
 
-    // let not_dummy = alloc_equal(&mut cs.namespace(|| "rest is cons"), &rest.tag, &g.cons_tag)?;
+    let expr_cdr_not_dummy = and!(
+        cs,
+        not_dummy,
+        &Boolean::not(&rest_is_nil),
+        &head_is_any,
+        &Boolean::not(&head_is_current_env) // current-env is unary.
+    )?;
 
-    let (arg1, more) = car_cdr(&mut cs.namespace(|| "car_cdr(rest)"), g, &rest, store)?;
+    let (arg1, more) = car_cdr_named(
+        &mut cs.namespace(|| "car_cdr(rest)"),
+        g,
+        &rest,
+        ConsName::ExprCdr,
+        allocated_hash_witness,
+        &expr_cdr_not_dummy,
+        store,
+    )?;
 
-    let (car_args, cdr_args) = car_cdr(&mut cs.namespace(|| "car_cdr(arg1)"), g, &arg1, store)?;
+    let arg1_is_cons = alloc_equal(
+        &mut cs.namespace(|| "arg1_is_cons"),
+        arg1.tag(),
+        &g.cons_tag,
+    )?;
+    let arg1_is_str = alloc_equal(&mut cs.namespace(|| "arg1_is_str"), arg1.tag(), &g.str_tag)?;
+
+    let arg1_is_nil = arg1.alloc_equal(&mut cs.namespace(|| "arg1_is_nil"), &g.nil_ptr)?;
+    let expr_cadr_not_dummy0 = or!(cs, &arg1_is_cons, &arg1_is_nil, &arg1_is_str)?;
+    let expr_cadr_not_dummy = and!(
+        cs,
+        &expr_cdr_not_dummy,
+        &expr_cadr_not_dummy0,
+        &head_is_lambda
+    )?;
+
+    let (car_args, cdr_args) = car_cdr_named(
+        &mut cs.namespace(|| "car_cdr(arg1)"),
+        g,
+        &arg1,
+        ConsName::ExprCadr,
+        allocated_hash_witness,
+        &expr_cadr_not_dummy,
+        store,
+    )?;
 
     let end_is_nil = more.alloc_equal(&mut cs.namespace(|| "end_is_nil"), &g.nil_ptr)?;
 
@@ -1252,8 +1440,17 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // --
     let function = {
         // head == LAMBDA
+        // body == more == (cdr expr)
         let (args, body) = (arg1.clone(), more.clone());
         let args_is_nil = args.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
+
+        let cdr_args_is_nil =
+            cdr_args.alloc_equal(&mut cs.namespace(|| "cdr_args_is_nil"), &g.nil_ptr)?;
+
+        let cdr_args_not_nil = Boolean::not(&cdr_args_is_nil);
+
+        let lambda_not_dummy0 = and!(cs, &head_is_lambda, not_dummy)?;
+        let lambda_not_dummy = and!(cs, &lambda_not_dummy0, &cdr_args_not_nil)?;
 
         let arg = AllocatedPtr::pick(
             &mut cs.namespace(|| "maybe dummy arg"),
@@ -1262,18 +1459,35 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &car_args,
         )?;
 
-        let inner = AllocatedPtr::construct_cons(
+        let inner = AllocatedPtr::construct_cons_named(
             &mut cs.namespace(|| "inner"),
             g,
-            store,
             &cdr_args,
             &body,
+            ConsName::InnerLambda,
+            allocated_hash_witness,
+            &lambda_not_dummy,
         )?;
-        let l = AllocatedPtr::construct_cons(&mut cs.namespace(|| "l"), g, store, &lambda, &inner)?;
-        let cdr_args_is_nil =
-            cdr_args.alloc_equal(&mut cs.namespace(|| "cdr_args_is_nil"), &g.nil_ptr)?;
 
-        let list = AllocatedPtr::construct_list(&mut cs.namespace(|| "list"), g, store, &[&l])?;
+        let l = AllocatedPtr::construct_cons_named(
+            &mut cs.namespace(|| "l"),
+            g,
+            &g.lambda_sym,
+            &inner,
+            ConsName::Lambda,
+            allocated_hash_witness,
+            &lambda_not_dummy,
+        )?;
+
+        let list = AllocatedPtr::construct_cons_named(
+            &mut cs.namespace(|| "list"),
+            g,
+            &l,
+            &g.nil_ptr,
+            ConsName::InnerBody,
+            allocated_hash_witness,
+            &lambda_not_dummy,
+        )?;
         let inner_body = AllocatedPtr::pick(
             &mut cs.namespace(|| "inner_body"),
             &cdr_args_is_nil,
@@ -1334,101 +1548,144 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         // head == LET
         // or head == LETREC
 
-        let mut cs_let_letrec = cs.namespace(|| "LET_LETREC");
+        let mut cs = cs.namespace(|| "LET_LETREC");
+
+        let head_is_let_or_letrec = constraints::or(
+            &mut cs.namespace(|| "head_is_let_or_letrec"),
+            &head_is_let,
+            &head_is_letrec,
+        )?;
+
+        let let_letrec_not_dummy = Boolean::and(
+            &mut cs.namespace(|| "let_letrec_not_dummy"),
+            not_dummy,
+            &head_is_let_or_letrec,
+        )?;
 
         let (bindings, body) = (arg1.clone(), more.clone());
-        let (body1, rest_body) = car_cdr(
-            &mut cs_let_letrec.namespace(|| "car_cdr body"),
+        let (body1, rest_body) = car_cdr_named(
+            &mut cs.namespace(|| "car_cdr body"),
             g,
             &body,
+            ConsName::ExprCddr,
+            allocated_hash_witness,
+            &let_letrec_not_dummy,
             store,
         )?;
+        let bindings_is_nil =
+            bindings.alloc_equal(&mut cs.namespace(|| "bindings_is_nil"), &g.nil_ptr)?;
+        let bindings_not_nil = Boolean::not(&bindings_is_nil);
+
+        let bindings_is_cons = alloc_equal(
+            &mut cs.namespace(|| "bindings_is_cons"),
+            bindings.tag(),
+            &g.cons_tag,
+        )?;
+
+        let body_is_nil = body.alloc_equal(&mut cs.namespace(|| "body_is_nil"), &g.nil_ptr)?;
+        let body_not_nil = Boolean::not(&body_is_nil);
+
+        let rest_body_is_nil =
+            rest_body.alloc_equal(&mut cs.namespace(|| "rest_body_is_nil"), &g.nil_ptr)?;
+
+        let expr_caadr_not_dummy = and!(
+            cs,
+            &rest_body_is_nil,
+            &body_not_nil,
+            &bindings_is_cons,
+            &bindings_not_nil,
+            &let_letrec_not_dummy
+        )?;
+
         let (binding1, rest_bindings) = (car_args, cdr_args);
-        let (var_let_letrec, vals) = car_cdr(
-            &mut cs_let_letrec.namespace(|| "car_cdr binding1"),
+
+        let (var_let_letrec, vals) = car_cdr_named(
+            &mut cs.namespace(|| "car_cdr binding1"),
             g,
             &binding1,
+            ConsName::ExprCaadr,
+            allocated_hash_witness,
+            &expr_caadr_not_dummy,
             store,
         )?;
-        let bindings_is_nil = bindings.alloc_equal(
-            &mut cs_let_letrec.namespace(|| "bindings_is_nil"),
-            &g.nil_ptr,
-        )?;
 
-        let rest_body_is_nil = rest_body.alloc_equal(
-            &mut cs_let_letrec.namespace(|| "rest_body_is_nil"),
-            &g.nil_ptr,
-        )?;
-
-        let (val, end) = car_cdr(
-            &mut cs_let_letrec.namespace(|| "car_cdr vals"),
+        let (val, end) = car_cdr_named(
+            &mut cs.namespace(|| "car_cdr vals"),
             g,
             &vals,
+            ConsName::ExprCaaadr,
+            allocated_hash_witness,
+            &expr_caadr_not_dummy,
             store,
         )?;
 
-        let end_is_nil =
-            end.alloc_equal(&mut cs_let_letrec.namespace(|| "end_is_nil"), &g.nil_ptr)?;
-
-        let body_is_nil =
-            body.alloc_equal(&mut cs_let_letrec.namespace(|| "body_is_nil"), &g.nil_ptr)?;
+        let end_is_nil = end.alloc_equal(&mut cs.namespace(|| "end_is_nil"), &g.nil_ptr)?;
 
         /*
          * We get the condition for error by using OR of each individual error.
          */
         let mut cond_error = constraints::or(
-            &mut cs_let_letrec.namespace(|| "cond error1"),
+            &mut cs.namespace(|| "cond error1"),
             &Boolean::not(&rest_body_is_nil),
             &Boolean::not(&end_is_nil),
         )?;
+
         cond_error = constraints::or(
-            &mut cs_let_letrec.namespace(|| "cond error2"),
+            &mut cs.namespace(|| "cond error2"),
             &body_is_nil,
             &cond_error,
         )?;
 
-        let expanded1 = AllocatedPtr::construct_list(
-            &mut cs_let_letrec.namespace(|| "expanded1"),
-            g,
-            store,
-            &[&let_t, &rest_bindings, &body1],
+        let rest_bindings_is_nil =
+            rest_bindings.alloc_equal(&mut cs.namespace(|| "rest_bindings_is_nil"), &g.nil_ptr)?;
+
+        let expanded_inner_not_dummy0 =
+            and!(cs, &Boolean::not(&rest_bindings_is_nil), &end_is_nil)?;
+
+        let expanded_inner_not_dummy = and!(
+            cs,
+            &expanded_inner_not_dummy0,
+            &let_letrec_not_dummy,
+            &Boolean::not(&body_is_nil),
+            &rest_body_is_nil
         )?;
 
-        let rest_bindings_is_nil = rest_bindings.alloc_equal(
-            &mut cs_let_letrec.namespace(|| "rest_bindings_is_nil"),
-            &g.nil_ptr,
+        let expanded0 = AllocatedPtr::construct_cons_named(
+            &mut cs.namespace(|| "expanded0"),
+            g,
+            &rest_bindings,
+            &body,
+            ConsName::ExpandedInner,
+            allocated_hash_witness,
+            &expanded_inner_not_dummy,
+        )?;
+
+        let expanded1 = AllocatedPtr::construct_cons_named(
+            &mut cs.namespace(|| "expanded1"),
+            g,
+            &head,
+            &expanded0,
+            ConsName::Expanded,
+            allocated_hash_witness,
+            &expanded_inner_not_dummy,
         )?;
 
         let expanded = AllocatedPtr::pick(
-            &mut cs_let_letrec.namespace(|| "expanded"),
+            &mut cs.namespace(|| "expanded"),
             &rest_bindings_is_nil,
             &body1,
             &expanded1,
         )?;
 
-        let expanded2 = AllocatedPtr::construct_list(
-            &mut cs_let_letrec.namespace(|| "expanded2"),
-            g,
-            store,
-            &[&letrec_t, &rest_bindings, &body1],
-        )?;
-
-        let expanded_ = AllocatedPtr::pick(
-            &mut cs_let_letrec.namespace(|| "expanded_"),
-            &rest_bindings_is_nil,
-            &body1,
-            &expanded2,
-        )?;
-
         let output_expr = AllocatedPtr::pick(
-            &mut cs_let_letrec.namespace(|| "pick body1 or val"),
+            &mut cs.namespace(|| "pick body1 or val"),
             &bindings_is_nil,
             &body1,
             &val,
         )?;
 
         let the_expr = AllocatedPtr::pick(
-            &mut cs_let_letrec.namespace(|| "the_expr_let"),
+            &mut cs.namespace(|| "the_expr_let"),
             &cond_error,
             expr,
             &output_expr,
@@ -1437,8 +1694,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         (
             the_expr,
             var_let_letrec,
+            expanded.clone(),
             expanded,
-            expanded_,
             bindings_is_nil,
             cond_error,
         )
@@ -2232,28 +2489,51 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let (res, continuation) = {
         let fun_form = &head;
 
-        let expanded_inner = AllocatedPtr::construct_list(
-            &mut cs.namespace(|| "expanded_inner"),
-            g,
-            store,
-            &[fun_form, &arg1],
-        )?;
-
-        let expanded = AllocatedPtr::construct_cons(
-            &mut cs.namespace(|| "expanded"),
-            g,
-            store,
-            &expanded_inner,
-            &more,
-        )?;
-
-        let arg1_is_nil = arg1.alloc_equal(&mut cs.namespace(|| "arg1_is_nil"), &g.nil_ptr)?;
         let more_args_is_nil =
             more.alloc_equal(&mut cs.namespace(|| "more_args_is_nil"), &g.nil_ptr)?;
         let args_is_nil_or_more_is_nil = constraints::or(
             &mut cs.namespace(|| "args is nil or more is nil"),
-            &arg1_is_nil,
+            &rest_is_nil,
             &more_args_is_nil,
+        )?;
+
+        // NOTE: not_dummy was moved last to avoid namespace conflicts. Until automatic-namespacing of and! and or! get
+        // smarter, put shared elements last and unique ones first.
+        let fn_not_dummy = and!(
+            cs,
+            &Boolean::not(&args_is_nil_or_more_is_nil),
+            &Boolean::not(&head_is_any),
+            not_dummy
+        )?;
+
+        let expanded_inner0 = AllocatedPtr::construct_cons_named(
+            &mut cs.namespace(|| "expanded_inner0"),
+            g,
+            &arg1,
+            &g.nil_ptr,
+            ConsName::ExpandedInner0,
+            allocated_hash_witness,
+            &fn_not_dummy,
+        )?;
+
+        let expanded_inner = AllocatedPtr::construct_cons_named(
+            &mut cs.namespace(|| "expanded_inner"),
+            g,
+            fun_form,
+            &expanded_inner0,
+            ConsName::ExpandedInner,
+            allocated_hash_witness,
+            &fn_not_dummy,
+        )?;
+
+        let expanded = AllocatedPtr::construct_cons_named(
+            &mut cs.namespace(|| "expanded"),
+            g,
+            &expanded_inner,
+            &more,
+            ConsName::FunExpanded,
+            allocated_hash_witness,
+            &fn_not_dummy,
         )?;
 
         let res = AllocatedPtr::pick(
@@ -2400,6 +2680,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     env: &AllocatedPtr<F>,
     not_dummy: &Boolean,
     witness: &Option<Witness<F>>,
+    allocated_hash_witness: &AllocatedHashWitness<F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<
@@ -2430,7 +2711,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     );
     results.add_clauses_cont(ContTag::Error, result, env, &g.error_ptr_cont, &g.false_num);
 
-    let (_, continuation_components) = ContPtr::allocate_maybe_dummy_components(
+    let (_continuation_tag, continuation_components) = ContPtr::allocate_maybe_dummy_components(
         &mut cs.namespace(|| "allocate_continuation_components"),
         witness
             .as_ref()
@@ -2621,14 +2902,49 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let op1 = AllocatedPtr::by_index(0, &continuation_components);
         let unop_continuation = AllocatedContPtr::by_index(1, &continuation_components);
 
-        let (allocated_car, allocated_cdr) =
-            car_cdr(&mut cs.namespace(|| "Unop cons"), g, result, store)?;
+        let cont_is_unop = equal!(cs, cont.tag(), &g.unop_cont_tag)?;
+
+        let unop_op_is_car = equal!(cs, op1.tag(), &g.op1_car_tag)?;
+        let unop_op_is_cdr = equal!(cs, op1.tag(), &g.op1_cdr_tag)?;
+        let unop_op_is_car_or_cdr = or!(cs, &unop_op_is_car, &unop_op_is_cdr)?;
 
         let result_is_cons = alloc_equal(
             &mut cs.namespace(|| "result_is_cons"),
             result.tag(),
             &g.cons_tag,
         )?;
+        let result_is_str = alloc_equal(
+            &mut cs.namespace(|| "result_is_str"),
+            result.tag(),
+            &g.str_tag,
+        )?;
+
+        let result_is_empty_str = result.alloc_equal(
+            &mut cs.namespace(|| "result_is_empty_str"),
+            &g.empty_str_ptr,
+        )?;
+        let result_is_cons_like = or!(cs, &result_is_cons, &result_is_str)?;
+
+        let unop_cons_not_dummy = and!(
+            cs,
+            &cont_is_unop,
+            &unop_op_is_car_or_cdr,
+            &result_is_cons_like,
+            &Boolean::not(&result_is_empty_str)
+        )?;
+
+        let (allocated_car, allocated_cdr) = car_cdr_named(
+            &mut cs.namespace(|| "Unop cons"),
+            g,
+            result,
+            ConsName::UnopConsLike,
+            allocated_hash_witness,
+            &unop_cons_not_dummy,
+            store,
+        )?;
+
+        let res_car = ifx_t!(cs, &result_is_empty_str, &g.nil_ptr, &allocated_car)?;
+        let res_cdr = ifx_t!(cs, &result_is_empty_str, &g.empty_str_ptr, &allocated_cdr)?;
 
         let atom_ptr = AllocatedPtr::pick(
             &mut cs.namespace(|| "atom val"),
@@ -2648,11 +2964,11 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 &[
                     CaseClause {
                         key: Op1::Car.as_field(),
-                        value: allocated_car.tag(),
+                        value: res_car.tag(),
                     },
                     CaseClause {
                         key: Op1::Cdr.as_field(),
-                        value: allocated_cdr.tag(),
+                        value: res_cdr.tag(),
                     },
                     CaseClause {
                         key: Op1::Atom.as_field(),
@@ -2834,10 +3150,38 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             result.ptr(store).as_ref(),
         )?;
 
-        let (body_form, _) = car_cdr(&mut cs.namespace(|| "body_form"), g, &body_t, store)?;
-
         let args_is_dummy =
             arg_t.alloc_equal(&mut cs.namespace(|| "args_is_dummy"), &g.dummy_arg_ptr)?;
+
+        let cont_is_call0 = constraints::alloc_equal(
+            &mut cs.namespace(|| "call0 branch taken"),
+            cont.tag(),
+            &g.call0_cont_tag,
+        )?;
+
+        let body_t_is_cons = alloc_equal(
+            &mut cs.namespace(|| "body_t_is_cons0"),
+            body_t.tag(),
+            &g.cons_tag,
+        )?;
+
+        let fun_body_cons_not_dummy = and!(
+            cs,
+            &body_t_is_cons,
+            &args_is_dummy,
+            &cont_is_call0,
+            not_dummy
+        )?;
+
+        let (body_form, _) = car_cdr_named(
+            &mut cs.namespace(|| "body_form"),
+            g,
+            &body_t,
+            ConsName::FunBody,
+            allocated_hash_witness,
+            &fun_body_cons_not_dummy,
+            store,
+        )?;
 
         let result_is_fun =
             alloc_equal(cs.namespace(|| "result_is_fun"), function.tag(), &g.fun_tag)?;
@@ -2936,7 +3280,32 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 fun.ptr(store).as_ref(),
             )?;
 
-            let (body_form, _) = car_cdr(&mut cs.namespace(|| "body_form"), g, &body_t, store)?;
+            let args_is_dummy = arg_t.alloc_equal(
+                &mut cs.namespace(|| "cont2 args_is_dummy"),
+                &g.dummy_arg_ptr,
+            )?;
+            let args_is_not_dummy = Boolean::not(&args_is_dummy);
+
+            let cont_is_call2_precomp = constraints::alloc_equal(
+                &mut cs.namespace(|| "call2 branch taken"),
+                cont.tag(),
+                &g.call2_cont_tag,
+            )?;
+
+            let cont_is_call2_and_not_dummy = and!(cs, &cont_is_call2_precomp, not_dummy)?;
+
+            let cont_is_call2_and_not_dummy_and_not_dummy_args =
+                and!(cs, &cont_is_call2_and_not_dummy, &args_is_not_dummy)?;
+
+            let (body_form, _) = car_cdr_named(
+                &mut cs.namespace(|| "body_form"),
+                g,
+                &body_t,
+                ConsName::FunBody,
+                allocated_hash_witness,
+                &cont_is_call2_and_not_dummy_and_not_dummy_args,
+                store,
+            )?;
 
             let fun_is_correct = constraints::alloc_equal(
                 &mut cs.namespace(|| "fun hash is correct"),
@@ -2944,27 +3313,30 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 &hash,
             )?;
 
-            let cont_is_call2_precomp = constraints::alloc_equal(
-                &mut cs.namespace(|| "branch taken"),
-                cont.tag(),
-                &g.call2_cont_tag,
-            )?;
-
-            let cont_is_call2_and_not_dummy = and!(cs, &cont_is_call2_precomp, not_dummy)?;
-
             enforce_implication(
                 &mut cs.namespace(|| "implies non-dummy fun"),
                 &cont_is_call2_and_not_dummy,
                 &fun_is_correct,
             )?;
 
-            let newer_env = extend(
+            let args_is_dummy =
+                arg_t.alloc_equal(&mut cs.namespace(|| "args_is_dummy"), &g.dummy_arg_ptr)?;
+
+            let extend_not_dummy = and!(
+                cs,
+                &cont_is_call2_and_not_dummy,
+                &Boolean::not(&args_is_dummy)
+            )?;
+
+            let newer_env = extend_named(
                 &mut cs.namespace(|| "extend env"),
                 g,
-                store,
                 &closed_env,
                 &arg_t,
                 result,
+                ConsName::ClosedEnv,
+                allocated_hash_witness,
+                &extend_not_dummy,
             )?;
 
             let continuation_is_tail = alloc_equal(
@@ -2982,8 +3354,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
             let result_is_fun =
                 alloc_equal(cs.namespace(|| "result_is_fun"), result.tag(), &g.fun_tag)?;
-            let args_is_dummy =
-                arg_t.alloc_equal(&mut cs.namespace(|| "args_is_dummy"), &g.dummy_arg_ptr)?;
             let cond = or!(cs, &args_is_dummy.not(), &result_is_fun)?;
 
             let the_cont = AllocatedContPtr::pick(
@@ -3012,10 +3382,25 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let saved_env = AllocatedPtr::by_index(1, &continuation_components);
         let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
 
-        let (allocated_arg2, allocated_rest) = car_cdr(
+        let cont_is_binop = alloc_equal(
+            &mut cs.namespace(|| "cont_is_binop"),
+            cont.tag(),
+            &g.binop_cont_tag,
+        )?;
+
+        let binop_not_dummy = Boolean::and(
+            &mut cs.namespace(|| "binop_not_dummy"),
+            &cont_is_binop,
+            not_dummy,
+        )?;
+
+        let (allocated_arg2, allocated_rest) = car_cdr_named(
             &mut cs.namespace(|| "cons using newer continuation"),
             g,
             &unevaled_args,
+            ConsName::UnevaledArgs,
+            allocated_hash_witness,
+            &binop_not_dummy,
             store,
         )?;
 
@@ -3027,18 +3412,22 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let rest_is_nil =
             allocated_rest.alloc_equal(&mut cs.namespace(|| "rest_is_nil"), &g.nil_ptr)?;
+        let rest_not_nil = Boolean::not(&rest_is_nil);
 
         let begin = store.get_begin();
 
         let allocated_begin =
             AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "begin"), store, || Ok(&begin))?;
 
-        let begin_again = AllocatedPtr::construct_cons(
+        let begin_not_dummy = and!(cs, &op_is_begin, &binop_not_dummy, &rest_not_nil)?;
+        let begin_again = AllocatedPtr::construct_cons_named(
             &mut cs.namespace(|| "begin again"),
             g,
-            store,
             &allocated_begin,
             &unevaled_args,
+            ConsName::Begin,
+            allocated_hash_witness,
+            &begin_not_dummy,
         )?;
 
         let the_expr_if_begin = AllocatedPtr::pick(
@@ -3146,8 +3535,59 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let quotient = constraints::div(&mut cs.namespace(|| "quotient"), a, &divisor)?;
 
-        let cons =
-            AllocatedPtr::construct_cons(&mut cs.namespace(|| "cons"), g, store, &arg1, arg2)?;
+        let is_cons = alloc_equal(
+            &mut cs.namespace(|| "Op2 is Cons"),
+            op2.tag(),
+            &g.op2_cons_tag,
+        )?;
+
+        let is_strcons = alloc_equal(
+            &mut cs.namespace(|| "Op2 is StrCons"),
+            op2.tag(),
+            &g.op2_strcons_tag,
+        )?;
+
+        let is_cons_or_strcons = constraints::or(
+            &mut cs.namespace(|| "is cons or strcons"),
+            &is_cons,
+            &is_strcons,
+        )?;
+
+        let arg1_is_char = alloc_equal(
+            &mut cs.namespace(|| "arg1_is_char"),
+            arg1.tag(),
+            &g.char_tag,
+        )?;
+        let arg2_is_str = alloc_equal(&mut cs.namespace(|| "arg2_is_str"), arg2.tag(), &g.str_tag)?;
+        let args_are_char_str = Boolean::and(
+            &mut cs.namespace(|| "args_are_char_str"),
+            &arg1_is_char,
+            &arg2_is_str,
+        )?;
+
+        let args_not_char_str = &Boolean::not(&args_are_char_str);
+        let invalid_strcons_tag = Boolean::and(
+            &mut cs.namespace(|| "invalid_strcons_tag"),
+            args_not_char_str,
+            &is_strcons,
+        )?;
+
+        let cons_not_dummy = and!(
+            cs,
+            &is_cons_or_strcons,
+            &not_dummy,
+            &Boolean::not(&invalid_strcons_tag)
+        )?;
+
+        let cons = AllocatedPtr::construct_cons_named(
+            &mut cs.namespace(|| "cons"),
+            g,
+            &arg1,
+            arg2,
+            ConsName::TheCons,
+            allocated_hash_witness,
+            &cons_not_dummy,
+        )?;
 
         let val = case(
             &mut cs.namespace(|| "Binop2 case"),
@@ -3212,18 +3652,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &is_num_equal,
         )?;
 
-        let is_cons = alloc_equal(
-            &mut cs.namespace(|| "Op2 is Cons"),
-            op2.tag(),
-            &g.op2_cons_tag,
-        )?;
-
-        let is_strcons = alloc_equal(
-            &mut cs.namespace(|| "Op2 is StrCons"),
-            op2.tag(),
-            &g.op2_strcons_tag,
-        )?;
-
         let is_hide = alloc_equal(
             &mut cs.namespace(|| "Op2 is Hide"),
             op2.tag(),
@@ -3253,18 +3681,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &commitment_tag_is_correct,
         )?;
 
-        let arg1_is_char = alloc_equal(
-            &mut cs.namespace(|| "arg1_is_char"),
-            arg1.tag(),
-            &g.char_tag,
-        )?;
-        let arg2_is_str = alloc_equal(&mut cs.namespace(|| "arg2_is_str"), arg2.tag(), &g.str_tag)?;
-        let args_are_char_str = Boolean::and(
-            &mut cs.namespace(|| "args_are_char_str"),
-            &arg1_is_char,
-            &arg2_is_str,
-        )?;
-
         let cons_tag = pick(
             &mut cs.namespace(|| "cons_tag"),
             &is_strcons,
@@ -3281,12 +3697,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let is_cons_or_hide =
             constraints::or(&mut cs.namespace(|| "is cons or hide"), &is_cons, &is_hide)?;
-
-        let is_cons_or_strcons = constraints::or(
-            &mut cs.namespace(|| "is cons or strcons"),
-            &is_cons,
-            &is_strcons,
-        )?;
 
         let is_cons_or_strcons_or_hide = constraints::or(
             &mut cs.namespace(|| "is cons or srtcons or hide"),
@@ -3509,13 +3919,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &Boolean::not(&is_cons_or_strcons_or_hide_or_equal_or_num_equal),
         )?;
 
-        let args_not_char_str = &Boolean::not(&args_are_char_str);
-        let invalid_strcons_tag = Boolean::and(
-            &mut cs.namespace(|| "invalid_strcons_tag"),
-            args_not_char_str,
-            &is_strcons,
-        )?;
-
         let any_error1 = constraints::or(
             &mut cs.namespace(|| "first two errors"),
             &Boolean::not(&valid_types_and_not_div_by_zero),
@@ -3592,24 +3995,36 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let condition = result;
 
-        // NOTE: There was a tricky bug here.
-        // When the actual continuation was Relop, and the operation is Numequal (for example),
-        // Then this appears to be an invalid but not dummy continuation, since Numequal has a Relop tag value of 1,
-        // the same as Cons.
-        //
-        // We address this by adding 2 to the tags returned by Op2 and Rel2 fr() methods, so this collision cannot happen.
-        // TODO: It might make even more sense to make all disjoint.
-        let (arg1, more) = car_cdr(
+        let cont_is_if = alloc_equal(
+            &mut cs.namespace(|| "cont_is_if"),
+            cont.tag(),
+            &g.if_cont_tag,
+        )?;
+
+        let if_not_dummy = and!(cs, &cont_is_if, not_dummy)?;
+
+        let (arg1, more) = car_cdr_named(
             &mut cs.namespace(|| "unevaled_args cons"),
             g,
             &unevaled_args,
+            ConsName::UnevaledArgs,
+            allocated_hash_witness,
+            &if_not_dummy,
             store,
         )?;
 
         let condition_is_nil =
             condition.alloc_equal(&mut cs.namespace(|| "condition is nil"), &g.nil_ptr)?;
 
-        let (arg2, end) = car_cdr(&mut cs.namespace(|| "more cons"), g, &more, store)?;
+        let (arg2, end) = car_cdr_named(
+            &mut cs.namespace(|| "more cons"),
+            g,
+            &more,
+            ConsName::UnevaledArgsCdr,
+            allocated_hash_witness,
+            &if_not_dummy,
+            store,
+        )?;
 
         let end_is_nil = end.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
 
@@ -3672,13 +4087,29 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let body = AllocatedPtr::by_index(1, &continuation_components);
         let let_cont = AllocatedContPtr::by_index(3, &continuation_components);
 
-        let extended_env = extend(
+        let cont_is_let = alloc_equal(
+            &mut cs.namespace(|| "cont_is_let"),
+            cont.tag(),
+            &g.let_cont_tag,
+        )?;
+        let let_cont_is_let = alloc_equal(
+            &mut cs.namespace(|| "let_cont_is_let"),
+            let_cont.tag(),
+            &g.let_cont_tag,
+        )?;
+
+        let extended_env_not_dummy0 = and!(cs, &let_cont_is_let, not_dummy)?;
+        let extended_env_not_dummy = and!(cs, &extended_env_not_dummy0, &cont_is_let)?;
+
+        let extended_env = extend_named(
             &mut cs.namespace(|| "extend env"),
             g,
-            store,
             env,
             &var,
             result,
+            ConsName::Env,
+            allocated_hash_witness,
+            &extended_env_not_dummy,
         )?;
 
         let continuation_is_tail = alloc_equal(
@@ -3710,12 +4141,22 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let body = AllocatedPtr::by_index(1, &continuation_components);
         let letrec_cont = AllocatedContPtr::by_index(3, &continuation_components);
 
+        let letrec_cont_is_letrec_cont = alloc_equal(
+            &mut cs.namespace(|| "letrec_cont_is_letrec_cont"),
+            letrec_cont.tag(),
+            &g.letrec_cont_tag,
+        )?;
+
+        let extend_rec_not_dummy = and!(cs, &letrec_cont_is_letrec_cont, not_dummy)?;
+
         let extended_env = extend_rec(
             &mut cs.namespace(|| "extend_rec env"),
             g,
             env,
             &var,
             result,
+            allocated_hash_witness,
+            &extend_rec_not_dummy,
             store,
         )?;
 
@@ -4055,98 +4496,81 @@ fn char_op<F: LurkField, CS: ConstraintSystem<F>>(
     AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "char_op"), store, || Ok(&char_ptr))
 }
 
-fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
+fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
     maybe_cons: &AllocatedPtr<F>,
-    store: &Store<F>,
+    name: ConsName,
+    allocated_hash_witness: &AllocatedHashWitness<F>,
+    not_dummy: &Boolean,
+    _store: &Store<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
-    let maybe_cons_is_cons = alloc_equal(
-        &mut cs.namespace(|| "maybe_cons_is_cons"),
-        maybe_cons.tag(),
-        &g.cons_tag,
+    let maybe_cons_is_nil =
+        maybe_cons.alloc_equal(&mut cs.namespace(|| "maybe_cons_is_nil"), &g.nil_ptr)?;
+
+    let cons_not_dummy = Boolean::and(
+        &mut cs.namespace(|| "cons_not_dummy"),
+        &Boolean::not(&maybe_cons_is_nil),
+        not_dummy,
     )?;
 
-    let maybe_cons_is_str = alloc_equal(
-        &mut cs.namespace(|| "maybe_cons_is_string"),
-        maybe_cons.tag(),
-        &g.str_tag,
-    )?;
-
-    let maybe_str_is_empty = alloc_is_zero(
-        &mut cs.namespace(|| "maybe_string_is_empty"),
-        maybe_cons.hash(),
-    )?;
-
-    let maybe_cons_is_non_empty_str = Boolean::and(
-        &mut cs.namespace(|| "maybe_cons_is_non_empty_str"),
-        &maybe_cons_is_str,
-        &Boolean::not(&maybe_str_is_empty),
-    );
-
-    let is_cons = constraints::or(
-        &mut cs.namespace(|| "is_cons"),
-        &maybe_cons_is_cons,
-        &maybe_cons_is_non_empty_str.unwrap(),
-    )?;
-
-    let (car, cdr) = if let Some(ptr) = maybe_cons.ptr(store).as_ref() {
-        if maybe_cons_is_cons
-            .get_value()
-            .expect("maybe_cons_is_cons is missing")
-            || maybe_cons_is_str
-                .get_value()
-                .expect("maybe_cons_is_str is missing")
-        {
-            store.car_cdr(ptr)
-        } else {
-            (store.get_nil(), store.get_nil())
-        }
-    } else {
-        // Dummy
-        (store.get_nil(), store.get_nil())
-    };
-
-    let allocated_car = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "car"), store, || Ok(&car))?;
-    let allocated_cdr = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "cdr"), store, || Ok(&cdr))?;
-
-    let constructed_cons = AllocatedPtr::construct_cons(
-        &mut cs.namespace(|| "cons"),
-        g,
-        store,
-        &allocated_car,
-        &allocated_cdr,
-    )?;
-
+    let expect_dummy = !(cons_not_dummy.get_value().unwrap_or(false));
+    let (allocated_car, allocated_cdr, allocated_digest) =
+        allocated_hash_witness.get_cons(name, expect_dummy);
     let real_cons = alloc_equal(
         &mut cs.namespace(|| "cons is real"),
         maybe_cons.hash(),
-        constructed_cons.hash(),
+        allocated_digest,
     )?;
 
-    // If `maybe_cons` is not a cons, then it is dummy. No check is necessary.
-    // If `maybe_cons` is an empty string, then the hash is zero.
-    // Otherwise, we must enforce equality of hashes.
+    if cons_not_dummy.get_value().unwrap_or(false) && !real_cons.get_value().unwrap_or(true) {
+        dbg!(maybe_cons.hash().get_value(), &allocated_digest.get_value());
+        panic!(
+            "tried to take car_cdr of a non-dummy cons ({:?}) but supplied wrong value",
+            name
+        );
+    }
+
     enforce_implication(
         &mut cs.namespace(|| "is cons implies real cons"),
-        &is_cons,
+        &cons_not_dummy,
         &real_cons,
     )?;
 
-    Ok((allocated_car, allocated_cdr))
+    let res_car = ifx_t!(cs, &maybe_cons_is_nil, &g.nil_ptr, &allocated_car)?;
+    let res_cdr = ifx_t!(cs, &maybe_cons_is_nil, &g.nil_ptr, &allocated_cdr)?;
+
+    Ok((res_car, res_cdr))
 }
 
-fn extend<F: LurkField, CS: ConstraintSystem<F>>(
+fn extend_named<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
-    store: &Store<F>,
     env: &AllocatedPtr<F>,
     var: &AllocatedPtr<F>,
     val: &AllocatedPtr<F>,
+    name: ConsName,
+    allocated_hash_witness: &AllocatedHashWitness<F>,
+    not_dummy: &Boolean,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let new_binding =
-        AllocatedPtr::construct_cons(&mut cs.namespace(|| "extend binding"), g, store, var, val)?;
-    AllocatedPtr::construct_cons(cs, g, store, &new_binding, env)
+    let new_binding = AllocatedPtr::construct_cons_named(
+        &mut cs.namespace(|| "extend binding"),
+        g,
+        var,
+        val,
+        ConsName::Binding,
+        allocated_hash_witness,
+        not_dummy,
+    )?;
+    AllocatedPtr::construct_cons_named(
+        cs,
+        g,
+        &new_binding,
+        env,
+        name,
+        allocated_hash_witness,
+        not_dummy,
+    )
 }
 
 fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
@@ -4155,42 +4579,85 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
     env: &AllocatedPtr<F>,
     var: &AllocatedPtr<F>,
     val: &AllocatedPtr<F>,
+    allocated_hash_witness: &AllocatedHashWitness<F>,
+    not_dummy: &Boolean,
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let (binding_or_env, rest) = car_cdr(&mut cs.namespace(|| "car_cdr env"), g, env, store)?;
-    let (var_or_binding, _val_or_more_bindings) = car_cdr(
+    let (binding_or_env, rest) = car_cdr_named(
+        &mut cs.namespace(|| "car_cdr env"),
+        g,
+        env,
+        ConsName::Env,
+        allocated_hash_witness,
+        not_dummy,
+        store,
+    )?;
+    let (var_or_binding, _val_or_more_bindings) = car_cdr_named(
         &mut cs.namespace(|| "car_cdr binding_or_env"),
         g,
         &binding_or_env,
+        ConsName::EnvCar,
+        allocated_hash_witness,
+        not_dummy,
         store,
     )?;
 
-    let cons =
-        AllocatedPtr::construct_cons(&mut cs.namespace(|| "cons var val"), g, store, var, val)?;
-    let list = AllocatedPtr::construct_list(&mut cs.namespace(|| "list cons"), g, store, &[&cons])?;
+    let var_or_binding_is_cons = alloc_equal(
+        &mut cs.namespace(|| "var_or_binding_is_cons"),
+        var_or_binding.tag(),
+        &g.cons_tag,
+    )?;
 
-    let new_env_if_sym_or_nil = AllocatedPtr::construct_cons(
+    let cons = AllocatedPtr::construct_cons_named(
+        &mut cs.namespace(|| "cons var val"),
+        g,
+        var,
+        val,
+        ConsName::NewRecCadr,
+        allocated_hash_witness,
+        not_dummy,
+    )?;
+
+    let list = AllocatedPtr::construct_cons_named(
+        &mut cs.namespace(|| "list cons"),
+        g,
+        &cons,
+        &g.nil_ptr,
+        ConsName::NewRec,
+        allocated_hash_witness,
+        not_dummy,
+    )?;
+
+    let new_env_if_sym_or_nil = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "new_env_if_sym_or_nil"),
         g,
-        store,
         &list,
         env,
+        ConsName::ExtendedRec,
+        allocated_hash_witness,
+        not_dummy,
     )?;
 
-    let cons2 = AllocatedPtr::construct_cons(
+    let cons_branch_not_dummy = and!(cs, &var_or_binding_is_cons, not_dummy)?;
+
+    let cons2 = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "cons cons binding_or_env"),
         g,
-        store,
         &cons,
         &binding_or_env,
+        ConsName::NewRec,
+        allocated_hash_witness,
+        &cons_branch_not_dummy,
     )?;
 
-    let cons3 = AllocatedPtr::construct_cons(
+    let cons3 = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "cons cons2 rest"),
         g,
-        store,
         &cons2,
         &rest,
+        ConsName::ExtendedRec,
+        allocated_hash_witness,
+        &cons_branch_not_dummy,
     )?;
 
     let is_sym = constraints::alloc_equal(
@@ -4323,9 +4790,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(20522, cs.num_constraints());
+            assert_eq!(12529, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(20377, cs.aux().len());
+            assert_eq!(12189, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

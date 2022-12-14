@@ -23,6 +23,32 @@ use serde::Serialize;
 use serde::{de, ser};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
+pub enum HashArity {
+    A3,
+    A4,
+    A6,
+    A8,
+}
+
+impl From<usize> for HashArity {
+    fn from(n: usize) -> Self {
+        match n {
+            3 => Self::A3,
+            4 => Self::A4,
+            6 => Self::A6,
+            8 => Self::A8,
+            _ => panic!("unsupported arity: {}", n),
+        }
+    }
+}
+
+pub enum HashConst<'a, F: LurkField> {
+    A3(&'a PoseidonConstants<F, U3>),
+    A4(&'a PoseidonConstants<F, U4>),
+    A6(&'a PoseidonConstants<F, U6>),
+    A8(&'a PoseidonConstants<F, U8>),
+}
+
 /// Holds the constants needed for poseidon hashing.
 #[derive(Debug)]
 pub(crate) struct HashConstants<F: LurkField> {
@@ -58,6 +84,15 @@ impl<F: LurkField> HashConstants<F> {
 
     pub fn c8(&self) -> &PoseidonConstants<F, U8> {
         self.c8.get_or_init(|| PoseidonConstants::new())
+    }
+
+    pub fn constants(&self, arity: HashArity) -> HashConst<F> {
+        match arity {
+            HashArity::A3 => HashConst::A3(self.c3.get_or_init(|| PoseidonConstants::new())),
+            HashArity::A4 => HashConst::A4(self.c4.get_or_init(|| PoseidonConstants::new())),
+            HashArity::A6 => HashConst::A6(self.c6.get_or_init(|| PoseidonConstants::new())),
+            HashArity::A8 => HashConst::A8(self.c8.get_or_init(|| PoseidonConstants::new())),
+        }
     }
 }
 
@@ -1930,12 +1965,12 @@ impl<F: LurkField> Store<F> {
     }
 
     /// Mutable version of car_cdr to handle Str. `(cdr str)` may return a new str (the tail), which must be allocated.
-    pub fn car_cdr_mut(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), &str> {
+    pub fn car_cdr_mut(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), String> {
         match ptr.0 {
             Tag::Nil => Ok((self.get_nil(), self.get_nil())),
             Tag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
-                Some(Expression::Opaque(_)) => panic!("cannot destructure opaque Cons"),
+                Some(Expression::Opaque(_)) => Err("cannot destructure opaque Cons".into()),
                 _ => unreachable!(),
             },
             Tag::Str => {
@@ -1952,7 +1987,7 @@ impl<F: LurkField> Store<F> {
                     panic!();
                 }
             }
-            _ => Err("Invalid tag"),
+            _ => Err("Invalid tag".into()),
         }
     }
 
