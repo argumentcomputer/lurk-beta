@@ -416,7 +416,7 @@ fn reduce_with_witness<F: LurkField>(
     cont: ContPtr<F>,
     store: &mut Store<F>,
 ) -> Result<(Control<F>, Witness<F>), LurkError> {
-    let hash_witness = &mut HashWitness::<F>::default();
+    let hash_witness = &mut HashWitness::<F>::new_dummy();
     let mut closure_to_extend = None;
     let control = if cont.tag() == ContTag::Terminal {
         Control::Return(expr, env, cont)

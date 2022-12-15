@@ -3,9 +3,8 @@ use crate::store::{Ptr, Store};
 
 pub const MAX_CONSES_PER_REDUCTION: usize = 11;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Stub<T> {
-    #[default]
     Dummy,
     Blank,
     Value(T),
@@ -158,12 +157,26 @@ impl<F: LurkField> HashStub<F> {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HashWitness<F: LurkField> {
     pub slots: [(ConsName, HashStub<F>); MAX_CONSES_PER_REDUCTION],
 }
 
 impl<F: LurkField> HashWitness<F> {
+    pub fn new_from_stub(stub: HashStub<F>) -> Self {
+        Self {
+            slots: [(ConsName::NeverUsed, stub); MAX_CONSES_PER_REDUCTION],
+        }
+    }
+
+    pub fn new_dummy() -> Self {
+        Self::new_from_stub(HashStub::Dummy)
+    }
+
+    pub fn new_blank() -> Self {
+        Self::new_from_stub(HashStub::Blank)
+    }
+
     pub fn get_assigned_slot(&mut self, name: ConsName) -> &mut HashStub<F> {
         let i = name.index();
         let (slot_name, p) = self.slots[i];

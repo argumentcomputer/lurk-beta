@@ -22,6 +22,7 @@ use super::gadgets::constraints::{
 };
 use crate::circuit::{gadgets::hashes::AllocatedHashWitness, ToInputs};
 use crate::eval::{Frame, Witness, IO};
+use crate::hash_witness::HashWitness;
 use crate::proof::Provable;
 use crate::store::{ContPtr, ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
 
@@ -200,7 +201,7 @@ impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
         let mut reduce = |store| {
             let hash_witness = match self.witness.map(|x| x.hashes) {
                 Some(hw) => hw,
-                None => Default::default(),
+                None => HashWitness::new_blank(),
             };
             let allocated_hash_witness = AllocatedHashWitness::from_hash_witness(
                 &mut cs.namespace(|| format!("allocated_hash_witness {}", i)),
