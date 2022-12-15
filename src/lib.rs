@@ -26,7 +26,7 @@ pub mod sym;
 pub mod uint;
 pub mod writer;
 
-mod error;
+pub mod error;
 mod num;
 pub use num::Num;
 pub use sym::{Sym, Symbol};

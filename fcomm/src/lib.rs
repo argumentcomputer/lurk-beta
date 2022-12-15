@@ -30,7 +30,7 @@ use lurk::{
     store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store, Tag},
     writer::Write,
 };
-use once_cell::sync::OnceCell;
+pub(crate) use once_cell::sync::OnceCell;
 use pairing_lib::{Engine, MultiMillerLoop};
 use rand::rngs::OsRng;
 use serde::de::DeserializeOwned;
@@ -687,8 +687,8 @@ impl Opening<Scalar> {
 
             // public_output = (result_expr (secret . new_fun))
             let cons = public_output.expr;
-            let result_expr = s.car(&cons);
-            let new_comm = s.cdr(&cons);
+            let result_expr = s.car(&cons).map_err(|_| Error::EvaluationFailure)?;
+            let new_comm = s.cdr(&cons).map_err(|_| Error::EvaluationFailure)?;
 
             let new_secret0 = s.secret(new_comm).expect("secret missing");
             let new_secret = *s.get_expr_hash(&new_secret0).expect("hash missing").value();

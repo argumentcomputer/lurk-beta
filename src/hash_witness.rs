@@ -1,3 +1,4 @@
+use crate::error::LurkError;
 use crate::field::LurkField;
 use crate::store;
 use crate::store::{Ptr, Store};
@@ -86,10 +87,14 @@ impl ConsName {
 }
 
 impl<F: LurkField> HashStub<F> {
-    pub fn car_cdr(&mut self, s: &mut Store<F>, cons: &Ptr<F>) -> (Ptr<F>, Ptr<F>) {
+    pub fn car_cdr(
+        &mut self,
+        s: &mut Store<F>,
+        cons: &Ptr<F>,
+    ) -> Result<(Ptr<F>, Ptr<F>), LurkError> {
         match self {
             Self::Dummy => {
-                let (car, cdr) = Cons::get_car_cdr(s, cons);
+                let (car, cdr) = Cons::get_car_cdr(s, cons)?;
 
                 *self = Self::Value(Cons {
                     car,
@@ -97,10 +102,10 @@ impl<F: LurkField> HashStub<F> {
                     cons: *cons,
                 });
 
-                (car, cdr)
+                Ok((car, cdr))
             }
             Self::Blank => unreachable!("Blank HashStub should be used only in blank circuits."),
-            Self::Value(h) => h.car_cdr(cons),
+            Self::Value(h) => Ok(h.car_cdr(cons)),
         }
     }
 
@@ -210,7 +215,7 @@ impl<F: LurkField> HashWitness<F> {
         name: ConsName,
         store: &mut Store<F>,
         cons: &Ptr<F>,
-    ) -> (Ptr<F>, Ptr<F>) {
+    ) -> Result<(Ptr<F>, Ptr<F>), LurkError> {
         self.get_assigned_slot(name).car_cdr(store, cons)
     }
 
@@ -329,7 +334,7 @@ impl<F: LurkField> Cons<F> {
         (self.car, self.cdr)
     }
 
-    fn get_car_cdr(s: &mut Store<F>, cons: &Ptr<F>) -> (Ptr<F>, Ptr<F>) {
+    fn get_car_cdr(s: &mut Store<F>, cons: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), LurkError> {
         s.car_cdr(cons)
     }
 
