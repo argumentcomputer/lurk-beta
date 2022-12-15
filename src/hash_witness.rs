@@ -98,7 +98,7 @@ impl<F: LurkField> HashStub<F> {
 
                 (car, cdr)
             }
-            Self::Blank => todo!(),
+            Self::Blank => unreachable!("Blank HashStub should be used only in blank circuits."),
             Self::Value(h) => h.car_cdr(cons),
         }
     }
@@ -120,7 +120,7 @@ impl<F: LurkField> HashStub<F> {
 
                 Ok((car, cdr))
             }
-            Self::Blank => todo!(),
+            Self::Blank => unreachable!("Blank HashStub should be used only in blank circuits."),
             Self::Value(h) => Ok(h.car_cdr(cons)),
         }
     }
@@ -134,7 +134,7 @@ impl<F: LurkField> HashStub<F> {
 
                 cons
             }
-            Self::Blank => todo!(),
+            Self::Blank => unreachable!("Blank HashStub should be used only in blank circuits."),
             Self::Value(_) => Cons::cons(store, car, cdr),
         }
     }
@@ -147,7 +147,7 @@ impl<F: LurkField> HashStub<F> {
 
                 cons
             }
-            Self::Blank => todo!(),
+            Self::Blank => unreachable!("Blank HashStub should be used only in blank circuits."),
             Self::Value(_) => Cons::strcons(store, car, cdr),
         }
     }
