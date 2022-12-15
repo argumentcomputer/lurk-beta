@@ -73,7 +73,9 @@ impl<F: LurkField> Repl<F> {
 
 // For the moment, input must be on a single line.
 pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
-    println!("Lurk REPL welcomes you.");
+    if lurk_file.is_none() {
+        println!("Lurk REPL welcomes you.");
+    }
 
     let mut s = Store::<F>::default();
     let limit = 100_000_000;
@@ -195,9 +197,9 @@ impl<F: LurkField> ReplState<F> {
                             "LOAD" => match store.read_string(&mut chars) {
                                 Ok(s) => match s.tag() {
                                     Tag::Str => {
-                                        let path = store.fetch(&s).unwrap();
-                                        let path = PathBuf::from(path.as_str().unwrap());
-                                        self.handle_load(store, path, package)?;
+                                        let file_path = store.fetch(&s).unwrap();
+                                        let file_path = PathBuf::from(file_path.as_str().unwrap());
+                                        self.handle_load(store, file_path, package)?;
                                         (true, true)
                                     }
                                     other => {
@@ -211,9 +213,9 @@ impl<F: LurkField> ReplState<F> {
                             "RUN" => {
                                 if let Ok(s) = store.read_string(&mut chars) {
                                     if s.tag() == Tag::Str {
-                                        let path = store.fetch(&s).unwrap();
-                                        let path = PathBuf::from(path.as_str().unwrap());
-                                        self.handle_run(store, &path, package)?;
+                                        let file_path = store.fetch(&s).unwrap();
+                                        let file_path = PathBuf::from(file_path.as_str().unwrap());
+                                        self.handle_run(store, &file_path, package)?;
                                     }
                                 }
                                 (true, true)
@@ -239,42 +241,57 @@ impl<F: LurkField> ReplState<F> {
     pub fn handle_load<P: AsRef<Path>>(
         &mut self,
         store: &mut Store<F>,
-        path: P,
+        file_path: P,
         package: &Package,
     ) -> Result<()> {
-        println!("Loading from {}.", path.as_ref().to_str().unwrap());
-        self.handle_file(store, path.as_ref(), package, true)
+        println!("Loading from {}.", file_path.as_ref().to_str().unwrap());
+        self.handle_file(store, file_path.as_ref(), package, true)
     }
 
     pub fn handle_run<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
-        path: P,
+        file_path: P,
         package: &Package,
     ) -> Result<()> {
-        println!("Running from {}.", path.as_ref().to_str().unwrap());
-        self.handle_file(store, path, package, false)
+        println!("Running from {}.", file_path.as_ref().to_str().unwrap());
+        self.handle_file(store, file_path, package, false)
     }
 
     pub fn handle_file<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
-        path: P,
+        file_path: P,
         package: &Package,
         update_env: bool,
     ) -> Result<()> {
-        let p = path;
+        let file_path = file_path;
 
-        let input = read_to_string(path)?;
-        println!("Read from {}: {}", path.as_ref().to_str().unwrap(), input);
+        let input = read_to_string(file_path)?;
+        println!(
+            "Read from {}: {}",
+            file_path.as_ref().to_str().unwrap(),
+            input
+        );
         let mut chars = input.chars().peekmore();
 
-        while self
-            .handle_form(store, &mut chars, package, p, update_env)
-            .is_ok()
-        {}
-
-        Ok(())
+        loop {
+            if let Err(e) = self.handle_form(
+                store,
+                &mut chars,
+                package,
+                // use this file's dir as pwd for further loading
+                file_path.as_ref().parent().unwrap(),
+                update_env,
+            ) {
+                if let Some(ParserError::NoInput) = e.downcast_ref::<ParserError>() {
+                    // It's ok, it just means we've hit the EOF
+                    return Ok(());
+                } else {
+                    return Err(e);
+                }
+            }
+        }
     }
 
     fn handle_form<P: AsRef<Path> + Copy, T: Iterator<Item = char>>(
@@ -282,14 +299,14 @@ impl<F: LurkField> ReplState<F> {
         store: &mut Store<F>,
         chars: &mut peekmore::PeekMoreIterator<T>,
         package: &Package,
-        p: P,
+        pwd: P,
         update_env: bool,
     ) -> Result<()> {
         let (ptr, is_meta) = store.read_maybe_meta(chars, package)?;
 
         if is_meta {
-            let p: &Path = p.as_ref();
-            self.handle_meta(store, ptr, package, p)
+            let pwd: &Path = pwd.as_ref();
+            self.handle_meta(store, ptr, package, pwd)
         } else {
             self.handle_non_meta(store, ptr, update_env)
         }
