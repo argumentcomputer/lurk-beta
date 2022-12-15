@@ -115,7 +115,7 @@ macro_rules! implies_equal_t {
     };
 }
 
-// Returns a Boolean which is true if a and b are true.
+// Returns a Boolean which is true if all of its arguments are true.
 macro_rules! and {
     ($cs:ident, $a:expr, $b:expr) => {
         Boolean::and(
@@ -124,6 +124,17 @@ macro_rules! and {
             $b,
         )
     };
+
+    ($cs:ident, $a:expr, $($x:expr),+) => {{
+        // This namespace isn't necessarily unique, so some debugging/tuning could be required,
+        // if multiple `and!`s at the same level have the same first argument.
+        //
+        // If lack of explicit namespaces becomes an issue, we can add a new arg.
+        let and_tmp_cs_ =  &mut $cs.namespace(|| format!("{} and ", stringify!($a)));
+        let and_tmp_ = and!(and_tmp_cs_, $($x),*)?;
+        and!(and_tmp_cs_, $a, &and_tmp_)
+    }};
+
 }
 
 macro_rules! tag_and_hash_equal {
@@ -160,7 +171,7 @@ macro_rules! equal_t {
     }};
 }
 
-// Returns a Boolean which is true if a or b are true.
+// Returns a Boolean which is true if any of its arguments are true.
 macro_rules! or {
     ($cs:ident, $a:expr, $b:expr) => {
         or(
@@ -169,6 +180,16 @@ macro_rules! or {
             $b,
         )
     };
+    ($cs:ident, $a:expr, $($x:expr),+) => {{
+        // This namespace isn't necessarily unique, so some debugging/tuning could be required,
+        // if multiple `or!`s at the same level have the same first argument.
+        //
+        // If lack of explicit namespaces becomes an issue, we can add a new arg.
+
+        let or_tmp_cs_ =  &mut $cs.namespace(|| format!("or {}", stringify!($a)));
+        let or_tmp_ = or!(or_tmp_cs_, $($x),*)?;
+        or!(or_tmp_cs_, $a, &or_tmp_)
+    }};
 }
 
 // Enforce that x is true.

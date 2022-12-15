@@ -8,6 +8,7 @@ use ff::PrimeField;
 
 use crate::{
     field::LurkField,
+    hash_witness::ConsName,
     store::{
         ContPtr, Continuation, Expression, IntoHashComponents, Ptr, ScalarContPtr, ScalarPointer,
         ScalarPtr, Store, Thunk,
@@ -16,8 +17,9 @@ use crate::{
 };
 
 use super::{
-    constraints::{alloc_equal, equal, pick},
+    constraints::{alloc_equal, enforce_implication, equal, pick},
     data::{allocate_constant, hash_poseidon, GlobalAllocations},
+    hashes::AllocatedHashWitness,
 };
 
 /// Allocated version of `Ptr`.
@@ -225,6 +227,40 @@ impl<F: LurkField> AllocatedPtr<F> {
         Ok(AllocatedPtr {
             tag: g.cons_tag.clone(),
             hash,
+        })
+    }
+
+    pub fn construct_cons_named<CS: ConstraintSystem<F>>(
+        mut cs: CS,
+        g: &GlobalAllocations<F>,
+        car: &AllocatedPtr<F>,
+        cdr: &AllocatedPtr<F>,
+        name: ConsName,
+        allocated_hash_witness: &AllocatedHashWitness<F>,
+        not_dummy: &Boolean,
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        let expect_dummy = !(not_dummy.get_value().unwrap_or(false));
+        let (allocated_car, allocated_cdr, allocated_digest) =
+            allocated_hash_witness.get_cons(name, expect_dummy);
+
+        let real_car = car.alloc_equal(&mut cs.namespace(|| "real_car"), allocated_car)?;
+        let real_cdr = cdr.alloc_equal(&mut cs.namespace(|| "real_cdr"), allocated_cdr)?;
+        let cons_is_real = and!(cs, &real_car, &real_cdr)?;
+
+        enforce_implication(
+            &mut cs.namespace(|| "not_dummy implies real cons"),
+            not_dummy,
+            &cons_is_real,
+        )?;
+
+        if not_dummy.get_value().unwrap_or(false) && !cons_is_real.get_value().unwrap_or(true) {
+            dbg!(name);
+            panic!("uh oh!");
+        }
+
+        Ok(AllocatedPtr {
+            tag: g.cons_tag.clone(),
+            hash: allocated_digest.clone(),
         })
     }
 

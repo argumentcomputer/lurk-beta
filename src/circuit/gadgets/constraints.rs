@@ -385,9 +385,6 @@ pub fn enforce_true<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: CS,
     prop: &Boolean,
 ) -> Result<(), SynthesisError> {
-    // if let Some(val) = prop.get_value() {
-    //     debug_assert!(val);
-    // }
     Boolean::enforce_equal(cs, &Boolean::Constant(true), prop)
 }
 
