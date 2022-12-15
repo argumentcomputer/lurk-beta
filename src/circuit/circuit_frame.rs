@@ -1058,8 +1058,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         witness.as_ref().and_then(|w| w.closure_to_extend.as_ref()),
     )?;
 
-    let extended_env_not_dummy0 = and!(cs, &val2_is_fun, not_dummy)?;
-    let extended_env_not_dummy = and!(cs, &extended_env_not_dummy0, &v2_is_expr_real)?;
+    let extended_env_not_dummy = and!(cs, &val2_is_fun, not_dummy, &v2_is_expr_real)?;
     let extended_env = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "extended_env"),
         g,
@@ -1091,9 +1090,12 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         smaller_rec_env.alloc_equal(&mut cs.namespace(|| "smaller_rec_env_is_nil"), &g.nil_ptr)?;
     let smaller_rec_env_not_nil = Boolean::not(&smaller_rec_env_is_nil);
 
-    let smaller_rec_env_not_dummy0 = and!(cs, &smaller_rec_env_not_nil, not_dummy)?;
-    let smaller_rec_env_not_dummy =
-        and!(cs, &smaller_rec_env_not_dummy0, &otherwise_and_v2_not_expr)?;
+    let smaller_rec_env_not_dummy = and!(
+        cs,
+        &smaller_rec_env_not_nil,
+        not_dummy,
+        &otherwise_and_v2_not_expr
+    )?;
 
     let with_smaller_rec_env = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "with_smaller_rec_env"),
@@ -1450,8 +1452,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
         let cdr_args_not_nil = Boolean::not(&cdr_args_is_nil);
 
-        let lambda_not_dummy0 = and!(cs, &head_is_lambda, not_dummy)?;
-        let lambda_not_dummy = and!(cs, &lambda_not_dummy0, &cdr_args_not_nil)?;
+        let lambda_not_dummy = and!(cs, &head_is_lambda, not_dummy, &cdr_args_not_nil)?;
 
         let arg = AllocatedPtr::pick(
             &mut cs.namespace(|| "maybe dummy arg"),
