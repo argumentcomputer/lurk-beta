@@ -673,7 +673,6 @@ fn reduce_with_witness<F: LurkField>(
                                     body,
                                 );
                                 hash_witness.cons_named(ConsName::Expanded, store, head, expanded0)
-                                //store.cons(head, expanded0)
                             };
                             let cont = if head == store.lurk_sym("let") {
                                 store.intern_cont_let(var, expanded, env, cont)
@@ -973,8 +972,6 @@ fn reduce_with_witness<F: LurkField>(
     let control = apply_continuation(control, store, &mut witness)?;
     let ctrl = make_thunk(control, store, &mut witness)?;
 
-    // Why does this pass, when we need MAX_CONSES_PER_REDUCTION to be 11 to not hit the unreachable in hash_witness.rs?
-    // Some conses are seemingly getting lost somewhere.
     witness.hashes.assert_invariants(store);
 
     Ok((ctrl, witness))
