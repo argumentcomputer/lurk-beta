@@ -295,7 +295,6 @@ impl<F: LurkField> GlobalAllocations<F> {
         defsym!(if_sym, "if");
         defsym!(current_env_sym, "current-env");
 
-        // cons strcons hide commit open secret num comm char begin car cdr atom emit + - * / % = eq < <= > >= if current-env
         let true_num = allocate_constant(&mut cs.namespace(|| "true"), F::one())?;
         let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::zero())?;
         let default_num = allocate_constant(&mut cs.namespace(|| "default"), F::zero())?;

@@ -61,9 +61,6 @@ impl<'a, F: LurkField> AllocatedHashWitness<'a, F> {
         hw: &'a HashWitness<F>,
     ) -> Result<Self, SynthesisError> {
         let mut slots = Vec::with_capacity(MAX_CONSES_PER_REDUCTION);
-        // FIXME:
-        // Then we need to ensure the correct ordering, and that get_cons called on missing names
-        // returns that name's consistent slot hash.
         for (i, (name, p)) in hw.slots.iter().enumerate() {
             let cs = &mut cs0.namespace(|| format!("slot-{}", i));
 
