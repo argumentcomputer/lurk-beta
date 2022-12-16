@@ -1018,13 +1018,8 @@ fn apply_continuation<F: LurkField>(
                 {
                     Expression::Fun(arg, body, closed_env) => {
                         if arg == store.lurk_sym("_") {
-                            let (body_form, extra) =
+                            let (body_form, _) =
                                 hash_witness.car_cdr_named(ConsName::FunBody, store, &body);
-                            if !extra.is_nil() {
-                                return Err(LurkError::Eval(
-                                    "Function body must be only one element".into(),
-                                ));
-                            }
                             let cont = make_tail_continuation(saved_env, continuation, store);
 
                             Control::Return(body_form, closed_env, cont)
