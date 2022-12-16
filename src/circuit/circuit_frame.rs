@@ -2955,9 +2955,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.t_ptr,
         )?;
 
-        let num = num(&mut cs.namespace(|| "Unop num"), result, store)?;
-        let comm = comm(&mut cs.namespace(|| "Unop comm"), result, store)?;
-        let c = char_op(&mut cs.namespace(|| "Unop char"), result, store)?;
+        let num = to_num(result, g);
+        let comm = to_comm(result, g);
+        let c = to_char(result, g);
 
         let res = multi_case(
             &mut cs.namespace(|| "Unop case"),
@@ -4448,54 +4448,24 @@ fn hide<F: LurkField, CS: ConstraintSystem<F>>(
     )
 }
 
-fn num<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    maybe_num: &AllocatedPtr<F>,
-    store: &Store<F>,
-) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let num_ptr = if let Some(ptr) = maybe_num.ptr(store).as_ref() {
-        let scalar_ptr = store.get_expr_hash(ptr).expect("expr hash missing");
-        match store.get_num(crate::Num::Scalar::<F>(*scalar_ptr.value())) {
-            Some(n) => n,
-            None => store.get_nil(),
-        }
-    } else {
-        store.get_nil()
-    };
-    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "num"), store, || Ok(&num_ptr))
+// Return an AllocatedPtr representing a Num whose value is the same as x's.
+fn to_num<F: LurkField>(x: &AllocatedPtr<F>, g: &GlobalAllocations<F>) -> AllocatedPtr<F> {
+    AllocatedPtr::from_parts(&g.num_tag, x.hash())
 }
 
-fn comm<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    maybe_comm: &AllocatedPtr<F>,
-    store: &Store<F>,
-) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let hash = match maybe_comm.hash().get_value() {
-        Some(h) => h,
-        None => F::zero(), // dummy value
-    };
-    let comm_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
-        Some(c) => c,
-        None => store.get_nil(),
-    };
-    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&comm_ptr))
+// Return an AllocatedPtr representing a Comm whose value is the same as x's.
+fn to_comm<F: LurkField>(x: &AllocatedPtr<F>, g: &GlobalAllocations<F>) -> AllocatedPtr<F> {
+    AllocatedPtr::from_parts(&g.comm_tag, x.hash())
 }
 
-fn char_op<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    maybe_char: &AllocatedPtr<F>,
-    store: &Store<F>,
-) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let char_ptr = if let Some(ptr) = maybe_char.ptr(store).as_ref() {
-        let scalar_ptr = store.get_expr_hash(ptr).expect("expr hash missing");
-        match scalar_ptr.value().to_u32() {
-            Some(n) => store.get_char(char::from_u32(n).unwrap()),
-            None => store.get_nil(),
-        }
-    } else {
-        store.get_nil()
-    };
-    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "char_op"), store, || Ok(&char_ptr))
+// Return an AllocatedPtr representing a Char whose value is the same as x's.
+//
+// FIXME: no range-checking is performed, so the result could be an invalid Char. lurk-rs won't actually create such
+// proofs because the out-of-range input will lead to an error when evaluating, but malicious input could still lead to
+// such a proof. This would violate the principle that Lurk programs over valid input data should always return valid
+// output data.
+fn to_char<F: LurkField>(x: &AllocatedPtr<F>, g: &GlobalAllocations<F>) -> AllocatedPtr<F> {
+    AllocatedPtr::from_parts(&g.char_tag, x.hash())
 }
 
 fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
@@ -4794,7 +4764,7 @@ mod tests {
             //println!("{}", print_cs(&cs));
             assert_eq!(12529, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(12189, cs.aux().len());
+            assert_eq!(12183, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

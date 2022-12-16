@@ -2285,7 +2285,13 @@ mod tests {
     fn outer_prove_num_invalid_tag() {
         let s = &mut Store::<Fr>::default();
         let expr = "(num (quote x))";
+        let expr1 = "(num \"asdf\")";
+        let expr2 = "(num '(1))";
         let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+        nova_test_aux(s, expr1, None, None, Some(error), None, 2);
+        nova_test_aux(s, expr2, None, None, Some(error), None, 4);
+
         nova_test_aux(s, expr, None, None, Some(error), None, 2);
     }
 
@@ -2293,16 +2299,24 @@ mod tests {
     fn outer_prove_comm_invalid_tag() {
         let s = &mut Store::<Fr>::default();
         let expr = "(comm (quote x))";
+        let expr1 = "(comm \"asdf\")";
+        let expr2 = "(comm '(1))";
         let error = s.get_cont_error();
         nova_test_aux(s, expr, None, None, Some(error), None, 2);
+        nova_test_aux(s, expr1, None, None, Some(error), None, 2);
+        nova_test_aux(s, expr2, None, None, Some(error), None, 4);
     }
 
     #[test]
     fn outer_prove_char_invalid_tag() {
         let s = &mut Store::<Fr>::default();
         let expr = "(char (quote x))";
+        let expr1 = "(char \"asdf\")";
+        let expr2 = "(char '(1))";
         let error = s.get_cont_error();
         nova_test_aux(s, expr, None, None, Some(error), None, 2);
+        nova_test_aux(s, expr1, None, None, Some(error), None, 2);
+        nova_test_aux(s, expr2, None, None, Some(error), None, 4);
     }
 
     #[test]
