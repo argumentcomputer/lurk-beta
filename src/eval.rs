@@ -637,9 +637,7 @@ fn reduce_with_witness<F: LurkField>(
                                 cdr_args,
                                 body,
                             );
-                            let l = hash_witness.cons_named(ConsName::Lambda, store, lambda, inner);
-                            let nil = store.nil();
-                            hash_witness.cons_named(ConsName::InnerBody, store, l, nil)
+                            hash_witness.cons_named(ConsName::Lambda, store, lambda, inner)
                         };
                         let function = store.intern_fun(arg, inner_body, env);
 
