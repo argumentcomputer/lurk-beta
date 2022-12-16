@@ -611,29 +611,40 @@ fn reduce_with_witness<F: LurkField>(
 
                 if head == lambda {
                     let (args, body) = hash_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
-                    let (arg, _rest) = if args.is_nil() {
-                        // (LAMBDA () STUFF)
-                        // becomes (LAMBDA (DUMMY) STUFF)
-                        (dummy_arg, store.nil())
+                    let (expr, extra) =
+                        hash_witness.car_cdr_named(ConsName::InnerBody, store, &body);
+                    if !extra.is_nil() {
+                        //body with more than one expression is an error
+                        Control::Return(expr, env, store.intern_cont_error())
                     } else {
-                        hash_witness.car_cdr_named(ConsName::ExprCadr, store, &args)
-                    };
-                    let (_, cdr_args) =
-                        hash_witness.car_cdr_named(ConsName::ExprCadr, store, &args);
-                    let inner_body = if cdr_args.is_nil() {
-                        body
-                    } else {
-                        // (LAMBDA (A B) STUFF)
-                        // becomes (LAMBDA (A) (LAMBDA (B) STUFF))
-                        let inner =
-                            hash_witness.cons_named(ConsName::InnerLambda, store, cdr_args, body);
-                        let l = hash_witness.cons_named(ConsName::Lambda, store, lambda, inner);
-                        let nil = store.nil();
-                        hash_witness.cons_named(ConsName::InnerBody, store, l, nil)
-                    };
-                    let function = store.intern_fun(arg, inner_body, env);
+                        let (arg, _rest) = if args.is_nil() {
+                            // (LAMBDA () STUFF)
+                            // becomes (LAMBDA (DUMMY) STUFF)
+                            (dummy_arg, store.nil())
+                        } else {
+                            hash_witness.car_cdr_named(ConsName::ExprCadr, store, &args)
+                        };
+                        let (_, cdr_args) =
+                            hash_witness.car_cdr_named(ConsName::ExprCadr, store, &args);
+                        let inner_body = if cdr_args.is_nil() {
+                            expr
+                        } else {
+                            // (LAMBDA (A B) STUFF)
+                            // becomes (LAMBDA (A) (LAMBDA (B) STUFF))
+                            let inner = hash_witness.cons_named(
+                                ConsName::InnerLambda,
+                                store,
+                                cdr_args,
+                                body,
+                            );
+                            let l = hash_witness.cons_named(ConsName::Lambda, store, lambda, inner);
+                            let nil = store.nil();
+                            hash_witness.cons_named(ConsName::InnerBody, store, l, nil)
+                        };
+                        let function = store.intern_fun(arg, inner_body, env);
 
-                    Control::ApplyContinuation(function, env, cont)
+                        Control::ApplyContinuation(function, env, cont)
+                    }
                 } else if head == quote {
                     let (quoted, end) = hash_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     if !end.is_nil() {
@@ -1018,11 +1029,9 @@ fn apply_continuation<F: LurkField>(
                 {
                     Expression::Fun(arg, body, closed_env) => {
                         if arg == store.lurk_sym("_") {
-                            let (body_form, _) =
-                                hash_witness.car_cdr_named(ConsName::FunBody, store, &body);
                             let cont = make_tail_continuation(saved_env, continuation, store);
 
-                            Control::Return(body_form, closed_env, cont)
+                            Control::Return(body, closed_env, cont)
                         } else {
                             // // Applying zero args to a non-zero arg function leaves it unchanged.
                             // // This is arguably consistent with auto-currying.
@@ -1075,8 +1084,6 @@ fn apply_continuation<F: LurkField>(
                         if arg == store.lurk_sym("_") {
                             return Ok(Control::Return(*result, *env, store.intern_cont_error()));
                         }
-                        let (body_form, _) =
-                            hash_witness.car_cdr_named(ConsName::FunBody, store, &body);
                         let newer_env = hash_witness.extend_named(
                             ConsName::ClosedEnv,
                             closed_env,
@@ -1085,7 +1092,7 @@ fn apply_continuation<F: LurkField>(
                             store,
                         );
                         let cont = make_tail_continuation(saved_env, continuation, store);
-                        Control::Return(body_form, newer_env, cont)
+                        Control::Return(body, newer_env, cont)
                     }
                     _ => unreachable!(),
                 },

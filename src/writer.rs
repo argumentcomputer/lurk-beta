@@ -73,20 +73,20 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                     arg.fmt(store, w)?;
                 }
                 write!(w, ") ")?;
-
-                //Assume body is a single-element cons, ignore the cdr
-                match store.fetch(body).unwrap() {
-                    Expression::Cons(expr, _) => {
-                        let expr = store.fetch(&expr).unwrap();
-                        expr.fmt(store, w)?;
-                    }
-                    Expression::Nil => {
-                        store.get_nil().fmt(store, w)?;
-                    }
-                    _ => {
-                        panic!("Function body was neither a Cons nor Nil");
-                    }
-                }
+                body.fmt(store, w)?;
+                // //Assume body is a single-element cons, ignore the cdr
+                // match store.fetch(body).unwrap() {
+                //     Expression::Cons(expr, _) => {
+                //         let expr = store.fetch(&expr).unwrap();
+                //         expr.fmt(store, w)?;
+                //     }
+                //     Expression::Nil => {
+                //         store.get_nil().fmt(store, w)?;
+                //     }
+                //     _ => {
+                //         panic!("Function body was neither a Cons nor Nil");
+                //     }
+                // }
                 write!(w, ">")
             }
             Num(n) => write!(w, "{}", n),
