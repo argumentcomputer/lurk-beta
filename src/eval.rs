@@ -938,40 +938,44 @@ fn reduce_with_witness<F: LurkField>(
                     if args.is_nil() {
                         Control::Return(fun_form, env, store.intern_cont_call0(env, cont))
                     } else {
-                        let (arg, more_args) =
-                            hash_witness.car_cdr_named(ConsName::ExprCdr, store, &args)?;
-                        match more_args.tag() {
-                            // (fn arg)
-                            // Interpreting as call.
-                            Tag::Nil => Control::Return(
-                                fun_form,
-                                env,
-                                store.intern_cont_call(arg, env, cont),
-                            ),
-                            _ => {
-                                // Interpreting as multi-arg call.
-                                // (fn arg . more_args) => ((fn arg) . more_args)
-                                let nil = store.nil();
-                                let expanded_inner0 = hash_witness.cons_named(
-                                    ConsName::ExpandedInner0,
-                                    store,
-                                    arg,
-                                    nil,
-                                );
-                                let expanded_inner = hash_witness.cons_named(
-                                    ConsName::ExpandedInner,
-                                    store,
+                        if let Ok((arg, more_args)) =
+                            hash_witness.car_cdr_named(ConsName::ExprCdr, store, &args)
+                        {
+                            match more_args.tag() {
+                                // (fn arg)
+                                // Interpreting as call.
+                                Tag::Nil => Control::Return(
                                     fun_form,
-                                    expanded_inner0,
-                                );
-                                let expanded = hash_witness.cons_named(
-                                    ConsName::FunExpanded,
-                                    store,
-                                    expanded_inner,
-                                    more_args,
-                                );
-                                Control::Return(expanded, env, cont)
+                                    env,
+                                    store.intern_cont_call(arg, env, cont),
+                                ),
+                                _ => {
+                                    // Interpreting as multi-arg call.
+                                    // (fn arg . more_args) => ((fn arg) . more_args)
+                                    let nil = store.nil();
+                                    let expanded_inner0 = hash_witness.cons_named(
+                                        ConsName::ExpandedInner0,
+                                        store,
+                                        arg,
+                                        nil,
+                                    );
+                                    let expanded_inner = hash_witness.cons_named(
+                                        ConsName::ExpandedInner,
+                                        store,
+                                        fun_form,
+                                        expanded_inner0,
+                                    );
+                                    let expanded = hash_witness.cons_named(
+                                        ConsName::FunExpanded,
+                                        store,
+                                        expanded_inner,
+                                        more_args,
+                                    );
+                                    Control::Return(expanded, env, cont)
+                                }
                             }
+                        } else {
+                            Control::Return(env, env, store.intern_cont_error())
                         }
                     }
                 }
