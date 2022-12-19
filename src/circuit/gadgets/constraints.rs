@@ -515,9 +515,9 @@ pub fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
     op2: &AllocatedNum<F>,
 ) -> Result<(Boolean, AllocatedPtr<F>, Boolean), SynthesisError> {
 
-    let a_is_negative = enforce_is_negative(&mut cs.namespace(|| "enforce a is negative"), a)?;
-    let b_is_negative = enforce_is_negative(&mut cs.namespace(|| "enforce b is negative"), b)?;
-    let diff_is_negative = enforce_is_negative(&mut cs.namespace(|| "enforce diff is negative"), diff)?;
+    let a_is_negative = enforce_is_negative(&mut cs.namespace(|| "enforce a is negative"), a, true)?;
+    let b_is_negative = enforce_is_negative(&mut cs.namespace(|| "enforce b is negative"), b, true)?;
+    let diff_is_negative = enforce_is_negative(&mut cs.namespace(|| "enforce diff is negative"), diff, true)?;
 
     let diff_is_zero = alloc_is_zero(&mut cs.namespace(|| "diff is zero"), diff)?;
 
@@ -531,8 +531,8 @@ pub fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
 
     let diff_is_not_negative = diff_is_negative.not();
 
-    let both_same_sign = Boolean::xor(
-        &mut cs.namespace(|| "both same sign"),
+    let not_opposite_signs = Boolean::xor(
+        &mut cs.namespace(|| "not opposite signs"),
         &a_is_negative,
         &b_is_negative,
     )?
@@ -619,7 +619,7 @@ pub fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
     let comp_val2 = pick(
         &mut cs.namespace(|| "comp_val2"),
-        &both_same_sign,
+        &not_opposite_signs,
         &comp_val_same_sign_num,
         &comp_val1,
     )?;
@@ -755,16 +755,8 @@ pub fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
         bound.hash(),
         num.hash(),
     )?;
-    let double_diff_bound_num = add(
-        &mut cs.namespace(|| "double diff bound num"),
-        &diff_bound_num,
-        &diff_bound_num,
-    )?;
-    let double_diff_bound_num_bits = double_diff_bound_num
-        .to_bits_le(&mut cs.namespace(|| "diff bits"))
-        .unwrap();
-    let lsb_2diff_bound_num = double_diff_bound_num_bits.get(0);
-    let diff_bound_num_is_negative = lsb_2diff_bound_num.unwrap();
+
+    let diff_bound_num_is_negative = enforce_is_negative(&mut cs.namespace(|| "diff bound num is negative"), &diff_bound_num, false)?;
 
     enforce_implication(
         &mut cs.namespace(|| "enforce u64 range"),
@@ -783,15 +775,23 @@ pub fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
 pub fn enforce_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     num: &AllocatedNum<F>,
+    is_strict: bool,
 ) -> Result<Boolean, SynthesisError> {
     let double_num = add(
         &mut cs.namespace(|| "double num"),
         &num,
         &num,
     )?;
-    let double_num_bits = double_num
-        .to_bits_le_strict(&mut cs.namespace(|| "double num bits"))
-        .unwrap();
+    let double_num_bits: Vec<Boolean> = if is_strict {
+        double_num
+            .to_bits_le_strict(&mut cs.namespace(|| "double num bits"))
+            .unwrap()
+    } else {
+        double_num
+        .to_bits_le(&mut cs.namespace(|| "double num bits"))
+        .unwrap()
+    };
+
     let lsb_2num = double_num_bits.get(0);
     let num_is_negative = lsb_2num.unwrap();
 
