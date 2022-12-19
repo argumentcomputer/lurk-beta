@@ -24,6 +24,8 @@ use crate::circuit::{
     gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness},
     ToInputs,
 };
+use crate::circuit::{gadgets::hashes::AllocatedHashWitness, ToInputs};
+use crate::circuit::circuit_frame::constraints::{comparison_helper, enforce_u64_div_mod};
 use crate::eval::{Frame, Witness, IO};
 use crate::hash_witness::HashWitness;
 use crate::proof::Provable;
@@ -3896,41 +3898,13 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let res = AllocatedPtr::from_parts(&res_tag, &val);
 
-        // Next constraints are used for number comparisons: <, <=, >, >=
-        ///////////////////////////////////////////////////////////////////////
-        let double_a = constraints::add(&mut cs.namespace(|| "double a"), a, a)?;
-        // Ideally we would compute the bit decomposition for a, not for 2a,
-        // since it would be possible to use it for future purposes.
-        let double_a_bits = double_a
-            .to_bits_le_strict(&mut cs.namespace(|| "double a lsb"))
-            .unwrap();
-        let lsb_2a = double_a_bits.get(0);
-
-        let double_b = constraints::add(&mut cs.namespace(|| "double b"), b, b)?;
-        let double_b_bits = double_b
-            .to_bits_le_strict(&mut cs.namespace(|| "double b lsb"))
-            .unwrap();
-        let lsb_2b = double_b_bits.get(0);
-
-        let diff_is_zero = alloc_is_zero(&mut cs.namespace(|| "diff is zero"), &diff)?;
-        let double_diff = constraints::add(&mut cs.namespace(|| "double diff"), &diff, &diff)?;
-        let double_diff_bits = double_diff.to_bits_le_strict(&mut cs).unwrap();
-        let lsb_2diff = double_diff_bits.get(0);
-
-        // We have that a number is defined to be negative if the parity bit (the
-        // least significant bit) is odd after doubling, meaning that the field element
-        // (after doubling) is larger than the underlying prime p that defines the
-        // field, then a modular reduction must have been carried out, changing the parity that
-        // should be even (since we multiplied by 2) to odd. In other words, we define
-        // negative numbers to be those field elements that are larger than p/2.
-        let a_is_negative = lsb_2a.unwrap();
-        let b_is_negative = lsb_2b.unwrap();
-        let diff_is_negative = lsb_2diff.unwrap();
-
-        let diff_is_not_positive = constraints::or(
-            &mut cs.namespace(|| "diff is not positive"),
-            diff_is_negative,
-            &diff_is_zero,
+        let (is_comparison_tag, comp_val, diff_is_negative) = comparison_helper(
+            &mut cs.namespace(|| "enforce comparison"),
+            g,
+            a,
+            b,
+            &diff,
+            op2.tag(),
         )?;
 
         let diff_is_positive = Boolean::and(
