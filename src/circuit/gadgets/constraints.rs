@@ -513,10 +513,10 @@ pub fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
     diff: &AllocatedNum<F>,
     op2: &AllocatedNum<F>,
 ) -> Result<(Boolean, AllocatedPtr<F>, Boolean), SynthesisError> {
-    let a_is_negative = enforce_is_negative(&mut cs.namespace(|| "enforce a is negative"), a)?;
-    let b_is_negative = enforce_is_negative(&mut cs.namespace(|| "enforce b is negative"), b)?;
+    let a_is_negative = allocate_is_negative(&mut cs.namespace(|| "enforce a is negative"), a)?;
+    let b_is_negative = allocate_is_negative(&mut cs.namespace(|| "enforce b is negative"), b)?;
     let diff_is_negative =
-        enforce_is_negative(&mut cs.namespace(|| "enforce diff is negative"), diff)?;
+        allocate_is_negative(&mut cs.namespace(|| "enforce diff is negative"), diff)?;
 
     let diff_is_zero = alloc_is_zero(&mut cs.namespace(|| "diff is zero"), diff)?;
 
@@ -756,7 +756,7 @@ pub fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
         num.hash(),
     )?;
 
-    let diff_bound_num_is_negative = enforce_is_negative(
+    let diff_bound_num_is_negative = allocate_is_negative(
         &mut cs.namespace(|| "diff bound num is negative"),
         &diff_bound_num,
     )?;
@@ -768,14 +768,14 @@ pub fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
     )
 }
 
-// Enforce num is negative.
+// Allocate Boolean for predicate "num is negative".
 // We have that a number is defined to be negative if the parity bit (the
 // least significant bit) is odd after doubling, meaning that the field element
 // (after doubling) is larger than the underlying prime p that defines the
 // field, then a modular reduction must have been carried out, changing the parity that
 // should be even (since we multiplied by 2) to odd. In other words, we define
 // negative numbers to be those field elements that are larger than p/2.
-pub fn enforce_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
+pub fn allocate_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     num: &AllocatedNum<F>,
 ) -> Result<Boolean, SynthesisError> {
