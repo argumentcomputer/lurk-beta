@@ -1,6 +1,5 @@
 // Initially taken from: rust-fil-proofs/storage-proofs-core/src/gadgets/
 
-
 use crate::circuit::add_clause_single;
 use crate::circuit::gadgets::case::multi_case_aux;
 use crate::circuit::gadgets::case::CaseClause;
@@ -514,10 +513,12 @@ pub fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
     diff: &AllocatedNum<F>,
     op2: &AllocatedNum<F>,
 ) -> Result<(Boolean, AllocatedPtr<F>, Boolean), SynthesisError> {
-
-    let a_is_negative = enforce_is_negative(&mut cs.namespace(|| "enforce a is negative"), a, true)?;
-    let b_is_negative = enforce_is_negative(&mut cs.namespace(|| "enforce b is negative"), b, true)?;
-    let diff_is_negative = enforce_is_negative(&mut cs.namespace(|| "enforce diff is negative"), diff, true)?;
+    let a_is_negative =
+        enforce_is_negative(&mut cs.namespace(|| "enforce a is negative"), a, true)?;
+    let b_is_negative =
+        enforce_is_negative(&mut cs.namespace(|| "enforce b is negative"), b, true)?;
+    let diff_is_negative =
+        enforce_is_negative(&mut cs.namespace(|| "enforce diff is negative"), diff, true)?;
 
     let diff_is_zero = alloc_is_zero(&mut cs.namespace(|| "diff is zero"), diff)?;
 
@@ -633,7 +634,7 @@ pub fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
         &g.t_ptr,
     )?;
 
-    Ok((is_comparison_tag, comp_val, diff_is_negative.clone()))
+    Ok((is_comparison_tag, comp_val, diff_is_negative))
 }
 
 // Enforce 0 <= num < 2ˆn.
@@ -756,7 +757,11 @@ pub fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
         num.hash(),
     )?;
 
-    let diff_bound_num_is_negative = enforce_is_negative(&mut cs.namespace(|| "diff bound num is negative"), &diff_bound_num, false)?;
+    let diff_bound_num_is_negative = enforce_is_negative(
+        &mut cs.namespace(|| "diff bound num is negative"),
+        &diff_bound_num,
+        false,
+    )?;
 
     enforce_implication(
         &mut cs.namespace(|| "enforce u64 range"),
@@ -777,19 +782,15 @@ pub fn enforce_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
     num: &AllocatedNum<F>,
     is_strict: bool,
 ) -> Result<Boolean, SynthesisError> {
-    let double_num = add(
-        &mut cs.namespace(|| "double num"),
-        &num,
-        &num,
-    )?;
+    let double_num = add(&mut cs.namespace(|| "double num"), num, num)?;
     let double_num_bits: Vec<Boolean> = if is_strict {
         double_num
             .to_bits_le_strict(&mut cs.namespace(|| "double num bits"))
             .unwrap()
     } else {
         double_num
-        .to_bits_le(&mut cs.namespace(|| "double num bits"))
-        .unwrap()
+            .to_bits_le(&mut cs.namespace(|| "double num bits"))
+            .unwrap()
     };
 
     let lsb_2num = double_num_bits.get(0);
@@ -797,7 +798,6 @@ pub fn enforce_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
 
     Ok(num_is_negative.clone())
 }
-
 
 // Convert from bn to num. This allocation is NOT constrained here.
 // In the circuit we use it to prove u64 decomposition, since using bn
