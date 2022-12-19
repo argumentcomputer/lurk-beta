@@ -307,7 +307,7 @@ impl<F: LurkField> GlobalAllocations<F> {
         let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::zero())?;
         let default_num = allocate_constant(&mut cs.namespace(|| "default"), F::zero())?;
 
-        let power2_64_ff = F::from_str_vartime("18446744073709551616").unwrap();
+        let power2_64_ff = F::pow_vartime(&F::from_u64(2).unwrap(), [64]);
         let power2_64_num = allocate_constant(&mut cs.namespace(|| "pow(2,64)"), power2_64_ff)?;
 
         Ok(Self {

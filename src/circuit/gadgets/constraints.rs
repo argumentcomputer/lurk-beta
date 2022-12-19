@@ -514,11 +514,11 @@ pub fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
     op2: &AllocatedNum<F>,
 ) -> Result<(Boolean, AllocatedPtr<F>, Boolean), SynthesisError> {
     let a_is_negative =
-        enforce_is_negative(&mut cs.namespace(|| "enforce a is negative"), a, true)?;
+        enforce_is_negative(&mut cs.namespace(|| "enforce a is negative"), a)?;
     let b_is_negative =
-        enforce_is_negative(&mut cs.namespace(|| "enforce b is negative"), b, true)?;
+        enforce_is_negative(&mut cs.namespace(|| "enforce b is negative"), b)?;
     let diff_is_negative =
-        enforce_is_negative(&mut cs.namespace(|| "enforce diff is negative"), diff, true)?;
+        enforce_is_negative(&mut cs.namespace(|| "enforce diff is negative"), diff)?;
 
     let diff_is_zero = alloc_is_zero(&mut cs.namespace(|| "diff is zero"), diff)?;
 
@@ -532,8 +532,8 @@ pub fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
 
     let diff_is_not_negative = diff_is_negative.not();
 
-    let not_opposite_signs = Boolean::xor(
-        &mut cs.namespace(|| "not opposite signs"),
+    let one_negative_and_other_not_negative = Boolean::xor(
+        &mut cs.namespace(|| "one negative and other not negative"),
         &a_is_negative,
         &b_is_negative,
     )?
@@ -620,7 +620,7 @@ pub fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
     let comp_val2 = pick(
         &mut cs.namespace(|| "comp_val2"),
-        &not_opposite_signs,
+        &one_negative_and_other_not_negative,
         &comp_val_same_sign_num,
         &comp_val1,
     )?;
@@ -638,7 +638,7 @@ pub fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
 }
 
 // Enforce 0 <= num < 2ˆn.
-pub fn enforce_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
+pub fn enforce_at_most_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
     num: AllocatedNum<F>,
@@ -761,7 +761,6 @@ pub fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
     let diff_bound_num_is_negative = enforce_is_negative(
         &mut cs.namespace(|| "diff bound num is negative"),
         &diff_bound_num,
-        false,
     )?;
 
     enforce_implication(
@@ -781,18 +780,12 @@ pub fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
 pub fn enforce_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     num: &AllocatedNum<F>,
-    is_strict: bool,
 ) -> Result<Boolean, SynthesisError> {
     let double_num = add(&mut cs.namespace(|| "double num"), num, num)?;
-    let double_num_bits: Vec<Boolean> = if is_strict {
+    let double_num_bits =
         double_num
             .to_bits_le_strict(&mut cs.namespace(|| "double num bits"))
-            .unwrap()
-    } else {
-        double_num
-            .to_bits_le(&mut cs.namespace(|| "double num bits"))
-            .unwrap()
-    };
+            .unwrap();
 
     let lsb_2num = double_num_bits.get(0);
     let num_is_negative = lsb_2num.unwrap();
@@ -862,7 +855,7 @@ pub fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     // enforce remainder range
-    enforce_n_bits(
+    enforce_at_most_n_bits(
         &mut cs.namespace(|| "remainder u64 range"),
         g,
         r_num.clone(),
@@ -1087,7 +1080,7 @@ mod tests {
         let alloc_num =
             AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(num.into_scalar())).unwrap();
 
-        let res = enforce_n_bits(&mut cs.namespace(|| "enforce n bits"), &g, alloc_num, 6);
+        let res = enforce_at_most_n_bits(&mut cs.namespace(|| "enforce n bits"), &g, alloc_num, 6);
         assert!(res.is_ok());
         assert!(cs.is_satisfied());
     }
@@ -1103,7 +1096,7 @@ mod tests {
         let alloc_num =
             AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(num.into_scalar())).unwrap();
 
-        let res = enforce_n_bits(&mut cs.namespace(|| "enforce n bits"), &g, alloc_num, 5);
+        let res = enforce_at_most_n_bits(&mut cs.namespace(|| "enforce n bits"), &g, alloc_num, 5);
         assert!(res.is_ok());
         assert!(!cs.is_satisfied());
     }
