@@ -745,6 +745,7 @@ pub fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
 }
 
 // Enforce the num < bound. This is done by proving (bound - num) is positive.
+// The bound can be any field element.
 pub fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     cond: Boolean,
@@ -799,6 +800,7 @@ pub fn enforce_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
     Ok(num_is_negative.clone())
 }
 
+// ATTENTION:
 // Convert from bn to num. This allocation is NOT constrained here.
 // In the circuit we use it to prove u64 decomposition, since using bn
 // we have division with remainder, which is used to find the quotient
