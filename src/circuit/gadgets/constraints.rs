@@ -745,7 +745,7 @@ pub fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
 }
 
 // Enforce the num < bound. This is done by proving (bound - num) is positive.
-// The bound can be any field element.
+// `num` and `bound` must be a positive field element.
 pub fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     cond: Boolean,
@@ -1003,6 +1003,33 @@ mod tests {
             assert_eq!(res.get_value().expect("get_value failed"), tmp);
             assert!(cs.is_satisfied());
         }
+    }
+
+    #[test]
+    fn test_enforce_less_than_bound_corner_case() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+
+        let most_positive = crate::Num::<Fr>::most_positive();
+        let most_positive_ptr = s.num(most_positive);
+        let alloc_most_positive =
+            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "most positive"), s, || {
+                Ok(&most_positive_ptr)
+            })
+            .unwrap();
+        let num = s.num(42);
+        let alloc_num =
+            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "num"), s, || Ok(&num)).unwrap();
+        let cond = Boolean::Constant(true);
+
+        let res = enforce_less_than_bound(
+            &mut cs.namespace(|| "enforce less than bound"),
+            cond,
+            alloc_num,
+            alloc_most_positive,
+        );
+        assert!(res.is_ok());
+        assert!(cs.is_satisfied());
     }
 
     #[test]
