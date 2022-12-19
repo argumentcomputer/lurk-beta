@@ -8,6 +8,37 @@ use bellperson::{
     ConstraintSystem, SynthesisError,
 };
 use ff::PrimeField;
+use num_bigint::BigUint;
+use num_integer::Integer;
+use num_traits::FromPrimitive;
+
+#[derive(Default)]
+struct CompResults<'a, F: LurkField> {
+    same_sign: Vec<CaseClause<'a, F>>,
+    a_neg_and_b_not_neg: Vec<CaseClause<'a, F>>,
+    a_not_neg_and_b_neg: Vec<CaseClause<'a, F>>,
+}
+impl<'a, F: LurkField> CompResults<'a, F> {
+    fn add_clauses_comp(
+        &mut self,
+        key: F,
+        result_same_sign: &'a AllocatedNum<F>,
+        result_a_neg_and_b_not_neg: &'a AllocatedNum<F>,
+        result_a_not_neg_and_b_neg: &'a AllocatedNum<F>,
+    ) {
+        add_clause_single(&mut self.same_sign, key, result_same_sign);
+        add_clause_single(
+            &mut self.a_neg_and_b_not_neg,
+            key,
+            result_a_neg_and_b_not_neg,
+        );
+        add_clause_single(
+            &mut self.a_not_neg_and_b_neg,
+            key,
+            result_a_not_neg_and_b_neg,
+        );
+    }
+}
 
 /// Adds a constraint to CS, enforcing an equality relationship between the allocated numbers a and b.
 ///
@@ -461,6 +492,450 @@ pub fn must_be_simple_bit(x: &Boolean) -> AllocatedBit {
     }
 }
 
+// This function enforces a  comparison relation between a and b.
+// It receives as input argument `diff`, which must be constrained to be
+// equal to the difference (a - b).
+// The last argument is `op2`, which can be <, <=, >, >=
+pub fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    g: &GlobalAllocations<F>,
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
+    diff: &AllocatedNum<F>,
+    op2: &AllocatedNum<F>,
+) -> Result<(Boolean, AllocatedPtr<F>, Boolean), SynthesisError> {
+    let double_a = add(&mut cs.namespace(|| "double a"), a, a)?;
+    // Ideally we would compute the bit decomposition for a, not for 2a,
+    // since it would be possible to use it for future purposes.
+    let double_a_bits = double_a
+        .to_bits_le_strict(&mut cs.namespace(|| "double a lsb"))
+        .unwrap();
+    let lsb_2a = double_a_bits.get(0);
+
+    let double_b = add(&mut cs.namespace(|| "double b"), b, b)?;
+    let double_b_bits = double_b
+        .to_bits_le_strict(&mut cs.namespace(|| "double b lsb"))
+        .unwrap();
+    let lsb_2b = double_b_bits.get(0);
+
+    let diff_is_zero = alloc_is_zero(&mut cs.namespace(|| "diff is zero"), diff)?;
+    let double_diff = add(&mut cs.namespace(|| "double diff"), diff, diff)?;
+    let double_diff_bits = double_diff.to_bits_le_strict(&mut cs).unwrap();
+    let lsb_2diff = double_diff_bits.get(0);
+
+    // We have that a number is defined to be negative if the parity bit (the
+    // least significant bit) is odd after doubling, meaning that the field element
+    // (after doubling) is larger than the underlying prime p that defines the
+    // field, then a modular reduction must have been carried out, changing the parity that
+    // should be even (since we multiplied by 2) to odd. In other words, we define
+    // negative numbers to be those field elements that are larger than p/2.
+    let a_is_negative = lsb_2a.unwrap();
+    let b_is_negative = lsb_2b.unwrap();
+    let diff_is_negative = lsb_2diff.unwrap();
+
+    let diff_is_not_positive = or(
+        &mut cs.namespace(|| "diff is not positive"),
+        diff_is_negative,
+        &diff_is_zero,
+    )?;
+
+    let diff_is_positive = Boolean::and(
+        &mut cs.namespace(|| "diff is positive"),
+        &diff_is_negative.not(),
+        &diff_is_zero.not(),
+    )?;
+
+    let diff_is_not_negative = diff_is_negative.not();
+
+    let both_same_sign = Boolean::xor(
+        &mut cs.namespace(|| "both same sign"),
+        a_is_negative,
+        b_is_negative,
+    )?
+    .not();
+
+    let a_negative_and_b_not_negative = Boolean::and(
+        &mut cs.namespace(|| "a negative and b not negative"),
+        a_is_negative,
+        &b_is_negative.not(),
+    )?;
+
+    let alloc_num_diff_is_negative = boolean_to_num(
+        &mut cs.namespace(|| "Allocate num for diff_is_negative"),
+        diff_is_negative,
+    )?;
+
+    let alloc_num_diff_is_not_positive = boolean_to_num(
+        &mut cs.namespace(|| "Allocate num for diff_is_not_positive"),
+        &diff_is_not_positive,
+    )?;
+
+    let alloc_num_diff_is_positive = boolean_to_num(
+        &mut cs.namespace(|| "Allocate num for diff_is_positive"),
+        &diff_is_positive,
+    )?;
+
+    let alloc_num_diff_is_not_negative = boolean_to_num(
+        &mut cs.namespace(|| "Allocate num for diff_is_not_negative"),
+        &diff_is_not_negative,
+    )?;
+
+    let mut comp_results = CompResults::default();
+    comp_results.add_clauses_comp(
+        Op2::Less.as_field(),
+        &alloc_num_diff_is_negative,
+        &g.true_num,
+        &g.false_num,
+    );
+    comp_results.add_clauses_comp(
+        Op2::LessEqual.as_field(),
+        &alloc_num_diff_is_not_positive,
+        &g.true_num,
+        &g.false_num,
+    );
+    comp_results.add_clauses_comp(
+        Op2::Greater.as_field(),
+        &alloc_num_diff_is_positive,
+        &g.false_num,
+        &g.true_num,
+    );
+    comp_results.add_clauses_comp(
+        Op2::GreaterEqual.as_field(),
+        &alloc_num_diff_is_not_negative,
+        &g.false_num,
+        &g.true_num,
+    );
+
+    let comparison_defaults = [&g.default_num, &g.default_num, &g.default_num];
+
+    let comp_clauses = [
+        &comp_results.same_sign[..],
+        &comp_results.a_neg_and_b_not_neg[..],
+        &comp_results.a_not_neg_and_b_neg[..],
+    ];
+
+    let comparison_result = multi_case_aux(
+        &mut cs.namespace(|| "comparison multicase results"),
+        op2,
+        &comp_clauses,
+        &comparison_defaults,
+        g,
+    )?;
+
+    let comp_val_same_sign_num = comparison_result.0[0].clone();
+    let comp_val_a_neg_and_b_not_neg_num = comparison_result.0[1].clone();
+    let comp_val_a_not_neg_and_b_neg_num = comparison_result.0[2].clone();
+    let is_comparison_tag = comparison_result.1.not();
+
+    let comp_val1 = pick(
+        &mut cs.namespace(|| "comp_val1"),
+        &a_negative_and_b_not_negative,
+        &comp_val_a_neg_and_b_not_neg_num,
+        &comp_val_a_not_neg_and_b_neg_num,
+    )?;
+    let comp_val2 = pick(
+        &mut cs.namespace(|| "comp_val2"),
+        &both_same_sign,
+        &comp_val_same_sign_num,
+        &comp_val1,
+    )?;
+
+    let comp_val_is_zero = alloc_is_zero(&mut cs.namespace(|| "comp_val_is_zero"), &comp_val2)?;
+
+    let comp_val = AllocatedPtr::pick(
+        &mut cs.namespace(|| "comp_val"),
+        &comp_val_is_zero,
+        &g.nil_ptr,
+        &g.t_ptr,
+    )?;
+
+    Ok((is_comparison_tag, comp_val, diff_is_negative.clone()))
+}
+
+// Enforce 0 <= num < 2ˆn.
+pub fn enforce_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    g: &GlobalAllocations<F>,
+    num: AllocatedNum<F>,
+    n: usize,
+) -> Result<(), SynthesisError> {
+    let num_bits = num.to_bits_le(&mut cs.namespace(|| "u64 remainder bit decomp"))?;
+    let v = num_bits[(n + 1)..255].to_vec();
+    boolean_summation(&mut cs.namespace(|| "add all MSBs"), &v, &g.false_num);
+    Ok(())
+}
+
+// Enforce div and mod operation for U64. We need to show that
+// arg1 = q * arg2 + r, such that 0 <= r < arg2.
+pub fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    g: &GlobalAllocations<F>,
+    cond: Boolean,
+    arg1: &AllocatedPtr<F>,
+    arg2: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
+    let arg1_u64 = match arg1.hash().get_value() {
+        Some(v) => v.to_u64_unchecked(),
+        None => 0, // Blank and Dummy
+    };
+    let arg2_u64 = match arg2.hash().get_value() {
+        Some(v) => v.to_u64_unchecked(),
+        None => 0, // Blank and Dummy
+    };
+
+    let (q, r) = if arg2_u64 != 0 {
+        (arg1_u64 / arg2_u64, arg1_u64 % arg2_u64)
+    } else {
+        (0, 0)
+    };
+
+    let r_ptr = store.get_u64(r);
+    let alloc_r =
+        AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "u64 remainder"), store, || Ok(&r_ptr))?;
+
+    let q_ptr = store.get_u64(q);
+    let alloc_q =
+        AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "u64 quotient"), store, || Ok(&q_ptr))?;
+
+    let arg1_u64_ptr = store.get_u64(arg1_u64);
+    let alloc_arg1 = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "alloc arg1"), store, || {
+        Ok(&arg1_u64_ptr)
+    })?;
+
+    let arg2_u64_ptr = store.get_u64(arg2_u64);
+    let alloc_arg2 = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "alloc arg2"), store, || {
+        Ok(&arg2_u64_ptr)
+    })?;
+
+    // a = b * q + r
+    let product_u64mod = mul(
+        &mut cs.namespace(|| "product(q,arg2)"),
+        alloc_q.hash(),
+        alloc_arg2.hash(),
+    )?;
+    let sum_u64mod = add(
+        &mut cs.namespace(|| "sum remainder mod u64"),
+        &product_u64mod,
+        alloc_r.hash(),
+    )?;
+    let u64mod_decomp = alloc_equal(
+        &mut cs.namespace(|| "check u64 mod decomposition"),
+        &sum_u64mod,
+        alloc_arg1.hash(),
+    )?;
+    let b_is_zero = alloc_is_zero(&mut cs.namespace(|| "b is zero"), arg2.hash())?;
+    let b_is_not_zero_and_cond = Boolean::and(
+        &mut cs.namespace(|| "b is not zero and cond"),
+        &b_is_zero.not(),
+        &cond,
+    )?;
+    enforce_implication(
+        &mut cs.namespace(|| "enforce u64 mod decomposition"),
+        &b_is_not_zero_and_cond,
+        &u64mod_decomp,
+    )?;
+
+    enforce_less_than_bound(
+        &mut cs.namespace(|| "remainder in range b"),
+        cond,
+        alloc_r.clone(),
+        alloc_arg2.clone(),
+    )?;
+
+    let arg1_u64_tag = alloc_equal(
+        &mut cs.namespace(|| "arg1 u64 tag"),
+        alloc_arg1.tag(),
+        &g.u64_tag,
+    )?;
+    let arg2_u64_tag = alloc_equal(
+        &mut cs.namespace(|| "arg2 u64 tag"),
+        alloc_arg2.tag(),
+        &g.u64_tag,
+    )?;
+    enforce_true(&mut cs.namespace(|| "check arg1 u64 tag"), &arg1_u64_tag)?;
+    enforce_true(&mut cs.namespace(|| "check arg2 u64 tag"), &arg2_u64_tag)?;
+
+    Ok((alloc_q, alloc_r))
+}
+
+// Enforce the num < bound. This is done by proving (bound - num) is positive.
+pub fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    cond: Boolean,
+    num: AllocatedPtr<F>,
+    bound: AllocatedPtr<F>,
+) -> Result<(), SynthesisError> {
+    let diff_bound_num = sub(
+        &mut cs.namespace(|| "bound minus num"),
+        bound.hash(),
+        num.hash(),
+    )?;
+    let double_diff_bound_num = add(
+        &mut cs.namespace(|| "double diff bound num"),
+        &diff_bound_num,
+        &diff_bound_num,
+    )?;
+    let double_diff_bound_num_bits = double_diff_bound_num
+        .to_bits_le(&mut cs.namespace(|| "diff bits"))
+        .unwrap();
+    let lsb_2diff_bound_num = double_diff_bound_num_bits.get(0);
+    let diff_bound_num_is_negative = lsb_2diff_bound_num.unwrap();
+
+    enforce_implication(
+        &mut cs.namespace(|| "enforce u64 range"),
+        &cond,
+        &diff_bound_num_is_negative.not(),
+    )
+}
+
+// Convert from bn to num. This allocation is NOT constrained here.
+// In the circuit we use it to prove u64 decomposition, since using bn
+// we have division with remainder, which is used to find the quotient
+// after dividing by 2ˆ64. Therefore we constrain this relation afterwards.
+pub fn allocate_unconstrained_bignum<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    bn: BigUint,
+) -> Result<AllocatedNum<F>, SynthesisError> {
+    let bytes_le = bn.to_bytes_le();
+    let mut bytes_padded = [0u8; 32];
+    bytes_padded[0..bytes_le.len()].copy_from_slice(&bytes_le);
+    let ff = F::from_bytes(&bytes_padded).unwrap();
+    let num = AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(ff)).unwrap();
+    Ok(num)
+}
+
+// Convert from num to u64.
+pub fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    g: &GlobalAllocations<F>,
+    maybe_u64: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    /*let p64_bn = match g.power2_64_num.get_value() {
+        Some(v) => BigUint::from_bytes_le(v.to_repr().as_ref()),
+        // Since it is will be in the denominator, it can't be zero
+        None => BigUint::one(), // blank and dummy
+    };*/
+    let p64_bn = BigUint::pow(&BigUint::from_u32(2).unwrap(), 64);
+    let v = match maybe_u64.hash().get_value() {
+        Some(v) => v,
+        None => F::zero(),
+    };
+    let u64_ptr = store.get_u64(v.to_u64_unchecked());
+    let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
+
+    let (q_bn, r_bn) = field_bn.div_rem(&p64_bn);
+
+    let q_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "q"), q_bn)?;
+    let r_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "r"), r_bn)?;
+    //let p64_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "p64"), p64_bn)?;
+    //let p64_num = g.power2_64_num;
+
+    // a = b.q + r
+    let product = mul(
+        &mut cs.namespace(|| "product(q,pow(2,64))"),
+        &q_num,
+        &g.power2_64_num,
+    )?;
+    let sum = add(&mut cs.namespace(|| "sum remainder"), &product, &r_num)?;
+    let u64_decomp = alloc_equal(
+        &mut cs.namespace(|| "check u64 decomposition"),
+        &sum,
+        maybe_u64.hash(),
+    )?;
+    enforce_true(
+        &mut cs.namespace(|| "enforce u64 decomposition"),
+        &u64_decomp,
+    )?;
+
+    // enforce remainder range
+    enforce_n_bits(
+        &mut cs.namespace(|| "remainder u64 range"),
+        g,
+        r_num.clone(),
+        64,
+    )?;
+
+    let output = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "u64_op"), store, || Ok(&u64_ptr))?;
+    let u64_is_remainder = alloc_equal(
+        &mut cs.namespace(|| "check u64 value is the remainder"),
+        &r_num,
+        output.hash(),
+    )?;
+    enforce_true(
+        &mut cs.namespace(|| "enforce u64 decomposition output"),
+        &u64_is_remainder,
+    )?;
+    Ok(output)
+}
+
+pub fn hide<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    g: &GlobalAllocations<F>,
+    secret: &AllocatedNum<F>,
+    maybe_payload: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    AllocatedPtr::construct_commitment(
+        &mut cs.namespace(|| "commitment hash"),
+        g,
+        store,
+        secret,
+        maybe_payload,
+    )
+}
+
+pub fn num<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    maybe_num: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    let num_ptr = if let Some(ptr) = maybe_num.ptr(store).as_ref() {
+        let scalar_ptr = store.get_expr_hash(ptr).expect("expr hash missing");
+        match store.get_num(crate::Num::Scalar::<F>(*scalar_ptr.value())) {
+            Some(n) => n,
+            None => store.get_nil(),
+        }
+    } else {
+        store.get_nil()
+    };
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "num"), store, || Ok(&num_ptr))
+}
+
+pub fn comm<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    maybe_comm: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    let hash = match maybe_comm.hash().get_value() {
+        Some(h) => h,
+        None => F::zero(), // dummy value
+    };
+    let comm_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
+        Some(c) => c,
+        None => store.get_nil(),
+    };
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&comm_ptr))
+}
+
+pub fn char_op<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    maybe_char: &AllocatedPtr<F>,
+    store: &Store<F>,
+) -> Result<AllocatedPtr<F>, SynthesisError> {
+    let char_ptr = if let Some(ptr) = maybe_char.ptr(store).as_ref() {
+        let scalar_ptr = store.get_expr_hash(ptr).expect("expr hash missing");
+        match scalar_ptr.value().to_u32() {
+            Some(n) => store.get_char(char::from_u32(n).unwrap()),
+            None => store.get_nil(),
+        }
+    } else {
+        store.get_nil()
+    };
+    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "char_op"), store, || Ok(&char_ptr))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -516,5 +991,214 @@ mod tests {
             assert_eq!(res.get_value().expect("get_value failed"), tmp);
             assert!(cs.is_satisfied());
         }
+    }
+
+    #[test]
+    fn test_enforce_less_than_bound() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+        let num = s.num(42);
+        let alloc_num =
+            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "num"), s, || Ok(&num)).unwrap();
+        let bound = s.num(43);
+        let alloc_bound =
+            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "bound"), s, || Ok(&bound)).unwrap();
+        let cond = Boolean::Constant(true);
+
+        let res = enforce_less_than_bound(
+            &mut cs.namespace(|| "enforce less than bound"),
+            cond,
+            alloc_num,
+            alloc_bound,
+        );
+        assert!(res.is_ok());
+        assert!(cs.is_satisfied());
+    }
+
+    #[test]
+    fn test_enforce_less_than_bound_negative() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+        let num = s.num(43);
+        let alloc_num =
+            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "num"), s, || Ok(&num)).unwrap();
+        let bound = s.num(42);
+        let alloc_bound =
+            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "bound"), s, || Ok(&bound)).unwrap();
+        let cond = Boolean::Constant(true);
+
+        let res = enforce_less_than_bound(
+            &mut cs.namespace(|| "enforce less than bound"),
+            cond,
+            alloc_num,
+            alloc_bound,
+        );
+        assert!(res.is_ok());
+        assert!(!cs.is_satisfied());
+    }
+
+    #[test]
+    fn test_enforce_n_bits() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+
+        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
+
+        let num = crate::Num::<Fr>::Scalar(Fr::from_u64(42).unwrap());
+        let alloc_num =
+            AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(num.into_scalar())).unwrap();
+
+        let res = enforce_n_bits(&mut cs.namespace(|| "enforce n bits"), &g, alloc_num, 5);
+        assert!(res.is_ok());
+        assert!(cs.is_satisfied());
+    }
+
+    #[test]
+    fn test_enforce_n_bits_negative() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+
+        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
+
+        let num = crate::Num::<Fr>::Scalar(Fr::from_u64(42).unwrap());
+        let alloc_num =
+            AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(num.into_scalar())).unwrap();
+
+        let res = enforce_n_bits(&mut cs.namespace(|| "enforce n bits"), &g, alloc_num, 4);
+        assert!(res.is_ok());
+        assert!(!cs.is_satisfied());
+    }
+
+    #[test]
+    fn test_enforce_u64_div_mod() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+
+        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
+
+        let a = s.num(42);
+        let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
+        let b = s.num(5);
+        let alloc_b = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "b"), s, || Ok(&b)).unwrap();
+
+        let cond = Boolean::Constant(true);
+
+        let (q, r) = enforce_u64_div_mod(
+            &mut cs.namespace(|| "enforce u64 div mod"),
+            &g,
+            cond,
+            &alloc_a,
+            &alloc_b,
+            s,
+        )
+        .unwrap();
+        assert!(cs.is_satisfied());
+        assert_eq!(q.hash().get_value(), Fr::from_u64(8));
+        assert_eq!(r.hash().get_value(), Fr::from_u64(2));
+    }
+
+    #[test]
+    fn test_enforce_u64_div_mod_zero() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+
+        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
+
+        let a = s.num(42);
+        let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
+        let b = s.num(0);
+        let alloc_b = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "b"), s, || Ok(&b)).unwrap();
+
+        let cond = Boolean::Constant(true);
+
+        let (q, r) = enforce_u64_div_mod(
+            &mut cs.namespace(|| "enforce u64 div mod"),
+            &g,
+            cond,
+            &alloc_a,
+            &alloc_b,
+            s,
+        )
+        .unwrap();
+        assert!(cs.is_satisfied());
+        assert_eq!(q.hash().get_value(), Fr::from_u64(0));
+        assert_eq!(r.hash().get_value(), Fr::from_u64(0));
+    }
+
+    #[test]
+    fn test_u64_op() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+
+        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
+
+        let a = s.num(42);
+        let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
+
+        let a_u64 = u64_op(&mut cs.namespace(|| "u64 op"), &g, &alloc_a, s).unwrap();
+        assert!(cs.is_satisfied());
+        assert_eq!(a_u64.hash().get_value(), Fr::from_u64(42));
+    }
+
+    #[test]
+    fn test_u64_op_coercion() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+
+        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
+        let alloc_pow2_64 = AllocatedPtr::from_parts(&g.num_tag, &g.power2_64_num);
+
+        let a_u64 = u64_op(&mut cs.namespace(|| "u64 op"), &g, &alloc_pow2_64, s).unwrap();
+        assert!(cs.is_satisfied());
+        assert_eq!(a_u64.hash().get_value(), Fr::from_u64(0));
+    }
+
+    #[test]
+    fn test_enforce_comparison() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+
+        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
+
+        let a = s.num(42);
+        let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
+        let b = s.num(43);
+        let alloc_b = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "b"), s, || Ok(&b)).unwrap();
+        let diff = sub(&mut cs.namespace(|| "sub"), alloc_a.hash(), alloc_b.hash()).unwrap();
+
+        let (_, comp_val, _) = enforce_comparison(
+            &mut cs.namespace(|| "enforce u64 div mod"),
+            &g,
+            &alloc_a.hash(),
+            &alloc_b.hash(),
+            &diff,
+            &g.op2_less_tag,
+        )
+        .unwrap();
+        assert!(cs.is_satisfied());
+        assert_eq!(comp_val.hash().get_value(), g.t_ptr.hash().get_value());
+    }
+
+    #[test]
+    fn test_enforce_boolean_summation() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+
+        let a = s.num(42);
+        let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
+        let bits = alloc_a
+            .hash()
+            .to_bits_le(&mut cs.namespace(|| "bits"))
+            .unwrap();
+        let popcount = s.num(3);
+        let alloc_popcount =
+            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "popcount"), s, || Ok(&popcount)).unwrap();
+
+        boolean_summation(
+            &mut cs.namespace(|| "boolean summation"),
+            &bits,
+            &alloc_popcount.hash(),
+        );
+        assert!(cs.is_satisfied());
     }
 }
