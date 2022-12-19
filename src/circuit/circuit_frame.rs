@@ -20,7 +20,9 @@ use crate::{
 use super::gadgets::constraints::{
     self, alloc_equal, alloc_is_zero, boolean_to_num, enforce_implication, or, pick,
 };
+<<<<<<< HEAD
 use crate::circuit::{gadgets::hashes::AllocatedHashWitness, ToInputs};
+use crate::circuit::circuit_frame::constraints::{comparison_helper, enforce_u64_div_mod};
 use crate::eval::{Frame, Witness, IO};
 use crate::hash_witness::HashWitness;
 use crate::proof::Provable;
@@ -3846,6 +3848,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let res = AllocatedPtr::from_parts(&res_tag, &val);
 
+<<<<<<< HEAD
         // Next constraints are used for number comparisons: <, <=, >, >=
         ///////////////////////////////////////////////////////////////////////
         let double_a = constraints::add(&mut cs.namespace(|| "double a"), a, a)?;
@@ -3881,6 +3884,15 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &mut cs.namespace(|| "diff is not positive"),
             diff_is_negative,
             &diff_is_zero,
+=======
+        let (is_comparison_tag, comp_val, diff_is_negative) = comparison_helper(
+            &mut cs.namespace(|| "enforce comparison"),
+            g,
+            a,
+            b,
+            &diff,
+            op2.tag(),
+>>>>>>> c072e9f (Fix name)
         )?;
 
         let diff_is_positive = Boolean::and(
