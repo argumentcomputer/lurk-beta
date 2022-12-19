@@ -1,5 +1,15 @@
 // Initially taken from: rust-fil-proofs/storage-proofs-core/src/gadgets/
 
+
+use crate::circuit::add_clause_single;
+use crate::circuit::gadgets::case::multi_case_aux;
+use crate::circuit::gadgets::case::CaseClause;
+use crate::circuit::gadgets::data::GlobalAllocations;
+use crate::circuit::gadgets::pointer::AllocatedPtr;
+use crate::field::LurkField;
+use crate::store::ScalarPointer;
+use crate::store::Store;
+use crate::store::{Op2, Tag};
 use bellperson::{
     gadgets::{
         boolean::{AllocatedBit, Boolean},
@@ -504,65 +514,39 @@ pub fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
     diff: &AllocatedNum<F>,
     op2: &AllocatedNum<F>,
 ) -> Result<(Boolean, AllocatedPtr<F>, Boolean), SynthesisError> {
-    let double_a = add(&mut cs.namespace(|| "double a"), a, a)?;
-    // Ideally we would compute the bit decomposition for a, not for 2a,
-    // since it would be possible to use it for future purposes.
-    let double_a_bits = double_a
-        .to_bits_le_strict(&mut cs.namespace(|| "double a lsb"))
-        .unwrap();
-    let lsb_2a = double_a_bits.get(0);
 
-    let double_b = add(&mut cs.namespace(|| "double b"), b, b)?;
-    let double_b_bits = double_b
-        .to_bits_le_strict(&mut cs.namespace(|| "double b lsb"))
-        .unwrap();
-    let lsb_2b = double_b_bits.get(0);
+    let a_is_negative = enforce_is_negative(&mut cs.namespace(|| "enforce a is negative"), a)?;
+    let b_is_negative = enforce_is_negative(&mut cs.namespace(|| "enforce b is negative"), b)?;
+    let diff_is_negative = enforce_is_negative(&mut cs.namespace(|| "enforce diff is negative"), diff)?;
 
     let diff_is_zero = alloc_is_zero(&mut cs.namespace(|| "diff is zero"), diff)?;
-    let double_diff = add(&mut cs.namespace(|| "double diff"), diff, diff)?;
-    let double_diff_bits = double_diff.to_bits_le_strict(&mut cs).unwrap();
-    let lsb_2diff = double_diff_bits.get(0);
-
-    // We have that a number is defined to be negative if the parity bit (the
-    // least significant bit) is odd after doubling, meaning that the field element
-    // (after doubling) is larger than the underlying prime p that defines the
-    // field, then a modular reduction must have been carried out, changing the parity that
-    // should be even (since we multiplied by 2) to odd. In other words, we define
-    // negative numbers to be those field elements that are larger than p/2.
-    let a_is_negative = lsb_2a.unwrap();
-    let b_is_negative = lsb_2b.unwrap();
-    let diff_is_negative = lsb_2diff.unwrap();
 
     let diff_is_not_positive = or(
         &mut cs.namespace(|| "diff is not positive"),
-        diff_is_negative,
+        &diff_is_negative,
         &diff_is_zero,
     )?;
 
-    let diff_is_positive = Boolean::and(
-        &mut cs.namespace(|| "diff is positive"),
-        &diff_is_negative.not(),
-        &diff_is_zero.not(),
-    )?;
+    let diff_is_positive = diff_is_not_positive.not();
 
     let diff_is_not_negative = diff_is_negative.not();
 
     let both_same_sign = Boolean::xor(
         &mut cs.namespace(|| "both same sign"),
-        a_is_negative,
-        b_is_negative,
+        &a_is_negative,
+        &b_is_negative,
     )?
     .not();
 
     let a_negative_and_b_not_negative = Boolean::and(
         &mut cs.namespace(|| "a negative and b not negative"),
-        a_is_negative,
+        &a_is_negative,
         &b_is_negative.not(),
     )?;
 
     let alloc_num_diff_is_negative = boolean_to_num(
         &mut cs.namespace(|| "Allocate num for diff_is_negative"),
-        diff_is_negative,
+        &diff_is_negative,
     )?;
 
     let alloc_num_diff_is_not_positive = boolean_to_num(
@@ -660,7 +644,7 @@ pub fn enforce_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
     n: usize,
 ) -> Result<(), SynthesisError> {
     let num_bits = num.to_bits_le(&mut cs.namespace(|| "u64 remainder bit decomp"))?;
-    let v = num_bits[(n + 1)..255].to_vec();
+    let v = num_bits[n..255].to_vec();
     boolean_summation(&mut cs.namespace(|| "add all MSBs"), &v, &g.false_num);
     Ok(())
 }
@@ -788,6 +772,32 @@ pub fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
         &diff_bound_num_is_negative.not(),
     )
 }
+
+// Enforce num is negative.
+// We have that a number is defined to be negative if the parity bit (the
+// least significant bit) is odd after doubling, meaning that the field element
+// (after doubling) is larger than the underlying prime p that defines the
+// field, then a modular reduction must have been carried out, changing the parity that
+// should be even (since we multiplied by 2) to odd. In other words, we define
+// negative numbers to be those field elements that are larger than p/2.
+pub fn enforce_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    num: &AllocatedNum<F>,
+) -> Result<Boolean, SynthesisError> {
+    let double_num = add(
+        &mut cs.namespace(|| "double num"),
+        &num,
+        &num,
+    )?;
+    let double_num_bits = double_num
+        .to_bits_le_strict(&mut cs.namespace(|| "double num bits"))
+        .unwrap();
+    let lsb_2num = double_num_bits.get(0);
+    let num_is_negative = lsb_2num.unwrap();
+
+    Ok(num_is_negative.clone())
+}
+
 
 // Convert from bn to num. This allocation is NOT constrained here.
 // In the circuit we use it to prove u64 decomposition, since using bn
@@ -1044,11 +1054,11 @@ mod tests {
 
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
 
-        let num = crate::Num::<Fr>::Scalar(Fr::from_u64(42).unwrap());
+        let num = crate::Num::<Fr>::Scalar(Fr::from_u64(42).unwrap()); // 42 = 101010
         let alloc_num =
             AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(num.into_scalar())).unwrap();
 
-        let res = enforce_n_bits(&mut cs.namespace(|| "enforce n bits"), &g, alloc_num, 5);
+        let res = enforce_n_bits(&mut cs.namespace(|| "enforce n bits"), &g, alloc_num, 6);
         assert!(res.is_ok());
         assert!(cs.is_satisfied());
     }
@@ -1060,11 +1070,11 @@ mod tests {
 
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
 
-        let num = crate::Num::<Fr>::Scalar(Fr::from_u64(42).unwrap());
+        let num = crate::Num::<Fr>::Scalar(Fr::from_u64(42).unwrap()); // 42 = 101010
         let alloc_num =
             AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(num.into_scalar())).unwrap();
 
-        let res = enforce_n_bits(&mut cs.namespace(|| "enforce n bits"), &g, alloc_num, 4);
+        let res = enforce_n_bits(&mut cs.namespace(|| "enforce n bits"), &g, alloc_num, 5);
         assert!(res.is_ok());
         assert!(!cs.is_satisfied());
     }
