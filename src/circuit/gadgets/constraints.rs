@@ -501,11 +501,11 @@ pub fn must_be_simple_bit(x: &Boolean) -> AllocatedBit {
     }
 }
 
-// This function enforces a  comparison relation between a and b.
+// This function helps to enforce a  comparison relation between a and b.
 // It receives as input argument `diff`, which must be constrained to be
 // equal to the difference (a - b).
 // The last argument is `op2`, which can be <, <=, >, >=
-pub fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
+pub fn comparison_helper<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
     a: &AllocatedNum<F>,
@@ -530,8 +530,8 @@ pub fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
 
     let diff_is_not_negative = diff_is_negative.not();
 
-    let one_negative_and_other_not_negative = Boolean::xor(
-        &mut cs.namespace(|| "one negative and other not negative"),
+    let not_one_negative_and_other_not_negative = Boolean::xor(
+        &mut cs.namespace(|| "not one negative and other not negative"),
         &a_is_negative,
         &b_is_negative,
     )?
@@ -618,7 +618,7 @@ pub fn enforce_comparison<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
     let comp_val2 = pick(
         &mut cs.namespace(|| "comp_val2"),
-        &one_negative_and_other_not_negative,
+        &not_one_negative_and_other_not_negative,
         &comp_val_same_sign_num,
         &comp_val1,
     )?;
@@ -1195,7 +1195,7 @@ mod tests {
         let alloc_b = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "b"), s, || Ok(&b)).unwrap();
         let diff = sub(&mut cs.namespace(|| "sub"), alloc_a.hash(), alloc_b.hash()).unwrap();
 
-        let (_, comp_val, _) = enforce_comparison(
+        let (_, comp_val, _) = comparison_helper(
             &mut cs.namespace(|| "enforce u64 div mod"),
             &g,
             &alloc_a.hash(),
