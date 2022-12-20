@@ -815,11 +815,6 @@ pub fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
     maybe_u64: &AllocatedPtr<F>,
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
-    /*let p64_bn = match g.power2_64_num.get_value() {
-        Some(v) => BigUint::from_bytes_le(v.to_repr().as_ref()),
-        // Since it is will be in the denominator, it can't be zero
-        None => BigUint::one(), // blank and dummy
-    };*/
     let p64_bn = BigUint::pow(&BigUint::from_u32(2).unwrap(), 64);
     let v = match maybe_u64.hash().get_value() {
         Some(v) => v,
@@ -832,8 +827,6 @@ pub fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
 
     let q_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "q"), q_bn)?;
     let r_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "r"), r_bn)?;
-    //let p64_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "p64"), p64_bn)?;
-    //let p64_num = g.power2_64_num;
 
     // a = b.q + r
     let product = mul(
