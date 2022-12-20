@@ -3794,4 +3794,19 @@ mod test {
         assert_eq!(&Tag::Sym.as_field::<Fr>(), sym_scalar_ptr.tag());
         assert_eq!(&Tag::Key.as_field::<Fr>(), key_scalar_ptr.tag());
     }
+
+    #[test]
+    fn test_fold_cons_regression() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(letrec ((fold (lambda (op acc l)
+                                     (if l
+                                         (fold op (op acc (car l)) (cdr l))
+                                         acc))))
+                      (fold (lambda (x y) (+ x y)) 0 '(1 2 3)))";
+        let res = s.num(6);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 152);
+    }
 }

@@ -2615,4 +2615,18 @@ mod tests {
 
         nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 108);
     }
+
+    #[test]
+    fn outer_prove_test_fold_cons_regression() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(letrec ((fold (lambda (op acc l)
+                                     (if l
+                                         (fold op (op acc (car l)) (cdr l))
+                                         acc))))
+                      (fold (lambda (x y) (+ x y)) 0 '(1 2 3)))";
+        let res = s.num(6);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 152);
+    }
 }

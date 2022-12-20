@@ -63,7 +63,7 @@ impl ConsName {
             Self::Begin => 4,
             Self::InnerBody => 4,
             Self::ExtendedClosureEnv => 4,
-            Self::ClosedEnv => 4,
+            Self::ClosedEnv => 7,
             Self::ExprCaaadr => 5,
             Self::ExtendedRec => 5,
             Self::EnvToUse => 5,
