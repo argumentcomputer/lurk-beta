@@ -6,9 +6,8 @@ use crate::circuit::gadgets::case::CaseClause;
 use crate::circuit::gadgets::data::GlobalAllocations;
 use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::field::LurkField;
-use crate::store::ScalarPointer;
 use crate::store::Store;
-use crate::store::{Op2, Tag};
+use crate::store::{Op2};
 use bellperson::{
     gadgets::{
         boolean::{AllocatedBit, Boolean},
@@ -20,6 +19,7 @@ use ff::PrimeField;
 use num_bigint::BigUint;
 use num_integer::Integer;
 use num_traits::FromPrimitive;
+use bellperson::LinearCombination;
 
 #[derive(Default)]
 struct CompResults<'a, F: LurkField> {
@@ -119,19 +119,17 @@ pub fn boolean_summation<F: PrimeField, CS: ConstraintSystem<F>>(
     v: &Vec<Boolean>,
     sum: &AllocatedNum<F>,
 ) {
-    let v_lc = LinearCombination::<F>::zero();
+    let mut v_lc = LinearCombination::<F>::zero();
     for i in 0..v.len() {
         match v[i] {
             Boolean::Constant(c) => {
                 if c {
-                    v_lc.clone() + (F::one(), CS::one())
-                } else {
-                    v_lc.clone()
+                    v_lc = v_lc + (F::one(), CS::one())
                 }
             }
-            Boolean::Is(ref v) => v_lc.clone() + (F::one(), v.get_variable()),
+            Boolean::Is(ref v) => v_lc = v_lc + (F::one(), v.get_variable()),
             Boolean::Not(ref v) => {
-                v_lc.clone() + (F::one(), CS::one()) - (F::one(), v.get_variable())
+                v_lc = v_lc + (F::one(), CS::one()) - (F::one(), v.get_variable())
             }
         };
     }
@@ -872,72 +870,6 @@ pub fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
     Ok(output)
 }
 
-pub fn hide<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    g: &GlobalAllocations<F>,
-    secret: &AllocatedNum<F>,
-    maybe_payload: &AllocatedPtr<F>,
-    store: &Store<F>,
-) -> Result<AllocatedPtr<F>, SynthesisError> {
-    AllocatedPtr::construct_commitment(
-        &mut cs.namespace(|| "commitment hash"),
-        g,
-        store,
-        secret,
-        maybe_payload,
-    )
-}
-
-pub fn num<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    maybe_num: &AllocatedPtr<F>,
-    store: &Store<F>,
-) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let num_ptr = if let Some(ptr) = maybe_num.ptr(store).as_ref() {
-        let scalar_ptr = store.get_expr_hash(ptr).expect("expr hash missing");
-        match store.get_num(crate::Num::Scalar::<F>(*scalar_ptr.value())) {
-            Some(n) => n,
-            None => store.get_nil(),
-        }
-    } else {
-        store.get_nil()
-    };
-    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "num"), store, || Ok(&num_ptr))
-}
-
-pub fn comm<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    maybe_comm: &AllocatedPtr<F>,
-    store: &Store<F>,
-) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let hash = match maybe_comm.hash().get_value() {
-        Some(h) => h,
-        None => F::zero(), // dummy value
-    };
-    let comm_ptr = match store.get_maybe_opaque(Tag::Comm, hash) {
-        Some(c) => c,
-        None => store.get_nil(),
-    };
-    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "open"), store, || Ok(&comm_ptr))
-}
-
-pub fn char_op<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    maybe_char: &AllocatedPtr<F>,
-    store: &Store<F>,
-) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let char_ptr = if let Some(ptr) = maybe_char.ptr(store).as_ref() {
-        let scalar_ptr = store.get_expr_hash(ptr).expect("expr hash missing");
-        match scalar_ptr.value().to_u32() {
-            Some(n) => store.get_char(char::from_u32(n).unwrap()),
-            None => store.get_nil(),
-        }
-    } else {
-        store.get_nil()
-    };
-    AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "char_op"), store, || Ok(&char_ptr))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1077,7 +1009,7 @@ mod tests {
         let alloc_num =
             AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(num.into_scalar())).unwrap();
 
-        let res = enforce_at_most_n_bits(&mut cs.namespace(|| "enforce n bits"), &g, alloc_num, 6);
+        let res = enforce_at_most_n_bits(&mut cs.namespace(|| "enforce at most n bits"), &g, alloc_num, 6);
         assert!(res.is_ok());
         assert!(cs.is_satisfied());
     }
@@ -1093,7 +1025,7 @@ mod tests {
         let alloc_num =
             AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(num.into_scalar())).unwrap();
 
-        let res = enforce_at_most_n_bits(&mut cs.namespace(|| "enforce n bits"), &g, alloc_num, 5);
+        let res = enforce_at_most_n_bits(&mut cs.namespace(|| "enforce at most n bits"), &g, alloc_num, 5);
         assert!(res.is_ok());
         assert!(!cs.is_satisfied());
     }
