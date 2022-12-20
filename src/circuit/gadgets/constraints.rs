@@ -7,8 +7,9 @@ use crate::circuit::gadgets::data::GlobalAllocations;
 use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::field::LurkField;
 use crate::store::ScalarPointer;
-use crate::store::Store;
 use crate::store::{Op2, Tag};
+use crate::store::Store;
+use bellperson::LinearCombination;
 use bellperson::{
     gadgets::{
         boolean::{AllocatedBit, Boolean},
@@ -1077,7 +1078,12 @@ mod tests {
         let alloc_num =
             AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(num.into_scalar())).unwrap();
 
-        let res = enforce_at_most_n_bits(&mut cs.namespace(|| "enforce n bits"), &g, alloc_num, 6);
+        let res = enforce_at_most_n_bits(
+            &mut cs.namespace(|| "enforce at most n bits"),
+            &g,
+            alloc_num,
+            6,
+        );
         assert!(res.is_ok());
         assert!(cs.is_satisfied());
     }
@@ -1093,7 +1099,12 @@ mod tests {
         let alloc_num =
             AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(num.into_scalar())).unwrap();
 
-        let res = enforce_at_most_n_bits(&mut cs.namespace(|| "enforce n bits"), &g, alloc_num, 5);
+        let res = enforce_at_most_n_bits(
+            &mut cs.namespace(|| "enforce at most n bits"),
+            &g,
+            alloc_num,
+            5,
+        );
         assert!(res.is_ok());
         assert!(!cs.is_satisfied());
     }

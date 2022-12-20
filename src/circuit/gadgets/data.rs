@@ -104,6 +104,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub minus_sym: AllocatedPtr<F>,
     pub times_sym: AllocatedPtr<F>,
     pub div_sym: AllocatedPtr<F>,
+    pub mod_sym: AllocatedPtr<F>,
     pub equal_sym: AllocatedPtr<F>,
     pub eq_sym: AllocatedPtr<F>,
     pub less_sym: AllocatedPtr<F>,
@@ -292,6 +293,7 @@ impl<F: LurkField> GlobalAllocations<F> {
         defsym!(minus_sym, "-");
         defsym!(times_sym, "*");
         defsym!(div_sym, "/", "div");
+        defsym!(mod_sym, "%", "mod");
         defsym!(equal_sym, "=");
         defsym!(eq_sym, "eq");
         defsym!(less_sym, "<");
@@ -392,6 +394,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             minus_sym,
             times_sym,
             div_sym,
+            mod_sym,
             equal_sym,
             eq_sym,
             less_sym,

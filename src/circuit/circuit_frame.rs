@@ -24,8 +24,8 @@ use crate::circuit::{
     gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness},
     ToInputs,
 };
+use crate::circuit::circuit_frame::constraints::{comparison_helper, enforce_u64_div_mod, u64_op};
 use crate::circuit::{gadgets::hashes::AllocatedHashWitness, ToInputs};
-use crate::circuit::circuit_frame::constraints::{comparison_helper, enforce_u64_div_mod};
 use crate::eval::{Frame, Witness, IO};
 use crate::hash_witness::HashWitness;
 use crate::proof::Provable;
@@ -1346,6 +1346,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     def_head_sym!(head_is_minus, minus_sym);
     def_head_sym!(head_is_times, times_sym);
     def_head_sym!(head_is_div, div_sym);
+    def_head_sym!(head_is_mod, mod_sym);
     def_head_sym!(head_is_equal, equal_sym);
     def_head_sym!(head_is_eq, eq_sym);
     def_head_sym!(head_is_less, less_sym);
@@ -1365,7 +1366,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &head_is_minus,
         &head_is_times,
         &head_is_div,
-        //&head_is_mod, // uncomment when supported
+        &head_is_mod,
         &head_is_equal,
         &head_is_eq,
         &head_is_less,
@@ -3644,7 +3645,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &arg1,
         )?;
 
-        let arg2_u64_to_num = to_num(&arg2, g);
+        let arg2_u64_to_num = to_num(arg2, g);
         let arg2_final = AllocatedPtr::pick(
             &mut cs.namespace(|| "arg2_final"),
             &arg1_is_num_and_arg2_is_u64,
