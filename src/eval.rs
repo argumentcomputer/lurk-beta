@@ -3809,4 +3809,14 @@ mod test {
 
         test_aux(s, expr, Some(res), None, Some(terminal), None, 152);
     }
+
+    #[test]
+    fn test_lambda_args_regression() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(cons (lambda (x y) nil) nil)";
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, None, None, Some(terminal), None, 3);
+    }
 }
