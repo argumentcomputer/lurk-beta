@@ -236,7 +236,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         car: &AllocatedPtr<F>,
         cdr: &AllocatedPtr<F>,
         name: ConsName,
-        allocated_cons_witness: &AllocatedConsWitness<F>,
+        allocated_cons_witness: &mut AllocatedConsWitness<F>,
         not_dummy: &Boolean,
     ) -> Result<AllocatedPtr<F>, SynthesisError> {
         let expect_dummy = !(not_dummy.get_value().unwrap_or(false));
@@ -640,7 +640,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
         name: ContName,
         cont_tag: &AllocatedNum<F>,
         components: &[&dyn AsAllocatedHashComponents<F>; 4],
-        allocated_cont_witness: &AllocatedContWitness<F>,
+        allocated_cont_witness: &mut AllocatedContWitness<F>,
         not_dummy: &Boolean,
     ) -> Result<Self, SynthesisError> {
         let expect_dummy = !(not_dummy.get_value().unwrap_or(false));
@@ -681,7 +681,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
 
         let cont = AllocatedContPtr {
             tag: cont_tag.clone(),
-            hash: hash.clone(),
+            hash,
         };
         Ok(cont)
     }

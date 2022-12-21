@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 use neptune::circuit2::poseidon_hash_allocated as poseidon_hash;
@@ -8,27 +10,86 @@ use crate::field::LurkField;
 use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness, HashName, Stub};
 use crate::store::{HashConst, HashConstants, ScalarPointer, ScalarPtr, Store};
 
-pub struct AllocatedPtrHash<F: LurkField> {
-    preimage: Vec<AllocatedPtr<F>>,
+#[derive(Clone)]
+pub struct AllocatedHash<F: LurkField, PreimageType> {
+    preimage: Vec<PreimageType>,
     digest: AllocatedNum<F>,
 }
 
-pub struct AllocatedNumHash<F: LurkField> {
-    preimage: Vec<AllocatedNum<F>>,
-    digest: AllocatedNum<F>,
+pub type AllocatedPtrHash<F> = AllocatedHash<F, AllocatedPtr<F>>;
+pub type AllocatedNumHash<F> = AllocatedHash<F, AllocatedNum<F>>;
+
+#[derive(Clone, Debug)]
+pub struct Slot<Name: Debug, AllocatedType> {
+    name: Result<Name, ()>,
+    allocated: AllocatedType,
+    consumed: bool,
 }
 
-pub struct AllocatedConsWitness<'a, F: LurkField> {
+impl<Name: Debug, F: LurkField, PreimageType> Slot<Name, AllocatedHash<F, PreimageType>> {
+    pub fn new(name: Name, allocated: AllocatedHash<F, PreimageType>) -> Self {
+        Self {
+            name: Ok(name),
+            allocated,
+            consumed: false,
+        }
+    }
+    pub fn new_dummy(allocated: AllocatedHash<F, PreimageType>) -> Self {
+        Self {
+            name: Err(()),
+            allocated,
+            consumed: false,
+        }
+    }
     #[allow(dead_code)]
-    pub(crate) cons_witness: &'a ConsWitness<F>, // Sometimes used for debugging.
-    slots: Vec<(Result<ConsName, ()>, AllocatedPtrHash<F>)>,
+    pub fn is_dummy(&self) -> bool {
+        self.name.is_err()
+    }
+    pub fn is_blank(&self) -> bool {
+        self.allocated.digest.get_value().is_none()
+    }
+    pub fn is_consumed(&self) -> bool {
+        self.consumed
+    }
+    fn consume(&mut self) {
+        self.consumed = true
+    }
 }
 
-pub struct AllocatedContWitness<'a, F: LurkField> {
+pub struct AllocatedWitness<'a, VanillaWitness, Name: Debug, AllocatedType> {
     #[allow(dead_code)]
-    pub(crate) cont_witness: &'a ContWitness<F>, // Sometimes used for debugging.
-    slots: Vec<(Result<ContName, ()>, AllocatedNumHash<F>)>,
+    pub(crate) witness: &'a VanillaWitness, // Sometimes used for debugging.
+    slots: Vec<Slot<Name, AllocatedType>>,
 }
+
+impl<'a, VanillaWitness, Name: Debug, F: LurkField, PreimageType>
+    AllocatedWitness<'a, VanillaWitness, Name, AllocatedHash<F, PreimageType>>
+{
+    pub fn assert_final_invariants(&self) {
+        if self.slots[0].is_blank() {
+            return;
+        }
+        let unconsumed = self
+            .slots
+            .iter()
+            .enumerate()
+            .filter(|(_, x)| !x.is_consumed())
+            .map(|(i, x)| (i, &x.name, x.consumed))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            0,
+            unconsumed.len(),
+            "some slots were unconsumed: {:?}",
+            unconsumed
+        );
+    }
+}
+
+pub type AllocatedConsWitness<'a, F> =
+    AllocatedWitness<'a, ConsWitness<F>, ConsName, AllocatedPtrHash<F>>;
+pub type AllocatedContWitness<'a, F> =
+    AllocatedWitness<'a, ContWitness<F>, ContName, AllocatedNumHash<F>>;
 
 impl<F: LurkField> AllocatedPtrHash<F> {
     fn alloc<CS: ConstraintSystem<F>>(
@@ -49,6 +110,7 @@ impl<F: LurkField> AllocatedPtrHash<F> {
         Ok(Self { preimage, digest })
     }
 }
+
 impl<F: LurkField> AllocatedNumHash<F> {
     fn alloc<CS: ConstraintSystem<F>>(
         cs: &mut CS,
@@ -123,24 +185,30 @@ impl<'a, F: LurkField> AllocatedConsWitness<'a, F> {
             )?;
 
             if cons_hash.is_some() {
-                slots.push((Ok(*name), allocated_hash));
+                slots.push(Slot::new(*name, allocated_hash));
             } else {
-                slots.push((Err(()), allocated_hash));
+                slots.push(Slot::new_dummy(allocated_hash));
             }
         }
 
         Ok(Self {
-            cons_witness,
+            witness: cons_witness,
             slots,
         })
     }
 
     pub fn get_cons(
-        &self,
+        &mut self,
         name: ConsName,
         expect_dummy: bool,
     ) -> (&AllocatedPtr<F>, &AllocatedPtr<F>, &AllocatedNum<F>) {
-        let (allocated_name, allocated_hash) = &self.slots[name.index()];
+        let index = name.index();
+        self.slots[index].consume();
+        let Slot {
+            name: allocated_name,
+            allocated: allocated_hash,
+            consumed: _,
+        } = &self.slots[index];
         if !expect_dummy {
             match allocated_name {
                 Err(_) => panic!("requested {:?} but found a dummy allocation", name),
@@ -222,41 +290,47 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
             )?;
 
             if cont_ptr.is_some() {
-                slots.push((Ok(*name), allocated_hash));
+                slots.push(Slot::new(*name, allocated_hash));
             } else {
-                slots.push((Err(()), allocated_hash));
+                slots.push(Slot::new_dummy(allocated_hash));
             }
         }
 
         Ok(Self {
-            cont_witness,
+            witness: cont_witness,
             slots,
         })
     }
 
     pub fn get_components(
-        &self,
+        &mut self,
         name: ContName,
         expect_dummy: bool,
-    ) -> (&[AllocatedNum<F>], &AllocatedNum<F>) {
-        let (allocated_name, allocated_hash) = &self.slots[name.index()];
+    ) -> (Vec<AllocatedNum<F>>, AllocatedNum<F>) {
+        let index = name.index();
+        let Slot {
+            name: allocated_name,
+            allocated: allocated_hash,
+            consumed: _,
+        } = self.slots[index].clone();
+        self.slots[index].consume();
 
         if !expect_dummy {
             match allocated_name {
                 Err(_) => {
-                    dbg!(&self.cont_witness);
+                    dbg!(&self.witness);
                     panic!("requested {:?} but found a dummy allocation", name)
                 }
                 Ok(alloc_name) => {
-                    dbg!(&self.cont_witness);
+                    dbg!(&self.witness);
                     assert_eq!(
-                        name, *alloc_name,
+                        name, alloc_name,
                         "requested and allocated names don't match."
                     )
                 }
             };
         }
         assert_eq!(8, allocated_hash.preimage.len());
-        (&allocated_hash.preimage, &allocated_hash.digest)
+        (allocated_hash.preimage, allocated_hash.digest)
     }
 }
