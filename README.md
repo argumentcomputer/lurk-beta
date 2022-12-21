@@ -47,7 +47,11 @@ Lurk backend integration is still immature, so current performance is not repres
 ## Submodules
 
 Lurk source files used in tests are in the [lurk-lib](https://github.com/lurk-lang/lurk-lib) submodule. You must
-initialize and update submodules before test will pass.
+initialize and update submodules before test will pass:
+
+```
+git submodule update --init --recursive
+```
 
 ## Repl
 
