@@ -86,6 +86,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     }
     vec
   }
+
   fn vec_f_from_bytes(vec: &[u8]) -> Option<Vec<Self>> {
     let num_bytes: usize = (Self::NUM_BITS / 8 + 1) as usize;
     let mut vec_f: Vec<Self> = vec![];
@@ -106,6 +107,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     byte_array.copy_from_slice(&self.to_repr().as_ref()[0..2]);
     Some(u16::from_le_bytes(byte_array))
   }
+
   fn to_u32(&self) -> Option<u32> {
     for x in &self.to_repr().as_ref()[4..] {
       if *x != 0 {
@@ -116,10 +118,12 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     byte_array.copy_from_slice(&self.to_repr().as_ref()[0..4]);
     Some(u32::from_le_bytes(byte_array))
   }
+
   fn to_char(&self) -> Option<char> {
     let x = self.to_u32()?;
     char::from_u32(x)
   }
+
   fn to_u64(&self) -> Option<u64> {
     for x in &self.to_repr().as_ref()[8..] {
       if *x != 0 {
@@ -130,6 +134,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     byte_array.copy_from_slice(&self.to_repr().as_ref()[0..8]);
     Some(u64::from_le_bytes(byte_array))
   }
+
   // Return a u64 corresponding to the first 8 little-endian bytes of this field
   // element, discarding the remaining bytes.
   fn to_u64_unchecked(&self) -> u64 {
