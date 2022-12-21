@@ -8,7 +8,7 @@ use ff::PrimeField;
 
 use crate::{
     field::LurkField,
-    hash_witness::ConsName,
+    hash_witness::{ConsName, ContName},
     store::{
         ContPtr, Continuation, Expression, IntoHashComponents, Ptr, ScalarContPtr, ScalarPointer,
         ScalarPtr, Store, Thunk,
@@ -19,7 +19,7 @@ use crate::{
 use super::{
     constraints::{alloc_equal, enforce_implication, equal, pick},
     data::{allocate_constant, hash_poseidon, GlobalAllocations},
-    hashes::AllocatedHashWitness,
+    hashes::{AllocatedConsWitness, AllocatedContWitness},
 };
 
 /// Allocated version of `Ptr`.
@@ -203,7 +203,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         Ok(Self { tag, hash })
     }
 
-    pub fn construct_cons<CS: ConstraintSystem<F>>(
+    fn construct_cons<CS: ConstraintSystem<F>>(
         mut cs: CS,
         g: &GlobalAllocations<F>,
         store: &Store<F>,
@@ -236,12 +236,12 @@ impl<F: LurkField> AllocatedPtr<F> {
         car: &AllocatedPtr<F>,
         cdr: &AllocatedPtr<F>,
         name: ConsName,
-        allocated_hash_witness: &AllocatedHashWitness<F>,
+        allocated_cons_witness: &AllocatedConsWitness<F>,
         not_dummy: &Boolean,
     ) -> Result<AllocatedPtr<F>, SynthesisError> {
         let expect_dummy = !(not_dummy.get_value().unwrap_or(false));
         let (allocated_car, allocated_cdr, allocated_digest) =
-            allocated_hash_witness.get_cons(name, expect_dummy);
+            allocated_cons_witness.get_cons(name, expect_dummy);
 
         let real_car = car.alloc_equal(&mut cs.namespace(|| "real_car"), allocated_car)?;
         let real_cdr = cdr.alloc_equal(&mut cs.namespace(|| "real_cdr"), allocated_cdr)?;
@@ -610,27 +610,78 @@ impl<F: LurkField> AllocatedContPtr<F> {
         }
     }
 
-    pub fn construct<CS: ConstraintSystem<F>>(
+    // fn construct_unnamed<CS: ConstraintSystem<F>>(
+    //     mut cs: CS,
+    //     store: &Store<F>,
+    //     cont_tag: &AllocatedNum<F>,
+    //     components: &[&dyn AsAllocatedHashComponents<F>; 4],
+    // ) -> Result<Self, SynthesisError> {
+    //     let components = components
+    //         .iter()
+    //         .flat_map(|c| c.as_allocated_hash_components())
+    //         .cloned()
+    //         .collect();
+
+    //     let hash = hash_poseidon(
+    //         cs.namespace(|| "Continuation"),
+    //         components,
+    //         store.poseidon_constants().c8(),
+    //     )?;
+
+    //     let cont = AllocatedContPtr {
+    //         tag: cont_tag.clone(),
+    //         hash,
+    //     };
+    //     Ok(cont)
+    // }
+
+    pub fn construct_named<CS: ConstraintSystem<F>>(
         mut cs: CS,
-        store: &Store<F>,
+        name: ContName,
         cont_tag: &AllocatedNum<F>,
         components: &[&dyn AsAllocatedHashComponents<F>; 4],
+        allocated_cont_witness: &AllocatedContWitness<F>,
+        not_dummy: &Boolean,
     ) -> Result<Self, SynthesisError> {
-        let components = components
+        let expect_dummy = !(not_dummy.get_value().unwrap_or(false));
+
+        let (found_components, hash) = allocated_cont_witness.get_components(name, expect_dummy);
+
+        let supplied_components: Vec<AllocatedNum<F>> = components
             .iter()
             .flat_map(|c| c.as_allocated_hash_components())
             .cloned()
             .collect();
 
-        let hash = hash_poseidon(
-            cs.namespace(|| "Continuation"),
-            components,
-            store.poseidon_constants().c8(),
+        let mut acc = None;
+
+        for (i, (c1, c2)) in found_components.iter().zip(supplied_components).enumerate() {
+            let component_is_real = equal!(
+                &mut cs.namespace(|| format!("component {} matches", i)),
+                c1,
+                &c2
+            )?;
+
+            if let Some(a) = &acc {
+                and!(
+                    &mut cs.namespace(|| format!("accumulate real component conjunction {}", i)),
+                    a,
+                    &component_is_real
+                )?;
+            } else {
+                acc = Some(component_is_real.clone());
+            }
+        }
+
+        enforce_implication(
+            &mut cs.namespace(|| format!("not_dummy implies real cont {:?}", &name)),
+            not_dummy,
+            &acc.expect("acc was never initialized"),
         )?;
 
         let cont = AllocatedContPtr {
             tag: cont_tag.clone(),
-            hash,
+            hash: hash.clone(),
         };
         Ok(cont)
     }

@@ -410,8 +410,10 @@ impl<F: LurkField> ContPtr<F> {
         store: &Store<F>,
     ) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {
         if let Some(cont) = cont {
+            dbg!("allocate_maybe_dummy_components", &cont);
             cont.allocate_components(cs, store)
         } else {
+            dbg!("allocate_maybe_dummy_components dummy");
             ContPtr::allocate_dummy_components(cs, store)
         }
     }

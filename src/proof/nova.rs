@@ -370,10 +370,12 @@ mod tests {
 
         let mut cs_blank = MetricCS::<Fr>::new();
 
+        dbg!("------------> synthesizing blank");
         let blank = MultiFrame::<Fr, IO<Fr>, Witness<Fr>>::blank(chunk_frame_count);
         blank
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize blank");
+        dbg!("synthesized blank <------------");
 
         for (i, multiframe) in multiframes.iter().enumerate() {
             let mut cs = TestConstraintSystem::new();
@@ -2060,6 +2062,32 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_car_cdr_of_cons() {
+        let s = &mut Store::<Fr>::default();
+        let res1 = s.num(1);
+        let res2 = s.num(2);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
+            r#"(car (cons 1 2))"#,
+            Some(res1),
+            None,
+            Some(terminal),
+            None,
+            5,
+        );
+        nova_test_aux(
+            s,
+            r#"(cdr (cons 1 2))"#,
+            Some(res2),
+            None,
+            Some(terminal),
+            None,
+            5,
+        );
+    }
+
+    #[test]
     fn outer_prove_car_cdr_invalid_tag_error_lambda() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
@@ -2090,6 +2118,14 @@ mod tests {
         let expected = s.num(456);
         let terminal = s.get_cont_terminal();
         nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
+    }
+
+    #[test]
+    fn outer_prove_hide_wrong_secret_type() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(hide 'x 456)";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 3);
     }
 
     #[test]
@@ -2550,7 +2586,7 @@ mod tests {
     #[test]
     fn outer_prove_test_eval() {
         let s = &mut Store::<Fr>::default();
-        let expr = "(* 3 (eval (cons '+ (cons 1 (cons 2 nil)))))";
+        let expr = "(* 3 (eval  (cons '+ (cons 1 (cons 2 nil)))))";
         let expr2 = "(* 5 (eval '(+ 1 a) '((a . 3))))"; // two-arg eval, optional second arg is env.
         let res = s.num(9);
         let res2 = s.num(20);

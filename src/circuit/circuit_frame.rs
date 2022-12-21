@@ -13,18 +13,21 @@ use crate::{
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
     field::LurkField,
-    hash_witness::ConsName,
+    hash_witness::{ConsName, ContName},
     store::{HashScalar, ScalarPointer},
 };
 
 use super::gadgets::constraints::{
     self, alloc_equal, alloc_is_zero, boolean_to_num, enforce_implication, or, pick,
 };
-use crate::circuit::{gadgets::hashes::AllocatedHashWitness, ToInputs};
+use crate::circuit::{
+    gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness},
+    ToInputs,
+};
 use crate::eval::{Frame, Witness, IO};
 use crate::hash_witness::HashWitness;
 use crate::proof::Provable;
-use crate::store::{ContPtr, ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
+use crate::store::{ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
 
 #[derive(Clone, Copy, Debug)]
 pub struct CircuitFrame<'a, F: LurkField, T, W> {
@@ -199,22 +202,35 @@ impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
         let (input_expr, input_env, input_cont) = inputs;
 
         let mut reduce = |store| {
-            let hash_witness = match self.witness.map(|x| x.hashes) {
+            let cons_witness = match self.witness.map(|x| x.conses) {
                 Some(hw) => hw,
                 None => HashWitness::new_blank(),
             };
-            let allocated_hash_witness = AllocatedHashWitness::from_hash_witness(
-                &mut cs.namespace(|| format!("allocated_hash_witness {}", i)),
+            let allocated_cons_witness = AllocatedConsWitness::from_cons_witness(
+                &mut cs.namespace(|| format!("allocated_cons_witness {}", i)),
                 store,
-                &hash_witness,
+                &cons_witness,
             )?;
+
+            let cont_witness = match self.witness.map(|x| x.conts) {
+                Some(hw) => hw,
+                None => HashWitness::new_blank(),
+            };
+
+            let allocated_cont_witness = AllocatedContWitness::from_cont_witness(
+                &mut cs.namespace(|| format!("allocated_cont_witness {}", i)),
+                store,
+                &cont_witness,
+            )?;
+
             reduce_expression(
                 &mut cs.namespace(|| format!("reduce expression {}", i)),
                 &input_expr,
                 &input_env,
                 &input_cont,
                 &self.witness,
-                &allocated_hash_witness,
+                &allocated_cons_witness,
+                &allocated_cont_witness,
                 store,
                 g,
             )
@@ -235,7 +251,6 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
         // Bind public inputs.
         //
         // Initial input:
-
         let mut synth = |store,
                          frames: &[CircuitFrame<F, IO<F>, Witness<F>>],
                          input: Option<IO<F>>,
@@ -286,6 +301,18 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
 
             let (_, (new_expr, new_env, new_cont)) =
                 frames.iter().fold((0, acc), |(i, allocated_io), frame| {
+                    if let Some(xxx) = frame.input {
+                        assert_eq!(
+                            allocated_io.0.hash().get_value(),
+                            store.hash_expr(&xxx.expr).map(|x| *x.value()),
+                            "expr mismatch"
+                        );
+                        assert_eq!(
+                            allocated_io.2.hash().get_value(),
+                            store.hash_cont(&xxx.cont).map(|x| *x.value()),
+                            "cont mismatch"
+                        );
+                    };
                     (i + 1, frame.synthesize(cs, i, allocated_io, &g).unwrap())
                 });
 
@@ -583,7 +610,8 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     env: &AllocatedPtr<F>,
     cont: &AllocatedContPtr<F>,
     witness: &Option<Witness<F>>,
-    allocated_hash_witness: &AllocatedHashWitness<F>,
+    allocated_cons_witness: &AllocatedConsWitness<F>,
+    allocated_cont_witness: &AllocatedContWitness<F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
@@ -665,7 +693,8 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         cont,
         &reduce_sym_not_dummy,
         witness,
-        allocated_hash_witness,
+        allocated_cons_witness,
+        allocated_cont_witness,
         store,
         g,
     )?;
@@ -689,7 +718,8 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         cont,
         &reduce_cons_not_dummy,
         witness,
-        allocated_hash_witness,
+        allocated_cons_witness,
+        allocated_cont_witness,
         store,
         g,
     )?;
@@ -713,6 +743,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         &results.cont_hash_clauses[..],
         &results.apply_continuation_clauses[..],
     ];
+
     let defaults = [
         &g.default_num,
         &g.default_num,
@@ -760,8 +791,8 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         &first_result_expr,
         &first_result_env,
         &apply_continuation_boolean,
-        witness,
-        allocated_hash_witness,
+        allocated_cons_witness,
+        allocated_cont_witness,
         store,
         g,
     )?;
@@ -808,7 +839,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         &result_expr0,
         &result_env0,
         &make_thunk_boolean,
-        witness,
+        allocated_cont_witness,
         store,
         g,
     )?;
@@ -875,7 +906,8 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     cont: &AllocatedContPtr<F>,
     not_dummy: &Boolean,
     witness: &Option<Witness<F>>,
-    allocated_hash_witness: &AllocatedHashWitness<F>,
+    allocated_cons_witness: &AllocatedConsWitness<F>,
+    allocated_cont_witness: &AllocatedContWitness<F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<
@@ -919,7 +951,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         g,
         env,
         ConsName::Env,
-        allocated_hash_witness,
+        allocated_cons_witness,
         &env_not_dummy,
         store,
     )?;
@@ -950,7 +982,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         g,
         &binding,
         ConsName::EnvCar,
-        allocated_hash_witness,
+        allocated_cons_witness,
         &env_car_not_dummy,
         store,
     )?;
@@ -992,7 +1024,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         g,
         &var_or_rec_binding,
         ConsName::EnvCaar,
-        allocated_hash_witness,
+        allocated_cons_witness,
         &envcaar_not_dummy,
         store,
     )?;
@@ -1019,7 +1051,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     let apply_cont_bool0 = or!(cs, &sym_is_self_evaluating, &v_is_expr1_real)?;
     let apply_cont_bool = or!(cs, &apply_cont_bool0, &v2_is_expr_real)?;
 
-    let apply_cont_num = ifx!(cs, &apply_cont_bool, &g.true_num, &g.false_num)?;
+    let apply_cont_num = pick!(cs, &apply_cont_bool, &g.true_num, &g.false_num)?;
 
     let cont_is_lookup = alloc_equal(
         &mut cs.namespace(|| "cont_is_lookup"),
@@ -1037,19 +1069,6 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         &otherwise_and_v2_not_expr
     )?;
 
-    let lookup_continuation = AllocatedContPtr::construct(
-        &mut cs.namespace(|| "lookup_continuation"),
-        store,
-        &g.lookup_cont_tag,
-        // Mirrors Continuation::get_hash_components()
-        &[
-            env,
-            cont,
-            &[&g.default_num, &g.default_num],
-            &[&g.default_num, &g.default_num],
-        ],
-    )?;
-
     let rec_env = binding;
 
     let (_fun_hash, fun_arg, fun_body, fun_closed_env) = Ptr::allocate_maybe_fun(
@@ -1065,8 +1084,33 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         &rec_env,
         &fun_closed_env,
         ConsName::ExtendedClosureEnv,
-        allocated_hash_witness,
+        allocated_cons_witness,
         &extended_env_not_dummy,
+    )?;
+
+    let lookup_continuation_not_dummy = and!(
+        cs,
+        &sym_is_self_evaluating.not(),
+        &env_is_nil.not(),
+        &binding_is_nil.not(),
+        &var_or_rec_binding_is_sym.not(),
+        &v2_is_expr_real.not(),
+        not_dummy
+    )?;
+
+    let lookup_continuation = AllocatedContPtr::construct_named(
+        &mut cs.namespace(|| "lookup_continuation"),
+        ContName::XXX,
+        &g.lookup_cont_tag,
+        // Mirrors Continuation::get_hash_components()
+        &[
+            env,
+            cont,
+            &[&g.default_num, &g.default_num],
+            &[&g.default_num, &g.default_num],
+        ],
+        allocated_cont_witness,
+        &lookup_continuation_not_dummy, //&Boolean::Constant(false), // FIXME
     )?;
 
     let extended_fun = AllocatedPtr::construct_fun(
@@ -1103,11 +1147,11 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         &smaller_rec_env,
         &smaller_env,
         ConsName::EnvToUse,
-        allocated_hash_witness,
+        allocated_cons_witness,
         &smaller_rec_env_not_dummy,
     )?;
 
-    let env_to_use = ifx_t!(
+    let env_to_use = pick_ptr!(
         cs,
         &smaller_rec_env_is_nil,
         &smaller_env,
@@ -1242,7 +1286,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     cont: &AllocatedContPtr<F>,
     not_dummy: &Boolean,
     _witness: &Option<Witness<F>>,
-    allocated_hash_witness: &AllocatedHashWitness<F>,
+    allocated_cons_witness: &AllocatedConsWitness<F>,
+    allocated_cont_witness: &AllocatedContWitness<F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<
@@ -1302,7 +1347,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         g,
         expr,
         ConsName::Expr,
-        allocated_hash_witness,
+        allocated_cons_witness,
         not_dummy,
         store,
     )?;
@@ -1405,10 +1450,12 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         g,
         &rest,
         ConsName::ExprCdr,
-        allocated_hash_witness,
+        allocated_cons_witness,
         &expr_cdr_not_dummy,
         store,
     )?;
+
+    let more_is_nil = more.alloc_equal(&mut cs.namespace(|| "more_is_nil"), &g.nil_ptr)?;
 
     let arg1_is_cons = alloc_equal(
         &mut cs.namespace(|| "arg1_is_cons"),
@@ -1431,7 +1478,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         g,
         &arg1,
         ConsName::ExprCadr,
-        allocated_hash_witness,
+        allocated_cons_witness,
         &expr_cadr_not_dummy,
         store,
     )?;
@@ -1467,7 +1514,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &cdr_args,
             &body,
             ConsName::InnerLambda,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &lambda_not_dummy,
         )?;
 
@@ -1477,7 +1524,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &g.lambda_sym,
             &inner,
             ConsName::Lambda,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &lambda_not_dummy,
         )?;
 
@@ -1487,7 +1534,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &l,
             &g.nil_ptr,
             ConsName::InnerBody,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &lambda_not_dummy,
         )?;
         let inner_body = AllocatedPtr::pick(
@@ -1570,7 +1617,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             g,
             &body,
             ConsName::ExprCddr,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &let_letrec_not_dummy,
             store,
         )?;
@@ -1606,7 +1653,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             g,
             &binding1,
             ConsName::ExprCaadr,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &expr_caadr_not_dummy,
             store,
         )?;
@@ -1616,7 +1663,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             g,
             &vals,
             ConsName::ExprCaaadr,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &expr_caadr_not_dummy,
             store,
         )?;
@@ -1658,7 +1705,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &rest_bindings,
             &body,
             ConsName::ExpandedInner,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &expanded_inner_not_dummy,
         )?;
 
@@ -1668,7 +1715,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &head,
             &expanded0,
             ConsName::Expanded,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &expanded_inner_not_dummy,
         )?;
 
@@ -1715,6 +1762,15 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         default_or_cont_tag,
         default_or_cont_hash,
     ) = {
+        // The following series of pick operations construct a preimage depending on whether one or more arguments were
+        // provided to eval.
+        //
+        // If end_is_nil, then only one argument was provided, and the preimage is:
+        // [unop_cont_tag, op1_eval_tag, cont.tag(), cont.hash(), g.default_num, g.default_num, g.default_num, g.default_num]
+        //
+        // Otherwise, more than one argument was provided (FIXME: error-checking to ensure exactly two were provided?):
+        // [binop_cont_tag, g.op2_eval_tag, env.tag(), env.hash(), more.tag(), more.hash(), cont.tag(), cont.hash()]
+
         let the_op = pick(
             &mut cs.namespace(|| "eval op"),
             &end_is_nil,
@@ -1727,17 +1783,17 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &g.op1_eval_tag,
             &g.op2_eval_tag,
         )?;
-        let env_or_cont_tag = pick(
+        let cont_or_env_tag = pick(
             &mut cs.namespace(|| "env or cont tag"),
             &end_is_nil,
-            env.tag(),
             cont.tag(),
+            env.tag(),
         )?;
-        let env_or_cont_hash = pick(
+        let cont_or_env_hash = pick(
             &mut cs.namespace(|| "env or cont hash"),
             &end_is_nil,
-            env.hash(),
             cont.hash(),
+            env.hash(),
         )?;
         let default_or_expr_tag = pick(
             &mut cs.namespace(|| "default or expr tag"),
@@ -1763,11 +1819,12 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &g.default_num,
             cont.hash(),
         )?;
+
         (
             the_op,
             op1_or_op2,
-            env_or_cont_tag,
-            env_or_cont_hash,
+            cont_or_env_tag,
+            cont_or_env_hash,
             default_or_expr_tag,
             default_or_expr_hash,
             default_or_cont_tag,
@@ -2206,10 +2263,12 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         g,
     )?;
 
+    let newer_cont_not_dummy = and!(cs, &head_is_any, not_dummy, &end_is_nil, &more_is_nil.not())?;
     // construct newer continuation from multicase results
-    let newer_cont = AllocatedContPtr::construct(
+    let newer_cont = AllocatedContPtr::construct_named(
         &mut cs.namespace(|| "reduce cons newer_cont construction from hash components"),
-        store,
+        //ContName::NewerCont,
+        ContName::XXX,
         &components_results[0], // continuation tag
         &[
             &[&components_results[1], &components_results[2]] as &dyn AsAllocatedHashComponents<F>,
@@ -2217,6 +2276,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &[&components_results[5], &components_results[6]] as &dyn AsAllocatedHashComponents<F>,
             &[&components_results[7], &components_results[8]] as &dyn AsAllocatedHashComponents<F>,
         ],
+        allocated_cont_witness,
+        &newer_cont_not_dummy,
     )?;
 
     // head == LET and LETREC, newer_cont is allocated
@@ -2326,30 +2387,13 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == OPEN, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-
-    let arg1_tag_is_num = alloc_equal(&mut cs.namespace(|| "tag_is_num"), arg1.tag(), &g.num_tag)?;
-
-    let arg1_tag_is_comm =
-        alloc_equal(&mut cs.namespace(|| "tag_is_comm"), arg1.tag(), &g.comm_tag)?;
-
-    let arg1_tag_is_num_or_comm = constraints::or(
-        &mut cs.namespace(|| "tag_is_num_or_comm"),
-        &arg1_tag_is_num,
-        &arg1_tag_is_comm,
-    )?;
-
-    let the_cont_open_or_secret = AllocatedContPtr::pick(
-        &mut cs.namespace(|| "the_cont_open"),
-        &arg1_tag_is_num_or_comm,
-        &newer_cont_if_end_is_nil,
-        &g.error_ptr_cont,
-    )?;
+    let the_cont_open_or_secret = &newer_cont_if_end_is_nil;
 
     results.add_clauses_cons(
         *open_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_open_or_secret,
+        the_cont_open_or_secret,
         &g.false_num,
     );
 
@@ -2360,7 +2404,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         *secret_hash.value(),
         &arg1_or_expr,
         env,
-        &the_cont_open_or_secret,
+        the_cont_open_or_secret,
         &g.false_num,
     );
 
@@ -2514,7 +2558,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &arg1,
             &g.nil_ptr,
             ConsName::ExpandedInner0,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &fn_not_dummy,
         )?;
 
@@ -2524,7 +2568,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             fun_form,
             &expanded_inner0,
             ConsName::ExpandedInner,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &fn_not_dummy,
         )?;
 
@@ -2534,7 +2578,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &expanded_inner,
             &more,
             ConsName::FunExpanded,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &fn_not_dummy,
         )?;
 
@@ -2602,27 +2646,36 @@ fn make_thunk<F: LurkField, CS: ConstraintSystem<F>>(
     result: &AllocatedPtr<F>,
     env: &AllocatedPtr<F>,
     not_dummy: &Boolean,
-    _witness: &Option<Witness<F>>,
+    allocated_cont_witness: &AllocatedContWitness<F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
     let mut results = Results::default();
 
-    let (computed_cont_hash, cont_components) = ContPtr::allocate_maybe_dummy_components(
-        &mut cs.namespace(|| "cont components"),
-        cont.get_cont_ptr(store).as_ref(),
-        store,
+    let cont_is_tail = alloc_equal(
+        &mut cs.namespace(|| "cont_is_tail"),
+        cont.tag(),
+        &g.tail_cont_tag,
     )?;
 
-    implies_equal!(cs, not_dummy, &computed_cont_hash, cont.hash());
+    let make_thunk_cont_not_dummy = and!(cs, &cont_is_tail, not_dummy)?;
+
+    let (_, cont_components) = get_named_components(
+        &mut cs.namespace(|| "cont components"),
+        cont,
+        ContName::MakeThunk,
+        allocated_cont_witness,
+        &make_thunk_cont_not_dummy,
+        store,
+    )?;
 
     let (result_expr, saved_env) = {
         // Otherwise, these are the results.
         // Applies to Tail continuations only.
-        let saved_env = AllocatedPtr::by_index(0, &cont_components);
+        let saved_env = AllocatedPtr::by_index(0, cont_components);
 
         // Applies to Tail continuations
-        let continuation = AllocatedContPtr::by_index(1, &cont_components);
+        let continuation = AllocatedContPtr::by_index(1, cont_components);
 
         let result_expr = AllocatedPtr::construct_thunk(
             &mut cs.namespace(|| "tail thunk_hash"),
@@ -2681,8 +2734,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     result: &AllocatedPtr<F>,
     env: &AllocatedPtr<F>,
     not_dummy: &Boolean,
-    witness: &Option<Witness<F>>,
-    allocated_hash_witness: &AllocatedHashWitness<F>,
+    allocated_cons_witness: &AllocatedConsWitness<F>,
+    allocated_cont_witness: &AllocatedContWitness<F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<
@@ -2713,49 +2766,153 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     );
     results.add_clauses_cont(ContTag::Error, result, env, &g.error_ptr_cont, &g.false_num);
 
-    let (_continuation_tag, continuation_components) = ContPtr::allocate_maybe_dummy_components(
+    let cont_is_terminal = equal!(cs, cont.tag(), g.terminal_ptr.tag())?;
+    let cont_is_dummy = equal!(cs, cont.tag(), g.dummy_ptr.tag())?;
+    let cont_is_error = equal!(cs, cont.tag(), g.error_ptr.tag())?;
+    let cont_is_outermost = equal!(cs, cont.tag(), g.outermost_ptr.tag())?;
+    let cont_is_trivial = or!(
+        cs,
+        &cont_is_terminal,
+        &cont_is_dummy,
+        &cont_is_error,
+        &cont_is_outermost
+    )?;
+
+    let apply_continuation_components_not_dummy = and!(cs, &cont_is_trivial.not(), not_dummy)?;
+    let (_continuation_tag, continuation_components) = get_named_components(
         &mut cs.namespace(|| "allocate_continuation_components"),
-        witness
-            .as_ref()
-            .and_then(|w| w.apply_continuation_cont.as_ref()),
+        cont,
+        ContName::ApplyContinuation,
+        allocated_cont_witness,
+        &apply_continuation_components_not_dummy,
         store,
     )?;
 
-    let continuation = AllocatedContPtr::by_index(0, &continuation_components);
+    let continuation = AllocatedContPtr::by_index(0, continuation_components);
 
     results.add_clauses_cont(ContTag::Emit, result, env, &continuation, &g.true_num);
 
     let default_num_pair = &[&g.default_num, &g.default_num];
 
+    // Next we add multicase clauses for each continuation that requires a newer
+    // cont, which means it needs to constrain a new hash, which is expensive,
+    // then we do it only once.
+    /////////////////////////////////////////////////////////////////////////////
+
+    // Continuation::Call0 preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let (saved_env, continuation) = {
+        (
+            AllocatedPtr::by_index(0, continuation_components),
+            AllocatedContPtr::by_index(1, continuation_components),
+        )
+    };
+
+    let call0_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &saved_env,
+        &continuation,
+        default_num_pair,
+        default_num_pair,
+    ];
+    hash_default_results.add_hash_input_clauses(
+        ContTag::Call0.as_field(),
+        &g.tail_cont_tag,
+        call0_components,
+    );
+
+    // Continuation::Call preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let (saved_env, continuation, function) = {
+        (
+            AllocatedPtr::by_index(0, continuation_components),
+            AllocatedContPtr::by_index(2, continuation_components),
+            result,
+        )
+    };
+    let call_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&saved_env, function, &continuation, default_num_pair];
+    hash_default_results.add_hash_input_clauses(
+        ContTag::Call.as_field(),
+        &g.call2_cont_tag,
+        call_components,
+    );
+
+    // Continuation::Call2 preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let (saved_env, continuation) = {
+        (
+            AllocatedPtr::by_index(0, continuation_components),
+            AllocatedContPtr::by_index(2, continuation_components),
+        )
+    };
+    let call2_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+        &saved_env,
+        &continuation,
+        default_num_pair,
+        default_num_pair,
+    ];
+    hash_default_results.add_hash_input_clauses(
+        ContTag::Call2.as_field(),
+        &g.tail_cont_tag,
+        call2_components,
+    );
+
+    // Continuation::Let preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let (saved_env, let_cont) = {
+        (
+            AllocatedPtr::by_index(2, continuation_components),
+            AllocatedContPtr::by_index(3, continuation_components),
+        )
+    };
+    let let_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&saved_env, &let_cont, default_num_pair, default_num_pair];
+    hash_default_results.add_hash_input_clauses(
+        ContTag::Let.as_field(),
+        &g.tail_cont_tag,
+        let_components,
+    );
+
+    // Continuation::LetRec preimage
+    /////////////////////////////////////////////////////////////////////////////
+    let (saved_env, letrec_cont) = {
+        (
+            AllocatedPtr::by_index(2, continuation_components),
+            AllocatedContPtr::by_index(3, continuation_components),
+        )
+    };
+    let letrec_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
+        &[&saved_env, &letrec_cont, default_num_pair, default_num_pair];
+    hash_default_results.add_hash_input_clauses(
+        ContTag::LetRec.as_field(),
+        &g.tail_cont_tag,
+        letrec_components,
+    );
+
+    // Commitment values used in Unop but also outside, so can't be in Unop scope.
     let (commitment, commitment_secret, committed_expr) = {
-        let operator = AllocatedPtr::by_index(0, &continuation_components);
+        let operator = AllocatedPtr::by_index(0, continuation_components);
 
-        let is_op2_hide = constraints::alloc_equal(
-            &mut cs.namespace(|| "operator tag == hide_tag"),
-            operator.tag(),
-            &g.op2_hide_tag,
-        )?;
+        let is_op2_hide = equal!(cs, &g.op2_hide_tag, operator.tag())?;
 
-        let is_op1_open = constraints::alloc_equal(
-            &mut cs.namespace(|| "operator tag == open_tag"),
-            operator.tag(),
-            &g.op1_open_tag,
-        )?;
+        let is_op1_open = equal!(cs, &g.op1_open_tag, operator.tag())?;
+        let is_op1_secret = equal!(cs, &g.op1_secret_tag, operator.tag())?;
+        let is_op1_open_or_secret = or!(cs, &is_op1_open, &is_op1_secret)?;
 
-        let is_op1_secret = constraints::alloc_equal(
-            &mut cs.namespace(|| "operator tag == secret_tag"),
-            operator.tag(),
-            &g.op1_secret_tag,
-        )?;
+        // Why don't we need to check this anywhere?
+        //
+        // let is_op1_commit = constraints::alloc_equal(
+        //     &mut cs.namespace(|| "operator tag == commit_tag"),
+        //     operator.tag(),
+        //     &g.op1_commit_tag,
+        // )?;
 
-        let is_op1_open_or_secret = constraints::or(
-            &mut cs.namespace(|| "is_op1_open_or_secret"),
-            &is_op1_open,
-            &is_op1_secret,
-        )?;
+        // let is_op_commit_or_hide = or!(cs, &is_op1_commit, &is_op2_hide)?;
 
         // IF this is open, we need to know what we are opening.
         let digest = result.hash();
+
+        // let result_is_comm = equal!(cs, &result.tag(), &g.comm_tag)?;
 
         let (open_secret_scalar, open_ptr) = match store
             .get_maybe_opaque(Tag::Comm, digest.get_value().unwrap_or_else(|| F::zero()))
@@ -2775,28 +2932,16 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             Ok(open_secret_scalar)
         })?;
 
-        let arg1 = AllocatedPtr::by_index(1, &continuation_components);
+        let arg1 = AllocatedPtr::by_index(1, continuation_components);
 
-        let commit_secret = pick(
-            &mut cs.namespace(|| "open secret"),
-            &is_op2_hide,
-            arg1.hash(),
-            &g.default_num,
-        )?;
+        // let arg1_is_num = equal!(cs, arg1.tag(), &g.num_tag)?;
 
-        let secret = pick(
-            &mut cs.namespace(|| "secret"),
-            &is_op1_open_or_secret,
-            &open_secret,
-            &commit_secret,
-        )?;
+        let commit_secret = pick!(cs, &is_op2_hide, arg1.hash(), &g.default_num)?;
 
-        let committed = AllocatedPtr::pick(
-            &mut cs.namespace(|| "committed"),
-            &is_op1_open,
-            &open_expr,
-            result,
-        )?;
+        let secret = pick!(cs, &is_op1_open_or_secret, &open_secret, &commit_secret)?;
+
+        let committed = pick_ptr!(cs, &is_op1_open, &open_expr, result)?;
+
         (
             hide(&mut cs.namespace(|| "Hide"), g, &secret, &committed, store)?,
             secret,
@@ -2804,105 +2949,11 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         )
     };
 
-    // Next we add multicase clauses for each continuation that requires a newer
-    // cont, which means it needs to constrain a new hash, which is expensive,
-    // then we do it only once.
-    /////////////////////////////////////////////////////////////////////////////
-
-    // Continuation::Call0 preimage
-    /////////////////////////////////////////////////////////////////////////////
-    let (saved_env, continuation) = {
-        (
-            AllocatedPtr::by_index(0, &continuation_components),
-            AllocatedContPtr::by_index(2, &continuation_components),
-        )
-    };
-    let call0_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
-        &saved_env,
-        &continuation,
-        default_num_pair,
-        default_num_pair,
-    ];
-    hash_default_results.add_hash_input_clauses(
-        ContTag::Call0.as_field(),
-        &g.tail_cont_tag,
-        call0_components,
-    );
-
-    // Continuation::Call preimage
-    /////////////////////////////////////////////////////////////////////////////
-    let (saved_env, continuation, function) = {
-        (
-            AllocatedPtr::by_index(0, &continuation_components),
-            AllocatedContPtr::by_index(2, &continuation_components),
-            result,
-        )
-    };
-    let call_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
-        &[&saved_env, function, &continuation, default_num_pair];
-    hash_default_results.add_hash_input_clauses(
-        ContTag::Call.as_field(),
-        &g.call2_cont_tag,
-        call_components,
-    );
-
-    // Continuation::Call2 preimage
-    /////////////////////////////////////////////////////////////////////////////
-    let (saved_env, continuation) = {
-        (
-            AllocatedPtr::by_index(0, &continuation_components),
-            AllocatedContPtr::by_index(2, &continuation_components),
-        )
-    };
-    let call2_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
-        &saved_env,
-        &continuation,
-        default_num_pair,
-        default_num_pair,
-    ];
-    hash_default_results.add_hash_input_clauses(
-        ContTag::Call2.as_field(),
-        &g.tail_cont_tag,
-        call2_components,
-    );
-
-    // Continuation::Let preimage
-    /////////////////////////////////////////////////////////////////////////////
-    let (saved_env, let_cont) = {
-        (
-            AllocatedPtr::by_index(2, &continuation_components),
-            AllocatedContPtr::by_index(3, &continuation_components),
-        )
-    };
-    let let_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
-        &[&saved_env, &let_cont, default_num_pair, default_num_pair];
-    hash_default_results.add_hash_input_clauses(
-        ContTag::Let.as_field(),
-        &g.tail_cont_tag,
-        let_components,
-    );
-
-    // Continuation::LetRec preimage
-    /////////////////////////////////////////////////////////////////////////////
-    let (saved_env, letrec_cont) = {
-        (
-            AllocatedPtr::by_index(2, &continuation_components),
-            AllocatedContPtr::by_index(3, &continuation_components),
-        )
-    };
-    let letrec_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
-        &[&saved_env, &letrec_cont, default_num_pair, default_num_pair];
-    hash_default_results.add_hash_input_clauses(
-        ContTag::LetRec.as_field(),
-        &g.tail_cont_tag,
-        letrec_components,
-    );
-
     // Continuation::Unop preimage
     /////////////////////////////////////////////////////////////////////////////
     let (unop_val, unop_continuation) = {
-        let op1 = AllocatedPtr::by_index(0, &continuation_components);
-        let unop_continuation = AllocatedContPtr::by_index(1, &continuation_components);
+        let op1 = AllocatedPtr::by_index(0, continuation_components);
+        let unop_continuation = AllocatedContPtr::by_index(1, continuation_components);
 
         let cont_is_unop = equal!(cs, cont.tag(), &g.unop_cont_tag)?;
 
@@ -2940,13 +2991,13 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             g,
             result,
             ConsName::UnopConsLike,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &unop_cons_not_dummy,
             store,
         )?;
 
-        let res_car = ifx_t!(cs, &result_is_empty_str, &g.nil_ptr, &allocated_car)?;
-        let res_cdr = ifx_t!(cs, &result_is_empty_str, &g.empty_str_ptr, &allocated_cdr)?;
+        let res_car = pick_ptr!(cs, &result_is_empty_str, &g.nil_ptr, &allocated_car)?;
+        let res_cdr = pick_ptr!(cs, &result_is_empty_str, &g.empty_str_ptr, &allocated_cdr)?;
 
         let atom_ptr = AllocatedPtr::pick(
             &mut cs.namespace(|| "atom val"),
@@ -3080,7 +3131,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     let (op2, continuation) = {
         (
             &continuation_components[0],
-            AllocatedContPtr::by_index(3, &continuation_components),
+            AllocatedContPtr::by_index(3, continuation_components),
         )
     };
     let binop_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
@@ -3129,9 +3180,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     // construct newer continuation from multicase results
-    let newer_cont = AllocatedContPtr::construct(
+    let newer_cont = AllocatedContPtr::construct_named(
         &mut cs.namespace(|| "construct newer_cont from hash components"),
-        store,
+        ContName::NewerCont,
         &components_results[0], // continuation tag
         &[
             &[&components_results[1], &components_results[2]] as &dyn AsAllocatedHashComponents<F>,
@@ -3139,13 +3190,15 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &[&components_results[5], &components_results[6]] as &dyn AsAllocatedHashComponents<F>,
             &[&g.default_num, &g.default_num],
         ],
+        allocated_cont_witness,
+        &Boolean::Constant(false), //not_dummy, // FIXME: may need more restriction.
     )?;
 
     // Continuation::Call0
     /////////////////////////////////////////////////////////////////////////////
     let (the_expr, the_env, the_cont) = {
         let mut cs = cs.namespace(|| "Call0");
-        let continuation = AllocatedContPtr::by_index(1, &continuation_components);
+        let continuation = AllocatedContPtr::by_index(1, continuation_components);
         let (_, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
             &mut cs.namespace(|| "allocate fun"),
             store,
@@ -3167,7 +3220,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.cons_tag,
         )?;
 
-        let fun_body_cons_not_dummy = and!(
+        let zero_arg_call_not_dummy = and!(
             cs,
             &body_t_is_cons,
             &args_is_dummy,
@@ -3180,8 +3233,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             g,
             &body_t,
             ConsName::FunBody,
-            allocated_hash_witness,
-            &fun_body_cons_not_dummy,
+            allocated_cons_witness,
+            &zero_arg_call_not_dummy,
             store,
         )?;
 
@@ -3247,7 +3300,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
     let (next_expr, the_cont) = {
         let mut cs = cs.namespace(|| "Call");
-        let next_expr = AllocatedPtr::by_index(1, &continuation_components);
+        let next_expr = AllocatedPtr::by_index(1, continuation_components);
         let result_is_fun =
             alloc_equal(cs.namespace(|| "result_is_fun"), result.tag(), &g.fun_tag)?;
 
@@ -3272,8 +3325,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
     let (the_expr, the_env, the_cont) = {
         let mut cs = cs.namespace(|| "Call2");
-        let fun = AllocatedPtr::by_index(1, &continuation_components);
-        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
+        let fun = AllocatedPtr::by_index(1, continuation_components);
+        let continuation = AllocatedContPtr::by_index(2, continuation_components);
 
         {
             let (hash, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
@@ -3304,7 +3357,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 g,
                 &body_t,
                 ConsName::FunBody,
-                allocated_hash_witness,
+                allocated_cons_witness,
                 &cont_is_call2_and_not_dummy_and_not_dummy_args,
                 store,
             )?;
@@ -3337,7 +3390,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 &arg_t,
                 result,
                 ConsName::ClosedEnv,
-                allocated_hash_witness,
+                allocated_cons_witness,
                 &extend_not_dummy,
             )?;
 
@@ -3380,9 +3433,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
     let (the_expr, the_env, the_cont) = {
         let mut cs = cs.namespace(|| "Binop");
-        let operator = AllocatedPtr::by_index(0, &continuation_components);
-        let saved_env = AllocatedPtr::by_index(1, &continuation_components);
-        let unevaled_args = AllocatedPtr::by_index(2, &continuation_components);
+        let operator = AllocatedPtr::by_index(0, continuation_components);
+        let saved_env = AllocatedPtr::by_index(1, continuation_components);
+        let unevaled_args = AllocatedPtr::by_index(2, continuation_components);
 
         let cont_is_binop = alloc_equal(
             &mut cs.namespace(|| "cont_is_binop"),
@@ -3401,7 +3454,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             g,
             &unevaled_args,
             ConsName::UnevaledArgs,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &binop_not_dummy,
             store,
         )?;
@@ -3428,7 +3481,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &allocated_begin,
             &unevaled_args,
             ConsName::Begin,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &begin_not_dummy,
         )?;
 
@@ -3482,9 +3535,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     // Continuation::Binop2
     /////////////////////////////////////////////////////////////////////////////
     let (the_expr, the_env, the_cont, make_thunk_num) = {
-        let op2 = AllocatedPtr::by_index(0, &continuation_components);
-        let arg1 = AllocatedPtr::by_index(1, &continuation_components);
-        let continuation = AllocatedContPtr::by_index(2, &continuation_components);
+        let op2 = AllocatedPtr::by_index(0, continuation_components);
+        let arg1 = AllocatedPtr::by_index(1, continuation_components);
+        let continuation = AllocatedContPtr::by_index(2, continuation_components);
 
         let arg2 = result;
 
@@ -3587,7 +3640,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &arg1,
             arg2,
             ConsName::TheCons,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &cons_not_dummy,
         )?;
 
@@ -3654,7 +3707,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &is_num_equal,
         )?;
 
-        let is_hide = alloc_equal(
+        let op2_is_hide = alloc_equal(
             &mut cs.namespace(|| "Op2 is Hide"),
             op2.tag(),
             &g.op2_hide_tag,
@@ -3679,7 +3732,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         enforce_implication(
             &mut cs.namespace(|| "is hide implies commitment tag is correct"),
-            &is_hide,
+            &op2_is_hide,
             &commitment_tag_is_correct,
         )?;
 
@@ -3692,13 +3745,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let comm_or_num_tag = pick(
             &mut cs.namespace(|| "Op2 tag is comm or num"),
-            &is_hide,
+            &op2_is_hide,
             &g.comm_tag,
             &g.num_tag,
         )?;
 
-        let is_cons_or_hide =
-            constraints::or(&mut cs.namespace(|| "is cons or hide"), &is_cons, &is_hide)?;
+        let is_cons_or_hide = or!(cs, &is_cons, &op2_is_hide)?;
 
         let is_cons_or_strcons_or_hide = constraints::or(
             &mut cs.namespace(|| "is cons or srtcons or hide"),
@@ -3914,23 +3966,20 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &Boolean::not(&real_div_and_b_is_zero),
         )?;
 
-        let op2_not_both_num_and_not_cons_or_strcons_or_hide_or_equal_or_num_equal = Boolean::and(
-            &mut cs
-                .namespace(|| "not both num and not cons or strcons or hide or equal or num_equal"),
+        let op2_not_both_num_and_not_cons_or_strcons_or_hide_or_equal_or_num_equal = and!(
+            cs,
             &Boolean::not(&both_args_are_nums),
-            &Boolean::not(&is_cons_or_strcons_or_hide_or_equal_or_num_equal),
+            &Boolean::not(&is_cons_or_strcons_or_hide_or_equal_or_num_equal)
         )?;
 
-        let any_error1 = constraints::or(
-            &mut cs.namespace(|| "first two errors"),
+        let op2_is_hide_and_arg1_is_not_num = and!(cs, &op2_is_hide, &arg1_is_num.not())?;
+
+        let any_error = or!(
+            cs,
             &Boolean::not(&valid_types_and_not_div_by_zero),
             &op2_not_both_num_and_not_cons_or_strcons_or_hide_or_equal_or_num_equal,
-        )?;
-
-        let any_error = constraints::or(
-            &mut cs.namespace(|| "some error happened"),
-            &any_error1,
             &invalid_strcons_tag,
+            &op2_is_hide_and_arg1_is_not_num
         )?;
 
         let op2_is_eval = alloc_equal(cs.namespace(|| "op2_is_eval"), op2.tag(), &g.op2_eval_tag)?;
@@ -3992,8 +4041,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
     let (res, the_cont) = {
         let mut cs = cs.namespace(|| "If");
-        let unevaled_args = AllocatedPtr::by_index(0, &continuation_components);
-        let continuation = AllocatedContPtr::by_index(1, &continuation_components);
+        let unevaled_args = AllocatedPtr::by_index(0, continuation_components);
+        let continuation = AllocatedContPtr::by_index(1, continuation_components);
 
         let condition = result;
 
@@ -4010,7 +4059,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             g,
             &unevaled_args,
             ConsName::UnevaledArgs,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &if_not_dummy,
             store,
         )?;
@@ -4023,12 +4072,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             g,
             &more,
             ConsName::UnevaledArgsCdr,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &if_not_dummy,
             store,
         )?;
 
-        let end_is_nil = end.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
+        let end_is_nil = end.alloc_equal(&mut cs.namespace(|| "end_is_nil"), &g.nil_ptr)?;
 
         let res = AllocatedPtr::pick(
             &mut cs.namespace(|| "pick arg1 or arg2"),
@@ -4058,8 +4107,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
     // Continuation::Lookup
     /////////////////////////////////////////////////////////////////////////////
-    let saved_env = AllocatedPtr::by_index(0, &continuation_components);
-    let continuation = AllocatedContPtr::by_index(1, &continuation_components);
+    let saved_env = AllocatedPtr::by_index(0, continuation_components);
+    let continuation = AllocatedContPtr::by_index(1, continuation_components);
     results.add_clauses_cont(
         ContTag::Lookup,
         result,
@@ -4070,8 +4119,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
     // Continuation::Tail
     /////////////////////////////////////////////////////////////////////////////
-    let saved_env = AllocatedPtr::by_index(0, &continuation_components);
-    let continuation = AllocatedContPtr::by_index(1, &continuation_components);
+    let saved_env = AllocatedPtr::by_index(0, continuation_components);
+    let continuation = AllocatedContPtr::by_index(1, continuation_components);
 
     results.add_clauses_cont(
         ContTag::Tail,
@@ -4085,9 +4134,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
     let (body, extended_env, tail_cont) = {
         let mut cs = cs.namespace(|| "Let");
-        let var = AllocatedPtr::by_index(0, &continuation_components);
-        let body = AllocatedPtr::by_index(1, &continuation_components);
-        let let_cont = AllocatedContPtr::by_index(3, &continuation_components);
+        let var = AllocatedPtr::by_index(0, continuation_components);
+        let body = AllocatedPtr::by_index(1, continuation_components);
+        let let_cont = AllocatedContPtr::by_index(3, continuation_components);
 
         let cont_is_let = alloc_equal(
             &mut cs.namespace(|| "cont_is_let"),
@@ -4110,7 +4159,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &var,
             result,
             ConsName::Env,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &extended_env_not_dummy,
         )?;
 
@@ -4139,9 +4188,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
     let (body, extended_env, return_cont) = {
         let mut cs = cs.namespace(|| "LetRec");
-        let var = AllocatedPtr::by_index(0, &continuation_components);
-        let body = AllocatedPtr::by_index(1, &continuation_components);
-        let letrec_cont = AllocatedContPtr::by_index(3, &continuation_components);
+        let var = AllocatedPtr::by_index(0, continuation_components);
+        let body = AllocatedPtr::by_index(1, continuation_components);
+        let letrec_cont = AllocatedContPtr::by_index(3, continuation_components);
 
         let letrec_cont_is_letrec_cont = alloc_equal(
             &mut cs.namespace(|| "letrec_cont_is_letrec_cont"),
@@ -4157,7 +4206,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             env,
             &var,
             result,
-            allocated_hash_witness,
+            allocated_cons_witness,
             &extend_rec_not_dummy,
             store,
         )?;
@@ -4197,176 +4246,78 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     // Continuation::Unop newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     let (the_expr, the_env, the_cont, make_thunk_num) = {
-        let unop_op1 = AllocatedPtr::by_index(0, &continuation_components);
-        let other_unop_continuation = AllocatedContPtr::by_index(1, &continuation_components);
-        let op1_is_emit = alloc_equal(
-            &mut cs.namespace(|| "op1_is_emit"),
-            unop_op1.tag(),
-            &g.op1_emit_tag,
-        )?;
-        let op1_is_eval = alloc_equal(
-            &mut cs.namespace(|| "op1_is_eval"),
-            unop_op1.tag(),
-            &g.op1_eval_tag,
-        )?;
-        let unop_continuation = AllocatedContPtr::pick(
-            &mut cs.namespace(|| "continuation"),
+        let unop_op1 = AllocatedPtr::by_index(0, continuation_components);
+        let other_unop_continuation = AllocatedContPtr::by_index(1, continuation_components);
+
+        let op1_is_emit = equal!(cs, &g.op1_emit_tag, unop_op1.tag())?;
+        let op1_is_eval = equal!(cs, &g.op1_eval_tag, unop_op1.tag())?;
+
+        let unop_continuation0 = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "unop_continuation0"),
             &op1_is_emit,
             &newer_cont,
             &other_unop_continuation,
         )?;
 
-        let result_has_cons_tag = alloc_equal(
-            &mut cs.namespace(|| "result_has_cons_tag"),
-            result.tag(),
-            &g.cons_tag,
+        let unop_continuation = AllocatedContPtr::pick(
+            &mut cs.namespace(|| "unop_continuation"),
+            &op1_is_eval,
+            &continuation,
+            &unop_continuation0,
         )?;
 
-        let result_has_str_tag = alloc_equal(
-            &mut cs.namespace(|| "result_has_str_tag"),
-            result.tag(),
-            &g.str_tag,
-        )?;
+        let result_has_cons_tag = equal!(cs, &g.cons_tag, result.tag())?;
+        let result_has_str_tag = equal!(cs, &g.str_tag, result.tag())?;
 
         let result_is_nil =
             result.alloc_equal(&mut cs.namespace(|| "result_is_nil"), &g.nil_ptr)?;
 
-        let car_cdr_has_valid_tag_ = constraints::or(
-            &mut cs.namespace(|| "car_cdr_has_valid_tag_"),
+        let car_cdr_has_valid_tag = or!(
+            cs,
             &result_has_cons_tag,
             &result_has_str_tag,
+            &result_is_nil
         )?;
 
-        let car_cdr_has_valid_tag = constraints::or(
-            &mut cs.namespace(|| "car_cdr_has_valid_tag"),
-            &car_cdr_has_valid_tag_,
-            &result_is_nil,
-        )?;
+        let op1_is_car = equal!(cs, &g.op1_car_tag, unop_op1.tag())?;
+        let op1_is_cdr = equal!(cs, &g.op1_cdr_tag, unop_op1.tag())?;
+        let op1_is_car_or_cdr = or!(cs, &op1_is_car, &op1_is_cdr)?;
+        let car_cdr_has_invalid_tag = and!(cs, &op1_is_car_or_cdr, &car_cdr_has_valid_tag.not())?;
 
-        let op1_is_car = alloc_equal(
-            &mut cs.namespace(|| "op1_is_car"),
-            unop_op1.tag(),
-            &g.op1_car_tag,
-        )?;
+        let op1_is_comm = equal!(cs, &g.op1_comm_tag, unop_op1.tag())?;
+        let op1_is_num = equal!(cs, &g.op1_num_tag, unop_op1.tag())?;
+        let op1_is_char = equal!(cs, &g.op1_char_tag, unop_op1.tag())?;
+        let op1_is_open = equal!(cs, &g.op1_open_tag, unop_op1.tag())?;
+        let op1_is_secret = equal!(cs, &g.op1_secret_tag, unop_op1.tag())?;
 
-        let op1_is_cdr = alloc_equal(
-            &mut cs.namespace(|| "op1_is_cdr"),
-            unop_op1.tag(),
-            &g.op1_cdr_tag,
-        )?;
+        let tag_is_char = equal!(cs, &g.char_tag, result.tag())?;
+        let tag_is_num = equal!(cs, &g.num_tag, result.tag())?;
+        let tag_is_comm = equal!(cs, &g.comm_tag, result.tag())?;
 
-        let op1_is_car_or_cdr = constraints::or(
-            &mut cs.namespace(|| "op1_is_car_or_cdr"),
-            &op1_is_car,
-            &op1_is_cdr,
-        )?;
+        let tag_is_num_or_comm = or!(cs, &tag_is_num, &tag_is_comm)?;
+        let tag_is_num_or_char = or!(cs, &tag_is_num, &tag_is_char)?;
+        let tag_is_num_or_comm_or_char = or!(cs, &tag_is_num_or_comm, &tag_is_char)?;
 
-        let car_cdr_has_invalid_tag = Boolean::and(
-            &mut cs.namespace(|| "car_cdr_has_invalid_tag"),
-            &op1_is_car_or_cdr,
-            &Boolean::not(&car_cdr_has_valid_tag),
-        )?;
+        let comm_invalid_tag_error = and!(cs, &tag_is_num_or_comm.not(), &op1_is_comm)?;
+        let num_invalid_tag_error = and!(cs, &tag_is_num_or_comm_or_char.not(), &op1_is_num)?;
+        let char_invalid_tag_error = and!(cs, &tag_is_num_or_char.not(), &op1_is_char)?;
+        let open_invalid_tag_error = and!(cs, &tag_is_num_or_comm.not(), &op1_is_open)?;
+        let secret_invalid_tag_error = and!(cs, &tag_is_num_or_comm.not(), &op1_is_secret)?;
 
-        let op1_is_comm = alloc_equal(
-            &mut cs.namespace(|| "op1_is_comm"),
-            unop_op1.tag(),
-            &g.op1_comm_tag,
-        )?;
-
-        let op1_is_num = alloc_equal(
-            &mut cs.namespace(|| "op1_is_num"),
-            unop_op1.tag(),
-            &g.op1_num_tag,
-        )?;
-
-        let op1_is_char = alloc_equal(
-            &mut cs.namespace(|| "op1_is_char"),
-            unop_op1.tag(),
-            &g.op1_char_tag,
-        )?;
-
-        let tag_is_char = alloc_equal(
-            &mut cs.namespace(|| "tag_is_char"),
-            result.tag(),
-            &g.char_tag,
-        )?;
-
-        let tag_is_num = alloc_equal(&mut cs.namespace(|| "tag_is_num"), result.tag(), &g.num_tag)?;
-
-        let tag_is_comm = alloc_equal(
-            &mut cs.namespace(|| "tag_is_comm"),
-            result.tag(),
-            &g.comm_tag,
-        )?;
-
-        let tag_is_num_or_comm = constraints::or(
-            &mut cs.namespace(|| "tag_is_num_or_comm"),
-            &tag_is_num,
-            &tag_is_comm,
-        )?;
-
-        let tag_is_num_or_char = constraints::or(
-            &mut cs.namespace(|| "tag_is_num_or_char"),
-            &tag_is_num,
-            &tag_is_char,
-        )?;
-
-        let tag_is_num_or_comm_or_char = constraints::or(
-            &mut cs.namespace(|| "tag_is_num_or_comm_or_char"),
-            &tag_is_num_or_comm,
-            &tag_is_char,
-        )?;
-
-        let comm_invalid_tag_error = Boolean::and(
-            &mut cs.namespace(|| "comm_invalid_tag_error"),
-            &op1_is_comm,
-            &Boolean::not(&tag_is_num_or_comm),
-        )?;
-
-        let num_invalid_tag_error = Boolean::and(
-            &mut cs.namespace(|| "num_invalid_tag_error"),
-            &op1_is_num,
-            &Boolean::not(&tag_is_num_or_comm_or_char),
-        )?;
-
-        let char_invalid_tag_error = Boolean::and(
-            &mut cs.namespace(|| "char_invalid_tag_error"),
-            &op1_is_char,
-            &Boolean::not(&tag_is_num_or_char),
-        )?;
-
-        // Any error? Compute the OR of individual errors
-        let any_error1 = constraints::or(
-            &mut cs.namespace(|| "any_error1"),
+        let any_error = or!(
+            cs,
             &car_cdr_has_invalid_tag,
             &comm_invalid_tag_error,
-        )?;
-
-        let any_error2 = constraints::or(
-            &mut cs.namespace(|| "any_erro2"),
-            &any_error1,
             &num_invalid_tag_error,
-        )?;
-
-        let any_error = constraints::or(
-            &mut cs.namespace(|| "any_error"),
-            &any_error2,
+            &num_invalid_tag_error,
             &char_invalid_tag_error,
+            &open_invalid_tag_error,
+            &secret_invalid_tag_error
         )?;
 
-        let the_expr = AllocatedPtr::pick(
-            &mut cs.namespace(|| "the_expr"),
-            &any_error,
-            result,
-            &unop_val,
-        )?;
+        let the_expr = pick_ptr!(cs, &any_error, result, &unop_val)?;
 
-        let the_env = AllocatedPtr::pick(
-            &mut cs.namespace(|| "the_env"),
-            &op1_is_eval,
-            &g.nil_ptr,
-            env,
-        )?;
+        let the_env = pick_ptr!(cs, &op1_is_eval, &g.nil_ptr, env)?;
 
         let the_cont = AllocatedContPtr::pick(
             &mut cs.namespace(|| "the_cont"),
@@ -4468,12 +4419,40 @@ fn to_char<F: LurkField>(x: &AllocatedPtr<F>, g: &GlobalAllocations<F>) -> Alloc
     AllocatedPtr::from_parts(&g.char_tag, x.hash())
 }
 
+fn get_named_components<'a, F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    cont_ptr: &AllocatedContPtr<F>,
+    name: ContName,
+    allocated_cont_witness: &'a AllocatedContWitness<F>,
+    not_dummy: &Boolean,
+    _store: &Store<F>,
+) -> Result<(&'a AllocatedNum<F>, &'a [AllocatedNum<F>]), SynthesisError> {
+    let expect_dummy = !not_dummy.get_value().unwrap_or(false);
+
+    let (allocated_cont_components, allocated_cont_hash) =
+        allocated_cont_witness.get_components(name, expect_dummy);
+
+    let real_cont = alloc_equal(
+        &mut cs.namespace(|| "cont is real"),
+        cont_ptr.hash(),
+        allocated_cont_hash,
+    )?;
+
+    enforce_implication(
+        &mut cs.namespace(|| "is cont implies real cont"),
+        not_dummy,
+        &real_cont,
+    )?;
+
+    Ok((allocated_cont_hash, allocated_cont_components))
+}
+
 fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
     maybe_cons: &AllocatedPtr<F>,
     name: ConsName,
-    allocated_hash_witness: &AllocatedHashWitness<F>,
+    allocated_cons_witness: &AllocatedConsWitness<F>,
     not_dummy: &Boolean,
     _store: &Store<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
@@ -4488,7 +4467,7 @@ fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
 
     let expect_dummy = !(cons_not_dummy.get_value().unwrap_or(false));
     let (allocated_car, allocated_cdr, allocated_digest) =
-        allocated_hash_witness.get_cons(name, expect_dummy);
+        allocated_cons_witness.get_cons(name, expect_dummy);
     let real_cons = alloc_equal(
         &mut cs.namespace(|| "cons is real"),
         maybe_cons.hash(),
@@ -4509,8 +4488,8 @@ fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
         &real_cons,
     )?;
 
-    let res_car = ifx_t!(cs, &maybe_cons_is_nil, &g.nil_ptr, &allocated_car)?;
-    let res_cdr = ifx_t!(cs, &maybe_cons_is_nil, &g.nil_ptr, &allocated_cdr)?;
+    let res_car = pick_ptr!(cs, &maybe_cons_is_nil, &g.nil_ptr, &allocated_car)?;
+    let res_cdr = pick_ptr!(cs, &maybe_cons_is_nil, &g.nil_ptr, &allocated_cdr)?;
 
     Ok((res_car, res_cdr))
 }
@@ -4522,7 +4501,7 @@ fn extend_named<F: LurkField, CS: ConstraintSystem<F>>(
     var: &AllocatedPtr<F>,
     val: &AllocatedPtr<F>,
     name: ConsName,
-    allocated_hash_witness: &AllocatedHashWitness<F>,
+    allocated_cons_witness: &AllocatedConsWitness<F>,
     not_dummy: &Boolean,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let new_binding = AllocatedPtr::construct_cons_named(
@@ -4531,7 +4510,7 @@ fn extend_named<F: LurkField, CS: ConstraintSystem<F>>(
         var,
         val,
         ConsName::Binding,
-        allocated_hash_witness,
+        allocated_cons_witness,
         not_dummy,
     )?;
     AllocatedPtr::construct_cons_named(
@@ -4540,7 +4519,7 @@ fn extend_named<F: LurkField, CS: ConstraintSystem<F>>(
         &new_binding,
         env,
         name,
-        allocated_hash_witness,
+        allocated_cons_witness,
         not_dummy,
     )
 }
@@ -4551,7 +4530,7 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
     env: &AllocatedPtr<F>,
     var: &AllocatedPtr<F>,
     val: &AllocatedPtr<F>,
-    allocated_hash_witness: &AllocatedHashWitness<F>,
+    allocated_cons_witness: &AllocatedConsWitness<F>,
     not_dummy: &Boolean,
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
@@ -4560,7 +4539,7 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
         g,
         env,
         ConsName::Env,
-        allocated_hash_witness,
+        allocated_cons_witness,
         not_dummy,
         store,
     )?;
@@ -4569,7 +4548,7 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
         g,
         &binding_or_env,
         ConsName::EnvCar,
-        allocated_hash_witness,
+        allocated_cons_witness,
         not_dummy,
         store,
     )?;
@@ -4586,7 +4565,7 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
         var,
         val,
         ConsName::NewRecCadr,
-        allocated_hash_witness,
+        allocated_cons_witness,
         not_dummy,
     )?;
 
@@ -4596,7 +4575,7 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
         &cons,
         &g.nil_ptr,
         ConsName::NewRec,
-        allocated_hash_witness,
+        allocated_cons_witness,
         not_dummy,
     )?;
 
@@ -4606,7 +4585,7 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
         &list,
         env,
         ConsName::ExtendedRec,
-        allocated_hash_witness,
+        allocated_cons_witness,
         not_dummy,
     )?;
 
@@ -4618,7 +4597,7 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
         &cons,
         &binding_or_env,
         ConsName::NewRec,
-        allocated_hash_witness,
+        allocated_cons_witness,
         &cons_branch_not_dummy,
     )?;
 
@@ -4628,7 +4607,7 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
         &cons2,
         &rest,
         ConsName::ExtendedRec,
-        allocated_hash_witness,
+        allocated_cons_witness,
         &cons_branch_not_dummy,
     )?;
 
@@ -4762,9 +4741,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12529, cs.num_constraints());
+            assert_eq!(11540, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(12183, cs.aux().len());
+            assert_eq!(11159, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
