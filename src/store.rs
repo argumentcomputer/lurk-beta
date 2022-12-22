@@ -11,6 +11,7 @@ use once_cell::sync::OnceCell;
 
 use libipld::Cid;
 
+use crate::error::LurkError;
 use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
@@ -1992,7 +1993,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn car_cdr(&self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), LurkError> {
+    pub fn car_cdr(&self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
         // FIXME: Maybe make error.
         match ptr.0 {
             Tag::Nil => Ok((self.get_nil(), self.get_nil())),
@@ -2018,9 +2019,7 @@ impl<F: LurkField> Store<F> {
             _ => {
                 // FIXME: Don't panic. This can happen at runtime in a valid Lurk program,
                 // so it should result in an explicit error.
-                Err(LurkError::Store(
-                    "Can only extract car_cdr from Cons".into(),
-                ))
+                Err(Error("Can only extract car_cdr from Cons".into()))
             }
         }
     }

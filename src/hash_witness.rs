@@ -334,7 +334,7 @@ impl<F: LurkField> Cons<F> {
         (self.car, self.cdr)
     }
 
-    fn get_car_cdr(s: &mut Store<F>, cons: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), LurkError> {
+    fn get_car_cdr(s: &mut Store<F>, cons: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
         s.car_cdr(cons)
     }
 
