@@ -498,7 +498,7 @@ fn reduce_with_witness<F: LurkField>(
                                     } else {
                                         // expr does not match the binding's var.
 
-                                        // CIRCUIT: otherwise_and_v_not_expr
+                                        // CIRCUIT: otherwise_and_sym
                                         match cont.tag() {
                                             ContTag::Lookup => {
                                                 // If performing a lookup, continue with remaining env.
@@ -519,7 +519,7 @@ fn reduce_with_witness<F: LurkField>(
                                                     expr,
                                                     smaller_env,
                                                     cont_witness.intern_named_cont(
-                                                        ContName::XXX,
+                                                        ContName::Lookup,
                                                         store,
                                                         Continuation::Lookup {
                                                             saved_env: env,
@@ -693,7 +693,7 @@ fn reduce_with_witness<F: LurkField>(
                             };
                             let cont = if head == store.lurk_sym("let") {
                                 cont_witness.intern_named_cont(
-                                    ContName::LetLike,
+                                    ContName::NewerCont,
                                     store,
                                     Continuation::Let {
                                         var,
@@ -704,7 +704,7 @@ fn reduce_with_witness<F: LurkField>(
                                 )
                             } else {
                                 cont_witness.intern_named_cont(
-                                    ContName::LetLike,
+                                    ContName::NewerCont,
                                     store,
                                     Continuation::LetRec {
                                         var,
@@ -726,7 +726,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Binop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Binop {
                                     operator: Op2::Cons,
@@ -746,7 +746,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Binop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Binop {
                                     operator: Op2::StrCons,
@@ -766,7 +766,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Binop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Binop {
                                     operator: Op2::Hide,
@@ -786,7 +786,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Binop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Binop {
                                     operator: Op2::Begin,
@@ -810,7 +810,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Unop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Unop {
                                     operator: Op1::Car,
@@ -832,7 +832,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Unop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Unop {
                                     operator: Op1::Cdr,
@@ -850,7 +850,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Unop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Unop {
                                     operator: Op1::Commit,
@@ -868,7 +868,6 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                //ContName::NewerCont,
                                 ContName::NewerCont,
                                 store,
                                 Continuation::Unop {
@@ -887,7 +886,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Unop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Unop {
                                     operator: Op1::U64,
@@ -905,7 +904,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Unop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Unop {
                                     operator: Op1::Comm,
@@ -923,7 +922,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Unop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Unop {
                                     operator: Op1::Char,
@@ -939,7 +938,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Unop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Unop {
                                     operator: Op1::Eval,
@@ -952,7 +951,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Binop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Binop {
                                     operator: Op2::Eval,
@@ -972,7 +971,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Unop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Unop {
                                     operator: Op1::Open,
@@ -990,7 +989,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Unop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Unop {
                                     operator: Op1::Secret,
@@ -1008,7 +1007,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Unop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Unop {
                                     operator: Op1::Atom,
@@ -1026,7 +1025,7 @@ fn reduce_with_witness<F: LurkField>(
                             arg1,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Unop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Unop {
                                     operator: Op1::Emit,
@@ -1041,7 +1040,7 @@ fn reduce_with_witness<F: LurkField>(
                         arg1,
                         env,
                         cont_witness.intern_named_cont(
-                            ContName::Binop,
+                            ContName::NewerCont,
                             store,
                             Continuation::Binop {
                                 operator: Op2::Sum,
@@ -1057,7 +1056,7 @@ fn reduce_with_witness<F: LurkField>(
                         arg1,
                         env,
                         cont_witness.intern_named_cont(
-                            ContName::Binop,
+                            ContName::NewerCont,
                             store,
                             Continuation::Binop {
                                 operator: Op2::Diff,
@@ -1073,7 +1072,7 @@ fn reduce_with_witness<F: LurkField>(
                         arg1,
                         env,
                         cont_witness.intern_named_cont(
-                            ContName::Binop,
+                            ContName::NewerCont,
                             store,
                             Continuation::Binop {
                                 operator: Op2::Product,
@@ -1089,7 +1088,7 @@ fn reduce_with_witness<F: LurkField>(
                         arg1,
                         env,
                         cont_witness.intern_named_cont(
-                            ContName::Binop,
+                            ContName::NewerCont,
                             store,
                             Continuation::Binop {
                                 operator: Op2::Quotient,
@@ -1105,7 +1104,7 @@ fn reduce_with_witness<F: LurkField>(
                         arg1,
                         env,
                         cont_witness.intern_named_cont(
-                            ContName::Binop,
+                            ContName::NewerCont,
                             store,
                             Continuation::Binop {
                                 operator: Op2::Modulo,
@@ -1121,7 +1120,7 @@ fn reduce_with_witness<F: LurkField>(
                         arg1,
                         env,
                         cont_witness.intern_named_cont(
-                            ContName::Unop,
+                            ContName::NewerCont,
                             store,
                             Continuation::Binop {
                                 operator: Op2::NumEqual,
@@ -1137,7 +1136,7 @@ fn reduce_with_witness<F: LurkField>(
                         arg1,
                         env,
                         cont_witness.intern_named_cont(
-                            ContName::Binop,
+                            ContName::NewerCont,
                             store,
                             Continuation::Binop {
                                 operator: Op2::Equal,
@@ -1153,7 +1152,7 @@ fn reduce_with_witness<F: LurkField>(
                         arg1,
                         env,
                         cont_witness.intern_named_cont(
-                            ContName::Binop,
+                            ContName::NewerCont,
                             store,
                             Continuation::Binop {
                                 operator: Op2::Less,
@@ -1169,7 +1168,7 @@ fn reduce_with_witness<F: LurkField>(
                         arg1,
                         env,
                         cont_witness.intern_named_cont(
-                            ContName::Binop,
+                            ContName::NewerCont,
                             store,
                             Continuation::Binop {
                                 operator: Op2::Greater,
@@ -1185,7 +1184,7 @@ fn reduce_with_witness<F: LurkField>(
                         arg1,
                         env,
                         cont_witness.intern_named_cont(
-                            ContName::Binop,
+                            ContName::NewerCont,
                             store,
                             Continuation::Binop {
                                 operator: Op2::LessEqual,
@@ -1201,7 +1200,7 @@ fn reduce_with_witness<F: LurkField>(
                         arg1,
                         env,
                         cont_witness.intern_named_cont(
-                            ContName::Binop,
+                            ContName::NewerCont,
                             store,
                             Continuation::Binop {
                                 operator: Op2::GreaterEqual,
@@ -1218,7 +1217,7 @@ fn reduce_with_witness<F: LurkField>(
                         condition,
                         env,
                         cont_witness.intern_named_cont(
-                            ContName::Binop,
+                            ContName::NewerCont,
                             store,
                             Continuation::If {
                                 unevaled_args: more,
@@ -1241,7 +1240,7 @@ fn reduce_with_witness<F: LurkField>(
                             fun_form,
                             env,
                             cont_witness.intern_named_cont(
-                                ContName::Binop,
+                                ContName::NewerCont,
                                 store,
                                 Continuation::Call0 {
                                     saved_env: env,
@@ -1259,7 +1258,7 @@ fn reduce_with_witness<F: LurkField>(
                                 fun_form,
                                 env,
                                 cont_witness.intern_named_cont(
-                                    ContName::Binop,
+                                    ContName::NewerCont,
                                     store,
                                     Continuation::Call {
                                         unevaled_arg: arg,
@@ -1399,7 +1398,7 @@ fn apply_continuation<F: LurkField>(
                     let next_expr = unevaled_arg;
 
                     let newer_cont = cont_witness.intern_named_cont(
-                        ContName::Binop,
+                        ContName::NewerCont2,
                         store,
                         Continuation::Call2 {
                             function,
@@ -1537,7 +1536,7 @@ fn apply_continuation<F: LurkField>(
                             *result,
                             *env,
                             cont_witness.intern_named_cont(
-                                ContName::Unop,
+                                ContName::NewerCont2,
                                 store,
                                 Continuation::Emit { continuation },
                             ),
@@ -1633,7 +1632,7 @@ fn apply_continuation<F: LurkField>(
                         arg2,
                         saved_env,
                         cont_witness.intern_named_cont(
-                            ContName::XXX,
+                            ContName::NewerCont2,
                             store,
                             Continuation::Binop2 {
                                 operator,
@@ -1921,7 +1920,7 @@ fn make_tail_continuation<F: LurkField>(
         ContTag::Tail => continuation,
         // Otherwise, package it along with supplied env as a new Tail continuation.
         _ => cont_witness.intern_named_cont(
-            ContName::NewerCont,
+            ContName::NewerCont2,
             store,
             Continuation::Tail {
                 saved_env: env,

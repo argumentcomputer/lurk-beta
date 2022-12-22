@@ -93,14 +93,21 @@ macro_rules! equal_t {
 }
 
 macro_rules! implies_equal {
-    ($cs:ident, $condition:expr, $a: expr, $b: expr) => {
+    ($cs:ident, $condition:expr, $a: expr, $b: expr) => {{
         let equal = equal!($cs, $a, $b)?;
         enforce_implication(
-            $cs.namespace(|| format!("implies_equal {} {}", stringify!($a), stringify!($b))),
+            $cs.namespace(|| {
+                format!(
+                    "implies_equal: {} => {} == {}",
+                    stringify!($condition),
+                    stringify!($a),
+                    stringify!($b)
+                )
+            }),
             $condition,
             &equal,
         )?;
-    };
+    }};
 }
 
 macro_rules! implies_equal_t {
@@ -108,7 +115,14 @@ macro_rules! implies_equal_t {
         let equal = equal_t!($cs, $a, $b)?;
 
         enforce_implication(
-            $cs.namespace(|| format!("implies_equal_t {} {}", stringify!($a), stringify!($b))),
+            $cs.namespace(|| {
+                format!(
+                    "implies_equal_t: {} => {} == {}",
+                    stringify!($condition),
+                    stringify!($a),
+                    stringify!($b)
+                )
+            }),
             $condition,
             &equal,
         )?;
@@ -195,7 +209,7 @@ macro_rules! or {
 // Enforce that x is true.
 macro_rules! is_true {
     ($cs:ident, $x:expr) => {
-        enforce_true($cs.namespace(|| format!("{} is true!", stringify!($x))), $x);
+        enforce_true($cs.namespace(|| format!("{} is true!", stringify!($x))), $x)
     };
 }
 
@@ -223,6 +237,15 @@ macro_rules! allocate_continuation_tag {
         AllocatedNum::alloc(
             $cs.namespace(|| format!("{} continuation tag", stringify!($continuation_tag))),
             || Ok($continuation_tag.cont_tag_fr()),
+        )
+    };
+}
+
+macro_rules! boolean_num {
+    ($cs:expr, $boolean:expr) => {
+        boolean_to_num(
+            $cs.namespace(|| format!("boolean_num({})", stringify!($boolean))),
+            $boolean,
         )
     };
 }

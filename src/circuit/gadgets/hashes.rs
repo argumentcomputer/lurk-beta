@@ -74,9 +74,8 @@ impl<'a, VanillaWitness, Name: Debug, F: LurkField, PreimageType>
             .iter()
             .enumerate()
             .filter(|(_, x)| !x.is_consumed())
-            .map(|(i, x)| (i, &x.name, x.consumed))
+            .map(|(i, x)| (i, &x.name))
             .collect::<Vec<_>>();
-
         assert_eq!(
             0,
             unconsumed.len(),
@@ -313,8 +312,6 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
             allocated: allocated_hash,
             consumed: _,
         } = self.slots[index].clone();
-        self.slots[index].consume();
-
         if !expect_dummy {
             match allocated_name {
                 Err(_) => {
@@ -322,7 +319,7 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
                     panic!("requested {:?} but found a dummy allocation", name)
                 }
                 Ok(alloc_name) => {
-                    dbg!(&self.witness);
+                    //dbg!(&self.witness);
                     assert_eq!(
                         name, alloc_name,
                         "requested and allocated names don't match."
@@ -331,6 +328,40 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
             };
         }
         assert_eq!(8, allocated_hash.preimage.len());
+        self.slots[index].consume();
+
         (allocated_hash.preimage, allocated_hash.digest)
+    }
+
+    pub fn get_components_unchecked(
+        &mut self,
+        name: ContName,
+    ) -> (Vec<AllocatedNum<F>>, AllocatedNum<F>, bool) {
+        let index = name.index();
+        let Slot {
+            name: allocated_name,
+            allocated: allocated_hash,
+            consumed: _,
+        } = self.slots[index].clone();
+
+        // match (name, allocated_name) {
+        //     (ContName::NewerCont2, Ok(allocated)) => {
+        //         if allocated != name {
+        //             dbg!(&name, &allocated_name);
+        //             panic!("xxxxx");
+        //         }
+        //     }
+        //     (_, _) => (),
+        // }
+
+        dbg!(name, allocated_name);
+        let names_match = allocated_name
+            .map(|alloc_name| alloc_name == name)
+            .unwrap_or(false);
+
+        assert_eq!(8, allocated_hash.preimage.len());
+        self.slots[index].consume();
+
+        (allocated_hash.preimage, allocated_hash.digest, names_match)
     }
 }

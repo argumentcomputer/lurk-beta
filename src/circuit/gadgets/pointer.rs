@@ -1,7 +1,10 @@
 use std::fmt::Debug;
 
 use bellperson::{
-    gadgets::{boolean::Boolean, num::AllocatedNum},
+    gadgets::{
+        boolean::{AllocatedBit, Boolean},
+        num::AllocatedNum,
+    },
     ConstraintSystem, SynthesisError,
 };
 use ff::PrimeField;
@@ -17,7 +20,7 @@ use crate::{
 };
 
 use super::{
-    constraints::{alloc_equal, enforce_implication, equal, pick},
+    constraints::{alloc_equal, boolean_to_num, enforce_implication, equal, pick},
     data::{allocate_constant, hash_poseidon, GlobalAllocations},
     hashes::{AllocatedConsWitness, AllocatedContWitness},
 };
@@ -684,6 +687,51 @@ impl<F: LurkField> AllocatedContPtr<F> {
             hash,
         };
         Ok(cont)
+    }
+
+    pub fn construct_named_and_not_dummy<CS: ConstraintSystem<F>>(
+        mut cs: CS,
+        name: ContName,
+        cont_tag: &AllocatedNum<F>,
+        components: &[&dyn AsAllocatedHashComponents<F>; 4],
+        allocated_cont_witness: &mut AllocatedContWitness<F>,
+    ) -> Result<(Self, AllocatedNum<F>), SynthesisError> {
+        let (found_components, hash, apparently_not_dummy) =
+            allocated_cont_witness.get_components_unchecked(name);
+
+        let supplied_components: Vec<AllocatedNum<F>> = components
+            .iter()
+            .flat_map(|c| c.as_allocated_hash_components())
+            .cloned()
+            .collect();
+
+        let mut acc = None;
+
+        for (i, (c1, c2)) in found_components.iter().zip(supplied_components).enumerate() {
+            let component_is_real = equal!(
+                &mut cs.namespace(|| format!("component {} matches", i)),
+                c1,
+                &c2
+            )?;
+
+            if let Some(a) = &acc {
+                and!(
+                    &mut cs.namespace(|| format!("accumulate real component conjunction {}", i)),
+                    a,
+                    &component_is_real
+                )?;
+            } else {
+                acc = Some(component_is_real.clone());
+            }
+        }
+
+        let not_dummy = boolean_num!(cs, &acc.expect("acc was never initialized"))?;
+
+        let cont = AllocatedContPtr {
+            tag: cont_tag.clone(),
+            hash,
+        };
+        Ok((cont, not_dummy))
     }
 
     pub fn from_parts(tag: &AllocatedNum<F>, hash: &AllocatedNum<F>) -> Self {

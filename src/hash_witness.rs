@@ -119,13 +119,15 @@ pub enum ContName {
     NeverUsed,
     ApplyContinuation,
     LetLike,
-    Binop,
-    Unop,
+    NewerCont,
+
+    NewerCont2,
+
+    WontMatchCircuitName,
+    WontMatchEvalName,
+    Call,
     MakeThunk,
     Lookup,
-    NewerCont,
-    Tail,
-    XXX,
 }
 
 impl HashName for ContName {
@@ -133,9 +135,12 @@ impl HashName for ContName {
         match self {
             Self::NeverUsed => MAX_CONTS_PER_REDUCTION + 1,
             Self::ApplyContinuation => 0,
-            Self::MakeThunk => 1,
             Self::Lookup => 0,
             Self::NewerCont => 1,
+            Self::NewerCont2 => 1,
+            Self::LetLike => 1,
+
+            Self::MakeThunk => 1,
             _ => 1, // fixme,
         }
     }
@@ -306,6 +311,10 @@ impl<
 
     fn all_stubs(&self) -> Vec<Stub<T>> {
         self.slots.iter().map(|x| x.1).collect()
+    }
+
+    pub fn all_names(&self) -> Vec<Name> {
+        self.slots.iter().map(|x| x.0).collect()
     }
 
     pub fn stubs_used(&self) -> Vec<Stub<T>> {
