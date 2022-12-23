@@ -171,7 +171,7 @@ impl<F: LurkField> AllocatedPtr<F> {
             .unwrap_or_else(|| "<PTR MISSING>".to_string())
     }
 
-    pub fn allocate_thunk_components<CS: ConstraintSystem<F>>(
+    pub fn allocate_thunk_components_unconstrained<CS: ConstraintSystem<F>>(
         &self,
         cs: CS,
         store: &Store<F>,

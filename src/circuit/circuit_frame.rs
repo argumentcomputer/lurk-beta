@@ -651,7 +651,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     // Enforce (expr.tag == thunk_tag) implies (expr_thunk_hash == expr.hash).
-    let expr_is_a_thunk = constraints::alloc_equal(
+    let expr_is_thunk = constraints::alloc_equal(
         &mut cs.namespace(|| "expr.tag == thunk_tag"),
         expr.tag(),
         &g.thunk_tag,
@@ -659,20 +659,15 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
 
     // If expr is a thunk, this will allocate its components and hash, etc.
     // If not, these will be dummies.
-    let (expr_thunk_hash, expr_thunk_value, expr_thunk_continuation) =
-        expr.allocate_thunk_components(&mut cs.namespace(|| "allocate thunk components"), store)?;
+    // NOTE: this allocation is unconstrained. See necessary constraint immediately below.
+    let (expr_thunk_hash, expr_thunk_value, expr_thunk_continuation) = expr
+        .allocate_thunk_components_unconstrained(
+            &mut cs.namespace(|| "allocate thunk components"),
+            store,
+        )?;
     {
-        let expr_is_the_thunk = constraints::alloc_equal(
-            &mut cs.namespace(|| "expr_thunk_hash == expr.hash"),
-            &expr_thunk_hash,
-            expr.hash(),
-        )?;
-
-        enforce_implication(
-            &mut cs.namespace(|| "(expr.tag == thunk_tag) implies (expr_thunk_hash == expr.hash)"),
-            &expr_is_a_thunk,
-            &expr_is_the_thunk,
-        )?;
+        // This constrains the thunk allocation.
+        implies_equal!(cs, &expr_is_thunk, &expr_thunk_hash, expr.hash());
 
         results.add_clauses_expr(
             Tag::Thunk,
