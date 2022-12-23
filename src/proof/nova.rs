@@ -294,9 +294,8 @@ mod tests {
     };
     use pallas::Scalar as Fr;
 
-    // FIXME: This is failing with values of (at least) 1, 2.
     const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
-
+    const CHUNK_FRAME_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
     fn nova_test_aux(
         s: &mut Store<Fr>,
         expr: &str,
@@ -306,18 +305,20 @@ mod tests {
         expected_emitted: Option<Vec<Ptr<Fr>>>,
         expected_iterations: usize,
     ) {
-        nova_test_full_aux(
-            s,
-            expr,
-            expected_result,
-            expected_env,
-            expected_cont,
-            expected_emitted,
-            expected_iterations,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            false,
-            None,
-        )
+        for chunk_size in CHUNK_FRAME_COUNTS_TO_TEST {
+            nova_test_full_aux(
+                s,
+                expr,
+                expected_result,
+                expected_env,
+                expected_cont,
+                expected_emitted.as_ref(),
+                expected_iterations,
+                chunk_size,
+                false,
+                None,
+            )
+        }
     }
 
     fn nova_test_full_aux(
@@ -326,7 +327,7 @@ mod tests {
         expected_result: Option<Ptr<Fr>>,
         expected_env: Option<Ptr<Fr>>,
         expected_cont: Option<ContPtr<Fr>>,
-        expected_emitted: Option<Vec<Ptr<Fr>>>,
+        expected_emitted: Option<&Vec<Ptr<Fr>>>,
         expected_iterations: usize,
         chunk_frame_count: usize,
         check_nova: bool,
@@ -400,7 +401,7 @@ mod tests {
                 .iter()
                 .flat_map(|frame| frame.output.maybe_emitted_expression(&s))
                 .collect();
-            assert_eq!(expected_emitted, emitted_vec);
+            assert_eq!(expected_emitted, &emitted_vec);
         }
 
         if let Some(expected_result) = expected_result {
