@@ -301,15 +301,21 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
 
             let (_, (new_expr, new_env, new_cont)) =
                 frames.iter().fold((0, acc), |(i, allocated_io), frame| {
-                    if let Some(xxx) = frame.input {
+                    if let Some(next_input) = frame.input {
+                        // Ensure all intermediate allocated I/O values match the provided executation trace.
                         assert_eq!(
                             allocated_io.0.hash().get_value(),
-                            store.hash_expr(&xxx.expr).map(|x| *x.value()),
+                            store.hash_expr(&next_input.expr).map(|x| *x.value()),
                             "expr mismatch"
                         );
                         assert_eq!(
+                            allocated_io.1.hash().get_value(),
+                            store.hash_expr(&next_input.env).map(|x| *x.value()),
+                            "env mismatch"
+                        );
+                        assert_eq!(
                             allocated_io.2.hash().get_value(),
-                            store.hash_cont(&xxx.cont).map(|x| *x.value()),
+                            store.hash_cont(&next_input.cont).map(|x| *x.value()),
                             "cont mismatch"
                         );
                     };
