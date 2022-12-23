@@ -9,7 +9,6 @@ use bellperson::{
 use crate::{
     circuit::gadgets::{
         case::{case, multi_case, multi_case_aux, CaseClause},
-        constraints::enforce_true,
         data::GlobalAllocations,
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
@@ -623,11 +622,11 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-    dbg!("reduce_expression");
-    dbg!(&expr.fetch_and_write_str(store));
-    dbg!(&expr);
-    dbg!(&env.fetch_and_write_str(store));
-    dbg!(&cont.fetch_and_write_cont_str(store), &cont);
+    // dbg!("reduce_expression");
+    // dbg!(&expr.fetch_and_write_str(store));
+    // dbg!(&expr);
+    // dbg!(&env.fetch_and_write_str(store));
+    // dbg!(&cont.fetch_and_write_cont_str(store), &cont);
     let mut results = Results::default();
     {
         // Self-evaluating expressions
@@ -873,11 +872,6 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         &result_cont0,
     )?;
 
-    // dbg!(&result_expr_candidate.fetch_and_write_str(store));
-    // dbg!(&result_env_candidate.fetch_and_write_str(store));
-    // dbg!(&result_cont_candidate.fetch_and_write_cont_str(store));
-    // dbg!(expr, env, cont);
-
     let result_expr = AllocatedPtr::<F>::pick(
         &mut cs.namespace(|| "result_expr"),
         &cont_is_terminal,
@@ -955,7 +949,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     let sym_is_t = expr.alloc_equal(&mut cs.namespace(|| "sym is t"), &g.t_ptr)?;
 
     let sym_is_self_evaluating = or!(cs, &sym_is_nil, &sym_is_t)?;
-    let sym_otherwise = &sym_is_self_evaluating.not();
+    let sym_otherwise = sym_is_self_evaluating.not();
 
     let env_not_dummy = and!(cs, &sym_otherwise, not_dummy)?;
     let (binding, smaller_env) = car_cdr_named(
@@ -969,12 +963,12 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     let env_is_nil = env.alloc_equal(&mut cs.namespace(|| "env is nil"), &g.nil_ptr)?;
-    let env_not_nil = &env_is_nil.not();
+    let env_not_nil = env_is_nil.not();
 
     let otherwise = and!(cs, &env_not_dummy, &env_not_nil)?;
 
     let binding_is_nil = binding.alloc_equal(&mut cs.namespace(|| "binding is nil"), &g.nil_ptr)?;
-    let binding_not_nil = &binding_is_nil.not();
+    let binding_not_nil = binding_is_nil.not();
 
     let binding_is_cons = alloc_equal(
         &mut cs.namespace(|| "binding_is_cons"),
@@ -1009,7 +1003,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     let v = var_or_rec_binding.clone();
     let val = val_or_more_rec_env.clone();
     let v_is_expr1 = expr.alloc_equal(&mut cs.namespace(|| "v_is_expr1"), &v)?;
-    let v_not_expr1 = &v_is_expr1.not();
+    let v_not_expr1 = v_is_expr1.not();
 
     let otherwise_and_sym = and!(cs, &v_not_expr1, &var_or_rec_binding_is_sym)?;
     let v_is_expr1_real = and!(cs, &v_is_expr1, &var_or_rec_binding_is_sym)?;
@@ -1170,7 +1164,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
 
     let cs = &mut cs.namespace(|| "otherwise_and_binding_is_nil");
     //let cond2 = and!(cs, &otherwise_and_binding_is_nil, not_dummy)?;
-    let cond2 = &otherwise_and_binding_is_nil;
+    let cond2 = otherwise_and_binding_is_nil;
     {
         // let cond = and!(cs, &otherwise_and_binding_is_nil, not_dummy)?;
 
@@ -1188,7 +1182,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         // implies_equal_t!(cs, &cond3, &output_cont, &cont);
     }
     let cs = &mut cs.namespace(|| "cont_is_lookup_sym");
-    let cond4 = &cont_is_lookup_sym;
+    let cond4 = cont_is_lookup_sym;
     {
         // implies_equal_t!(cs, &cond4, &output_expr, &expr);
         implies_equal_t!(cs, &cond4, output_env, smaller_env);
@@ -2319,7 +2313,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &newer_cont_unop,
         &newer_cont_let_letrec
     )?;
-    let newer_cont_not_dummy = and!(cs, &newer_cont_not_dummy0, &not_dummy)?;
+    let newer_cont_not_dummy = and!(cs, &newer_cont_not_dummy0, not_dummy)?;
 
     let newer_cont = AllocatedContPtr::construct_named(
         &mut cs.namespace(|| "reduce cons newer_cont construction from hash components"),
@@ -2939,12 +2933,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     let let_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&saved_env, &let_cont, default_num_pair, default_num_pair];
 
-    let_components
-        .iter()
-        .flat_map(|c| c.as_allocated_hash_components())
-        .map(|x| dbg!(x.get_value()))
-        .collect::<Vec<_>>();
-
     hash_default_results.add_hash_input_clauses(
         ContTag::Let.as_field(),
         &g.tail_cont_tag,
@@ -2977,20 +2965,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let is_op1_secret = equal!(cs, &g.op1_secret_tag, operator.tag())?;
         let is_op1_open_or_secret = or!(cs, &is_op1_open, &is_op1_secret)?;
 
-        // Why don't we need to check this anywhere?
-        //
-        // let is_op1_commit = constraints::alloc_equal(
-        //     &mut cs.namespace(|| "operator tag == commit_tag"),
-        //     operator.tag(),
-        //     &g.op1_commit_tag,
-        // )?;
-
-        // let is_op_commit_or_hide = or!(cs, &is_op1_commit, &is_op2_hide)?;
-
         // IF this is open, we need to know what we are opening.
         let digest = result.hash();
-
-        // let result_is_comm = equal!(cs, &result.tag(), &g.comm_tag)?;
 
         let (open_secret_scalar, open_ptr) = match store
             .get_maybe_opaque(Tag::Comm, digest.get_value().unwrap_or_else(|| F::zero()))
@@ -3257,14 +3233,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         g,
     )?;
 
-    dbg!(
-        "*****************",
-        cont.tag().get_value(),
-        ContTag::Let.as_field::<F>(),
-        ContTag::LetRec.as_field::<F>()
-    );
     // construct newer continuation from multicase results
-    let (newer_cont2, newer_cont2_not_dummy_bit) = AllocatedContPtr::construct_named_and_not_dummy(
+    let (newer_cont2, newer_cont2_not_dummy_num) = AllocatedContPtr::construct_named_and_not_dummy(
         &mut cs.namespace(|| "construct newer_cont2 from hash components"),
         ContName::NewerCont2,
         &components_results[0], // continuation tag
@@ -4379,7 +4349,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &tail_cont,
         )?;
 
-        dbg!(&continuation_is_tail.get_value());
         let newer_cont2_not_dummy = boolean_num!(cs, &continuation_is_tail.not())?;
         (body, extended_env, return_cont, newer_cont2_not_dummy)
     };
@@ -4540,21 +4509,17 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     let result_env = AllocatedPtr::by_index(1, &case_results);
     let result_cont = AllocatedContPtr::by_index(2, &case_results);
     let make_thunk_num = case_results[6].clone();
-    let newer_cont2_not_dummy_num = case_results[7].clone();
 
-    dbg!(
-        &newer_cont2_not_dummy.get_value(),
-        &newer_cont2_not_dummy_bit.get_value()
-    );
-
-    let newer_cont2_not_dummy_ = equal!(cs, &newer_cont2_not_dummy_num, &g.true_num)?;
-    let newer_cont2_not_dummy = and!(cs, &newer_cont2_not_dummy_, &not_dummy)?;
+    // This is all clunky because we can't currently return AllocatedBit from case expressions.
+    let newer_cont2_not_dummy_result_num = case_results[7].clone();
+    let newer_cont2_not_dummy_ = equal!(cs, &newer_cont2_not_dummy_result_num, &g.true_num)?;
+    let newer_cont2_not_dummy = and!(cs, &newer_cont2_not_dummy_, not_dummy)?;
 
     implies_equal!(
         cs,
         &newer_cont2_not_dummy,
         &g.true_num,
-        &newer_cont2_not_dummy_bit
+        &newer_cont2_not_dummy_num
     );
 
     Ok((result_expr, result_env, result_cont, make_thunk_num))

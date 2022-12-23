@@ -319,7 +319,6 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
                     panic!("requested {:?} but found a dummy allocation", name)
                 }
                 Ok(alloc_name) => {
-                    //dbg!(&self.witness);
                     assert_eq!(
                         name, alloc_name,
                         "requested and allocated names don't match."
@@ -333,10 +332,10 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
         (allocated_hash.preimage, allocated_hash.digest)
     }
 
-    pub fn get_components_unchecked(
+    pub fn get_components_unconstrained(
         &mut self,
         name: ContName,
-    ) -> (Vec<AllocatedNum<F>>, AllocatedNum<F>, bool) {
+    ) -> (Vec<AllocatedNum<F>>, AllocatedNum<F>) {
         let index = name.index();
         let Slot {
             name: allocated_name,
@@ -344,24 +343,14 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
             consumed: _,
         } = self.slots[index].clone();
 
-        // match (name, allocated_name) {
-        //     (ContName::NewerCont2, Ok(allocated)) => {
-        //         if allocated != name {
-        //             dbg!(&name, &allocated_name);
-        //             panic!("xxxxx");
-        //         }
-        //     }
-        //     (_, _) => (),
-        // }
-
-        dbg!(name, allocated_name);
-        let names_match = allocated_name
+        // Debugging
+        let _names_match = allocated_name
             .map(|alloc_name| alloc_name == name)
             .unwrap_or(false);
 
         assert_eq!(8, allocated_hash.preimage.len());
         self.slots[index].consume();
 
-        (allocated_hash.preimage, allocated_hash.digest, names_match)
+        (allocated_hash.preimage, allocated_hash.digest)
     }
 }

@@ -370,14 +370,12 @@ mod tests {
 
         let mut cs_blank = MetricCS::<Fr>::new();
 
-        dbg!("------------> synthesizing blank");
         let blank = MultiFrame::<Fr, IO<Fr>, Witness<Fr>>::blank(chunk_frame_count);
         blank
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize blank");
-        dbg!("synthesized blank <------------");
 
-        for (i, multiframe) in multiframes.iter().enumerate() {
+        for (_i, multiframe) in multiframes.iter().enumerate() {
             let mut cs = TestConstraintSystem::new();
             multiframe.clone().synthesize(&mut cs).unwrap();
 
@@ -385,7 +383,7 @@ mod tests {
                 assert!(prev.precedes(&multiframe));
             }
 
-            dbg!(i);
+            // dbg!(i);
             assert!(cs.is_satisfied());
             assert!(cs.verify(&multiframe.public_inputs()));
 

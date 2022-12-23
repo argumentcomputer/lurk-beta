@@ -1,10 +1,7 @@
 use std::fmt::Debug;
 
 use bellperson::{
-    gadgets::{
-        boolean::{AllocatedBit, Boolean},
-        num::AllocatedNum,
-    },
+    gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem, SynthesisError,
 };
 use ff::PrimeField;
@@ -696,8 +693,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
         components: &[&dyn AsAllocatedHashComponents<F>; 4],
         allocated_cont_witness: &mut AllocatedContWitness<F>,
     ) -> Result<(Self, AllocatedNum<F>), SynthesisError> {
-        let (found_components, hash, apparently_not_dummy) =
-            allocated_cont_witness.get_components_unchecked(name);
+        let (found_components, hash) = allocated_cont_witness.get_components_unconstrained(name);
 
         let supplied_components: Vec<AllocatedNum<F>> = components
             .iter()

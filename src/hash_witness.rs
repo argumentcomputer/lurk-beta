@@ -120,12 +120,7 @@ pub enum ContName {
     ApplyContinuation,
     LetLike,
     NewerCont,
-
     NewerCont2,
-
-    WontMatchCircuitName,
-    WontMatchEvalName,
-    Call,
     MakeThunk,
     Lookup,
 }
@@ -139,9 +134,7 @@ impl HashName for ContName {
             Self::NewerCont => 1,
             Self::NewerCont2 => 1,
             Self::LetLike => 1,
-
             Self::MakeThunk => 1,
-            _ => 1, // fixme,
         }
     }
 }
