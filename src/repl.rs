@@ -1,7 +1,7 @@
-use crate::error::ParserError;
 use crate::eval::{empty_sym_env, Evaluator, IO};
 use crate::field::LurkField;
 use crate::package::Package;
+use crate::parser;
 use crate::store::{ContPtr, ContTag, Expression, Pointer, Ptr, Store, Tag};
 use crate::writer::Write;
 use anyhow::Result;
@@ -123,7 +123,7 @@ pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
                             repl.state.handle_non_meta(&mut s, expr, false)?
                         }
                     }
-                    Err(ParserError::NoInput) => {
+                    Err(parser::Error::NoInput) => {
                         continue;
                     }
                     Err(e) => {
@@ -284,7 +284,7 @@ impl<F: LurkField> ReplState<F> {
                 file_path.as_ref().parent().unwrap(),
                 update_env,
             ) {
-                if let Some(ParserError::NoInput) = e.downcast_ref::<ParserError>() {
+                if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
                     // It's ok, it just means we've hit the EOF
                     return Ok(());
                 } else {

@@ -1,3 +1,4 @@
+use crate::parser;
 use crate::store;
 use bellperson::SynthesisError;
 use nova::errors::NovaError;
@@ -22,13 +23,5 @@ pub enum LurkError {
     #[error("Lookup error: {0}")]
     Store(#[from] store::Error),
     #[error("Parser error: {0}")]
-    Parser(#[from] ParserError),
-}
-
-#[derive(Error, Debug, Clone)]
-pub enum ParserError {
-    #[error("Empty input error")]
-    NoInput,
-    #[error("Syntax error: {0}")]
-    Syntax(String),
+    Parser(#[from] parser::Error),
 }

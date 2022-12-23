@@ -1,36 +1,40 @@
 use peekmore::{PeekMore, PeekMoreIterator};
 
-use crate::error::ParserError;
 use crate::field::LurkField;
 use crate::package::Package;
 use crate::store::{Ptr, Store};
 use crate::sym::Sym;
 use crate::uint::UInt;
+use thiserror;
+
+#[derive(thiserror::Error, Debug, Clone)]
+pub enum Error {
+    #[error("Empty input error")]
+    NoInput,
+    #[error("Syntax error: {0}")]
+    Syntax(String),
+}
 
 impl<F: LurkField> Store<F> {
-    pub fn read(&mut self, input: &str) -> Result<Ptr<F>, ParserError> {
+    pub fn read(&mut self, input: &str) -> Result<Ptr<F>, Error> {
         let package = Default::default();
 
         self.read_in_package(input, &package)
     }
 
-    pub fn read_in_package(
-        &mut self,
-        input: &str,
-        package: &Package,
-    ) -> Result<Ptr<F>, ParserError> {
+    pub fn read_in_package(&mut self, input: &str, package: &Package) -> Result<Ptr<F>, Error> {
         let mut chars = input.chars().peekmore();
         if skip_whitespace_and_peek(&mut chars).is_some() {
             self.read_next(&mut chars, package)
         } else {
-            Err(ParserError::NoInput)
+            Err(Error::NoInput)
         }
     }
 
     pub fn read_string<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
-    ) -> Result<Ptr<F>, ParserError> {
+    ) -> Result<Ptr<F>, Error> {
         let mut result = String::new();
 
         if let Some('"') = skip_whitespace_and_peek(chars) {
@@ -49,9 +53,9 @@ impl<F: LurkField> Store<F> {
                     result.push(c);
                 }
             }
-            Err(ParserError::Syntax("Could not read string".into()))
+            Err(Error::Syntax("Could not read string".into()))
         } else {
-            Err(ParserError::Syntax("Could not read string".into()))
+            Err(Error::Syntax("Could not read string".into()))
         }
     }
 
@@ -59,7 +63,7 @@ impl<F: LurkField> Store<F> {
         &mut self,
         chars: &mut PeekMoreIterator<T>,
         package: &Package,
-    ) -> Result<(Ptr<F>, bool), ParserError> {
+    ) -> Result<(Ptr<F>, bool), Error> {
         if let Some(c) = skip_whitespace_and_peek(chars) {
             match c {
                 '!' => {
@@ -70,13 +74,13 @@ impl<F: LurkField> Store<F> {
                         assert!(!is_meta);
                         Ok((e, true))
                     } else {
-                        Err(ParserError::Syntax("Could not read meta".into()))
+                        Err(Error::Syntax("Could not read meta".into()))
                     }
                 }
                 _ => self.read_next(chars, package).map(|expr| (expr, false)),
             }
         } else {
-            Err(ParserError::NoInput)
+            Err(Error::NoInput)
         }
     }
 
@@ -84,7 +88,7 @@ impl<F: LurkField> Store<F> {
         &mut self,
         chars: &mut PeekMoreIterator<T>,
         package: &Package,
-    ) -> Result<Ptr<F>, ParserError> {
+    ) -> Result<Ptr<F>, Error> {
         while let Some(&c) = chars.peek() {
             return match c {
                 '(' => self.read_list(chars, package),
@@ -109,15 +113,15 @@ impl<F: LurkField> Store<F> {
                     if skip_line_comment(chars) {
                         continue;
                     } else {
-                        Err(ParserError::Syntax("Bad comment syntax".into()))
+                        Err(Error::Syntax("Bad comment syntax".into()))
                     }
                 }
                 '-' => self.read_negative_number_or_symbol(chars, package),
                 x if is_symbol_char(&x, true) => self.read_symbol(chars, package),
-                _ => Err(ParserError::Syntax(format!("bad input character: {}", c))),
+                _ => Err(Error::Syntax(format!("bad input character: {}", c))),
             };
         }
-        Err(ParserError::Syntax("Could not read input".into()))
+        Err(Error::Syntax("Could not read input".into()))
     }
 
     // In this context, 'list' includes improper lists, i.e. dotted cons-pairs like (1 . 2).
@@ -125,17 +129,17 @@ impl<F: LurkField> Store<F> {
         &mut self,
         chars: &mut PeekMoreIterator<T>,
         package: &Package,
-    ) -> Result<Ptr<F>, ParserError> {
+    ) -> Result<Ptr<F>, Error> {
         if let Some(&c) = chars.peek() {
             match c {
                 '(' => {
                     chars.next(); // Discard.
                     self.read_tail(true, chars, package)
                 }
-                _ => Err(ParserError::Syntax("Could not read list".into())),
+                _ => Err(Error::Syntax("Could not read list".into())),
             }
         } else {
-            Err(ParserError::Syntax("Could not read list".into()))
+            Err(Error::Syntax("Could not read list".into()))
         }
     }
 
@@ -145,7 +149,7 @@ impl<F: LurkField> Store<F> {
         first: bool,
         chars: &mut PeekMoreIterator<T>,
         package: &Package,
-    ) -> Result<Ptr<F>, ParserError> {
+    ) -> Result<Ptr<F>, Error> {
         if let Some(c) = skip_whitespace_and_peek(chars) {
             match c {
                 ')' => {
@@ -167,10 +171,8 @@ impl<F: LurkField> Store<F> {
                 _ => {
                     let res = self.read_next(chars, package);
                     match res {
-                        Err(ParserError::NoInput) if c == '.' => {
-                            Err(ParserError::Syntax(
-                                "nothing appears before . in list.".into(),
-                            ))?;
+                        Err(Error::NoInput) if c == '.' => {
+                            Err(Error::Syntax("nothing appears before . in list.".into()))?;
                         }
                         _ => (),
                     };
@@ -180,7 +182,7 @@ impl<F: LurkField> Store<F> {
                 }
             }
         } else {
-            Err(ParserError::Syntax("premature end of input".into()))
+            Err(Error::Syntax("premature end of input".into()))
         }
     }
 
@@ -189,7 +191,7 @@ impl<F: LurkField> Store<F> {
         &mut self,
         chars: &mut PeekMoreIterator<T>,
         package: &Package,
-    ) -> Result<Ptr<F>, ParserError> {
+    ) -> Result<Ptr<F>, Error> {
         if let Some(&c) = chars.peek() {
             match c {
                 '-' => {
@@ -200,7 +202,7 @@ impl<F: LurkField> Store<F> {
                                 let n = self.read_number(chars, true)?;
                                 let num: &crate::num::Num<F> =
                                     self.fetch_num(&n).ok_or_else(|| {
-                                        ParserError::Syntax("Could not fetch number".into())
+                                        Error::Syntax("Could not fetch number".into())
                                     })?;
                                 let mut tmp = crate::num::Num::<F>::U64(0);
                                 tmp -= *num;
@@ -218,10 +220,10 @@ impl<F: LurkField> Store<F> {
                         Ok(self.intern_sym_in_package(Sym::new("-".into()), package))
                     }
                 }
-                _ => Err(ParserError::Syntax("Could not read nagative number".into())),
+                _ => Err(Error::Syntax("Could not read nagative number".into())),
             }
         } else {
-            Err(ParserError::Syntax("Could not read negative number".into()))
+            Err(Error::Syntax("Could not read negative number".into()))
         }
     }
 
@@ -229,7 +231,7 @@ impl<F: LurkField> Store<F> {
         &mut self,
         chars: &mut PeekMoreIterator<T>,
         maybe_fraction: bool,
-    ) -> Result<Ptr<F>, ParserError> {
+    ) -> Result<Ptr<F>, Error> {
         // As written, read_number assumes the next char is known to be a digit.
         // So it will never return None.
         let mut acc: u64 = 0;
@@ -247,7 +249,7 @@ impl<F: LurkField> Store<F> {
                     }
                 }
                 '1'..='9' => (),
-                _ => return Err(ParserError::Syntax("Could not read number".into())),
+                _ => return Err(Error::Syntax("Could not read number".into())),
             }
         };
         while let Some(&c) = chars.peek() {
@@ -269,9 +271,9 @@ impl<F: LurkField> Store<F> {
                         let mut tmp = crate::num::Num::U64(acc);
                         chars.next();
                         if let Ok(denominator) = self.read_number(chars, false) {
-                            let d = self.fetch_num(&denominator).ok_or_else(|| {
-                                ParserError::Syntax("Could not fetch number".into())
-                            })?;
+                            let d = self
+                                .fetch_num(&denominator)
+                                .ok_or_else(|| Error::Syntax("Could not fetch number".into()))?;
                             tmp /= *d;
                         };
                         return Ok(self.intern_num(tmp));
@@ -296,7 +298,7 @@ impl<F: LurkField> Store<F> {
         mut acc: F,
         chars: &mut PeekMoreIterator<T>,
         maybe_fraction: bool,
-    ) -> Result<Ptr<F>, ParserError> {
+    ) -> Result<Ptr<F>, Error> {
         let zero = F::from(0);
         let ten = F::from(10);
 
@@ -317,9 +319,9 @@ impl<F: LurkField> Store<F> {
                         let mut tmp = crate::num::Num::Scalar(acc);
                         chars.next();
                         if let Ok(denominator) = self.read_number(chars, false) {
-                            let d = self.fetch_num(&denominator).ok_or_else(|| {
-                                ParserError::Syntax("Could not fetch number".into())
-                            })?;
+                            let d = self
+                                .fetch_num(&denominator)
+                                .ok_or_else(|| Error::Syntax("Could not fetch number".into()))?;
                             tmp /= *d;
                         };
                         return Ok(self.intern_num(tmp));
@@ -336,7 +338,7 @@ impl<F: LurkField> Store<F> {
         match self.read_number_suffix(chars) {
             Some(UInt::U64(_)) => Ok(self.get_u64(
                 acc.to_u64()
-                    .ok_or_else(|| ParserError::Syntax("Number too large for u64.".into()))?,
+                    .ok_or_else(|| Error::Syntax("Number too large for u64.".into()))?,
             )),
             None => Ok(self.intern_num(crate::num::Num::Scalar(acc))),
         }
@@ -346,7 +348,7 @@ impl<F: LurkField> Store<F> {
         &mut self,
         chars: &mut PeekMoreIterator<T>,
         maybe_fraction: bool,
-    ) -> Result<Ptr<F>, ParserError> {
+    ) -> Result<Ptr<F>, Error> {
         // NOTE: `read_hex_num` always interns `Num::Scalar`s,
         // unlike `read_number`, which may return a `Num::U64`.
         let zero = F::from(0);
@@ -370,9 +372,9 @@ impl<F: LurkField> Store<F> {
                         let mut tmp = crate::num::Num::Scalar(acc);
                         chars.next();
                         if let Ok(denominator) = self.read_number(chars, false) {
-                            let d = self.fetch_num(&denominator).ok_or_else(|| {
-                                ParserError::Syntax("Could not fetch number".into())
-                            })?;
+                            let d = self
+                                .fetch_num(&denominator)
+                                .ok_or_else(|| Error::Syntax("Could not fetch number".into()))?;
                             tmp /= *d;
                         };
                         return Ok(self.intern_num(tmp));
@@ -390,7 +392,7 @@ impl<F: LurkField> Store<F> {
         match self.read_number_suffix(chars) {
             Some(UInt::U64(_)) => Ok(self.get_u64(
                 acc.to_u64()
-                    .ok_or_else(|| ParserError::Syntax("Number too large for u64.".into()))?,
+                    .ok_or_else(|| Error::Syntax("Number too large for u64.".into()))?,
             )),
             None => Ok(self.intern_num(crate::num::Num::Scalar(acc))),
         }
@@ -447,23 +449,23 @@ impl<F: LurkField> Store<F> {
         &mut self,
         chars: &mut PeekMoreIterator<T>,
         package: &Package,
-    ) -> Result<Ptr<F>, ParserError> {
+    ) -> Result<Ptr<F>, Error> {
         if let Some(sym) = read_sym(chars)? {
             if sym.is_root() {
                 // The root symbol cannot (currently) be read. A naked dot is an error except in the context of a list tail.
-                Err(ParserError::Syntax("Misplaced dot".into()))
+                Err(Error::Syntax("Misplaced dot".into()))
             } else {
                 Ok(self.intern_sym_in_package(sym, package))
             }
         } else {
-            Err(ParserError::NoInput)
+            Err(Error::NoInput)
         }
     }
 
     pub(crate) fn read_pound<T: Iterator<Item = char>>(
         &mut self,
         chars: &mut PeekMoreIterator<T>,
-    ) -> Result<Ptr<F>, ParserError> {
+    ) -> Result<Ptr<F>, Error> {
         chars.next().unwrap();
         if let Some(&c) = chars.peek() {
             match c {
@@ -473,13 +475,13 @@ impl<F: LurkField> Store<F> {
                         chars.next();
                         Ok(c.into())
                     } else {
-                        Err(ParserError::Syntax("Could not read character".into()))
+                        Err(Error::Syntax("Could not read character".into()))
                     }
                 }
-                _ => Err(ParserError::Syntax("Could not read character".into())),
+                _ => Err(Error::Syntax("Could not read character".into())),
             }
         } else {
-            Err(ParserError::Syntax("Could not read character".into()))
+            Err(Error::Syntax("Could not read character".into()))
         }
     }
 }
@@ -488,7 +490,7 @@ impl<F: LurkField> Store<F> {
 // then constructing the canonical full name from the resulting path.
 fn read_sym<T: Iterator<Item = char>>(
     chars: &mut PeekMoreIterator<T>,
-) -> Result<Option<Sym>, ParserError> {
+) -> Result<Option<Sym>, Error> {
     let (is_keyword, path) = read_symbol_path(chars)?;
 
     if path.is_empty() {
@@ -501,7 +503,7 @@ fn read_sym<T: Iterator<Item = char>>(
 
 pub fn read_symbol_path<T: Iterator<Item = char>>(
     chars: &mut PeekMoreIterator<T>,
-) -> Result<(bool, Vec<String>), ParserError> {
+) -> Result<(bool, Vec<String>), Error> {
     let mut path = Vec::new();
 
     let is_keyword = if chars.peek() == Some(&KEYWORD_MARKER) {
@@ -532,13 +534,13 @@ pub fn read_symbol_path<T: Iterator<Item = char>>(
 
 fn read_symbol_name<T: Iterator<Item = char>>(
     chars: &mut PeekMoreIterator<T>,
-) -> Result<String, ParserError> {
+) -> Result<String, Error> {
     read_unquoted_symbol_name(chars).or_else(|_| read_quoted_symbol_name(chars))
 }
 
 fn read_quoted_symbol_name<T: Iterator<Item = char>>(
     chars: &mut PeekMoreIterator<T>,
-) -> Result<String, ParserError> {
+) -> Result<String, Error> {
     let mut result = String::new();
 
     if let Some('|') = chars.peek() {
@@ -556,9 +558,9 @@ fn read_quoted_symbol_name<T: Iterator<Item = char>>(
                 result.push(c);
             }
         }
-        Err(ParserError::Syntax("Could not read quoted symbol".into()))
+        Err(Error::Syntax("Could not read quoted symbol".into()))
     } else {
-        Err(ParserError::Syntax(
+        Err(Error::Syntax(
             "End of input when trying to read quoted symbol".into(),
         ))
     }
@@ -572,7 +574,7 @@ pub(crate) fn convert_sym_case(raw_name: &mut str) {
 
 pub(crate) fn read_unquoted_symbol_name<T: Iterator<Item = char>>(
     chars: &mut PeekMoreIterator<T>,
-) -> Result<String, ParserError> {
+) -> Result<String, Error> {
     let mut name = String::new();
     let mut is_initial = true;
 
@@ -590,10 +592,10 @@ pub(crate) fn read_unquoted_symbol_name<T: Iterator<Item = char>>(
             convert_sym_case(&mut name);
             Ok(name)
         } else {
-            Err(ParserError::Syntax("Could not read unquoted symbol".into()))
+            Err(Error::Syntax("Could not read unquoted symbol".into()))
         }
     } else {
-        Err(ParserError::Syntax(
+        Err(Error::Syntax(
             "End of input when trying to read unquoted symbol".into(),
         ))
     }
@@ -824,7 +826,7 @@ mod test {
         let mut store = Store::<Fr>::default();
 
         let expected_error = match store.read("(.)").err().unwrap() {
-            ParserError::Syntax(s) => s == "Misplaced dot".to_string(),
+            Error::Syntax(s) => s == "Misplaced dot".to_string(),
             _ => false,
         };
 
@@ -853,7 +855,7 @@ mod test {
         let mut store = Store::<Fr>::default();
 
         let expected_error = match store.read(".").err().unwrap() {
-            ParserError::Syntax(s) => s == "Misplaced dot".to_string(),
+            Error::Syntax(s) => s == "Misplaced dot".to_string(),
             _ => false,
         };
 
