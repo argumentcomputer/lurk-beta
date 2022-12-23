@@ -3,6 +3,8 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use crate::field::LurkField;
+
+use crate::store;
 use crate::store::{ContPtr, Continuation, Ptr, Store};
 
 pub const MAX_CONSES_PER_REDUCTION: usize = 11;
@@ -162,7 +164,7 @@ impl<F: LurkField> ConsStub<F> {
         &mut self,
         s: &mut Store<F>,
         cons: &Ptr<F>,
-    ) -> Result<(Ptr<F>, Ptr<F>), String> {
+    ) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
         match self {
             Self::Dummy => {
                 let (car, cdr) = Cons::get_car_cdr_mut(s, cons)?;
@@ -371,7 +373,7 @@ impl<F: LurkField> ConsWitness<F> {
         name: ConsName,
         store: &mut Store<F>,
         cons: &Ptr<F>,
-    ) -> Result<(Ptr<F>, Ptr<F>), String> {
+    ) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
         self.get_assigned_slot(name).car_cdr_mut(store, cons)
     }
 
@@ -408,7 +410,7 @@ impl<F: LurkField> Cons<F> {
         s.car_cdr(cons)
     }
 
-    fn get_car_cdr_mut(s: &mut Store<F>, cons: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), String> {
+    fn get_car_cdr_mut(s: &mut Store<F>, cons: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
         s.car_cdr_mut(cons)
     }
 }
