@@ -729,10 +729,7 @@ fn reduce_with_witness<F: LurkField>(
                     }
                 } else if head == store.lurk_sym("car") {
                     let (arg1, end) =
-                        match hash_witness.car_cdr_mut_named(ConsName::ExprCdr, store, &rest) {
-                            Ok((car, cdr)) => (car, cdr),
-                            Err(e) => return Err(LurkError::Reduce(e)),
-                        };
+                        hash_witness.car_cdr_mut_named(ConsName::ExprCdr, store, &rest)?;
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {
@@ -740,10 +737,7 @@ fn reduce_with_witness<F: LurkField>(
                     }
                 } else if head == store.lurk_sym("cdr") {
                     let (arg1, end) =
-                        match hash_witness.car_cdr_mut_named(ConsName::ExprCdr, store, &rest) {
-                            Ok((car, cdr)) => (car, cdr),
-                            Err(e) => return Err(LurkError::Reduce(e)),
-                        };
+                        hash_witness.car_cdr_mut_named(ConsName::ExprCdr, store, &rest)?;
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {

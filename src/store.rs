@@ -1966,12 +1966,12 @@ impl<F: LurkField> Store<F> {
     }
 
     /// Mutable version of car_cdr to handle Str. `(cdr str)` may return a new str (the tail), which must be allocated.
-    pub fn car_cdr_mut(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), String> {
+    pub fn car_cdr_mut(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
         match ptr.0 {
             Tag::Nil => Ok((self.get_nil(), self.get_nil())),
             Tag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
-                Some(Expression::Opaque(_)) => Err("cannot destructure opaque Cons".into()),
+                Some(Expression::Opaque(_)) => Err(Error("cannot destructure opaque Cons".into())),
                 _ => unreachable!(),
             },
             Tag::Str => {
@@ -1988,7 +1988,7 @@ impl<F: LurkField> Store<F> {
                     panic!();
                 }
             }
-            _ => Err("Invalid tag".into()),
+            _ => Err(Error("Invalid tag".into())),
         }
     }
 
