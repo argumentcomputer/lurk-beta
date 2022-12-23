@@ -502,7 +502,7 @@ impl<'a, F: LurkField> Results<'a, F> {
         result_env: &'a AllocatedPtr<F>,
         result_cont: &'a AllocatedContPtr<F>,
         make_thunk_num: &'a AllocatedNum<F>,
-        newer_cont_not_dummy: &'a AllocatedNum<F>,
+        newer_cont2_not_dummy: &'a AllocatedNum<F>,
     ) {
         let key = key.as_field();
         add_clause(
@@ -527,7 +527,7 @@ impl<'a, F: LurkField> Results<'a, F> {
         add_clause_single(
             &mut self.newer_cont2_not_dummy_clauses,
             key,
-            newer_cont_not_dummy,
+            newer_cont2_not_dummy,
         );
     }
 }
