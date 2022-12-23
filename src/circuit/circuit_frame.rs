@@ -1037,7 +1037,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         store,
     )?;
 
-    let val2_is_fun = alloc_equal(cs.namespace(|| "val2_is_fun"), val2.tag(), &g.fun_tag)?;
+    let val2_is_fun = equal!(cs, val2.tag(), &g.fun_tag)?;
     let v2_is_expr = v2.alloc_equal(&mut cs.namespace(|| "v2_is_expr"), expr)?;
     let v2_is_expr_real = and!(cs, &v2_is_expr, &otherwise_and_cons)?;
 
@@ -1079,13 +1079,17 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
 
     let rec_env = binding;
 
-    let (_fun_hash, fun_arg, fun_body, fun_closed_env) = Ptr::allocate_maybe_fun(
-        &mut cs.namespace(|| "extend closure"),
+    let (fun_hash, fun_arg, fun_body, fun_closed_env) = Ptr::allocate_maybe_fun(
+        &mut cs.namespace(|| "closure to extend"),
         store,
         witness.as_ref().and_then(|w| w.closure_to_extend.as_ref()),
     )?;
 
     let extended_env_not_dummy = and!(cs, &val2_is_fun, not_dummy, &v2_is_expr_real)?;
+
+    // Without this, fun is unconstrained.
+    implies_equal!(cs, &extended_env_not_dummy, &fun_hash, val2.hash());
+
     let extended_env = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "extended_env"),
         g,
@@ -4536,29 +4540,22 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     let result_env = AllocatedPtr::by_index(1, &case_results);
     let result_cont = AllocatedContPtr::by_index(2, &case_results);
     let make_thunk_num = case_results[6].clone();
-    let newer_cont2_not_dummy = case_results[7].clone();
+    let newer_cont2_not_dummy_num = case_results[7].clone();
 
     dbg!(
         &newer_cont2_not_dummy.get_value(),
         &newer_cont2_not_dummy_bit.get_value()
     );
-    let asdf = equal!(cs, &newer_cont2_not_dummy, &g.true_num)?;
-    let asdf2 = and!(cs, &asdf, &not_dummy)?;
 
-    dbg!(&not_dummy.get_value(), &asdf2.get_value());
-    implies_equal!(cs, &asdf2, &g.true_num, &newer_cont2_not_dummy_bit);
-    if asdf2.get_value().unwrap_or(false) {
-        use crate::hash_witness::HashName;
-        assert_eq!(
-            allocated_cont_witness.witness.slots[ContName::NewerCont2.index()].0,
-            ContName::NewerCont2
-        );
-        assert_eq!(
-            newer_cont2_not_dummy_bit.get_value(),
-            g.true_num.get_value()
-        );
-    }
-    //is_true!(cs, &x)?;
+    let newer_cont2_not_dummy_ = equal!(cs, &newer_cont2_not_dummy_num, &g.true_num)?;
+    let newer_cont2_not_dummy = and!(cs, &newer_cont2_not_dummy_, &not_dummy)?;
+
+    implies_equal!(
+        cs,
+        &newer_cont2_not_dummy,
+        &g.true_num,
+        &newer_cont2_not_dummy_bit
+    );
 
     Ok((result_expr, result_env, result_cont, make_thunk_num))
 }
@@ -4921,9 +4918,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(11556, cs.num_constraints());
+            assert_eq!(11562, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(11178, cs.aux().len());
+            assert_eq!(11182, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
