@@ -129,6 +129,22 @@ macro_rules! implies_equal_t {
     };
 }
 
+macro_rules! implies {
+    ($cs:ident, $condition:expr, $implication:expr) => {{
+        enforce_implication(
+            $cs.namespace(|| {
+                format!(
+                    "implies: {} => {}",
+                    stringify!($condition),
+                    stringify!($implication)
+                )
+            }),
+            $condition,
+            $implication,
+        )?;
+    }};
+}
+
 // Returns a Boolean which is true if all of its arguments are true.
 macro_rules! and {
     ($cs:expr, $a:expr, $b:expr) => {

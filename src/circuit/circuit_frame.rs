@@ -4552,17 +4552,7 @@ fn get_named_components<'a, F: LurkField, CS: ConstraintSystem<F>>(
     let (allocated_cont_components, allocated_cont_hash) =
         allocated_cont_witness.get_components(name, expect_dummy);
 
-    let real_cont = alloc_equal(
-        &mut cs.namespace(|| "cont is real"),
-        cont_ptr.hash(),
-        &allocated_cont_hash,
-    )?;
-
-    enforce_implication(
-        &mut cs.namespace(|| "is cont implies real cont"),
-        not_dummy,
-        &real_cont,
-    )?;
+    implies_equal!(cs, not_dummy, cont_ptr.hash(), &allocated_cont_hash);
 
     Ok((allocated_cont_hash, allocated_cont_components))
 }
@@ -4579,15 +4569,13 @@ fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
     let maybe_cons_is_nil =
         maybe_cons.alloc_equal(&mut cs.namespace(|| "maybe_cons_is_nil"), &g.nil_ptr)?;
 
-    let cons_not_dummy = Boolean::and(
-        &mut cs.namespace(|| "cons_not_dummy"),
-        &Boolean::not(&maybe_cons_is_nil),
-        not_dummy,
-    )?;
+    let cons_not_dummy = and!(cs, &maybe_cons_is_nil.not(), not_dummy)?;
 
     let expect_dummy = !(cons_not_dummy.get_value().unwrap_or(false));
+
     let (allocated_car, allocated_cdr, allocated_digest) =
         allocated_cons_witness.get_cons(name, expect_dummy);
+
     let real_cons = alloc_equal(
         &mut cs.namespace(|| "cons is real"),
         maybe_cons.hash(),
@@ -4602,11 +4590,7 @@ fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
         );
     }
 
-    enforce_implication(
-        &mut cs.namespace(|| "is cons implies real cons"),
-        &cons_not_dummy,
-        &real_cons,
-    )?;
+    implies!(cs, &cons_not_dummy, &real_cons);
 
     let res_car = pick_ptr!(cs, &maybe_cons_is_nil, &g.nil_ptr, &allocated_car)?;
     let res_cdr = pick_ptr!(cs, &maybe_cons_is_nil, &g.nil_ptr, &allocated_cdr)?;
