@@ -2615,8 +2615,7 @@ mod tests {
     // The following functional commitment tests were discovered to fail. They are commented out (as tests) for now so
     // they can be addressed independently in future work.
 
-    // #[test]
-    #[allow(dead_code)]
+    #[test]
     fn outer_prove_functional_commitment() {
         let s = &mut Store::<Fr>::default();
 
@@ -2629,8 +2628,8 @@ mod tests {
         nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 25);
     }
 
-    // #[test]
-    #[allow(dead_code)]
+    #[test]
+    #[ignore]
     fn outer_prove_complicated_functional_commitment() {
         let s = &mut Store::<Fr>::default();
 
