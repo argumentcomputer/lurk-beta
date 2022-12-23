@@ -955,7 +955,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     let sym_is_t = expr.alloc_equal(&mut cs.namespace(|| "sym is t"), &g.t_ptr)?;
 
     let sym_is_self_evaluating = or!(cs, &sym_is_nil, &sym_is_t)?;
-    let sym_otherwise = Boolean::not(&sym_is_self_evaluating);
+    let sym_otherwise = &sym_is_self_evaluating.not();
 
     let env_not_dummy = and!(cs, &sym_otherwise, not_dummy)?;
     let (binding, smaller_env) = car_cdr_named(
@@ -969,16 +969,12 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     let env_is_nil = env.alloc_equal(&mut cs.namespace(|| "env is nil"), &g.nil_ptr)?;
-    let env_not_nil = Boolean::not(&env_is_nil);
+    let env_not_nil = &env_is_nil.not();
 
-    let otherwise = Boolean::and(
-        &mut cs.namespace(|| "otherwise"),
-        &sym_otherwise,
-        &env_not_nil,
-    )?;
+    let otherwise = and!(cs, &env_not_dummy, &env_not_nil)?;
 
     let binding_is_nil = binding.alloc_equal(&mut cs.namespace(|| "binding is nil"), &g.nil_ptr)?;
-    let binding_not_nil = Boolean::not(&binding_is_nil);
+    let binding_not_nil = &binding_is_nil.not();
 
     let binding_is_cons = alloc_equal(
         &mut cs.namespace(|| "binding_is_cons"),
@@ -1004,16 +1000,16 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         var_or_rec_binding.tag(),
         &g.sym_tag,
     )?;
-    let var_or_rec_binding_is_sym = Boolean::and(
-        &mut cs.namespace(|| "var_or_rec_binding_is_sym"),
+    let var_or_rec_binding_is_sym = and!(
+        cs,
         &var_or_rec_binding_is_sym_,
-        &otherwise_and_binding_not_nil,
+        &otherwise_and_binding_not_nil
     )?;
 
     let v = var_or_rec_binding.clone();
     let val = val_or_more_rec_env.clone();
     let v_is_expr1 = expr.alloc_equal(&mut cs.namespace(|| "v_is_expr1"), &v)?;
-    let v_not_expr1 = Boolean::not(&v_is_expr1);
+    let v_not_expr1 = &v_is_expr1.not();
 
     let otherwise_and_sym = and!(cs, &v_not_expr1, &var_or_rec_binding_is_sym)?;
     let v_is_expr1_real = and!(cs, &v_is_expr1, &var_or_rec_binding_is_sym)?;
@@ -1152,8 +1148,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     // the manual optimization.
 
     let cs = &mut cs.namespace(|| "env_is_nil");
-    let cond0_ = and!(cs, &env_is_nil, not_dummy)?;
-    let cond0 = and!(cs, &cond0_, &sym_otherwise)?;
+    let cond0 = and!(cs, &env_is_nil, &env_not_dummy)?;
     {
         // implies_equal_t!(cs, &cond0, &output_expr, &expr);
         // implies_equal_t!(cs, &cond0, &output_env, &env);
@@ -1161,8 +1156,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     }
 
     let cs = &mut cs.namespace(|| "sym_is_self_evaluating");
-    let cond1_ = and!(cs, &sym_is_self_evaluating, not_dummy)?;
-    let cond1 = and!(cs, &cond1_, &env_not_nil)?;
+    let cond1 = and!(cs, &sym_is_self_evaluating, not_dummy, &env_not_nil)?;
 
     {
         // implies_equal_t!(cs, &cond1, &output_expr, &expr);
@@ -1171,7 +1165,8 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     }
 
     let cs = &mut cs.namespace(|| "otherwise_and_binding_is_nil");
-    let cond2 = and!(cs, &otherwise_and_binding_is_nil, not_dummy)?;
+    //let cond2 = and!(cs, &otherwise_and_binding_is_nil, not_dummy)?;
+    let cond2 = &otherwise_and_binding_is_nil;
     {
         // let cond = and!(cs, &otherwise_and_binding_is_nil, not_dummy)?;
 
@@ -1181,14 +1176,15 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     }
     let cs = &mut cs.namespace(|| "v_is_expr1_real");
 
-    let cond3 = and!(cs, &v_is_expr1_real, not_dummy)?;
+    //let cond3 = and!(cs, &v_is_expr1_real, not_dummy)?;
+    let cond3 = v_is_expr1_real;
     {
         implies_equal_t!(cs, &cond3, output_expr, val);
         // implies_equal_t!(cs, &cond3, &output_env, &env);
         // implies_equal_t!(cs, &cond3, &output_cont, &cont);
     }
     let cs = &mut cs.namespace(|| "cont_is_lookup_sym");
-    let cond4 = and!(cs, &cont_is_lookup_sym, not_dummy)?;
+    let cond4 = &cont_is_lookup_sym;
     {
         // implies_equal_t!(cs, &cond4, &output_expr, &expr);
         implies_equal_t!(cs, &cond4, output_env, smaller_env);
@@ -1196,8 +1192,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         //implies_equal_t!(cs, &cond, &output_cont, &cont);
     }
     let cs = &mut cs.namespace(|| "cont_not_lookup_sym");
-    let cond5_ = and!(cs, &cont_not_lookup_sym, not_dummy)?;
-    let cond5 = and!(cs, &cond5_, &otherwise)?;
+    let cond5 = and!(cs, &cont_not_lookup_sym, &otherwise)?;
 
     {
         // implies_equal_t!(cs, &cond5, &output_expr, &expr);
@@ -1206,7 +1201,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     }
 
     let cs = &mut cs.namespace(|| "v2_is_expr_real");
-    let cond6 = and!(cs, &v2_is_expr_real, not_dummy)?;
+    let cond6 = v2_is_expr_real;
     {
         implies_equal_t!(cs, &cond6, output_expr, val_to_use);
         // implies_equal_t!(cs, &cond6, &output_env, &env);
@@ -1214,27 +1209,26 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     }
 
     let cs = &mut cs.namespace(|| "otherwise_and_v2_not_expr");
-    let cond7 = and!(cs, &otherwise_and_v2_not_expr, not_dummy)?;
+    let cond7 = otherwise_and_v2_not_expr;
     {
         // implies_equal_t!(cs, &cond7, &output_expr, &expr);
         implies_equal_t!(cs, &cond7, output_env, env_to_use);
     }
 
     let cs = &mut cs.namespace(|| "cont_is_lookup_cons");
-    let cond8 = and!(cs, &cont_is_lookup_cons, not_dummy)?;
+    let cond8 = cont_is_lookup_cons;
     // {
     //     // implies_equal_t!(cs, &cond8, &output_cont, &cont);
     // }
 
     let cs = &mut cs.namespace(|| "cont_not_lookup_cons");
-    let cond9_ = and!(cs, &cont_not_lookup_cons, not_dummy)?;
-    let cond9 = and!(cs, &cond9_, &otherwise)?;
+    let cond9 = and!(cs, &cont_not_lookup_cons, &otherwise)?;
     {
         // implies_equal_t!(cs, &cond9, output_cont, lookup_continuation);
     }
 
     let cs = &mut cs.namespace(|| "otherwise_neither");
-    let cond10 = and!(cs, &otherwise_neither, not_dummy)?;
+    let cond10 = otherwise_neither;
     {
         // "Bad form"
         implies_equal_t!(cs, &cond10, output_cont, g.error_ptr);
@@ -1283,43 +1277,29 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     let cond_cont = or!(cs, &condb, &condc, &cond3)?; // cond1, cond2, cond4, cond6, cond8, sym_is_self_evaluating
     implies_equal_t!(cs, &cond_cont, output_cont, cont);
 
-    let output_expr_is_constrained = or!(cs, &cond_expr, &cond3, &cond6, &not_dummy.not())?;
-    if !output_expr_is_constrained.get_value().unwrap_or(true) {
-        panic!("output_expr is mistakenly unconstrained.");
-    }
-    let output_env_is_constrained = or!(cs, &cond_env, &cond4, &cond5, &cond7, &not_dummy.not())?;
-    if !output_env_is_constrained.get_value().unwrap_or(true) {
-        panic!("output_env is mistakenly unconstrained.");
-    }
-    let output_cont_is_constrained = or!(
-        cs,
-        &cond_cont,
-        &cond0,
-        &cond1,
-        &cond2,
-        &cond10,
-        &lookup_continuation_not_dummy,
-        &not_dummy.not()
-    )?;
-    if !output_cont_is_constrained.get_value().unwrap_or(true) {
-        dbg!(
-            &sym_is_self_evaluating.get_value(),
-            &cond0.get_value(),
-            &cond1.get_value(),
-            &cond2.get_value(),
-            &cond3.get_value(),
-            &cond4.get_value(),
-            &cond5.get_value(),
-            &cond6.get_value(),
-            &cond7.get_value(),
-            &cond8.get_value(),
-            &cond9.get_value(),
-            &cond10.get_value(),
-            &lookup_continuation_not_dummy.get_value(),
-            &not_dummy.get_value(),
-        );
-        panic!("output_cont is mistakenly unconstrained.");
-    }
+    // Debugging
+    //
+    // let output_expr_is_constrained = or!(cs, &cond_expr, &cond3, &cond6, &not_dummy.not())?;
+    // if !output_expr_is_constrained.get_value().unwrap_or(true) {
+    //     panic!("output_expr is mistakenly unconstrained.");
+    // }
+    // let output_env_is_constrained = or!(cs, &cond_env, &cond4, &cond5, &cond7, &not_dummy.not())?;
+    // if !output_env_is_constrained.get_value().unwrap_or(true) {
+    //     panic!("output_env is mistakenly unconstrained.");
+    // }
+    // let output_cont_is_constrained = or!(
+    //     cs,
+    //     &cond_cont,
+    //     &cond0,
+    //     &cond1,
+    //     &cond2,
+    //     &cond10,
+    //     &lookup_continuation_not_dummy,
+    //     &not_dummy.not()
+    // )?;
+    // if !output_cont_is_constrained.get_value().unwrap_or(true) {
+    //     panic!("output_cont is mistakenly unconstrained.");
+    // }
 
     Ok((output_expr, output_env, output_cont, apply_cont_num))
 }
@@ -4941,9 +4921,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(11573, cs.num_constraints());
+            assert_eq!(11556, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(11192, cs.aux().len());
+            assert_eq!(11178, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
