@@ -429,20 +429,8 @@ impl<F: LurkField> ContWitness<F> {
         store: &mut Store<F>,
         continuation: Continuation<F>,
     ) -> ContPtr<F> {
-        let cont_ptr = continuation.intern_aux(store);
-        let stub = self.get_assigned_slot(name);
-
-        match stub {
-            Stub::Dummy => {
-                *stub = Stub::Value(Cont {
-                    cont_ptr,
-                    continuation,
-                });
-                cont_ptr
-            }
-            Stub::Blank => unreachable!(),
-            Stub::Value(h) => h.cont_ptr,
-        }
+        self.get_assigned_slot(name)
+            .intern_cont(store, continuation)
     }
 }
 
@@ -463,8 +451,26 @@ impl<F: LurkField> ContStub<F> {
 
                 Some(continuation)
             }
-            Self::Blank => unreachable!("Blank ConsStub should be used only in blank circuits."),
+            Self::Blank => unreachable!("Blank ContStub should be used only in blank circuits."),
             Self::Value(h) => Some(h.fetch_cont(cont)),
+        }
+    }
+    pub fn intern_cont(
+        &mut self,
+        store: &mut Store<F>,
+        continuation: Continuation<F>,
+    ) -> ContPtr<F> {
+        match self {
+            Self::Dummy => {
+                let cont_ptr = continuation.intern_aux(store);
+                *self = Self::Value(Cont {
+                    cont_ptr,
+                    continuation,
+                });
+                cont_ptr
+            }
+            Self::Blank => unreachable!("Blank ContStub should be used only in blank circuits."),
+            Self::Value(h) => h.cont_ptr,
         }
     }
 }
