@@ -2672,4 +2672,14 @@ mod tests {
 
         nova_test_aux(s, expr, None, None, Some(terminal), None, 3);
     }
+
+    #[test]
+    fn outer_prove_reduce_sym_contradiction_regression() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(eval 'a '(nil))";
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, None, None, Some(error), None, 4);
+    }
 }

@@ -1256,12 +1256,13 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         lookup_continuation
     );
 
-    let conda = or!(cs, &cond1, &cond2, &sym_is_self_evaluating)?; // cond1, cond2, sym_is_self_evaluating,
+    let conda = or!(cs, &cond1, &sym_is_self_evaluating)?; // cond1, cond2, sym_is_self_evaluating,
     let condb = or!(cs, &cond4, &cond6)?; // cond4, cond6
     let condc = or!(cs, &conda, &cond8)?; // cond1, cond2, cond8, sym_is_self_evaluating
 
-    let condx = or!(cs, &cond5, &cond0, &cond4)?; // cond0, con4, cond5
-    let condy = or!(cs, &cond0, &cond3, &cond6)?; // cond0, cond3, cond6
+    let condw = or!(cs, &cond0, &cond2)?; // cond0, cond2
+    let condx = or!(cs, &cond5, &cond4, &condw)?; // cond0, cond2, cond4, cond5
+    let condy = or!(cs, &cond3, &cond6, &condw)?; // cond0, cond2, cond3, cond6
 
     // cond1, cond2, cond4, cond5 // cond_expr
     let cond_expr = or!(cs, &conda, &condx, &cond7, &cond10)?; // cond0, cond1, cond2, cond4, cond5, sym_is_self_evaluating
