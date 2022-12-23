@@ -1073,13 +1073,14 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
 
     let rec_env = binding;
 
-    let (fun_hash, fun_arg, fun_body, fun_closed_env) = Ptr::allocate_maybe_fun(
+    let extended_env_not_dummy = and!(cs, &val2_is_fun, not_dummy, &v2_is_expr_real)?;
+
+    // NOTE: this allocation is unconstrained. See necessary constraint immediately below.
+    let (fun_hash, fun_arg, fun_body, fun_closed_env) = Ptr::allocate_maybe_fun_unconstrained(
         &mut cs.namespace(|| "closure to extend"),
         store,
         witness.as_ref().and_then(|w| w.closure_to_extend.as_ref()),
     )?;
-
-    let extended_env_not_dummy = and!(cs, &val2_is_fun, not_dummy, &v2_is_expr_real)?;
 
     // Without this, fun is unconstrained.
     implies_equal!(cs, &extended_env_not_dummy, &fun_hash, val2.hash());
@@ -3253,20 +3254,23 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     let (the_expr, the_env, the_cont, newer_cont2_not_dummy) = {
         let mut cs = cs.namespace(|| "Call0");
         let continuation = AllocatedContPtr::by_index(1, &continuation_components);
-        let (_, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
+
+        let cont_is_call0 = equal!(cs, cont.tag(), &g.call0_cont_tag)?;
+        let result_is_fun = equal!(cs, function.tag(), &g.fun_tag)?;
+        let call0_not_dummy = and!(cs, &cont_is_call0, &result_is_fun, not_dummy)?;
+
+        // NOTE: this allocation is unconstrained. See necessary constraint immediately below.
+        let (fun_hash, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun_unconstrained(
             &mut cs.namespace(|| "allocate fun"),
             store,
             result.ptr(store).as_ref(),
         )?;
 
+        // Without this, fun is unconstrained.
+        implies_equal!(cs, &call0_not_dummy, &fun_hash, result.hash());
+
         let args_is_dummy =
             arg_t.alloc_equal(&mut cs.namespace(|| "args_is_dummy"), &g.dummy_arg_ptr)?;
-
-        let cont_is_call0 = constraints::alloc_equal(
-            &mut cs.namespace(|| "call0 branch taken"),
-            cont.tag(),
-            &g.call0_cont_tag,
-        )?;
 
         let body_t_is_cons = alloc_equal(
             &mut cs.namespace(|| "body_t_is_cons0"),
@@ -3274,13 +3278,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.cons_tag,
         )?;
 
-        let zero_arg_call_not_dummy = and!(
-            cs,
-            &body_t_is_cons,
-            &args_is_dummy,
-            &cont_is_call0,
-            not_dummy
-        )?;
+        let zero_arg_call_not_dummy = and!(cs, &call0_not_dummy, &body_t_is_cons, &args_is_dummy)?;
 
         let (body_form, _) = car_cdr_named(
             &mut cs.namespace(|| "body_form"),
@@ -3291,9 +3289,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &zero_arg_call_not_dummy,
             store,
         )?;
-
-        let result_is_fun =
-            alloc_equal(cs.namespace(|| "result_is_fun"), function.tag(), &g.fun_tag)?;
 
         let continuation_is_tail = alloc_equal(
             &mut cs.namespace(|| "continuation is tail"),
@@ -3409,25 +3404,24 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let continuation = AllocatedContPtr::by_index(2, &continuation_components);
 
         {
-            let (hash, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun(
+            let cont_is_call2_precomp = equal!(cs, cont.tag(), &g.call2_cont_tag)?;
+            let cont_is_call2_and_not_dummy = and!(cs, &cont_is_call2_precomp, not_dummy)?;
+
+            // NOTE: this allocation is unconstrained. See necessary constraint immediately below.
+            let (hash, arg_t, body_t, closed_env) = Ptr::allocate_maybe_fun_unconstrained(
                 &mut cs.namespace(|| "allocate fun"),
                 store,
                 fun.ptr(store).as_ref(),
             )?;
+
+            // Without this, fun is unconstrained.
+            implies_equal!(cs, &cont_is_call2_and_not_dummy, fun.hash(), &hash);
 
             let args_is_dummy = arg_t.alloc_equal(
                 &mut cs.namespace(|| "cont2 args_is_dummy"),
                 &g.dummy_arg_ptr,
             )?;
             let args_is_not_dummy = Boolean::not(&args_is_dummy);
-
-            let cont_is_call2_precomp = constraints::alloc_equal(
-                &mut cs.namespace(|| "call2 branch taken"),
-                cont.tag(),
-                &g.call2_cont_tag,
-            )?;
-
-            let cont_is_call2_and_not_dummy = and!(cs, &cont_is_call2_precomp, not_dummy)?;
 
             let cont_is_call2_and_not_dummy_and_not_dummy_args =
                 and!(cs, &cont_is_call2_and_not_dummy, &args_is_not_dummy)?;
@@ -3440,18 +3434,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 allocated_cons_witness,
                 &cont_is_call2_and_not_dummy_and_not_dummy_args,
                 store,
-            )?;
-
-            let fun_is_correct = constraints::alloc_equal(
-                &mut cs.namespace(|| "fun hash is correct"),
-                fun.hash(),
-                &hash,
-            )?;
-
-            enforce_implication(
-                &mut cs.namespace(|| "implies non-dummy fun"),
-                &cont_is_call2_and_not_dummy,
-                &fun_is_correct,
             )?;
 
             let args_is_dummy =
@@ -4884,9 +4866,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(11562, cs.num_constraints());
+            assert_eq!(11569, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(11182, cs.aux().len());
+            assert_eq!(11187, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

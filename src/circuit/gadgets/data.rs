@@ -402,7 +402,7 @@ pub fn hash_poseidon<CS: ConstraintSystem<F>, F: LurkField, A: Arity<F>>(
 }
 
 impl<F: LurkField> Ptr<F> {
-    pub fn allocate_maybe_fun<CS: ConstraintSystem<F>>(
+    pub fn allocate_maybe_fun_unconstrained<CS: ConstraintSystem<F>>(
         cs: CS,
         store: &Store<F>,
         maybe_fun: Option<&Ptr<F>>,
