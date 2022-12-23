@@ -596,7 +596,7 @@ fn reduce_with_witness<F: LurkField>(
                                         }
                                     }
                                 }
-                                _ => return Err(LurkError::Reduce("Bad form.".into())),
+                                _ => return Err(LurkError::Eval("Bad form.".into())),
                             }
                         }
                     }
