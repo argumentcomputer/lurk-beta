@@ -4,13 +4,13 @@ use rayon::prelude::*;
 use std::hash::Hash;
 use std::{fmt, marker::PhantomData};
 use string_interner::symbol::{Symbol, SymbolUsize};
+use thiserror;
 
 use neptune::poseidon::PoseidonConstants;
 use once_cell::sync::OnceCell;
 
 use libipld::Cid;
 
-use crate::error::LurkError;
 use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
@@ -1067,6 +1067,15 @@ impl<F: LurkField> Default for Store<F> {
     }
 }
 
+#[derive(thiserror::Error, Debug, Clone)]
+pub struct Error(pub String);
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "StoreError: {}", self.0)
+    }
+}
+
 /// These methods provide a more ergonomic means of constructing and manipulating Lurk data.
 /// They can be thought of as a minimal DSL for working with Lurk data in Rust code.
 /// Prefer these methods when constructing literal data or assembling program fragments in
@@ -1119,7 +1128,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn open_mut(&mut self, ptr: Ptr<F>) -> Result<(F, Ptr<F>), LurkError> {
+    pub fn open_mut(&mut self, ptr: Ptr<F>) -> Result<(F, Ptr<F>), Error> {
         let p = match ptr.0 {
             Tag::Comm => ptr,
             Tag::Num => {
@@ -1127,17 +1136,13 @@ impl<F: LurkField> Store<F> {
 
                 self.intern_maybe_opaque_comm(scalar)
             }
-            _ => {
-                return Err(LurkError::Store(
-                    "wrong type for commitment specifier".into(),
-                ))
-            }
+            _ => return Err(Error("wrong type for commitment specifier".into())),
         };
 
         if let Some((secret, payload)) = self.fetch_comm(&p) {
             Ok((secret.0, *payload))
         } else {
-            Err(LurkError::Store("hidden value could not be opened".into()))
+            Err(Error("hidden value could not be opened".into()))
         }
     }
 
@@ -1151,14 +1156,10 @@ impl<F: LurkField> Store<F> {
             .and_then(|(secret, _payload)| self.get_num(Num::Scalar(secret.0)))
     }
 
-    pub fn secret_mut(&mut self, ptr: Ptr<F>) -> Result<Ptr<F>, LurkError> {
+    pub fn secret_mut(&mut self, ptr: Ptr<F>) -> Result<Ptr<F>, Error> {
         let p = match ptr.0 {
             Tag::Comm => ptr,
-            _ => {
-                return Err(LurkError::Store(
-                    "wrong type for commitment specifier".into(),
-                ))
-            }
+            _ => return Err(Error("wrong type for commitment specifier".into())),
         };
 
         if let Some((secret, _payload)) = self.fetch_comm(&p) {
@@ -1166,7 +1167,7 @@ impl<F: LurkField> Store<F> {
             let secret_num = self.intern_num(secret_element);
             Ok(secret_num)
         } else {
-            Err(LurkError::Store("secret could not be extracted".into()))
+            Err(Error("secret could not be extracted".into()))
         }
     }
 
@@ -2627,12 +2628,12 @@ impl<F: LurkField> Store<F> {
         RawPtr((p, true), Default::default())
     }
 
-    pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> Result<bool, LurkError> {
+    pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> Result<bool, Error> {
         // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
         // compound data with opaque data in either element's transitive closure.
         match (self.get_expr_hash(a), self.get_expr_hash(b)) {
             (Some(a_hash), Some(b_hash)) => Ok(a.0 == b.0 && a_hash == b_hash),
-            _ => Err(LurkError::Store(
+            _ => Err(Error(
                 "one or more values missing when comparing Ptrs for equality".into(),
             )),
         }

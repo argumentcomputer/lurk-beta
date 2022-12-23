@@ -2,6 +2,7 @@ use crate::error::LurkError;
 use crate::field::LurkField;
 use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness};
 use crate::num::Num;
+use crate::store;
 use crate::store::{
     ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, ScalarPointer, Store, Tag,
     Thunk,
@@ -125,10 +126,10 @@ impl<F: LurkField, W: Copy> Frame<IO<F>, W> {
             .count()
     }
 
-    pub fn input_vector(&self, store: &Store<F>) -> Result<Vec<F>, LurkError> {
+    pub fn input_vector(&self, store: &Store<F>) -> Result<Vec<F>, store::Error> {
         self.input.to_vector(store)
     }
-    pub fn output_vector(&self, store: &Store<F>) -> Result<Vec<F>, LurkError> {
+    pub fn output_vector(&self, store: &Store<F>) -> Result<Vec<F>, store::Error> {
         self.output.to_vector(store)
     }
 }
@@ -204,16 +205,16 @@ impl<F: LurkField> IO<F> {
         }
     }
 
-    pub fn to_vector(&self, store: &Store<F>) -> Result<Vec<F>, LurkError> {
+    pub fn to_vector(&self, store: &Store<F>) -> Result<Vec<F>, store::Error> {
         let expr_scalar_ptr = store
             .get_expr_hash(&self.expr)
-            .ok_or_else(|| LurkError::Store("expr hash missing".into()))?;
+            .ok_or_else(|| store::Error("expr hash missing".into()))?;
         let env_scalar_ptr = store
             .get_expr_hash(&self.env)
-            .ok_or_else(|| LurkError::Store("expr hash missing".into()))?;
+            .ok_or_else(|| store::Error("expr hash missing".into()))?;
         let cont_scalar_ptr = store
             .hash_cont(&self.cont)
-            .ok_or_else(|| LurkError::Store("expr hash missing".into()))?;
+            .ok_or_else(|| store::Error("expr hash missing".into()))?;
         Ok(vec![
             *expr_scalar_ptr.tag(),
             *expr_scalar_ptr.value(),
@@ -427,7 +428,7 @@ fn reduce_with_witness<F: LurkField>(
         match expr.tag() {
             Tag::Thunk => match store
                 .fetch(&expr)
-                .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+                .ok_or_else(|| store::Error("Fetch failed".into()))?
             {
                 Expression::Thunk(thunk) => {
                     Control::ApplyContinuation(thunk.value, env, thunk.continuation)
@@ -1325,7 +1326,7 @@ fn apply_continuation<F: LurkField>(
         ContTag::Outermost => Control::Return(*result, *env, store.intern_cont_terminal()),
         ContTag::Emit => match cont_witness
             .fetch_named_cont(ContName::ApplyContinuation, store, cont)
-            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+            .ok_or_else(|| store::Error("Fetch failed".into()))?
         {
             // Although Emit has no effect within the computation, it has an externally-visible side effect of
             // manifesting an explicit Thunk in the expr register of the execution trace.
@@ -1334,7 +1335,7 @@ fn apply_continuation<F: LurkField>(
         },
         ContTag::Call0 => match cont_witness
             .fetch_named_cont(ContName::ApplyContinuation, store, cont)
-            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+            .ok_or_else(|| store::Error("Fetch failed".into()))?
         {
             Continuation::Call0 {
                 saved_env,
@@ -1342,7 +1343,7 @@ fn apply_continuation<F: LurkField>(
             } => match result.tag() {
                 Tag::Fun => match store
                     .fetch(result)
-                    .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+                    .ok_or_else(|| store::Error("Fetch failed".into()))?
                 {
                     Expression::Fun(arg, body, closed_env) => {
                         if arg == store.lurk_sym("_") {
@@ -1371,7 +1372,7 @@ fn apply_continuation<F: LurkField>(
         ContTag::Call => match result.tag() {
             Tag::Fun => match cont_witness
                 .fetch_named_cont(ContName::ApplyContinuation, store, cont)
-                .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+                .ok_or_else(|| store::Error("Fetch failed".into()))?
             {
                 Continuation::Call {
                     unevaled_arg,
@@ -1401,7 +1402,7 @@ fn apply_continuation<F: LurkField>(
         },
         ContTag::Call2 => match cont_witness
             .fetch_named_cont(ContName::ApplyContinuation, store, cont)
-            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+            .ok_or_else(|| store::Error("Fetch failed".into()))?
         {
             Continuation::Call2 {
                 function,
@@ -1410,7 +1411,7 @@ fn apply_continuation<F: LurkField>(
             } => match function.tag() {
                 Tag::Fun => match store
                     .fetch(&function)
-                    .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+                    .ok_or_else(|| store::Error("Fetch failed".into()))?
                 {
                     Expression::Fun(arg, body, closed_env) => {
                         if arg == store.lurk_sym("_") {
@@ -1440,7 +1441,7 @@ fn apply_continuation<F: LurkField>(
         },
         ContTag::Let => match cont_witness
             .fetch_named_cont(ContName::ApplyContinuation, store, cont)
-            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+            .ok_or_else(|| store::Error("Fetch failed".into()))?
         {
             Continuation::Let {
                 var,
@@ -1458,7 +1459,7 @@ fn apply_continuation<F: LurkField>(
         },
         ContTag::LetRec => match cont_witness
             .fetch_named_cont(ContName::ApplyContinuation, store, cont)
-            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+            .ok_or_else(|| store::Error("Fetch failed".into()))?
         {
             Continuation::LetRec {
                 var,
@@ -1476,7 +1477,7 @@ fn apply_continuation<F: LurkField>(
         },
         ContTag::Unop => match cont_witness
             .fetch_named_cont(ContName::ApplyContinuation, store, cont)
-            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+            .ok_or_else(|| store::Error("Fetch failed".into()))?
         {
             Continuation::Unop {
                 operator,
@@ -1539,7 +1540,7 @@ fn apply_continuation<F: LurkField>(
                         Tag::Num | Tag::Comm | Tag::Char | Tag::U64 => {
                             let scalar_ptr = store
                                 .get_expr_hash(result)
-                                .ok_or_else(|| LurkError::Store("expr hash missing".into()))?;
+                                .ok_or_else(|| store::Error("expr hash missing".into()))?;
                             store.intern_num(crate::Num::Scalar::<F>(*scalar_ptr.value()))
                         }
                         _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
@@ -1548,7 +1549,7 @@ fn apply_continuation<F: LurkField>(
                         Tag::Num => {
                             let scalar_ptr = store
                                 .get_expr_hash(result)
-                                .ok_or_else(|| LurkError::Store("expr hash missing".into()))?;
+                                .ok_or_else(|| store::Error("expr hash missing".into()))?;
 
                             store.get_u64(scalar_ptr.value().to_u64_unchecked())
                         }
@@ -1559,7 +1560,7 @@ fn apply_continuation<F: LurkField>(
                         Tag::Num | Tag::Comm => {
                             let scalar_ptr = store
                                 .get_expr_hash(result)
-                                .ok_or_else(|| LurkError::Store("expr hash missing".into()))?;
+                                .ok_or_else(|| store::Error("expr hash missing".into()))?;
                             store.intern_maybe_opaque_comm(*scalar_ptr.value())
                         }
                         _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
@@ -1568,7 +1569,7 @@ fn apply_continuation<F: LurkField>(
                         Tag::Num | Tag::Char => {
                             let scalar_ptr = store
                                 .get_expr_hash(result)
-                                .ok_or_else(|| LurkError::Store("expr hash missing".into()))?;
+                                .ok_or_else(|| store::Error("expr hash missing".into()))?;
                             store.get_char(
                                 char::from_u32(
                                     scalar_ptr.value().to_u32().ok_or_else(|| {
@@ -1590,7 +1591,7 @@ fn apply_continuation<F: LurkField>(
         },
         ContTag::Binop => match cont_witness
             .fetch_named_cont(ContName::ApplyContinuation, store, cont)
-            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+            .ok_or_else(|| store::Error("Fetch failed".into()))?
         {
             Continuation::Binop {
                 operator,
@@ -1631,7 +1632,7 @@ fn apply_continuation<F: LurkField>(
         },
         ContTag::Binop2 => match cont_witness
             .fetch_named_cont(ContName::ApplyContinuation, store, cont)
-            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+            .ok_or_else(|| store::Error("Fetch failed".into()))?
         {
             Continuation::Binop2 {
                 operator,
@@ -1687,10 +1688,10 @@ fn apply_continuation<F: LurkField>(
                 let result = match (
                     store
                         .fetch(&evaled_arg)
-                        .ok_or_else(|| LurkError::Store("Fetch failed".into()))?,
+                        .ok_or_else(|| store::Error("Fetch failed".into()))?,
                     store
                         .fetch(arg2)
-                        .ok_or_else(|| LurkError::Store("Fetch failed".into()))?,
+                        .ok_or_else(|| store::Error("Fetch failed".into()))?,
                 ) {
                     (Expression::Num(a), Expression::Num(b)) if operator.is_numeric() => {
                         match num_num(store, operator, a, b) {
@@ -1762,7 +1763,7 @@ fn apply_continuation<F: LurkField>(
         },
         ContTag::If => match cont_witness
             .fetch_named_cont(ContName::ApplyContinuation, store, cont)
-            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+            .ok_or_else(|| store::Error("Fetch failed".into()))?
         {
             Continuation::If {
                 unevaled_args,
@@ -1814,7 +1815,7 @@ fn apply_continuation<F: LurkField>(
         },
         ContTag::Lookup => match cont_witness
             .fetch_named_cont(ContName::ApplyContinuation, store, cont)
-            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+            .ok_or_else(|| store::Error("Fetch failed".into()))?
         {
             Continuation::Lookup {
                 saved_env,
@@ -1824,7 +1825,7 @@ fn apply_continuation<F: LurkField>(
         },
         ContTag::Tail => match cont_witness
             .fetch_named_cont(ContName::ApplyContinuation, store, cont)
-            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+            .ok_or_else(|| store::Error("Fetch failed".into()))?
         {
             Continuation::Tail {
                 saved_env,
@@ -1864,7 +1865,7 @@ fn make_thunk<F: LurkField>(
     match cont.tag() {
         ContTag::Tail => match cont_witness
             .fetch_named_cont(ContName::MakeThunk, store, &cont)
-            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+            .ok_or_else(|| store::Error("Fetch failed".into()))?
         {
             Continuation::Tail {
                 saved_env,
@@ -2048,7 +2049,7 @@ fn extend_rec<F: LurkField>(
 
             Ok(res)
         }
-        _ => Err(LurkError::Store("Bad input form.".into())),
+        _ => Err(store::Error("Bad input form.".into()).into()),
     }
 }
 
@@ -2061,7 +2062,7 @@ fn extend_closure<F: LurkField>(
     match fun.tag() {
         Tag::Fun => match store
             .fetch(fun)
-            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
+            .ok_or_else(|| store::Error("Fetch failed".into()))?
         {
             Expression::Fun(arg, body, closed_env) => {
                 let extended = cons_witness.cons_named(
@@ -2093,7 +2094,11 @@ impl<F: LurkField> Store<F> {
 
 #[allow(dead_code)]
 // This clarifies the lookup logic and is used in tests.
-fn lookup<F: LurkField>(env: &Ptr<F>, var: &Ptr<F>, store: &Store<F>) -> Result<Ptr<F>, LurkError> {
+fn lookup<F: LurkField>(
+    env: &Ptr<F>,
+    var: &Ptr<F>,
+    store: &Store<F>,
+) -> Result<Ptr<F>, store::Error> {
     assert!(matches!(var.tag(), Tag::Sym));
     match env.tag() {
         Tag::Nil => Ok(store.get_nil()),
@@ -2106,7 +2111,7 @@ fn lookup<F: LurkField>(env: &Ptr<F>, var: &Ptr<F>, store: &Store<F>) -> Result<
                 lookup(&smaller_env, var, store)
             }
         }
-        _ => Err(LurkError::Store("Env must be a list.".into())),
+        _ => Err(store::Error("Env must be a list.".into())),
     }
 }
 

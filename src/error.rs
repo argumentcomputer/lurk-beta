@@ -1,3 +1,4 @@
+use crate::store;
 use bellperson::SynthesisError;
 use nova::errors::NovaError;
 use thiserror::Error;
@@ -19,7 +20,7 @@ pub enum LurkError {
     #[error("Reduction error: {0}")]
     Reduce(String),
     #[error("Lookup error: {0}")]
-    Store(String),
+    Store(#[from] store::Error),
     #[error("Parser error: {0}")]
     Parser(#[from] ParserError),
 }
