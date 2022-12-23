@@ -21,7 +21,7 @@ use crate::circuit::{
     },
     CircuitFrame, MultiFrame,
 };
-use crate::error::{Error, LurkError};
+use crate::error::{LurkError, ProofError};
 use crate::eval::{Evaluator, Frame, Witness, IO};
 use crate::field::LurkField;
 use crate::proof::{Prover, PublicParameters};
@@ -85,7 +85,7 @@ impl<F: LurkField> NovaProver<F> {
         env: Ptr<S1>,
         store: &mut Store<S1>,
         limit: usize,
-    ) -> Result<Vec<Frame<IO<S1>, Witness<S1>>>, Error> {
+    ) -> Result<Vec<Frame<IO<S1>, Witness<S1>>>, ProofError> {
         let padding_predicate = |count| self.needs_frame_padding(count);
 
         let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate)?;
@@ -100,7 +100,7 @@ impl<F: LurkField> NovaProver<F> {
         env: Ptr<S1>,
         store: &'a mut Store<S1>,
         limit: usize,
-    ) -> Result<(Proof, Vec<S1>, Vec<S1>, usize), Error> {
+    ) -> Result<(Proof, Vec<S1>, Vec<S1>, usize), ProofError> {
         let frames = self.get_evaluation_frames(expr, env, store, limit)?;
         let z0 = frames[0]
             .input_vector(store)
@@ -190,7 +190,7 @@ impl<'a> Proof<'a> {
         circuits: &[C1<'a>],
         num_iters_per_step: usize,
         z0: Vec<S1>,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, ProofError> {
         assert!(!circuits.is_empty());
         assert_eq!(circuits[0].arity(), z0.len());
         let debug = false;
@@ -226,13 +226,13 @@ impl<'a> Proof<'a> {
                 for (i, x) in zi.iter().enumerate() {
                     let allocated =
                         AllocatedNum::alloc(cs.namespace(|| format!("z{}_1", i)), || Ok(*x))
-                            .map_err(Error::Synthesis)?;
+                            .map_err(ProofError::Synthesis)?;
                     zi_allocated.push(allocated);
                 }
 
                 circuit_primary
                     .synthesize(&mut cs, zi_allocated.as_slice())
-                    .map_err(Error::Synthesis)?;
+                    .map_err(ProofError::Synthesis)?;
 
                 assert!(cs.is_satisfied());
             }
@@ -246,17 +246,17 @@ impl<'a> Proof<'a> {
                 z0_secondary.clone(),
             );
             assert!(res.is_ok());
-            recursive_snark = Some(res.map_err(Error::Nova)?);
+            recursive_snark = Some(res.map_err(ProofError::Nova)?);
         }
 
         Ok(Self::Recursive(Box::new(recursive_snark.unwrap())))
     }
 
-    pub fn compress(self, pp: &'a PublicParams) -> Result<Self, Error> {
+    pub fn compress(self, pp: &'a PublicParams) -> Result<Self, ProofError> {
         match &self {
             Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(
                 CompressedSNARK::<_, _, _, _, SS1, SS2>::prove(pp, recursive_snark)
-                    .map_err(Error::Nova)?,
+                    .map_err(ProofError::Nova)?,
             ))),
             Self::Compressed(_) => Ok(self),
         }
