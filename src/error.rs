@@ -5,7 +5,7 @@ use nova::errors::NovaError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum Error {
+pub enum ProofError {
     #[error("Nova error")]
     Nova(NovaError),
     #[error("Synthesis error: {0}")]

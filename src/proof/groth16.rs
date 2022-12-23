@@ -19,7 +19,7 @@ use rand_xorshift::XorShiftRng;
 use serde::{Deserialize, Serialize};
 
 use crate::circuit::MultiFrame;
-use crate::error::Error;
+use crate::error::ProofError;
 use crate::eval::{Evaluator, Witness, IO};
 use crate::proof::{Provable, Prover, PublicParameters};
 use crate::store::{Ptr, Store};
@@ -117,7 +117,7 @@ impl Groth16Prover<Bls12> {
         store: &mut Store<Scalar>,
         limit: usize,
         mut rng: R,
-    ) -> Result<(Proof<Bls12>, IO<Scalar>, IO<Scalar>), Error> {
+    ) -> Result<(Proof<Bls12>, IO<Scalar>, IO<Scalar>), ProofError> {
         let padding_predicate = |count| self.needs_frame_padding(count);
         let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate)?;
         store.hydrate_scalar_cache();
