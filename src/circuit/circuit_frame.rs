@@ -1165,7 +1165,6 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     }
 
     let cs = &mut cs.namespace(|| "otherwise_and_binding_is_nil");
-    //let cond2 = and!(cs, &otherwise_and_binding_is_nil, not_dummy)?;
     let cond2 = otherwise_and_binding_is_nil;
     {
         // let cond = and!(cs, &otherwise_and_binding_is_nil, not_dummy)?;
@@ -1176,7 +1175,6 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     }
     let cs = &mut cs.namespace(|| "v_is_expr1_real");
 
-    //let cond3 = and!(cs, &v_is_expr1_real, not_dummy)?;
     let cond3 = v_is_expr1_real;
     {
         implies_equal_t!(cs, &cond3, output_expr, val);
@@ -2991,12 +2989,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let arg1 = AllocatedPtr::by_index(1, &continuation_components);
 
-        // let arg1_is_num = equal!(cs, arg1.tag(), &g.num_tag)?;
-
         let commit_secret = pick!(cs, &is_op2_hide, arg1.hash(), &g.default_num)?;
-
         let secret = pick!(cs, &is_op1_open_or_secret, &open_secret, &commit_secret)?;
-
         let committed = pick_ptr!(cs, &is_op1_open, &open_expr, result)?;
 
         (
