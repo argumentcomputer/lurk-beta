@@ -3607,6 +3607,9 @@ mod test {
         let expr9 = "(<= 0u64 0u64)";
         let expr10 = "(>= 0u64 0u64)";
 
+        let expr11 = "(= 0u64 0u64)";
+        let expr12 = "(= 0u64 1u64)";
+
         let t = s.t();
         let nil = s.nil();
         let terminal = s.get_cont_terminal();
@@ -3623,6 +3626,9 @@ mod test {
 
         test_aux(s, expr9, Some(t), None, Some(terminal), None, 3);
         test_aux(s, expr10, Some(t), None, Some(terminal), None, 3);
+
+        test_aux(s, expr11, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr12, Some(nil), None, Some(terminal), None, 3);
     }
 
     #[test]
