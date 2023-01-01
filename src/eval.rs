@@ -3649,15 +3649,19 @@ mod test {
         let expr2 = "(num 1u64)";
         let expr3 = "(+ 1 1u64)";
         let expr4 = "(u64 (+ 1 1))";
+        let expr5 = "(u64 123u64)";
         let res = s.intern_num(1);
         let res2 = s.intern_num(2);
         let res3 = s.get_u64(2);
+        let res5 = s.get_u64(123);
         let terminal = s.get_cont_terminal();
 
         test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
         test_aux(s, expr2, Some(res), None, Some(terminal), None, 2);
         test_aux(s, expr3, Some(res2), None, Some(terminal), None, 3);
+
         test_aux(s, expr4, Some(res3), None, Some(terminal), None, 5);
+        test_aux(s, expr5, Some(res5), None, Some(terminal), None, 2);
     }
 
     #[test]
