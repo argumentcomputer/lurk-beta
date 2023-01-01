@@ -2922,6 +2922,16 @@ mod test {
     }
 
     #[test]
+    fn begin() {
+        {
+            let s = &mut Store::<Fr>::default();
+            let expr = "(car (begin 1 2 '(3 . 4)))";
+            let expected = s.num(3);
+            test_aux(s, expr, Some(expected), None, None, None, 6);
+        }
+    }
+
+    #[test]
     fn begin_current_env1() {
         {
             let s = &mut Store::<Fr>::default();
