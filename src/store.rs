@@ -812,24 +812,6 @@ impl fmt::Display for Op1 {
 }
 
 impl Op1 {
-    pub fn from_u16(x: u16) -> Option<Self> {
-        match x {
-            x if x == Op1::Car as u16 => Some(Op1::Car),
-            x if x == Op1::Cdr as u16 => Some(Op1::Cdr),
-            x if x == Op1::Atom as u16 => Some(Op1::Atom),
-            x if x == Op1::Emit as u16 => Some(Op1::Emit),
-            x if x == Op1::Open as u16 => Some(Op1::Open),
-            x if x == Op1::Secret as u16 => Some(Op1::Secret),
-            x if x == Op1::Commit as u16 => Some(Op1::Commit),
-            x if x == Op1::Num as u16 => Some(Op1::Num),
-            x if x == Op1::Comm as u16 => Some(Op1::Comm),
-            x if x == Op1::Char as u16 => Some(Op1::Char),
-            x if x == Op1::Eval as u16 => Some(Op1::Eval),
-            x if x == Op1::U64 as u16 => Some(Op1::U64),
-            _ => None,
-        }
-    }
-
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
@@ -857,26 +839,6 @@ pub enum Op2 {
 }
 
 impl Op2 {
-    pub fn from_u16(x: u16) -> Option<Self> {
-        match x {
-            x if x == Op2::Sum as u16 => Some(Op2::Sum),
-            x if x == Op2::Diff as u16 => Some(Op2::Diff),
-            x if x == Op2::Product as u16 => Some(Op2::Product),
-            x if x == Op2::Quotient as u16 => Some(Op2::Quotient),
-            x if x == Op2::Equal as u16 => Some(Op2::Equal),
-            x if x == Op2::NumEqual as u16 => Some(Op2::NumEqual),
-            x if x == Op2::Less as u16 => Some(Op2::Less),
-            x if x == Op2::Greater as u16 => Some(Op2::Greater),
-            x if x == Op2::LessEqual as u16 => Some(Op2::LessEqual),
-            x if x == Op2::GreaterEqual as u16 => Some(Op2::GreaterEqual),
-            x if x == Op2::Cons as u16 => Some(Op2::Cons),
-            x if x == Op2::Begin as u16 => Some(Op2::Begin),
-            x if x == Op2::Hide as u16 => Some(Op2::Hide),
-            x if x == Op2::Modulo as u16 => Some(Op2::Modulo),
-            x if x == Op2::Eval as u16 => Some(Op2::Eval),
-            _ => None,
-        }
-    }
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
