@@ -16,6 +16,7 @@ use crate::{
     SerdeFError,
   },
 };
+
 // user-level expressions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Expr<F: LurkField> {

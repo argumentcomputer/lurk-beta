@@ -57,19 +57,3 @@ pub mod test_utils {
   }
 }
 
-#[cfg(all(test, not(feature = "test-utils")))]
-pub mod test {
-  // This shouldn't ever run since "test-utils" is set in Cargo
-  // dev-dependencies, but just in case someone disables it we want to avoid
-  // test-suite false positives
-  #[test]
-  fn fail_without_test_utils_feature() {
-    println!(
-      "Test suite requires \"test-utils\" feature. 
-      Please run `cargo test --features=test-utils`, or `cargo test \
-       --all-features`, or add it to your dev-dependencies
-      "
-    );
-    assert!(false)
-  }
-}
