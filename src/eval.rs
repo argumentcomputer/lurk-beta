@@ -2787,6 +2787,7 @@ mod test {
         test_aux(s, r#"(strcons #\a #\b)"#, None, None, Some(error), None, 3);
         test_aux(s, r#"(strcons "a" "b")"#, None, None, Some(error), None, 3);
         test_aux(s, r#"(strcons 1 2)"#, None, None, Some(error), None, 3);
+        test_aux(s, r#"(strcons)"#, None, None, Some(error), None, 1);
     }
 
     #[test]
