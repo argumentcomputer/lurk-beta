@@ -669,8 +669,9 @@ fn reduce_with_witness_control<F: LurkField>(
                         } else if bindings.is_nil() {
                             Control::Return(body1, env, cont)
                         } else {
-                            let (binding1, rest_bindings) =
-                                hash_witness.car_cdr_named(ConsName::ExprCadr, store, &bindings)?;
+                            let (binding1, rest_bindings) = hash_witness
+                                .car_cdr_named(ConsName::ExprCadr, store, &bindings)
+                                .map_err(|_| ProvableError("Evaluation error".into(), expr))?;
                             let (var, vals) = hash_witness.car_cdr_named(
                                 ConsName::ExprCaadr,
                                 store,
