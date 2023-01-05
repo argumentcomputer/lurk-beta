@@ -148,57 +148,6 @@ impl<F: LurkField> Expr<F> {
   }
 }
 
-#[cfg(feature = "test-utils")]
-pub mod test_utils {
-  use blstrs::Scalar as Fr;
-  use lurk_ff::{
-    field::test_utils::*,
-    test_utils::frequency,
-  };
-  use quickcheck::{
-    Arbitrary,
-    Gen,
-  };
-
-  use super::*;
-
-  // These expressions are not necessarily well-formed
-  impl Arbitrary for Expr<Fr> {
-    fn arbitrary(g: &mut Gen) -> Self {
-      #[allow(clippy::type_complexity)]
-      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Expr<Fr>>)> = vec![
-        (100, Box::new(|_| Self::ConsNil)),
-        (100, Box::new(|g| Self::Cons(Ptr::arbitrary(g), Ptr::arbitrary(g)))),
-        (100, Box::new(|g| Self::Comm(Ptr::arbitrary(g), Ptr::arbitrary(g)))),
-        (100, Box::new(|_| Self::StrNil)),
-        (
-          100,
-          Box::new(|g| Self::StrCons(Ptr::arbitrary(g), Ptr::arbitrary(g))),
-        ),
-        (100, Box::new(|_| Self::SymNil)),
-        (
-          100,
-          Box::new(|g| Self::SymCons(Ptr::arbitrary(g), Ptr::arbitrary(g))),
-        ),
-        (100, Box::new(|g| Self::Keyword(Ptr::arbitrary(g)))),
-        (100, Box::new(|g| Self::Num(FWrap::arbitrary(g).0))),
-        (100, Box::new(|g| Self::Char(FWrap::arbitrary(g).0))),
-        (100, Box::new(|g| Self::U64(FWrap::arbitrary(g).0))),
-        (
-          100,
-          Box::new(|g| {
-            Self::Fun(Ptr::arbitrary(g), Ptr::arbitrary(g), Ptr::arbitrary(g))
-          }),
-        ),
-        (100, Box::new(|g| Self::Thunk(Ptr::arbitrary(g), Ptr::arbitrary(g)))),
-        (100, Box::new(|g| Self::Map(Ptr::arbitrary(g)))),
-        (100, Box::new(|g| Self::Link(Ptr::arbitrary(g), Ptr::arbitrary(g)))),
-      ];
-      frequency(g, input)
-    }
-  }
-}
-
 impl<F: LurkField> SerdeF<F> for Expr<F> {
   fn ser_f(&self) -> Vec<F> {
     let mut res = self.ptr(&PoseidonCache::default()).ser_f();
@@ -281,6 +230,57 @@ impl<F: LurkField> fmt::Display for Expr<F> {
       write!(f, " {},", child)?;
     }
     write!(f, ")")
+  }
+}
+
+#[cfg(feature = "test-utils")]
+pub mod test_utils {
+  use blstrs::Scalar as Fr;
+  use lurk_ff::{
+    field::test_utils::*,
+    test_utils::frequency,
+  };
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+
+  use super::*;
+
+  // These expressions are not necessarily well-formed
+  impl Arbitrary for Expr<Fr> {
+    fn arbitrary(g: &mut Gen) -> Self {
+      #[allow(clippy::type_complexity)]
+      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Expr<Fr>>)> = vec![
+        (100, Box::new(|_| Self::ConsNil)),
+        (100, Box::new(|g| Self::Cons(Ptr::arbitrary(g), Ptr::arbitrary(g)))),
+        (100, Box::new(|g| Self::Comm(Ptr::arbitrary(g), Ptr::arbitrary(g)))),
+        (100, Box::new(|_| Self::StrNil)),
+        (
+          100,
+          Box::new(|g| Self::StrCons(Ptr::arbitrary(g), Ptr::arbitrary(g))),
+        ),
+        (100, Box::new(|_| Self::SymNil)),
+        (
+          100,
+          Box::new(|g| Self::SymCons(Ptr::arbitrary(g), Ptr::arbitrary(g))),
+        ),
+        (100, Box::new(|g| Self::Keyword(Ptr::arbitrary(g)))),
+        (100, Box::new(|g| Self::Num(FWrap::arbitrary(g).0))),
+        (100, Box::new(|g| Self::Char(FWrap::arbitrary(g).0))),
+        (100, Box::new(|g| Self::U64(FWrap::arbitrary(g).0))),
+        (
+          100,
+          Box::new(|g| {
+            Self::Fun(Ptr::arbitrary(g), Ptr::arbitrary(g), Ptr::arbitrary(g))
+          }),
+        ),
+        (100, Box::new(|g| Self::Thunk(Ptr::arbitrary(g), Ptr::arbitrary(g)))),
+        (100, Box::new(|g| Self::Map(Ptr::arbitrary(g)))),
+        (100, Box::new(|g| Self::Link(Ptr::arbitrary(g), Ptr::arbitrary(g)))),
+      ];
+      frequency(g, input)
+    }
   }
 }
 

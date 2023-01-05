@@ -219,7 +219,6 @@ impl<F: LurkField> Eq for Syn<F> {}
 #[cfg(feature = "test-utils")]
 pub mod test_utils {
   use blstrs::Scalar as Fr;
-  // use im::Vector;
   use lurk_ff::{
     field::test_utils::FWrap,
     test_utils::frequency,
@@ -346,18 +345,6 @@ mod test {
     u64,
   };
 
-  //#[test]
-  // fn display_link() {
-  //    println!(
-  //        "{}",
-  //        Syn::<Fr>::Link(
-  //            Pos::No,
-  //            Box::new(Syn::Symbol(Pos::No,
-  // vec![Sym::Sym("sha256".to_string())])),            vec![u64::MAX,
-  // u64::MAX, u64::MAX, u64::MAX]        )
-  //    );
-  //    assert!(false)
-  //}
   fn test_print(syn: Syn<Fr>, expected: &'static str) -> bool {
     let syn_print = format!("{}", syn);
     let res = syn_print == expected;

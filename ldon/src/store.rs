@@ -122,9 +122,6 @@ impl<F: LurkField> Store<F> {
     ptr
   }
 
-  // { a = 1, b = 2, c = 3 }
-  // { a = 1, c = 3, b = 2 }
-  // ( (a, 1) (b, 2) (c, 3) )
   pub fn intern_map(
     &mut self,
     cache: &PoseidonCache<F>,
@@ -349,7 +346,7 @@ impl<F: LurkField> Store<F> {
       Expr::Keyword(sym) => Ok(Syn::Keyword(Pos::No, self.get_symbol(sym)?)),
       Expr::Map(map) => self.get_syn_map(map),
       Expr::Link(ctx, data) => self.get_syn_link(ctx, data),
-      _ => todo!(),
+      _ => Err(StoreError::Custom("no syntax for Comm, Thunk, Fun")),
       // Expr::Comm(F, Ptr<F>),             // secret, val
       // Expr::Thunk(Ptr<F>, Ptr<F>),       // val, cont
       // Expr::Fun(Ptr<F>, Ptr<F>, Ptr<F>), // arg, body, env
@@ -381,17 +378,19 @@ impl<F: LurkField> fmt::Display for Store<F> {
 impl<F: LurkField> SerdeF<F> for Store<F> {
   fn ser_f(&self) -> Vec<F> {
     let mut exprs = Vec::new();
+    let mut conts = Vec::new();
     let mut opaqs = Vec::new();
     for (ptr, entry) in self.0.iter() {
       match entry {
         Entry::Expr(x) => exprs.extend(x.ser_f().into_iter()),
-        Entry::Cont(_x) => todo!(),
+        Entry::Cont(x) => conts.extend(x.ser_f().into_iter()),
         Entry::Opaque => opaqs.extend(ptr.ser_f()),
       }
     }
     let mut res = vec![(opaqs.len() as u64).into()];
     res.extend(opaqs);
     res.extend(exprs);
+    res.extend(conts);
     res
   }
 
@@ -402,7 +401,9 @@ impl<F: LurkField> SerdeF<F> for Store<F> {
     }
     let opaqs: u64 =
       fs[0].to_u64().ok_or_else(|| SerdeFError::ExpectedU64(fs[0]))?;
-    // TODO: This will break on 32-bit targets, but maybe we don't care.
+    // This cast will break on 32-bit targets if there are more the 2^32
+    // opaque pointers in the store, but maybe we don't care about that.
+    // TODO: Harden for wasm32-unknown-unknown compilation
     let opaqs: usize = opaqs as usize;
     if fs.len() < opaqs {
       return Err(SerdeFError::UnexpectedEnd);
@@ -420,9 +421,17 @@ impl<F: LurkField> SerdeF<F> for Store<F> {
           map.insert(ptr, Entry::Expr(expr));
           i += 2 + expr.child_ptrs().len() * 2;
         },
-        TagKind::Cont(_) => todo!(),
-        TagKind::Op1(_) => todo!(),
-        TagKind::Op2(_) => todo!(),
+        TagKind::Cont(_) => {
+          let cont = Cont::de_f(&fs[i..])?;
+          map.insert(ptr, Entry::Cont(cont));
+          i += 2 + cont.child_ptrs().len() * 2;
+        },
+        TagKind::Op1(_) => {
+          return Err(SerdeFError::Custom("Invalid Op1 Entry".to_string()))
+        },
+        TagKind::Op2(_) => {
+          return Err(SerdeFError::Custom("Invalid Op2 Entry".to_string()))
+        },
       }
     }
     Ok(Store(map))
@@ -444,6 +453,7 @@ pub mod test_utils {
       let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Entry<Fr>>)> = vec![
         (100, Box::new(|_| Self::Opaque)),
         (100, Box::new(|g| Self::Expr(Expr::arbitrary(g)))),
+        (100, Box::new(|g| Self::Cont(Cont::arbitrary(g)))),
       ];
       frequency(g, input)
     }
@@ -459,7 +469,7 @@ pub mod test_utils {
         match entry {
           Entry::Opaque => map.insert(Ptr::arbitrary(g), entry),
           Entry::Expr(x) => map.insert(x.ptr(&cache), entry),
-          Entry::Cont(_) => todo!(),
+          Entry::Cont(x) => map.insert(x.ptr(&cache), entry),
         };
       }
       Store(map)
