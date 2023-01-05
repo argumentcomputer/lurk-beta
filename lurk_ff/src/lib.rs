@@ -56,4 +56,3 @@ pub mod test_utils {
     panic!("Calculation error for weight = {}", weight);
   }
 }
-

@@ -146,6 +146,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
   fn from_u64(x: u64) -> Self { x.into() }
 
   fn from_u32(x: u32) -> Self { (x as u64).into() }
+  fn from_u16(x: u32) -> Self { (x as u64).into() }
 
   fn from_char(x: char) -> Self { Self::from_u32(x as u32) }
 
