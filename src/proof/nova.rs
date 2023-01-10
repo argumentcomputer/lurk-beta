@@ -2683,4 +2683,53 @@ mod tests {
 
         nova_test_aux(s, expr, None, None, Some(error), None, 4);
     }
+
+    #[test]
+    fn outer_prove_test_self_eval_env_not_nil() {
+        let s = &mut Store::<Fr>::default();
+
+        // NOTE: cond1 shouldn't depend on env-is-not-nil
+        // therefore this unit test is not very useful
+        // the conclusion is that by removing condition env-is-not-nil from cond1,
+        // we solve this soundness problem
+        // this solution makes the circuit a bit smaller
+        let expr = "(let ((a 1)) t)";
+
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, None, None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_self_eval_t() {
+        let s = &mut Store::<Fr>::default();
+
+        // nil doesn't have SYM tag, therefore this case is not solved using cond1
+        let expr = "nil";
+
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, None, None, Some(terminal), None, 1);
+    }
+
+    #[test]
+    fn outer_prove_test_env_not_nil_and_binding_nil() {
+        let s = &mut Store::<Fr>::default();
+
+        // NOTE: this unit test is kind of useless, it was just used to understand that binding is nil
+        // condition doesn't contribute to cond2, since condition env-is-nil is reached first
+        let expr = "(let ((a 1) (b 2)) c)";
+
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 7);
+    }
+
+    #[test]
+    fn outer_prove_test_eval_bad_form() {
+        // FIXME: failing unit test
+        let s = &mut Store::<Fr>::default();
+        let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env.
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, None, None, Some(terminal), None, 9);
+    }
+
 }

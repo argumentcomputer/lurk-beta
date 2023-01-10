@@ -612,7 +612,7 @@ fn reduce_with_witness<F: LurkField>(
                                         }
                                     }
                                 }
-                                _ => return Err(LurkError::Reduce("Bad form.".into())),
+                                _ => Control::Return(expr, env, store.intern_cont_error()), // bad form
                             }
                         }
                     }
