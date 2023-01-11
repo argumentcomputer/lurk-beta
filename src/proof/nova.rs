@@ -2700,10 +2700,10 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_test_self_eval_t() {
+    fn outer_prove_test_self_eval_nil() {
         let s = &mut Store::<Fr>::default();
 
-        // nil doesn't have SYM tag, therefore this case is not solved using cond1
+        // nil doesn't have SYM tag
         let expr = "nil";
 
         let terminal = s.get_cont_terminal();
@@ -2714,8 +2714,6 @@ mod tests {
     fn outer_prove_test_env_not_nil_and_binding_nil() {
         let s = &mut Store::<Fr>::default();
 
-        // NOTE: this unit test is kind of useless, it was just used to understand that binding is nil
-        // condition doesn't contribute to cond2, since condition env-is-nil is reached first
         let expr = "(let ((a 1) (b 2)) c)";
 
         let error = s.get_cont_error();
@@ -2724,12 +2722,10 @@ mod tests {
 
     #[test]
     fn outer_prove_test_eval_bad_form() {
-        // FIXME: failing unit test
         let s = &mut Store::<Fr>::default();
         let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env.
-        let terminal = s.get_cont_terminal();
+        let error = s.get_cont_error();
 
-        nova_test_aux(s, expr, None, None, Some(terminal), None, 9);
+        nova_test_aux(s, expr, None, None, Some(error), None, 8);
     }
-
 }

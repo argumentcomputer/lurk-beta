@@ -949,37 +949,32 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     let sym_is_nil = expr.alloc_equal(&mut cs.namespace(|| "sym is nil"), &g.nil_ptr)?;
     let sym_is_t = expr.alloc_equal(&mut cs.namespace(|| "sym is t"), &g.t_ptr)?;
 
-    let sym_is_self_evaluating = or!(cs, &sym_is_nil, &sym_is_t)?;
-    let sym_otherwise = sym_is_self_evaluating.not();
+    let sym_is_self_evaluating0 = or!(cs, &sym_is_nil, &sym_is_t)?;
+    let sym_is_self_evaluating = and!(cs, &sym_is_self_evaluating0, not_dummy)?;
 
-    let env_not_dummy = and!(cs, &sym_otherwise, not_dummy)?;
+    let sym_otherwise = and!(cs, &sym_is_self_evaluating.not(), not_dummy)?;
+
+    let env_is_nil = env.alloc_equal(&mut cs.namespace(|| "env is nil"), &g.nil_ptr)?;
+    let env_not_nil = env_is_nil.not();
+
+    let env_not_dummy = &sym_otherwise;
     let (binding, smaller_env) = car_cdr_named(
         &mut cs.namespace(|| "If unevaled_args cons"),
         g,
         env,
         ConsName::Env,
         allocated_cons_witness,
-        &env_not_dummy,
+        env_not_dummy,
         store,
     )?;
 
-    let env_is_nil = env.alloc_equal(&mut cs.namespace(|| "env is nil"), &g.nil_ptr)?;
-    let env_not_nil = env_is_nil.not();
-
-    let otherwise = and!(cs, &env_not_dummy, &env_not_nil)?;
+    let main = and!(cs, &sym_otherwise, &env_not_nil)?;
 
     let binding_is_nil = binding.alloc_equal(&mut cs.namespace(|| "binding is nil"), &g.nil_ptr)?;
     let binding_not_nil = binding_is_nil.not();
+    let binding_is_cons = equal!(cs, binding.tag(), &g.cons_tag)?;
 
-    let binding_is_cons = alloc_equal(
-        &mut cs.namespace(|| "binding_is_cons"),
-        binding.tag(),
-        &g.cons_tag,
-    )?;
-    let otherwise_and_binding_is_nil = and!(cs, &otherwise, &binding_is_nil)?;
-    let otherwise_and_binding_not_nil = and!(cs, &otherwise, &binding_not_nil)?;
-
-    let env_car_not_dummy = and!(cs, &otherwise, &binding_is_cons, not_dummy)?;
+    let env_car_not_dummy = and!(cs, &main, &binding_is_cons)?;
     let (var_or_rec_binding, val_or_more_rec_env) = car_cdr_named(
         &mut cs.namespace(|| "car_cdr binding"),
         g,
@@ -990,91 +985,36 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         store,
     )?;
 
-    let var_or_rec_binding_is_sym_ = alloc_equal(
-        &mut cs.namespace(|| "var_or_rec_binding_is_sym_"),
-        var_or_rec_binding.tag(),
-        &g.sym_tag,
-    )?;
-    let var_or_rec_binding_is_sym = and!(
-        cs,
-        &var_or_rec_binding_is_sym_,
-        &otherwise_and_binding_not_nil
-    )?;
+    let var_or_rec_binding_is_sym = equal!(cs, var_or_rec_binding.tag(), &g.sym_tag)?;
+    let var_or_rec_binding_is_cons = equal!(cs, var_or_rec_binding.tag(), &g.cons_tag)?;
+    let var_or_rec_binding_is_sym_or_cons =
+        or!(cs, &var_or_rec_binding_is_sym, &var_or_rec_binding_is_cons)?;
+
+    let with_binding = and!(cs, &main, &binding_not_nil)?;
+    let with_sym_binding = and!(cs, &with_binding, &var_or_rec_binding_is_sym)?;
+    let with_cons_binding = and!(cs, &with_binding, &var_or_rec_binding_is_cons)?;
+    let with_other_binding = and!(cs, &with_binding, &var_or_rec_binding_is_sym_or_cons.not())?;
 
     let v = var_or_rec_binding.clone();
     let val = val_or_more_rec_env.clone();
     let v_is_expr1 = expr.alloc_equal(&mut cs.namespace(|| "v_is_expr1"), &v)?;
-    let v_not_expr1 = v_is_expr1.not();
 
-    let otherwise_and_sym = and!(cs, &v_not_expr1, &var_or_rec_binding_is_sym)?;
-    let v_is_expr1_real = and!(cs, &v_is_expr1, &var_or_rec_binding_is_sym)?;
-
-    let var_or_rec_binding_is_cons = alloc_equal(
-        &mut cs.namespace(|| "var_or_rec_binding_is_cons"),
-        var_or_rec_binding.tag(),
-        &g.cons_tag,
-    )?;
-
-    let otherwise_and_cons = and!(
-        cs,
-        &otherwise_and_binding_not_nil,
-        &var_or_rec_binding_is_cons
-    )?;
-
-    let envcaar_not_dummy = and!(cs, &otherwise_and_cons, not_dummy)?;
+    let envcaar_not_dummy = &with_cons_binding;
     let (v2, val2) = car_cdr_named(
         &mut cs.namespace(|| "car_cdr var_or_rec_binding"),
         g,
         &var_or_rec_binding,
         ConsName::EnvCaar,
         allocated_cons_witness,
-        &envcaar_not_dummy,
+        envcaar_not_dummy,
         store,
     )?;
 
     let val2_is_fun = equal!(cs, val2.tag(), &g.fun_tag)?;
     let v2_is_expr = v2.alloc_equal(&mut cs.namespace(|| "v2_is_expr"), expr)?;
-    let v2_is_expr_real = and!(cs, &v2_is_expr, &otherwise_and_cons)?;
+    let v2_is_expr_real = and!(cs, &v2_is_expr, envcaar_not_dummy)?;
 
-    let v2_not_expr = Boolean::not(&v2_is_expr);
-    let otherwise_and_v2_not_expr = and!(cs, &v2_not_expr, &otherwise_and_cons)?;
-
-    let var_or_rec_binding_is_neither = Boolean::not(&or!(
-        cs,
-        &var_or_rec_binding_is_sym,
-        &var_or_rec_binding_is_cons
-    )?);
-
-    let otherwise_neither = and!(
-        cs,
-        &var_or_rec_binding_is_neither,
-        &otherwise_and_binding_not_nil
-    )?;
-
-    let apply_cont_bool0 = or!(cs, &sym_is_self_evaluating, &v_is_expr1_real)?;
-    let apply_cont_bool = or!(cs, &apply_cont_bool0, &v2_is_expr_real)?;
-
-    let apply_cont_num = pick!(cs, &apply_cont_bool, &g.true_num, &g.false_num)?;
-
-    let cont_is_lookup = alloc_equal(
-        &mut cs.namespace(|| "cont_is_lookup"),
-        cont.tag(),
-        &g.lookup_cont_tag,
-    )?;
-
-    let cont_is_lookup_sym = and!(cs, &cont_is_lookup, &otherwise_and_sym)?;
-    let cont_not_lookup_sym = and!(cs, &Boolean::not(&cont_is_lookup), &otherwise_and_sym)?;
-
-    let cont_is_lookup_cons = and!(cs, &cont_is_lookup, &otherwise_and_v2_not_expr)?;
-    let cont_not_lookup_cons = and!(
-        cs,
-        &Boolean::not(&cont_is_lookup),
-        &otherwise_and_v2_not_expr
-    )?;
-
-    let rec_env = binding;
-
-    let extended_env_not_dummy = and!(cs, &val2_is_fun, not_dummy, &v2_is_expr_real)?;
+    let extended_env_not_dummy = and!(cs, &val2_is_fun, &v2_is_expr_real)?;
 
     // NOTE: this allocation is unconstrained. See necessary constraint immediately below.
     let (fun_hash, fun_arg, fun_body, fun_closed_env) = Ptr::allocate_maybe_fun_unconstrained(
@@ -1083,8 +1023,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         witness.as_ref().and_then(|w| w.closure_to_extend.as_ref()),
     )?;
 
-    // Without this, fun is unconstrained.
-    implies_equal!(cs, &extended_env_not_dummy, &fun_hash, val2.hash());
+    let rec_env = binding;
 
     let extended_env = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "extended_env"),
@@ -1095,6 +1034,9 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         allocated_cons_witness,
         &extended_env_not_dummy,
     )?;
+
+    // Without this, fun is unconstrained.
+    implies_equal!(cs, &extended_env_not_dummy, &fun_hash, val2.hash());
 
     let extended_fun = AllocatedPtr::construct_fun(
         &mut cs.namespace(|| "extended_fun"),
@@ -1112,22 +1054,20 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         &val2,
     )?;
 
-    let smaller_rec_env = val_or_more_rec_env;
+    let smaller_rec_env = &val_or_more_rec_env;
     let smaller_rec_env_is_nil =
         smaller_rec_env.alloc_equal(&mut cs.namespace(|| "smaller_rec_env_is_nil"), &g.nil_ptr)?;
     let smaller_rec_env_not_nil = Boolean::not(&smaller_rec_env_is_nil);
 
-    let smaller_rec_env_not_dummy = and!(
-        cs,
-        &smaller_rec_env_not_nil,
-        not_dummy,
-        &otherwise_and_v2_not_expr
-    )?;
+    let v2_not_expr = Boolean::not(&v2_is_expr);
+    let otherwise_and_v2_not_expr = and!(cs, &v2_not_expr, &with_cons_binding)?;
+
+    let smaller_rec_env_not_dummy = and!(cs, &smaller_rec_env_not_nil, &otherwise_and_v2_not_expr)?;
 
     let with_smaller_rec_env = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "with_smaller_rec_env"),
         g,
-        &smaller_rec_env,
+        smaller_rec_env,
         &smaller_env,
         ConsName::EnvToUse,
         allocated_cons_witness,
@@ -1141,99 +1081,29 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         &with_smaller_rec_env
     )?;
 
-    // NOTE: The commented-out implies_equal lines in the rest of this function
-    // indicate the natural structure of this translation from eval.rs.
-    // In order to reduce constraints, duplicated results are factored out below,
-    // but the original structure is left intact so it can be checked against
-    // the manual optimization.
+    let cont_is_lookup = equal!(cs, cont.tag(), &g.lookup_cont_tag)?;
 
-    let cs = &mut cs.namespace(|| "env_is_nil");
-    let cond0 = and!(cs, &env_is_nil, &env_not_dummy)?;
-    {
-        // implies_equal_t!(cs, &cond0, &output_expr, &expr);
-        // implies_equal_t!(cs, &cond0, &output_env, &env);
-        implies_equal_t!(cs, &cond0, output_cont, g.error_ptr);
-    }
+    let needed_env_missing = and!(cs, &sym_is_self_evaluating.not(), &env_is_nil, not_dummy)?;
+    let needed_binding_missing = and!(cs, &main, &binding_is_nil)?;
 
-    let cs = &mut cs.namespace(|| "sym_is_self_evaluating");
-    let cond1 = and!(cs, &sym_is_self_evaluating, not_dummy, &env_not_nil)?;
+    let with_sym_binding_matched = and!(cs, &with_sym_binding, &v_is_expr1)?;
+    let with_sym_binding_unmatched = and!(cs, &with_sym_binding, &v_is_expr1.not())?;
+    let with_sym_binding_unmatched_old_lookup =
+        and!(cs, &with_sym_binding_unmatched, &cont_is_lookup)?;
+    let with_sym_binding_unmatched_new_lookup =
+        and!(cs, &with_sym_binding_unmatched, &cont_is_lookup.not())?;
+    let with_cons_binding_matched = and!(cs, &with_cons_binding, &v2_is_expr)?;
+    let with_cons_binding_unmatched = and!(cs, &with_cons_binding, &v2_is_expr.not())?;
+    let with_cons_binding_unmatched_old_lookup =
+        and!(cs, &with_cons_binding_unmatched, &cont_is_lookup)?;
+    let with_cons_binding_unmatched_new_lookup =
+        and!(cs, &with_cons_binding_unmatched, &cont_is_lookup.not())?;
 
-    {
-        // implies_equal_t!(cs, &cond1, &output_expr, &expr);
-        // implies_equal_t!(cs, &cond1, &output_env, &env);
-        // implies_equal_t!(cs, &cond1, &output_cont, &cont);
-    }
-
-    let cs = &mut cs.namespace(|| "otherwise_and_binding_is_nil");
-    let cond2 = otherwise_and_binding_is_nil;
-    {
-        // let cond = and!(cs, &otherwise_and_binding_is_nil, not_dummy)?;
-
-        // implies_equal_t!(cs, &cond2, &output_expr, &expr);
-        // implies_equal_t!(cs, &cond2, &output_env, &env);
-        implies_equal_t!(cs, &cond2, output_cont, g.error_ptr);
-    }
-    let cs = &mut cs.namespace(|| "v_is_expr1_real");
-
-    let cond3 = v_is_expr1_real;
-    {
-        implies_equal_t!(cs, &cond3, output_expr, val);
-        // implies_equal_t!(cs, &cond3, &output_env, &env);
-        // implies_equal_t!(cs, &cond3, &output_cont, &cont);
-    }
-    let cs = &mut cs.namespace(|| "cont_is_lookup_sym");
-    let cond4 = cont_is_lookup_sym;
-    {
-        // implies_equal_t!(cs, &cond4, &output_expr, &expr);
-        implies_equal_t!(cs, &cond4, output_env, smaller_env);
-
-        //implies_equal_t!(cs, &cond, &output_cont, &cont);
-    }
-    let cs = &mut cs.namespace(|| "cont_not_lookup_sym");
-    let cond5 = and!(cs, &cont_not_lookup_sym, &otherwise)?;
-
-    {
-        // implies_equal_t!(cs, &cond5, &output_expr, &expr);
-        implies_equal_t!(cs, &cond5, output_env, smaller_env);
-        // implies_equal_t!(cs, &cond5, output_cont, lookup_continuation);
-    }
-
-    let cs = &mut cs.namespace(|| "v2_is_expr_real");
-    let cond6 = v2_is_expr_real;
-    {
-        implies_equal_t!(cs, &cond6, output_expr, val_to_use);
-        // implies_equal_t!(cs, &cond6, &output_env, &env);
-        // implies_equal_t!(cs, &cond6, &output_cont, &cont);
-    }
-
-    let cs = &mut cs.namespace(|| "otherwise_and_v2_not_expr");
-    let cond7 = otherwise_and_v2_not_expr;
-    {
-        // implies_equal_t!(cs, &cond7, &output_expr, &expr);
-        implies_equal_t!(cs, &cond7, output_env, env_to_use);
-    }
-
-    let cs = &mut cs.namespace(|| "cont_is_lookup_cons");
-    let cond8 = cont_is_lookup_cons;
-    // {
-    //     // implies_equal_t!(cs, &cond8, &output_cont, &cont);
-    // }
-
-    let cs = &mut cs.namespace(|| "cont_not_lookup_cons");
-    let cond9 = and!(cs, &cont_not_lookup_cons, &otherwise)?;
-    {
-        // implies_equal_t!(cs, &cond9, output_cont, lookup_continuation);
-    }
-
-    let cs = &mut cs.namespace(|| "otherwise_neither");
-    let cond10 = otherwise_neither;
-    {
-        // "Bad form"
-        implies_equal_t!(cs, &cond10, output_cont, g.error_ptr);
-    }
-
-    let lookup_continuation_not_dummy = or!(cs, &cond5, &cond9)?;
-
+    let lookup_continuation_not_dummy = or!(
+        cs,
+        &with_sym_binding_unmatched_new_lookup,
+        &with_cons_binding_unmatched_new_lookup
+    )?;
     let lookup_continuation = AllocatedContPtr::construct_named(
         &mut cs.namespace(|| "lookup_continuation"),
         ContName::Lookup,
@@ -1249,57 +1119,104 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         &lookup_continuation_not_dummy,
     )?;
 
-    implies_equal_t!(
+    let output_expr_is_expr = equal_t!(cs, &output_expr, expr)?;
+    let output_env_is_env = equal_t!(cs, &output_env, env)?;
+    let output_cont_is_cont = equal_t!(cs, &output_cont, cont)?;
+    let output_cont_is_error = equal_t!(cs, &output_cont, &g.error_ptr)?;
+
+    let output_expr_is_val = equal_t!(cs, &output_expr, &val)?;
+    let output_env_is_smaller_env = equal_t!(cs, &output_env, &smaller_env)?;
+    let output_cont_is_lookup = equal_t!(cs, &output_cont, &lookup_continuation)?;
+
+    let output_expr_is_val_to_use = equal_t!(cs, &output_expr, &val_to_use)?;
+    let output_env_is_env_to_use = equal_t!(cs, &output_env, &env_to_use)?;
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // The way it should be.
+
+    // expr
+    let output_expr_should_be_expr = or!(
         cs,
-        &lookup_continuation_not_dummy,
-        output_cont,
-        lookup_continuation
+        &needed_env_missing,
+        &sym_is_self_evaluating,
+        &needed_binding_missing,
+        &with_sym_binding_unmatched,
+        &with_cons_binding_unmatched
+    )?;
+
+    let output_expr_should_be_val = with_sym_binding_matched.clone();
+    let output_expr_should_be_val_to_use = with_cons_binding_matched.clone();
+
+    // env
+    let output_env_should_be_env = or!(
+        cs,
+        &needed_binding_missing,
+        &needed_env_missing,
+        &sym_is_self_evaluating,
+        &with_sym_binding_matched,
+        &with_cons_binding_matched
+    )?;
+
+    let output_env_should_be_smaller_env = with_sym_binding_unmatched;
+    let output_env_should_be_env_to_use = with_cons_binding_unmatched_new_lookup;
+
+    // cont
+    let output_cont_should_be_cont = or!(
+        cs,
+        &sym_is_self_evaluating,
+        &with_sym_binding_matched,
+        &with_sym_binding_unmatched_old_lookup,
+        &with_cons_binding_matched,
+        &with_cons_binding_unmatched_old_lookup
+    )?;
+
+    let output_cont_should_be_error = or!(
+        cs,
+        &with_other_binding,
+        &needed_env_missing,
+        &needed_binding_missing
+    )?;
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // "Because of the implication(s)."
+
+    // expr
+    implies!(cs, &output_expr_should_be_expr, &output_expr_is_expr);
+    implies!(cs, &output_expr_should_be_val, &output_expr_is_val);
+    implies!(
+        cs,
+        &output_expr_should_be_val_to_use,
+        &output_expr_is_val_to_use
     );
 
-    let conda = or!(cs, &cond1, &sym_is_self_evaluating)?; // cond1, cond2, sym_is_self_evaluating,
-    let condb = or!(cs, &cond4, &cond6)?; // cond4, cond6
-    let condc = or!(cs, &conda, &cond8)?; // cond1, cond2, cond8, sym_is_self_evaluating
+    // env
+    implies!(cs, &output_env_should_be_env, &output_env_is_env);
+    implies!(
+        cs,
+        &output_env_should_be_smaller_env,
+        &output_env_is_smaller_env
+    );
+    implies!(
+        cs,
+        &output_env_should_be_env_to_use,
+        &output_env_is_env_to_use
+    );
 
-    let condw = or!(cs, &cond0, &cond2)?; // cond0, cond2
-    let condx = or!(cs, &cond5, &cond4, &condw)?; // cond0, cond2, cond4, cond5
-    let condy = or!(cs, &cond3, &cond6, &condw)?; // cond0, cond2, cond3, cond6
+    // cont
+    implies!(cs, &output_cont_should_be_cont, &output_cont_is_cont);
+    implies!(cs, &output_cont_should_be_error, &output_cont_is_error);
+    implies!(cs, &lookup_continuation_not_dummy, &output_cont_is_lookup);
 
-    // cond1, cond2, cond4, cond5 // cond_expr
-    let cond_expr = or!(cs, &conda, &condx, &cond7, &cond10)?; // cond0, cond1, cond2, cond4, cond5, sym_is_self_evaluating
-    implies_equal_t!(cs, &cond_expr, output_expr, expr);
+    ////////////////////////////////////////////////////////////////////////////////
+    // Are we proving Control::ApplyContinuation?
+    let apply_cont_bool = or!(
+        cs,
+        &with_cons_binding_matched,
+        &with_sym_binding_matched,
+        &sym_is_self_evaluating
+    )?;
 
-    // cond1, cond2, cond3, cond6 // cond_env
-    let cond_env = or!(cs, &conda, &condy)?; // cond0, cond1, cond2, cond3, cond6, sym_is_self_evaluating
-    implies_equal_t!(cs, &cond_env, output_env, env);
-
-    // cond1, cond3, cond4, cond6, cond // cond_cont
-    let cond_cont = or!(cs, &condb, &condc, &cond3)?; // cond1, cond2, cond4, cond6, cond8, sym_is_self_evaluating
-    implies_equal_t!(cs, &cond_cont, output_cont, cont);
-
-    // Debugging
-    //
-    // let output_expr_is_constrained = or!(cs, &cond_expr, &cond3, &cond6, &not_dummy.not())?;
-    // if !output_expr_is_constrained.get_value().unwrap_or(true) {
-    //     panic!("output_expr is mistakenly unconstrained.");
-    // }
-    // let output_env_is_constrained = or!(cs, &cond_env, &cond4, &cond5, &cond7, &not_dummy.not())?;
-    // if !output_env_is_constrained.get_value().unwrap_or(true) {
-    //     panic!("output_env is mistakenly unconstrained.");
-    // }
-    // let output_cont_is_constrained = or!(
-    //     cs,
-    //     &cond_cont,
-    //     &cond0,
-    //     &cond1,
-    //     &cond2,
-    //     &cond10,
-    //     &lookup_continuation_not_dummy,
-    //     &not_dummy.not()
-    // )?;
-    // if !output_cont_is_constrained.get_value().unwrap_or(true) {
-    //     panic!("output_cont is mistakenly unconstrained.");
-    // }
-
+    let apply_cont_num = boolean_num!(cs, &apply_cont_bool)?;
     Ok((output_expr, output_env, output_cont, apply_cont_num))
 }
 
@@ -4845,9 +4762,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(11569, cs.num_constraints());
+            assert_eq!(11532, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(11187, cs.aux().len());
+            assert_eq!(11159, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
