@@ -1023,6 +1023,9 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         witness.as_ref().and_then(|w| w.closure_to_extend.as_ref()),
     )?;
 
+    // Without this, fun is unconstrained.
+    implies_equal!(cs, &extended_env_not_dummy, &fun_hash, val2.hash());
+
     let rec_env = binding;
 
     let extended_env = AllocatedPtr::construct_cons_named(
@@ -1034,9 +1037,6 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         allocated_cons_witness,
         &extended_env_not_dummy,
     )?;
-
-    // Without this, fun is unconstrained.
-    implies_equal!(cs, &extended_env_not_dummy, &fun_hash, val2.hash());
 
     let extended_fun = AllocatedPtr::construct_fun(
         &mut cs.namespace(|| "extended_fun"),
