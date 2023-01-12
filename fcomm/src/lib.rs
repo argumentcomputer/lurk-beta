@@ -30,7 +30,7 @@ use lurk::{
     store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store, Tag},
     writer::Write,
 };
-pub(crate) use once_cell::sync::OnceCell;
+use once_cell::sync::OnceCell;
 use pairing_lib::{Engine, MultiMillerLoop};
 use rand::rngs::OsRng;
 use serde::de::DeserializeOwned;
