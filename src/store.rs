@@ -1994,7 +1994,6 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn car_cdr(&self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
-        // FIXME: Maybe make error.
         match ptr.0 {
             Tag::Nil => Ok((self.get_nil(), self.get_nil())),
             Tag::Cons => match self.fetch(ptr) {
@@ -2016,11 +2015,7 @@ impl<F: LurkField> Store<F> {
                     panic!();
                 }
             }
-            _ => {
-                // FIXME: Don't panic. This can happen at runtime in a valid Lurk program,
-                // so it should result in an explicit error.
-                Err(Error("Can only extract car_cdr from Cons".into()))
-            }
+            _ => Err(Error("Can only extract car_cdr from Cons".into())),
         }
     }
 
