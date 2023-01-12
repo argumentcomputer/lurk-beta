@@ -18,8 +18,8 @@ pub enum ProofError {
 
 #[derive(Error, Debug, Clone)]
 pub enum LurkError {
-    #[error("Evaluation error: {0}")]
-    Eval(String),
+    #[error("Reduction error: {0}")]
+    Reduce(String),
     #[error("Lookup error: {0}")]
     Store(#[from] store::Error),
     #[error("Parser error: {0}")]

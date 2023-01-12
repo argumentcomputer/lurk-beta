@@ -603,7 +603,7 @@ fn reduce_with_witness_control<F: LurkField>(
                                         }
                                     }
                                     _ => {
-                                        return Err(ReduceError::Lurk(LurkError::Eval(
+                                        return Err(ReduceError::Lurk(LurkError::Reduce(
                                             "Bad form.".into(),
                                         )))
                                     }
@@ -1292,12 +1292,10 @@ fn apply_continuation<F: LurkField>(
                                 .get_expr_hash(result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
                             store.get_char(
-                                char::from_u32(
-                                    scalar_ptr.value().to_u32().ok_or_else(|| {
-                                        LurkError::Eval("Ptr is invalid u32".into())
-                                    })?,
-                                )
-                                .ok_or_else(|| LurkError::Eval("u32 is invalid char".into()))?,
+                                char::from_u32(scalar_ptr.value().to_u32().ok_or_else(|| {
+                                    LurkError::Reduce("Ptr is invalid u32".into())
+                                })?)
+                                .ok_or_else(|| LurkError::Reduce("u32 is invalid char".into()))?,
                             )
                         }
                         _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
@@ -1791,7 +1789,7 @@ fn extend_closure<F: LurkField>(
             }
             _ => unreachable!(),
         },
-        _ => Err(LurkError::Eval(format!(
+        _ => Err(LurkError::Reduce(format!(
             "extend_closure received non-Fun: {:?}",
             fun
         ))),
