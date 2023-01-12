@@ -329,7 +329,7 @@ pub enum Error {
     SynthesisError(SynthesisError),
     CommitmentParseError(hex::FromHexError),
     UnknownCommitment,
-    OpeningFailure,
+    OpeningFailure(String),
     EvaluationFailure,
 }
 
@@ -687,8 +687,18 @@ impl Opening<Scalar> {
 
             // public_output = (result_expr (secret . new_fun))
             let cons = public_output.expr;
-            let result_expr = s.car(&cons).map_err(|_| Error::EvaluationFailure)?;
-            let new_comm = s.cdr(&cons).map_err(|_| Error::EvaluationFailure)?;
+            let result_expr = s.car(&cons).map_err(|e| {
+                Error::OpeningFailure(format!(
+                    "Failed desctructuring failed commitment output: {}",
+                    e.to_string()
+                ))
+            })?;
+            let new_comm = s.cdr(&cons).map_err(|e| {
+                Error::OpeningFailure(format!(
+                    "Failed desctructuring failed commitment output: {}",
+                    e.to_string()
+                ))
+            })?;
 
             let new_secret0 = s.secret(new_comm).expect("secret missing");
             let new_secret = *s.get_expr_hash(&new_secret0).expect("hash missing").value();
@@ -842,7 +852,7 @@ impl Proof<Bls12> {
         match &proof.claim {
             Claim::Opening(o) => {
                 if o.status != Status::Terminal {
-                    return Err(Error::OpeningFailure);
+                    return Err(Error::OpeningFailure("Claim status is not Terminal".into()));
                 };
             }
             Claim::Evaluation(e) => {
