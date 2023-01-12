@@ -120,10 +120,7 @@ pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
                         if is_meta {
                             repl.state.handle_meta(&mut s, expr, &package, p)?
                         } else {
-                            if let Err(e) = repl.state.handle_non_meta(&mut s, expr, false) {
-                                println!("Evaluation error: {}", e);
-                            }
-                            continue;
+                            repl.state.handle_non_meta(&mut s, expr, false)?
                         }
                     }
                     Err(parser::Error::NoInput) => {
@@ -354,7 +351,10 @@ impl<F: LurkField> ReplState<F> {
 
                 Ok(())
             }
-            Err(e) => Err(e.into()),
+            Err(e) => {
+                println!("Evaluation error: {:?}", e);
+                Err(e.into())
+            }
         }
     }
 
