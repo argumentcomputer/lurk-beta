@@ -294,9 +294,8 @@ mod tests {
     };
     use pallas::Scalar as Fr;
 
-    // FIXME: This is failing with values of (at least) 1, 2.
     const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
-
+    const CHUNK_FRAME_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
     fn nova_test_aux(
         s: &mut Store<Fr>,
         expr: &str,
@@ -306,18 +305,20 @@ mod tests {
         expected_emitted: Option<Vec<Ptr<Fr>>>,
         expected_iterations: usize,
     ) {
-        nova_test_full_aux(
-            s,
-            expr,
-            expected_result,
-            expected_env,
-            expected_cont,
-            expected_emitted,
-            expected_iterations,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            false,
-            None,
-        )
+        for chunk_size in CHUNK_FRAME_COUNTS_TO_TEST {
+            nova_test_full_aux(
+                s,
+                expr,
+                expected_result,
+                expected_env,
+                expected_cont,
+                expected_emitted.as_ref(),
+                expected_iterations,
+                chunk_size,
+                false,
+                None,
+            )
+        }
     }
 
     fn nova_test_full_aux(
@@ -326,7 +327,7 @@ mod tests {
         expected_result: Option<Ptr<Fr>>,
         expected_env: Option<Ptr<Fr>>,
         expected_cont: Option<ContPtr<Fr>>,
-        expected_emitted: Option<Vec<Ptr<Fr>>>,
+        expected_emitted: Option<&Vec<Ptr<Fr>>>,
         expected_iterations: usize,
         chunk_frame_count: usize,
         check_nova: bool,
@@ -375,7 +376,7 @@ mod tests {
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize blank");
 
-        for (i, multiframe) in multiframes.iter().enumerate() {
+        for (_i, multiframe) in multiframes.iter().enumerate() {
             let mut cs = TestConstraintSystem::new();
             multiframe.clone().synthesize(&mut cs).unwrap();
 
@@ -383,7 +384,7 @@ mod tests {
                 assert!(prev.precedes(&multiframe));
             }
 
-            dbg!(i);
+            // dbg!(i);
             assert!(cs.is_satisfied());
             assert!(cs.verify(&multiframe.public_inputs()));
 
@@ -400,7 +401,7 @@ mod tests {
                 .iter()
                 .flat_map(|frame| frame.output.maybe_emitted_expression(&s))
                 .collect();
-            assert_eq!(expected_emitted, emitted_vec);
+            assert_eq!(expected_emitted, &emitted_vec);
         }
 
         if let Some(expected_result) = expected_result {
@@ -2060,6 +2061,32 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_car_cdr_of_cons() {
+        let s = &mut Store::<Fr>::default();
+        let res1 = s.num(1);
+        let res2 = s.num(2);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
+            r#"(car (cons 1 2))"#,
+            Some(res1),
+            None,
+            Some(terminal),
+            None,
+            5,
+        );
+        nova_test_aux(
+            s,
+            r#"(cdr (cons 1 2))"#,
+            Some(res2),
+            None,
+            Some(terminal),
+            None,
+            5,
+        );
+    }
+
+    #[test]
     fn outer_prove_car_cdr_invalid_tag_error_lambda() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
@@ -2090,6 +2117,14 @@ mod tests {
         let expected = s.num(456);
         let terminal = s.get_cont_terminal();
         nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
+    }
+
+    #[test]
+    fn outer_prove_hide_wrong_secret_type() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(hide 'x 456)";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 3);
     }
 
     #[test]
@@ -2550,7 +2585,7 @@ mod tests {
     #[test]
     fn outer_prove_test_eval() {
         let s = &mut Store::<Fr>::default();
-        let expr = "(* 3 (eval (cons '+ (cons 1 (cons 2 nil)))))";
+        let expr = "(* 3 (eval  (cons '+ (cons 1 (cons 2 nil)))))";
         let expr2 = "(* 5 (eval '(+ 1 a) '((a . 3))))"; // two-arg eval, optional second arg is env.
         let res = s.num(9);
         let res2 = s.num(20);
@@ -2581,8 +2616,7 @@ mod tests {
     // The following functional commitment tests were discovered to fail. They are commented out (as tests) for now so
     // they can be addressed independently in future work.
 
-    // #[test]
-    #[allow(dead_code)]
+    #[test]
     fn outer_prove_functional_commitment() {
         let s = &mut Store::<Fr>::default();
 
@@ -2595,8 +2629,8 @@ mod tests {
         nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 25);
     }
 
-    // #[test]
-    #[allow(dead_code)]
+    #[test]
+    #[ignore]
     fn outer_prove_complicated_functional_commitment() {
         let s = &mut Store::<Fr>::default();
 
@@ -2638,5 +2672,60 @@ mod tests {
         let terminal = s.get_cont_terminal();
 
         nova_test_aux(s, expr, None, None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_reduce_sym_contradiction_regression() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(eval 'a '(nil))";
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, None, None, Some(error), None, 4);
+    }
+
+    #[test]
+    fn outer_prove_test_self_eval_env_not_nil() {
+        let s = &mut Store::<Fr>::default();
+
+        // NOTE: cond1 shouldn't depend on env-is-not-nil
+        // therefore this unit test is not very useful
+        // the conclusion is that by removing condition env-is-not-nil from cond1,
+        // we solve this soundness problem
+        // this solution makes the circuit a bit smaller
+        let expr = "(let ((a 1)) t)";
+
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, None, None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_self_eval_nil() {
+        let s = &mut Store::<Fr>::default();
+
+        // nil doesn't have SYM tag
+        let expr = "nil";
+
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, None, None, Some(terminal), None, 1);
+    }
+
+    #[test]
+    fn outer_prove_test_env_not_nil_and_binding_nil() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(let ((a 1) (b 2)) c)";
+
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 7);
+    }
+
+    #[test]
+    fn outer_prove_test_eval_bad_form() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env.
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, None, None, Some(error), None, 8);
     }
 }

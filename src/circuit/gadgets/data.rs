@@ -9,9 +9,7 @@ use neptune::{
 
 use super::pointer::AsAllocatedHashComponents;
 use crate::field::LurkField;
-use crate::store::{
-    ContPtr, ContTag, Expression, HashScalar, Op1, Op2, Pointer, Ptr, Store, Tag, Thunk,
-};
+use crate::store::{ContTag, Expression, HashScalar, Op1, Op2, Pointer, Ptr, Store, Tag, Thunk};
 use crate::store::{IntoHashComponents, ScalarPtr};
 use crate::store::{ScalarContPtr, ScalarPointer};
 
@@ -403,75 +401,8 @@ pub fn hash_poseidon<CS: ConstraintSystem<F>, F: LurkField, A: Arity<F>>(
     poseidon_hash(cs, preimage, constants)
 }
 
-impl<F: LurkField> ContPtr<F> {
-    pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<F>>(
-        cs: CS,
-        cont: Option<&ContPtr<F>>,
-        store: &Store<F>,
-    ) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {
-        if let Some(cont) = cont {
-            cont.allocate_components(cs, store)
-        } else {
-            ContPtr::allocate_dummy_components(cs, store)
-        }
-    }
-
-    fn allocate_components<CS: ConstraintSystem<F>>(
-        &self,
-        mut cs: CS,
-        store: &Store<F>,
-    ) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {
-        let component_frs = store
-            .get_hash_components_cont(self)
-            .expect("missing hash components");
-
-        let components: Vec<_> = component_frs
-            .iter()
-            .enumerate()
-            .map(|(i, fr)| {
-                AllocatedNum::alloc(
-                    &mut cs.namespace(|| format!("alloc component {}", i)),
-                    || Ok(*fr),
-                )
-            })
-            .collect::<Result<_, _>>()?;
-
-        let hash = hash_poseidon(
-            cs.namespace(|| "Continuation"),
-            components.clone(),
-            store.poseidon_constants().c8(),
-        )?;
-
-        Ok((hash, components))
-    }
-
-    fn allocate_dummy_components<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        store: &Store<F>,
-    ) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {
-        let result: Vec<_> = (0..8)
-            .map(|i| {
-                AllocatedNum::alloc(
-                    cs.namespace(|| format!("Continuation component {}", i)),
-                    || Ok(F::zero()),
-                )
-            })
-            .collect::<Result<_, _>>()?;
-
-        // We need to create these constraints, but eventually we can avoid doing any calculation.
-        // We just need a precomputed dummy witness.
-        let dummy_hash = hash_poseidon(
-            cs.namespace(|| "Continuation"),
-            result.clone(),
-            store.poseidon_constants().c8(),
-        )?;
-
-        Ok((dummy_hash, result))
-    }
-}
-
 impl<F: LurkField> Ptr<F> {
-    pub fn allocate_maybe_fun<CS: ConstraintSystem<F>>(
+    pub fn allocate_maybe_fun_unconstrained<CS: ConstraintSystem<F>>(
         cs: CS,
         store: &Store<F>,
         maybe_fun: Option<&Ptr<F>>,

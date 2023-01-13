@@ -37,7 +37,7 @@ macro_rules! if_then_else {
 }
 
 // If expression.
-macro_rules! ifx {
+macro_rules! pick {
     ($cs:ident, $a:expr, $b:expr, $c:expr) => {{
         let a = $a;
         let b = $b;
@@ -54,7 +54,7 @@ macro_rules! ifx {
     }};
 }
 
-macro_rules! ifx_t {
+macro_rules! pick_ptr {
     ($cs:ident, $a:expr, $b:expr, $c:expr) => {{
         let a = $a;
         let b = $b;
@@ -73,7 +73,7 @@ macro_rules! ifx_t {
 
 // Allocates a bit (returned as Boolean) which is true if a and b are equal.
 macro_rules! equal {
-    ($cs:ident, $a:expr, $b:expr) => {
+    ($cs:expr, $a:expr, $b:expr) => {
         alloc_equal(
             $cs.namespace(|| format!("{} equal {}", stringify!($a), stringify!($b))),
             $a,
@@ -93,14 +93,21 @@ macro_rules! equal_t {
 }
 
 macro_rules! implies_equal {
-    ($cs:ident, $condition:expr, $a: expr, $b: expr) => {
+    ($cs:ident, $condition:expr, $a: expr, $b: expr) => {{
         let equal = equal!($cs, $a, $b)?;
         enforce_implication(
-            $cs.namespace(|| format!("implies_equal {} {}", stringify!($a), stringify!($b))),
+            $cs.namespace(|| {
+                format!(
+                    "implies_equal: {} => {} == {}",
+                    stringify!($condition),
+                    stringify!($a),
+                    stringify!($b)
+                )
+            }),
             $condition,
             &equal,
         )?;
-    };
+    }};
 }
 
 macro_rules! implies_equal_t {
@@ -108,16 +115,39 @@ macro_rules! implies_equal_t {
         let equal = equal_t!($cs, $a, $b)?;
 
         enforce_implication(
-            $cs.namespace(|| format!("implies_equal_t {} {}", stringify!($a), stringify!($b))),
+            $cs.namespace(|| {
+                format!(
+                    "implies_equal_t: {} => {} == {}",
+                    stringify!($condition),
+                    stringify!($a),
+                    stringify!($b)
+                )
+            }),
             $condition,
             &equal,
         )?;
     };
 }
 
+macro_rules! implies {
+    ($cs:ident, $condition:expr, $implication:expr) => {{
+        enforce_implication(
+            $cs.namespace(|| {
+                format!(
+                    "implies: {} => {}",
+                    stringify!($condition),
+                    stringify!($implication)
+                )
+            }),
+            $condition,
+            $implication,
+        )?;
+    }};
+}
+
 // Returns a Boolean which is true if all of its arguments are true.
 macro_rules! and {
-    ($cs:ident, $a:expr, $b:expr) => {
+    ($cs:expr, $a:expr, $b:expr) => {
         Boolean::and(
             $cs.namespace(|| format!("{} and {}", stringify!($a), stringify!($b))),
             $a,
@@ -173,14 +203,14 @@ macro_rules! equal_t {
 
 // Returns a Boolean which is true if any of its arguments are true.
 macro_rules! or {
-    ($cs:ident, $a:expr, $b:expr) => {
+    ($cs:expr, $a:expr, $b:expr) => {
         or(
             $cs.namespace(|| format!("{} or {}", stringify!($a), stringify!($b))),
             $a,
             $b,
         )
     };
-    ($cs:ident, $a:expr, $($x:expr),+) => {{
+    ($cs:expr, $a:expr, $($x:expr),+) => {{
         // This namespace isn't necessarily unique, so some debugging/tuning could be required,
         // if multiple `or!`s at the same level have the same first argument.
         //
@@ -195,7 +225,7 @@ macro_rules! or {
 // Enforce that x is true.
 macro_rules! is_true {
     ($cs:ident, $x:expr) => {
-        enforce_true($cs.namespace(|| format!("{} is true!", stringify!($x))), $x);
+        enforce_true($cs.namespace(|| format!("{} is true!", stringify!($x))), $x)
     };
 }
 
@@ -223,6 +253,15 @@ macro_rules! allocate_continuation_tag {
         AllocatedNum::alloc(
             $cs.namespace(|| format!("{} continuation tag", stringify!($continuation_tag))),
             || Ok($continuation_tag.cont_tag_fr()),
+        )
+    };
+}
+
+macro_rules! boolean_num {
+    ($cs:expr, $boolean:expr) => {
+        boolean_to_num(
+            $cs.namespace(|| format!("boolean_num({})", stringify!($boolean))),
+            $boolean,
         )
     };
 }
