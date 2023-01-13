@@ -18,26 +18,20 @@ use crate::{
 };
 
 use super::gadgets::constraints::{
-    self, alloc_equal, alloc_is_zero, boolean_to_num, enforce_implication, or, pick,
-};
-use crate::circuit::{
-    gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness},
-    ToInputs,
+    self, alloc_equal, alloc_is_zero, enforce_implication, or, pick,
 };
 use crate::circuit::circuit_frame::constraints::{
     add, allocate_is_negative, boolean_summation, boolean_to_num, enforce_true,
     enforce_u64_div_mod, mul,
 };
-use crate::circuit::gadgets::case::multi_case_aux;
-use crate::circuit::{gadgets::hashes::AllocatedHashWitness, ToInputs};
+use crate::circuit::gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness};
+use crate::circuit::ToInputs;
 use crate::eval::{Frame, Witness, IO};
 use crate::hash_witness::HashWitness;
 use crate::proof::Provable;
-use crate::store::{ContPtr, ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
+use crate::store::{ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
 use num_bigint::BigUint;
 use num_integer::Integer;
-use num_traits::identities::Zero;
-use num_traits::One;
 use num_traits::FromPrimitive;
 
 #[derive(Clone, Copy, Debug)]
@@ -3913,118 +3907,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             op2.tag(),
         )?;
 
-        let diff_is_positive = Boolean::and(
-            &mut cs.namespace(|| "diff is positive"),
-            &diff_is_negative.not(),
-            &diff_is_zero.not(),
-        )?;
-
-        let diff_is_not_negative = diff_is_negative.not();
-
-        let both_same_sign = Boolean::xor(
-            &mut cs.namespace(|| "both same sign"),
-            a_is_negative,
-            b_is_negative,
-        )?
-        .not();
-
-        let a_negative_and_b_not_negative = Boolean::and(
-            &mut cs.namespace(|| "a negative and b not negative"),
-            a_is_negative,
-            &b_is_negative.not(),
-        )?;
-
-        let alloc_num_diff_is_negative = boolean_to_num(
-            &mut cs.namespace(|| "Allocate num for diff_is_negative"),
-            diff_is_negative,
-        )?;
-
-        let alloc_num_diff_is_not_positive = boolean_to_num(
-            &mut cs.namespace(|| "Allocate num for diff_is_not_positive"),
-            &diff_is_not_positive,
-        )?;
-
-        let alloc_num_diff_is_positive = boolean_to_num(
-            &mut cs.namespace(|| "Allocate num for diff_is_positive"),
-            &diff_is_positive,
-        )?;
-
-        let alloc_num_diff_is_not_negative = boolean_to_num(
-            &mut cs.namespace(|| "Allocate num for diff_is_not_negative"),
-            &diff_is_not_negative,
-        )?;
-
-        let mut comp_results = CompResults::default();
-        comp_results.add_clauses_comp(
-            Op2::Less.as_field(),
-            &alloc_num_diff_is_negative,
-            &g.true_num,
-            &g.false_num,
-        );
-        comp_results.add_clauses_comp(
-            Op2::LessEqual.as_field(),
-            &alloc_num_diff_is_not_positive,
-            &g.true_num,
-            &g.false_num,
-        );
-        comp_results.add_clauses_comp(
-            Op2::Greater.as_field(),
-            &alloc_num_diff_is_positive,
-            &g.false_num,
-            &g.true_num,
-        );
-        comp_results.add_clauses_comp(
-            Op2::GreaterEqual.as_field(),
-            &alloc_num_diff_is_not_negative,
-            &g.false_num,
-            &g.true_num,
-        );
-
-        let comparison_defaults = [&g.default_num, &g.default_num, &g.default_num];
-
-        let comp_clauses = [
-            &comp_results.same_sign[..],
-            &comp_results.a_neg_and_b_not_neg[..],
-            &comp_results.a_not_neg_and_b_neg[..],
-        ];
-
-        let comparison_result = multi_case_aux(
-            &mut cs.namespace(|| "comparison multicase results"),
-            op2.tag(),
-            &comp_clauses,
-            &comparison_defaults,
-            g,
-        )?;
-
-        let comp_val_same_sign_num = comparison_result.0[0].clone();
-        let comp_val_a_neg_and_b_not_neg_num = comparison_result.0[1].clone();
-        let comp_val_a_not_neg_and_b_neg_num = comparison_result.0[2].clone();
-        let is_comparison_tag = comparison_result.1.not();
-
-        let comp_val1 = pick(
-            &mut cs.namespace(|| "comp_val1"),
-            &a_negative_and_b_not_negative,
-            &comp_val_a_neg_and_b_not_neg_num,
-            &comp_val_a_not_neg_and_b_neg_num,
-        )?;
-        let comp_val2 = pick(
-            &mut cs.namespace(|| "comp_val2"),
-            &both_same_sign,
-            &comp_val_same_sign_num,
-            &comp_val1,
-        )?;
-
-        let comp_val_is_zero = alloc_is_zero(&mut cs.namespace(|| "comp_val_is_zero"), &comp_val2)?;
-
-        let comp_val = AllocatedPtr::pick(
-            &mut cs.namespace(|| "comp_val"),
-            &comp_val_is_zero,
-            &g.nil_ptr,
-            &g.t_ptr,
-        )?;
-
-        ///////////////////////////////////////////////////////////////////////
-
         let field_arithmetic_result = AllocatedPtr::pick(
             &mut cs.namespace(|| "field arithmetic result"),
             &is_comparison_tag,
@@ -4046,7 +3928,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let diff_is_negative_and_op2_is_diff = Boolean::and(
             &mut cs.namespace(|| "diff is negative and op2 is diff"),
-            diff_is_negative,
+            &diff_is_negative,
             &op2_is_diff,
         )?;
 
@@ -4147,16 +4029,22 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 &Boolean::not(&is_cons_or_strcons_or_hide_or_equal_or_num_equal),
             )?;
 
+        let invalid_secret_tag_hide = Boolean::and(
+            &mut cs.namespace(|| "invalid_secret_tag_hide"),
+            &arg1_is_u64,
+            &op2_is_hide,
+        )?;
+
         let op2_is_hide_and_arg1_is_not_num = and!(cs, &op2_is_hide, &arg1_is_num.not())?;
 
         let any_error = or!(
             cs,
             &Boolean::not(&valid_types_and_not_div_by_zero),
-            &op2_not_num_or_u64_and_cons_or_strcons_or_hide_or_equal_or_num_equal,
+            &op2_not_num_or_u64_and_not_cons_or_strcons_or_hide_or_equal_or_num_equal,
             &invalid_strcons_tag,
             &op2_is_hide_and_arg1_is_not_num,
             &op2_is_mod_and_args_are_not_u64s,
-            &invalid_secret_tag_hide,
+            &invalid_secret_tag_hide
         )?;
 
         let op2_is_eval = alloc_equal(cs.namespace(|| "op2_is_eval"), op2.tag(), &g.op2_eval_tag)?;
@@ -4499,11 +4387,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let tag_is_num_or_comm_or_char_or_u64 = or!(cs, &tag_is_num_or_comm_or_char, &tag_is_u64)?;
 
         let comm_invalid_tag_error = and!(cs, &tag_is_num_or_comm.not(), &op1_is_comm)?;
-        let num_invalid_tag_error = and!(cs, &tag_is_num_or_comm_or_char_or_u64.not(), &op1_is_num)?;
+        let num_invalid_tag_error =
+            and!(cs, &tag_is_num_or_comm_or_char_or_u64.not(), &op1_is_num)?;
         let char_invalid_tag_error = and!(cs, &tag_is_num_or_char.not(), &op1_is_char)?;
         let open_invalid_tag_error = and!(cs, &tag_is_num_or_comm.not(), &op1_is_open)?;
         let secret_invalid_tag_error = and!(cs, &tag_is_num_or_comm.not(), &op1_is_secret)?;
-        let u64_invalid_tag_error = and!(cs, &tag_is_u64, &tag_is_num.not())?;
+        let u64_invalid_tag_error = and!(cs, &op1_is_u64, &tag_is_num.not())?;
 
         let any_error = or!(
             cs,
@@ -4513,7 +4402,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &char_invalid_tag_error,
             &open_invalid_tag_error,
             &secret_invalid_tag_error,
-            &u64_invalid_tag_error,
+            &u64_invalid_tag_error
         )?;
 
         let the_expr = pick_ptr!(cs, &any_error, result, &unop_val)?;
@@ -4632,68 +4521,6 @@ fn to_num<F: LurkField>(x: &AllocatedPtr<F>, g: &GlobalAllocations<F>) -> Alloca
 // Return an AllocatedPtr representing a Comm whose value is the same as x's.
 fn to_comm<F: LurkField>(x: &AllocatedPtr<F>, g: &GlobalAllocations<F>) -> AllocatedPtr<F> {
     AllocatedPtr::from_parts(&g.comm_tag, x.hash())
-}
-
-fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    g: &GlobalAllocations<F>,
-    maybe_u64: &AllocatedPtr<F>,
-    store: &Store<F>,
-) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let p64_bn = match g.power2_64_num.get_value() {
-        Some(v) => BigUint::from_bytes_le(v.to_repr().as_ref()),
-        // Since it is will be in the denominator, it can't be zero
-        None => BigUint::one(), // blank and dummy
-    };
-    let v = match maybe_u64.hash().get_value() {
-        Some(v) => v,
-        None => F::zero(),
-    };
-    let u64_ptr = store.get_u64(v.to_u64_unchecked());
-    let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
-
-    let (q_bn, r_bn) = field_bn.div_rem(&p64_bn);
-
-    let q_num = bn_to_num(&mut cs.namespace(|| "q"), q_bn)?;
-    let r_num = bn_to_num(&mut cs.namespace(|| "r"), r_bn)?;
-    let p64_num = bn_to_num(&mut cs.namespace(|| "p64"), p64_bn)?;
-
-    // a = b.q + r
-    let product = constraints::mul(
-        &mut cs.namespace(|| "product(q,pow(2,64))"),
-        &q_num,
-        &p64_num,
-    )?;
-    let sum = constraints::add(&mut cs.namespace(|| "sum remainder"), &product, &r_num)?;
-    let u64_decomp = alloc_equal(
-        &mut cs.namespace(|| "check u64 decomposition"),
-        &sum,
-        maybe_u64.hash(),
-    )?;
-    constraints::enforce_true(
-        &mut cs.namespace(|| "enforce u64 decomposition"),
-        &u64_decomp,
-    )?;
-
-    // enforce remainder range
-    enforce_n_bits(
-        &mut cs.namespace(|| "remainder u64 range"),
-        g,
-        r_num.clone(),
-        64,
-    )?;
-
-    let output = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "u64_op"), store, || Ok(&u64_ptr))?;
-    let u64_is_remainder = alloc_equal(
-        &mut cs.namespace(|| "check u64 value is the remainder"),
-        &r_num,
-        output.hash(),
-    )?;
-    constraints::enforce_true(
-        &mut cs.namespace(|| "enforce u64 decomposition output"),
-        &u64_is_remainder,
-    )?;
-    Ok(output)
 }
 
 // Return an AllocatedPtr representing a Char whose value is the same as x's.
@@ -4866,130 +4693,6 @@ pub fn enforce_at_most_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
     n: usize,
 ) -> Result<(), SynthesisError> {
     let num_bits = num.to_bits_le(&mut cs.namespace(|| "u64 remainder bit decomp"))?;
-    let v = num_bits[(n + 1)..255].to_vec();
-    constraints::boolean_summation(&mut cs.namespace(|| "add all MSBs"), &v, &g.false_num);
-    Ok(())
-}
-
-// Enforce div/mod operation for U64. We need to show that
-// arg1 = q.arg2 + r, such that 0 <= r < b
-fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    g: &GlobalAllocations<F>,
-    cond: Boolean,
-    arg1: &AllocatedPtr<F>,
-    arg2: &AllocatedPtr<F>,
-    store: &Store<F>,
-) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
-    let arg1_u64 = match arg1.hash().get_value() {
-        Some(v) => v.to_u64_unchecked(),
-        None => 0, // Blank and Dummy
-    };
-    let arg2_u64 = match arg2.hash().get_value() {
-        Some(v) => v.to_u64_unchecked(),
-        None => 0, // Blank and Dummy
-    };
-
-    let (q, r) = if arg2_u64 != 0 {
-        (arg1_u64 / arg2_u64, arg1_u64 % arg2_u64)
-    } else {
-        (0, 0)
-    };
-
-    let r_ptr = store.get_u64(r);
-    let alloc_r =
-        AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "u64 remainder"), store, || Ok(&r_ptr))?;
-
-    let q_ptr = store.get_u64(q);
-    let alloc_q =
-        AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "u64 quotient"), store, || Ok(&q_ptr))?;
-
-    let arg1_u64_ptr = store.get_u64(arg1_u64);
-    let alloc_arg1 = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "alloc arg1"), store, || {
-        Ok(&arg1_u64_ptr)
-    })?;
-
-    let arg2_u64_ptr = store.get_u64(arg2_u64);
-    let alloc_arg2 = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "alloc arg2"), store, || {
-        Ok(&arg2_u64_ptr)
-    })?;
-
-    // a = b * q + r
-    let product_u64mod = constraints::mul(
-        &mut cs.namespace(|| "product(q,arg2)"),
-        alloc_q.hash(),
-        alloc_arg2.hash(),
-    )?;
-    let sum_u64mod = constraints::add(
-        &mut cs.namespace(|| "sum remainder mod u64"),
-        &product_u64mod,
-        alloc_r.hash(),
-    )?;
-    let u64mod_decomp = alloc_equal(
-        &mut cs.namespace(|| "check u64 mod decomposition"),
-        &sum_u64mod,
-        alloc_arg1.hash(),
-    )?;
-    constraints::enforce_implication(
-        &mut cs.namespace(|| "enforce u64 mod decomposition"),
-        &cond,
-        &u64mod_decomp,
-    )?;
-
-    enforce_less_than_bound(
-        &mut cs.namespace(|| "remainder in range b"),
-        cond,
-        alloc_r.clone(),
-        alloc_arg2.clone(),
-    )?;
-
-    let arg1_u64_tag = alloc_equal(
-        &mut cs.namespace(|| "arg1 u64 tag"),
-        alloc_arg1.tag(),
-        &g.u64_tag,
-    )?;
-    let arg2_u64_tag = alloc_equal(
-        &mut cs.namespace(|| "arg2 u64 tag"),
-        alloc_arg2.tag(),
-        &g.u64_tag,
-    )?;
-    constraints::enforce_true(&mut cs.namespace(|| "check arg1 u64 tag"), &arg1_u64_tag)?;
-    constraints::enforce_true(&mut cs.namespace(|| "check arg2 u64 tag"), &arg2_u64_tag)?;
-
-    Ok((alloc_q, alloc_r))
-}
-
-// Enforce the 0 <= num < b, using n bits (num and b must fit in n bits).
-fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    cond: Boolean,
-    num: AllocatedPtr<F>,
-    bound: AllocatedPtr<F>,
-) -> Result<(), SynthesisError> {
-    let diff_bound_num = constraints::sub(
-        &mut cs.namespace(|| "bound minus num"),
-        bound.hash(),
-        num.hash(),
-    )?;
-    let double_diff_bound_num = constraints::add(
-        &mut cs.namespace(|| "double diff bound num"),
-        &diff_bound_num,
-        &diff_bound_num,
-    )?;
-    let double_diff_bound_num_bits = double_diff_bound_num
-        .to_bits_le(&mut cs.namespace(|| "diff bits"))
-        .unwrap();
-    let lsb_2diff_bound_num = double_diff_bound_num_bits.get(0);
-    let diff_bound_num_is_negative = lsb_2diff_bound_num.unwrap();
-
-    constraints::enforce_implication(
-        &mut cs.namespace(|| "enforce u64 range"),
-        &cond,
-        &diff_bound_num_is_negative.not(),
-    )
-}
-
-fn bn_to_num<F: LurkField, CS: ConstraintSystem<F>>(
     let v = num_bits[n..255].to_vec();
     boolean_summation(&mut cs.namespace(|| "add all MSBs"), &v, &g.false_num);
     Ok(())
@@ -5079,16 +4782,10 @@ fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
     not_dummy: &Boolean,
     _store: &Store<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
-    let maybe_cons_is_cons = alloc_equal(
-        &mut cs.namespace(|| "maybe_cons_is_cons"),
-        maybe_cons.tag(),
-        &g.cons_tag,
-    )?;
-
     let maybe_cons_is_nil = alloc_equal(
         &mut cs.namespace(|| "maybe_cons_is_nil"),
         maybe_cons.tag(),
-        &g.nil_ptr.tag(),
+        g.nil_ptr.tag(),
     )?;
 
     let cons_not_dummy = and!(cs, &maybe_cons_is_nil.not(), not_dummy)?;
@@ -5368,9 +5065,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(11532, cs.num_constraints());
+            assert_eq!(12520, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(11159, cs.aux().len());
+            assert_eq!(12151, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

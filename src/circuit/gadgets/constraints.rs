@@ -3,8 +3,6 @@
 use crate::circuit::gadgets::data::GlobalAllocations;
 use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::field::LurkField;
-use crate::store::ScalarPointer;
-use crate::store::{Op2, Tag};
 use crate::store::Store;
 use bellperson::LinearCombination;
 use bellperson::{
@@ -86,19 +84,17 @@ pub fn boolean_summation<F: PrimeField, CS: ConstraintSystem<F>>(
     v: &Vec<Boolean>,
     sum: &AllocatedNum<F>,
 ) {
-    let v_lc = LinearCombination::<F>::zero();
+    let mut v_lc = LinearCombination::<F>::zero();
     for i in 0..v.len() {
         match v[i] {
             Boolean::Constant(c) => {
                 if c {
-                    v_lc.clone() + (F::one(), CS::one())
-                } else {
-                    v_lc.clone()
+                    v_lc = v_lc + (F::one(), CS::one())
                 }
             }
-            Boolean::Is(ref v) => v_lc.clone() + (F::one(), v.get_variable()),
+            Boolean::Is(ref v) => v_lc = v_lc + (F::one(), v.get_variable()),
             Boolean::Not(ref v) => {
-                v_lc.clone() + (F::one(), CS::one()) - (F::one(), v.get_variable())
+                v_lc = v_lc + (F::one(), CS::one()) - (F::one(), v.get_variable())
             }
         };
     }
