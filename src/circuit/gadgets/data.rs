@@ -6,7 +6,7 @@ use neptune::{circuit2::poseidon_hash_allocated as poseidon_hash, poseidon::Pose
 
 use super::pointer::AsAllocatedHashComponents;
 use crate::field::LurkField;
-use crate::store::{ContPtr, ContTag, Expression, Op1, Op2, Pointer, Ptr, Store, Tag, Thunk};
+use crate::store::{ContTag, Expression, HashScalar, Op1, Op2, Pointer, Ptr, Store, Tag, Thunk};
 use crate::store::{IntoHashComponents, ScalarPtr};
 use crate::store::{ScalarContPtr, ScalarPointer};
 
@@ -23,6 +23,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub t_ptr: AllocatedPtr<F>,
     pub lambda_ptr: AllocatedPtr<F>,
     pub dummy_arg_ptr: AllocatedPtr<F>,
+    pub empty_str_ptr: AllocatedPtr<F>,
 
     pub sym_tag: AllocatedNum<F>,
     pub thunk_tag: AllocatedNum<F>,
@@ -51,11 +52,13 @@ pub struct GlobalAllocations<F: LurkField> {
     pub op1_commit_tag: AllocatedNum<F>,
     pub op1_num_tag: AllocatedNum<F>,
     pub op1_char_tag: AllocatedNum<F>,
+    pub op1_eval_tag: AllocatedNum<F>,
     pub op1_comm_tag: AllocatedNum<F>,
     pub op1_open_tag: AllocatedNum<F>,
     pub op1_secret_tag: AllocatedNum<F>,
     pub op1_atom_tag: AllocatedNum<F>,
     pub op1_emit_tag: AllocatedNum<F>,
+    pub op2_eval_tag: AllocatedNum<F>,
     pub op2_cons_tag: AllocatedNum<F>,
     pub op2_strcons_tag: AllocatedNum<F>,
     pub op2_hide_tag: AllocatedNum<F>,
@@ -70,6 +73,39 @@ pub struct GlobalAllocations<F: LurkField> {
     pub op2_less_equal_tag: AllocatedNum<F>,
     pub op2_greater_tag: AllocatedNum<F>,
     pub op2_greater_equal_tag: AllocatedNum<F>,
+
+    pub lambda_sym: AllocatedPtr<F>,
+
+    pub let_sym: AllocatedPtr<F>,
+    pub letrec_sym: AllocatedPtr<F>,
+    pub eval_sym: AllocatedPtr<F>,
+    pub quote_sym: AllocatedPtr<F>,
+    pub cons_sym: AllocatedPtr<F>,
+    pub strcons_sym: AllocatedPtr<F>,
+    pub hide_sym: AllocatedPtr<F>,
+    pub commit_sym: AllocatedPtr<F>,
+    pub open_sym: AllocatedPtr<F>,
+    pub secret_sym: AllocatedPtr<F>,
+    pub num_sym: AllocatedPtr<F>,
+    pub comm_sym: AllocatedPtr<F>,
+    pub char_sym: AllocatedPtr<F>,
+    pub begin_sym: AllocatedPtr<F>,
+    pub car_sym: AllocatedPtr<F>,
+    pub cdr_sym: AllocatedPtr<F>,
+    pub atom_sym: AllocatedPtr<F>,
+    pub emit_sym: AllocatedPtr<F>,
+    pub plus_sym: AllocatedPtr<F>,
+    pub minus_sym: AllocatedPtr<F>,
+    pub times_sym: AllocatedPtr<F>,
+    pub div_sym: AllocatedPtr<F>,
+    pub equal_sym: AllocatedPtr<F>,
+    pub eq_sym: AllocatedPtr<F>,
+    pub less_sym: AllocatedPtr<F>,
+    pub less_equal_sym: AllocatedPtr<F>,
+    pub greater_sym: AllocatedPtr<F>,
+    pub greater_equal_sym: AllocatedPtr<F>,
+    pub if_sym: AllocatedPtr<F>,
+    pub current_env_sym: AllocatedPtr<F>,
 
     pub true_num: AllocatedNum<F>,
     pub false_num: AllocatedNum<F>,
@@ -113,12 +149,18 @@ impl<F: LurkField> GlobalAllocations<F> {
         let lambda_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "LAMBDA"),
             store,
-            &store.get_sym("lambda", true).unwrap(),
+            &store.get_lurk_sym("lambda", true).unwrap(),
         )?;
         let dummy_arg_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "_"),
             store,
-            &store.get_sym("_", true).unwrap(),
+            &store.get_lurk_sym("_", true).unwrap(),
+        )?;
+
+        let empty_str_ptr = AllocatedPtr::alloc_constant_ptr(
+            &mut cs.namespace(|| "empty_str_ptr"),
+            store,
+            &store.get_str("").unwrap(),
         )?;
 
         let sym_tag = Tag::Sym.allocate_constant(&mut cs.namespace(|| "sym_tag"))?;
@@ -161,12 +203,14 @@ impl<F: LurkField> GlobalAllocations<F> {
             Op1::Commit.allocate_constant(&mut cs.namespace(|| "op1_commit_tag"))?;
         let op1_num_tag = Op1::Num.allocate_constant(&mut cs.namespace(|| "op1_num_tag"))?;
         let op1_char_tag = Op1::Char.allocate_constant(&mut cs.namespace(|| "op1_char_tag"))?;
+        let op1_eval_tag = Op1::Eval.allocate_constant(&mut cs.namespace(|| "op1_eval_tag"))?;
         let op1_comm_tag = Op1::Comm.allocate_constant(&mut cs.namespace(|| "op1_comm_tag"))?;
         let op1_open_tag = Op1::Open.allocate_constant(&mut cs.namespace(|| "op1_open_tag"))?;
         let op1_secret_tag =
             Op1::Secret.allocate_constant(&mut cs.namespace(|| "op1_secret_tag"))?;
         let op1_atom_tag = Op1::Atom.allocate_constant(&mut cs.namespace(|| "op1_atom_tag"))?;
         let op1_emit_tag = Op1::Emit.allocate_constant(&mut cs.namespace(|| "op1_emit_tag"))?;
+        let op2_eval_tag = Op2::Eval.allocate_constant(&mut cs.namespace(|| "op2_eval_tag"))?;
         let op2_cons_tag = Op2::Cons.allocate_constant(&mut cs.namespace(|| "op2_cons_tag"))?;
         let op2_strcons_tag =
             Op2::StrCons.allocate_constant(&mut cs.namespace(|| "op2_strcons_tag"))?;
@@ -194,6 +238,58 @@ impl<F: LurkField> GlobalAllocations<F> {
             Ok(Op2::Equal.as_field())
         })?;
 
+        let hash_sym = |name: &str| {
+            store
+                .get_lurk_sym(name, true)
+                .and_then(|s| store.hash_sym(s, HashScalar::Get))
+                .unwrap()
+        };
+
+        macro_rules! defsym {
+            ($var:ident, $name:expr) => {
+                let $var =
+                    AllocatedPtr::alloc_constant(&mut cs.namespace(|| $name), hash_sym($name))?;
+            };
+            ($var:ident, $name:expr, $namespace:expr) => {
+                let $var = AllocatedPtr::alloc_constant(
+                    &mut cs.namespace(|| $namespace),
+                    hash_sym($name),
+                )?;
+            };
+        }
+
+        defsym!(lambda_sym, "lambda");
+        defsym!(let_sym, "let");
+        defsym!(letrec_sym, "letrec");
+        defsym!(eval_sym, "eval");
+        defsym!(quote_sym, "quote");
+        defsym!(cons_sym, "cons");
+        defsym!(strcons_sym, "strcons");
+        defsym!(hide_sym, "hide");
+        defsym!(commit_sym, "commit");
+        defsym!(open_sym, "open");
+        defsym!(secret_sym, "secret");
+        defsym!(num_sym, "num");
+        defsym!(comm_sym, "comm");
+        defsym!(char_sym, "char");
+        defsym!(begin_sym, "begin");
+        defsym!(car_sym, "car");
+        defsym!(cdr_sym, "cdr");
+        defsym!(atom_sym, "atom");
+        defsym!(emit_sym, "emit");
+        defsym!(plus_sym, "+");
+        defsym!(minus_sym, "-");
+        defsym!(times_sym, "*");
+        defsym!(div_sym, "/", "div");
+        defsym!(equal_sym, "=");
+        defsym!(eq_sym, "eq");
+        defsym!(less_sym, "<");
+        defsym!(less_equal_sym, "<=");
+        defsym!(greater_sym, ">");
+        defsym!(greater_equal_sym, ">=");
+        defsym!(if_sym, "if");
+        defsym!(current_env_sym, "current-env");
+
         let true_num = allocate_constant(&mut cs.namespace(|| "true"), F::one())?;
         let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::zero())?;
         let default_num = allocate_constant(&mut cs.namespace(|| "default"), F::zero())?;
@@ -208,6 +304,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             t_ptr,
             lambda_ptr,
             dummy_arg_ptr,
+            empty_str_ptr,
             sym_tag,
             thunk_tag,
             cons_tag,
@@ -234,11 +331,13 @@ impl<F: LurkField> GlobalAllocations<F> {
             op1_commit_tag,
             op1_num_tag,
             op1_char_tag,
+            op1_eval_tag,
             op1_comm_tag,
             op1_open_tag,
             op1_secret_tag,
             op1_atom_tag,
             op1_emit_tag,
+            op2_eval_tag,
             op2_cons_tag,
             op2_strcons_tag,
             op2_hide_tag,
@@ -253,6 +352,37 @@ impl<F: LurkField> GlobalAllocations<F> {
             op2_less_equal_tag,
             op2_greater_tag,
             op2_greater_equal_tag,
+            lambda_sym,
+            let_sym,
+            letrec_sym,
+            eval_sym,
+            quote_sym,
+            cons_sym,
+            strcons_sym,
+            hide_sym,
+            commit_sym,
+            open_sym,
+            secret_sym,
+            num_sym,
+            comm_sym,
+            char_sym,
+            begin_sym,
+            car_sym,
+            cdr_sym,
+            atom_sym,
+            emit_sym,
+            plus_sym,
+            minus_sym,
+            times_sym,
+            div_sym,
+            equal_sym,
+            eq_sym,
+            less_sym,
+            less_equal_sym,
+            greater_sym,
+            greater_equal_sym,
+            if_sym,
+            current_env_sym,
             true_num,
             false_num,
             default_num,
@@ -268,75 +398,8 @@ pub fn hash_poseidon<CS: ConstraintSystem<F>, F: LurkField, const A: usize>(
     poseidon_hash(cs, preimage, constants)
 }
 
-impl<F: LurkField> ContPtr<F> {
-    pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<F>>(
-        cs: CS,
-        cont: Option<&ContPtr<F>>,
-        store: &Store<F>,
-    ) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {
-        if let Some(cont) = cont {
-            cont.allocate_components(cs, store)
-        } else {
-            ContPtr::allocate_dummy_components(cs, store)
-        }
-    }
-
-    fn allocate_components<CS: ConstraintSystem<F>>(
-        &self,
-        mut cs: CS,
-        store: &Store<F>,
-    ) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {
-        let component_frs = store
-            .get_hash_components_cont(self)
-            .expect("missing hash components");
-
-        let components: Vec<_> = component_frs
-            .iter()
-            .enumerate()
-            .map(|(i, fr)| {
-                AllocatedNum::alloc(
-                    &mut cs.namespace(|| format!("alloc component {}", i)),
-                    || Ok(*fr),
-                )
-            })
-            .collect::<Result<_, _>>()?;
-
-        let hash = hash_poseidon(
-            cs.namespace(|| "Continuation"),
-            components.clone(),
-            store.poseidon_constants().c8(),
-        )?;
-
-        Ok((hash, components))
-    }
-
-    fn allocate_dummy_components<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        store: &Store<F>,
-    ) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {
-        let result: Vec<_> = (0..8)
-            .map(|i| {
-                AllocatedNum::alloc(
-                    cs.namespace(|| format!("Continuation component {}", i)),
-                    || Ok(F::zero()),
-                )
-            })
-            .collect::<Result<_, _>>()?;
-
-        // We need to create these constraints, but eventually we can avoid doing any calculation.
-        // We just need a precomputed dummy witness.
-        let dummy_hash = hash_poseidon(
-            cs.namespace(|| "Continuation"),
-            result.clone(),
-            store.poseidon_constants().c8(),
-        )?;
-
-        Ok((dummy_hash, result))
-    }
-}
-
 impl<F: LurkField> Ptr<F> {
-    pub fn allocate_maybe_fun<CS: ConstraintSystem<F>>(
+    pub fn allocate_maybe_fun_unconstrained<CS: ConstraintSystem<F>>(
         cs: CS,
         store: &Store<F>,
         maybe_fun: Option<&Ptr<F>>,

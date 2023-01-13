@@ -263,7 +263,7 @@ impl<'a> Open {
         } else {
             let function = if let Some(comm_string) = &self.commitment {
                 let commitment =
-                    Commitment::from_hex(&comm_string).map_err(Error::CommitmentParseError)?;
+                    Commitment::from_hex(comm_string).map_err(Error::CommitmentParseError)?;
 
                 function_map
                     .get(commitment)
@@ -271,7 +271,7 @@ impl<'a> Open {
             } else {
                 let function_path = self.function.as_ref().expect("function missing");
                 if self.lurk {
-                    let path = env::current_dir()?.join(&function_path);
+                    let path = env::current_dir()?.join(function_path);
                     let src = read_to_string(path)?;
                     Function {
                         fun: LurkPtr::Source(src),
@@ -279,12 +279,12 @@ impl<'a> Open {
                         commitment: None,
                     }
                 } else {
-                    Function::read_from_path(&function_path)?
+                    Function::read_from_path(function_path)?
                 }
             };
 
             let input_path = self.input.as_ref().expect("input missing");
-            let input = input(s, &input_path, eval_input, limit, quote_input)?;
+            let input = input(s, input_path, eval_input, limit, quote_input)?;
 
             if let Some(out_path) = &self.proof {
                 let proof = Opening::apply_and_prove(

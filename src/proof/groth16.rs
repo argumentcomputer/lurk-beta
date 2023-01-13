@@ -104,17 +104,7 @@ impl Groth16Prover<Bls12> {
         params: &groth16::Parameters<Bls12>,
         mut rng: R,
     ) -> Result<groth16::Proof<Bls12>, SynthesisError> {
-        self.generate_groth16_proof(multi_frame, params, &mut rng)
-    }
-
-    fn generate_groth16_proof<R: RngCore>(
-        &self,
-        multiframe: MultiFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>>,
-        groth_params: &groth16::Parameters<Bls12>,
-        rng: &mut R,
-    ) -> Result<groth16::Proof<Bls12>, SynthesisError> {
-        let create_proof = |p| groth16::create_random_proof(multiframe, p, rng);
-        create_proof(groth_params)
+        groth16::create_random_proof(multi_frame, params, &mut rng)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -146,9 +136,7 @@ impl Groth16Prover<Bls12> {
         let last_multiframe = multiframes.last().unwrap().clone();
         for multiframe in multiframes.into_iter() {
             statements.push(multiframe.public_inputs());
-            let proof = self
-                .generate_groth16_proof(multiframe.clone(), params, &mut rng)
-                .unwrap();
+            let proof = self.prove(multiframe.clone(), params, &mut rng).unwrap();
 
             proofs.push(proof.clone());
             multiframe_proofs.push((multiframe, proof));
@@ -162,7 +150,7 @@ impl Groth16Prover<Bls12> {
             );
 
             let dummy_proof = self
-                .generate_groth16_proof(dummy_multiframe.clone(), params, &mut rng)
+                .prove(dummy_multiframe.clone(), params, &mut rng)
                 .unwrap();
 
             let dummy_statement = dummy_multiframe.public_inputs();
@@ -237,9 +225,9 @@ pub struct Groth16Prover<E: Engine + MultiMillerLoop> {
 
 pub struct PublicParams<E: Engine + MultiMillerLoop>(pub groth16::Parameters<E>);
 
-impl<'a> PublicParameters for PublicParams<Bls12> {}
+impl PublicParameters for PublicParams<Bls12> {}
 
-impl<'a> Prover<'a, Scalar> for Groth16Prover<Bls12> {
+impl Prover<'_, Scalar> for Groth16Prover<Bls12> {
     type PublicParams = PublicParams<Bls12>;
 
     fn new(chunk_frame_count: usize) -> Self {

@@ -1,5 +1,6 @@
 use crate::error::LurkError;
 use crate::field::LurkField;
+use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness};
 use crate::num::Num;
 use crate::store::{
     ContPtr, ContTag, Continuation, Expression, Op1, Op2, Pointer, Ptr, ScalarPointer, Store, Tag,
@@ -261,7 +262,7 @@ pub struct FrameIt<'a, W: Copy, F: LurkField> {
     store: &'a mut Store<F>,
 }
 
-impl<'a, 'b, F: LurkField> FrameIt<'a, Witness<F>, F> {
+impl<'a, F: LurkField> FrameIt<'a, Witness<F>, F> {
     fn new(initial_input: IO<F>, store: &'a mut Store<F>) -> Result<Self, LurkError> {
         let frame = Frame::from_initial_input(initial_input, store)?;
         Ok(Self {
@@ -305,7 +306,7 @@ impl<'a, 'b, F: LurkField> FrameIt<'a, Witness<F>, F> {
 #[derive(Debug)]
 struct ResultFrame<'a, F: LurkField>(Result<FrameIt<'a, Witness<F>, F>, LurkError>);
 
-impl<'a, 'b, F: LurkField> Iterator for ResultFrame<'a, F> {
+impl<'a, F: LurkField> Iterator for ResultFrame<'a, F> {
     type Item = Result<Frame<IO<F>, Witness<F>>, LurkError>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         let mut frame_it = match &mut self.0 {
@@ -331,7 +332,7 @@ impl<'a, 'b, F: LurkField> Iterator for ResultFrame<'a, F> {
     }
 }
 
-impl<'a, 'b, F: LurkField> Iterator for FrameIt<'a, Witness<F>, F> {
+impl<'a, F: LurkField> Iterator for FrameIt<'a, Witness<F>, F> {
     type Item = Frame<IO<F>, Witness<F>>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         // skip first iteration, as one evaluation happens on construction
@@ -353,14 +354,14 @@ impl<'a, 'b, F: LurkField> Iterator for FrameIt<'a, Witness<F>, F> {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Witness<F: LurkField> {
-    // TODO: Many of these fields ended up not being used.
-    // once circuit is done, remove the excess.
     pub(crate) prethunk_output_expr: Ptr<F>,
     pub(crate) prethunk_output_env: Ptr<F>,
     pub(crate) prethunk_output_cont: ContPtr<F>,
 
-    pub(crate) extended_closure: Option<Ptr<F>>,
+    pub(crate) closure_to_extend: Option<Ptr<F>>,
     pub(crate) apply_continuation_cont: Option<ContPtr<F>>,
+    pub(crate) conses: ConsWitness<F>,
+    pub(crate) conts: ContWitness<F>,
 }
 
 fn reduce<F: LurkField>(
@@ -416,7 +417,10 @@ fn reduce_with_witness<F: LurkField>(
     cont: ContPtr<F>,
     store: &mut Store<F>,
 ) -> Result<(Control<F>, Witness<F>), LurkError> {
-    let mut extended_closure = None;
+    let cons_witness = &mut ConsWitness::<F>::new_dummy();
+    let cont_witness = &mut ContWitness::<F>::new_dummy();
+
+    let mut closure_to_extend = None;
     let control = if cont.tag() == ContTag::Terminal {
         Control::Return(expr, env, cont)
     } else {
@@ -431,82 +435,86 @@ fn reduce_with_witness<F: LurkField>(
                 _ => unreachable!(),
             },
             // Self-evaluating
-            Tag::Nil | Tag::Num | Tag::Fun | Tag::Char | Tag::Str | Tag::Comm | Tag::U64 => {
-                Control::ApplyContinuation(expr, env, cont)
-            }
+            Tag::Nil
+            | Tag::Num
+            | Tag::Fun
+            | Tag::Char
+            | Tag::Str
+            | Tag::Comm
+            | Tag::U64
+            | Tag::Key => Control::ApplyContinuation(expr, env, cont),
             Tag::Sym => {
-                if expr == store.sym("nil") || (expr == store.t()) {
+                if expr == store.lurk_sym("nil") || (expr == store.t()) {
                     // NIL and T are self-evaluating symbols, pass them to the continuation in a thunk.
 
                     // CIRCUIT: sym_is_self_evaluating
-                    //          cond1
                     Control::ApplyContinuation(expr, env, cont)
                 } else {
                     // Otherwise, look for a matching binding in env.
 
                     // CIRCUIT: sym_otherwise
                     if env.is_nil() {
-                        //     //assert!(!env.is_nil(), "Unbound variable: {:?}", expr);
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {
-                        let (binding, smaller_env) = store.car_cdr(&env);
+                        // CIRCUIT: main
+                        let (binding, smaller_env) =
+                            cons_witness.car_cdr_named(ConsName::Env, store, &env);
                         if binding.is_nil() {
                             // If binding is NIL, it's empty. There is no match. Return an error due to unbound variable.
 
-                            // CIRCUIT: binding_is_nil
-                            //          otherwise_and_binding_is_nil
-                            //          cond2
+                            // CIRCUIT: needed_binding_missing
                             Control::Return(expr, env, store.intern_cont_error())
                         } else {
                             // Binding is not NIL, so it is either a normal binding or a recursive environment.
 
-                            // CIRCUIT: binding_not_nil
-                            //          otherwise_and_binding_not_nil
-                            let (var_or_rec_binding, val_or_more_rec_env) = store.car_cdr(&binding);
+                            let (var_or_rec_binding, val_or_more_rec_env) =
+                                cons_witness.car_cdr_named(ConsName::EnvCar, store, &binding);
+
                             match var_or_rec_binding.tag() {
                                 Tag::Sym => {
                                     // We are in a simple env (not a recursive env),
                                     // looking at a binding's variable.
 
-                                    // CIRCUIT: var_or_rec_binding_is_sym
-                                    //          otherwise_and_sym
+                                    // CIRCUIT: with_sym_binding
+
                                     let v = var_or_rec_binding;
                                     let val = val_or_more_rec_env;
 
                                     if v == expr {
                                         // expr matches the binding's var.
 
-                                        // CIRCUIT: v_is_expr1
-                                        //          v_is_expr1_real
-                                        //          otherwise_and_v_expr_and_sym
-                                        //          cond3
+                                        // CIRCUIT: with_sym_binding_matched
 
                                         // Pass the binding's value to the continuation in a thunk.
                                         Control::ApplyContinuation(val, env, cont)
                                     } else {
                                         // expr does not match the binding's var.
 
-                                        // CIRCUIT: otherwise_and_v_not_expr
+                                        // CIRCUIT: with_sym_binding_unmatched
                                         match cont.tag() {
                                             ContTag::Lookup => {
                                                 // If performing a lookup, continue with remaining env.
 
-                                                // CIRCUIT: cont_is_lookup
-                                                //          cont_is_lookup_sym
-                                                //          cond4
+                                                // CIRCUIT: with_sym_binding_unmatched_old_lookup
                                                 Control::Return(expr, smaller_env, cont)
                                             }
                                             _ =>
                                             // Otherwise, create a lookup continuation, packaging current env
                                             // to be restored later.
 
-                                            // CIRCUIT: cont_not_lookup_sym
-                                            //          cond5
+                                            // CIRCUIT: with_sym_binding_unmatched_new_lookup
                                             {
                                                 Control::Return(
                                                     expr,
                                                     smaller_env,
-                                                    store.intern_cont_lookup(env, cont),
+                                                    cont_witness.intern_named_cont(
+                                                        ContName::Lookup,
+                                                        store,
+                                                        Continuation::Lookup {
+                                                            saved_env: env,
+                                                            continuation: cont,
+                                                        },
+                                                    ),
                                                 )
                                             }
                                         }
@@ -514,65 +522,81 @@ fn reduce_with_witness<F: LurkField>(
                                 }
                                 // Start of a recursive_env.
                                 Tag::Cons => {
-                                    // CIRCUIT: var_or_rec_binding_is_cons
-                                    //          otherwise_and_cons
+                                    // CIRCUIT: with_cons_binding
+
                                     let rec_env = binding;
                                     let smaller_rec_env = val_or_more_rec_env;
 
-                                    let (v2, val2) = store.car_cdr(&var_or_rec_binding);
+                                    let (v2, val2) = cons_witness.car_cdr_named(
+                                        ConsName::EnvCaar,
+                                        store,
+                                        &var_or_rec_binding,
+                                    );
+
                                     if v2 == expr {
-                                        // CIRCUIT: v2_is_expr
-                                        //          v2_is_expr_real
-                                        //          cond6
+                                        // CIRCUIT: with_cons_binding_matched
+
                                         let val_to_use = {
                                             // CIRCUIT: val_to_use
                                             match val2.tag() {
                                                 Tag::Fun => {
-                                                    // TODO: This is a misnomer. It's actually the closure *to be extended*.
-                                                    extended_closure = Some(val2);
+                                                    closure_to_extend = Some(val2);
                                                     // CIRCUIT: val2_is_fun
 
                                                     // We just found a closure in a recursive env.
                                                     // We need to extend its environment to include that recursive env.
 
-                                                    extend_closure(&val2, &rec_env, store)?
+                                                    // CIRCUIT: extended_fun
+                                                    extend_closure(
+                                                        &val2,
+                                                        &rec_env,
+                                                        store,
+                                                        cons_witness,
+                                                    )?
                                                 }
                                                 _ => {
-                                                    extended_closure = None;
+                                                    closure_to_extend = None;
                                                     val2
                                                 }
                                             }
                                         };
                                         Control::ApplyContinuation(val_to_use, env, cont)
                                     } else {
-                                        // CIRCUIT: v2_not_expr
-                                        //          otherwise_and_v2_not_expr
-                                        //          cond7
+                                        // CIRCUIT: with_cons_binding_unmatched
                                         let env_to_use = if smaller_rec_env.is_nil() {
                                             // CIRCUIT: smaller_rec_env_is_nil
                                             smaller_env
                                         } else {
                                             // CIRCUIT: with_smaller_rec_env
-                                            store.cons(smaller_rec_env, smaller_env)
+                                            cons_witness.cons_named(
+                                                ConsName::EnvToUse,
+                                                store,
+                                                smaller_rec_env,
+                                                smaller_env,
+                                            )
                                         };
                                         match cont.tag() {
                                             ContTag::Lookup => {
-                                                // CIRCUIT: cont_is_lookup
-                                                //          cont_is_lookup_cons
-                                                //          cond8
+                                                // CIRCUIT: with_cons_binding_unmatched_old_lookup
                                                 Control::Return(expr, env_to_use, cont)
                                             }
                                             _ => Control::Return(
-                                                // CIRCUIT: cont_not_lookup_cons
-                                                //          cond9
+                                                // CIRCUIT: with_cons_binding_unmatched_new_lookup
                                                 expr,
                                                 env_to_use,
-                                                store.intern_cont_lookup(env, cont),
+                                                cont_witness.intern_named_cont(
+                                                    ContName::Lookup,
+                                                    store,
+                                                    Continuation::Lookup {
+                                                        saved_env: env,
+                                                        continuation: cont,
+                                                    },
+                                                ),
                                             ),
                                         }
                                     }
                                 }
-                                _ => return Err(LurkError::Reduce("Bad form.".into())),
+                                _ => Control::Return(expr, env, store.intern_cont_error()), // CIRCUIT: with_other_binding
                             }
                         }
                     }
@@ -580,339 +604,612 @@ fn reduce_with_witness<F: LurkField>(
             }
             Tag::Cons => {
                 // This should not fail, since expr is a Cons.
-                let (head, rest) = store.car_cdr(&expr);
-                let lambda = store.sym("lambda");
-                let quote = store.sym("quote");
-                let dummy_arg = store.sym("_");
+                let (head, rest) = cons_witness.car_cdr_named(ConsName::Expr, store, &expr);
+
+                let lambda = store.lurk_sym("lambda");
+                let quote = store.lurk_sym("quote");
+                let dummy_arg = store.lurk_sym("_");
 
                 if head == lambda {
-                    let (args, body) = store.car_cdr(&rest);
+                    let (args, body) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     let (arg, _rest) = if args.is_nil() {
                         // (LAMBDA () STUFF)
                         // becomes (LAMBDA (DUMMY) STUFF)
                         (dummy_arg, store.nil())
                     } else {
-                        store.car_cdr(&args)
+                        cons_witness.car_cdr_named(ConsName::ExprCadr, store, &args)
                     };
-                    let cdr_args = store.cdr(&args);
+                    let (_, cdr_args) =
+                        cons_witness.car_cdr_named(ConsName::ExprCadr, store, &args);
                     let inner_body = if cdr_args.is_nil() {
                         body
                     } else {
                         // (LAMBDA (A B) STUFF)
                         // becomes (LAMBDA (A) (LAMBDA (B) STUFF))
-                        let inner = store.cons(cdr_args, body);
-                        let l = store.cons(lambda, inner);
-                        store.list(&[l])
+                        let inner =
+                            cons_witness.cons_named(ConsName::InnerLambda, store, cdr_args, body);
+                        let l = cons_witness.cons_named(ConsName::Lambda, store, lambda, inner);
+                        let nil = store.nil();
+                        cons_witness.cons_named(ConsName::InnerBody, store, l, nil)
                     };
                     let function = store.intern_fun(arg, inner_body, env);
 
                     Control::ApplyContinuation(function, env, cont)
                 } else if head == quote {
-                    let (quoted, end) = store.car_cdr(&rest);
+                    let (quoted, end) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {
                         Control::ApplyContinuation(quoted, env, cont)
                     }
-                } else if head == store.sym("let") {
-                    let (bindings, body) = store.car_cdr(&rest);
-                    let (body1, rest_body) = store.car_cdr(&body);
+                } else if head == store.lurk_sym("let") || head == store.lurk_sym("letrec") {
+                    let (bindings, body) =
+                        cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                    let (body1, rest_body) =
+                        cons_witness.car_cdr_named(ConsName::ExprCddr, store, &body);
                     // Only a single body form allowed for now.
                     if !rest_body.is_nil() || body.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else if bindings.is_nil() {
                         Control::Return(body1, env, cont)
                     } else {
-                        let (binding1, rest_bindings) = store.car_cdr(&bindings);
-                        let (var, vals) = store.car_cdr(&binding1);
-                        let (val, end) = store.car_cdr(&vals);
+                        let (binding1, rest_bindings) =
+                            cons_witness.car_cdr_named(ConsName::ExprCadr, store, &bindings);
+                        let (var, vals) =
+                            cons_witness.car_cdr_named(ConsName::ExprCaadr, store, &binding1);
+                        let (val, end) =
+                            cons_witness.car_cdr_named(ConsName::ExprCaaadr, store, &vals);
+
                         if !end.is_nil() {
                             Control::Return(expr, env, store.intern_cont_error())
                         } else {
                             let expanded = if rest_bindings.is_nil() {
                                 body1
                             } else {
-                                let lt = store.sym("let");
-                                store.list(&[lt, rest_bindings, body1])
+                                // We know body is a proper list equivalent to (body1), if this branch was taken, since end is nil.
+                                let expanded0 = cons_witness.cons_named(
+                                    ConsName::ExpandedInner,
+                                    store,
+                                    rest_bindings,
+                                    body,
+                                );
+                                cons_witness.cons_named(ConsName::Expanded, store, head, expanded0)
                             };
-                            Control::Return(
-                                val,
-                                env,
-                                store.intern_cont_let(var, expanded, env, cont),
-                            )
-                        }
-                    }
-                } else if head == store.sym("letrec") {
-                    let (bindings, body) = store.car_cdr(&rest);
-                    let (body1, rest_body) = store.car_cdr(&body);
-                    // Only a single body form allowed for now.
-                    if !rest_body.is_nil() || body.is_nil() {
-                        Control::Return(expr, env, store.intern_cont_error())
-                    } else if bindings.is_nil() {
-                        Control::Return(body1, env, cont)
-                    } else {
-                        let (binding1, rest_bindings) = store.car_cdr(&bindings);
-                        let (var, vals) = store.car_cdr(&binding1);
-                        let (val, end) = store.car_cdr(&vals);
-                        if !end.is_nil() {
-                            Control::Return(expr, env, store.intern_cont_error())
-                        } else {
-                            let expanded = if rest_bindings.is_nil() {
-                                body1
+                            let cont = if head == store.lurk_sym("let") {
+                                cont_witness.intern_named_cont(
+                                    ContName::NewerCont,
+                                    store,
+                                    Continuation::Let {
+                                        var,
+                                        saved_env: env,
+                                        body: expanded,
+                                        continuation: cont,
+                                    },
+                                )
                             } else {
-                                let lt = store.sym("letrec");
-                                store.list(&[lt, rest_bindings, body1])
+                                cont_witness.intern_named_cont(
+                                    ContName::NewerCont,
+                                    store,
+                                    Continuation::LetRec {
+                                        var,
+                                        saved_env: env,
+                                        body: expanded,
+                                        continuation: cont,
+                                    },
+                                )
                             };
-                            Control::Return(
-                                val,
-                                env,
-                                store.intern_cont_let_rec(var, expanded, env, cont),
-                            )
+                            Control::Return(val, env, cont)
                         }
                     }
-                } else if head == store.sym("cons") {
-                    let (arg1, more) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym("cons") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     if more.is_nil() {
                         Control::Return(arg1, env, store.intern_cont_error())
                     } else {
                         Control::Return(
                             arg1,
                             env,
-                            store.intern_cont_binop(Op2::Cons, env, more, cont),
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Binop {
+                                    operator: Op2::Cons,
+                                    saved_env: env,
+                                    unevaled_args: more,
+                                    continuation: cont,
+                                },
+                            ),
                         )
                     }
-                } else if head == store.sym("strcons") {
-                    let (arg1, more) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym("strcons") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     if more.is_nil() {
                         Control::Return(arg1, env, store.intern_cont_error())
                     } else {
                         Control::Return(
                             arg1,
                             env,
-                            store.intern_cont_binop(Op2::StrCons, env, more, cont),
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Binop {
+                                    operator: Op2::StrCons,
+                                    saved_env: env,
+                                    unevaled_args: more,
+                                    continuation: cont,
+                                },
+                            ),
                         )
                     }
-                } else if head == store.sym("hide") {
-                    let (arg1, more) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym("hide") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     if more.is_nil() {
                         Control::Return(arg1, env, store.intern_cont_error())
                     } else {
                         Control::Return(
                             arg1,
                             env,
-                            store.intern_cont_binop(Op2::Hide, env, more, cont),
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Binop {
+                                    operator: Op2::Hide,
+                                    saved_env: env,
+                                    unevaled_args: more,
+                                    continuation: cont,
+                                },
+                            ),
                         )
                     }
-                } else if head == store.sym("begin") {
-                    let (arg1, more) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym("begin") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     if more.is_nil() {
                         Control::Return(arg1, env, cont)
                     } else {
                         Control::Return(
                             arg1,
                             env,
-                            store.intern_cont_binop(Op2::Begin, env, more, cont),
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Binop {
+                                    operator: Op2::Begin,
+                                    saved_env: env,
+                                    unevaled_args: more,
+                                    continuation: cont,
+                                },
+                            ),
                         )
                     }
-                } else if head == store.sym("car") {
-                    let (arg1, end) = match store.car_cdr_mut(&rest) {
-                        Ok((car, cdr)) => (car, cdr),
-                        Err(e) => return Err(LurkError::Reduce(e.into())),
-                    };
+                } else if head == store.lurk_sym("car") {
+                    let (arg1, end) =
+                        match cons_witness.car_cdr_mut_named(ConsName::ExprCdr, store, &rest) {
+                            Ok((car, cdr)) => (car, cdr),
+                            Err(e) => return Err(LurkError::Reduce(e)),
+                        };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
-                    } else {
-                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Car, cont))
-                    }
-                } else if head == store.sym("cdr") {
-                    let (arg1, end) = match store.car_cdr_mut(&rest) {
-                        Ok((car, cdr)) => (car, cdr),
-                        Err(e) => return Err(LurkError::Reduce(e.into())),
-                    };
-                    if !end.is_nil() {
-                        Control::Return(expr, env, store.intern_cont_error())
-                    } else {
-                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Cdr, cont))
-                    }
-                } else if head == store.sym("commit") {
-                    let (arg1, end) = match store.car_cdr_mut(&rest) {
-                        Ok((car, cdr)) => (car, cdr),
-                        Err(e) => return Err(LurkError::Reduce(e.into())),
-                    };
-                    if !end.is_nil() {
-                        Control::Return(expr, env, store.intern_cont_error())
-                    } else {
-                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Commit, cont))
-                    }
-                } else if head == store.sym("num") {
-                    let (arg1, end) = match store.car_cdr_mut(&rest) {
-                        Ok((car, cdr)) => (car, cdr),
-                        Err(e) => return Err(LurkError::Reduce(e.into())),
-                    };
-                    if !end.is_nil() {
-                        Control::Return(expr, env, store.intern_cont_error())
-                    } else {
-                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Num, cont))
-                    }
-                } else if head == store.sym("u64") {
-                    let (arg1, end) = match store.car_cdr_mut(&rest) {
-                        Ok((car, cdr)) => (car, cdr),
-                        Err(e) => return Err(LurkError::Reduce(e.into())),
-                    };
-                    if !end.is_nil() {
-                        Control::Return(expr, env, store.intern_cont_error())
-                    } else {
-                        Control::Return(arg1, env, store.intern_cont_unop(Op1::U64, cont))
-                    }
-                } else if head == store.sym("comm") {
-                    let (arg1, end) = match store.car_cdr_mut(&rest) {
-                        Ok((car, cdr)) => (car, cdr),
-                        Err(e) => return Err(LurkError::Reduce(e.into())),
-                    };
-                    if !end.is_nil() {
-                        Control::Return(expr, env, store.intern_cont_error())
-                    } else {
-                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Comm, cont))
-                    }
-                } else if head == store.sym("char") {
-                    let (arg1, end) = match store.car_cdr_mut(&rest) {
-                        Ok((car, cdr)) => (car, cdr),
-                        Err(e) => return Err(LurkError::Reduce(e.into())),
-                    };
-                    if !end.is_nil() {
-                        Control::Return(expr, env, store.intern_cont_error())
-                    } else {
-                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Char, cont))
-                    }
-                } else if head == store.sym("eval") {
-                    let (arg1, more) = match store.car_cdr_mut(&rest) {
-                        Ok((car, cdr)) => (car, cdr),
-                        Err(e) => return Err(LurkError::Reduce(e.into())),
-                    };
-                    if more.is_nil() {
-                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Eval, cont))
                     } else {
                         Control::Return(
                             arg1,
                             env,
-                            store.intern_cont_binop(Op2::Eval, env, more, cont),
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Unop {
+                                    operator: Op1::Car,
+                                    continuation: cont,
+                                },
+                            ),
                         )
                     }
-                } else if head == store.sym("open") {
-                    let (arg1, end) = match store.car_cdr_mut(&rest) {
-                        Ok((car, cdr)) => (car, cdr),
-                        Err(e) => return Err(LurkError::Reduce(e.into())),
-                    };
+                } else if head == store.lurk_sym("cdr") {
+                    let (arg1, end) =
+                        match cons_witness.car_cdr_mut_named(ConsName::ExprCdr, store, &rest) {
+                            Ok((car, cdr)) => (car, cdr),
+                            Err(e) => return Err(LurkError::Reduce(e)),
+                        };
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {
-                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Open, cont))
+                        Control::Return(
+                            arg1,
+                            env,
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Unop {
+                                    operator: Op1::Cdr,
+                                    continuation: cont,
+                                },
+                            ),
+                        )
                     }
-                } else if head == store.sym("secret") {
-                    let (arg1, end) = match store.car_cdr_mut(&rest) {
-                        Ok((car, cdr)) => (car, cdr),
-                        Err(e) => return Err(LurkError::Reduce(e.into())),
-                    };
+                } else if head == store.lurk_sym("commit") {
+                    let (arg1, end) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {
-                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Secret, cont))
+                        Control::Return(
+                            arg1,
+                            env,
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Unop {
+                                    operator: Op1::Commit,
+                                    continuation: cont,
+                                },
+                            ),
+                        )
                     }
-                } else if head == store.sym("atom") {
-                    let (arg1, end) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym("num") {
+                    let (arg1, end) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {
-                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Atom, cont))
+                        Control::Return(
+                            arg1,
+                            env,
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Unop {
+                                    operator: Op1::Num,
+                                    continuation: cont,
+                                },
+                            ),
+                        )
                     }
-                } else if head == store.sym("emit") {
-                    let (arg1, end) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym("u64") {
+                    let (arg1, end) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     if !end.is_nil() {
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {
-                        Control::Return(arg1, env, store.intern_cont_unop(Op1::Emit, cont))
+                        Control::Return(
+                            arg1,
+                            env,
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Unop {
+                                    operator: Op1::U64,
+                                    continuation: cont,
+                                },
+                            ),
+                        )
                     }
-                } else if head == store.sym("+") {
-                    let (arg1, more) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym("comm") {
+                    let (arg1, end) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(
+                            arg1,
+                            env,
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Unop {
+                                    operator: Op1::Comm,
+                                    continuation: cont,
+                                },
+                            ),
+                        )
+                    }
+                } else if head == store.lurk_sym("char") {
+                    let (arg1, end) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(
+                            arg1,
+                            env,
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Unop {
+                                    operator: Op1::Char,
+                                    continuation: cont,
+                                },
+                            ),
+                        )
+                    }
+                } else if head == store.lurk_sym("eval") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                    if more.is_nil() {
+                        Control::Return(
+                            arg1,
+                            env,
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Unop {
+                                    operator: Op1::Eval,
+                                    continuation: cont,
+                                },
+                            ),
+                        )
+                    } else {
+                        Control::Return(
+                            arg1,
+                            env,
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Binop {
+                                    operator: Op2::Eval,
+                                    saved_env: env,
+                                    unevaled_args: more,
+                                    continuation: cont,
+                                },
+                            ),
+                        )
+                    }
+                } else if head == store.lurk_sym("open") {
+                    let (arg1, end) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(
+                            arg1,
+                            env,
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Unop {
+                                    operator: Op1::Open,
+                                    continuation: cont,
+                                },
+                            ),
+                        )
+                    }
+                } else if head == store.lurk_sym("secret") {
+                    let (arg1, end) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(
+                            arg1,
+                            env,
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Unop {
+                                    operator: Op1::Secret,
+                                    continuation: cont,
+                                },
+                            ),
+                        )
+                    }
+                } else if head == store.lurk_sym("atom") {
+                    let (arg1, end) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(
+                            arg1,
+                            env,
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Unop {
+                                    operator: Op1::Atom,
+                                    continuation: cont,
+                                },
+                            ),
+                        )
+                    }
+                } else if head == store.lurk_sym("emit") {
+                    let (arg1, end) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                    if !end.is_nil() {
+                        Control::Return(expr, env, store.intern_cont_error())
+                    } else {
+                        Control::Return(
+                            arg1,
+                            env,
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Unop {
+                                    operator: Op1::Emit,
+                                    continuation: cont,
+                                },
+                            ),
+                        )
+                    }
+                } else if head == store.lurk_sym("+") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     Control::Return(
                         arg1,
                         env,
-                        store.intern_cont_binop(Op2::Sum, env, more, cont),
+                        cont_witness.intern_named_cont(
+                            ContName::NewerCont,
+                            store,
+                            Continuation::Binop {
+                                operator: Op2::Sum,
+                                saved_env: env,
+                                unevaled_args: more,
+                                continuation: cont,
+                            },
+                        ),
                     )
-                } else if head == store.sym("-") {
-                    let (arg1, more) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym("-") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     Control::Return(
                         arg1,
                         env,
-                        store.intern_cont_binop(Op2::Diff, env, more, cont),
+                        cont_witness.intern_named_cont(
+                            ContName::NewerCont,
+                            store,
+                            Continuation::Binop {
+                                operator: Op2::Diff,
+                                saved_env: env,
+                                unevaled_args: more,
+                                continuation: cont,
+                            },
+                        ),
                     )
-                } else if head == store.sym("*") {
-                    let (arg1, more) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym("*") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     Control::Return(
                         arg1,
                         env,
-                        store.intern_cont_binop(Op2::Product, env, more, cont),
+                        cont_witness.intern_named_cont(
+                            ContName::NewerCont,
+                            store,
+                            Continuation::Binop {
+                                operator: Op2::Product,
+                                saved_env: env,
+                                unevaled_args: more,
+                                continuation: cont,
+                            },
+                        ),
                     )
-                } else if head == store.sym("/") {
-                    let (arg1, more) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym("/") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     Control::Return(
                         arg1,
                         env,
-                        store.intern_cont_binop(Op2::Quotient, env, more, cont),
+                        cont_witness.intern_named_cont(
+                            ContName::NewerCont,
+                            store,
+                            Continuation::Binop {
+                                operator: Op2::Quotient,
+                                saved_env: env,
+                                unevaled_args: more,
+                                continuation: cont,
+                            },
+                        ),
                     )
-                } else if head == store.sym("%") {
-                    let (arg1, more) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym("%") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     Control::Return(
                         arg1,
                         env,
-                        store.intern_cont_binop(Op2::Modulo, env, more, cont),
+                        cont_witness.intern_named_cont(
+                            ContName::NewerCont,
+                            store,
+                            Continuation::Binop {
+                                operator: Op2::Modulo,
+                                saved_env: env,
+                                unevaled_args: more,
+                                continuation: cont,
+                            },
+                        ),
                     )
-                } else if head == store.sym("=") {
-                    let (arg1, more) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym("=") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     Control::Return(
                         arg1,
                         env,
-                        store.intern_cont_binop(Op2::NumEqual, env, more, cont),
+                        cont_witness.intern_named_cont(
+                            ContName::NewerCont,
+                            store,
+                            Continuation::Binop {
+                                operator: Op2::NumEqual,
+                                saved_env: env,
+                                unevaled_args: more,
+                                continuation: cont,
+                            },
+                        ),
                     )
-                } else if head == store.sym("eq") {
-                    let (arg1, more) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym("eq") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     Control::Return(
                         arg1,
                         env,
-                        store.intern_cont_binop(Op2::Equal, env, more, cont),
+                        cont_witness.intern_named_cont(
+                            ContName::NewerCont,
+                            store,
+                            Continuation::Binop {
+                                operator: Op2::Equal,
+                                saved_env: env,
+                                unevaled_args: more,
+                                continuation: cont,
+                            },
+                        ),
                     )
-                } else if head == store.sym("<") {
-                    let (arg1, more) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym("<") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     Control::Return(
                         arg1,
                         env,
-                        store.intern_cont_binop(Op2::Less, env, more, cont),
+                        cont_witness.intern_named_cont(
+                            ContName::NewerCont,
+                            store,
+                            Continuation::Binop {
+                                operator: Op2::Less,
+                                saved_env: env,
+                                unevaled_args: more,
+                                continuation: cont,
+                            },
+                        ),
                     )
-                } else if head == store.sym(">") {
-                    let (arg1, more) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym(">") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     Control::Return(
                         arg1,
                         env,
-                        store.intern_cont_binop(Op2::Greater, env, more, cont),
+                        cont_witness.intern_named_cont(
+                            ContName::NewerCont,
+                            store,
+                            Continuation::Binop {
+                                operator: Op2::Greater,
+                                saved_env: env,
+                                unevaled_args: more,
+                                continuation: cont,
+                            },
+                        ),
                     )
-                } else if head == store.sym("<=") {
-                    let (arg1, more) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym("<=") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     Control::Return(
                         arg1,
                         env,
-                        store.intern_cont_binop(Op2::LessEqual, env, more, cont),
+                        cont_witness.intern_named_cont(
+                            ContName::NewerCont,
+                            store,
+                            Continuation::Binop {
+                                operator: Op2::LessEqual,
+                                saved_env: env,
+                                unevaled_args: more,
+                                continuation: cont,
+                            },
+                        ),
                     )
-                } else if head == store.sym(">=") {
-                    let (arg1, more) = store.car_cdr(&rest);
+                } else if head == store.lurk_sym(">=") {
+                    let (arg1, more) = cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
                     Control::Return(
                         arg1,
                         env,
-                        store.intern_cont_binop(Op2::GreaterEqual, env, more, cont),
+                        cont_witness.intern_named_cont(
+                            ContName::NewerCont,
+                            store,
+                            Continuation::Binop {
+                                operator: Op2::GreaterEqual,
+                                saved_env: env,
+                                unevaled_args: more,
+                                continuation: cont,
+                            },
+                        ),
                     )
-                } else if head == store.sym("if") {
-                    let (condition, more) = store.car_cdr(&rest);
-                    Control::Return(condition, env, store.intern_cont_if(more, cont))
-                } else if head == store.sym("current-env") {
+                } else if head == store.lurk_sym("if") {
+                    let (condition, more) =
+                        cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                    Control::Return(
+                        condition,
+                        env,
+                        cont_witness.intern_named_cont(
+                            ContName::NewerCont,
+                            store,
+                            Continuation::If {
+                                unevaled_args: more,
+                                continuation: cont,
+                            },
+                        ),
+                    )
+                } else if head == store.lurk_sym("current-env") {
                     if !rest.is_nil() {
                         Control::Return(env, env, store.intern_cont_error())
                     } else {
@@ -923,22 +1220,59 @@ fn reduce_with_witness<F: LurkField>(
                     let fun_form = head;
                     let args = rest;
                     if args.is_nil() {
-                        Control::Return(fun_form, env, store.intern_cont_call0(env, cont))
+                        Control::Return(
+                            fun_form,
+                            env,
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont,
+                                store,
+                                Continuation::Call0 {
+                                    saved_env: env,
+                                    continuation: cont,
+                                },
+                            ),
+                        )
                     } else {
-                        let (arg, more_args) = store.car_cdr(&args);
+                        let (arg, more_args) =
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &args);
                         match more_args.tag() {
                             // (fn arg)
                             // Interpreting as call.
                             Tag::Nil => Control::Return(
                                 fun_form,
                                 env,
-                                store.intern_cont_call(arg, env, cont),
+                                cont_witness.intern_named_cont(
+                                    ContName::NewerCont,
+                                    store,
+                                    Continuation::Call {
+                                        unevaled_arg: arg,
+                                        saved_env: env,
+                                        continuation: cont,
+                                    },
+                                ),
                             ),
                             _ => {
                                 // Interpreting as multi-arg call.
                                 // (fn arg . more_args) => ((fn arg) . more_args)
-                                let expanded_inner = store.list(&[fun_form, arg]);
-                                let expanded = store.cons(expanded_inner, more_args);
+                                let nil = store.nil();
+                                let expanded_inner0 = cons_witness.cons_named(
+                                    ConsName::ExpandedInner0,
+                                    store,
+                                    arg,
+                                    nil,
+                                );
+                                let expanded_inner = cons_witness.cons_named(
+                                    ConsName::ExpandedInner,
+                                    store,
+                                    fun_form,
+                                    expanded_inner0,
+                                );
+                                let expanded = cons_witness.cons_named(
+                                    ConsName::FunExpanded,
+                                    store,
+                                    expanded_inner,
+                                    more_args,
+                                );
                                 Control::Return(expanded, env, cont)
                             }
                         }
@@ -955,12 +1289,17 @@ fn reduce_with_witness<F: LurkField>(
         prethunk_output_env: *new_env,
         prethunk_output_cont: *new_cont,
 
-        extended_closure,
+        closure_to_extend,
         apply_continuation_cont: None,
+        conses: *cons_witness,
+        conts: *cont_witness,
     };
 
     let control = apply_continuation(control, store, &mut witness)?;
     let ctrl = make_thunk(control, store, &mut witness)?;
+
+    witness.conses.assert_invariants(store);
+    witness.conts.assert_invariants(store);
 
     Ok((ctrl, witness))
 }
@@ -975,14 +1314,17 @@ fn apply_continuation<F: LurkField>(
     }
 
     let (result, env, cont) = control.as_results();
+
     witness.apply_continuation_cont = Some(*cont);
+    let cons_witness = &mut witness.conses;
+    let cont_witness = &mut witness.conts;
 
     let control = match cont.tag() {
         ContTag::Terminal | ContTag::Error => Control::Return(*result, *env, *cont),
         ContTag::Dummy => unreachable!("Dummy Continuation should never be applied."),
         ContTag::Outermost => Control::Return(*result, *env, store.intern_cont_terminal()),
-        ContTag::Emit => match store
-            .fetch_cont(cont)
+        ContTag::Emit => match cont_witness
+            .fetch_named_cont(ContName::ApplyContinuation, store, cont)
             .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
         {
             // Although Emit has no effect within the computation, it has an externally-visible side effect of
@@ -990,8 +1332,8 @@ fn apply_continuation<F: LurkField>(
             Continuation::Emit { continuation } => Control::MakeThunk(*result, *env, continuation),
             _ => unreachable!(),
         },
-        ContTag::Call0 => match store
-            .fetch_cont(cont)
+        ContTag::Call0 => match cont_witness
+            .fetch_named_cont(ContName::ApplyContinuation, store, cont)
             .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
         {
             Continuation::Call0 {
@@ -1003,9 +1345,15 @@ fn apply_continuation<F: LurkField>(
                     .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
                 {
                     Expression::Fun(arg, body, closed_env) => {
-                        if arg == store.sym("_") {
-                            let body_form = store.car(&body);
-                            let cont = make_tail_continuation(saved_env, continuation, store);
+                        if arg == store.lurk_sym("_") {
+                            let (body_form, _) =
+                                cons_witness.car_cdr_named(ConsName::FunBody, store, &body);
+                            let cont = make_tail_continuation(
+                                saved_env,
+                                continuation,
+                                store,
+                                cont_witness,
+                            );
 
                             Control::Return(body_form, closed_env, cont)
                         } else {
@@ -1020,10 +1368,9 @@ fn apply_continuation<F: LurkField>(
             },
             _ => unreachable!(),
         },
-
         ContTag::Call => match result.tag() {
-            Tag::Fun => match store
-                .fetch_cont(cont)
+            Tag::Fun => match cont_witness
+                .fetch_named_cont(ContName::ApplyContinuation, store, cont)
                 .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
             {
                 Continuation::Call {
@@ -1031,9 +1378,18 @@ fn apply_continuation<F: LurkField>(
                     saved_env,
                     continuation,
                 } => {
-                    let function = result;
+                    let function = *result;
                     let next_expr = unevaled_arg;
-                    let newer_cont = store.intern_cont_call2(*function, saved_env, continuation);
+
+                    let newer_cont = cont_witness.intern_named_cont(
+                        ContName::NewerCont2,
+                        store,
+                        Continuation::Call2 {
+                            function,
+                            saved_env,
+                            continuation,
+                        },
+                    );
                     Control::Return(next_expr, *env, newer_cont)
                 }
                 _ => unreachable!(),
@@ -1043,8 +1399,8 @@ fn apply_continuation<F: LurkField>(
                 Control::Return(*result, *env, store.intern_cont_error())
             }
         },
-        ContTag::Call2 => match store
-            .fetch_cont(cont)
+        ContTag::Call2 => match cont_witness
+            .fetch_named_cont(ContName::ApplyContinuation, store, cont)
             .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
         {
             Continuation::Call2 {
@@ -1057,12 +1413,20 @@ fn apply_continuation<F: LurkField>(
                     .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
                 {
                     Expression::Fun(arg, body, closed_env) => {
-                        if arg == store.sym("_") {
+                        if arg == store.lurk_sym("_") {
                             return Ok(Control::Return(*result, *env, store.intern_cont_error()));
                         }
-                        let body_form = store.car(&body);
-                        let newer_env = extend(closed_env, arg, *result, store);
-                        let cont = make_tail_continuation(saved_env, continuation, store);
+                        let (body_form, _) =
+                            cons_witness.car_cdr_named(ConsName::FunBody, store, &body);
+                        let newer_env = cons_witness.extend_named(
+                            ConsName::ClosedEnv,
+                            closed_env,
+                            arg,
+                            *result,
+                            store,
+                        );
+                        let cont =
+                            make_tail_continuation(saved_env, continuation, store, cont_witness);
                         Control::Return(body_form, newer_env, cont)
                     }
                     _ => unreachable!(),
@@ -1074,8 +1438,8 @@ fn apply_continuation<F: LurkField>(
             },
             _ => unreachable!(),
         },
-        ContTag::Let => match store
-            .fetch_cont(cont)
+        ContTag::Let => match cont_witness
+            .fetch_named_cont(ContName::ApplyContinuation, store, cont)
             .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
         {
             Continuation::Let {
@@ -1084,15 +1448,16 @@ fn apply_continuation<F: LurkField>(
                 saved_env,
                 continuation,
             } => {
-                let extended_env = extend(*env, var, *result, store);
-                let c = make_tail_continuation(saved_env, continuation, store);
+                let extended_env =
+                    cons_witness.extend_named(ConsName::Env, *env, var, *result, store);
+                let c = make_tail_continuation(saved_env, continuation, store, cont_witness);
 
                 Control::Return(body, extended_env, c)
             }
             _ => unreachable!(),
         },
-        ContTag::LetRec => match store
-            .fetch_cont(cont)
+        ContTag::LetRec => match cont_witness
+            .fetch_named_cont(ContName::ApplyContinuation, store, cont)
             .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
         {
             Continuation::LetRec {
@@ -1101,15 +1466,16 @@ fn apply_continuation<F: LurkField>(
                 saved_env,
                 continuation,
             } => {
-                let extended_env = extend_rec(*env, var, *result, store);
-                let c = make_tail_continuation(saved_env, continuation, store);
+                let extended_env = extend_rec(*env, var, *result, store, cons_witness);
+
+                let c = make_tail_continuation(saved_env, continuation, store, cont_witness);
 
                 Control::Return(body, extended_env?, c)
             }
             _ => unreachable!(),
         },
-        ContTag::Unop => match store
-            .fetch_cont(cont)
+        ContTag::Unop => match cont_witness
+            .fetch_named_cont(ContName::ApplyContinuation, store, cont)
             .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
         {
             Continuation::Unop {
@@ -1117,19 +1483,33 @@ fn apply_continuation<F: LurkField>(
                 continuation,
             } => {
                 let val = match operator {
-                    Op1::Car => match store.car_cdr_mut(result) {
-                        Ok((car, _)) => car,
-                        //TODO: Replace with ControlError or StoreError
-                        Err(_) => {
-                            return Ok(Control::Return(*result, *env, store.intern_cont_error()))
-                        } //Err(_) => store.nil(),
-                    },
-                    Op1::Cdr => match store.car_cdr_mut(result) {
-                        Ok((_, cdr)) => cdr,
-                        Err(_) => {
-                            return Ok(Control::Return(*result, *env, store.intern_cont_error()))
+                    Op1::Car => {
+                        match cons_witness.car_cdr_mut_named(ConsName::UnopConsLike, store, result)
+                        {
+                            Ok((car, _)) => car,
+                            //TODO: Replace with ControlError or StoreError
+                            Err(_) => {
+                                return Ok(Control::Return(
+                                    *result,
+                                    *env,
+                                    store.intern_cont_error(),
+                                ))
+                            } //Err(_) => store.nil(),
                         }
-                    },
+                    }
+                    Op1::Cdr => {
+                        match cons_witness.car_cdr_mut_named(ConsName::UnopConsLike, store, result)
+                        {
+                            Ok((_, cdr)) => cdr,
+                            Err(_) => {
+                                return Ok(Control::Return(
+                                    *result,
+                                    *env,
+                                    store.intern_cont_error(),
+                                ))
+                            }
+                        }
+                    }
                     Op1::Atom => match result.tag() {
                         Tag::Cons => store.nil(),
                         _ => store.t(),
@@ -1139,7 +1519,11 @@ fn apply_continuation<F: LurkField>(
                         return Ok(Control::MakeThunk(
                             *result,
                             *env,
-                            store.intern_cont_emit(continuation),
+                            cont_witness.intern_named_cont(
+                                ContName::NewerCont2,
+                                store,
+                                Continuation::Emit { continuation },
+                            ),
                         ));
                     }
                     Op1::Open => match result.tag() {
@@ -1197,27 +1581,15 @@ fn apply_continuation<F: LurkField>(
                         _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
                     },
                     Op1::Eval => {
-                        match store
-                            .fetch_cont(cont)
-                            .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
-                        {
-                            Continuation::Unop { continuation, .. } => {
-                                return Ok(Control::Return(
-                                    *result,
-                                    empty_sym_env(store),
-                                    continuation,
-                                ))
-                            }
-                            _ => unreachable!(),
-                        }
+                        return Ok(Control::Return(*result, empty_sym_env(store), continuation));
                     }
                 };
                 Control::MakeThunk(val, *env, continuation)
             }
             _ => unreachable!(),
         },
-        ContTag::Binop => match store
-            .fetch_cont(cont)
+        ContTag::Binop => match cont_witness
+            .fetch_named_cont(ContName::ApplyContinuation, store, cont)
             .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
         {
             Continuation::Binop {
@@ -1226,13 +1598,15 @@ fn apply_continuation<F: LurkField>(
                 unevaled_args,
                 continuation,
             } => {
-                let (arg2, rest) = store.car_cdr(&unevaled_args);
+                let (arg2, rest) =
+                    cons_witness.car_cdr_named(ConsName::UnevaledArgs, store, &unevaled_args);
                 if operator == Op2::Begin {
                     if rest.is_nil() {
                         Control::Return(arg2, saved_env, continuation)
                     } else {
-                        let begin = store.sym("begin");
-                        let begin_again = store.cons(begin, unevaled_args);
+                        let begin = store.lurk_sym("begin");
+                        let begin_again =
+                            cons_witness.cons_named(ConsName::Begin, store, begin, unevaled_args);
                         Control::Return(begin_again, saved_env, continuation)
                     }
                 } else if !rest.is_nil() {
@@ -1241,14 +1615,22 @@ fn apply_continuation<F: LurkField>(
                     Control::Return(
                         arg2,
                         saved_env,
-                        store.intern_cont_binop2(operator, *result, continuation),
+                        cont_witness.intern_named_cont(
+                            ContName::NewerCont2,
+                            store,
+                            Continuation::Binop2 {
+                                operator,
+                                evaled_arg: *result,
+                                continuation,
+                            },
+                        ),
                     )
                 }
             }
             _ => unreachable!(),
         },
-        ContTag::Binop2 => match store
-            .fetch_cont(cont)
+        ContTag::Binop2 => match cont_witness
+            .fetch_named_cont(ContName::ApplyContinuation, store, cont)
             .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
         {
             Continuation::Binop2 {
@@ -1359,11 +1741,13 @@ fn apply_continuation<F: LurkField>(
                     (Expression::Char(_), Expression::Str(_))
                         if matches!(operator, Op2::StrCons) =>
                     {
-                        store.strcons(evaled_arg, *arg2)
+                        cons_witness.strcons_named(ConsName::TheCons, store, evaled_arg, *arg2)
                     }
                     _ => match operator {
                         Op2::Equal => store.as_lurk_boolean(store.ptr_eq(&evaled_arg, arg2)?),
-                        Op2::Cons => store.cons(evaled_arg, *arg2),
+                        Op2::Cons => {
+                            cons_witness.cons_named(ConsName::TheCons, store, evaled_arg, *arg2)
+                        }
                         Op2::Eval => {
                             return Ok(Control::Return(evaled_arg, *arg2, continuation));
                         }
@@ -1376,8 +1760,8 @@ fn apply_continuation<F: LurkField>(
             }
             _ => unreachable!(),
         },
-        ContTag::If => match store
-            .fetch_cont(cont)
+        ContTag::If => match cont_witness
+            .fetch_named_cont(ContName::ApplyContinuation, store, cont)
             .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
         {
             Continuation::If {
@@ -1385,7 +1769,9 @@ fn apply_continuation<F: LurkField>(
                 continuation,
             } => {
                 let condition = result;
-                let (arg1, more) = store.car_cdr(&unevaled_args);
+                let (arg1, more) =
+                    cons_witness.car_cdr_named(ConsName::UnevaledArgs, store, &unevaled_args);
+
                 // NOTE: as formulated here, IF operates on any condition. Every
                 // value but NIL is considered true.
                 //
@@ -1414,7 +1800,8 @@ fn apply_continuation<F: LurkField>(
                 // value being checked against is not zero, so that value should
                 // first be subtracted from the value being checked.
 
-                let (arg2, end) = store.car_cdr(&more);
+                let (arg2, end) =
+                    cons_witness.car_cdr_named(ConsName::UnevaledArgsCdr, store, &more);
                 if !end.is_nil() {
                     Control::Return(arg1, *env, store.intern_cont_error())
                 } else if condition.is_nil() {
@@ -1425,8 +1812,8 @@ fn apply_continuation<F: LurkField>(
             }
             _ => unreachable!(),
         },
-        ContTag::Lookup => match store
-            .fetch_cont(cont)
+        ContTag::Lookup => match cont_witness
+            .fetch_named_cont(ContName::ApplyContinuation, store, cont)
             .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
         {
             Continuation::Lookup {
@@ -1435,8 +1822,8 @@ fn apply_continuation<F: LurkField>(
             } => Control::MakeThunk(*result, saved_env, continuation),
             _ => unreachable!(),
         },
-        ContTag::Tail => match store
-            .fetch_cont(cont)
+        ContTag::Tail => match cont_witness
+            .fetch_named_cont(ContName::ApplyContinuation, store, cont)
             .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
         {
             Continuation::Tail {
@@ -1460,7 +1847,7 @@ fn apply_continuation<F: LurkField>(
 fn make_thunk<F: LurkField>(
     control: Control<F>,
     store: &mut Store<F>,
-    _witness: &mut Witness<F>,
+    witness: &mut Witness<F>,
 ) -> Result<Control<F>, LurkError> {
     if !control.is_make_thunk() {
         return Ok(control);
@@ -1472,9 +1859,11 @@ fn make_thunk<F: LurkField>(
         unreachable!("make_thunk should never be called with a thunk");
     };
 
+    let cont_witness = &mut witness.conts;
+
     match cont.tag() {
-        ContTag::Tail => match store
-            .fetch_cont(&cont)
+        ContTag::Tail => match cont_witness
+            .fetch_named_cont(ContName::MakeThunk, store, &cont)
             .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
         {
             Continuation::Tail {
@@ -1506,13 +1895,22 @@ fn make_tail_continuation<F: LurkField>(
     env: Ptr<F>,
     continuation: ContPtr<F>,
     store: &mut Store<F>,
+    cont_witness: &mut ContWitness<F>,
 ) -> ContPtr<F> {
     // Result must be either a Tail or Outermost continuation.
     match continuation.tag() {
         // If continuation is already tail, just return it.
+        //ContTag::Tail => continuation,
         ContTag::Tail => continuation,
         // Otherwise, package it along with supplied env as a new Tail continuation.
-        _ => store.intern_cont_tail(env, continuation),
+        _ => cont_witness.intern_named_cont(
+            ContName::NewerCont2,
+            store,
+            Continuation::Tail {
+                saved_env: env,
+                continuation,
+            },
+        ),
     }
     // Since this is the only place Tail continuation are created, this ensures Tail continuations never
     // point to one another: they can only be nested one deep.
@@ -1615,6 +2013,8 @@ pub fn empty_sym_env<F: LurkField>(store: &Store<F>) -> Ptr<F> {
     store.get_nil()
 }
 
+// Only used in tests. Real evalution should use extend_name.
+#[allow(dead_code)]
 fn extend<F: LurkField>(env: Ptr<F>, var: Ptr<F>, val: Ptr<F>, store: &mut Store<F>) -> Ptr<F> {
     let cons = store.cons(var, val);
     store.cons(cons, env)
@@ -1625,21 +2025,28 @@ fn extend_rec<F: LurkField>(
     var: Ptr<F>,
     val: Ptr<F>,
     store: &mut Store<F>,
+    cons_witness: &mut ConsWitness<F>,
 ) -> Result<Ptr<F>, LurkError> {
-    let (binding_or_env, rest) = store.car_cdr(&env);
-    let (var_or_binding, _val_or_more_bindings) = store.car_cdr(&binding_or_env);
+    let (binding_or_env, rest) = cons_witness.car_cdr_named(ConsName::Env, store, &env);
+    let (var_or_binding, _val_or_more_bindings) =
+        cons_witness.car_cdr_named(ConsName::EnvCar, store, &binding_or_env);
     match var_or_binding.tag() {
         // It's a var, so we are extending a simple env with a recursive env.
         Tag::Sym | Tag::Nil => {
-            let cons = store.cons(var, val);
-            let list = store.list(&[cons]);
-            Ok(store.cons(list, env))
+            let cons = cons_witness.cons_named(ConsName::NewRecCadr, store, var, val);
+            let nil = store.nil();
+            let list = cons_witness.cons_named(ConsName::NewRec, store, cons, nil);
+            let res = cons_witness.cons_named(ConsName::ExtendedRec, store, list, env);
+
+            Ok(res)
         }
         // It's a binding, so we are extending a recursive env.
         Tag::Cons => {
-            let cons = store.cons(var, val);
-            let cons2 = store.cons(cons, binding_or_env);
-            Ok(store.cons(cons2, rest))
+            let cons = cons_witness.cons_named(ConsName::NewRecCadr, store, var, val);
+            let cons2 = cons_witness.cons_named(ConsName::NewRec, store, cons, binding_or_env);
+            let res = cons_witness.cons_named(ConsName::ExtendedRec, store, cons2, rest);
+
+            Ok(res)
         }
         _ => Err(LurkError::Store("Bad input form.".into())),
     }
@@ -1649,6 +2056,7 @@ fn extend_closure<F: LurkField>(
     fun: &Ptr<F>,
     rec_env: &Ptr<F>,
     store: &mut Store<F>,
+    cons_witness: &mut ConsWitness<F>,
 ) -> Result<Ptr<F>, LurkError> {
     match fun.tag() {
         Tag::Fun => match store
@@ -1656,7 +2064,12 @@ fn extend_closure<F: LurkField>(
             .ok_or_else(|| LurkError::Store("Fetch failed".into()))?
         {
             Expression::Fun(arg, body, closed_env) => {
-                let extended = store.cons(*rec_env, closed_env);
+                let extended = cons_witness.cons_named(
+                    ConsName::ExtendedClosureEnv,
+                    store,
+                    *rec_env,
+                    closed_env,
+                );
                 Ok(store.intern_fun(arg, body, extended))
             }
             _ => unreachable!(),
@@ -1679,6 +2092,7 @@ impl<F: LurkField> Store<F> {
 }
 
 #[allow(dead_code)]
+// This clarifies the lookup logic and is used in tests.
 fn lookup<F: LurkField>(env: &Ptr<F>, var: &Ptr<F>, store: &Store<F>) -> Result<Ptr<F>, LurkError> {
     assert!(matches!(var.tag(), Tag::Sym));
     match env.tag() {
@@ -1757,10 +2171,6 @@ mod test {
         ) = Evaluator::new(*expr, env, s, limit).eval().unwrap();
 
         if let Some(expected_result) = expected_result {
-            dbg!(
-                &expected_result.fmt_to_string(&s),
-                &new_expr.fmt_to_string(&s),
-            );
             assert!(s.ptr_eq(&expected_result, &new_expr).unwrap());
         }
         if let Some(expected_env) = expected_env {
@@ -1879,7 +2289,7 @@ mod test {
         let mut s = Store::<Fr>::default();
         let nil = s.nil();
         let x = s.sym("x");
-        let lambda = s.sym("lambda");
+        let lambda = s.lurk_sym("lambda");
         let val = s.num(123);
         let lambda_args = s.cons(x, nil);
         let body = s.cons(x, nil);
@@ -1957,7 +2367,7 @@ mod test {
     fn evaluate_lambda4() {
         let s = &mut Store::<Fr>::default();
         let expr =
-            // NOTE: We pass two different values. This tests which is returned.
+        // NOTE: We pass two different values. This tests which is returned.
             "((lambda (y) ((lambda (x) ((lambda (z) z) x)) 888)) 999)";
 
         let expected = s.num(888);
@@ -1969,7 +2379,7 @@ mod test {
     fn evaluate_lambda5() {
         let s = &mut Store::<Fr>::default();
         let expr =
-            // Bind a function to the name FN, then call it.
+        // Bind a function to the name FN, then call it.
             "(((lambda (fn) (lambda (x) (fn x))) (lambda (y) y)) 999)";
 
         let expected = s.num(999);
@@ -2339,7 +2749,7 @@ mod test {
     fn evaluate_tail_recursion_somewhat_optimized() {
         let s = &mut Store::<Fr>::default();
         let expr =
-                "(letrec ((exp (lambda (base)
+            "(letrec ((exp (lambda (base)
                              (letrec ((base-inner
                                         (lambda (exponent-remaining)
                                           (lambda (acc)
@@ -2934,7 +3344,7 @@ mod test {
 
         let s2 = &mut Store::<Fr>::default();
         let comm = s2.intern_maybe_opaque_comm(*c);
-        let open = s2.sym("open");
+        let open = s2.lurk_sym("open");
         let x = s2.sym("x");
 
         let expr = s2.list(&[open, comm]);
@@ -3646,5 +4056,127 @@ mod test {
         let error = s.get_cont_error();
 
         test_aux(s, expr, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn test_keyword() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = ":asdf";
+        let expr2 = "(eq :asdf :asdf)";
+        let expr3 = "(eq :asdf 'asdf)";
+        let res = s.key("ASDF");
+        let res2 = s.get_t();
+        let res3 = s.get_nil();
+
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr3, Some(res3), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn test_root_sym() {
+        use crate::sym::Sym;
+        use ff::Field;
+
+        let s = &mut Store::<Fr>::default();
+
+        let sym = Sym::root();
+        let x = s.intern_sym(&sym);
+
+        let scalar_ptr = &s.get_expr_hash(&x).unwrap();
+
+        assert_eq!(&Fr::zero(), scalar_ptr.value());
+        assert_eq!(&Tag::Sym.as_field::<Fr>(), scalar_ptr.tag());
+    }
+
+    #[test]
+    fn test_sym_hash_values() {
+        use crate::store::ScalarPointer;
+        use crate::sym::Sym;
+
+        let s = &mut Store::<Fr>::default();
+
+        let sym = s.sym(".ASDF.FDSA");
+        let key = s.sym(":ASDF.FDSA");
+        let expr = s.read("(cons \"FDSA\" '.ASDF)").unwrap();
+
+        let limit = 10;
+        let env = empty_sym_env(&s);
+        let (
+            IO {
+                expr: new_expr,
+                env: _,
+                cont: _,
+            },
+            _iterations,
+            _emitted,
+        ) = Evaluator::new(expr, env, s, limit).eval().unwrap();
+
+        let toplevel_sym = s.sym(".ASDF");
+
+        let root = Sym::root();
+        let root_sym = s.intern_sym(&root);
+
+        let asdf = s.str("ASDF");
+        let consed_with_root = s.cons(asdf, root_sym);
+
+        let cons_scalar_ptr = &s.get_expr_hash(&new_expr).unwrap();
+        let sym_scalar_ptr = &s.get_expr_hash(&sym).unwrap();
+        let key_scalar_ptr = &s.get_expr_hash(&key).unwrap();
+
+        let consed_with_root_scalar_ptr = &s.get_expr_hash(&consed_with_root).unwrap();
+        let toplevel_scalar_ptr = &s.get_expr_hash(&toplevel_sym).unwrap();
+
+        // Symbol and keyword scalar hash values are the same as
+        // those of the name string consed onto the parent symbol.
+        assert_eq!(cons_scalar_ptr.value(), sym_scalar_ptr.value());
+        assert_eq!(cons_scalar_ptr.value(), key_scalar_ptr.value());
+
+        // Toplevel symbols also have this property, and their parent symbol is the root symbol.
+        assert_eq!(
+            consed_with_root_scalar_ptr.value(),
+            toplevel_scalar_ptr.value()
+        );
+
+        // The tags differ though.
+        assert_eq!(&Tag::Sym.as_field::<Fr>(), sym_scalar_ptr.tag());
+        assert_eq!(&Tag::Key.as_field::<Fr>(), key_scalar_ptr.tag());
+    }
+
+    #[test]
+    fn test_fold_cons_regression() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(letrec ((fold (lambda (op acc l)
+                                     (if l
+                                         (fold op (op acc (car l)) (cdr l))
+                                         acc))))
+                      (fold (lambda (x y) (+ x y)) 0 '(1 2 3)))";
+        let res = s.num(6);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 152);
+    }
+
+    #[test]
+    fn test_lambda_args_regression() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(cons (lambda (x y) nil) nil)";
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, None, None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn test_eval_bad_form() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env.
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, None, None, Some(error), None, 8);
     }
 }
