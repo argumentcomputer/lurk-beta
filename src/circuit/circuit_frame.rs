@@ -326,11 +326,11 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
                     (i + 1, frame.synthesize(cs, i, allocated_io, &g).unwrap())
                 });
 
-            // dbg!(
-            //     (&new_expr, &output_expr),
-            //     (&new_env, &output_env),
-            //     (&new_cont, &output_cont)
-            // );
+            dbg!(
+                (&new_expr, &output_expr),
+                (&new_env, &output_env),
+                (&new_cont, &output_cont)
+            );
 
             output_expr.enforce_equal(
                 &mut cs.namespace(|| "outer output expr is correct"),
@@ -3027,7 +3027,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let num = to_num(result, g);
         let comm = to_comm(result, g);
         let c = to_char(result, g);
-        let u64_elem = u64_op(&mut cs.namespace(|| "Unop u64"), g, result, store)?;
+        let u64_elem = u64_op(&mut cs.namespace(|| "Unop u64"), g, result.hash())?;
 
         let res = multi_case(
             &mut cs.namespace(|| "Unop case"),
@@ -3068,7 +3068,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                     },
                     CaseClause {
                         key: Op1::U64.as_field(),
-                        value: u64_elem.tag(),
+                        value: &g.u64_tag,
                     },
                     CaseClause {
                         key: Op1::Comm.as_field(),
@@ -3118,7 +3118,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                     },
                     CaseClause {
                         key: Op1::U64.as_field(),
-                        value: u64_elem.hash(),
+                        value: &u64_elem,
                     },
                     CaseClause {
                         key: Op1::Comm.as_field(),
@@ -3920,8 +3920,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             field_arithmetic_result.hash(),
             &g.power2_64_num,
         )?;
-        let alloc_field_arith_res_plus_2p64 =
-            AllocatedPtr::from_parts(&g.u64_tag, &field_arithmetic_result_plus_2p64);
+        //let alloc_field_arith_res_plus_2p64 =
+        //    AllocatedPtr::from_parts(&g.u64_tag, &field_arithmetic_result_plus_2p64);
 
         let op2_is_diff = alloc_equal(cs.namespace(|| "op2_is_diff"), op2.tag(), &g.op2_diff_tag)?;
 
@@ -3931,19 +3931,19 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &op2_is_diff,
         )?;
 
-        let field_arith_and_u64_diff_result = AllocatedPtr::pick(
+        let field_arith_and_u64_diff_result = pick(
             &mut cs.namespace(|| "field arith and u64 diff result"),
             &diff_is_negative_and_op2_is_diff,
-            &alloc_field_arith_res_plus_2p64,
-            &field_arithmetic_result,
+            &field_arithmetic_result_plus_2p64,
+            field_arithmetic_result.hash(),
         )?;
 
         let coarse_to_u64 = u64_op(
             &mut cs.namespace(|| "binop coarse to u64"),
             g,
             &field_arith_and_u64_diff_result,
-            store,
         )?;
+        let coarse_to_u64_ptr = AllocatedPtr::from_parts(&g.u64_tag, &coarse_to_u64);
 
         let both_args_are_u64s_and_not_comparison = Boolean::and(
             &mut cs.namespace(|| "both_args_are_u64_and_not_comparison"),
@@ -3954,18 +3954,18 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let partial_u64_result = AllocatedPtr::pick(
             &mut cs.namespace(|| "partial u64 result"),
             &both_args_are_u64s_and_not_comparison,
-            &coarse_to_u64,
+            &coarse_to_u64_ptr,
             &field_arithmetic_result,
         )?;
 
         let (alloc_q, alloc_r) = enforce_u64_div_mod(
             &mut cs.namespace(|| "u64 div mod equation"),
-            g,
             op2_is_mod.clone(),
             &arg1,
             arg2,
-            store,
         )?;
+        let alloc_q_ptr = AllocatedPtr::from_parts(&g.u64_tag, &alloc_q);
+        let alloc_r_ptr = AllocatedPtr::from_parts(&g.u64_tag, &alloc_r);
 
         let op2_is_div_and_args_are_u64s = Boolean::and(
             &mut cs.namespace(|| "op2 is div and args are u64s"),
@@ -3975,7 +3975,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let include_u64_quotient = AllocatedPtr::pick(
             &mut cs.namespace(|| "include u64 quotient"),
             &op2_is_div_and_args_are_u64s,
-            &alloc_q,
+            &alloc_q_ptr,
             &partial_u64_result,
         )?;
         let op2_is_mod_and_args_are_u64s = Boolean::and(
@@ -3992,7 +3992,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let arithmetic_result = AllocatedPtr::pick(
             &mut cs.namespace(|| "arithmetic result"),
             &op2_is_mod_and_args_are_u64s,
-            &alloc_r,
+            &alloc_r_ptr,
             &include_u64_quotient,
         )?;
 
@@ -4701,15 +4701,13 @@ pub fn enforce_at_most_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
 pub fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
-    maybe_u64: &AllocatedPtr<F>,
-    store: &Store<F>,
-) -> Result<AllocatedPtr<F>, SynthesisError> {
+    maybe_u64: &AllocatedNum<F>,
+) -> Result<AllocatedNum<F>, SynthesisError> {
     let p64_bn = BigUint::pow(&BigUint::from_u32(2).unwrap(), 64);
-    let v = match maybe_u64.hash().get_value() {
+    let v = match maybe_u64.get_value() {
         Some(v) => v,
         None => F::zero(),
     };
-    let u64_ptr = store.get_u64(v.to_u64_unchecked());
     let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
 
     let (q_bn, r_bn) = field_bn.div_rem(&p64_bn);
@@ -4727,7 +4725,7 @@ pub fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
     let u64_decomp = alloc_equal(
         &mut cs.namespace(|| "check u64 decomposition"),
         &sum,
-        maybe_u64.hash(),
+        maybe_u64,
     )?;
     enforce_true(
         &mut cs.namespace(|| "enforce u64 decomposition"),
@@ -4742,11 +4740,13 @@ pub fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
         64,
     )?;
 
-    let output = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "u64_op"), store, || Ok(&u64_ptr))?;
+    let output = AllocatedNum::alloc(&mut cs.namespace(|| "u64_op"), || {
+        Ok(F::from_u64(v.to_u64_unchecked()).unwrap())
+    })?;
     let u64_is_remainder = alloc_equal(
         &mut cs.namespace(|| "check u64 value is the remainder"),
         &r_num,
-        output.hash(),
+        &output,
     )?;
     enforce_true(
         &mut cs.namespace(|| "enforce u64 decomposition output"),
@@ -4759,12 +4759,10 @@ pub fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
 // arg1 = q * arg2 + r, such that 0 <= r < arg2.
 pub fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    g: &GlobalAllocations<F>,
     cond: Boolean,
     arg1: &AllocatedPtr<F>,
     arg2: &AllocatedPtr<F>,
-    store: &Store<F>,
-) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
+) -> Result<(AllocatedNum<F>, AllocatedNum<F>), SynthesisError> {
     let arg1_u64 = match arg1.hash().get_value() {
         Some(v) => v.to_u64_unchecked(),
         None => 0, // Blank and Dummy
@@ -4780,39 +4778,38 @@ pub fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
         (0, 0)
     };
 
-    let r_ptr = store.get_u64(r);
-    let alloc_r =
-        AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "u64 remainder"), store, || Ok(&r_ptr))?;
-
-    let q_ptr = store.get_u64(q);
-    let alloc_q =
-        AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "u64 quotient"), store, || Ok(&q_ptr))?;
-
-    let arg1_u64_ptr = store.get_u64(arg1_u64);
-    let alloc_arg1 = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "alloc arg1"), store, || {
-        Ok(&arg1_u64_ptr)
+    let alloc_r_num =
+        AllocatedNum::alloc(
+            &mut cs.namespace(|| "r num"),
+            || Ok(F::from_u64(r).unwrap()),
+        )?;
+    let alloc_q_num =
+        AllocatedNum::alloc(
+            &mut cs.namespace(|| "q num"),
+            || Ok(F::from_u64(q).unwrap()),
+        )?;
+    let alloc_arg1_num = AllocatedNum::alloc(&mut cs.namespace(|| "arg1 num"), || {
+        Ok(F::from_u64(arg1_u64).unwrap())
     })?;
-
-    let arg2_u64_ptr = store.get_u64(arg2_u64);
-    let alloc_arg2 = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "alloc arg2"), store, || {
-        Ok(&arg2_u64_ptr)
+    let alloc_arg2_num = AllocatedNum::alloc(&mut cs.namespace(|| "arg2 num"), || {
+        Ok(F::from_u64(arg2_u64).unwrap())
     })?;
 
     // a = b * q + r
     let product_u64mod = mul(
         &mut cs.namespace(|| "product(q,arg2)"),
-        alloc_q.hash(),
-        alloc_arg2.hash(),
+        &alloc_q_num,
+        &alloc_arg2_num,
     )?;
     let sum_u64mod = add(
         &mut cs.namespace(|| "sum remainder mod u64"),
         &product_u64mod,
-        alloc_r.hash(),
+        &alloc_r_num,
     )?;
     let u64mod_decomp = alloc_equal(
         &mut cs.namespace(|| "check u64 mod decomposition"),
         &sum_u64mod,
-        alloc_arg1.hash(),
+        &alloc_arg1_num,
     )?;
     let b_is_zero = alloc_is_zero(&mut cs.namespace(|| "b is zero"), arg2.hash())?;
     let b_is_not_zero_and_cond = Boolean::and(
@@ -4829,24 +4826,24 @@ pub fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
     enforce_less_than_bound(
         &mut cs.namespace(|| "remainder in range b"),
         cond,
-        alloc_r.clone(),
-        alloc_arg2.clone(),
+        alloc_r_num.clone(),
+        alloc_arg2_num,
     )?;
 
-    let arg1_u64_tag = alloc_equal(
-        &mut cs.namespace(|| "arg1 u64 tag"),
-        alloc_arg1.tag(),
-        &g.u64_tag,
-    )?;
-    let arg2_u64_tag = alloc_equal(
-        &mut cs.namespace(|| "arg2 u64 tag"),
-        alloc_arg2.tag(),
-        &g.u64_tag,
-    )?;
-    enforce_true(&mut cs.namespace(|| "check arg1 u64 tag"), &arg1_u64_tag)?;
-    enforce_true(&mut cs.namespace(|| "check arg2 u64 tag"), &arg2_u64_tag)?;
+    //let arg1_u64_tag = alloc_equal(
+    //    &mut cs.namespace(|| "arg1 u64 tag"),
+    //    alloc_arg1.tag(),
+    //    &g.u64_tag,
+    //)?;
+    //let arg2_u64_tag = alloc_equal(
+    //    &mut cs.namespace(|| "arg2 u64 tag"),
+    //    alloc_arg2.tag(),
+    //    &g.u64_tag,
+    //)?;
+    //enforce_true(&mut cs.namespace(|| "check arg1 u64 tag"), &arg1_u64_tag)?;
+    //enforce_true(&mut cs.namespace(|| "check arg2 u64 tag"), &arg2_u64_tag)?;
 
-    Ok((alloc_q, alloc_r))
+    Ok((alloc_q_num, alloc_r_num))
 }
 
 // Given that `cond` is satisfied, enforce the num < bound.
@@ -4856,14 +4853,10 @@ pub fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
 pub fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     cond: Boolean,
-    num: AllocatedPtr<F>,
-    bound: AllocatedPtr<F>,
+    num: AllocatedNum<F>,
+    bound: AllocatedNum<F>,
 ) -> Result<(), SynthesisError> {
-    let diff_bound_num = sub(
-        &mut cs.namespace(|| "bound minus num"),
-        bound.hash(),
-        num.hash(),
-    )?;
+    let diff_bound_num = sub(&mut cs.namespace(|| "bound minus num"), &bound, &num)?;
 
     let diff_bound_num_is_negative = allocate_is_negative(
         &mut cs.namespace(|| "diff bound num is negative"),
@@ -5186,9 +5179,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12520, cs.num_constraints());
+            assert_eq!(12509, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(12151, cs.aux().len());
+            assert_eq!(12138, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
@@ -5622,9 +5615,9 @@ mod tests {
         let a = s.num(42);
         let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
 
-        let a_u64 = u64_op(&mut cs.namespace(|| "u64 op"), &g, &alloc_a, s).unwrap();
+        let a_u64 = u64_op(&mut cs.namespace(|| "u64 op"), &g, &alloc_a.hash()).unwrap();
         assert!(cs.is_satisfied());
-        assert_eq!(a_u64.hash().get_value(), Fr::from_u64(42));
+        assert_eq!(a_u64.get_value(), Fr::from_u64(42));
     }
 
     #[test]
@@ -5635,26 +5628,26 @@ mod tests {
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
         let alloc_pow2_64 = AllocatedPtr::from_parts(&g.num_tag, &g.power2_64_num);
 
-        let a_u64 = u64_op(&mut cs.namespace(|| "u64 op"), &g, &alloc_pow2_64, s).unwrap();
+        let a_u64 = u64_op(&mut cs.namespace(|| "u64 op"), &g, &alloc_pow2_64.hash()).unwrap();
         assert!(cs.is_satisfied());
-        assert_eq!(a_u64.hash().get_value(), Fr::from_u64(0));
+        assert_eq!(a_u64.get_value(), Fr::from_u64(0));
     }
 
     #[test]
     fn test_enforce_less_than_bound_corner_case() {
         let mut cs = TestConstraintSystem::<Fr>::new();
-        let s = &mut Store::<Fr>::default();
 
-        let most_positive = crate::Num::<Fr>::most_positive();
-        let most_positive_ptr = s.num(most_positive);
         let alloc_most_positive =
-            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "most positive"), s, || {
-                Ok(&most_positive_ptr)
+            AllocatedNum::alloc(&mut cs.namespace(|| "most positive"), || {
+                Ok(Fr::most_positive())
             })
             .unwrap();
-        let num = s.num(42);
         let alloc_num =
-            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "num"), s, || Ok(&num)).unwrap();
+            AllocatedNum::alloc(
+                &mut cs.namespace(|| "num"),
+                || Ok(Fr::from_u64(42).unwrap()),
+            )
+            .unwrap();
         let cond = Boolean::Constant(true);
 
         let res = enforce_less_than_bound(
@@ -5670,13 +5663,16 @@ mod tests {
     #[test]
     fn test_enforce_less_than_bound() {
         let mut cs = TestConstraintSystem::<Fr>::new();
-        let s = &mut Store::<Fr>::default();
-        let num = s.num(42);
         let alloc_num =
-            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "num"), s, || Ok(&num)).unwrap();
-        let bound = s.num(43);
-        let alloc_bound =
-            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "bound"), s, || Ok(&bound)).unwrap();
+            AllocatedNum::alloc(
+                &mut cs.namespace(|| "num"),
+                || Ok(Fr::from_u64(42).unwrap()),
+            )
+            .unwrap();
+        let alloc_bound = AllocatedNum::alloc(&mut cs.namespace(|| "bound"), || {
+            Ok(Fr::from_u64(43).unwrap())
+        })
+        .unwrap();
         let cond = Boolean::Constant(true);
 
         let res = enforce_less_than_bound(
@@ -5692,13 +5688,16 @@ mod tests {
     #[test]
     fn test_enforce_less_than_bound_negative() {
         let mut cs = TestConstraintSystem::<Fr>::new();
-        let s = &mut Store::<Fr>::default();
-        let num = s.num(43);
         let alloc_num =
-            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "num"), s, || Ok(&num)).unwrap();
-        let bound = s.num(42);
-        let alloc_bound =
-            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "bound"), s, || Ok(&bound)).unwrap();
+            AllocatedNum::alloc(
+                &mut cs.namespace(|| "num"),
+                || Ok(Fr::from_u64(43).unwrap()),
+            )
+            .unwrap();
+        let alloc_bound = AllocatedNum::alloc(&mut cs.namespace(|| "bound"), || {
+            Ok(Fr::from_u64(42).unwrap())
+        })
+        .unwrap();
         let cond = Boolean::Constant(true);
 
         let res = enforce_less_than_bound(
@@ -5716,8 +5715,6 @@ mod tests {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let s = &mut Store::<Fr>::default();
 
-        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
-
         let a = s.num(42);
         let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
         let b = s.num(5);
@@ -5727,24 +5724,20 @@ mod tests {
 
         let (q, r) = enforce_u64_div_mod(
             &mut cs.namespace(|| "enforce u64 div mod"),
-            &g,
             cond,
             &alloc_a,
             &alloc_b,
-            s,
         )
         .unwrap();
         assert!(cs.is_satisfied());
-        assert_eq!(q.hash().get_value(), Fr::from_u64(8));
-        assert_eq!(r.hash().get_value(), Fr::from_u64(2));
+        assert_eq!(q.get_value(), Fr::from_u64(8));
+        assert_eq!(r.get_value(), Fr::from_u64(2));
     }
 
     #[test]
     fn test_enforce_u64_div_mod_zero() {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let s = &mut Store::<Fr>::default();
-
-        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
 
         let a = s.num(42);
         let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
@@ -5755,16 +5748,14 @@ mod tests {
 
         let (q, r) = enforce_u64_div_mod(
             &mut cs.namespace(|| "enforce u64 div mod"),
-            &g,
             cond,
             &alloc_a,
             &alloc_b,
-            s,
         )
         .unwrap();
         assert!(cs.is_satisfied());
-        assert_eq!(q.hash().get_value(), Fr::from_u64(0));
-        assert_eq!(r.hash().get_value(), Fr::from_u64(0));
+        assert_eq!(q.get_value(), Fr::from_u64(0));
+        assert_eq!(r.get_value(), Fr::from_u64(0));
     }
 
     #[test]
