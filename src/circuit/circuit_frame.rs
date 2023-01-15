@@ -4849,8 +4849,10 @@ pub fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
     Ok((alloc_q, alloc_r))
 }
 
-// Enforce the num < bound. This is done by proving (bound - num) is positive.
+// Given that `cond` is satisfied, enforce the num < bound.
+// This is done by proving (bound - num) is positive.
 // `num` and `bound` must be a positive field element.
+// `cond` is a Boolean condition that enforces the validation iff it is True.
 pub fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     cond: Boolean,
