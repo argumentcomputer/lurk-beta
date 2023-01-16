@@ -3995,22 +3995,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &args_are_num_or_u64,
         )?;
 
-        let real_div_or_mod = Boolean::and(
-            &mut cs.namespace(|| "real div or mod"),
-            &not_dummy,
-            &op2_is_div_or_mod,
-        )?;
-
-        let real_div_and_b_is_zero = Boolean::and(
-            &mut cs.namespace(|| "real_div_and_b_is_zero"),
-            &real_div_or_mod,
-            b_is_zero,
-        )?;
+        let real_div_or_mor_and_b_is_zero = and!(cs, &not_dummy, &op2_is_div_or_mod, b_is_zero)?;
 
         let valid_types_and_not_div_by_zero = Boolean::and(
             &mut cs.namespace(|| "Op2 called with no errors"),
             &valid_types,
-            &real_div_and_b_is_zero.not(),
+            &real_div_or_mor_and_b_is_zero.not(),
         )?;
 
         let op2_not_num_or_u64_and_not_cons_or_strcons_or_hide_or_equal_or_num_equal =
