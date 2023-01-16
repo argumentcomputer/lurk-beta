@@ -73,10 +73,11 @@ pub fn add<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(res)
 }
 
-/// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v` is equal to `sum`.
+/// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v`
+/// is equal to `sum`.
 ///
 /// summation(v) = sum
-pub fn boolean_summation<F: PrimeField, CS: ConstraintSystem<F>>(
+pub fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     v: &Vec<Boolean>,
     sum: &AllocatedNum<F>,
@@ -98,7 +99,7 @@ pub fn boolean_summation<F: PrimeField, CS: ConstraintSystem<F>>(
 
     // (summation(v)) * 1 = sum
     cs.enforce(
-        || "boolean summation",
+        || "popcount",
         |_| v_lc,
         |lc| lc + CS::one(),
         |lc| lc + sum.get_variable(),

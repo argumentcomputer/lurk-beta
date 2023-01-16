@@ -21,7 +21,7 @@ use super::gadgets::constraints::{
     self, alloc_equal, alloc_is_zero, enforce_implication, or, pick, sub,
 };
 use crate::circuit::circuit_frame::constraints::{
-    add, allocate_is_negative, boolean_summation, boolean_to_num, enforce_true, mul,
+    add, allocate_is_negative, boolean_to_num, enforce_true, mul, popcount,
 };
 use crate::circuit::gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness};
 use crate::circuit::ToInputs;
@@ -326,11 +326,11 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
                     (i + 1, frame.synthesize(cs, i, allocated_io, &g).unwrap())
                 });
 
-            dbg!(
-                (&new_expr, &output_expr),
-                (&new_env, &output_env),
-                (&new_cont, &output_cont)
-            );
+            // dbg!(
+            //     (&new_expr, &output_expr),
+            //     (&new_env, &output_env),
+            //     (&new_cont, &output_cont)
+            // );
 
             output_expr.enforce_equal(
                 &mut cs.namespace(|| "outer output expr is correct"),
@@ -4686,7 +4686,7 @@ pub fn enforce_at_most_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<(), SynthesisError> {
     let num_bits = num.to_bits_le(&mut cs.namespace(|| "u64 remainder bit decomp"))?;
     let v = num_bits[n..255].to_vec();
-    boolean_summation(&mut cs.namespace(|| "add all MSBs"), &v, &g.false_num);
+    popcount(&mut cs.namespace(|| "add all MSBs"), &v, &g.false_num);
     Ok(())
 }
 
@@ -5739,25 +5739,33 @@ mod tests {
     }
 
     #[test]
-    fn test_enforce_boolean_summation() {
+    fn test_enforce_popcount() {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let s = &mut Store::<Fr>::default();
 
-        let a = s.num(42);
-        let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
-        let bits = alloc_a
-            .hash()
-            .to_bits_le(&mut cs.namespace(|| "bits"))
+        for x in 0..128 {
+            let a = s.num(x);
+            let alloc_a =
+                AllocatedPtr::alloc_ptr(&mut cs.namespace(|| x.to_string()), s, || Ok(&a)).unwrap();
+            let bits = alloc_a
+                .hash()
+                .to_bits_le(&mut cs.namespace(|| format!("bits_{}", x.to_string())))
+                .unwrap();
+            let popcount_result = s.num(x.count_ones() as u64);
+            let alloc_popcount = AllocatedPtr::alloc_ptr(
+                &mut cs.namespace(|| format!("alloc popcount {}", x.to_string())),
+                s,
+                || Ok(&popcount_result),
+            )
             .unwrap();
-        let popcount = s.num(3);
-        let alloc_popcount =
-            AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "popcount"), s, || Ok(&popcount)).unwrap();
 
-        boolean_summation(
-            &mut cs.namespace(|| "boolean summation"),
-            &bits,
-            &alloc_popcount.hash(),
-        );
+            popcount(
+                &mut cs.namespace(|| format!("popcount {}", x.to_string())),
+                &bits,
+                &alloc_popcount.hash(),
+            );
+        }
+
         assert!(cs.is_satisfied());
     }
 }
