@@ -880,11 +880,6 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         &result_cont0,
     )?;
 
-    // dbg!(&result_expr_candidate.fetch_and_write_str(store));
-    // dbg!(&result_env_candidate.fetch_and_write_str(store));
-    // dbg!(&result_cont_candidate.fetch_and_write_cont_str(store));
-    // dbg!(expr, env, cont);
-
     let result_expr = AllocatedPtr::<F>::pick(
         &mut cs.namespace(|| "result_expr"),
         &cont_is_terminal,
