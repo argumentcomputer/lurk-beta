@@ -1635,17 +1635,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         /*
          * We get the condition for error by using OR of each individual error.
          */
-        let mut cond_error = constraints::or(
-            &mut cs.namespace(|| "cond error1"),
-            &rest_body_is_nil.not(),
-            &end_is_nil.not(),
-        )?;
-
-        cond_error = constraints::or(
-            &mut cs.namespace(|| "cond error2"),
-            &body_is_nil,
-            &cond_error,
-        )?;
+        let cond_error = or!(cs, &rest_body_is_nil.not(), &end_is_nil.not(), &body_is_nil)?;
 
         let rest_bindings_is_nil =
             rest_bindings.alloc_equal(&mut cs.namespace(|| "rest_bindings_is_nil"), &g.nil_ptr)?;
@@ -3858,17 +3848,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let is_cons_or_hide = or!(cs, &is_cons, &op2_is_hide)?;
 
-        let is_cons_or_strcons_or_hide = constraints::or(
-            &mut cs.namespace(|| "is cons or srtcons or hide"),
-            &is_cons_or_hide,
-            &is_strcons,
-        )?;
-
-        let is_cons_or_strcons_or_hide_or_equal = constraints::or(
-            &mut cs.namespace(|| "is cons or srtcons or hide or equal"),
-            &is_cons_or_strcons_or_hide,
-            &is_equal,
-        )?;
+        let is_cons_or_strcons_or_hide_or_equal =
+            or!(cs, &is_cons_or_hide, &is_strcons, &is_equal)?;
 
         let is_cons_or_strcons_or_hide_or_equal_or_num_equal = constraints::or(
             &mut cs.namespace(|| "is cons or srtcons or hide or equal or num_equal"),
