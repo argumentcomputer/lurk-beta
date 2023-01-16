@@ -3616,20 +3616,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &arg2_is_num,
         )?;
 
-        let both_args_are_num_or_u64 = constraints::or(
-            &mut cs.namespace(|| "both_args_are_num_or_u64"),
+        let args_are_num_or_u64 = or!(
+            cs,
             &both_args_are_nums,
             &both_args_are_u64s,
-        )?;
-        let args_are_num_or_u64_ = constraints::or(
-            &mut cs.namespace(|| "args_are_num_or_u64_"),
-            &both_args_are_num_or_u64,
             &arg1_is_num_and_arg2_is_u64,
-        )?;
-        let args_are_num_or_u64 = constraints::or(
-            &mut cs.namespace(|| "args_are_num_or_u64"),
-            &args_are_num_or_u64_,
-            &arg1_is_u64_and_arg2_is_num,
+            &arg1_is_u64_and_arg2_is_num
         )?;
 
         let arg1_u64_to_num = to_num(&arg1, g);
@@ -3933,12 +3925,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             field_arithmetic_result.hash(),
         )?;
 
-        let coarse_to_u64 = u64_op(
-            &mut cs.namespace(|| "binop coarse to u64"),
+        let coerce_to_u64 = u64_op(
+            &mut cs.namespace(|| "binop coerce to u64"),
             g,
             &field_arith_and_u64_diff_result,
         )?;
-        let coarse_to_u64_ptr = AllocatedPtr::from_parts(&g.u64_tag, &coarse_to_u64);
+        let coerce_to_u64_ptr = AllocatedPtr::from_parts(&g.u64_tag, &coerce_to_u64);
 
         let both_args_are_u64s_and_not_comparison = Boolean::and(
             &mut cs.namespace(|| "both_args_are_u64_and_not_comparison"),
@@ -3949,7 +3941,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let partial_u64_result = AllocatedPtr::pick(
             &mut cs.namespace(|| "partial u64 result"),
             &both_args_are_u64s_and_not_comparison,
-            &coarse_to_u64_ptr,
+            &coerce_to_u64_ptr,
             &field_arithmetic_result,
         )?;
 
