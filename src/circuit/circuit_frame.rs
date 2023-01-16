@@ -695,8 +695,8 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         expr.tag(),
         &g.sym_tag,
     )?;
-    let cont_is_not_terminal = Boolean::not(&cont_is_terminal);
-    let cont_is_not_error = Boolean::not(&cont_is_error);
+    let cont_is_not_terminal = cont_is_terminal.not();
+    let cont_is_not_error = cont_is_error.not();
     let reduce_sym_not_dummy = and!(cs, &reduce_sym_not_dummy, &cont_is_not_terminal)?;
 
     let (sym_result, sym_env, sym_cont, sym_apply_cont) = reduce_sym(
@@ -787,15 +787,16 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     let first_result_cont = AllocatedContPtr::by_index(2, &case_results);
     let first_result_apply_continuation: &AllocatedNum<F> = &case_results[6];
 
-    let apply_continuation_boolean_0 = Boolean::not(&alloc_is_zero(
+    let apply_continuation_boolean_0 = (alloc_is_zero(
         &mut cs.namespace(|| "apply_continuation_boolean_0"),
         first_result_apply_continuation,
-    )?);
+    )?)
+    .not();
 
     let apply_continuation_boolean = Boolean::and(
         &mut cs.namespace(|| "apply_continuation_boolean"),
         &apply_continuation_boolean_0,
-        &Boolean::not(&cont_is_terminal),
+        &cont_is_terminal.not(),
     )?;
 
     let apply_continuation_results = apply_continuation(
@@ -841,17 +842,18 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     // True if make_thunk is called.
-    let make_thunk_boolean = Boolean::not(&alloc_is_zero(
+    let make_thunk_boolean = &alloc_is_zero(
         &mut cs.namespace(|| "apply_continuation_make_thunk is zero"),
         &make_thunk_num,
-    )?);
+    )?
+    .not();
 
     let thunk_results = make_thunk(
         &mut cs.namespace(|| "make_thunk"),
         &result_cont0,
         &result_expr0,
         &result_env0,
-        &make_thunk_boolean,
+        make_thunk_boolean,
         allocated_cont_witness,
         store,
         g,
@@ -859,21 +861,21 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
 
     let result_expr_candidate = AllocatedPtr::pick(
         &mut cs.namespace(|| "pick maybe make_thunk expr"),
-        &make_thunk_boolean,
+        make_thunk_boolean,
         &thunk_results.0,
         &result_expr0,
     )?;
 
     let result_env_candidate = AllocatedPtr::pick(
         &mut cs.namespace(|| "pick maybe make_thunk env"),
-        &make_thunk_boolean,
+        make_thunk_boolean,
         &thunk_results.1,
         &result_env0,
     )?;
 
     let result_cont_candidate = AllocatedContPtr::pick(
         &mut cs.namespace(|| "pick maybe make_thunk cont"),
-        &make_thunk_boolean,
+        make_thunk_boolean,
         &thunk_results.2,
         &result_cont0,
     )?;
@@ -1067,9 +1069,9 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     let smaller_rec_env = &val_or_more_rec_env;
     let smaller_rec_env_is_nil =
         smaller_rec_env.alloc_equal(&mut cs.namespace(|| "smaller_rec_env_is_nil"), &g.nil_ptr)?;
-    let smaller_rec_env_not_nil = Boolean::not(&smaller_rec_env_is_nil);
+    let smaller_rec_env_not_nil = smaller_rec_env_is_nil.not();
 
-    let v2_not_expr = Boolean::not(&v2_is_expr);
+    let v2_not_expr = v2_is_expr.not();
     let otherwise_and_v2_not_expr = and!(cs, &v2_not_expr, &with_cons_binding)?;
 
     let smaller_rec_env_not_dummy = and!(cs, &smaller_rec_env_not_nil, &otherwise_and_v2_not_expr)?;
@@ -1406,9 +1408,9 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let expr_cdr_not_dummy = and!(
         cs,
         not_dummy,
-        &Boolean::not(&rest_is_nil),
+        &rest_is_nil.not(),
         &head_is_any,
-        &Boolean::not(&head_is_current_env) // current-env is unary.
+        &head_is_current_env.not() // current-env is unary.
     )?;
 
     let (arg1, more) = car_cdr_named(
@@ -1463,7 +1465,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         let cdr_args_is_nil =
             cdr_args.alloc_equal(&mut cs.namespace(|| "cdr_args_is_nil"), &g.nil_ptr)?;
 
-        let cdr_args_not_nil = Boolean::not(&cdr_args_is_nil);
+        let cdr_args_not_nil = cdr_args_is_nil.not();
 
         let lambda_not_dummy = and!(cs, &head_is_lambda, not_dummy, &cdr_args_not_nil)?;
 
@@ -1635,8 +1637,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
          */
         let mut cond_error = constraints::or(
             &mut cs.namespace(|| "cond error1"),
-            &Boolean::not(&rest_body_is_nil),
-            &Boolean::not(&end_is_nil),
+            &rest_body_is_nil.not(),
+            &end_is_nil.not(),
         )?;
 
         cond_error = constraints::or(
@@ -1648,14 +1650,13 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         let rest_bindings_is_nil =
             rest_bindings.alloc_equal(&mut cs.namespace(|| "rest_bindings_is_nil"), &g.nil_ptr)?;
 
-        let expanded_inner_not_dummy0 =
-            and!(cs, &Boolean::not(&rest_bindings_is_nil), &end_is_nil)?;
+        let expanded_inner_not_dummy0 = and!(cs, &rest_bindings_is_nil.not(), &end_is_nil)?;
 
         let expanded_inner_not_dummy = and!(
             cs,
             &expanded_inner_not_dummy0,
             &let_letrec_not_dummy,
-            &Boolean::not(&body_is_nil),
+            &body_is_nil.not(),
             &rest_body_is_nil
         )?;
 
@@ -2564,8 +2565,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         // smarter, put shared elements last and unique ones first.
         let fn_not_dummy = and!(
             cs,
-            &Boolean::not(&args_is_nil_or_more_is_nil),
-            &Boolean::not(&head_is_any),
+            &args_is_nil_or_more_is_nil.not(),
+            &head_is_any.not(),
             not_dummy
         )?;
 
@@ -3001,7 +3002,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &cont_is_unop,
             &unop_op_is_car_or_cdr,
             &result_is_cons_like,
-            &Boolean::not(&result_is_empty_str)
+            &result_is_empty_str.not()
         )?;
 
         let (allocated_car, allocated_cdr) = car_cdr_named(
@@ -3392,7 +3393,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 &mut cs.namespace(|| "cont2 args_is_dummy"),
                 &g.dummy_arg_ptr,
             )?;
-            let args_is_not_dummy = Boolean::not(&args_is_dummy);
+            let args_is_not_dummy = args_is_dummy.not();
 
             let cont_is_call2_and_not_dummy_and_not_dummy_args =
                 and!(cs, &cont_is_call2_and_not_dummy, &args_is_not_dummy)?;
@@ -3410,11 +3411,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             let args_is_dummy =
                 arg_t.alloc_equal(&mut cs.namespace(|| "args_is_dummy"), &g.dummy_arg_ptr)?;
 
-            let extend_not_dummy = and!(
-                cs,
-                &cont_is_call2_and_not_dummy,
-                &Boolean::not(&args_is_dummy)
-            )?;
+            let extend_not_dummy = and!(cs, &cont_is_call2_and_not_dummy, &args_is_dummy.not())?;
 
             let newer_env = extend_named(
                 &mut cs.namespace(|| "extend env"),
@@ -3510,7 +3507,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let rest_is_nil =
             allocated_rest.alloc_equal(&mut cs.namespace(|| "rest_is_nil"), &g.nil_ptr)?;
-        let rest_not_nil = Boolean::not(&rest_is_nil);
+        let rest_not_nil = rest_is_nil.not();
 
         let begin = store.get_begin();
 
@@ -3535,7 +3532,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             result,
         )?;
 
-        let otherwise = Boolean::not(&op_is_begin);
+        let otherwise = op_is_begin.not();
 
         let otherwise_and_rest_is_nil = Boolean::and(
             &mut cs.namespace(|| "otherwise_and_rest_is_nil"),
@@ -3731,10 +3728,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &arg2_is_str,
         )?;
 
-        let args_not_char_str = &Boolean::not(&args_are_char_str);
+        let args_not_char_str = args_are_char_str.not();
         let invalid_strcons_tag = Boolean::and(
             &mut cs.namespace(|| "invalid_strcons_tag"),
-            args_not_char_str,
+            &args_not_char_str,
             &is_strcons,
         )?;
 
@@ -3742,7 +3739,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             cs,
             &is_cons_or_strcons,
             &not_dummy,
-            &Boolean::not(&invalid_strcons_tag)
+            &invalid_strcons_tag.not()
         )?;
 
         let cons = AllocatedPtr::construct_cons_named(
@@ -3920,8 +3917,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             field_arithmetic_result.hash(),
             &g.power2_64_num,
         )?;
-        //let alloc_field_arith_res_plus_2p64 =
-        //    AllocatedPtr::from_parts(&g.u64_tag, &field_arithmetic_result_plus_2p64);
 
         let op2_is_diff = alloc_equal(cs.namespace(|| "op2_is_diff"), op2.tag(), &g.op2_diff_tag)?;
 
@@ -3948,7 +3943,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let both_args_are_u64s_and_not_comparison = Boolean::and(
             &mut cs.namespace(|| "both_args_are_u64_and_not_comparison"),
             &both_args_are_u64s,
-            &Boolean::not(&is_comparison_tag),
+            &is_comparison_tag.not(),
         )?;
 
         let partial_u64_result = AllocatedPtr::pick(
@@ -4017,15 +4012,15 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let valid_types_and_not_div_by_zero = Boolean::and(
             &mut cs.namespace(|| "Op2 called with no errors"),
             &valid_types,
-            &Boolean::not(&real_div_and_b_is_zero),
+            &real_div_and_b_is_zero.not(),
         )?;
 
         let op2_not_num_or_u64_and_not_cons_or_strcons_or_hide_or_equal_or_num_equal =
             Boolean::and(
                 &mut cs
                     .namespace(|| "not num and not cons or strcons or hide or equal or num_equal"),
-                &Boolean::not(&args_are_num_or_u64),
-                &Boolean::not(&is_cons_or_strcons_or_hide_or_equal_or_num_equal),
+                &args_are_num_or_u64.not(),
+                &is_cons_or_strcons_or_hide_or_equal_or_num_equal.not(),
             )?;
 
         let invalid_secret_tag_hide = Boolean::and(
@@ -4038,7 +4033,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let any_error = or!(
             cs,
-            &Boolean::not(&valid_types_and_not_div_by_zero),
+            &valid_types_and_not_div_by_zero.not(),
             &op2_not_num_or_u64_and_not_cons_or_strcons_or_hide_or_equal_or_num_equal,
             &invalid_strcons_tag,
             &op2_is_hide_and_arg1_is_not_num,
@@ -4829,19 +4824,6 @@ pub fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
         alloc_r_num.clone(),
         alloc_arg2_num,
     )?;
-
-    //let arg1_u64_tag = alloc_equal(
-    //    &mut cs.namespace(|| "arg1 u64 tag"),
-    //    alloc_arg1.tag(),
-    //    &g.u64_tag,
-    //)?;
-    //let arg2_u64_tag = alloc_equal(
-    //    &mut cs.namespace(|| "arg2 u64 tag"),
-    //    alloc_arg2.tag(),
-    //    &g.u64_tag,
-    //)?;
-    //enforce_true(&mut cs.namespace(|| "check arg1 u64 tag"), &arg1_u64_tag)?;
-    //enforce_true(&mut cs.namespace(|| "check arg2 u64 tag"), &arg2_u64_tag)?;
 
     Ok((alloc_q_num, alloc_r_num))
 }
