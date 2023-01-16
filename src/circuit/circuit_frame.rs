@@ -3028,7 +3028,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let num = to_num(result, g);
         let comm = to_comm(result, g);
         let c = to_char(result, g);
-        let u64_elem = u64_op(&mut cs.namespace(|| "Unop u64"), g, result.hash())?;
+        let u64_elem = to_u64(&mut cs.namespace(|| "Unop u64"), g, result.hash())?;
 
         let res = multi_case(
             &mut cs.namespace(|| "Unop case"),
@@ -3925,7 +3925,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             field_arithmetic_result.hash(),
         )?;
 
-        let coerce_to_u64 = u64_op(
+        let coerce_to_u64 = to_u64(
             &mut cs.namespace(|| "binop coerce to u64"),
             g,
             &field_arith_and_u64_diff_result,
@@ -4685,7 +4685,7 @@ pub fn enforce_at_most_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
 }
 
 // Convert from num to u64.
-pub fn u64_op<F: LurkField, CS: ConstraintSystem<F>>(
+pub fn to_u64<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
     maybe_u64: &AllocatedNum<F>,
@@ -5589,7 +5589,7 @@ mod tests {
         let a = s.num(42);
         let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
 
-        let a_u64 = u64_op(&mut cs.namespace(|| "u64 op"), &g, &alloc_a.hash()).unwrap();
+        let a_u64 = to_u64(&mut cs.namespace(|| "u64 op"), &g, &alloc_a.hash()).unwrap();
         assert!(cs.is_satisfied());
         assert_eq!(a_u64.get_value(), Fr::from_u64(42));
     }
@@ -5602,7 +5602,7 @@ mod tests {
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
         let alloc_pow2_64 = AllocatedPtr::from_parts(&g.num_tag, &g.power2_64_num);
 
-        let a_u64 = u64_op(&mut cs.namespace(|| "u64 op"), &g, &alloc_pow2_64.hash()).unwrap();
+        let a_u64 = to_u64(&mut cs.namespace(|| "u64 op"), &g, &alloc_pow2_64.hash()).unwrap();
         assert!(cs.is_satisfied());
         assert_eq!(a_u64.get_value(), Fr::from_u64(0));
     }
