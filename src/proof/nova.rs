@@ -2934,4 +2934,14 @@ mod tests {
 
         nova_test_aux(s, expr, None, None, Some(error), None, 3);
     }
+
+    #[test]
+    fn outer_prove_test_mod_by_zero_error() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 0 0)";
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, None, None, Some(error), None, 3);
+    }
 }

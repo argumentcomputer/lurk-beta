@@ -3679,6 +3679,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         )?;
         let op2_is_mod = alloc_equal(cs.namespace(|| "op2_is_mod"), op2.tag(), &g.op2_modulo_tag)?;
 
+        let op2_is_div_or_mod = constraints::or(
+            &mut cs.namespace(|| "op2 is div or mod"),
+            &op2_is_div,
+            &op2_is_mod,
+        )?;
+
         let b_is_zero = &alloc_is_zero(&mut cs.namespace(|| "b_is_zero"), b)?;
 
         let divisor = pick(
@@ -3989,15 +3995,15 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &args_are_num_or_u64,
         )?;
 
-        let real_division = Boolean::and(
-            &mut cs.namespace(|| "real_division"),
+        let real_div_or_mod = Boolean::and(
+            &mut cs.namespace(|| "real div or mod"),
             &not_dummy,
-            &op2_is_div,
+            &op2_is_div_or_mod,
         )?;
 
         let real_div_and_b_is_zero = Boolean::and(
             &mut cs.namespace(|| "real_div_and_b_is_zero"),
-            &real_division,
+            &real_div_or_mod,
             b_is_zero,
         )?;
 
@@ -4762,7 +4768,7 @@ pub fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
     let (q, r) = if arg2_u64 != 0 {
         (arg1_u64 / arg2_u64, arg1_u64 % arg2_u64)
     } else {
-        (0, 0)
+        (0, 0) // Dummy
     };
 
     let alloc_r_num =
@@ -5153,9 +5159,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12509, cs.num_constraints());
+            assert_eq!(12510, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(12138, cs.aux().len());
+            assert_eq!(12139, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
