@@ -31,5 +31,5 @@ pub enum ReduceError<F: LurkField> {
     #[error("Lurk error: {0}")]
     Lurk(#[from] LurkError),
     #[error("Provable error: {0}")]
-    Provable(#[from] eval::ProvableError<F>),
+    Explicit(#[from] eval::ExplicitError<F>),
 }
