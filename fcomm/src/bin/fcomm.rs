@@ -217,7 +217,7 @@ impl Commit {
     }
 }
 
-impl<'a> Open {
+impl Open {
     fn open(
         &self,
         chain: bool,
@@ -236,7 +236,7 @@ impl<'a> Open {
         let pp = public_params(rc.count());
         let function_map = committed_function_store();
 
-        let handle_proof = |out_path, proof: Proof<'a, S1>| {
+        let handle_proof = |out_path, proof: Proof<S1>| {
             proof.write_to_path(out_path);
             proof.verify(&pp).expect("created opening doesn't verify");
         };

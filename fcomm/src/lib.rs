@@ -59,7 +59,7 @@ mod base64 {
     }
 }
 
-fn nova_proof_cache<'a>() -> FileMap<Cid, Proof<'a, S1>> {
+fn nova_proof_cache() -> FileMap<Cid, Proof<'static, S1>> {
     FileMap::<Cid, Proof<S1>>::new("nova_proofs").unwrap()
 }
 
@@ -555,9 +555,9 @@ impl Expression {
     }
 }
 
-impl Opening<S1> {
+impl<'a> Opening<S1> {
     #[allow(clippy::too_many_arguments)]
-    pub fn apply_and_prove<'a>(
+    pub fn apply_and_prove(
         s: &'a mut Store<S1>,
         input: Ptr<S1>,
         function: Function<S1>,
@@ -571,7 +571,7 @@ impl Opening<S1> {
         Proof::prove_claim(s, claim, limit, only_use_cached_proofs, nova_prover, pp)
     }
 
-    pub fn open_and_prove<'a>(
+    pub fn open_and_prove(
         s: &'a mut Store<S1>,
         request: OpeningRequest<S1>,
         limit: usize,
@@ -820,7 +820,7 @@ impl<'a> Proof<'a, S1> {
         Ok(proof)
     }
 
-    pub fn verify(&self, pp: &'a PublicParams) -> Result<VerificationResult, Error> {
+    pub fn verify(&self, pp: &PublicParams) -> Result<VerificationResult, Error> {
         let (public_inputs, public_outputs) = match self.claim {
             Claim::Evaluation(_) => self.verify_evaluation(),
             Claim::Opening(_) => self.verify_opening(),
@@ -926,7 +926,7 @@ impl Key<Commitment<S1>> for Function<S1> {
     }
 }
 
-impl<'a> Key<Cid> for Proof<'a, S1> {
+impl Key<Cid> for Proof<'_, S1> {
     fn key(&self) -> Cid {
         self.claim.cid()
     }

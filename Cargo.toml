@@ -38,11 +38,11 @@ serde_json = { version = "1.0" }
 serde_repr = "0.1.7"
 indexmap = { version = "1.8.0", features = ["rayon"] }
 ahash = "0.7.6"
-pasta_curves = { version = "0.4.0", features = ["repr-c"] }
+pasta_curves = { version = "0.5.1", features = ["repr-c", "serde"], package = "fil_pasta_curves" }
 pasta-msm = "0.1.1"
 string-interner = "0.14.0"
 dashmap = "5.0.0"
-libipld = { package = "lurk-ipld", version = "0.1.0", default-features = false, features = ["dag-cbor", "dag-json", "serde-codec"] }
+libipld = { package = "lurk-ipld", version = "0.3.0", default-features = false, features = ["dag-cbor", "dag-json", "serde-codec"] }
 cid = { version = "0.8.4", default-features = false, features = ["alloc", "serde-codec"]}
 multihash = { version = "0.16.1", default-features = false, features = ["alloc", "blake3"] }
 
@@ -70,7 +70,8 @@ name = "lurkrs"
 path = "src/main.rs"
 
 [patch.crates-io]
-bellperson = { git = "https://github.com/lurk-lang/bellperson", branch = "sb/serde" }
-pasta_curves = { git = "https://github.com/lurk-lang/pasta_curves", branch = "sb/serde" }
-neptune = { git = "https://github.com/lurk-lang/neptune", branch = "sb/serde" }
-nova-snark = { git = "https://github.com/lurk-lang/Nova", branch = "sb/serde" }
+bellperson-nonnative = { git = "https://github.com/srinathsetty/bellperson-nonnative", branch = "master" }
+fil_pasta_curves = { git = "https://github.com/lurk-lang/pasta_curves", branch = "serde" }
+neptune = { git = "https://github.com/lurk-lang/neptune", branch = "update-pasta" }
+pasta-msm = { git = "https://github.com/lurk-lang/pasta-msm", branch = "update-pasta" }
+nova-snark = { git = "https://github.com/lurk-lang/Nova", branch = "serde" }

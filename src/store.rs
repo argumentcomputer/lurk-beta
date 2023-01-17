@@ -1,3 +1,4 @@
+use generic_array::typenum::{U3, U4, U6, U8};
 use neptune::Poseidon;
 use rayon::prelude::*;
 use std::hash::Hash;
@@ -51,10 +52,10 @@ pub enum HashConst<'a, F: LurkField> {
 /// Holds the constants needed for poseidon hashing.
 #[derive(Debug)]
 pub(crate) struct HashConstants<F: LurkField> {
-    c3: OnceCell<PoseidonConstants<F, 3>>,
-    c4: OnceCell<PoseidonConstants<F, 4>>,
-    c6: OnceCell<PoseidonConstants<F, 6>>,
-    c8: OnceCell<PoseidonConstants<F, 8>>,
+    c3: OnceCell<PoseidonConstants<F, U3>>,
+    c4: OnceCell<PoseidonConstants<F, U4>>,
+    c6: OnceCell<PoseidonConstants<F, U6>>,
+    c8: OnceCell<PoseidonConstants<F, U8>>,
 }
 
 impl<F: LurkField> Default for HashConstants<F> {
@@ -69,19 +70,19 @@ impl<F: LurkField> Default for HashConstants<F> {
 }
 
 impl<F: LurkField> HashConstants<F> {
-    pub fn c3(&self) -> &PoseidonConstants<F, 3> {
+    pub fn c3(&self) -> &PoseidonConstants<F, U3> {
         self.c3.get_or_init(|| PoseidonConstants::new())
     }
 
-    pub fn c4(&self) -> &PoseidonConstants<F, 4> {
+    pub fn c4(&self) -> &PoseidonConstants<F, U4> {
         self.c4.get_or_init(|| PoseidonConstants::new())
     }
 
-    pub fn c6(&self) -> &PoseidonConstants<F, 6> {
+    pub fn c6(&self) -> &PoseidonConstants<F, U6> {
         self.c6.get_or_init(|| PoseidonConstants::new())
     }
 
-    pub fn c8(&self) -> &PoseidonConstants<F, 8> {
+    pub fn c8(&self) -> &PoseidonConstants<F, U8> {
         self.c8.get_or_init(|| PoseidonConstants::new())
     }
 
@@ -184,32 +185,36 @@ impl<F: LurkField, const N: usize> Hash for CacheKey<F, N> {
 
 impl<F: LurkField> PoseidonCache<F> {
     fn hash3(&self, preimage: &[F; 3]) -> F {
-        let hash = self.a3.entry(CacheKey(*preimage)).or_insert_with(|| {
-            Poseidon::<F, 3, 4>::new_with_preimage(preimage, self.constants.c3()).hash()
-        });
+        let hash = self
+            .a3
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c3()).hash());
 
         *hash
     }
 
     fn hash4(&self, preimage: &[F; 4]) -> F {
-        let hash = self.a4.entry(CacheKey(*preimage)).or_insert_with(|| {
-            Poseidon::<F, 4, 5>::new_with_preimage(preimage, self.constants.c4()).hash()
-        });
+        let hash = self
+            .a4
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c4()).hash());
 
         *hash
     }
 
     fn hash6(&self, preimage: &[F; 6]) -> F {
-        let hash = self.a6.entry(CacheKey(*preimage)).or_insert_with(|| {
-            Poseidon::<F, 6, 7>::new_with_preimage(preimage, self.constants.c6()).hash()
-        });
+        let hash = self
+            .a6
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c6()).hash());
         *hash
     }
 
     fn hash8(&self, preimage: &[F; 8]) -> F {
-        let hash = self.a8.entry(CacheKey(*preimage)).or_insert_with(|| {
-            Poseidon::<F, 8, 9>::new_with_preimage(preimage, self.constants.c8()).hash()
-        });
+        let hash = self
+            .a8
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c8()).hash());
         *hash
     }
 }
