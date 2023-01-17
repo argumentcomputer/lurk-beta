@@ -304,10 +304,8 @@ fn test_create_open_and_verify_complicated_higher_order_functional_commitment1()
     );
 }
 
-// #[test]
-// #[ignore]
-// FIXME: This fails to verify, which seems to be a circuit bug.
-#[allow(dead_code)]
+#[test]
+#[ignore]
 fn test_create_open_and_verify_complicated_higher_order_functional_commitment2() {
     let function_source = "(letrec ((secret-data '((joe 4 3) (bill 10 2 3) (jane 8 7 6 10) (carol 3 5 8))) (filter (lambda (data predicate) (if data (if (predicate (cdr (car data))) (cons (car data) (filter (cdr data) predicate)) (filter (cdr data) predicate))))) (f (lambda (predicate) (car (car (filter secret-data predicate)))))) f)";
 

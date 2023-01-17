@@ -176,8 +176,9 @@ impl<F: LurkField> Num<F> {
     }
 
     fn is_less_than(&self, other: &Num<F>) -> bool {
+        assert!(self != other);
         match (self.is_negative(), other.is_negative()) {
-            // Both positive or both negative
+            // Both negative or neither negative
             (true, true) | (false, false) => self.is_less_than_aux(*other),
             (true, false) => true,
             (false, true) => false,

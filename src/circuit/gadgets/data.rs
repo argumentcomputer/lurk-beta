@@ -9,9 +9,7 @@ use neptune::{
 
 use super::pointer::AsAllocatedHashComponents;
 use crate::field::LurkField;
-use crate::store::{
-    ContPtr, ContTag, Expression, HashScalar, Op1, Op2, Pointer, Ptr, Store, Tag, Thunk,
-};
+use crate::store::{ContTag, Expression, HashScalar, Op1, Op2, Pointer, Ptr, Store, Tag, Thunk};
 use crate::store::{IntoHashComponents, ScalarPtr};
 use crate::store::{ScalarContPtr, ScalarPointer};
 
@@ -36,6 +34,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub char_tag: AllocatedNum<F>,
     pub str_tag: AllocatedNum<F>,
     pub num_tag: AllocatedNum<F>,
+    pub u64_tag: AllocatedNum<F>,
     pub comm_tag: AllocatedNum<F>,
     pub fun_tag: AllocatedNum<F>,
     pub let_cont_tag: AllocatedNum<F>,
@@ -58,6 +57,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub op1_num_tag: AllocatedNum<F>,
     pub op1_char_tag: AllocatedNum<F>,
     pub op1_eval_tag: AllocatedNum<F>,
+    pub op1_u64_tag: AllocatedNum<F>,
     pub op1_comm_tag: AllocatedNum<F>,
     pub op1_open_tag: AllocatedNum<F>,
     pub op1_secret_tag: AllocatedNum<F>,
@@ -72,6 +72,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub op2_diff_tag: AllocatedNum<F>,
     pub op2_product_tag: AllocatedNum<F>,
     pub op2_quotient_tag: AllocatedNum<F>,
+    pub op2_modulo_tag: AllocatedNum<F>,
     pub op2_equal_tag: AllocatedNum<F>,
     pub op2_numequal_tag: AllocatedNum<F>,
     pub op2_less_tag: AllocatedNum<F>,
@@ -103,6 +104,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub minus_sym: AllocatedPtr<F>,
     pub times_sym: AllocatedPtr<F>,
     pub div_sym: AllocatedPtr<F>,
+    pub mod_sym: AllocatedPtr<F>,
     pub equal_sym: AllocatedPtr<F>,
     pub eq_sym: AllocatedPtr<F>,
     pub less_sym: AllocatedPtr<F>,
@@ -115,6 +117,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub true_num: AllocatedNum<F>,
     pub false_num: AllocatedNum<F>,
     pub default_num: AllocatedNum<F>,
+    pub power2_64_num: AllocatedNum<F>,
 }
 
 impl<F: LurkField> GlobalAllocations<F> {
@@ -174,6 +177,7 @@ impl<F: LurkField> GlobalAllocations<F> {
         let char_tag = Tag::Char.allocate_constant(&mut cs.namespace(|| "char_tag"))?;
         let str_tag = Tag::Str.allocate_constant(&mut cs.namespace(|| "str_tag"))?;
         let num_tag = Tag::Num.allocate_constant(&mut cs.namespace(|| "num_tag"))?;
+        let u64_tag = Tag::U64.allocate_constant(&mut cs.namespace(|| "u64_tag"))?;
         let comm_tag = Tag::Comm.allocate_constant(&mut cs.namespace(|| "comm_tag"))?;
         let fun_tag = Tag::Fun.allocate_constant(&mut cs.namespace(|| "fun_tag"))?;
 
@@ -209,6 +213,7 @@ impl<F: LurkField> GlobalAllocations<F> {
         let op1_num_tag = Op1::Num.allocate_constant(&mut cs.namespace(|| "op1_num_tag"))?;
         let op1_char_tag = Op1::Char.allocate_constant(&mut cs.namespace(|| "op1_char_tag"))?;
         let op1_eval_tag = Op1::Eval.allocate_constant(&mut cs.namespace(|| "op1_eval_tag"))?;
+        let op1_u64_tag = Op1::U64.allocate_constant(&mut cs.namespace(|| "op1_u64_tag"))?;
         let op1_comm_tag = Op1::Comm.allocate_constant(&mut cs.namespace(|| "op1_comm_tag"))?;
         let op1_open_tag = Op1::Open.allocate_constant(&mut cs.namespace(|| "op1_open_tag"))?;
         let op1_secret_tag =
@@ -228,6 +233,8 @@ impl<F: LurkField> GlobalAllocations<F> {
             Op2::Product.allocate_constant(&mut cs.namespace(|| "op2_product_tag"))?;
         let op2_quotient_tag =
             Op2::Quotient.allocate_constant(&mut cs.namespace(|| "op2_quotient_tag"))?;
+        let op2_modulo_tag =
+            Op2::Modulo.allocate_constant(&mut cs.namespace(|| "op2_modulo_tag"))?;
         let op2_numequal_tag =
             AllocatedNum::alloc(&mut cs.namespace(|| "op2_numequal_tag"), || {
                 Ok(Op2::NumEqual.as_field())
@@ -286,6 +293,7 @@ impl<F: LurkField> GlobalAllocations<F> {
         defsym!(minus_sym, "-");
         defsym!(times_sym, "*");
         defsym!(div_sym, "/", "div");
+        defsym!(mod_sym, "%", "mod");
         defsym!(equal_sym, "=");
         defsym!(eq_sym, "eq");
         defsym!(less_sym, "<");
@@ -298,6 +306,9 @@ impl<F: LurkField> GlobalAllocations<F> {
         let true_num = allocate_constant(&mut cs.namespace(|| "true"), F::one())?;
         let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::zero())?;
         let default_num = allocate_constant(&mut cs.namespace(|| "default"), F::zero())?;
+
+        let power2_64_ff = F::pow_vartime(&F::from_u64(2).unwrap(), [64]);
+        let power2_64_num = allocate_constant(&mut cs.namespace(|| "pow(2,64)"), power2_64_ff)?;
 
         Ok(Self {
             terminal_ptr,
@@ -316,6 +327,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             char_tag,
             str_tag,
             num_tag,
+            u64_tag,
             comm_tag,
             fun_tag,
             outermost_cont_tag,
@@ -337,6 +349,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             op1_num_tag,
             op1_char_tag,
             op1_eval_tag,
+            op1_u64_tag,
             op1_comm_tag,
             op1_open_tag,
             op1_secret_tag,
@@ -351,6 +364,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             op2_diff_tag,
             op2_product_tag,
             op2_quotient_tag,
+            op2_modulo_tag,
             op2_equal_tag,
             op2_numequal_tag,
             op2_less_tag,
@@ -380,6 +394,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             minus_sym,
             times_sym,
             div_sym,
+            mod_sym,
             equal_sym,
             eq_sym,
             less_sym,
@@ -391,6 +406,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             true_num,
             false_num,
             default_num,
+            power2_64_num,
         })
     }
 }
@@ -403,75 +419,8 @@ pub fn hash_poseidon<CS: ConstraintSystem<F>, F: LurkField, A: Arity<F>>(
     poseidon_hash(cs, preimage, constants)
 }
 
-impl<F: LurkField> ContPtr<F> {
-    pub fn allocate_maybe_dummy_components<CS: ConstraintSystem<F>>(
-        cs: CS,
-        cont: Option<&ContPtr<F>>,
-        store: &Store<F>,
-    ) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {
-        if let Some(cont) = cont {
-            cont.allocate_components(cs, store)
-        } else {
-            ContPtr::allocate_dummy_components(cs, store)
-        }
-    }
-
-    fn allocate_components<CS: ConstraintSystem<F>>(
-        &self,
-        mut cs: CS,
-        store: &Store<F>,
-    ) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {
-        let component_frs = store
-            .get_hash_components_cont(self)
-            .expect("missing hash components");
-
-        let components: Vec<_> = component_frs
-            .iter()
-            .enumerate()
-            .map(|(i, fr)| {
-                AllocatedNum::alloc(
-                    &mut cs.namespace(|| format!("alloc component {}", i)),
-                    || Ok(*fr),
-                )
-            })
-            .collect::<Result<_, _>>()?;
-
-        let hash = hash_poseidon(
-            cs.namespace(|| "Continuation"),
-            components.clone(),
-            store.poseidon_constants().c8(),
-        )?;
-
-        Ok((hash, components))
-    }
-
-    fn allocate_dummy_components<CS: ConstraintSystem<F>>(
-        mut cs: CS,
-        store: &Store<F>,
-    ) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {
-        let result: Vec<_> = (0..8)
-            .map(|i| {
-                AllocatedNum::alloc(
-                    cs.namespace(|| format!("Continuation component {}", i)),
-                    || Ok(F::zero()),
-                )
-            })
-            .collect::<Result<_, _>>()?;
-
-        // We need to create these constraints, but eventually we can avoid doing any calculation.
-        // We just need a precomputed dummy witness.
-        let dummy_hash = hash_poseidon(
-            cs.namespace(|| "Continuation"),
-            result.clone(),
-            store.poseidon_constants().c8(),
-        )?;
-
-        Ok((dummy_hash, result))
-    }
-}
-
 impl<F: LurkField> Ptr<F> {
-    pub fn allocate_maybe_fun<CS: ConstraintSystem<F>>(
+    pub fn allocate_maybe_fun_unconstrained<CS: ConstraintSystem<F>>(
         cs: CS,
         store: &Store<F>,
         maybe_fun: Option<&Ptr<F>>,

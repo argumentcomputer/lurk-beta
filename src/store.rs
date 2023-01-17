@@ -142,7 +142,7 @@ pub struct Store<F: LurkField> {
     binop2_store: IndexSet<(Op2, Ptr<F>, ContPtr<F>)>,
     if_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
     let_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    let_rec_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
+    letrec_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
     emit_store: IndexSet<ContPtr<F>>,
 
     opaque_map: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
@@ -459,6 +459,9 @@ impl<F: LurkField> Pointer<F> for ContPtr<F> {
 }
 
 impl<F: LurkField> ContPtr<F> {
+    pub fn new(tag: ContTag, raw_ptr: RawPtr<F>) -> Self {
+        Self(tag, raw_ptr)
+    }
     pub fn is_error(&self) -> bool {
         matches!(self.0, ContTag::Error)
     }
@@ -604,6 +607,172 @@ pub enum Continuation<F: LurkField> {
 
 impl<F: LurkField> Object<F> for Continuation<F> {
     type Pointer = ContPtr<F>;
+}
+
+impl<F: LurkField> Continuation<F> {
+    pub(crate) fn intern_aux(&self, store: &mut Store<F>) -> ContPtr<F> {
+        match self {
+            Self::Outermost | Self::Dummy | Self::Error | Self::Terminal => {
+                let cont_ptr = self.get_simple_cont();
+                store.mark_dehydrated_cont(cont_ptr);
+                cont_ptr
+            }
+            _ => {
+                let (p, inserted) = self.insert_in_store(store);
+                let ptr = ContPtr(self.cont_tag(), RawPtr::new(p));
+                if inserted {
+                    store.dehydrated_cont.push(ptr)
+                }
+                ptr
+            }
+        }
+    }
+    pub fn insert_in_store(&self, store: &mut Store<F>) -> (usize, bool) {
+        match self {
+            Self::Outermost | Self::Dummy | Self::Error | Self::Terminal => (0, false),
+            Self::Call0 {
+                saved_env,
+                continuation,
+            } => store.call0_store.insert_full((*saved_env, *continuation)),
+            Self::Call {
+                unevaled_arg,
+                saved_env,
+                continuation,
+            } => store
+                .call_store
+                .insert_full((*unevaled_arg, *saved_env, *continuation)),
+            Self::Call2 {
+                function,
+                saved_env,
+                continuation,
+            } => store
+                .call2_store
+                .insert_full((*function, *saved_env, *continuation)),
+            Self::Tail {
+                saved_env,
+                continuation,
+            } => store.tail_store.insert_full((*saved_env, *continuation)),
+            Self::Lookup {
+                saved_env,
+                continuation,
+            } => store.lookup_store.insert_full((*saved_env, *continuation)),
+            Self::Unop {
+                operator,
+                continuation,
+            } => store.unop_store.insert_full((*operator, *continuation)),
+            Self::Binop {
+                operator,
+                saved_env,
+                unevaled_args,
+                continuation,
+            } => store.binop_store.insert_full((
+                *operator,
+                *saved_env,
+                *unevaled_args,
+                *continuation,
+            )),
+            Self::Binop2 {
+                operator,
+                evaled_arg,
+                continuation,
+            } => store
+                .binop2_store
+                .insert_full((*operator, *evaled_arg, *continuation)),
+            Self::If {
+                unevaled_args,
+                continuation,
+            } => store.if_store.insert_full((*unevaled_args, *continuation)),
+            Self::Let {
+                var,
+                body,
+                saved_env,
+                continuation,
+            } => store
+                .let_store
+                .insert_full((*var, *body, *saved_env, *continuation)),
+            Self::LetRec {
+                var,
+                body,
+                saved_env,
+                continuation,
+            } => store
+                .letrec_store
+                .insert_full((*var, *body, *saved_env, *continuation)),
+            Self::Emit { continuation } => store.emit_store.insert_full(*continuation),
+        }
+    }
+
+    pub fn cont_tag(&self) -> ContTag {
+        match self {
+            Self::Outermost => ContTag::Outermost,
+            Self::Dummy => ContTag::Dummy,
+            Self::Error => ContTag::Error,
+            Self::Terminal => ContTag::Terminal,
+            Self::Call0 {
+                saved_env: _,
+                continuation: _,
+            } => ContTag::Call0,
+            Self::Call {
+                unevaled_arg: _,
+                saved_env: _,
+                continuation: _,
+            } => ContTag::Call,
+            Self::Call2 {
+                function: _,
+                saved_env: _,
+                continuation: _,
+            } => ContTag::Call2,
+            Self::Tail {
+                saved_env: _,
+                continuation: _,
+            } => ContTag::Tail,
+            Self::Lookup {
+                saved_env: _,
+                continuation: _,
+            } => ContTag::Lookup,
+            Self::Unop {
+                operator: _,
+                continuation: _,
+            } => ContTag::Unop,
+            Self::Binop {
+                operator: _,
+                saved_env: _,
+                unevaled_args: _,
+                continuation: _,
+            } => ContTag::Binop,
+            Self::Binop2 {
+                operator: _,
+                evaled_arg: _,
+                continuation: _,
+            } => ContTag::Binop2,
+            Self::If {
+                unevaled_args: _,
+                continuation: _,
+            } => ContTag::If,
+            Self::Let {
+                var: _,
+                body: _,
+                saved_env: _,
+                continuation: _,
+            } => ContTag::Let,
+            Self::LetRec {
+                var: _,
+                body: _,
+                saved_env: _,
+                continuation: _,
+            } => ContTag::LetRec,
+            Self::Emit { continuation: _ } => ContTag::Emit,
+        }
+    }
+    pub fn get_simple_cont(&self) -> ContPtr<F> {
+        match self {
+            Self::Outermost | Self::Dummy | Self::Error | Self::Terminal => {
+                ContPtr(self.cont_tag(), RawPtr::new(0))
+            }
+
+            _ => unreachable!("Not a simple Continuation: {:?}", self),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash, Serialize_repr, Deserialize_repr)]
@@ -870,7 +1039,7 @@ impl<F: LurkField> Default for Store<F> {
             binop2_store: Default::default(),
             if_store: Default::default(),
             let_store: Default::default(),
-            let_rec_store: Default::default(),
+            letrec_store: Default::default(),
             emit_store: Default::default(),
             opaque_map: Default::default(),
             scalar_ptr_map: Default::default(),
@@ -1177,144 +1346,116 @@ impl<F: LurkField> Store<F> {
         ptr: ScalarContPtr<F>,
         scalar_store: &ScalarStore<F>,
     ) -> Option<ContPtr<F>> {
-        let tag: ContTag = ContTag::from_field(*ptr.tag())?;
-        let cont = scalar_store.get_cont(&ptr);
         use ScalarContinuation::*;
-        match (tag, cont) {
-            (ContTag::Outermost, Some(Outermost)) => Some(self.intern_cont_outermost()),
-            (
-                ContTag::Call,
-                Some(Call {
+        let tag: ContTag = ContTag::from_field(*ptr.tag())?;
+
+        if let Some(cont) = scalar_store.get_cont(&ptr) {
+            let continuation = match cont {
+                Outermost => Continuation::Outermost,
+                Dummy => Continuation::Dummy,
+                Terminal => Continuation::Terminal,
+                Call {
                     unevaled_arg,
                     saved_env,
                     continuation,
-                }),
-            ) => {
-                let arg = self.intern_scalar_ptr(*unevaled_arg, scalar_store)?;
-                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
-                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
-                Some(self.intern_cont_call(arg, env, cont))
-            }
-            (
-                ContTag::Call2,
-                Some(Call2 {
+                } => Continuation::Call {
+                    unevaled_arg: self.intern_scalar_ptr(*unevaled_arg, scalar_store)?,
+                    saved_env: self.intern_scalar_ptr(*saved_env, scalar_store)?,
+                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
+                },
+
+                Call2 {
                     function,
                     saved_env,
                     continuation,
-                }),
-            ) => {
-                let fun = self.intern_scalar_ptr(*function, scalar_store)?;
-                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
-                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
-                Some(self.intern_cont_call2(fun, env, cont))
-            }
-            (
-                ContTag::Tail,
-                Some(Tail {
+                } => Continuation::Call2 {
+                    function: self.intern_scalar_ptr(*function, scalar_store)?,
+                    saved_env: self.intern_scalar_ptr(*saved_env, scalar_store)?,
+                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
+                },
+                Tail {
                     saved_env,
                     continuation,
-                }),
-            ) => {
-                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
-                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
-                Some(self.intern_cont_tail(env, cont))
-            }
-            (ContTag::Error, Some(Error)) => Some(self.intern_cont_error()),
-            (
-                ContTag::Lookup,
-                Some(Lookup {
+                } => Continuation::Tail {
+                    saved_env: self.intern_scalar_ptr(*saved_env, scalar_store)?,
+                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
+                },
+                Error => Continuation::Error,
+                Lookup {
                     saved_env,
                     continuation,
-                }),
-            ) => {
-                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
-                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
-                Some(self.intern_cont_lookup(env, cont))
-            }
-            (
-                ContTag::Unop,
-                Some(Unop {
+                } => Continuation::Lookup {
+                    saved_env: self.intern_scalar_ptr(*saved_env, scalar_store)?,
+                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
+                },
+                Unop {
                     operator,
                     continuation,
-                }),
-            ) => {
-                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
-                Some(self.intern_cont_unop(*operator, cont))
-            }
-            (
-                ContTag::Binop,
-                Some(Binop {
+                } => Continuation::Unop {
+                    operator: *operator,
+                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
+                },
+                Binop {
                     operator,
                     saved_env,
                     unevaled_args,
                     continuation,
-                }),
-            ) => {
-                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
-                let args = self.intern_scalar_ptr(*unevaled_args, scalar_store)?;
-                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
-                Some(self.intern_cont_binop(*operator, env, args, cont))
-            }
-            (
-                ContTag::Binop2,
-                Some(Binop2 {
+                } => Continuation::Binop {
+                    operator: *operator,
+                    saved_env: self.intern_scalar_ptr(*saved_env, scalar_store)?,
+                    unevaled_args: self.intern_scalar_ptr(*unevaled_args, scalar_store)?,
+                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
+                },
+                Binop2 {
                     operator,
                     evaled_arg,
                     continuation,
-                }),
-            ) => {
-                let arg = self.intern_scalar_ptr(*evaled_arg, scalar_store)?;
-                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
-                Some(self.intern_cont_binop2(*operator, arg, cont))
-            }
-            (
-                ContTag::If,
-                Some(If {
+                } => Continuation::Binop2 {
+                    operator: *operator,
+                    evaled_arg: self.intern_scalar_ptr(*evaled_arg, scalar_store)?,
+                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
+                },
+                If {
                     unevaled_args,
                     continuation,
-                }),
-            ) => {
-                let args = self.intern_scalar_ptr(*unevaled_args, scalar_store)?;
-                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
-                Some(self.intern_cont_if(args, cont))
-            }
-            (
-                ContTag::Let,
-                Some(Let {
+                } => Continuation::If {
+                    unevaled_args: self.intern_scalar_ptr(*unevaled_args, scalar_store)?,
+                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
+                },
+                Let {
                     var,
                     body,
                     saved_env,
                     continuation,
-                }),
-            ) => {
-                let var = self.intern_scalar_ptr(*var, scalar_store)?;
-                let body = self.intern_scalar_ptr(*body, scalar_store)?;
-                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
-                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
-                Some(self.intern_cont_let(var, body, env, cont))
-            }
-            (
-                ContTag::LetRec,
-                Some(LetRec {
+                } => Continuation::Let {
+                    var: self.intern_scalar_ptr(*var, scalar_store)?,
+                    body: self.intern_scalar_ptr(*body, scalar_store)?,
+                    saved_env: self.intern_scalar_ptr(*saved_env, scalar_store)?,
+                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
+                },
+                LetRec {
                     var,
                     body,
                     saved_env,
                     continuation,
-                }),
-            ) => {
-                let var = self.intern_scalar_ptr(*var, scalar_store)?;
-                let body = self.intern_scalar_ptr(*body, scalar_store)?;
-                let env = self.intern_scalar_ptr(*saved_env, scalar_store)?;
-                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
-                Some(self.intern_cont_let(var, body, env, cont))
+                } => Continuation::LetRec {
+                    var: self.intern_scalar_ptr(*var, scalar_store)?,
+                    body: self.intern_scalar_ptr(*body, scalar_store)?,
+                    saved_env: self.intern_scalar_ptr(*saved_env, scalar_store)?,
+                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
+                },
+                Emit { continuation } => Continuation::Emit {
+                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
+                },
+            };
+
+            if continuation.cont_tag() == tag {
+                Some(continuation.intern_aux(self))
+            } else {
+                None
             }
-            (ContTag::Emit, Some(Emit { continuation })) => {
-                let cont = self.intern_scalar_cont_ptr(*continuation, scalar_store)?;
-                Some(self.intern_cont_emit(cont))
-            }
-            (ContTag::Dummy, Some(Dummy)) => Some(self.intern_cont_dummy()),
-            (ContTag::Terminal, Some(Terminal)) => Some(self.intern_cont_terminal()),
-            _ => None,
+        } else {
+            None
         }
     }
 
@@ -1458,6 +1599,12 @@ impl<F: LurkField> Store<F> {
             }
         };
 
+        // We need to intern each of the path segments individually, so they will be in the store.
+        // Otherwise, there can be an error when calling `hash_symbol()` with an immutable store.
+        Sym::new_absolute(name.into()).path().iter().for_each(|x| {
+            self.intern_str(x);
+        });
+
         if let Some(ptr) = self.sym_store.0.get(&symbol_name) {
             Ptr(tag, RawPtr::new(ptr.to_usize()))
         } else {
@@ -1574,161 +1721,35 @@ impl<F: LurkField> Store<F> {
         p
     }
 
-    pub fn intern_cont_outermost(&mut self) -> ContPtr<F> {
-        self.mark_dehydrated_cont(self.get_cont_outermost())
-    }
-
     pub fn get_cont_outermost(&self) -> ContPtr<F> {
-        ContPtr(ContTag::Outermost, RawPtr::new(0))
+        Continuation::Outermost.get_simple_cont()
+    }
+    pub fn get_cont_error(&self) -> ContPtr<F> {
+        Continuation::Error.get_simple_cont()
     }
 
-    pub fn intern_cont_call0(&mut self, saved_env: Ptr<F>, continuation: ContPtr<F>) -> ContPtr<F> {
-        let (p, inserted) = self.call0_store.insert_full((saved_env, continuation));
-        let ptr = ContPtr(ContTag::Call0, RawPtr::new(p));
-        if inserted {
-            self.dehydrated_cont.push(ptr)
-        }
-        ptr
+    pub fn get_cont_terminal(&self) -> ContPtr<F> {
+        Continuation::Terminal.get_simple_cont()
     }
 
-    pub fn intern_cont_call(&mut self, a: Ptr<F>, b: Ptr<F>, c: ContPtr<F>) -> ContPtr<F> {
-        let (p, inserted) = self.call_store.insert_full((a, b, c));
-        let ptr = ContPtr(ContTag::Call, RawPtr::new(p));
-        if inserted {
-            self.dehydrated_cont.push(ptr)
-        }
-        ptr
-    }
-
-    pub fn intern_cont_call2(&mut self, a: Ptr<F>, b: Ptr<F>, c: ContPtr<F>) -> ContPtr<F> {
-        let (p, inserted) = self.call2_store.insert_full((a, b, c));
-        let ptr = ContPtr(ContTag::Call2, RawPtr::new(p));
-        if inserted {
-            self.dehydrated_cont.push(ptr)
-        }
-        ptr
+    pub fn get_cont_dummy(&self) -> ContPtr<F> {
+        Continuation::Dummy.get_simple_cont()
     }
 
     pub fn intern_cont_error(&mut self) -> ContPtr<F> {
         self.mark_dehydrated_cont(self.get_cont_error())
     }
 
-    pub fn get_cont_error(&self) -> ContPtr<F> {
-        ContPtr(ContTag::Error, RawPtr::new(0))
+    pub fn intern_cont_outermost(&mut self) -> ContPtr<F> {
+        self.mark_dehydrated_cont(self.get_cont_outermost())
     }
 
     pub fn intern_cont_terminal(&mut self) -> ContPtr<F> {
         self.mark_dehydrated_cont(self.get_cont_terminal())
     }
 
-    pub fn get_cont_terminal(&self) -> ContPtr<F> {
-        ContPtr(ContTag::Terminal, RawPtr::new(0))
-    }
-
     pub fn intern_cont_dummy(&mut self) -> ContPtr<F> {
         self.mark_dehydrated_cont(self.get_cont_dummy())
-    }
-
-    pub fn get_cont_dummy(&self) -> ContPtr<F> {
-        ContPtr(ContTag::Dummy, RawPtr::new(0))
-    }
-
-    pub fn intern_cont_lookup(&mut self, a: Ptr<F>, b: ContPtr<F>) -> ContPtr<F> {
-        let (p, inserted) = self.lookup_store.insert_full((a, b));
-        let ptr = ContPtr(ContTag::Lookup, RawPtr::new(p));
-        if inserted {
-            self.dehydrated_cont.push(ptr)
-        }
-        ptr
-    }
-
-    pub fn intern_cont_let(
-        &mut self,
-        a: Ptr<F>,
-        b: Ptr<F>,
-        c: Ptr<F>,
-        d: ContPtr<F>,
-    ) -> ContPtr<F> {
-        let (p, inserted) = self.let_store.insert_full((a, b, c, d));
-        let ptr = ContPtr(ContTag::Let, RawPtr::new(p));
-        if inserted {
-            self.dehydrated_cont.push(ptr)
-        }
-        ptr
-    }
-
-    pub fn intern_cont_let_rec(
-        &mut self,
-        a: Ptr<F>,
-        b: Ptr<F>,
-        c: Ptr<F>,
-        d: ContPtr<F>,
-    ) -> ContPtr<F> {
-        let (p, inserted) = self.let_rec_store.insert_full((a, b, c, d));
-        let ptr = ContPtr(ContTag::LetRec, RawPtr::new(p));
-        if inserted {
-            self.dehydrated_cont.push(ptr)
-        }
-        ptr
-    }
-
-    pub fn intern_cont_unop(&mut self, op: Op1, a: ContPtr<F>) -> ContPtr<F> {
-        let (p, inserted) = self.unop_store.insert_full((op, a));
-        let ptr = ContPtr(ContTag::Unop, RawPtr::new(p));
-        if inserted {
-            self.dehydrated_cont.push(ptr)
-        }
-        ptr
-    }
-    pub fn intern_cont_emit(&mut self, continuation: ContPtr<F>) -> ContPtr<F> {
-        let (p, inserted) = self.emit_store.insert_full(continuation);
-        let ptr = ContPtr(ContTag::Emit, RawPtr::new(p));
-        if inserted {
-            self.dehydrated_cont.push(ptr)
-        }
-        ptr
-    }
-
-    pub fn intern_cont_binop(
-        &mut self,
-        op: Op2,
-        a: Ptr<F>,
-        b: Ptr<F>,
-        c: ContPtr<F>,
-    ) -> ContPtr<F> {
-        let (p, inserted) = self.binop_store.insert_full((op, a, b, c));
-        let ptr = ContPtr(ContTag::Binop, RawPtr::new(p));
-        if inserted {
-            self.dehydrated_cont.push(ptr)
-        }
-        ptr
-    }
-
-    pub fn intern_cont_binop2(&mut self, op: Op2, a: Ptr<F>, b: ContPtr<F>) -> ContPtr<F> {
-        let (p, inserted) = self.binop2_store.insert_full((op, a, b));
-        let ptr = ContPtr(ContTag::Binop2, RawPtr::new(p));
-        if inserted {
-            self.dehydrated_cont.push(ptr)
-        }
-        ptr
-    }
-
-    pub fn intern_cont_if(&mut self, a: Ptr<F>, b: ContPtr<F>) -> ContPtr<F> {
-        let (p, inserted) = self.if_store.insert_full((a, b));
-        let ptr = ContPtr(ContTag::If, RawPtr::new(p));
-        if inserted {
-            self.dehydrated_cont.push(ptr)
-        }
-        ptr
-    }
-
-    pub fn intern_cont_tail(&mut self, a: Ptr<F>, b: ContPtr<F>) -> ContPtr<F> {
-        let (p, inserted) = self.tail_store.insert_full((a, b));
-        let ptr = ContPtr(ContTag::Tail, RawPtr::new(p));
-        if inserted {
-            self.dehydrated_cont.push(ptr)
-        }
-        ptr
     }
 
     pub fn scalar_from_parts(&self, tag: F, value: F) -> Option<ScalarPtr<F>> {
@@ -1945,7 +1966,7 @@ impl<F: LurkField> Store<F> {
                     continuation: *d,
                 }),
             LetRec => self
-                .let_rec_store
+                .letrec_store
                 .get_index(ptr.1.idx())
                 .map(|(a, b, c, d)| Continuation::LetRec {
                     var: *a,
@@ -2435,6 +2456,13 @@ impl<F: LurkField> Store<F> {
             let name_str = self.get_str(name).unwrap();
 
             let (prev_full_name, full_name) = if let Some(x) = full_name_acc.clone() {
+                // We need to quote the path segment when constructing the incremental full-name.
+                // This is because when symbols are interned by full-name, the canonical name,
+                // which includes any necessary quoting, is used.
+                //
+                // Eventually, we will remove symbol lookup by full-name, simplifying this.
+                let name = crate::parser::maybe_quote_symbol_name_string(name).unwrap();
+
                 if x.is_empty() {
                     let x: String = x;
                     (x, format!(".{}", name))
