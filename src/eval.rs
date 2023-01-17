@@ -454,6 +454,7 @@ fn reduce_with_witness<F: LurkField>(
 
                     // CIRCUIT: sym_otherwise
                     if env.is_nil() {
+                        // CIRCUIT: needed_env_missing
                         Control::Return(expr, env, store.intern_cont_error())
                     } else {
                         // CIRCUIT: main
@@ -467,6 +468,7 @@ fn reduce_with_witness<F: LurkField>(
                         } else {
                             // Binding is not NIL, so it is either a normal binding or a recursive environment.
 
+                            // CIRCUIT: with_binding
                             let (var_or_rec_binding, val_or_more_rec_env) =
                                 cons_witness.car_cdr_named(ConsName::EnvCar, store, &binding);
 
@@ -567,7 +569,7 @@ fn reduce_with_witness<F: LurkField>(
                                             // CIRCUIT: smaller_rec_env_is_nil
                                             smaller_env
                                         } else {
-                                            // CIRCUIT: with_smaller_rec_env
+                                            // CIRCUIT: rec_extended_env
                                             cons_witness.cons_named(
                                                 ConsName::EnvToUse,
                                                 store,
