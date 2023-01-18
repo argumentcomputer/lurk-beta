@@ -1066,13 +1066,12 @@ mod test {
     fn read_print_expr() {
         let mut s = Store::<Fr>::default();
         let test = |store: &mut Store<Fr>, input| {
-            dbg!(&input);
             let expr = store.read(input).unwrap();
             let output = expr.fmt_to_string(store);
             assert_eq!(input, output);
         };
-        test(&mut s, "|α|");
 
+        test(&mut s, "|α|");
         test(&mut s, "A");
         test(&mut s, "(A . B)");
         test(&mut s, "(A B C)");
