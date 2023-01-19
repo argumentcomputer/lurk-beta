@@ -3008,7 +3008,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let num = to_num(result, g);
         let comm = to_comm(result, g);
-        let c = to_char(result, g);
+        let c = to_char(&mut cs.namespace(|| "to char"), result, g);
         let u64_elem = to_u64(&mut cs.namespace(|| "Unop u64"), g, result.hash())?;
 
         let res = multi_case(
@@ -4477,14 +4477,13 @@ fn to_comm<F: LurkField>(x: &AllocatedPtr<F>, g: &GlobalAllocations<F>) -> Alloc
     AllocatedPtr::from_parts(&g.comm_tag, x.hash())
 }
 
-// Return an AllocatedPtr representing a Char whose value is the same as x's.
-//
-// FIXME: no range-checking is performed, so the result could be an invalid Char. lurk-rs won't actually create such
-// proofs because the out-of-range input will lead to an error when evaluating, but malicious input could still lead to
-// such a proof. This would violate the principle that Lurk programs over valid input data should always return valid
-// output data.
-fn to_char<F: LurkField>(x: &AllocatedPtr<F>, g: &GlobalAllocations<F>) -> AllocatedPtr<F> {
-    AllocatedPtr::from_parts(&g.char_tag, x.hash())
+fn to_char<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: CS,
+    x: &AllocatedPtr<F>,
+    g: &GlobalAllocations<F>,
+) -> AllocatedPtr<F> {
+    let res = to_u32(cs, g, x.hash()).unwrap();
+    AllocatedPtr::from_parts(&g.char_tag, &res)
 }
 
 fn get_named_components<F: LurkField, CS: ConstraintSystem<F>>(
@@ -4650,6 +4649,64 @@ pub fn enforce_at_most_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
     let v = num_bits[n..255].to_vec();
     popcount(&mut cs.namespace(|| "add all MSBs"), &v, &g.false_num);
     Ok(())
+}
+
+// Convert from num to u32.
+pub fn to_u32<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    g: &GlobalAllocations<F>,
+    maybe_u32: &AllocatedNum<F>,
+) -> Result<AllocatedNum<F>, SynthesisError> {
+    let p32_bn = BigUint::pow(&BigUint::from_u32(2).unwrap(), 32);
+    let v = match maybe_u32.get_value() {
+        Some(v) => v,
+        None => F::zero(),
+    };
+    let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
+
+    let (q_bn, r_bn) = field_bn.div_rem(&p32_bn);
+
+    let q_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "q"), q_bn)?;
+    let r_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "r"), r_bn)?;
+
+    // a = b.q + r
+    let product = mul(
+        &mut cs.namespace(|| "product(q,pow(2,32))"),
+        &q_num,
+        &g.power2_32_num,
+    )?;
+    let sum = add(&mut cs.namespace(|| "sum remainder"), &product, &r_num)?;
+    let u32_decomp = alloc_equal(
+        &mut cs.namespace(|| "check u64 decomposition"),
+        &sum,
+        maybe_u32,
+    )?;
+    enforce_true(
+        &mut cs.namespace(|| "enforce u32 decomposition"),
+        &u32_decomp,
+    )?;
+
+    // enforce remainder range
+    enforce_at_most_n_bits(
+        &mut cs.namespace(|| "remainder u32 range"),
+        g,
+        r_num.clone(),
+        32,
+    )?;
+
+    let output = AllocatedNum::alloc(&mut cs.namespace(|| "to_32"), || {
+        Ok(F::from_u32(v.to_u32_unchecked()).unwrap())
+    })?;
+    let u32_is_remainder = alloc_equal(
+        &mut cs.namespace(|| "check u32 value is the remainder"),
+        &r_num,
+        &output,
+    )?;
+    enforce_true(
+        &mut cs.namespace(|| "enforce u32 decomposition output"),
+        &u32_is_remainder,
+    )?;
+    Ok(output)
 }
 
 // Convert from num to u64.
@@ -5121,9 +5178,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12513, cs.num_constraints());
+            assert_eq!(12783, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(12140, cs.aux().len());
+            assert_eq!(12407, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
