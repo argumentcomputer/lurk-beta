@@ -1,7 +1,7 @@
-use crate::parser;
-use crate::store;
 use crate::eval;
 use crate::field;
+use crate::parser;
+use crate::store;
 use bellperson::SynthesisError;
 use nova::errors::NovaError;
 use thiserror::Error;
@@ -19,7 +19,7 @@ pub enum ProofError {
 #[derive(Error, Debug, Clone)]
 pub enum LurkError {
     #[error("Evaluation error: {0}")]
-    Eval(String),
+    Reduce(String),
     #[error("Lookup error: {0}")]
     Store(#[from] store::Error),
     #[error("Parser error: {0}")]
