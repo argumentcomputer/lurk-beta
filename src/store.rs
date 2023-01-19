@@ -3004,12 +3004,12 @@ pub mod test {
         let cons2 = store.intern_cons(a, b);
 
         assert_eq!(cons1, cons2);
-        assert_eq!(store.car(&cons1), store.car(&cons2));
-        assert_eq!(store.cdr(&cons1), store.cdr(&cons2));
+        assert_eq!(store.car(&cons1).unwrap(), store.car(&cons2).unwrap());
+        assert_eq!(store.cdr(&cons1).unwrap(), store.cdr(&cons2).unwrap());
 
-        let (a, d) = store.car_cdr(&cons1);
-        assert_eq!(store.car(&cons1), a);
-        assert_eq!(store.cdr(&cons1), d);
+        let (a, d) = store.car_cdr(&cons1).unwrap();
+        assert_eq!(store.car(&cons1).unwrap(), a);
+        assert_eq!(store.cdr(&cons1).unwrap(), d);
     }
 
     #[test]
@@ -3278,7 +3278,7 @@ pub mod test {
         let mut store = Store::<Fr>::default();
 
         let opaque_cons = make_opaque_cons(&mut store);
-        store.car(&opaque_cons);
+        store.car(&opaque_cons).unwrap();
     }
     #[test]
     #[should_panic]
@@ -3286,7 +3286,7 @@ pub mod test {
         let mut store = Store::<Fr>::default();
 
         let opaque_cons = make_opaque_cons(&mut store);
-        store.cdr(&opaque_cons);
+        store.cdr(&opaque_cons).unwrap();
     }
 
     #[test]
@@ -3294,14 +3294,14 @@ pub mod test {
         let mut store = Store::<Fr>::default();
 
         let opaque_cons = make_maybe_opaque_cons(&mut store, 123, 987);
-        store.car(&opaque_cons);
+        store.car(&opaque_cons).unwrap();
     }
     #[test]
     fn maybe_opaque_cons_cdr() {
         let mut store = Store::<Fr>::default();
 
         let opaque_cons = make_maybe_opaque_cons(&mut store, 123, 987);
-        store.cdr(&opaque_cons);
+        store.cdr(&opaque_cons).unwrap();
     }
 
     #[test]
@@ -3331,7 +3331,7 @@ pub mod test {
 
         let expr = s.read("(foo)").unwrap();
         let sym = s.read("foo").unwrap();
-        let sym1 = s.car(&expr);
+        let sym1 = s.car(&expr).unwrap();
         let sss = s.fetch_sym(&sym);
         let hash = s.get_expr_hash(&sym);
         dbg!(&sym1, &sss, &hash);
@@ -3358,8 +3358,8 @@ pub mod test {
         let s = &mut Store::<Fr>::default();
 
         let str = s.read(r#" "ORANGE" "#).unwrap();
-        let str2 = s.cdr(&str);
-        let c = s.car(&str);
+        let str2 = s.cdr(&str).unwrap();
+        let c = s.car(&str).unwrap();
 
         let str_hash = s.hash_expr(&str).unwrap().1;
 
@@ -3373,7 +3373,7 @@ pub mod test {
         let s = &mut Store::<Fr>::default();
 
         let str = s.read(str).unwrap();
-        let str2 = s.cdr(&str);
+        let str2 = s.cdr(&str).unwrap();
 
         // Unless the cache is hydrated, the inner destructuring will not map the ScalarPtr to corresponding Ptr.
         if hydrate {
