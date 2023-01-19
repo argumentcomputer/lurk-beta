@@ -22,4 +22,6 @@ pub enum LurkError {
     Store(#[from] store::Error),
     #[error("Parser error: {0}")]
     Parser(#[from] parser::Error),
+    #[error("Provable error: {0}")]
+    Provable(String),
 }
