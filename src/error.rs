@@ -1,5 +1,7 @@
 use crate::parser;
 use crate::store;
+use crate::eval;
+use crate::field;
 use bellperson::SynthesisError;
 use nova::errors::NovaError;
 use thiserror::Error;
@@ -22,6 +24,12 @@ pub enum LurkError {
     Store(#[from] store::Error),
     #[error("Parser error: {0}")]
     Parser(#[from] parser::Error),
+}
+
+#[derive(Error, Debug, Clone)]
+pub enum ReduceError<F: field::LurkField> {
+    #[error("Lurk error: {0}")]
+    Lurk(#[from] LurkError),
     #[error("Provable error: {0}")]
-    Provable(String),
+    Provable(#[from] eval::ProvableError<F>),
 }
