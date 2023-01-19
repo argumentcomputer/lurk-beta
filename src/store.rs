@@ -11,6 +11,7 @@ use once_cell::sync::OnceCell;
 
 use libipld::Cid;
 
+use crate::error::LurkError;
 use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
@@ -1215,12 +1216,12 @@ impl<F: LurkField> Store<F> {
         self.intern_sym_with_case_conversion(name, &package)
     }
 
-    pub fn car(&self, expr: &Ptr<F>) -> Ptr<F> {
-        self.car_cdr(expr).0
+    pub fn car(&self, expr: &Ptr<F>) -> Result<Ptr<F>, LurkError> {
+        Ok(self.car_cdr(expr)?.0)
     }
 
-    pub fn cdr(&self, expr: &Ptr<F>) -> Ptr<F> {
-        self.car_cdr(expr).1
+    pub fn cdr(&self, expr: &Ptr<F>) -> Result<Ptr<F>, LurkError> {
+        Ok(self.car_cdr(expr)?.1)
     }
 
     pub(crate) fn poseidon_constants(&self) -> &HashConstants<F> {
@@ -2013,34 +2014,31 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn car_cdr(&self, ptr: &Ptr<F>) -> (Ptr<F>, Ptr<F>) {
-        // FIXME: Maybe make error.
+    pub fn car_cdr(&self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
         match ptr.0 {
-            Tag::Nil => (self.get_nil(), self.get_nil()),
+            Tag::Nil => Ok((self.get_nil(), self.get_nil())),
             Tag::Cons => match self.fetch(ptr) {
-                Some(Expression::Cons(car, cdr)) => (car, cdr),
+                Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
                 Some(Expression::Opaque(_)) => panic!("cannot destructure opaque Cons"),
                 _ => unreachable!(),
             },
             Tag::Str => {
                 if let Some(Expression::Str(s)) = self.fetch(ptr) {
-                    let mut chars = s.chars();
-                    if let Some(c) = chars.next() {
-                        let cdr_str: String = chars.collect();
-                        let str = self.get_str(cdr_str).expect("cdr str missing");
-                        (self.get_char(c), str)
-                    } else {
-                        (self.get_nil(), self.get_str("").unwrap())
-                    }
+                    Ok({
+                        let mut chars = s.chars();
+                        if let Some(c) = chars.next() {
+                            let cdr_str: String = chars.collect();
+                            let str = self.get_str(cdr_str).expect("cdr str missing");
+                            (self.get_char(c), str)
+                        } else {
+                            (self.get_nil(), self.get_str("").unwrap())
+                        }
+                    })
                 } else {
                     panic!();
                 }
             }
-            _ => {
-                // FIXME: Don't panic. This can happen at runtime in a valid Lurk program,
-                // so it should result in an explicit error.
-                panic!("Can only extract car_cdr from Cons")
-            }
+            _ => Err(Error("Can only extract car_cdr from Cons".into())),
         }
     }
 

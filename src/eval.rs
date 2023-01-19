@@ -464,7 +464,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         } else {
                             // CIRCUIT: main
                             let (binding, smaller_env) =
-                                cons_witness.car_cdr_named(ConsName::Env, store, &env);
+                                cons_witness.car_cdr_named(ConsName::Env, store, &env)?;
                             if binding.is_nil() {
                                 // If binding is NIL, it's empty. There is no match. Return an error due to unbound variable.
 
@@ -473,8 +473,8 @@ fn reduce_with_witness_control<F: LurkField>(
                             } else {
                                 // Binding is not NIL, so it is either a normal binding or a recursive environment.
 
-                                let (var_or_rec_binding, val_or_more_rec_env) =
-                                    cons_witness.car_cdr_named(ConsName::EnvCar, store, &binding);
+                                let (var_or_rec_binding, val_or_more_rec_env) = cons_witness
+                                    .car_cdr_named(ConsName::EnvCar, store, &binding)?;
 
                                 match var_or_rec_binding.tag() {
                                     Tag::Sym => {
@@ -537,7 +537,7 @@ fn reduce_with_witness_control<F: LurkField>(
                                             ConsName::EnvCaar,
                                             store,
                                             &var_or_rec_binding,
-                                        );
+                                        )?;
 
                                         if v2 == expr {
                                             // CIRCUIT: with_cons_binding_matched
@@ -610,7 +610,7 @@ fn reduce_with_witness_control<F: LurkField>(
                 }
                 Tag::Cons => {
                     // This should not fail, since expr is a Cons.
-                    let (head, rest) = cons_witness.car_cdr_named(ConsName::Expr, store, &expr);
+                    let (head, rest) = cons_witness.car_cdr_named(ConsName::Expr, store, &expr)?;
 
                     let lambda = store.lurk_sym("lambda");
                     let quote = store.lurk_sym("quote");
@@ -618,16 +618,16 @@ fn reduce_with_witness_control<F: LurkField>(
 
                     if head == lambda {
                         let (args, body) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         let (arg, _rest) = if args.is_nil() {
                             // (LAMBDA () STUFF)
                             // becomes (LAMBDA (DUMMY) STUFF)
                             (dummy_arg, store.nil())
                         } else {
-                            cons_witness.car_cdr_named(ConsName::ExprCadr, store, &args)
+                            cons_witness.car_cdr_named(ConsName::ExprCadr, store, &args)?
                         };
                         let (_, cdr_args) =
-                            cons_witness.car_cdr_named(ConsName::ExprCadr, store, &args);
+                            cons_witness.car_cdr_named(ConsName::ExprCadr, store, &args)?;
                         let inner_body = if cdr_args.is_nil() {
                             body
                         } else {
@@ -648,7 +648,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         Control::ApplyContinuation(function, env, cont)
                     } else if head == quote {
                         let (quoted, end) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         if !end.is_nil() {
                             Err(ProvableError("Evaluation error".into(), expr))?
                         } else {
@@ -656,9 +656,9 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("let") || head == store.lurk_sym("letrec") {
                         let (bindings, body) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         let (body1, rest_body) =
-                            cons_witness.car_cdr_named(ConsName::ExprCddr, store, &body);
+                            cons_witness.car_cdr_named(ConsName::ExprCddr, store, &body)?;
                         // Only a single body form allowed for now.
                         if !rest_body.is_nil() || body.is_nil() {
                             Err(ProvableError("Evaluation error".into(), expr))?
@@ -666,11 +666,14 @@ fn reduce_with_witness_control<F: LurkField>(
                             Control::Return(body1, env, cont)
                         } else {
                             let (binding1, rest_bindings) =
-                                cons_witness.car_cdr_named(ConsName::ExprCadr, store, &bindings);
-                            let (var, vals) =
-                                cons_witness.car_cdr_named(ConsName::ExprCaadr, store, &binding1);
+                                cons_witness.car_cdr_named(ConsName::ExprCadr, store, &bindings)?;
+                            let (var, vals) = cons_witness.car_cdr_named(
+                                ConsName::ExprCaadr,
+                                store,
+                                &binding1,
+                            )?;
                             let (val, end) =
-                                cons_witness.car_cdr_named(ConsName::ExprCaaadr, store, &vals);
+                                cons_witness.car_cdr_named(ConsName::ExprCaaadr, store, &vals)?;
 
                             if !end.is_nil() {
                                 Err(ProvableError("Evaluation error".into(), expr))?
@@ -720,7 +723,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("cons") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         if more.is_nil() {
                             Err(ProvableError("Evaluation error".into(), arg1))?
                         } else {
@@ -741,7 +744,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("strcons") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         if more.is_nil() {
                             Err(ProvableError("Evaluation error".into(), arg1))?
                         } else {
@@ -762,7 +765,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("hide") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         if more.is_nil() {
                             Err(ProvableError("Evaluation error".into(), arg1))?
                         } else {
@@ -783,7 +786,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("begin") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         if more.is_nil() {
                             Control::Return(arg1, env, cont)
                         } else {
@@ -844,7 +847,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("commit") {
                         let (arg1, end) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         if !end.is_nil() {
                             Err(ProvableError("Evaluation error".into(), expr))?
                         } else {
@@ -863,7 +866,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("num") {
                         let (arg1, end) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         if !end.is_nil() {
                             Err(ProvableError("Evaluation error".into(), expr))?
                         } else {
@@ -882,7 +885,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("u64") {
                         let (arg1, end) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         if !end.is_nil() {
                             Err(ProvableError("Evaluation error".into(), expr))?
                         } else {
@@ -901,7 +904,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("comm") {
                         let (arg1, end) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         if !end.is_nil() {
                             Err(ProvableError("Evaluation error".into(), expr))?
                         } else {
@@ -920,7 +923,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("char") {
                         let (arg1, end) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         if !end.is_nil() {
                             Err(ProvableError("Evaluation error".into(), expr))?
                         } else {
@@ -939,7 +942,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("eval") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         if more.is_nil() {
                             Control::Return(
                                 arg1,
@@ -971,7 +974,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("open") {
                         let (arg1, end) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         if !end.is_nil() {
                             Err(ProvableError("Evaluation error".into(), expr))?
                         } else {
@@ -990,7 +993,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("secret") {
                         let (arg1, end) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         if !end.is_nil() {
                             Err(ProvableError("Evaluation error".into(), expr))?
                         } else {
@@ -1009,7 +1012,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("atom") {
                         let (arg1, end) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         if !end.is_nil() {
                             Err(ProvableError("Evaluation error".into(), expr))?
                         } else {
@@ -1028,7 +1031,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("emit") {
                         let (arg1, end) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         if !end.is_nil() {
                             Err(ProvableError("Evaluation error".into(), expr))?
                         } else {
@@ -1047,7 +1050,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         }
                     } else if head == store.lurk_sym("+") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         Control::Return(
                             arg1,
                             env,
@@ -1064,7 +1067,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         )
                     } else if head == store.lurk_sym("-") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         Control::Return(
                             arg1,
                             env,
@@ -1081,7 +1084,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         )
                     } else if head == store.lurk_sym("*") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         Control::Return(
                             arg1,
                             env,
@@ -1098,7 +1101,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         )
                     } else if head == store.lurk_sym("/") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         Control::Return(
                             arg1,
                             env,
@@ -1115,7 +1118,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         )
                     } else if head == store.lurk_sym("%") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         Control::Return(
                             arg1,
                             env,
@@ -1132,7 +1135,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         )
                     } else if head == store.lurk_sym("=") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         Control::Return(
                             arg1,
                             env,
@@ -1149,7 +1152,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         )
                     } else if head == store.lurk_sym("eq") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         Control::Return(
                             arg1,
                             env,
@@ -1166,7 +1169,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         )
                     } else if head == store.lurk_sym("<") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         Control::Return(
                             arg1,
                             env,
@@ -1183,7 +1186,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         )
                     } else if head == store.lurk_sym(">") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         Control::Return(
                             arg1,
                             env,
@@ -1200,7 +1203,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         )
                     } else if head == store.lurk_sym("<=") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         Control::Return(
                             arg1,
                             env,
@@ -1217,7 +1220,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         )
                     } else if head == store.lurk_sym(">=") {
                         let (arg1, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         Control::Return(
                             arg1,
                             env,
@@ -1234,7 +1237,7 @@ fn reduce_with_witness_control<F: LurkField>(
                         )
                     } else if head == store.lurk_sym("if") {
                         let (condition, more) =
-                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest);
+                            cons_witness.car_cdr_named(ConsName::ExprCdr, store, &rest)?;
                         Control::Return(
                             condition,
                             env,
@@ -1272,7 +1275,7 @@ fn reduce_with_witness_control<F: LurkField>(
                             )
                         } else {
                             let (arg, more_args) =
-                                cons_witness.car_cdr_named(ConsName::ExprCdr, store, &args);
+                                cons_witness.car_cdr_named(ConsName::ExprCdr, store, &args)?;
                             match more_args.tag() {
                                 // (fn arg)
                                 // Interpreting as call.
@@ -1407,7 +1410,7 @@ fn apply_continuation<F: LurkField>(
                     Expression::Fun(arg, body, closed_env) => {
                         if arg == store.lurk_sym("_") {
                             let (body_form, _) =
-                                cons_witness.car_cdr_named(ConsName::FunBody, store, &body);
+                                cons_witness.car_cdr_named(ConsName::FunBody, store, &body)?;
                             let cont = make_tail_continuation(
                                 saved_env,
                                 continuation,
@@ -1477,7 +1480,7 @@ fn apply_continuation<F: LurkField>(
                             return Ok(Control::Return(*result, *env, store.intern_cont_error()));
                         }
                         let (body_form, _) =
-                            cons_witness.car_cdr_named(ConsName::FunBody, store, &body);
+                            cons_witness.car_cdr_named(ConsName::FunBody, store, &body)?;
                         let newer_env = cons_witness.extend_named(
                             ConsName::ClosedEnv,
                             closed_env,
@@ -1659,7 +1662,7 @@ fn apply_continuation<F: LurkField>(
                 continuation,
             } => {
                 let (arg2, rest) =
-                    cons_witness.car_cdr_named(ConsName::UnevaledArgs, store, &unevaled_args);
+                    cons_witness.car_cdr_named(ConsName::UnevaledArgs, store, &unevaled_args)?;
                 if operator == Op2::Begin {
                     if rest.is_nil() {
                         Control::Return(arg2, saved_env, continuation)
@@ -1830,7 +1833,7 @@ fn apply_continuation<F: LurkField>(
             } => {
                 let condition = result;
                 let (arg1, more) =
-                    cons_witness.car_cdr_named(ConsName::UnevaledArgs, store, &unevaled_args);
+                    cons_witness.car_cdr_named(ConsName::UnevaledArgs, store, &unevaled_args)?;
 
                 // NOTE: as formulated here, IF operates on any condition. Every
                 // value but NIL is considered true.
@@ -1861,7 +1864,7 @@ fn apply_continuation<F: LurkField>(
                 // first be subtracted from the value being checked.
 
                 let (arg2, end) =
-                    cons_witness.car_cdr_named(ConsName::UnevaledArgsCdr, store, &more);
+                    cons_witness.car_cdr_named(ConsName::UnevaledArgsCdr, store, &more)?;
                 if !end.is_nil() {
                     Control::Return(arg1, *env, store.intern_cont_error())
                 } else if condition.is_nil() {
@@ -2087,9 +2090,9 @@ fn extend_rec<F: LurkField>(
     store: &mut Store<F>,
     cons_witness: &mut ConsWitness<F>,
 ) -> Result<Ptr<F>, LurkError> {
-    let (binding_or_env, rest) = cons_witness.car_cdr_named(ConsName::Env, store, &env);
+    let (binding_or_env, rest) = cons_witness.car_cdr_named(ConsName::Env, store, &env)?;
     let (var_or_binding, _val_or_more_bindings) =
-        cons_witness.car_cdr_named(ConsName::EnvCar, store, &binding_or_env);
+        cons_witness.car_cdr_named(ConsName::EnvCar, store, &binding_or_env)?;
     match var_or_binding.tag() {
         // It's a var, so we are extending a simple env with a recursive env.
         Tag::Sym | Tag::Nil => {
@@ -2162,8 +2165,8 @@ fn lookup<F: LurkField>(
     match env.tag() {
         Tag::Nil => Ok(store.get_nil()),
         Tag::Cons => {
-            let (binding, smaller_env) = store.car_cdr(env);
-            let (v, val) = store.car_cdr(&binding);
+            let (binding, smaller_env) = store.car_cdr(env)?;
+            let (v, val) = store.car_cdr(&binding)?;
             if v == *var {
                 Ok(val)
             } else {
