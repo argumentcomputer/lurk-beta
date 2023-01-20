@@ -956,8 +956,8 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     let sym_is_nil = expr.alloc_equal(&mut cs.namespace(|| "sym is nil"), &g.nil_ptr)?;
     let sym_is_t = expr.alloc_equal(&mut cs.namespace(|| "sym is t"), &g.t_ptr)?;
 
-    let sym_is_self_evaluating0 = or!(cs, &sym_is_nil, &sym_is_t)?;
-    let sym_is_self_evaluating = and!(cs, &sym_is_self_evaluating0, not_dummy)?;
+    let sym_is_nil_or_t = or!(cs, &sym_is_nil, &sym_is_t)?;
+    let sym_is_self_evaluating = and!(cs, &sym_is_nil_or_t, not_dummy)?;
 
     let sym_otherwise = and!(cs, &sym_is_self_evaluating.not(), not_dummy)?;
 
@@ -1071,7 +1071,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
 
     let smaller_rec_env_not_dummy = and!(cs, &smaller_rec_env_not_nil, &otherwise_and_v2_not_expr)?;
 
-    let with_smaller_rec_env = AllocatedPtr::construct_cons_named(
+    let rec_extended_env = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "with_smaller_rec_env"),
         g,
         smaller_rec_env,
@@ -1081,16 +1081,11 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         &smaller_rec_env_not_dummy,
     )?;
 
-    let env_to_use = pick_ptr!(
-        cs,
-        &smaller_rec_env_is_nil,
-        &smaller_env,
-        &with_smaller_rec_env
-    )?;
+    let env_to_use = pick_ptr!(cs, &smaller_rec_env_is_nil, &smaller_env, &rec_extended_env)?;
 
     let cont_is_lookup = equal!(cs, cont.tag(), &g.lookup_cont_tag)?;
 
-    let needed_env_missing = and!(cs, &sym_is_self_evaluating.not(), &env_is_nil, not_dummy)?;
+    let needed_env_missing = and!(cs, &sym_otherwise, &env_is_nil)?;
     let needed_binding_missing = and!(cs, &main, &binding_is_nil)?;
 
     let with_sym_binding_matched = and!(cs, &with_sym_binding, &v_is_expr1)?;
@@ -1195,6 +1190,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         &output_expr_should_be_val_to_use,
         &output_expr_is_val_to_use
     );
+    implies!(cs, &output_cont_should_be_error, &output_expr_is_expr);
 
     // env
     implies!(cs, &output_env_should_be_env, &output_env_is_env);
@@ -1208,6 +1204,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         &output_env_should_be_env_to_use,
         &output_env_is_env_to_use
     );
+    implies!(cs, &output_cont_should_be_error, &output_env_is_env);
 
     // cont
     implies!(cs, &output_cont_should_be_cont, &output_cont_is_cont);
@@ -5125,9 +5122,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12510, cs.num_constraints());
+            assert_eq!(12513, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(12139, cs.aux().len());
+            assert_eq!(12140, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

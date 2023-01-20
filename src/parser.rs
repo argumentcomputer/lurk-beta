@@ -521,6 +521,7 @@ pub fn read_symbol_path<T: Iterator<Item = char>>(
 
     while let Ok(name) = read_symbol_name(chars) {
         path.push(name);
+
         if chars.peek() == Some(&SYM_MARKER) {
             chars.next();
             continue;
@@ -607,28 +608,33 @@ pub(crate) fn maybe_quote_symbol_name_string(symbol_name: &str) -> Result<String
     }
     let contains_dot = symbol_name.contains(SYM_SEPARATOR);
     let mut chars = symbol_name.chars().peekmore();
+
+    let quote_name = || {
+        use std::fmt::Write;
+        let mut out = String::new();
+        write!(out, "|")?;
+
+        for c in symbol_name.chars() {
+            if c == '|' {
+                write!(out, "\\{}", c)?;
+            } else {
+                write!(out, "{}", c)?;
+            }
+        }
+
+        write!(out, "|")?;
+
+        Ok(out)
+    };
+
     if let Ok(unquoted) = read_unquoted_symbol_name(&mut chars) {
         if !contains_dot && unquoted == symbol_name {
             Ok(symbol_name.into())
         } else {
-            use std::fmt::Write;
-            let mut out = String::new();
-            write!(out, "|")?;
-
-            for c in symbol_name.chars() {
-                if c == '|' {
-                    write!(out, "\\{}", c)?;
-                } else {
-                    write!(out, "{}", c)?;
-                }
-            }
-
-            write!(out, "|")?;
-
-            Ok(out)
+            quote_name()
         }
     } else {
-        Ok(symbol_name.into())
+        quote_name()
     }
 }
 
@@ -1067,6 +1073,7 @@ mod test {
             assert_eq!(input, output);
         };
 
+        test(&mut s, "|α|");
         test(&mut s, "A");
         test(&mut s, "(A . B)");
         test(&mut s, "(A B C)");
