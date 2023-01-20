@@ -124,13 +124,6 @@ impl<F: LurkField, W: Copy> Frame<IO<F>, W> {
             .skip_while(|frame| frame.is_complete())
             .count()
     }
-
-    pub fn input_vector(&self, store: &Store<F>) -> Result<Vec<F>, LurkError> {
-        self.input.to_vector(store)
-    }
-    pub fn output_vector(&self, store: &Store<F>) -> Result<Vec<F>, LurkError> {
-        self.output.to_vector(store)
-    }
 }
 
 pub trait Evaluable<F: LurkField, W> {

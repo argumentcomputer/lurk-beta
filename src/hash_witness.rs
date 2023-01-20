@@ -327,16 +327,6 @@ impl<
 }
 
 impl<F: LurkField> ConsWitness<F> {
-    pub fn get_named_cons(&self, name: &ConsName) -> ConsStub<F> {
-        for (slot_name, p) in &self.slots {
-            if slot_name == name {
-                return *p;
-            }
-        }
-
-        Stub::Dummy
-    }
-
     pub fn car_cdr_named(
         &mut self,
         name: ConsName,
