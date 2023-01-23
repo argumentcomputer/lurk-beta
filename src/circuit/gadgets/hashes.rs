@@ -165,17 +165,13 @@ impl<'a, F: LurkField> AllocatedConsWitness<'a, F> {
                 ),
             };
 
-            let allocated_car =
-                AllocatedPtr::alloc(&mut cs.namespace(|| "car"), || match car_ptr {
-                    Some(p) => Ok(p),
-                    None => Err(SynthesisError::AssignmentMissing),
-                })?;
+            let allocated_car = AllocatedPtr::alloc(&mut cs.namespace(|| "car"), || {
+                car_ptr.ok_or(SynthesisError::AssignmentMissing)
+            })?;
 
-            let allocated_cdr =
-                AllocatedPtr::alloc(&mut cs.namespace(|| "cdr"), || match cdr_ptr {
-                    Some(p) => Ok(p),
-                    None => Err(SynthesisError::AssignmentMissing),
-                })?;
+            let allocated_cdr = AllocatedPtr::alloc(&mut cs.namespace(|| "cdr"), || {
+                cdr_ptr.ok_or(SynthesisError::AssignmentMissing)
+            })?;
 
             let allocated_hash = AllocatedPtrHash::alloc(
                 &mut cs.namespace(|| "cons"),
