@@ -2824,7 +2824,7 @@ mod tests {
         let expr2 = "(% 100u64 3u64)";
         let res2 = s.uint64(1);
 
-        let expr3 = "(/ 100u64 0u64)";
+        let expr3 = "(% 100u64 0u64)";
 
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();

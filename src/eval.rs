@@ -1773,7 +1773,17 @@ fn apply_continuation<F: LurkField>(
                                     store.get_u64((a / b).into())
                                 }
                             }
-                            Op2::Modulo => store.get_u64((a % b).into()),
+                            Op2::Modulo => {
+                                if b.is_zero() {
+                                    return Ok(Control::Return(
+                                        *result,
+                                        *env,
+                                        store.intern_cont_error(),
+                                    ));
+                                } else {
+                                    store.get_u64((a % b).into())
+                                }
+                            }
                             Op2::Equal | Op2::NumEqual => store.as_lurk_boolean(a == b),
                             Op2::Less => store.as_lurk_boolean(a < b),
                             Op2::Greater => store.as_lurk_boolean(a > b),
@@ -3986,7 +3996,7 @@ mod test {
         let expr2 = "(% 100u64 3u64)";
         let res2 = s.uint64(1);
 
-        let expr3 = "(/ 100u64 0u64)";
+        let expr3 = "(% 100u64 0u64)";
 
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
