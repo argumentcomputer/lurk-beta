@@ -1,9 +1,13 @@
+use crate::eval;
+use crate::field;
+use crate::parser;
+use crate::store;
 use bellperson::SynthesisError;
 use nova::errors::NovaError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum Error {
+pub enum ProofError {
     #[error("Nova error")]
     Nova(NovaError),
     #[error("Synthesis error: {0}")]
@@ -15,19 +19,17 @@ pub enum Error {
 #[derive(Error, Debug, Clone)]
 pub enum LurkError {
     #[error("Evaluation error: {0}")]
-    Eval(String),
-    #[error("Reduction error: {0}")]
     Reduce(String),
     #[error("Lookup error: {0}")]
-    Store(String),
+    Store(#[from] store::Error),
     #[error("Parser error: {0}")]
-    Parser(#[from] ParserError),
+    Parser(#[from] parser::Error),
 }
 
 #[derive(Error, Debug, Clone)]
-pub enum ParserError {
-    #[error("Empty input error")]
-    NoInput,
-    #[error("Syntax error: {0}")]
-    Syntax(String),
+pub enum ReduceError<F: field::LurkField> {
+    #[error("Lurk error: {0}")]
+    Lurk(#[from] LurkError),
+    #[error("Explicit error: {0}")]
+    Explicit(#[from] eval::ExplicitError<F>),
 }
