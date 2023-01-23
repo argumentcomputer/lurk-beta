@@ -2849,7 +2849,7 @@ pub mod test {
     fn unit_op1_ipld() {
         assert_eq!(
             to_ipld(Op1::Car).unwrap(),
-            Ipld::Integer(0b0010_0000_0000_0000 as i128)
+            Ipld::Integer(0b0010_0000_0000_0000_i128)
         );
     }
 
@@ -2893,7 +2893,7 @@ pub mod test {
     fn unit_op2_ipld() {
         assert_eq!(
             to_ipld(Op2::Sum).unwrap(),
-            Ipld::Integer(0b0011_0000_0000_0000 as i128)
+            Ipld::Integer(0b0011_0000_0000_0000_i128)
         );
     }
 
@@ -3037,8 +3037,8 @@ pub mod test {
         let mut store = Store::<Fr>::default();
 
         let empty_env = empty_sym_env(&store);
-        let sym = store.sym(&"sym");
-        let sym2 = store.sym(&"sym2");
+        let sym = store.sym("sym");
+        let sym2 = store.sym("sym2");
         let sym_hash = store.hash_expr(&sym).unwrap();
         let sym_hash2 = store.hash_expr(&sym2).unwrap();
         let opaque_sym = store.intern_opaque_sym(*sym_hash.value());
@@ -3393,9 +3393,9 @@ pub mod test {
         let num = num::Num::from_scalar(scalar);
         assert_eq!(
             format!("<Opaque Comm {}>", Expression::Num(num).fmt_to_string(s)),
-            opaque_comm.fmt_to_string(&s),
+            opaque_comm.fmt_to_string(s),
         );
 
-        assert_eq!(opaque_comm.fmt_to_string(&s), expr.fmt_to_string(&s));
+        assert_eq!(opaque_comm.fmt_to_string(s), expr.fmt_to_string(s));
     }
 }

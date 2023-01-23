@@ -368,7 +368,7 @@ mod tests {
             .get_evaluation_frames(expr, e, s, limit)
             .unwrap();
 
-        let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, &s);
+        let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, s);
 
         let len = multiframes.len();
 
@@ -387,7 +387,7 @@ mod tests {
             multiframe.clone().synthesize(&mut cs).unwrap();
 
             if let Some(prev) = previous_frame {
-                assert!(prev.precedes(&multiframe));
+                assert!(prev.precedes(multiframe));
             }
 
             // dbg!(i);
@@ -405,7 +405,7 @@ mod tests {
         if let Some(expected_emitted) = expected_emitted {
             let emitted_vec: Vec<_> = frames
                 .iter()
-                .flat_map(|frame| frame.output.maybe_emitted_expression(&s))
+                .flat_map(|frame| frame.output.maybe_emitted_expression(s))
                 .collect();
             assert_eq!(expected_emitted, &emitted_vec);
         }
@@ -1967,7 +1967,7 @@ mod tests {
     #[test]
     fn outer_prove_str_cdr_empty() {
         let s = &mut Store::<Fr>::default();
-        let expected_empty_str = s.intern_str(&"");
+        let expected_empty_str = s.intern_str("");
         let terminal = s.get_cont_terminal();
         nova_test_aux(
             s,
@@ -2400,7 +2400,7 @@ mod tests {
         let apple = s.read(r#" "apple" "#).unwrap();
         let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
         let pple = s.read(r#" "pple" "#).unwrap();
-        let empty = s.intern_str(&"");
+        let empty = s.intern_str("");
         let nil = s.nil();
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();

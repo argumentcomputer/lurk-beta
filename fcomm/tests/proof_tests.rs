@@ -232,7 +232,7 @@ fn test_function_aux(
         let input = store.read(function_input).unwrap();
         let canonical_input = input.fmt_to_string(&store);
 
-        let canonical_output = store.read(&expected_output).unwrap().fmt_to_string(&store);
+        let canonical_output = store.read(expected_output).unwrap().fmt_to_string(&store);
 
         assert_eq!(canonical_input, opening.input);
         assert_eq!(*expected_output, canonical_output);

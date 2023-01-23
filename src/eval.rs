@@ -2218,7 +2218,7 @@ mod test {
         expected_iterations: usize,
     ) {
         let limit = 100000;
-        let env = empty_sym_env(&s);
+        let env = empty_sym_env(s);
         let (
             IO {
                 expr: new_expr,
@@ -3151,7 +3151,7 @@ mod test {
         let apple = s.read(r#" "apple" "#).unwrap();
         let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
         let pple = s.read(r#" "pple" "#).unwrap();
-        let empty = s.intern_str(&"");
+        let empty = s.intern_str("");
         let nil = s.nil();
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
@@ -4190,7 +4190,7 @@ mod test {
         let expr = s.read("(cons \"FDSA\" '.ASDF)").unwrap();
 
         let limit = 10;
-        let env = empty_sym_env(&s);
+        let env = empty_sym_env(s);
         let (
             IO {
                 expr: new_expr,

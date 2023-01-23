@@ -5496,8 +5496,8 @@ mod tests {
         let (_, comp_val, _) = comparison_helper(
             &mut cs.namespace(|| "enforce u64 div mod"),
             &g,
-            &alloc_a.hash(),
-            &alloc_b.hash(),
+            alloc_a.hash(),
+            alloc_b.hash(),
             &diff,
             &g.op2_less_tag,
         )
@@ -5558,7 +5558,7 @@ mod tests {
         let a = s.num(42);
         let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
 
-        let a_u64 = to_u64(&mut cs.namespace(|| "u64 op"), &g, &alloc_a.hash()).unwrap();
+        let a_u64 = to_u64(&mut cs.namespace(|| "u64 op"), &g, alloc_a.hash()).unwrap();
         assert!(cs.is_satisfied());
         assert_eq!(a_u64.get_value(), Fr::from_u64(42));
     }
@@ -5571,7 +5571,7 @@ mod tests {
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
         let alloc_pow2_64 = AllocatedPtr::from_parts(&g.num_tag, &g.power2_64_num);
 
-        let a_u64 = to_u64(&mut cs.namespace(|| "u64 op"), &g, &alloc_pow2_64.hash()).unwrap();
+        let a_u64 = to_u64(&mut cs.namespace(|| "u64 op"), &g, alloc_pow2_64.hash()).unwrap();
         assert!(cs.is_satisfied());
         assert_eq!(a_u64.get_value(), Fr::from_u64(0));
     }
@@ -5712,20 +5712,20 @@ mod tests {
                 AllocatedPtr::alloc_ptr(&mut cs.namespace(|| x.to_string()), s, || Ok(&a)).unwrap();
             let bits = alloc_a
                 .hash()
-                .to_bits_le(&mut cs.namespace(|| format!("bits_{}", x.to_string())))
+                .to_bits_le(&mut cs.namespace(|| format!("bits_{x}")))
                 .unwrap();
             let popcount_result = s.num(x.count_ones() as u64);
             let alloc_popcount = AllocatedPtr::alloc_ptr(
-                &mut cs.namespace(|| format!("alloc popcount {}", x.to_string())),
+                &mut cs.namespace(|| format!("alloc popcount {x}")),
                 s,
                 || Ok(&popcount_result),
             )
             .unwrap();
 
             popcount(
-                &mut cs.namespace(|| format!("popcount {}", x.to_string())),
+                &mut cs.namespace(|| format!("popcount {x}")),
                 &bits,
-                &alloc_popcount.hash(),
+                alloc_popcount.hash(),
             );
         }
 

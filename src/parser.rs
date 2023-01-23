@@ -832,7 +832,7 @@ mod test {
         let mut store = Store::<Fr>::default();
 
         let expected_error = match store.read("(.)").err().unwrap() {
-            Error::Syntax(s) => s == "Misplaced dot".to_string(),
+            Error::Syntax(s) => s == *"Misplaced dot",
             _ => false,
         };
 
@@ -861,7 +861,7 @@ mod test {
         let mut store = Store::<Fr>::default();
 
         let expected_error = match store.read(".").err().unwrap() {
-            Error::Syntax(s) => s == "Misplaced dot".to_string(),
+            Error::Syntax(s) => s == *"Misplaced dot",
             _ => false,
         };
 
