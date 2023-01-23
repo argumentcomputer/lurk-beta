@@ -2030,7 +2030,7 @@ where
     // Wraps frames in Result type in order to fail gracefully
     pub fn get_frames(&mut self) -> Result<Vec<Frame<IO<F>, Witness<F>>>, LurkError> {
         let frame = FrameIt::new(self.initial(), self.store)?;
-        let result_frame = ResultFrame(Ok(frame)).into_iter().take(self.limit);
+        let result_frame = ResultFrame(Ok(frame)).take(self.limit);
         let ret: Result<Vec<_>, _> = result_frame.collect();
         ret
     }

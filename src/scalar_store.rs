@@ -653,7 +653,7 @@ mod test {
     fn test_scalar_store_opaque_sym() {
         let mut store = Store::<Fr>::default();
 
-        let sym = store.sym(&"sym");
+        let sym = store.sym("sym");
         let sym_hash = store.hash_expr(&sym).unwrap();
         let opaque_sym = store.intern_maybe_opaque_sym(*sym_hash.value());
 
@@ -667,7 +667,7 @@ mod test {
     fn test_scalar_store_opaque_str() {
         let mut store = Store::<Fr>::default();
 
-        let str = store.str(&"str");
+        let str = store.str("str");
         let str_hash = store.hash_expr(&str).unwrap();
         let opaque_str = store.intern_maybe_opaque_sym(*str_hash.value());
 

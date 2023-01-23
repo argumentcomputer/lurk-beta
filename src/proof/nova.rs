@@ -342,14 +342,14 @@ mod tests {
         let limit = limit.unwrap_or(10000);
         let expr = s.read(expr).unwrap();
 
-        let e = empty_sym_env(&s);
+        let e = empty_sym_env(s);
 
         let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
 
         if check_nova {
             let pp = public_params(chunk_frame_count);
             let (proof, z0, zi, num_steps) = nova_prover
-                .evaluate_and_prove(&pp, expr, empty_sym_env(&s), s, limit)
+                .evaluate_and_prove(&pp, expr, empty_sym_env(s), s, limit)
                 .unwrap();
 
             let res = proof.verify(&pp, num_steps, z0.clone(), &zi);

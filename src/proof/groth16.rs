@@ -347,14 +347,14 @@ mod tests {
 
         let pvk = groth16::prepare_verifying_key(&groth_params.vk);
 
-        let e = empty_sym_env(&s);
+        let e = empty_sym_env(s);
 
         if check_constraint_systems {
             let padding_predicate = |count| groth_prover.needs_frame_padding(count);
             let frames = Evaluator::generate_frames(expr, e, s, limit, padding_predicate).unwrap();
             s.hydrate_scalar_cache();
 
-            let multi_frames = MultiFrame::from_frames(DEFAULT_CHUNK_FRAME_COUNT, &frames, &s);
+            let multi_frames = MultiFrame::from_frames(DEFAULT_CHUNK_FRAME_COUNT, &frames, s);
 
             let cs = groth_prover.outer_synthesize(&multi_frames).unwrap();
 

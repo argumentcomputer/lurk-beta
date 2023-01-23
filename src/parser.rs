@@ -267,7 +267,7 @@ impl<F: LurkField> Store<F> {
                 }
             } else if maybe_fraction && c == '/' {
                 if let Some(c2) = chars.peek_nth(1) {
-                    if matches!(c2, '0'..='9') {
+                    if c2.is_ascii_digit() {
                         let mut tmp = crate::num::Num::U64(acc);
                         chars.next();
                         if let Ok(denominator) = self.read_number(chars, false) {
@@ -315,7 +315,7 @@ impl<F: LurkField> Store<F> {
                 acc += f;
             } else if maybe_fraction && c == '/' {
                 if let Some(c2) = chars.peek_nth(1) {
-                    if matches!(c2, '0'..='9') {
+                    if c2.is_ascii_digit() {
                         let mut tmp = crate::num::Num::Scalar(acc);
                         chars.next();
                         if let Ok(denominator) = self.read_number(chars, false) {
@@ -664,7 +664,7 @@ fn is_symbol_char(c: &char, initial: bool) -> bool {
             if initial {
                 false
             } else {
-                matches!(c, '0'..='9')
+                c.is_ascii_digit()
             }
         }
     }
@@ -675,7 +675,7 @@ fn is_initial_symbol_marker(c: &char) -> bool {
 }
 
 fn is_digit_char(c: &char) -> bool {
-    matches!(c, '0'..='9')
+    c.is_ascii_digit()
 }
 
 fn is_hex_digit_char(c: &char) -> bool {

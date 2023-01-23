@@ -2276,13 +2276,12 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &newer_cont,
         )?;
 
-        let the_cont_let_letrec = AllocatedContPtr::pick(
+        AllocatedContPtr::pick(
             &mut cs.namespace(|| "the_cont_let_letrec"),
             &cond_error,
             &g.error_ptr_cont,
             &output_cont_letrec,
-        )?;
-        the_cont_let_letrec
+        )?
     };
     results.add_clauses_cons(*let_hash, &the_expr, env, &the_cont_letrec, &g.false_num);
     results.add_clauses_cons(*letrec_hash, &the_expr, env, &the_cont_letrec, &g.false_num);
