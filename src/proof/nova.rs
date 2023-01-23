@@ -102,11 +102,12 @@ impl<F: LurkField> NovaProver<F> {
         limit: usize,
     ) -> Result<(Proof, Vec<S1>, Vec<S1>, usize), ProofError> {
         let frames = self.get_evaluation_frames(expr, env, store, limit)?;
-        let z0 = frames[0].input_vector(store).map_err(LurkError::Store)?;
+        let z0 = frames[0].input.to_vector(store).map_err(LurkError::Store)?;
         let zi = frames
             .last()
             .unwrap()
-            .output_vector(store)
+            .output
+            .to_vector(store)
             .map_err(LurkError::Store)?;
         let circuits = MultiFrame::from_frames(self.chunk_frame_count(), &frames, store);
         let num_steps = circuits.len();
