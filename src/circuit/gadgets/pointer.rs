@@ -632,14 +632,14 @@ impl<F: LurkField> AllocatedContPtr<F> {
 
         for (i, (c1, c2)) in found_components.iter().zip(supplied_components).enumerate() {
             let component_is_real = equal!(
-                &mut cs.namespace(|| format!("component {} matches", i)),
+                &mut cs.namespace(|| format!("component {i} matches")),
                 c1,
                 &c2
             )?;
 
             if let Some(a) = &acc {
                 and!(
-                    &mut cs.namespace(|| format!("accumulate real component conjunction {}", i)),
+                    &mut cs.namespace(|| format!("accumulate real component conjunction {i}")),
                     a,
                     &component_is_real
                 )?;
@@ -680,14 +680,14 @@ impl<F: LurkField> AllocatedContPtr<F> {
 
         for (i, (c1, c2)) in found_components.iter().zip(supplied_components).enumerate() {
             let component_is_real = equal!(
-                &mut cs.namespace(|| format!("component {} matches", i)),
+                &mut cs.namespace(|| format!("component {i} matches")),
                 c1,
                 &c2
             )?;
 
             if let Some(a) = &acc {
                 and!(
-                    &mut cs.namespace(|| format!("accumulate real component conjunction {}", i)),
+                    &mut cs.namespace(|| format!("accumulate real component conjunction {i}")),
                     a,
                     &component_is_real
                 )?;

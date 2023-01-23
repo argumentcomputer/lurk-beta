@@ -2131,8 +2131,7 @@ fn extend_closure<F: LurkField>(
             _ => unreachable!(),
         },
         _ => Err(LurkError::Reduce(format!(
-            "extend_closure received non-Fun: {:?}",
-            fun
+            "extend_closure received non-Fun: {fun:?}"
         ))),
     }
 }
@@ -3652,7 +3651,7 @@ mod test {
     }
 
     fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
-        let expr = &format!("({} {} {})", op, a, b);
+        let expr = &format!("({op} {a} {b})");
         let expected = if res { s.t() } else { s.nil() };
         let terminal = s.get_cont_terminal();
 
@@ -4088,8 +4087,8 @@ mod test {
         let error = s.get_cont_error();
 
         let mut test = |op| {
-            let expr = &format!("({} 0 'a)", op);
-            let expr2 = &format!("({} 0u64 'a)", op);
+            let expr = &format!("({op} 0 'a)");
+            let expr2 = &format!("({op} 0u64 'a)");
 
             test_aux(s, expr, None, None, Some(error), None, 3);
             test_aux(s, expr2, None, None, Some(error), None, 3);

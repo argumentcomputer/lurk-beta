@@ -79,8 +79,7 @@ impl<'a, VanillaWitness, Name: Debug, F: LurkField, PreimageType>
         assert_eq!(
             0,
             unconsumed.len(),
-            "some slots were unconsumed: {:?}",
-            unconsumed
+            "some slots were unconsumed: {unconsumed:?}"
         );
     }
 }
@@ -149,7 +148,7 @@ impl<'a, F: LurkField> AllocatedConsWitness<'a, F> {
     ) -> Result<Self, SynthesisError> {
         let mut slots = Vec::with_capacity(cons_witness.slots.len());
         for (i, (name, p)) in cons_witness.slots.iter().enumerate() {
-            let cs = &mut cs0.namespace(|| format!("slot-{}", i));
+            let cs = &mut cs0.namespace(|| format!("slot-{i}"));
 
             let (car_ptr, cdr_ptr, cons_hash) = match p {
                 Stub::Dummy => (
@@ -230,7 +229,7 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
     ) -> Result<Self, SynthesisError> {
         let mut slots = Vec::with_capacity(cont_witness.slots.len());
         for (i, (name, p)) in cont_witness.slots.iter().enumerate() {
-            let cs = &mut cs0.namespace(|| format!("slot-{}", i));
+            let cs = &mut cs0.namespace(|| format!("slot-{i}"));
 
             let (cont_ptr, components) = match p {
                 Stub::Dummy => (
@@ -258,10 +257,9 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
                     .iter()
                     .enumerate()
                     .map(|(i, component)| {
-                        AllocatedNum::alloc(
-                            &mut cs.namespace(|| format!("component_{}", i)),
-                            || Ok(*component),
-                        )
+                        AllocatedNum::alloc(&mut cs.namespace(|| format!("component_{i}")), || {
+                            Ok(*component)
+                        })
                         .unwrap()
                     })
                     .collect::<Vec<_>>()
@@ -269,7 +267,7 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
                 (0..8usize)
                     .map(|i| {
                         AllocatedNum::alloc(
-                            &mut cs.namespace(|| format!("component_{}", i)),
+                            &mut cs.namespace(|| format!("component_{i}")),
                             // This should never be called, because this branch is only taken when stub is blank.
                             || Err(SynthesisError::AssignmentMissing),
                         )

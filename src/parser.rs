@@ -118,7 +118,7 @@ impl<F: LurkField> Store<F> {
                 }
                 '-' => self.read_negative_number_or_symbol(chars, package),
                 x if is_symbol_char(&x, true) => self.read_symbol(chars, package),
-                _ => Err(Error::Syntax(format!("bad input character: {}", c))),
+                _ => Err(Error::Syntax(format!("bad input character: {c}"))),
             };
         }
         Err(Error::Syntax("Could not read input".into()))
@@ -616,9 +616,9 @@ pub(crate) fn maybe_quote_symbol_name_string(symbol_name: &str) -> Result<String
 
         for c in symbol_name.chars() {
             if c == '|' {
-                write!(out, "\\{}", c)?;
+                write!(out, "\\{c}")?;
             } else {
-                write!(out, "{}", c)?;
+                write!(out, "{c}")?;
             }
         }
 

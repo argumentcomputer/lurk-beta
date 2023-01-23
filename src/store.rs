@@ -320,7 +320,7 @@ impl<'de, F: LurkField> Deserialize<'de> for ScalarPtr<F> {
         use de::Error;
         let cid = Cid::deserialize(deserializer)?;
         let (tag, dig) = F::from_cid(cid).ok_or_else(|| {
-            D::Error::custom(format!("expected ScalarPtr encoded as Cid, got {}", cid))
+            D::Error::custom(format!("expected ScalarPtr encoded as Cid, got {cid}"))
         })?;
         Ok(ScalarPtr::from_parts(tag, dig))
     }
@@ -403,10 +403,7 @@ impl<'de, F: LurkField> Deserialize<'de> for ScalarContPtr<F> {
         use de::Error;
         let cid = Cid::deserialize(deserializer)?;
         let (tag, dig) = F::from_cid(cid).ok_or_else(|| {
-            D::Error::custom(format!(
-                "expected ScalarContPtr encoded as Cid, got {}",
-                cid
-            ))
+            D::Error::custom(format!("expected ScalarContPtr encoded as Cid, got {cid}"))
         })?;
         Ok(ScalarContPtr::from_parts(tag, dig))
     }
@@ -1238,7 +1235,7 @@ impl<F: LurkField> Store<F> {
             self.fetch_char(&car).unwrap(),
             self.fetch_str(&cdr).unwrap(),
         );
-        let new_str = format!("{}{}", c, s);
+        let new_str = format!("{c}{s}");
 
         self.intern_str(&new_str)
     }
@@ -2426,12 +2423,12 @@ impl<F: LurkField> Store<F> {
 
                 if x.is_empty() {
                     let x: String = x;
-                    (x, format!(".{}", name))
+                    (x, format!(".{name}"))
                 } else if x.starts_with('.') {
                     let x: String = x;
-                    (x.clone(), format!("{}.{}", x, name))
+                    (x.clone(), format!("{x}.{name}"))
                 } else {
-                    (x.clone(), format!(".{}.{}", x, name))
+                    (x.clone(), format!(".{x}.{name}"))
                 }
             } else {
                 ("".to_string(), "".to_string())

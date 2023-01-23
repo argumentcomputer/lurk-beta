@@ -211,7 +211,7 @@ impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
                 None => HashWitness::new_blank(),
             };
             let mut allocated_cons_witness = AllocatedConsWitness::from_cons_witness(
-                &mut cs.namespace(|| format!("allocated_cons_witness {}", i)),
+                &mut cs.namespace(|| format!("allocated_cons_witness {i}")),
                 store,
                 &cons_witness,
             )?;
@@ -222,13 +222,13 @@ impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
             };
 
             let mut allocated_cont_witness = AllocatedContWitness::from_cont_witness(
-                &mut cs.namespace(|| format!("allocated_cont_witness {}", i)),
+                &mut cs.namespace(|| format!("allocated_cont_witness {i}")),
                 store,
                 &cont_witness,
             )?;
 
             reduce_expression(
-                &mut cs.namespace(|| format!("reduce expression {}", i)),
+                &mut cs.namespace(|| format!("reduce expression {i}")),
                 &input_expr,
                 &input_env,
                 &input_cont,
@@ -5034,7 +5034,7 @@ pub(crate) fn print_cs<F: LurkField, C: Comparable<F>>(this: &C) -> String {
     out += &format!("num_constraints: {}\n", this.num_constraints());
     out += "\ninputs:\n";
     for (i, input) in this.inputs().iter().enumerate() {
-        out += &format!("{}: {}\n", i, input);
+        out += &format!("{i}: {input}\n");
     }
     out += "\nconstraints:\n";
     for (i, cs) in this.constraints().iter().enumerate() {

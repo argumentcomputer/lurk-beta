@@ -108,7 +108,7 @@ pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
                     }
                     Ok(_) => (),
                     Err(e) => {
-                        println!("Error when handling {}: {:?}", line, e);
+                        println!("Error when handling {line}: {e:?}");
                         continue;
                     }
                 };
@@ -127,7 +127,7 @@ pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
                         continue;
                     }
                     Err(e) => {
-                        println!("Read error: {:?}", e)
+                        println!("Read error: {e:?}")
                     }
                 }
             }
@@ -136,7 +136,7 @@ pub fn repl<P: AsRef<Path>, F: LurkField>(lurk_file: Option<P>) -> Result<()> {
                 break;
             }
             Err(err) => {
-                println!("Error: {:?}", err);
+                println!("Error: {err:?}");
                 break;
             }
         }
@@ -329,7 +329,7 @@ impl<F: LurkField> ReplState<F> {
                 _emitted,
             )) => {
                 if !update_env {
-                    print!("[{} iterations] => ", iterations);
+                    print!("[{iterations} iterations] => ");
                 }
 
                 match next_cont.tag() {
@@ -352,7 +352,7 @@ impl<F: LurkField> ReplState<F> {
                 Ok(())
             }
             Err(e) => {
-                println!("Evaluation error: {:?}", e);
+                println!("Evaluation error: {e:?}");
                 Err(e.into())
             }
         }

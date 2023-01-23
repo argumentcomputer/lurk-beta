@@ -35,7 +35,7 @@ impl From<UInt> for u64 {
 impl Display for UInt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UInt::U64(n) => write!(f, "{}", n),
+            UInt::U64(n) => write!(f, "{n}"),
         }
     }
 }

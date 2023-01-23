@@ -237,10 +237,10 @@ mod test {
         let f1 = Fr::from(x as u64);
         let codec = <Fr as LurkField>::to_multicodec(f1).unwrap();
         let f2 = <Fr as LurkField>::from_multicodec(codec);
-        println!("x: {:?}", x);
-        println!("f1: {}", f1);
-        println!("codec: {:0x}", codec);
-        println!("f2: {}", f1);
+        println!("x: {x:?}");
+        println!("f1: {f1}");
+        println!("codec: {codec:0x}");
+        println!("f2: {f1}");
         Some(f1) == f2
     }
     #[quickcheck]

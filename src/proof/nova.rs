@@ -224,7 +224,7 @@ impl<'a> Proof<'a> {
 
                 for (i, x) in zi.iter().enumerate() {
                     let allocated =
-                        AllocatedNum::alloc(cs.namespace(|| format!("z{}_1", i)), || Ok(*x))
+                        AllocatedNum::alloc(cs.namespace(|| format!("z{i}_1")), || Ok(*x))
                             .map_err(ProofError::Synthesis)?;
                     zi_allocated.push(allocated);
                 }
@@ -2453,7 +2453,7 @@ mod tests {
     }
 
     fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
-        let expr = &format!("({} {} {})", op, a, b);
+        let expr = &format!("({op} {a} {b})");
         let expected = if res { s.t() } else { s.nil() };
         let terminal = s.get_cont_terminal();
 

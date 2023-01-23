@@ -231,7 +231,7 @@ pub fn select<F: PrimeField, CS: ConstraintSystem<F>>(
         let mut new_state = Vec::with_capacity(half_size);
         for j in 0..half_size {
             new_state.push(pick(
-                cs.namespace(|| format!("pick {}, {}", i, j)),
+                cs.namespace(|| format!("pick {i}, {j}")),
                 bit,
                 &state[half_size + j],
                 &state[j],

@@ -464,20 +464,20 @@ mod test {
         match to_ipld(x.clone()) {
             Ok(ipld) => match from_ipld(ipld.clone()) {
                 Ok(y) => {
-                    println!("x: {:?}", x);
-                    println!("y: {:?}", y);
+                    println!("x: {x:?}");
+                    println!("y: {y:?}");
                     x == y
                 }
                 Err(e) => {
-                    println!("ser x: {:?}", x);
-                    println!("de ipld: {:?}", ipld);
-                    println!("err e: {:?}", e);
+                    println!("ser x: {x:?}");
+                    println!("de ipld: {ipld:?}");
+                    println!("err e: {e:?}");
                     false
                 }
             },
             Err(e) => {
-                println!("ser x: {:?}", x);
-                println!("err e: {:?}", e);
+                println!("ser x: {x:?}");
+                println!("err e: {e:?}");
                 false
             }
         }
@@ -583,10 +583,10 @@ mod test {
             ) = eval.eval().unwrap();
 
             let (scalar_store, _) = ScalarStore::new_with_expr(&s, &expr);
-            println!("{:?}", scalar_store);
+            println!("{scalar_store:?}");
             let ipld = to_ipld(scalar_store.clone()).unwrap();
             let scalar_store2 = from_ipld(ipld).unwrap();
-            println!("{:?}", scalar_store2);
+            println!("{scalar_store2:?}");
             assert_eq!(scalar_store, scalar_store2);
         };
 
