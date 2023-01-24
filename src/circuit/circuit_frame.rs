@@ -3009,7 +3009,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let num = to_num(result, g);
         let comm = to_comm(result, g);
         let c = to_char(&mut cs.namespace(|| "to char"), result, g);
-        let u64_elem = to_u64(&mut cs.namespace(|| "Unop u64"), g, result.hash())?;
+        let u64_elem = to_unsigned_int(&mut cs.namespace(|| "Unop u64"), g, result.hash(), UnsignedType::U64)?;
 
         let res = multi_case(
             &mut cs.namespace(|| "Unop case"),
@@ -4482,7 +4482,7 @@ fn to_char<F: LurkField, CS: ConstraintSystem<F>>(
     x: &AllocatedPtr<F>,
     g: &GlobalAllocations<F>,
 ) -> AllocatedPtr<F> {
-    let res = to_u32(cs, g, x.hash()).unwrap();
+    let res = to_unsigned_int(cs, g, x.hash(), UnsignedType::U32).unwrap();
     AllocatedPtr::from_parts(&g.char_tag, &res)
 }
 
@@ -4642,70 +4642,114 @@ pub fn comparison_helper<F: LurkField, CS: ConstraintSystem<F>>(
 pub fn enforce_at_most_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
-    num: AllocatedNum<F>,
+    num_bits: Vec<Boolean>,
     n: usize,
 ) -> Result<(), SynthesisError> {
-    let num_bits = num.to_bits_le(&mut cs.namespace(|| "u64 remainder bit decomp"))?;
     let v = num_bits[n..255].to_vec();
     popcount(&mut cs.namespace(|| "add all MSBs"), &v, &g.false_num);
     Ok(())
 }
 
+#[derive(Copy, Clone)]
+pub enum UnsignedType {
+    U32,
+    U64,
+}
+
 // Convert from num to u32.
-pub fn to_u32<F: LurkField, CS: ConstraintSystem<F>>(
+pub fn to_unsigned_int<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
-    maybe_u32: &AllocatedNum<F>,
+    maybe_unsigned: &AllocatedNum<F>,
+    size: UnsignedType,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
-    let p32_bn = BigUint::pow(&BigUint::from_u32(2).unwrap(), 32);
-    let v = match maybe_u32.get_value() {
+
+    let p_bn =  match size {
+        UnsignedType::U32 => BigUint::pow(&BigUint::from_u32(2).unwrap(), 32),
+        UnsignedType::U64 => BigUint::pow(&BigUint::from_u32(2).unwrap(), 64),
+    };
+
+    let v = match maybe_unsigned.get_value() {
         Some(v) => v,
-        None => F::zero(),
+        None => F::zero(), //dummy
     };
     let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
 
-    let (q_bn, r_bn) = field_bn.div_rem(&p32_bn);
+    let (q_bn, r_bn) = field_bn.div_rem(&p_bn);
 
     let q_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "q"), q_bn)?;
     let r_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "r"), r_bn)?;
 
     // a = b.q + r
-    let product = mul(
-        &mut cs.namespace(|| "product(q,pow(2,32))"),
-        &q_num,
-        &g.power2_32_num,
-    )?;
+    let product = match size {
+        UnsignedType::U32 =>  mul(
+            &mut cs.namespace(|| "product(q,pow(2,32))"),
+            &q_num,
+            &g.power2_32_num,
+        )?,
+        UnsignedType::U64 =>  mul(
+            &mut cs.namespace(|| "product(q,pow(2,64))"),
+            &q_num,
+            &g.power2_64_num,
+        )?,
+    };
     let sum = add(&mut cs.namespace(|| "sum remainder"), &product, &r_num)?;
-    let u32_decomp = alloc_equal(
-        &mut cs.namespace(|| "check u64 decomposition"),
+    let u_decomp = alloc_equal(
+        &mut cs.namespace(|| "check unsigned decomposition"),
         &sum,
-        maybe_u32,
+        maybe_unsigned,
     )?;
     enforce_true(
-        &mut cs.namespace(|| "enforce u32 decomposition"),
-        &u32_decomp,
+        &mut cs.namespace(|| "enforce decomposition"),
+        &u_decomp,
     )?;
 
     // enforce remainder range
-    enforce_at_most_n_bits(
-        &mut cs.namespace(|| "remainder u32 range"),
-        g,
-        r_num.clone(),
-        32,
-    )?;
-
-    let output = AllocatedNum::alloc(&mut cs.namespace(|| "to_32"), || {
-        Ok(F::from_u32(v.to_u32_unchecked()).unwrap())
-    })?;
-    let u32_is_remainder = alloc_equal(
-        &mut cs.namespace(|| "check u32 value is the remainder"),
-        &r_num,
-        &output,
-    )?;
-    enforce_true(
-        &mut cs.namespace(|| "enforce u32 decomposition output"),
-        &u32_is_remainder,
-    )?;
+    let r_bits = r_num.to_bits_le(&mut cs.namespace(|| "u64 remainder bit decomp"))?;
+    let output = match size {
+        UnsignedType::U32 => {
+            enforce_at_most_n_bits(
+                &mut cs.namespace(|| "remainder u32 range"),
+                g,
+                r_bits,
+                32,
+            )?;
+            let output_alloc = AllocatedNum::alloc(&mut cs.namespace(|| "to_32"), || {
+                Ok(F::from_u32(v.to_u32_unchecked()).unwrap())
+            })?;
+            let u32_is_remainder = alloc_equal(
+                &mut cs.namespace(|| "check u32 value is the remainder"),
+                &r_num,
+                &output_alloc,
+            )?;
+            enforce_true(
+                &mut cs.namespace(|| "enforce u32 decomposition output"),
+                &u32_is_remainder,
+            )?;
+            output_alloc
+        },
+        UnsignedType::U64 => {
+            enforce_at_most_n_bits(
+                &mut cs.namespace(|| "remainder u64 range"),
+                g,
+                r_bits,
+                64,
+            )?;
+            let output_alloc = AllocatedNum::alloc(&mut cs.namespace(|| "to_64"), || {
+                Ok(F::from_u64(v.to_u64_unchecked()).unwrap())
+            })?;
+            let u64_is_remainder = alloc_equal(
+                &mut cs.namespace(|| "check u64 value is the remainder"),
+                &r_num,
+                &output_alloc,
+            )?;
+            enforce_true(
+                &mut cs.namespace(|| "enforce u64 decomposition output"),
+                &u64_is_remainder,
+            )?;
+            output_alloc
+        },
+    };
     Ok(output)
 }
 
@@ -4745,10 +4789,11 @@ pub fn to_u64<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     // enforce remainder range
+    let r_bits = r_num.to_bits_le(&mut cs.namespace(|| "u64 old remainder bit decomp"))?;
     enforce_at_most_n_bits(
         &mut cs.namespace(|| "remainder u64 range"),
         g,
-        r_num.clone(),
+        r_bits,
         64,
     )?;
 
@@ -5573,10 +5618,11 @@ mod tests {
         let alloc_num =
             AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(num.into_scalar())).unwrap();
 
+        let num_bits = alloc_num.to_bits_le(&mut cs.namespace(|| "u64 remainder bit decomp")).unwrap();
         let res = enforce_at_most_n_bits(
             &mut cs.namespace(|| "enforce at most n bits"),
             &g,
-            alloc_num,
+            num_bits,
             6,
         );
         assert!(res.is_ok());
@@ -5594,10 +5640,11 @@ mod tests {
         let alloc_num =
             AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(num.into_scalar())).unwrap();
 
+        let num_bits = alloc_num.to_bits_le(&mut cs.namespace(|| "u64 remainder bit decomp")).unwrap();
         let res = enforce_at_most_n_bits(
             &mut cs.namespace(|| "enforce at most n bits"),
             &g,
-            alloc_num,
+            num_bits,
             5,
         );
         assert!(res.is_ok());
