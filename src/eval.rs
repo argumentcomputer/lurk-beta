@@ -2030,7 +2030,7 @@ where
     // Wraps frames in Result type in order to fail gracefully
     pub fn get_frames(&mut self) -> Result<Vec<Frame<IO<F>, Witness<F>>>, LurkError> {
         let frame = FrameIt::new(self.initial(), self.store)?;
-        let result_frame = ResultFrame(Ok(frame)).into_iter().take(self.limit);
+        let result_frame = ResultFrame(Ok(frame)).take(self.limit);
         let ret: Result<Vec<_>, _> = result_frame.collect();
         ret
     }
@@ -2131,8 +2131,7 @@ fn extend_closure<F: LurkField>(
             _ => unreachable!(),
         },
         _ => Err(LurkError::Reduce(format!(
-            "extend_closure received non-Fun: {:?}",
-            fun
+            "extend_closure received non-Fun: {fun:?}"
         ))),
     }
 }
@@ -2219,7 +2218,7 @@ mod test {
         expected_iterations: usize,
     ) {
         let limit = 100000;
-        let env = empty_sym_env(&s);
+        let env = empty_sym_env(s);
         let (
             IO {
                 expr: new_expr,
@@ -3152,7 +3151,7 @@ mod test {
         let apple = s.read(r#" "apple" "#).unwrap();
         let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
         let pple = s.read(r#" "pple" "#).unwrap();
-        let empty = s.intern_str(&"");
+        let empty = s.intern_str("");
         let nil = s.nil();
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
@@ -3652,7 +3651,7 @@ mod test {
     }
 
     fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
-        let expr = &format!("({} {} {})", op, a, b);
+        let expr = &format!("({op} {a} {b})");
         let expected = if res { s.t() } else { s.nil() };
         let terminal = s.get_cont_terminal();
 
@@ -4088,8 +4087,8 @@ mod test {
         let error = s.get_cont_error();
 
         let mut test = |op| {
-            let expr = &format!("({} 0 'a)", op);
-            let expr2 = &format!("({} 0u64 'a)", op);
+            let expr = &format!("({op} 0 'a)");
+            let expr2 = &format!("({op} 0u64 'a)");
 
             test_aux(s, expr, None, None, Some(error), None, 3);
             test_aux(s, expr2, None, None, Some(error), None, 3);
@@ -4191,7 +4190,7 @@ mod test {
         let expr = s.read("(cons \"FDSA\" '.ASDF)").unwrap();
 
         let limit = 10;
-        let env = empty_sym_env(&s);
+        let env = empty_sym_env(s);
         let (
             IO {
                 expr: new_expr,

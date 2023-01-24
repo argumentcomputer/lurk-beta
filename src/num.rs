@@ -26,11 +26,11 @@ impl<F: LurkField> Display for Num<F> {
                 let le_bytes = s.to_repr();
                 write!(f, "0x")?;
                 for &b in le_bytes.as_ref().iter().rev() {
-                    write!(f, "{:02x}", b)?;
+                    write!(f, "{b:02x}")?;
                 }
                 Ok(())
             }
-            Num::U64(n) => write!(f, "{}", n),
+            Num::U64(n) => write!(f, "{n}"),
         }
     }
 }

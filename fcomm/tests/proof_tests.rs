@@ -35,7 +35,7 @@ fn test_eval_expression() {
     let expression_path = tmp_dir.path().join("expression.lurk");
 
     let mut expression_file = File::create(&expression_path).unwrap();
-    write!(expression_file, "{}", expression).unwrap();
+    write!(expression_file, "{expression}").unwrap();
 
     cmd.arg("eval")
         .arg("--expression")
@@ -112,7 +112,7 @@ fn test_prove_and_verify_expression() {
     let expression_path = tmp_dir.path().join("expression.lurk");
 
     let mut expression_file = File::create(&expression_path).unwrap();
-    write!(expression_file, "{}", expression).unwrap();
+    write!(expression_file, "{expression}").unwrap();
 
     {
         test_prove_expression(
@@ -212,7 +212,7 @@ fn test_function_aux(
     for (function_input, expected_output) in io {
         let mut input_file = File::create(&input_path).unwrap();
 
-        write!(input_file, "{}", function_input).unwrap();
+        write!(input_file, "{function_input}").unwrap();
 
         test_open_commitment(
             fcomm_cmd(),
@@ -232,7 +232,7 @@ fn test_function_aux(
         let input = store.read(function_input).unwrap();
         let canonical_input = input.fmt_to_string(&store);
 
-        let canonical_output = store.read(&expected_output).unwrap().fmt_to_string(&store);
+        let canonical_output = store.read(expected_output).unwrap().fmt_to_string(&store);
 
         assert_eq!(canonical_input, opening.input);
         assert_eq!(*expected_output, canonical_output);

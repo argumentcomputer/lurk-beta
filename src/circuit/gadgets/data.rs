@@ -536,7 +536,7 @@ impl Tag {
         cs: &mut CS,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
         allocate_constant(
-            &mut cs.namespace(|| format!("{:?} tag", self)),
+            &mut cs.namespace(|| format!("{self:?} tag")),
             self.as_field(),
         )
     }
@@ -548,7 +548,7 @@ impl ContTag {
         cs: &mut CS,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
         allocate_constant(
-            &mut cs.namespace(|| format!("{:?} base continuation tag", self)),
+            &mut cs.namespace(|| format!("{self:?} base continuation tag")),
             self.as_field(),
         )
     }
@@ -560,7 +560,7 @@ impl Op1 {
         cs: &mut CS,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
         allocate_constant(
-            &mut cs.namespace(|| format!("{:?} tag", self)),
+            &mut cs.namespace(|| format!("{self:?} tag")),
             self.as_field(),
         )
     }
@@ -572,7 +572,7 @@ impl Op2 {
         cs: &mut CS,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
         allocate_constant(
-            &mut cs.namespace(|| format!("{:?} tag", self)),
+            &mut cs.namespace(|| format!("{self:?} tag")),
             self.as_field(),
         )
     }

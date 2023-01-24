@@ -118,7 +118,7 @@ impl<F: LurkField> Store<F> {
                 }
                 '-' => self.read_negative_number_or_symbol(chars, package),
                 x if is_symbol_char(&x, true) => self.read_symbol(chars, package),
-                _ => Err(Error::Syntax(format!("bad input character: {}", c))),
+                _ => Err(Error::Syntax(format!("bad input character: {c}"))),
             };
         }
         Err(Error::Syntax("Could not read input".into()))
@@ -267,7 +267,7 @@ impl<F: LurkField> Store<F> {
                 }
             } else if maybe_fraction && c == '/' {
                 if let Some(c2) = chars.peek_nth(1) {
-                    if matches!(c2, '0'..='9') {
+                    if c2.is_ascii_digit() {
                         let mut tmp = crate::num::Num::U64(acc);
                         chars.next();
                         if let Ok(denominator) = self.read_number(chars, false) {
@@ -315,7 +315,7 @@ impl<F: LurkField> Store<F> {
                 acc += f;
             } else if maybe_fraction && c == '/' {
                 if let Some(c2) = chars.peek_nth(1) {
-                    if matches!(c2, '0'..='9') {
+                    if c2.is_ascii_digit() {
                         let mut tmp = crate::num::Num::Scalar(acc);
                         chars.next();
                         if let Ok(denominator) = self.read_number(chars, false) {
@@ -616,9 +616,9 @@ pub(crate) fn maybe_quote_symbol_name_string(symbol_name: &str) -> Result<String
 
         for c in symbol_name.chars() {
             if c == '|' {
-                write!(out, "\\{}", c)?;
+                write!(out, "\\{c}")?;
             } else {
-                write!(out, "{}", c)?;
+                write!(out, "{c}")?;
             }
         }
 
@@ -664,7 +664,7 @@ fn is_symbol_char(c: &char, initial: bool) -> bool {
             if initial {
                 false
             } else {
-                matches!(c, '0'..='9')
+                c.is_ascii_digit()
             }
         }
     }
@@ -675,7 +675,7 @@ fn is_initial_symbol_marker(c: &char) -> bool {
 }
 
 fn is_digit_char(c: &char) -> bool {
-    matches!(c, '0'..='9')
+    c.is_ascii_digit()
 }
 
 fn is_hex_digit_char(c: &char) -> bool {
@@ -832,7 +832,7 @@ mod test {
         let mut store = Store::<Fr>::default();
 
         let expected_error = match store.read("(.)").err().unwrap() {
-            Error::Syntax(s) => s == "Misplaced dot".to_string(),
+            Error::Syntax(s) => s == *"Misplaced dot",
             _ => false,
         };
 
@@ -861,7 +861,7 @@ mod test {
         let mut store = Store::<Fr>::default();
 
         let expected_error = match store.read(".").err().unwrap() {
-            Error::Syntax(s) => s == "Misplaced dot".to_string(),
+            Error::Syntax(s) => s == *"Misplaced dot",
             _ => false,
         };
 

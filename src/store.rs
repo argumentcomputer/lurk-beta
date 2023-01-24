@@ -320,7 +320,7 @@ impl<'de, F: LurkField> Deserialize<'de> for ScalarPtr<F> {
         use de::Error;
         let cid = Cid::deserialize(deserializer)?;
         let (tag, dig) = F::from_cid(cid).ok_or_else(|| {
-            D::Error::custom(format!("expected ScalarPtr encoded as Cid, got {}", cid))
+            D::Error::custom(format!("expected ScalarPtr encoded as Cid, got {cid}"))
         })?;
         Ok(ScalarPtr::from_parts(tag, dig))
     }
@@ -403,10 +403,7 @@ impl<'de, F: LurkField> Deserialize<'de> for ScalarContPtr<F> {
         use de::Error;
         let cid = Cid::deserialize(deserializer)?;
         let (tag, dig) = F::from_cid(cid).ok_or_else(|| {
-            D::Error::custom(format!(
-                "expected ScalarContPtr encoded as Cid, got {}",
-                cid
-            ))
+            D::Error::custom(format!("expected ScalarContPtr encoded as Cid, got {cid}"))
         })?;
         Ok(ScalarContPtr::from_parts(tag, dig))
     }
@@ -1238,7 +1235,7 @@ impl<F: LurkField> Store<F> {
             self.fetch_char(&car).unwrap(),
             self.fetch_str(&cdr).unwrap(),
         );
-        let new_str = format!("{}{}", c, s);
+        let new_str = format!("{c}{s}");
 
         self.intern_str(&new_str)
     }
@@ -2426,12 +2423,12 @@ impl<F: LurkField> Store<F> {
 
                 if x.is_empty() {
                     let x: String = x;
-                    (x, format!(".{}", name))
+                    (x, format!(".{name}"))
                 } else if x.starts_with('.') {
                     let x: String = x;
-                    (x.clone(), format!("{}.{}", x, name))
+                    (x.clone(), format!("{x}.{name}"))
                 } else {
-                    (x.clone(), format!(".{}.{}", x, name))
+                    (x.clone(), format!(".{x}.{name}"))
                 }
             } else {
                 ("".to_string(), "".to_string())
@@ -2852,7 +2849,7 @@ pub mod test {
     fn unit_op1_ipld() {
         assert_eq!(
             to_ipld(Op1::Car).unwrap(),
-            Ipld::Integer(0b0010_0000_0000_0000 as i128)
+            Ipld::Integer(0b0010_0000_0000_0000_i128)
         );
     }
 
@@ -2896,7 +2893,7 @@ pub mod test {
     fn unit_op2_ipld() {
         assert_eq!(
             to_ipld(Op2::Sum).unwrap(),
-            Ipld::Integer(0b0011_0000_0000_0000 as i128)
+            Ipld::Integer(0b0011_0000_0000_0000_i128)
         );
     }
 
@@ -3040,8 +3037,8 @@ pub mod test {
         let mut store = Store::<Fr>::default();
 
         let empty_env = empty_sym_env(&store);
-        let sym = store.sym(&"sym");
-        let sym2 = store.sym(&"sym2");
+        let sym = store.sym("sym");
+        let sym2 = store.sym("sym2");
         let sym_hash = store.hash_expr(&sym).unwrap();
         let sym_hash2 = store.hash_expr(&sym2).unwrap();
         let opaque_sym = store.intern_opaque_sym(*sym_hash.value());
@@ -3396,9 +3393,9 @@ pub mod test {
         let num = num::Num::from_scalar(scalar);
         assert_eq!(
             format!("<Opaque Comm {}>", Expression::Num(num).fmt_to_string(s)),
-            opaque_comm.fmt_to_string(&s),
+            opaque_comm.fmt_to_string(s),
         );
 
-        assert_eq!(opaque_comm.fmt_to_string(&s), expr.fmt_to_string(&s));
+        assert_eq!(opaque_comm.fmt_to_string(s), expr.fmt_to_string(s));
     }
 }

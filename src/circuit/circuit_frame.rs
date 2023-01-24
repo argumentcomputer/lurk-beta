@@ -211,7 +211,7 @@ impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
                 None => HashWitness::new_blank(),
             };
             let mut allocated_cons_witness = AllocatedConsWitness::from_cons_witness(
-                &mut cs.namespace(|| format!("allocated_cons_witness {}", i)),
+                &mut cs.namespace(|| format!("allocated_cons_witness {i}")),
                 store,
                 &cons_witness,
             )?;
@@ -222,13 +222,13 @@ impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
             };
 
             let mut allocated_cont_witness = AllocatedContWitness::from_cont_witness(
-                &mut cs.namespace(|| format!("allocated_cont_witness {}", i)),
+                &mut cs.namespace(|| format!("allocated_cont_witness {i}")),
                 store,
                 &cont_witness,
             )?;
 
             reduce_expression(
-                &mut cs.namespace(|| format!("reduce expression {}", i)),
+                &mut cs.namespace(|| format!("reduce expression {i}")),
                 &input_expr,
                 &input_env,
                 &input_cont,
@@ -2276,13 +2276,12 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &newer_cont,
         )?;
 
-        let the_cont_let_letrec = AllocatedContPtr::pick(
+        AllocatedContPtr::pick(
             &mut cs.namespace(|| "the_cont_let_letrec"),
             &cond_error,
             &g.error_ptr_cont,
             &output_cont_letrec,
-        )?;
-        the_cont_let_letrec
+        )?
     };
     results.add_clauses_cons(*let_hash, &the_expr, env, &the_cont_letrec, &g.false_num);
     results.add_clauses_cons(*letrec_hash, &the_expr, env, &the_cont_letrec, &g.false_num);
@@ -5034,7 +5033,7 @@ pub(crate) fn print_cs<F: LurkField, C: Comparable<F>>(this: &C) -> String {
     out += &format!("num_constraints: {}\n", this.num_constraints());
     out += "\ninputs:\n";
     for (i, input) in this.inputs().iter().enumerate() {
-        out += &format!("{}: {}\n", i, input);
+        out += &format!("{i}: {input}\n");
     }
     out += "\nconstraints:\n";
     for (i, cs) in this.constraints().iter().enumerate() {
@@ -5496,8 +5495,8 @@ mod tests {
         let (_, comp_val, _) = comparison_helper(
             &mut cs.namespace(|| "enforce u64 div mod"),
             &g,
-            &alloc_a.hash(),
-            &alloc_b.hash(),
+            alloc_a.hash(),
+            alloc_b.hash(),
             &diff,
             &g.op2_less_tag,
         )
@@ -5558,7 +5557,7 @@ mod tests {
         let a = s.num(42);
         let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
 
-        let a_u64 = to_u64(&mut cs.namespace(|| "u64 op"), &g, &alloc_a.hash()).unwrap();
+        let a_u64 = to_u64(&mut cs.namespace(|| "u64 op"), &g, alloc_a.hash()).unwrap();
         assert!(cs.is_satisfied());
         assert_eq!(a_u64.get_value(), Fr::from_u64(42));
     }
@@ -5571,7 +5570,7 @@ mod tests {
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
         let alloc_pow2_64 = AllocatedPtr::from_parts(&g.num_tag, &g.power2_64_num);
 
-        let a_u64 = to_u64(&mut cs.namespace(|| "u64 op"), &g, &alloc_pow2_64.hash()).unwrap();
+        let a_u64 = to_u64(&mut cs.namespace(|| "u64 op"), &g, alloc_pow2_64.hash()).unwrap();
         assert!(cs.is_satisfied());
         assert_eq!(a_u64.get_value(), Fr::from_u64(0));
     }
@@ -5712,20 +5711,20 @@ mod tests {
                 AllocatedPtr::alloc_ptr(&mut cs.namespace(|| x.to_string()), s, || Ok(&a)).unwrap();
             let bits = alloc_a
                 .hash()
-                .to_bits_le(&mut cs.namespace(|| format!("bits_{}", x.to_string())))
+                .to_bits_le(&mut cs.namespace(|| format!("bits_{x}")))
                 .unwrap();
             let popcount_result = s.num(x.count_ones() as u64);
             let alloc_popcount = AllocatedPtr::alloc_ptr(
-                &mut cs.namespace(|| format!("alloc popcount {}", x.to_string())),
+                &mut cs.namespace(|| format!("alloc popcount {x}")),
                 s,
                 || Ok(&popcount_result),
             )
             .unwrap();
 
             popcount(
-                &mut cs.namespace(|| format!("popcount {}", x.to_string())),
+                &mut cs.namespace(|| format!("popcount {x}")),
                 &bits,
-                &alloc_popcount.hash(),
+                alloc_popcount.hash(),
             );
         }
 
