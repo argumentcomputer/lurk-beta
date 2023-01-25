@@ -4696,7 +4696,7 @@ pub fn to_unsigned_integer_helper<F: LurkField, CS: ConstraintSystem<F>>(
     enforce_pack(
         &mut cs.namespace(|| "enforce unsigned pack"),
         r_bits,
-        &r_num.clone(),
+        &r_num,
     )?;
 
     Ok(r_num)
