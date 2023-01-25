@@ -29,6 +29,7 @@ use crate::eval::{Frame, Witness, IO};
 use crate::hash_witness::HashWitness;
 use crate::proof::Provable;
 use crate::store::{ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
+use bellperson::LinearCombination;
 use num_bigint::BigUint;
 use num_integer::Integer;
 use num_traits::FromPrimitive;
@@ -3008,13 +3009,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let num = to_num(result, g);
         let comm = to_comm(result, g);
-        let c = to_char(&mut cs.namespace(|| "to char"), result, g);
-        let u64_elem = to_unsigned_int(
-            &mut cs.namespace(|| "Unop u64"),
-            g,
-            result.hash(),
-            UnsignedType::U64,
-        )?;
+
+        let (u32_elem, u64_elem) =
+            to_unsigned_integers(&mut cs.namespace(|| "Unop u32 and u64"), g, result.hash())?;
 
         let res = multi_case(
             &mut cs.namespace(|| "Unop case"),
@@ -3063,7 +3060,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                     },
                     CaseClause {
                         key: Op1::Char.as_field(),
-                        value: c.tag(),
+                        value: &g.char_tag,
                     },
                     CaseClause {
                         key: Op1::Eval.as_field(),
@@ -3113,7 +3110,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                     },
                     CaseClause {
                         key: Op1::Char.as_field(),
-                        value: c.hash(),
+                        value: &u32_elem,
                     },
                     CaseClause {
                         key: Op1::Eval.as_field(),
@@ -4482,14 +4479,14 @@ fn to_comm<F: LurkField>(x: &AllocatedPtr<F>, g: &GlobalAllocations<F>) -> Alloc
     AllocatedPtr::from_parts(&g.comm_tag, x.hash())
 }
 
-fn to_char<F: LurkField, CS: ConstraintSystem<F>>(
+/*fn to_char<F: LurkField, CS: ConstraintSystem<F>>(
     cs: CS,
     x: &AllocatedPtr<F>,
     g: &GlobalAllocations<F>,
 ) -> AllocatedPtr<F> {
     let res = to_unsigned_int(cs, g, x.hash(), UnsignedType::U32).unwrap();
     AllocatedPtr::from_parts(&g.char_tag, &res)
-}
+}*/
 
 fn get_named_components<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
@@ -4655,36 +4652,62 @@ pub fn enforce_at_most_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
     Ok(())
 }
 
-#[derive(Copy, Clone)]
+// Enforce v is the bit decomposition of num, therefore we have that 0 <= num < 2ˆ(sizeof(v)).
+pub fn enforce_pack<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    v: &[Boolean],
+    num: AllocatedNum<F>,
+) -> Result<(), SynthesisError> {
+    let mut coeff = F::one();
+
+    let mut v_lc = LinearCombination::<F>::zero();
+    for i in 0..v.len() {
+        match v[i] {
+            Boolean::Constant(c) => {
+                if c {
+                    v_lc = v_lc + (coeff, CS::one())
+                }
+            }
+            Boolean::Is(ref v) => v_lc = v_lc + (coeff, v.get_variable()),
+            Boolean::Not(ref v) => v_lc = v_lc + (coeff, CS::one()) - (coeff, v.get_variable()),
+        };
+        coeff = coeff.double();
+    }
+
+    cs.enforce(
+        || "pack",
+        |_| v_lc,
+        |lc| lc + CS::one(),
+        |lc| lc + num.get_variable(),
+    );
+
+    Ok(())
+}
+
+// Lurk supported uint types
 pub enum UnsignedType {
     U32,
     U64,
 }
 
-// Convert from num to u32.
-pub fn to_unsigned_int<F: LurkField, CS: ConstraintSystem<F>>(
+pub fn to_unsigned_integer_helper<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
-    maybe_unsigned: &AllocatedNum<F>,
+    field_elem: &AllocatedNum<F>,
+    field_bn: BigUint,
+    field_bits: Vec<Boolean>,
     size: UnsignedType,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
     let p_bn = match size {
         UnsignedType::U32 => BigUint::pow(&BigUint::from_u32(2).unwrap(), 32),
-        UnsignedType::U64 => BigUint::pow(&BigUint::from_u32(2).unwrap(), 64),
+        UnsignedType::U64 => BigUint::pow(&BigUint::from_u64(2).unwrap(), 64),
     };
-
-    let v = match maybe_unsigned.get_value() {
-        Some(v) => v,
-        None => F::zero(), //dummy
-    };
-    let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
 
     let (q_bn, r_bn) = field_bn.div_rem(&p_bn);
-
     let q_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "q"), q_bn)?;
     let r_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "r"), r_bn)?;
 
-    // a = b.q + r
+    // field element = pow(2, size).q + r
     let product = match size {
         UnsignedType::U32 => mul(
             &mut cs.namespace(|| "product(q,pow(2,32))"),
@@ -4697,51 +4720,64 @@ pub fn to_unsigned_int<F: LurkField, CS: ConstraintSystem<F>>(
             &g.power2_64_num,
         )?,
     };
+
     let sum = add(&mut cs.namespace(|| "sum remainder"), &product, &r_num)?;
     let u_decomp = alloc_equal(
         &mut cs.namespace(|| "check unsigned decomposition"),
         &sum,
-        maybe_unsigned,
+        field_elem,
     )?;
-    enforce_true(&mut cs.namespace(|| "enforce decomposition"), &u_decomp)?;
-
-    // enforce remainder range
-    let r_bits = r_num.to_bits_le(&mut cs.namespace(|| "u64 remainder bit decomp"))?;
-    let output = match size {
-        UnsignedType::U32 => {
-            enforce_at_most_n_bits(&mut cs.namespace(|| "remainder u32 range"), g, r_bits, 32)?;
-            let output_alloc = AllocatedNum::alloc(&mut cs.namespace(|| "to_32"), || {
-                Ok(F::from_u32(v.to_u32_unchecked()).unwrap())
-            })?;
-            let u32_is_remainder = alloc_equal(
-                &mut cs.namespace(|| "check u32 value is the remainder"),
-                &r_num,
-                &output_alloc,
-            )?;
-            enforce_true(
-                &mut cs.namespace(|| "enforce u32 decomposition output"),
-                &u32_is_remainder,
-            )?;
-            output_alloc
-        }
-        UnsignedType::U64 => {
-            enforce_at_most_n_bits(&mut cs.namespace(|| "remainder u64 range"), g, r_bits, 64)?;
-            let output_alloc = AllocatedNum::alloc(&mut cs.namespace(|| "to_64"), || {
-                Ok(F::from_u64(v.to_u64_unchecked()).unwrap())
-            })?;
-            let u64_is_remainder = alloc_equal(
-                &mut cs.namespace(|| "check u64 value is the remainder"),
-                &r_num,
-                &output_alloc,
-            )?;
-            enforce_true(
-                &mut cs.namespace(|| "enforce u64 decomposition output"),
-                &u64_is_remainder,
-            )?;
-            output_alloc
-        }
+    enforce_true(
+        &mut cs.namespace(|| "enforce decomposition of unsigned integer"),
+        &u_decomp,
+    )?;
+    let r_bits = match size {
+        UnsignedType::U32 => &field_bits[0..32],
+        UnsignedType::U64 => &field_bits[0..64],
     };
-    Ok(output)
+    enforce_pack(
+        &mut cs.namespace(|| "enforce unsigned pack"),
+        r_bits,
+        r_num.clone(),
+    )?;
+
+    Ok(r_num)
+}
+
+// Convert from num to unsigned integers by taking the least significant bits.
+// The output is a pair of allocated numbers, where the first one corresponds to
+// the u32 coercion, while the second corresponds to the u64 coercion.
+pub fn to_unsigned_integers<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    g: &GlobalAllocations<F>,
+    maybe_unsigned: &AllocatedNum<F>,
+) -> Result<(AllocatedNum<F>, AllocatedNum<F>), SynthesisError> {
+    let v = match maybe_unsigned.get_value() {
+        Some(v) => v,
+        None => F::zero(), //dummy
+    };
+    let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
+    // Since bit decomposition is expensive, we compute it only once here
+    let field_bits = maybe_unsigned.to_bits_le(&mut cs.namespace(|| "field element bit decomp"))?;
+
+    let r32_num = to_unsigned_integer_helper(
+        &mut cs.namespace(|| "enforce u32"),
+        g,
+        maybe_unsigned,
+        field_bn.clone(),
+        field_bits.clone(),
+        UnsignedType::U32,
+    )?;
+    let r64_num = to_unsigned_integer_helper(
+        &mut cs.namespace(|| "enforce u64"),
+        g,
+        maybe_unsigned,
+        field_bn,
+        field_bits,
+        UnsignedType::U64,
+    )?;
+
+    Ok((r32_num, r64_num))
 }
 
 // Convert from num to u64.
@@ -5209,9 +5245,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12783, cs.num_constraints());
+            assert_eq!(12517, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(12407, cs.aux().len());
+            assert_eq!(12144, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
