@@ -597,7 +597,7 @@ fn reduce_with_witness_control<F: LurkField>(
                                             }
                                         }
                                     }
-                                    _ => Control::Return(expr, env, store.intern_cont_error()), // CIRCUIT: with_other_binding
+                                    _ => Err(ExplicitError("Evaluation error".into(), expr))?, // CIRCUIT: with_other_binding
                                 }
                             }
                         }
