@@ -106,6 +106,38 @@ pub fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
     );
 }
 
+// Enforce v is the bit decomposition of num, therefore we have that 0 <= num < 2ˆ(sizeof(v)).
+pub fn enforce_pack<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    v: &[Boolean],
+    num: &AllocatedNum<F>,
+) -> Result<(), SynthesisError> {
+    let mut coeff = F::one();
+
+    let mut v_lc = LinearCombination::<F>::zero();
+    for i in 0..v.len() {
+        match v[i] {
+            Boolean::Constant(c) => {
+                if c {
+                    v_lc = v_lc + (coeff, CS::one())
+                }
+            }
+            Boolean::Is(ref v) => v_lc = v_lc + (coeff, v.get_variable()),
+            Boolean::Not(ref v) => v_lc = v_lc + (coeff, CS::one()) - (coeff, v.get_variable()),
+        };
+        coeff = coeff.double();
+    }
+
+    cs.enforce(
+        || "pack",
+        |_| v_lc,
+        |lc| lc + CS::one(),
+        |lc| lc + num.get_variable(),
+    );
+
+    Ok(())
+}
+
 /// Adds a constraint to CS, enforcing a difference relationship between the allocated numbers a, b, and difference.
 ///
 /// a - b = difference
