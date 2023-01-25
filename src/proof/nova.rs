@@ -21,7 +21,7 @@ use crate::circuit::{
     },
     CircuitFrame, MultiFrame,
 };
-use crate::error::{LurkError, ProofError};
+use crate::error::{RuntimeError, ProofError};
 use crate::eval::{Evaluator, Frame, Witness, IO};
 use crate::field::LurkField;
 use crate::proof::{Prover, PublicParameters};
@@ -102,13 +102,13 @@ impl<F: LurkField> NovaProver<F> {
         limit: usize,
     ) -> Result<(Proof, Vec<S1>, Vec<S1>, usize), ProofError> {
         let frames = self.get_evaluation_frames(expr, env, store, limit)?;
-        let z0 = frames[0].input.to_vector(store).map_err(LurkError::Store)?;
+        let z0 = frames[0].input.to_vector(store).map_err(RuntimeError::Store)?;
         let zi = frames
             .last()
             .unwrap()
             .output
             .to_vector(store)
-            .map_err(LurkError::Store)?;
+            .map_err(RuntimeError::Store)?;
         let circuits = MultiFrame::from_frames(self.chunk_frame_count(), &frames, store);
         let num_steps = circuits.len();
         let proof =
@@ -219,7 +219,7 @@ impl<'a> Proof<'a> {
                     .input
                     .unwrap()
                     .to_vector(store)
-                    .map_err(LurkError::Store)?;
+                    .map_err(RuntimeError::Store)?;
                 let mut zi_allocated = Vec::with_capacity(zi.len());
 
                 for (i, x) in zi.iter().enumerate() {

@@ -146,7 +146,7 @@ impl<F: LurkField> ConsStub<F> {
         &mut self,
         s: &mut Store<F>,
         cons: &Ptr<F>,
-    ) -> Result<(Ptr<F>, Ptr<F>), error::LurkError> {
+    ) -> Result<(Ptr<F>, Ptr<F>), error::RuntimeError> {
         match self {
             Self::Dummy => {
                 let (car, cdr) = Cons::get_car_cdr(s, cons)?;
@@ -338,7 +338,7 @@ impl<F: LurkField> ConsWitness<F> {
         name: ConsName,
         store: &mut Store<F>,
         cons: &Ptr<F>,
-    ) -> Result<(Ptr<F>, Ptr<F>), error::LurkError> {
+    ) -> Result<(Ptr<F>, Ptr<F>), error::RuntimeError> {
         self.get_assigned_slot(name).car_cdr(store, cons)
     }
 
