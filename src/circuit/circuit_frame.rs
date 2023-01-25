@@ -4631,6 +4631,7 @@ pub fn comparison_helper<F: LurkField, CS: ConstraintSystem<F>>(
 }
 
 // Enforce 0 <= num < 2ˆn.
+#[allow(dead_code)]
 pub fn enforce_at_most_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
@@ -4746,11 +4747,8 @@ pub fn to_u64<F: LurkField, CS: ConstraintSystem<F>>(
     maybe_u64: &AllocatedNum<F>,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
 
-    let v = match maybe_u64.get_value() {
-        Some(v) => v,
-        None => F::zero(),
-    };
-    let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
+    let field_elem = maybe_u64.get_value().unwrap_or_else(|| F::zero()); //
+    let field_bn = BigUint::from_bytes_le(field_elem.to_repr().as_ref());
     let field_elem_bits = maybe_u64.to_bits_le(&mut cs.namespace(|| "field element bit decomp"))?;
 
     let r64_num = to_unsigned_integer_helper(
