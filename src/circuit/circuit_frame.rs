@@ -4642,7 +4642,7 @@ pub fn enforce_at_most_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
     Ok(())
 }
 
-// Lurk supported uint types
+// Lurk supported uint coercion
 pub enum UnsignedType {
     U32,
     U64,
@@ -4653,19 +4653,19 @@ pub fn to_unsigned_integer_helper<F: LurkField, CS: ConstraintSystem<F>>(
     g: &GlobalAllocations<F>,
     field_elem: &AllocatedNum<F>,
     field_bn: BigUint,
-    field_bits: Vec<Boolean>,
+    field_elem_bits: Vec<Boolean>,
     size: UnsignedType,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
-    let p_bn = match size {
+    let power_of_two_bn = match size {
         UnsignedType::U32 => BigUint::pow(&BigUint::from_u32(2).unwrap(), 32),
         UnsignedType::U64 => BigUint::pow(&BigUint::from_u64(2).unwrap(), 64),
     };
 
-    let (q_bn, r_bn) = field_bn.div_rem(&p_bn);
+    let (q_bn, r_bn) = field_bn.div_rem(&power_of_two_bn);
     let q_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "q"), q_bn)?;
     let r_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "r"), r_bn)?;
 
-    // field element = pow(2, size).q + r
+    // field element = pow(2, size).q
     let product = match size {
         UnsignedType::U32 => mul(
             &mut cs.namespace(|| "product(q,pow(2,32))"),
@@ -4679,19 +4679,20 @@ pub fn to_unsigned_integer_helper<F: LurkField, CS: ConstraintSystem<F>>(
         )?,
     };
 
+    // field element = pow(2, size).q + r
     let sum = add(&mut cs.namespace(|| "sum remainder"), &product, &r_num)?;
-    let u_decomp = alloc_equal(
+    let unsigned_decomp = alloc_equal(
         &mut cs.namespace(|| "check unsigned decomposition"),
         &sum,
         field_elem,
     )?;
     enforce_true(
         &mut cs.namespace(|| "enforce decomposition of unsigned integer"),
-        &u_decomp,
+        &unsigned_decomp,
     )?;
     let r_bits = match size {
-        UnsignedType::U32 => &field_bits[0..32],
-        UnsignedType::U64 => &field_bits[0..64],
+        UnsignedType::U32 => &field_elem_bits[0..32],
+        UnsignedType::U64 => &field_elem_bits[0..64],
     };
     enforce_pack(
         &mut cs.namespace(|| "enforce unsigned pack"),
@@ -4710,20 +4711,20 @@ pub fn to_unsigned_integers<F: LurkField, CS: ConstraintSystem<F>>(
     g: &GlobalAllocations<F>,
     maybe_unsigned: &AllocatedNum<F>,
 ) -> Result<(AllocatedNum<F>, AllocatedNum<F>), SynthesisError> {
-    let v = match maybe_unsigned.get_value() {
+    let field_elem = match maybe_unsigned.get_value() {
         Some(v) => v,
         None => F::zero(), //dummy
     };
-    let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
+    let field_bn = BigUint::from_bytes_le(field_elem.to_repr().as_ref());
     // Since bit decomposition is expensive, we compute it only once here
-    let field_bits = maybe_unsigned.to_bits_le(&mut cs.namespace(|| "field element bit decomp"))?;
+    let field_elem_bits = maybe_unsigned.to_bits_le(&mut cs.namespace(|| "field element bit decomp"))?;
 
     let r32_num = to_unsigned_integer_helper(
         &mut cs.namespace(|| "enforce u32"),
         g,
         maybe_unsigned,
         field_bn.clone(),
-        field_bits.clone(),
+        field_elem_bits.clone(),
         UnsignedType::U32,
     )?;
     let r64_num = to_unsigned_integer_helper(
@@ -4731,7 +4732,7 @@ pub fn to_unsigned_integers<F: LurkField, CS: ConstraintSystem<F>>(
         g,
         maybe_unsigned,
         field_bn,
-        field_bits,
+        field_elem_bits,
         UnsignedType::U64,
     )?;
 
@@ -4744,52 +4745,24 @@ pub fn to_u64<F: LurkField, CS: ConstraintSystem<F>>(
     g: &GlobalAllocations<F>,
     maybe_u64: &AllocatedNum<F>,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
-    let p64_bn = BigUint::pow(&BigUint::from_u32(2).unwrap(), 64);
+
     let v = match maybe_u64.get_value() {
         Some(v) => v,
         None => F::zero(),
     };
     let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
+    let field_elem_bits = maybe_u64.to_bits_le(&mut cs.namespace(|| "field element bit decomp"))?;
 
-    let (q_bn, r_bn) = field_bn.div_rem(&p64_bn);
-
-    let q_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "q"), q_bn)?;
-    let r_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "r"), r_bn)?;
-
-    // a = b.q + r
-    let product = mul(
-        &mut cs.namespace(|| "product(q,pow(2,64))"),
-        &q_num,
-        &g.power2_64_num,
-    )?;
-    let sum = add(&mut cs.namespace(|| "sum remainder"), &product, &r_num)?;
-    let u64_decomp = alloc_equal(
-        &mut cs.namespace(|| "check u64 decomposition"),
-        &sum,
+    let r64_num = to_unsigned_integer_helper(
+        &mut cs.namespace(|| "enforce u64"),
+        g,
         maybe_u64,
-    )?;
-    enforce_true(
-        &mut cs.namespace(|| "enforce u64 decomposition"),
-        &u64_decomp,
+        field_bn,
+        field_elem_bits,
+        UnsignedType::U64,
     )?;
 
-    // enforce remainder range
-    let r_bits = r_num.to_bits_le(&mut cs.namespace(|| "u64 old remainder bit decomp"))?;
-    enforce_at_most_n_bits(&mut cs.namespace(|| "remainder u64 range"), g, r_bits, 64)?;
-
-    let output = AllocatedNum::alloc(&mut cs.namespace(|| "u64_op"), || {
-        Ok(F::from_u64(v.to_u64_unchecked()).unwrap())
-    })?;
-    let u64_is_remainder = alloc_equal(
-        &mut cs.namespace(|| "check u64 value is the remainder"),
-        &r_num,
-        &output,
-    )?;
-    enforce_true(
-        &mut cs.namespace(|| "enforce u64 decomposition output"),
-        &u64_is_remainder,
-    )?;
-    Ok(output)
+    Ok(r64_num)
 }
 
 // Enforce div and mod operation for U64. We need to show that
@@ -5204,9 +5177,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12517, cs.num_constraints());
+            assert_eq!(12512, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(12144, cs.aux().len());
+            assert_eq!(12140, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
