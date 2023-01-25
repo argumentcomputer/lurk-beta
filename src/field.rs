@@ -214,55 +214,59 @@ mod test {
     use blstrs::Scalar as Fr;
 
     use crate::store::Tag;
-    use quickcheck::{Arbitrary, Gen};
+    use proptest::prelude::*;
 
     impl<F: LurkField> Arbitrary for FWrap<F> {
-        fn arbitrary(_: &mut Gen) -> Self {
-            let f = F::random(rand::thread_rng());
-            FWrap(f)
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            // This could also be `Just(F::random(rng::thread_rng()))`, but this allows testing `F::NUM` values
+            let strategy = prop::collection::vec(any::<u8>(), F::NUM_BYTES..=F::NUM_BYTES)
+                .prop_map(|bytes| F::from_bytes(&bytes))
+                .prop_filter("values should be canonical", |f| f.is_some())
+                .prop_map(|f| FWrap(f.unwrap()));
+            strategy.boxed()
         }
     }
 
-    #[quickcheck]
-    fn test_bytes_consistency(f1: FWrap<Fr>) -> bool {
-        let bytes = f1.0.to_repr().as_ref().to_owned();
-        let f2 = <Fr as LurkField>::from_bytes(&bytes);
-        Some(f1.0) == f2
-    }
+    proptest! {
+            fn test_bytes_consistency(f1 in any::<FWrap<Fr>>()) {
+                let bytes = f1.0.to_repr().as_ref().to_owned();
+                let f2 = <Fr as LurkField>::from_bytes(&bytes);
+                assert_eq!(Some(f1.0), f2)
+            }
+            fn test_tag_consistency(x in any::<Tag>()) {
+                let f1 = Fr::from(x as u64);
+                let tag = <Fr as LurkField>::to_tag(f1).unwrap();
+                let f2 = Fr::from(tag as u64);
+                assert_eq!(f1, f2);
+                assert_eq!(x as u32, tag);
+            }
 
-    #[quickcheck]
-    fn test_tag_consistency(x: Tag) -> bool {
-        let f1 = Fr::from(x as u64);
-        let tag = <Fr as LurkField>::to_tag(f1).unwrap();
-        let f2 = Fr::from(tag as u64);
-        f1 == f2 && x as u32 == tag
-    }
+        fn test_multicodec_consistency(x: Tag)  {
+            let f1 = Fr::from(x as u64);
+            let codec = <Fr as LurkField>::to_multicodec(f1).unwrap();
+            let f2 = <Fr as LurkField>::from_multicodec(codec);
+            println!("x: {x:?}");
+            println!("f1: {f1}");
+            println!("codec: {codec:0x}");
+            println!("f2: {f1}");
+            assert_eq!(Some(f1), f2);
+        }
+        fn test_multihash_consistency(f1: FWrap<Fr>)  {
+            let hash = <Fr as LurkField>::to_multihash(f1.0);
+            let f2 = <Fr as LurkField>::from_multihash(hash);
+            assert_eq!(Some(f1.0), f2)
+        }
+        fn test_cid_consistency(args: (Tag, FWrap<Fr>))  {
+            let (tag1, dig1) = args;
+            let cid = <Fr as LurkField>::to_cid(Fr::from(tag1 as u64), dig1.0).unwrap();
 
-    #[quickcheck]
-    fn test_multicodec_consistency(x: Tag) -> bool {
-        let f1 = Fr::from(x as u64);
-        let codec = <Fr as LurkField>::to_multicodec(f1).unwrap();
-        let f2 = <Fr as LurkField>::from_multicodec(codec);
-        println!("x: {x:?}");
-        println!("f1: {f1}");
-        println!("codec: {codec:0x}");
-        println!("f2: {f1}");
-        Some(f1) == f2
-    }
-    #[quickcheck]
-    fn test_multihash_consistency(f1: FWrap<Fr>) -> bool {
-        let hash = <Fr as LurkField>::to_multihash(f1.0);
-        let f2 = <Fr as LurkField>::from_multihash(hash);
-        Some(f1.0) == f2
-    }
-    #[quickcheck]
-    fn test_cid_consistency(args: (Tag, FWrap<Fr>)) -> bool {
-        let (tag1, dig1) = args;
-        let cid = <Fr as LurkField>::to_cid(Fr::from(tag1 as u64), dig1.0).unwrap();
-        if let Some((tag2, dig2)) = <Fr as LurkField>::from_cid(cid) {
-            Fr::from(tag1 as u64) == tag2 && dig1.0 == dig2
-        } else {
-            false
+            let (tag2, dig2) = <Fr as LurkField>::from_cid(cid).unwrap();
+            assert_eq!(
+                Fr::from(tag1 as u64),tag2);
+                assert_eq!( dig1.0 , dig2);
         }
     }
 }

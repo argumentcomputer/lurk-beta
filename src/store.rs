@@ -2712,69 +2712,72 @@ pub mod test {
     use blstrs::Scalar as Fr;
 
     use super::*;
-    use quickcheck::{Arbitrary, Gen};
-
-    use crate::test::frequency;
+    use proptest::prelude::*;
 
     use libipld::serde::from_ipld;
     use libipld::serde::to_ipld;
     use libipld::Ipld;
 
     impl Arbitrary for Tag {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Tag>)> = vec![
-                (100, Box::new(|_| Tag::Nil)),
-                (100, Box::new(|_| Tag::Cons)),
-                (100, Box::new(|_| Tag::Sym)),
-                (100, Box::new(|_| Tag::Fun)),
-                (100, Box::new(|_| Tag::Num)),
-                (100, Box::new(|_| Tag::Thunk)),
-                (100, Box::new(|_| Tag::Str)),
-            ];
-            frequency(g, input)
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            prop_oneof!(
+                Just(Tag::Nil),
+                Just(Tag::Cons),
+                Just(Tag::Sym),
+                Just(Tag::Fun),
+                Just(Tag::Num),
+                Just(Tag::Thunk),
+                Just(Tag::Str),
+            )
+            .boxed()
         }
     }
+
     impl Arbitrary for ContTag {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> ContTag>)> = vec![
-                (100, Box::new(|_| ContTag::Outermost)),
-                (100, Box::new(|_| ContTag::Call)),
-                (100, Box::new(|_| ContTag::Call2)),
-                (100, Box::new(|_| ContTag::Tail)),
-                (100, Box::new(|_| ContTag::Error)),
-                (100, Box::new(|_| ContTag::Lookup)),
-                (100, Box::new(|_| ContTag::Unop)),
-                (100, Box::new(|_| ContTag::Binop)),
-                (100, Box::new(|_| ContTag::Binop2)),
-                (100, Box::new(|_| ContTag::If)),
-                (100, Box::new(|_| ContTag::Let)),
-                (100, Box::new(|_| ContTag::LetRec)),
-                (100, Box::new(|_| ContTag::Dummy)),
-                (100, Box::new(|_| ContTag::Terminal)),
-                (100, Box::new(|_| ContTag::Emit)),
-            ];
-            frequency(g, input)
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            prop_oneof!(
+                Just(ContTag::Outermost),
+                Just(ContTag::Call),
+                Just(ContTag::Call2),
+                Just(ContTag::Tail),
+                Just(ContTag::Error),
+                Just(ContTag::Lookup),
+                Just(ContTag::Unop),
+                Just(ContTag::Binop),
+                Just(ContTag::Binop2),
+                Just(ContTag::If),
+                Just(ContTag::Let),
+                Just(ContTag::LetRec),
+                Just(ContTag::Dummy),
+                Just(ContTag::Terminal),
+                Just(ContTag::Emit),
+            )
+            .boxed()
         }
     }
 
-    impl Arbitrary for ScalarPtr<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let tag = Tag::arbitrary(g);
-            let val = FWrap::arbitrary(g);
-            ScalarPtr::from_parts(Fr::from(tag as u64), val.0)
+    impl<Fr: LurkField> Arbitrary for ScalarPtr<Fr> {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            any::<(Tag, FWrap<Fr>)>()
+                .prop_map(|(tag, val)| ScalarPtr::from_parts(Fr::from(tag as u64), val.0))
+                .boxed()
         }
     }
 
-    #[quickcheck]
-    fn test_scalar_ptr_ipld(x: ScalarPtr<Fr>) -> bool {
-        if let Ok(ipld) = to_ipld(x) {
-            if let Ok(y) = from_ipld(ipld) {
-                x == y
-            } else {
-                false
-            }
-        } else {
-            false
+    proptest! {
+            fn test_scalar_ptr_ipld(x in any::<ScalarPtr<Fr>>())  {
+                let to_ipld = to_ipld(x).unwrap();
+                let from_ipld = from_ipld(to_ipld).unwrap();
+                assert_eq!(x, from_ipld);
         }
     }
 
@@ -2787,25 +2790,24 @@ pub mod test {
         assert_eq!(to_ipld(ptr).unwrap(), Ipld::Link(cid))
     }
 
-    impl Arbitrary for ScalarContPtr<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let tag = ContTag::arbitrary(g);
-            let val = FWrap::arbitrary(g);
-            ScalarContPtr::from_parts(Fr::from(tag as u64), val.0)
+    impl<Fr: LurkField> Arbitrary for ScalarContPtr<Fr> {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            any::<(ContTag, FWrap<Fr>)>()
+                .prop_map(|(tag, val)| ScalarContPtr::from_parts(Fr::from(tag as u64), val.0))
+                .boxed()
         }
     }
 
-    #[quickcheck]
-    fn prop_scalar_cont_ptr_ipld(x: ScalarContPtr<Fr>) -> bool {
-        if let Ok(ipld) = to_ipld(x) {
-            if let Ok(y) = from_ipld(ipld) {
-                x == y
-            } else {
-                false
-            }
-        } else {
-            false
-        }
+    proptest! {
+    fn prop_scalar_cont_ptr_ipld(x in any::<ScalarContPtr<Fr>>()) {
+        let to_ipld = to_ipld(x).unwrap();
+            let from_ipld = from_ipld(to_ipld).unwrap();
+            assert_eq!(x, from_ipld);
+
+    }
     }
 
     #[test]
@@ -2818,36 +2820,33 @@ pub mod test {
     }
 
     impl Arbitrary for Op1 {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Op1>)> = vec![
-                (100, Box::new(|_| Op1::Car)),
-                (100, Box::new(|_| Op1::Cdr)),
-                (100, Box::new(|_| Op1::Atom)),
-                (100, Box::new(|_| Op1::Emit)),
-                (100, Box::new(|_| Op1::Secret)),
-                (100, Box::new(|_| Op1::Commit)),
-                (100, Box::new(|_| Op1::Num)),
-                (100, Box::new(|_| Op1::Comm)),
-                (100, Box::new(|_| Op1::Char)),
-                (100, Box::new(|_| Op1::Eval)),
-            ];
-            frequency(g, input)
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            prop_oneof!(
+                Just(Op1::Car),
+                Just(Op1::Cdr),
+                Just(Op1::Atom),
+                Just(Op1::Emit),
+                Just(Op1::Secret),
+                Just(Op1::Commit),
+                Just(Op1::Num),
+                Just(Op1::Comm),
+                Just(Op1::Char),
+                Just(Op1::Eval),
+            )
+            .boxed()
         }
     }
 
-    #[quickcheck]
-    fn prop_op1_ipld(x: Op1) -> bool {
-        if let Ok(ipld) = to_ipld(x) {
-            if let Ok(y) = from_ipld(ipld) {
-                x == y
-            } else {
-                false
-            }
-        } else {
-            false
+    proptest! {
+            fn prop_op1_ipld(x in any::<Op1>())  {
+                let to_ipld = to_ipld(x).unwrap();
+                let from_ipld = from_ipld(to_ipld).unwrap();
+                assert_eq!(x, from_ipld);
         }
     }
-
     #[test]
     fn unit_op1_ipld() {
         assert_eq!(
@@ -2857,38 +2856,36 @@ pub mod test {
     }
 
     impl Arbitrary for Op2 {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Op2>)> = vec![
-                (100, Box::new(|_| Op2::Sum)),
-                (100, Box::new(|_| Op2::Diff)),
-                (100, Box::new(|_| Op2::Product)),
-                (100, Box::new(|_| Op2::Quotient)),
-                (100, Box::new(|_| Op2::Equal)),
-                (100, Box::new(|_| Op2::NumEqual)),
-                (100, Box::new(|_| Op2::Less)),
-                (100, Box::new(|_| Op2::Greater)),
-                (100, Box::new(|_| Op2::LessEqual)),
-                (100, Box::new(|_| Op2::GreaterEqual)),
-                (100, Box::new(|_| Op2::Cons)),
-                (100, Box::new(|_| Op2::StrCons)),
-                (100, Box::new(|_| Op2::Begin)),
-                (100, Box::new(|_| Op2::Hide)),
-                (100, Box::new(|_| Op2::Eval)),
-            ];
-            frequency(g, input)
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            prop_oneof!(
+                Just(Op2::Sum),
+                Just(Op2::Diff),
+                Just(Op2::Product),
+                Just(Op2::Quotient),
+                Just(Op2::Equal),
+                Just(Op2::NumEqual),
+                Just(Op2::Less),
+                Just(Op2::Greater),
+                Just(Op2::LessEqual),
+                Just(Op2::GreaterEqual),
+                Just(Op2::Cons),
+                Just(Op2::StrCons),
+                Just(Op2::Begin),
+                Just(Op2::Hide),
+                Just(Op2::Eval)
+            )
+            .boxed()
         }
     }
 
-    #[quickcheck]
-    fn prop_op2_ipld_embed(x: Op2) -> bool {
-        if let Ok(ipld) = to_ipld(x) {
-            if let Ok(y) = from_ipld(ipld) {
-                x == y
-            } else {
-                false
-            }
-        } else {
-            false
+    proptest! {
+            fn prop_op2_ipld(x in any::<Op1>())  {
+                let to_ipld = to_ipld(x).unwrap();
+                let from_ipld = from_ipld(to_ipld).unwrap();
+                assert_eq!(x, from_ipld);
         }
     }
 

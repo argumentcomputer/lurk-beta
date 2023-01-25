@@ -262,40 +262,32 @@ impl<'de, F: LurkField> Deserialize<'de> for Num<F> {
 mod tests {
     use super::*;
 
-    use quickcheck::{Arbitrary, Gen};
+    use proptest::prelude::*;
 
     use crate::field::FWrap;
-    use crate::test::frequency;
     use blstrs::Scalar;
     use blstrs::Scalar as Fr;
     use ff::Field;
 
-    impl Arbitrary for Num<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Num<Fr>>)> = vec![
-                (100, Box::new(|g| Num::U64(Arbitrary::arbitrary(g)))),
-                (
-                    100,
-                    Box::new(|g| {
-                        let f = FWrap::arbitrary(g);
-                        Num::Scalar(f.0)
-                    }),
-                ),
-            ];
-            frequency(g, input)
+    impl<Fr: LurkField> Arbitrary for Num<Fr> {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            prop_oneof!(
+                any::<u64>().prop_map(Num::U64),
+                any::<FWrap<Fr>>().prop_map(|f| Num::Scalar(f.0)),
+            )
+            .boxed()
         }
     }
 
-    #[quickcheck]
-    fn prop_num_ipld(x: Num<Fr>) -> bool {
-        if let Ok(ipld) = libipld::serde::to_ipld(x) {
-            if let Ok(y) = libipld::serde::from_ipld(ipld) {
-                Num::Scalar(x.into_scalar()) == y
-            } else {
-                false
-            }
-        } else {
-            false
+    proptest! {
+        fn prop_num_ipld(x: Num<Fr>)  {
+             let to_ipld = libipld::serde::to_ipld(x).unwrap();
+             let y = libipld::serde::from_ipld(to_ipld).unwrap();
+             assert_eq!(
+                    Num::Scalar(x.into_scalar()), y);
         }
     }
 
