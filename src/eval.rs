@@ -2137,9 +2137,9 @@ fn extend_closure<F: LurkField>(
             }
             _ => unreachable!(),
         },
-        _ => Err(ReduceError::Runtime(RuntimeError::Misc(format!(
-            "extend_closure received non-Fun: {fun:?}"
-        )))),
+        _ => unreachable!(
+            "fun.tag() stopped being Tag::Fun after already having been checked in caller."
+        ),
     }
 }
 
