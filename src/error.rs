@@ -17,8 +17,8 @@ pub enum ProofError {
 
 #[derive(Error, Debug, Clone)]
 pub enum RuntimeError {
-    #[error("Reduction error: {0}")]
-    Reduce(String),
+    #[error("Miscellaneous error: {0}")]
+    Misc(String),
     #[error("Lookup error: {0}")]
     Store(#[from] store::Error),
     #[error("Parser error: {0}")]

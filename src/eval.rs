@@ -1626,11 +1626,9 @@ fn apply_continuation<F: LurkField>(
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
                             store.get_char(
                                 char::from_u32(scalar_ptr.value().to_u32().ok_or_else(|| {
-                                    RuntimeError::Reduce("Ptr is invalid u32".into())
+                                    RuntimeError::Misc("Ptr is invalid u32".into())
                                 })?)
-                                .ok_or_else(|| {
-                                    RuntimeError::Reduce("u32 is invalid char".into())
-                                })?,
+                                .ok_or_else(|| RuntimeError::Misc("u32 is invalid char".into()))?,
                             )
                         }
                         _ => return Ok(Control::Return(*result, *env, store.intern_cont_error())),
@@ -2122,11 +2120,11 @@ fn extend_closure<F: LurkField>(
     rec_env: &Ptr<F>,
     store: &mut Store<F>,
     cons_witness: &mut ConsWitness<F>,
-) -> Result<Ptr<F>, RuntimeError> {
+) -> Result<Ptr<F>, ReduceError<F>> {
     match fun.tag() {
         Tag::Fun => match store
             .fetch(fun)
-            .ok_or_else(|| store::Error("Fetch failed".into()))?
+            .ok_or_else(|| ReduceError::Runtime(store::Error("Fetch failed".into()).into()))?
         {
             Expression::Fun(arg, body, closed_env) => {
                 let extended = cons_witness.cons_named(
@@ -2139,9 +2137,9 @@ fn extend_closure<F: LurkField>(
             }
             _ => unreachable!(),
         },
-        _ => Err(RuntimeError::Reduce(format!(
+        _ => Err(ReduceError::Runtime(RuntimeError::Misc(format!(
             "extend_closure received non-Fun: {fun:?}"
-        ))),
+        )))),
     }
 }
 
