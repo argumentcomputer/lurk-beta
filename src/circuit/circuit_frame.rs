@@ -4718,7 +4718,8 @@ pub fn to_unsigned_integers<F: LurkField, CS: ConstraintSystem<F>>(
     };
     let field_bn = BigUint::from_bytes_le(field_elem.to_repr().as_ref());
     // Since bit decomposition is expensive, we compute it only once here
-    let field_elem_bits = maybe_unsigned.to_bits_le(&mut cs.namespace(|| "field element bit decomp"))?;
+    let field_elem_bits =
+        maybe_unsigned.to_bits_le(&mut cs.namespace(|| "field element bit decomp"))?;
 
     let r32_num = to_unsigned_integer_helper(
         &mut cs.namespace(|| "enforce u32"),
@@ -4746,7 +4747,6 @@ pub fn to_u64<F: LurkField, CS: ConstraintSystem<F>>(
     g: &GlobalAllocations<F>,
     maybe_u64: &AllocatedNum<F>,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
-
     let field_elem = maybe_u64.get_value().unwrap_or_else(|| F::zero()); //
     let field_bn = BigUint::from_bytes_le(field_elem.to_repr().as_ref());
     let field_elem_bits = maybe_u64.to_bits_le(&mut cs.namespace(|| "field element bit decomp"))?;
