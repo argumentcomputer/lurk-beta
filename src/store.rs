@@ -11,7 +11,6 @@ use once_cell::sync::OnceCell;
 
 use libipld::Cid;
 
-use crate::error::ReductionError;
 use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
@@ -1175,11 +1174,11 @@ impl<F: LurkField> Store<F> {
         self.intern_sym_with_case_conversion(name, &package)
     }
 
-    pub fn car(&self, expr: &Ptr<F>) -> Result<Ptr<F>, ReductionError> {
+    pub fn car(&self, expr: &Ptr<F>) -> Result<Ptr<F>, Error> {
         Ok(self.car_cdr(expr)?.0)
     }
 
-    pub fn cdr(&self, expr: &Ptr<F>) -> Result<Ptr<F>, ReductionError> {
+    pub fn cdr(&self, expr: &Ptr<F>) -> Result<Ptr<F>, Error> {
         Ok(self.car_cdr(expr)?.1)
     }
 

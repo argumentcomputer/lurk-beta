@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use crate::error;
 use crate::field::LurkField;
 use crate::store;
 use crate::store::{ContPtr, Continuation, Ptr, Store};
@@ -146,7 +145,7 @@ impl<F: LurkField> ConsStub<F> {
         &mut self,
         s: &mut Store<F>,
         cons: &Ptr<F>,
-    ) -> Result<(Ptr<F>, Ptr<F>), error::ReductionError> {
+    ) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
         match self {
             Self::Dummy => {
                 let (car, cdr) = Cons::get_car_cdr(s, cons)?;
@@ -338,7 +337,7 @@ impl<F: LurkField> ConsWitness<F> {
         name: ConsName,
         store: &mut Store<F>,
         cons: &Ptr<F>,
-    ) -> Result<(Ptr<F>, Ptr<F>), error::ReductionError> {
+    ) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
         self.get_assigned_slot(name).car_cdr(store, cons)
     }
 
