@@ -21,7 +21,7 @@ use super::gadgets::constraints::{
     self, alloc_equal, alloc_is_zero, enforce_implication, or, pick, sub,
 };
 use crate::circuit::circuit_frame::constraints::{
-    add, allocate_is_negative, boolean_to_num, enforce_pack, enforce_true, mul, popcount,
+    add, allocate_is_negative, boolean_to_num, enforce_pack, equal, mul, popcount,
 };
 use crate::circuit::gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness};
 use crate::circuit::ToInputs;
@@ -4689,15 +4689,16 @@ pub fn to_unsigned_integer_helper<F: LurkField, CS: ConstraintSystem<F>>(
 
     // field element = pow(2, size).q + r
     let sum = add(&mut cs.namespace(|| "sum remainder"), &product, &r_num)?;
-    let unsigned_decomp = alloc_equal(
-        &mut cs.namespace(|| "check unsigned decomposition"),
+    equal(
+        &mut cs,
+        || "check unsigned decomposition",
         &sum,
         field_elem,
-    )?;
-    enforce_true(
-        &mut cs.namespace(|| "enforce decomposition of unsigned integer"),
-        &unsigned_decomp,
-    )?;
+    );
+    //enforce_true(
+    //    &mut cs.namespace(|| "enforce decomposition of unsigned integer"),
+    //    &unsigned_decomp,
+    //)?;
     let r_bits = &field_elem_bits[0..size.num_bits() as usize];
     enforce_pack(
         &mut cs.namespace(|| "enforce unsigned pack"),
@@ -5110,7 +5111,7 @@ pub(crate) fn print_cs<F: LurkField, C: Comparable<F>>(this: &C) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::circuit::circuit_frame::constraints::sub;
+    use crate::circuit::circuit_frame::constraints::{enforce_true, sub};
     use crate::eval::{empty_sym_env, Evaluable, IO};
     use crate::proof::Provable;
     use crate::proof::{groth16::Groth16Prover, Prover};
@@ -5179,9 +5180,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12512, cs.num_constraints());
+            assert_eq!(12500, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(12140, cs.aux().len());
+            assert_eq!(12131, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
