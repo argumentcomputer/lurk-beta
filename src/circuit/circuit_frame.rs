@@ -4690,10 +4690,6 @@ pub fn to_unsigned_integer_helper<F: LurkField, CS: ConstraintSystem<F>>(
     // field element = pow(2, size).q + r
     let sum = add(&mut cs.namespace(|| "sum remainder"), &product, &r_num)?;
     equal(&mut cs, || "check unsigned decomposition", &sum, field_elem);
-    //enforce_true(
-    //    &mut cs.namespace(|| "enforce decomposition of unsigned integer"),
-    //    &unsigned_decomp,
-    //)?;
     let r_bits = &field_elem_bits[0..size.num_bits() as usize];
     enforce_pack(
         &mut cs.namespace(|| "enforce unsigned pack"),
