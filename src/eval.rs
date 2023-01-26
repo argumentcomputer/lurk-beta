@@ -405,7 +405,7 @@ impl<F: LurkField> Control<F> {
     }
 }
 
-fn reduce_with_witness_control<F: LurkField>(
+fn reduce_with_witness_inner<F: LurkField>(
     expr: Ptr<F>,
     env: Ptr<F>,
     cont: ContPtr<F>,
@@ -1328,7 +1328,7 @@ pub fn reduce_with_witness<F: LurkField>(
     let cont_witness = &mut ContWitness::<F>::new_dummy();
 
     let (control, closure_to_extend) =
-        reduce_with_witness_control(expr, env, cont, store, cons_witness, cont_witness).or_else(
+        reduce_with_witness_inner(expr, env, cont, store, cons_witness, cont_witness).or_else(
             |e| match e {
                 ReduceError::Explicit(_, p) => {
                     Ok((Control::Return(p, env, store.intern_cont_error()), None))
@@ -1350,7 +1350,10 @@ pub fn reduce_with_witness<F: LurkField>(
         conts: *cont_witness,
     };
 
-    let control = apply_continuation(control, store, &mut witness)?;
+    let control = apply_continuation(control, store, &mut witness).or_else(|e| match e {
+        ReduceError::Explicit(_, p) => Ok(Control::Return(p, env, store.intern_cont_error())),
+        ReduceError::Runtime(e) => Err(e),
+    })?;
     let ctrl = make_thunk(control, store, &mut witness)?;
 
     witness.conses.assert_invariants(store);
@@ -1363,7 +1366,7 @@ fn apply_continuation<F: LurkField>(
     control: Control<F>,
     store: &mut Store<F>,
     witness: &mut Witness<F>,
-) -> Result<Control<F>, RuntimeError> {
+) -> Result<Control<F>, ReduceError<F>> {
     if !control.is_apply_continuation() {
         return Ok(control);
     }
@@ -1380,7 +1383,7 @@ fn apply_continuation<F: LurkField>(
         ContTag::Outermost => Control::Return(*result, *env, store.intern_cont_terminal()),
         ContTag::Emit => match cont_witness
             .fetch_named_cont(ContName::ApplyContinuation, store, cont)
-            .ok_or_else(|| store::Error("Fetch failed".into()))?
+            .ok_or_else(|| ReduceError::Runtime(store::Error("Fetch failed".into()).into()))?
         {
             // Although Emit has no effect within the computation, it has an externally-visible side effect of
             // manifesting an explicit Thunk in the expr register of the execution trace.
@@ -2124,7 +2127,7 @@ fn extend_closure<F: LurkField>(
     match fun.tag() {
         Tag::Fun => match store
             .fetch(fun)
-            .ok_or_else(|| ReduceError::Runtime(store::Error("Fetch failed".into()).into()))?
+            .ok_or_else(|| store::Error("Fetch failed".into()))?
         {
             Expression::Fun(arg, body, closed_env) => {
                 let extended = cons_witness.cons_named(
