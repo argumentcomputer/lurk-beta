@@ -1,4 +1,4 @@
-use crate::error::RuntimeError;
+use crate::error::ReductionError;
 use crate::field::LurkField;
 use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness};
 use crate::num::Num;
@@ -128,7 +128,7 @@ impl<F: LurkField, W: Copy> Frame<IO<F>, W> {
 }
 
 pub trait Evaluable<F: LurkField, W> {
-    fn reduce(&self, store: &mut Store<F>) -> Result<(Self, W), RuntimeError>
+    fn reduce(&self, store: &mut Store<F>) -> Result<(Self, W), ReductionError>
     where
         Self: Sized;
 
@@ -141,7 +141,7 @@ pub trait Evaluable<F: LurkField, W> {
 }
 
 impl<F: LurkField> Evaluable<F, Witness<F>> for IO<F> {
-    fn reduce(&self, store: &mut Store<F>) -> Result<(Self, Witness<F>), RuntimeError> {
+    fn reduce(&self, store: &mut Store<F>) -> Result<(Self, Witness<F>), ReductionError> {
         let (expr, env, cont, witness) = reduce(self.expr, self.env, self.cont, store)?;
         Ok((Self { expr, env, cont }, witness))
     }
@@ -220,7 +220,7 @@ impl<F: LurkField> IO<F> {
 }
 
 impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame<T, Witness<F>> {
-    pub(crate) fn next(&self, store: &mut Store<F>) -> Result<Self, RuntimeError> {
+    pub(crate) fn next(&self, store: &mut Store<F>) -> Result<Self, ReductionError> {
         let input = self.output;
         let (output, witness) = input.reduce(store)?;
 
@@ -237,7 +237,7 @@ impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame
 }
 
 impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame<T, Witness<F>> {
-    fn from_initial_input(input: T, store: &mut Store<F>) -> Result<Self, RuntimeError> {
+    fn from_initial_input(input: T, store: &mut Store<F>) -> Result<Self, ReductionError> {
         input.log(store, 0);
         let (output, witness) = input.reduce(store)?;
         Ok(Self {
@@ -257,7 +257,7 @@ pub struct FrameIt<'a, W: Copy, F: LurkField> {
 }
 
 impl<'a, F: LurkField> FrameIt<'a, Witness<F>, F> {
-    fn new(initial_input: IO<F>, store: &'a mut Store<F>) -> Result<Self, RuntimeError> {
+    fn new(initial_input: IO<F>, store: &'a mut Store<F>) -> Result<Self, ReductionError> {
         let frame = Frame::from_initial_input(initial_input, store)?;
         Ok(Self {
             first: true,
@@ -277,7 +277,7 @@ impl<'a, F: LurkField> FrameIt<'a, Witness<F>, F> {
             Frame<IO<F>, Witness<F>>,
             Vec<Ptr<F>>,
         ),
-        RuntimeError,
+        ReductionError,
     > {
         let mut previous_frame = self.frame.clone();
         let mut emitted: Vec<Ptr<F>> = Vec::new();
@@ -298,10 +298,10 @@ impl<'a, F: LurkField> FrameIt<'a, Witness<F>, F> {
 
 // Wrapper struct to preserve errors that would otherwise be lost during iteration
 #[derive(Debug)]
-struct ResultFrame<'a, F: LurkField>(Result<FrameIt<'a, Witness<F>, F>, RuntimeError>);
+struct ResultFrame<'a, F: LurkField>(Result<FrameIt<'a, Witness<F>, F>, ReductionError>);
 
 impl<'a, F: LurkField> Iterator for ResultFrame<'a, F> {
-    type Item = Result<Frame<IO<F>, Witness<F>>, RuntimeError>;
+    type Item = Result<Frame<IO<F>, Witness<F>>, ReductionError>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         let mut frame_it = match &mut self.0 {
             Ok(f) => f,
@@ -363,7 +363,7 @@ fn reduce<F: LurkField>(
     env: Ptr<F>,
     cont: ContPtr<F>,
     store: &mut Store<F>,
-) -> Result<(Ptr<F>, Ptr<F>, ContPtr<F>, Witness<F>), RuntimeError> {
+) -> Result<(Ptr<F>, Ptr<F>, ContPtr<F>, Witness<F>), ReductionError> {
     let (ctrl, witness) = reduce_with_witness(expr, env, cont, store)?;
     let (new_expr, new_env, new_cont) = ctrl.into_results(store);
 
@@ -405,7 +405,7 @@ fn reduce_with_witness_inner<F: LurkField>(
     store: &mut Store<F>,
     cons_witness: &mut ConsWitness<F>,
     cont_witness: &mut ContWitness<F>,
-) -> Result<(Control<F>, Option<Ptr<F>>), RuntimeError> {
+) -> Result<(Control<F>, Option<Ptr<F>>), ReductionError> {
     let mut closure_to_extend = None;
     Ok((
         if cont.tag() == ContTag::Terminal {
@@ -414,7 +414,7 @@ fn reduce_with_witness_inner<F: LurkField>(
             match expr.tag() {
                 Tag::Thunk => match store
                     .fetch(&expr)
-                    .ok_or_else(|| RuntimeError::Store(store::Error("Fetch failed".into())))?
+                    .ok_or_else(|| store::Error("Fetch failed".into()))?
                 {
                     Expression::Thunk(thunk) => {
                         Control::ApplyContinuation(thunk.value, env, thunk.continuation)
@@ -789,9 +789,8 @@ fn reduce_with_witness_inner<F: LurkField>(
                             )
                         }
                     } else if head == store.lurk_sym("car") {
-                        let (arg1, end) = cons_witness
-                            .car_cdr_mut_named(ConsName::ExprCdr, store, &rest)
-                            .map_err(|e| RuntimeError::Store(e))?;
+                        let (arg1, end) =
+                            cons_witness.car_cdr_mut_named(ConsName::ExprCdr, store, &rest)?;
                         if !end.is_nil() {
                             Control::Error(expr, env)
                         } else {
@@ -809,9 +808,8 @@ fn reduce_with_witness_inner<F: LurkField>(
                             )
                         }
                     } else if head == store.lurk_sym("cdr") {
-                        let (arg1, end) = cons_witness
-                            .car_cdr_mut_named(ConsName::ExprCdr, store, &rest)
-                            .map_err(|e| RuntimeError::Store(e))?;
+                        let (arg1, end) =
+                            cons_witness.car_cdr_mut_named(ConsName::ExprCdr, store, &rest)?;
                         if !end.is_nil() {
                             Control::Error(expr, env)
                         } else {
@@ -1317,7 +1315,7 @@ pub fn reduce_with_witness<F: LurkField>(
     env: Ptr<F>,
     cont: ContPtr<F>,
     store: &mut Store<F>,
-) -> Result<(Control<F>, Witness<F>), RuntimeError> {
+) -> Result<(Control<F>, Witness<F>), ReductionError> {
     let cons_witness = &mut ConsWitness::<F>::new_dummy();
     let cont_witness = &mut ContWitness::<F>::new_dummy();
 
@@ -1351,7 +1349,7 @@ fn apply_continuation<F: LurkField>(
     control: Control<F>,
     store: &mut Store<F>,
     witness: &mut Witness<F>,
-) -> Result<Control<F>, RuntimeError> {
+) -> Result<Control<F>, ReductionError> {
     if !control.is_apply_continuation() {
         return Ok(control);
     }
@@ -1599,12 +1597,7 @@ fn apply_continuation<F: LurkField>(
                             let scalar_ptr = store
                                 .get_expr_hash(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
-                            store.get_char(
-                                char::from_u32(scalar_ptr.value().to_u32().ok_or_else(|| {
-                                    RuntimeError::Misc("Ptr is invalid u32".into())
-                                })?)
-                                .ok_or_else(|| RuntimeError::Misc("u32 is invalid char".into()))?,
-                            )
+                            store.get_char_from_u32(scalar_ptr.value().to_u32_unchecked())
                         }
                         _ => return Ok(Control::Error(result, env)),
                     },
@@ -1886,7 +1879,7 @@ fn make_thunk<F: LurkField>(
     control: Control<F>,
     store: &mut Store<F>,
     witness: &mut Witness<F>,
-) -> Result<Control<F>, RuntimeError> {
+) -> Result<Control<F>, ReductionError> {
     if !control.is_make_thunk() {
         return Ok(control);
     }
@@ -1976,7 +1969,7 @@ where
         }
     }
 
-    pub fn eval(&mut self) -> Result<(IO<F>, usize, Vec<Ptr<F>>), RuntimeError> {
+    pub fn eval(&mut self) -> Result<(IO<F>, usize, Vec<Ptr<F>>), ReductionError> {
         let initial_input = self.initial();
         let frame_iterator = FrameIt::new(initial_input, self.store)?;
 
@@ -2003,14 +1996,14 @@ where
         }
     }
 
-    pub fn iter(&mut self) -> Result<Take<FrameIt<'_, Witness<F>, F>>, RuntimeError> {
+    pub fn iter(&mut self) -> Result<Take<FrameIt<'_, Witness<F>, F>>, ReductionError> {
         let initial_input = self.initial();
 
         Ok(FrameIt::new(initial_input, self.store)?.take(self.limit))
     }
 
     // Wraps frames in Result type in order to fail gracefully
-    pub fn get_frames(&mut self) -> Result<Vec<Frame<IO<F>, Witness<F>>>, RuntimeError> {
+    pub fn get_frames(&mut self) -> Result<Vec<Frame<IO<F>, Witness<F>>>, ReductionError> {
         let frame = FrameIt::new(self.initial(), self.store)?;
         let result_frame = ResultFrame(Ok(frame)).take(self.limit);
         let ret: Result<Vec<_>, _> = result_frame.collect();
@@ -2023,7 +2016,7 @@ where
         store: &'a mut Store<F>,
         limit: usize,
         needs_frame_padding: Fp,
-    ) -> Result<Vec<Frame<IO<F>, Witness<F>>>, RuntimeError> {
+    ) -> Result<Vec<Frame<IO<F>, Witness<F>>>, ReductionError> {
         let mut evaluator = Self::new(expr, env, store, limit);
 
         let mut frames = evaluator.get_frames()?;
@@ -2064,7 +2057,7 @@ fn extend_rec<F: LurkField>(
     val: Ptr<F>,
     store: &mut Store<F>,
     cons_witness: &mut ConsWitness<F>,
-) -> Result<Ptr<F>, RuntimeError> {
+) -> Result<Ptr<F>, ReductionError> {
     let (binding_or_env, rest) = cons_witness.car_cdr_named(ConsName::Env, store, &env)?;
     let (var_or_binding, _val_or_more_bindings) =
         cons_witness.car_cdr_named(ConsName::EnvCar, store, &binding_or_env)?;
@@ -2095,7 +2088,7 @@ fn extend_closure<F: LurkField>(
     rec_env: &Ptr<F>,
     store: &mut Store<F>,
     cons_witness: &mut ConsWitness<F>,
-) -> Result<Ptr<F>, RuntimeError> {
+) -> Result<Ptr<F>, ReductionError> {
     match fun.tag() {
         Tag::Fun => match store
             .fetch(fun)
@@ -2153,7 +2146,7 @@ fn lookup<F: LurkField>(
 
 // Convenience functions, mostly for use in tests.
 
-pub fn eval_to_ptr<F: LurkField>(s: &mut Store<F>, src: &str) -> Result<Ptr<F>, RuntimeError> {
+pub fn eval_to_ptr<F: LurkField>(s: &mut Store<F>, src: &str) -> Result<Ptr<F>, ReductionError> {
     let expr = s.read(src).unwrap();
     let limit = 1000000;
     Ok(Evaluator::new(expr, empty_sym_env(s), s, limit)

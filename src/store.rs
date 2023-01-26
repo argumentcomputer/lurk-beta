@@ -11,7 +11,7 @@ use once_cell::sync::OnceCell;
 
 use libipld::Cid;
 
-use crate::error::RuntimeError;
+use crate::error::ReductionError;
 use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
@@ -1175,11 +1175,11 @@ impl<F: LurkField> Store<F> {
         self.intern_sym_with_case_conversion(name, &package)
     }
 
-    pub fn car(&self, expr: &Ptr<F>) -> Result<Ptr<F>, RuntimeError> {
+    pub fn car(&self, expr: &Ptr<F>) -> Result<Ptr<F>, ReductionError> {
         Ok(self.car_cdr(expr)?.0)
     }
 
-    pub fn cdr(&self, expr: &Ptr<F>) -> Result<Ptr<F>, RuntimeError> {
+    pub fn cdr(&self, expr: &Ptr<F>) -> Result<Ptr<F>, ReductionError> {
         Ok(self.car_cdr(expr)?.1)
     }
 
@@ -1621,7 +1621,11 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn get_char(&self, c: char) -> Ptr<F> {
-        Ptr(Tag::Char, RawPtr::new(u32::from(c) as usize))
+        self.get_char_from_u32(u32::from(c))
+    }
+
+    pub fn get_char_from_u32(&self, code: u32) -> Ptr<F> {
+        Ptr(Tag::Char, RawPtr::new(code as usize))
     }
 
     pub fn get_u64(&self, n: u64) -> Ptr<F> {

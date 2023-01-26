@@ -1,4 +1,3 @@
-use crate::parser;
 use crate::store;
 use bellperson::SynthesisError;
 use nova::errors::NovaError;
@@ -10,16 +9,26 @@ pub enum ProofError {
     Nova(NovaError),
     #[error("Synthesis error: {0}")]
     Synthesis(#[from] SynthesisError),
-    #[error("Runtime error: {0}")]
-    RuntimeError(#[from] RuntimeError),
+    #[error("Reduction error: {0}")]
+    Reduction(#[from] ReductionError),
+}
+
+impl From<NovaError> for ProofError {
+    fn from(e: NovaError) -> Self {
+        Self::Nova(e)
+    }
+}
+
+impl From<store::Error> for ProofError {
+    fn from(e: store::Error) -> Self {
+        Self::Reduction(e.into())
+    }
 }
 
 #[derive(Error, Debug, Clone)]
-pub enum RuntimeError {
+pub enum ReductionError {
     #[error("Miscellaneous error: {0}")]
     Misc(String),
     #[error("Lookup error: {0}")]
     Store(#[from] store::Error),
-    #[error("Parser error: {0}")]
-    Parser(#[from] parser::Error),
 }

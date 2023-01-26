@@ -2134,7 +2134,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         cont,
         &g.error_ptr_cont,
     )?;
-
     results.add_clauses_cons(
         *current_env_hash.value(),
         env,
