@@ -4639,7 +4639,7 @@ pub fn enforce_at_most_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
     n: usize,
 ) -> Result<(), SynthesisError> {
     let v = num_bits[n..255].to_vec();
-    popcount(&mut cs.namespace(|| "add all MSBs"), &v, &g.false_num);
+    popcount(&mut cs.namespace(|| "add all MSBs"), &v, &g.false_num)?;
     Ok(())
 }
 
@@ -5781,7 +5781,7 @@ mod tests {
                 &mut cs.namespace(|| format!("popcount {x}")),
                 &bits,
                 alloc_popcount.hash(),
-            );
+            ).unwrap();
         }
 
         assert!(cs.is_satisfied());
