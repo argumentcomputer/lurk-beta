@@ -1,6 +1,5 @@
-use crate::field::LurkField;
 use crate::parser;
-use crate::store::{self, Ptr};
+use crate::store;
 use bellperson::SynthesisError;
 use nova::errors::NovaError;
 use thiserror::Error;
@@ -23,18 +22,4 @@ pub enum RuntimeError {
     Store(#[from] store::Error),
     #[error("Parser error: {0}")]
     Parser(#[from] parser::Error),
-}
-
-#[derive(Error, Debug, Clone)]
-pub enum ReduceError<F: LurkField> {
-    #[error("Runtime error: {0}")]
-    Runtime(#[from] RuntimeError),
-    #[error("Explicit error: {0}")]
-    Explicit(String, Ptr<F>),
-}
-
-impl<F: LurkField> From<store::Error> for ReduceError<F> {
-    fn from(e: store::Error) -> Self {
-        Self::Runtime(e.into())
-    }
 }
