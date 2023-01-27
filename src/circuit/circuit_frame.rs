@@ -5739,22 +5739,26 @@ mod tests {
             Ok(Fr::from_u64(42).unwrap())
         })
         .unwrap();
-        let power2_32_num = AllocatedNum::alloc(&mut cs.namespace(|| "pow(2, 32)"), || {
-            Ok(Fr::pow_vartime(&Fr::from_u64(2).unwrap(), [32]))
+        let a_plus_power2_32_num = AllocatedNum::alloc(&mut cs.namespace(|| "pow(2, 32)"), || {
+            Ok(Fr::pow_vartime(&Fr::from_u64(2).unwrap(), [32]) + Fr::from_u64(42).unwrap())
         })
         .unwrap();
-        let add_pow_32 = add(
-            &mut cs.namespace(|| "add pow(2, 32)"),
-            &a_num,
-            &power2_32_num,
+        let bits = a_plus_power2_32_num
+            .to_bits_le(&mut cs.namespace(|| "bits"))
+            .unwrap();
+        let v = a_plus_power2_32_num
+            .get_value()
+            .unwrap_or_else(|| Fr::zero());
+        let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
+        let res = to_unsigned_integer_helper(
+            &mut cs,
+            &g,
+            &a_plus_power2_32_num,
+            field_bn,
+            &bits,
+            UnsignedInt::U32,
         )
         .unwrap();
-        let bits = add_pow_32.to_bits_le(&mut cs.namespace(|| "bits")).unwrap();
-        let v = add_pow_32.get_value().unwrap_or_else(|| Fr::zero());
-        let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
-        let res =
-            to_unsigned_integer_helper(&mut cs, &g, &add_pow_32, field_bn, &bits, UnsignedInt::U32)
-                .unwrap();
 
         equal(&mut cs, || "is equal", &res, &a_num);
         assert!(cs.is_satisfied());
@@ -5769,22 +5773,26 @@ mod tests {
             Ok(Fr::from_u64(42).unwrap())
         })
         .unwrap();
-        let power2_64_num = AllocatedNum::alloc(&mut cs.namespace(|| "pow(2, 64)"), || {
-            Ok(Fr::pow_vartime(&Fr::from_u64(2).unwrap(), [64]))
+        let a_plus_power2_32_num = AllocatedNum::alloc(&mut cs.namespace(|| "pow(2, 32)"), || {
+            Ok(Fr::pow_vartime(&Fr::from_u64(2).unwrap(), [32]) + Fr::from_u64(42).unwrap())
         })
         .unwrap();
-        let add_pow_64 = add(
-            &mut cs.namespace(|| "add pow(2, 64)"),
-            &a_num,
-            &power2_64_num,
+        let bits = a_plus_power2_32_num
+            .to_bits_le(&mut cs.namespace(|| "bits"))
+            .unwrap();
+        let v = a_plus_power2_32_num
+            .get_value()
+            .unwrap_or_else(|| Fr::zero());
+        let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
+        let res = to_unsigned_integer_helper(
+            &mut cs,
+            &g,
+            &a_plus_power2_32_num,
+            field_bn,
+            &bits,
+            UnsignedInt::U32,
         )
         .unwrap();
-        let bits = add_pow_64.to_bits_le(&mut cs.namespace(|| "bits")).unwrap();
-        let v = add_pow_64.get_value().unwrap_or_else(|| Fr::zero());
-        let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
-        let res =
-            to_unsigned_integer_helper(&mut cs, &g, &add_pow_64, field_bn, &bits, UnsignedInt::U64)
-                .unwrap();
 
         equal(&mut cs, || "is equal", &res, &a_num);
         assert!(cs.is_satisfied());
