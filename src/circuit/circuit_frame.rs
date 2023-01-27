@@ -5735,21 +5735,18 @@ mod tests {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let s = &mut Store::<Fr>::default();
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
-        let a_num = AllocatedNum::alloc(&mut cs.namespace(|| "a num"), || {
-            Ok(Fr::from_u64(42).unwrap())
-        })
-        .unwrap();
-        let a_plus_power2_32_num = AllocatedNum::alloc(&mut cs.namespace(|| "pow(2, 32)"), || {
-            Ok(Fr::pow_vartime(&Fr::from_u64(2).unwrap(), [32]) + Fr::from_u64(42).unwrap())
-        })
-        .unwrap();
+
+        let a = Fr::from_u64(2).unwrap();
+        let v = a + Fr::pow_vartime(&Fr::from_u64(2).unwrap(), [32]);
+        let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
+
+        let a_plus_power2_32_num =
+            AllocatedNum::alloc(&mut cs.namespace(|| "pow(2, 32) + 32"), || Ok(v)).unwrap();
+
         let bits = a_plus_power2_32_num
             .to_bits_le(&mut cs.namespace(|| "bits"))
             .unwrap();
-        let v = a_plus_power2_32_num
-            .get_value()
-            .unwrap_or_else(|| Fr::zero());
-        let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
+
         let res = to_unsigned_integer_helper(
             &mut cs,
             &g,
@@ -5760,7 +5757,7 @@ mod tests {
         )
         .unwrap();
 
-        equal(&mut cs, || "is equal", &res, &a_num);
+        assert_eq!(a, res.get_value().unwrap());
         assert!(cs.is_satisfied());
     }
 
