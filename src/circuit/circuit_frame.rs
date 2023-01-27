@@ -5739,10 +5739,14 @@ mod tests {
             Ok(Fr::from_u64(42).unwrap())
         })
         .unwrap();
+        let power2_32_num = AllocatedNum::alloc(&mut cs.namespace(|| "pow(2, 32)"), || {
+            Ok(Fr::pow_vartime(&Fr::from_u64(2).unwrap(), [32]))
+        })
+        .unwrap();
         let add_pow_32 = add(
             &mut cs.namespace(|| "add pow(2, 32)"),
             &a_num,
-            &g.power2_32_num,
+            &power2_32_num,
         )
         .unwrap();
         let bits = add_pow_32.to_bits_le(&mut cs.namespace(|| "bits")).unwrap();
@@ -5765,10 +5769,14 @@ mod tests {
             Ok(Fr::from_u64(42).unwrap())
         })
         .unwrap();
+        let power2_64_num = AllocatedNum::alloc(&mut cs.namespace(|| "pow(2, 64)"), || {
+            Ok(Fr::pow_vartime(&Fr::from_u64(2).unwrap(), [64]))
+        })
+        .unwrap();
         let add_pow_64 = add(
             &mut cs.namespace(|| "add pow(2, 64)"),
             &a_num,
-            &g.power2_64_num,
+            &power2_64_num,
         )
         .unwrap();
         let bits = add_pow_64.to_bits_le(&mut cs.namespace(|| "bits")).unwrap();
