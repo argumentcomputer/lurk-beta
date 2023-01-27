@@ -689,14 +689,12 @@ impl Opening<Scalar> {
             let cons = public_output.expr;
             let result_expr = s.car(&cons).map_err(|e| {
                 Error::OpeningFailure(format!(
-                    "Failed destructuring failed commitment output: {}",
-                    e
+                    "Failed destructuring failed commitment output: {e}"
                 ))
             })?;
             let new_comm = s.cdr(&cons).map_err(|e| {
                 Error::OpeningFailure(format!(
-                    "Failed destructuring failed commitment output: {}",
-                    e
+                    "Failed destructuring failed commitment output: {e}"
                 ))
             })?;
 
