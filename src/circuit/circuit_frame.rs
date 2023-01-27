@@ -21,7 +21,7 @@ use super::gadgets::constraints::{
     self, alloc_equal, alloc_is_zero, enforce_implication, or, pick, sub,
 };
 use crate::circuit::circuit_frame::constraints::{
-    add, allocate_is_negative, boolean_to_num, enforce_pack, equal, mul, popcount,
+    add, allocate_is_negative, boolean_to_num, enforce_pack, equal, mul,
 };
 use crate::circuit::gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness};
 use crate::circuit::ToInputs;
@@ -4630,19 +4630,6 @@ pub fn comparison_helper<F: LurkField, CS: ConstraintSystem<F>>(
     Ok((is_comparison_tag, comp_val, diff_is_negative))
 }
 
-// Enforce 0 <= num < 2ˆn.
-#[allow(dead_code)]
-pub fn enforce_at_most_n_bits<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    g: &GlobalAllocations<F>,
-    num_bits: Vec<Boolean>,
-    n: usize,
-) -> Result<(), SynthesisError> {
-    let v = num_bits[n..255].to_vec();
-    popcount(&mut cs.namespace(|| "add all MSBs"), &v, &g.false_num)?;
-    Ok(())
-}
-
 // Lurk supported uint coercion
 #[derive(Copy, Clone)]
 pub enum UnsignedInt {
@@ -5102,7 +5089,7 @@ pub(crate) fn print_cs<F: LurkField, C: Comparable<F>>(this: &C) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::circuit::circuit_frame::constraints::{enforce_true, sub};
+    use crate::circuit::circuit_frame::constraints::{sub, popcount};
     use crate::eval::{empty_sym_env, Evaluable, IO};
     use crate::proof::Provable;
     use crate::proof::{groth16::Groth16Prover, Prover};
@@ -5556,54 +5543,6 @@ mod tests {
     }
 
     #[test]
-    fn test_enforce_n_bits() {
-        let mut cs = TestConstraintSystem::<Fr>::new();
-        let s = &mut Store::<Fr>::default();
-
-        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
-
-        let num = crate::Num::<Fr>::Scalar(Fr::from_u64(42).unwrap()); // 42 = 101010
-        let alloc_num =
-            AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(num.into_scalar())).unwrap();
-
-        let num_bits = alloc_num
-            .to_bits_le(&mut cs.namespace(|| "u64 remainder bit decomp"))
-            .unwrap();
-        let res = enforce_at_most_n_bits(
-            &mut cs.namespace(|| "enforce at most n bits"),
-            &g,
-            num_bits,
-            6,
-        );
-        assert!(res.is_ok());
-        assert!(cs.is_satisfied());
-    }
-
-    #[test]
-    fn test_enforce_n_bits_negative() {
-        let mut cs = TestConstraintSystem::<Fr>::new();
-        let s = &mut Store::<Fr>::default();
-
-        let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
-
-        let num = crate::Num::<Fr>::Scalar(Fr::from_u64(42).unwrap()); // 42 = 101010
-        let alloc_num =
-            AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(num.into_scalar())).unwrap();
-
-        let num_bits = alloc_num
-            .to_bits_le(&mut cs.namespace(|| "u64 remainder bit decomp"))
-            .unwrap();
-        let res = enforce_at_most_n_bits(
-            &mut cs.namespace(|| "enforce at most n bits"),
-            &g,
-            num_bits,
-            5,
-        );
-        assert!(res.is_ok());
-        assert!(!cs.is_satisfied());
-    }
-
-    #[test]
     fn test_u64_op() {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let s = &mut Store::<Fr>::default();
@@ -5792,28 +5731,24 @@ mod tests {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let s = &mut Store::<Fr>::default();
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
-        let a = s.num(42);
-        let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
+        let a_num = AllocatedNum::alloc(&mut cs.namespace(|| "a num"), || {
+            Ok(Fr::from_u64(42).unwrap())
+        })
+        .unwrap();
         let add_pow_32 = add(
             &mut cs.namespace(|| "add pow(2, 32)"),
-            &alloc_a.hash(),
+            &a_num,
             &g.power2_32_num,
         )
         .unwrap();
         let bits = add_pow_32.to_bits_le(&mut cs.namespace(|| "bits")).unwrap();
-        let v = match add_pow_32.get_value() {
-            Some(v) => v,
-            None => Fr::zero(), //dummy
-        };
+        let v = add_pow_32.get_value().unwrap_or_else(|| Fr::zero());
         let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
         let res =
             to_unsigned_integer_helper(&mut cs, &g, &add_pow_32, field_bn, &bits, UnsignedInt::U32)
                 .unwrap();
 
-        let is_equal =
-            alloc_equal(&mut cs.namespace(|| "is equal"), &res, &alloc_a.hash()).unwrap();
-
-        assert!(enforce_true(&mut cs.namespace(|| "enforce true"), &is_equal).is_ok());
+        equal(&mut cs, || "is equal", &res, &a_num);
         assert!(cs.is_satisfied());
     }
 
@@ -5822,42 +5757,36 @@ mod tests {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let s = &mut Store::<Fr>::default();
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
-        let a = s.num(42);
-        let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
+        let a_num = AllocatedNum::alloc(&mut cs.namespace(|| "a num"), || {
+            Ok(Fr::from_u64(42).unwrap())
+        })
+        .unwrap();
         let add_pow_64 = add(
             &mut cs.namespace(|| "add pow(2, 64)"),
-            &alloc_a.hash(),
+            &a_num,
             &g.power2_64_num,
         )
         .unwrap();
         let bits = add_pow_64.to_bits_le(&mut cs.namespace(|| "bits")).unwrap();
-        let v = match add_pow_64.get_value() {
-            Some(v) => v,
-            None => Fr::zero(), //dummy
-        };
+        let v = add_pow_64.get_value().unwrap_or_else(|| Fr::zero());
         let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
         let res =
             to_unsigned_integer_helper(&mut cs, &g, &add_pow_64, field_bn, &bits, UnsignedInt::U64)
                 .unwrap();
 
-        let is_equal =
-            alloc_equal(&mut cs.namespace(|| "is equal"), &res, &alloc_a.hash()).unwrap();
-        assert!(enforce_true(&mut cs.namespace(|| "enforce true"), &is_equal).is_ok());
-
+        equal(&mut cs, || "is equal", &res, &a_num);
         assert!(cs.is_satisfied());
     }
 
     #[test]
     fn test_enforce_pack() {
         let mut cs = TestConstraintSystem::<Fr>::new();
-        let s = &mut Store::<Fr>::default();
-        let a = s.num(42);
-        let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
-        let bits = alloc_a
-            .hash()
-            .to_bits_le(&mut cs.namespace(|| "bits"))
-            .unwrap();
-        enforce_pack(&mut cs, &bits, alloc_a.hash()).unwrap();
+        let a_num = AllocatedNum::alloc(&mut cs.namespace(|| "a num"), || {
+            Ok(Fr::from_u64(42).unwrap())
+        })
+        .unwrap();
+        let bits = a_num.to_bits_le(&mut cs.namespace(|| "bits")).unwrap();
+        enforce_pack(&mut cs, &bits, &a_num).unwrap();
         assert!(cs.is_satisfied());
     }
 }

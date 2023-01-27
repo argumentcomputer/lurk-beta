@@ -77,6 +77,7 @@ pub fn add<F: PrimeField, CS: ConstraintSystem<F>>(
 /// is equal to `sum`.
 ///
 /// summation(v) = sum
+#[allow(dead_code)]
 pub fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     v: &Vec<Boolean>,
