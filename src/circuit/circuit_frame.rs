@@ -5092,7 +5092,7 @@ pub(crate) fn print_cs<F: LurkField, C: Comparable<F>>(this: &C) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::circuit::circuit_frame::constraints::{sub, popcount, equal};
+    use crate::circuit::circuit_frame::constraints::{equal, popcount, sub};
     use crate::eval::{empty_sym_env, Evaluable, IO};
     use crate::proof::Provable;
     use crate::proof::{groth16::Groth16Prover, Prover};
@@ -5723,7 +5723,8 @@ mod tests {
                 &mut cs.namespace(|| format!("popcount {x}")),
                 &bits,
                 alloc_popcount.hash(),
-            ).unwrap();
+            )
+            .unwrap();
         }
 
         assert!(cs.is_satisfied());
