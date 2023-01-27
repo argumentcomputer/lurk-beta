@@ -21,7 +21,7 @@ use super::gadgets::constraints::{
     self, alloc_equal, alloc_is_zero, enforce_implication, or, pick, sub,
 };
 use crate::circuit::circuit_frame::constraints::{
-    add, allocate_is_negative, boolean_to_num, enforce_pack, equal, mul,
+    add, allocate_is_negative, boolean_to_num, enforce_pack, linear, mul,
 };
 use crate::circuit::gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness};
 use crate::circuit::ToInputs;
@@ -4660,23 +4660,26 @@ pub fn to_unsigned_integer_helper<F: LurkField, CS: ConstraintSystem<F>>(
     let q_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "q"), q_bn)?;
     let r_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "r"), r_bn)?;
 
-    // field element = pow(2, size).q
-    let product = match size {
-        UnsignedInt::U32 => mul(
-            &mut cs.namespace(|| "product(q,pow(2,32))"),
+    // field element = pow(2, size).q + r
+    match size {
+        UnsignedInt::U32 => linear(
+            &mut cs,
+            || "product(q,pow(2,32)) + r",
             &q_num,
             &g.power2_32_num,
-        )?,
-        UnsignedInt::U64 => mul(
-            &mut cs.namespace(|| "product(q,pow(2,64))"),
+            &r_num,
+            field_elem,
+        ),
+        UnsignedInt::U64 => linear(
+            &mut cs,
+            || "product(q,pow(2,64)) + r",
             &q_num,
             &g.power2_64_num,
-        )?,
+            &r_num,
+            field_elem,
+        ),
     };
 
-    // field element = pow(2, size).q + r
-    let sum = add(&mut cs.namespace(|| "sum remainder"), &product, &r_num)?;
-    equal(&mut cs, || "check unsigned decomposition", &sum, field_elem);
     let r_bits = &field_elem_bits[0..size.num_bits() as usize];
     enforce_pack(
         &mut cs.namespace(|| "enforce unsigned pack"),
@@ -5089,7 +5092,7 @@ pub(crate) fn print_cs<F: LurkField, C: Comparable<F>>(this: &C) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::circuit::circuit_frame::constraints::{sub, popcount};
+    use crate::circuit::circuit_frame::constraints::{sub, popcount, equal};
     use crate::eval::{empty_sym_env, Evaluable, IO};
     use crate::proof::Provable;
     use crate::proof::{groth16::Groth16Prover, Prover};
@@ -5158,9 +5161,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12500, cs.num_constraints());
+            assert_eq!(12494, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(12131, cs.aux().len());
+            assert_eq!(12125, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
