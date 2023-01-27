@@ -540,10 +540,10 @@ mod test {
                     let (scalar_store3, _) = ScalarStore::new_with_expr(&store2, &expr2);
                     assert_eq!(scalar_store2, scalar_store3)
                 } else {
-                    assert!(false)
+                    panic!()
                 }
             } else {
-                assert!(false)
+                panic!()
             }
         };
 

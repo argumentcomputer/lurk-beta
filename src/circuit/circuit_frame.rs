@@ -4487,11 +4487,11 @@ fn to_char<F: LurkField>(x: &AllocatedPtr<F>, g: &GlobalAllocations<F>) -> Alloc
     AllocatedPtr::from_parts(&g.char_tag, x.hash())
 }
 
-fn get_named_components<'a, F: LurkField, CS: ConstraintSystem<F>>(
+fn get_named_components<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     cont_ptr: &AllocatedContPtr<F>,
     name: ContName,
-    allocated_cont_witness: &'a mut AllocatedContWitness<F>,
+    allocated_cont_witness: &mut AllocatedContWitness<F>,
     not_dummy: &Boolean,
     _store: &Store<F>,
 ) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {

@@ -1,4 +1,3 @@
-#![feature(unchecked_math)]
 #![allow(clippy::single_match, clippy::type_complexity)]
 
 extern crate core;
