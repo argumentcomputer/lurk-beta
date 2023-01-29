@@ -21,7 +21,7 @@ use crate::circuit::{
     },
     CircuitFrame, MultiFrame,
 };
-use crate::error::Error;
+use crate::error::ProofError;
 use crate::eval::{Evaluator, Frame, Witness, IO};
 use crate::field::LurkField;
 use crate::proof::{Prover, PublicParameters};
@@ -88,7 +88,7 @@ impl<F: LurkField> NovaProver<F> {
         env: Ptr<S1>,
         store: &mut Store<S1>,
         limit: usize,
-    ) -> Result<Vec<Frame<IO<S1>, Witness<S1>>>, Error> {
+    ) -> Result<Vec<Frame<IO<S1>, Witness<S1>>>, ProofError> {
         let padding_predicate = |count| self.needs_frame_padding(count);
 
         let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate)?;
@@ -103,10 +103,10 @@ impl<F: LurkField> NovaProver<F> {
         env: Ptr<S1>,
         store: &'a mut Store<S1>,
         limit: usize,
-    ) -> Result<(Proof, Vec<S1>, Vec<S1>, usize), Error> {
+    ) -> Result<(Proof, Vec<S1>, Vec<S1>, usize), ProofError> {
         let frames = self.get_evaluation_frames(expr, env, store, limit)?;
-        let z0 = frames[0].input_vector(store)?;
-        let zi = frames.last().unwrap().output_vector(store)?;
+        let z0 = frames[0].input.to_vector(store)?;
+        let zi = frames.last().unwrap().output.to_vector(store)?;
         let circuits = MultiFrame::from_frames(self.chunk_frame_count(), &frames, store);
         let num_steps = circuits.len();
         let proof =
@@ -187,7 +187,7 @@ impl<'a> Proof<'a> {
         circuits: &[C1<'a>],
         num_iters_per_step: usize,
         z0: Vec<S1>,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, ProofError> {
         assert!(!circuits.is_empty());
         assert_eq!(circuits[0].arity(), z0.len());
         let debug = false;
@@ -221,14 +221,11 @@ impl<'a> Proof<'a> {
 
                 for (i, x) in zi.iter().enumerate() {
                     let allocated =
-                        AllocatedNum::alloc(cs.namespace(|| format!("z{}_1", i)), || Ok(*x))
-                            .map_err(Error::Synthesis)?;
+                        AllocatedNum::alloc(cs.namespace(|| format!("z{i}_1")), || Ok(*x))?;
                     zi_allocated.push(allocated);
                 }
 
-                circuit_primary
-                    .synthesize(&mut cs, zi_allocated.as_slice())
-                    .map_err(Error::Synthesis)?;
+                circuit_primary.synthesize(&mut cs, zi_allocated.as_slice())?;
 
                 assert!(cs.is_satisfied());
             }
@@ -242,18 +239,25 @@ impl<'a> Proof<'a> {
                 z0_secondary.clone(),
             );
             assert!(res.is_ok());
-            recursive_snark = Some(res.map_err(Error::Nova)?);
+            recursive_snark = Some(res?);
         }
 
         Ok(Self::Recursive(Box::new(recursive_snark.unwrap())))
     }
 
-    pub fn compress(self, pp: &'a PublicParams) -> Result<Self, Error> {
+    pub fn compress(self, pp: &'a PublicParams) -> Result<Self, ProofError> {
         match &self {
-            Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(
-                CompressedSNARK::<_, _, _, _, SS1, SS2>::prove(pp, recursive_snark)
-                    .map_err(Error::Nova)?,
-            ))),
+            Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(CompressedSNARK::<
+                _,
+                _,
+                _,
+                _,
+                SS1,
+                SS2,
+            >::prove(
+                pp,
+                recursive_snark,
+            )?))),
             Self::Compressed(_) => Ok(self),
         }
     }
@@ -339,14 +343,14 @@ mod tests {
         let limit = limit.unwrap_or(10000);
         let expr = s.read(expr).unwrap();
 
-        let e = empty_sym_env(&s);
+        let e = empty_sym_env(s);
 
         let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
 
         if check_nova {
             let pp = public_params(chunk_frame_count);
             let (proof, z0, zi, num_steps) = nova_prover
-                .evaluate_and_prove(&pp, expr, empty_sym_env(&s), s, limit)
+                .evaluate_and_prove(&pp, expr, empty_sym_env(s), s, limit)
                 .unwrap();
 
             let res = proof.verify(&pp, num_steps, z0.clone(), &zi);
@@ -365,7 +369,7 @@ mod tests {
             .get_evaluation_frames(expr, e, s, limit)
             .unwrap();
 
-        let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, &s);
+        let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, s);
 
         let len = multiframes.len();
 
@@ -384,7 +388,7 @@ mod tests {
             multiframe.clone().synthesize(&mut cs).unwrap();
 
             if let Some(prev) = previous_frame {
-                assert!(prev.precedes(&multiframe));
+                assert!(prev.precedes(multiframe));
             }
 
             // dbg!(i);
@@ -402,7 +406,7 @@ mod tests {
         if let Some(expected_emitted) = expected_emitted {
             let emitted_vec: Vec<_> = frames
                 .iter()
-                .flat_map(|frame| frame.output.maybe_emitted_expression(&s))
+                .flat_map(|frame| frame.output.maybe_emitted_expression(s))
                 .collect();
             assert_eq!(expected_emitted, &emitted_vec);
         }
@@ -1964,7 +1968,7 @@ mod tests {
     #[test]
     fn outer_prove_str_cdr_empty() {
         let s = &mut Store::<Fr>::default();
-        let expected_empty_str = s.intern_str(&"");
+        let expected_empty_str = s.intern_str("");
         let terminal = s.get_cont_terminal();
         nova_test_aux(
             s,
@@ -2397,7 +2401,7 @@ mod tests {
         let apple = s.read(r#" "apple" "#).unwrap();
         let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
         let pple = s.read(r#" "pple" "#).unwrap();
-        let empty = s.intern_str(&"");
+        let empty = s.intern_str("");
         let nil = s.nil();
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
@@ -2450,7 +2454,7 @@ mod tests {
     }
 
     fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
-        let expr = &format!("({} {} {})", op, a, b);
+        let expr = &format!("({op} {a} {b})");
         let expected = if res { s.t() } else { s.nil() };
         let terminal = s.get_cont_terminal();
 
@@ -2730,5 +2734,221 @@ mod tests {
         let error = s.get_cont_error();
 
         nova_test_aux(s, expr, None, None, Some(error), None, 8);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_self_evaluating() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "123u64";
+        let res = s.uint64(123);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_mul() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(* (u64 18446744073709551615) (u64 2))";
+        let expr2 = "(* 18446744073709551615u64 2u64)";
+        let expr3 = "(* (- 0u64 1u64) 2u64)";
+        let expr4 = "(u64 18446744073709551617)";
+        let res = s.uint64(18446744073709551614);
+        let res2 = s.uint64(1);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 7);
+        nova_test_aux(s, expr2, Some(res), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr3, Some(res), None, Some(terminal), None, 6);
+        nova_test_aux(s, expr4, Some(res2), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_add() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(+ 18446744073709551615u64 2u64)";
+        let expr2 = "(+ (- 0u64 1u64) 2u64)";
+        let res = s.uint64(1);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(res), None, Some(terminal), None, 6);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_sub() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(- 2u64 1u64)";
+        let expr2 = "(- 0u64 1u64)";
+        let expr3 = "(+ 1u64 (- 0u64 1u64))";
+        let res = s.uint64(1);
+        let res2 = s.uint64(18446744073709551615);
+        let res3 = s.uint64(0);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr3, Some(res3), None, Some(terminal), None, 6);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_div() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(/ 100u64 2u64)";
+        let res = s.uint64(50);
+
+        let expr2 = "(/ 100u64 3u64)";
+        let res2 = s.uint64(33);
+
+        let expr3 = "(/ 100u64 0u64)";
+
+        let terminal = s.get_cont_terminal();
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_mod() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 100u64 2u64)";
+        let res = s.uint64(0);
+
+        let expr2 = "(% 100u64 3u64)";
+        let res2 = s.uint64(1);
+
+        let expr3 = "(% 100u64 0u64)";
+
+        let terminal = s.get_cont_terminal();
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_num_mod() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 100 3)";
+        let expr2 = "(% 100 3u64)";
+        let expr3 = "(% 100u64 3)";
+
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, None, None, Some(error), None, 3);
+        nova_test_aux(s, expr2, None, None, Some(error), None, 3);
+        nova_test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_comp() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(< 0u64 1u64)";
+        let expr2 = "(< 1u64 0u64)";
+        let expr3 = "(<= 0u64 1u64)";
+        let expr4 = "(<= 1u64 0u64)";
+
+        let expr5 = "(> 0u64 1u64)";
+        let expr6 = "(> 1u64 0u64)";
+        let expr7 = "(>= 0u64 1u64)";
+        let expr8 = "(>= 1u64 0u64)";
+
+        let expr9 = "(<= 0u64 0u64)";
+        let expr10 = "(>= 0u64 0u64)";
+
+        let t = s.t();
+        let nil = s.nil();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr3, Some(t), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr4, Some(nil), None, Some(terminal), None, 3);
+
+        nova_test_aux(s, expr5, Some(nil), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr6, Some(t), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr7, Some(nil), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr8, Some(t), None, Some(terminal), None, 3);
+
+        nova_test_aux(s, expr9, Some(t), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr10, Some(t), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_conversion() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(+ 0 1u64)";
+        let expr2 = "(num 1u64)";
+        let expr3 = "(+ 1 1u64)";
+        let expr4 = "(u64 (+ 1 1))";
+        let res = s.intern_num(1);
+        let res2 = s.intern_num(2);
+        let res3 = s.get_u64(2);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(res), None, Some(terminal), None, 2);
+        nova_test_aux(s, expr3, Some(res2), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr4, Some(res3), None, Some(terminal), None, 5);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_num_comparison() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(= 1 1u64)";
+        let expr2 = "(= 1 2u64)";
+        let t = s.t();
+        let nil = s.nil();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_num_cons() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(cons 1 1u64)";
+        let expr2 = "(cons 1u64 1)";
+        let res = s.read("(1 . 1u64)").unwrap();
+        let res2 = s.read("(1u64 . 1)").unwrap();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_hide_u64_secret() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(hide 0u64 123)";
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_mod_by_zero_error() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 0 0)";
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, None, None, Some(error), None, 3);
     }
 }

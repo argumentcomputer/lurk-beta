@@ -18,9 +18,8 @@ fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
                                        (aux (+ i 1) a x))))))
                        (let ((x (+ (* a b) 4)))
                          (aux 0 a x))))))
-  (foo {} {}))
-"#,
-        a, b
+  (foo {a} {b}))
+"#
     );
 
     store.read(&program).unwrap()

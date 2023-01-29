@@ -51,7 +51,7 @@ fn write_symbol<F: LurkField, W: io::Write>(
     let package = &store.lurk_package;
     let maybe_abbr = package.relative_abbreviation(sym);
     let symbol_name = maybe_abbr.full_name();
-    write!(w, "{}", symbol_name)
+    write!(w, "{symbol_name}")
 }
 
 impl<F: LurkField> Write<F> for Expression<'_, F> {
@@ -61,7 +61,7 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
         match self {
             Nil => write!(w, "NIL"),
             Sym(s) => write_symbol::<F, _>(w, store, s),
-            Str(s) => write!(w, "\"{}\"", s),
+            Str(s) => write!(w, "\"{s}\""),
             Fun(arg, body, _closed_env) => {
                 let is_zero_arg = *arg
                     == store
@@ -89,7 +89,7 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                 }
                 write!(w, ">")
             }
-            Num(n) => write!(w, "{}", n),
+            Num(n) => write!(w, "{n}"),
             Thunk(f) => {
                 write!(w, "Thunk{{ value: ")?;
                 f.value.fmt(store, w)?;
@@ -111,9 +111,9 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
             }
             Opaque(f) => f.fmt(store, w),
             Char(c) => {
-                write!(w, "#\\{}", c)
+                write!(w, "#\\{c}")
             }
-            UInt(n) => write!(w, "{}u64", n),
+            UInt(n) => write!(w, "{n}u64"),
         }
     }
 }
@@ -233,7 +233,7 @@ impl<F: LurkField> Write<F> for Continuation<F> {
                 operator,
                 continuation,
             } => {
-                write!(w, "Unop{{ operator: {}, continuation: ", operator)?;
+                write!(w, "Unop{{ operator: {operator}, continuation: ")?;
                 continuation.fmt(store, w)?;
                 write!(w, " }}")
             }
@@ -244,7 +244,7 @@ impl<F: LurkField> Write<F> for Continuation<F> {
                 continuation,
             } => {
                 write!(w, "Binop{{ operator: ")?;
-                write!(w, "{}, unevaled_args: ", operator)?;
+                write!(w, "{operator}, unevaled_args: ")?;
                 unevaled_args.fmt(store, w)?;
                 write!(w, ", saved_env: ")?;
                 saved_env.fmt(store, w)?;
@@ -257,7 +257,7 @@ impl<F: LurkField> Write<F> for Continuation<F> {
                 evaled_arg,
                 continuation,
             } => {
-                write!(w, "Binop2{{ operator: {}, evaled_arg: ", operator)?;
+                write!(w, "Binop2{{ operator: {operator}, evaled_arg: ")?;
                 evaled_arg.fmt(store, w)?;
                 write!(w, ", continuation: ")?;
                 continuation.fmt(store, w)?;

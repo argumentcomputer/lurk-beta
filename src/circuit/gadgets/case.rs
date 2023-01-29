@@ -72,7 +72,7 @@ impl<F: LurkField> CaseConstraint<'_, F> {
                 false
             };
             selector.push(AllocatedBit::alloc(
-                cs.namespace(|| format!("selection bit {}", i)),
+                cs.namespace(|| format!("selection bit {i}")),
                 Some(is_selected),
             )?);
         }
@@ -141,7 +141,7 @@ fn selector_dot_product<F: LurkField, CS: ConstraintSystem<F>>(
 
     for (i, (bit, value)) in selector.iter().zip(value_vector).enumerate() {
         let allocated_prod = pick(
-            &mut cs.namespace(|| format!("allocated_prod {}", i)),
+            &mut cs.namespace(|| format!("allocated_prod {i}")),
             &Boolean::Is(bit.clone()),
             value,
             zero,
@@ -248,7 +248,7 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
 
             // new_acc ← x = acc * (clause.key[i] - selected)
             let new_acc = AllocatedNum::alloc(
-                &mut cs.namespace(|| format!("acc {}, case {}", i + 1, i)),
+                &mut cs.namespace(|| format!("acc {}, case {i}", i + 1)),
                 || {
                     if selected_present {
                         Ok(x)
@@ -260,7 +260,7 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
 
             // acc * ( clause.key - selected ) = new_acc
             cs.enforce(
-                || format!("acc * (clause-{}.key - selected) = new_acc, case {}", i, i),
+                || format!("acc * (clause-{i}.key - selected) = new_acc, case {i}"),
                 |lc| lc + acc.get_variable(),
                 |_| Boolean::Constant(true).lc(CS::one(), clause.key) - selected.get_variable(),
                 |lc| lc + new_acc.get_variable(),
@@ -271,7 +271,7 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
 
         // acc = ∏ᵢ (clause[i].key - selected)
         // Therefore acc is zero if and only if some key was selected.
-        let is_selected = alloc_is_zero(cs.namespace(|| format!("is_selected, case {}", i)), &acc)?;
+        let is_selected = alloc_is_zero(cs.namespace(|| format!("is_selected, case {i}")), &acc)?;
 
         // If no selection matched, use a dummy key so constraints are met.
         // We will actually return the default value, though.
@@ -294,13 +294,13 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
         };
         let zero = &g.false_num;
         let (enforced_result, selector) =
-            cc.enforce_selection(&mut cs.namespace(|| format!("case {}", i)), zero)?;
+            cc.enforce_selection(&mut cs.namespace(|| format!("case {i}")), zero)?;
 
         // If no selection matched, choose the default value
         let is_default = is_selected.not();
 
         result.push(pick(
-            &mut cs.namespace(|| format!("maybe default, case {}", i)),
+            &mut cs.namespace(|| format!("maybe default, case {i}")),
             &is_default,
             default,
             &enforced_result,
@@ -315,11 +315,7 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
     for (i, (c, default)) in cases.iter().zip(defaults).enumerate().skip(1) {
         // Ensure key ordering actually matches
         for (j, case) in c.iter().enumerate() {
-            debug_assert_eq!(
-                case.key, cases[0][j].key,
-                "Key ordering missmatch {}:{}",
-                i, j
-            );
+            debug_assert_eq!(case.key, cases[0][j].key, "Key ordering missmatch {i}:{j}");
         }
 
         let values = c
@@ -329,13 +325,13 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
 
         let zero = &g.false_num;
         let next_enforced_value = selector_dot_product(
-            &mut cs.namespace(|| format!("extract result, case {}", i)),
+            &mut cs.namespace(|| format!("extract result, case {i}")),
             &selector,
             &values,
             zero,
         )?;
         result.push(pick(
-            &mut cs.namespace(|| format!("maybe default, case {}", i)),
+            &mut cs.namespace(|| format!("maybe default, case {i}")),
             &is_default,
             default,
             &next_enforced_value,

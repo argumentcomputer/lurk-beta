@@ -24,6 +24,12 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         def.as_mut().copy_from_slice(bs);
         Self::from_repr(def).into()
     }
+    // Return a u32 corresponding to the first 4 little-endian bytes of this field element, discarding the remaining bytes.
+    fn to_u32_unchecked(&self) -> u32 {
+        let mut byte_array = [0u8; 4];
+        byte_array.copy_from_slice(&self.to_repr().as_ref()[0..4]);
+        u32::from_le_bytes(byte_array)
+    }
     fn to_u32(&self) -> Option<u32> {
         for x in &self.to_repr().as_ref()[4..] {
             if *x != 0 {
@@ -237,10 +243,10 @@ mod test {
         let f1 = Fr::from(x as u64);
         let codec = <Fr as LurkField>::to_multicodec(f1).unwrap();
         let f2 = <Fr as LurkField>::from_multicodec(codec);
-        println!("x: {:?}", x);
-        println!("f1: {}", f1);
-        println!("codec: {:0x}", codec);
-        println!("f2: {}", f1);
+        println!("x: {x:?}");
+        println!("f1: {f1}");
+        println!("codec: {codec:0x}");
+        println!("f2: {f1}");
         Some(f1) == f2
     }
     #[quickcheck]

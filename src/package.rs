@@ -28,6 +28,7 @@ pub const LURK_EXTERNAL_SYMBOL_NAMES: &[&str] = &[
     "letrec",
     "nil",
     "num",
+    "u64",
     "open",
     "quote",
     "secret",

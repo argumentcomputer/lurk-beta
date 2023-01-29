@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use crate::field::LurkField;
+use crate::store;
 use crate::store::{ContPtr, Continuation, Ptr, Store};
 
 pub const MAX_CONSES_PER_REDUCTION: usize = 11;
@@ -140,10 +141,14 @@ impl HashName for ContName {
 }
 
 impl<F: LurkField> ConsStub<F> {
-    pub fn car_cdr(&mut self, s: &mut Store<F>, cons: &Ptr<F>) -> (Ptr<F>, Ptr<F>) {
+    pub fn car_cdr(
+        &mut self,
+        s: &mut Store<F>,
+        cons: &Ptr<F>,
+    ) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
         match self {
             Self::Dummy => {
-                let (car, cdr) = Cons::get_car_cdr(s, cons);
+                let (car, cdr) = Cons::get_car_cdr(s, cons)?;
 
                 *self = Self::Value(Cons {
                     car,
@@ -151,10 +156,10 @@ impl<F: LurkField> ConsStub<F> {
                     cons: *cons,
                 });
 
-                (car, cdr)
+                Ok((car, cdr))
             }
             Self::Blank => unreachable!("Blank ConsStub should be used only in blank circuits."),
-            Self::Value(h) => h.car_cdr(cons),
+            Self::Value(h) => Ok(h.car_cdr(cons)),
         }
     }
 
@@ -162,7 +167,7 @@ impl<F: LurkField> ConsStub<F> {
         &mut self,
         s: &mut Store<F>,
         cons: &Ptr<F>,
-    ) -> Result<(Ptr<F>, Ptr<F>), String> {
+    ) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
         match self {
             Self::Dummy => {
                 let (car, cdr) = Cons::get_car_cdr_mut(s, cons)?;
@@ -327,22 +332,12 @@ impl<
 }
 
 impl<F: LurkField> ConsWitness<F> {
-    pub fn get_named_cons(&self, name: &ConsName) -> ConsStub<F> {
-        for (slot_name, p) in &self.slots {
-            if slot_name == name {
-                return *p;
-            }
-        }
-
-        Stub::Dummy
-    }
-
     pub fn car_cdr_named(
         &mut self,
         name: ConsName,
         store: &mut Store<F>,
         cons: &Ptr<F>,
-    ) -> (Ptr<F>, Ptr<F>) {
+    ) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
         self.get_assigned_slot(name).car_cdr(store, cons)
     }
 
@@ -371,7 +366,7 @@ impl<F: LurkField> ConsWitness<F> {
         name: ConsName,
         store: &mut Store<F>,
         cons: &Ptr<F>,
-    ) -> Result<(Ptr<F>, Ptr<F>), String> {
+    ) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
         self.get_assigned_slot(name).car_cdr_mut(store, cons)
     }
 
@@ -404,11 +399,11 @@ impl<F: LurkField> Cons<F> {
         (self.car, self.cdr)
     }
 
-    fn get_car_cdr(s: &mut Store<F>, cons: &Ptr<F>) -> (Ptr<F>, Ptr<F>) {
+    fn get_car_cdr(s: &mut Store<F>, cons: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
         s.car_cdr(cons)
     }
 
-    fn get_car_cdr_mut(s: &mut Store<F>, cons: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), String> {
+    fn get_car_cdr_mut(s: &mut Store<F>, cons: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
         s.car_cdr_mut(cons)
     }
 }

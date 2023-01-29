@@ -8,11 +8,8 @@ edition = "2018"
 
 [dependencies]
 blstrs = "0.6.0"
-ff = "0.12.0"
-gensym = "0.1.0"
 lurk = { path = "../", package = "lurk" }
 proc-macro2 = "1"
-proc-macro-error = "1"
 quote = "1"
 syn = { version = "1", features = ["extra-traits", "full"] }
 

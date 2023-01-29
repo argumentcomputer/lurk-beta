@@ -464,20 +464,20 @@ mod test {
         match to_ipld(x.clone()) {
             Ok(ipld) => match from_ipld(ipld.clone()) {
                 Ok(y) => {
-                    println!("x: {:?}", x);
-                    println!("y: {:?}", y);
+                    println!("x: {x:?}");
+                    println!("y: {y:?}");
                     x == y
                 }
                 Err(e) => {
-                    println!("ser x: {:?}", x);
-                    println!("de ipld: {:?}", ipld);
-                    println!("err e: {:?}", e);
+                    println!("ser x: {x:?}");
+                    println!("de ipld: {ipld:?}");
+                    println!("err e: {e:?}");
                     false
                 }
             },
             Err(e) => {
-                println!("ser x: {:?}", x);
-                println!("err e: {:?}", e);
+                println!("ser x: {x:?}");
+                println!("err e: {e:?}");
                 false
             }
         }
@@ -540,10 +540,10 @@ mod test {
                     let (scalar_store3, _) = ScalarStore::new_with_expr(&store2, &expr2);
                     assert_eq!(scalar_store2, scalar_store3)
                 } else {
-                    assert!(false)
+                    panic!()
                 }
             } else {
-                assert!(false)
+                panic!()
             }
         };
 
@@ -583,10 +583,10 @@ mod test {
             ) = eval.eval().unwrap();
 
             let (scalar_store, _) = ScalarStore::new_with_expr(&s, &expr);
-            println!("{:?}", scalar_store);
+            println!("{scalar_store:?}");
             let ipld = to_ipld(scalar_store.clone()).unwrap();
             let scalar_store2 = from_ipld(ipld).unwrap();
-            println!("{:?}", scalar_store2);
+            println!("{scalar_store2:?}");
             assert_eq!(scalar_store, scalar_store2);
         };
 
@@ -653,7 +653,7 @@ mod test {
     fn test_scalar_store_opaque_sym() {
         let mut store = Store::<Fr>::default();
 
-        let sym = store.sym(&"sym");
+        let sym = store.sym("sym");
         let sym_hash = store.hash_expr(&sym).unwrap();
         let opaque_sym = store.intern_maybe_opaque_sym(*sym_hash.value());
 
@@ -667,7 +667,7 @@ mod test {
     fn test_scalar_store_opaque_str() {
         let mut store = Store::<Fr>::default();
 
-        let str = store.str(&"str");
+        let str = store.str("str");
         let str_hash = store.hash_expr(&str).unwrap();
         let opaque_str = store.intern_maybe_opaque_sym(*str_hash.value());
 

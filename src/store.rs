@@ -4,13 +4,13 @@ use rayon::prelude::*;
 use std::hash::Hash;
 use std::{fmt, marker::PhantomData};
 use string_interner::symbol::{Symbol, SymbolUsize};
+use thiserror;
 
 use neptune::poseidon::PoseidonConstants;
 use once_cell::sync::OnceCell;
 
 use libipld::Cid;
 
-use crate::error::LurkError;
 use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
@@ -319,7 +319,7 @@ impl<'de, F: LurkField> Deserialize<'de> for ScalarPtr<F> {
         use de::Error;
         let cid = Cid::deserialize(deserializer)?;
         let (tag, dig) = F::from_cid(cid).ok_or_else(|| {
-            D::Error::custom(format!("expected ScalarPtr encoded as Cid, got {}", cid))
+            D::Error::custom(format!("expected ScalarPtr encoded as Cid, got {cid}"))
         })?;
         Ok(ScalarPtr::from_parts(tag, dig))
     }
@@ -402,10 +402,7 @@ impl<'de, F: LurkField> Deserialize<'de> for ScalarContPtr<F> {
         use de::Error;
         let cid = Cid::deserialize(deserializer)?;
         let (tag, dig) = F::from_cid(cid).ok_or_else(|| {
-            D::Error::custom(format!(
-                "expected ScalarContPtr encoded as Cid, got {}",
-                cid
-            ))
+            D::Error::custom(format!("expected ScalarContPtr encoded as Cid, got {cid}"))
         })?;
         Ok(ScalarContPtr::from_parts(tag, dig))
     }
@@ -812,24 +809,6 @@ impl fmt::Display for Op1 {
 }
 
 impl Op1 {
-    pub fn from_u16(x: u16) -> Option<Self> {
-        match x {
-            x if x == Op1::Car as u16 => Some(Op1::Car),
-            x if x == Op1::Cdr as u16 => Some(Op1::Cdr),
-            x if x == Op1::Atom as u16 => Some(Op1::Atom),
-            x if x == Op1::Emit as u16 => Some(Op1::Emit),
-            x if x == Op1::Open as u16 => Some(Op1::Open),
-            x if x == Op1::Secret as u16 => Some(Op1::Secret),
-            x if x == Op1::Commit as u16 => Some(Op1::Commit),
-            x if x == Op1::Num as u16 => Some(Op1::Num),
-            x if x == Op1::Comm as u16 => Some(Op1::Comm),
-            x if x == Op1::Char as u16 => Some(Op1::Char),
-            x if x == Op1::Eval as u16 => Some(Op1::Eval),
-            x if x == Op1::U64 as u16 => Some(Op1::U64),
-            _ => None,
-        }
-    }
-
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
@@ -857,26 +836,6 @@ pub enum Op2 {
 }
 
 impl Op2 {
-    pub fn from_u16(x: u16) -> Option<Self> {
-        match x {
-            x if x == Op2::Sum as u16 => Some(Op2::Sum),
-            x if x == Op2::Diff as u16 => Some(Op2::Diff),
-            x if x == Op2::Product as u16 => Some(Op2::Product),
-            x if x == Op2::Quotient as u16 => Some(Op2::Quotient),
-            x if x == Op2::Equal as u16 => Some(Op2::Equal),
-            x if x == Op2::NumEqual as u16 => Some(Op2::NumEqual),
-            x if x == Op2::Less as u16 => Some(Op2::Less),
-            x if x == Op2::Greater as u16 => Some(Op2::Greater),
-            x if x == Op2::LessEqual as u16 => Some(Op2::LessEqual),
-            x if x == Op2::GreaterEqual as u16 => Some(Op2::GreaterEqual),
-            x if x == Op2::Cons as u16 => Some(Op2::Cons),
-            x if x == Op2::Begin as u16 => Some(Op2::Begin),
-            x if x == Op2::Hide as u16 => Some(Op2::Hide),
-            x if x == Op2::Modulo as u16 => Some(Op2::Modulo),
-            x if x == Op2::Eval as u16 => Some(Op2::Eval),
-            _ => None,
-        }
-    }
     pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
@@ -1067,6 +1026,15 @@ impl<F: LurkField> Default for Store<F> {
     }
 }
 
+#[derive(thiserror::Error, Debug, Clone)]
+pub struct Error(pub String);
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "StoreError: {}", self.0)
+    }
+}
+
 /// These methods provide a more ergonomic means of constructing and manipulating Lurk data.
 /// They can be thought of as a minimal DSL for working with Lurk data in Rust code.
 /// Prefer these methods when constructing literal data or assembling program fragments in
@@ -1119,7 +1087,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn open_mut(&mut self, ptr: Ptr<F>) -> Result<(F, Ptr<F>), LurkError> {
+    pub fn open_mut(&mut self, ptr: Ptr<F>) -> Result<(F, Ptr<F>), Error> {
         let p = match ptr.0 {
             Tag::Comm => ptr,
             Tag::Num => {
@@ -1127,17 +1095,13 @@ impl<F: LurkField> Store<F> {
 
                 self.intern_maybe_opaque_comm(scalar)
             }
-            _ => {
-                return Err(LurkError::Store(
-                    "wrong type for commitment specifier".into(),
-                ))
-            }
+            _ => return Err(Error("wrong type for commitment specifier".into())),
         };
 
         if let Some((secret, payload)) = self.fetch_comm(&p) {
             Ok((secret.0, *payload))
         } else {
-            Err(LurkError::Store("hidden value could not be opened".into()))
+            Err(Error("hidden value could not be opened".into()))
         }
     }
 
@@ -1151,14 +1115,10 @@ impl<F: LurkField> Store<F> {
             .and_then(|(secret, _payload)| self.get_num(Num::Scalar(secret.0)))
     }
 
-    pub fn secret_mut(&mut self, ptr: Ptr<F>) -> Result<Ptr<F>, LurkError> {
+    pub fn secret_mut(&mut self, ptr: Ptr<F>) -> Result<Ptr<F>, Error> {
         let p = match ptr.0 {
             Tag::Comm => ptr,
-            _ => {
-                return Err(LurkError::Store(
-                    "wrong type for commitment specifier".into(),
-                ))
-            }
+            _ => return Err(Error("wrong type for commitment specifier".into())),
         };
 
         if let Some((secret, _payload)) = self.fetch_comm(&p) {
@@ -1166,7 +1126,7 @@ impl<F: LurkField> Store<F> {
             let secret_num = self.intern_num(secret_element);
             Ok(secret_num)
         } else {
-            Err(LurkError::Store("secret could not be extracted".into()))
+            Err(Error("secret could not be extracted".into()))
         }
     }
 
@@ -1214,12 +1174,12 @@ impl<F: LurkField> Store<F> {
         self.intern_sym_with_case_conversion(name, &package)
     }
 
-    pub fn car(&self, expr: &Ptr<F>) -> Ptr<F> {
-        self.car_cdr(expr).0
+    pub fn car(&self, expr: &Ptr<F>) -> Result<Ptr<F>, Error> {
+        Ok(self.car_cdr(expr)?.0)
     }
 
-    pub fn cdr(&self, expr: &Ptr<F>) -> Ptr<F> {
-        self.car_cdr(expr).1
+    pub fn cdr(&self, expr: &Ptr<F>) -> Result<Ptr<F>, Error> {
+        Ok(self.car_cdr(expr)?.1)
     }
 
     pub(crate) fn poseidon_constants(&self) -> &HashConstants<F> {
@@ -1274,7 +1234,7 @@ impl<F: LurkField> Store<F> {
             self.fetch_char(&car).unwrap(),
             self.fetch_str(&cdr).unwrap(),
         );
-        let new_str = format!("{}{}", c, s);
+        let new_str = format!("{c}{s}");
 
         self.intern_str(&new_str)
     }
@@ -1660,7 +1620,11 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn get_char(&self, c: char) -> Ptr<F> {
-        Ptr(Tag::Char, RawPtr::new(u32::from(c) as usize))
+        self.get_char_from_u32(u32::from(c))
+    }
+
+    pub fn get_char_from_u32(&self, code: u32) -> Ptr<F> {
+        Ptr(Tag::Char, RawPtr::new(code as usize))
     }
 
     pub fn get_u64(&self, n: u64) -> Ptr<F> {
@@ -1986,12 +1950,12 @@ impl<F: LurkField> Store<F> {
     }
 
     /// Mutable version of car_cdr to handle Str. `(cdr str)` may return a new str (the tail), which must be allocated.
-    pub fn car_cdr_mut(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), String> {
+    pub fn car_cdr_mut(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
         match ptr.0 {
             Tag::Nil => Ok((self.get_nil(), self.get_nil())),
             Tag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
-                Some(Expression::Opaque(_)) => Err("cannot destructure opaque Cons".into()),
+                Some(Expression::Opaque(_)) => Err(Error("cannot destructure opaque Cons".into())),
                 _ => unreachable!(),
             },
             Tag::Str => {
@@ -2008,38 +1972,35 @@ impl<F: LurkField> Store<F> {
                     panic!();
                 }
             }
-            _ => Err("Invalid tag".into()),
+            _ => Err(Error("Invalid tag".into())),
         }
     }
 
-    pub fn car_cdr(&self, ptr: &Ptr<F>) -> (Ptr<F>, Ptr<F>) {
-        // FIXME: Maybe make error.
+    pub fn car_cdr(&self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
         match ptr.0 {
-            Tag::Nil => (self.get_nil(), self.get_nil()),
+            Tag::Nil => Ok((self.get_nil(), self.get_nil())),
             Tag::Cons => match self.fetch(ptr) {
-                Some(Expression::Cons(car, cdr)) => (car, cdr),
+                Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
                 Some(Expression::Opaque(_)) => panic!("cannot destructure opaque Cons"),
                 _ => unreachable!(),
             },
             Tag::Str => {
                 if let Some(Expression::Str(s)) = self.fetch(ptr) {
-                    let mut chars = s.chars();
-                    if let Some(c) = chars.next() {
-                        let cdr_str: String = chars.collect();
-                        let str = self.get_str(cdr_str).expect("cdr str missing");
-                        (self.get_char(c), str)
-                    } else {
-                        (self.get_nil(), self.get_str("").unwrap())
-                    }
+                    Ok({
+                        let mut chars = s.chars();
+                        if let Some(c) = chars.next() {
+                            let cdr_str: String = chars.collect();
+                            let str = self.get_str(cdr_str).expect("cdr str missing");
+                            (self.get_char(c), str)
+                        } else {
+                            (self.get_nil(), self.get_str("").unwrap())
+                        }
+                    })
                 } else {
                     panic!();
                 }
             }
-            _ => {
-                // FIXME: Don't panic. This can happen at runtime in a valid Lurk program,
-                // so it should result in an explicit error.
-                panic!("Can only extract car_cdr from Cons")
-            }
+            _ => Err(Error("Can only extract car_cdr from Cons".into())),
         }
     }
 
@@ -2465,12 +2426,12 @@ impl<F: LurkField> Store<F> {
 
                 if x.is_empty() {
                     let x: String = x;
-                    (x, format!(".{}", name))
+                    (x, format!(".{name}"))
                 } else if x.starts_with('.') {
                     let x: String = x;
-                    (x.clone(), format!("{}.{}", x, name))
+                    (x.clone(), format!("{x}.{name}"))
                 } else {
-                    (x.clone(), format!(".{}.{}", x, name))
+                    (x.clone(), format!(".{x}.{name}"))
                 }
             } else {
                 ("".to_string(), "".to_string())
@@ -2627,12 +2588,12 @@ impl<F: LurkField> Store<F> {
         RawPtr((p, true), Default::default())
     }
 
-    pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> Result<bool, LurkError> {
+    pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> Result<bool, Error> {
         // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
         // compound data with opaque data in either element's transitive closure.
         match (self.get_expr_hash(a), self.get_expr_hash(b)) {
             (Some(a_hash), Some(b_hash)) => Ok(a.0 == b.0 && a_hash == b_hash),
-            _ => Err(LurkError::Store(
+            _ => Err(Error(
                 "one or more values missing when comparing Ptrs for equality".into(),
             )),
         }
@@ -2891,7 +2852,7 @@ pub mod test {
     fn unit_op1_ipld() {
         assert_eq!(
             to_ipld(Op1::Car).unwrap(),
-            Ipld::Integer(0b0010_0000_0000_0000 as i128)
+            Ipld::Integer(0b0010_0000_0000_0000_i128)
         );
     }
 
@@ -2935,7 +2896,7 @@ pub mod test {
     fn unit_op2_ipld() {
         assert_eq!(
             to_ipld(Op2::Sum).unwrap(),
-            Ipld::Integer(0b0011_0000_0000_0000 as i128)
+            Ipld::Integer(0b0011_0000_0000_0000_i128)
         );
     }
 
@@ -3005,12 +2966,12 @@ pub mod test {
         let cons2 = store.intern_cons(a, b);
 
         assert_eq!(cons1, cons2);
-        assert_eq!(store.car(&cons1), store.car(&cons2));
-        assert_eq!(store.cdr(&cons1), store.cdr(&cons2));
+        assert_eq!(store.car(&cons1).unwrap(), store.car(&cons2).unwrap());
+        assert_eq!(store.cdr(&cons1).unwrap(), store.cdr(&cons2).unwrap());
 
-        let (a, d) = store.car_cdr(&cons1);
-        assert_eq!(store.car(&cons1), a);
-        assert_eq!(store.cdr(&cons1), d);
+        let (a, d) = store.car_cdr(&cons1).unwrap();
+        assert_eq!(store.car(&cons1).unwrap(), a);
+        assert_eq!(store.cdr(&cons1).unwrap(), d);
     }
 
     #[test]
@@ -3079,8 +3040,8 @@ pub mod test {
         let mut store = Store::<Fr>::default();
 
         let empty_env = empty_sym_env(&store);
-        let sym = store.sym(&"sym");
-        let sym2 = store.sym(&"sym2");
+        let sym = store.sym("sym");
+        let sym2 = store.sym("sym2");
         let sym_hash = store.hash_expr(&sym).unwrap();
         let sym_hash2 = store.hash_expr(&sym2).unwrap();
         let opaque_sym = store.intern_opaque_sym(*sym_hash.value());
@@ -3279,7 +3240,7 @@ pub mod test {
         let mut store = Store::<Fr>::default();
 
         let opaque_cons = make_opaque_cons(&mut store);
-        store.car(&opaque_cons);
+        store.car(&opaque_cons).unwrap();
     }
     #[test]
     #[should_panic]
@@ -3287,7 +3248,7 @@ pub mod test {
         let mut store = Store::<Fr>::default();
 
         let opaque_cons = make_opaque_cons(&mut store);
-        store.cdr(&opaque_cons);
+        store.cdr(&opaque_cons).unwrap();
     }
 
     #[test]
@@ -3295,14 +3256,14 @@ pub mod test {
         let mut store = Store::<Fr>::default();
 
         let opaque_cons = make_maybe_opaque_cons(&mut store, 123, 987);
-        store.car(&opaque_cons);
+        store.car(&opaque_cons).unwrap();
     }
     #[test]
     fn maybe_opaque_cons_cdr() {
         let mut store = Store::<Fr>::default();
 
         let opaque_cons = make_maybe_opaque_cons(&mut store, 123, 987);
-        store.cdr(&opaque_cons);
+        store.cdr(&opaque_cons).unwrap();
     }
 
     #[test]
@@ -3332,7 +3293,7 @@ pub mod test {
 
         let expr = s.read("(foo)").unwrap();
         let sym = s.read("foo").unwrap();
-        let sym1 = s.car(&expr);
+        let sym1 = s.car(&expr).unwrap();
         let sss = s.fetch_sym(&sym);
         let hash = s.get_expr_hash(&sym);
         dbg!(&sym1, &sss, &hash);
@@ -3359,8 +3320,8 @@ pub mod test {
         let s = &mut Store::<Fr>::default();
 
         let str = s.read(r#" "ORANGE" "#).unwrap();
-        let str2 = s.cdr(&str);
-        let c = s.car(&str);
+        let str2 = s.cdr(&str).unwrap();
+        let c = s.car(&str).unwrap();
 
         let str_hash = s.hash_expr(&str).unwrap().1;
 
@@ -3374,7 +3335,7 @@ pub mod test {
         let s = &mut Store::<Fr>::default();
 
         let str = s.read(str).unwrap();
-        let str2 = s.cdr(&str);
+        let str2 = s.cdr(&str).unwrap();
 
         // Unless the cache is hydrated, the inner destructuring will not map the ScalarPtr to corresponding Ptr.
         if hydrate {
@@ -3435,9 +3396,9 @@ pub mod test {
         let num = num::Num::from_scalar(scalar);
         assert_eq!(
             format!("<Opaque Comm {}>", Expression::Num(num).fmt_to_string(s)),
-            opaque_comm.fmt_to_string(&s),
+            opaque_comm.fmt_to_string(s),
         );
 
-        assert_eq!(opaque_comm.fmt_to_string(&s), expr.fmt_to_string(&s));
+        assert_eq!(opaque_comm.fmt_to_string(s), expr.fmt_to_string(s));
     }
 }

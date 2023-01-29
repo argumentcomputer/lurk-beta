@@ -188,11 +188,11 @@ impl Sym {
     }
 
     pub fn new_sym(name: String) -> Self {
-        Self::Sym(Symbol::new(format!(".{}", name)))
+        Self::Sym(Symbol::new(format!(".{name}")))
     }
 
     pub fn new_key(name: String) -> Self {
-        Self::Key(Symbol::new(format!(":{}", name)))
+        Self::Key(Symbol::new(format!(":{name}")))
     }
 
     pub fn new_opaque(keyword: bool) -> Self {

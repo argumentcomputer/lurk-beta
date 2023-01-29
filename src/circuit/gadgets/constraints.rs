@@ -1,5 +1,7 @@
 // Initially taken from: rust-fil-proofs/storage-proofs-core/src/gadgets/
 
+use crate::field::LurkField;
+use bellperson::LinearCombination;
 use bellperson::{
     gadgets::{
         boolean::{AllocatedBit, Boolean},
@@ -69,6 +71,39 @@ pub fn add<F: PrimeField, CS: ConstraintSystem<F>>(
     sum(&mut cs, || "sum constraint", a, b, &res);
 
     Ok(res)
+}
+
+/// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v`
+/// is equal to `sum`.
+///
+/// summation(v) = sum
+pub fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    v: &Vec<Boolean>,
+    sum: &AllocatedNum<F>,
+) {
+    let mut v_lc = LinearCombination::<F>::zero();
+    for i in 0..v.len() {
+        match v[i] {
+            Boolean::Constant(c) => {
+                if c {
+                    v_lc = v_lc + (F::one(), CS::one())
+                }
+            }
+            Boolean::Is(ref v) => v_lc = v_lc + (F::one(), v.get_variable()),
+            Boolean::Not(ref v) => {
+                v_lc = v_lc + (F::one(), CS::one()) - (F::one(), v.get_variable())
+            }
+        };
+    }
+
+    // (summation(v)) * 1 = sum
+    cs.enforce(
+        || "popcount",
+        |_| v_lc,
+        |lc| lc + CS::one(),
+        |lc| lc + sum.get_variable(),
+    );
 }
 
 /// Adds a constraint to CS, enforcing a difference relationship between the allocated numbers a, b, and difference.
@@ -196,7 +231,7 @@ pub fn select<F: PrimeField, CS: ConstraintSystem<F>>(
         let mut new_state = Vec::with_capacity(half_size);
         for j in 0..half_size {
             new_state.push(pick(
-                cs.namespace(|| format!("pick {}, {}", i, j)),
+                cs.namespace(|| format!("pick {i}, {j}")),
                 bit,
                 &state[half_size + j],
                 &state[j],
@@ -425,6 +460,28 @@ pub fn must_be_simple_bit(x: &Boolean) -> AllocatedBit {
         Boolean::Is(b) => b.clone(),
         Boolean::Not(_) => panic!("Expected a non-negated Boolean."),
     }
+}
+
+// Allocate Boolean for predicate "num is negative".
+// We have that a number is defined to be negative if the parity bit (the
+// least significant bit) is odd after doubling, meaning that the field element
+// (after doubling) is larger than the underlying prime p that defines the
+// field, then a modular reduction must have been carried out, changing the parity that
+// should be even (since we multiplied by 2) to odd. In other words, we define
+// negative numbers to be those field elements that are larger than p/2.
+pub fn allocate_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    num: &AllocatedNum<F>,
+) -> Result<Boolean, SynthesisError> {
+    let double_num = add(&mut cs.namespace(|| "double num"), num, num)?;
+    let double_num_bits = double_num
+        .to_bits_le_strict(&mut cs.namespace(|| "double num bits"))
+        .unwrap();
+
+    let lsb_2num = double_num_bits.get(0);
+    let num_is_negative = lsb_2num.unwrap();
+
+    Ok(num_is_negative.clone())
 }
 
 #[cfg(test)]

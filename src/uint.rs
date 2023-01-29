@@ -35,7 +35,7 @@ impl From<UInt> for u64 {
 impl Display for UInt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UInt::U64(n) => write!(f, "{}", n),
+            UInt::U64(n) => write!(f, "{n}"),
         }
     }
 }
@@ -44,7 +44,7 @@ impl Add for UInt {
     type Output = Self;
     fn add(self, other: Self) -> Self {
         match (self, other) {
-            (UInt::U64(a), UInt::U64(b)) => UInt::U64(unsafe { a.unchecked_add(b) }),
+            (UInt::U64(a), UInt::U64(b)) => UInt::U64(a.wrapping_add(b)),
         }
     }
 }
@@ -53,7 +53,7 @@ impl Sub for UInt {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
         match (self, other) {
-            (UInt::U64(a), UInt::U64(b)) => UInt::U64(unsafe { a.unchecked_sub(b) }),
+            (UInt::U64(a), UInt::U64(b)) => UInt::U64(a.wrapping_sub(b)),
         }
     }
 }
@@ -69,7 +69,7 @@ impl Mul for UInt {
     type Output = Self;
     fn mul(self, other: Self) -> Self {
         match (self, other) {
-            (UInt::U64(a), UInt::U64(b)) => UInt::U64(unsafe { a.unchecked_mul(b) }),
+            (UInt::U64(a), UInt::U64(b)) => UInt::U64(a.wrapping_mul(b)),
         }
     }
 }

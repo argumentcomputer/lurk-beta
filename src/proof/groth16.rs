@@ -19,7 +19,7 @@ use rand_xorshift::XorShiftRng;
 use serde::{Deserialize, Serialize};
 
 use crate::circuit::MultiFrame;
-use crate::error::Error;
+use crate::error::ProofError;
 use crate::eval::{Evaluator, Witness, IO};
 use crate::proof::{Provable, Prover, PublicParameters};
 use crate::store::{Ptr, Store};
@@ -117,7 +117,7 @@ impl Groth16Prover<Bls12> {
         store: &mut Store<Scalar>,
         limit: usize,
         mut rng: R,
-    ) -> Result<(Proof<Bls12>, IO<Scalar>, IO<Scalar>), Error> {
+    ) -> Result<(Proof<Bls12>, IO<Scalar>, IO<Scalar>), ProofError> {
         let padding_predicate = |count| self.needs_frame_padding(count);
         let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate)?;
         store.hydrate_scalar_cache();
@@ -347,14 +347,14 @@ mod tests {
 
         let pvk = groth16::prepare_verifying_key(&groth_params.vk);
 
-        let e = empty_sym_env(&s);
+        let e = empty_sym_env(s);
 
         if check_constraint_systems {
             let padding_predicate = |count| groth_prover.needs_frame_padding(count);
             let frames = Evaluator::generate_frames(expr, e, s, limit, padding_predicate).unwrap();
             s.hydrate_scalar_cache();
 
-            let multi_frames = MultiFrame::from_frames(DEFAULT_CHUNK_FRAME_COUNT, &frames, &s);
+            let multi_frames = MultiFrame::from_frames(DEFAULT_CHUNK_FRAME_COUNT, &frames, s);
 
             let cs = groth_prover.outer_synthesize(&multi_frames).unwrap();
 
@@ -385,7 +385,7 @@ mod tests {
                         groth_params,
                         &INNER_PRODUCT_SRS,
                         expr,
-                        empty_sym_env(&s),
+                        empty_sym_env(s),
                         s,
                         limit,
                         rng,
@@ -403,8 +403,8 @@ mod tests {
                     &srs_vk,
                     &pvk,
                     rng,
-                    &public_inputs.to_inputs(&s),
-                    &public_outputs.to_inputs(&s),
+                    &public_inputs.to_inputs(s),
+                    &public_outputs.to_inputs(s),
                     &proof.proof,
                     TRANSCRIPT_INCLUDE,
                     AggregateVersion::V2,
