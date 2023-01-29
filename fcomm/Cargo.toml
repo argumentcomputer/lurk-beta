@@ -30,7 +30,7 @@ serde_json = { version = "1.0" }
 structopt = { version = "0.3", default-features = false }
 clap = { version = "3.1", features = ["derive"] }
 clap-verbosity-flag = "1.0"
-pasta_curves = { version = "0.5.1", features = ["serde"], package = "fil_pasta_curves" }
+pasta_curves = { version = "0.5.2", features = ["serde"], package = "fil_pasta_curves" }
 
 [dev-dependencies]
 assert_cmd = "2.0.4"
