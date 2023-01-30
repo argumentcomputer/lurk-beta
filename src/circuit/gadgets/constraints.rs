@@ -186,16 +186,18 @@ pub fn sub<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(res)
 }
 
-/// Adds a constraint to CS, enforcing a product relationship between the allocated numbers a, b, and product.
+/// Adds a constraint to CS, enforcing a linear relationship between the
+/// allocated numbers a, b, c and num.  Namely, the linear equation
+/// a * b + c = num is enforced.
 ///
-/// a * b = product - c
+/// a * b = num - c
 pub fn linear<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
     a: &AllocatedNum<F>,
     b: &AllocatedNum<F>,
     c: &AllocatedNum<F>,
-    l: &AllocatedNum<F>,
+    num: &AllocatedNum<F>,
 ) where
     A: FnOnce() -> AR,
     AR: Into<String>,
@@ -205,7 +207,7 @@ pub fn linear<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
         annotation,
         |lc| lc + a.get_variable(),
         |lc| lc + b.get_variable(),
-        |lc| lc + l.get_variable() - c.get_variable(),
+        |lc| lc + num.get_variable() - c.get_variable(),
     );
 }
 

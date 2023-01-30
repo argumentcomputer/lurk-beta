@@ -4659,26 +4659,20 @@ pub fn to_unsigned_integer_helper<F: LurkField, CS: ConstraintSystem<F>>(
     let (q_bn, r_bn) = field_bn.div_rem(&power_of_two_bn);
     let q_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "q"), q_bn)?;
     let r_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "r"), r_bn)?;
+    let pow2_size = match size {
+        UnsignedInt::U32 => &g.power2_32_num,
+        UnsignedInt::U64 => &g.power2_64_num,
+    };
 
     // field element = pow(2, size).q + r
-    match size {
-        UnsignedInt::U32 => linear(
-            &mut cs,
-            || "product(q,pow(2,32)) + r",
-            &q_num,
-            &g.power2_32_num,
-            &r_num,
-            field_elem,
-        ),
-        UnsignedInt::U64 => linear(
-            &mut cs,
-            || "product(q,pow(2,64)) + r",
-            &q_num,
-            &g.power2_64_num,
-            &r_num,
-            field_elem,
-        ),
-    };
+    linear(
+        &mut cs,
+        || "product(q,pow(2,size)) + r",
+        &q_num,
+        pow2_size,
+        &r_num,
+        field_elem,
+    );
 
     let r_bits = &field_elem_bits[0..size.num_bits() as usize];
     enforce_pack(
