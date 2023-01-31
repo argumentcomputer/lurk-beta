@@ -4478,7 +4478,7 @@ fn to_comm<F: LurkField>(x: &AllocatedPtr<F>, g: &GlobalAllocations<F>) -> Alloc
     AllocatedPtr::from_parts(&g.comm_tag, x.hash())
 }
 
-fn get_named_components<'a, F: LurkField, CS: ConstraintSystem<F>>(
+fn get_named_components<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     cont_ptr: &AllocatedContPtr<F>,
     name: ContName,
