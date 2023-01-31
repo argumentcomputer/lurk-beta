@@ -2268,6 +2268,18 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_char_coercion() {
+        let s = &mut Store::<Fr>::default();
+        let expr = r#"(char (- 0 4294967200))"#;
+        let expr2 = r#"(char (- 0 4294967199))"#;
+        let expected_a = s.read(r#"#\a"#).unwrap();
+        let expected_b = s.read(r#"#\b"#).unwrap();
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 5);
+        nova_test_aux(s, expr2, Some(expected_b), None, Some(terminal), None, 5);
+    }
+
+    #[test]
     fn outer_prove_commit_num() {
         let s = &mut Store::<Fr>::default();
         let expr = "(num (commit 123))";
