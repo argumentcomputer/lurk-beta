@@ -47,7 +47,11 @@ Lurk backend integration is still immature, so current performance is not repres
 ## Submodules
 
 Lurk source files used in tests are in the [lurk-lib](https://github.com/lurk-lang/lurk-lib) submodule. You must
-initialize and update submodules before test will pass.
+initialize and update submodules before test will pass:
+
+```
+git submodule update --init --recursive
+```
 
 ## Wasm
 
@@ -69,8 +73,8 @@ bin/lurkrs
 
 Set the environment variable `LURK_FIELD` to specify the scalar field of the Lurk language instance:
 - `LURK_FIELD=PALLAS` (default): scalar field of Pallas
-- `LURK_FIELD=VESTA` (default): scalar field of Vesta
-- `LURK_FIELD=BLS12-381` (default): scalar field of BLS12-381
+- `LURK_FIELD=VESTA`: scalar field of Vesta
+- `LURK_FIELD=BLS12-381`: scalar field of BLS12-381
 
 ```
 ➜  lurk-rs ✗ bin/lurkrs

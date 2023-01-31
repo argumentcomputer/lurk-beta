@@ -1,19 +1,27 @@
 use super::constraints::{alloc_is_zero, pick};
+use super::data::GlobalAllocations;
+
+use crate::field::LurkField;
+
 use bellperson::{
     gadgets::boolean::{AllocatedBit, Boolean},
     gadgets::num::AllocatedNum,
     ConstraintSystem, SynthesisError,
 };
-use ff::PrimeField;
+use itertools::Itertools;
 
 use std::fmt::Debug;
 
-pub struct CaseClause<'a, F: PrimeField> {
+/*
+Initialized map entry for a fixed `key` with
+an allocated `value` computed at runtime.
+*/
+pub struct CaseClause<'a, F: LurkField> {
     pub key: F,
     pub value: &'a AllocatedNum<F>,
 }
 
-impl<F: PrimeField + Debug> Debug for CaseClause<'_, F> {
+impl<F: LurkField + Debug> Debug for CaseClause<'_, F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CaseClause")
             .field("key", &self.key)
@@ -29,12 +37,16 @@ impl<F: PrimeField + Debug> Debug for CaseClause<'_, F> {
     }
 }
 
-pub struct CaseConstraint<'a, F: PrimeField> {
-    selected: AllocatedNum<F>,
+/*
+An allocated `selected_key` supposedly equal to one of the fixed keys
+in the list of allocated map entries defined in `clauses`.
+*/
+pub struct CaseConstraint<'a, F: LurkField> {
+    selected_key: AllocatedNum<F>,
     clauses: &'a [CaseClause<'a, F>],
 }
 
-impl<F: PrimeField> CaseConstraint<'_, F> {
+impl<F: LurkField> CaseConstraint<'_, F> {
     /*
     This function returns not only the result of selection, but also the
     selector, a vector of selection bits, where exactly one bit is 1, and
@@ -43,6 +55,7 @@ impl<F: PrimeField> CaseConstraint<'_, F> {
     fn enforce_selection<CS: ConstraintSystem<F>>(
         self,
         cs: &mut CS,
+        zero: &AllocatedNum<F>,
     ) -> Result<(AllocatedNum<F>, Vec<AllocatedBit>), SynthesisError> {
         // Allocate one bit per clause, called selection bit. This creates
         // constraints enforcing that each bit is 0 or 1. In fact, the
@@ -50,13 +63,16 @@ impl<F: PrimeField> CaseConstraint<'_, F> {
         // are 0. This will be confirmed/enforced by later constraints.
         let mut selector = Vec::with_capacity(self.clauses.len());
         for (i, clause) in self.clauses.iter().enumerate() {
-            let is_selected = if let Some(value) = self.selected.get_value() {
+            // check each key is only included once
+            debug_assert!(self.clauses.iter().filter(|c| c.key == clause.key).count() == 1);
+
+            let is_selected = if let Some(value) = self.selected_key.get_value() {
                 clause.key == value
             } else {
                 false
             };
             selector.push(AllocatedBit::alloc(
-                cs.namespace(|| format!("selection bit {}", i)),
+                cs.namespace(|| format!("selection bit {i}")),
                 Some(is_selected),
             )?);
         }
@@ -64,6 +80,7 @@ impl<F: PrimeField> CaseConstraint<'_, F> {
         // We add up all bits. If the result is 1, then it means
         // there is exactly one bit equal 1, while others are 0.
         // This guarantees we don't have repeated selected keys.
+        // ( ∑ᵢ 1 ⋅ selectorᵢ ) * ( 1 ) = ( 1 )
         cs.enforce(
             || "exactly one selector is 1",
             |lc| {
@@ -76,18 +93,19 @@ impl<F: PrimeField> CaseConstraint<'_, F> {
         );
 
         // Apply selection.
+        // ( ∑ᵢ keyᵢ ⋅ selectorᵢ ) * (1) = selected_key
         cs.enforce(
             || "selection vector dot keys = selected",
             |lc| {
                 selector
                     .iter()
-                    .zip(&*self.clauses)
+                    .zip(self.clauses)
                     .fold(lc, |lc, (selector, clause)| {
                         lc + (clause.key, selector.get_variable())
                     })
             },
             |lc| lc + CS::one(),
-            |lc| lc + self.selected.get_variable(),
+            |lc| lc + self.selected_key.get_variable(),
         );
 
         let values = self
@@ -96,32 +114,37 @@ impl<F: PrimeField> CaseConstraint<'_, F> {
             .map(|c| c.value.clone())
             .collect::<Vec<_>>();
 
+        // result ← ∑ᵢ  selectorᵢ ⋅ valueᵢ
         let result = selector_dot_product(
             &mut cs.namespace(|| "extract result"),
             &selector,
             values.as_slice(),
+            zero,
         )?;
 
         Ok((result, selector))
     }
 }
 
-fn selector_dot_product<F: PrimeField, CS: ConstraintSystem<F>>(
+/*
+Returns ∑ᵢ  selector[i] ⋅ value_vector[i].
+*/
+fn selector_dot_product<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selector: &[AllocatedBit],
     value_vector: &[AllocatedNum<F>],
+    zero: &AllocatedNum<F>, // Must be a constant-allocated zero.
 ) -> Result<AllocatedNum<F>, SynthesisError> {
     let mut computed_result = F::zero();
 
     let mut all_products = Vec::new();
-    let zero = AllocatedNum::alloc(&mut cs.namespace(|| "zero"), || Ok(F::zero()))?;
 
     for (i, (bit, value)) in selector.iter().zip(value_vector).enumerate() {
         let allocated_prod = pick(
-            &mut cs.namespace(|| format!("allocated_prod {}", i)),
+            &mut cs.namespace(|| format!("allocated_prod {i}")),
             &Boolean::Is(bit.clone()),
             value,
-            &zero,
+            zero,
         )?;
 
         all_products.push(allocated_prod.clone());
@@ -150,14 +173,14 @@ fn selector_dot_product<F: PrimeField, CS: ConstraintSystem<F>>(
 Selects the clause whose key is equal to selected and returns its value,
 or if no key is selected, returns the default.
 */
-pub fn case<F: PrimeField, CS: ConstraintSystem<F>>(
+pub fn case<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selected: &AllocatedNum<F>,
     clauses: &[CaseClause<F>],
     default: &AllocatedNum<F>,
+    g: &GlobalAllocations<F>,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
-    assert!(!clauses.is_empty());
-    multi_case(cs, selected, &[clauses], &[default]).map(|r| r[0].to_owned())
+    multi_case(cs, selected, &[clauses], &[default], g).map(|r| r[0].to_owned())
 }
 
 /*
@@ -165,14 +188,34 @@ Selects the clauses whose key is equal to selected and returns
 a vector containing the corresponding values, or if no key is selected,
 returns the default.
 */
-pub fn multi_case<F: PrimeField, CS: ConstraintSystem<F>>(
+pub fn multi_case<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selected: &AllocatedNum<F>,
     cases: &[&[CaseClause<F>]],
     defaults: &[&AllocatedNum<F>],
+    g: &GlobalAllocations<F>,
 ) -> Result<Vec<AllocatedNum<F>>, SynthesisError> {
-    assert!(!cases.is_empty());
-    assert!(!defaults.is_empty());
+    let result = multi_case_aux(cs, selected, cases, defaults, g)?;
+    let selected = result.0;
+    Ok(selected)
+}
+
+/*
+ * Returns not only the selected clause, but also a Boolean that can
+ * be used to determine if the default clause was returned.
+ */
+pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    selected: &AllocatedNum<F>,
+    cases: &[&[CaseClause<F>]],
+    defaults: &[&AllocatedNum<F>],
+    g: &GlobalAllocations<F>,
+) -> Result<(Vec<AllocatedNum<F>>, Boolean), SynthesisError> {
+    debug_assert!(!cases.is_empty());
+    debug_assert_eq!(cases.len(), defaults.len());
+    debug_assert!(!cases[0].is_empty());
+    debug_assert!(cases.iter().map(|case| case.len()).all_equal());
+
     let mut result = Vec::new();
 
     // First clause in the list allows to constrain the selected key,
@@ -182,11 +225,10 @@ pub fn multi_case<F: PrimeField, CS: ConstraintSystem<F>>(
         let c = cases[0];
         let default = defaults[0];
 
-        assert!(!c.is_empty());
         let mut any_selected = false;
 
-        let mut acc =
-            AllocatedNum::alloc(cs.namespace(|| format!("acc, case {}", i)), || Ok(F::one()))?;
+        // acc ← 1
+        let mut acc = g.true_num.clone();
 
         for (i, clause) in c.iter().enumerate() {
             if Some(clause.key) == selected.get_value() {
@@ -204,8 +246,9 @@ pub fn multi_case<F: PrimeField, CS: ConstraintSystem<F>>(
                 x.mul_assign(&a)
             };
 
+            // new_acc ← x = acc * (clause.key[i] - selected)
             let new_acc = AllocatedNum::alloc(
-                &mut cs.namespace(|| format!("acc {}, case {}", i + 1, i)),
+                &mut cs.namespace(|| format!("acc {}, case {i}", i + 1)),
                 || {
                     if selected_present {
                         Ok(x)
@@ -215,9 +258,9 @@ pub fn multi_case<F: PrimeField, CS: ConstraintSystem<F>>(
                 },
             )?;
 
-            // acc * clause.key - selected = new_acc
+            // acc * ( clause.key - selected ) = new_acc
             cs.enforce(
-                || format!("acc * (clause-{}.key - selected) = new_acc, case {}", i, i),
+                || format!("acc * (clause-{i}.key - selected) = new_acc, case {i}"),
                 |lc| lc + acc.get_variable(),
                 |_| Boolean::Constant(true).lc(CS::one(), clause.key) - selected.get_variable(),
                 |lc| lc + new_acc.get_variable(),
@@ -226,14 +269,14 @@ pub fn multi_case<F: PrimeField, CS: ConstraintSystem<F>>(
             acc = new_acc;
         }
 
-        // acc = prod_i(clause[i].key - selected)
+        // acc = ∏ᵢ (clause[i].key - selected)
         // Therefore acc is zero if and only if some key was selected.
-        let is_selected = alloc_is_zero(cs.namespace(|| format!("is_selected, case {}", i)), &acc)?;
+        let is_selected = alloc_is_zero(cs.namespace(|| format!("is_selected, case {i}")), &acc)?;
 
         // If no selection matched, use a dummy key so constraints are met.
         // We will actually return the default value, though.
         let dummy_key = c[0].key;
-        let selected = AllocatedNum::alloc(cs.namespace(|| "default key"), || {
+        let selected_key = AllocatedNum::alloc(cs.namespace(|| "default key"), || {
             if any_selected {
                 selected
                     .get_value()
@@ -246,17 +289,18 @@ pub fn multi_case<F: PrimeField, CS: ConstraintSystem<F>>(
         // enforce_selection() guarantees no repeated selected keys exist
         // and returns a tuple containing the result and the selector
         let cc = CaseConstraint {
-            selected,
+            selected_key,
             clauses: c,
         };
+        let zero = &g.false_num;
         let (enforced_result, selector) =
-            cc.enforce_selection(&mut cs.namespace(|| format!("case {}", i)))?;
+            cc.enforce_selection(&mut cs.namespace(|| format!("case {i}")), zero)?;
 
         // If no selection matched, choose the default value
         let is_default = is_selected.not();
 
         result.push(pick(
-            &mut cs.namespace(|| format!("maybe default, case {}", i)),
+            &mut cs.namespace(|| format!("maybe default, case {i}")),
             &is_default,
             default,
             &enforced_result,
@@ -269,15 +313,9 @@ pub fn multi_case<F: PrimeField, CS: ConstraintSystem<F>>(
     // of the corresponding values in next clauses
     // 1..n
     for (i, (c, default)) in cases.iter().zip(defaults).enumerate().skip(1) {
-        assert!(!c.is_empty());
-
         // Ensure key ordering actually matches
         for (j, case) in c.iter().enumerate() {
-            assert_eq!(
-                case.key, cases[0][j].key,
-                "Key ordering missmatch {}:{}",
-                i, j
-            );
+            debug_assert_eq!(case.key, cases[0][j].key, "Key ordering missmatch {i}:{j}");
         }
 
         let values = c
@@ -285,20 +323,22 @@ pub fn multi_case<F: PrimeField, CS: ConstraintSystem<F>>(
             .map(|clause| clause.value.clone())
             .collect::<Vec<_>>();
 
+        let zero = &g.false_num;
         let next_enforced_value = selector_dot_product(
-            &mut cs.namespace(|| format!("extract result, case {}", i)),
+            &mut cs.namespace(|| format!("extract result, case {i}")),
             &selector,
             &values,
+            zero,
         )?;
         result.push(pick(
-            &mut cs.namespace(|| format!("maybe default, case {}", i)),
+            &mut cs.namespace(|| format!("maybe default, case {i}")),
             &is_default,
             default,
             &next_enforced_value,
         )?);
     }
 
-    Ok(result)
+    Ok((result, is_default))
 }
 
 #[allow(unused_imports)]
@@ -306,6 +346,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     use super::*;
+    use crate::store::Store;
+
     use bellperson::util_cs::{
         metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta,
     };
@@ -313,6 +355,8 @@ mod tests {
     #[test]
     fn simple_case() {
         let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+        let g = GlobalAllocations::new(&mut cs, s).unwrap();
 
         let x = Fr::from(123);
         let y = Fr::from(124);
@@ -320,7 +364,7 @@ mod tests {
         let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
         let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
         let default =
-            AllocatedNum::alloc(cs.namespace(|| "default"), || Ok(Fr::from(999))).unwrap();
+            AllocatedNum::alloc(cs.namespace(|| "default_v"), || Ok(Fr::from(999))).unwrap();
 
         {
             let clauses = [
@@ -339,6 +383,7 @@ mod tests {
                 &selected,
                 &clauses,
                 &default,
+                &g,
             )
             .unwrap();
 
@@ -352,11 +397,15 @@ mod tests {
                 value: &val0,
             }];
 
+            let default_chosen =
+                AllocatedNum::alloc(cs.namespace(|| "default chosen"), || Ok(Fr::from(999)))
+                    .unwrap();
             let result = case(
                 &mut cs.namespace(|| "default case"),
                 &selected,
                 &clauses,
-                &default,
+                &default_chosen,
+                &g,
             )
             .unwrap();
 
@@ -368,6 +417,8 @@ mod tests {
     #[test]
     fn multicase() {
         let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+        let g = GlobalAllocations::new(&mut cs, s).unwrap();
 
         let x = Fr::from(123);
         let y = Fr::from(124);
@@ -422,6 +473,7 @@ mod tests {
                 &selected0,
                 &clauses_vec,
                 &default_vec,
+                &g,
             )
             .unwrap();
 
@@ -436,6 +488,7 @@ mod tests {
                 &selected1,
                 &clauses_vec,
                 &default_vec,
+                &g,
             )
             .unwrap();
 
@@ -447,9 +500,24 @@ mod tests {
     }
 
     #[test]
-    fn multicase_negative1() {
+    #[cfg(debug_assertions)]
+    #[should_panic]
+    fn multicase_negative1_panic() {
+        multicase_negative1_aux();
+    }
+
+    #[test]
+    #[cfg(not(debug_assertions))]
+    fn multicase_negative1_unsatisfied() {
+        multicase_negative1_aux();
+    }
+
+    #[allow(dead_code)]
+    fn multicase_negative1_aux() {
         // Test invalid multicase (repeated keys)
         let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+        let g = GlobalAllocations::new(&mut cs, s).unwrap();
 
         let x = Fr::from(123);
         let z = Fr::from(125);
@@ -492,15 +560,19 @@ mod tests {
             &selected,
             &invalid_clauses_vec,
             &default_vec,
+            &g,
         );
         assert!(!cs.is_satisfied());
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     #[should_panic(expected = "assertion failed: `(left == right)")]
     fn multicase_negative2() {
         // Test invalid multicase (keys ording doesn't match)
         let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+        let g = GlobalAllocations::new(&mut cs, s).unwrap();
 
         let x = Fr::from(123);
         let y = Fr::from(124);
@@ -545,14 +617,18 @@ mod tests {
             &selected,
             &invalid_clauses_vec,
             &default_vec,
+            &g,
         );
     }
 
     #[test]
-    #[should_panic(expected = "index out of bounds: the len is 2 but the index is 2")]
+    #[cfg(debug_assertions)]
+    #[should_panic]
     fn multicase_negative3() {
         // Test invalid multicase (clauses sizes doesn't match)
         let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+        let g = GlobalAllocations::new(&mut cs, s).unwrap();
 
         let x = Fr::from(123);
         let y = Fr::from(124);
@@ -600,14 +676,18 @@ mod tests {
             &selected,
             &invalid_clauses_vec,
             &default_vec,
+            &g,
         );
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     #[should_panic(expected = "assertion failed: !cases.is_empty()")]
     fn multicase_negative4() {
         // Test invalid multicase (empty clauses)
         let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+        let g = GlobalAllocations::new(&mut cs, s).unwrap();
 
         let x = Fr::from(123);
         let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
@@ -621,14 +701,18 @@ mod tests {
             &selected,
             &[],
             &default_vec,
+            &g,
         );
     }
 
     #[test]
-    #[should_panic(expected = "assertion failed: !defaults.is_empty()")]
+    #[cfg(debug_assertions)]
+    #[should_panic]
     fn multicase_negative5() {
         // Test invalid multicase (empty defaults)
         let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+        let g = GlobalAllocations::new(&mut cs, s).unwrap();
 
         let x = Fr::from(123);
         let y = Fr::from(124);
@@ -668,14 +752,18 @@ mod tests {
             &selected,
             &clauses_vec,
             &[],
+            &g,
         );
     }
 
     #[test]
-    #[should_panic(expected = "assertion failed: !c.is_empty()")]
+    #[cfg(debug_assertions)]
+    #[should_panic]
     fn multicase_negative6() {
         // Test invalid multicase (empty case).
         let mut cs = TestConstraintSystem::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+        let g = GlobalAllocations::new(&mut cs, s).unwrap();
 
         let x = Fr::from(123);
         let y = Fr::from(124);
@@ -705,6 +793,7 @@ mod tests {
             &selected,
             &clauses_vec,
             &default_vec,
+            &g,
         );
     }
 
@@ -712,6 +801,9 @@ mod tests {
     fn groth_case() {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let mut cs_blank = MetricCS::<Fr>::new();
+        let s = &mut Store::<Fr>::default();
+        let g = GlobalAllocations::new(&mut cs, s).unwrap();
+        let g_blank = GlobalAllocations::new(&mut cs_blank, s).unwrap();
 
         let x = Fr::from(123);
         let y = Fr::from(124);
@@ -731,9 +823,11 @@ mod tests {
         })
         .unwrap();
         let default =
-            AllocatedNum::alloc(cs.namespace(|| "default"), || Ok(Fr::from(999))).unwrap();
-        let default_blank =
-            AllocatedNum::alloc(cs_blank.namespace(|| "default"), || Ok(Fr::from(999))).unwrap();
+            AllocatedNum::alloc(cs.namespace(|| "default_v"), || Ok(Fr::from(999))).unwrap();
+        let default_blank = AllocatedNum::alloc(cs_blank.namespace(|| "default_v"), || {
+            Err(SynthesisError::AssignmentMissing)
+        })
+        .unwrap();
 
         {
             let clauses = [
@@ -752,6 +846,7 @@ mod tests {
                 &selected,
                 &clauses,
                 &default,
+                &g,
             )
             .unwrap();
 
@@ -775,6 +870,7 @@ mod tests {
                 &selected,
                 &clauses_blank,
                 &default_blank,
+                &g_blank,
             )
             .unwrap();
 

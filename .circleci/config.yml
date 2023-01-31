@@ -46,7 +46,7 @@ commands:
     steps:
       - save_cache:
           name: "Save rustup cache"
-          key: cargo-v2-{{ checksum "rust-toolchain" }}-{{ checksum "Cargo.toml" }}-{{ checksum "Cargo.lock" }}-{{arch}}
+          key: cargo-v2-{{ checksum "rust-toolchain" }}-{{ checksum "Cargo.toml" }}-{{ checksum "Cargo.lock" }}-{{ arch }}
           paths:
             - "~/.cargo"
             - "~/.rustup"
@@ -56,7 +56,6 @@ commands:
         - restore_cache:
             keys:
               - cargo-v2-{{ checksum "rust-toolchain" }}-{{ checksum "Cargo.toml" }}-{{ checksum "Cargo.lock" }}-{{ arch }}
-              - repo-source-{{ .Branch }}-{{ .Revision }}
 
   install_gpu_deps:
     steps:
@@ -79,9 +78,7 @@ jobs:
       - run:
           name: Calculate dependencies
           command: cargo generate-lockfile
-      - restore_cache:
-          keys:
-            - cargo-v2-{{ checksum "rust-toolchain" }}-{{ checksum "Cargo.toml" }}-{{ checksum "Cargo.lock" }}-{{ arch }}
+      - restore_rustup_cache
       - run: cargo update
       - run: cargo fetch
       - run: rm -rf .git
@@ -149,7 +146,7 @@ jobs:
       - run: cargo fetch
       - run:
           name: Arm64 Tests
-          command: cargo test --workspace
+          command: cargo test --workspace --release
           no_output_timeout: 120m
 
   mac:
@@ -173,7 +170,7 @@ jobs:
       - run: cargo fetch
       - run:
           name: MacOS Tests
-          command: cargo test --workspace
+          command: cargo test --workspace --release
           no_output_timeout: 120m
 
   clippy:

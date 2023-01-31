@@ -23,7 +23,8 @@ use lurk::{
     field::LurkField,
     proof::{
         self,
-        groth16::{Groth16, Groth16Prover, INNER_PRODUCT_SRS},
+        groth16::{Groth16Prover, INNER_PRODUCT_SRS},
+        Prover,
     },
     scalar_store::ScalarStore,
     store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store, Tag},
@@ -66,10 +67,9 @@ pub fn committed_function_store() -> FileMap<Commitment<Scalar>, Function<Scalar
 }
 
 fn get_pvk(rc: ReductionCount) -> groth16::PreparedVerifyingKey<Bls12> {
-    let groth_prover = Groth16Prover::new(rc.reduction_frame_count());
-
     info!("Getting Parameters");
-    let groth_params = groth_prover.groth_params().unwrap();
+    let public_params = Groth16Prover::create_groth_params(rc.reduction_frame_count()).unwrap();
+    let groth_params = &public_params.0;
 
     info!("Preparing verifying key");
     groth16::prepare_verifying_key(&groth_params.vk)
@@ -329,7 +329,7 @@ pub enum Error {
     SynthesisError(SynthesisError),
     CommitmentParseError(hex::FromHexError),
     UnknownCommitment,
-    OpeningFailure,
+    OpeningFailure(String),
     EvaluationFailure,
 }
 
@@ -687,13 +687,21 @@ impl Opening<Scalar> {
 
             // public_output = (result_expr (secret . new_fun))
             let cons = public_output.expr;
-            let result_expr = s.car(&cons);
-            let new_comm = s.cdr(&cons);
+            let result_expr = s.car(&cons).map_err(|e| {
+                Error::OpeningFailure(format!(
+                    "Failed destructuring failed commitment output: {e}"
+                ))
+            })?;
+            let new_comm = s.cdr(&cons).map_err(|e| {
+                Error::OpeningFailure(format!(
+                    "Failed destructuring failed commitment output: {e}"
+                ))
+            })?;
 
             let new_secret0 = s.secret(new_comm).expect("secret missing");
             let new_secret = *s.get_expr_hash(&new_secret0).expect("hash missing").value();
 
-            let new_fun = s.open(new_comm).expect("opening missing");
+            let (_, new_fun) = s.open(new_comm).expect("opening missing");
             let new_commitment = Commitment::from_comm(s, &new_comm);
 
             s.hydrate_scalar_cache();
@@ -799,8 +807,10 @@ impl Proof<Bls12> {
         let reduction_count = DEFAULT_REDUCTION_COUNT;
 
         info!("Getting Parameters");
+        let public_params =
+            Groth16Prover::create_groth_params(reduction_count.reduction_frame_count()).unwrap();
         let groth_prover = Groth16Prover::new(reduction_count.reduction_frame_count());
-        let groth_params = groth_prover.groth_params().unwrap();
+        let groth_params = &public_params.0;
 
         info!("Starting Proving");
 
@@ -840,7 +850,7 @@ impl Proof<Bls12> {
         match &proof.claim {
             Claim::Opening(o) => {
                 if o.status != Status::Terminal {
-                    return Err(Error::OpeningFailure);
+                    return Err(Error::OpeningFailure("Claim status is not Terminal".into()));
                 };
             }
             Claim::Evaluation(e) => {
@@ -898,10 +908,11 @@ impl Proof<Bls12> {
         let input_io = {
             let expr = s
                 .read(&evaluation.expr)
-                .ok_or_else(|| Error::VerificationError("failed to read expr".into()))?;
+                .map_err(|_| Error::VerificationError("failed to read expr".into()))?;
+
             let env = s
                 .read(&evaluation.env)
-                .ok_or_else(|| Error::VerificationError("failed to read env".into()))?;
+                .map_err(|_| Error::VerificationError("failed to read env".into()))?;
 
             // FIXME: We ignore cont and assume Outermost, since we can't read a Cont.
             let cont = s.intern_cont_outermost();
@@ -914,8 +925,11 @@ impl Proof<Bls12> {
         let output_io = {
             let expr = s
                 .read(&evaluation.expr_out)
-                .ok_or_else(|| Error::VerificationError("failed to read expr_out".into()))?;
-            let env = s.read(&evaluation.env_out).expect("failed to read env_out");
+                .map_err(|_| Error::VerificationError("failed to read expr out".into()))?;
+
+            let env = s
+                .read(&evaluation.env_out)
+                .map_err(|_| Error::VerificationError("failed to read env out".into()))?;
             let cont = evaluation
                 .status
                 .to_cont(&mut s)

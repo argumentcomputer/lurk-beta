@@ -1,23 +1,34 @@
+use crate::store;
 use bellperson::SynthesisError;
 use nova::errors::NovaError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum Error {
+pub enum ProofError {
     #[error("Nova error")]
     Nova(NovaError),
     #[error("Synthesis error: {0}")]
     Synthesis(#[from] SynthesisError),
-    #[error("Lurk error: {0}")]
-    Lurk(#[from] LurkError),
+    #[error("Reduction error: {0}")]
+    Reduction(#[from] ReductionError),
+}
+
+impl From<NovaError> for ProofError {
+    fn from(e: NovaError) -> Self {
+        Self::Nova(e)
+    }
+}
+
+impl From<store::Error> for ProofError {
+    fn from(e: store::Error) -> Self {
+        Self::Reduction(e.into())
+    }
 }
 
 #[derive(Error, Debug, Clone)]
-pub enum LurkError {
-    #[error("Evaluation error: {0}")]
-    Eval(String),
-    #[error("Reduction error: {0}")]
-    Reduce(String),
+pub enum ReductionError {
+    #[error("Miscellaneous error: {0}")]
+    Misc(String),
     #[error("Lookup error: {0}")]
-    Store(String),
+    Store(#[from] store::Error),
 }

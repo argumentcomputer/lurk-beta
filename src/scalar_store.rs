@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crate::field::LurkField;
 
 use crate::store::{Op1, Op2, Pointer, Ptr, ScalarContPtr, ScalarPtr, Store, Tag};
-use crate::Num;
+use crate::{Num, Sym, UInt};
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -17,7 +17,7 @@ pub struct ScalarStore<F: LurkField> {
     pending_scalar_ptrs: Vec<ScalarPtr<F>>,
 }
 
-impl<'a, F: LurkField> ScalarStore<F> {
+impl<F: LurkField> ScalarStore<F> {
     /// Create a new `ScalarStore` and add all `ScalarPtr`s reachable in the scalar representation of `expr`.
     pub fn new_with_expr(store: &Store<F>, expr: &Ptr<F>) -> (Self, Option<ScalarPtr<F>>) {
         let mut new = Self::default();
@@ -90,6 +90,7 @@ impl<'a, F: LurkField> ScalarStore<F> {
             ScalarExpression::Str(_) => None,
             ScalarExpression::Thunk(_) => None,
             ScalarExpression::Char(_) => None,
+            ScalarExpression::UInt(_) => None,
         }
     }
 
@@ -150,7 +151,7 @@ impl<'a, F: LurkField> ScalarStore<F> {
     }
 }
 
-impl<'a, F: LurkField> ScalarExpression<F> {
+impl<F: LurkField> ScalarExpression<F> {
     fn from_ptr(store: &Store<F>, ptr: &Ptr<F>) -> Option<Self> {
         match ptr.tag() {
             Tag::Nil => Some(ScalarExpression::Nil),
@@ -166,9 +167,8 @@ impl<'a, F: LurkField> ScalarExpression<F> {
                     .get_expr_hash(payload)
                     .map(|payload| ScalarExpression::Comm(secret.0, payload))
             }),
-            Tag::Sym => store
-                .fetch_sym(ptr)
-                .map(|str| ScalarExpression::Sym(str.into())),
+            Tag::Sym => store.fetch_sym(ptr).map(|sym| ScalarExpression::Sym(sym)),
+            Tag::Key => store.fetch_sym(ptr).map(|sym| ScalarExpression::Sym(sym)),
             Tag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
                 store.get_expr_hash(arg).and_then(|arg| {
                     store.get_expr_hash(body).and_then(|body| {
@@ -191,6 +191,7 @@ impl<'a, F: LurkField> ScalarExpression<F> {
                 .fetch_str(ptr)
                 .map(|str| ScalarExpression::Str(str.to_string())),
             Tag::Char => store.fetch_char(ptr).map(ScalarExpression::Char),
+            Tag::U64 => store.fetch_uint(ptr).map(ScalarExpression::UInt),
             Tag::Thunk => unimplemented!(),
         }
     }
@@ -201,7 +202,7 @@ pub enum ScalarExpression<F: LurkField> {
     Nil,
     Cons(ScalarPtr<F>, ScalarPtr<F>),
     Comm(F, ScalarPtr<F>),
-    Sym(String),
+    Sym(Sym),
     Fun {
         arg: ScalarPtr<F>,
         body: ScalarPtr<F>,
@@ -211,9 +212,10 @@ pub enum ScalarExpression<F: LurkField> {
     Str(String),
     Thunk(ScalarThunk<F>),
     Char(char),
+    UInt(UInt),
 }
 
-impl<'a, F: LurkField> Default for ScalarExpression<F> {
+impl<F: LurkField> Default for ScalarExpression<F> {
     fn default() -> Self {
         Self::Nil
     }
@@ -294,6 +296,7 @@ mod test {
     use crate::eval::empty_sym_env;
     use crate::field::FWrap;
     use crate::store::ScalarPointer;
+    use crate::{Sym, Symbol};
     use blstrs::Scalar as Fr;
 
     use quickcheck::{Arbitrary, Gen};
@@ -308,6 +311,15 @@ mod test {
             ScalarThunk {
                 value: Arbitrary::arbitrary(g),
                 continuation: Arbitrary::arbitrary(g),
+            }
+        }
+    }
+
+    impl Arbitrary for Symbol {
+        fn arbitrary(g: &mut Gen) -> Self {
+            Symbol {
+                path: Arbitrary::arbitrary(g),
+                opaque: Arbitrary::arbitrary(g),
             }
         }
     }
@@ -333,7 +345,7 @@ mod test {
                     100,
                     Box::new(|g| Self::Cons(ScalarPtr::arbitrary(g), ScalarPtr::arbitrary(g))),
                 ),
-                (100, Box::new(|g| Self::Sym(String::arbitrary(g)))),
+                (100, Box::new(|g| Self::Sym(Sym::Sym(Symbol::arbitrary(g))))),
                 (100, Box::new(|g| Self::Str(String::arbitrary(g)))),
                 (
                     100,
@@ -452,20 +464,20 @@ mod test {
         match to_ipld(x.clone()) {
             Ok(ipld) => match from_ipld(ipld.clone()) {
                 Ok(y) => {
-                    println!("x: {:?}", x);
-                    println!("y: {:?}", y);
+                    println!("x: {x:?}");
+                    println!("y: {y:?}");
                     x == y
                 }
                 Err(e) => {
-                    println!("ser x: {:?}", x);
-                    println!("de ipld: {:?}", ipld);
-                    println!("err e: {:?}", e);
+                    println!("ser x: {x:?}");
+                    println!("de ipld: {ipld:?}");
+                    println!("err e: {e:?}");
                     false
                 }
             },
             Err(e) => {
-                println!("ser x: {:?}", x);
-                println!("err e: {:?}", e);
+                println!("ser x: {x:?}");
+                println!("err e: {e:?}");
                 false
             }
         }
@@ -528,21 +540,24 @@ mod test {
                     let (scalar_store3, _) = ScalarStore::new_with_expr(&store2, &expr2);
                     assert_eq!(scalar_store2, scalar_store3)
                 } else {
-                    assert!(false)
+                    panic!()
                 }
             } else {
-                assert!(false)
+                panic!()
             }
         };
 
         test("symbol");
         test("1");
         test("(1 . 2)");
+        test("(1 2)");
         test("\"foo\" . \"bar\")");
         test("(foo . bar)");
+
         test("(1 . 2)");
         test("(+ 1 2 3)");
         test("(+ 1 2 (* 3 4))");
+
         test("(+ 1 2 (* 3 4) \"asdf\" )");
         test("(+ 1 2 2 (* 3 4) \"asdf\" \"asdf\")");
     }
@@ -568,10 +583,10 @@ mod test {
             ) = eval.eval().unwrap();
 
             let (scalar_store, _) = ScalarStore::new_with_expr(&s, &expr);
-            println!("{:?}", scalar_store);
+            println!("{scalar_store:?}");
             let ipld = to_ipld(scalar_store.clone()).unwrap();
             let scalar_store2 = from_ipld(ipld).unwrap();
-            println!("{:?}", scalar_store2);
+            println!("{scalar_store2:?}");
             assert_eq!(scalar_store, scalar_store2);
         };
 
@@ -638,7 +653,7 @@ mod test {
     fn test_scalar_store_opaque_sym() {
         let mut store = Store::<Fr>::default();
 
-        let sym = store.sym(&"sym");
+        let sym = store.sym("sym");
         let sym_hash = store.hash_expr(&sym).unwrap();
         let opaque_sym = store.intern_maybe_opaque_sym(*sym_hash.value());
 
@@ -652,7 +667,7 @@ mod test {
     fn test_scalar_store_opaque_str() {
         let mut store = Store::<Fr>::default();
 
-        let str = store.str(&"str");
+        let str = store.str("str");
         let str_hash = store.hash_expr(&str).unwrap();
         let opaque_str = store.intern_maybe_opaque_sym(*str_hash.value());
 

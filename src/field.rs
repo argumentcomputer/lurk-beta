@@ -16,13 +16,19 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     // multicodec, ideally extended to include arbitrary precision codecs
     const FIELD_CODEC: u64;
     const HASH_CODEC: u64;
-    const LURK_CODEC_PREFIX: u64 = 0xc0de;
+    const LURK_CODEC_PREFIX: u64 = 0x10de;
     const NUM_BYTES: usize;
 
     fn from_bytes(bs: &[u8]) -> Option<Self> {
         let mut def: Self::Repr = Self::default().to_repr();
         def.as_mut().copy_from_slice(bs);
         Self::from_repr(def).into()
+    }
+    // Return a u32 corresponding to the first 4 little-endian bytes of this field element, discarding the remaining bytes.
+    fn to_u32_unchecked(&self) -> u32 {
+        let mut byte_array = [0u8; 4];
+        byte_array.copy_from_slice(&self.to_repr().as_ref()[0..4]);
+        u32::from_le_bytes(byte_array)
     }
     fn to_u32(&self) -> Option<u32> {
         for x in &self.to_repr().as_ref()[4..] {
@@ -43,6 +49,17 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         let mut byte_array = [0u8; 8];
         byte_array.copy_from_slice(&self.to_repr().as_ref()[0..8]);
         Some(u64::from_le_bytes(byte_array))
+    }
+    // Return a u64 corresponding to the first 8 little-endian bytes of this field element, discarding the remaining bytes.
+    fn to_u64_unchecked(&self) -> u64 {
+        let mut byte_array = [0u8; 8];
+        byte_array.copy_from_slice(&self.to_repr().as_ref()[0..8]);
+        u64::from_le_bytes(byte_array)
+    }
+    fn from_u64(x: u64) -> Option<Self> {
+        let mut bytes = vec![0; 32];
+        bytes[0..8].as_mut().copy_from_slice(&x.to_le_bytes());
+        Self::from_bytes(&bytes)
     }
 
     fn most_negative() -> Self {
@@ -85,7 +102,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         if lurk_prefix != Self::LURK_CODEC_PREFIX || field_prefix != Self::FIELD_CODEC {
             None
         } else {
-            Some(Self::from(digest as u64))
+            Some(Self::from(digest))
         }
     }
 
@@ -111,7 +128,6 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
 impl LurkField for blstrs::Scalar {
     const FIELD_CODEC: u64 = 1;
     const HASH_CODEC: u64 = 2;
-    const LURK_CODEC_PREFIX: u64 = 0xc0de;
     const NUM_BYTES: usize = 32;
 
     fn to_tag(f: Self) -> Option<u32> {
@@ -128,7 +144,6 @@ impl LurkField for blstrs::Scalar {
 impl LurkField for pasta_curves::Fq {
     const FIELD_CODEC: u64 = 2;
     const HASH_CODEC: u64 = 3;
-    const LURK_CODEC_PREFIX: u64 = 0xc0de;
     const NUM_BYTES: usize = 32;
 
     fn to_tag(f: Self) -> Option<u32> {
@@ -145,7 +160,6 @@ impl LurkField for pasta_curves::Fq {
 impl LurkField for pasta_curves::Fp {
     const FIELD_CODEC: u64 = 3;
     const HASH_CODEC: u64 = 3;
-    const LURK_CODEC_PREFIX: u64 = 0xc0de;
     const NUM_BYTES: usize = 32;
 
     fn to_tag(f: Self) -> Option<u32> {
@@ -229,10 +243,10 @@ mod test {
         let f1 = Fr::from(x as u64);
         let codec = <Fr as LurkField>::to_multicodec(f1).unwrap();
         let f2 = <Fr as LurkField>::from_multicodec(codec);
-        println!("x: {:?}", x);
-        println!("f1: {}", f1);
-        println!("codec: {:0x}", codec);
-        println!("f2: {}", f1);
+        println!("x: {x:?}");
+        println!("f1: {f1}");
+        println!("codec: {codec:0x}");
+        println!("f2: {f1}");
         Some(f1) == f2
     }
     #[quickcheck]

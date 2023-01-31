@@ -21,10 +21,10 @@ use crate::circuit::{
     },
     CircuitFrame, MultiFrame,
 };
-use crate::error::Error;
+use crate::error::ProofError;
 use crate::eval::{Evaluator, Frame, Witness, IO};
 use crate::field::LurkField;
-use crate::proof::Prover;
+use crate::proof::{Prover, PublicParameters};
 use crate::store::{Ptr, Store};
 
 pub type G1 = pallas::Point;
@@ -63,26 +63,29 @@ pub struct NovaProver<F: LurkField> {
     _p: PhantomData<F>,
 }
 
-impl<F: LurkField> Prover<F> for NovaProver<F> {
+impl<'a> PublicParameters for PublicParams<'a> {}
+
+impl<'a, F: LurkField> Prover<'a, F> for NovaProver<F> {
+    type PublicParams = PublicParams<'a>;
+    fn new(chunk_frame_count: usize) -> Self {
+        NovaProver::<F> {
+            chunk_frame_count,
+            _p: PhantomData::<F>,
+        }
+    }
     fn chunk_frame_count(&self) -> usize {
         self.chunk_frame_count
     }
 }
 
 impl<F: LurkField> NovaProver<F> {
-    pub fn new(chunk_frame_count: usize) -> Self {
-        NovaProver::<F> {
-            chunk_frame_count,
-            _p: PhantomData::<F>,
-        }
-    }
     fn get_evaluation_frames(
         &self,
         expr: Ptr<S1>,
         env: Ptr<S1>,
         store: &mut Store<S1>,
         limit: usize,
-    ) -> Result<Vec<Frame<IO<S1>, Witness<S1>>>, Error> {
+    ) -> Result<Vec<Frame<IO<S1>, Witness<S1>>>, ProofError> {
         let padding_predicate = |count| self.needs_frame_padding(count);
 
         let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate)?;
@@ -97,10 +100,10 @@ impl<F: LurkField> NovaProver<F> {
         env: Ptr<S1>,
         store: &'a mut Store<S1>,
         limit: usize,
-    ) -> Result<(Proof, Vec<S1>, Vec<S1>, usize), Error> {
+    ) -> Result<(Proof, Vec<S1>, Vec<S1>, usize), ProofError> {
         let frames = self.get_evaluation_frames(expr, env, store, limit)?;
-        let z0 = frames[0].input_vector(store)?;
-        let zi = frames.last().unwrap().output_vector(store)?;
+        let z0 = frames[0].input.to_vector(store)?;
+        let zi = frames.last().unwrap().output.to_vector(store)?;
         let circuits = MultiFrame::from_frames(self.chunk_frame_count(), &frames, store);
         let num_steps = circuits.len();
         let proof =
@@ -181,7 +184,7 @@ impl<'a> Proof<'a> {
         circuits: &[C1<'a>],
         num_iters_per_step: usize,
         z0: Vec<S1>,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, ProofError> {
         assert!(!circuits.is_empty());
         assert_eq!(circuits[0].arity(), z0.len());
         let debug = false;
@@ -215,14 +218,11 @@ impl<'a> Proof<'a> {
 
                 for (i, x) in zi.iter().enumerate() {
                     let allocated =
-                        AllocatedNum::alloc(cs.namespace(|| format!("z{}_1", i)), || Ok(*x))
-                            .map_err(Error::Synthesis)?;
+                        AllocatedNum::alloc(cs.namespace(|| format!("z{i}_1")), || Ok(*x))?;
                     zi_allocated.push(allocated);
                 }
 
-                circuit_primary
-                    .synthesize(&mut cs, zi_allocated.as_slice())
-                    .map_err(Error::Synthesis)?;
+                circuit_primary.synthesize(&mut cs, zi_allocated.as_slice())?;
 
                 assert!(cs.is_satisfied());
             }
@@ -236,18 +236,25 @@ impl<'a> Proof<'a> {
                 z0_secondary.clone(),
             );
             assert!(res.is_ok());
-            recursive_snark = Some(res.map_err(Error::Nova)?);
+            recursive_snark = Some(res?);
         }
 
         Ok(Self::Recursive(Box::new(recursive_snark.unwrap())))
     }
 
-    pub fn compress(self, pp: &'a PublicParams) -> Result<Self, Error> {
+    pub fn compress(self, pp: &'a PublicParams) -> Result<Self, ProofError> {
         match &self {
-            Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(
-                CompressedSNARK::<_, _, _, _, SS1, SS2>::prove(pp, recursive_snark)
-                    .map_err(Error::Nova)?,
-            ))),
+            Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(CompressedSNARK::<
+                _,
+                _,
+                _,
+                _,
+                SS1,
+                SS2,
+            >::prove(
+                pp,
+                recursive_snark,
+            )?))),
             Self::Compressed(_) => Ok(self),
         }
     }
@@ -278,6 +285,8 @@ impl<'a> Proof<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::num::Num;
+
     use super::*;
     use crate::eval::empty_sym_env;
     use crate::proof::Provable;
@@ -290,7 +299,7 @@ mod tests {
     use pallas::Scalar as Fr;
 
     const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
-
+    const CHUNK_FRAME_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
     fn nova_test_aux(
         s: &mut Store<Fr>,
         expr: &str,
@@ -300,17 +309,20 @@ mod tests {
         expected_emitted: Option<Vec<Ptr<Fr>>>,
         expected_iterations: usize,
     ) {
-        nova_test_full_aux(
-            s,
-            expr,
-            expected_result,
-            expected_env,
-            expected_cont,
-            expected_emitted,
-            expected_iterations,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            false,
-        )
+        for chunk_size in CHUNK_FRAME_COUNTS_TO_TEST {
+            nova_test_full_aux(
+                s,
+                expr,
+                expected_result,
+                expected_env,
+                expected_cont,
+                expected_emitted.as_ref(),
+                expected_iterations,
+                chunk_size,
+                false,
+                None,
+            )
+        }
     }
 
     fn nova_test_full_aux(
@@ -319,22 +331,23 @@ mod tests {
         expected_result: Option<Ptr<Fr>>,
         expected_env: Option<Ptr<Fr>>,
         expected_cont: Option<ContPtr<Fr>>,
-        expected_emitted: Option<Vec<Ptr<Fr>>>,
+        expected_emitted: Option<&Vec<Ptr<Fr>>>,
         expected_iterations: usize,
         chunk_frame_count: usize,
         check_nova: bool,
+        limit: Option<usize>,
     ) {
-        let limit = 100000;
+        let limit = limit.unwrap_or(10000);
         let expr = s.read(expr).unwrap();
 
-        let e = empty_sym_env(&s);
+        let e = empty_sym_env(s);
 
         let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
 
         if check_nova {
             let pp = public_params(chunk_frame_count);
             let (proof, z0, zi, num_steps) = nova_prover
-                .evaluate_and_prove(&pp, expr, empty_sym_env(&s), s, limit)
+                .evaluate_and_prove(&pp, expr, empty_sym_env(s), s, limit)
                 .unwrap();
 
             let res = proof.verify(&pp, num_steps, z0.clone(), &zi);
@@ -353,7 +366,7 @@ mod tests {
             .get_evaluation_frames(expr, e, s, limit)
             .unwrap();
 
-        let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, &s);
+        let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, s);
 
         let len = multiframes.len();
 
@@ -361,20 +374,21 @@ mod tests {
         let mut previous_frame: Option<MultiFrame<Fr, IO<Fr>, Witness<Fr>>> = None;
 
         let mut cs_blank = MetricCS::<Fr>::new();
-        let store = Store::<Fr>::default();
 
         let blank = MultiFrame::<Fr, IO<Fr>, Witness<Fr>>::blank(chunk_frame_count);
         blank
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize blank");
 
-        for multiframe in multiframes.iter() {
+        for (_i, multiframe) in multiframes.iter().enumerate() {
             let mut cs = TestConstraintSystem::new();
             multiframe.clone().synthesize(&mut cs).unwrap();
 
             if let Some(prev) = previous_frame {
-                assert!(prev.precedes(&multiframe));
+                assert!(prev.precedes(multiframe));
             }
+
+            // dbg!(i);
             assert!(cs.is_satisfied());
             assert!(cs.verify(&multiframe.public_inputs()));
 
@@ -389,16 +403,16 @@ mod tests {
         if let Some(expected_emitted) = expected_emitted {
             let emitted_vec: Vec<_> = frames
                 .iter()
-                .flat_map(|frame| frame.output.maybe_emitted_expression(&s))
+                .flat_map(|frame| frame.output.maybe_emitted_expression(s))
                 .collect();
-            assert_eq!(expected_emitted, emitted_vec);
+            assert_eq!(expected_emitted, &emitted_vec);
         }
 
         if let Some(expected_result) = expected_result {
-            assert!(store.ptr_eq(&expected_result, &output.expr));
+            assert!(s.ptr_eq(&expected_result, &output.expr).unwrap());
         }
         if let Some(expected_env) = expected_env {
-            assert!(store.ptr_eq(&expected_env, &output.env));
+            assert!(s.ptr_eq(&expected_env, &output.env).unwrap());
         }
         if let Some(expected_cont) = expected_cont {
             assert_eq!(expected_cont, output.cont);
@@ -419,6 +433,17 @@ mod tests {
     fn test_outer_prove_binop() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    #[should_panic]
+    // This tests the testing mechanism. Since the supplied expected value is wrong,
+    // the test should panic on an assertion failure.
+    fn test_outer_prove_binop_fail() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(2);
         let terminal = s.get_cont_terminal();
         nova_test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
     }
@@ -459,6 +484,7 @@ mod tests {
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             true,
+            None,
         );
     }
 
@@ -626,6 +652,7 @@ mod tests {
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
             false,
+            None,
         );
 
         let expected = s.num(1);
@@ -639,6 +666,7 @@ mod tests {
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
             false,
+            None,
         );
 
         let expected = s.num(2);
@@ -652,6 +680,7 @@ mod tests {
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
             false,
+            None,
         );
 
         let expected = s.num(123);
@@ -665,6 +694,7 @@ mod tests {
             3,
             chunk_count,
             false,
+            None,
         )
     }
 
@@ -1511,7 +1541,7 @@ mod tests {
             s.intern_fun(arg, body, env)
         };
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        nova_test_full_aux(
             s,
             "((lambda (x) 123))",
             Some(expected),
@@ -1519,6 +1549,9 @@ mod tests {
             Some(terminal),
             None,
             3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            false,
+            None,
         );
     }
 
@@ -1789,6 +1822,7 @@ mod tests {
             89,
             5,
             false,
+            None,
         );
     }
 
@@ -1826,7 +1860,7 @@ mod tests {
         nova_test_aux(
             s,
             "(letrec ((a (lambda (x) (cons 2 2))))
-                     (a 1))",
+               (a 1))",
             None,
             None,
             Some(terminal),
@@ -1843,9 +1877,9 @@ mod tests {
         nova_test_aux(
             s,
             "(letrec ((secret 12345)
-                       (a (lambda (acc x)
-                            (let ((acc (+ acc x)))
-                              (cons acc (cons secret (a acc)))))))
+                      (a (lambda (acc x)
+                           (let ((acc (+ acc x)))
+                             (cons acc (cons secret (a acc)))))))
                 (a 0 5))",
             None,
             None,
@@ -1931,7 +1965,7 @@ mod tests {
     #[test]
     fn outer_prove_str_cdr_empty() {
         let s = &mut Store::<Fr>::default();
-        let expected_empty_str = s.intern_str(&"");
+        let expected_empty_str = s.intern_str("");
         let terminal = s.get_cont_terminal();
         nova_test_aux(
             s,
@@ -2031,6 +2065,32 @@ mod tests {
     }
 
     #[test]
+    fn outer_prove_car_cdr_of_cons() {
+        let s = &mut Store::<Fr>::default();
+        let res1 = s.num(1);
+        let res2 = s.num(2);
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(
+            s,
+            r#"(car (cons 1 2))"#,
+            Some(res1),
+            None,
+            Some(terminal),
+            None,
+            5,
+        );
+        nova_test_aux(
+            s,
+            r#"(cdr (cons 1 2))"#,
+            Some(res2),
+            None,
+            Some(terminal),
+            None,
+            5,
+        );
+    }
+
+    #[test]
     fn outer_prove_car_cdr_invalid_tag_error_lambda() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
@@ -2061,6 +2121,14 @@ mod tests {
         let expected = s.num(456);
         let terminal = s.get_cont_terminal();
         nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
+    }
+
+    #[test]
+    fn outer_prove_hide_wrong_secret_type() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(hide 'x 456)";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 3);
     }
 
     #[test]
@@ -2113,6 +2181,22 @@ mod tests {
         let expr = "(open 123 456)";
         let error = s.get_cont_error();
         nova_test_aux(s, expr, None, None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn outer_prove_open_wrong_type() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(open 'asdf)";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_secret_wrong_type() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(secret 'asdf)";
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 2);
     }
 
     #[test]
@@ -2240,7 +2324,13 @@ mod tests {
     fn outer_prove_num_invalid_tag() {
         let s = &mut Store::<Fr>::default();
         let expr = "(num (quote x))";
+        let expr1 = "(num \"asdf\")";
+        let expr2 = "(num '(1))";
         let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+        nova_test_aux(s, expr1, None, None, Some(error), None, 2);
+        nova_test_aux(s, expr2, None, None, Some(error), None, 4);
+
         nova_test_aux(s, expr, None, None, Some(error), None, 2);
     }
 
@@ -2248,16 +2338,24 @@ mod tests {
     fn outer_prove_comm_invalid_tag() {
         let s = &mut Store::<Fr>::default();
         let expr = "(comm (quote x))";
+        let expr1 = "(comm \"asdf\")";
+        let expr2 = "(comm '(1))";
         let error = s.get_cont_error();
         nova_test_aux(s, expr, None, None, Some(error), None, 2);
+        nova_test_aux(s, expr1, None, None, Some(error), None, 2);
+        nova_test_aux(s, expr2, None, None, Some(error), None, 4);
     }
 
     #[test]
     fn outer_prove_char_invalid_tag() {
         let s = &mut Store::<Fr>::default();
         let expr = "(char (quote x))";
+        let expr1 = "(char \"asdf\")";
+        let expr2 = "(char '(1))";
         let error = s.get_cont_error();
         nova_test_aux(s, expr, None, None, Some(error), None, 2);
+        nova_test_aux(s, expr1, None, None, Some(error), None, 2);
+        nova_test_aux(s, expr2, None, None, Some(error), None, 4);
     }
 
     #[test]
@@ -2300,7 +2398,7 @@ mod tests {
         let apple = s.read(r#" "apple" "#).unwrap();
         let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
         let pple = s.read(r#" "pple" "#).unwrap();
-        let empty = s.intern_str(&"");
+        let empty = s.intern_str("");
         let nil = s.nil();
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
@@ -2325,7 +2423,6 @@ mod tests {
         );
         nova_test_aux(s, r#"(car "")"#, Some(nil), None, Some(terminal), None, 2);
         nova_test_aux(s, r#"(cdr "")"#, Some(empty), None, Some(terminal), None, 2);
-
         nova_test_aux(
             s,
             r#"(cons #\a "pple")"#,
@@ -2351,5 +2448,504 @@ mod tests {
         nova_test_aux(s, r#"(strcons "a" "b")"#, None, None, Some(error), None, 3);
 
         nova_test_aux(s, r#"(strcons 1 2)"#, None, None, Some(error), None, 3);
+    }
+
+    fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
+        let expr = &format!("({op} {a} {b})");
+        let expected = if res { s.t() } else { s.nil() };
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+    }
+
+    #[ignore]
+    #[test]
+    fn outer_prove_test_relational() {
+        let s = &mut Store::<Fr>::default();
+        let lt = "<";
+        let gt = ">";
+        let lte = "<=";
+        let gte = ">=";
+        let zero = "0";
+        let one = "1";
+        let two = "2";
+
+        let most_negative = &format!("{}", Num::<Fr>::most_negative());
+        let most_positive = &format!("{}", Num::<Fr>::most_positive());
+        let neg_one = &format!("{}", Num::<Fr>::Scalar(Fr::zero() - Fr::one()));
+
+        relational_aux(s, lt, one, two, true);
+        relational_aux(s, gt, one, two, false);
+        relational_aux(s, lte, one, two, true);
+        relational_aux(s, gte, one, two, false);
+
+        relational_aux(s, lt, two, one, false);
+        relational_aux(s, gt, two, one, true);
+        relational_aux(s, lte, two, one, false);
+        relational_aux(s, gte, two, one, true);
+
+        relational_aux(s, lt, one, one, false);
+        relational_aux(s, gt, one, one, false);
+        relational_aux(s, lte, one, one, true);
+        relational_aux(s, gte, one, one, true);
+
+        relational_aux(s, lt, zero, two, true);
+        relational_aux(s, gt, zero, two, false);
+        relational_aux(s, lte, zero, two, true);
+        relational_aux(s, gte, zero, two, false);
+
+        relational_aux(s, lt, two, zero, false);
+        relational_aux(s, gt, two, zero, true);
+        relational_aux(s, lte, two, zero, false);
+        relational_aux(s, gte, two, zero, true);
+
+        relational_aux(s, lt, zero, zero, false);
+        relational_aux(s, gt, zero, zero, false);
+        relational_aux(s, lte, zero, zero, true);
+        relational_aux(s, gte, zero, zero, true);
+
+        relational_aux(s, lt, most_negative, zero, true);
+        relational_aux(s, gt, most_negative, zero, false);
+        relational_aux(s, lte, most_negative, zero, true);
+        relational_aux(s, gte, most_negative, zero, false);
+
+        relational_aux(s, lt, zero, most_negative, false);
+        relational_aux(s, gt, zero, most_negative, true);
+        relational_aux(s, lte, zero, most_negative, false);
+        relational_aux(s, gte, zero, most_negative, true);
+
+        relational_aux(s, lt, most_negative, most_positive, true);
+        relational_aux(s, gt, most_negative, most_positive, false);
+        relational_aux(s, lte, most_negative, most_positive, true);
+        relational_aux(s, gte, most_negative, most_positive, false);
+
+        relational_aux(s, lt, most_positive, most_negative, false);
+        relational_aux(s, gt, most_positive, most_negative, true);
+        relational_aux(s, lte, most_positive, most_negative, false);
+        relational_aux(s, gte, most_positive, most_negative, true);
+
+        relational_aux(s, lt, most_negative, most_negative, false);
+        relational_aux(s, gt, most_negative, most_negative, false);
+        relational_aux(s, lte, most_negative, most_negative, true);
+        relational_aux(s, gte, most_negative, most_negative, true);
+
+        relational_aux(s, lt, one, most_positive, true);
+        relational_aux(s, gt, one, most_positive, false);
+        relational_aux(s, lte, one, most_positive, true);
+        relational_aux(s, gte, one, most_positive, false);
+
+        relational_aux(s, lt, most_positive, one, false);
+        relational_aux(s, gt, most_positive, one, true);
+        relational_aux(s, lte, most_positive, one, false);
+        relational_aux(s, gte, most_positive, one, true);
+
+        relational_aux(s, lt, one, most_negative, false);
+        relational_aux(s, gt, one, most_negative, true);
+        relational_aux(s, lte, one, most_negative, false);
+        relational_aux(s, gte, one, most_negative, true);
+
+        relational_aux(s, lt, most_negative, one, true);
+        relational_aux(s, gt, most_negative, one, false);
+        relational_aux(s, lte, most_negative, one, true);
+        relational_aux(s, gte, most_negative, one, false);
+
+        relational_aux(s, lt, neg_one, most_positive, true);
+        relational_aux(s, gt, neg_one, most_positive, false);
+        relational_aux(s, lte, neg_one, most_positive, true);
+        relational_aux(s, gte, neg_one, most_positive, false);
+
+        relational_aux(s, lt, most_positive, neg_one, false);
+        relational_aux(s, gt, most_positive, neg_one, true);
+        relational_aux(s, lte, most_positive, neg_one, false);
+        relational_aux(s, gte, most_positive, neg_one, true);
+
+        relational_aux(s, lt, neg_one, most_negative, false);
+        relational_aux(s, gt, neg_one, most_negative, true);
+        relational_aux(s, lte, neg_one, most_negative, false);
+        relational_aux(s, gte, neg_one, most_negative, true);
+
+        relational_aux(s, lt, most_negative, neg_one, true);
+        relational_aux(s, gt, most_negative, neg_one, false);
+        relational_aux(s, lte, most_negative, neg_one, true);
+        relational_aux(s, gte, most_negative, neg_one, false);
+    }
+
+    #[test]
+    fn test_relational_edge_case_identity() {
+        let s = &mut Store::<Fr>::default();
+        // Normally, a value cannot be less than the result of incrementing it.
+        // However, the most positive field element (when viewed as signed)
+        // is the exception. Incrementing it yields the most negative element,
+        // which is less than the most positive.
+        let expr = "(let ((most-positive (/ (- 0 1) 2))
+                          (most-negative (+ 1 most-positive)))
+                      (< most-negative most-positive))";
+        let t = s.t();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
+    }
+
+    #[test]
+    fn outer_prove_test_eval() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(* 3 (eval  (cons '+ (cons 1 (cons 2 nil)))))";
+        let expr2 = "(* 5 (eval '(+ 1 a) '((a . 3))))"; // two-arg eval, optional second arg is env.
+        let res = s.num(9);
+        let res2 = s.num(20);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 17);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 9);
+    }
+
+    #[test]
+    fn outer_prove_test_keyword() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = ":asdf";
+        let expr2 = "(eq :asdf :asdf)";
+        let expr3 = "(eq :asdf 'asdf)";
+        let res = s.key("ASDF");
+        let res2 = s.get_t();
+        let res3 = s.get_nil();
+
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr3, Some(res3), None, Some(terminal), None, 3);
+    }
+
+    // The following functional commitment tests were discovered to fail. They are commented out (as tests) for now so
+    // they can be addressed independently in future work.
+
+    #[test]
+    fn outer_prove_functional_commitment() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(let ((f (commit (let ((num 9)) (lambda (f) (f num)))))
+                          (inc (lambda (x) (+ x 1))))
+                      ((open f) inc))";
+        let res = s.num(10);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 25);
+    }
+
+    #[test]
+    #[ignore]
+    fn outer_prove_complicated_functional_commitment() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(let ((f (commit (let ((nums '(1 2 3))) (lambda (f) (f nums)))))
+                          (in (letrec ((sum-aux (lambda (acc nums)
+                                              (if nums
+                                                (sum-aux (+ acc (car nums)) (cdr nums))
+                                                acc)))
+                                   (sum (sum-aux 0)))
+                             (lambda (nums)
+                               (sum nums)))))
+
+                      ((open f) in))";
+        let res = s.num(6);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 108);
+    }
+
+    #[test]
+    fn outer_prove_test_fold_cons_regression() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(letrec ((fold (lambda (op acc l)
+                                     (if l
+                                         (fold op (op acc (car l)) (cdr l))
+                                         acc))))
+                      (fold (lambda (x y) (+ x y)) 0 '(1 2 3)))";
+        let res = s.num(6);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 152);
+    }
+
+    #[test]
+    fn outer_prove_test_lambda_args_regression() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(cons (lambda (x y) nil) nil)";
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, None, None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_reduce_sym_contradiction_regression() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(eval 'a '(nil))";
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, None, None, Some(error), None, 4);
+    }
+
+    #[test]
+    fn outer_prove_test_self_eval_env_not_nil() {
+        let s = &mut Store::<Fr>::default();
+
+        // NOTE: cond1 shouldn't depend on env-is-not-nil
+        // therefore this unit test is not very useful
+        // the conclusion is that by removing condition env-is-not-nil from cond1,
+        // we solve this soundness problem
+        // this solution makes the circuit a bit smaller
+        let expr = "(let ((a 1)) t)";
+
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, None, None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_self_eval_nil() {
+        let s = &mut Store::<Fr>::default();
+
+        // nil doesn't have SYM tag
+        let expr = "nil";
+
+        let terminal = s.get_cont_terminal();
+        nova_test_aux(s, expr, None, None, Some(terminal), None, 1);
+    }
+
+    #[test]
+    fn outer_prove_test_env_not_nil_and_binding_nil() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(let ((a 1) (b 2)) c)";
+
+        let error = s.get_cont_error();
+        nova_test_aux(s, expr, None, None, Some(error), None, 7);
+    }
+
+    #[test]
+    fn outer_prove_test_eval_bad_form() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env.
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, None, None, Some(error), None, 8);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_self_evaluating() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "123u64";
+        let res = s.uint64(123);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_mul() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(* (u64 18446744073709551615) (u64 2))";
+        let expr2 = "(* 18446744073709551615u64 2u64)";
+        let expr3 = "(* (- 0u64 1u64) 2u64)";
+        let expr4 = "(u64 18446744073709551617)";
+        let res = s.uint64(18446744073709551614);
+        let res2 = s.uint64(1);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 7);
+        nova_test_aux(s, expr2, Some(res), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr3, Some(res), None, Some(terminal), None, 6);
+        nova_test_aux(s, expr4, Some(res2), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_add() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(+ 18446744073709551615u64 2u64)";
+        let expr2 = "(+ (- 0u64 1u64) 2u64)";
+        let res = s.uint64(1);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(res), None, Some(terminal), None, 6);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_sub() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(- 2u64 1u64)";
+        let expr2 = "(- 0u64 1u64)";
+        let expr3 = "(+ 1u64 (- 0u64 1u64))";
+        let res = s.uint64(1);
+        let res2 = s.uint64(18446744073709551615);
+        let res3 = s.uint64(0);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr3, Some(res3), None, Some(terminal), None, 6);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_div() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(/ 100u64 2u64)";
+        let res = s.uint64(50);
+
+        let expr2 = "(/ 100u64 3u64)";
+        let res2 = s.uint64(33);
+
+        let expr3 = "(/ 100u64 0u64)";
+
+        let terminal = s.get_cont_terminal();
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_mod() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 100u64 2u64)";
+        let res = s.uint64(0);
+
+        let expr2 = "(% 100u64 3u64)";
+        let res2 = s.uint64(1);
+
+        let expr3 = "(% 100u64 0u64)";
+
+        let terminal = s.get_cont_terminal();
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_num_mod() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 100 3)";
+        let expr2 = "(% 100 3u64)";
+        let expr3 = "(% 100u64 3)";
+
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, None, None, Some(error), None, 3);
+        nova_test_aux(s, expr2, None, None, Some(error), None, 3);
+        nova_test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_comp() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(< 0u64 1u64)";
+        let expr2 = "(< 1u64 0u64)";
+        let expr3 = "(<= 0u64 1u64)";
+        let expr4 = "(<= 1u64 0u64)";
+
+        let expr5 = "(> 0u64 1u64)";
+        let expr6 = "(> 1u64 0u64)";
+        let expr7 = "(>= 0u64 1u64)";
+        let expr8 = "(>= 1u64 0u64)";
+
+        let expr9 = "(<= 0u64 0u64)";
+        let expr10 = "(>= 0u64 0u64)";
+
+        let t = s.t();
+        let nil = s.nil();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr3, Some(t), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr4, Some(nil), None, Some(terminal), None, 3);
+
+        nova_test_aux(s, expr5, Some(nil), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr6, Some(t), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr7, Some(nil), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr8, Some(t), None, Some(terminal), None, 3);
+
+        nova_test_aux(s, expr9, Some(t), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr10, Some(t), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_conversion() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(+ 0 1u64)";
+        let expr2 = "(num 1u64)";
+        let expr3 = "(+ 1 1u64)";
+        let expr4 = "(u64 (+ 1 1))";
+        let res = s.intern_num(1);
+        let res2 = s.intern_num(2);
+        let res3 = s.get_u64(2);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(res), None, Some(terminal), None, 2);
+        nova_test_aux(s, expr3, Some(res2), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr4, Some(res3), None, Some(terminal), None, 5);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_num_comparison() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(= 1 1u64)";
+        let expr2 = "(= 1 2u64)";
+        let t = s.t();
+        let nil = s.nil();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_u64_num_cons() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(cons 1 1u64)";
+        let expr2 = "(cons 1u64 1)";
+        let res = s.read("(1 . 1u64)").unwrap();
+        let res2 = s.read("(1u64 . 1)").unwrap();
+        let terminal = s.get_cont_terminal();
+
+        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_hide_u64_secret() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(hide 0u64 123)";
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_test_mod_by_zero_error() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 0 0)";
+        let error = s.get_cont_error();
+
+        nova_test_aux(s, expr, None, None, Some(error), None, 3);
     }
 }

@@ -9,18 +9,17 @@ repository = "https://github.com/lurk-lang/lurk-rs"
 
 [dependencies]
 anyhow = "1.0.45"
-bellperson = "0.22"
 thiserror = "1.0.35"
+bellperson = "0.24"
 dirs = "4.0.0"
-blstrs = "0.5.0"
+blstrs = "0.6.0"
 ff = "0.12.0"
 generic-array = "0.14.4"
 im  = "15.1.0"
 itertools = "0.9"
 log = "0.4.14"
-merlin = "2.0.0"
-neptune = { version = "7.2.0", features = ["arity2","arity4","arity8","arity16","pasta", "bls"] }
-nova = { package = "nova-snark", version = "0.8.0" }
+neptune = { version = "8.1.0", features = ["arity2","arity4","arity8","arity16","pasta", "bls"] }
+nova = { package = "nova-snark", version = "0.9.0", default-features = false }
 once_cell = "1.9.0"
 pairing_lib = { version = "0.22", package = "pairing" }
 peekmore = "1.0.0"
@@ -31,7 +30,6 @@ rustyline = { package = "yatima-rustyline", version = "0.1", default-features = 
 rustyline-derive = "0.5.0"
 rand_xorshift = "0.3.0"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0" }
 serde_repr = "0.1.7"
 indexmap = { version = "1.8.0", features = ["rayon"] }
 ahash = "0.7.6"
@@ -41,9 +39,12 @@ dashmap = "5.0.0"
 libipld = { package = "lurk-ipld", version = "0.1.0", default-features = false, features = ["dag-cbor", "dag-json", "serde-codec"] }
 cid = { version = "0.8.4", default-features = false, features = ["alloc", "serde-codec"]}
 multihash = { version = "0.16.1", default-features = false, features = ["alloc", "blake3"] }
+num-bigint = "0.4.3"
+num-integer = "0.1.45"
+num-traits = "0.2.15"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-memmap = "0.7"
+memmap = { version = "0.5.8", package = "memmap2" }
 pasta-msm = "0.1.1"
 
 [features]
@@ -66,10 +67,4 @@ members = [
 
 [[bin]]
 name = "lurkrs"
-path = "examples/repl.rs"
-
-[patch.crates-io]
-bellperson = { git = "https://github.com/lurk-lang/bellperson", branch = "sb/wasm-lurk-compat" }
-bellperson-nonnative = { git = "https://github.com/lurk-lang/bellperson-nonnative", branch = "sb/wasm-lurk-compat" }
-neptune = { git = "https://github.com/lurk-lang/neptune", branch = "sb/wasm-lurk-compat" }
-nova-snark  = { git = "https://github.com/lurk-lang/nova", branch = "sb/wasm-lurk-compat" }
+path = "src/main.rs"
