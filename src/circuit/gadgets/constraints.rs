@@ -77,24 +77,15 @@ pub fn add<F: PrimeField, CS: ConstraintSystem<F>>(
 /// is equal to `sum`.
 ///
 /// summation(v) = sum
+#[allow(dead_code)]
 pub fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     v: &Vec<Boolean>,
     sum: &AllocatedNum<F>,
-) {
+) -> Result<(), SynthesisError> {
     let mut v_lc = LinearCombination::<F>::zero();
-    for i in 0..v.len() {
-        match v[i] {
-            Boolean::Constant(c) => {
-                if c {
-                    v_lc = v_lc + (F::one(), CS::one())
-                }
-            }
-            Boolean::Is(ref v) => v_lc = v_lc + (F::one(), v.get_variable()),
-            Boolean::Not(ref v) => {
-                v_lc = v_lc + (F::one(), CS::one()) - (F::one(), v.get_variable())
-            }
-        };
+    for b in v {
+        v_lc = add_to_lc::<F, CS>(b, v_lc, F::one())?;
     }
 
     // (summation(v)) * 1 = sum
@@ -104,6 +95,53 @@ pub fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
         |lc| lc + CS::one(),
         |lc| lc + sum.get_variable(),
     );
+
+    Ok(())
+}
+
+pub fn add_to_lc<F: PrimeField, CS: ConstraintSystem<F>>(
+    b: &Boolean,
+    lc: LinearCombination<F>,
+    scalar: F,
+) -> Result<LinearCombination<F>, SynthesisError> {
+    let mut v_lc = lc;
+    match b {
+        Boolean::Constant(c) => {
+            if *c {
+                v_lc = v_lc + (scalar, CS::one())
+            } else {
+                v_lc = v_lc + (F::zero(), CS::one())
+            }
+        }
+        Boolean::Is(ref v) => v_lc = v_lc + (scalar, v.get_variable()),
+        Boolean::Not(ref v) => v_lc = v_lc + (scalar, CS::one()) - (scalar, v.get_variable()),
+    };
+
+    Ok(v_lc)
+}
+
+// Enforce v is the bit decomposition of num, therefore we have that 0 <= num < 2ˆ(sizeof(v)).
+pub fn enforce_pack<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    v: &[Boolean],
+    num: &AllocatedNum<F>,
+) -> Result<(), SynthesisError> {
+    let mut coeff = F::one();
+
+    let mut v_lc = LinearCombination::<F>::zero();
+    for b in v {
+        v_lc = add_to_lc::<F, CS>(b, v_lc, coeff)?;
+        coeff = coeff.double();
+    }
+
+    cs.enforce(
+        || "pack",
+        |_| v_lc,
+        |lc| lc + CS::one(),
+        |lc| lc + num.get_variable(),
+    );
+
+    Ok(())
 }
 
 /// Adds a constraint to CS, enforcing a difference relationship between the allocated numbers a, b, and difference.
@@ -146,6 +184,31 @@ pub fn sub<F: PrimeField, CS: ConstraintSystem<F>>(
     difference(&mut cs, || "subtraction constraint", a, b, &res);
 
     Ok(res)
+}
+
+/// Adds a constraint to CS, enforcing a linear relationship between the
+/// allocated numbers a, b, c and num.  Namely, the linear equation
+/// a * b + c = num is enforced.
+///
+/// a * b = num - c
+pub fn linear<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    annotation: A,
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
+    c: &AllocatedNum<F>,
+    num: &AllocatedNum<F>,
+) where
+    A: FnOnce() -> AR,
+    AR: Into<String>,
+{
+    // a * b = product
+    cs.enforce(
+        annotation,
+        |lc| lc + a.get_variable(),
+        |lc| lc + b.get_variable(),
+        |lc| lc + num.get_variable() - c.get_variable(),
+    );
 }
 
 /// Adds a constraint to CS, enforcing a product relationship between the allocated numbers a, b, and product.
