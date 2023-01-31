@@ -3500,6 +3500,15 @@ mod test {
     }
 
     #[test]
+    fn char_coercion() {
+        let s = &mut Store::<Fr>::default();
+        let expr = r#"(char (- 0 4294967200))"#;
+        let expected_a = s.read(r#"#\a"#).unwrap();
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 5);
+    }
+
+    #[test]
     fn commit_num() {
         let s = &mut Store::<Fr>::default();
         let expr = "(num (commit 123))";
