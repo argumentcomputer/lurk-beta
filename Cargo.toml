@@ -26,7 +26,6 @@ once_cell = "1.9.0"
 pairing_lib = { version = "0.22", package = "pairing" }
 peekmore = "1.0.0"
 pretty_env_logger = "0.4"
-#rand = { version = "0.8", default-features = false }
 rand_core = { version = "0.6.4", default-features = false }
 rayon = "1.5.1"
 rustyline = { package = "yatima-rustyline", version = "0.1", default-features = false }
