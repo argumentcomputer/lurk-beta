@@ -57,8 +57,6 @@ git submodule update --init --recursive
 
 Lurk can be compiled to Wasm with `cargo build --target wasm32-unknown-unknown`
 
-See https://github.com/alvin-reyes/lurk-wasm-eval and https://github.com/jlogelin/lurk-web-component for examples of Lurk running on the web via `wasm-pack`.
-
 ## Repl
 
 ```

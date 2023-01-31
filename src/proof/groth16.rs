@@ -17,7 +17,7 @@ use memmap::MmapOptions;
 #[cfg(not(target_arch = "wasm32"))]
 use once_cell::sync::Lazy;
 use pairing_lib::{Engine, MultiMillerLoop};
-use rand::{RngCore, SeedableRng};
+use rand_core::{RngCore, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use serde::{Deserialize, Serialize};
 
@@ -27,9 +27,9 @@ use crate::eval::{Evaluator, Witness, IO};
 use crate::proof::{Provable, Prover, PublicParameters};
 use crate::store::{Ptr, Store};
 
+use std::marker::PhantomData;
 #[cfg(not(target_arch = "wasm32"))]
 use std::{env, fs::File, io};
-use std::marker::PhantomData;
 
 const DUMMY_RNG_SEED: [u8; 16] = [
     0x01, 0x03, 0x02, 0x04, 0x05, 0x07, 0x06, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0C, 0x0B, 0x0A,
