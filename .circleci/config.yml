@@ -130,10 +130,10 @@ jobs:
       - attach_workspace:
           at: "~/"
       - install_gpu_deps
-        #- run:
-        #    name: Install Rust
-        #    command: |
-        #      curl https://sh.rustup.rs -sSf | sh -s -- -y
+      - run:
+          name: Install Rust
+          command: |
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
             #- run: rustup install $(cat rust-toolchain)
             #- run: rustup default $(cat rust-toolchain)
       - run: rustup show
@@ -155,10 +155,10 @@ jobs:
           command: git submodule update --init --recursive
       - attach_workspace:
            at: "~/"
-           #- run:
-           #    name: Install Rust
-           #    command: |
-           #      curl https://sh.rustup.rs -sSf | sh -s -- -y
+        - run:
+            name: Install Rust
+            command: |
+              curl https://sh.rustup.rs -sSf | sh -s -- -y
            #- run: rustup install $(cat rust-toolchain)
            #- run: rustup default $(cat rust-toolchain)
       - run: rustup show
