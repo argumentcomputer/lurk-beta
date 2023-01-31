@@ -69,11 +69,10 @@ jobs:
       - checkout
       - run:
           name: Update submodules
-          command: git submodule update --init --recursive
-      - run: curl https://sh.rustup.rs -sSf | sh -s -- -y
+          command: |
+            git submodule update --init --recursive
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
       - run: rustup show
-        #- run: rustup install $(cat rust-toolchain)
-        #- run: rustup default $(cat rust-toolchain)
       - run: cargo --version
       - run: rustc --version
       - run:
@@ -134,8 +133,6 @@ jobs:
           name: Install Rust
           command: |
             curl https://sh.rustup.rs -sSf | sh -s -- -y
-            #- run: rustup install $(cat rust-toolchain)
-            #- run: rustup default $(cat rust-toolchain)
       - run: rustup show
       - run: cargo --version
       - run: cargo update
@@ -159,8 +156,6 @@ jobs:
             name: Install Rust
             command: |
               curl https://sh.rustup.rs -sSf | sh -s -- -y
-           #- run: rustup install $(cat rust-toolchain)
-           #- run: rustup default $(cat rust-toolchain)
       - run: rustup show
       - run: cargo --version
       - run: cargo update
