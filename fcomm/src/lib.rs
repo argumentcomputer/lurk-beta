@@ -27,7 +27,8 @@ use lurk::{
         Prover,
     },
     scalar_store::ScalarStore,
-    store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store, Tag},
+    store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store},
+    tag::ExprTag,
     writer::Write,
 };
 use once_cell::sync::OnceCell;
@@ -482,7 +483,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
     pub fn from_comm(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
         let digest = *s.hash_expr(ptr).expect("couldn't hash ptr").value();
 
-        assert_eq!(Tag::Comm, ptr.tag());
+        assert_eq!(ExprTag::Comm, ptr.tag());
 
         Commitment { comm: digest }
     }

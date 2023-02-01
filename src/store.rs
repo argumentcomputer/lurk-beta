@@ -311,11 +311,8 @@ impl<F: LurkField> Serialize for ScalarPtr<F> {
         // magic numbers to avoid multicodec table collisons
         // this will disappear when we move from IPLD to LDON
         let codec: u64 = 0x10de << 48 | tag.to_u64_unchecked();
-        let hash = Multihash::wrap(codec, &val.to_repr_bytes()).or_else(|_| {
-            Err(S::Error::custom(
-                "expected validly tagged ScalarPtr".to_string(),
-            ))
-        })?;
+        let hash = Multihash::wrap(codec, &val.to_repr_bytes())
+            .map_err(|_| S::Error::custom("expected validly tagged ScalarPtr".to_string()))?;
         let cid = Cid::new_v1(codec, hash);
         cid.serialize(serializer)
     }
@@ -403,11 +400,8 @@ impl<F: LurkField> Serialize for ScalarContPtr<F> {
         // magic numbers to avoid multicodec table collisons
         // this will disappear when we move from IPLD to LDON
         let codec: u64 = 0x10de << 48 | tag.to_u64_unchecked();
-        let hash = Multihash::wrap(codec, &val.to_repr_bytes()).or_else(|_| {
-            Err(S::Error::custom(
-                "expected validly tagged ScalarContPtr".to_string(),
-            ))
-        })?;
+        let hash = Multihash::wrap(codec, &val.to_repr_bytes())
+            .map_err(|_| S::Error::custom("expected validly tagged ScalarContPtr".to_string()))?;
         let cid = Cid::new_v1(codec, hash);
         cid.serialize(serializer)
     }
