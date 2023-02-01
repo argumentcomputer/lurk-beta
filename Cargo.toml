@@ -45,6 +45,8 @@ multihash = { version = "0.16.1", default-features = false, features = ["alloc",
 num-bigint = "0.4.3"
 num-integer = "0.1.45"
 num-traits = "0.2.15"
+proptest = "1.0.0"
+proptest-derive = "0.3.0"
 
 [features]
 default = []
@@ -53,8 +55,7 @@ gpu = ["neptune/opencl"]
 [dev-dependencies]
 criterion = "0.3.5"
 structopt = { version = "0.3", default-features = false }
-quickcheck = "1.0.3"
-quickcheck_macros = "1.0.0"
+tap = "1.0.1"
 
 [[bench]]
 name = "eval"

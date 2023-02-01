@@ -365,128 +365,136 @@ impl fmt::Display for Op2 {
 pub mod tests {
 
     use super::*;
-    use crate::test::frequency;
-    use quickcheck::{Arbitrary, Gen};
+    use proptest::prelude::*;
 
     impl Arbitrary for ExprTag {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> ExprTag>)> = vec![
-                (100, Box::new(|_| ExprTag::Nil)),
-                (100, Box::new(|_| ExprTag::Cons)),
-                (100, Box::new(|_| ExprTag::Sym)),
-                (100, Box::new(|_| ExprTag::Fun)),
-                (100, Box::new(|_| ExprTag::Num)),
-                (100, Box::new(|_| ExprTag::Thunk)),
-                (100, Box::new(|_| ExprTag::Str)),
-                (100, Box::new(|_| ExprTag::Char)),
-                (100, Box::new(|_| ExprTag::Comm)),
-                (100, Box::new(|_| ExprTag::U64)),
-                (100, Box::new(|_| ExprTag::Key)),
-            ];
-            frequency(g, input)
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            prop_oneof!(
+                Just(ExprTag::Nil),
+                Just(ExprTag::Cons),
+                Just(ExprTag::Sym),
+                Just(ExprTag::Fun),
+                Just(ExprTag::Num),
+                Just(ExprTag::Thunk),
+                Just(ExprTag::Str),
+                Just(ExprTag::Char),
+                Just(ExprTag::Comm),
+                Just(ExprTag::U64),
+                Just(ExprTag::Key),
+            )
+            .boxed()
         }
     }
+
     impl Arbitrary for ContTag {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> ContTag>)> = vec![
-                (100, Box::new(|_| ContTag::Outermost)),
-                (100, Box::new(|_| ContTag::Call)),
-                (100, Box::new(|_| ContTag::Call2)),
-                (100, Box::new(|_| ContTag::Tail)),
-                (100, Box::new(|_| ContTag::Error)),
-                (100, Box::new(|_| ContTag::Lookup)),
-                (100, Box::new(|_| ContTag::Unop)),
-                (100, Box::new(|_| ContTag::Binop)),
-                (100, Box::new(|_| ContTag::Binop2)),
-                (100, Box::new(|_| ContTag::If)),
-                (100, Box::new(|_| ContTag::Let)),
-                (100, Box::new(|_| ContTag::LetRec)),
-                (100, Box::new(|_| ContTag::Dummy)),
-                (100, Box::new(|_| ContTag::Terminal)),
-                (100, Box::new(|_| ContTag::Emit)),
-            ];
-            frequency(g, input)
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            prop_oneof!(
+                Just(ContTag::Outermost),
+                Just(ContTag::Call),
+                Just(ContTag::Call2),
+                Just(ContTag::Tail),
+                Just(ContTag::Error),
+                Just(ContTag::Lookup),
+                Just(ContTag::Unop),
+                Just(ContTag::Binop),
+                Just(ContTag::Binop2),
+                Just(ContTag::If),
+                Just(ContTag::Let),
+                Just(ContTag::LetRec),
+                Just(ContTag::Dummy),
+                Just(ContTag::Terminal),
+                Just(ContTag::Emit),
+            )
+            .boxed()
         }
     }
 
     impl Arbitrary for Op1 {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Op1>)> = vec![
-                (100, Box::new(|_| Op1::Car)),
-                (100, Box::new(|_| Op1::Cdr)),
-                (100, Box::new(|_| Op1::Atom)),
-                (100, Box::new(|_| Op1::Emit)),
-                (100, Box::new(|_| Op1::Secret)),
-                (100, Box::new(|_| Op1::Commit)),
-                (100, Box::new(|_| Op1::Num)),
-                (100, Box::new(|_| Op1::Comm)),
-                (100, Box::new(|_| Op1::Char)),
-                (100, Box::new(|_| Op1::Eval)),
-            ];
-            frequency(g, input)
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            prop_oneof!(
+                Just(Op1::Car),
+                Just(Op1::Cdr),
+                Just(Op1::Atom),
+                Just(Op1::Emit),
+                Just(Op1::Secret),
+                Just(Op1::Commit),
+                Just(Op1::Num),
+                Just(Op1::Comm),
+                Just(Op1::Char),
+                Just(Op1::Eval),
+            )
+            .boxed()
         }
     }
 
     impl Arbitrary for Op2 {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Op2>)> = vec![
-                (100, Box::new(|_| Op2::Sum)),
-                (100, Box::new(|_| Op2::Diff)),
-                (100, Box::new(|_| Op2::Product)),
-                (100, Box::new(|_| Op2::Quotient)),
-                (100, Box::new(|_| Op2::Equal)),
-                (100, Box::new(|_| Op2::NumEqual)),
-                (100, Box::new(|_| Op2::Less)),
-                (100, Box::new(|_| Op2::Greater)),
-                (100, Box::new(|_| Op2::LessEqual)),
-                (100, Box::new(|_| Op2::GreaterEqual)),
-                (100, Box::new(|_| Op2::Cons)),
-                (100, Box::new(|_| Op2::StrCons)),
-                (100, Box::new(|_| Op2::Begin)),
-                (100, Box::new(|_| Op2::Hide)),
-                (100, Box::new(|_| Op2::Eval)),
-            ];
-            frequency(g, input)
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            prop_oneof!(
+                Just(Op2::Sum),
+                Just(Op2::Diff),
+                Just(Op2::Product),
+                Just(Op2::Quotient),
+                Just(Op2::Equal),
+                Just(Op2::NumEqual),
+                Just(Op2::Less),
+                Just(Op2::Greater),
+                Just(Op2::LessEqual),
+                Just(Op2::GreaterEqual),
+                Just(Op2::Cons),
+                Just(Op2::StrCons),
+                Just(Op2::Begin),
+                Just(Op2::Hide),
+                Just(Op2::Eval)
+            )
+            .boxed()
         }
     }
 
-    #[quickcheck]
-    fn prop_expr_tag_into_u16(t: ExprTag) -> bool {
-        let x: u16 = t.into();
-        if let Ok(t2) = ExprTag::try_from(x) {
-            t2 == t
-        } else {
-            false
-        }
+    proptest! {
+    #[test]
+    fn prop_expr_tag_u16(x in any::<ExprTag>()) {
+        let x_u16: u16 = x.into();
+        let x2 = ExprTag::try_from(x_u16).expect("read ExprTag from u16");
+        assert_eq!(x, x2);
+    }
     }
 
-    #[quickcheck]
-    fn prop_cont_tag_into_u16(t: ContTag) -> bool {
-        let x: u16 = t.into();
-        if let Ok(t2) = ContTag::try_from(x) {
-            t2 == t
-        } else {
-            false
-        }
+    proptest! {
+    #[test]
+    fn prop_cont_tag_u16(x in any::<ContTag>()) {
+        let x_u16: u16 = x.into();
+        let x2 = ContTag::try_from(x_u16).expect("read ContTag from u16");
+        assert_eq!(x, x2)
+    }
     }
 
-    #[quickcheck]
-    fn prop_op1_into_u16(t: Op1) -> bool {
-        let x: u16 = t.into();
-        if let Ok(t2) = Op1::try_from(x) {
-            t2 == t
-        } else {
-            false
-        }
+    proptest! {
+    #[test]
+    fn prop_op1_u16(x in any::<Op1>()) {
+        let x_u16: u16 = x.into();
+        let x2 = Op1::try_from(x_u16).expect("read Op1 from u16");
+        assert_eq!(x, x2)
+    }
     }
 
-    #[quickcheck]
-    fn prop_op2_into_u16(t: Op2) -> bool {
-        let x: u16 = t.into();
-        if let Ok(t2) = Op2::try_from(x) {
-            t2 == t
-        } else {
-            false
-        }
+    proptest! {
+    #[test]
+    fn prop_op2_u16(x in any::<Op2>()) {
+        let x_u16: u16 = x.into();
+        let x2 = Op2::try_from(x_u16).expect("read Op2 from u16");
+        assert_eq!(x, x2)
+    }
     }
 }

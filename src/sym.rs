@@ -3,10 +3,11 @@ use crate::parser::{
 };
 
 use peekmore::PeekMore;
+use proptest_derive::Arbitrary;
 /// Module for symbol type, Sym.
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash, Arbitrary)]
 pub struct Symbol {
     pub path: Vec<String>,
     // It would be better not to have this here, but it simplifies things in the Store, at least for now.

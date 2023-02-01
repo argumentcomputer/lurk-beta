@@ -2525,31 +2525,30 @@ pub mod test {
     use blstrs::Scalar as Fr;
 
     use super::*;
-    use quickcheck::{Arbitrary, Gen};
+    use proptest::prelude::*;
 
     use libipld::serde::from_ipld;
     use libipld::serde::to_ipld;
     use libipld::Ipld;
 
-    impl Arbitrary for ScalarPtr<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let tag = ExprTag::arbitrary(g);
-            let val = FWrap::arbitrary(g);
-            ScalarPtr::from_parts(Fr::from(tag as u64), val.0)
+    impl<Fr: LurkField> Arbitrary for ScalarPtr<Fr> {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            any::<(ExprTag, FWrap<Fr>)>()
+                .prop_map(|(tag, val)| ScalarPtr::from_parts(Fr::from(tag as u64), val.0))
+                .boxed()
         }
     }
 
-    #[quickcheck]
-    fn test_scalar_ptr_ipld(x: ScalarPtr<Fr>) -> bool {
-        if let Ok(ipld) = to_ipld(x) {
-            if let Ok(y) = from_ipld(ipld) {
-                x == y
-            } else {
-                false
-            }
-        } else {
-            false
-        }
+    proptest! {
+      #[test]
+      fn test_scalar_ptr_ipld(x in any::<ScalarPtr<Fr>>())  {
+        let to_ipld = to_ipld(x).unwrap();
+        let from_ipld = from_ipld(to_ipld).unwrap();
+        assert_eq!(x, from_ipld);
+      }
     }
 
     //#[test]
@@ -2561,25 +2560,25 @@ pub mod test {
     //    assert_eq!(to_ipld(ptr).unwrap(), Ipld::Link(cid))
     //}
 
-    impl Arbitrary for ScalarContPtr<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let tag = ContTag::arbitrary(g);
-            let val = FWrap::arbitrary(g);
-            ScalarContPtr::from_parts(Fr::from(tag as u64), val.0)
+    impl<Fr: LurkField> Arbitrary for ScalarContPtr<Fr> {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            any::<(ContTag, FWrap<Fr>)>()
+                .prop_map(|(tag, val)| ScalarContPtr::from_parts(Fr::from(tag as u64), val.0))
+                .boxed()
         }
     }
 
-    #[quickcheck]
-    fn prop_scalar_cont_ptr_ipld(x: ScalarContPtr<Fr>) -> bool {
-        if let Ok(ipld) = to_ipld(x) {
-            if let Ok(y) = from_ipld(ipld) {
-                x == y
-            } else {
-                false
-            }
-        } else {
-            false
-        }
+    proptest! {
+      #[test]
+      fn prop_scalar_cont_ptr_ipld(x in any::<ScalarContPtr<Fr>>()) {
+          let to_ipld = to_ipld(x).unwrap();
+              let from_ipld = from_ipld(to_ipld).unwrap();
+              assert_eq!(x, from_ipld);
+
+      }
     }
 
     //#[test]
@@ -2591,19 +2590,14 @@ pub mod test {
     //    assert_eq!(to_ipld(ptr).unwrap(), Ipld::Link(cid))
     //}
 
-    #[quickcheck]
-    fn prop_op1_ipld(x: Op1) -> bool {
-        if let Ok(ipld) = to_ipld(x) {
-            if let Ok(y) = from_ipld(ipld) {
-                x == y
-            } else {
-                false
-            }
-        } else {
-            false
-        }
+    proptest! {
+      #[test]
+      fn prop_op1_ipld(x in any::<Op1>())  {
+          let to_ipld = to_ipld(x).unwrap();
+          let from_ipld = from_ipld(to_ipld).unwrap();
+          assert_eq!(x, from_ipld);
+      }
     }
-
     #[test]
     fn unit_op1_ipld() {
         assert_eq!(
@@ -2612,17 +2606,13 @@ pub mod test {
         );
     }
 
-    #[quickcheck]
-    fn prop_op2_ipld_embed(x: Op2) -> bool {
-        if let Ok(ipld) = to_ipld(x) {
-            if let Ok(y) = from_ipld(ipld) {
-                x == y
-            } else {
-                false
-            }
-        } else {
-            false
-        }
+    proptest! {
+      #[test]
+      fn prop_op2_ipld(x in any::<Op1>())  {
+          let to_ipld = to_ipld(x).unwrap();
+          let from_ipld = from_ipld(to_ipld).unwrap();
+          assert_eq!(x, from_ipld);
+      }
     }
 
     #[test]

@@ -281,12 +281,15 @@ pub mod tests {
     use blstrs::Scalar as Fr;
 
     use super::*;
-    use quickcheck::{Arbitrary, Gen};
+    use proptest::prelude::*;
 
     impl<F: LurkField> Arbitrary for FWrap<F> {
-        fn arbitrary(_: &mut Gen) -> Self {
-            let f = F::random(rand::thread_rng());
-            FWrap(f)
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            let strategy = Just(FWrap(F::random(rand::thread_rng())));
+            strategy.boxed()
         }
     }
 
@@ -295,43 +298,43 @@ pub mod tests {
     pub struct VecFWrap<F: LurkField>(pub Vec<F>);
 
     impl<F: LurkField> Arbitrary for VecFWrap<F> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let vec_f: Vec<FWrap<F>> = Arbitrary::arbitrary(g);
-            VecFWrap(vec_f.into_iter().map(|f| f.0).collect())
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            let strategy = prop::collection::vec(any::<FWrap<F>>(), 0..=10)
+                .prop_map(|x| VecFWrap(x.iter().map(|x| x.0).collect()));
+            strategy.boxed()
         }
     }
 
-    #[quickcheck]
-    fn prop_repr_bytes_consistency(f1: FWrap<Fr>) -> bool {
+    proptest! {
+    #[test]
+    fn prop_repr_bytes_consistency(f1 in any::<FWrap<Fr>>()) {
         let bytes = f1.0.to_repr().as_ref().to_owned();
-        let f2 = <Fr as LurkField>::from_repr_bytes(&bytes);
-        Some(f1.0) == f2
+        let f2 = <Fr as LurkField>::from_repr_bytes(&bytes).expect("from_repr_bytes");
+        assert_eq!(f1.0,f2)
+    }
     }
 
-    #[quickcheck]
-    fn prop_byte_digits_consistency(f1: FWrap<Fr>) -> bool {
+    proptest! {
+    #[test]
+    fn prop_byte_digits_consistency(f1 in any::<FWrap<Fr>>()) {
         let bytes = f1.0.to_le_bytes_canonical();
         let f2 = Fr::from_le_bytes_canonical(&bytes);
-        println!("{:?}", bytes);
-        println!("f1 0x{}", f1.0.hex_digits());
-        println!("f2 0x{}", f2.hex_digits());
-        Some(f1.0) == Some(f2)
+        //println!("{:?}", bytes);
+        //println!("f1 0x{}", f1.0.hex_digits());
+        //println!("f2 0x{}", f2.hex_digits());
+        assert_eq!(f1.0, f2)
+    }
     }
 
-    #[quickcheck]
-    fn prop_tag_consistency(x: ExprTag) -> bool {
-        let f1 = Fr::from_expr_tag(x);
-        let tag = <Fr as LurkField>::to_expr_tag(&f1).unwrap();
-        let f2 = Fr::from_expr_tag(tag);
-        f1 == f2 && x == tag
-    }
-
-    #[quickcheck]
-    fn prop_vec_f_consistency(vec_f: VecFWrap<Fr>) -> bool {
+    proptest! {
+    #[test]
+    fn prop_vec_f_consistency(vec_f in any::<VecFWrap<Fr>>()) {
         let bytes = Fr::vec_f_to_bytes(vec_f.0.clone());
-        match Fr::vec_f_from_bytes(&bytes) {
-            Some(vec_f2) => vec_f.0 == vec_f2,
-            None => false,
-        }
+        let vec_f2 = Fr::vec_f_from_bytes(&bytes).expect("vec_f_from_bytes");
+        assert_eq!(vec_f.0, vec_f2)
+    }
     }
 }
