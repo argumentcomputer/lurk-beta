@@ -36,6 +36,6 @@ impl From<SynthesisError> for Error {
 
 impl From<store::Error> for Error {
     fn from(err: store::Error) -> Error {
-        Error::StoreError(err.0.into())
+        Error::StoreError(err.0)
     }
 }
