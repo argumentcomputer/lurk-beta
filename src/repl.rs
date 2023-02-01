@@ -2,7 +2,8 @@ use crate::eval::{empty_sym_env, Evaluator, IO};
 use crate::field::LurkField;
 use crate::package::Package;
 use crate::parser;
-use crate::store::{ContPtr, ContTag, Expression, Pointer, Ptr, Store, Tag};
+use crate::store::{ContPtr, Expression, Pointer, Ptr, Store};
+use crate::tag::{ContTag, ExprTag};
 use crate::writer::Write;
 use anyhow::Result;
 use peekmore::PeekMore;
@@ -186,7 +187,7 @@ impl<F: LurkField> ReplState<F> {
 
         let result = match &maybe_command {
             Ok(maybe_command) => match maybe_command.tag() {
-                Tag::Sym => {
+                ExprTag::Sym => {
                     if let Some(key_string) = store
                         .fetch(maybe_command)
                         .unwrap()
@@ -196,7 +197,7 @@ impl<F: LurkField> ReplState<F> {
                             "QUIT" => (true, false),
                             "LOAD" => match store.read_string(&mut chars) {
                                 Ok(s) => match s.tag() {
-                                    Tag::Str => {
+                                    ExprTag::Str => {
                                         let file_path = store.fetch(&s).unwrap();
                                         let file_path = PathBuf::from(file_path.as_str().unwrap());
                                         self.handle_load(store, file_path, package)?;
@@ -212,7 +213,7 @@ impl<F: LurkField> ReplState<F> {
                             },
                             "RUN" => {
                                 if let Ok(s) = store.read_string(&mut chars) {
-                                    if s.tag() == Tag::Str {
+                                    if s.tag() == ExprTag::Str {
                                         let file_path = store.fetch(&s).unwrap();
                                         let file_path = PathBuf::from(file_path.as_str().unwrap());
                                         self.handle_run(store, &file_path, package)?;

@@ -28,7 +28,8 @@ use crate::circuit::ToInputs;
 use crate::eval::{Frame, Witness, IO};
 use crate::hash_witness::HashWitness;
 use crate::proof::Provable;
-use crate::store::{ContTag, Op1, Op2, Ptr, Store, Tag, Thunk};
+use crate::store::{Ptr, Store, Thunk};
+use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use num_bigint::BigUint;
 use num_integer::Integer;
 use num_traits::FromPrimitive;
@@ -407,7 +408,7 @@ fn add_clause_single<'a, F: LurkField>(
 impl<'a, F: LurkField> Results<'a, F> {
     fn add_clauses_expr(
         &mut self,
-        key: Tag,
+        key: ExprTag,
         result_expr: &'a AllocatedPtr<F>,
         result_env: &'a AllocatedPtr<F>,
         result_cont: &'a AllocatedContPtr<F>,
@@ -640,14 +641,14 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     let mut results = Results::default();
     {
         // Self-evaluating expressions
-        results.add_clauses_expr(Tag::Nil, expr, env, cont, &g.true_num);
-        results.add_clauses_expr(Tag::Num, expr, env, cont, &g.true_num);
-        results.add_clauses_expr(Tag::Fun, expr, env, cont, &g.true_num);
-        results.add_clauses_expr(Tag::Char, expr, env, cont, &g.true_num);
-        results.add_clauses_expr(Tag::Str, expr, env, cont, &g.true_num);
-        results.add_clauses_expr(Tag::Comm, expr, env, cont, &g.true_num);
-        results.add_clauses_expr(Tag::Key, expr, env, cont, &g.true_num);
-        results.add_clauses_expr(Tag::U64, expr, env, cont, &g.true_num);
+        results.add_clauses_expr(ExprTag::Nil, expr, env, cont, &g.true_num);
+        results.add_clauses_expr(ExprTag::Num, expr, env, cont, &g.true_num);
+        results.add_clauses_expr(ExprTag::Fun, expr, env, cont, &g.true_num);
+        results.add_clauses_expr(ExprTag::Char, expr, env, cont, &g.true_num);
+        results.add_clauses_expr(ExprTag::Str, expr, env, cont, &g.true_num);
+        results.add_clauses_expr(ExprTag::Comm, expr, env, cont, &g.true_num);
+        results.add_clauses_expr(ExprTag::Key, expr, env, cont, &g.true_num);
+        results.add_clauses_expr(ExprTag::U64, expr, env, cont, &g.true_num);
     };
 
     let cont_is_terminal = alloc_equal(
@@ -681,7 +682,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         implies_equal!(cs, &expr_is_thunk, &expr_thunk_hash, expr.hash());
 
         results.add_clauses_expr(
-            Tag::Thunk,
+            ExprTag::Thunk,
             &expr_thunk_value,
             env,
             &expr_thunk_continuation,
@@ -712,7 +713,13 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         g,
     )?;
 
-    results.add_clauses_expr(Tag::Sym, &sym_result, &sym_env, &sym_cont, &sym_apply_cont);
+    results.add_clauses_expr(
+        ExprTag::Sym,
+        &sym_result,
+        &sym_env,
+        &sym_cont,
+        &sym_apply_cont,
+    );
     // --
 
     // --
@@ -738,7 +745,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     results.add_clauses_expr(
-        Tag::Cons,
+        ExprTag::Cons,
         &cons_result,
         &cons_env,
         &cons_cont,
@@ -2918,9 +2925,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         // IF this is open, we need to know what we are opening.
         let digest = result.hash();
 
-        let (open_secret_scalar, open_ptr) = match store
-            .get_maybe_opaque(Tag::Comm, digest.get_value().unwrap_or_else(|| F::zero()))
-        {
+        let (open_secret_scalar, open_ptr) = match store.get_maybe_opaque(
+            ExprTag::Comm,
+            digest.get_value().unwrap_or_else(|| F::zero()),
+        ) {
             Some(commit) => match store.open(commit) {
                 Some((secret, opening)) => (secret, opening),
                 None => (F::zero(), store.get_nil()), // nil is dummy
@@ -4766,21 +4774,13 @@ pub fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
         (0, 0) // Dummy
     };
 
-    let alloc_r_num =
-        AllocatedNum::alloc(
-            &mut cs.namespace(|| "r num"),
-            || Ok(F::from_u64(r).unwrap()),
-        )?;
-    let alloc_q_num =
-        AllocatedNum::alloc(
-            &mut cs.namespace(|| "q num"),
-            || Ok(F::from_u64(q).unwrap()),
-        )?;
+    let alloc_r_num = AllocatedNum::alloc(&mut cs.namespace(|| "r num"), || Ok(F::from_u64(r)))?;
+    let alloc_q_num = AllocatedNum::alloc(&mut cs.namespace(|| "q num"), || Ok(F::from_u64(q)))?;
     let alloc_arg1_num = AllocatedNum::alloc(&mut cs.namespace(|| "arg1 num"), || {
-        Ok(F::from_u64(arg1_u64).unwrap())
+        Ok(F::from_u64(arg1_u64))
     })?;
     let alloc_arg2_num = AllocatedNum::alloc(&mut cs.namespace(|| "arg2 num"), || {
-        Ok(F::from_u64(arg2_u64).unwrap())
+        Ok(F::from_u64(arg2_u64))
     })?;
 
     // a = b * q + r
@@ -4857,7 +4857,7 @@ pub fn allocate_unconstrained_bignum<F: LurkField, CS: ConstraintSystem<F>>(
     let bytes_le = bn.to_bytes_le();
     let mut bytes_padded = [0u8; 32];
     bytes_padded[0..bytes_le.len()].copy_from_slice(&bytes_le);
-    let ff = F::from_bytes(&bytes_padded).unwrap();
+    let ff = F::from_repr_bytes(&bytes_padded).unwrap();
     let num = AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(ff)).unwrap();
     Ok(num)
 }
@@ -5551,7 +5551,7 @@ mod tests {
 
         let a_u64 = to_u64(&mut cs.namespace(|| "u64 op"), &g, alloc_a.hash()).unwrap();
         assert!(cs.is_satisfied());
-        assert_eq!(a_u64.get_value(), Fr::from_u64(42));
+        assert_eq!(a_u64.get_value(), Some(Fr::from_u64(42)));
     }
 
     #[test]
@@ -5564,7 +5564,7 @@ mod tests {
 
         let a_u64 = to_u64(&mut cs.namespace(|| "u64 op"), &g, alloc_pow2_64.hash()).unwrap();
         assert!(cs.is_satisfied());
-        assert_eq!(a_u64.get_value(), Fr::from_u64(0));
+        assert_eq!(a_u64.get_value(), Some(Fr::from_u64(0)));
     }
 
     #[test]
@@ -5577,11 +5577,7 @@ mod tests {
             })
             .unwrap();
         let alloc_num =
-            AllocatedNum::alloc(
-                &mut cs.namespace(|| "num"),
-                || Ok(Fr::from_u64(42).unwrap()),
-            )
-            .unwrap();
+            AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(Fr::from_u64(42))).unwrap();
         let cond = Boolean::Constant(true);
 
         let res = enforce_less_than_bound(
@@ -5598,15 +5594,9 @@ mod tests {
     fn test_enforce_less_than_bound() {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let alloc_num =
-            AllocatedNum::alloc(
-                &mut cs.namespace(|| "num"),
-                || Ok(Fr::from_u64(42).unwrap()),
-            )
-            .unwrap();
-        let alloc_bound = AllocatedNum::alloc(&mut cs.namespace(|| "bound"), || {
-            Ok(Fr::from_u64(43).unwrap())
-        })
-        .unwrap();
+            AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(Fr::from_u64(42))).unwrap();
+        let alloc_bound =
+            AllocatedNum::alloc(&mut cs.namespace(|| "bound"), || Ok(Fr::from_u64(43))).unwrap();
         let cond = Boolean::Constant(true);
 
         let res = enforce_less_than_bound(
@@ -5623,15 +5613,9 @@ mod tests {
     fn test_enforce_less_than_bound_negative() {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let alloc_num =
-            AllocatedNum::alloc(
-                &mut cs.namespace(|| "num"),
-                || Ok(Fr::from_u64(43).unwrap()),
-            )
-            .unwrap();
-        let alloc_bound = AllocatedNum::alloc(&mut cs.namespace(|| "bound"), || {
-            Ok(Fr::from_u64(42).unwrap())
-        })
-        .unwrap();
+            AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(Fr::from_u64(43))).unwrap();
+        let alloc_bound =
+            AllocatedNum::alloc(&mut cs.namespace(|| "bound"), || Ok(Fr::from_u64(42))).unwrap();
         let cond = Boolean::Constant(true);
 
         let res = enforce_less_than_bound(
@@ -5664,8 +5648,8 @@ mod tests {
         )
         .unwrap();
         assert!(cs.is_satisfied());
-        assert_eq!(q.get_value(), Fr::from_u64(8));
-        assert_eq!(r.get_value(), Fr::from_u64(2));
+        assert_eq!(q.get_value(), Some(Fr::from_u64(8)));
+        assert_eq!(r.get_value(), Some(Fr::from_u64(2)));
     }
 
     #[test]
@@ -5688,8 +5672,8 @@ mod tests {
         )
         .unwrap();
         assert!(cs.is_satisfied());
-        assert_eq!(q.get_value(), Fr::from_u64(0));
-        assert_eq!(r.get_value(), Fr::from_u64(0));
+        assert_eq!(q.get_value(), Some(Fr::from_u64(0)));
+        assert_eq!(r.get_value(), Some(Fr::from_u64(0)));
     }
 
     #[test]
@@ -5723,15 +5707,14 @@ mod tests {
 
         assert!(cs.is_satisfied());
     }
-
     #[test]
     fn test_to_u32() {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let s = &mut Store::<Fr>::default();
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
 
-        let a = Fr::from_u64(2).unwrap();
-        let v = a + Fr::pow_vartime(&Fr::from_u64(2).unwrap(), [32]);
+        let a = Fr::from_u64(2);
+        let v = a + Fr::pow_vartime(&Fr::from_u64(2), [32]);
         let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
 
         let a_plus_power2_32_num =
@@ -5761,8 +5744,8 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
 
-        let a = Fr::from_u64(2).unwrap();
-        let v = a + Fr::pow_vartime(&Fr::from_u64(2).unwrap(), [64]);
+        let a = Fr::from_u64(2);
+        let v = a + Fr::pow_vartime(&Fr::from_u64(2), [64]);
         let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
 
         let a_plus_power2_64_num =
@@ -5789,10 +5772,8 @@ mod tests {
     #[test]
     fn test_enforce_pack() {
         let mut cs = TestConstraintSystem::<Fr>::new();
-        let a_num = AllocatedNum::alloc(&mut cs.namespace(|| "a num"), || {
-            Ok(Fr::from_u64(42).unwrap())
-        })
-        .unwrap();
+        let a_num =
+            AllocatedNum::alloc(&mut cs.namespace(|| "a num"), || Ok(Fr::from_u64(42))).unwrap();
         let bits = a_num.to_bits_le(&mut cs.namespace(|| "bits")).unwrap();
         enforce_pack(&mut cs, &bits, &a_num).unwrap();
         assert!(cs.is_satisfied());
