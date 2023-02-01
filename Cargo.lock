@@ -1250,6 +1250,7 @@ dependencies = [
  "itertools 0.9.0",
  "log",
  "lurk-ipld",
+ "lurk-pasta-msm",
  "memmap2",
  "multihash",
  "neptune",
@@ -1512,8 +1513,9 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 
 [[package]]
 name = "nova-snark"
-version = "0.10.0"
-source = "git+https://github.com/lurk-lang/Nova?branch=serde#1d92a472aa65fcaee918435ce7dec0a2c188c7a8"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bc8f635ec300fadd67e7e0916fee0f7dbe14df8b2a8dcf7d526f1382ba01aa4"
 dependencies = [
  "bellperson",
  "bincode",
@@ -1531,7 +1533,6 @@ dependencies = [
  "num-bigint 0.4.3",
  "num-integer",
  "num-traits",
- "rand 0.8.5",
  "rand_chacha",
  "rand_core 0.5.1",
  "rayon",

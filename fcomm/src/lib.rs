@@ -67,7 +67,7 @@ pub fn committed_function_store() -> FileMap<Commitment<S1>, Function<S1>> {
     FileMap::<Commitment<S1>, Function<S1>>::new("functions").unwrap()
 }
 
-// Number circuit reductions per step, equivalent to `chunk_frame_count`
+// Number of circuit reductions per step, equivalent to `chunk_frame_count`
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReductionCount {
     One,
