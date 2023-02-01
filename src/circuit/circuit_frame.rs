@@ -5707,6 +5707,7 @@ mod tests {
 
         assert!(cs.is_satisfied());
     }
+
     #[test]
     fn test_to_u32() {
         let mut cs = TestConstraintSystem::<Fr>::new();

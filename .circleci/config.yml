@@ -46,7 +46,7 @@ commands:
     steps:
       - save_cache:
           name: "Save rustup cache"
-          key: cargo-v2-{{ checksum "rust-toolchain" }}-{{ checksum "Cargo.toml" }}-{{ checksum "Cargo.lock" }}-{{ arch }}
+          key: cargo-v2-{{ checksum "rust-toolchain.toml" }}-{{ checksum "Cargo.toml" }}-{{ checksum "Cargo.lock" }}-{{ arch }}
           paths:
             - "~/.cargo"
             - "~/.rustup"
@@ -55,7 +55,7 @@ commands:
       steps:
         - restore_cache:
             keys:
-              - cargo-v2-{{ checksum "rust-toolchain" }}-{{ checksum "Cargo.toml" }}-{{ checksum "Cargo.lock" }}-{{ arch }}
+              - cargo-v2-{{ checksum "rust-toolchain.toml" }}-{{ checksum "Cargo.toml" }}-{{ checksum "Cargo.lock" }}-{{ arch }}
 
   install_gpu_deps:
     steps:
@@ -69,10 +69,10 @@ jobs:
       - checkout
       - run:
           name: Update submodules
-          command: git submodule update --init --recursive
-      - run: curl https://sh.rustup.rs -sSf | sh -s -- -y
-      - run: rustup install $(cat rust-toolchain)
-      - run: rustup default $(cat rust-toolchain)
+          command: |
+            git submodule update --init --recursive
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
+      - run: rustup show
       - run: cargo --version
       - run: rustc --version
       - run:
@@ -133,8 +133,7 @@ jobs:
           name: Install Rust
           command: |
             curl https://sh.rustup.rs -sSf | sh -s -- -y
-      - run: rustup install $(cat rust-toolchain)
-      - run: rustup default $(cat rust-toolchain)
+      - run: rustup show
       - run: cargo --version
       - run: cargo update
       - run: cargo fetch
@@ -157,8 +156,7 @@ jobs:
           name: Install Rust
           command: |
             curl https://sh.rustup.rs -sSf | sh -s -- -y
-      - run: rustup install $(cat rust-toolchain)
-      - run: rustup default $(cat rust-toolchain)
+      - run: rustup show
       - run: cargo --version
       - run: cargo update
       - run: cargo fetch

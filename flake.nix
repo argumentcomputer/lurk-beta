@@ -21,9 +21,14 @@
 
         toolchain = with fenix.packages.${system}; fromToolchainFile {
           file = ./rust-toolchain.toml; # alternatively, dir = ./.;
+<<<<<<< HEAD
           sha256 = "sha256-/F36bL5WoJ7opVs7o96dwVHE9SEt3am+6N3jPygJRKY=";
 
           };
+=======
+          sha256 = "sha256-riZUc+R9V35c/9e8KJUE+8pzpXyl0lRXt3ZkKlxoY0g=";
+        };
+>>>>>>> 30c8fd43e21b14b6cdcf7c5ea7613e43fbbfe456
 
       in rec {
         defaultPackage = (naersk.lib.${system}.override {
