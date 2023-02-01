@@ -1,4 +1,5 @@
 #![allow(clippy::single_match, clippy::type_complexity)]
+#![allow(clippy::uninlined_format_args)]
 
 extern crate core;
 
