@@ -15,66 +15,29 @@ pub enum LanguageField {
 pub trait LurkField: PrimeField + PrimeFieldBits {
     const FIELD: LanguageField;
 
-    fn from_repr_bytes(bs: &[u8]) -> Option<Self> {
+    fn to_bytes(self) -> Vec<u8> {
+        let repr = self.to_repr();
+        repr.as_ref().to_vec()
+    }
+    fn from_bytes(bs: &[u8]) -> Option<Self> {
         let mut def: Self::Repr = Self::default().to_repr();
         def.as_mut().copy_from_slice(bs);
         Self::from_repr(def).into()
     }
 
-    // Construct bytes from a field element *ignoring* the trait specific
-    // implementation of Repr
-    fn to_le_bytes_canonical(self) -> Vec<u8> {
-        let mut vec = vec![];
-        let bits = self.to_le_bits();
-
-        let len = bits.len();
-        let len_bytes = if len % 8 != 0 { len / 8 + 1 } else { len / 8 };
-        for _ in 0..len_bytes {
-            vec.push(0u8)
-        }
-        for (n, b) in bits.into_iter().enumerate() {
-            let (byte_i, bit_i) = (n / 8, n % 8);
-            if b {
-                vec[byte_i] += 1u8 << bit_i;
-            }
-        }
-        vec
-    }
-
     fn hex_digits(self) -> String {
         let mut s = String::new();
-        let bytes = self.to_le_bytes_canonical();
+        let bytes = self.to_bytes();
         for b in bytes.iter().rev() {
             s.push_str(&format!("{:02x?}", b));
         }
         s
     }
 
-    // Construct field element from possibly canonical bytes
-    fn from_le_bytes_canonical(bs: &[u8]) -> Self {
-        let mut res = Self::zero();
-        let mut bs = bs.iter().rev().peekable();
-        while let Some(b) = bs.next() {
-            let b: Self = (*b as u64).into();
-            if bs.peek().is_none() {
-                res.add_assign(b)
-            } else {
-                res.add_assign(b);
-                res.mul_assign(Self::from(256u64));
-            }
-        }
-        res
-    }
-
-    fn to_repr_bytes(self) -> Vec<u8> {
-        let repr = self.to_repr();
-        repr.as_ref().to_vec()
-    }
-
     fn vec_f_to_bytes(vec_f: Vec<Self>) -> Vec<u8> {
         let mut vec = vec![];
         for f in vec_f {
-            for byte in f.to_repr_bytes() {
+            for byte in f.to_bytes() {
                 vec.push(byte)
             }
         }
@@ -85,7 +48,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         let num_bytes: usize = (Self::NUM_BITS / 8 + 1) as usize;
         let mut vec_f: Vec<Self> = vec![];
         for chunk in vec.chunks(num_bytes) {
-            let f: Self = Self::from_repr_bytes(chunk)?;
+            let f: Self = Self::from_bytes(chunk)?;
             vec_f.push(f);
         }
         Some(vec_f)
@@ -269,7 +232,7 @@ impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
     {
         use serde::de::Error;
         let bytes: Vec<u8> = Vec::deserialize(deserializer)?;
-        let f = F::from_repr_bytes(&bytes).ok_or_else(|| {
+        let f = F::from_bytes(&bytes).ok_or_else(|| {
             D::Error::custom(format!("expected field element as bytes, got {:?}", &bytes))
         })?;
         Ok(FWrap(f))
@@ -302,20 +265,86 @@ pub mod tests {
     }
 
     #[quickcheck]
-    fn prop_repr_bytes_consistency(f1: FWrap<Fr>) -> bool {
+    fn prop_blstrs_repr_bytes_consistency(f1: FWrap<Fr>) -> bool {
         let bytes = f1.0.to_repr().as_ref().to_owned();
-        let f2 = <Fr as LurkField>::from_repr_bytes(&bytes);
+        let f2 = <Fr as LurkField>::from_bytes(&bytes);
         Some(f1.0) == f2
     }
 
     #[quickcheck]
-    fn prop_byte_digits_consistency(f1: FWrap<Fr>) -> bool {
-        let bytes = f1.0.to_le_bytes_canonical();
-        let f2 = Fr::from_le_bytes_canonical(&bytes);
-        println!("{:?}", bytes);
-        println!("f1 0x{}", f1.0.hex_digits());
-        println!("f2 0x{}", f2.hex_digits());
-        Some(f1.0) == Some(f2)
+    fn prop_pallas_repr_bytes_consistency(f1: FWrap<pasta_curves::Fp>) -> bool {
+        let bytes = f1.0.to_repr().as_ref().to_owned();
+        let f2 = <pasta_curves::Fp as LurkField>::from_bytes(&bytes);
+        Some(f1.0) == f2
+    }
+
+    #[quickcheck]
+    fn prop_vesta_repr_bytes_consistency(f1: FWrap<pasta_curves::Fq>) -> bool {
+        let bytes = f1.0.to_repr().as_ref().to_owned();
+        let f2 = <pasta_curves::Fq as LurkField>::from_bytes(&bytes);
+        Some(f1.0) == f2
+    }
+
+    // Construct canonical bytes from a field element
+    fn to_le_bytes_canonical<F: LurkField>(f: F) -> Vec<u8> {
+        let mut vec = vec![];
+        let bits = f.to_le_bits();
+
+        let len = bits.len();
+        let len_bytes = if len % 8 != 0 { len / 8 + 1 } else { len / 8 };
+        for _ in 0..len_bytes {
+            vec.push(0u8)
+        }
+        for (n, b) in bits.into_iter().enumerate() {
+            let (byte_i, bit_i) = (n / 8, n % 8);
+            if b {
+                vec[byte_i] += 1u8 << bit_i;
+            }
+        }
+        vec
+    }
+
+    // Construct field element from possibly canonical bytes
+    fn from_le_bytes_canonical<F: LurkField>(bs: &[u8]) -> F {
+        let mut res = F::zero();
+        let mut bs = bs.iter().rev().peekable();
+        while let Some(b) = bs.next() {
+            let b: F = (*b as u64).into();
+            if bs.peek().is_none() {
+                res.add_assign(b)
+            } else {
+                res.add_assign(b);
+                res.mul_assign(F::from(256u64));
+            }
+        }
+        res
+    }
+
+    #[quickcheck]
+    fn prop_blstrs_repr_canonicity(f1: FWrap<Fr>) -> bool {
+        let repr_bytes = f1.0.to_bytes();
+        let canonical_bytes = to_le_bytes_canonical(f1.0);
+        let f2_repr = Fr::from_bytes(&repr_bytes).unwrap();
+        let f2_canonical = from_le_bytes_canonical::<Fr>(&canonical_bytes);
+        repr_bytes == canonical_bytes && f2_repr == f2_canonical
+    }
+
+    #[quickcheck]
+    fn prop_pallas_repr_canonicity(f1: FWrap<pasta_curves::Fp>) -> bool {
+        let repr_bytes = f1.0.to_bytes();
+        let canonical_bytes = to_le_bytes_canonical(f1.0);
+        let f2_repr = pasta_curves::Fp::from_bytes(&repr_bytes).unwrap();
+        let f2_canonical = from_le_bytes_canonical::<pasta_curves::Fp>(&canonical_bytes);
+        repr_bytes == canonical_bytes && f2_repr == f2_canonical
+    }
+
+    #[quickcheck]
+    fn prop_vesta_repr_canonicity(f1: FWrap<pasta_curves::Fq>) -> bool {
+        let repr_bytes = f1.0.to_bytes();
+        let canonical_bytes = to_le_bytes_canonical(f1.0);
+        let f2_repr = pasta_curves::Fq::from_bytes(&repr_bytes).unwrap();
+        let f2_canonical = from_le_bytes_canonical::<pasta_curves::Fq>(&canonical_bytes);
+        repr_bytes == canonical_bytes && f2_repr == f2_canonical
     }
 
     #[quickcheck]
