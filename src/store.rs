@@ -2546,15 +2546,6 @@ pub mod test {
         }
     }
 
-    //#[test]
-    //fn unit_scalar_ptr_ipld() {
-    //    let tag = ExprTag::Num.as_field();
-    //    let dig = 0.into();
-    //    let ptr = ScalarPtr::<Fr>::from_parts(tag, dig);
-    //    let cid = Cid::new_v1(Fr::to_multicodec(tag).unwrap(), Fr::to_multihash(dig));
-    //    assert_eq!(to_ipld(ptr).unwrap(), Ipld::Link(cid))
-    //}
-
     impl Arbitrary for ScalarContPtr<Fr> {
         fn arbitrary(g: &mut Gen) -> Self {
             let tag = ContTag::arbitrary(g);
@@ -2575,15 +2566,6 @@ pub mod test {
             false
         }
     }
-
-    //#[test]
-    //fn unit_scalar_cont_ptr_ipld() {
-    //    let tag = ContTag::Dummy.as_field();
-    //    let dig = 0.into();
-    //    let ptr = ScalarContPtr::<Fr>::from_parts(tag, dig);
-    //    let cid = Cid::new_v1(Fr::to_multicodec(tag).unwrap(), Fr::to_multihash(dig));
-    //    assert_eq!(to_ipld(ptr).unwrap(), Ipld::Link(cid))
-    //}
 
     #[quickcheck]
     fn prop_op1_ipld(x: Op1) -> bool {
