@@ -26,32 +26,12 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     }
 
     fn hex_digits(self) -> String {
-        let mut s = String::new();
         let bytes = self.to_bytes();
+        let mut s = String::with_capacity(bytes.len() * 2);
         for b in bytes.iter().rev() {
             s.push_str(&format!("{:02x?}", b));
         }
         s
-    }
-
-    fn vec_f_to_bytes(vec_f: Vec<Self>) -> Vec<u8> {
-        let mut vec = vec![];
-        for f in vec_f {
-            for byte in f.to_bytes() {
-                vec.push(byte)
-            }
-        }
-        vec
-    }
-
-    fn vec_f_from_bytes(vec: &[u8]) -> Option<Vec<Self>> {
-        let num_bytes: usize = (Self::NUM_BITS / 8 + 1) as usize;
-        let mut vec_f: Vec<Self> = vec![];
-        for chunk in vec.chunks(num_bytes) {
-            let f: Self = Self::from_bytes(chunk)?;
-            vec_f.push(f);
-        }
-        Some(vec_f)
     }
 
     fn to_u16(&self) -> Option<u16> {
@@ -264,25 +244,25 @@ pub mod tests {
         }
     }
 
+    fn repr_bytes_consistency<F: LurkField>(f1: FWrap<F>) -> bool {
+        let bytes = f1.0.to_repr().as_ref().to_owned();
+        let f2 = <F as LurkField>::from_bytes(&bytes);
+        Some(f1.0) == f2
+    }
+
     #[quickcheck]
     fn prop_blstrs_repr_bytes_consistency(f1: FWrap<Fr>) -> bool {
-        let bytes = f1.0.to_repr().as_ref().to_owned();
-        let f2 = <Fr as LurkField>::from_bytes(&bytes);
-        Some(f1.0) == f2
+        repr_bytes_consistency(f1)
     }
 
     #[quickcheck]
     fn prop_pallas_repr_bytes_consistency(f1: FWrap<pasta_curves::Fp>) -> bool {
-        let bytes = f1.0.to_repr().as_ref().to_owned();
-        let f2 = <pasta_curves::Fp as LurkField>::from_bytes(&bytes);
-        Some(f1.0) == f2
+        repr_bytes_consistency(f1)
     }
 
     #[quickcheck]
     fn prop_vesta_repr_bytes_consistency(f1: FWrap<pasta_curves::Fq>) -> bool {
-        let bytes = f1.0.to_repr().as_ref().to_owned();
-        let f2 = <pasta_curves::Fq as LurkField>::from_bytes(&bytes);
-        Some(f1.0) == f2
+        repr_bytes_consistency(f1)
     }
 
     // Construct canonical bytes from a field element
@@ -320,31 +300,27 @@ pub mod tests {
         res
     }
 
-    #[quickcheck]
-    fn prop_blstrs_repr_canonicity(f1: FWrap<Fr>) -> bool {
+    fn repr_canonicity<F: LurkField>(f1: FWrap<F>) -> bool {
         let repr_bytes = f1.0.to_bytes();
         let canonical_bytes = to_le_bytes_canonical(f1.0);
-        let f2_repr = Fr::from_bytes(&repr_bytes).unwrap();
-        let f2_canonical = from_le_bytes_canonical::<Fr>(&canonical_bytes);
+        let f2_repr = F::from_bytes(&repr_bytes).unwrap();
+        let f2_canonical = from_le_bytes_canonical::<F>(&canonical_bytes);
         repr_bytes == canonical_bytes && f2_repr == f2_canonical
+    }
+
+    #[quickcheck]
+    fn prop_blstrs_repr_canonicity(f1: FWrap<Fr>) -> bool {
+        repr_canonicity(f1)
     }
 
     #[quickcheck]
     fn prop_pallas_repr_canonicity(f1: FWrap<pasta_curves::Fp>) -> bool {
-        let repr_bytes = f1.0.to_bytes();
-        let canonical_bytes = to_le_bytes_canonical(f1.0);
-        let f2_repr = pasta_curves::Fp::from_bytes(&repr_bytes).unwrap();
-        let f2_canonical = from_le_bytes_canonical::<pasta_curves::Fp>(&canonical_bytes);
-        repr_bytes == canonical_bytes && f2_repr == f2_canonical
+        repr_canonicity(f1)
     }
 
     #[quickcheck]
     fn prop_vesta_repr_canonicity(f1: FWrap<pasta_curves::Fq>) -> bool {
-        let repr_bytes = f1.0.to_bytes();
-        let canonical_bytes = to_le_bytes_canonical(f1.0);
-        let f2_repr = pasta_curves::Fq::from_bytes(&repr_bytes).unwrap();
-        let f2_canonical = from_le_bytes_canonical::<pasta_curves::Fq>(&canonical_bytes);
-        repr_bytes == canonical_bytes && f2_repr == f2_canonical
+        repr_canonicity(f1)
     }
 
     #[quickcheck]
@@ -353,14 +329,5 @@ pub mod tests {
         let tag = <Fr as LurkField>::to_expr_tag(&f1).unwrap();
         let f2 = Fr::from_expr_tag(tag);
         f1 == f2 && x == tag
-    }
-
-    #[quickcheck]
-    fn prop_vec_f_consistency(vec_f: VecFWrap<Fr>) -> bool {
-        let bytes = Fr::vec_f_to_bytes(vec_f.0.clone());
-        match Fr::vec_f_from_bytes(&bytes) {
-            Some(vec_f2) => vec_f.0 == vec_f2,
-            None => false,
-        }
     }
 }
