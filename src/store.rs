@@ -311,7 +311,7 @@ impl<F: LurkField> Serialize for ScalarPtr<F> {
         // magic numbers to avoid multicodec table collisons
         // this will disappear when we move from IPLD to LDON
         let codec: u64 = 0x10de << 48 | tag.to_u64_unchecked();
-        let hash = Multihash::wrap(codec, &val.to_repr_bytes())
+        let hash = Multihash::wrap(codec, &val.to_bytes())
             .map_err(|_| S::Error::custom("expected validly tagged ScalarPtr".to_string()))?;
         let cid = Cid::new_v1(codec, hash);
         cid.serialize(serializer)
@@ -326,7 +326,7 @@ impl<'de, F: LurkField> Deserialize<'de> for ScalarPtr<F> {
         use de::Error;
         let cid = Cid::deserialize(deserializer)?;
         let tag = F::from_u64(cid.codec() & 0x0000_0000_ffff_ffff);
-        let val = F::from_repr_bytes(cid.hash().digest())
+        let val = F::from_bytes(cid.hash().digest())
             .ok_or_else(|| D::Error::custom("expected ScalarContPtr value".to_string()))?;
         Ok(ScalarPtr::from_parts(tag, val))
     }
@@ -400,7 +400,7 @@ impl<F: LurkField> Serialize for ScalarContPtr<F> {
         // magic numbers to avoid multicodec table collisons
         // this will disappear when we move from IPLD to LDON
         let codec: u64 = 0x10de << 48 | tag.to_u64_unchecked();
-        let hash = Multihash::wrap(codec, &val.to_repr_bytes())
+        let hash = Multihash::wrap(codec, &val.to_bytes())
             .map_err(|_| S::Error::custom("expected validly tagged ScalarContPtr".to_string()))?;
         let cid = Cid::new_v1(codec, hash);
         cid.serialize(serializer)
@@ -415,7 +415,7 @@ impl<'de, F: LurkField> Deserialize<'de> for ScalarContPtr<F> {
         use de::Error;
         let cid = Cid::deserialize(deserializer)?;
         let tag = F::from_u64(cid.codec() & 0x0000_0000_ffff_ffff);
-        let val = F::from_repr_bytes(cid.hash().digest())
+        let val = F::from_bytes(cid.hash().digest())
             .ok_or_else(|| D::Error::custom("expected ScalarContPtr value".to_string()))?;
         Ok(ScalarContPtr::from_parts(tag, val))
     }
@@ -2545,15 +2545,6 @@ pub mod test {
       }
     }
 
-    //#[test]
-    //fn unit_scalar_ptr_ipld() {
-    //    let tag = ExprTag::Num.as_field();
-    //    let dig = 0.into();
-    //    let ptr = ScalarPtr::<Fr>::from_parts(tag, dig);
-    //    let cid = Cid::new_v1(Fr::to_multicodec(tag).unwrap(), Fr::to_multihash(dig));
-    //    assert_eq!(to_ipld(ptr).unwrap(), Ipld::Link(cid))
-    //}
-
     impl<Fr: LurkField> Arbitrary for ScalarContPtr<Fr> {
         type Parameters = ();
         type Strategy = BoxedStrategy<Self>;
@@ -2575,15 +2566,6 @@ pub mod test {
       }
     }
 
-    //#[test]
-    //fn unit_scalar_cont_ptr_ipld() {
-    //    let tag = ContTag::Dummy.as_field();
-    //    let dig = 0.into();
-    //    let ptr = ScalarContPtr::<Fr>::from_parts(tag, dig);
-    //    let cid = Cid::new_v1(Fr::to_multicodec(tag).unwrap(), Fr::to_multihash(dig));
-    //    assert_eq!(to_ipld(ptr).unwrap(), Ipld::Link(cid))
-    //}
-
     proptest! {
       #[test]
       fn prop_op1_ipld(x in any::<Op1>())  {
@@ -2592,6 +2574,7 @@ pub mod test {
           assert_eq!(x, from_ipld);
       }
     }
+
     #[test]
     fn unit_op1_ipld() {
         assert_eq!(

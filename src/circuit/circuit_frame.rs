@@ -4857,7 +4857,7 @@ pub fn allocate_unconstrained_bignum<F: LurkField, CS: ConstraintSystem<F>>(
     let bytes_le = bn.to_bytes_le();
     let mut bytes_padded = [0u8; 32];
     bytes_padded[0..bytes_le.len()].copy_from_slice(&bytes_le);
-    let ff = F::from_repr_bytes(&bytes_padded).unwrap();
+    let ff = F::from_bytes(&bytes_padded).unwrap();
     let num = AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(ff)).unwrap();
     Ok(num)
 }
