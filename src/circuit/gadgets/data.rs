@@ -9,9 +9,10 @@ use neptune::{
 
 use super::pointer::AsAllocatedHashComponents;
 use crate::field::LurkField;
-use crate::store::{ContTag, Expression, HashScalar, Op1, Op2, Pointer, Ptr, Store, Tag, Thunk};
+use crate::store::{Expression, HashScalar, Pointer, Ptr, Store, Thunk};
 use crate::store::{IntoHashComponents, ScalarPtr};
 use crate::store::{ScalarContPtr, ScalarPointer};
+use crate::tag::{ContTag, ExprTag, Op1, Op2};
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};
 
@@ -172,15 +173,15 @@ impl<F: LurkField> GlobalAllocations<F> {
             &store.get_str("").unwrap(),
         )?;
 
-        let sym_tag = Tag::Sym.allocate_constant(&mut cs.namespace(|| "sym_tag"))?;
-        let thunk_tag = Tag::Thunk.allocate_constant(&mut cs.namespace(|| "thunk_tag"))?;
-        let cons_tag = Tag::Cons.allocate_constant(&mut cs.namespace(|| "cons_tag"))?;
-        let char_tag = Tag::Char.allocate_constant(&mut cs.namespace(|| "char_tag"))?;
-        let str_tag = Tag::Str.allocate_constant(&mut cs.namespace(|| "str_tag"))?;
-        let num_tag = Tag::Num.allocate_constant(&mut cs.namespace(|| "num_tag"))?;
-        let u64_tag = Tag::U64.allocate_constant(&mut cs.namespace(|| "u64_tag"))?;
-        let comm_tag = Tag::Comm.allocate_constant(&mut cs.namespace(|| "comm_tag"))?;
-        let fun_tag = Tag::Fun.allocate_constant(&mut cs.namespace(|| "fun_tag"))?;
+        let sym_tag = ExprTag::Sym.allocate_constant(&mut cs.namespace(|| "sym_tag"))?;
+        let thunk_tag = ExprTag::Thunk.allocate_constant(&mut cs.namespace(|| "thunk_tag"))?;
+        let cons_tag = ExprTag::Cons.allocate_constant(&mut cs.namespace(|| "cons_tag"))?;
+        let char_tag = ExprTag::Char.allocate_constant(&mut cs.namespace(|| "char_tag"))?;
+        let str_tag = ExprTag::Str.allocate_constant(&mut cs.namespace(|| "str_tag"))?;
+        let num_tag = ExprTag::Num.allocate_constant(&mut cs.namespace(|| "num_tag"))?;
+        let u64_tag = ExprTag::U64.allocate_constant(&mut cs.namespace(|| "u64_tag"))?;
+        let comm_tag = ExprTag::Comm.allocate_constant(&mut cs.namespace(|| "comm_tag"))?;
+        let fun_tag = ExprTag::Fun.allocate_constant(&mut cs.namespace(|| "fun_tag"))?;
 
         let outermost_cont_tag =
             ContTag::Outermost.allocate_constant(&mut cs.namespace(|| "outermost_cont_tag"))?;
@@ -308,10 +309,10 @@ impl<F: LurkField> GlobalAllocations<F> {
         let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::zero())?;
         let default_num = allocate_constant(&mut cs.namespace(|| "default"), F::zero())?;
 
-        let power2_32_ff = F::pow_vartime(&F::from_u64(2).unwrap(), [32]);
+        let power2_32_ff = F::pow_vartime(&F::from_u64(2), [32]);
         let power2_32_num = allocate_constant(&mut cs.namespace(|| "pow(2,32)"), power2_32_ff)?;
 
-        let power2_64_ff = F::pow_vartime(&F::from_u64(2).unwrap(), [64]);
+        let power2_64_ff = F::pow_vartime(&F::from_u64(2), [64]);
         let power2_64_num = allocate_constant(&mut cs.namespace(|| "pow(2,64)"), power2_64_ff)?;
 
         Ok(Self {
@@ -439,7 +440,7 @@ impl<F: LurkField> Ptr<F> {
         SynthesisError,
     > {
         match maybe_fun.map(|ptr| (ptr, ptr.tag())) {
-            Some((ptr, Tag::Fun)) => match store.fetch(ptr).expect("missing fun") {
+            Some((ptr, ExprTag::Fun)) => match store.fetch(ptr).expect("missing fun") {
                 Expression::Fun(arg, body, closed_env) => {
                     let arg = store.get_expr_hash(&arg).expect("missing arg");
                     let body = store.get_expr_hash(&body).expect("missing body");
@@ -535,7 +536,7 @@ pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
     Ok(allocated)
 }
 
-impl Tag {
+impl ExprTag {
     pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
