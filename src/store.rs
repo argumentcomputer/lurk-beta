@@ -10,18 +10,19 @@ use neptune::poseidon::PoseidonConstants;
 use once_cell::sync::OnceCell;
 
 use libipld::Cid;
+use libipld::Multihash;
 
 use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
 use crate::scalar_store::{ScalarContinuation, ScalarExpression, ScalarStore};
 use crate::sym::Sym;
+use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use crate::{Num, UInt};
 
 use serde::Deserialize;
 use serde::Serialize;
 use serde::{de, ser};
-use serde_repr::{Deserialize_repr, Serialize_repr};
 
 pub enum HashArity {
     A3,
@@ -240,7 +241,7 @@ pub trait ScalarPointer<F: LurkField>: fmt::Debug + Copy + Clone + PartialEq + H
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Ptr<F: LurkField>(Tag, RawPtr<F>);
+pub struct Ptr<F: LurkField>(ExprTag, RawPtr<F>);
 
 #[allow(clippy::derive_hash_xor_eq)]
 impl<F: LurkField> Hash for Ptr<F> {
@@ -252,12 +253,12 @@ impl<F: LurkField> Hash for Ptr<F> {
 
 impl<F: LurkField> Ptr<F> {
     pub fn is_nil(&self) -> bool {
-        matches!(self.0, Tag::Nil)
+        matches!(self.0, ExprTag::Nil)
         // FIXME: check value also, probably
     }
 
     pub fn is_fun(&self) -> bool {
-        matches!(self.0, Tag::Fun)
+        matches!(self.0, ExprTag::Fun)
     }
 
     pub fn is_opaque(&self) -> bool {
@@ -267,15 +268,15 @@ impl<F: LurkField> Ptr<F> {
 
 impl<F: LurkField> From<char> for Ptr<F> {
     fn from(c: char) -> Self {
-        Self(Tag::Char, RawPtr::new(u32::from(c) as usize))
+        Self(ExprTag::Char, RawPtr::new(u32::from(c) as usize))
     }
 }
 
 impl<F: LurkField> Pointer<F> for Ptr<F> {
-    type Tag = Tag;
+    type Tag = ExprTag;
     type ScalarPointer = ScalarPtr<F>;
 
-    fn tag(&self) -> Tag {
+    fn tag(&self) -> ExprTag {
         self.0
     }
 }
@@ -305,8 +306,14 @@ impl<F: LurkField> Serialize for ScalarPtr<F> {
         S: serde::Serializer,
     {
         use ser::Error;
-        let cid = F::to_cid(self.0, self.1)
-            .ok_or_else(|| S::Error::custom("expected validly tagged ScalarPtr".to_string()))?;
+        let tag = self.tag();
+        let val = self.value();
+        // magic numbers to avoid multicodec table collisons
+        // this will disappear when we move from IPLD to LDON
+        let codec: u64 = 0x10de << 48 | tag.to_u64_unchecked();
+        let hash = Multihash::wrap(codec, &val.to_bytes())
+            .map_err(|_| S::Error::custom("expected validly tagged ScalarPtr".to_string()))?;
+        let cid = Cid::new_v1(codec, hash);
         cid.serialize(serializer)
     }
 }
@@ -318,10 +325,10 @@ impl<'de, F: LurkField> Deserialize<'de> for ScalarPtr<F> {
     {
         use de::Error;
         let cid = Cid::deserialize(deserializer)?;
-        let (tag, dig) = F::from_cid(cid).ok_or_else(|| {
-            D::Error::custom(format!("expected ScalarPtr encoded as Cid, got {cid}"))
-        })?;
-        Ok(ScalarPtr::from_parts(tag, dig))
+        let tag = F::from_u64(cid.codec() & 0x0000_0000_ffff_ffff);
+        let val = F::from_bytes(cid.hash().digest())
+            .ok_or_else(|| D::Error::custom("expected ScalarContPtr value".to_string()))?;
+        Ok(ScalarPtr::from_parts(tag, val))
     }
 }
 
@@ -388,8 +395,14 @@ impl<F: LurkField> Serialize for ScalarContPtr<F> {
         S: serde::Serializer,
     {
         use ser::Error;
-        let cid = F::to_cid(self.0, self.1)
-            .ok_or_else(|| S::Error::custom("expected validly tagged ScalarContPtr".to_string()))?;
+        let tag = self.tag();
+        let val = self.value();
+        // magic numbers to avoid multicodec table collisons
+        // this will disappear when we move from IPLD to LDON
+        let codec: u64 = 0x10de << 48 | tag.to_u64_unchecked();
+        let hash = Multihash::wrap(codec, &val.to_bytes())
+            .map_err(|_| S::Error::custom("expected validly tagged ScalarContPtr".to_string()))?;
+        let cid = Cid::new_v1(codec, hash);
         cid.serialize(serializer)
     }
 }
@@ -401,10 +414,10 @@ impl<'de, F: LurkField> Deserialize<'de> for ScalarContPtr<F> {
     {
         use de::Error;
         let cid = Cid::deserialize(deserializer)?;
-        let (tag, dig) = F::from_cid(cid).ok_or_else(|| {
-            D::Error::custom(format!("expected ScalarContPtr encoded as Cid, got {cid}"))
-        })?;
-        Ok(ScalarContPtr::from_parts(tag, dig))
+        let tag = F::from_u64(cid.codec() & 0x0000_0000_ffff_ffff);
+        let val = F::from_bytes(cid.hash().digest())
+            .ok_or_else(|| D::Error::custom("expected ScalarContPtr value".to_string()))?;
+        Ok(ScalarContPtr::from_parts(tag, val))
     }
 }
 
@@ -499,7 +512,7 @@ impl<F: LurkField> Hash for RawPtr<F> {
 // 0b 0000_ 0000_0000_0000
 //
 // where typ is
-// - `0b0000` for Tag
+// - `0b0000` for ExprTag
 // - `0b0001` for ContTag
 // - `0b0010` for Op1
 // - `0b0011` for Op2
@@ -772,212 +785,6 @@ impl<F: LurkField> Continuation<F> {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash, Serialize_repr, Deserialize_repr)]
-#[repr(u16)]
-pub enum Op1 {
-    Car = 0b0010_0000_0000_0000,
-    Cdr,
-    Atom,
-    Emit,
-    Open,
-    Secret,
-    Commit,
-    Num,
-    Comm,
-    Char,
-    Eval,
-    U64,
-}
-
-impl fmt::Display for Op1 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Op1::Car => write!(f, "Car"),
-            Op1::Cdr => write!(f, "Cdr"),
-            Op1::Atom => write!(f, "Atom"),
-            Op1::Emit => write!(f, "Emit"),
-            Op1::Open => write!(f, "Open"),
-            Op1::Secret => write!(f, "Secret"),
-            Op1::Commit => write!(f, "Commit"),
-            Op1::Num => write!(f, "Num"),
-            Op1::Comm => write!(f, "Comm"),
-            Op1::Char => write!(f, "Char"),
-            Op1::Eval => write!(f, "Eval"),
-            Op1::U64 => write!(f, "U64"),
-        }
-    }
-}
-
-impl Op1 {
-    pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
-        F::from(*self as u64)
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash, Serialize_repr, Deserialize_repr)]
-#[repr(u16)]
-pub enum Op2 {
-    Sum = 0b0011_0000_0000_0000,
-    Diff,
-    Product,
-    Quotient,
-    Equal,
-    NumEqual,
-    Less,
-    Greater,
-    LessEqual,
-    GreaterEqual,
-    Cons,
-    StrCons,
-    Begin,
-    Hide,
-    Modulo,
-    Eval,
-}
-
-impl Op2 {
-    pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
-        F::from(*self as u64)
-    }
-
-    pub fn is_numeric(&self) -> bool {
-        matches!(
-            self,
-            Op2::Sum
-                | Op2::Diff
-                | Op2::Product
-                | Op2::Quotient
-                | Op2::Less
-                | Op2::Greater
-                | Op2::LessEqual
-                | Op2::GreaterEqual
-                | Op2::NumEqual
-                | Op2::Modulo
-        )
-    }
-}
-
-impl fmt::Display for Op2 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Op2::Sum => write!(f, "Sum"),
-            Op2::Diff => write!(f, "Diff"),
-            Op2::Product => write!(f, "Product"),
-            Op2::Quotient => write!(f, "Quotient"),
-            Op2::Equal => write!(f, "Equal"),
-            Op2::NumEqual => write!(f, "NumEqual"),
-            Op2::Less => write!(f, "Less"),
-            Op2::Greater => write!(f, "Greater"),
-            Op2::LessEqual => write!(f, "LessEqual"),
-            Op2::GreaterEqual => write!(f, "GreaterEqual"),
-            Op2::Cons => write!(f, "Cons"),
-            Op2::StrCons => write!(f, "StrCons"),
-            Op2::Begin => write!(f, "Begin"),
-            Op2::Hide => write!(f, "Hide"),
-            Op2::Modulo => write!(f, "Modulo"),
-            Op2::Eval => write!(f, "Eval"),
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr)]
-#[repr(u16)]
-pub enum Tag {
-    Nil = 0b0000_0000_0000_0000,
-    Cons,
-    Sym,
-    Fun,
-    Num,
-    Thunk,
-    Str,
-    Char,
-    Comm,
-    U64,
-    Key,
-}
-
-impl From<Tag> for u64 {
-    fn from(t: Tag) -> Self {
-        t as u64
-    }
-}
-
-impl Tag {
-    pub fn from_field<F: From<u64> + ff::Field>(f: F) -> Option<Self> {
-        match f {
-            f if f == Tag::Nil.as_field() => Some(Tag::Nil),
-            f if f == Tag::Cons.as_field() => Some(Tag::Cons),
-            f if f == Tag::Sym.as_field() => Some(Tag::Sym),
-            f if f == Tag::Key.as_field() => Some(Tag::Key),
-            f if f == Tag::Fun.as_field() => Some(Tag::Fun),
-            f if f == Tag::Thunk.as_field() => Some(Tag::Thunk),
-            f if f == Tag::Num.as_field() => Some(Tag::Num),
-            f if f == Tag::Str.as_field() => Some(Tag::Str),
-            f if f == Tag::Char.as_field() => Some(Tag::Char),
-            f if f == Tag::Comm.as_field() => Some(Tag::Comm),
-            _ => None,
-        }
-    }
-
-    pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
-        F::from(*self as u64)
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[repr(u16)]
-pub enum ContTag {
-    Outermost = 0b0001_0000_0000_0000,
-    Call0,
-    Call,
-    Call2,
-    Tail,
-    Error,
-    Lookup,
-    Unop,
-    Binop,
-    Binop2,
-    If,
-    Let,
-    LetRec,
-    Dummy,
-    Terminal,
-    Emit,
-}
-
-impl From<ContTag> for u64 {
-    fn from(t: ContTag) -> Self {
-        t as u64
-    }
-}
-
-impl ContTag {
-    pub fn from_field<F: From<u64> + ff::Field>(f: F) -> Option<Self> {
-        match f {
-            f if f == ContTag::Outermost.as_field() => Some(ContTag::Outermost),
-            f if f == ContTag::Call0.as_field() => Some(ContTag::Call0),
-            f if f == ContTag::Call.as_field() => Some(ContTag::Call),
-            f if f == ContTag::Call2.as_field() => Some(ContTag::Call2),
-            f if f == ContTag::Tail.as_field() => Some(ContTag::Tail),
-            f if f == ContTag::Error.as_field() => Some(ContTag::Error),
-            f if f == ContTag::Lookup.as_field() => Some(ContTag::Lookup),
-            f if f == ContTag::Unop.as_field() => Some(ContTag::Unop),
-            f if f == ContTag::Binop.as_field() => Some(ContTag::Binop),
-            f if f == ContTag::Binop2.as_field() => Some(ContTag::Binop2),
-            f if f == ContTag::If.as_field() => Some(ContTag::If),
-            f if f == ContTag::Let.as_field() => Some(ContTag::Let),
-            f if f == ContTag::LetRec.as_field() => Some(ContTag::LetRec),
-            f if f == ContTag::Dummy.as_field() => Some(ContTag::Dummy),
-            f if f == ContTag::Terminal.as_field() => Some(ContTag::Terminal),
-            f if f == ContTag::Emit.as_field() => Some(ContTag::Emit),
-            _ => None,
-        }
-    }
-    pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
-        F::from(*self as u64)
-    }
-}
-
 impl<F: LurkField> Default for Store<F> {
     fn default() -> Self {
         let mut store = Store {
@@ -1058,7 +865,7 @@ impl<F: LurkField> Store<F> {
     pub fn hidden(&self, secret: F, payload: Ptr<F>) -> Option<Ptr<F>> {
         self.comm_store
             .get_index_of(&(FWrap(secret), payload))
-            .map(|c| Ptr(Tag::Comm, RawPtr::new(c)))
+            .map(|c| Ptr(ExprTag::Comm, RawPtr::new(c)))
     }
 
     pub fn hide(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
@@ -1067,10 +874,10 @@ impl<F: LurkField> Store<F> {
 
     pub fn open(&self, ptr: Ptr<F>) -> Option<(F, Ptr<F>)> {
         let p = match ptr.0 {
-            Tag::Comm => ptr,
-            Tag::Num => {
+            ExprTag::Comm => ptr,
+            ExprTag::Num => {
                 let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
-                match self.get_maybe_opaque(Tag::Comm, scalar) {
+                match self.get_maybe_opaque(ExprTag::Comm, scalar) {
                     Some(c) => c,
                     None => {
                         panic!("Can't find commitment in the store.")
@@ -1089,8 +896,8 @@ impl<F: LurkField> Store<F> {
 
     pub fn open_mut(&mut self, ptr: Ptr<F>) -> Result<(F, Ptr<F>), Error> {
         let p = match ptr.0 {
-            Tag::Comm => ptr,
-            Tag::Num => {
+            ExprTag::Comm => ptr,
+            ExprTag::Num => {
                 let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
 
                 self.intern_maybe_opaque_comm(scalar)
@@ -1107,7 +914,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn secret(&self, ptr: Ptr<F>) -> Option<Ptr<F>> {
         let p = match ptr.0 {
-            Tag::Comm => ptr,
+            ExprTag::Comm => ptr,
             _ => return None,
         };
 
@@ -1117,7 +924,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn secret_mut(&mut self, ptr: Ptr<F>) -> Result<Ptr<F>, Error> {
         let p = match ptr.0 {
-            Tag::Comm => ptr,
+            ExprTag::Comm => ptr,
             _ => return Err(Error("wrong type for commitment specifier".into())),
         };
 
@@ -1217,7 +1024,7 @@ impl<F: LurkField> Store<F> {
         }
 
         let (p, inserted) = self.cons_store.insert_full((car, cdr));
-        let ptr = Ptr(Tag::Cons, RawPtr::new(p));
+        let ptr = Ptr(ExprTag::Cons, RawPtr::new(p));
         if inserted {
             self.dehydrated.push(ptr);
         }
@@ -1229,7 +1036,7 @@ impl<F: LurkField> Store<F> {
             self.hash_expr(&car);
             self.hash_expr(&cdr);
         }
-        assert_eq!((car.tag(), cdr.tag()), (Tag::Char, Tag::Str));
+        assert_eq!((car.tag(), cdr.tag()), (ExprTag::Char, ExprTag::Str));
         let (c, s) = (
             self.fetch_char(&car).unwrap(),
             self.fetch_str(&cdr).unwrap(),
@@ -1245,7 +1052,7 @@ impl<F: LurkField> Store<F> {
         }
         let (p, inserted) = self.comm_store.insert_full((FWrap(secret), payload));
 
-        let ptr = Ptr(Tag::Comm, RawPtr::new(p));
+        let ptr = Ptr(ExprTag::Comm, RawPtr::new(p));
         if inserted {
             self.dehydrated.push(ptr);
         }
@@ -1254,17 +1061,17 @@ impl<F: LurkField> Store<F> {
 
     // Intern a potentially-opaque value. If the corresponding value is already known to the store,
     // return the known value.
-    fn intern_maybe_opaque(&mut self, tag: Tag, hash: F) -> Ptr<F> {
+    fn intern_maybe_opaque(&mut self, tag: ExprTag, hash: F) -> Ptr<F> {
         self.intern_opaque_aux(tag, hash, true)
     }
 
     // Intern an opaque value. If the corresponding non-opaque value is already known to the store,
     // return an opaque one anyway.
-    fn intern_opaque(&mut self, tag: Tag, hash: F) -> Ptr<F> {
+    fn intern_opaque(&mut self, tag: ExprTag, hash: F) -> Ptr<F> {
         self.intern_opaque_aux(tag, hash, false)
     }
 
-    pub fn get_maybe_opaque(&self, tag: Tag, hash: F) -> Option<Ptr<F>> {
+    pub fn get_maybe_opaque(&self, tag: ExprTag, hash: F) -> Option<Ptr<F>> {
         let scalar_ptr = ScalarPtr::from_parts(tag.as_field(), hash);
 
         let ptr = self.scalar_ptr_map.get(&scalar_ptr);
@@ -1278,7 +1085,7 @@ impl<F: LurkField> Store<F> {
     // `return_non_opaque_if_existing` is true, return the known value.
     fn intern_opaque_aux(
         &mut self,
-        tag: Tag,
+        tag: ExprTag,
         hash: F,
         return_non_opaque_if_existing: bool,
     ) -> Ptr<F> {
@@ -1307,7 +1114,7 @@ impl<F: LurkField> Store<F> {
         scalar_store: &ScalarStore<F>,
     ) -> Option<ContPtr<F>> {
         use ScalarContinuation::*;
-        let tag: ContTag = ContTag::from_field(*ptr.tag())?;
+        let tag: ContTag = ContTag::from_field(ptr.tag())?;
 
         if let Some(cont) = scalar_store.get_cont(&ptr) {
             let continuation = match cont {
@@ -1424,21 +1231,21 @@ impl<F: LurkField> Store<F> {
         ptr: ScalarPtr<F>,
         scalar_store: &ScalarStore<F>,
     ) -> Option<Ptr<F>> {
-        let tag: Tag = Tag::from_field(*ptr.tag())?;
+        let tag: ExprTag = ExprTag::from_field(ptr.tag())?;
         let expr = scalar_store.get_expr(&ptr);
         use ScalarExpression::*;
         match (tag, expr) {
-            (Tag::Nil, Some(Nil)) => Some(self.intern_nil()),
-            (Tag::Cons, Some(Cons(car, cdr))) => {
+            (ExprTag::Nil, Some(Nil)) => Some(self.intern_nil()),
+            (ExprTag::Cons, Some(Cons(car, cdr))) => {
                 let car = self.intern_scalar_ptr(*car, scalar_store)?;
                 let cdr = self.intern_scalar_ptr(*cdr, scalar_store)?;
                 Some(self.intern_cons(car, cdr))
             }
-            (Tag::Str, Some(Str(s))) => Some(self.intern_str(s)),
-            (Tag::Sym, Some(Sym(s))) => Some(self.intern_sym(s)),
-            (Tag::Key, Some(Sym(_))) => todo!(),
-            (Tag::Num, Some(Num(x))) => Some(self.intern_num(crate::Num::Scalar(*x))),
-            (Tag::Thunk, Some(Thunk(t))) => {
+            (ExprTag::Str, Some(Str(s))) => Some(self.intern_str(s)),
+            (ExprTag::Sym, Some(Sym(s))) => Some(self.intern_sym(s)),
+            (ExprTag::Key, Some(Sym(_))) => todo!(),
+            (ExprTag::Num, Some(Num(x))) => Some(self.intern_num(crate::Num::Scalar(*x))),
+            (ExprTag::Thunk, Some(Thunk(t))) => {
                 let value = self.intern_scalar_ptr(t.value, scalar_store)?;
                 let continuation = self.intern_scalar_cont_ptr(t.continuation, scalar_store)?;
                 Some(self.intern_thunk(crate::store::Thunk {
@@ -1447,7 +1254,7 @@ impl<F: LurkField> Store<F> {
                 }))
             }
             (
-                Tag::Fun,
+                ExprTag::Fun,
                 Some(Fun {
                     arg,
                     body,
@@ -1465,35 +1272,35 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_maybe_opaque_fun(&mut self, hash: F) -> Ptr<F> {
-        self.intern_maybe_opaque(Tag::Fun, hash)
+        self.intern_maybe_opaque(ExprTag::Fun, hash)
     }
 
     pub fn intern_maybe_opaque_sym(&mut self, hash: F) -> Ptr<F> {
-        self.intern_maybe_opaque(Tag::Sym, hash)
+        self.intern_maybe_opaque(ExprTag::Sym, hash)
     }
 
     pub fn intern_maybe_opaque_cons(&mut self, hash: F) -> Ptr<F> {
-        self.intern_maybe_opaque(Tag::Cons, hash)
+        self.intern_maybe_opaque(ExprTag::Cons, hash)
     }
 
     pub fn intern_maybe_opaque_comm(&mut self, hash: F) -> Ptr<F> {
-        self.intern_maybe_opaque(Tag::Comm, hash)
+        self.intern_maybe_opaque(ExprTag::Comm, hash)
     }
 
     pub fn intern_opaque_fun(&mut self, hash: F) -> Ptr<F> {
-        self.intern_opaque(Tag::Fun, hash)
+        self.intern_opaque(ExprTag::Fun, hash)
     }
 
     pub fn intern_opaque_sym(&mut self, hash: F) -> Ptr<F> {
-        self.intern_opaque(Tag::Sym, hash)
+        self.intern_opaque(ExprTag::Sym, hash)
     }
 
     pub fn intern_opaque_cons(&mut self, hash: F) -> Ptr<F> {
-        self.intern_opaque(Tag::Cons, hash)
+        self.intern_opaque(ExprTag::Cons, hash)
     }
 
     pub fn intern_opaque_comm(&mut self, hash: F) -> Ptr<F> {
-        self.intern_opaque(Tag::Comm, hash)
+        self.intern_opaque(ExprTag::Comm, hash)
     }
 
     /// Helper to allocate a list, instead of manually using `cons`.
@@ -1524,14 +1331,14 @@ impl<F: LurkField> Store<F> {
         let name = name.as_ref();
 
         let (tag, symbol_name) = if name == ".LURK.NIL" {
-            (Tag::Nil, "LURK.NIL")
+            (ExprTag::Nil, "LURK.NIL")
         } else {
             let (names_keyword, symbol_name) = names_keyword(name);
 
             if names_keyword {
-                (Tag::Key, symbol_name)
+                (ExprTag::Key, symbol_name)
             } else {
-                (Tag::Sym, symbol_name)
+                (ExprTag::Sym, symbol_name)
             }
         };
 
@@ -1548,14 +1355,14 @@ impl<F: LurkField> Store<F> {
         self.hash_string_mut(name);
 
         let (tag, symbol_name) = if name == ".LURK.NIL" {
-            (Tag::Nil, "LURK.NIL")
+            (ExprTag::Nil, "LURK.NIL")
         } else {
             let (names_keyword, symbol_name) = names_keyword(name);
 
             if names_keyword {
-                (Tag::Key, symbol_name)
+                (ExprTag::Key, symbol_name)
             } else {
-                (Tag::Sym, symbol_name)
+                (ExprTag::Sym, symbol_name)
             }
         };
 
@@ -1598,7 +1405,7 @@ impl<F: LurkField> Store<F> {
         };
         let (ptr, _) = self.num_store.insert_full(num);
 
-        Ptr(Tag::Num, RawPtr::new(ptr))
+        Ptr(ExprTag::Num, RawPtr::new(ptr))
     }
 
     pub fn get_num<T: Into<Num<F>>>(&self, num: T) -> Option<Ptr<F>> {
@@ -1616,7 +1423,7 @@ impl<F: LurkField> Store<F> {
 
         self.num_store
             .get_index_of::<Num<F>>(&num)
-            .map(|x| Ptr(Tag::Num, RawPtr::new(x)))
+            .map(|x| Ptr(ExprTag::Num, RawPtr::new(x)))
     }
 
     pub fn get_char(&self, c: char) -> Ptr<F> {
@@ -1624,11 +1431,11 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn get_char_from_u32(&self, code: u32) -> Ptr<F> {
-        Ptr(Tag::Char, RawPtr::new(code as usize))
+        Ptr(ExprTag::Char, RawPtr::new(code as usize))
     }
 
     pub fn get_u64(&self, n: u64) -> Ptr<F> {
-        Ptr(Tag::U64, RawPtr::new(n as usize))
+        Ptr(ExprTag::U64, RawPtr::new(n as usize))
     }
 
     pub fn intern_str<T: AsRef<str>>(&mut self, str: T) -> Ptr<F> {
@@ -1639,10 +1446,10 @@ impl<F: LurkField> Store<F> {
 
     fn intern_str_aux<T: AsRef<str>>(&mut self, str: T) -> Ptr<F> {
         if let Some(ptr) = self.str_store.0.get(&str) {
-            Ptr(Tag::Str, RawPtr::new(ptr.to_usize()))
+            Ptr(ExprTag::Str, RawPtr::new(ptr.to_usize()))
         } else {
             let ptr = self.str_store.0.get_or_intern(str);
-            let ptr = Ptr(Tag::Str, RawPtr::new(ptr.to_usize()));
+            let ptr = Ptr(ExprTag::Str, RawPtr::new(ptr.to_usize()));
 
             self.dehydrated.push(ptr);
             ptr
@@ -1651,20 +1458,20 @@ impl<F: LurkField> Store<F> {
 
     pub fn get_str<T: AsRef<str>>(&self, name: T) -> Option<Ptr<F>> {
         let ptr = self.str_store.0.get(name)?;
-        Some(Ptr(Tag::Str, RawPtr::new(ptr.to_usize())))
+        Some(Ptr(ExprTag::Str, RawPtr::new(ptr.to_usize())))
     }
 
     pub fn get_sym<T: AsRef<str>>(&self, sym: Sym) -> Option<Ptr<F>> {
         let name = sym.full_sym_name();
         let ptr = self.sym_store.0.get(name)?;
-        Some(Ptr(Tag::Sym, RawPtr::new(ptr.to_usize())))
+        Some(Ptr(ExprTag::Sym, RawPtr::new(ptr.to_usize())))
     }
 
     pub fn intern_fun(&mut self, arg: Ptr<F>, body: Ptr<F>, closed_env: Ptr<F>) -> Ptr<F> {
         // TODO: closed_env must be an env
-        assert!(matches!(arg.0, Tag::Sym), "ARG must be a symbol");
+        assert!(matches!(arg.0, ExprTag::Sym), "ARG must be a symbol");
         let (p, inserted) = self.fun_store.insert_full((arg, body, closed_env));
-        let ptr = Ptr(Tag::Fun, RawPtr::new(p));
+        let ptr = Ptr(ExprTag::Fun, RawPtr::new(p));
         if inserted {
             self.dehydrated.push(ptr);
         }
@@ -1673,7 +1480,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn intern_thunk(&mut self, thunk: Thunk<F>) -> Ptr<F> {
         let (p, inserted) = self.thunk_store.insert_full(thunk);
-        let ptr = Ptr(Tag::Thunk, RawPtr::new(p));
+        let ptr = Ptr(ExprTag::Thunk, RawPtr::new(p));
         if inserted {
             self.dehydrated.push(ptr);
         }
@@ -1745,40 +1552,40 @@ impl<F: LurkField> Store<F> {
     }
 
     pub(crate) fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
-        debug_assert!(matches!(ptr.0, Tag::Sym | Tag::Key | Tag::Nil));
+        debug_assert!(matches!(ptr.0, ExprTag::Sym | ExprTag::Key | ExprTag::Nil));
 
         if ptr.1.is_opaque() {
-            let is_keyword = ptr.0 == Tag::Key;
+            let is_keyword = ptr.0 == ExprTag::Key;
 
             return Some(Sym::new_opaque(is_keyword));
         }
 
-        if ptr.0 == Tag::Nil {
+        if ptr.0 == ExprTag::Nil {
             return Some(Sym::new(".LURK.NIL".into()));
         };
         self.sym_store
             .0
             .resolve(SymbolUsize::try_from_usize(ptr.1.idx()).unwrap())
             .map(|s| match ptr.0 {
-                Tag::Sym => Sym::new_sym(s.into()),
-                Tag::Key => Sym::new_key(s.into()),
+                ExprTag::Sym => Sym::new_sym(s.into()),
+                ExprTag::Key => Sym::new_key(s.into()),
                 _ => unreachable!(),
             })
     }
 
     pub(crate) fn fetch_str(&self, ptr: &Ptr<F>) -> Option<&str> {
-        debug_assert!(matches!(ptr.0, Tag::Str));
+        debug_assert!(matches!(ptr.0, ExprTag::Str));
         let symbol = SymbolUsize::try_from_usize(ptr.1.idx()).expect("invalid pointer");
         self.str_store.0.resolve(symbol)
     }
 
     pub(crate) fn fetch_char(&self, ptr: &Ptr<F>) -> Option<char> {
-        debug_assert!(matches!(ptr.0, Tag::Char));
+        debug_assert!(matches!(ptr.0, ExprTag::Char));
         char::from_u32(ptr.1 .0 .0 as u32)
     }
 
     pub(crate) fn fetch_fun(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>, Ptr<F>)> {
-        debug_assert!(matches!(ptr.0, Tag::Fun));
+        debug_assert!(matches!(ptr.0, ExprTag::Fun));
         if ptr.1.is_opaque() {
             None
             // Some(&self.opaque_fun)
@@ -1788,7 +1595,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub(crate) fn fetch_cons(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>)> {
-        debug_assert!(matches!(ptr.0, Tag::Cons));
+        debug_assert!(matches!(ptr.0, ExprTag::Cons));
         if ptr.1.is_opaque() {
             None
         } else {
@@ -1797,7 +1604,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub(crate) fn fetch_comm(&self, ptr: &Ptr<F>) -> Option<&(FWrap<F>, Ptr<F>)> {
-        debug_assert!(matches!(ptr.0, Tag::Comm));
+        debug_assert!(matches!(ptr.0, ExprTag::Comm));
         if ptr.1.is_opaque() {
             None
         } else {
@@ -1806,20 +1613,20 @@ impl<F: LurkField> Store<F> {
     }
 
     pub(crate) fn fetch_num(&self, ptr: &Ptr<F>) -> Option<&Num<F>> {
-        debug_assert!(matches!(ptr.0, Tag::Num));
+        debug_assert!(matches!(ptr.0, ExprTag::Num));
         self.num_store.get_index(ptr.1.idx())
     }
 
     fn fetch_thunk(&self, ptr: &Ptr<F>) -> Option<&Thunk<F>> {
-        debug_assert!(matches!(ptr.0, Tag::Thunk));
+        debug_assert!(matches!(ptr.0, ExprTag::Thunk));
         self.thunk_store.get_index(ptr.1.idx())
     }
 
     pub(crate) fn fetch_uint(&self, ptr: &Ptr<F>) -> Option<UInt> {
         // If more UInt variants are added, the following assertion should be relaxed to check for any of them.
-        debug_assert!(matches!(ptr.0, Tag::U64));
+        debug_assert!(matches!(ptr.0, ExprTag::U64));
         match ptr.0 {
-            Tag::U64 => Some(UInt::U64(ptr.1 .0 .0 as u64)),
+            ExprTag::U64 => Some(UInt::U64(ptr.1 .0 .0 as u64)),
             _ => unreachable!(),
         }
     }
@@ -1829,19 +1636,19 @@ impl<F: LurkField> Store<F> {
             return Some(Expression::Opaque(*ptr));
         }
         match ptr.0 {
-            Tag::Nil => Some(Expression::Nil),
-            Tag::Cons => self.fetch_cons(ptr).map(|(a, b)| Expression::Cons(*a, *b)),
-            Tag::Comm => self.fetch_comm(ptr).map(|(a, b)| Expression::Comm(a.0, *b)),
-            Tag::Sym => self.fetch_sym(ptr).map(|sym| Expression::Sym(sym)),
-            Tag::Key => self.fetch_sym(ptr).map(|sym| Expression::Sym(sym)),
-            Tag::Num => self.fetch_num(ptr).map(|num| Expression::Num(*num)),
-            Tag::Fun => self
+            ExprTag::Nil => Some(Expression::Nil),
+            ExprTag::Cons => self.fetch_cons(ptr).map(|(a, b)| Expression::Cons(*a, *b)),
+            ExprTag::Comm => self.fetch_comm(ptr).map(|(a, b)| Expression::Comm(a.0, *b)),
+            ExprTag::Sym => self.fetch_sym(ptr).map(|sym| Expression::Sym(sym)),
+            ExprTag::Key => self.fetch_sym(ptr).map(|sym| Expression::Sym(sym)),
+            ExprTag::Num => self.fetch_num(ptr).map(|num| Expression::Num(*num)),
+            ExprTag::Fun => self
                 .fetch_fun(ptr)
                 .map(|(a, b, c)| Expression::Fun(*a, *b, *c)),
-            Tag::Thunk => self.fetch_thunk(ptr).map(|thunk| Expression::Thunk(*thunk)),
-            Tag::Str => self.fetch_str(ptr).map(|str| Expression::Str(str)),
-            Tag::Char => self.fetch_char(ptr).map(Expression::Char),
-            Tag::U64 => self.fetch_uint(ptr).map(Expression::UInt),
+            ExprTag::Thunk => self.fetch_thunk(ptr).map(|thunk| Expression::Thunk(*thunk)),
+            ExprTag::Str => self.fetch_str(ptr).map(|str| Expression::Str(str)),
+            ExprTag::Char => self.fetch_char(ptr).map(Expression::Char),
+            ExprTag::U64 => self.fetch_uint(ptr).map(Expression::UInt),
         }
     }
 
@@ -1952,13 +1759,13 @@ impl<F: LurkField> Store<F> {
     /// Mutable version of car_cdr to handle Str. `(cdr str)` may return a new str (the tail), which must be allocated.
     pub fn car_cdr_mut(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
         match ptr.0 {
-            Tag::Nil => Ok((self.get_nil(), self.get_nil())),
-            Tag::Cons => match self.fetch(ptr) {
+            ExprTag::Nil => Ok((self.get_nil(), self.get_nil())),
+            ExprTag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
                 Some(Expression::Opaque(_)) => Err(Error("cannot destructure opaque Cons".into())),
                 _ => unreachable!(),
             },
-            Tag::Str => {
+            ExprTag::Str => {
                 if let Some(Expression::Str(s)) = self.fetch(ptr) {
                     let mut str = s.chars();
                     if let Some(c) = str.next() {
@@ -1978,13 +1785,13 @@ impl<F: LurkField> Store<F> {
 
     pub fn car_cdr(&self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
         match ptr.0 {
-            Tag::Nil => Ok((self.get_nil(), self.get_nil())),
-            Tag::Cons => match self.fetch(ptr) {
+            ExprTag::Nil => Ok((self.get_nil(), self.get_nil())),
+            ExprTag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
                 Some(Expression::Opaque(_)) => panic!("cannot destructure opaque Cons"),
                 _ => unreachable!(),
             },
-            Tag::Str => {
+            ExprTag::Str => {
                 if let Some(Expression::Str(s)) = self.fetch(ptr) {
                     Ok({
                         let mut chars = s.chars();
@@ -2017,7 +1824,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn hash_expr_aux(&self, ptr: &Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
-        use Tag::*;
+        use ExprTag::*;
         match ptr.tag() {
             Nil => self.hash_nil(mode),
             Cons => self.hash_cons(*ptr, mode),
@@ -2399,7 +2206,7 @@ impl<F: LurkField> Store<F> {
         let n = self.fetch_uint(&ptr)?;
 
         match n {
-            UInt::U64(x) => Some(self.scalar_ptr(ptr, F::from_u64(x)?, mode)),
+            UInt::U64(x) => Some(self.scalar_ptr(ptr, F::from_u64(x), mode)),
         }
     }
 
@@ -2501,11 +2308,11 @@ impl<F: LurkField> Store<F> {
         chars.fold(initial_scalar_ptr, |acc, char| {
             let c_scalar: F = (u32::from(char) as u64).into();
             // This bypasses create_scalar_ptr but is okay because Chars are immediate and don't need to be indexed.
-            let c = ScalarPtr(Tag::Char.as_field(), c_scalar);
+            let c = ScalarPtr(ExprTag::Char.as_field(), c_scalar);
             let hash = self.hash_scalar_ptrs_2(&[c, acc]);
             // This bypasses create_scalar_ptr but is okay because we will call it to correctly create each of these
             // ScalarPtrs belwo, in hash_string_mut_aux.
-            let new_scalar_ptr = ScalarPtr(Tag::Str.as_field(), hash);
+            let new_scalar_ptr = ScalarPtr(ExprTag::Str.as_field(), hash);
             hashes.push(hash);
             new_scalar_ptr
         });
@@ -2578,7 +2385,7 @@ impl<F: LurkField> Store<F> {
         // TODO: May need new tag for this.
         // Meanwhile, it is illegal to try to dereference/follow an opaque PTR.
         // So any tag and RawPtr are okay.
-        Ptr(Tag::Nil, self.new_opaque_raw_ptr())
+        Ptr(ExprTag::Nil, self.new_opaque_raw_ptr())
     }
 
     pub fn new_opaque_raw_ptr(&mut self) -> RawPtr<F> {
@@ -2600,8 +2407,8 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn cons_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> bool {
-        assert_eq!(Tag::Cons, a.tag());
-        assert_eq!(Tag::Cons, b.tag());
+        assert_eq!(ExprTag::Cons, a.tag());
+        assert_eq!(ExprTag::Cons, b.tag());
 
         let a_opaque = a.is_opaque();
         let b_opaque = b.is_opaque();
@@ -2714,52 +2521,13 @@ pub mod test {
     use super::*;
     use quickcheck::{Arbitrary, Gen};
 
-    use crate::test::frequency;
-
     use libipld::serde::from_ipld;
     use libipld::serde::to_ipld;
     use libipld::Ipld;
 
-    impl Arbitrary for Tag {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Tag>)> = vec![
-                (100, Box::new(|_| Tag::Nil)),
-                (100, Box::new(|_| Tag::Cons)),
-                (100, Box::new(|_| Tag::Sym)),
-                (100, Box::new(|_| Tag::Fun)),
-                (100, Box::new(|_| Tag::Num)),
-                (100, Box::new(|_| Tag::Thunk)),
-                (100, Box::new(|_| Tag::Str)),
-            ];
-            frequency(g, input)
-        }
-    }
-    impl Arbitrary for ContTag {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> ContTag>)> = vec![
-                (100, Box::new(|_| ContTag::Outermost)),
-                (100, Box::new(|_| ContTag::Call)),
-                (100, Box::new(|_| ContTag::Call2)),
-                (100, Box::new(|_| ContTag::Tail)),
-                (100, Box::new(|_| ContTag::Error)),
-                (100, Box::new(|_| ContTag::Lookup)),
-                (100, Box::new(|_| ContTag::Unop)),
-                (100, Box::new(|_| ContTag::Binop)),
-                (100, Box::new(|_| ContTag::Binop2)),
-                (100, Box::new(|_| ContTag::If)),
-                (100, Box::new(|_| ContTag::Let)),
-                (100, Box::new(|_| ContTag::LetRec)),
-                (100, Box::new(|_| ContTag::Dummy)),
-                (100, Box::new(|_| ContTag::Terminal)),
-                (100, Box::new(|_| ContTag::Emit)),
-            ];
-            frequency(g, input)
-        }
-    }
-
     impl Arbitrary for ScalarPtr<Fr> {
         fn arbitrary(g: &mut Gen) -> Self {
-            let tag = Tag::arbitrary(g);
+            let tag = ExprTag::arbitrary(g);
             let val = FWrap::arbitrary(g);
             ScalarPtr::from_parts(Fr::from(tag as u64), val.0)
         }
@@ -2776,15 +2544,6 @@ pub mod test {
         } else {
             false
         }
-    }
-
-    #[test]
-    fn unit_scalar_ptr_ipld() {
-        let tag = Tag::Num.as_field();
-        let dig = 0.into();
-        let ptr = ScalarPtr::<Fr>::from_parts(tag, dig);
-        let cid = Cid::new_v1(Fr::to_multicodec(tag).unwrap(), Fr::to_multihash(dig));
-        assert_eq!(to_ipld(ptr).unwrap(), Ipld::Link(cid))
     }
 
     impl Arbitrary for ScalarContPtr<Fr> {
@@ -2808,33 +2567,6 @@ pub mod test {
         }
     }
 
-    #[test]
-    fn unit_scalar_cont_ptr_ipld() {
-        let tag = ContTag::Dummy.as_field();
-        let dig = 0.into();
-        let ptr = ScalarContPtr::<Fr>::from_parts(tag, dig);
-        let cid = Cid::new_v1(Fr::to_multicodec(tag).unwrap(), Fr::to_multihash(dig));
-        assert_eq!(to_ipld(ptr).unwrap(), Ipld::Link(cid))
-    }
-
-    impl Arbitrary for Op1 {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Op1>)> = vec![
-                (100, Box::new(|_| Op1::Car)),
-                (100, Box::new(|_| Op1::Cdr)),
-                (100, Box::new(|_| Op1::Atom)),
-                (100, Box::new(|_| Op1::Emit)),
-                (100, Box::new(|_| Op1::Secret)),
-                (100, Box::new(|_| Op1::Commit)),
-                (100, Box::new(|_| Op1::Num)),
-                (100, Box::new(|_| Op1::Comm)),
-                (100, Box::new(|_| Op1::Char)),
-                (100, Box::new(|_| Op1::Eval)),
-            ];
-            frequency(g, input)
-        }
-    }
-
     #[quickcheck]
     fn prop_op1_ipld(x: Op1) -> bool {
         if let Ok(ipld) = to_ipld(x) {
@@ -2854,29 +2586,6 @@ pub mod test {
             to_ipld(Op1::Car).unwrap(),
             Ipld::Integer(0b0010_0000_0000_0000_i128)
         );
-    }
-
-    impl Arbitrary for Op2 {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Op2>)> = vec![
-                (100, Box::new(|_| Op2::Sum)),
-                (100, Box::new(|_| Op2::Diff)),
-                (100, Box::new(|_| Op2::Product)),
-                (100, Box::new(|_| Op2::Quotient)),
-                (100, Box::new(|_| Op2::Equal)),
-                (100, Box::new(|_| Op2::NumEqual)),
-                (100, Box::new(|_| Op2::Less)),
-                (100, Box::new(|_| Op2::Greater)),
-                (100, Box::new(|_| Op2::LessEqual)),
-                (100, Box::new(|_| Op2::GreaterEqual)),
-                (100, Box::new(|_| Op2::Cons)),
-                (100, Box::new(|_| Op2::StrCons)),
-                (100, Box::new(|_| Op2::Begin)),
-                (100, Box::new(|_| Op2::Hide)),
-                (100, Box::new(|_| Op2::Eval)),
-            ];
-            frequency(g, input)
-        }
     }
 
     #[quickcheck]
@@ -2910,17 +2619,17 @@ pub mod test {
 
     #[test]
     fn tag_vals() {
-        assert_eq!(0, Tag::Nil as u64);
-        assert_eq!(1, Tag::Cons as u64);
-        assert_eq!(2, Tag::Sym as u64);
-        assert_eq!(3, Tag::Fun as u64);
-        assert_eq!(4, Tag::Num as u64);
-        assert_eq!(5, Tag::Thunk as u64);
-        assert_eq!(6, Tag::Str as u64);
-        assert_eq!(7, Tag::Char as u64);
-        assert_eq!(8, Tag::Comm as u64);
-        assert_eq!(9, Tag::U64 as u64);
-        assert_eq!(10, Tag::Key as u64);
+        assert_eq!(0, ExprTag::Nil as u64);
+        assert_eq!(1, ExprTag::Cons as u64);
+        assert_eq!(2, ExprTag::Sym as u64);
+        assert_eq!(3, ExprTag::Fun as u64);
+        assert_eq!(4, ExprTag::Num as u64);
+        assert_eq!(5, ExprTag::Thunk as u64);
+        assert_eq!(6, ExprTag::Str as u64);
+        assert_eq!(7, ExprTag::Char as u64);
+        assert_eq!(8, ExprTag::Comm as u64);
+        assert_eq!(9, ExprTag::U64 as u64);
+        assert_eq!(10, ExprTag::Key as u64);
     }
 
     #[test]
@@ -3309,7 +3018,7 @@ pub mod test {
         let sym_tag = s.get_expr_hash(&sym).unwrap().0;
         // let sym_hash = s.get_expr_hash(&sym).unwrap().1;
 
-        assert_eq!(Tag::Sym.as_field::<Fr>(), sym_tag);
+        assert_eq!(ExprTag::Sym.as_field::<Fr>(), sym_tag);
 
         // FIXME: What should this be? Should this even be allowed?
         // assert_eq!(Fr::from(0), sym_hash)

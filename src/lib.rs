@@ -1,4 +1,5 @@
 #![allow(clippy::single_match, clippy::type_complexity)]
+#![allow(clippy::uninlined_format_args)]
 
 extern crate core;
 
@@ -22,6 +23,7 @@ pub mod repl;
 pub mod scalar_store;
 pub mod store;
 pub mod sym;
+pub mod tag;
 pub mod uint;
 pub mod writer;
 
