@@ -36,7 +36,6 @@ serde_repr = "0.1.7"
 indexmap = { version = "1.8.0", features = ["rayon"] }
 ahash = "0.7.6"
 pasta_curves = { version = "0.5.2", features = ["repr-c", "serde"], package = "fil_pasta_curves" }
-pasta-msm = { version = "0.1.0", package = "lurk-pasta-msm" }
 string-interner = "0.14.0"
 dashmap = "5.0.0"
 libipld = { package = "lurk-ipld", version = "0.3.0", default-features = false, features = ["dag-cbor", "dag-json", "serde-codec"] }
@@ -48,7 +47,7 @@ num-traits = "0.2.15"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 memmap = { version = "0.5.8", package = "memmap2" }
-pasta-msm = "0.1.1"
+pasta-msm = { version = "0.1.0", package = "lurk-pasta-msm" }
 proptest = "1.1.0"
 proptest-derive = "0.3.0"
 
