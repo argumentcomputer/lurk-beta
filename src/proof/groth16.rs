@@ -1,20 +1,23 @@
+#[cfg(not(target_arch = "wasm32"))]
+use bellperson::groth16::aggregate::setup_fake_srs;
 use bellperson::{
     groth16::{
         self,
         aggregate::{
-            aggregate_proofs_and_instances, setup_fake_srs,
-            verify_aggregate_proof_and_aggregate_instances, AggregateProofAndInstance,
-            AggregateVersion, GenericSRS, VerifierSRS,
+            aggregate_proofs_and_instances, verify_aggregate_proof_and_aggregate_instances,
+            AggregateProofAndInstance, AggregateVersion, GenericSRS, VerifierSRS,
         },
         verify_proof,
     },
     SynthesisError,
 };
 use blstrs::{Bls12, Scalar};
+#[cfg(not(target_arch = "wasm32"))]
 use memmap::MmapOptions;
+#[cfg(not(target_arch = "wasm32"))]
 use once_cell::sync::Lazy;
 use pairing_lib::{Engine, MultiMillerLoop};
-use rand::{RngCore, SeedableRng};
+use rand_core::{RngCore, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use serde::{Deserialize, Serialize};
 
@@ -24,25 +27,28 @@ use crate::eval::{Evaluator, Witness, IO};
 use crate::proof::{Provable, Prover, PublicParameters};
 use crate::store::{Ptr, Store};
 
-use std::env;
-use std::fs::File;
-use std::io;
 use std::marker::PhantomData;
+#[cfg(not(target_arch = "wasm32"))]
+use std::{env, fs::File, io};
 
 const DUMMY_RNG_SEED: [u8; 16] = [
     0x01, 0x03, 0x02, 0x04, 0x05, 0x07, 0x06, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0C, 0x0B, 0x0A,
 ];
 
+#[cfg(not(target_arch = "wasm32"))]
 pub static INNER_PRODUCT_SRS: Lazy<GenericSRS<Bls12>> = Lazy::new(|| load_srs().unwrap());
 
+#[cfg(not(target_arch = "wasm32"))]
 const MAX_FAKE_SRS_SIZE: usize = (2 << 14) + 1;
 
 pub const TRANSCRIPT_INCLUDE: &[u8] = b"LURK-CIRCUIT";
 
 // If you don't have a real SnarkPack SRS symlinked, generate a fake one.
 // Don't use this in production!
+#[cfg(not(target_arch = "wasm32"))]
 const FALLBACK_TO_FAKE_SRS: bool = true;
 
+#[cfg(not(target_arch = "wasm32"))]
 fn load_srs() -> Result<GenericSRS<Bls12>, io::Error> {
     let path = env::current_dir()?.join("params/v28-fil-inner-product-v1.srs");
     let f = File::open(path);
