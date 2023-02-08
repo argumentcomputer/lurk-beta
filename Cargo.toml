@@ -48,6 +48,8 @@ num-traits = "0.2.15"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 memmap = { version = "0.5.8", package = "memmap2" }
 pasta-msm = "0.1.1"
+proptest = "1.1.0"
+proptest-derive = "0.3.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
@@ -58,8 +60,8 @@ gpu = ["neptune/opencl"]
 
 [dev-dependencies]
 criterion = "0.3.5"
-quickcheck = "1.0.3"
-quickcheck_macros = "1.0.0"
+structopt = { version = "0.3", default-features = false }
+tap = "1.0.1"
 rand = "0.8.4"
 
 [[bench]]

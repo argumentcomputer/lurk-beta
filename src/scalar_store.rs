@@ -300,228 +300,234 @@ mod test {
     use crate::{Sym, Symbol};
     use blstrs::Scalar as Fr;
 
-    use quickcheck::{Arbitrary, Gen};
-
-    use crate::test::frequency;
+    use proptest::prelude::*;
+    use tap::TapFallible;
 
     use libipld::serde::from_ipld;
     use libipld::serde::to_ipld;
 
-    impl Arbitrary for ScalarThunk<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            ScalarThunk {
-                value: Arbitrary::arbitrary(g),
-                continuation: Arbitrary::arbitrary(g),
-            }
+    impl<Fr: LurkField> Arbitrary for ScalarThunk<Fr> {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            (any::<ScalarPtr<Fr>>(), any::<ScalarContPtr<Fr>>())
+                .prop_map(|(value, continuation)| Self {
+                    value,
+                    continuation,
+                })
+                .boxed()
         }
     }
 
-    impl Arbitrary for Symbol {
-        fn arbitrary(g: &mut Gen) -> Self {
-            Symbol {
-                path: Arbitrary::arbitrary(g),
-                opaque: Arbitrary::arbitrary(g),
-            }
+    proptest! {
+        #[test]
+        fn prop_scalar_thunk_ipld(x in any::<ScalarThunk<Fr>>())  {
+            let to_ipld = to_ipld(x).unwrap();
+            let y = from_ipld(to_ipld).unwrap();
+            assert_eq!(x, y);
         }
     }
 
-    #[quickcheck]
-    fn prop_scalar_thunk_ipld(x: ScalarThunk<Fr>) -> bool {
-        if let Ok(ipld) = to_ipld(x) {
-            if let Ok(y) = from_ipld(ipld) {
-                x == y
-            } else {
-                false
-            }
-        } else {
-            false
+    impl<Fr: LurkField> Arbitrary for ScalarExpression<Fr> {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            prop_oneof!(
+                Just(Self::Nil),
+                any::<(ScalarPtr<Fr>, ScalarPtr<Fr>)>().prop_map(|(x, y)| Self::Cons(x, y)),
+                any::<Symbol>().prop_map(|x| Self::Sym(Sym::Sym(x))),
+                any::<String>().prop_map(|x| Self::Str(x)),
+                any::<FWrap<Fr>>().prop_map(|x| Self::Num(x.0)),
+                any::<(ScalarPtr<Fr>, ScalarPtr<Fr>, ScalarPtr<Fr>)>().prop_map(
+                    |(arg, body, closed_env)| {
+                        Self::Fun {
+                            arg,
+                            body,
+                            closed_env,
+                        }
+                    }
+                ),
+                any::<ScalarThunk<Fr>>().prop_map(|x| Self::Thunk(x)),
+            )
+            .boxed()
         }
     }
 
-    impl Arbitrary for ScalarExpression<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> ScalarExpression<Fr>>)> = vec![
-                (100, Box::new(|_| Self::Nil)),
-                (
-                    100,
-                    Box::new(|g| Self::Cons(ScalarPtr::arbitrary(g), ScalarPtr::arbitrary(g))),
+    impl<Fr: LurkField> Arbitrary for ScalarContinuation<Fr> {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            prop_oneof!(
+                Just(Self::Outermost),
+                any::<(ScalarPtr<Fr>, ScalarPtr<Fr>, ScalarContPtr<Fr>)>().prop_map(
+                    |(unevaled_arg, saved_env, continuation)| {
+                        Self::Call {
+                            unevaled_arg,
+                            saved_env,
+                            continuation,
+                        }
+                    }
                 ),
-                (100, Box::new(|g| Self::Sym(Sym::Sym(Symbol::arbitrary(g))))),
-                (100, Box::new(|g| Self::Str(String::arbitrary(g)))),
-                (
-                    100,
-                    Box::new(|g| {
-                        let f = FWrap::arbitrary(g);
-                        Self::Num(f.0)
-                    }),
+                any::<(ScalarPtr<Fr>, ScalarPtr<Fr>, ScalarContPtr<Fr>)>().prop_map(
+                    |(function, saved_env, continuation)| {
+                        Self::Call2 {
+                            function,
+                            saved_env,
+                            continuation,
+                        }
+                    }
                 ),
-                (
-                    100,
-                    Box::new(|g| Self::Fun {
-                        arg: ScalarPtr::arbitrary(g),
-                        body: ScalarPtr::arbitrary(g),
-                        closed_env: ScalarPtr::arbitrary(g),
-                    }),
+                any::<(ScalarPtr<Fr>, ScalarContPtr<Fr>)>().prop_map(
+                    |(saved_env, continuation)| {
+                        Self::Tail {
+                            saved_env,
+                            continuation,
+                        }
+                    }
                 ),
-                (100, Box::new(|g| Self::Thunk(ScalarThunk::arbitrary(g)))),
-            ];
-            frequency(g, input)
+                Just(Self::Error),
+                any::<(ScalarPtr<Fr>, ScalarContPtr<Fr>)>().prop_map(
+                    |(saved_env, continuation)| {
+                        Self::Lookup {
+                            saved_env,
+                            continuation,
+                        }
+                    }
+                ),
+                any::<(Op1, ScalarContPtr<Fr>)>().prop_map(|(operator, continuation)| {
+                    Self::Unop {
+                        operator,
+                        continuation,
+                    }
+                }),
+                any::<(Op2, ScalarPtr<Fr>, ScalarPtr<Fr>, ScalarContPtr<Fr>)>().prop_map(
+                    |(operator, saved_env, unevaled_args, continuation)| {
+                        Self::Binop {
+                            operator,
+                            saved_env,
+                            unevaled_args,
+                            continuation,
+                        }
+                    }
+                ),
+                any::<(Op2, ScalarPtr<Fr>, ScalarContPtr<Fr>)>().prop_map(
+                    |(operator, evaled_arg, continuation)| {
+                        Self::Binop2 {
+                            operator,
+                            evaled_arg,
+                            continuation,
+                        }
+                    }
+                ),
+                any::<(ScalarPtr<Fr>, ScalarContPtr<Fr>)>().prop_map(
+                    |(unevaled_args, continuation)| {
+                        Self::If {
+                            unevaled_args,
+                            continuation,
+                        }
+                    }
+                ),
+                any::<(
+                    ScalarPtr<Fr>,
+                    ScalarPtr<Fr>,
+                    ScalarPtr<Fr>,
+                    ScalarContPtr<Fr>
+                )>()
+                .prop_map(|(var, body, saved_env, continuation)| {
+                    Self::Let {
+                        var,
+                        body,
+                        saved_env,
+                        continuation,
+                    }
+                }),
+                any::<(
+                    ScalarPtr<Fr>,
+                    ScalarPtr<Fr>,
+                    ScalarPtr<Fr>,
+                    ScalarContPtr<Fr>
+                )>()
+                .prop_map(|(var, body, saved_env, continuation)| {
+                    Self::LetRec {
+                        var,
+                        body,
+                        saved_env,
+                        continuation,
+                    }
+                }),
+                Just(Self::Dummy),
+                Just(Self::Terminal)
+            )
+            .boxed()
         }
     }
 
-    impl Arbitrary for ScalarContinuation<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> ScalarContinuation<Fr>>)> = vec![
-                (100, Box::new(|_| Self::Outermost)),
-                (
-                    100,
-                    Box::new(|g| Self::Call {
-                        unevaled_arg: ScalarPtr::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Call2 {
-                        function: ScalarPtr::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Tail {
-                        saved_env: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (100, Box::new(|_| Self::Error)),
-                (
-                    100,
-                    Box::new(|g| Self::Lookup {
-                        saved_env: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Unop {
-                        operator: Op1::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Binop {
-                        operator: Op2::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        unevaled_args: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Binop2 {
-                        operator: Op2::arbitrary(g),
-                        evaled_arg: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::If {
-                        unevaled_args: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Let {
-                        var: ScalarPtr::arbitrary(g),
-                        body: ScalarPtr::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::LetRec {
-                        var: ScalarPtr::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        body: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (100, Box::new(|_| Self::Dummy)),
-                (100, Box::new(|_| Self::Terminal)),
-            ];
-            frequency(g, input)
-        }
-    }
-
-    #[quickcheck]
-    fn prop_scalar_expression_ipld(x: ScalarExpression<Fr>) -> bool {
-        match to_ipld(x.clone()) {
-            Ok(ipld) => match from_ipld(ipld.clone()) {
-                Ok(y) => {
-                    println!("x: {x:?}");
-                    println!("y: {y:?}");
-                    x == y
-                }
-                Err(e) => {
-                    println!("ser x: {x:?}");
-                    println!("de ipld: {ipld:?}");
-                    println!("err e: {e:?}");
-                    false
-                }
-            },
-            Err(e) => {
+    proptest! {
+        #[test]
+        fn prop_scalar_expression_ipld(x: ScalarExpression<Fr>) {
+            let to_ipld = to_ipld(x.clone()).tap_err(|e| {
                 println!("ser x: {x:?}");
                 println!("err e: {e:?}");
-                false
-            }
-        }
-    }
+            }).unwrap();
 
-    #[quickcheck]
-    fn prop_scalar_continuation_ipld(x: ScalarExpression<Fr>) -> bool {
-        if let Ok(ipld) = to_ipld(x.clone()) {
-            if let Ok(y) = from_ipld(ipld) {
-                x == y
-            } else {
-                false
-            }
-        } else {
-            false
+            let y = from_ipld(to_ipld.clone()).tap_err(|e| {
+                println!("ser x: {x:?}");
+                println!("de ipld: {to_ipld:?}");
+                println!("err e: {e:?}");
+            }).unwrap();
+
+            println!("x: {x:?}");
+            println!("y: {y:?}");
+
+            assert_eq!(x, y);
+
         }
+
+        fn prop_scalar_continuation_ipld(x: ScalarExpression<Fr>) {
+            let to_ipld = to_ipld(x.clone()).unwrap();
+            let from_ipld = from_ipld(to_ipld).unwrap();
+            assert_eq!(x, from_ipld);
+        }
+
     }
 
     // This doesn't create well-defined ScalarStores, so is only useful for
     // testing ipld
-    impl Arbitrary for ScalarStore<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let map: Vec<(ScalarPtr<Fr>, Option<ScalarExpression<Fr>>)> = Arbitrary::arbitrary(g);
-            let cont_map: Vec<(ScalarContPtr<Fr>, Option<ScalarContinuation<Fr>>)> =
-                Arbitrary::arbitrary(g);
-            ScalarStore {
-                scalar_map: map.into_iter().collect(),
-                scalar_cont_map: cont_map.into_iter().collect(),
-                pending_scalar_ptrs: Vec::new(),
-            }
+    impl<Fr: LurkField> Arbitrary for ScalarStore<Fr> {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            (
+                prop::collection::btree_map(
+                    any::<ScalarPtr<Fr>>(),
+                    any::<Option<ScalarExpression<Fr>>>(),
+                    0..100,
+                ),
+                prop::collection::btree_map(
+                    any::<ScalarContPtr<Fr>>(),
+                    any::<Option<ScalarContinuation<Fr>>>(),
+                    0..100,
+                ),
+            )
+                .prop_map(|(scalar_map, scalar_cont_map)| ScalarStore {
+                    scalar_map,
+                    scalar_cont_map,
+                    pending_scalar_ptrs: Vec::new(),
+                })
+                .boxed()
         }
     }
 
-    #[quickcheck]
-    fn prop_scalar_store_ipld(x: ScalarStore<Fr>) -> bool {
-        if let Ok(ipld) = to_ipld(x.clone()) {
-            if let Ok(y) = from_ipld(ipld) {
-                x == y
-            } else {
-                false
-            }
-        } else {
-            false
+    proptest! {
+        #[test]
+        fn prop_scalar_store_ipld(x: ScalarStore<Fr>) {
+            let to_ipld = to_ipld(x.clone()).unwrap();
+            let from_ipld = from_ipld(to_ipld).unwrap();
+            assert_eq!(x, from_ipld);
         }
     }
 
