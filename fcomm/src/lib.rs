@@ -792,7 +792,6 @@ impl<'a> Proof<'a, S1> {
         let (proof, _public_input, _public_output, num_steps) = nova_prover
             .evaluate_and_prove(pp, expr, env, s, limit)
             .expect("Nova proof failed");
-        //assert!(public_output.is_complete());
 
         let proof = Self {
             claim: claim.clone(),
@@ -804,7 +803,7 @@ impl<'a> Proof<'a, S1> {
         match &claim {
             Claim::Opening(o) => {
                 if o.status != Status::Terminal {
-                    return Err(Error::OpeningFailure);
+                    return Err(Error::OpeningFailure("Claim status is not Terminal".into()));
                 };
             }
             Claim::Evaluation(e) => {

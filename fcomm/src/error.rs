@@ -11,7 +11,7 @@ pub enum Error {
     SynthesisError(SynthesisError),
     CommitmentParseError(hex::FromHexError),
     UnknownCommitment,
-    OpeningFailure,
+    OpeningFailure(String),
     EvaluationFailure,
     StoreError(String),
 }

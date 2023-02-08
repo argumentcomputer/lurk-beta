@@ -53,6 +53,10 @@ initialize and update submodules before test will pass:
 git submodule update --init --recursive
 ```
 
+## Wasm
+
+Lurk can be compiled to Wasm with `cargo build --target wasm32-unknown-unknown`
+
 ## Repl
 
 ```

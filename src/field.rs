@@ -224,45 +224,41 @@ pub mod tests {
     use blstrs::Scalar as Fr;
 
     use super::*;
-    use quickcheck::{Arbitrary, Gen};
+    use proptest::prelude::*;
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
 
     impl<F: LurkField> Arbitrary for FWrap<F> {
-        fn arbitrary(_: &mut Gen) -> Self {
-            let f = F::random(rand::thread_rng());
-            FWrap(f)
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            let strategy = any::<[u8; 32]>()
+                .prop_map(|seed| FWrap(F::random(StdRng::from_seed(seed))))
+                .no_shrink();
+            strategy.boxed()
         }
     }
 
-    // For working around the orphan trait impl rule
-    #[derive(Clone, Debug, PartialEq, Eq)]
-    pub struct VecFWrap<F: LurkField>(pub Vec<F>);
-
-    impl<F: LurkField> Arbitrary for VecFWrap<F> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let vec_f: Vec<FWrap<F>> = Arbitrary::arbitrary(g);
-            VecFWrap(vec_f.into_iter().map(|f| f.0).collect())
-        }
-    }
-
-    fn repr_bytes_consistency<F: LurkField>(f1: FWrap<F>) -> bool {
+    fn repr_bytes_consistency<F: LurkField>(f1: FWrap<F>) {
         let bytes = f1.0.to_repr().as_ref().to_owned();
-        let f2 = <F as LurkField>::from_bytes(&bytes);
-        Some(f1.0) == f2
+        let f2 = <F as LurkField>::from_bytes(&bytes).expect("from_bytes");
+        assert_eq!(f1.0, f2)
     }
 
-    #[quickcheck]
-    fn prop_blstrs_repr_bytes_consistency(f1: FWrap<Fr>) -> bool {
+    proptest! {
+      #[test]
+      fn prop_bls_repr_bytes_consistency(f1 in any::<FWrap<Fr>>()) {
         repr_bytes_consistency(f1)
-    }
-
-    #[quickcheck]
-    fn prop_pallas_repr_bytes_consistency(f1: FWrap<pasta_curves::Fp>) -> bool {
-        repr_bytes_consistency(f1)
-    }
-
-    #[quickcheck]
-    fn prop_vesta_repr_bytes_consistency(f1: FWrap<pasta_curves::Fq>) -> bool {
-        repr_bytes_consistency(f1)
+      }
+      #[test]
+      fn prop_pallas_repr_bytes_consistency(f1 in any::<FWrap<pasta_curves::Fp>>()) {
+          repr_bytes_consistency(f1)
+      }
+      #[test]
+      fn prop_vesta_repr_bytes_consistency(f1 in any::<FWrap<pasta_curves::Fq>>()) {
+          repr_bytes_consistency(f1)
+      }
     }
 
     // Construct canonical bytes from a field element
@@ -300,34 +296,37 @@ pub mod tests {
         res
     }
 
-    fn repr_canonicity<F: LurkField>(f1: FWrap<F>) -> bool {
+    fn repr_canonicity<F: LurkField>(f1: FWrap<F>) {
         let repr_bytes = f1.0.to_bytes();
         let canonical_bytes = to_le_bytes_canonical(f1.0);
-        let f2_repr = F::from_bytes(&repr_bytes).unwrap();
+        let f2_repr = F::from_bytes(&repr_bytes).expect("from_bytes");
         let f2_canonical = from_le_bytes_canonical::<F>(&canonical_bytes);
-        repr_bytes == canonical_bytes && f2_repr == f2_canonical
+        assert_eq!(repr_bytes, canonical_bytes);
+        assert_eq!(f2_repr, f2_canonical)
     }
 
-    #[quickcheck]
-    fn prop_blstrs_repr_canonicity(f1: FWrap<Fr>) -> bool {
+    proptest! {
+      #[test]
+      fn prop_repr_canonicity(f1 in any::<FWrap<Fr>>()) {
         repr_canonicity(f1)
+      }
+      #[test]
+      fn prop_pallas_repr_canonicity(f1 in any::<FWrap<pasta_curves::Fp>>()) {
+          repr_canonicity(f1)
+      }
+      #[test]
+      fn prop_vesta_repr_canonicity(f1 in any::<FWrap<pasta_curves::Fq>>()) {
+          repr_canonicity(f1)
+      }
     }
 
-    #[quickcheck]
-    fn prop_pallas_repr_canonicity(f1: FWrap<pasta_curves::Fp>) -> bool {
-        repr_canonicity(f1)
-    }
-
-    #[quickcheck]
-    fn prop_vesta_repr_canonicity(f1: FWrap<pasta_curves::Fq>) -> bool {
-        repr_canonicity(f1)
-    }
-
-    #[quickcheck]
-    fn prop_tag_consistency(x: ExprTag) -> bool {
-        let f1 = Fr::from_expr_tag(x);
-        let tag = <Fr as LurkField>::to_expr_tag(&f1).unwrap();
-        let f2 = Fr::from_expr_tag(tag);
-        f1 == f2 && x == tag
+    proptest! {
+      fn prop_tag_consistency(x in any::<ExprTag>()) {
+          let f1 = Fr::from_expr_tag(x);
+          let tag = <Fr as LurkField>::to_expr_tag(&f1).unwrap();
+          let f2 = Fr::from_expr_tag(tag);
+          assert_eq!(f1, f2);
+          assert_eq!(x, tag)
+      }
     }
 }

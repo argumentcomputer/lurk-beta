@@ -33,8 +33,11 @@ pub type G2 = vesta::Point;
 pub type S1 = pallas::Scalar;
 pub type S2 = vesta::Scalar;
 
-pub type SS1 = nova::spartan_with_ipa_pc::RelaxedR1CSSNARK<G1>;
-pub type SS2 = nova::spartan_with_ipa_pc::RelaxedR1CSSNARK<G2>;
+pub type EE1 = nova::provider::ipa_pc::EvaluationEngine<G1>;
+pub type EE2 = nova::provider::ipa_pc::EvaluationEngine<G2>;
+
+pub type SS1 = nova::spartan::RelaxedR1CSSNARK<G1, EE1>;
+pub type SS2 = nova::spartan::RelaxedR1CSSNARK<G2, EE2>;
 
 pub type C1<'a> = MultiFrame<'a, S1, IO<S1>, Witness<S1>>;
 pub type C2 = TrivialTestCircuit<<G2 as Group>::Scalar>;
