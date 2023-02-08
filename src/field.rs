@@ -225,13 +225,17 @@ pub mod tests {
 
     use super::*;
     use proptest::prelude::*;
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
 
     impl<F: LurkField> Arbitrary for FWrap<F> {
         type Parameters = ();
         type Strategy = BoxedStrategy<Self>;
 
         fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            let strategy = Just(FWrap(F::random(rand::thread_rng())));
+            let strategy = any::<[u8; 32]>()
+                .prop_map(|seed| FWrap(F::random(StdRng::from_seed(seed))))
+                .no_shrink();
             strategy.boxed()
         }
     }
@@ -303,7 +307,7 @@ pub mod tests {
 
     proptest! {
       #[test]
-      fn prop_bls_repr_canonicity(f1 in any::<FWrap<Fr>>()) {
+      fn prop_repr_canonicity(f1 in any::<FWrap<Fr>>()) {
         repr_canonicity(f1)
       }
       #[test]
