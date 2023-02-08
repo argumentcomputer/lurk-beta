@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 
 use crate::field::LurkField;
 
-use crate::store::{Op1, Op2, Pointer, Ptr, ScalarContPtr, ScalarPtr, Store, Tag};
+use crate::store::{Pointer, Ptr, ScalarContPtr, ScalarPtr, Store};
+use crate::tag::{ExprTag, Op1, Op2};
 use crate::{Num, Sym, UInt};
 use serde::Deserialize;
 use serde::Serialize;
@@ -154,22 +155,22 @@ impl<F: LurkField> ScalarStore<F> {
 impl<F: LurkField> ScalarExpression<F> {
     fn from_ptr(store: &Store<F>, ptr: &Ptr<F>) -> Option<Self> {
         match ptr.tag() {
-            Tag::Nil => Some(ScalarExpression::Nil),
-            Tag::Cons => store.fetch_cons(ptr).and_then(|(car, cdr)| {
+            ExprTag::Nil => Some(ScalarExpression::Nil),
+            ExprTag::Cons => store.fetch_cons(ptr).and_then(|(car, cdr)| {
                 store.get_expr_hash(car).and_then(|car| {
                     store
                         .get_expr_hash(cdr)
                         .map(|cdr| ScalarExpression::Cons(car, cdr))
                 })
             }),
-            Tag::Comm => store.fetch_comm(ptr).and_then(|(secret, payload)| {
+            ExprTag::Comm => store.fetch_comm(ptr).and_then(|(secret, payload)| {
                 store
                     .get_expr_hash(payload)
                     .map(|payload| ScalarExpression::Comm(secret.0, payload))
             }),
-            Tag::Sym => store.fetch_sym(ptr).map(|sym| ScalarExpression::Sym(sym)),
-            Tag::Key => store.fetch_sym(ptr).map(|sym| ScalarExpression::Sym(sym)),
-            Tag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
+            ExprTag::Sym => store.fetch_sym(ptr).map(|sym| ScalarExpression::Sym(sym)),
+            ExprTag::Key => store.fetch_sym(ptr).map(|sym| ScalarExpression::Sym(sym)),
+            ExprTag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
                 store.get_expr_hash(arg).and_then(|arg| {
                     store.get_expr_hash(body).and_then(|body| {
                         store
@@ -182,17 +183,17 @@ impl<F: LurkField> ScalarExpression<F> {
                     })
                 })
             }),
-            Tag::Num => store.fetch_num(ptr).map(|num| match num {
+            ExprTag::Num => store.fetch_num(ptr).map(|num| match num {
                 Num::U64(x) => ScalarExpression::Num((*x).into()),
                 Num::Scalar(x) => ScalarExpression::Num(*x),
             }),
 
-            Tag::Str => store
+            ExprTag::Str => store
                 .fetch_str(ptr)
                 .map(|str| ScalarExpression::Str(str.to_string())),
-            Tag::Char => store.fetch_char(ptr).map(ScalarExpression::Char),
-            Tag::U64 => store.fetch_uint(ptr).map(ScalarExpression::UInt),
-            Tag::Thunk => unimplemented!(),
+            ExprTag::Char => store.fetch_char(ptr).map(ScalarExpression::Char),
+            ExprTag::U64 => store.fetch_uint(ptr).map(ScalarExpression::UInt),
+            ExprTag::Thunk => unimplemented!(),
         }
     }
 }
