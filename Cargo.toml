@@ -50,6 +50,7 @@ memmap = { version = "0.5.8", package = "memmap2" }
 pasta-msm = { version = "0.1.0", package = "lurk-pasta-msm" }
 proptest = "1.1.0"
 proptest-derive = "0.3.0"
+rand = "0.8.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
@@ -62,7 +63,6 @@ gpu = ["neptune/opencl"]
 criterion = "0.3.5"
 structopt = { version = "0.3", default-features = false }
 tap = "1.0.1"
-rand = "0.8.4"
 
 [[bench]]
 name = "eval"

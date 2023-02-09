@@ -1,10 +1,12 @@
-use std::{convert::TryFrom, fmt};
-
+#[cfg(not(target_arch = "wasm32"))]
+use proptest_derive::Arbitrary;
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use std::{convert::TryFrom, fmt};
 
 use crate::field::LurkField;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
 pub enum ExprTag {
     Nil = 0b0000_0000_0000_0000,
@@ -82,6 +84,7 @@ impl ExprTag {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
 pub enum ContTag {
     Outermost = 0b0001_0000_0000_0000,
@@ -174,6 +177,7 @@ impl fmt::Display for ContTag {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash, Serialize_repr, Deserialize_repr)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
 pub enum Op1 {
     Car = 0b0010_0000_0000_0000,
@@ -254,6 +258,7 @@ impl fmt::Display for Op1 {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash, Serialize_repr, Deserialize_repr)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
 pub enum Op2 {
     Sum = 0b0011_0000_0000_0000,
@@ -366,101 +371,6 @@ pub mod tests {
 
     use super::*;
     use proptest::prelude::*;
-
-    impl Arbitrary for ExprTag {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            prop_oneof!(
-                Just(ExprTag::Nil),
-                Just(ExprTag::Cons),
-                Just(ExprTag::Sym),
-                Just(ExprTag::Fun),
-                Just(ExprTag::Num),
-                Just(ExprTag::Thunk),
-                Just(ExprTag::Str),
-                Just(ExprTag::Char),
-                Just(ExprTag::Comm),
-                Just(ExprTag::U64),
-                Just(ExprTag::Key),
-            )
-            .boxed()
-        }
-    }
-
-    impl Arbitrary for ContTag {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            prop_oneof!(
-                Just(ContTag::Outermost),
-                Just(ContTag::Call),
-                Just(ContTag::Call2),
-                Just(ContTag::Tail),
-                Just(ContTag::Error),
-                Just(ContTag::Lookup),
-                Just(ContTag::Unop),
-                Just(ContTag::Binop),
-                Just(ContTag::Binop2),
-                Just(ContTag::If),
-                Just(ContTag::Let),
-                Just(ContTag::LetRec),
-                Just(ContTag::Dummy),
-                Just(ContTag::Terminal),
-                Just(ContTag::Emit),
-            )
-            .boxed()
-        }
-    }
-
-    impl Arbitrary for Op1 {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            prop_oneof!(
-                Just(Op1::Car),
-                Just(Op1::Cdr),
-                Just(Op1::Atom),
-                Just(Op1::Emit),
-                Just(Op1::Secret),
-                Just(Op1::Commit),
-                Just(Op1::Num),
-                Just(Op1::Comm),
-                Just(Op1::Char),
-                Just(Op1::Eval),
-            )
-            .boxed()
-        }
-    }
-
-    impl Arbitrary for Op2 {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            prop_oneof!(
-                Just(Op2::Sum),
-                Just(Op2::Diff),
-                Just(Op2::Product),
-                Just(Op2::Quotient),
-                Just(Op2::Equal),
-                Just(Op2::NumEqual),
-                Just(Op2::Less),
-                Just(Op2::Greater),
-                Just(Op2::LessEqual),
-                Just(Op2::GreaterEqual),
-                Just(Op2::Cons),
-                Just(Op2::StrCons),
-                Just(Op2::Begin),
-                Just(Op2::Hide),
-                Just(Op2::Eval)
-            )
-            .boxed()
-        }
-    }
 
     proptest! {
     #[test]

@@ -17,6 +17,7 @@ pub struct Symbol {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 pub enum Sym {
     Sym(Symbol),
     Key(Symbol),

@@ -8,6 +8,8 @@ use thiserror;
 
 use neptune::poseidon::PoseidonConstants;
 use once_cell::sync::OnceCell;
+#[cfg(not(target_arch = "wasm32"))]
+use proptest::prelude::*;
 
 use libipld::Cid;
 use libipld::Multihash;
@@ -286,6 +288,18 @@ pub struct ScalarPtr<F: LurkField>(F, F);
 
 impl<F: LurkField> Copy for ScalarPtr<F> {}
 
+#[cfg(not(target_arch = "wasm32"))]
+impl<Fr: LurkField> Arbitrary for ScalarPtr<Fr> {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        any::<(ExprTag, FWrap<Fr>)>()
+            .prop_map(|(tag, val)| ScalarPtr::from_parts(Fr::from(tag as u64), val.0))
+            .boxed()
+    }
+}
+
 impl<F: LurkField> PartialOrd for ScalarPtr<F> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
@@ -374,6 +388,18 @@ impl<F: LurkField> IntoHashComponents<F> for ScalarPtr<F> {
 pub struct ScalarContPtr<F: LurkField>(F, F);
 
 impl<F: LurkField> Copy for ScalarContPtr<F> {}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl<Fr: LurkField> Arbitrary for ScalarContPtr<Fr> {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        any::<(ContTag, FWrap<Fr>)>()
+            .prop_map(|(tag, val)| ScalarContPtr::from_parts(Fr::from(tag as u64), val.0))
+            .boxed()
+    }
+}
 
 impl<F: LurkField> PartialOrd for ScalarContPtr<F> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
@@ -2513,28 +2539,15 @@ impl<F: LurkField> Expression<'_, F> {
 #[cfg(test)]
 pub mod test {
     use crate::eval::{empty_sym_env, Evaluator};
-    use crate::field::FWrap;
     use crate::num;
     use crate::writer::Write;
     use blstrs::Scalar as Fr;
 
     use super::*;
-    use proptest::prelude::*;
 
     use libipld::serde::from_ipld;
     use libipld::serde::to_ipld;
     use libipld::Ipld;
-
-    impl<Fr: LurkField> Arbitrary for ScalarPtr<Fr> {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            any::<(ExprTag, FWrap<Fr>)>()
-                .prop_map(|(tag, val)| ScalarPtr::from_parts(Fr::from(tag as u64), val.0))
-                .boxed()
-        }
-    }
 
     proptest! {
       #[test]
@@ -2543,17 +2556,6 @@ pub mod test {
         let from_ipld = from_ipld(to_ipld).unwrap();
         assert_eq!(x, from_ipld);
       }
-    }
-
-    impl<Fr: LurkField> Arbitrary for ScalarContPtr<Fr> {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            any::<(ContTag, FWrap<Fr>)>()
-                .prop_map(|(tag, val)| ScalarContPtr::from_parts(Fr::from(tag as u64), val.0))
-                .boxed()
-        }
     }
 
     proptest! {
