@@ -1,25 +1,28 @@
 use log::info;
+use std::convert::TryFrom;
 use std::env;
 use std::fs::read_to_string;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use blstrs::{Bls12, Scalar};
 use hex::FromHex;
-use pairing_lib::{Engine, MultiMillerLoop};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use lurk::eval::IO;
 use lurk::field::LurkField;
+use lurk::proof::{
+    nova::{public_params, NovaProver},
+    Prover,
+};
 use lurk::store::{Ptr, Store};
 
 use clap::{AppSettings, Args, Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 use fcomm::{
-    self, committed_function_store, evaluate, Claim, Commitment, Error, Evaluation, Expression,
-    FileStore, Function, LurkPtr, Opening, OpeningRequest, Proof,
+    self, committed_function_store, error::Error, evaluate, Claim, Commitment, Evaluation,
+    Expression, FileStore, Function, LurkPtr, Opening, OpeningRequest, Proof, ReductionCount, S1,
 };
 
 /// Functional commitments
@@ -91,6 +94,10 @@ struct Open {
     #[clap(short, long, value_parser)]
     proof: Option<PathBuf>,
 
+    /// Number of circuit reductions per step
+    #[clap(short = 'r', long, default_value = "1", value_parser)]
+    reduction_count: usize,
+
     /// Optional commitment value (hex string). Function will be looked-up by commitment if supplied.
     #[clap(short, long, value_parser)]
     commitment: Option<String>,
@@ -141,6 +148,10 @@ struct Prove {
     #[clap(short, long, value_parser)]
     proof: PathBuf,
 
+    /// Number of circuit reductions per step
+    #[clap(short = 'r', long, default_value = "1", value_parser)]
+    reduction_count: usize,
+
     /// Path to claim to prove
     #[clap(long, value_parser)]
     claim: Option<PathBuf>,
@@ -159,7 +170,7 @@ struct Verify {
 
 impl Commit {
     fn commit(&self, limit: usize) -> Result<(), Error> {
-        let s = &mut Store::<Scalar>::default();
+        let s = &mut Store::<S1>::default();
 
         let mut function = if self.lurk {
             let path = env::current_dir()?.join(&self.function);
@@ -219,22 +230,25 @@ impl Open {
             "commitment and function must not both be supplied"
         );
 
-        let s = &mut Store::<Scalar>::default();
+        let s = &mut Store::<S1>::default();
+        let rc = ReductionCount::try_from(self.reduction_count)?;
+        let prover = NovaProver::<S1>::new(rc.count());
+        let pp = public_params(rc.count());
         let function_map = committed_function_store();
 
-        let handle_proof = |out_path, proof: Proof<Bls12>| {
+        let handle_proof = |out_path, proof: Proof<S1>| {
             proof.write_to_path(out_path);
-            proof.verify().expect("created opening doesn't verify");
+            proof.verify(&pp).expect("created opening doesn't verify");
         };
 
-        let handle_claim = |claim: Claim<Scalar>| serde_json::to_writer(io::stdout(), &claim);
+        let handle_claim = |claim: Claim<S1>| serde_json::to_writer(io::stdout(), &claim);
 
         if let Some(request_path) = &self.request {
             assert!(!chain, "chain and request may not both be specified");
             let request = opening_request(request_path).expect("failed to read opening request");
 
             if let Some(out_path) = &self.proof {
-                let proof = Opening::open_and_prove(s, request, limit, false)?;
+                let proof = Opening::open_and_prove(s, request, limit, false, &prover, &pp)?;
 
                 handle_proof(out_path, proof);
             } else {
@@ -273,7 +287,9 @@ impl Open {
             let input = input(s, input_path, eval_input, limit, quote_input)?;
 
             if let Some(out_path) = &self.proof {
-                let proof = Opening::apply_and_prove(s, input, function, limit, chain, false)?;
+                let proof = Opening::apply_and_prove(
+                    s, input, function, limit, chain, false, &prover, &pp,
+                )?;
 
                 handle_proof(out_path, proof);
             } else {
@@ -288,7 +304,7 @@ impl Open {
 
 impl Eval {
     fn eval(&self, limit: usize) -> Result<(), Error> {
-        let s = &mut Store::<Scalar>::default();
+        let s = &mut Store::<S1>::default();
 
         let expr = expression(s, &self.expression, self.lurk)?;
 
@@ -296,7 +312,7 @@ impl Eval {
 
         match &self.claim {
             Some(out_path) => {
-                let claim = Claim::<Scalar>::Evaluation(evaluation);
+                let claim = Claim::<S1>::Evaluation(evaluation);
                 claim.write_to_path(out_path);
             }
             None => {
@@ -310,7 +326,10 @@ impl Eval {
 
 impl Prove {
     fn prove(&self, limit: usize) -> Result<(), Error> {
-        let s = &mut Store::<Scalar>::default();
+        let s = &mut Store::<S1>::default();
+        let rc = ReductionCount::try_from(self.reduction_count)?;
+        let prover = NovaProver::<S1>::new(rc.count());
+        let pp = public_params(rc.count());
 
         let proof = match &self.claim {
             Some(claim) => {
@@ -318,7 +337,7 @@ impl Prove {
                     self.expression.is_none(),
                     "claim and expression must not both be supplied"
                 );
-                Proof::prove_claim(s, Claim::read_from_path(claim)?, limit, false)?
+                Proof::prove_claim(s, Claim::read_from_path(claim)?, limit, false, &prover, &pp)?
             }
 
             None => {
@@ -328,13 +347,13 @@ impl Prove {
                     self.lurk,
                 )?;
 
-                Proof::eval_and_prove(s, expr, limit, false)?
+                Proof::eval_and_prove(s, expr, limit, false, &prover, &pp)?
             }
         };
 
         // Write first, so prover can debug if proof doesn't verify (it should).
         proof.write_to_path(&self.proof);
-        proof.verify().expect("created proof doesn't verify");
+        proof.verify(&pp).expect("created proof doesn't verify");
 
         Ok(())
     }
@@ -342,7 +361,9 @@ impl Prove {
 
 impl Verify {
     fn verify(&self, cli_error: bool) -> Result<(), Error> {
-        let result = proof(Some(&self.proof))?.verify()?;
+        let proof = proof(Some(&self.proof))?;
+        let pp = public_params(proof.reduction_count.count());
+        let result = proof.verify(&pp)?;
 
         serde_json::to_writer(io::stdout(), &result)?;
 
@@ -452,17 +473,9 @@ fn opening_request<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
 }
 
 // Get proof from supplied path or else from stdin.
-fn proof<P: AsRef<Path>, E: Engine + MultiMillerLoop>(
-    proof_path: Option<P>,
-) -> Result<Proof<E>, Error>
+fn proof<'a, P: AsRef<Path>, F: LurkField>(proof_path: Option<P>) -> Result<Proof<'a, F>, Error>
 where
-    <E as Engine>::Fr: LurkField,
-    for<'de> <E as Engine>::Gt: blstrs::Compress + Serialize + Deserialize<'de>,
-    for<'de> <E as Engine>::G1: Serialize + Deserialize<'de>,
-    for<'de> <E as Engine>::G1Affine: Serialize + Deserialize<'de>,
-    for<'de> <E as Engine>::G2Affine: Serialize + Deserialize<'de>,
-    for<'de> <E as Engine>::Fr: Serialize + Deserialize<'de>,
-    for<'de> <E as Engine>::Gt: blstrs::Compress + Serialize + Deserialize<'de>,
+    F: Serialize + for<'de> Deserialize<'de>,
 {
     match proof_path {
         Some(path) => Proof::read_from_path(path),

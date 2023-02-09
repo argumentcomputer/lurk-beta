@@ -5,8 +5,6 @@ use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 use std::str::FromStr;
 
-use bellperson::{groth16, SynthesisError};
-use blstrs::{Bls12, Scalar};
 use ff::PrimeField;
 use hex::FromHex;
 use libipld::{
@@ -23,8 +21,7 @@ use lurk::{
     field::LurkField,
     proof::{
         self,
-        groth16::{Groth16Prover, INNER_PRODUCT_SRS},
-        Prover,
+        nova::{NovaProver, PublicParams},
     },
     scalar_store::ScalarStore,
     store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store},
@@ -32,17 +29,21 @@ use lurk::{
     writer::Write,
 };
 use once_cell::sync::OnceCell;
-use pairing_lib::{Engine, MultiMillerLoop};
+use pasta_curves::pallas;
 use rand::rngs::OsRng;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+pub mod error;
 mod file_map;
 
+use error::Error;
 use file_map::FileMap;
 
 pub const DEFAULT_REDUCTION_COUNT: ReductionCount = ReductionCount::One;
 pub static VERBOSE: OnceCell<bool> = OnceCell::new();
+
+pub type S1 = pallas::Scalar;
 
 mod base64 {
     use serde::{Deserialize, Serialize};
@@ -59,23 +60,15 @@ mod base64 {
     }
 }
 
-fn bls12_proof_cache() -> FileMap<Cid, Proof<Bls12>> {
-    FileMap::<Cid, Proof<Bls12>>::new("bls12_proofs").unwrap()
+fn nova_proof_cache() -> FileMap<Cid, Proof<'static, S1>> {
+    FileMap::<Cid, Proof<S1>>::new("nova_proofs").unwrap()
 }
 
-pub fn committed_function_store() -> FileMap<Commitment<Scalar>, Function<Scalar>> {
-    FileMap::<Commitment<Scalar>, Function<Scalar>>::new("functions").unwrap()
+pub fn committed_function_store() -> FileMap<Commitment<S1>, Function<S1>> {
+    FileMap::<Commitment<S1>, Function<S1>>::new("functions").unwrap()
 }
 
-fn get_pvk(rc: ReductionCount) -> groth16::PreparedVerifyingKey<Bls12> {
-    info!("Getting Parameters");
-    let public_params = Groth16Prover::create_groth_params(rc.reduction_frame_count()).unwrap();
-    let groth_params = &public_params.0;
-
-    info!("Preparing verifying key");
-    groth16::prepare_verifying_key(&groth_params.vk)
-}
-
+// Number of circuit reductions per step, equivalent to `chunk_frame_count`
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReductionCount {
     One,
@@ -210,25 +203,18 @@ pub struct VerificationResult {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Proof<E: Engine + MultiMillerLoop>
-where
-    <E as Engine>::Gt: blstrs::Compress + Serialize,
-    <E as Engine>::G1: Serialize,
-    <E as Engine>::G1Affine: Serialize,
-    <E as Engine>::G2Affine: Serialize,
-    <E as Engine>::Fr: Serialize + LurkField,
-    <E as Engine>::Gt: blstrs::Compress + Serialize,
-{
+pub struct Proof<'a, F: LurkField> {
     #[serde(bound(
-        serialize = "Claim<E::Fr>: Serialize",
-        deserialize = "Claim<E::Fr>: Deserialize<'de>"
+        serialize = "Claim<F>: Serialize",
+        deserialize = "Claim<F>: Deserialize<'de>"
     ))]
-    pub claim: Claim<E::Fr>,
+    pub claim: Claim<F>,
     #[serde(bound(
-        serialize = "proof::groth16::Proof<E>: Serialize",
-        deserialize = "proof::groth16::Proof<E>: Deserialize<'de>"
+        serialize = "proof::nova::Proof<'a>: Serialize",
+        deserialize = "proof::nova::Proof<'a>: Deserialize<'de>"
     ))]
-    pub proof: proof::groth16::Proof<E>,
+    pub proof: proof::nova::Proof<'a>,
+    pub num_steps: usize,
     pub reduction_count: ReductionCount,
 }
 
@@ -312,41 +298,12 @@ impl TryFrom<usize> for ReductionCount {
     }
 }
 impl ReductionCount {
-    fn reduction_frame_count(&self) -> usize {
+    pub fn count(&self) -> usize {
         match self {
             Self::One => 1,
             Self::Five => 5,
             Self::Ten => 10,
         }
-    }
-}
-
-#[derive(Debug)]
-pub enum Error {
-    VerificationError(String),
-    UnsupportedReductionCount(usize),
-    IOError(io::Error),
-    JsonError(serde_json::Error),
-    SynthesisError(SynthesisError),
-    CommitmentParseError(hex::FromHexError),
-    UnknownCommitment,
-    OpeningFailure(String),
-    EvaluationFailure,
-}
-
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Error {
-        Error::IOError(err)
-    }
-}
-impl From<serde_json::Error> for Error {
-    fn from(err: serde_json::Error) -> Error {
-        Error::JsonError(err)
-    }
-}
-impl From<SynthesisError> for Error {
-    fn from(err: SynthesisError) -> Error {
-        Error::SynthesisError(err)
     }
 }
 
@@ -410,7 +367,7 @@ where
     fn read_from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
-        Ok(serde_json::from_reader(reader).expect("failed to read file"))
+        Ok(serde_json::from_reader(reader)?)
     }
 
     fn read_from_stdin() -> Result<Self, Error> {
@@ -599,26 +556,30 @@ impl Expression {
     }
 }
 
-impl Opening<Scalar> {
+impl<'a> Opening<S1> {
+    #[allow(clippy::too_many_arguments)]
     pub fn apply_and_prove(
-        s: &mut Store<Scalar>,
-        input: Ptr<Scalar>,
-        function: Function<Scalar>,
+        s: &'a mut Store<S1>,
+        input: Ptr<S1>,
+        function: Function<S1>,
         limit: usize,
         chain: bool,
         only_use_cached_proofs: bool,
-    ) -> Result<Proof<Bls12>, Error> {
+        nova_prover: &'a NovaProver<S1>,
+        pp: &'a PublicParams,
+    ) -> Result<Proof<'a, S1>, Error> {
         let claim = Self::apply(s, input, function, limit, chain)?;
-
-        Proof::prove_claim(s, claim, limit, only_use_cached_proofs)
+        Proof::prove_claim(s, claim, limit, only_use_cached_proofs, nova_prover, pp)
     }
 
     pub fn open_and_prove(
-        s: &mut Store<Scalar>,
-        request: OpeningRequest<Scalar>,
+        s: &'a mut Store<S1>,
+        request: OpeningRequest<S1>,
         limit: usize,
         only_use_cached_proofs: bool,
-    ) -> Result<Proof<Bls12>, Error> {
+        nova_prover: &'a NovaProver<S1>,
+        pp: &'a PublicParams,
+    ) -> Result<Proof<'a, S1>, Error> {
         let input = request.input.expr.ptr(s);
         let commitment = request.commitment;
 
@@ -634,15 +595,17 @@ impl Opening<Scalar> {
             limit,
             request.chain,
             only_use_cached_proofs,
+            nova_prover,
+            pp,
         )
     }
 
     pub fn open(
-        s: &mut Store<Scalar>,
-        request: OpeningRequest<Scalar>,
+        s: &mut Store<S1>,
+        request: OpeningRequest<S1>,
         limit: usize,
         chain: bool,
-    ) -> Result<Claim<Scalar>, Error> {
+    ) -> Result<Claim<S1>, Error> {
         let input = request.input.expr.ptr(s);
         let commitment = request.commitment;
 
@@ -658,7 +621,7 @@ impl Opening<Scalar> {
         self.new_commitment.is_some()
     }
 
-    fn public_output_expression(&self, s: &mut Store<Scalar>) -> Ptr<Scalar> {
+    fn public_output_expression(&self, s: &mut Store<S1>) -> Ptr<S1> {
         let result = s.read(&self.output).expect("unreadable result");
 
         if let Some(commitment) = self.new_commitment {
@@ -671,12 +634,12 @@ impl Opening<Scalar> {
     }
 
     pub fn apply(
-        s: &mut Store<Scalar>,
-        input: Ptr<Scalar>,
-        function: Function<Scalar>,
+        s: &mut Store<S1>,
+        input: Ptr<S1>,
+        function: Function<S1>,
         limit: usize,
         chain: bool,
-    ) -> Result<Claim<Scalar>, Error> {
+    ) -> Result<Claim<S1>, Error> {
         let function_map = committed_function_store();
 
         let (commitment, expression) =
@@ -688,16 +651,8 @@ impl Opening<Scalar> {
 
             // public_output = (result_expr (secret . new_fun))
             let cons = public_output.expr;
-            let result_expr = s.car(&cons).map_err(|e| {
-                Error::OpeningFailure(format!(
-                    "Failed destructuring failed commitment output: {e}"
-                ))
-            })?;
-            let new_comm = s.cdr(&cons).map_err(|e| {
-                Error::OpeningFailure(format!(
-                    "Failed destructuring failed commitment output: {e}"
-                ))
-            })?;
+            let result_expr = s.car(&cons)?;
+            let new_comm = s.cdr(&cons)?;
 
             let new_secret0 = s.secret(new_comm).expect("secret missing");
             let new_secret = *s.get_expr_hash(&new_secret0).expect("hash missing").value();
@@ -719,7 +674,7 @@ impl Opening<Scalar> {
             assert_eq!(&scalar_ptr, &again);
 
             // TODO: Can this be made to work?
-            // let new_function = Function::<Scalar> {
+            // let new_function = Function::<S1> {
             //     fun: LurkPtr::Ipld(LurkScalarIpld {
             //         scalar_store: scalar_store_ipld,
             //         scalar_ptr: new_fun_ipld,
@@ -728,7 +683,7 @@ impl Opening<Scalar> {
             //     commitment: Some(new_commitment),
             // };
 
-            let new_function = Function::<Scalar> {
+            let new_function = Function::<S1> {
                 fun: LurkPtr::ScalarBytes(LurkScalarBytes {
                     scalar_store: scalar_store_bytes,
                     scalar_ptr: new_fun_bytes,
@@ -768,12 +723,14 @@ impl Opening<Scalar> {
     }
 }
 
-impl Proof<Bls12> {
+impl<'a> Proof<'a, S1> {
     pub fn eval_and_prove(
-        s: &mut Store<Scalar>,
-        expr: Ptr<Scalar>,
+        s: &'a mut Store<S1>,
+        expr: Ptr<S1>,
         limit: usize,
         only_use_cached_proofs: bool,
+        nova_prover: &'a NovaProver<S1>,
+        pp: &'a PublicParams,
     ) -> Result<Self, Error> {
         let env = empty_sym_env(s);
         let cont = s.intern_cont_outermost();
@@ -783,17 +740,18 @@ impl Proof<Bls12> {
         let evaluation = Evaluation::new(s, input, public_output, None);
         let claim = Claim::Evaluation(evaluation);
 
-        Self::prove_claim(s, claim, limit, only_use_cached_proofs)
+        Self::prove_claim(s, claim, limit, only_use_cached_proofs, nova_prover, pp)
     }
 
     pub fn prove_claim(
-        s: &mut Store<Scalar>,
-        claim: Claim<Scalar>,
+        s: &'a mut Store<S1>,
+        claim: Claim<S1>,
         limit: usize,
         only_use_cached_proofs: bool,
+        nova_prover: &'a NovaProver<S1>,
+        pp: &'a PublicParams,
     ) -> Result<Self, Error> {
-        let rng = OsRng;
-        let proof_map = bls12_proof_cache();
+        let proof_map = nova_proof_cache();
         let function_map = committed_function_store();
 
         if let Some(proof) = proof_map.get(claim.cid()) {
@@ -806,12 +764,6 @@ impl Proof<Bls12> {
         }
 
         let reduction_count = DEFAULT_REDUCTION_COUNT;
-
-        info!("Getting Parameters");
-        let public_params =
-            Groth16Prover::create_groth_params(reduction_count.reduction_frame_count()).unwrap();
-        let groth_prover = Groth16Prover::new(reduction_count.reduction_frame_count());
-        let groth_params = &public_params.0;
 
         info!("Starting Proving");
 
@@ -837,18 +789,18 @@ impl Proof<Bls12> {
             }
         };
 
-        let (groth_proof, _public_input, public_output) = groth_prover
-            .outer_prove(groth_params, &INNER_PRODUCT_SRS, expr, env, s, limit, rng)
-            .expect("Groth proving failed");
-        assert!(public_output.is_complete());
+        let (proof, _public_input, _public_output, num_steps) = nova_prover
+            .evaluate_and_prove(pp, expr, env, s, limit)
+            .expect("Nova proof failed");
 
-        let proof = Proof {
+        let proof = Self {
             claim: claim.clone(),
+            proof,
+            num_steps,
             reduction_count,
-            proof: groth_proof,
         };
 
-        match &proof.claim {
+        match &claim {
             Claim::Opening(o) => {
                 if o.status != Status::Terminal {
                     return Err(Error::OpeningFailure("Claim status is not Terminal".into()));
@@ -861,48 +813,31 @@ impl Proof<Bls12> {
             }
         };
 
-        let verification_result = proof.verify()?;
-        assert!(verification_result.verified);
+        proof.verify(pp).expect("Nova verification failed");
 
         proof_map.set(claim.cid(), &proof).unwrap();
 
         Ok(proof)
     }
 
-    pub fn verify(&self) -> Result<VerificationResult, Error> {
+    pub fn verify(&self, pp: &PublicParams) -> Result<VerificationResult, Error> {
         let (public_inputs, public_outputs) = match self.claim {
             Claim::Evaluation(_) => self.verify_evaluation(),
             Claim::Opening(_) => self.verify_opening(),
         }?;
-        let mut rng = OsRng;
 
-        info!("Getting Parameters");
-
-        let count = self.proof.proof_count;
-        let rc = self.reduction_count;
-        let pvk = get_pvk(rc);
-
-        info!("Specializing SRS for {} sub-proofs.", count);
-        let srs_vk = INNER_PRODUCT_SRS.specialize_vk(count);
-        info!("Starting Verification");
-
-        let verified = Groth16Prover::verify(
-            &pvk,
-            &srs_vk,
-            &public_inputs,
-            &public_outputs,
-            &self.proof.proof,
-            &mut rng,
-        )
-        .expect("error verifying");
+        let verified = self
+            .proof
+            .verify(pp, self.num_steps, public_inputs, &public_outputs)
+            .expect("error verifying");
 
         let result = VerificationResult::new(verified);
 
         Ok(result)
     }
 
-    pub fn verify_evaluation(&self) -> Result<(Vec<Scalar>, Vec<Scalar>), Error> {
-        let mut s = Store::<Scalar>::default();
+    pub fn verify_evaluation(&self) -> Result<(Vec<S1>, Vec<S1>), Error> {
+        let mut s = Store::<S1>::default();
 
         let evaluation = &self.claim.evaluation().expect("expected evaluation claim");
 
@@ -918,7 +853,7 @@ impl Proof<Bls12> {
             // FIXME: We ignore cont and assume Outermost, since we can't read a Cont.
             let cont = s.intern_cont_outermost();
 
-            IO::<Scalar> { expr, env, cont }
+            IO::<S1> { expr, env, cont }
         };
 
         let public_inputs = input_io.to_inputs(&s);
@@ -936,7 +871,7 @@ impl Proof<Bls12> {
                 .to_cont(&mut s)
                 .ok_or_else(|| Error::VerificationError("continuation cannot be proved".into()))?;
 
-            IO::<Scalar> { expr, env, cont }
+            IO::<S1> { expr, env, cont }
         };
 
         let public_outputs = output_io.to_inputs(&s);
@@ -944,8 +879,8 @@ impl Proof<Bls12> {
         Ok((public_inputs, public_outputs))
     }
 
-    pub fn verify_opening(&self) -> Result<(Vec<Scalar>, Vec<Scalar>), Error> {
-        let mut s = Store::<Scalar>::default();
+    pub fn verify_opening(&self) -> Result<(Vec<S1>, Vec<S1>), Error> {
+        let mut s = Store::<S1>::default();
 
         assert!(self.claim.is_opening());
 
@@ -973,7 +908,7 @@ impl Proof<Bls12> {
             *cont.value(),
         ];
 
-        let output_io = IO::<Scalar> {
+        let output_io = IO::<S1> {
             expr: output,
             env: empty_sym_env(&s),
             cont: s.intern_cont_terminal(),
@@ -985,13 +920,13 @@ impl Proof<Bls12> {
     }
 }
 
-impl Key<Commitment<Scalar>> for Function<Scalar> {
-    fn key(&self) -> Commitment<Scalar> {
+impl Key<Commitment<S1>> for Function<S1> {
+    fn key(&self) -> Commitment<S1> {
         self.commitment.expect("commitment missing")
     }
 }
 
-impl Key<Cid> for Proof<Bls12> {
+impl Key<Cid> for Proof<'_, S1> {
     fn key(&self) -> Cid {
         self.claim.cid()
     }
@@ -1026,7 +961,7 @@ mod test {
         use serde_json::json;
 
         let c = Commitment {
-            comm: Scalar::from(123),
+            comm: S1::from(123),
         };
 
         let cid = c.cid();

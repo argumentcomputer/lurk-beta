@@ -33,20 +33,26 @@ pub type G2 = vesta::Point;
 pub type S1 = pallas::Scalar;
 pub type S2 = vesta::Scalar;
 
-pub type SS1 = nova::spartan_with_ipa_pc::RelaxedR1CSSNARK<G1>;
-pub type SS2 = nova::spartan_with_ipa_pc::RelaxedR1CSSNARK<G2>;
+pub type EE1 = nova::provider::ipa_pc::EvaluationEngine<G1>;
+pub type EE2 = nova::provider::ipa_pc::EvaluationEngine<G2>;
+
+pub type SS1 = nova::spartan::RelaxedR1CSSNARK<G1, EE1>;
+pub type SS2 = nova::spartan::RelaxedR1CSSNARK<G2, EE2>;
 
 pub type C1<'a> = MultiFrame<'a, S1, IO<S1>, Witness<S1>>;
 pub type C2 = TrivialTestCircuit<<G2 as Group>::Scalar>;
 
 pub type PublicParams<'a> = nova::PublicParams<G1, G2, C1<'a>, C2>;
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
 pub enum Proof<'a> {
     Recursive(Box<RecursiveSNARK<G1, G2, C1<'a>, C2>>),
     Compressed(Box<CompressedSNARK<G1, G2, C1<'a>, C2, SS1, SS2>>),
 }
 
-pub fn public_params(num_iters_per_step: usize) -> PublicParams<'static> {
+pub fn public_params<'a>(num_iters_per_step: usize) -> PublicParams<'a> {
     let (circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step);
 
     PublicParams::setup(circuit_primary, circuit_secondary)
