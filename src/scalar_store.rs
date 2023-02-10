@@ -367,35 +367,30 @@ mod test {
 
     // This doesn't create well-defined ScalarStores, so is only useful for
     // testing ipld
-    impl<Fr: LurkField> Arbitrary for ScalarStore<Fr> {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            (
-                prop::collection::btree_map(
-                    any::<ScalarPtr<Fr>>(),
-                    any::<Option<ScalarExpression<Fr>>>(),
-                    0..100,
-                ),
-                prop::collection::btree_map(
-                    any::<ScalarContPtr<Fr>>(),
-                    any::<Option<ScalarContinuation<Fr>>>(),
-                    0..100,
-                ),
-            )
-                .prop_map(|(scalar_map, scalar_cont_map)| ScalarStore {
-                    scalar_map,
-                    scalar_cont_map,
-                    pending_scalar_ptrs: Vec::new(),
-                })
-                .boxed()
-        }
+    fn ipld_scalar_store_strategy<Fr: LurkField>() -> impl Strategy<Value = ScalarStore<Fr>> {
+        (
+            prop::collection::btree_map(
+                any::<ScalarPtr<Fr>>(),
+                any::<Option<ScalarExpression<Fr>>>(),
+                0..100,
+            ),
+            prop::collection::btree_map(
+                any::<ScalarContPtr<Fr>>(),
+                any::<Option<ScalarContinuation<Fr>>>(),
+                0..100,
+            ),
+        )
+            .prop_map(|(scalar_map, scalar_cont_map)| ScalarStore {
+                scalar_map,
+                scalar_cont_map,
+                pending_scalar_ptrs: Vec::new(),
+            })
+            .boxed()
     }
 
     proptest! {
         #[test]
-        fn prop_scalar_store_ipld(x: ScalarStore<Fr>) {
+        fn prop_scalar_store_ipld(x in ipld_scalar_store_strategy::<Fr>()) {
             let to_ipld = to_ipld(x.clone()).unwrap();
             let from_ipld = from_ipld(to_ipld).unwrap();
             assert_eq!(x, from_ipld);
