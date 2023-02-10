@@ -1,3 +1,5 @@
+#[cfg(not(target_arch = "wasm32"))]
+use proptest_derive::Arbitrary;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
@@ -6,6 +8,7 @@ use std::{
 
 /// Unsigned fixed-width integer type for Lurk.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Serialize, Deserialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 pub enum UInt {
     U64(u64),
 }

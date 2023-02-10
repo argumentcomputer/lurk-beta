@@ -2,9 +2,15 @@ use std::collections::BTreeMap;
 
 use crate::field::LurkField;
 
+#[cfg(not(target_arch = "wasm32"))]
+use crate::field::FWrap;
 use crate::store::{Pointer, Ptr, ScalarContPtr, ScalarPtr, Store};
 use crate::tag::{ExprTag, Op1, Op2};
 use crate::{Num, Sym, UInt};
+#[cfg(not(target_arch = "wasm32"))]
+use proptest::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
+use proptest_derive::Arbitrary;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -199,9 +205,17 @@ impl<F: LurkField> ScalarExpression<F> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 pub enum ScalarExpression<F: LurkField> {
     Nil,
     Cons(ScalarPtr<F>, ScalarPtr<F>),
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        proptest(
+            strategy = "any::<(FWrap<F>, ScalarPtr<F>)>().prop_map(|(x, y)| Self::Comm(x.0, y))"
+        )
+    )]
     Comm(F, ScalarPtr<F>),
     Sym(Sym),
     Fun {
@@ -209,6 +223,10 @@ pub enum ScalarExpression<F: LurkField> {
         body: ScalarPtr<F>,
         closed_env: ScalarPtr<F>,
     },
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        proptest(strategy = "any::<FWrap<F>>().prop_map(|x| Self::Num(x.0))")
+    )]
     Num(F),
     Str(String),
     Thunk(ScalarThunk<F>),
@@ -224,6 +242,8 @@ impl<F: LurkField> Default for ScalarExpression<F> {
 
 // Unused for now, but will be needed when we serialize Thunks to IPLD.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 pub struct ScalarThunk<F: LurkField> {
     pub(crate) value: ScalarPtr<F>,
     pub(crate) continuation: ScalarContPtr<F>,
@@ -232,6 +252,8 @@ pub struct ScalarThunk<F: LurkField> {
 impl<F: LurkField> Copy for ScalarThunk<F> {}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 pub enum ScalarContinuation<F: LurkField> {
     Outermost,
     Call {
@@ -295,30 +317,15 @@ pub enum ScalarContinuation<F: LurkField> {
 mod test {
     use super::*;
     use crate::eval::empty_sym_env;
-    use crate::field::FWrap;
+
     use crate::store::ScalarPointer;
-    use crate::{Sym, Symbol};
+
     use blstrs::Scalar as Fr;
 
-    use proptest::prelude::*;
     use tap::TapFallible;
 
     use libipld::serde::from_ipld;
     use libipld::serde::to_ipld;
-
-    impl<Fr: LurkField> Arbitrary for ScalarThunk<Fr> {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            (any::<ScalarPtr<Fr>>(), any::<ScalarContPtr<Fr>>())
-                .prop_map(|(value, continuation)| Self {
-                    value,
-                    continuation,
-                })
-                .boxed()
-        }
-    }
 
     proptest! {
         #[test]
@@ -326,142 +333,6 @@ mod test {
             let to_ipld = to_ipld(x).unwrap();
             let y = from_ipld(to_ipld).unwrap();
             assert_eq!(x, y);
-        }
-    }
-
-    impl<Fr: LurkField> Arbitrary for ScalarExpression<Fr> {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            prop_oneof!(
-                Just(Self::Nil),
-                any::<(ScalarPtr<Fr>, ScalarPtr<Fr>)>().prop_map(|(x, y)| Self::Cons(x, y)),
-                any::<Symbol>().prop_map(|x| Self::Sym(Sym::Sym(x))),
-                any::<String>().prop_map(|x| Self::Str(x)),
-                any::<FWrap<Fr>>().prop_map(|x| Self::Num(x.0)),
-                any::<(ScalarPtr<Fr>, ScalarPtr<Fr>, ScalarPtr<Fr>)>().prop_map(
-                    |(arg, body, closed_env)| {
-                        Self::Fun {
-                            arg,
-                            body,
-                            closed_env,
-                        }
-                    }
-                ),
-                any::<ScalarThunk<Fr>>().prop_map(|x| Self::Thunk(x)),
-            )
-            .boxed()
-        }
-    }
-
-    impl<Fr: LurkField> Arbitrary for ScalarContinuation<Fr> {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            prop_oneof!(
-                Just(Self::Outermost),
-                any::<(ScalarPtr<Fr>, ScalarPtr<Fr>, ScalarContPtr<Fr>)>().prop_map(
-                    |(unevaled_arg, saved_env, continuation)| {
-                        Self::Call {
-                            unevaled_arg,
-                            saved_env,
-                            continuation,
-                        }
-                    }
-                ),
-                any::<(ScalarPtr<Fr>, ScalarPtr<Fr>, ScalarContPtr<Fr>)>().prop_map(
-                    |(function, saved_env, continuation)| {
-                        Self::Call2 {
-                            function,
-                            saved_env,
-                            continuation,
-                        }
-                    }
-                ),
-                any::<(ScalarPtr<Fr>, ScalarContPtr<Fr>)>().prop_map(
-                    |(saved_env, continuation)| {
-                        Self::Tail {
-                            saved_env,
-                            continuation,
-                        }
-                    }
-                ),
-                Just(Self::Error),
-                any::<(ScalarPtr<Fr>, ScalarContPtr<Fr>)>().prop_map(
-                    |(saved_env, continuation)| {
-                        Self::Lookup {
-                            saved_env,
-                            continuation,
-                        }
-                    }
-                ),
-                any::<(Op1, ScalarContPtr<Fr>)>().prop_map(|(operator, continuation)| {
-                    Self::Unop {
-                        operator,
-                        continuation,
-                    }
-                }),
-                any::<(Op2, ScalarPtr<Fr>, ScalarPtr<Fr>, ScalarContPtr<Fr>)>().prop_map(
-                    |(operator, saved_env, unevaled_args, continuation)| {
-                        Self::Binop {
-                            operator,
-                            saved_env,
-                            unevaled_args,
-                            continuation,
-                        }
-                    }
-                ),
-                any::<(Op2, ScalarPtr<Fr>, ScalarContPtr<Fr>)>().prop_map(
-                    |(operator, evaled_arg, continuation)| {
-                        Self::Binop2 {
-                            operator,
-                            evaled_arg,
-                            continuation,
-                        }
-                    }
-                ),
-                any::<(ScalarPtr<Fr>, ScalarContPtr<Fr>)>().prop_map(
-                    |(unevaled_args, continuation)| {
-                        Self::If {
-                            unevaled_args,
-                            continuation,
-                        }
-                    }
-                ),
-                any::<(
-                    ScalarPtr<Fr>,
-                    ScalarPtr<Fr>,
-                    ScalarPtr<Fr>,
-                    ScalarContPtr<Fr>
-                )>()
-                .prop_map(|(var, body, saved_env, continuation)| {
-                    Self::Let {
-                        var,
-                        body,
-                        saved_env,
-                        continuation,
-                    }
-                }),
-                any::<(
-                    ScalarPtr<Fr>,
-                    ScalarPtr<Fr>,
-                    ScalarPtr<Fr>,
-                    ScalarContPtr<Fr>
-                )>()
-                .prop_map(|(var, body, saved_env, continuation)| {
-                    Self::LetRec {
-                        var,
-                        body,
-                        saved_env,
-                        continuation,
-                    }
-                }),
-                Just(Self::Dummy),
-                Just(Self::Terminal)
-            )
-            .boxed()
         }
     }
 
@@ -496,35 +367,30 @@ mod test {
 
     // This doesn't create well-defined ScalarStores, so is only useful for
     // testing ipld
-    impl<Fr: LurkField> Arbitrary for ScalarStore<Fr> {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            (
-                prop::collection::btree_map(
-                    any::<ScalarPtr<Fr>>(),
-                    any::<Option<ScalarExpression<Fr>>>(),
-                    0..100,
-                ),
-                prop::collection::btree_map(
-                    any::<ScalarContPtr<Fr>>(),
-                    any::<Option<ScalarContinuation<Fr>>>(),
-                    0..100,
-                ),
-            )
-                .prop_map(|(scalar_map, scalar_cont_map)| ScalarStore {
-                    scalar_map,
-                    scalar_cont_map,
-                    pending_scalar_ptrs: Vec::new(),
-                })
-                .boxed()
-        }
+    fn ipld_scalar_store_strategy<Fr: LurkField>() -> impl Strategy<Value = ScalarStore<Fr>> {
+        (
+            prop::collection::btree_map(
+                any::<ScalarPtr<Fr>>(),
+                any::<Option<ScalarExpression<Fr>>>(),
+                0..100,
+            ),
+            prop::collection::btree_map(
+                any::<ScalarContPtr<Fr>>(),
+                any::<Option<ScalarContinuation<Fr>>>(),
+                0..100,
+            ),
+        )
+            .prop_map(|(scalar_map, scalar_cont_map)| ScalarStore {
+                scalar_map,
+                scalar_cont_map,
+                pending_scalar_ptrs: Vec::new(),
+            })
+            .boxed()
     }
 
     proptest! {
         #[test]
-        fn prop_scalar_store_ipld(x: ScalarStore<Fr>) {
+        fn prop_scalar_store_ipld(x in ipld_scalar_store_strategy::<Fr>()) {
             let to_ipld = to_ipld(x.clone()).unwrap();
             let from_ipld = from_ipld(to_ipld).unwrap();
             assert_eq!(x, from_ipld);
@@ -640,6 +506,7 @@ mod test {
         // If a non-opaque version has been found when interning opaque, children appear in `ScalarStore`.
         assert_eq!(3, scalar_store.scalar_map.len());
     }
+
     #[test]
     fn test_scalar_store_opaque_fun() {
         let mut store = Store::<Fr>::default();

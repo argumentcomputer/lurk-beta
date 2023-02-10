@@ -4,6 +4,11 @@ use std::hash::Hash;
 use ff::{PrimeField, PrimeFieldBits};
 use serde::{Deserialize, Serialize};
 
+#[cfg(not(target_arch = "wasm32"))]
+use proptest::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
+use rand::{rngs::StdRng, SeedableRng};
+
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 
 pub enum LanguageField {
@@ -176,6 +181,19 @@ pub struct FWrap<F: LurkField>(pub F);
 
 impl<F: LurkField> Copy for FWrap<F> {}
 
+#[cfg(not(target_arch = "wasm32"))]
+impl<F: LurkField> Arbitrary for FWrap<F> {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        let strategy = any::<[u8; 32]>()
+            .prop_map(|seed| FWrap(F::random(StdRng::from_seed(seed))))
+            .no_shrink();
+        strategy.boxed()
+    }
+}
+
 #[allow(clippy::derive_hash_xor_eq)]
 impl<F: LurkField> Hash for FWrap<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -224,21 +242,6 @@ pub mod tests {
     use blstrs::Scalar as Fr;
 
     use super::*;
-    use proptest::prelude::*;
-    use rand::rngs::StdRng;
-    use rand::SeedableRng;
-
-    impl<F: LurkField> Arbitrary for FWrap<F> {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            let strategy = any::<[u8; 32]>()
-                .prop_map(|seed| FWrap(F::random(StdRng::from_seed(seed))))
-                .no_shrink();
-            strategy.boxed()
-        }
-    }
 
     fn repr_bytes_consistency<F: LurkField>(f1: FWrap<F>) {
         let bytes = f1.0.to_repr().as_ref().to_owned();
