@@ -2,10 +2,10 @@ use std::collections::BTreeMap;
 
 use crate::field::LurkField;
 
+#[cfg(not(target_arch = "wasm32"))]
+use crate::field::FWrap;
 use crate::store::{Pointer, Ptr, ScalarContPtr, ScalarPtr, Store};
 use crate::tag::{ExprTag, Op1, Op2};
-#[cfg(not(target_arch = "wasm32"))]
-use crate::{field::FWrap, Symbol};
 use crate::{Num, Sym, UInt};
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
@@ -205,9 +205,17 @@ impl<F: LurkField> ScalarExpression<F> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 pub enum ScalarExpression<F: LurkField> {
     Nil,
     Cons(ScalarPtr<F>, ScalarPtr<F>),
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        proptest(
+            strategy = "any::<(FWrap<F>, ScalarPtr<F>)>().prop_map(|(x, y)| Self::Comm(x.0, y))"
+        )
+    )]
     Comm(F, ScalarPtr<F>),
     Sym(Sym),
     Fun {
@@ -215,38 +223,15 @@ pub enum ScalarExpression<F: LurkField> {
         body: ScalarPtr<F>,
         closed_env: ScalarPtr<F>,
     },
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        proptest(strategy = "any::<FWrap<F>>().prop_map(|x| Self::Num(x.0))")
+    )]
     Num(F),
     Str(String),
     Thunk(ScalarThunk<F>),
     Char(char),
     UInt(UInt),
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl<Fr: LurkField> Arbitrary for ScalarExpression<Fr> {
-    type Parameters = ();
-    type Strategy = BoxedStrategy<Self>;
-
-    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        prop_oneof!(
-            Just(Self::Nil),
-            any::<(ScalarPtr<Fr>, ScalarPtr<Fr>)>().prop_map(|(x, y)| Self::Cons(x, y)),
-            any::<Symbol>().prop_map(|x| Self::Sym(Sym::Sym(x))),
-            any::<String>().prop_map(|x| Self::Str(x)),
-            any::<FWrap<Fr>>().prop_map(|x| Self::Num(x.0)),
-            any::<(ScalarPtr<Fr>, ScalarPtr<Fr>, ScalarPtr<Fr>)>().prop_map(
-                |(arg, body, closed_env)| {
-                    Self::Fun {
-                        arg,
-                        body,
-                        closed_env,
-                    }
-                }
-            ),
-            any::<ScalarThunk<Fr>>().prop_map(|x| Self::Thunk(x)),
-        )
-        .boxed()
-    }
 }
 
 impl<F: LurkField> Default for ScalarExpression<F> {
