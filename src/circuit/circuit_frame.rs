@@ -309,14 +309,29 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
                     if let Some(next_input) = frame.input {
                         // Ensure all intermediate allocated I/O values match the provided executation trace.
                         assert_eq!(
+                            allocated_io.0.tag().get_value(),
+                            store.hash_expr(&next_input.expr).map(|x| *x.tag()),
+                            "expr tag mismatch"
+                        );
+                        assert_eq!(
                             allocated_io.0.hash().get_value(),
                             store.hash_expr(&next_input.expr).map(|x| *x.value()),
                             "expr mismatch"
                         );
                         assert_eq!(
+                            allocated_io.1.tag().get_value(),
+                            store.hash_expr(&next_input.env).map(|x| *x.tag()),
+                            "env tag mismatch"
+                        );
+                        assert_eq!(
                             allocated_io.1.hash().get_value(),
                             store.hash_expr(&next_input.env).map(|x| *x.value()),
                             "env mismatch"
+                        );
+                        assert_eq!(
+                            allocated_io.2.tag().get_value(),
+                            store.hash_cont(&next_input.cont).map(|x| *x.tag()),
+                            "cont tag mismatch"
                         );
                         assert_eq!(
                             allocated_io.2.hash().get_value(),
@@ -329,6 +344,8 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
 
             // dbg!(
             //     (&new_expr, &output_expr),
+            //     new_expr.fetch_and_write_str(store),
+            //     output_expr.fetch_and_write_str(store),
             //     (&new_env, &output_env),
             //     (&new_cont, &output_cont)
             // );
@@ -696,9 +713,9 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         expr.tag(),
         &g.sym_tag,
     )?;
-    let cont_is_not_terminal = cont_is_terminal.not();
-    let cont_is_not_error = cont_is_error.not();
-    let reduce_sym_not_dummy = and!(cs, &reduce_sym_not_dummy, &cont_is_not_terminal)?;
+    let cont_is_terminal_or_error = or!(cs, &cont_is_terminal, &cont_is_error)?;
+    let cont_is_not_terminal_or_error = cont_is_terminal_or_error.not();
+    let reduce_sym_not_dummy = and!(cs, &reduce_sym_not_dummy, &cont_is_not_terminal_or_error)?;
 
     let (sym_result, sym_env, sym_cont, sym_apply_cont) = reduce_sym(
         &mut cs.namespace(|| "eval Sym"),
@@ -729,7 +746,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         &g.cons_tag,
     )?;
 
-    let reduce_cons_not_dummy = and!(cs, &expr_is_cons, &cont_is_not_error, &cont_is_not_terminal)?;
+    let reduce_cons_not_dummy = and!(cs, &expr_is_cons, &cont_is_not_terminal_or_error)?;
 
     let (cons_result, cons_env, cons_cont, cons_apply_cont) = reduce_cons(
         &mut cs.namespace(|| "eval Cons"),
@@ -785,7 +802,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     let first_result_expr_0 = AllocatedPtr::by_index(0, &case_results);
     let first_result_expr = AllocatedPtr::pick(
         &mut cs.namespace(|| "first_result_expr"),
-        &cont_is_terminal,
+        &cont_is_terminal_or_error,
         &g.nil_ptr,
         &first_result_expr_0,
     )?;
@@ -803,7 +820,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     let apply_continuation_boolean = Boolean::and(
         &mut cs.namespace(|| "apply_continuation_boolean"),
         &apply_continuation_boolean_0,
-        &cont_is_terminal.not(),
+        &cont_is_not_terminal_or_error,
     )?;
 
     let apply_continuation_results = apply_continuation(
@@ -889,21 +906,21 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
 
     let result_expr = AllocatedPtr::<F>::pick(
         &mut cs.namespace(|| "result_expr"),
-        &cont_is_terminal,
+        &cont_is_terminal_or_error,
         expr,
         &result_expr_candidate,
     )?;
 
     let result_env = AllocatedPtr::<F>::pick(
         &mut cs.namespace(|| "result_env"),
-        &cont_is_terminal,
+        &cont_is_terminal_or_error,
         env,
         &result_env_candidate,
     )?;
 
     let result_cont = AllocatedContPtr::<F>::pick(
         &mut cs.namespace(|| "result_cont"),
-        &cont_is_terminal,
+        &cont_is_terminal_or_error,
         cont,
         &result_cont_candidate,
     )?;
@@ -1321,6 +1338,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // - The variadic or! (and and!) can be optimized to a single constraint.
     // - We can optimize the alloc_equals to use the constant sym.
     // - We only need to check the tag once, so can just check value/hash equality.
+    //
+    // SOUNDNESS: All symbols with their own case clause must be represented in this list
     def_head_sym!(head_is_lambda, lambda_sym);
     def_head_sym!(head_is_let, let_sym);
     def_head_sym!(head_is_letrec, letrec_sym);
@@ -1334,6 +1353,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     def_head_sym!(head_is_open, open_sym);
     def_head_sym!(head_is_secret, secret_sym);
     def_head_sym!(head_is_num, num_sym);
+    def_head_sym!(head_is_u64, u64_sym);
     def_head_sym!(head_is_comm, comm_sym);
     def_head_sym!(head_is_char, char_sym);
     def_head_sym!(head_is_begin, begin_sym);
@@ -1355,6 +1375,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     def_head_sym!(head_is_if, if_sym);
     def_head_sym!(head_is_current_env, current_env_sym);
 
+    // SOUNDNESS: All head symbols corresponding to a binop *must* be included here.
     let head_is_binop = or!(
         cs,
         &head_is_cons,
@@ -1372,16 +1393,17 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &head_is_less_equal,
         &head_is_greater,
         &head_is_greater_equal,
-        &head_is_if,
         &head_is_eval
     )?;
+
+    // SOUNDNESS: All head symbols corresponding to a unop *must* be included here.
     let head_is_unop = or!(
         cs,
         &head_is_car,
         &head_is_cdr,
         &head_is_commit,
         &head_is_num,
-        //&head_is_u64, // uncomment when supported
+        &head_is_u64,
         &head_is_comm,
         &head_is_char,
         &head_is_open,
@@ -1392,9 +1414,14 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
     let head_is_let_or_letrec = or!(cs, &head_is_let, &head_is_letrec)?;
 
+    let head_is_sym = equal!(cs, &head.tag(), &g.sym_tag)?;
+    let head_is_fun = equal!(cs, &head.tag(), &g.fun_tag)?;
+    let head_is_a_cons = equal!(cs, &head.tag(), &g.cons_tag)?; // Head is a cons, as opposed to being the symbol, CONS.
+
     let head_is_any = or!(
         cs,
         &head_is_quote,
+        &head_is_if,
         &head_is_lambda,
         &head_is_current_env,
         &head_is_let_or_letrec,
@@ -1402,14 +1429,30 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &head_is_binop
     )?;
 
-    let rest_is_nil = rest.alloc_equal(&mut cs.namespace(|| "rest_is_nil"), &g.nil_ptr)?;
+    let head_potentially_fun_type = or!(cs, &head_is_sym, &head_is_a_cons, &head_is_fun)?;
+    let head_potentially_fun = and!(cs, &head_potentially_fun_type, &head_is_any.not())?;
+
+    let rest_is_nil = rest.is_nil(&mut cs.namespace(|| "rest_is_nil"), &g)?;
+    let rest_is_cons = alloc_equal(
+        &mut cs.namespace(|| "rest_is_cons"),
+        &rest.tag(),
+        &g.cons_tag,
+    )?;
 
     let expr_cdr_not_dummy = and!(
         cs,
         not_dummy,
         &rest_is_nil.not(),
+        &rest_is_cons,
         &head_is_any,
         &head_is_current_env.not() // current-env is unary.
+    )?;
+
+    let is_dotted_error = and!(
+        cs,
+        &rest_is_nil.not(),
+        &rest_is_cons.not(),
+        &expr_cdr_not_dummy.not()
     )?;
 
     let (arg1, more) = car_cdr_named(
@@ -1423,6 +1466,14 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     let more_is_nil = more.alloc_equal(&mut cs.namespace(|| "more_is_nil"), &g.nil_ptr)?;
+
+    let is_binop_missing_arg_error = and!(
+        cs,
+        &head_is_binop,
+        &more_is_nil,
+        &head_is_begin.not(),
+        &head_is_eval.not()
+    )?;
 
     let arg1_is_cons = alloc_equal(
         &mut cs.namespace(|| "arg1_is_cons"),
@@ -2257,7 +2308,16 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &newer_cont_unop,
         &newer_cont_let_letrec
     )?;
-    let newer_cont_not_dummy = and!(cs, &newer_cont_not_dummy0, not_dummy)?;
+    // NOTE: It is critical for soundness that any code path which reliews on `newer_cont` also
+    // has `newer_cont_not_dummy` true. This means that `newer_cont_unop` and `newer_cont_binop`
+    // must be accurate. This in turn means that `head_is_unop` and `head_is_binop` *must* account
+    // for all head values (symbols) which have their own case clause.
+    let newer_cont_not_dummy = and!(
+        cs,
+        &newer_cont_not_dummy0,
+        not_dummy,
+        &is_dotted_error.not()
+    )?;
 
     let newer_cont = AllocatedContPtr::construct_named(
         &mut cs.namespace(|| "reduce cons newer_cont construction from hash components"),
@@ -2536,6 +2596,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(*if_hash.value(), &arg1, env, &newer_cont, &g.false_num);
 
+    let is_zero_arg_call = rest_is_nil;
+
     // head == (FN . ARGS), newer_cont is allocated (deal with CALL and CALL0)
     /////////////////////////////////////////////////////////////////////////////
     let (res, continuation) = {
@@ -2545,7 +2607,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             more.alloc_equal(&mut cs.namespace(|| "more_args_is_nil"), &g.nil_ptr)?;
         let args_is_nil_or_more_is_nil = constraints::or(
             &mut cs.namespace(|| "args is nil or more is nil"),
-            &rest_is_nil,
+            &is_zero_arg_call,
             &more_args_is_nil,
         )?;
 
@@ -2555,6 +2617,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             cs,
             &args_is_nil_or_more_is_nil.not(),
             &head_is_any.not(),
+            &head_potentially_fun,
             not_dummy
         )?;
 
@@ -2637,6 +2700,44 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let result_env = AllocatedPtr::by_index(1, &case_results);
     let result_cont = AllocatedContPtr::by_index(2, &case_results);
     let result_apply_cont: &AllocatedNum<F> = &case_results[6];
+
+    let is_missing_first_arg_error = and!(
+        cs,
+        &expr_cdr_not_dummy.not(),
+        &head_is_begin.not(),
+        &head_is_current_env.not(),
+        &head_potentially_fun.not()
+    )?;
+    let zero_arg_built_in_too_many_args_error =
+        and!(cs, &head_is_current_env, &is_zero_arg_call.not())?;
+    let is_error = or!(
+        cs,
+        &is_dotted_error,
+        &is_binop_missing_arg_error,
+        &is_missing_first_arg_error,
+        &zero_arg_built_in_too_many_args_error
+    )?;
+
+    let result_expr = AllocatedPtr::pick(
+        &mut cs.namespace(|| "result_expr"),
+        &is_error,
+        &expr,
+        &result_expr,
+    )?;
+
+    let result_env = AllocatedPtr::pick(
+        &mut cs.namespace(|| "result_env"),
+        &is_error,
+        &env,
+        &result_env,
+    )?;
+
+    let result_cont = AllocatedContPtr::pick(
+        &mut cs.namespace(|| "result_cont"),
+        &is_error,
+        &g.error_ptr_cont,
+        &result_cont,
+    )?;
 
     Ok((
         result_expr,
@@ -5155,9 +5256,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12494, cs.num_constraints());
+            assert_eq!(12541, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(12125, cs.aux().len());
+            assert_eq!(12167, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();

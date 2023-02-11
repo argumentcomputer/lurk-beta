@@ -4,6 +4,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::{convert::TryFrom, fmt};
 
 use crate::field::LurkField;
+use crate::store::TypePredicates;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
@@ -70,6 +71,31 @@ impl fmt::Display for ExprTag {
             ExprTag::Comm => write!(f, "comm#"),
             ExprTag::U64 => write!(f, "u64#"),
         }
+    }
+}
+
+impl TypePredicates for ExprTag {
+    fn is_fun(&self) -> bool {
+        matches!(self, ExprTag::Fun)
+    }
+    fn is_self_evaluating(&self) -> bool {
+        match self {
+            Self::Cons => false,
+            Self::Thunk => false,
+            Self::Sym => false,
+            Self::Nil => true,
+            Self::Fun => true,
+            Self::Num => true,
+            Self::Str => true,
+            Self::Char => true,
+            Self::Comm => true,
+            Self::U64 => true,
+            Self::Key => true,
+        }
+    }
+
+    fn is_potentially(&self, tag: Self) -> bool {
+        self == &tag || !self.is_self_evaluating()
     }
 }
 
@@ -236,6 +262,44 @@ impl Op1 {
     pub fn as_field<F: LurkField>(&self) -> F {
         F::from(*self as u64)
     }
+
+    pub fn symbol_name(&self) -> &'static str {
+        match self {
+            Op1::Car => "CAR",
+            Op1::Cdr => "CDR",
+            Op1::Atom => "ATOM",
+            Op1::Emit => "EMIT",
+            Op1::Open => "OPEN",
+            Op1::Secret => "SECRET",
+            Op1::Commit => "COMMIT",
+            Op1::Num => "NUM",
+            Op1::Comm => "COMM",
+            Op1::Char => "CHAR",
+            Op1::Eval => "EVAL",
+            Op1::U64 => "U64",
+        }
+    }
+
+    pub fn all() -> Vec<Self> {
+        vec![
+            Op1::Car,
+            Op1::Cdr,
+            Op1::Atom,
+            Op1::Emit,
+            Op1::Open,
+            Op1::Secret,
+            Op1::Commit,
+            Op1::Num,
+            Op1::Comm,
+            Op1::Char,
+            // Op1::Eval,
+            Op1::U64,
+        ]
+    }
+
+    pub fn all_symbol_names() -> Vec<&'static str> {
+        Self::all().iter().map(Self::symbol_name).collect()
+    }
 }
 
 impl fmt::Display for Op1 {
@@ -340,6 +404,57 @@ impl Op2 {
                 | Op2::NumEqual
                 | Op2::Modulo
         )
+    }
+
+    pub fn symbol_name(&self) -> &'static str {
+        match self {
+            Op2::Sum => "+",
+            Op2::Diff => "-",
+            Op2::Product => "*",
+            Op2::Quotient => "/",
+            Op2::Equal => "EQ",
+            Op2::NumEqual => "=",
+            Op2::Less => "<",
+            Op2::Greater => ">",
+            Op2::LessEqual => "<=",
+            Op2::GreaterEqual => ">=",
+            Op2::Cons => "CONS",
+            Op2::StrCons => "STRCONS",
+            Op2::Begin => "BEGIN",
+            Op2::Hide => "HIDE",
+            Op2::Modulo => "%",
+            Op2::Eval => "EVAL",
+        }
+    }
+
+    pub fn all() -> Vec<Self> {
+        vec![
+            Op2::Sum,
+            Op2::Diff,
+            Op2::Product,
+            Op2::Quotient,
+            // Op2::Equal, // FIXME: (eq) and (eq 123) should both error.
+            Op2::NumEqual,
+            Op2::Less,
+            Op2::Greater,
+            Op2::LessEqual,
+            Op2::GreaterEqual,
+            Op2::Cons,
+            Op2::StrCons,
+            Op2::Begin,
+            Op2::Hide,
+            Op2::Modulo,
+            Op2::Eval,
+        ]
+    }
+
+    pub fn all_symbol_names() -> Vec<&'static str> {
+        Self::all().iter().map(Self::symbol_name).collect()
+    }
+
+    // Despite being a Binop
+    pub fn is_technically_variadic(&self) -> bool {
+        matches!(self, Op2::Begin)
     }
 }
 

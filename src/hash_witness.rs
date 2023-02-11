@@ -2,9 +2,10 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+use crate::error::ReductionError;
 use crate::field::LurkField;
-use crate::store;
-use crate::store::{ContPtr, Continuation, Ptr, Store};
+use crate::store::{self, ContPtr, Continuation, Pointer, Ptr, Store};
+use crate::tag::ExprTag;
 
 pub const MAX_CONSES_PER_REDUCTION: usize = 11;
 pub const MAX_CONTS_PER_REDUCTION: usize = 2;
@@ -337,8 +338,15 @@ impl<F: LurkField> ConsWitness<F> {
         name: ConsName,
         store: &mut Store<F>,
         cons: &Ptr<F>,
-    ) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
-        self.get_assigned_slot(name).car_cdr(store, cons)
+    ) -> Result<(Ptr<F>, Ptr<F>), ReductionError> {
+        if !matches!(cons.tag(), ExprTag::Cons | ExprTag::Nil) {
+            return Err(ReductionError::Misc(format!(
+                "cannot take car_cdr_named ({name:?}) of non-cons"
+            )));
+        };
+        self.get_assigned_slot(name)
+            .car_cdr(store, cons)
+            .map_err(|e| e.into())
     }
 
     pub fn cons_named(
