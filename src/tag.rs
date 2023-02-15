@@ -433,7 +433,7 @@ impl Op2 {
             Op2::Diff,
             Op2::Product,
             Op2::Quotient,
-            // Op2::Equal, // FIXME: (eq) and (eq 123) should both error.
+            Op2::Equal,
             Op2::NumEqual,
             Op2::Less,
             Op2::Greater,
