@@ -10,6 +10,7 @@ use bellperson::{
 };
 use itertools::Itertools;
 
+use std::collections::HashSet;
 use std::fmt::Debug;
 
 /*
@@ -62,10 +63,15 @@ impl<F: LurkField> CaseConstraint<'_, F> {
         // 'selected' clause will have selection bit = 1 while the others
         // are 0. This will be confirmed/enforced by later constraints.
         let mut selector = Vec::with_capacity(self.clauses.len());
-        for (i, clause) in self.clauses.iter().enumerate() {
-            // check each key is only included once
-            debug_assert!(self.clauses.iter().filter(|c| c.key == clause.key).count() == 1);
+        // check each key is only included once
+        debug_assert!({
+            let mut uniq = HashSet::new();
+            self.clauses
+                .iter()
+                .all(|clause| uniq.insert(clause.key.to_bytes()))
+        });
 
+        for (i, clause) in self.clauses.iter().enumerate() {
             let is_selected = if let Some(value) = self.selected_key.get_value() {
                 clause.key == value
             } else {
@@ -315,7 +321,7 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
     for (i, (c, default)) in cases.iter().zip(defaults).enumerate().skip(1) {
         // Ensure key ordering actually matches
         for (j, case) in c.iter().enumerate() {
-            debug_assert_eq!(case.key, cases[0][j].key, "Key ordering missmatch {i}:{j}");
+            debug_assert_eq!(case.key, cases[0][j].key, "Key ordering mismatch {i}:{j}");
         }
 
         let values = c
