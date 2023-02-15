@@ -1315,62 +1315,60 @@ fn reduce_with_witness_inner<F: LurkField>(
                         // `fun_form` must be a function or potentially evalute evaluate to one, it is an error to
                         if !fun_form.is_potentially(ExprTag::Fun) {
                             Control::Error(expr, env)
+                        } else if args.is_nil() {
+                            Control::Return(
+                                fun_form,
+                                env,
+                                cont_witness.intern_named_cont(
+                                    ContName::NewerCont,
+                                    store,
+                                    Continuation::Call0 {
+                                        saved_env: env,
+                                        continuation: cont,
+                                    },
+                                ),
+                            )
                         } else {
-                            if args.is_nil() {
-                                Control::Return(
+                            let (arg, more_args) = car_cdr_named!(ConsName::ExprCdr, &args)?;
+                            match more_args.tag() {
+                                // (fn arg)
+                                // Interpreting as call.
+                                ExprTag::Nil => Control::Return(
                                     fun_form,
                                     env,
                                     cont_witness.intern_named_cont(
                                         ContName::NewerCont,
                                         store,
-                                        Continuation::Call0 {
+                                        Continuation::Call {
+                                            unevaled_arg: arg,
                                             saved_env: env,
                                             continuation: cont,
                                         },
                                     ),
-                                )
-                            } else {
-                                let (arg, more_args) = car_cdr_named!(ConsName::ExprCdr, &args)?;
-                                match more_args.tag() {
-                                    // (fn arg)
-                                    // Interpreting as call.
-                                    ExprTag::Nil => Control::Return(
+                                ),
+                                _ => {
+                                    // Interpreting as multi-arg call.
+                                    // (fn arg . more_args) => ((fn arg) . more_args)
+                                    let nil = store.nil();
+                                    let expanded_inner0 = cons_witness.cons_named(
+                                        ConsName::ExpandedInner0,
+                                        store,
+                                        arg,
+                                        nil,
+                                    );
+                                    let expanded_inner = cons_witness.cons_named(
+                                        ConsName::ExpandedInner,
+                                        store,
                                         fun_form,
-                                        env,
-                                        cont_witness.intern_named_cont(
-                                            ContName::NewerCont,
-                                            store,
-                                            Continuation::Call {
-                                                unevaled_arg: arg,
-                                                saved_env: env,
-                                                continuation: cont,
-                                            },
-                                        ),
-                                    ),
-                                    _ => {
-                                        // Interpreting as multi-arg call.
-                                        // (fn arg . more_args) => ((fn arg) . more_args)
-                                        let nil = store.nil();
-                                        let expanded_inner0 = cons_witness.cons_named(
-                                            ConsName::ExpandedInner0,
-                                            store,
-                                            arg,
-                                            nil,
-                                        );
-                                        let expanded_inner = cons_witness.cons_named(
-                                            ConsName::ExpandedInner,
-                                            store,
-                                            fun_form,
-                                            expanded_inner0,
-                                        );
-                                        let expanded = cons_witness.cons_named(
-                                            ConsName::FunExpanded,
-                                            store,
-                                            expanded_inner,
-                                            more_args,
-                                        );
-                                        Control::Return(expanded, env, cont)
-                                    }
+                                        expanded_inner0,
+                                    );
+                                    let expanded = cons_witness.cons_named(
+                                        ConsName::FunExpanded,
+                                        store,
+                                        expanded_inner,
+                                        more_args,
+                                    );
+                                    Control::Return(expanded, env, cont)
                                 }
                             }
                         }

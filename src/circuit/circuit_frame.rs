@@ -1414,9 +1414,9 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
     let head_is_let_or_letrec = or!(cs, &head_is_let, &head_is_letrec)?;
 
-    let head_is_sym = equal!(cs, &head.tag(), &g.sym_tag)?;
-    let head_is_fun = equal!(cs, &head.tag(), &g.fun_tag)?;
-    let head_is_a_cons = equal!(cs, &head.tag(), &g.cons_tag)?; // Head is a cons, as opposed to being the symbol, CONS.
+    let head_is_sym = equal!(cs, head.tag(), &g.sym_tag)?;
+    let head_is_fun = equal!(cs, head.tag(), &g.fun_tag)?;
+    let head_is_a_cons = equal!(cs, head.tag(), &g.cons_tag)?; // Head is a cons, as opposed to being the symbol, CONS.
 
     let head_is_any = or!(
         cs,
@@ -1432,10 +1432,10 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let head_potentially_fun_type = or!(cs, &head_is_sym, &head_is_a_cons, &head_is_fun)?;
     let head_potentially_fun = and!(cs, &head_potentially_fun_type, &head_is_any.not())?;
 
-    let rest_is_nil = rest.is_nil(&mut cs.namespace(|| "rest_is_nil"), &g)?;
+    let rest_is_nil = rest.is_nil(&mut cs.namespace(|| "rest_is_nil"), g)?;
     let rest_is_cons = alloc_equal(
         &mut cs.namespace(|| "rest_is_cons"),
-        &rest.tag(),
+        rest.tag(),
         &g.cons_tag,
     )?;
 
@@ -2721,14 +2721,14 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let result_expr = AllocatedPtr::pick(
         &mut cs.namespace(|| "result_expr"),
         &is_error,
-        &expr,
+        expr,
         &result_expr,
     )?;
 
     let result_env = AllocatedPtr::pick(
         &mut cs.namespace(|| "result_env"),
         &is_error,
-        &env,
+        env,
         &result_env,
     )?;
 
