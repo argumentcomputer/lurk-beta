@@ -104,9 +104,15 @@ jobs:
       - run:
           name: Wasm Build
           command: cargo build --target wasm32-unknown-unknown
+      - run: 
+          name: Install nextest
+          command: >
+            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
+            curl -LsSf https://get.nexte.st/latest/linux |
+            tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
       - run:
           name: Linux Tests
-          command: cargo test --workspace
+          command: cargo nextest run --profile ci --workspace
           no_output_timeout: 120m
 
   linux_release:
@@ -119,10 +125,12 @@ jobs:
           at: "~/"
       - restore_rustup_cache
       - install_gpu_deps
-      - run: >
-          [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
-          curl -LsSf https://get.nexte.st/latest/linux |
-          tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
+      - run: 
+          name: Install nextest
+          command: >
+            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
+            curl -LsSf https://get.nexte.st/latest/linux |
+            tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
       - run:
           name: Linux Tests
           command: cargo nextest run --profile ci --release --workspace --run-ignored all -E 'all() - test(groth16::tests::outer_prove_recursion)' -j1
@@ -149,10 +157,12 @@ jobs:
       - run: cargo --version
       - run: cargo update
       - run: cargo fetch
-      - run: >
-          [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
-          curl -LsSf https://get.nexte.st/latest/linux-arm |
-          tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
+      - run: 
+          name: Install nextest
+          command: >
+            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
+            curl -LsSf https://get.nexte.st/latest/linux-arm |
+            tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
       - run:
           name: Arm64 Tests
           command: cargo nextest run --profile ci --release --workspace
@@ -179,10 +189,12 @@ jobs:
       - run: cargo --version
       - run: cargo update
       - run: cargo fetch
-      - run: >
-          [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
-          curl -LsSf https://get.nexte.st/latest/mac |
-          tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
+      - run: 
+          name: Install nextest
+          command: >
+            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
+            curl -LsSf https://get.nexte.st/latest/mac |
+            tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
       - run:
           name: MacOS Tests
           command: cargo nextest run --profile ci --release --workspace
