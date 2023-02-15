@@ -15,7 +15,7 @@ use lurk::proof::{
     nova::{public_params, NovaProver},
     Prover,
 };
-use lurk::store::{Ptr, Store};
+use lurk::store::{Ptr, Store, TypePredicates};
 
 use clap::{AppSettings, Args, Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
