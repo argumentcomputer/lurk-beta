@@ -321,7 +321,7 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
     for (i, (c, default)) in cases.iter().zip(defaults).enumerate().skip(1) {
         // Ensure key ordering actually matches
         for (j, case) in c.iter().enumerate() {
-            debug_assert_eq!(case.key, cases[0][j].key, "Key ordering missmatch {i}:{j}");
+            debug_assert_eq!(case.key, cases[0][j].key, "Key ordering mismatch {i}:{j}");
         }
 
         let values = c
