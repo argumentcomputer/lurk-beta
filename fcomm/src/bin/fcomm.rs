@@ -79,7 +79,7 @@ struct Commit {
     #[clap(short, long, value_parser)]
     commitment: Option<PathBuf>,
 
-    // Function is lurk source.
+    /// Function is lurk source.
     #[clap(long, value_parser)]
     lurk: bool,
 }
@@ -133,7 +133,7 @@ struct Eval {
     #[clap(long, value_parser)]
     claim: Option<PathBuf>,
 
-    // Expression is lurk source.
+    /// Expression is lurk source.
     #[clap(long, value_parser)]
     lurk: bool,
 }
@@ -144,7 +144,7 @@ struct Prove {
     #[clap(short = 'x', long, value_parser)]
     expression: Option<PathBuf>,
 
-    /// Path to proof input
+    /// Path to serialized proof output
     #[clap(short, long, value_parser)]
     proof: PathBuf,
 
@@ -156,7 +156,7 @@ struct Prove {
     #[clap(long, value_parser)]
     claim: Option<PathBuf>,
 
-    // Expression is lurk source.
+    /// Expression is lurk source.
     #[clap(long, value_parser)]
     lurk: bool,
 }

@@ -70,7 +70,7 @@ harness = false
 
 [workspace]
 members = [
-  "lurk_macro", "fcomm"
+  "lurk_macro", "fcomm", "lurk-verify"
 ]
 
 [[bin]]
