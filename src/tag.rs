@@ -312,11 +312,7 @@ impl Op for Op1 {
     }
 
     fn supports_arity(&self, n: usize) -> bool {
-        match (self, n) {
-            (Op1::Eval, 1 | 2) => true,
-            (_, 1) => true,
-            _ => false,
-        }
+        matches!((self, n), (Op1::Eval, 1 | 2) | (_, 1))
     }
 }
 
@@ -469,12 +465,7 @@ impl Op for Op2 {
     }
 
     fn supports_arity(&self, n: usize) -> bool {
-        match (self, n) {
-            (Op2::Begin, _) => true,
-            (Op2::Eval, 1 | 2) => true,
-            (_, 2) => true,
-            _ => false,
-        }
+        matches!((self, n), (Op2::Begin, _) | (Op2::Eval, 1 | 2) | (_, 2))
     }
 }
 
