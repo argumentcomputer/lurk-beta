@@ -609,7 +609,7 @@ fn reduce_with_witness_inner<F: LurkField>(
                         ($cons_name:expr, $cons:expr) => {{
                             let pair = cons_witness.car_cdr_named($cons_name, store, $cons);
 
-                            if matches!(pair, Err(ReductionError::Misc(_))) {
+                            if matches!(pair, Err(ReductionError::CarCdrType(_))) {
                                 dbg!(&expr.fmt_to_string(store));
                                 return Ok((Control::Error(expr, env), None));
                             } else {

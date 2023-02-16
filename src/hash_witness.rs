@@ -340,9 +340,7 @@ impl<F: LurkField> ConsWitness<F> {
         cons: &Ptr<F>,
     ) -> Result<(Ptr<F>, Ptr<F>), ReductionError> {
         if !matches!(cons.tag(), ExprTag::Cons | ExprTag::Nil) {
-            return Err(ReductionError::Misc(format!(
-                "cannot take car_cdr_named ({name:?}) of non-cons"
-            )));
+            return Err(ReductionError::CarCdrType(name));
         };
         self.get_assigned_slot(name)
             .car_cdr(store, cons)
