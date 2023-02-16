@@ -254,6 +254,18 @@ impl TryFrom<u16> for Op1 {
     }
 }
 
+pub trait Op
+where
+    Self: 'static,
+{
+    fn symbol_name(&self) -> &'static str;
+    fn all() -> Vec<&'static Self>;
+    fn accepts_n_arguments(&self, n: usize) -> bool;
+    fn all_symbol_names() -> Vec<&'static str> {
+        Self::all().iter().map(|x| Self::symbol_name(*x)).collect()
+    }
+}
+
 impl Op1 {
     pub fn from_field<F: LurkField>(f: &F) -> Option<Self> {
         Self::try_from(f.to_u16()?).ok()
@@ -262,8 +274,10 @@ impl Op1 {
     pub fn as_field<F: LurkField>(&self) -> F {
         F::from(*self as u64)
     }
+}
 
-    pub fn symbol_name(&self) -> &'static str {
+impl Op for Op1 {
+    fn symbol_name(&self) -> &'static str {
         match self {
             Op1::Car => "CAR",
             Op1::Cdr => "CDR",
@@ -280,25 +294,29 @@ impl Op1 {
         }
     }
 
-    pub fn all() -> Vec<Self> {
+    fn all() -> Vec<&'static Self> {
         vec![
-            Op1::Car,
-            Op1::Cdr,
-            Op1::Atom,
-            Op1::Emit,
-            Op1::Open,
-            Op1::Secret,
-            Op1::Commit,
-            Op1::Num,
-            Op1::Comm,
-            Op1::Char,
-            // Op1::Eval,
-            Op1::U64,
+            &Op1::Car,
+            &Op1::Cdr,
+            &Op1::Atom,
+            &Op1::Emit,
+            &Op1::Open,
+            &Op1::Secret,
+            &Op1::Commit,
+            &Op1::Num,
+            &Op1::Comm,
+            &Op1::Char,
+            &Op1::Eval,
+            &Op1::U64,
         ]
     }
 
-    pub fn all_symbol_names() -> Vec<&'static str> {
-        Self::all().iter().map(Self::symbol_name).collect()
+    fn accepts_n_arguments(&self, n: usize) -> bool {
+        match (self, n) {
+            (Op1::Eval, 1 | 2) => true,
+            (_, 1) => true,
+            _ => false,
+        }
     }
 }
 
@@ -405,8 +423,10 @@ impl Op2 {
                 | Op2::Modulo
         )
     }
+}
 
-    pub fn symbol_name(&self) -> &'static str {
+impl Op for Op2 {
+    fn symbol_name(&self) -> &'static str {
         match self {
             Op2::Sum => "+",
             Op2::Diff => "-",
@@ -427,34 +447,34 @@ impl Op2 {
         }
     }
 
-    pub fn all() -> Vec<Self> {
+    fn all() -> Vec<&'static Self> {
         vec![
-            Op2::Sum,
-            Op2::Diff,
-            Op2::Product,
-            Op2::Quotient,
-            Op2::Equal,
-            Op2::NumEqual,
-            Op2::Less,
-            Op2::Greater,
-            Op2::LessEqual,
-            Op2::GreaterEqual,
-            Op2::Cons,
-            Op2::StrCons,
-            Op2::Begin,
-            Op2::Hide,
-            Op2::Modulo,
-            Op2::Eval,
+            &Op2::Sum,
+            &Op2::Diff,
+            &Op2::Product,
+            &Op2::Quotient,
+            &Op2::Equal,
+            &Op2::NumEqual,
+            &Op2::Less,
+            &Op2::Greater,
+            &Op2::LessEqual,
+            &Op2::GreaterEqual,
+            &Op2::Cons,
+            &Op2::StrCons,
+            &Op2::Begin,
+            &Op2::Hide,
+            &Op2::Modulo,
+            &Op2::Eval,
         ]
     }
 
-    pub fn all_symbol_names() -> Vec<&'static str> {
-        Self::all().iter().map(Self::symbol_name).collect()
-    }
-
-    // Despite being a Binop
-    pub fn is_technically_variadic(&self) -> bool {
-        matches!(self, Op2::Begin)
+    fn accepts_n_arguments(&self, n: usize) -> bool {
+        match (self, n) {
+            (Op2::Begin, _) => true,
+            (Op2::Eval, 1 | 2) => true,
+            (_, 2) => true,
+            _ => false,
+        }
     }
 }
 

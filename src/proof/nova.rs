@@ -297,7 +297,7 @@ mod tests {
     use crate::eval::empty_sym_env;
     use crate::proof::Provable;
     use crate::store::ContPtr;
-    use crate::tag::{Op1, Op2};
+    use crate::tag::{Op, Op1, Op2};
 
     use bellperson::{
         util_cs::{metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta},
@@ -891,13 +891,23 @@ mod tests {
     fn outer_prove_unop_syntax_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        let mut test = |unop| {
-            let expr = format!("({unop} 123 456)");
-            test_aux(s, &expr, None, None, Some(error), None, 1);
+        let mut test = |op1: Op1| {
+            let name = op1.symbol_name();
+            if !op1.accepts_n_arguments(0) {
+                let expr = format!("({name})");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
+
+            if !op1.accepts_n_arguments(2) {
+                let expr = format!("({name} 123 456)");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
         };
 
-        for unop in Op1::all_symbol_names() {
-            test(unop);
+        for unop in Op1::all() {
+            test(*unop);
         }
     }
 
@@ -907,17 +917,27 @@ mod tests {
         let error = s.get_cont_error();
         let mut test = |op2: Op2| {
             let name = op2.symbol_name();
-            let expr = format!("({name})");
-            let expr2 = format!("({name} 123 456 789)");
 
-            test_aux(s, &expr, None, None, Some(error), None, 1);
-            test_aux(s, &expr2, None, None, Some(error), None, 2);
+            if !op2.accepts_n_arguments(0) {
+                let expr = format!("({name})");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
+            if !op2.accepts_n_arguments(1) {
+                let expr = format!("({name} 123)");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
+
+            if !op2.accepts_n_arguments(3) {
+                let expr = format!("({name} 123 456 789)");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 2);
+            }
         };
 
         for binop in Op2::all() {
-            if !binop.is_technically_variadic() {
-                test(binop);
-            }
+            test(*binop);
         }
     }
 

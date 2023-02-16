@@ -2228,6 +2228,7 @@ pub fn eval_to_ptr<F: LurkField>(s: &mut Store<F>, src: &str) -> Result<Ptr<F>, 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::tag::Op;
     use crate::writer::Write;
     use blstrs::Scalar as Fr;
 
@@ -4387,16 +4388,23 @@ mod test {
     fn test_eval_unop_syntax_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        let mut test = |unop| {
-            let expr = format!("({unop})");
-            let expr2 = format!("({unop} 123 456)");
-            dbg!(&expr);
-            test_aux(s, &expr, None, None, Some(error), None, 1);
-            test_aux(s, &expr2, None, None, Some(error), None, 1);
+        let mut test = |op1: Op1| {
+            let name = op1.symbol_name();
+            if !op1.accepts_n_arguments(0) {
+                let expr = format!("({name})");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
+
+            if !op1.accepts_n_arguments(2) {
+                let expr = format!("({name} 123 456)");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
         };
 
-        for unop in Op1::all_symbol_names() {
-            test(unop);
+        for unop in Op1::all() {
+            test(*unop);
         }
     }
 
@@ -4405,21 +4413,28 @@ mod test {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
         let mut test = |op2: Op2| {
-            if !op2.is_technically_variadic() {
-                let name = op2.symbol_name();
+            let name = op2.symbol_name();
+
+            if !op2.accepts_n_arguments(0) {
                 let expr = format!("({name})");
                 dbg!(&expr);
                 test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
+            if !op2.accepts_n_arguments(1) {
+                let expr = format!("({name} 123)");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
 
-                let expr2 = format!("({name} 123 456 789)");
-                dbg!(&expr2);
-
-                test_aux(s, &expr2, None, None, Some(error), None, 2);
+            if !op2.accepts_n_arguments(3) {
+                let expr = format!("({name} 123 456 789)");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 2);
             }
         };
 
         for binop in Op2::all() {
-            test(binop);
+            test(*binop);
         }
     }
 }
