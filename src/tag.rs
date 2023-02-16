@@ -260,7 +260,7 @@ where
 {
     fn symbol_name(&self) -> &'static str;
     fn all() -> Vec<&'static Self>;
-    fn accepts_n_arguments(&self, n: usize) -> bool;
+    fn supports_arity(&self, n: usize) -> bool;
     fn all_symbol_names() -> Vec<&'static str> {
         Self::all().iter().map(|x| Self::symbol_name(*x)).collect()
     }
@@ -311,7 +311,7 @@ impl Op for Op1 {
         ]
     }
 
-    fn accepts_n_arguments(&self, n: usize) -> bool {
+    fn supports_arity(&self, n: usize) -> bool {
         match (self, n) {
             (Op1::Eval, 1 | 2) => true,
             (_, 1) => true,
@@ -468,7 +468,7 @@ impl Op for Op2 {
         ]
     }
 
-    fn accepts_n_arguments(&self, n: usize) -> bool {
+    fn supports_arity(&self, n: usize) -> bool {
         match (self, n) {
             (Op2::Begin, _) => true,
             (Op2::Eval, 1 | 2) => true,

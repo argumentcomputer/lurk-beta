@@ -4384,57 +4384,48 @@ mod test {
         test_aux(s, "(current-env 1)", None, None, Some(error), None, 1);
     }
 
-    #[test]
-    fn test_eval_unop_syntax_error() {
+    fn op_syntax_error<T: Op + Copy>() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        let mut test = |op1: Op1| {
-            let name = op1.symbol_name();
-            if !op1.accepts_n_arguments(0) {
+        let mut test = |op: T| {
+            let name = op.symbol_name();
+
+            if !op.supports_arity(0) {
                 let expr = format!("({name})");
                 dbg!(&expr);
                 test_aux(s, &expr, None, None, Some(error), None, 1);
             }
-
-            if !op1.accepts_n_arguments(2) {
-                let expr = format!("({name} 123 456)");
-                dbg!(&expr);
-                test_aux(s, &expr, None, None, Some(error), None, 1);
-            }
-        };
-
-        for unop in Op1::all() {
-            test(*unop);
-        }
-    }
-
-    #[test]
-    fn test_eval_binop_syntax_error() {
-        let s = &mut Store::<Fr>::default();
-        let error = s.get_cont_error();
-        let mut test = |op2: Op2| {
-            let name = op2.symbol_name();
-
-            if !op2.accepts_n_arguments(0) {
-                let expr = format!("({name})");
-                dbg!(&expr);
-                test_aux(s, &expr, None, None, Some(error), None, 1);
-            }
-            if !op2.accepts_n_arguments(1) {
+            if !op.supports_arity(1) {
                 let expr = format!("({name} 123)");
                 dbg!(&expr);
                 test_aux(s, &expr, None, None, Some(error), None, 1);
             }
+            if !op.supports_arity(2) {
+                let expr = format!("({name} 123 456)");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
 
-            if !op2.accepts_n_arguments(3) {
+            if !op.supports_arity(3) {
                 let expr = format!("({name} 123 456 789)");
                 dbg!(&expr);
-                test_aux(s, &expr, None, None, Some(error), None, 2);
+                let iterations = if op.supports_arity(2) { 2 } else { 1 };
+                test_aux(s, &expr, None, None, Some(error), None, iterations);
             }
         };
 
-        for binop in Op2::all() {
-            test(*binop);
+        for op in T::all() {
+            test(*op);
         }
+    }
+
+    #[test]
+    fn test_eval_unop_syntax_error() {
+        op_syntax_error::<Op1>();
+    }
+
+    #[test]
+    fn test_eval_binop_syntax_error() {
+        op_syntax_error::<Op2>();
     }
 }
