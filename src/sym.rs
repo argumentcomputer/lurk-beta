@@ -10,6 +10,17 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+/// Type for hieararchical symbol names
+///
+/// # Example
+///
+/// ```
+/// # use lurk::Symbol;
+/// let r = Symbol::root();
+/// let a_b = r.child("a".into()).child("b".into());
+/// assert_eq!(a_b.full_name(), "|a|.|b|");
+/// assert_eq!(a_b.path(), &vec!["", "a", "b"]);
+/// ```
 pub struct Symbol {
     pub path: Vec<String>,
     // It would be better not to have this here, but it simplifies things in the Store, at least for now.

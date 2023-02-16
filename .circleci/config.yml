@@ -79,7 +79,6 @@ jobs:
           name: Calculate dependencies
           command: cargo generate-lockfile
       - restore_rustup_cache
-      - run: cargo update
       - run: cargo fetch
       - run: rm -rf .git
       - persist_to_workspace:
@@ -104,9 +103,15 @@ jobs:
       - run:
           name: Wasm Build
           command: cargo build --target wasm32-unknown-unknown
+      - run: 
+          name: Install nextest
+          command: >
+            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
+            curl -LsSf https://get.nexte.st/latest/linux |
+            tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
       - run:
           name: Linux Tests
-          command: cargo test --workspace
+          command: cargo nextest run --profile ci --workspace
           no_output_timeout: 120m
 
   linux_release:
@@ -119,9 +124,18 @@ jobs:
           at: "~/"
       - restore_rustup_cache
       - install_gpu_deps
+      - run: 
+          name: Install nextest
+          command: >
+            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
+            curl -LsSf https://get.nexte.st/latest/linux |
+            tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
       - run:
           name: Linux Tests
-          command: cargo test --release --workspace -- --ignored --skip groth16::tests::outer_prove_recursion --test-threads=1
+          command: cargo nextest run --profile ci --release --workspace --run-ignored all -E 'all() - test(groth16::tests::outer_prove_recursion)'
+      - run:
+          name: Linux Doc Tests
+          command: cargo test --doc --workspace
 
   arm64:
     executor: arm64
@@ -140,12 +154,20 @@ jobs:
             curl https://sh.rustup.rs -sSf | sh -s -- -y
       - run: rustup show
       - run: cargo --version
-      - run: cargo update
       - run: cargo fetch
+      - run: 
+          name: Install nextest
+          command: >
+            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
+            curl -LsSf https://get.nexte.st/latest/linux-arm |
+            tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
       - run:
           name: Arm64 Tests
-          command: cargo test --workspace --release
+          command: cargo nextest run --profile ci --release --workspace
           no_output_timeout: 120m
+      - run:
+          name: Arm64 Doc Tests
+          command: cargo test --doc --workspace
 
   mac:
     executor: darwin
@@ -163,12 +185,20 @@ jobs:
             curl https://sh.rustup.rs -sSf | sh -s -- -y
       - run: rustup show
       - run: cargo --version
-      - run: cargo update
       - run: cargo fetch
+      - run: 
+          name: Install nextest
+          command: >
+            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
+            curl -LsSf https://get.nexte.st/latest/mac |
+            tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
       - run:
           name: MacOS Tests
-          command: cargo test --workspace --release
+          command: cargo nextest run --profile ci --release --workspace
           no_output_timeout: 120m
+      - run:
+          name: MacOS Doc Tests
+          command: cargo test --doc --workspace
 
   clippy:
     executor: default
