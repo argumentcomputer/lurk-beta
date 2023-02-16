@@ -382,7 +382,7 @@ impl TryFrom<u16> for Op2 {
 }
 
 impl Op2 {
-    pub fn rom_field<F: LurkField>(f: &F) -> Option<Self> {
+    pub fn from_field<F: LurkField>(f: &F) -> Option<Self> {
         Self::try_from(f.to_u16()?).ok()
     }
 
