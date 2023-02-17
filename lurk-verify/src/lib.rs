@@ -1,7 +1,3 @@
-use std::path::Path;
-use std::fs::File;
-use std::convert::TryFrom;
-use std::io::{self, BufReader, BufWriter};
 use lurk::{
     field::LurkField,
     proof::nova::PublicParams,
@@ -9,20 +5,14 @@ use lurk::{
 };
 use pasta_curves::pallas;
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
+use std::fs::File;
+use std::io::{self, BufReader, BufWriter};
+use std::path::Path;
 
 pub use crate::error::VerifyError;
 
 pub mod error;
-
-// TODO:
-// - Test the proof can be verified after a serialization roundtrip
-// - Commit changes
-// - Pull in changes from main
-// - Check the Wasm build works on laptop
-// - Open a WIP PR, message Chhi'med with questions
-// - Update fcomm to reflect new proof ScalarPtr structure
-// - Should we include public parameters in the LurkProof?
-// - Are the env and cont ScalarPtrs needed to verify a Nova proof?
 
 pub const DEFAULT_REDUCTION_COUNT: ReductionCount = ReductionCount::One;
 
@@ -87,7 +77,7 @@ pub struct LurkProof<'a, F: LurkField> {
     pub reduction_count: ReductionCount,
 }
 
-// Pair of input and expected output, so the verifier can check that
+// Either a pair of input and expected output or a commitment opening, so the verifier can check that
 // they match the scalar public inputs and outputs
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Claim<F: LurkField> {
@@ -161,7 +151,6 @@ impl<'a> LurkProof<'a, S1> {
         let reader = BufReader::new(io::stdin());
         Ok(serde_json::from_reader(reader).expect("failed to read from stdin"))
     }
-
 }
 
 // TODO: Ignoring env and cont for simplicity, are they necessary?
@@ -170,19 +159,14 @@ impl<'a> LurkProof<'a, S1> {
 pub fn string_to_scalar_ptr(lurk_string: &str) -> Result<ScalarPtr<S1>, VerifyError> {
     let mut s = Store::<S1>::default();
 
-    let ptr = s
-        .read(&lurk_string)?;
-        //.map_err(|_| VerifyError::Verification("failed to read expr".into()))?;
+    let ptr = s.read(&lurk_string)?;
 
     s.get_expr_hash(&ptr)
         .ok_or(VerifyError::Verification("no such scalar ptr".into()))
 }
 
-
-
 #[cfg(test)]
 mod tests {
-    
 
     use lurk::{
         field::LurkField,
@@ -195,31 +179,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
     use tempdir::TempDir;
 
-    use crate::{Error, LurkProof, S1, Claim};
-
-    // Get proof from supplied path or else from stdin.
-    //fn proof<'a, P: AsRef<Path>, F: LurkField>(
-    //    proof_path: Option<P>,
-    //) -> Result<LurkProof<'a, F>, Error>
-    //where
-    //    F: Serialize + for<'de> Deserialize<'de>,
-    //{
-    //    match proof_path {
-    //        Some(path) => LurkProof::read_from_path(path),
-    //        None => LurkProof::read_from_stdin(),
-    //    }
-    //}
-
-    //fn read_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
-    //    store: &mut Store<F>,
-    //    path: P,
-    //) -> Result<Ptr<F>, Error> {
-    //    let path = env::current_dir()?.join(path);
-    //    let input = read_to_string(path)?;
-    //    let src = store.read(&input).unwrap();
-
-    //    Ok(src)
-    //}
+    use crate::{Claim, LurkProof, ReductionCount, VerifyError, S1};
 
     #[test]
     fn proof_roundtrip() {
@@ -246,14 +206,15 @@ mod tests {
             public_outputs: fcomm_proof.public_outputs,
             proof: fcomm_proof.proof,
             num_steps: fcomm_proof.num_steps,
+            reduction_count: ReductionCount::try_from(fcomm_proof.reduction_count.count()).unwrap(),
         };
 
         let tmp_dir = TempDir::new("tmp").unwrap();
         let proof_path = tmp_dir.path().join("./proof.json");
         // Write Lurk proof to disk
-        lurk_proof.write_to_path(proof_path);
+        lurk_proof.write_to_path(proof_path.clone());
         // Read Lurk proof from disk
-        let lurk_proof = LurkProof::<S1>::read_from_path(proof_path);
+        let lurk_proof = LurkProof::<S1>::read_from_path(proof_path).unwrap();
 
         // Verify Lurk proof
         let res = lurk_proof.verify(&pp);
