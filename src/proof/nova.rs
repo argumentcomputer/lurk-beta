@@ -297,6 +297,7 @@ mod tests {
     use crate::eval::empty_sym_env;
     use crate::proof::Provable;
     use crate::store::ContPtr;
+    use crate::tag::{Op, Op1, Op2};
 
     use bellperson::{
         util_cs::{metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta},
@@ -306,7 +307,7 @@ mod tests {
 
     const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
     const CHUNK_FRAME_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
-    fn nova_test_aux(
+    fn test_aux(
         s: &mut Store<Fr>,
         expr: &str,
         expected_result: Option<Ptr<Fr>>,
@@ -315,6 +316,8 @@ mod tests {
         expected_emitted: Option<Vec<Ptr<Fr>>>,
         expected_iterations: usize,
     ) {
+        dbg!(expr);
+
         for chunk_size in CHUNK_FRAME_COUNTS_TO_TEST {
             nova_test_full_aux(
                 s,
@@ -343,8 +346,34 @@ mod tests {
         check_nova: bool,
         limit: Option<usize>,
     ) {
-        let limit = limit.unwrap_or(10000);
         let expr = s.read(expr).unwrap();
+        nova_test_full_aux2(
+            s,
+            expr,
+            expected_result,
+            expected_env,
+            expected_cont,
+            expected_emitted,
+            expected_iterations,
+            chunk_frame_count,
+            check_nova,
+            limit,
+        )
+    }
+
+    fn nova_test_full_aux2(
+        s: &mut Store<Fr>,
+        expr: Ptr<Fr>,
+        expected_result: Option<Ptr<Fr>>,
+        expected_env: Option<Ptr<Fr>>,
+        expected_cont: Option<ContPtr<Fr>>,
+        expected_emitted: Option<&Vec<Ptr<Fr>>>,
+        expected_iterations: usize,
+        chunk_frame_count: usize,
+        check_nova: bool,
+        limit: Option<usize>,
+    ) {
+        let limit = limit.unwrap_or(10000);
 
         let e = empty_sym_env(s);
 
@@ -440,7 +469,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -451,7 +480,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(2);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -460,7 +489,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((a 5)
                       (b 1)
@@ -500,11 +529,11 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.t();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(= 5 5)", Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, "(= 5 5)", Some(expected), None, Some(terminal), None, 3);
 
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(= 5 6)", Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, "(= 5 6)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -512,10 +541,10 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(= 5 nil)", Some(expected), None, Some(error), None, 3);
+        test_aux(s, "(= 5 nil)", Some(expected), None, Some(error), None, 3);
 
         let expected = s.num(5);
-        nova_test_aux(s, "(= nil 5)", Some(expected), None, Some(error), None, 3);
+        test_aux(s, "(= nil 5)", Some(expected), None, Some(error), None, 3);
     }
 
     #[test]
@@ -525,17 +554,17 @@ mod tests {
         let t = s.t();
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, "(eq 5 nil)", Some(nil), None, Some(terminal), None, 3);
-        nova_test_aux(s, "(eq nil 5)", Some(nil), None, Some(terminal), None, 3);
-        nova_test_aux(s, "(eq nil nil)", Some(t), None, Some(terminal), None, 3);
-        nova_test_aux(s, "(eq 5 5)", Some(t), None, Some(terminal), None, 3);
+        test_aux(s, "(eq 5 nil)", Some(nil), None, Some(terminal), None, 3);
+        test_aux(s, "(eq nil 5)", Some(nil), None, Some(terminal), None, 3);
+        test_aux(s, "(eq nil nil)", Some(t), None, Some(terminal), None, 3);
+        test_aux(s, "(eq 5 5)", Some(t), None, Some(terminal), None, 3);
     }
 
     #[test]
     fn outer_prove_quote_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(quote (1) (2))", None, None, Some(error), None, 1);
+        test_aux(s, "(quote (1) (2))", None, None, Some(error), None, 1);
     }
 
     #[test]
@@ -543,7 +572,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(if t 5 6)",
             Some(expected),
@@ -555,7 +584,7 @@ mod tests {
 
         let expected = s.num(6);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(if nil 5 6)",
             Some(expected),
@@ -571,7 +600,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let error = s.get_cont_error();
-        nova_test_aux(
+        test_aux(
             s,
             "(if nil 5 6 7)",
             Some(expected),
@@ -588,7 +617,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(10);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(if t (+ 5 5) 6)",
             Some(expected),
@@ -605,7 +634,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((exp (lambda (base)
                                (lambda (exponent)
@@ -627,7 +656,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((exp (lambda (base)
                                   (lambda (exponent)
@@ -720,7 +749,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(emit 123)",
             Some(expected),
@@ -737,7 +766,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(99);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "((lambda (x) x) 99)",
             Some(expected),
@@ -754,7 +783,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(99);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "((lambda (y)
                     ((lambda (x) y) 888))
@@ -773,7 +802,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(999);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "((lambda (y)
                      ((lambda (x)
@@ -795,7 +824,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(888);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "((lambda (y)
                      ((lambda (x)
@@ -818,7 +847,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(999);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(((lambda (fn)
                       (lambda (x) (fn x)))
@@ -838,7 +867,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(9);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(+ 2 (+ 3 4))",
             Some(expected),
@@ -854,8 +883,53 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(9);
         let error = s.get_cont_error();
-        nova_test_aux(s, "(- 9 8 7)", Some(expected), None, Some(error), None, 2);
-        nova_test_aux(s, "(= 9 8 7)", Some(expected), None, Some(error), None, 2);
+        test_aux(s, "(- 9 8 7)", Some(expected), None, Some(error), None, 2);
+        test_aux(s, "(= 9 8 7)", Some(expected), None, Some(error), None, 2);
+    }
+
+    fn op_syntax_error<T: Op + Copy>() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        let mut test = |op: T| {
+            let name = op.symbol_name();
+
+            if !op.supports_arity(0) {
+                let expr = format!("({name})");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
+            if !op.supports_arity(1) {
+                let expr = format!("({name} 123)");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
+            if !op.supports_arity(2) {
+                let expr = format!("({name} 123 456)");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
+
+            if !op.supports_arity(3) {
+                let expr = format!("({name} 123 456 789)");
+                dbg!(&expr);
+                let iterations = if op.supports_arity(2) { 2 } else { 1 };
+                test_aux(s, &expr, None, None, Some(error), None, iterations);
+            }
+        };
+
+        for op in T::all() {
+            test(*op);
+        }
+    }
+
+    #[test]
+    fn test_prove_unop_syntax_error() {
+        op_syntax_error::<Op1>();
+    }
+
+    #[test]
+    fn test_prove_binop_syntax_error() {
+        op_syntax_error::<Op2>();
     }
 
     #[test]
@@ -863,7 +937,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(4);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(- 9 5)", Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, "(- 9 5)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -872,7 +946,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(45);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(* 9 5)", Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, "(* 9 5)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -881,7 +955,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(7);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(/ 21 3)", Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, "(/ 21 3)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -889,7 +963,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(0);
         let error = s.get_cont_error();
-        nova_test_aux(s, "(/ 21 0)", Some(expected), None, Some(error), None, 3);
+        test_aux(s, "(/ 21 0)", Some(expected), None, Some(error), None, 3);
     }
 
     #[test]
@@ -897,7 +971,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(/ 21 nil)", Some(expected), None, Some(error), None, 3);
+        test_aux(s, "(/ 21 nil)", Some(expected), None, Some(error), None, 3);
     }
 
     #[test]
@@ -906,7 +980,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(((lambda (x)
                     (lambda (y)
@@ -926,7 +1000,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(current-env)",
             Some(expected),
@@ -940,9 +1014,9 @@ mod tests {
     #[test]
     fn outer_prove_evaluate_current_env_rest_is_nil_error() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.nil();
+        let expected = s.read("(current-env a)").unwrap();
         let error = s.get_cont_error();
-        nova_test_aux(
+        test_aux(
             s,
             "(current-env a)",
             Some(expected),
@@ -959,7 +1033,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(1);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((a 1))
                   a)",
@@ -975,42 +1049,42 @@ mod tests {
     fn outer_prove_evaluate_let_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(let ((a 1 2)) a)", None, None, Some(error), None, 1);
+        test_aux(s, "(let ((a 1 2)) a)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_letrec_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(letrec ((a 1 2)) a)", None, None, Some(error), None, 1);
+        test_aux(s, "(letrec ((a 1 2)) a)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_let_empty_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(let)", None, None, Some(error), None, 1);
+        test_aux(s, "(let)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_let_empty_body_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(let ((a 1)))", None, None, Some(error), None, 1);
+        test_aux(s, "(let ((a 1)))", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_letrec_empty_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(letrec)", None, None, Some(error), None, 1);
+        test_aux(s, "(letrec)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_letrec_empty_body_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(letrec ((a 1)))", None, None, Some(error), None, 1);
+        test_aux(s, "(letrec ((a 1)))", None, None, Some(error), None, 1);
     }
 
     #[test]
@@ -1018,7 +1092,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.t();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(eq nil (let () nil))",
             Some(expected),
@@ -1033,14 +1107,14 @@ mod tests {
     fn outer_prove_evaluate_let_rest_body_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(let ((a 1)) a 1)", None, None, Some(error), None, 1);
+        test_aux(s, "(let ((a 1)) a 1)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_letrec_rest_body_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(letrec ((a 1)) a 1)", None, None, Some(error), None, 1);
+        test_aux(s, "(letrec ((a 1)) a 1)", None, None, Some(error), None, 1);
     }
 
     #[test]
@@ -1049,7 +1123,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let () (+ 1 2))",
             Some(expected),
@@ -1065,7 +1139,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec () (+ 1 2))",
             Some(expected),
@@ -1082,7 +1156,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(6);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((a 1)
                        (b 2)
@@ -1102,7 +1176,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(20);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "((((lambda (x)
                       (lambda (y)
@@ -1126,7 +1200,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(20);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((x 2)
                         (y 3)
@@ -1146,7 +1220,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.t();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((x 2)
                        (y 3)
@@ -1167,7 +1241,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((true (lambda (a)
                                (lambda (b)
@@ -1195,7 +1269,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(6);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((true (lambda (a)
                                (lambda (b)
@@ -1223,7 +1297,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((true (lambda (a)
                                (lambda (b)
@@ -1248,7 +1322,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(6);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(if nil 5 6)",
             Some(expected),
@@ -1265,7 +1339,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(10);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(if t (+ 5 5) 6)",
             Some(expected),
@@ -1282,7 +1356,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((exp (lambda (base)
                                    (lambda (exponent)
@@ -1304,7 +1378,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((exp (lambda (base exponent)
                                    (if (= 0 exponent)
@@ -1325,7 +1399,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((exp (lambda (base)
                                 (letrec ((base-inner
@@ -1349,7 +1423,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((exp (lambda (base)
                                    (lambda (exponent-remaining)
@@ -1372,7 +1446,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((exp (lambda (base)
                                    (letrec ((base-inner
@@ -1397,7 +1471,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.t();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((even (lambda (n)
                                   (if (= 0 n)
@@ -1421,7 +1495,7 @@ mod tests {
     fn outer_prove_evaluate_no_mutual_recursion_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((even (lambda (n)
                                   (if (= 0 n)
@@ -1446,7 +1520,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(1);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(car (cons 1 2))",
             Some(expected),
@@ -1461,37 +1535,36 @@ mod tests {
     fn outer_prove_evaluate_car_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(car (1 2) 3)", None, None, Some(error), None, 1);
+        test_aux(s, "(car (1 2) 3)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_cdr_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(cdr (1 2) 3)", None, None, Some(error), None, 1);
+        test_aux(s, "(cdr (1 2) 3)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_atom_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(atom 123 4)", None, None, Some(error), None, 1);
+        test_aux(s, "(atom 123 4)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn outer_prove_evaluate_emit_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(emit 123 4)", None, None, Some(error), None, 1);
+        test_aux(s, "(emit 123 4)", None, None, Some(error), None, 1);
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_cons2() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(2);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(cdr (cons 1 2))",
             Some(expected),
@@ -1503,12 +1576,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_zero_arg_lambda1() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "((lambda () 123))",
             Some(expected),
@@ -1520,12 +1592,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn outer_prove_evaluate_zero_arg_lambda2() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(10);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((x 9) (f (lambda () (+ x 1)))) (f))",
             Some(expected),
@@ -1565,15 +1636,31 @@ mod tests {
     fn outer_prove_evaluate_zero_arg_lambda4() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "((lambda () 123) 1)", None, None, Some(error), None, 3);
+        test_aux(s, "((lambda () 123) 1)", None, None, Some(error), None, 3);
     }
 
     #[test]
     fn outer_prove_evaluate_zero_arg_lambda5() {
         let s = &mut Store::<Fr>::default();
+        let expected = s.read("(123)").unwrap();
+        let error = s.get_cont_error();
+        test_aux(s, "(123)", Some(expected), None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn outer_prove_evaluate_zero_arg_lambda6() {
+        let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let error = s.get_cont_error();
-        nova_test_aux(s, "(123)", Some(expected), None, Some(error), None, 2);
+        test_aux(
+            s,
+            "((emit 123))",
+            Some(expected),
+            None,
+            Some(error),
+            None,
+            5,
+        );
     }
 
     #[test]
@@ -1585,7 +1672,7 @@ mod tests {
                           (x 6)
                           (data (data-function)))
                       x)";
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 14);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 14);
     }
 
     #[test]
@@ -1594,7 +1681,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec
                    ((f (lambda (x)
@@ -1616,7 +1703,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(2);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(((lambda (a)
                     (lambda (b)
@@ -1637,7 +1724,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(((lambda (a)
                     (lambda (b)
@@ -1658,7 +1745,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(2);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(car (cdr '(1 2 3 4)))",
             Some(expected),
@@ -1675,7 +1762,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec
                    ((x 888)
@@ -1698,7 +1785,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec
                    ((f (lambda (x)
@@ -1721,7 +1808,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(13);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((double (lambda (x) (* 2 x)))
                            (square (lambda (x) (* x x))))
@@ -1740,7 +1827,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(11);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((double (lambda (x) (* 2 x)))
                            (double-inc (lambda (x) (+ 1 (double x)))))
@@ -1759,7 +1846,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(33);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((exp (lambda (base exponent)
                                   (if (= 0 exponent)
@@ -1789,7 +1876,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(18);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((z 9))
                    (letrec ((a 1)
@@ -1863,7 +1950,7 @@ mod tests {
     fn outer_prove_terminal_continuation_regression() {
         let s = &mut Store::<Fr>::default();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((a (lambda (x) (cons 2 2))))
                (a 1))",
@@ -1880,7 +1967,7 @@ mod tests {
     fn outer_prove_chained_functional_commitment() {
         let s = &mut Store::<Fr>::default();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((secret 12345)
                       (a (lambda (acc x)
@@ -1900,7 +1987,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(begin)", Some(expected), None, Some(terminal), None, 2);
+        test_aux(s, "(begin)", Some(expected), None, Some(terminal), None, 2);
     }
 
     #[test]
@@ -1909,7 +1996,7 @@ mod tests {
         let expr = "(begin (emit 1) (emit 2) (emit 3))";
         let expected_expr = s.num(3);
         let expected_emitted = vec![s.num(1), s.num(2), s.num(3)];
-        nova_test_aux(
+        test_aux(
             s,
             expr,
             Some(expected_expr),
@@ -1925,7 +2012,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected_a = s.read(r#"#\a"#).unwrap();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(car "apple")"#,
             Some(expected_a),
@@ -1941,7 +2028,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected_pple = s.read(r#" "pple" "#).unwrap();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(cdr "apple")"#,
             Some(expected_pple),
@@ -1957,7 +2044,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected_nil = s.nil();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(car "")"#,
             Some(expected_nil),
@@ -1973,7 +2060,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected_empty_str = s.intern_str("");
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(cdr "")"#,
             Some(expected_empty_str),
@@ -1989,7 +2076,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected_apple = s.read(r#" "apple" "#).unwrap();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(strcons #\a "pple")"#,
             Some(expected_apple),
@@ -2004,14 +2091,14 @@ mod tests {
     fn outer_prove_str_cons_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, r#"(strcons #\a 123)"#, None, None, Some(error), None, 3);
+        test_aux(s, r#"(strcons #\a 123)"#, None, None, Some(error), None, 3);
     }
 
     #[test]
     fn outer_prove_one_arg_cons_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, r#"(cons "")"#, None, None, Some(error), None, 1);
+        test_aux(s, r#"(cons "")"#, None, None, Some(error), None, 1);
     }
 
     #[test]
@@ -2019,7 +2106,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(car NIL)"#,
             Some(expected),
@@ -2035,7 +2122,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(cdr NIL)"#,
             Some(expected),
@@ -2050,24 +2137,24 @@ mod tests {
     fn outer_prove_car_cdr_invalid_tag_error_sym() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, r#"(car car)"#, None, None, Some(error), None, 2);
-        nova_test_aux(s, r#"(cdr car)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(car car)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(cdr car)"#, None, None, Some(error), None, 2);
     }
 
     #[test]
     fn outer_prove_car_cdr_invalid_tag_error_char() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, r#"(car #\a)"#, None, None, Some(error), None, 2);
-        nova_test_aux(s, r#"(cdr #\a)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(car #\a)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(cdr #\a)"#, None, None, Some(error), None, 2);
     }
 
     #[test]
     fn outer_prove_car_cdr_invalid_tag_error_num() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, r#"(car 42)"#, None, None, Some(error), None, 2);
-        nova_test_aux(s, r#"(cdr 42)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(car 42)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(cdr 42)"#, None, None, Some(error), None, 2);
     }
 
     #[test]
@@ -2076,7 +2163,7 @@ mod tests {
         let res1 = s.num(1);
         let res2 = s.num(2);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(car (cons 1 2))"#,
             Some(res1),
@@ -2085,7 +2172,7 @@ mod tests {
             None,
             5,
         );
-        nova_test_aux(
+        test_aux(
             s,
             r#"(cdr (cons 1 2))"#,
             Some(res2),
@@ -2100,7 +2187,7 @@ mod tests {
     fn outer_prove_car_cdr_invalid_tag_error_lambda() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(car (lambda (x) x))"#,
             None,
@@ -2109,7 +2196,7 @@ mod tests {
             None,
             2,
         );
-        nova_test_aux(
+        test_aux(
             s,
             r#"(cdr (lambda (x) x))"#,
             None,
@@ -2126,7 +2213,7 @@ mod tests {
         let expr = "(open (hide 123 456))";
         let expected = s.num(456);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
     }
 
     #[test]
@@ -2134,7 +2221,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = "(hide 'x 456)";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 3);
+        test_aux(s, expr, None, None, Some(error), None, 3);
     }
 
     #[test]
@@ -2143,7 +2230,7 @@ mod tests {
         let expr = "(secret (hide 123 456))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
     }
 
     #[test]
@@ -2152,7 +2239,7 @@ mod tests {
         let expr = "(open (hide 123 'x))";
         let x = s.sym("x");
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(x), None, Some(terminal), None, 5);
+        test_aux(s, expr, Some(x), None, Some(terminal), None, 5);
     }
 
     #[test]
@@ -2161,7 +2248,7 @@ mod tests {
         let expr = "(open (commit 'x))";
         let x = s.sym("x");
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(x), None, Some(terminal), None, 4);
+        test_aux(s, expr, Some(x), None, Some(terminal), None, 4);
     }
 
     #[test]
@@ -2170,7 +2257,7 @@ mod tests {
         let expr = "(open (commit 123))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
     }
 
     #[test]
@@ -2178,7 +2265,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = "(commit 123 456)";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+        test_aux(s, expr, None, None, Some(error), None, 1);
     }
 
     #[test]
@@ -2186,7 +2273,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 123 456)";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+        test_aux(s, expr, None, None, Some(error), None, 1);
     }
 
     #[test]
@@ -2194,7 +2281,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 'asdf)";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+        test_aux(s, expr, None, None, Some(error), None, 2);
     }
 
     #[test]
@@ -2202,39 +2289,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret 'asdf)";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 2);
-    }
-
-    #[test]
-    fn outer_prove_secret_error() {
-        let s = &mut Store::<Fr>::default();
-        let expr = "(secret 123 456)";
-        let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 1);
-    }
-
-    #[test]
-    fn outer_prove_num_error() {
-        let s = &mut Store::<Fr>::default();
-        let expr = "(num 123 456)";
-        let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 1);
-    }
-
-    #[test]
-    fn outer_prove_comm_error() {
-        let s = &mut Store::<Fr>::default();
-        let expr = "(comm 123 456)";
-        let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 1);
-    }
-
-    #[test]
-    fn outer_prove_char_error() {
-        let s = &mut Store::<Fr>::default();
-        let expr = "(char 123 456)";
-        let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+        test_aux(s, expr, None, None, Some(error), None, 2);
     }
 
     #[test]
@@ -2243,7 +2298,7 @@ mod tests {
         let expr = "(secret (commit 123))";
         let expected = s.num(0);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
     }
 
     #[test]
@@ -2252,7 +2307,7 @@ mod tests {
         let expr = "(num 123)";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
     }
 
     #[test]
@@ -2261,7 +2316,7 @@ mod tests {
         let expr = r#"(num #\a)"#;
         let expected = s.num(97);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
     }
 
     #[test]
@@ -2270,7 +2325,7 @@ mod tests {
         let expr = r#"(char 97)"#;
         let expected_a = s.read(r#"#\a"#).unwrap();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 2);
+        test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 2);
     }
 
     #[test]
@@ -2281,8 +2336,8 @@ mod tests {
         let expected_a = s.read(r#"#\a"#).unwrap();
         let expected_b = s.read(r#"#\b"#).unwrap();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 5);
-        nova_test_aux(s, expr2, Some(expected_b), None, Some(terminal), None, 5);
+        test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 5);
+        test_aux(s, expr2, Some(expected_b), None, Some(terminal), None, 5);
     }
 
     #[test]
@@ -2290,7 +2345,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = "(num (commit 123))";
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, None, None, Some(terminal), None, 4);
+        test_aux(s, expr, None, None, Some(terminal), None, 4);
     }
 
     #[test]
@@ -2299,7 +2354,7 @@ mod tests {
         let expr = "(open (comm (num (hide 123 456))))";
         let expected = s.num(456);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
     }
 
     #[test]
@@ -2308,7 +2363,7 @@ mod tests {
         let expr = "(secret (comm (num (hide 123 456))))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
     }
 
     #[test]
@@ -2317,7 +2372,7 @@ mod tests {
         let expr = "(open (comm (num (commit 123))))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
     }
 
     #[test]
@@ -2326,7 +2381,7 @@ mod tests {
         let expr = "(secret (comm (num (commit 123))))";
         let expected = s.num(0);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
     }
 
     #[test]
@@ -2335,7 +2390,7 @@ mod tests {
         let expr = "(open (num (commit 123)))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 6);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 6);
     }
 
     #[test]
@@ -2345,11 +2400,9 @@ mod tests {
         let expr1 = "(num \"asdf\")";
         let expr2 = "(num '(1))";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 2);
-        nova_test_aux(s, expr1, None, None, Some(error), None, 2);
-        nova_test_aux(s, expr2, None, None, Some(error), None, 4);
-
-        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+        test_aux(s, expr, None, None, Some(error), None, 2);
+        test_aux(s, expr1, None, None, Some(error), None, 2);
+        test_aux(s, expr2, None, None, Some(error), None, 2);
     }
 
     #[test]
@@ -2359,9 +2412,9 @@ mod tests {
         let expr1 = "(comm \"asdf\")";
         let expr2 = "(comm '(1))";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 2);
-        nova_test_aux(s, expr1, None, None, Some(error), None, 2);
-        nova_test_aux(s, expr2, None, None, Some(error), None, 4);
+        test_aux(s, expr, None, None, Some(error), None, 2);
+        test_aux(s, expr1, None, None, Some(error), None, 2);
+        test_aux(s, expr2, None, None, Some(error), None, 2);
     }
 
     #[test]
@@ -2371,9 +2424,9 @@ mod tests {
         let expr1 = "(char \"asdf\")";
         let expr2 = "(char '(1))";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 2);
-        nova_test_aux(s, expr1, None, None, Some(error), None, 2);
-        nova_test_aux(s, expr2, None, None, Some(error), None, 4);
+        test_aux(s, expr, None, None, Some(error), None, 2);
+        test_aux(s, expr1, None, None, Some(error), None, 2);
+        test_aux(s, expr2, None, None, Some(error), None, 2);
     }
 
     #[test]
@@ -2382,7 +2435,7 @@ mod tests {
         let expr = "(quote x)";
         let x = s.sym("x");
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(x), None, Some(terminal), None, 1);
+        test_aux(s, expr, Some(x), None, Some(terminal), None, 1);
     }
 
     #[test]
@@ -2390,7 +2443,7 @@ mod tests {
     fn outer_prove_open_opaque_commit() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 123)";
-        nova_test_aux(s, expr, None, None, None, None, 2);
+        test_aux(s, expr, None, None, None, None, 2);
     }
 
     #[test]
@@ -2398,7 +2451,7 @@ mod tests {
     fn outer_prove_secret_invalid_tag() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret 123)";
-        nova_test_aux(s, expr, None, None, None, None, 2);
+        test_aux(s, expr, None, None, None, None, 2);
     }
 
     #[test]
@@ -2406,7 +2459,7 @@ mod tests {
     fn outer_prove_secret_opaque_commit() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret (comm 123))";
-        nova_test_aux(s, expr, None, None, None, None, 2);
+        test_aux(s, expr, None, None, None, None, 2);
     }
 
     #[test]
@@ -2421,7 +2474,7 @@ mod tests {
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
 
-        nova_test_aux(
+        test_aux(
             s,
             r#"(car "apple")"#,
             Some(a),
@@ -2430,7 +2483,7 @@ mod tests {
             None,
             2,
         );
-        nova_test_aux(
+        test_aux(
             s,
             r#"(cdr "apple")"#,
             Some(pple),
@@ -2439,9 +2492,9 @@ mod tests {
             None,
             2,
         );
-        nova_test_aux(s, r#"(car "")"#, Some(nil), None, Some(terminal), None, 2);
-        nova_test_aux(s, r#"(cdr "")"#, Some(empty), None, Some(terminal), None, 2);
-        nova_test_aux(
+        test_aux(s, r#"(car "")"#, Some(nil), None, Some(terminal), None, 2);
+        test_aux(s, r#"(cdr "")"#, Some(empty), None, Some(terminal), None, 2);
+        test_aux(
             s,
             r#"(cons #\a "pple")"#,
             Some(a_pple),
@@ -2451,7 +2504,7 @@ mod tests {
             3,
         );
 
-        nova_test_aux(
+        test_aux(
             s,
             r#"(strcons #\a "pple")"#,
             Some(apple),
@@ -2461,11 +2514,11 @@ mod tests {
             3,
         );
 
-        nova_test_aux(s, r#"(strcons #\a #\b)"#, None, None, Some(error), None, 3);
+        test_aux(s, r#"(strcons #\a #\b)"#, None, None, Some(error), None, 3);
 
-        nova_test_aux(s, r#"(strcons "a" "b")"#, None, None, Some(error), None, 3);
+        test_aux(s, r#"(strcons "a" "b")"#, None, None, Some(error), None, 3);
 
-        nova_test_aux(s, r#"(strcons 1 2)"#, None, None, Some(error), None, 3);
+        test_aux(s, r#"(strcons 1 2)"#, None, None, Some(error), None, 3);
     }
 
     fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
@@ -2473,7 +2526,7 @@ mod tests {
         let expected = if res { s.t() } else { s.nil() };
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
     }
 
     #[ignore]
@@ -2601,7 +2654,7 @@ mod tests {
         let t = s.t();
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
     }
 
     #[test]
@@ -2613,8 +2666,8 @@ mod tests {
         let res2 = s.num(20);
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 17);
-        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 9);
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 17);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 9);
     }
 
     #[test]
@@ -2630,9 +2683,9 @@ mod tests {
 
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
-        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr3, Some(res3), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr3, Some(res3), None, Some(terminal), None, 3);
     }
 
     // The following functional commitment tests were discovered to fail. They are commented out (as tests) for now so
@@ -2648,7 +2701,7 @@ mod tests {
         let res = s.num(10);
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 25);
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 25);
     }
 
     #[test]
@@ -2669,7 +2722,7 @@ mod tests {
         let res = s.num(6);
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 108);
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 108);
     }
 
     #[test]
@@ -2683,7 +2736,7 @@ mod tests {
         let res = s.num(6);
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 152);
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 152);
     }
 
     #[test]
@@ -2693,7 +2746,7 @@ mod tests {
         let expr = "(cons (lambda (x y) nil) nil)";
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, None, None, Some(terminal), None, 3);
+        test_aux(s, expr, None, None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -2703,7 +2756,7 @@ mod tests {
         let expr = "(eval 'a '(nil))";
         let error = s.get_cont_error();
 
-        nova_test_aux(s, expr, None, None, Some(error), None, 4);
+        test_aux(s, expr, None, None, Some(error), None, 4);
     }
 
     #[test]
@@ -2718,7 +2771,7 @@ mod tests {
         let expr = "(let ((a 1)) t)";
 
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, None, None, Some(terminal), None, 3);
+        test_aux(s, expr, None, None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -2729,7 +2782,7 @@ mod tests {
         let expr = "nil";
 
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, None, None, Some(terminal), None, 1);
+        test_aux(s, expr, None, None, Some(terminal), None, 1);
     }
 
     #[test]
@@ -2739,16 +2792,16 @@ mod tests {
         let expr = "(let ((a 1) (b 2)) c)";
 
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 7);
+        test_aux(s, expr, None, None, Some(error), None, 7);
     }
 
     #[test]
     fn outer_prove_test_eval_bad_form() {
         let s = &mut Store::<Fr>::default();
-        let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env.
+        let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env. This tests for error on malformed env.
         let error = s.get_cont_error();
 
-        nova_test_aux(s, expr, None, None, Some(error), None, 8);
+        test_aux(s, expr, None, None, Some(error), None, 8);
     }
 
     #[test]
@@ -2759,7 +2812,7 @@ mod tests {
         let res = s.uint64(123);
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
     }
 
     #[test]
@@ -2774,10 +2827,10 @@ mod tests {
         let res2 = s.uint64(1);
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 7);
-        nova_test_aux(s, expr2, Some(res), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr3, Some(res), None, Some(terminal), None, 6);
-        nova_test_aux(s, expr4, Some(res2), None, Some(terminal), None, 2);
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 7);
+        test_aux(s, expr2, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr3, Some(res), None, Some(terminal), None, 6);
+        test_aux(s, expr4, Some(res2), None, Some(terminal), None, 2);
     }
 
     #[test]
@@ -2789,8 +2842,8 @@ mod tests {
         let res = s.uint64(1);
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr2, Some(res), None, Some(terminal), None, 6);
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res), None, Some(terminal), None, 6);
     }
 
     #[test]
@@ -2805,9 +2858,9 @@ mod tests {
         let res3 = s.uint64(0);
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr3, Some(res3), None, Some(terminal), None, 6);
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr3, Some(res3), None, Some(terminal), None, 6);
     }
 
     #[test]
@@ -2825,9 +2878,9 @@ mod tests {
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
 
-        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr3, None, None, Some(error), None, 3);
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr3, None, None, Some(error), None, 3);
     }
 
     #[test]
@@ -2845,9 +2898,9 @@ mod tests {
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
 
-        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr3, None, None, Some(error), None, 3);
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr3, None, None, Some(error), None, 3);
     }
 
     #[test]
@@ -2860,9 +2913,9 @@ mod tests {
 
         let error = s.get_cont_error();
 
-        nova_test_aux(s, expr, None, None, Some(error), None, 3);
-        nova_test_aux(s, expr2, None, None, Some(error), None, 3);
-        nova_test_aux(s, expr3, None, None, Some(error), None, 3);
+        test_aux(s, expr, None, None, Some(error), None, 3);
+        test_aux(s, expr2, None, None, Some(error), None, 3);
+        test_aux(s, expr3, None, None, Some(error), None, 3);
     }
 
     #[test]
@@ -2886,18 +2939,18 @@ mod tests {
         let nil = s.nil();
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr3, Some(t), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr4, Some(nil), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3);
+        test_aux(s, expr3, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr4, Some(nil), None, Some(terminal), None, 3);
 
-        nova_test_aux(s, expr5, Some(nil), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr6, Some(t), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr7, Some(nil), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr8, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr5, Some(nil), None, Some(terminal), None, 3);
+        test_aux(s, expr6, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr7, Some(nil), None, Some(terminal), None, 3);
+        test_aux(s, expr8, Some(t), None, Some(terminal), None, 3);
 
-        nova_test_aux(s, expr9, Some(t), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr10, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr9, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr10, Some(t), None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -2913,10 +2966,10 @@ mod tests {
         let res3 = s.get_u64(2);
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr2, Some(res), None, Some(terminal), None, 2);
-        nova_test_aux(s, expr3, Some(res2), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr4, Some(res3), None, Some(terminal), None, 5);
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res), None, Some(terminal), None, 2);
+        test_aux(s, expr3, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr4, Some(res3), None, Some(terminal), None, 5);
     }
 
     #[test]
@@ -2929,8 +2982,8 @@ mod tests {
         let nil = s.nil();
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -2943,8 +2996,8 @@ mod tests {
         let res2 = s.read("(1u64 . 1)").unwrap();
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
-        nova_test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
     }
 
     #[test]
@@ -2954,7 +3007,7 @@ mod tests {
         let expr = "(hide 0u64 123)";
         let error = s.get_cont_error();
 
-        nova_test_aux(s, expr, None, None, Some(error), None, 3);
+        test_aux(s, expr, None, None, Some(error), None, 3);
     }
 
     #[test]
@@ -2964,6 +3017,41 @@ mod tests {
         let expr = "(% 0 0)";
         let error = s.get_cont_error();
 
-        nova_test_aux(s, expr, None, None, Some(error), None, 3);
+        test_aux(s, expr, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_dotted_syntax_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(let ((a (lambda (x) (+ x 1)))) (a . 1))";
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn outer_prove_call_literal_fun() {
+        let s = &mut Store::<Fr>::default();
+        let empty_env = s.get_nil();
+        let arg = s.sym("X");
+        let body = s.read("((+ X 1))").unwrap();
+        let fun = s.intern_fun(arg, body, empty_env);
+        let input = s.num(9);
+        let expr = s.list(&[fun, input]);
+        let res = s.num(10);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_full_aux2(
+            s,
+            expr,
+            Some(res),
+            None,
+            Some(terminal),
+            None,
+            7,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            false,
+            None,
+        );
     }
 }

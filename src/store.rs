@@ -254,13 +254,10 @@ impl<F: LurkField> Hash for Ptr<F> {
 }
 
 impl<F: LurkField> Ptr<F> {
+    // NOTE: Although this could be a type predicate now, when NIL becomes a symbol, it won't be possible.
     pub fn is_nil(&self) -> bool {
         matches!(self.0, ExprTag::Nil)
         // FIXME: check value also, probably
-    }
-
-    pub fn is_fun(&self) -> bool {
-        matches!(self.0, ExprTag::Fun)
     }
 
     pub fn is_opaque(&self) -> bool {
@@ -808,6 +805,24 @@ impl<F: LurkField> Continuation<F> {
 
             _ => unreachable!("Not a simple Continuation: {:?}", self),
         }
+    }
+}
+
+pub trait TypePredicates {
+    fn is_fun(&self) -> bool;
+    fn is_self_evaluating(&self) -> bool;
+    fn is_potentially(&self, tag: ExprTag) -> bool;
+}
+
+impl<F: LurkField> TypePredicates for Ptr<F> {
+    fn is_fun(&self) -> bool {
+        self.tag().is_fun()
+    }
+    fn is_self_evaluating(&self) -> bool {
+        self.tag().is_self_evaluating()
+    }
+    fn is_potentially(&self, tag: ExprTag) -> bool {
+        self.tag().is_potentially(tag)
     }
 }
 

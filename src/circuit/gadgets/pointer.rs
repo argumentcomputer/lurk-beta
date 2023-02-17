@@ -17,7 +17,7 @@ use crate::{
 };
 
 use super::{
-    constraints::{alloc_equal, boolean_to_num, enforce_implication, equal, pick},
+    constraints::{alloc_equal, boolean_to_num, enforce_equal, enforce_implication, pick},
     data::{allocate_constant, hash_poseidon, GlobalAllocations},
     hashes::{AllocatedConsWitness, AllocatedContWitness},
 };
@@ -131,9 +131,9 @@ impl<F: LurkField> AllocatedPtr<F> {
 
     pub fn enforce_equal<CS: ConstraintSystem<F>>(&self, cs: &mut CS, other: &Self) {
         // debug_assert_eq!(self.tag.get_value(), other.tag.get_value());
-        equal(cs, || "tags equal", &self.tag, &other.tag);
+        enforce_equal(cs, || "tags equal", &self.tag, &other.tag);
         // debug_assert_eq!(self.hash.get_value(), other.hash.get_value());
-        equal(cs, || "hashes equal", &self.hash, &other.hash);
+        enforce_equal(cs, || "hashes equal", &self.hash, &other.hash);
     }
 
     pub fn alloc_equal<CS: ConstraintSystem<F>>(
@@ -153,6 +153,14 @@ impl<F: LurkField> AllocatedPtr<F> {
             &tags_equal,
             &hashes_equal,
         )
+    }
+
+    pub fn is_nil<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &GlobalAllocations<F>,
+    ) -> Result<Boolean, SynthesisError> {
+        alloc_equal(cs, self.tag(), g.nil_ptr.tag())
     }
 
     pub fn ptr(&self, store: &Store<F>) -> Option<Ptr<F>> {
@@ -240,6 +248,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         not_dummy: &Boolean,
     ) -> Result<AllocatedPtr<F>, SynthesisError> {
         let expect_dummy = !(not_dummy.get_value().unwrap_or(false));
+
         let (allocated_car, allocated_cdr, allocated_digest) =
             allocated_cons_witness.get_cons(name, expect_dummy);
 
@@ -520,9 +529,9 @@ impl<F: LurkField> AllocatedContPtr<F> {
 
     pub fn enforce_equal<CS: ConstraintSystem<F>>(&self, cs: &mut CS, other: &Self) {
         // debug_assert_eq!(self.tag.get_value(), other.tag.get_value());
-        equal(cs, || "tags equal", &self.tag, &other.tag);
+        enforce_equal(cs, || "tags equal", &self.tag, &other.tag);
         // debug_assert_eq!(self.hash.get_value(), other.hash.get_value());
-        equal(cs, || "hashes equal", &self.hash, &other.hash);
+        enforce_equal(cs, || "hashes equal", &self.hash, &other.hash);
     }
 
     pub fn alloc_equal<CS: ConstraintSystem<F>>(

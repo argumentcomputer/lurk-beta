@@ -94,6 +94,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub open_sym: AllocatedPtr<F>,
     pub secret_sym: AllocatedPtr<F>,
     pub num_sym: AllocatedPtr<F>,
+    pub u64_sym: AllocatedPtr<F>,
     pub comm_sym: AllocatedPtr<F>,
     pub char_sym: AllocatedPtr<F>,
     pub begin_sym: AllocatedPtr<F>,
@@ -284,6 +285,7 @@ impl<F: LurkField> GlobalAllocations<F> {
         defsym!(open_sym, "open");
         defsym!(secret_sym, "secret");
         defsym!(num_sym, "num");
+        defsym!(u64_sym, "u64");
         defsym!(comm_sym, "comm");
         defsym!(char_sym, "char");
         defsym!(begin_sym, "begin");
@@ -388,6 +390,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             open_sym,
             secret_sym,
             num_sym,
+            u64_sym,
             comm_sym,
             char_sym,
             begin_sym,
