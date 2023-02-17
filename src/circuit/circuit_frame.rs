@@ -2308,10 +2308,10 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &newer_cont_unop,
         &newer_cont_let_letrec
     )?;
-    // NOTE: It is critical for soundness that any code path which reliews on `newer_cont` also
-    // has `newer_cont_not_dummy` true. This means that `newer_cont_unop` and `newer_cont_binop`
-    // must be accurate. This in turn means that `head_is_unop` and `head_is_binop` *must* account
-    // for all head values (symbols) which have their own case clause.
+    // NOTE: It is critical for soundness that any code path which reliews on `newer_cont` also has
+    // `newer_cont_not_dummy` true. This means that `newer_cont_unop` and `newer_cont_binop` must be accurate. This in
+    // turn means that `head_is_unop` and `head_is_binop` *must* account for all head values (symbols) which have their
+    // own case clause. See comments at `head_is_unop` and `head_is_binop`.
     let newer_cont_not_dummy = and!(
         cs,
         &newer_cont_not_dummy0,
