@@ -610,7 +610,6 @@ fn reduce_with_witness_inner<F: LurkField>(
                             let pair = cons_witness.car_cdr_named($cons_name, store, $cons);
 
                             if matches!(pair, Err(ReductionError::CarCdrType(_))) {
-                                dbg!(&expr.fmt_to_string(store));
                                 return Ok((Control::Error(expr, env), None));
                             } else {
                                 pair
@@ -4344,44 +4343,12 @@ mod test {
     }
 
     #[test]
-    fn test_eval_syntax_error() {
+    fn test_eval_dotted_syntax_error() {
         let s = &mut Store::<Fr>::default();
+        let expr = "(let ((a (lambda (x) (+ x 1)))) (a . 1))";
         let error = s.get_cont_error();
 
-        test_aux(s, "(1 . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(lambda . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(let . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(letrec . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(cons . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(strcons . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(hide . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(begin . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(car . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(cdr . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(commit . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(num . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(u64 . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(comm . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(char . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(eval . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(secret . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(open . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(atom . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(emit . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(+ . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(- . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(* . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(/ . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(% . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(= . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(eq . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(< . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(> . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(<= . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(>= . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(if . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(current-env . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(current-env 1)", None, None, Some(error), None, 1);
+        test_aux(s, expr, None, None, Some(error), None, 3);
     }
 
     fn op_syntax_error<T: Op + Copy>() {
@@ -4389,6 +4356,12 @@ mod test {
         let error = s.get_cont_error();
         let mut test = |op: T| {
             let name = op.symbol_name();
+
+            {
+                let expr = format!("({name} . 1)");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
 
             if !op.supports_arity(0) {
                 let expr = format!("({name})");

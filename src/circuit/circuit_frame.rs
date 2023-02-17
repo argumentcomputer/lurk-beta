@@ -1445,7 +1445,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &rest_is_nil.not(),
         &rest_is_cons,
         &head_is_any,
-        &head_is_current_env.not() // current-env is unary.
+        &head_is_current_env.not() // current-env takes zero args
     )?;
 
     let is_dotted_error = and!(
@@ -2617,7 +2617,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             cs,
             &args_is_nil_or_more_is_nil.not(),
             &head_is_any.not(),
-            &head_potentially_fun,
+            &head_is_fun,
             not_dummy
         )?;
 

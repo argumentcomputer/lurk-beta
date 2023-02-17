@@ -3021,57 +3021,12 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_syntax_error() {
+    fn outer_prove_dotted_syntax_error() {
         let s = &mut Store::<Fr>::default();
+        let expr = "(let ((a (lambda (x) (+ x 1)))) (a . 1))";
         let error = s.get_cont_error();
 
-        test_aux(s, "(1 . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(lambda . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(let . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(letrec . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(cons . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(cons 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(strcons . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(strcons 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(hide . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(begin . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(car . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(cdr . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(commit . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(num . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(u64 . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(comm . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(char . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(eval . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(secret . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(open . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(atom . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(emit . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(+ . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(+ 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(- . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(- 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(* . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(* 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(/ . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(/ 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(% . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(% 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(= . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(= 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(eq . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(eq 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(< . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(< 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(> . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(> 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(<= . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(<= 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(>= . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(>= 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(if . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(current-env . 1)", None, None, Some(error), None, 1);
-        test_aux(s, "(current-env 1)", None, None, Some(error), None, 1);
+        test_aux(s, expr, None, None, Some(error), None, 3);
     }
 
     #[test]
