@@ -1,8 +1,5 @@
 # Global Owners
 * @porcuquine
 
-# Doc
-*.md @jpeg07
-
 # Circuit
 /src/circuit/* @emmorais
