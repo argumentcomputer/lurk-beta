@@ -67,9 +67,6 @@ jobs:
       - run: rustup show
       - run: cargo --version
       - run: rustc --version
-      - run:
-          name: Calculate dependencies
-          command: cargo generate-lockfile
       - restore_rustup_cache
       - run: cargo fetch
       - run: rm -rf .git
