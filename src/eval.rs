@@ -1311,7 +1311,7 @@ fn reduce_with_witness_inner<F: LurkField>(
                         let fun_form = head;
                         let args = rest;
 
-                        // `fun_form` must be a function or potentially evalute evaluate to one, it is an error to
+                        // `fun_form` must be a function or potentially evaluate to one.
                         if !fun_form.is_potentially(ExprTag::Fun) {
                             Control::Error(expr, env)
                         } else if args.is_nil() {

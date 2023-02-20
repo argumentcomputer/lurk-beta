@@ -220,7 +220,6 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
     debug_assert!(!cases.is_empty());
     debug_assert_eq!(cases.len(), defaults.len());
     debug_assert!(!cases[0].is_empty());
-    debug_assert!(cases.iter().map(|case| case.len()).all_equal());
     // All sets of clauses must specify the same keys in the same order.
     debug_assert!(cases
         .iter()
