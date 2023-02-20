@@ -31,9 +31,35 @@ commands:
           name: Set the PATH env variable
           command: |
             # Also put the Rust LLVM tools into the PATH. `rustc` hooks into the rust-toolchain at the root of the repo
-            echo "export PATH=$HOME:~/.cargo/bin:$(dirname $(find $(rustc --print sysroot) -name 'rust-lld')):$PATH" | tee --append $BASH_ENV
+            echo "export PATH=$HOME:~/.cargo/bin:$(dirname $(find $(rustc --print sysroot) -name 'rust-lld')):$PATH" | tee -a $BASH_ENV
             source $BASH_ENV
-            
+
+  set_versions_n_runners:
+    steps:
+      - run:
+          name: Install rustup
+          command: |
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
+      - run:
+          name: Install nextest
+          command: |
+            # Get host target
+            host=$(rustc -Vv|grep host|sed -Ee 's/host: //')
+            # Normalize the host for MacOS downloads
+            url="https://get.nexte.st/latest/${host/*-apple-darwin/universal-apple-darwin}.tar.gz"
+            # Debug
+            echo "Fetching nextest at $url" 
+            # If nextest isn't here already
+            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
+            # Download binary and install to $HOME/.cargo/bin
+            curl -LsSf "$url" | tar xzf - -C $HOME/.cargo/bin
+      - run:
+          name: Print versions
+          command: |
+            rustup show
+            cargo --version
+            rustc --version
+
   save_rustup_cache:
     steps:
       - save_cache:
@@ -59,21 +85,13 @@ jobs:
     environment: *setup-env
     steps:
       - checkout
+      - set_env_path
       - run:
           name: Update submodules
           command: |
             git submodule update --init --recursive
-            curl https://sh.rustup.rs -sSf | sh -s -- -y
-      - run: rustup show
-      - run: cargo --version
-      - run: rustc --version
       - restore_rustup_cache
-      - run: 
-          name: Install nextest
-          command: >
-            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
-            curl -LsSf https://get.nexte.st/latest/linux |
-            tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
+      - set_versions_n_runners
       - run: cargo fetch
       - run: rm -rf .git
       - persist_to_workspace:
@@ -126,23 +144,13 @@ jobs:
       - checkout
       - run:
           name: Update submodules
-          command: git submodule update --init --recursive
+          command: |
+            git submodule update --init --recursive
       - attach_workspace:
           at: "~/"
+      - set_versions_n_runners
+      - set_env_path
       - install_gpu_deps
-      - run:
-          name: Install Rust
-          command: |
-            curl https://sh.rustup.rs -sSf | sh -s -- -y
-      - run: rustup show
-      - run: cargo --version
-      - run: cargo fetch
-      - run: 
-          name: Install nextest
-          command: >
-            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
-            curl -LsSf https://get.nexte.st/latest/linux-arm |
-            tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
       - run:
           name: Arm64 Tests
           command: cargo nextest run --profile ci --release --workspace
@@ -161,19 +169,8 @@ jobs:
           command: git submodule update --init --recursive
       - attach_workspace:
            at: "~/"
-      - run:
-          name: Install Rust
-          command: |
-            curl https://sh.rustup.rs -sSf | sh -s -- -y
-      - run: rustup show
-      - run: cargo --version
-      - run: cargo fetch
-      - run: 
-          name: Install nextest
-          command: >
-            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
-            curl -LsSf https://get.nexte.st/latest/mac |
-            tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
+      - set_versions_n_runners
+      - set_env_path
       - run:
           name: MacOS Tests
           command: cargo nextest run --profile ci --release --workspace
