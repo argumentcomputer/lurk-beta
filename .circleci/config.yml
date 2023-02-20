@@ -7,14 +7,6 @@ setup-env: &setup-env
   RUST_BACKTRACE: 1
   RUST_LOG: info
 
-parameters:
-  stable-version:
-    type: string
-    default: "stable-2022-02-04"
-  nightly-version:
-    type: string
-    default: "nightly-2022-02-04"
-
 executors:
   default:
     machine:
