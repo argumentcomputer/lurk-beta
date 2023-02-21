@@ -1456,16 +1456,24 @@ fn apply_continuation<F: LurkField>(
                 {
                     Expression::Fun(arg, body, closed_env) => {
                         if arg == store.lurk_sym("_") {
-                            let (body_form, _) =
-                                cons_witness.car_cdr_named(ConsName::FunBody, store, &body)?;
-                            let cont = make_tail_continuation(
-                                saved_env,
-                                continuation,
-                                store,
-                                cont_witness,
-                            );
+                            if body.is_nil() {
+                                Control::Error(result, env)
+                            } else {
+                                let (body_form, end) =
+                                    cons_witness.car_cdr_named(ConsName::FunBody, store, &body)?;
+                                if !end.is_nil() {
+                                    Control::Error(result, env)
+                                } else {
+                                    let cont = make_tail_continuation(
+                                        saved_env,
+                                        continuation,
+                                        store,
+                                        cont_witness,
+                                    );
 
-                            Control::Return(body_form, closed_env, cont)
+                                    Control::Return(body_form, closed_env, cont)
+                                }
+                            }
                         } else {
                             // // Applying zero args to a non-zero arg function leaves it unchanged.
                             // // This is arguably consistent with auto-currying.
@@ -1526,18 +1534,31 @@ fn apply_continuation<F: LurkField>(
                         if arg == store.lurk_sym("_") {
                             return Ok(Control::Error(result, env));
                         }
-                        let (body_form, _) =
-                            cons_witness.car_cdr_named(ConsName::FunBody, store, &body)?;
-                        let newer_env = cons_witness.extend_named(
-                            ConsName::ClosedEnv,
-                            closed_env,
-                            arg,
-                            result,
-                            store,
-                        );
-                        let cont =
-                            make_tail_continuation(saved_env, continuation, store, cont_witness);
-                        Control::Return(body_form, newer_env, cont)
+                        if body.is_nil() {
+                            Control::Error(result, env)
+                        } else {
+                            let (body_form, end) =
+                                cons_witness.car_cdr_named(ConsName::FunBody, store, &body)?;
+
+                            if !end.is_nil() {
+                                Control::Error(result, env)
+                            } else {
+                                let newer_env = cons_witness.extend_named(
+                                    ConsName::ClosedEnv,
+                                    closed_env,
+                                    arg,
+                                    result,
+                                    store,
+                                );
+                                let cont = make_tail_continuation(
+                                    saved_env,
+                                    continuation,
+                                    store,
+                                    cont_witness,
+                                );
+                                Control::Return(body_form, newer_env, cont)
+                            }
+                        }
                     }
                     _ => unreachable!(),
                 },
@@ -4400,5 +4421,16 @@ mod test {
     #[test]
     fn test_eval_binop_syntax_error() {
         op_syntax_error::<Op2>();
+    }
+
+    #[test]
+    fn test_eval_lambda_body_syntax() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+
+        test_aux(s, "((lambda ()))", None, None, Some(error), None, 2);
+        test_aux(s, "((lambda () 1 2))", None, None, Some(error), None, 2);
+        test_aux(s, "((lambda (x)) 1)", None, None, Some(error), None, 3);
+        test_aux(s, "((lambda (x) 1 2) 1)", None, None, Some(error), None, 3);
     }
 }

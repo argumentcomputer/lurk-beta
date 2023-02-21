@@ -347,7 +347,9 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
             //     new_expr.fetch_and_write_str(store),
             //     output_expr.fetch_and_write_str(store),
             //     (&new_env, &output_env),
-            //     (&new_cont, &output_cont)
+            //     (&new_cont, &output_cont),
+            //     new_cont.fetch_and_write_cont_str(store),
+            //     output_cont.fetch_and_write_cont_str(store),
             // );
 
             output_expr.enforce_equal(
@@ -3336,14 +3338,16 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             arg_t.alloc_equal(&mut cs.namespace(|| "args_is_dummy"), &g.dummy_arg_ptr)?;
 
         let body_t_is_cons = alloc_equal(
-            &mut cs.namespace(|| "body_t_is_cons0"),
+            &mut cs.namespace(|| "body_t_is_cons"),
             body_t.tag(),
             &g.cons_tag,
         )?;
+        let body_t_is_nil = body_t.is_nil(&mut cs.namespace(|| "body_t_is_nil"), g)?;
 
-        let zero_arg_call_not_dummy = and!(cs, &call0_not_dummy, &body_t_is_cons, &args_is_dummy)?;
+        let body_is_list = or!(cs, &body_t_is_cons, &body_t_is_nil)?;
+        let zero_arg_call_not_dummy = and!(cs, &call0_not_dummy, &body_is_list, &args_is_dummy)?;
 
-        let (body_form, _) = car_cdr_named(
+        let (body_form, end) = car_cdr_named(
             &mut cs.namespace(|| "body_form"),
             g,
             &body_t,
@@ -3352,6 +3356,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &zero_arg_call_not_dummy,
             store,
         )?;
+
+        let end_is_nil = end.alloc_equal(&mut cs.namespace(|| "end_is_nil"), &g.nil_ptr)?;
 
         let continuation_is_tail = alloc_equal(
             &mut cs.namespace(|| "continuation is tail"),
@@ -3385,21 +3391,39 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &continuation,
         )?;
 
+        let body_form_is_nil =
+            body_form.alloc_equal(&mut cs.namespace(|| "body_form_is_nil"), &g.nil_ptr)?;
+
+        let body_is_well_formed = and!(cs, &body_form_is_nil.not(), &end_is_nil)?;
+
+        let result_is_valid_fun = and!(cs, &result_is_fun, &body_is_well_formed)?;
+        let result_is_valid_zero_arg_fun = and!(cs, &result_is_valid_fun, &args_is_dummy)?;
+
         let the_expr = AllocatedPtr::pick(
             &mut cs.namespace(|| "the_expr"),
-            &result_is_fun,
+            &result_is_valid_zero_arg_fun,
             &next_expr,
             result,
         )?;
+
         let the_env = AllocatedPtr::pick(
             &mut cs.namespace(|| "the_env"),
             &result_is_fun,
             &next_env,
             env,
         )?;
+
+        let result_not_fun_and_zero_arg_call_is_dummy =
+            and!(cs, &zero_arg_call_not_dummy.not(), &result_is_fun)?;
+        let the_cont_not_error = or!(
+            cs,
+            &result_is_valid_fun,
+            &result_not_fun_and_zero_arg_call_is_dummy
+        )?;
+
         let the_cont = AllocatedContPtr::pick(
             &mut cs.namespace(|| "the_cont"),
-            &result_is_fun,
+            &the_cont_not_error,
             &next_cont,
             &g.error_ptr_cont,
         )?;
@@ -3489,7 +3513,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             let cont_is_call2_and_not_dummy_and_not_dummy_args =
                 and!(cs, &cont_is_call2_and_not_dummy, &args_is_not_dummy)?;
 
-            let (body_form, _) = car_cdr_named(
+            let (body_form, end) = car_cdr_named(
                 &mut cs.namespace(|| "body_form"),
                 g,
                 &body_t,
@@ -3499,10 +3523,19 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 store,
             )?;
 
+            let body_form_is_nil = body_form.is_nil(&mut cs.namespace(|| "body_form_is_nil"), g)?;
+            let end_is_nil = end.is_nil(&mut cs.namespace(|| "end_is_nil"), g)?;
+            let body_is_well_formed = and!(cs, &body_form_is_nil.not(), &end_is_nil)?;
+
             let args_is_dummy =
                 arg_t.alloc_equal(&mut cs.namespace(|| "args_is_dummy"), &g.dummy_arg_ptr)?;
 
-            let extend_not_dummy = and!(cs, &cont_is_call2_and_not_dummy, &args_is_dummy.not())?;
+            let extend_not_dummy = and!(
+                cs,
+                &cont_is_call2_and_not_dummy,
+                &args_is_dummy.not(),
+                &body_is_well_formed
+            )?;
 
             let newer_env = extend_named(
                 &mut cs.namespace(|| "extend env"),
@@ -3530,7 +3563,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
             let result_is_fun =
                 alloc_equal(cs.namespace(|| "result_is_fun"), result.tag(), &g.fun_tag)?;
-            let cond = or!(cs, &args_is_dummy.not(), &result_is_fun)?;
+            let cond0 = or!(cs, &args_is_dummy.not(), &result_is_fun)?;
+            let cond = and!(cs, &cond0, &body_is_well_formed)?; // &body_form_is_nil.not(), &end_is_nil)?;
 
             let the_cont = AllocatedContPtr::pick(
                 &mut cs.namespace(|| "the_cont"),
@@ -5256,9 +5290,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12541, cs.num_constraints());
+            assert_eq!(12580, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(12167, cs.aux().len());
+            assert_eq!(12199, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
