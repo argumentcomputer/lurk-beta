@@ -3394,7 +3394,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         )?;
 
         let body_form_is_nil = body_form.is_nil(&mut cs.namespace(|| "body_form_is_nil"), g)?;
-
         let body_is_well_formed = and!(cs, &body_form_is_nil.not(), &end_is_nil)?;
 
         let result_is_valid_fun = and!(cs, &result_is_fun, &body_is_well_formed)?;
