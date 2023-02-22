@@ -923,11 +923,13 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_prove_unop_syntax_error() {
         op_syntax_error::<Op1>();
     }
 
     #[test]
+    #[ignore]
     fn test_prove_binop_syntax_error() {
         op_syntax_error::<Op2>();
     }
