@@ -3314,6 +3314,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         allocated_cont_witness,
     )?;
 
+    // Reused in Call0, Call, and Call2.
+    let result_is_fun = equal!(cs, function.tag(), &g.fun_tag)?;
+
     // Continuation::Call0
     /////////////////////////////////////////////////////////////////////////////
     let (the_expr, the_env, the_cont, newer_cont2_not_dummy) = {
@@ -3321,7 +3324,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let continuation = AllocatedContPtr::by_index(1, &continuation_components);
 
         let cont_is_call0 = equal!(cs, cont.tag(), &g.call0_cont_tag)?;
-        let result_is_fun = equal!(cs, function.tag(), &g.fun_tag)?;
         let call0_not_dummy = and!(cs, &cont_is_call0, &result_is_fun, not_dummy)?;
 
         // NOTE: this allocation is unconstrained. See necessary constraint immediately below.
@@ -3357,7 +3359,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             store,
         )?;
 
-        let end_is_nil = end.alloc_equal(&mut cs.namespace(|| "end_is_nil"), &g.nil_ptr)?;
+        let end_is_nil = end.is_nil(&mut cs.namespace(|| "end_is_nil"), g)?;
 
         let continuation_is_tail = alloc_equal(
             &mut cs.namespace(|| "continuation is tail"),
@@ -3391,8 +3393,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &continuation,
         )?;
 
-        let body_form_is_nil =
-            body_form.alloc_equal(&mut cs.namespace(|| "body_form_is_nil"), &g.nil_ptr)?;
+        let body_form_is_nil = body_form.is_nil(&mut cs.namespace(|| "body_form_is_nil"), g)?;
 
         let body_is_well_formed = and!(cs, &body_form_is_nil.not(), &end_is_nil)?;
 
@@ -3453,8 +3454,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     let (next_expr, the_cont, newer_cont2_not_dummy) = {
         let mut cs = cs.namespace(|| "Call");
         let next_expr = AllocatedPtr::by_index(1, &continuation_components);
-        let result_is_fun =
-            alloc_equal(cs.namespace(|| "result_is_fun"), result.tag(), &g.fun_tag)?;
 
         let next_expr = AllocatedPtr::pick(
             &mut cs.namespace(|| "next_expr"),
@@ -3561,8 +3560,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 &newer_cont2,
             );
 
-            let result_is_fun =
-                alloc_equal(cs.namespace(|| "result_is_fun"), result.tag(), &g.fun_tag)?;
             let cond0 = or!(cs, &args_is_dummy.not(), &result_is_fun)?;
             let cond = and!(cs, &cond0, &body_is_well_formed)?; // &body_form_is_nil.not(), &end_is_nil)?;
 
@@ -5290,9 +5287,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12580, cs.num_constraints());
+            assert_eq!(12562, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(12199, cs.aux().len());
+            assert_eq!(12185, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
