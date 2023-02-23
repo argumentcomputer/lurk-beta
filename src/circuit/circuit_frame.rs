@@ -1327,7 +1327,11 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     macro_rules! def_head_sym {
         ($var:ident, $field:ident) => {
-            let $var = head.alloc_equal(&mut cs.namespace(|| stringify!($var)), &g.$field)?;
+            let $var = alloc_equal(
+                &mut cs.namespace(|| stringify!($var)),
+                head.hash(),
+                &g.$field.hash(),
+            )?;
         };
     }
 
@@ -5287,9 +5291,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12562, cs.num_constraints());
+            assert_eq!(12397, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(12185, cs.aux().len());
+            assert_eq!(12053, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
