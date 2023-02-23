@@ -68,12 +68,12 @@ pub struct LurkProof<'a, F: LurkField> {
     pub claim: Option<Claim<F>>,
     pub public_inputs: Vec<S1>,
     pub public_outputs: Vec<S1>,
+    pub num_steps: usize,
     #[serde(bound(
         serialize = "lurk::proof::nova::Proof<'a>: Serialize",
         deserialize = "lurk::proof::nova::Proof<'a>: Deserialize<'de>"
     ))]
     pub proof: lurk::proof::nova::Proof<'a>,
-    pub num_steps: usize,
     pub reduction_count: ReductionCount,
 }
 
@@ -167,19 +167,16 @@ pub fn string_to_scalar_ptr(lurk_string: &str) -> Result<ScalarPtr<S1>, VerifyEr
 
 #[cfg(test)]
 mod tests {
-
     use lurk::{
-        field::LurkField,
         proof::{
-            nova::{self, public_params, NovaProver},
+            nova::{public_params, NovaProver},
             Prover,
         },
-        store::{Ptr, Store},
+        store::Store,
     };
-    use serde::{Deserialize, Serialize};
     use tempdir::TempDir;
 
-    use crate::{Claim, LurkProof, ReductionCount, VerifyError, S1};
+    use crate::{Claim, LurkProof, ReductionCount, S1};
 
     #[test]
     fn proof_roundtrip() {
@@ -199,13 +196,14 @@ mod tests {
             fcomm::Claim::Evaluation(e) => Some(Claim::<S1>::Text(e.expr, e.expr_out)),
             _ => todo!(),
         };
+
         // Create Lurk proof
         let lurk_proof = LurkProof {
             claim,
             public_inputs: fcomm_proof.public_inputs,
             public_outputs: fcomm_proof.public_outputs,
-            proof: fcomm_proof.proof,
             num_steps: fcomm_proof.num_steps,
+            proof: fcomm_proof.proof.compress(&pp).unwrap(),
             reduction_count: ReductionCount::try_from(fcomm_proof.reduction_count.count()).unwrap(),
         };
 
