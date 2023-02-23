@@ -1673,8 +1673,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
         let (binding1, rest_bindings) = (car_args, cdr_args);
 
-        // let binding1_is_sym = binding1.is_sym(&mut cs.namespace(|| "binding1_is_sym"), g)?;
-
         let expr_caadr_not_dummy = and!(
             cs,
             &rest_body_is_nil,
