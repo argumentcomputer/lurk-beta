@@ -626,26 +626,31 @@ fn reduce_with_witness_inner<F: LurkField>(
                         } else {
                             cons_witness.car_cdr_named(ConsName::ExprCadr, store, &args)?
                         };
-                        let (_, cdr_args) =
-                            cons_witness.car_cdr_named(ConsName::ExprCadr, store, &args)?;
-                        let inner_body = if cdr_args.is_nil() {
-                            body
+                        if arg.tag() != ExprTag::Sym {
+                            Control::Error(expr, env)
                         } else {
-                            // (LAMBDA (A B) STUFF)
-                            // becomes (LAMBDA (A) (LAMBDA (B) STUFF))
-                            let inner = cons_witness.cons_named(
-                                ConsName::InnerLambda,
-                                store,
-                                cdr_args,
-                                body,
-                            );
-                            let l = cons_witness.cons_named(ConsName::Lambda, store, lambda, inner);
-                            let nil = store.nil();
-                            cons_witness.cons_named(ConsName::InnerBody, store, l, nil)
-                        };
-                        let function = store.intern_fun(arg, inner_body, env);
+                            let (_, cdr_args) =
+                                cons_witness.car_cdr_named(ConsName::ExprCadr, store, &args)?;
+                            let inner_body = if cdr_args.is_nil() {
+                                body
+                            } else {
+                                // (LAMBDA (A B) STUFF)
+                                // becomes (LAMBDA (A) (LAMBDA (B) STUFF))
+                                let inner = cons_witness.cons_named(
+                                    ConsName::InnerLambda,
+                                    store,
+                                    cdr_args,
+                                    body,
+                                );
+                                let l =
+                                    cons_witness.cons_named(ConsName::Lambda, store, lambda, inner);
+                                let nil = store.nil();
+                                cons_witness.cons_named(ConsName::InnerBody, store, l, nil)
+                            };
+                            let function = store.intern_fun(arg, inner_body, env);
 
-                        Control::ApplyContinuation(function, env, cont)
+                            Control::ApplyContinuation(function, env, cont)
+                        }
                     } else if head == quote {
                         let (quoted, end) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
 
@@ -4449,9 +4454,11 @@ mod test {
         let mut test = |x| {
             let expr = format!("(let (({x} 123)) {x})");
             let expr2 = format!("(letrec (({x} 123)) {x})");
+            let expr3 = format!("(lambda ({x}) {x})");
 
             test_aux(s, &expr, None, None, Some(error), None, 1);
             test_aux(s, &expr2, None, None, Some(error), None, 1);
+            test_aux(s, &expr3, None, None, Some(error), None, 1);
         };
 
         test(":a");
