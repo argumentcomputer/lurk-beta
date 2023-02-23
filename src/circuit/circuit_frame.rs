@@ -342,15 +342,15 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
                     (i + 1, frame.synthesize(cs, i, allocated_io, &g).unwrap())
                 });
 
-            dbg!(
-                (&new_expr, &output_expr),
-                new_expr.fetch_and_write_str(store),
-                output_expr.fetch_and_write_str(store),
-                (&new_env, &output_env),
-                (&new_cont, &output_cont),
-                new_cont.fetch_and_write_cont_str(store),
-                output_cont.fetch_and_write_cont_str(store),
-            );
+            // dbg!(
+            //     (&new_expr, &output_expr),
+            //     new_expr.fetch_and_write_str(store),
+            //     output_expr.fetch_and_write_str(store),
+            //     (&new_env, &output_env),
+            //     (&new_cont, &output_cont),
+            //     new_cont.fetch_and_write_cont_str(store),
+            //     output_cont.fetch_and_write_cont_str(store),
+            // );
 
             output_expr.enforce_equal(
                 &mut cs.namespace(|| "outer output expr is correct"),
@@ -652,11 +652,11 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-    dbg!("reduce_expression");
-    dbg!(&expr.fetch_and_write_str(store));
-    dbg!(&expr);
-    dbg!(&env.fetch_and_write_str(store));
-    dbg!(&cont.fetch_and_write_cont_str(store), &cont);
+    // dbg!("reduce_expression");
+    // dbg!(&expr.fetch_and_write_str(store));
+    // dbg!(&expr);
+    // dbg!(&env.fetch_and_write_str(store));
+    // dbg!(&cont.fetch_and_write_cont_str(store), &cont);
     let mut results = Results::default();
     {
         // Self-evaluating expressions
@@ -1503,12 +1503,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         store,
     )?;
 
-    dbg!(
-        expr_cadr_not_dummy.get_value(),
-        cdr_args.fetch_and_write_str(store),
-        arg1.fetch_and_write_str(store)
-    );
-
     let end_is_nil = more.alloc_equal(&mut cs.namespace(|| "end_is_nil"), &g.nil_ptr)?;
 
     let mut results = Results::default();
@@ -1521,7 +1515,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         let args_is_nil = args.alloc_equal(&mut cs.namespace(|| "args_is_nil"), &g.nil_ptr)?;
         let cdr_args_is_nil = cdr_args.is_nil(&mut cs.namespace(|| "cdr_args_is_nil"), g)?;
 
-        //        let lambda_not_dummy = and!(cs, &head_is_lambda, not_dummy, &cdr_args_is_nil.not())?;
         let arg = AllocatedPtr::pick(
             &mut cs.namespace(|| "maybe dummy arg"),
             &args_is_nil,
@@ -1530,17 +1523,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         )?;
 
         let arg_is_sym = arg.is_sym(&mut cs.namespace(|| "arg_is_sym"), g)?;
-        let lambda_not_dummy = and!(
-            cs,
-            &head_is_lambda,
-            not_dummy,
-            &more_is_nil.not() //&arg_is_sym
-        )?;
-        dbg!(
-            &head_is_lambda.get_value(),
-            &not_dummy.get_value(),
-            &cdr_args_is_nil.get_value(),
-        );
+        let lambda_not_dummy = and!(cs, &head_is_lambda, not_dummy, &more_is_nil.not())?;
         let inner_not_dummy = and!(cs, &lambda_not_dummy, &cdr_args_is_nil.not())?;
 
         let inner = AllocatedPtr::construct_cons_named(
@@ -1588,15 +1571,11 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             env,
         )?;
         let lambda_arg_error = and!(cs, &arg_is_sym.not(), &lambda_not_dummy)?;
-        dbg!(
-            &lambda_arg_error.get_value(),
-            &arg_is_sym.get_value(),
-            &lambda_not_dummy.get_value()
-        );
+
         let lambda_expr = AllocatedPtr::pick(
             &mut cs.namespace(|| "lambda_expr"),
             &lambda_arg_error,
-            &expr,
+            expr,
             &function,
         )?;
         let lambda_cont = AllocatedContPtr::pick(
@@ -1605,8 +1584,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &g.error_ptr_cont,
             cont,
         )?;
-
-        dbg!(arg.fetch_and_write_str(store), lambda_arg_error.get_value());
 
         (lambda_expr, env, lambda_cont)
     };
@@ -1747,15 +1724,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
             &body_is_nil, // NOTE: end_is_nil is incidentally true by default in this case, but this should still be here.
             &var_let_letrec_is_list.not()
         )?;
-
-        dbg!(
-            &rest_body_is_nil.get_value(),
-            &end_is_nil.get_value(),
-            &body_is_nil.get_value(),
-            &var_let_letrec_is_sym.get_value(),
-            // &binding1_is_sym.get_value(),
-            &cond_error.get_value()
-        );
 
         let rest_bindings_is_nil =
             rest_bindings.is_nil(&mut cs.namespace(|| "rest_bindings_is_nil"), g)?;
