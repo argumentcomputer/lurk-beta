@@ -671,53 +671,60 @@ fn reduce_with_witness_inner<F: LurkField>(
                                 store,
                                 &binding1,
                             )?;
-                            let (val, end) =
-                                cons_witness.car_cdr_named(ConsName::ExprCaaadr, store, &vals)?;
-
-                            if !end.is_nil() {
+                            if var.tag() != ExprTag::Sym {
                                 Control::Error(expr, env)
                             } else {
-                                let expanded = if rest_bindings.is_nil() {
-                                    body1
+                                let (val, end) = cons_witness.car_cdr_named(
+                                    ConsName::ExprCaaadr,
+                                    store,
+                                    &vals,
+                                )?;
+
+                                if !end.is_nil() {
+                                    Control::Error(expr, env)
                                 } else {
-                                    // We know body is a proper list equivalent to (body1), if this branch was taken, since end is nil.
-                                    let expanded0 = cons_witness.cons_named(
-                                        ConsName::ExpandedInner,
-                                        store,
-                                        rest_bindings,
-                                        body,
-                                    );
-                                    cons_witness.cons_named(
-                                        ConsName::Expanded,
-                                        store,
-                                        head,
-                                        expanded0,
-                                    )
-                                };
-                                let cont = if head == store.lurk_sym("let") {
-                                    cont_witness.intern_named_cont(
-                                        ContName::NewerCont,
-                                        store,
-                                        Continuation::Let {
-                                            var,
-                                            saved_env: env,
-                                            body: expanded,
-                                            continuation: cont,
-                                        },
-                                    )
-                                } else {
-                                    cont_witness.intern_named_cont(
-                                        ContName::NewerCont,
-                                        store,
-                                        Continuation::LetRec {
-                                            var,
-                                            saved_env: env,
-                                            body: expanded,
-                                            continuation: cont,
-                                        },
-                                    )
-                                };
-                                Control::Return(val, env, cont)
+                                    let expanded = if rest_bindings.is_nil() {
+                                        body1
+                                    } else {
+                                        // We know body is a proper list equivalent to (body1), if this branch was taken, since end is nil.
+                                        let expanded0 = cons_witness.cons_named(
+                                            ConsName::ExpandedInner,
+                                            store,
+                                            rest_bindings,
+                                            body,
+                                        );
+                                        cons_witness.cons_named(
+                                            ConsName::Expanded,
+                                            store,
+                                            head,
+                                            expanded0,
+                                        )
+                                    };
+                                    let cont = if head == store.lurk_sym("let") {
+                                        cont_witness.intern_named_cont(
+                                            ContName::NewerCont,
+                                            store,
+                                            Continuation::Let {
+                                                var,
+                                                saved_env: env,
+                                                body: expanded,
+                                                continuation: cont,
+                                            },
+                                        )
+                                    } else {
+                                        cont_witness.intern_named_cont(
+                                            ContName::NewerCont,
+                                            store,
+                                            Continuation::LetRec {
+                                                var,
+                                                saved_env: env,
+                                                body: expanded,
+                                                continuation: cont,
+                                            },
+                                        )
+                                    };
+                                    Control::Return(val, env, cont)
+                                }
                             }
                         }
                     } else if head == store.lurk_sym("cons") {
@@ -4432,5 +4439,25 @@ mod test {
         test_aux(s, "((lambda () 1 2))", None, None, Some(error), None, 2);
         test_aux(s, "((lambda (x)) 1)", None, None, Some(error), None, 3);
         test_aux(s, "((lambda (x) 1 2) 1)", None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn test_eval_non_symbol_binding_error() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+
+        let mut test = |x| {
+            let expr = format!("(let (({x} 123)) {x})");
+            let expr2 = format!("(letrec (({x} 123)) {x})");
+
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+            test_aux(s, &expr2, None, None, Some(error), None, 1);
+        };
+
+        test(":a");
+        test("1");
+        test("\"string\"");
+        test("1u64");
+        test("#\\x");
     }
 }
