@@ -163,6 +163,14 @@ impl<F: LurkField> AllocatedPtr<F> {
         alloc_equal(cs, self.tag(), g.nil_ptr.tag())
     }
 
+    pub fn is_sym<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &GlobalAllocations<F>,
+    ) -> Result<Boolean, SynthesisError> {
+        alloc_equal(cs, self.tag(), &g.sym_tag)
+    }
+
     pub fn ptr(&self, store: &Store<F>) -> Option<Ptr<F>> {
         let scalar_ptr = self.scalar_ptr(store)?;
         store.fetch_scalar(&scalar_ptr)
