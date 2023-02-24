@@ -30,6 +30,8 @@ commands:
       - run:
           name: Set the PATH env variable
           command: |
+            # we need access to rustup in the next command
+            export PATH=~/.cargo/bin:$PATH
             # Also put the Rust LLVM tools into the PATH. `rustc` hooks into the rust-toolchain at the root of the repo
             echo "export PATH=$HOME:~/.cargo/bin:$(dirname $(find $(rustc --print sysroot) -name 'rust-lld')):$PATH" | tee -a $BASH_ENV
             source $BASH_ENV
@@ -85,12 +87,12 @@ jobs:
     environment: *setup-env
     steps:
       - checkout
-      - set_env_path
       - run:
           name: Update submodules
           command: |
             git submodule update --init --recursive
       - restore_rustup_cache
+      - set_env_path
       - set_versions_n_runners
       - run: cargo fetch
       - run: rm -rf .git
@@ -105,13 +107,13 @@ jobs:
     environment: *setup-env
     steps:
       - checkout
-      - set_env_path
       - attach_workspace:
           at: "~/"
       - install_gpu_deps
       - restore_rustup_cache
-      - run: rustup target add wasm32-unknown-unknown
       - run: sudo apt install clang
+      - set_env_path
+      - run: rustup target add wasm32-unknown-unknown
       - run:
           name: Wasm Build
           command: cargo build --target wasm32-unknown-unknown
@@ -125,10 +127,10 @@ jobs:
     environment: *setup-env
     steps:
       - checkout
-      - set_env_path
       - attach_workspace:
           at: "~/"
       - restore_rustup_cache
+      - set_env_path
       - install_gpu_deps
       - run:
           name: Linux Tests
