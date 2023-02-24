@@ -3054,4 +3054,21 @@ mod tests {
         test("1u64");
         test("#\\x");
     }
+    #[test]
+    fn test_prove_head_with_sym_mimicking_value() {
+        use crate::store::ScalarPointer;
+
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+
+        let plus = s.sym("+");
+        let plus_scalar_ptr = s.hash_expr(&plus).unwrap();
+        let plus_hash = plus_scalar_ptr.value().clone();
+        let plus_hash_num = Num::Scalar(plus_hash);
+
+        // This should be an explicit syntax error.
+        let expr = format!("({plus_hash_num} 1 1)");
+
+        test_aux(s, &expr, None, None, Some(error), None, 1);
+    }
 }
