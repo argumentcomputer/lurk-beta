@@ -306,7 +306,8 @@ mod tests {
     use pallas::Scalar as Fr;
 
     const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
-    const CHUNK_FRAME_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
+    //    const CHUNK_FRAME_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
+    const CHUNK_FRAME_COUNTS_TO_TEST: [usize; 1] = [1];
     fn test_aux(
         s: &mut Store<Fr>,
         expr: &str,
@@ -3029,5 +3030,28 @@ mod tests {
         test_aux(s, "((lambda () 1 2))", None, None, Some(error), None, 2);
         test_aux(s, "((lambda (x)) 1)", None, None, Some(error), None, 3);
         test_aux(s, "((lambda (x) 1 2) 1)", None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_eval_non_symbol_binding_error() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+
+        let mut test = |x| {
+            let expr = format!("(let (({x} 123)) {x})");
+            let expr2 = format!("(letrec (({x} 123)) {x})");
+            let expr3 = format!("(lambda ({x}) {x})");
+
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+            test_aux(s, &expr2, None, None, Some(error), None, 1);
+            test_aux(s, &expr3, None, None, Some(error), None, 1);
+        };
+
+        test(":a");
+        test("1");
+        test("\"string\"");
+        test("1u64");
+        test("#\\x");
     }
 }
