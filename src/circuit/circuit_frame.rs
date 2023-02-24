@@ -18,7 +18,7 @@ use crate::{
 };
 
 use super::gadgets::constraints::{
-    self, alloc_equal, alloc_is_zero, enforce_implication, or, pick, sub,
+    self, alloc_equal, alloc_is_zero, div, enforce_implication, or, pick, sub,
 };
 use crate::circuit::circuit_frame::constraints::{
     add, allocate_is_negative, boolean_to_num, enforce_pack, linear, mul,
@@ -682,7 +682,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     // Enforce (expr.tag == thunk_tag) implies (expr_thunk_hash == expr.hash).
-    let expr_is_thunk = constraints::alloc_equal(
+    let expr_is_thunk = alloc_equal(
         &mut cs.namespace(|| "expr.tag == thunk_tag"),
         expr.tag(),
         &g.thunk_tag,
@@ -2638,7 +2638,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         let fun_form = &head;
 
         let more_args_is_nil = more.is_nil(&mut cs.namespace(|| "more_args_is_nil"), g)?;
-        let args_is_nil_or_more_is_nil = constraints::or(
+        let args_is_nil_or_more_is_nil = or(
             &mut cs.namespace(|| "args is nil or more is nil"),
             &is_zero_arg_call,
             &more_args_is_nil,
@@ -3819,9 +3819,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.binop2_cont_tag,
         )?;
 
-        let sum = constraints::add(&mut cs.namespace(|| "sum"), a, b)?;
-        let diff = constraints::sub(&mut cs.namespace(|| "difference"), a, b)?;
-        let product = constraints::mul(&mut cs.namespace(|| "product"), a, b)?;
+        let sum = add(&mut cs.namespace(|| "sum"), a, b)?;
+        let diff = sub(&mut cs.namespace(|| "difference"), a, b)?;
+        let product = mul(&mut cs.namespace(|| "product"), a, b)?;
 
         let op2_is_div = alloc_equal(
             cs.namespace(|| "op2_is_div"),
@@ -3830,7 +3830,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         )?;
         let op2_is_mod = alloc_equal(cs.namespace(|| "op2_is_mod"), op2.tag(), &g.op2_modulo_tag)?;
 
-        let op2_is_div_or_mod = constraints::or(
+        let op2_is_div_or_mod = or(
             &mut cs.namespace(|| "op2 is div or mod"),
             &op2_is_div,
             &op2_is_mod,
@@ -3845,7 +3845,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             b,
         )?;
 
-        let quotient = constraints::div(&mut cs.namespace(|| "quotient"), a, &divisor)?;
+        let quotient = div(&mut cs.namespace(|| "quotient"), a, &divisor)?;
 
         let is_cons = alloc_equal(
             &mut cs.namespace(|| "Op2 is Cons"),
@@ -3859,7 +3859,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.op2_strcons_tag,
         )?;
 
-        let is_cons_or_strcons = constraints::or(
+        let is_cons_or_strcons = or(
             &mut cs.namespace(|| "is cons or strcons"),
             &is_cons,
             &is_strcons,
@@ -3958,7 +3958,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &g.op2_numequal_tag,
         )?;
 
-        let is_equal_or_num_equal = constraints::or(
+        let is_equal_or_num_equal = or(
             &mut cs.namespace(|| "is_equal_or_num_equal"),
             &is_equal,
             &is_num_equal,
@@ -3981,7 +3981,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             commitment.tag(),
         )?;
 
-        let commitment_tag_is_correct = constraints::or(
+        let commitment_tag_is_correct = or(
             &mut cs.namespace(|| "commitment tag is correct"),
             &commitment_tag_is_comm,
             &commitment_tag_is_dummy,
@@ -4012,7 +4012,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let is_cons_or_strcons_or_hide_or_equal =
             or!(cs, &is_cons_or_hide, &is_strcons, &is_equal)?;
 
-        let is_cons_or_strcons_or_hide_or_equal_or_num_equal = constraints::or(
+        let is_cons_or_strcons_or_hide_or_equal_or_num_equal = or(
             &mut cs.namespace(|| "is cons or srtcons or hide or equal or num_equal"),
             &is_cons_or_strcons_or_hide_or_equal,
             &is_num_equal,
@@ -4052,7 +4052,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         // Subtraction in U64 is almost the same as subtraction in the field.
         // If the difference is negative, we need to add 2^64 to get back to U64 domain.
-        let field_arithmetic_result_plus_2p64 = constraints::add(
+        let field_arithmetic_result_plus_2p64 = add(
             &mut cs.namespace(|| "field arithmetic result plus 2^64"),
             field_arithmetic_result.hash(),
             &g.power2_64_num,
@@ -4131,7 +4131,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &include_u64_quotient,
         )?;
 
-        let valid_types = constraints::or(
+        let valid_types = or(
             &mut cs.namespace(|| "Op2 called with valid types"),
             &is_cons_or_strcons_or_hide_or_equal,
             &args_are_num_or_u64,
@@ -5184,7 +5184,7 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
 
     let is_sym_or_nil = or!(cs, &is_sym, &is_nil)?;
 
-    let is_cons = constraints::alloc_equal(
+    let is_cons = alloc_equal(
         &mut cs.namespace(|| "var_or_binding is cons"),
         var_or_binding.tag(),
         &g.cons_tag,
