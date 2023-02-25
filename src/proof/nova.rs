@@ -3061,14 +3061,46 @@ mod tests {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
 
-        let plus = s.sym("+");
-        let plus_scalar_ptr = s.hash_expr(&plus).unwrap();
-        let plus_hash = plus_scalar_ptr.value().clone();
-        let plus_hash_num = Num::Scalar(plus_hash);
-
-        // This should be an explicit syntax error.
-        let expr = format!("({plus_hash_num} 1 1)");
-
-        test_aux(s, &expr, None, None, Some(error), None, 1);
+        let hash_num = |s: &mut Store<Fr>, name| {
+            let sym = s.sym(name);
+            let scalar_ptr = s.hash_expr(&sym).unwrap();
+            let hash = scalar_ptr.value().clone();
+            Num::Scalar(hash)
+        };
+        {
+            // binop
+            let expr = format!("({} 1 1)", hash_num(s, "+"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // unop
+            let expr = format!("({} '(1 . 2))", hash_num(s, "car"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // let_or_letrec
+            let expr = format!("({} ((a 1)) a)", hash_num(s, "let"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // current-env
+            let expr = format!("({})", hash_num(s, "current-env"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // lambda
+            let expr = format!("({} (x) 123)", hash_num(s, "lambda"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // quote
+            let expr = format!("({} asdf)", hash_num(s, "quote"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // if
+            let expr = format!("({} t 123 456)", hash_num(s, "if"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
     }
 }
