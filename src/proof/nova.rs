@@ -3054,4 +3054,53 @@ mod tests {
         test("1u64");
         test("#\\x");
     }
+    #[test]
+    fn test_prove_head_with_sym_mimicking_value() {
+        use crate::store::ScalarPointer;
+
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+
+        let hash_num = |s: &mut Store<Fr>, name| {
+            let sym = s.sym(name);
+            let scalar_ptr = s.hash_expr(&sym).unwrap();
+            let hash = scalar_ptr.value().clone();
+            Num::Scalar(hash)
+        };
+        {
+            // binop
+            let expr = format!("({} 1 1)", hash_num(s, "+"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // unop
+            let expr = format!("({} '(1 . 2))", hash_num(s, "car"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // let_or_letrec
+            let expr = format!("({} ((a 1)) a)", hash_num(s, "let"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // current-env
+            let expr = format!("({})", hash_num(s, "current-env"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // lambda
+            let expr = format!("({} (x) 123)", hash_num(s, "lambda"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // quote
+            let expr = format!("({} asdf)", hash_num(s, "quote"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // if
+            let expr = format!("({} t 123 456)", hash_num(s, "if"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+    }
 }

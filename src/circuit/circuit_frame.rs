@@ -1327,7 +1327,11 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     macro_rules! def_head_sym {
         ($var:ident, $field:ident) => {
-            let $var = head.alloc_equal(&mut cs.namespace(|| stringify!($var)), &g.$field)?;
+            let $var = alloc_equal(
+                &mut cs.namespace(|| stringify!($var)),
+                head.hash(),
+                &g.$field.hash(),
+            )?;
         };
     }
 
@@ -1342,11 +1346,11 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // - We only need to check the tag once, so can just check value/hash equality.
     //
     // SOUNDNESS: All symbols with their own case clause must be represented in this list
-    def_head_sym!(head_is_lambda, lambda_sym);
+    def_head_sym!(head_is_lambda0, lambda_sym);
     def_head_sym!(head_is_let, let_sym);
     def_head_sym!(head_is_letrec, letrec_sym);
     def_head_sym!(head_is_eval, eval_sym);
-    def_head_sym!(head_is_quote, quote_sym);
+    def_head_sym!(head_is_quote0, quote_sym);
 
     def_head_sym!(head_is_cons, cons_sym);
     def_head_sym!(head_is_strcons, strcons_sym);
@@ -1374,11 +1378,15 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     def_head_sym!(head_is_less_equal, less_equal_sym);
     def_head_sym!(head_is_greater, greater_sym);
     def_head_sym!(head_is_greater_equal, greater_equal_sym);
-    def_head_sym!(head_is_if, if_sym);
-    def_head_sym!(head_is_current_env, current_env_sym);
+    def_head_sym!(head_is_if0, if_sym);
+    def_head_sym!(head_is_current_env0, current_env_sym);
+
+    let head_is_a_sym = equal!(cs, head.tag(), &g.sym_tag)?;
+    let head_is_fun = equal!(cs, head.tag(), &g.fun_tag)?;
+    let head_is_a_cons = equal!(cs, head.tag(), &g.cons_tag)?; // Head is a cons, as opposed to being the symbol, CONS.
 
     // SOUNDNESS: All head symbols corresponding to a binop *must* be included here.
-    let head_is_binop = or!(
+    let head_is_binop0 = or!(
         cs,
         &head_is_cons,
         &head_is_strcons,
@@ -1398,8 +1406,10 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &head_is_eval
     )?;
 
+    let head_is_binop = and!(cs, &head_is_binop0, &head_is_a_sym)?;
+
     // SOUNDNESS: All head symbols corresponding to a unop *must* be included here.
-    let head_is_unop = or!(
+    let head_is_unop0 = or!(
         cs,
         &head_is_car,
         &head_is_cdr,
@@ -1414,12 +1424,20 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &head_is_emit,
         &head_is_eval
     )?;
-    let head_is_let_or_letrec = or!(cs, &head_is_let, &head_is_letrec)?;
 
-    let head_is_sym = equal!(cs, head.tag(), &g.sym_tag)?;
-    let head_is_fun = equal!(cs, head.tag(), &g.fun_tag)?;
-    let head_is_a_cons = equal!(cs, head.tag(), &g.cons_tag)?; // Head is a cons, as opposed to being the symbol, CONS.
+    let head_is_unop = and!(cs, &head_is_unop0, &head_is_a_sym)?;
 
+    let head_is_let_or_letrec0 = or!(cs, &head_is_let, &head_is_letrec)?;
+    let head_is_let_or_letrec = and!(cs, &head_is_let_or_letrec0, &head_is_a_sym)?;
+
+    let head_is_lambda = and!(cs, &head_is_lambda0, &head_is_a_sym)?;
+    let head_is_quote = and!(cs, &head_is_quote0, &head_is_a_sym)?;
+    let head_is_current_env = and!(cs, &head_is_current_env0, &head_is_a_sym)?;
+    let head_is_if = and!(cs, &head_is_if0, &head_is_a_sym)?;
+
+    // This should enumerate all symbols, and it's important that each of these groups (some of which cover only one
+    // symbol) also enforce that `head_is_a_sym`. Otherwise, expressions mimicking the symbol value can wreak havoc. See
+    // `test_prove_head_with_sym_mimicking_value` in nova.rs and ensure it remains in sync with this code.
     let head_is_any = or!(
         cs,
         &head_is_quote,
@@ -1431,7 +1449,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &head_is_binop
     )?;
 
-    let head_potentially_fun_type = or!(cs, &head_is_sym, &head_is_a_cons, &head_is_fun)?;
+    let head_potentially_fun_type = or!(cs, &head_is_a_sym, &head_is_a_cons, &head_is_fun)?;
     let head_potentially_fun = and!(cs, &head_potentially_fun_type, &head_is_any.not())?;
 
     let rest_is_nil = rest.is_nil(&mut cs.namespace(|| "rest_is_nil"), g)?;
@@ -5302,9 +5320,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12488, cs.num_constraints());
+            assert_eq!(12330, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(12127, cs.aux().len());
+            assert_eq!(12002, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
