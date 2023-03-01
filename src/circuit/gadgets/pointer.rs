@@ -13,11 +13,15 @@ use crate::{
         ContPtr, Continuation, Expression, IntoHashComponents, Ptr, ScalarContPtr, ScalarPointer,
         ScalarPtr, Store, Thunk,
     },
+    tag::ExprTag,
     writer::Write,
 };
 
 use super::{
-    constraints::{alloc_equal, boolean_to_num, enforce_equal, enforce_implication, pick},
+    constraints::{
+        alloc_equal, alloc_equal_const, boolean_to_num, enforce_equal, enforce_implication, pick,
+        pick_const,
+    },
     data::{allocate_constant, hash_poseidon, GlobalAllocations},
     hashes::{AllocatedConsWitness, AllocatedContWitness},
 };
@@ -155,6 +159,22 @@ impl<F: LurkField> AllocatedPtr<F> {
         )
     }
 
+    pub fn alloc_tag_equal<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        tag: F,
+    ) -> Result<Boolean, SynthesisError> {
+        alloc_equal_const(&mut cs.namespace(|| "tags equal"), &self.tag, tag)
+    }
+
+    pub fn alloc_hash_equal<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        tag: F,
+    ) -> Result<Boolean, SynthesisError> {
+        alloc_equal_const(&mut cs.namespace(|| "tags equal"), &self.hash, tag)
+    }
+
     pub fn is_nil<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -162,13 +182,35 @@ impl<F: LurkField> AllocatedPtr<F> {
     ) -> Result<Boolean, SynthesisError> {
         alloc_equal(cs, self.tag(), g.nil_ptr.tag())
     }
-
-    pub fn is_sym<CS: ConstraintSystem<F>>(
+    pub fn is_cons<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_cons"), ExprTag::Cons.as_field())
+    }
+    pub fn is_str<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_str"), ExprTag::Str.as_field())
+    }
+    pub fn is_num<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_num"), ExprTag::Num.as_field())
+    }
+    pub fn is_u64<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_u64"), ExprTag::U64.as_field())
+    }
+    pub fn is_char<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_char"), ExprTag::Char.as_field())
+    }
+    pub fn is_comm<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_comm"), ExprTag::Comm.as_field())
+    }
+    pub fn is_sym<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_sym"), ExprTag::Sym.as_field())
+    }
+    pub fn is_fun<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_fun"), ExprTag::Fun.as_field())
+    }
+    pub fn is_thunk<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        g: &GlobalAllocations<F>,
     ) -> Result<Boolean, SynthesisError> {
-        alloc_equal(cs, self.tag(), &g.sym_tag)
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_thunk"), ExprTag::Thunk.as_field())
     }
 
     pub fn ptr(&self, store: &Store<F>) -> Option<Ptr<F>> {
@@ -403,6 +445,21 @@ impl<F: LurkField> AllocatedPtr<F> {
         Ok(AllocatedPtr { tag, hash })
     }
 
+    pub fn pick_const<CS>(
+        mut cs: CS,
+        condition: &Boolean,
+        a: &ScalarPtr<F>,
+        b: &ScalarPtr<F>,
+    ) -> Result<Self, SynthesisError>
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let tag = pick_const(cs.namespace(|| "tag"), condition, *a.tag(), *b.tag())?;
+        let hash = pick_const(cs.namespace(|| "hash"), condition, *a.value(), *b.value())?;
+
+        Ok(AllocatedPtr { tag, hash })
+    }
+
     pub fn by_index(n: usize, ptr_vec: &[AllocatedNum<F>]) -> Self {
         AllocatedPtr {
             tag: ptr_vec[n * 2].clone(),
@@ -559,6 +616,14 @@ impl<F: LurkField> AllocatedContPtr<F> {
             &tags_equal,
             &hashes_equal,
         )
+    }
+
+    pub fn alloc_tag_equal<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        tag: F,
+    ) -> Result<Boolean, SynthesisError> {
+        alloc_equal_const(&mut cs.namespace(|| "tags equal"), &self.tag, tag)
     }
 
     pub fn get_cont(&self, store: &Store<F>) -> Option<Continuation<F>> {

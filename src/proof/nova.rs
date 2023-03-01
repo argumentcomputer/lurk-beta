@@ -19,7 +19,7 @@ use crate::circuit::{
         data::GlobalAllocations,
         pointer::{AllocatedContPtr, AllocatedPtr},
     },
-    CircuitFrame, MultiFrame,
+    CircuitFrame, MultiFrame, Pointers,
 };
 use crate::error::ProofError;
 use crate::eval::{Evaluator, Frame, Witness, IO};
@@ -138,18 +138,29 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F, IO<F>, Witness<F>> {
         let input_env = AllocatedPtr::by_index(1, z);
         let input_cont = AllocatedContPtr::by_index(2, z);
 
-        let g = if let Some(s) = self.store {
-            GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?
+        let (g, p) = if let Some(s) = self.store {
+            let p = Pointers::new(&s);
+            (
+                GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?,
+                p,
+            )
         } else {
             let s = Store::default();
-            GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?
+            let p = Pointers::new(&s);
+            (
+                GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?,
+                p,
+            )
         };
         let count = self.count;
         let acc = (input_expr, input_env, input_cont);
 
         let fold_frames = |frames: &Vec<CircuitFrame<F, IO<F>, Witness<F>>>| {
             frames.iter().fold((0, acc), |(i, allocated_io), frame| {
-                (i + 1, frame.synthesize(cs, i, allocated_io, &g).unwrap())
+                (
+                    i + 1,
+                    frame.synthesize(cs, i, allocated_io, &g, &p).unwrap(),
+                )
             })
         };
 
