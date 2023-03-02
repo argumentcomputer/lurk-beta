@@ -2484,7 +2484,7 @@ impl<F: LurkField> Store<F> {
     }
 
     fn ensure_constants(&mut self) -> &NamedConstants<F> {
-        self.constants.get_or_init(|| NamedConstants::new(&self))
+        self.constants.get_or_init(|| NamedConstants::new(self))
     }
 
     pub fn get_constants(&self) -> &NamedConstants<F> {

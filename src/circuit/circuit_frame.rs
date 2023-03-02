@@ -3960,7 +3960,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             b,
             &diff,
             op2.tag(),
-            &store.get_constants(),
+            store.get_constants(),
         )?;
 
         let field_arithmetic_result = AllocatedPtr::pick(
