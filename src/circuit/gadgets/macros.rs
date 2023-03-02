@@ -82,6 +82,17 @@ macro_rules! equal {
     };
 }
 
+// Allocates a bit (returned as Boolean) which is true if a is equal to constant, c.
+macro_rules! equal_const {
+    ($cs:expr, $a:expr, $c:expr) => {
+        alloc_equal_const(
+            $cs.namespace(|| format!("{} equal const {}", stringify!($a), stringify!($c))),
+            $a,
+            $c,
+        )
+    };
+}
+
 // Like equal! but a and b are AllocatedTaggedHashes.
 macro_rules! equal_t {
     ($cs:ident, $a:expr, $b:expr) => {

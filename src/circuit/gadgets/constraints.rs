@@ -36,7 +36,7 @@ pub fn enforce_equal<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
 /// Adds a constraint to CS, enforcing a add relationship between the allocated numbers a, b, and sum.
 ///
 /// a + b = sum
-pub fn sum<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
+pub fn enforce_sum<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
     a: &AllocatedNum<F>,
@@ -68,7 +68,7 @@ pub fn add<F: PrimeField, CS: ConstraintSystem<F>>(
     })?;
 
     // a + b = res
-    sum(&mut cs, || "sum constraint", a, b, &res);
+    enforce_sum(&mut cs, || "sum constraint", a, b, &res);
 
     Ok(res)
 }
@@ -147,7 +147,7 @@ pub fn enforce_pack<F: LurkField, CS: ConstraintSystem<F>>(
 /// Adds a constraint to CS, enforcing a difference relationship between the allocated numbers a, b, and difference.
 ///
 /// a - b = difference
-pub fn difference<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
+pub fn enforce_difference<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
     a: &AllocatedNum<F>,
@@ -181,7 +181,7 @@ pub fn sub<F: PrimeField, CS: ConstraintSystem<F>>(
     })?;
 
     // a - b = res
-    difference(&mut cs, || "subtraction constraint", a, b, &res);
+    enforce_difference(&mut cs, || "subtraction constraint", a, b, &res);
 
     Ok(res)
 }
@@ -340,6 +340,39 @@ where
     Ok(c)
 }
 
+/// Takes two numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.
+pub fn pick_const<F: PrimeField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    condition: &Boolean,
+    a: F,
+    b: F,
+) -> Result<AllocatedNum<F>, SynthesisError>
+where
+    CS: ConstraintSystem<F>,
+{
+    let c = AllocatedNum::alloc(cs.namespace(|| "pick result"), || {
+        if condition
+            .get_value()
+            .ok_or(SynthesisError::AssignmentMissing)?
+        {
+            Ok(a)
+        } else {
+            Ok(b)
+        }
+    })?;
+
+    // Constrain (b - a) * condition = (b - c), ensuring c = a iff
+    // condition is true, otherwise c = b.
+    cs.enforce(
+        || "pick",
+        |lc| lc + (b, CS::one()) - (a, CS::one()),
+        |_| condition.lc(CS::one(), F::one()),
+        |lc| lc + (b, CS::one()) - c.get_variable(),
+    );
+
+    Ok(c)
+}
+
 /// Convert from Boolean to AllocatedNum
 pub fn boolean_to_num<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
@@ -410,6 +443,61 @@ pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     cs.enforce(
         || "(diff + result) * q = 1",
         |lc| lc + diff.get_variable() + result.get_variable(),
+        |lc| lc + q,
+        |lc| lc + CS::one(),
+    );
+
+    // Taken together, these constraints enforce that exactly one of `diff` and `result` is 0.
+    // Since result is constrained to be boolean, that means `result` is true iff `diff` is 0.
+    // `Diff` is 0 iff `a == b`.
+    // Therefore, `result = (a == b)`.
+
+    Ok(Boolean::Is(result))
+}
+
+// Like `alloc_equal`, but with second argument a constant.
+pub fn alloc_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
+    mut cs: CS,
+    a: &AllocatedNum<F>,
+    b: F,
+) -> Result<Boolean, SynthesisError> {
+    let equal = a.get_value().map(|x| x == b);
+
+    // Difference between `a` and `b`. This will be zero if `a` and `b` are equal.
+    let diff = a.get_value().map(|x| x - b); //sub(cs.namespace(|| "a - b"), a, b)?;
+
+    // result = (a == b)
+    let result = AllocatedBit::alloc(cs.namespace(|| "a = b"), equal)?;
+
+    // result * diff = 0
+    // This means that at least one of result or diff is zero.
+    cs.enforce(
+        || "result or diff is 0",
+        |lc| lc + result.get_variable(),
+        |lc| lc + a.get_variable() - (b, CS::one()),
+        |lc| lc,
+    );
+
+    // Inverse of `diff`, if it exists, otherwise one.
+    let q = cs.alloc(
+        || "q",
+        || {
+            let tmp0 = diff.ok_or(SynthesisError::AssignmentMissing)?;
+            let tmp1 = tmp0.invert();
+
+            if tmp1.is_some().into() {
+                Ok(tmp1.unwrap())
+            } else {
+                Ok(F::one())
+            }
+        },
+    )?;
+
+    // ((a - b) + result) * q = 1.
+    // This enforces that diff (a - b) and result are not both 0.
+    cs.enforce(
+        || "((a-b) + result) * q = 1",
+        |lc| lc + a.get_variable() - (b, CS::one()) + result.get_variable(),
         |lc| lc + q,
         |lc| lc + CS::one(),
     );
@@ -554,11 +642,12 @@ mod tests {
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
     use ff::Field;
+    use proptest::prelude::*;
     use rand::SeedableRng;
     use rand_xorshift::XorShiftRng;
     use std::ops::{AddAssign, SubAssign};
 
-    use crate::TEST_SEED;
+    use crate::{field::FWrap, TEST_SEED};
 
     #[test]
     fn add_constraint() {
@@ -600,6 +689,25 @@ mod tests {
             tmp.sub_assign(&b.get_value().expect("get_value failed"));
 
             assert_eq!(res.get_value().expect("get_value failed"), tmp);
+            assert!(cs.is_satisfied());
+        }
+    }
+
+    proptest! {
+        fn proptest_alloc_equal_const((x, y) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
+            let mut cs = TestConstraintSystem::<Fr>::new();
+
+            let a = AllocatedNum::alloc(&mut cs.namespace(|| "a"), || Ok(x.0)).unwrap();
+
+            let equal =
+                alloc_equal_const(&mut cs.namespace(|| "alloc_equal_const"), &a, x.0).unwrap();
+            let equal2 =
+                alloc_equal_const(&mut cs.namespace(|| "alloc_equal_const 2"), &a, y.0).unwrap();
+            // a must always equal x.
+            assert!(equal.get_value().unwrap());
+
+            // a must equal y only if y happens to equal x (very unlikely!), otherwise a must *not* equal y.
+            assert_eq!(equal2.get_value().unwrap(), x == y);
             assert!(cs.is_satisfied());
         }
     }

@@ -19,17 +19,14 @@ use super::pointer::{AllocatedContPtr, AllocatedPtr};
 #[derive(Clone)]
 pub struct GlobalAllocations<F: LurkField> {
     pub terminal_ptr: AllocatedContPtr<F>,
-    pub outermost_ptr: AllocatedContPtr<F>,
     pub error_ptr_cont: AllocatedContPtr<F>,
     pub error_ptr: AllocatedPtr<F>,
     pub dummy_ptr: AllocatedContPtr<F>,
     pub nil_ptr: AllocatedPtr<F>,
     pub t_ptr: AllocatedPtr<F>,
-    pub lambda_ptr: AllocatedPtr<F>,
     pub dummy_arg_ptr: AllocatedPtr<F>,
     pub empty_str_ptr: AllocatedPtr<F>,
 
-    pub sym_tag: AllocatedNum<F>,
     pub thunk_tag: AllocatedNum<F>,
     pub cons_tag: AllocatedNum<F>,
     pub char_tag: AllocatedNum<F>,
@@ -57,14 +54,12 @@ pub struct GlobalAllocations<F: LurkField> {
     pub op1_commit_tag: AllocatedNum<F>,
     pub op1_num_tag: AllocatedNum<F>,
     pub op1_char_tag: AllocatedNum<F>,
-    pub op1_eval_tag: AllocatedNum<F>,
     pub op1_u64_tag: AllocatedNum<F>,
     pub op1_comm_tag: AllocatedNum<F>,
     pub op1_open_tag: AllocatedNum<F>,
     pub op1_secret_tag: AllocatedNum<F>,
     pub op1_atom_tag: AllocatedNum<F>,
     pub op1_emit_tag: AllocatedNum<F>,
-    pub op2_eval_tag: AllocatedNum<F>,
     pub op2_cons_tag: AllocatedNum<F>,
     pub op2_strcons_tag: AllocatedNum<F>,
     pub op2_hide_tag: AllocatedNum<F>,
@@ -82,39 +77,6 @@ pub struct GlobalAllocations<F: LurkField> {
     pub op2_greater_equal_tag: AllocatedNum<F>,
 
     pub lambda_sym: AllocatedPtr<F>,
-
-    pub let_sym: AllocatedPtr<F>,
-    pub letrec_sym: AllocatedPtr<F>,
-    pub eval_sym: AllocatedPtr<F>,
-    pub quote_sym: AllocatedPtr<F>,
-    pub cons_sym: AllocatedPtr<F>,
-    pub strcons_sym: AllocatedPtr<F>,
-    pub hide_sym: AllocatedPtr<F>,
-    pub commit_sym: AllocatedPtr<F>,
-    pub open_sym: AllocatedPtr<F>,
-    pub secret_sym: AllocatedPtr<F>,
-    pub num_sym: AllocatedPtr<F>,
-    pub u64_sym: AllocatedPtr<F>,
-    pub comm_sym: AllocatedPtr<F>,
-    pub char_sym: AllocatedPtr<F>,
-    pub begin_sym: AllocatedPtr<F>,
-    pub car_sym: AllocatedPtr<F>,
-    pub cdr_sym: AllocatedPtr<F>,
-    pub atom_sym: AllocatedPtr<F>,
-    pub emit_sym: AllocatedPtr<F>,
-    pub plus_sym: AllocatedPtr<F>,
-    pub minus_sym: AllocatedPtr<F>,
-    pub times_sym: AllocatedPtr<F>,
-    pub div_sym: AllocatedPtr<F>,
-    pub mod_sym: AllocatedPtr<F>,
-    pub equal_sym: AllocatedPtr<F>,
-    pub eq_sym: AllocatedPtr<F>,
-    pub less_sym: AllocatedPtr<F>,
-    pub less_equal_sym: AllocatedPtr<F>,
-    pub greater_sym: AllocatedPtr<F>,
-    pub greater_equal_sym: AllocatedPtr<F>,
-    pub if_sym: AllocatedPtr<F>,
-    pub current_env_sym: AllocatedPtr<F>,
 
     pub true_num: AllocatedNum<F>,
     pub false_num: AllocatedNum<F>,
@@ -134,12 +96,6 @@ impl<F: LurkField> GlobalAllocations<F> {
             &store.get_cont_terminal(),
         )?;
 
-        let outermost_ptr = AllocatedContPtr::alloc_constant_cont_ptr(
-            &mut cs.namespace(|| "outermost continuation"),
-            store,
-            &store.get_cont_outermost(),
-        )?;
-
         let error_ptr_cont = AllocatedContPtr::alloc_constant_cont_ptr(
             &mut cs.namespace(|| "error continuation"),
             store,
@@ -157,11 +113,6 @@ impl<F: LurkField> GlobalAllocations<F> {
             AllocatedPtr::alloc_constant_ptr(&mut cs.namespace(|| "nil"), store, &store.get_nil())?;
         let t_ptr =
             AllocatedPtr::alloc_constant_ptr(&mut cs.namespace(|| "T"), store, &store.get_t())?;
-        let lambda_ptr = AllocatedPtr::alloc_constant_ptr(
-            &mut cs.namespace(|| "LAMBDA"),
-            store,
-            &store.get_lurk_sym("lambda", true).unwrap(),
-        )?;
         let dummy_arg_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "_"),
             store,
@@ -174,7 +125,6 @@ impl<F: LurkField> GlobalAllocations<F> {
             &store.get_str("").unwrap(),
         )?;
 
-        let sym_tag = ExprTag::Sym.allocate_constant(&mut cs.namespace(|| "sym_tag"))?;
         let thunk_tag = ExprTag::Thunk.allocate_constant(&mut cs.namespace(|| "thunk_tag"))?;
         let cons_tag = ExprTag::Cons.allocate_constant(&mut cs.namespace(|| "cons_tag"))?;
         let char_tag = ExprTag::Char.allocate_constant(&mut cs.namespace(|| "char_tag"))?;
@@ -215,7 +165,6 @@ impl<F: LurkField> GlobalAllocations<F> {
             Op1::Commit.allocate_constant(&mut cs.namespace(|| "op1_commit_tag"))?;
         let op1_num_tag = Op1::Num.allocate_constant(&mut cs.namespace(|| "op1_num_tag"))?;
         let op1_char_tag = Op1::Char.allocate_constant(&mut cs.namespace(|| "op1_char_tag"))?;
-        let op1_eval_tag = Op1::Eval.allocate_constant(&mut cs.namespace(|| "op1_eval_tag"))?;
         let op1_u64_tag = Op1::U64.allocate_constant(&mut cs.namespace(|| "op1_u64_tag"))?;
         let op1_comm_tag = Op1::Comm.allocate_constant(&mut cs.namespace(|| "op1_comm_tag"))?;
         let op1_open_tag = Op1::Open.allocate_constant(&mut cs.namespace(|| "op1_open_tag"))?;
@@ -223,7 +172,6 @@ impl<F: LurkField> GlobalAllocations<F> {
             Op1::Secret.allocate_constant(&mut cs.namespace(|| "op1_secret_tag"))?;
         let op1_atom_tag = Op1::Atom.allocate_constant(&mut cs.namespace(|| "op1_atom_tag"))?;
         let op1_emit_tag = Op1::Emit.allocate_constant(&mut cs.namespace(|| "op1_emit_tag"))?;
-        let op2_eval_tag = Op2::Eval.allocate_constant(&mut cs.namespace(|| "op2_eval_tag"))?;
         let op2_cons_tag = Op2::Cons.allocate_constant(&mut cs.namespace(|| "op2_cons_tag"))?;
         let op2_strcons_tag =
             Op2::StrCons.allocate_constant(&mut cs.namespace(|| "op2_strcons_tag"))?;
@@ -274,38 +222,6 @@ impl<F: LurkField> GlobalAllocations<F> {
         }
 
         defsym!(lambda_sym, "lambda");
-        defsym!(let_sym, "let");
-        defsym!(letrec_sym, "letrec");
-        defsym!(eval_sym, "eval");
-        defsym!(quote_sym, "quote");
-        defsym!(cons_sym, "cons");
-        defsym!(strcons_sym, "strcons");
-        defsym!(hide_sym, "hide");
-        defsym!(commit_sym, "commit");
-        defsym!(open_sym, "open");
-        defsym!(secret_sym, "secret");
-        defsym!(num_sym, "num");
-        defsym!(u64_sym, "u64");
-        defsym!(comm_sym, "comm");
-        defsym!(char_sym, "char");
-        defsym!(begin_sym, "begin");
-        defsym!(car_sym, "car");
-        defsym!(cdr_sym, "cdr");
-        defsym!(atom_sym, "atom");
-        defsym!(emit_sym, "emit");
-        defsym!(plus_sym, "+");
-        defsym!(minus_sym, "-");
-        defsym!(times_sym, "*");
-        defsym!(div_sym, "/", "div");
-        defsym!(mod_sym, "%", "mod");
-        defsym!(equal_sym, "=");
-        defsym!(eq_sym, "eq");
-        defsym!(less_sym, "<");
-        defsym!(less_equal_sym, "<=");
-        defsym!(greater_sym, ">");
-        defsym!(greater_equal_sym, ">=");
-        defsym!(if_sym, "if");
-        defsym!(current_env_sym, "current-env");
 
         let true_num = allocate_constant(&mut cs.namespace(|| "true"), F::one())?;
         let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::zero())?;
@@ -319,16 +235,13 @@ impl<F: LurkField> GlobalAllocations<F> {
 
         Ok(Self {
             terminal_ptr,
-            outermost_ptr,
             error_ptr_cont,
             error_ptr,
             dummy_ptr,
             nil_ptr,
             t_ptr,
-            lambda_ptr,
             dummy_arg_ptr,
             empty_str_ptr,
-            sym_tag,
             thunk_tag,
             cons_tag,
             char_tag,
@@ -355,14 +268,12 @@ impl<F: LurkField> GlobalAllocations<F> {
             op1_commit_tag,
             op1_num_tag,
             op1_char_tag,
-            op1_eval_tag,
             op1_u64_tag,
             op1_comm_tag,
             op1_open_tag,
             op1_secret_tag,
             op1_atom_tag,
             op1_emit_tag,
-            op2_eval_tag,
             op2_cons_tag,
             op2_strcons_tag,
             op2_hide_tag,
@@ -379,38 +290,6 @@ impl<F: LurkField> GlobalAllocations<F> {
             op2_greater_tag,
             op2_greater_equal_tag,
             lambda_sym,
-            let_sym,
-            letrec_sym,
-            eval_sym,
-            quote_sym,
-            cons_sym,
-            strcons_sym,
-            hide_sym,
-            commit_sym,
-            open_sym,
-            secret_sym,
-            num_sym,
-            u64_sym,
-            comm_sym,
-            char_sym,
-            begin_sym,
-            car_sym,
-            cdr_sym,
-            atom_sym,
-            emit_sym,
-            plus_sym,
-            minus_sym,
-            times_sym,
-            div_sym,
-            mod_sym,
-            equal_sym,
-            eq_sym,
-            less_sym,
-            less_equal_sym,
-            greater_sym,
-            greater_equal_sym,
-            if_sym,
-            current_env_sym,
             true_num,
             false_num,
             default_num,

@@ -162,6 +162,7 @@ pub struct Store<F: LurkField> {
     opaque_raw_ptr_count: usize,
 
     pub(crate) lurk_package: Package,
+    constants: OnceCell<NamedConstants<F>>,
 }
 
 #[derive(Default, Debug)]
@@ -856,6 +857,7 @@ impl<F: LurkField> Default for Store<F> {
             dehydrated_cont: Default::default(),
             opaque_raw_ptr_count: 0,
             lurk_package: Package::lurk(),
+            constants: Default::default(),
         };
 
         store.lurk_sym("");
@@ -2464,6 +2466,8 @@ impl<F: LurkField> Store<F> {
     /// safe to call this incrementally. However, for best proving performance, we should call exactly once so all
     /// hashing can be batched, e.g. on the GPU.
     pub fn hydrate_scalar_cache(&mut self) {
+        self.ensure_constants();
+
         self.dehydrated.par_iter().for_each(|ptr| {
             self.hash_expr(ptr).expect("failed to hash_expr");
         });
@@ -2477,6 +2481,16 @@ impl<F: LurkField> Store<F> {
         self.dehydrated_cont.truncate(0);
 
         self.dehydrated_cont.clear();
+    }
+
+    fn ensure_constants(&mut self) -> &NamedConstants<F> {
+        self.constants.get_or_init(|| NamedConstants::new(self))
+    }
+
+    pub fn get_constants(&self) -> &NamedConstants<F> {
+        self.constants
+            .get()
+            .expect("constants missing. hydrate_scalar_cache should have been called.")
     }
 }
 
@@ -2548,6 +2562,130 @@ impl<F: LurkField> Expression<'_, F> {
 
     pub fn is_opaque(&self) -> bool {
         matches!(self, Self::Opaque(_))
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct NamedConstants<F: LurkField> {
+    pub t: ScalarPtr<F>,
+    pub nil: ScalarPtr<F>,
+    pub lambda: ScalarPtr<F>,
+    pub quote: ScalarPtr<F>,
+    pub let_: ScalarPtr<F>,
+    pub letrec: ScalarPtr<F>,
+    pub cons: ScalarPtr<F>,
+    pub strcons: ScalarPtr<F>,
+    pub begin: ScalarPtr<F>,
+    pub car: ScalarPtr<F>,
+    pub cdr: ScalarPtr<F>,
+    pub atom: ScalarPtr<F>,
+    pub emit: ScalarPtr<F>,
+    pub sum: ScalarPtr<F>,
+    pub diff: ScalarPtr<F>,
+    pub product: ScalarPtr<F>,
+    pub quotient: ScalarPtr<F>,
+    pub modulo: ScalarPtr<F>,
+    pub num_equal: ScalarPtr<F>,
+    pub equal: ScalarPtr<F>,
+    pub less: ScalarPtr<F>,
+    pub less_equal: ScalarPtr<F>,
+    pub greater: ScalarPtr<F>,
+    pub greater_equal: ScalarPtr<F>,
+    pub current_env: ScalarPtr<F>,
+    pub if_: ScalarPtr<F>,
+    pub hide: ScalarPtr<F>,
+    pub commit: ScalarPtr<F>,
+    pub num: ScalarPtr<F>,
+    pub u64: ScalarPtr<F>,
+    pub comm: ScalarPtr<F>,
+    pub char: ScalarPtr<F>,
+    pub eval: ScalarPtr<F>,
+    pub open: ScalarPtr<F>,
+    pub secret: ScalarPtr<F>,
+}
+
+impl<F: LurkField> NamedConstants<F> {
+    pub fn new(store: &Store<F>) -> Self {
+        let hash_sym = |name: &str| {
+            store
+                .get_lurk_sym(name, true)
+                .and_then(|s| store.hash_sym(s, HashScalar::Get))
+                .unwrap()
+        };
+
+        let t = hash_sym("t");
+        let nil = store.hash_nil(HashScalar::Get).unwrap();
+        let lambda = hash_sym("lambda");
+        let quote = hash_sym("quote");
+        let let_ = hash_sym("let");
+        let letrec = hash_sym("letrec");
+        let cons = hash_sym("cons");
+        let strcons = hash_sym("strcons");
+        let begin = hash_sym("begin");
+        let car = hash_sym("car");
+        let cdr = hash_sym("cdr");
+        let atom = hash_sym("atom");
+        let emit = hash_sym("emit");
+        let sum = hash_sym("+");
+        let diff = hash_sym("-");
+        let product = hash_sym("*");
+        let quotient = hash_sym("/");
+        let modulo = hash_sym("%");
+        let num_equal = hash_sym("=");
+        let equal = hash_sym("eq");
+        let less = hash_sym("<");
+        let less_equal = hash_sym("<=");
+        let greater = hash_sym(">");
+        let greater_equal = hash_sym(">=");
+        let current_env = hash_sym("current-env");
+        let if_ = hash_sym("if");
+        let hide = hash_sym("hide");
+        let commit = hash_sym("commit");
+        let num = hash_sym("num");
+        let u64 = hash_sym("u64");
+        let comm = hash_sym("comm");
+        let char = hash_sym("char");
+        let eval = hash_sym("eval");
+        let open = hash_sym("open");
+        let secret = hash_sym("secret");
+
+        Self {
+            t,
+            nil,
+            lambda,
+            quote,
+            let_,
+            letrec,
+            cons,
+            strcons,
+            begin,
+            car,
+            cdr,
+            atom,
+            emit,
+            sum,
+            diff,
+            product,
+            quotient,
+            modulo,
+            num_equal,
+            equal,
+            less,
+            less_equal,
+            greater,
+            greater_equal,
+            current_env,
+            if_,
+            hide,
+            commit,
+            num,
+            u64,
+            comm,
+            char,
+            eval,
+            open,
+            secret,
+        }
     }
 }
 
