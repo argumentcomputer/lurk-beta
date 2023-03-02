@@ -240,7 +240,7 @@ impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
                 &mut allocated_cont_witness,
                 store,
                 g,
-                &p,
+                p,
             )
         };
 
@@ -757,7 +757,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         allocated_cont_witness,
         store,
         g,
-        &p,
+        p,
     )?;
 
     results.add_clauses_expr(

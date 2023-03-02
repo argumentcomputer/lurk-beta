@@ -461,10 +461,10 @@ pub fn alloc_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
     a: &AllocatedNum<F>,
     b: F,
 ) -> Result<Boolean, SynthesisError> {
-    let equal = a.get_value().and_then(|x| Some(x == b));
+    let equal = a.get_value().map(|x| x == b);
 
     // Difference between `a` and `b`. This will be zero if `a` and `b` are equal.
-    let diff = a.get_value().and_then(|x| Some(x - b)); //sub(cs.namespace(|| "a - b"), a, b)?;
+    let diff = a.get_value().map(|x| x - b); //sub(cs.namespace(|| "a - b"), a, b)?;
 
     // result = (a == b)
     let result = AllocatedBit::alloc(cs.namespace(|| "a = b"), equal)?;

@@ -139,7 +139,7 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F, IO<F>, Witness<F>> {
         let input_cont = AllocatedContPtr::by_index(2, z);
 
         let (g, p) = if let Some(s) = self.store {
-            let p = Pointers::new(&s);
+            let p = Pointers::new(s);
             (
                 GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?,
                 p,
