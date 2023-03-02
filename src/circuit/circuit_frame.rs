@@ -4667,7 +4667,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
     // This is all clunky because we can't currently return AllocatedBit from case expressions.
     let newer_cont2_not_dummy_result_num = case_results[7].clone();
-    // let newer_cont2_not_dummy_ = equal!(cs, &newer_cont2_not_dummy_result_num, &g.true_num)?;
     let newer_cont2_not_dummy_ = equal_const!(cs, &newer_cont2_not_dummy_result_num, F::one())?;
     let newer_cont2_not_dummy = and!(cs, &newer_cont2_not_dummy_, not_dummy)?;
 
