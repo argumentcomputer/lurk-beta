@@ -1470,6 +1470,9 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let head_is_a_cons = head.is_cons(&mut cs.namespace(|| "head_is_a_cons"))?;
     let head_is_fun = head.is_fun(&mut cs.namespace(|| "head_is_fun"))?;
 
+    // Possible optimizations:
+    // - The variadic `or!` (and `and!`) can be optimized to a small, constant number of constraints.
+
     // SOUNDNESS: All head symbols corresponding to a binop *must* be included here.
     let head_is_binop0 = or!(
         cs,
