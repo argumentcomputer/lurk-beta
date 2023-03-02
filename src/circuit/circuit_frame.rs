@@ -1298,9 +1298,9 @@ pub struct Pointers<F: LurkField> {
     hide: ScalarPtr<F>,
     commit: ScalarPtr<F>,
     num: ScalarPtr<F>,
-    u64_: ScalarPtr<F>,
+    u64: ScalarPtr<F>,
     comm: ScalarPtr<F>,
-    char_: ScalarPtr<F>,
+    char: ScalarPtr<F>,
     eval: ScalarPtr<F>,
     open: ScalarPtr<F>,
     secret: ScalarPtr<F>,
@@ -1344,9 +1344,9 @@ impl<F: LurkField> Pointers<F> {
         let hide = hash_sym("hide");
         let commit = hash_sym("commit");
         let num = hash_sym("num");
-        let u64_ = hash_sym("u64");
+        let u64 = hash_sym("u64");
         let comm = hash_sym("comm");
-        let char_ = hash_sym("char");
+        let char = hash_sym("char");
         let eval = hash_sym("eval");
         let open = hash_sym("open");
         let secret = hash_sym("secret");
@@ -1381,9 +1381,9 @@ impl<F: LurkField> Pointers<F> {
             hide,
             commit,
             num,
-            u64_,
+            u64,
             comm,
-            char_,
+            char,
             eval,
             open,
             secret,
@@ -1444,9 +1444,9 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     def_head_val!(head_is_open, p.open);
     def_head_val!(head_is_secret, p.secret);
     def_head_val!(head_is_num, p.num);
-    def_head_val!(head_is_u64, p.u64_);
+    def_head_val!(head_is_u64, p.u64);
     def_head_val!(head_is_comm, p.comm);
-    def_head_val!(head_is_char, p.char_);
+    def_head_val!(head_is_char, p.char);
     def_head_val!(head_is_begin, p.begin);
     def_head_val!(head_is_car, p.car);
     def_head_val!(head_is_cdr, p.cdr);
@@ -2073,7 +2073,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.u64_.value(),
+        *p.u64.value(),
         &g.unop_cont_tag,
         u64_continuation_components,
     );
@@ -2101,7 +2101,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.char_.value(),
+        *p.char.value(),
         &g.unop_cont_tag,
         char_continuation_components,
     );
@@ -2601,7 +2601,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == U64, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *p.u64_.value(),
+        *p.u64.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2621,7 +2621,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == CHAR, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *p.char_.value(),
+        *p.char.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
