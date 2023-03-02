@@ -45,7 +45,7 @@ pub struct CircuitFrame<'a, F: LurkField, T, W> {
 
 #[derive(Clone)]
 pub struct MultiFrame<'a, F: LurkField, T: Copy, W> {
-    pub store: Option<(&'a Store<F>, Pointers<F>)>,
+    pub store_and_pointers: Option<(&'a Store<F>, Pointers<F>)>,
     pub input: Option<T>,
     pub output: Option<T>,
     pub frames: Option<Vec<CircuitFrame<'a, F, T, W>>>,
@@ -75,7 +75,7 @@ impl<'a, F: LurkField, T: Clone + Copy, W: Copy> CircuitFrame<'a, F, T, W> {
 impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFrame<'a, F, T, W> {
     pub fn blank(count: usize) -> Self {
         Self {
-            store: None,
+            store_and_pointers: None,
             input: None,
             output: None,
             frames: None,
@@ -84,7 +84,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
     }
 
     pub fn get_store(&self) -> &Store<F> {
-        self.store.expect("store missing").0
+        self.store_and_pointers.expect("store missing").0
     }
 
     pub fn frame_count(&self) -> usize {
@@ -118,7 +118,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
             debug_assert!(!inner_frames.is_empty());
 
             let mf = MultiFrame {
-                store: Some((store, pointers)),
+                store_and_pointers: Some((store, pointers)),
                 input: Some(chunk[0].input),
                 output: Some(output),
                 frames: Some(inner_frames),
@@ -147,12 +147,66 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
             (None, None, None)
         };
         Self {
-            store: Some((store, Pointers::new(store))),
+            store_and_pointers: Some((store, Pointers::new(store))),
             input,
             output,
             frames,
             count,
         }
+    }
+
+    pub fn synthesize_frames<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &Store<F>,
+        input_expr: AllocatedPtr<F>,
+        input_env: AllocatedPtr<F>,
+        input_cont: AllocatedContPtr<F>,
+        frames: &[CircuitFrame<F, IO<F>, Witness<F>>],
+        g: &GlobalAllocations<F>,
+        p: &Pointers<F>,
+    ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
+        let acc = (input_expr, input_env, input_cont);
+
+        let (_, (new_expr, new_env, new_cont)) =
+            frames.iter().fold((0, acc), |(i, allocated_io), frame| {
+                if let Some(next_input) = frame.input {
+                    // Ensure all intermediate allocated I/O values match the provided executation trace.
+                    assert_eq!(
+                        allocated_io.0.tag().get_value(),
+                        store.hash_expr(&next_input.expr).map(|x| *x.tag()),
+                        "expr tag mismatch"
+                    );
+                    assert_eq!(
+                        allocated_io.0.hash().get_value(),
+                        store.hash_expr(&next_input.expr).map(|x| *x.value()),
+                        "expr mismatch"
+                    );
+                    assert_eq!(
+                        allocated_io.1.tag().get_value(),
+                        store.hash_expr(&next_input.env).map(|x| *x.tag()),
+                        "env tag mismatch"
+                    );
+                    assert_eq!(
+                        allocated_io.1.hash().get_value(),
+                        store.hash_expr(&next_input.env).map(|x| *x.value()),
+                        "env mismatch"
+                    );
+                    assert_eq!(
+                        allocated_io.2.tag().get_value(),
+                        store.hash_cont(&next_input.cont).map(|x| *x.tag()),
+                        "cont tag mismatch"
+                    );
+                    assert_eq!(
+                        allocated_io.2.hash().get_value(),
+                        store.hash_cont(&next_input.cont).map(|x| *x.value()),
+                        "cont mismatch"
+                    );
+                };
+                (i + 1, frame.synthesize(cs, i, allocated_io, g, p).unwrap())
+            });
+
+        (new_expr, new_env, new_cont)
     }
 }
 
@@ -307,49 +361,8 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
             ////////////////////////////////////////////////////////////////////////////////
             let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store)?;
 
-            let acc = (input_expr, input_env, input_cont);
-
-            // TODO: Make this a trait method, and it in nova.rs.
-            let (_, (new_expr, new_env, new_cont)) =
-                frames.iter().fold((0, acc), |(i, allocated_io), frame| {
-                    if let Some(next_input) = frame.input {
-                        // Ensure all intermediate allocated I/O values match the provided executation trace.
-                        assert_eq!(
-                            allocated_io.0.tag().get_value(),
-                            store.hash_expr(&next_input.expr).map(|x| *x.tag()),
-                            "expr tag mismatch"
-                        );
-                        assert_eq!(
-                            allocated_io.0.hash().get_value(),
-                            store.hash_expr(&next_input.expr).map(|x| *x.value()),
-                            "expr mismatch"
-                        );
-                        assert_eq!(
-                            allocated_io.1.tag().get_value(),
-                            store.hash_expr(&next_input.env).map(|x| *x.tag()),
-                            "env tag mismatch"
-                        );
-                        assert_eq!(
-                            allocated_io.1.hash().get_value(),
-                            store.hash_expr(&next_input.env).map(|x| *x.value()),
-                            "env mismatch"
-                        );
-                        assert_eq!(
-                            allocated_io.2.tag().get_value(),
-                            store.hash_cont(&next_input.cont).map(|x| *x.tag()),
-                            "cont tag mismatch"
-                        );
-                        assert_eq!(
-                            allocated_io.2.hash().get_value(),
-                            store.hash_cont(&next_input.cont).map(|x| *x.value()),
-                            "cont mismatch"
-                        );
-                    };
-                    (
-                        i + 1,
-                        frame.synthesize(cs, i, allocated_io, &g, &p).unwrap(),
-                    )
-                });
+            let (new_expr, new_env, new_cont) = self
+                .synthesize_frames(cs, store, input_expr, input_env, input_cont, frames, &g, &p);
 
             // dbg!(
             //     (&new_expr, &output_expr),
@@ -377,16 +390,16 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
             Ok(())
         };
 
-        let frames = match self.frames {
-            Some(f) => f,
-            None => vec![CircuitFrame::blank(); self.count],
-        };
-
-        match self.store {
-            Some((s, p)) => synth(s, &frames, self.input, self.output, p),
+        match self.store_and_pointers {
+            Some((s, p)) => {
+                let frames = self.frames.clone().unwrap();
+                synth(s, &frames, self.input, self.output, p)
+            }
             None => {
                 let store = Default::default();
                 let p = Pointers::new(&store);
+                assert!(self.frames.is_none());
+                let frames = vec![CircuitFrame::blank(); self.count];
                 synth(&store, &frames, self.input, self.output, p)
             }
         }

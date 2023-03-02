@@ -138,37 +138,23 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F, IO<F>, Witness<F>> {
         let input_env = AllocatedPtr::by_index(1, z);
         let input_cont = AllocatedContPtr::by_index(2, z);
 
-        let (g, p) = if let Some((s, p)) = self.store {
-            (
-                GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?,
-                p,
-            )
-        } else {
-            let s = Store::default();
-            let p = Pointers::new(&s);
-            (
-                GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?,
-                p,
-            )
-        };
         let count = self.count;
-        let acc = (input_expr, input_env, input_cont);
 
-        let fold_frames = |frames: &Vec<CircuitFrame<F, IO<F>, Witness<F>>>| {
-            frames.iter().fold((0, acc), |(i, allocated_io), frame| {
-                (
-                    i + 1,
-                    frame.synthesize(cs, i, allocated_io, &g, &p).unwrap(),
-                )
-            })
-        };
-
-        let (_, (new_expr, new_env, new_cont)) = match self.frames.as_ref() {
-            Some(frames) => fold_frames(frames),
+        let (new_expr, new_env, new_cont) = match self.frames.as_ref() {
+            Some(frames) => {
+                let (s, p) = self.store_and_pointers.expect("store_and_pointers missing");
+                let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
+                self.synthesize_frames(cs, s, input_expr, input_env, input_cont, frames, &g, &p)
+            }
             None => {
+                assert!(self.store_and_pointers.is_none());
+                let s = Store::default();
+                let p = Pointers::new(&s);
                 let blank_frame = CircuitFrame::blank();
                 let frames = vec![blank_frame; count];
-                fold_frames(&frames)
+
+                let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?;
+                self.synthesize_frames(cs, &s, input_expr, input_env, input_cont, &frames, &g, &p)
             }
         };
 
