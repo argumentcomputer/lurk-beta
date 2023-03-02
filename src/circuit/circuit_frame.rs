@@ -3906,11 +3906,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &commitment_tag_is_dummy,
         )?;
 
-        enforce_implication(
-            &mut cs.namespace(|| "is hide implies commitment tag is correct"),
-            &op2_is_hide,
-            &commitment_tag_is_correct,
-        )?;
+        implies!(cs, &op2_is_hide, &commitment_tag_is_correct);
 
         let cons_tag = pick_const(
             &mut cs.namespace(|| "cons_tag"),
