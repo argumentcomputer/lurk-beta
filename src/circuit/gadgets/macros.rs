@@ -93,16 +93,6 @@ macro_rules! equal_const {
     };
 }
 
-// Like equal! but a and b are AllocatedTaggedHashes.
-macro_rules! equal_t {
-    ($cs:ident, $a:expr, $b:expr) => {
-        $a.alloc_equal(
-            $cs.namespace(|| format!("{} equal_t {}", stringify!($a), stringify!($b))),
-            $b,
-        )
-    };
-}
-
 macro_rules! implies_equal {
     ($cs:ident, $condition:expr, $a: expr, $b: expr) => {{
         let equal = equal!($cs, $a, $b)?;
