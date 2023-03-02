@@ -642,11 +642,12 @@ mod tests {
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
     use ff::Field;
+    use proptest::prelude::*;
     use rand::SeedableRng;
     use rand_xorshift::XorShiftRng;
     use std::ops::{AddAssign, SubAssign};
 
-    use crate::TEST_SEED;
+    use crate::{field::FWrap, TEST_SEED};
 
     #[test]
     fn add_constraint() {
@@ -692,22 +693,16 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_alloc_equal_const() {
-        let mut rng = &mut XorShiftRng::from_seed(TEST_SEED);
-
-        for _ in 0..10 {
+    proptest! {
+        fn proptest_alloc_equal_const((x, y) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
-            let x = Fr::random(&mut rng);
-            let y = Fr::random(&mut rng);
-
-            let a = AllocatedNum::alloc(&mut cs.namespace(|| "a"), || Ok(x)).unwrap();
+            let a = AllocatedNum::alloc(&mut cs.namespace(|| "a"), || Ok(x.0)).unwrap();
 
             let equal =
-                alloc_equal_const(&mut cs.namespace(|| "alloc_equal_const"), &a, x).unwrap();
+                alloc_equal_const(&mut cs.namespace(|| "alloc_equal_const"), &a, x.0).unwrap();
             let equal2 =
-                alloc_equal_const(&mut cs.namespace(|| "alloc_equal_const 2"), &a, y).unwrap();
+                alloc_equal_const(&mut cs.namespace(|| "alloc_equal_const 2"), &a, y.0).unwrap();
             // a must always equal x.
             assert!(equal.get_value().unwrap());
 
