@@ -7,14 +7,6 @@ setup-env: &setup-env
   RUST_BACKTRACE: 1
   RUST_LOG: info
 
-parameters:
-  stable-version:
-    type: string
-    default: "stable-2022-02-04"
-  nightly-version:
-    type: string
-    default: "nightly-2022-02-04"
-
 executors:
   default:
     machine:
@@ -38,10 +30,38 @@ commands:
       - run:
           name: Set the PATH env variable
           command: |
-            # Also put the Rust LLVM tools into the PATH.
-            echo 'export PATH="$HOME:~/.cargo/bin:~/.rustup/toolchains/<< pipeline.parameters.stable-version >>-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin:$PATH"' | tee --append $BASH_ENV
+            # we need access to rustup in the next command
+            export PATH=~/.cargo/bin:$PATH
+            # Also put the Rust LLVM tools into the PATH. `rustc` hooks into the rust-toolchain at the root of the repo
+            echo "export PATH=$HOME:~/.cargo/bin:$(dirname $(find $(rustc --print sysroot) -name 'rust-lld')):$PATH" | tee -a $BASH_ENV
             source $BASH_ENV
-            
+
+  set_versions_n_runners:
+    steps:
+      - run:
+          name: Install rustup
+          command: |
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
+      - run:
+          name: Install nextest
+          command: |
+            # Get host target
+            host=$(rustc -Vv|grep host|sed -Ee 's/host: //')
+            # Normalize the host for MacOS downloads
+            url="https://get.nexte.st/latest/${host/*-apple-darwin/universal-apple-darwin}.tar.gz"
+            # Debug
+            echo "Fetching nextest at $url" 
+            # If nextest isn't here already
+            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
+            # Download binary and install to $HOME/.cargo/bin
+            curl -LsSf "$url" | tar xzf - -C $HOME/.cargo/bin
+      - run:
+          name: Print versions
+          command: |
+            rustup show
+            cargo --version
+            rustc --version
+
   save_rustup_cache:
     steps:
       - save_cache:
@@ -71,14 +91,9 @@ jobs:
           name: Update submodules
           command: |
             git submodule update --init --recursive
-            curl https://sh.rustup.rs -sSf | sh -s -- -y
-      - run: rustup show
-      - run: cargo --version
-      - run: rustc --version
-      - run:
-          name: Calculate dependencies
-          command: cargo generate-lockfile
       - restore_rustup_cache
+      - set_env_path
+      - set_versions_n_runners
       - run: cargo fetch
       - run: rm -rf .git
       - persist_to_workspace:
@@ -92,23 +107,16 @@ jobs:
     environment: *setup-env
     steps:
       - checkout
-      - set_env_path
       - attach_workspace:
           at: "~/"
       - install_gpu_deps
       - restore_rustup_cache
-      - run: cargo --version
-      - run: rustup target add wasm32-unknown-unknown
       - run: sudo apt install clang
+      - set_env_path
+      - run: rustup target add wasm32-unknown-unknown
       - run:
           name: Wasm Build
           command: cargo build --target wasm32-unknown-unknown
-      - run: 
-          name: Install nextest
-          command: >
-            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
-            curl -LsSf https://get.nexte.st/latest/linux |
-            tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
       - run:
           name: Linux Tests
           command: cargo nextest run --profile ci --workspace
@@ -119,17 +127,11 @@ jobs:
     environment: *setup-env
     steps:
       - checkout
-      - set_env_path
       - attach_workspace:
           at: "~/"
       - restore_rustup_cache
+      - set_env_path
       - install_gpu_deps
-      - run: 
-          name: Install nextest
-          command: >
-            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
-            curl -LsSf https://get.nexte.st/latest/linux |
-            tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
       - run:
           name: Linux Tests
           command: cargo nextest run --profile ci --release --workspace --run-ignored all -E 'all() - test(groth16::tests::outer_prove_recursion)'
@@ -144,23 +146,13 @@ jobs:
       - checkout
       - run:
           name: Update submodules
-          command: git submodule update --init --recursive
+          command: |
+            git submodule update --init --recursive
       - attach_workspace:
           at: "~/"
+      - set_versions_n_runners
+      - set_env_path
       - install_gpu_deps
-      - run:
-          name: Install Rust
-          command: |
-            curl https://sh.rustup.rs -sSf | sh -s -- -y
-      - run: rustup show
-      - run: cargo --version
-      - run: cargo fetch
-      - run: 
-          name: Install nextest
-          command: >
-            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
-            curl -LsSf https://get.nexte.st/latest/linux-arm |
-            tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
       - run:
           name: Arm64 Tests
           command: cargo nextest run --profile ci --release --workspace
@@ -179,19 +171,8 @@ jobs:
           command: git submodule update --init --recursive
       - attach_workspace:
            at: "~/"
-      - run:
-          name: Install Rust
-          command: |
-            curl https://sh.rustup.rs -sSf | sh -s -- -y
-      - run: rustup show
-      - run: cargo --version
-      - run: cargo fetch
-      - run: 
-          name: Install nextest
-          command: >
-            [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
-            curl -LsSf https://get.nexte.st/latest/mac |
-            tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
+      - set_versions_n_runners
+      - set_env_path
       - run:
           name: MacOS Tests
           command: cargo nextest run --profile ci --release --workspace
