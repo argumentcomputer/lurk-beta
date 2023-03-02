@@ -19,7 +19,7 @@ use crate::circuit::{
         data::GlobalAllocations,
         pointer::{AllocatedContPtr, AllocatedPtr},
     },
-    CircuitFrame, MultiFrame, Pointers,
+    CircuitFrame, MultiFrame,
 };
 use crate::error::ProofError;
 use crate::eval::{Evaluator, Frame, Witness, IO};
@@ -142,19 +142,18 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F, IO<F>, Witness<F>> {
 
         let (new_expr, new_env, new_cont) = match self.frames.as_ref() {
             Some(frames) => {
-                let (s, p) = self.store_and_pointers.expect("store_and_pointers missing");
+                let s = self.store.expect("store missing");
                 let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
-                self.synthesize_frames(cs, s, input_expr, input_env, input_cont, frames, &g, &p)
+                self.synthesize_frames(cs, s, input_expr, input_env, input_cont, frames, &g)
             }
             None => {
-                assert!(self.store_and_pointers.is_none());
+                assert!(self.store.is_none());
                 let s = Store::default();
-                let p = Pointers::new(&s);
                 let blank_frame = CircuitFrame::blank();
                 let frames = vec![blank_frame; count];
 
                 let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?;
-                self.synthesize_frames(cs, &s, input_expr, input_env, input_cont, &frames, &g, &p)
+                self.synthesize_frames(cs, &s, input_expr, input_env, input_cont, &frames, &g)
             }
         };
 

@@ -14,7 +14,7 @@ use crate::{
     },
     field::LurkField,
     hash_witness::{ConsName, ContName},
-    store::{HashScalar, ScalarPointer},
+    store::{NamedConstants, ScalarPointer},
 };
 
 use super::gadgets::constraints::{
@@ -29,7 +29,7 @@ use crate::circuit::ToInputs;
 use crate::eval::{Frame, Witness, IO};
 use crate::hash_witness::HashWitness;
 use crate::proof::Provable;
-use crate::store::{Ptr, ScalarPtr, Store, Thunk};
+use crate::store::{Ptr, Store, Thunk};
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use num_bigint::BigUint;
 use num_integer::Integer;
@@ -45,7 +45,7 @@ pub struct CircuitFrame<'a, F: LurkField, T, W> {
 
 #[derive(Clone)]
 pub struct MultiFrame<'a, F: LurkField, T: Copy, W> {
-    pub store_and_pointers: Option<(&'a Store<F>, Pointers<F>)>,
+    pub store: Option<&'a Store<F>>,
     pub input: Option<T>,
     pub output: Option<T>,
     pub frames: Option<Vec<CircuitFrame<'a, F, T, W>>>,
@@ -75,7 +75,7 @@ impl<'a, F: LurkField, T: Clone + Copy, W: Copy> CircuitFrame<'a, F, T, W> {
 impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFrame<'a, F, T, W> {
     pub fn blank(count: usize) -> Self {
         Self {
-            store_and_pointers: None,
+            store: None,
             input: None,
             output: None,
             frames: None,
@@ -84,7 +84,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
     }
 
     pub fn get_store(&self) -> &Store<F> {
-        self.store_and_pointers.expect("store missing").0
+        self.store.expect("store missing")
     }
 
     pub fn frame_count(&self) -> usize {
@@ -96,7 +96,6 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
         let total_frames = frames.len();
         let n = total_frames / count + (total_frames % count != 0) as usize;
         let mut multi_frames = Vec::with_capacity(n);
-        let pointers = Pointers::new(store);
 
         for chunk in frames.chunks(count) {
             let mut inner_frames = Vec::with_capacity(count);
@@ -118,7 +117,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
             debug_assert!(!inner_frames.is_empty());
 
             let mf = MultiFrame {
-                store_and_pointers: Some((store, pointers)),
+                store: Some(store),
                 input: Some(chunk[0].input),
                 output: Some(output),
                 frames: Some(inner_frames),
@@ -147,7 +146,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
             (None, None, None)
         };
         Self {
-            store_and_pointers: Some((store, Pointers::new(store))),
+            store: Some(store),
             input,
             output,
             frames,
@@ -164,7 +163,6 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
         input_cont: AllocatedContPtr<F>,
         frames: &[CircuitFrame<F, IO<F>, Witness<F>>],
         g: &GlobalAllocations<F>,
-        p: &Pointers<F>,
     ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
         let acc = (input_expr, input_env, input_cont);
 
@@ -203,7 +201,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
                         "cont mismatch"
                     );
                 };
-                (i + 1, frame.synthesize(cs, i, allocated_io, g, p).unwrap())
+                (i + 1, frame.synthesize(cs, i, allocated_io, g).unwrap())
             });
 
         (new_expr, new_env, new_cont)
@@ -259,7 +257,6 @@ impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
         i: usize,
         inputs: AllocatedIO<F>,
         g: &GlobalAllocations<F>,
-        p: &Pointers<F>,
     ) -> Result<AllocatedIO<F>, SynthesisError> {
         let (input_expr, input_env, input_cont) = inputs;
 
@@ -295,14 +292,14 @@ impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
                 &mut allocated_cont_witness,
                 store,
                 g,
-                p,
             )
         };
 
         if let Some(store) = self.store {
             reduce(store)
         } else {
-            let store = Default::default();
+            let mut store: Store<F> = Default::default();
+            store.hydrate_scalar_cache();
             reduce(&store)
         }
     }
@@ -317,8 +314,7 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
         let mut synth = |store,
                          frames: &[CircuitFrame<F, IO<F>, Witness<F>>],
                          input: Option<IO<F>>,
-                         output: Option<IO<F>>,
-                         p| {
+                         output: Option<IO<F>>| {
             let input_expr = AllocatedPtr::bind_input(
                 &mut cs.namespace(|| "outer input expression"),
                 input.as_ref().map(|input| &input.expr),
@@ -361,8 +357,8 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
             ////////////////////////////////////////////////////////////////////////////////
             let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store)?;
 
-            let (new_expr, new_env, new_cont) = self
-                .synthesize_frames(cs, store, input_expr, input_env, input_cont, frames, &g, &p);
+            let (new_expr, new_env, new_cont) =
+                self.synthesize_frames(cs, store, input_expr, input_env, input_cont, frames, &g);
 
             // dbg!(
             //     (&new_expr, &output_expr),
@@ -390,17 +386,16 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
             Ok(())
         };
 
-        match self.store_and_pointers {
-            Some((s, p)) => {
+        match self.store {
+            Some(s) => {
                 let frames = self.frames.clone().unwrap();
-                synth(s, &frames, self.input, self.output, p)
+                synth(s, &frames, self.input, self.output)
             }
             None => {
                 let store = Default::default();
-                let p = Pointers::new(&store);
                 assert!(self.frames.is_none());
                 let frames = vec![CircuitFrame::blank(); self.count];
-                synth(&store, &frames, self.input, self.output, p)
+                synth(&store, &frames, self.input, self.output)
             }
         }
     }
@@ -674,7 +669,6 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     allocated_cont_witness: &mut AllocatedContWitness<F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
-    p: &Pointers<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
     // dbg!("reduce_expression");
     // dbg!(&expr.fetch_and_write_str(store));
@@ -771,7 +765,6 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         allocated_cont_witness,
         store,
         g,
-        p,
     )?;
 
     results.add_clauses_expr(
@@ -846,7 +839,6 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         allocated_cont_witness,
         store,
         g,
-        p,
     )?;
 
     let apply_continuation_make_thunk: AllocatedNum<F> = apply_continuation_results.3;
@@ -1267,130 +1259,6 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     Ok((output_expr, output_env, output_cont, apply_cont_num))
 }
 
-#[derive(Clone, Copy)]
-pub struct Pointers<F: LurkField> {
-    t: ScalarPtr<F>,
-    nil: ScalarPtr<F>,
-    lambda: ScalarPtr<F>,
-    quote: ScalarPtr<F>,
-    let_: ScalarPtr<F>,
-    letrec: ScalarPtr<F>,
-    cons: ScalarPtr<F>,
-    strcons: ScalarPtr<F>,
-    begin: ScalarPtr<F>,
-    car: ScalarPtr<F>,
-    cdr: ScalarPtr<F>,
-    atom: ScalarPtr<F>,
-    emit: ScalarPtr<F>,
-    sum: ScalarPtr<F>,
-    diff: ScalarPtr<F>,
-    product: ScalarPtr<F>,
-    quotient: ScalarPtr<F>,
-    modulo: ScalarPtr<F>,
-    num_equal: ScalarPtr<F>,
-    equal: ScalarPtr<F>,
-    less: ScalarPtr<F>,
-    less_equal: ScalarPtr<F>,
-    greater: ScalarPtr<F>,
-    greater_equal: ScalarPtr<F>,
-    current_env: ScalarPtr<F>,
-    if_: ScalarPtr<F>,
-    hide: ScalarPtr<F>,
-    commit: ScalarPtr<F>,
-    num: ScalarPtr<F>,
-    u64: ScalarPtr<F>,
-    comm: ScalarPtr<F>,
-    char: ScalarPtr<F>,
-    eval: ScalarPtr<F>,
-    open: ScalarPtr<F>,
-    secret: ScalarPtr<F>,
-}
-
-impl<F: LurkField> Pointers<F> {
-    pub fn new(store: &Store<F>) -> Self {
-        let hash_sym = |name: &str| {
-            store
-                .get_lurk_sym(name, true)
-                .and_then(|s| store.hash_sym(s, HashScalar::Get))
-                .unwrap()
-        };
-
-        let t = hash_sym("t");
-        let nil = store.hash_nil(HashScalar::Get).unwrap();
-        let lambda = hash_sym("lambda");
-        let quote = hash_sym("quote");
-        let let_ = hash_sym("let");
-        let letrec = hash_sym("letrec");
-        let cons = hash_sym("cons");
-        let strcons = hash_sym("strcons");
-        let begin = hash_sym("begin");
-        let car = hash_sym("car");
-        let cdr = hash_sym("cdr");
-        let atom = hash_sym("atom");
-        let emit = hash_sym("emit");
-        let sum = hash_sym("+");
-        let diff = hash_sym("-");
-        let product = hash_sym("*");
-        let quotient = hash_sym("/");
-        let modulo = hash_sym("%");
-        let num_equal = hash_sym("=");
-        let equal = hash_sym("eq");
-        let less = hash_sym("<");
-        let less_equal = hash_sym("<=");
-        let greater = hash_sym(">");
-        let greater_equal = hash_sym(">=");
-        let current_env = hash_sym("current-env");
-        let if_ = hash_sym("if");
-        let hide = hash_sym("hide");
-        let commit = hash_sym("commit");
-        let num = hash_sym("num");
-        let u64 = hash_sym("u64");
-        let comm = hash_sym("comm");
-        let char = hash_sym("char");
-        let eval = hash_sym("eval");
-        let open = hash_sym("open");
-        let secret = hash_sym("secret");
-
-        Self {
-            t,
-            nil,
-            lambda,
-            quote,
-            let_,
-            letrec,
-            cons,
-            strcons,
-            begin,
-            car,
-            cdr,
-            atom,
-            emit,
-            sum,
-            diff,
-            product,
-            quotient,
-            modulo,
-            num_equal,
-            equal,
-            less,
-            less_equal,
-            greater,
-            greater_equal,
-            current_env,
-            if_,
-            hide,
-            commit,
-            num,
-            u64,
-            comm,
-            char,
-            eval,
-            open,
-            secret,
-        }
-    }
-}
-
 fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     expr: &AllocatedPtr<F>,
@@ -1402,7 +1270,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     allocated_cont_witness: &mut AllocatedContWitness<F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
-    p: &Pointers<F>,
 ) -> Result<
     (
         AllocatedPtr<F>,
@@ -1430,41 +1297,41 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
                 head.alloc_hash_equal(&mut cs.namespace(|| stringify!($var)), *$name.value())?;
         };
     }
-
+    let c = store.get_constants();
     // SOUNDNESS: All symbols with their own case clause must be represented in this list
-    def_head_val!(head_is_lambda0, p.lambda);
-    def_head_val!(head_is_let, p.let_);
-    def_head_val!(head_is_letrec, p.letrec);
-    def_head_val!(head_is_eval, p.eval);
-    def_head_val!(head_is_quote0, p.quote);
-    def_head_val!(head_is_cons, p.cons);
-    def_head_val!(head_is_strcons, p.strcons);
-    def_head_val!(head_is_hide, p.hide);
-    def_head_val!(head_is_commit, p.commit);
-    def_head_val!(head_is_open, p.open);
-    def_head_val!(head_is_secret, p.secret);
-    def_head_val!(head_is_num, p.num);
-    def_head_val!(head_is_u64, p.u64);
-    def_head_val!(head_is_comm, p.comm);
-    def_head_val!(head_is_char, p.char);
-    def_head_val!(head_is_begin, p.begin);
-    def_head_val!(head_is_car, p.car);
-    def_head_val!(head_is_cdr, p.cdr);
-    def_head_val!(head_is_atom, p.atom);
-    def_head_val!(head_is_emit, p.emit);
-    def_head_val!(head_is_plus, p.sum);
-    def_head_val!(head_is_minus, p.diff);
-    def_head_val!(head_is_times, p.product);
-    def_head_val!(head_is_div, p.quotient);
-    def_head_val!(head_is_mod, p.modulo);
-    def_head_val!(head_is_num_equal, p.num_equal);
-    def_head_val!(head_is_eq, p.equal);
-    def_head_val!(head_is_less, p.less);
-    def_head_val!(head_is_less_equal, p.less_equal);
-    def_head_val!(head_is_greater, p.greater);
-    def_head_val!(head_is_greater_equal, p.greater_equal);
-    def_head_val!(head_is_if0, p.if_);
-    def_head_val!(head_is_current_env0, p.current_env);
+    def_head_val!(head_is_lambda0, c.lambda);
+    def_head_val!(head_is_let, c.let_);
+    def_head_val!(head_is_letrec, c.letrec);
+    def_head_val!(head_is_eval, c.eval);
+    def_head_val!(head_is_quote0, c.quote);
+    def_head_val!(head_is_cons, c.cons);
+    def_head_val!(head_is_strcons, c.strcons);
+    def_head_val!(head_is_hide, c.hide);
+    def_head_val!(head_is_commit, c.commit);
+    def_head_val!(head_is_open, c.open);
+    def_head_val!(head_is_secret, c.secret);
+    def_head_val!(head_is_num, c.num);
+    def_head_val!(head_is_u64, c.u64);
+    def_head_val!(head_is_comm, c.comm);
+    def_head_val!(head_is_char, c.char);
+    def_head_val!(head_is_begin, c.begin);
+    def_head_val!(head_is_car, c.car);
+    def_head_val!(head_is_cdr, c.cdr);
+    def_head_val!(head_is_atom, c.atom);
+    def_head_val!(head_is_emit, c.emit);
+    def_head_val!(head_is_plus, c.sum);
+    def_head_val!(head_is_minus, c.diff);
+    def_head_val!(head_is_times, c.product);
+    def_head_val!(head_is_div, c.quotient);
+    def_head_val!(head_is_mod, c.modulo);
+    def_head_val!(head_is_num_equal, c.num_equal);
+    def_head_val!(head_is_eq, c.equal);
+    def_head_val!(head_is_less, c.less);
+    def_head_val!(head_is_less_equal, c.less_equal);
+    def_head_val!(head_is_greater, c.greater);
+    def_head_val!(head_is_greater_equal, c.greater_equal);
+    def_head_val!(head_is_if0, c.if_);
+    def_head_val!(head_is_current_env0, c.current_env);
 
     let head_is_a_sym = head.is_sym(&mut cs.namespace(|| "head_is_a_sym"))?;
     let head_is_a_cons = head.is_cons(&mut cs.namespace(|| "head_is_a_cons"))?;
@@ -1687,7 +1554,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     };
 
     results.add_clauses_cons(
-        *p.lambda.value(),
+        *c.lambda.value(),
         &lambda_expr,
         lambda_env,
         &lambda_cont,
@@ -1713,7 +1580,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         (arg1_or_expr, the_cont)
     };
 
-    results.add_clauses_cons(*p.quote.value(), &arg1_or_expr, env, &the_cont, &g.true_num);
+    results.add_clauses_cons(*c.quote.value(), &arg1_or_expr, env, &the_cont, &g.true_num);
 
     ////////////////////////////////////////////////////////////////////////////////
 
@@ -1959,7 +1826,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&default_or_cont_tag, &default_or_cont_hash],
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.eval.value(),
+        *c.eval.value(),
         &the_op,
         eval_continuation_components,
     );
@@ -1969,14 +1836,14 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let let_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&var_let_letrec, &expanded_let, env, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.let_.value(),
+        *c.let_.value(),
         &g.let_cont_tag,
         let_continuation_components,
     );
     let letrec_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&var_let_letrec, &expanded_letrec, env, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.letrec.value(),
+        *c.letrec.value(),
         &g.letrec_cont_tag,
         letrec_continuation_components,
     );
@@ -1986,7 +1853,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let cons_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_cons_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.cons.value(),
+        *c.cons.value(),
         &g.binop_cont_tag,
         cons_continuation_components,
     );
@@ -1996,7 +1863,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let strcons_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_strcons_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.strcons.value(),
+        *c.strcons.value(),
         &g.binop_cont_tag,
         strcons_continuation_components,
     );
@@ -2006,7 +1873,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let hide_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_hide_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.hide.value(),
+        *c.hide.value(),
         &g.binop_cont_tag,
         hide_continuation_components,
     );
@@ -2020,7 +1887,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.commit.value(),
+        *c.commit.value(),
         &g.unop_cont_tag,
         commit_continuation_components,
     );
@@ -2034,7 +1901,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.open.value(),
+        *c.open.value(),
         &g.unop_cont_tag,
         open_continuation_components,
     );
@@ -2048,7 +1915,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.secret.value(),
+        *c.secret.value(),
         &g.unop_cont_tag,
         secret_continuation_components,
     );
@@ -2062,7 +1929,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.num.value(),
+        *c.num.value(),
         &g.unop_cont_tag,
         num_continuation_components,
     );
@@ -2076,7 +1943,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.u64.value(),
+        *c.u64.value(),
         &g.unop_cont_tag,
         u64_continuation_components,
     );
@@ -2090,7 +1957,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.comm.value(),
+        *c.comm.value(),
         &g.unop_cont_tag,
         comm_continuation_components,
     );
@@ -2104,7 +1971,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.char.value(),
+        *c.char.value(),
         &g.unop_cont_tag,
         char_continuation_components,
     );
@@ -2114,7 +1981,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let begin_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_begin_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.begin.value(),
+        *c.begin.value(),
         &g.binop_cont_tag,
         begin_continuation_components,
     );
@@ -2128,7 +1995,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.car.value(),
+        *c.car.value(),
         &g.unop_cont_tag,
         car_continuation_components,
     );
@@ -2142,7 +2009,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.cdr.value(),
+        *c.cdr.value(),
         &g.unop_cont_tag,
         cdr_continuation_components,
     );
@@ -2156,7 +2023,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.atom.value(),
+        *c.atom.value(),
         &g.unop_cont_tag,
         atom_continuation_components,
     );
@@ -2170,7 +2037,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.emit.value(),
+        *c.emit.value(),
         &g.unop_cont_tag,
         emit_continuation_components,
     );
@@ -2180,7 +2047,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let sum_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_sum_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.sum.value(),
+        *c.sum.value(),
         &g.binop_cont_tag,
         sum_continuation_components,
     );
@@ -2190,7 +2057,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let diff_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_diff_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.diff.value(),
+        *c.diff.value(),
         &g.binop_cont_tag,
         diff_continuation_components,
     );
@@ -2200,7 +2067,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let product_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_product_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.product.value(),
+        *c.product.value(),
         &g.binop_cont_tag,
         product_continuation_components,
     );
@@ -2210,7 +2077,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let quotient_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_quotient_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.quotient.value(),
+        *c.quotient.value(),
         &g.binop_cont_tag,
         quotient_continuation_components,
     );
@@ -2220,7 +2087,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let modulo_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_modulo_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.modulo.value(),
+        *c.modulo.value(),
         &g.binop_cont_tag,
         modulo_continuation_components,
     );
@@ -2231,7 +2098,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let numequal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_numequal_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.num_equal.value(),
+        *c.num_equal.value(),
         &g.binop_cont_tag,
         numequal_continuation_components,
     );
@@ -2241,7 +2108,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let equal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_equal_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.equal.value(),
+        *c.equal.value(),
         &g.binop_cont_tag,
         equal_continuation_components,
     );
@@ -2251,7 +2118,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let less_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_less_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.less.value(),
+        *c.less.value(),
         &g.binop_cont_tag,
         less_continuation_components,
     );
@@ -2261,7 +2128,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let less_equal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_less_equal_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.less_equal.value(),
+        *c.less_equal.value(),
         &g.binop_cont_tag,
         less_equal_continuation_components,
     );
@@ -2271,7 +2138,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let greater_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_greater_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.greater.value(),
+        *c.greater.value(),
         &g.binop_cont_tag,
         greater_continuation_components,
     );
@@ -2285,7 +2152,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         cont,
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.greater_equal.value(),
+        *c.greater_equal.value(),
         &g.binop_cont_tag,
         greater_equal_continuation_components,
     );
@@ -2299,7 +2166,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *p.if_.value(),
+        *c.if_.value(),
         &g.if_cont_tag,
         if_continuation_components,
     );
@@ -2312,7 +2179,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.error_ptr_cont,
     )?;
     results.add_clauses_cons(
-        *p.current_env.value(),
+        *c.current_env.value(),
         env,
         env,
         &the_cont_if_rest_is_nil,
@@ -2470,14 +2337,14 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         )?
     };
     results.add_clauses_cons(
-        *p.let_.value(),
+        *c.let_.value(),
         &the_expr,
         env,
         &the_cont_letrec,
         &g.false_num,
     );
     results.add_clauses_cons(
-        *p.letrec.value(),
+        *c.letrec.value(),
         &the_expr,
         env,
         &the_cont_letrec,
@@ -2494,7 +2361,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &newer_cont,
     )?;
     results.add_clauses_cons(
-        *p.cons.value(),
+        *c.cons.value(),
         &arg1,
         env,
         &the_cont_cons_or_strcons,
@@ -2504,7 +2371,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == STRCONS, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *p.strcons.value(),
+        *c.strcons.value(),
         &arg1,
         env,
         &the_cont_cons_or_strcons,
@@ -2519,7 +2386,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         cont,
         &newer_cont,
     )?;
-    results.add_clauses_cons(*p.begin.value(), &arg1, env, &cont_begin, &g.false_num);
+    results.add_clauses_cons(*c.begin.value(), &arg1, env, &cont_begin, &g.false_num);
 
     // head == CAR, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
@@ -2531,7 +2398,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     results.add_clauses_cons(
-        *p.car.value(),
+        *c.car.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2541,7 +2408,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == CDR, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *p.cdr.value(),
+        *c.cdr.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2556,12 +2423,12 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.error_ptr_cont,
         &newer_cont,
     )?;
-    results.add_clauses_cons(*p.hide.value(), &arg1, env, &the_cont_hide, &g.false_num);
+    results.add_clauses_cons(*c.hide.value(), &arg1, env, &the_cont_hide, &g.false_num);
 
     // head == COMMIT, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *p.commit.value(),
+        *c.commit.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2573,7 +2440,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let the_cont_open_or_secret = &newer_cont_if_end_is_nil;
 
     results.add_clauses_cons(
-        *p.open.value(),
+        *c.open.value(),
         &arg1_or_expr,
         env,
         the_cont_open_or_secret,
@@ -2584,7 +2451,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
 
     results.add_clauses_cons(
-        *p.secret.value(),
+        *c.secret.value(),
         &arg1_or_expr,
         env,
         the_cont_open_or_secret,
@@ -2594,7 +2461,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == NUM, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *p.num.value(),
+        *c.num.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2604,7 +2471,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == U64, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *p.u64.value(),
+        *c.u64.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2614,7 +2481,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == COMM, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *p.comm.value(),
+        *c.comm.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2624,7 +2491,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == CHAR, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *p.char.value(),
+        *c.char.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2633,12 +2500,12 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == EVAL, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*p.eval.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(*c.eval.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == ATOM, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *p.atom.value(),
+        *c.atom.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2648,7 +2515,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == EMIT, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *p.emit.value(),
+        *c.emit.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2657,48 +2524,48 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == +, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*p.sum.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(*c.sum.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == -, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*p.diff.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(*c.diff.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == *, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*p.product.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(*c.product.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == /, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*p.quotient.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(*c.quotient.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == %, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*p.modulo.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(*c.modulo.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == =, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*p.num_equal.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(*c.num_equal.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == EQ, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*p.equal.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(*c.equal.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == <, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*p.less.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(*c.less.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == <=, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*p.less_equal.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(*c.less_equal.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == >, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*p.greater.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(*c.greater.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == >=, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *p.greater_equal.value(),
+        *c.greater_equal.value(),
         &arg1,
         env,
         &newer_cont,
@@ -2707,7 +2574,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == IF, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*p.if_.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(*c.if_.value(), &arg1, env, &newer_cont, &g.false_num);
 
     let is_zero_arg_call = rest_is_nil;
 
@@ -2956,7 +2823,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     allocated_cont_witness: &mut AllocatedContWitness<F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
-    p: &Pointers<F>,
 ) -> Result<
     (
         AllocatedPtr<F>,
@@ -2966,6 +2832,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     ),
     SynthesisError,
 > {
+    let c = store.get_constants();
     let mut hash_default_results = HashInputResults::default();
     let mut results = Results::default();
 
@@ -3883,8 +3750,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let args_equal_ptr = AllocatedPtr::pick_const(
             &mut cs.namespace(|| "args_equal_ptr"),
             &args_equal,
-            &p.t,
-            &p.nil,
+            &c.t,
+            &c.nil,
         )?;
 
         let not_dummy = cont.alloc_tag_equal(
@@ -4093,7 +3960,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             b,
             &diff,
             op2.tag(),
-            p,
+            &store.get_constants(),
         )?;
 
         let field_arithmetic_result = AllocatedPtr::pick(
@@ -4735,7 +4602,7 @@ pub fn comparison_helper<F: LurkField, CS: ConstraintSystem<F>>(
     b: &AllocatedNum<F>,
     diff: &AllocatedNum<F>,
     op2: &AllocatedNum<F>,
-    p: &Pointers<F>,
+    c: &NamedConstants<F>,
 ) -> Result<(Boolean, AllocatedPtr<F>, Boolean), SynthesisError> {
     let a_is_negative = allocate_is_negative(&mut cs.namespace(|| "enforce a is negative"), a)?;
     let b_is_negative = allocate_is_negative(&mut cs.namespace(|| "enforce b is negative"), b)?;
@@ -4852,8 +4719,8 @@ pub fn comparison_helper<F: LurkField, CS: ConstraintSystem<F>>(
     let comp_val = AllocatedPtr::pick_const(
         &mut cs.namespace(|| "comp_val"),
         &comp_val_is_zero,
-        &p.nil,
-        &p.t,
+        &c.nil,
+        &c.t,
     )?;
 
     Ok((is_comparison_tag, comp_val, diff_is_negative))
@@ -5321,6 +5188,7 @@ mod tests {
         let vk = &groth_params.vk;
         let pvk = groth16::prepare_verifying_key(vk);
 
+        store.hydrate_scalar_cache();
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
             let mut cs = TestConstraintSystem::new();
 
@@ -5438,6 +5306,7 @@ mod tests {
         };
 
         let (_, witness) = input.reduce(&mut store).unwrap();
+        store.hydrate_scalar_cache();
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
             let mut cs = TestConstraintSystem::<Fr>::new();
@@ -5515,6 +5384,7 @@ mod tests {
         };
 
         let (_, witness) = input.reduce(&mut store).unwrap();
+        store.hydrate_scalar_cache();
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
             let mut cs = TestConstraintSystem::<Fr>::new();
@@ -5592,6 +5462,8 @@ mod tests {
         };
 
         let (_, witness) = input.reduce(&mut store).unwrap();
+
+        store.hydrate_scalar_cache();
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
             let mut cs = TestConstraintSystem::<Fr>::new();
@@ -5671,6 +5543,8 @@ mod tests {
 
         let (_, witness) = input.reduce(&mut store).unwrap();
 
+        store.hydrate_scalar_cache();
+
         let test_with_output = |output, expect_success, store: &mut Store<Fr>| {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
@@ -5716,9 +5590,9 @@ mod tests {
     fn test_enforce_comparison() {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let s = &mut Store::<Fr>::default();
+        s.hydrate_scalar_cache();
 
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
-        let p = Pointers::new(s);
         let a = s.num(42);
         let alloc_a = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "a"), s, || Ok(&a)).unwrap();
         let b = s.num(43);
@@ -5732,7 +5606,7 @@ mod tests {
             alloc_b.hash(),
             &diff,
             &g.op2_less_tag,
-            &p,
+            s.get_constants(),
         )
         .unwrap();
         assert!(cs.is_satisfied());
