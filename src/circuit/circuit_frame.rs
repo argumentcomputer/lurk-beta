@@ -45,7 +45,7 @@ pub struct CircuitFrame<'a, F: LurkField, T, W> {
 
 #[derive(Clone)]
 pub struct MultiFrame<'a, F: LurkField, T: Copy, W> {
-    pub store: Option<&'a Store<F>>,
+    pub store: Option<(&'a Store<F>, Pointers<F>)>,
     pub input: Option<T>,
     pub output: Option<T>,
     pub frames: Option<Vec<CircuitFrame<'a, F, T, W>>>,
@@ -84,7 +84,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
     }
 
     pub fn get_store(&self) -> &Store<F> {
-        self.store.expect("store missing")
+        self.store.expect("store missing").0
     }
 
     pub fn frame_count(&self) -> usize {
@@ -96,6 +96,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
         let total_frames = frames.len();
         let n = total_frames / count + (total_frames % count != 0) as usize;
         let mut multi_frames = Vec::with_capacity(n);
+        let pointers = Pointers::new(store);
 
         for chunk in frames.chunks(count) {
             let mut inner_frames = Vec::with_capacity(count);
@@ -117,7 +118,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
             debug_assert!(!inner_frames.is_empty());
 
             let mf = MultiFrame {
-                store: Some(store),
+                store: Some((store, pointers)),
                 input: Some(chunk[0].input),
                 output: Some(output),
                 frames: Some(inner_frames),
@@ -146,7 +147,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
             (None, None, None)
         };
         Self {
-            store: Some(store),
+            store: Some((store, Pointers::new(store))),
             input,
             output,
             frames,
@@ -262,7 +263,8 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
         let mut synth = |store,
                          frames: &[CircuitFrame<F, IO<F>, Witness<F>>],
                          input: Option<IO<F>>,
-                         output: Option<IO<F>>| {
+                         output: Option<IO<F>>,
+                         p| {
             let input_expr = AllocatedPtr::bind_input(
                 &mut cs.namespace(|| "outer input expression"),
                 input.as_ref().map(|input| &input.expr),
@@ -306,8 +308,6 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
             let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store)?;
 
             let acc = (input_expr, input_env, input_cont);
-
-            let p = Pointers::new(store);
 
             // TODO: Make this a trait method, and it in nova.rs.
             let (_, (new_expr, new_env, new_cont)) =
@@ -383,10 +383,11 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
         };
 
         match self.store {
-            Some(s) => synth(s, &frames, self.input, self.output),
+            Some((s, p)) => synth(s, &frames, self.input, self.output, p),
             None => {
                 let store = Default::default();
-                synth(&store, &frames, self.input, self.output)
+                let p = Pointers::new(&store);
+                synth(&store, &frames, self.input, self.output, p)
             }
         }
     }
@@ -1253,6 +1254,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     Ok((output_expr, output_env, output_cont, apply_cont_num))
 }
 
+#[derive(Clone, Copy)]
 pub struct Pointers<F: LurkField> {
     t: ScalarPtr<F>,
     nil: ScalarPtr<F>,
