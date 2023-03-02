@@ -1274,7 +1274,7 @@ pub struct Pointers<F: LurkField> {
     product: ScalarPtr<F>,
     quotient: ScalarPtr<F>,
     modulo: ScalarPtr<F>,
-    numequal: ScalarPtr<F>,
+    num_equal: ScalarPtr<F>,
     equal: ScalarPtr<F>,
     less: ScalarPtr<F>,
     less_equal: ScalarPtr<F>,
@@ -1320,7 +1320,7 @@ impl<F: LurkField> Pointers<F> {
         let product = hash_sym("*");
         let quotient = hash_sym("/");
         let modulo = hash_sym("%");
-        let numequal = hash_sym("=");
+        let num_equal = hash_sym("=");
         let equal = hash_sym("eq");
         let less = hash_sym("<");
         let less_equal = hash_sym("<=");
@@ -1357,7 +1357,7 @@ impl<F: LurkField> Pointers<F> {
             product,
             quotient,
             modulo,
-            numequal,
+            num_equal,
             equal,
             less,
             less_equal,
@@ -1444,7 +1444,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     def_head_val!(head_is_times, p.product);
     def_head_val!(head_is_div, p.quotient);
     def_head_val!(head_is_mod, p.modulo);
-    def_head_val!(head_is_equal, p.equal);
+    def_head_val!(head_is_num_equal, p.num_equal);
     def_head_val!(head_is_eq, p.equal);
     def_head_val!(head_is_less, p.less);
     def_head_val!(head_is_less_equal, p.less_equal);
@@ -1469,7 +1469,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &head_is_times,
         &head_is_div,
         &head_is_mod,
-        &head_is_equal,
+        &head_is_num_equal,
         &head_is_eq,
         &head_is_less,
         &head_is_less_equal,
@@ -2215,7 +2215,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let numequal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_numequal_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *p.numequal.value(),
+        *p.num_equal.value(),
         &g.binop_cont_tag,
         numequal_continuation_components,
     );
@@ -2661,7 +2661,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == =, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*p.numequal.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(*p.num_equal.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == EQ, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
