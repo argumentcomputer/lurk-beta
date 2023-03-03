@@ -50,6 +50,29 @@ on the PR so you or the original contributor can fix it.
 
 See the [documentation](https://bors.tech/documentation/) for a more comprehensive list of bors commands.
 
+The implemented workflow is the following, where rounded nodes and dotted lines are automatic and taken care of by Bors:
+
+```mermaid
+flowchart TD
+    Review{Is *last commit* of PR reviewed by CODEOWNERS?} -->|Yes| Squash
+    Review --> |No| GReview[Get fresh review]
+    GReview --> Review
+
+    Squash{Are you OK with Squash merge?} -->|Yes| Bors(`bors merge`)
+    Squash --> |No| Update{Is PR Up to date?}
+
+    Update --> |Yes| Merge[Press merge button before anyone else!]
+    Update --> |No| Rebase[Rebase & get fresh review]
+    Rebase --> Review
+
+    Merge --> |It worked| Celebrate
+    Merge --> |Somebody merged before you| Rebase
+
+    Bors -.-> |PR squash-merges cleanly on master & passes CI| Celebrate
+    Bors -.-> |Bors found squash-merge or CI issue| Rebase
+```
+
+
 **Note:** In exceptional cases, we may preserve some messy commit history if not doing so would lose too much important information and fully disentangling is too difficult. We expect this would rarely apply.
 
 ## Issues
