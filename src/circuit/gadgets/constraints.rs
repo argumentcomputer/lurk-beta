@@ -754,22 +754,11 @@ mod tests {
             assert_eq!(equal2.get_value().unwrap(), x == y);
             assert!(cs.is_satisfied());
         }
-    }
 
-    #[test]
-    // needs to return Result because the macros use ?.
-    fn test_and_or_v() -> Result<(), SynthesisError> {
-        use rand::Rng;
-        let rng = &mut XorShiftRng::from_seed(TEST_SEED);
-
-        for _ in 0..25 {
+        #[test]
+        // needs to return Result because the macros use ?.
+        fn test_and_or_v((x0, x1, x2, x3, x4) in any::<(bool, bool, bool, bool, bool)>()) {
             let mut cs = TestConstraintSystem::<Fr>::new();
-
-            let x0 = rng.gen();
-            let x1 = rng.gen();
-            let x2 = rng.gen();
-            let x3 = rng.gen();
-            let x4 = rng.gen();
 
             let a = Boolean::Constant(x0);
             let b = Boolean::Constant(x1);
@@ -801,6 +790,5 @@ mod tests {
             assert_eq!(expected_or2, or2.get_value().unwrap());
             assert!(cs.is_satisfied());
         }
-        Ok(())
     }
 }
