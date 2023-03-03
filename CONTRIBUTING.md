@@ -36,6 +36,20 @@ A maintainer will merge your pull-request (or their own) using one of two method
 
 Please feel free to add guidance to your PR summary as to which merge method you are aiming for.
 
+## For Maintainers
+
+We use [bors](https://github.com/bors-ng/bors-ng) merge bot to ensure that the `master` branch never breaks. Bors PRs are for the moment (and this is temporary) still required to be up to date.
+Once a PR is approved, you can comment on it with the following to add the PR to the merge queue:
+
+```
+bors merge
+```
+
+If the PR passes CI, it will automatically be pushed to the `master` branch. If it fails, bors will comment
+on the PR so you or the original contributor can fix it.
+
+See the [documentation](https://bors.tech/documentation/) for a more comprehensive list of bors commands.
+
 **Note:** In exceptional cases, we may preserve some messy commit history if not doing so would lose too much important information and fully disentangling is too difficult. We expect this would rarely apply.
 
 ## Issues

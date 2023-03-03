@@ -206,18 +206,60 @@ jobs:
 workflows:
   test-all:
     jobs:
-      - cargo_fetch
+      - cargo_fetch:
+          filters:
+            branches:
+                only: 
+                  - staging
+                  - trying
+                  - master
       - linux:
-         requires:
-           - cargo_fetch
-      - arm64
-      - mac
+          requires:
+            - cargo_fetch
+          filters:
+            branches:
+                only: 
+                  - staging
+                  - trying
+                  - master
+      - arm64:
+          filters:
+            branches:
+                only: 
+                  - staging
+                  - trying
+                  - master
+      - mac:
+          filters:
+            branches:
+                only: 
+                  - staging
+                  - trying
+                  - master
       - linux_release:
           requires:
             - cargo_fetch
+          filters:
+            branches:
+                only: 
+                  - staging
+                  - trying
+                  - master
       - rustfmt:
-         requires:
-           - cargo_fetch
+          requires:
+            - cargo_fetch
+          filters:
+            branches:
+                only: 
+                  - staging
+                  - trying
+                  - master
       - clippy:
-         requires:
-           - cargo_fetch
+          requires:
+            - cargo_fetch
+          filters:
+            branches:
+                only: 
+                  - staging
+                  - trying
+                  - master

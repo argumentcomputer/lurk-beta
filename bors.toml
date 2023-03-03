@@ -1,0 +1,10 @@
+status = [
+  'ci/circleci/%',
+  'Check Licenses and Audits'
+]
+
+use_codeowners = true
+use_squash_merge = true
+up_to_date_approvals = true
+delete_merged_branches = true
+required_approvals = 1
