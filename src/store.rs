@@ -1,6 +1,7 @@
 use generic_array::typenum::{U3, U4, U6, U8};
 use neptune::Poseidon;
 use rayon::prelude::*;
+use std::collections::VecDeque;
 use std::hash::Hash;
 use std::{fmt, marker::PhantomData};
 use string_interner::symbol::{Symbol, SymbolUsize};
@@ -2323,9 +2324,9 @@ impl<F: LurkField> Store<F> {
 
     pub fn hash_string_mut<T: AsRef<str>>(&mut self, s: T) -> F {
         let s = s.as_ref();
-        let mut v = im::Vector::<char>::new();
+        let mut v = Vec::<char>::new();
         for c in s.chars() {
-            v.push_back(c);
+            v.push(c);
         }
 
         let initial_hash = F::zero();
@@ -2339,7 +2340,9 @@ impl<F: LurkField> Store<F> {
             initial_hash
         } else {
             let all_hashes = self.all_hashes(s, initial_scalar_ptr);
-            self.hash_string_mut_aux(v, all_hashes)
+            // the conversion to a VecDeque is O(1)
+            // https://github.com/rust-lang/rust/blob/ac583f18b75f005023b41d49298d4d343740648a/library/alloc/src/collections/vec_deque/mod.rs#L2791-L2805
+            self.hash_string_mut_aux(v.into(), all_hashes)
         }
     }
 
@@ -2363,7 +2366,7 @@ impl<F: LurkField> Store<F> {
         hashes
     }
 
-    fn hash_string_mut_aux(&mut self, mut s: im::Vector<char>, all_hashes: Vec<F>) -> F {
+    fn hash_string_mut_aux(&mut self, mut s: VecDeque<char>, all_hashes: Vec<F>) -> F {
         debug_assert_eq!(s.len(), all_hashes.len());
 
         let final_hash = all_hashes.last().unwrap();
@@ -2372,7 +2375,7 @@ impl<F: LurkField> Store<F> {
             let string = s.iter().collect::<String>();
             let ptr = self.intern_str_aux(&string);
             self.create_scalar_ptr(ptr, *hash);
-            s.slice(..1);
+            s.pop_front();
         }
 
         *final_hash
