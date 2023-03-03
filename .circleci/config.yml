@@ -41,7 +41,7 @@ commands:
       - run:
           name: Install rustup
           command: |
-            curl https://sh.rustup.rs -sSf | sh -s -- -y
+            curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh -s -- -y
       - run:
           name: Install nextest
           command: |
