@@ -641,24 +641,20 @@ mod tests {
 
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
-    use ff::Field;
     use proptest::prelude::*;
-    use rand::SeedableRng;
-    use rand_xorshift::XorShiftRng;
     use std::ops::{AddAssign, SubAssign};
 
-    use crate::{field::FWrap, TEST_SEED};
+    use crate::field::FWrap;
 
-    #[test]
-    fn add_constraint() {
-        let mut rng = &mut XorShiftRng::from_seed(TEST_SEED);
+    proptest! {
 
-        for _ in 0..100 {
+        #[test]
+        fn prop_add_constraint((x, y) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
-            let a = AllocatedNum::alloc(cs.namespace(|| "a"), || Ok(Fr::random(&mut rng)))
+            let a = AllocatedNum::alloc(cs.namespace(|| "a"), || Ok(x.0))
                 .expect("alloc failed");
-            let b = AllocatedNum::alloc(cs.namespace(|| "b"), || Ok(Fr::random(&mut rng)))
+            let b = AllocatedNum::alloc(cs.namespace(|| "b"), || Ok(y.0))
                 .expect("alloc failed");
 
             let res = add(cs.namespace(|| "a+b"), &a, &b).expect("add failed");
@@ -668,19 +664,17 @@ mod tests {
 
             assert_eq!(res.get_value().expect("get_value failed"), tmp);
             assert!(cs.is_satisfied());
+
         }
-    }
 
-    #[test]
-    fn sub_constraint() {
-        let mut rng = &mut XorShiftRng::from_seed(TEST_SEED);
+        #[test]
+        fn prop_sub_constraint((x, y) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
 
-        for _ in 0..100 {
-            let mut cs = TestConstraintSystem::<Fr>::new();
+               let mut cs = TestConstraintSystem::<Fr>::new();
 
-            let a = AllocatedNum::alloc(cs.namespace(|| "a"), || Ok(Fr::random(&mut rng)))
+            let a = AllocatedNum::alloc(cs.namespace(|| "a"), || Ok(x.0))
                 .expect("alloc failed");
-            let b = AllocatedNum::alloc(cs.namespace(|| "b"), || Ok(Fr::random(&mut rng)))
+            let b = AllocatedNum::alloc(cs.namespace(|| "b"), || Ok(y.0))
                 .expect("alloc failed");
 
             let res = sub(cs.namespace(|| "a-b"), &a, &b).expect("subtraction failed");
@@ -690,11 +684,11 @@ mod tests {
 
             assert_eq!(res.get_value().expect("get_value failed"), tmp);
             assert!(cs.is_satisfied());
-        }
-    }
 
-    proptest! {
-        fn proptest_alloc_equal_const((x, y) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
+        }
+
+        #[test]
+        fn prop_alloc_equal_const((x, y) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
             let a = AllocatedNum::alloc(&mut cs.namespace(|| "a"), || Ok(x.0)).unwrap();
