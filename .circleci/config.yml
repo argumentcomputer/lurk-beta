@@ -209,57 +209,57 @@ workflows:
       - cargo_fetch:
           filters:
             branches:
-                only: 
-                  - staging
-                  - trying
-                  - master
+                ignore: 
+                  - staging.tmp
+                  - trying.tmp
+                  - staging-squash-merge.tmp
       - linux:
           requires:
             - cargo_fetch
           filters:
             branches:
-                only: 
-                  - staging
-                  - trying
-                  - master
+                ignore: 
+                  - staging.tmp
+                  - trying.tmp
+                  - staging-squash-merge.tmp
       - arm64:
           filters:
             branches:
-                only: 
-                  - staging
-                  - trying
-                  - master
+                ignore: 
+                  - staging.tmp
+                  - trying.tmp
+                  - staging-squash-merge.tmp
       - mac:
           filters:
             branches:
-                only: 
-                  - staging
-                  - trying
-                  - master
+                ignore: 
+                  - staging.tmp
+                  - trying.tmp
+                  - staging-squash-merge.tmp
       - linux_release:
           requires:
             - cargo_fetch
           filters:
             branches:
-                only: 
-                  - staging
-                  - trying
-                  - master
+                ignore: 
+                  - staging.tmp
+                  - trying.tmp
+                  - staging-squash-merge.tmp
       - rustfmt:
           requires:
             - cargo_fetch
           filters:
             branches:
-                only: 
-                  - staging
-                  - trying
-                  - master
+                ignore: 
+                  - staging.tmp
+                  - trying.tmp
+                  - staging-squash-merge.tmp
       - clippy:
           requires:
             - cargo_fetch
           filters:
             branches:
-                only: 
-                  - staging
-                  - trying
-                  - master
+                ignore: 
+                  - staging.tmp
+                  - trying.tmp
+                  - staging-squash-merge.tmp
