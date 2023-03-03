@@ -48,7 +48,7 @@ bors merge
 If the PR passes CI, it will automatically be pushed to the `master` branch. If it fails, bors will comment
 on the PR so you or the original contributor can fix it.
 
-See the [documentation](https://bors.tech/documentation/) for a more comprehensive list of bors commands.
+See the [documentation](https://bors.tech/documentation/) for a more comprehensive list of bors commands, and the [bors dashboard](https://app.bors.tech/repositories/63078) for this project.
 
 The implemented workflow is the following, where rounded nodes and dotted lines are automatic and taken care of by Bors:
 
