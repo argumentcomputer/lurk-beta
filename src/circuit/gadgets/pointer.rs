@@ -306,11 +306,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         let real_cdr = cdr.alloc_equal(&mut cs.namespace(|| "real_cdr"), allocated_cdr)?;
         let cons_is_real = and!(cs, &real_car, &real_cdr)?;
 
-        enforce_implication(
-            &mut cs.namespace(|| "not_dummy implies real cons"),
-            not_dummy,
-            &cons_is_real,
-        )?;
+        implies!(cs, not_dummy, &cons_is_real);
 
         if not_dummy.get_value().unwrap_or(false) && !cons_is_real.get_value().unwrap_or(true) {
             dbg!(name);

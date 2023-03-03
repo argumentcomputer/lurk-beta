@@ -14,12 +14,7 @@ macro_rules! if_then {
 // Enforces constraint that a implies b and that (not a) implies c.
 macro_rules! if_then_else {
     ($cs:ident, $a:expr, $b:expr, $c:expr) => {
-        enforce_implication(
-            $cs.namespace(|| format!("if {} then {}", stringify!($a), stringify!($b))),
-            $a,
-            $b,
-        )
-        .and_then(|_| {
+        if_then!(cs, $a, $b,).and_then(|_| {
             enforce_implication(
                 $cs.namespace(|| {
                     format!(
@@ -89,16 +84,6 @@ macro_rules! equal_const {
             $cs.namespace(|| format!("{} equal const {}", stringify!($a), stringify!($c))),
             $a,
             $c,
-        )
-    };
-}
-
-// Like equal! but a and b are AllocatedTaggedHashes.
-macro_rules! equal_t {
-    ($cs:ident, $a:expr, $b:expr) => {
-        $a.alloc_equal(
-            $cs.namespace(|| format!("{} equal_t {}", stringify!($a), stringify!($b))),
-            $b,
         )
     };
 }
