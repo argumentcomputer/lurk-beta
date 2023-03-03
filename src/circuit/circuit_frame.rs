@@ -18,8 +18,8 @@ use crate::{
 };
 
 use super::gadgets::constraints::{
-    self, alloc_equal, alloc_equal_const, alloc_is_zero, div, enforce_implication, or, pick,
-    pick_const, sub,
+    self, alloc_equal, alloc_equal_const, alloc_is_zero, and_v, div, enforce_implication, or, or_v,
+    pick, pick_const, sub,
 };
 use crate::circuit::circuit_frame::constraints::{
     add, allocate_is_negative, boolean_to_num, enforce_pack, linear, mul,
@@ -1337,9 +1337,6 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let head_is_a_cons = head.is_cons(&mut cs.namespace(|| "head_is_a_cons"))?;
     let head_is_fun = head.is_fun(&mut cs.namespace(|| "head_is_fun"))?;
 
-    // Possible optimizations:
-    // - The variadic `or!` (and `and!`) can be optimized to a small, constant number of constraints.
-
     // SOUNDNESS: All head symbols corresponding to a binop *must* be included here.
     let head_is_binop0 = or!(
         cs,
@@ -1676,11 +1673,10 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         let rest_bindings_is_nil =
             rest_bindings.is_nil(&mut cs.namespace(|| "rest_bindings_is_nil"), g)?;
 
-        let expanded_inner_not_dummy0 = and!(cs, &rest_bindings_is_nil.not(), &end_is_nil)?;
-
         let expanded_inner_not_dummy = and!(
             cs,
-            &expanded_inner_not_dummy0,
+            &rest_bindings_is_nil.not(),
+            &end_is_nil,
             &let_letrec_not_dummy,
             &body_is_nil.not(),
             &rest_body_is_nil
@@ -4256,8 +4252,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             ContTag::Let.as_field(),
         )?;
 
-        let extended_env_not_dummy0 = and!(cs, &let_cont_is_let, not_dummy)?;
-        let extended_env_not_dummy = and!(cs, &extended_env_not_dummy0, &cont_is_let)?;
+        let extended_env_not_dummy = and!(cs, &let_cont_is_let, not_dummy, &cont_is_let)?;
 
         let extended_env = extend_named(
             &mut cs.namespace(|| "extend env"),
@@ -5218,9 +5213,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12131, cs.num_constraints());
+            assert_eq!(12096, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(11806, cs.aux().len());
+            assert_eq!(11751, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
