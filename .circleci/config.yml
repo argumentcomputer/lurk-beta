@@ -41,7 +41,7 @@ commands:
       - run:
           name: Install rustup
           command: |
-            curl https://sh.rustup.rs -sSf | sh -s -- -y
+            curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh -s -- -y
       - run:
           name: Install nextest
           command: |
@@ -206,18 +206,60 @@ jobs:
 workflows:
   test-all:
     jobs:
-      - cargo_fetch
+      - cargo_fetch:
+          filters:
+            branches:
+                ignore: 
+                  - staging.tmp
+                  - trying.tmp
+                  - staging-squash-merge.tmp
       - linux:
-         requires:
-           - cargo_fetch
-      - arm64
-      - mac
+          requires:
+            - cargo_fetch
+          filters:
+            branches:
+                ignore: 
+                  - staging.tmp
+                  - trying.tmp
+                  - staging-squash-merge.tmp
+      - arm64:
+          filters:
+            branches:
+                ignore: 
+                  - staging.tmp
+                  - trying.tmp
+                  - staging-squash-merge.tmp
+      - mac:
+          filters:
+            branches:
+                ignore: 
+                  - staging.tmp
+                  - trying.tmp
+                  - staging-squash-merge.tmp
       - linux_release:
           requires:
             - cargo_fetch
+          filters:
+            branches:
+                ignore: 
+                  - staging.tmp
+                  - trying.tmp
+                  - staging-squash-merge.tmp
       - rustfmt:
-         requires:
-           - cargo_fetch
+          requires:
+            - cargo_fetch
+          filters:
+            branches:
+                ignore: 
+                  - staging.tmp
+                  - trying.tmp
+                  - staging-squash-merge.tmp
       - clippy:
-         requires:
-           - cargo_fetch
+          requires:
+            - cargo_fetch
+          filters:
+            branches:
+                ignore: 
+                  - staging.tmp
+                  - trying.tmp
+                  - staging-squash-merge.tmp
