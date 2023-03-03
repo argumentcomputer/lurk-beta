@@ -1,6 +1,11 @@
 status = [
-  'ci/circleci/%',
-  'Check Licenses and Audits'
+  "ci/circleci: cargo_fetch",
+  "ci/circleci: linux",
+  "ci/circleci: arm64",
+  "ci/circleci: mac",
+  "ci/circleci: linux_release",
+  "ci/circleci: rustfmt",
+  "ci/circleci: clippy",
 ]
 
 use_codeowners = true

@@ -1,4 +1,4 @@
-name: Check Licenses and Audits
+name: cargo-deny
 
 on:
   push:
