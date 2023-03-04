@@ -1751,7 +1751,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         // If end_is_nil, then only one argument was provided, and the preimage is:
         // [unop_cont_tag, op1_eval_tag, cont.tag(), cont.hash(), g.default_num, g.default_num, g.default_num, g.default_num]
         //
-        // Otherwise, more than one argument was provided (FIXME: error-checking to ensure exactly two were provided?):
+        // Otherwise, more than one argument was provided.
         // [binop_cont_tag, g.op2_eval_tag, env.tag(), env.hash(), more.tag(), more.hash(), cont.tag(), cont.hash()]
 
         let the_op = pick_const(

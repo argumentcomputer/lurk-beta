@@ -1,0 +1,15 @@
+status = [
+  "ci/circleci: cargo_fetch",
+  "ci/circleci: linux",
+  "ci/circleci: arm64",
+  "ci/circleci: mac",
+  "ci/circleci: linux_release",
+  "ci/circleci: rustfmt",
+  "ci/circleci: clippy",
+]
+
+use_codeowners = true
+use_squash_merge = true
+up_to_date_approvals = true
+delete_merged_branches = true
+required_approvals = 1
