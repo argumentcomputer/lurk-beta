@@ -150,13 +150,12 @@ macro_rules! and {
             $b,
         )
     };
-
+    ($cs:expr, $a:expr, $b:expr, $c:expr, $($x:expr),+) => {{
+        let and_tmp_cs_ =  &mut $cs.namespace(|| format!("and({})", stringify!([$a, $b, $c, $($x),*])));
+        and_v(and_tmp_cs_, &[$a, $b, $c, $($x),*])
+    }};
     ($cs:ident, $a:expr, $($x:expr),+) => {{
-        // This namespace isn't necessarily unique, so some debugging/tuning could be required,
-        // if multiple `and!`s at the same level have the same first argument.
-        //
-        // If lack of explicit namespaces becomes an issue, we can add a new arg.
-        let and_tmp_cs_ =  &mut $cs.namespace(|| format!("{} and ", stringify!($a)));
+        let and_tmp_cs_ =  &mut $cs.namespace(|| format!("and({})", stringify!([$a, $($x),*])));
         let and_tmp_ = and!(and_tmp_cs_, $($x),*)?;
         and!(and_tmp_cs_, $a, &and_tmp_)
     }};
@@ -206,13 +205,12 @@ macro_rules! or {
             $b,
         )
     };
+    ($cs:expr, $a:expr, $b:expr, $c:expr, $($x:expr),+) => {{
+        let or_tmp_cs_ =  &mut $cs.namespace(|| format!("or({})", stringify!(vec![$a, $b, $c, $($x),*])));
+        or_v(or_tmp_cs_, &[$a, $b, $c, $($x),*])
+    }};
     ($cs:expr, $a:expr, $($x:expr),+) => {{
-        // This namespace isn't necessarily unique, so some debugging/tuning could be required,
-        // if multiple `or!`s at the same level have the same first argument.
-        //
-        // If lack of explicit namespaces becomes an issue, we can add a new arg.
-
-        let or_tmp_cs_ =  &mut $cs.namespace(|| format!("or {}", stringify!($a)));
+        let or_tmp_cs_ =  &mut $cs.namespace(|| format!("or {}", stringify!(vec![$a, $($x),*])));
         let or_tmp_ = or!(or_tmp_cs_, $($x),*)?;
         or!(or_tmp_cs_, $a, &or_tmp_)
     }};
