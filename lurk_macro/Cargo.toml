@@ -7,7 +7,7 @@ description = "Lurk in Rust"
 edition = "2021"
 
 [dependencies]
-blstrs = "0.6.0"
+blstrs = "0.6.1"
 lurk = { path = "../", package = "lurk" }
 proc-macro2 = "1"
 quote = "1"
