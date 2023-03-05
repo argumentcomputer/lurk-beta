@@ -3059,7 +3059,7 @@ mod tests {
         let hash_num = |s: &mut Store<Fr>, name| {
             let sym = s.sym(name);
             let scalar_ptr = s.hash_expr(&sym).unwrap();
-            let hash = scalar_ptr.value().clone();
+            let hash = *scalar_ptr.value();
             Num::Scalar(hash)
         };
         {
