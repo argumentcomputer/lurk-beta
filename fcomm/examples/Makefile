@@ -24,12 +24,10 @@ num-list-commitment.json : num-list-function.json
 
 num-list-opening : num-list-opening.json
 
-num-list-opening.json : num-list-function.json num-list-input.lurk
+num-list-opening.json : num-list-function.json num-list-input.lurk num-list-commitment.json
 	cargo run --release -- open --function num-list-function.json --input num-list-input.lurk --proof num-list-opening.json
 
-num-list-proof : num-list-opening.json
-
-verify-num-list-opening :
+verify-num-list-opening : num-list-opening.json
 	cargo run --release -- verify --proof num-list-opening.json
 
 chained-commitment.json : chained-function.json
