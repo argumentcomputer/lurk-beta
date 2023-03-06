@@ -2,7 +2,7 @@ build : ../../target/release/fcomm
 	cargo build --release
 
 eval-fibonacci :
-	cargo run --release -- eval --expression fibonacci.lurk
+	cargo run --release -- eval --expression fibonacci.lurk --lurk
 
 fibonacci-claim.json : fibonacci.lurk
 	cargo run --release -- eval --expression fibonacci.lurk --claim fibonacci-claim.json --lurk
