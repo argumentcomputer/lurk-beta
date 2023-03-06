@@ -16,7 +16,7 @@ fibonacci-proof2.json : fibonacci-claim.json
 fibonacci-proof : fibonacci-proof.json
 fibonacci-proof2 : fibonacci-proof2.json
 
-verify-fibonacci-proof :
+verify-fibonacci-proof : fibonacci-proof.json
 	cargo run --release -- verify --proof fibonacci-proof.json
 
 num-list-commitment.json : num-list-function.json
