@@ -22,7 +22,7 @@ verify-fibonacci-proof : fibonacci-proof.json
 num-list-commitment.json : num-list-function.json
 	cargo run --release -- commit --function num-list-function.json --commitment num-list-commitment.json
 
-num-list-input.lurk : num-list-input.lurk
+num-list-opening : num-list-opening.json
 
 num-list-opening.json : num-list-function.json num-list-input.lurk
 	cargo run --release -- open --function num-list-function.json --input num-list-input.lurk --proof num-list-opening.json
@@ -40,5 +40,5 @@ chained-opening: chained-opening.json
 chained-opening.json : chained-function.json chained-input.lurk
 	cargo run --release open --function chained-function.json --input chained-input.lurk --proof chained-opening.json --chain
 
-verify-chained-opening :
+verify-chained-opening : chained-opening.json
 	cargo run --release -- verify --proof chained-opening.json
