@@ -192,7 +192,6 @@ pub enum LurkPtr {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Function<F: LurkField + Serialize> {
     pub fun: LurkPtr,
-    #[serde(bound(serialize = "F: Serialize", deserialize = "F: Deserialize<'de>"))]
     pub secret: Option<F>,
     pub commitment: Option<Commitment<F>>,
 }
@@ -204,15 +203,7 @@ pub struct VerificationResult {
 
 #[derive(Serialize, Deserialize)]
 pub struct Proof<'a, F: LurkField> {
-    #[serde(bound(
-        serialize = "Claim<F>: Serialize",
-        deserialize = "Claim<F>: Deserialize<'de>"
-    ))]
     pub claim: Claim<F>,
-    #[serde(bound(
-        serialize = "proof::nova::Proof<'a>: Serialize",
-        deserialize = "proof::nova::Proof<'a>: Deserialize<'de>"
-    ))]
     pub proof: proof::nova::Proof<'a>,
     pub num_steps: usize,
     pub reduction_count: ReductionCount,
@@ -221,10 +212,6 @@ pub struct Proof<'a, F: LurkField> {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Claim<F: LurkField> {
     Evaluation(Evaluation),
-    #[serde(bound(
-        serialize = "Opening<F>: Serialize",
-        deserialize = "Opening<F>: Deserialize<'de>"
-    ))]
     Opening(Opening<F>),
 }
 
