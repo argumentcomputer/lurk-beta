@@ -433,6 +433,14 @@ impl<F: LurkField> ReplState<F> {
                                 None
                             }
                             "DEF" => {
+                                // Extends env with a non-recursive binding.
+                                //
+                                // This: !(:def foo (lambda () 123))
+                                //
+                                // Gets macroexpanded to this: (let ((foo (lambda () 123)))
+                                //                               (current-env))
+                                //
+                                // And the state's env is set to the result.
                                 let (first, rest) = store.car_cdr(&rest)?;
                                 let (second, rest) = store.car_cdr(&rest)?;
                                 assert!(rest.is_nil());
@@ -451,6 +459,14 @@ impl<F: LurkField> ReplState<F> {
                                 Some(new_name)
                             }
                             "DEFREC" => {
+                                // Extends env with a recursive binding.
+                                //
+                                // This: !(:def foo (lambda () 123))
+                                //
+                                // Gets macroexpanded to this: (letrec ((foo (lambda () 123)))
+                                //                               (current-env))
+                                //
+                                // And the state's env is set to the result.
                                 let (first, rest) = store.car_cdr(&rest)?;
                                 let (second, rest) = store.car_cdr(&rest)?;
                                 assert!(rest.is_nil());
@@ -493,6 +509,7 @@ impl<F: LurkField> ReplState<F> {
                                 None
                             }
                             "SET-ENV" => {
+                                // The state's env is set to the result of evaluating the first argument.
                                 let (first, rest) = store.car_cdr(&rest)?;
                                 assert!(rest.is_nil());
                                 let (first_evaled, _, _, _) = self.eval_expr(first, store);
