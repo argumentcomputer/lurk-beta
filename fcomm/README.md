@@ -40,17 +40,17 @@ Yielding something like:
       "expr_out": "1",
       "env_out": "NIL",
       "cont_out": "Terminal",
-      "status": "Terminal"
+      "status": "Terminal",
+      "iterations": null
     }
   },
   "proof": {
-    "proof": {
-      "num_inputs": 12,
+    "Recursive": {
       ...
-      }
+    }
   }
 }
-```
+
 
 To verify the generated proof:
 
