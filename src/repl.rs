@@ -370,7 +370,7 @@ impl<F: LurkField> ReplState<F> {
     ) -> Result<()> {
         let expr = store.fetch(&expr_ptr).unwrap();
 
-        match expr {
+        let res = match expr {
             Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
                 Expression::Sym(s) => {
                     if let Some(name) = s.simple_keyword_name() {
@@ -380,6 +380,7 @@ impl<F: LurkField> ReplState<F> {
                                 assert!(rest.is_nil());
                                 let (first_evaled, _, _, _) = self.eval_expr(first, store);
                                 assert!(!first_evaled.is_nil());
+                                None
                             }
                             "ASSERT-EQ" => {
                                 let (first, rest) = store.car_cdr(&rest)?;
@@ -395,6 +396,7 @@ impl<F: LurkField> ReplState<F> {
                                     first_evaled.fmt_to_string(store),
                                     second_evaled.fmt_to_string(store)
                                 );
+                                None
                             }
                             "ASSERT-EMITTED" => {
                                 let (first, rest) = store.car_cdr(&rest)?;
@@ -416,6 +418,7 @@ impl<F: LurkField> ReplState<F> {
                                     }
                                     (first_emitted, rest_emitted) = store.car_cdr(&rest_emitted)?;
                                 }
+                                None
                             }
                             "ASSERT-ERROR" => {
                                 let (first, rest) = store.car_cdr(&rest)?;
@@ -423,9 +426,48 @@ impl<F: LurkField> ReplState<F> {
                                 assert!(rest.is_nil());
                                 let (_, _, continuation, _) = self.clone().eval_expr(first, store);
                                 assert!(continuation.is_error());
+                                None
                             }
                             "CLEAR" => {
                                 self.env = empty_sym_env(store);
+                                None
+                            }
+                            "DEF" => {
+                                let (first, rest) = store.car_cdr(&rest)?;
+                                let (second, rest) = store.car_cdr(&rest)?;
+                                assert!(rest.is_nil());
+                                let l = store.sym("LET");
+                                let current_env = store.sym("CURRENT-ENV");
+                                let binding = store.list(&[first, second]);
+                                let bindings = store.list(&[binding]);
+                                let current_env_call = store.list(&[current_env]);
+                                let expanded = store.list(&[l, bindings, current_env_call]);
+                                let (expanded_evaled, _, _, _) = self.eval_expr(expanded, store);
+
+                                self.env = expanded_evaled;
+
+                                let (new_binding, _) = store.car_cdr(&expanded_evaled)?;
+                                let (new_name, _) = store.car_cdr(&new_binding)?;
+                                Some(new_name)
+                            }
+                            "DEFREC" => {
+                                let (first, rest) = store.car_cdr(&rest)?;
+                                let (second, rest) = store.car_cdr(&rest)?;
+                                assert!(rest.is_nil());
+                                let l = store.sym("LETREC");
+                                let current_env = store.sym("CURRENT-ENV");
+                                let binding = store.list(&[first, second]);
+                                let bindings = store.list(&[binding]);
+                                let current_env_call = store.list(&[current_env]);
+                                let expanded = store.list(&[l, bindings, current_env_call]);
+                                let (expanded_evaled, _, _, _) = self.eval_expr(expanded, store);
+
+                                self.env = expanded_evaled;
+
+                                let (new_binding_outer, _) = store.car_cdr(&expanded_evaled)?;
+                                let (new_binding_inner, _) = store.car_cdr(&new_binding_outer)?;
+                                let (new_name, _) = store.car_cdr(&new_binding_inner)?;
+                                Some(new_name)
                             }
                             "LOAD" => {
                                 match store.fetch(&store.car(&rest)?).unwrap() {
@@ -436,6 +478,7 @@ impl<F: LurkField> ReplState<F> {
                                     _ => panic!("Argument to :LOAD must be a string."),
                                 }
                                 io::stdout().flush().unwrap();
+                                None
                             }
                             "RUN" => {
                                 // Running and loading are equivalent, except that :RUN does not modify the env.
@@ -447,6 +490,14 @@ impl<F: LurkField> ReplState<F> {
                                     _ => panic!("Argument to :RUN must be a string."),
                                 }
                                 io::stdout().flush().unwrap();
+                                None
+                            }
+                            "SET-ENV" => {
+                                let (first, rest) = store.car_cdr(&rest)?;
+                                assert!(rest.is_nil());
+                                let (first_evaled, _, _, _) = self.eval_expr(first, store);
+                                self.env = first_evaled;
+                                None
                             }
                             _ => {
                                 panic!("!({} ...) is unsupported.", s.name());
@@ -459,8 +510,13 @@ impl<F: LurkField> ReplState<F> {
                 _ => panic!("!(<COMMAND> ...) must be a (:keyword) symbol."),
             },
             _ => panic!("!<COMMAND> form is unsupported."),
-        }
+        };
 
+        if let Some(expr) = res {
+            let mut handle = io::stdout().lock();
+            expr.fmt(store, &mut handle)?;
+            println!();
+        };
         Ok(())
     }
 }
