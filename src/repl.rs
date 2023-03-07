@@ -375,26 +375,11 @@ impl<F: LurkField> ReplState<F> {
                 Expression::Sym(s) => {
                     if let Some(name) = s.simple_keyword_name() {
                         match name.as_str() {
-                            "LOAD" => {
-                                match store.fetch(&store.car(&rest)?).unwrap() {
-                                    Expression::Str(path) => {
-                                        let joined = p.as_ref().join(Path::new(&path));
-                                        self.handle_load(store, &joined, package)?
-                                    }
-                                    _ => panic!("Argument to :LOAD must be a string."),
-                                }
-                                io::stdout().flush().unwrap();
-                            }
-                            "RUN" => {
-                                // Running and loading are equivalent, except that :RUN does not modify the env.
-                                match store.fetch(&store.car(&rest)?).unwrap() {
-                                    Expression::Str(path) => {
-                                        let joined = p.as_ref().join(Path::new(&path));
-                                        self.handle_run(store, &joined, package)?
-                                    }
-                                    _ => panic!("Argument to :RUN must be a string."),
-                                }
-                                io::stdout().flush().unwrap();
+                            "ASSERT" => {
+                                let (first, rest) = store.car_cdr(&rest)?;
+                                assert!(rest.is_nil());
+                                let (first_evaled, _, _, _) = self.eval_expr(first, store);
+                                assert!(!first_evaled.is_nil());
                             }
                             "ASSERT-EQ" => {
                                 let (first, rest) = store.car_cdr(&rest)?;
@@ -410,22 +395,6 @@ impl<F: LurkField> ReplState<F> {
                                     first_evaled.fmt_to_string(store),
                                     second_evaled.fmt_to_string(store)
                                 );
-                            }
-                            "ASSERT" => {
-                                let (first, rest) = store.car_cdr(&rest)?;
-                                assert!(rest.is_nil());
-                                let (first_evaled, _, _, _) = self.eval_expr(first, store);
-                                assert!(!first_evaled.is_nil());
-                            }
-                            "CLEAR" => {
-                                self.env = empty_sym_env(store);
-                            }
-                            "ASSERT-ERROR" => {
-                                let (first, rest) = store.car_cdr(&rest)?;
-
-                                assert!(rest.is_nil());
-                                let (_, _, continuation, _) = self.clone().eval_expr(first, store);
-                                assert!(continuation.is_error());
                             }
                             "ASSERT-EMITTED" => {
                                 let (first, rest) = store.car_cdr(&rest)?;
@@ -447,6 +416,37 @@ impl<F: LurkField> ReplState<F> {
                                     }
                                     (first_emitted, rest_emitted) = store.car_cdr(&rest_emitted)?;
                                 }
+                            }
+                            "ASSERT-ERROR" => {
+                                let (first, rest) = store.car_cdr(&rest)?;
+
+                                assert!(rest.is_nil());
+                                let (_, _, continuation, _) = self.clone().eval_expr(first, store);
+                                assert!(continuation.is_error());
+                            }
+                            "CLEAR" => {
+                                self.env = empty_sym_env(store);
+                            }
+                            "LOAD" => {
+                                match store.fetch(&store.car(&rest)?).unwrap() {
+                                    Expression::Str(path) => {
+                                        let joined = p.as_ref().join(Path::new(&path));
+                                        self.handle_load(store, &joined, package)?
+                                    }
+                                    _ => panic!("Argument to :LOAD must be a string."),
+                                }
+                                io::stdout().flush().unwrap();
+                            }
+                            "RUN" => {
+                                // Running and loading are equivalent, except that :RUN does not modify the env.
+                                match store.fetch(&store.car(&rest)?).unwrap() {
+                                    Expression::Str(path) => {
+                                        let joined = p.as_ref().join(Path::new(&path));
+                                        self.handle_run(store, &joined, package)?
+                                    }
+                                    _ => panic!("Argument to :RUN must be a string."),
+                                }
+                                io::stdout().flush().unwrap();
                             }
                             _ => {
                                 panic!("!({} ...) is unsupported.", s.name());
