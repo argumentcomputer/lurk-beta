@@ -1,13 +1,16 @@
 build : ../../target/release/fcomm
 	cargo build --release
 
-all: eval-fibonacci fibonacci-claim.json fibonacci-proof.json fibonacci-proof2.json fibonacci-proof fibonacci-proof2 verify-fibonacci-proof verify-fibonacci-proof2 num-list-commitment num-list-opening num-list-opening.json verify-num-list-opening chained-commitment chained-opening chained-opening.json verify-chained-opening chained-opening2 chained-opening2.json verify-chained-opening2 chained-opening2-with-request chained-opening2-2.json verify-chained-opening2-2
+all: eval-fibonacci fibonacci-claim.json fibonacci-proof.json fibonacci-proof2.json fibonacci-proof fibonacci-proof2 \
+verify-fibonacci-proof verify-fibonacci-proof2 num-list-commitment num-list-opening num-list-opening.json \
+verify-num-list-opening chained-commitment chained-opening chained-opening.json verify-chained-opening chained-opening2\
+chained-opening2.json verify-chained-opening2 chained-opening2-with-request chained-opening2-2.json verify-chained-opening2-2
 
 clean:
-	rm *proof*.json
-	rm *opening*.json
-	rm *commitment*.json
-	rm *claim*.json
+	- rm *proof*.json
+	- rm *opening*.json
+	- rm *commitment*.json
+	- rm *claim*.json
 
 eval-fibonacci :
 	cargo run --release -- eval --expression fibonacci.lurk --lurk
