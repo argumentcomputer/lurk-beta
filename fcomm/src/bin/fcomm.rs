@@ -169,12 +169,12 @@ struct Verify {
 }
 
 impl Commit {
-    fn commit(&self, limit: usize) -> Result<(), Error> {
+    fn commit(&self, limit: usize) {
         let s = &mut Store::<S1>::default();
 
         let mut function = if self.lurk {
-            let path = env::current_dir()?.join(&self.function);
-            let src = read_to_string(path)?;
+            let path = env::current_dir().unwrap().join(&self.function);
+            let src = read_to_string(path).unwrap();
 
             Function {
                 fun: LurkPtr::Source(src),
@@ -182,9 +182,9 @@ impl Commit {
                 commitment: None,
             }
         } else {
-            Function::read_from_path(&self.function)?
+            Function::read_from_path(&self.function).unwrap()
         };
-        let fun_ptr = function.fun_ptr(s, limit)?;
+        let fun_ptr = function.fun_ptr(s, limit).unwrap();
         let function_map = committed_function_store();
 
         let commitment = if let Some(secret) = function.secret {
@@ -192,7 +192,7 @@ impl Commit {
 
             function.commitment = Some(commitment);
 
-            function_map.set(commitment, &function)?;
+            function_map.set(commitment, &function).unwrap();
             function.write_to_path(&self.function);
 
             commitment
@@ -201,7 +201,7 @@ impl Commit {
             function.secret = Some(secret);
             function.commitment = Some(commitment);
 
-            function_map.set(commitment, &function)?;
+            function_map.set(commitment, &function).unwrap();
 
             function.write_to_path(&self.function);
 
@@ -210,28 +210,20 @@ impl Commit {
         if let Some(commitment_path) = &self.commitment {
             commitment.write_to_path(commitment_path);
         } else {
-            serde_json::to_writer(io::stdout(), &commitment)?;
+            serde_json::to_writer(io::stdout(), &commitment).unwrap();
         }
-
-        Ok(())
     }
 }
 
 impl Open {
-    fn open(
-        &self,
-        chain: bool,
-        limit: usize,
-        eval_input: bool,
-        quote_input: bool,
-    ) -> Result<(), Error> {
+    fn open(&self, chain: bool, limit: usize, eval_input: bool, quote_input: bool) {
         assert!(
             !(self.commitment.is_some() && self.function.is_some()),
             "commitment and function must not both be supplied"
         );
 
         let s = &mut Store::<S1>::default();
-        let rc = ReductionCount::try_from(self.reduction_count)?;
+        let rc = ReductionCount::try_from(self.reduction_count).unwrap();
         let prover = NovaProver::<S1>::new(rc.count());
         let pp = public_params(rc.count());
         let function_map = committed_function_store();
@@ -248,22 +240,24 @@ impl Open {
             let request = opening_request(request_path).expect("failed to read opening request");
 
             if let Some(out_path) = &self.proof {
-                let proof = Opening::open_and_prove(s, request, limit, false, &prover, &pp)?;
+                let proof =
+                    Opening::open_and_prove(s, request, limit, false, &prover, &pp).unwrap();
 
                 handle_proof(out_path, proof);
             } else {
                 let function = function_map
                     .get(request.commitment)
                     .expect("committed function not found");
-                let input = request.input.eval(s, limit)?;
+                let input = request.input.eval(s, limit).unwrap();
 
-                let claim = Opening::apply(s, input, function, limit, chain)?;
-                handle_claim(claim)?;
+                let claim = Opening::apply(s, input, function, limit, chain).unwrap();
+                handle_claim(claim).unwrap();
             }
         } else {
             let function = if let Some(comm_string) = &self.commitment {
-                let commitment =
-                    Commitment::from_hex(comm_string).map_err(Error::CommitmentParseError)?;
+                let commitment = Commitment::from_hex(comm_string)
+                    .map_err(Error::CommitmentParseError)
+                    .unwrap();
 
                 function_map
                     .get(commitment)
@@ -271,44 +265,43 @@ impl Open {
             } else {
                 let function_path = self.function.as_ref().expect("function missing");
                 if self.lurk {
-                    let path = env::current_dir()?.join(function_path);
-                    let src = read_to_string(path)?;
+                    let path = env::current_dir().unwrap().join(function_path);
+                    let src = read_to_string(path).unwrap();
                     Function {
                         fun: LurkPtr::Source(src),
                         secret: None,
                         commitment: None,
                     }
                 } else {
-                    Function::read_from_path(function_path)?
+                    Function::read_from_path(function_path).unwrap()
                 }
             };
 
             let input_path = self.input.as_ref().expect("input missing");
-            let input = input(s, input_path, eval_input, limit, quote_input)?;
+            let input = input(s, input_path, eval_input, limit, quote_input).unwrap();
 
             if let Some(out_path) = &self.proof {
-                let proof = Opening::apply_and_prove(
-                    s, input, function, limit, chain, false, &prover, &pp,
-                )?;
+                let proof =
+                    Opening::apply_and_prove(s, input, function, limit, chain, false, &prover, &pp)
+                        .unwrap();
 
                 handle_proof(out_path, proof);
             } else {
-                let claim = Opening::apply(s, input, function, limit, chain)?;
+                let claim = Opening::apply(s, input, function, limit, chain).unwrap();
 
-                handle_claim(claim)?;
+                handle_claim(claim).unwrap();
             }
         };
-        Ok(())
     }
 }
 
 impl Eval {
-    fn eval(&self, limit: usize) -> Result<(), Error> {
+    fn eval(&self, limit: usize) {
         let s = &mut Store::<S1>::default();
 
-        let expr = expression(s, &self.expression, self.lurk)?;
+        let expr = expression(s, &self.expression, self.lurk).unwrap();
 
-        let evaluation = Evaluation::eval(s, expr, limit)?;
+        let evaluation = Evaluation::eval(s, expr, limit).unwrap();
 
         match &self.claim {
             Some(out_path) => {
@@ -316,18 +309,16 @@ impl Eval {
                 claim.write_to_path(out_path);
             }
             None => {
-                serde_json::to_writer(io::stdout(), &evaluation)?;
+                serde_json::to_writer(io::stdout(), &evaluation).unwrap();
             }
         }
-
-        Ok(())
     }
 }
 
 impl Prove {
-    fn prove(&self, limit: usize) -> Result<(), Error> {
+    fn prove(&self, limit: usize) {
         let s = &mut Store::<S1>::default();
-        let rc = ReductionCount::try_from(self.reduction_count)?;
+        let rc = ReductionCount::try_from(self.reduction_count).unwrap();
         let prover = NovaProver::<S1>::new(rc.count());
         let pp = public_params(rc.count());
 
@@ -337,7 +328,15 @@ impl Prove {
                     self.expression.is_none(),
                     "claim and expression must not both be supplied"
                 );
-                Proof::prove_claim(s, Claim::read_from_path(claim)?, limit, false, &prover, &pp)?
+                Proof::prove_claim(
+                    s,
+                    Claim::read_from_path(claim).unwrap(),
+                    limit,
+                    false,
+                    &prover,
+                    &pp,
+                )
+                .unwrap()
             }
 
             None => {
@@ -345,36 +344,33 @@ impl Prove {
                     s,
                     self.expression.as_ref().expect("expression missing"),
                     self.lurk,
-                )?;
+                )
+                .unwrap();
 
-                Proof::eval_and_prove(s, expr, limit, false, &prover, &pp)?
+                Proof::eval_and_prove(s, expr, limit, false, &prover, &pp).unwrap()
             }
         };
 
         // Write first, so prover can debug if proof doesn't verify (it should).
         proof.write_to_path(&self.proof);
         proof.verify(&pp).expect("created proof doesn't verify");
-
-        Ok(())
     }
 }
 
 impl Verify {
-    fn verify(&self, cli_error: bool) -> Result<(), Error> {
-        let proof = proof(Some(&self.proof))?;
+    fn verify(&self, cli_error: bool) {
+        let proof = proof(Some(&self.proof)).unwrap();
         let pp = public_params(proof.reduction_count.count());
-        let result = proof.verify(&pp)?;
+        let result = proof.verify(&pp).unwrap();
 
-        serde_json::to_writer(io::stdout(), &result)?;
+        serde_json::to_writer(io::stdout(), &result).unwrap();
 
         if result.verified {
             info!("Verification succeeded.");
         } else if cli_error {
-            serde_json::to_writer(io::stderr(), &result)?;
+            serde_json::to_writer(io::stderr(), &result).unwrap();
             std::process::exit(1);
         };
-
-        Ok(())
     }
 }
 
@@ -382,8 +378,8 @@ fn read_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
     store: &mut Store<F>,
     path: P,
 ) -> Result<Ptr<F>, Error> {
-    let path = env::current_dir()?.join(path);
-    let input = read_to_string(path)?;
+    let path = env::current_dir().unwrap().join(path);
+    let input = read_to_string(path).unwrap();
     let src = store.read(&input).unwrap();
 
     Ok(src)
@@ -483,7 +479,7 @@ where
     }
 }
 
-fn main() -> Result<(), Error> {
+fn main() {
     let cli = Cli::parse();
 
     pretty_env_logger::formatted_builder()
