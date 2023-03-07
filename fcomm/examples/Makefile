@@ -19,6 +19,9 @@ fibonacci-proof2 : fibonacci-proof2.json
 verify-fibonacci-proof : fibonacci-proof.json
 	cargo run --release -- verify --proof fibonacci-proof.json
 
+verify-fibonacci-proof2 : fibonacci-proof2.json
+	cargo run --release -- verify --proof fibonacci-proof2.json
+
 num-list-commitment : num-list-function.json
 	cargo run --release -- commit --function num-list-function.json --commitment num-list-commitment.json
 
