@@ -12,6 +12,9 @@ clean:
 	- rm *commitment*.json
 	- rm *claim*.json
 
+eval :
+	cargo run --release eval --expression eval-input.lurk --lurk
+
 eval-fibonacci :
 	cargo run --release -- eval --expression fibonacci.lurk --lurk
 
