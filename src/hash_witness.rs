@@ -144,7 +144,7 @@ impl HashName for ContName {
 impl<F: LurkField> ConsStub<F> {
     pub fn car_cdr(
         &mut self,
-        s: &mut Store<F>,
+        s: &Store<F>,
         cons: &Ptr<F>,
     ) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
         match self {
@@ -336,7 +336,7 @@ impl<F: LurkField> ConsWitness<F> {
     pub fn car_cdr_named(
         &mut self,
         name: ConsName,
-        store: &mut Store<F>,
+        store: &Store<F>,
         cons: &Ptr<F>,
     ) -> Result<(Ptr<F>, Ptr<F>), ReductionError> {
         if !matches!(cons.tag(), ExprTag::Cons | ExprTag::Nil) {
@@ -405,7 +405,7 @@ impl<F: LurkField> Cons<F> {
         (self.car, self.cdr)
     }
 
-    fn get_car_cdr(s: &mut Store<F>, cons: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
+    fn get_car_cdr(s: &Store<F>, cons: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
         s.car_cdr(cons)
     }
 

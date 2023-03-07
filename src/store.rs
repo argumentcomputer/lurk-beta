@@ -2486,14 +2486,13 @@ impl<F: LurkField> Store<F> {
         self.dehydrated_cont.clear();
     }
 
-    fn ensure_constants(&mut self) -> &NamedConstants<F> {
-        self.constants.get_or_init(|| NamedConstants::new(self))
+    fn ensure_constants(&mut self) {
+        // This will clobber whatever was there before.
+        let _ = self.constants.set(NamedConstants::new(self));
     }
 
     pub fn get_constants(&self) -> &NamedConstants<F> {
-        self.constants
-            .get()
-            .expect("constants missing. hydrate_scalar_cache should have been called.")
+        self.constants.get_or_init(|| NamedConstants::new(self))
     }
 }
 
@@ -2569,14 +2568,15 @@ impl<F: LurkField> Expression<'_, F> {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct ContantPtrs<F: LurkField>(Option<ScalarPtr<F>>, Ptr<F>);
+pub struct ConstantPtrs<F: LurkField>(Option<ScalarPtr<F>>, Ptr<F>);
 
-impl<F: LurkField> ContantPtrs<F> {
+impl<F: LurkField> ConstantPtrs<F> {
     pub fn value(&self) -> F {
         *self.scalar_ptr().value()
     }
     pub fn scalar_ptr(&self) -> ScalarPtr<F> {
-        self.0.expect("ScalarPtr missing")
+        self.0
+            .expect("ScalarPtr missing; hydrate_scalar_cache should have been called.")
     }
     pub fn ptr(&self) -> Ptr<F> {
         self.1
@@ -2585,53 +2585,54 @@ impl<F: LurkField> ContantPtrs<F> {
 
 #[derive(Clone, Copy, Debug)]
 pub struct NamedConstants<F: LurkField> {
-    pub t: ContantPtrs<F>,
-    pub nil: ContantPtrs<F>,
-    pub lambda: ContantPtrs<F>,
-    pub quote: ContantPtrs<F>,
-    pub let_: ContantPtrs<F>,
-    pub letrec: ContantPtrs<F>,
-    pub cons: ContantPtrs<F>,
-    pub strcons: ContantPtrs<F>,
-    pub begin: ContantPtrs<F>,
-    pub car: ContantPtrs<F>,
-    pub cdr: ContantPtrs<F>,
-    pub atom: ContantPtrs<F>,
-    pub emit: ContantPtrs<F>,
-    pub sum: ContantPtrs<F>,
-    pub diff: ContantPtrs<F>,
-    pub product: ContantPtrs<F>,
-    pub quotient: ContantPtrs<F>,
-    pub modulo: ContantPtrs<F>,
-    pub num_equal: ContantPtrs<F>,
-    pub equal: ContantPtrs<F>,
-    pub less: ContantPtrs<F>,
-    pub less_equal: ContantPtrs<F>,
-    pub greater: ContantPtrs<F>,
-    pub greater_equal: ContantPtrs<F>,
-    pub current_env: ContantPtrs<F>,
-    pub if_: ContantPtrs<F>,
-    pub hide: ContantPtrs<F>,
-    pub commit: ContantPtrs<F>,
-    pub num: ContantPtrs<F>,
-    pub u64: ContantPtrs<F>,
-    pub comm: ContantPtrs<F>,
-    pub char: ContantPtrs<F>,
-    pub eval: ContantPtrs<F>,
-    pub open: ContantPtrs<F>,
-    pub secret: ContantPtrs<F>,
+    pub t: ConstantPtrs<F>,
+    pub nil: ConstantPtrs<F>,
+    pub lambda: ConstantPtrs<F>,
+    pub quote: ConstantPtrs<F>,
+    pub let_: ConstantPtrs<F>,
+    pub letrec: ConstantPtrs<F>,
+    pub cons: ConstantPtrs<F>,
+    pub strcons: ConstantPtrs<F>,
+    pub begin: ConstantPtrs<F>,
+    pub car: ConstantPtrs<F>,
+    pub cdr: ConstantPtrs<F>,
+    pub atom: ConstantPtrs<F>,
+    pub emit: ConstantPtrs<F>,
+    pub sum: ConstantPtrs<F>,
+    pub diff: ConstantPtrs<F>,
+    pub product: ConstantPtrs<F>,
+    pub quotient: ConstantPtrs<F>,
+    pub modulo: ConstantPtrs<F>,
+    pub num_equal: ConstantPtrs<F>,
+    pub equal: ConstantPtrs<F>,
+    pub less: ConstantPtrs<F>,
+    pub less_equal: ConstantPtrs<F>,
+    pub greater: ConstantPtrs<F>,
+    pub greater_equal: ConstantPtrs<F>,
+    pub current_env: ConstantPtrs<F>,
+    pub if_: ConstantPtrs<F>,
+    pub hide: ConstantPtrs<F>,
+    pub commit: ConstantPtrs<F>,
+    pub num: ConstantPtrs<F>,
+    pub u64: ConstantPtrs<F>,
+    pub comm: ConstantPtrs<F>,
+    pub char: ConstantPtrs<F>,
+    pub eval: ConstantPtrs<F>,
+    pub open: ConstantPtrs<F>,
+    pub secret: ConstantPtrs<F>,
+    pub dummy: ConstantPtrs<F>,
 }
 
 impl<F: LurkField> NamedConstants<F> {
     pub fn new(store: &Store<F>) -> Self {
         let hash_sym = |name: &str| {
             let ptr = store.get_lurk_sym(name, true).unwrap();
-            let scalar_ptr = store.hash_sym(ptr, HashScalar::Get).unwrap();
-            ContantPtrs(Some(scalar_ptr), ptr)
+            let maybe_scalar_ptr = store.hash_sym(ptr, HashScalar::Get);
+            ConstantPtrs(maybe_scalar_ptr, ptr)
         };
 
         let t = hash_sym("t");
-        let nil = ContantPtrs(
+        let nil = ConstantPtrs(
             Some(store.hash_nil(HashScalar::Get).unwrap()),
             store.get_nil(),
         );
@@ -2668,6 +2669,7 @@ impl<F: LurkField> NamedConstants<F> {
         let eval = hash_sym("eval");
         let open = hash_sym("open");
         let secret = hash_sym("secret");
+        let dummy = hash_sym("_");
 
         Self {
             t,
@@ -2705,6 +2707,7 @@ impl<F: LurkField> NamedConstants<F> {
             eval,
             open,
             secret,
+            dummy,
         }
     }
 }
