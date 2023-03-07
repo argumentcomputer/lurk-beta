@@ -4,7 +4,6 @@ build : ../../target/release/fcomm
 all: eval-fibonacci fibonacci-claim.json fibonacci-proof.json fibonacci-proof2.json fibonacci-proof fibonacci-proof2 verify-fibonacci-proof verify-fibonacci-proof2 num-list-commitment num-list-opening num-list-opening.json verify-num-list-opening chained-commitment chained-opening chained-opening.json verify-chained-opening chained-opening2 chained-opening2.json verify-chained-opening2
 
 clean:
-	git checkout *-function.json
 	rm *proof*.json
 	rm *opening*.json
 	rm *commitment*.json
