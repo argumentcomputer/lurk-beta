@@ -436,7 +436,7 @@ fn reduce_with_witness_inner<F: LurkField>(
                 },
 
                 ExprTag::Sym => {
-                    if expr == store.lurk_sym("nil") || (expr == store.t()) {
+                    if expr == store.get_nil() || (expr == store.t()) {
                         // NIL and T are self-evaluating symbols, pass them to the continuation in a thunk.
                         // NOTE: For now, NIL is its own type, but this will change soon, so leave the check here.
 

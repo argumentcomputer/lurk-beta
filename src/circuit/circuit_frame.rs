@@ -1294,7 +1294,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     macro_rules! def_head_val {
         ($var:ident, $name:expr) => {
             let $var =
-                head.alloc_hash_equal(&mut cs.namespace(|| stringify!($var)), *$name.value())?;
+                head.alloc_hash_equal(&mut cs.namespace(|| stringify!($var)), $name.value())?;
         };
     }
     let c = store.get_constants();
@@ -1551,7 +1551,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     };
 
     results.add_clauses_cons(
-        *c.lambda.value(),
+        c.lambda.value(),
         &lambda_expr,
         lambda_env,
         &lambda_cont,
@@ -1577,7 +1577,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         (arg1_or_expr, the_cont)
     };
 
-    results.add_clauses_cons(*c.quote.value(), &arg1_or_expr, env, &the_cont, &g.true_num);
+    results.add_clauses_cons(c.quote.value(), &arg1_or_expr, env, &the_cont, &g.true_num);
 
     ////////////////////////////////////////////////////////////////////////////////
 
@@ -1822,7 +1822,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&default_or_cont_tag, &default_or_cont_hash],
     ];
     hash_default_results.add_hash_input_clauses(
-        *c.eval.value(),
+        c.eval.value(),
         &the_op,
         eval_continuation_components,
     );
@@ -1832,14 +1832,14 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let let_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&var_let_letrec, &expanded_let, env, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.let_.value(),
+        c.let_.value(),
         &g.let_cont_tag,
         let_continuation_components,
     );
     let letrec_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&var_let_letrec, &expanded_letrec, env, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.letrec.value(),
+        c.letrec.value(),
         &g.letrec_cont_tag,
         letrec_continuation_components,
     );
@@ -1849,7 +1849,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let cons_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_cons_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.cons.value(),
+        c.cons.value(),
         &g.binop_cont_tag,
         cons_continuation_components,
     );
@@ -1859,7 +1859,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let strcons_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_strcons_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.strcons.value(),
+        c.strcons.value(),
         &g.binop_cont_tag,
         strcons_continuation_components,
     );
@@ -1869,7 +1869,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let hide_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_hide_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.hide.value(),
+        c.hide.value(),
         &g.binop_cont_tag,
         hide_continuation_components,
     );
@@ -1883,7 +1883,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *c.commit.value(),
+        c.commit.value(),
         &g.unop_cont_tag,
         commit_continuation_components,
     );
@@ -1897,7 +1897,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *c.open.value(),
+        c.open.value(),
         &g.unop_cont_tag,
         open_continuation_components,
     );
@@ -1911,7 +1911,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *c.secret.value(),
+        c.secret.value(),
         &g.unop_cont_tag,
         secret_continuation_components,
     );
@@ -1925,7 +1925,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *c.num.value(),
+        c.num.value(),
         &g.unop_cont_tag,
         num_continuation_components,
     );
@@ -1939,7 +1939,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *c.u64.value(),
+        c.u64.value(),
         &g.unop_cont_tag,
         u64_continuation_components,
     );
@@ -1953,7 +1953,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *c.comm.value(),
+        c.comm.value(),
         &g.unop_cont_tag,
         comm_continuation_components,
     );
@@ -1967,7 +1967,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *c.char.value(),
+        c.char.value(),
         &g.unop_cont_tag,
         char_continuation_components,
     );
@@ -1977,7 +1977,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let begin_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_begin_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.begin.value(),
+        c.begin.value(),
         &g.binop_cont_tag,
         begin_continuation_components,
     );
@@ -1991,7 +1991,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *c.car.value(),
+        c.car.value(),
         &g.unop_cont_tag,
         car_continuation_components,
     );
@@ -2005,7 +2005,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *c.cdr.value(),
+        c.cdr.value(),
         &g.unop_cont_tag,
         cdr_continuation_components,
     );
@@ -2019,7 +2019,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *c.atom.value(),
+        c.atom.value(),
         &g.unop_cont_tag,
         atom_continuation_components,
     );
@@ -2033,7 +2033,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *c.emit.value(),
+        c.emit.value(),
         &g.unop_cont_tag,
         emit_continuation_components,
     );
@@ -2043,7 +2043,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let sum_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_sum_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.sum.value(),
+        c.sum.value(),
         &g.binop_cont_tag,
         sum_continuation_components,
     );
@@ -2053,7 +2053,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let diff_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_diff_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.diff.value(),
+        c.diff.value(),
         &g.binop_cont_tag,
         diff_continuation_components,
     );
@@ -2063,7 +2063,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let product_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_product_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.product.value(),
+        c.product.value(),
         &g.binop_cont_tag,
         product_continuation_components,
     );
@@ -2073,7 +2073,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let quotient_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_quotient_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.quotient.value(),
+        c.quotient.value(),
         &g.binop_cont_tag,
         quotient_continuation_components,
     );
@@ -2083,7 +2083,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let modulo_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_modulo_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.modulo.value(),
+        c.modulo.value(),
         &g.binop_cont_tag,
         modulo_continuation_components,
     );
@@ -2094,7 +2094,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let numequal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_numequal_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.num_equal.value(),
+        c.num_equal.value(),
         &g.binop_cont_tag,
         numequal_continuation_components,
     );
@@ -2104,7 +2104,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let equal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_equal_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.equal.value(),
+        c.equal.value(),
         &g.binop_cont_tag,
         equal_continuation_components,
     );
@@ -2114,7 +2114,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let less_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_less_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.less.value(),
+        c.less.value(),
         &g.binop_cont_tag,
         less_continuation_components,
     );
@@ -2124,7 +2124,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let less_equal_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_less_equal_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.less_equal.value(),
+        c.less_equal.value(),
         &g.binop_cont_tag,
         less_equal_continuation_components,
     );
@@ -2134,7 +2134,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let greater_continuation_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&[&g.op2_greater_tag, &g.default_num], env, &more, cont];
     hash_default_results.add_hash_input_clauses(
-        *c.greater.value(),
+        c.greater.value(),
         &g.binop_cont_tag,
         greater_continuation_components,
     );
@@ -2148,7 +2148,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         cont,
     ];
     hash_default_results.add_hash_input_clauses(
-        *c.greater_equal.value(),
+        c.greater_equal.value(),
         &g.binop_cont_tag,
         greater_equal_continuation_components,
     );
@@ -2162,7 +2162,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &[&g.default_num, &g.default_num],
     ];
     hash_default_results.add_hash_input_clauses(
-        *c.if_.value(),
+        c.if_.value(),
         &g.if_cont_tag,
         if_continuation_components,
     );
@@ -2175,7 +2175,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.error_ptr_cont,
     )?;
     results.add_clauses_cons(
-        *c.current_env.value(),
+        c.current_env.value(),
         env,
         env,
         &the_cont_if_rest_is_nil,
@@ -2333,14 +2333,14 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         )?
     };
     results.add_clauses_cons(
-        *c.let_.value(),
+        c.let_.value(),
         &the_expr,
         env,
         &the_cont_letrec,
         &g.false_num,
     );
     results.add_clauses_cons(
-        *c.letrec.value(),
+        c.letrec.value(),
         &the_expr,
         env,
         &the_cont_letrec,
@@ -2357,7 +2357,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &newer_cont,
     )?;
     results.add_clauses_cons(
-        *c.cons.value(),
+        c.cons.value(),
         &arg1,
         env,
         &the_cont_cons_or_strcons,
@@ -2367,7 +2367,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == STRCONS, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *c.strcons.value(),
+        c.strcons.value(),
         &arg1,
         env,
         &the_cont_cons_or_strcons,
@@ -2382,7 +2382,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         cont,
         &newer_cont,
     )?;
-    results.add_clauses_cons(*c.begin.value(), &arg1, env, &cont_begin, &g.false_num);
+    results.add_clauses_cons(c.begin.value(), &arg1, env, &cont_begin, &g.false_num);
 
     // head == CAR, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
@@ -2394,7 +2394,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     results.add_clauses_cons(
-        *c.car.value(),
+        c.car.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2404,7 +2404,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == CDR, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *c.cdr.value(),
+        c.cdr.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2419,12 +2419,12 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &g.error_ptr_cont,
         &newer_cont,
     )?;
-    results.add_clauses_cons(*c.hide.value(), &arg1, env, &the_cont_hide, &g.false_num);
+    results.add_clauses_cons(c.hide.value(), &arg1, env, &the_cont_hide, &g.false_num);
 
     // head == COMMIT, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *c.commit.value(),
+        c.commit.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2436,7 +2436,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let the_cont_open_or_secret = &newer_cont_if_end_is_nil;
 
     results.add_clauses_cons(
-        *c.open.value(),
+        c.open.value(),
         &arg1_or_expr,
         env,
         the_cont_open_or_secret,
@@ -2447,7 +2447,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     /////////////////////////////////////////////////////////////////////////////
 
     results.add_clauses_cons(
-        *c.secret.value(),
+        c.secret.value(),
         &arg1_or_expr,
         env,
         the_cont_open_or_secret,
@@ -2457,7 +2457,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == NUM, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *c.num.value(),
+        c.num.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2467,7 +2467,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == U64, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *c.u64.value(),
+        c.u64.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2477,7 +2477,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == COMM, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *c.comm.value(),
+        c.comm.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2487,7 +2487,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == CHAR, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *c.char.value(),
+        c.char.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2496,12 +2496,12 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == EVAL, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*c.eval.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(c.eval.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == ATOM, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *c.atom.value(),
+        c.atom.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2511,7 +2511,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == EMIT, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *c.emit.value(),
+        c.emit.value(),
         &arg1_or_expr,
         env,
         &newer_cont_if_end_is_nil,
@@ -2520,48 +2520,48 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == +, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*c.sum.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(c.sum.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == -, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*c.diff.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(c.diff.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == *, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*c.product.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(c.product.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == /, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*c.quotient.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(c.quotient.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == %, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*c.modulo.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(c.modulo.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == =, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*c.num_equal.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(c.num_equal.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == EQ, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*c.equal.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(c.equal.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == <, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*c.less.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(c.less.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == <=, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*c.less_equal.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(c.less_equal.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == >, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*c.greater.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(c.greater.value(), &arg1, env, &newer_cont, &g.false_num);
 
     // head == >=, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(
-        *c.greater_equal.value(),
+        c.greater_equal.value(),
         &arg1,
         env,
         &newer_cont,
@@ -2570,7 +2570,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
 
     // head == IF, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
-    results.add_clauses_cons(*c.if_.value(), &arg1, env, &newer_cont, &g.false_num);
+    results.add_clauses_cons(c.if_.value(), &arg1, env, &newer_cont, &g.false_num);
 
     let is_zero_arg_call = rest_is_nil;
 
@@ -3746,8 +3746,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let args_equal_ptr = AllocatedPtr::pick_const(
             &mut cs.namespace(|| "args_equal_ptr"),
             &args_equal,
-            &c.t,
-            &c.nil,
+            &c.t.scalar_ptr(),
+            &c.nil.scalar_ptr(),
         )?;
 
         let not_dummy = cont.alloc_tag_equal(
@@ -4710,8 +4710,8 @@ pub fn comparison_helper<F: LurkField, CS: ConstraintSystem<F>>(
     let comp_val = AllocatedPtr::pick_const(
         &mut cs.namespace(|| "comp_val"),
         &comp_val_is_zero,
-        &c.nil,
-        &c.t,
+        &c.nil.scalar_ptr(),
+        &c.t.scalar_ptr(),
     )?;
 
     Ok((is_comparison_tag, comp_val, diff_is_negative))
