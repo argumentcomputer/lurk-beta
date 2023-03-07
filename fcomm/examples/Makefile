@@ -48,7 +48,7 @@ chained-opening2: chained-opening2.json
 
 chained-opening2.json : chained-opening.json
 	# NOTE: This concrete commitment (39ceb60c198b6b7c9f1ff98dd83026bd282e32307d8bd10a28f19d637c4d8549) can be found
-	# in chained-opening2.json, but its identity is determistic based on the secret and 'second return value' (cdr)
+	# in chained-opening.json, but its identity is determistic based on the secret and 'second return value' (cdr)
 	# of the function specified in chained-function.json.
 	cargo run --release open --commitment 39ceb60c198b6b7c9f1ff98dd83026bd282e32307d8bd10a28f19d637c4d8549 --input chained-input.lurk --proof chained-opening2.json --chain
 
