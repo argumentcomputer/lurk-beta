@@ -30,8 +30,8 @@ impl Validator for InputValidator {
 
 #[derive(Clone)]
 pub struct ReplState<F: LurkField> {
-    env: Ptr<F>,
-    limit: usize,
+    pub env: Ptr<F>,
+    pub limit: usize,
 }
 
 pub struct Repl<F: LurkField, T: ReplTrait<F>> {

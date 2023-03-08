@@ -1,16 +1,26 @@
 use anyhow::Result;
+use pasta_curves::pallas;
+
+use fcomm::{FileStore, Proof};
 use lurk::field::{LanguageField, LurkField};
 use lurk::package::Package;
-use lurk::proof::nova;
+use lurk::proof::{
+    nova,
+    nova::{public_params, NovaProver},
+    Prover,
+};
 use lurk::repl::{repl, ReplState, ReplTrait};
 use lurk::store::{Expression, Ptr, Store};
 use lurk::writer::Write;
+
 use std::io;
 use std::path::Path;
 
 struct ClutchState<F: LurkField>(ReplState<F>);
 
-impl<F: LurkField> ReplTrait<F> for ClutchState<F> {
+type F = pallas::Scalar;
+
+impl ReplTrait<F> for ClutchState<F> {
     fn new(s: &mut Store<F>, limit: usize) -> Self {
         Self(ReplState::new(s, limit))
     }
@@ -52,10 +62,35 @@ impl<F: LurkField> ReplTrait<F> for ClutchState<F> {
         }
 
         let res: Option<Ptr<F>> = match expr {
-            Expression::Cons(car, _rest) => match &store.fetch(&car).unwrap() {
+            Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
                 Expression::Sym(s) => {
                     if let Some(name) = s.simple_keyword_name() {
                         match name.as_str() {
+                            "PROVE" => {
+                                let (proof_path, rest) = store.car_cdr(&rest)?;
+                                let (proof_in_expr, _) = store.car_cdr(&rest)?;
+
+                                let proof_path = proof_path.fmt_to_string(store);
+                                dbg!(&proof_path);
+                                let chunk_frame_count = 1;
+
+                                let prover = NovaProver::<F>::new(chunk_frame_count);
+                                let pp = public_params(chunk_frame_count);
+                                let proof = Proof::<pallas::Scalar>::eval_and_prove(
+                                    store,
+                                    proof_in_expr,
+                                    self.0.limit,
+                                    false,
+                                    &prover,
+                                    &pp,
+                                )
+                                .expect("proving failed");
+
+                                proof.write_to_path(proof_path);
+                                proof.verify(&pp).expect("created proof doesn't verify");
+
+                                Some(proof_in_expr)
+                            }
                             "XXX" => {
                                 println!("BOOM");
                                 None
@@ -113,10 +148,7 @@ fn main() -> Result<()> {
     };
 
     match field {
-        LanguageField::BLS12_381 => {
-            repl::<_, blstrs::Scalar, ClutchState<blstrs::Scalar>>(lurk_file.as_deref())
-        }
         LanguageField::Pallas => repl::<_, nova::S1, ClutchState<nova::S1>>(lurk_file.as_deref()),
-        LanguageField::Vesta => repl::<_, nova::S2, ClutchState<nova::S2>>(lurk_file.as_deref()),
+        _ => panic!("unsupported field"),
     }
 }

@@ -447,6 +447,7 @@ dependencies = [
  "anyhow",
  "blstrs",
  "fcomm",
+ "fil_pasta_curves",
  "lurk",
  "pretty_env_logger",
 ]
