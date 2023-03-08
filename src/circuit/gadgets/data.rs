@@ -299,16 +299,11 @@ impl<F: LurkField> GlobalAllocations<F> {
     }
 }
 
-pub fn hash_poseidon<CS, F, A>(
+pub fn hash_poseidon<CS: ConstraintSystem<F>, F: LurkField, A: Arity<F>>(
     cs: CS,
     preimage: Vec<AllocatedNum<F>>,
     constants: &PoseidonConstants<F, A>,
-) -> Result<AllocatedNum<F>, SynthesisError>
-where
-    CS: ConstraintSystem<F>,
-    F: LurkField,
-    A: Arity<F>,
-{
+) -> Result<AllocatedNum<F>, SynthesisError> {
     poseidon_hash(cs, preimage, constants)
 }
 
