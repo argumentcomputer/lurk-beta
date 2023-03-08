@@ -808,22 +808,48 @@ impl<'a> Proof<'a, S1> {
     }
 
     pub fn verify(&self, pp: &PublicParams) -> Result<VerificationResult, Error> {
-        let (public_inputs, public_outputs) = match self.claim {
-            Claim::Evaluation(_) => self.verify_evaluation(),
-            Claim::Opening(_) => self.verify_opening(),
+        let (public_inputs, public_outputs) = match &self.claim {
+            Claim::Evaluation(_) => self.evaluation_io(),
+            Claim::Opening(_) => self.opening_io(),
         }?;
 
-        let verified = self
-            .proof
-            .verify(pp, self.num_steps, public_inputs, &public_outputs)
-            .expect("error verifying");
+        let claim_iterations_and_num_steps_are_consistent = if let Claim::Evaluation(Evaluation {
+            iterations: Some(iterations),
+            ..
+        }) = self.claim
+        {
+            // Currently, claims created by fcomm don't include the iteration count. If they do, then it should be
+            // possible to verify correctness. This may require making the iteration count explicit in the public
+            // output. That will allow maintaining iteration count without incrementing during frames added as
+            // padding; and it will also allow explicitly masking the count when desired for zero-knowledge.
+            // Meanwhile, since Nova currently requires the number of steps to be provided by the verifier, we have
+            // to provide it. For now, we should at least be able to calculate this value based on number of real
+            // iterations and number of frames per circuit. This is untested and mostly a placeholder to remind us
+            // that all of this will need to be handled in a more principled way eventually. (#282)
+
+            let num_steps = self.num_steps;
+
+            let chunk_frame_count = self.reduction_count.count();
+            let expected_steps =
+                (iterations / chunk_frame_count) + (iterations % chunk_frame_count != 0) as usize;
+
+            expected_steps == num_steps
+        } else {
+            true
+        };
+
+        let verified = claim_iterations_and_num_steps_are_consistent
+            && self
+                .proof
+                .verify(pp, self.num_steps, public_inputs, &public_outputs)
+                .expect("error verifying");
 
         let result = VerificationResult::new(verified);
 
         Ok(result)
     }
 
-    pub fn verify_evaluation(&self) -> Result<(Vec<S1>, Vec<S1>), Error> {
+    pub fn evaluation_io(&self) -> Result<(Vec<S1>, Vec<S1>), Error> {
         let mut s = Store::<S1>::default();
 
         let evaluation = &self.claim.evaluation().expect("expected evaluation claim");
@@ -866,7 +892,7 @@ impl<'a> Proof<'a, S1> {
         Ok((public_inputs, public_outputs))
     }
 
-    pub fn verify_opening(&self) -> Result<(Vec<S1>, Vec<S1>), Error> {
+    pub fn opening_io(&self) -> Result<(Vec<S1>, Vec<S1>), Error> {
         let mut s = Store::<S1>::default();
 
         assert!(self.claim.is_opening());
