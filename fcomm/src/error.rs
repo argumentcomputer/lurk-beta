@@ -1,4 +1,5 @@
 use bellperson::SynthesisError;
+use lurk::store;
 use std::io;
 
 #[derive(Debug)]
@@ -10,8 +11,9 @@ pub enum Error {
     SynthesisError(SynthesisError),
     CommitmentParseError(hex::FromHexError),
     UnknownCommitment,
-    OpeningFailure,
+    OpeningFailure(String),
     EvaluationFailure,
+    StoreError(String),
 }
 
 impl From<io::Error> for Error {
@@ -29,5 +31,11 @@ impl From<serde_json::Error> for Error {
 impl From<SynthesisError> for Error {
     fn from(err: SynthesisError) -> Error {
         Error::SynthesisError(err)
+    }
+}
+
+impl From<store::Error> for Error {
+    fn from(err: store::Error) -> Error {
+        Error::StoreError(err.0)
     }
 }

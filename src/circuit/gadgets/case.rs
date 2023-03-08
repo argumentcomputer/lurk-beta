@@ -8,9 +8,15 @@ use bellperson::{
     gadgets::num::AllocatedNum,
     ConstraintSystem, SynthesisError,
 };
+use itertools::Itertools;
 
+use std::collections::HashSet;
 use std::fmt::Debug;
 
+/*
+Initialized map entry for a fixed `key` with
+an allocated `value` computed at runtime.
+*/
 pub struct CaseClause<'a, F: LurkField> {
     pub key: F,
     pub value: &'a AllocatedNum<F>,
@@ -32,8 +38,12 @@ impl<F: LurkField + Debug> Debug for CaseClause<'_, F> {
     }
 }
 
+/*
+An allocated `selected_key` supposedly equal to one of the fixed keys
+in the list of allocated map entries defined in `clauses`.
+*/
 pub struct CaseConstraint<'a, F: LurkField> {
-    selected: AllocatedNum<F>,
+    selected_key: AllocatedNum<F>,
     clauses: &'a [CaseClause<'a, F>],
 }
 
@@ -53,14 +63,22 @@ impl<F: LurkField> CaseConstraint<'_, F> {
         // 'selected' clause will have selection bit = 1 while the others
         // are 0. This will be confirmed/enforced by later constraints.
         let mut selector = Vec::with_capacity(self.clauses.len());
+        // check each key is only included once
+        debug_assert!({
+            let mut uniq = HashSet::new();
+            self.clauses
+                .iter()
+                .all(|clause| uniq.insert(clause.key.to_bytes()))
+        });
+
         for (i, clause) in self.clauses.iter().enumerate() {
-            let is_selected = if let Some(value) = self.selected.get_value() {
+            let is_selected = if let Some(value) = self.selected_key.get_value() {
                 clause.key == value
             } else {
                 false
             };
             selector.push(AllocatedBit::alloc(
-                cs.namespace(|| format!("selection bit {}", i)),
+                cs.namespace(|| format!("selection bit {i}")),
                 Some(is_selected),
             )?);
         }
@@ -68,6 +86,7 @@ impl<F: LurkField> CaseConstraint<'_, F> {
         // We add up all bits. If the result is 1, then it means
         // there is exactly one bit equal 1, while others are 0.
         // This guarantees we don't have repeated selected keys.
+        // ( ∑ᵢ 1 ⋅ selectorᵢ ) * ( 1 ) = ( 1 )
         cs.enforce(
             || "exactly one selector is 1",
             |lc| {
@@ -80,18 +99,19 @@ impl<F: LurkField> CaseConstraint<'_, F> {
         );
 
         // Apply selection.
+        // ( ∑ᵢ keyᵢ ⋅ selectorᵢ ) * (1) = selected_key
         cs.enforce(
             || "selection vector dot keys = selected",
             |lc| {
                 selector
                     .iter()
-                    .zip(&*self.clauses)
+                    .zip(self.clauses)
                     .fold(lc, |lc, (selector, clause)| {
                         lc + (clause.key, selector.get_variable())
                     })
             },
             |lc| lc + CS::one(),
-            |lc| lc + self.selected.get_variable(),
+            |lc| lc + self.selected_key.get_variable(),
         );
 
         let values = self
@@ -100,6 +120,7 @@ impl<F: LurkField> CaseConstraint<'_, F> {
             .map(|c| c.value.clone())
             .collect::<Vec<_>>();
 
+        // result ← ∑ᵢ  selectorᵢ ⋅ valueᵢ
         let result = selector_dot_product(
             &mut cs.namespace(|| "extract result"),
             &selector,
@@ -111,6 +132,9 @@ impl<F: LurkField> CaseConstraint<'_, F> {
     }
 }
 
+/*
+Returns ∑ᵢ  selector[i] ⋅ value_vector[i].
+*/
 fn selector_dot_product<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selector: &[AllocatedBit],
@@ -123,7 +147,7 @@ fn selector_dot_product<F: LurkField, CS: ConstraintSystem<F>>(
 
     for (i, (bit, value)) in selector.iter().zip(value_vector).enumerate() {
         let allocated_prod = pick(
-            &mut cs.namespace(|| format!("allocated_prod {}", i)),
+            &mut cs.namespace(|| format!("allocated_prod {i}")),
             &Boolean::Is(bit.clone()),
             value,
             zero,
@@ -162,7 +186,6 @@ pub fn case<F: LurkField, CS: ConstraintSystem<F>>(
     default: &AllocatedNum<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
-    assert!(!clauses.is_empty());
     multi_case(cs, selected, &[clauses], &[default], g).map(|r| r[0].to_owned())
 }
 
@@ -194,8 +217,15 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
     defaults: &[&AllocatedNum<F>],
     g: &GlobalAllocations<F>,
 ) -> Result<(Vec<AllocatedNum<F>>, Boolean), SynthesisError> {
-    assert!(!cases.is_empty());
-    assert!(!defaults.is_empty());
+    debug_assert!(!cases.is_empty());
+    debug_assert_eq!(cases.len(), defaults.len());
+    debug_assert!(!cases[0].is_empty());
+    // All sets of clauses must specify the same keys in the same order.
+    debug_assert!(cases
+        .iter()
+        .map(|x| x.iter().map(|clause| clause.key).collect::<Vec<_>>())
+        .all_equal());
+
     let mut result = Vec::new();
 
     // First clause in the list allows to constrain the selected key,
@@ -205,9 +235,9 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
         let c = cases[0];
         let default = defaults[0];
 
-        assert!(!c.is_empty());
         let mut any_selected = false;
 
+        // acc ← 1
         let mut acc = g.true_num.clone();
 
         for (i, clause) in c.iter().enumerate() {
@@ -226,8 +256,9 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
                 x.mul_assign(&a)
             };
 
+            // new_acc ← x = acc * (clause.key[i] - selected)
             let new_acc = AllocatedNum::alloc(
-                &mut cs.namespace(|| format!("acc {}, case {}", i + 1, i)),
+                &mut cs.namespace(|| format!("acc {}, case {i}", i + 1)),
                 || {
                     if selected_present {
                         Ok(x)
@@ -237,9 +268,9 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
                 },
             )?;
 
-            // acc * clause.key - selected = new_acc
+            // acc * ( clause.key - selected ) = new_acc
             cs.enforce(
-                || format!("acc * (clause-{}.key - selected) = new_acc, case {}", i, i),
+                || format!("acc * (clause-{i}.key - selected) = new_acc, case {i}"),
                 |lc| lc + acc.get_variable(),
                 |_| Boolean::Constant(true).lc(CS::one(), clause.key) - selected.get_variable(),
                 |lc| lc + new_acc.get_variable(),
@@ -248,14 +279,14 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
             acc = new_acc;
         }
 
-        // acc = prod_i(clause[i].key - selected)
+        // acc = ∏ᵢ (clause[i].key - selected)
         // Therefore acc is zero if and only if some key was selected.
-        let is_selected = alloc_is_zero(cs.namespace(|| format!("is_selected, case {}", i)), &acc)?;
+        let is_selected = alloc_is_zero(cs.namespace(|| format!("is_selected, case {i}")), &acc)?;
 
         // If no selection matched, use a dummy key so constraints are met.
         // We will actually return the default value, though.
         let dummy_key = c[0].key;
-        let selected = AllocatedNum::alloc(cs.namespace(|| "default key"), || {
+        let selected_key = AllocatedNum::alloc(cs.namespace(|| "default key"), || {
             if any_selected {
                 selected
                     .get_value()
@@ -268,18 +299,18 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
         // enforce_selection() guarantees no repeated selected keys exist
         // and returns a tuple containing the result and the selector
         let cc = CaseConstraint {
-            selected,
+            selected_key,
             clauses: c,
         };
         let zero = &g.false_num;
         let (enforced_result, selector) =
-            cc.enforce_selection(&mut cs.namespace(|| format!("case {}", i)), zero)?;
+            cc.enforce_selection(&mut cs.namespace(|| format!("case {i}")), zero)?;
 
         // If no selection matched, choose the default value
         let is_default = is_selected.not();
 
         result.push(pick(
-            &mut cs.namespace(|| format!("maybe default, case {}", i)),
+            &mut cs.namespace(|| format!("maybe default, case {i}")),
             &is_default,
             default,
             &enforced_result,
@@ -288,20 +319,13 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
         (selector, is_default)
     };
 
-    assert_eq!(cases.len(), defaults.len());
     // Now that we constrained the selector, we can constrain the selection
     // of the corresponding values in next clauses
     // 1..n
     for (i, (c, default)) in cases.iter().zip(defaults).enumerate().skip(1) {
-        assert!(!c.is_empty());
-
         // Ensure key ordering actually matches
         for (j, case) in c.iter().enumerate() {
-            assert_eq!(
-                case.key, cases[0][j].key,
-                "Key ordering missmatch {}:{}",
-                i, j
-            );
+            debug_assert_eq!(case.key, cases[0][j].key, "Key ordering mismatch {i}:{j}");
         }
 
         let values = c
@@ -311,13 +335,13 @@ pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
 
         let zero = &g.false_num;
         let next_enforced_value = selector_dot_product(
-            &mut cs.namespace(|| format!("extract result, case {}", i)),
+            &mut cs.namespace(|| format!("extract result, case {i}")),
             &selector,
             &values,
             zero,
         )?;
         result.push(pick(
-            &mut cs.namespace(|| format!("maybe default, case {}", i)),
+            &mut cs.namespace(|| format!("maybe default, case {i}")),
             &is_default,
             default,
             &next_enforced_value,
@@ -486,7 +510,20 @@ mod tests {
     }
 
     #[test]
-    fn multicase_negative1() {
+    #[cfg(debug_assertions)]
+    #[should_panic]
+    fn multicase_negative1_panic() {
+        multicase_negative1_aux();
+    }
+
+    #[test]
+    #[cfg(not(debug_assertions))]
+    fn multicase_negative1_unsatisfied() {
+        multicase_negative1_aux();
+    }
+
+    #[allow(dead_code)]
+    fn multicase_negative1_aux() {
         // Test invalid multicase (repeated keys)
         let mut cs = TestConstraintSystem::<Fr>::new();
         let s = &mut Store::<Fr>::default();
@@ -539,6 +576,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     #[should_panic(expected = "assertion failed: `(left == right)")]
     fn multicase_negative2() {
         // Test invalid multicase (keys ording doesn't match)
@@ -594,7 +632,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "index out of bounds: the len is 2 but the index is 2")]
+    #[cfg(debug_assertions)]
+    #[should_panic]
     fn multicase_negative3() {
         // Test invalid multicase (clauses sizes doesn't match)
         let mut cs = TestConstraintSystem::<Fr>::new();
@@ -652,6 +691,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     #[should_panic(expected = "assertion failed: !cases.is_empty()")]
     fn multicase_negative4() {
         // Test invalid multicase (empty clauses)
@@ -676,7 +716,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "assertion failed: !defaults.is_empty()")]
+    #[cfg(debug_assertions)]
+    #[should_panic]
     fn multicase_negative5() {
         // Test invalid multicase (empty defaults)
         let mut cs = TestConstraintSystem::<Fr>::new();
@@ -726,7 +767,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "assertion failed: !c.is_empty()")]
+    #[cfg(debug_assertions)]
+    #[should_panic]
     fn multicase_negative6() {
         // Test invalid multicase (empty case).
         let mut cs = TestConstraintSystem::<Fr>::new();

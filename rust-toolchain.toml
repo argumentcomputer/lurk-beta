@@ -1,0 +1,6 @@
+[toolchain]
+channel = "1.67.1"
+targets = [ "aarch64-unknown-linux-gnu", "x86_64-unknown-linux-gnu", "x86_64-apple-darwin", "wasm32-unknown-unknown" ]
+components = [ "rustc", "cargo", "clippy", "rustfmt", "rust-src", "rust-analysis", "rust-analyzer" ]
+profile = "default"
+

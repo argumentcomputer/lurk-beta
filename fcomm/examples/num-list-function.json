@@ -1,1 +1,1 @@
-{"fun":{"Source":"(let ((nums '(1 2 3 4 5))) (lambda (f) (f nums)))"},"secret":[7868492603357129560,17868525997814914174,4216196608009063490,381658690423208665],"commitment":"03dbc1ae641b26f564d2ec942f382fb256182024456fbf62bb29728db05948e0"}
+{"fun":{"Source":"(let ((nums '(1 2 3 4 5))) (lambda (f) (f nums)))"}}

@@ -24,7 +24,8 @@ use lurk::{
         nova::{NovaProver, PublicParams},
     },
     scalar_store::ScalarStore,
-    store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store, Tag},
+    store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store},
+    tag::ExprTag,
     writer::Write,
 };
 use once_cell::sync::OnceCell;
@@ -59,7 +60,7 @@ mod base64 {
     }
 }
 
-fn nova_proof_cache<'a>() -> FileMap<Cid, Proof<'a, S1>> {
+fn nova_proof_cache() -> FileMap<Cid, Proof<'static, S1>> {
     FileMap::<Cid, Proof<S1>>::new("nova_proofs").unwrap()
 }
 
@@ -439,7 +440,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
     pub fn from_comm(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
         let digest = *s.hash_expr(ptr).expect("couldn't hash ptr").value();
 
-        assert_eq!(Tag::Comm, ptr.tag());
+        assert_eq!(ExprTag::Comm, ptr.tag());
 
         Commitment { comm: digest }
     }
@@ -555,9 +556,9 @@ impl Expression {
     }
 }
 
-impl Opening<S1> {
+impl<'a> Opening<S1> {
     #[allow(clippy::too_many_arguments)]
-    pub fn apply_and_prove<'a>(
+    pub fn apply_and_prove(
         s: &'a mut Store<S1>,
         input: Ptr<S1>,
         function: Function<S1>,
@@ -571,7 +572,7 @@ impl Opening<S1> {
         Proof::prove_claim(s, claim, limit, only_use_cached_proofs, nova_prover, pp)
     }
 
-    pub fn open_and_prove<'a>(
+    pub fn open_and_prove(
         s: &'a mut Store<S1>,
         request: OpeningRequest<S1>,
         limit: usize,
@@ -650,8 +651,8 @@ impl Opening<S1> {
 
             // public_output = (result_expr (secret . new_fun))
             let cons = public_output.expr;
-            let result_expr = s.car(&cons);
-            let new_comm = s.cdr(&cons);
+            let result_expr = s.car(&cons)?;
+            let new_comm = s.cdr(&cons)?;
 
             let new_secret0 = s.secret(new_comm).expect("secret missing");
             let new_secret = *s.get_expr_hash(&new_secret0).expect("hash missing").value();
@@ -802,7 +803,7 @@ impl<'a> Proof<'a, S1> {
         match &claim {
             Claim::Opening(o) => {
                 if o.status != Status::Terminal {
-                    return Err(Error::OpeningFailure);
+                    return Err(Error::OpeningFailure("Claim status is not Terminal".into()));
                 };
             }
             Claim::Evaluation(e) => {
@@ -819,7 +820,7 @@ impl<'a> Proof<'a, S1> {
         Ok(proof)
     }
 
-    pub fn verify(&self, pp: &'a PublicParams) -> Result<VerificationResult, Error> {
+    pub fn verify(&self, pp: &PublicParams) -> Result<VerificationResult, Error> {
         let (public_inputs, public_outputs) = match self.claim {
             Claim::Evaluation(_) => self.verify_evaluation(),
             Claim::Opening(_) => self.verify_opening(),
@@ -925,7 +926,7 @@ impl Key<Commitment<S1>> for Function<S1> {
     }
 }
 
-impl<'a> Key<Cid> for Proof<'a, S1> {
+impl Key<Cid> for Proof<'_, S1> {
     fn key(&self) -> Cid {
         self.claim.cid()
     }

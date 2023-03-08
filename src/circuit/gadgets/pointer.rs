@@ -8,16 +8,22 @@ use ff::PrimeField;
 
 use crate::{
     field::LurkField,
+    hash_witness::{ConsName, ContName},
     store::{
         ContPtr, Continuation, Expression, IntoHashComponents, Ptr, ScalarContPtr, ScalarPointer,
         ScalarPtr, Store, Thunk,
     },
+    tag::ExprTag,
     writer::Write,
 };
 
 use super::{
-    constraints::{alloc_equal, equal, pick},
+    constraints::{
+        alloc_equal, alloc_equal_const, boolean_to_num, enforce_equal, enforce_implication, pick,
+        pick_const,
+    },
     data::{allocate_constant, hash_poseidon, GlobalAllocations},
+    hashes::{AllocatedConsWitness, AllocatedContWitness},
 };
 
 /// Allocated version of `Ptr`.
@@ -129,9 +135,9 @@ impl<F: LurkField> AllocatedPtr<F> {
 
     pub fn enforce_equal<CS: ConstraintSystem<F>>(&self, cs: &mut CS, other: &Self) {
         // debug_assert_eq!(self.tag.get_value(), other.tag.get_value());
-        equal(cs, || "tags equal", &self.tag, &other.tag);
+        enforce_equal(cs, || "tags equal", &self.tag, &other.tag);
         // debug_assert_eq!(self.hash.get_value(), other.hash.get_value());
-        equal(cs, || "hashes equal", &self.hash, &other.hash);
+        enforce_equal(cs, || "hashes equal", &self.hash, &other.hash);
     }
 
     pub fn alloc_equal<CS: ConstraintSystem<F>>(
@@ -153,6 +159,60 @@ impl<F: LurkField> AllocatedPtr<F> {
         )
     }
 
+    pub fn alloc_tag_equal<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        tag: F,
+    ) -> Result<Boolean, SynthesisError> {
+        alloc_equal_const(&mut cs.namespace(|| "tags equal"), &self.tag, tag)
+    }
+
+    pub fn alloc_hash_equal<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        tag: F,
+    ) -> Result<Boolean, SynthesisError> {
+        alloc_equal_const(&mut cs.namespace(|| "tags equal"), &self.hash, tag)
+    }
+
+    pub fn is_nil<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &GlobalAllocations<F>,
+    ) -> Result<Boolean, SynthesisError> {
+        alloc_equal(cs, self.tag(), g.nil_ptr.tag())
+    }
+    pub fn is_cons<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_cons"), ExprTag::Cons.as_field())
+    }
+    pub fn is_str<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_str"), ExprTag::Str.as_field())
+    }
+    pub fn is_num<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_num"), ExprTag::Num.as_field())
+    }
+    pub fn is_u64<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_u64"), ExprTag::U64.as_field())
+    }
+    pub fn is_char<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_char"), ExprTag::Char.as_field())
+    }
+    pub fn is_comm<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_comm"), ExprTag::Comm.as_field())
+    }
+    pub fn is_sym<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_sym"), ExprTag::Sym.as_field())
+    }
+    pub fn is_fun<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_fun"), ExprTag::Fun.as_field())
+    }
+    pub fn is_thunk<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+    ) -> Result<Boolean, SynthesisError> {
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_thunk"), ExprTag::Thunk.as_field())
+    }
+
     pub fn ptr(&self, store: &Store<F>) -> Option<Ptr<F>> {
         let scalar_ptr = self.scalar_ptr(store)?;
         store.fetch_scalar(&scalar_ptr)
@@ -169,7 +229,7 @@ impl<F: LurkField> AllocatedPtr<F> {
             .unwrap_or_else(|| "<PTR MISSING>".to_string())
     }
 
-    pub fn allocate_thunk_components<CS: ConstraintSystem<F>>(
+    pub fn allocate_thunk_components_unconstrained<CS: ConstraintSystem<F>>(
         &self,
         cs: CS,
         store: &Store<F>,
@@ -201,7 +261,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         Ok(Self { tag, hash })
     }
 
-    pub fn construct_cons<CS: ConstraintSystem<F>>(
+    fn construct_cons<CS: ConstraintSystem<F>>(
         mut cs: CS,
         g: &GlobalAllocations<F>,
         store: &Store<F>,
@@ -225,6 +285,37 @@ impl<F: LurkField> AllocatedPtr<F> {
         Ok(AllocatedPtr {
             tag: g.cons_tag.clone(),
             hash,
+        })
+    }
+
+    pub fn construct_cons_named<CS: ConstraintSystem<F>>(
+        mut cs: CS,
+        g: &GlobalAllocations<F>,
+        car: &AllocatedPtr<F>,
+        cdr: &AllocatedPtr<F>,
+        name: ConsName,
+        allocated_cons_witness: &mut AllocatedConsWitness<F>,
+        not_dummy: &Boolean,
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        let expect_dummy = !(not_dummy.get_value().unwrap_or(false));
+
+        let (allocated_car, allocated_cdr, allocated_digest) =
+            allocated_cons_witness.get_cons(name, expect_dummy);
+
+        let real_car = car.alloc_equal(&mut cs.namespace(|| "real_car"), allocated_car)?;
+        let real_cdr = cdr.alloc_equal(&mut cs.namespace(|| "real_cdr"), allocated_cdr)?;
+        let cons_is_real = and!(cs, &real_car, &real_cdr)?;
+
+        implies!(cs, not_dummy, &cons_is_real);
+
+        if not_dummy.get_value().unwrap_or(false) && !cons_is_real.get_value().unwrap_or(true) {
+            dbg!(name);
+            panic!("uh oh!");
+        }
+
+        Ok(AllocatedPtr {
+            tag: g.cons_tag.clone(),
+            hash: allocated_digest.clone(),
         })
     }
 
@@ -346,6 +437,21 @@ impl<F: LurkField> AllocatedPtr<F> {
     {
         let tag = pick(cs.namespace(|| "tag"), condition, a.tag(), b.tag())?;
         let hash = pick(cs.namespace(|| "hash"), condition, a.hash(), b.hash())?;
+
+        Ok(AllocatedPtr { tag, hash })
+    }
+
+    pub fn pick_const<CS>(
+        mut cs: CS,
+        condition: &Boolean,
+        a: &ScalarPtr<F>,
+        b: &ScalarPtr<F>,
+    ) -> Result<Self, SynthesisError>
+    where
+        CS: ConstraintSystem<F>,
+    {
+        let tag = pick_const(cs.namespace(|| "tag"), condition, *a.tag(), *b.tag())?;
+        let hash = pick_const(cs.namespace(|| "hash"), condition, *a.value(), *b.value())?;
 
         Ok(AllocatedPtr { tag, hash })
     }
@@ -484,9 +590,9 @@ impl<F: LurkField> AllocatedContPtr<F> {
 
     pub fn enforce_equal<CS: ConstraintSystem<F>>(&self, cs: &mut CS, other: &Self) {
         // debug_assert_eq!(self.tag.get_value(), other.tag.get_value());
-        equal(cs, || "tags equal", &self.tag, &other.tag);
+        enforce_equal(cs, || "tags equal", &self.tag, &other.tag);
         // debug_assert_eq!(self.hash.get_value(), other.hash.get_value());
-        equal(cs, || "hashes equal", &self.hash, &other.hash);
+        enforce_equal(cs, || "hashes equal", &self.hash, &other.hash);
     }
 
     pub fn alloc_equal<CS: ConstraintSystem<F>>(
@@ -506,6 +612,14 @@ impl<F: LurkField> AllocatedContPtr<F> {
             &tags_equal,
             &hashes_equal,
         )
+    }
+
+    pub fn alloc_tag_equal<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        tag: F,
+    ) -> Result<Boolean, SynthesisError> {
+        alloc_equal_const(&mut cs.namespace(|| "tags equal"), &self.tag, tag)
     }
 
     pub fn get_cont(&self, store: &Store<F>) -> Option<Continuation<F>> {
@@ -574,22 +688,48 @@ impl<F: LurkField> AllocatedContPtr<F> {
         }
     }
 
-    pub fn construct<CS: ConstraintSystem<F>>(
+    pub fn construct_named<CS: ConstraintSystem<F>>(
         mut cs: CS,
-        store: &Store<F>,
+        name: ContName,
         cont_tag: &AllocatedNum<F>,
         components: &[&dyn AsAllocatedHashComponents<F>; 4],
+        allocated_cont_witness: &mut AllocatedContWitness<F>,
+        not_dummy: &Boolean,
     ) -> Result<Self, SynthesisError> {
-        let components = components
+        let expect_dummy = !(not_dummy.get_value().unwrap_or(false));
+
+        let (found_components, hash) = allocated_cont_witness.get_components(name, expect_dummy);
+
+        let supplied_components: Vec<AllocatedNum<F>> = components
             .iter()
             .flat_map(|c| c.as_allocated_hash_components())
             .cloned()
             .collect();
 
-        let hash = hash_poseidon(
-            cs.namespace(|| "Continuation"),
-            components,
-            store.poseidon_constants().c8(),
+        let mut acc = None;
+
+        for (i, (c1, c2)) in found_components.iter().zip(supplied_components).enumerate() {
+            let component_is_real = equal!(
+                &mut cs.namespace(|| format!("component {i} matches")),
+                c1,
+                &c2
+            )?;
+
+            if let Some(a) = &acc {
+                and!(
+                    &mut cs.namespace(|| format!("accumulate real component conjunction {i}")),
+                    a,
+                    &component_is_real
+                )?;
+            } else {
+                acc = Some(component_is_real.clone());
+            }
+        }
+
+        enforce_implication(
+            &mut cs.namespace(|| format!("not_dummy implies real cont {:?}", &name)),
+            not_dummy,
+            &acc.expect("acc was never initialized"),
         )?;
 
         let cont = AllocatedContPtr {
@@ -597,6 +737,50 @@ impl<F: LurkField> AllocatedContPtr<F> {
             hash,
         };
         Ok(cont)
+    }
+
+    pub fn construct_named_and_not_dummy<CS: ConstraintSystem<F>>(
+        mut cs: CS,
+        name: ContName,
+        cont_tag: &AllocatedNum<F>,
+        components: &[&dyn AsAllocatedHashComponents<F>; 4],
+        allocated_cont_witness: &mut AllocatedContWitness<F>,
+    ) -> Result<(Self, AllocatedNum<F>), SynthesisError> {
+        let (found_components, hash) = allocated_cont_witness.get_components_unconstrained(name);
+
+        let supplied_components: Vec<AllocatedNum<F>> = components
+            .iter()
+            .flat_map(|c| c.as_allocated_hash_components())
+            .cloned()
+            .collect();
+
+        let mut acc = None;
+
+        for (i, (c1, c2)) in found_components.iter().zip(supplied_components).enumerate() {
+            let component_is_real = equal!(
+                &mut cs.namespace(|| format!("component {i} matches")),
+                c1,
+                &c2
+            )?;
+
+            if let Some(a) = &acc {
+                and!(
+                    &mut cs.namespace(|| format!("accumulate real component conjunction {i}")),
+                    a,
+                    &component_is_real
+                )?;
+            } else {
+                acc = Some(component_is_real.clone());
+            }
+        }
+
+        let not_dummy = boolean_num!(cs, &acc.expect("acc was never initialized"))?;
+
+        let cont = AllocatedContPtr {
+            tag: cont_tag.clone(),
+            hash,
+        };
+        Ok((cont, not_dummy))
     }
 
     pub fn from_parts(tag: &AllocatedNum<F>, hash: &AllocatedNum<F>) -> Self {

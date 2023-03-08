@@ -21,7 +21,7 @@ use crate::circuit::{
     },
     CircuitFrame, MultiFrame,
 };
-use crate::error::Error;
+use crate::error::ProofError;
 use crate::eval::{Evaluator, Frame, Witness, IO};
 use crate::field::LurkField;
 use crate::proof::{Prover, PublicParameters};
@@ -33,8 +33,11 @@ pub type G2 = vesta::Point;
 pub type S1 = pallas::Scalar;
 pub type S2 = vesta::Scalar;
 
-pub type SS1 = nova::spartan_with_ipa_pc::RelaxedR1CSSNARK<G1>;
-pub type SS2 = nova::spartan_with_ipa_pc::RelaxedR1CSSNARK<G2>;
+pub type EE1 = nova::provider::ipa_pc::EvaluationEngine<G1>;
+pub type EE2 = nova::provider::ipa_pc::EvaluationEngine<G2>;
+
+pub type SS1 = nova::spartan::RelaxedR1CSSNARK<G1, EE1>;
+pub type SS2 = nova::spartan::RelaxedR1CSSNARK<G2, EE2>;
 
 pub type C1<'a> = MultiFrame<'a, S1, IO<S1>, Witness<S1>>;
 pub type C2 = TrivialTestCircuit<<G2 as Group>::Scalar>;
@@ -88,7 +91,7 @@ impl<F: LurkField> NovaProver<F> {
         env: Ptr<S1>,
         store: &mut Store<S1>,
         limit: usize,
-    ) -> Result<Vec<Frame<IO<S1>, Witness<S1>>>, Error> {
+    ) -> Result<Vec<Frame<IO<S1>, Witness<S1>>>, ProofError> {
         let padding_predicate = |count| self.needs_frame_padding(count);
 
         let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate)?;
@@ -103,10 +106,10 @@ impl<F: LurkField> NovaProver<F> {
         env: Ptr<S1>,
         store: &'a mut Store<S1>,
         limit: usize,
-    ) -> Result<(Proof, Vec<S1>, Vec<S1>, usize), Error> {
+    ) -> Result<(Proof, Vec<S1>, Vec<S1>, usize), ProofError> {
         let frames = self.get_evaluation_frames(expr, env, store, limit)?;
-        let z0 = frames[0].input_vector(store)?;
-        let zi = frames.last().unwrap().output_vector(store)?;
+        let z0 = frames[0].input.to_vector(store)?;
+        let zi = frames.last().unwrap().output.to_vector(store)?;
         let circuits = MultiFrame::from_frames(self.chunk_frame_count(), &frames, store);
         let num_steps = circuits.len();
         let proof =
@@ -135,27 +138,22 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F, IO<F>, Witness<F>> {
         let input_env = AllocatedPtr::by_index(1, z);
         let input_cont = AllocatedContPtr::by_index(2, z);
 
-        let g = if let Some(s) = self.store {
-            GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?
-        } else {
-            let s = Store::default();
-            GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?
-        };
         let count = self.count;
-        let acc = (input_expr, input_env, input_cont);
 
-        let fold_frames = |frames: &Vec<CircuitFrame<F, IO<F>, Witness<F>>>| {
-            frames.iter().fold((0, acc), |(i, allocated_io), frame| {
-                (i + 1, frame.synthesize(cs, i, allocated_io, &g).unwrap())
-            })
-        };
-
-        let (_, (new_expr, new_env, new_cont)) = match self.frames.as_ref() {
-            Some(frames) => fold_frames(frames),
+        let (new_expr, new_env, new_cont) = match self.frames.as_ref() {
+            Some(frames) => {
+                let s = self.store.expect("store missing");
+                let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
+                self.synthesize_frames(cs, s, input_expr, input_env, input_cont, frames, &g)
+            }
             None => {
+                assert!(self.store.is_none());
+                let s = Store::default();
                 let blank_frame = CircuitFrame::blank();
                 let frames = vec![blank_frame; count];
-                fold_frames(&frames)
+
+                let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?;
+                self.synthesize_frames(cs, &s, input_expr, input_env, input_cont, &frames, &g)
             }
         };
 
@@ -187,7 +185,7 @@ impl<'a> Proof<'a> {
         circuits: &[C1<'a>],
         num_iters_per_step: usize,
         z0: Vec<S1>,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, ProofError> {
         assert!(!circuits.is_empty());
         assert_eq!(circuits[0].arity(), z0.len());
         let debug = false;
@@ -221,14 +219,11 @@ impl<'a> Proof<'a> {
 
                 for (i, x) in zi.iter().enumerate() {
                     let allocated =
-                        AllocatedNum::alloc(cs.namespace(|| format!("z{}_1", i)), || Ok(*x))
-                            .map_err(Error::Synthesis)?;
+                        AllocatedNum::alloc(cs.namespace(|| format!("z{i}_1")), || Ok(*x))?;
                     zi_allocated.push(allocated);
                 }
 
-                circuit_primary
-                    .synthesize(&mut cs, zi_allocated.as_slice())
-                    .map_err(Error::Synthesis)?;
+                circuit_primary.synthesize(&mut cs, zi_allocated.as_slice())?;
 
                 assert!(cs.is_satisfied());
             }
@@ -242,18 +237,25 @@ impl<'a> Proof<'a> {
                 z0_secondary.clone(),
             );
             assert!(res.is_ok());
-            recursive_snark = Some(res.map_err(Error::Nova)?);
+            recursive_snark = Some(res?);
         }
 
         Ok(Self::Recursive(Box::new(recursive_snark.unwrap())))
     }
 
-    pub fn compress(self, pp: &'a PublicParams) -> Result<Self, Error> {
+    pub fn compress(self, pp: &'a PublicParams) -> Result<Self, ProofError> {
         match &self {
-            Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(
-                CompressedSNARK::<_, _, _, _, SS1, SS2>::prove(pp, recursive_snark)
-                    .map_err(Error::Nova)?,
-            ))),
+            Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(CompressedSNARK::<
+                _,
+                _,
+                _,
+                _,
+                SS1,
+                SS2,
+            >::prove(
+                pp,
+                recursive_snark,
+            )?))),
             Self::Compressed(_) => Ok(self),
         }
     }
@@ -290,6 +292,7 @@ mod tests {
     use crate::eval::empty_sym_env;
     use crate::proof::Provable;
     use crate::store::ContPtr;
+    use crate::tag::{Op, Op1, Op2};
 
     use bellperson::{
         util_cs::{metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta},
@@ -298,8 +301,9 @@ mod tests {
     use pallas::Scalar as Fr;
 
     const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
-
-    fn nova_test_aux(
+    //    const CHUNK_FRAME_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
+    const CHUNK_FRAME_COUNTS_TO_TEST: [usize; 1] = [1];
+    fn test_aux(
         s: &mut Store<Fr>,
         expr: &str,
         expected_result: Option<Ptr<Fr>>,
@@ -308,17 +312,22 @@ mod tests {
         expected_emitted: Option<Vec<Ptr<Fr>>>,
         expected_iterations: usize,
     ) {
-        nova_test_full_aux(
-            s,
-            expr,
-            expected_result,
-            expected_env,
-            expected_cont,
-            expected_emitted,
-            expected_iterations,
-            DEFAULT_CHUNK_FRAME_COUNT,
-            false,
-        )
+        dbg!(expr);
+
+        for chunk_size in CHUNK_FRAME_COUNTS_TO_TEST {
+            nova_test_full_aux(
+                s,
+                expr,
+                expected_result,
+                expected_env,
+                expected_cont,
+                expected_emitted.as_ref(),
+                expected_iterations,
+                chunk_size,
+                false,
+                None,
+            )
+        }
     }
 
     fn nova_test_full_aux(
@@ -327,22 +336,49 @@ mod tests {
         expected_result: Option<Ptr<Fr>>,
         expected_env: Option<Ptr<Fr>>,
         expected_cont: Option<ContPtr<Fr>>,
-        expected_emitted: Option<Vec<Ptr<Fr>>>,
+        expected_emitted: Option<&Vec<Ptr<Fr>>>,
         expected_iterations: usize,
         chunk_frame_count: usize,
         check_nova: bool,
+        limit: Option<usize>,
     ) {
-        let limit = 100000;
         let expr = s.read(expr).unwrap();
+        nova_test_full_aux2(
+            s,
+            expr,
+            expected_result,
+            expected_env,
+            expected_cont,
+            expected_emitted,
+            expected_iterations,
+            chunk_frame_count,
+            check_nova,
+            limit,
+        )
+    }
 
-        let e = empty_sym_env(&s);
+    fn nova_test_full_aux2(
+        s: &mut Store<Fr>,
+        expr: Ptr<Fr>,
+        expected_result: Option<Ptr<Fr>>,
+        expected_env: Option<Ptr<Fr>>,
+        expected_cont: Option<ContPtr<Fr>>,
+        expected_emitted: Option<&Vec<Ptr<Fr>>>,
+        expected_iterations: usize,
+        chunk_frame_count: usize,
+        check_nova: bool,
+        limit: Option<usize>,
+    ) {
+        let limit = limit.unwrap_or(10000);
+
+        let e = empty_sym_env(s);
 
         let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
 
         if check_nova {
             let pp = public_params(chunk_frame_count);
             let (proof, z0, zi, num_steps) = nova_prover
-                .evaluate_and_prove(&pp, expr, empty_sym_env(&s), s, limit)
+                .evaluate_and_prove(&pp, expr, empty_sym_env(s), s, limit)
                 .unwrap();
 
             let res = proof.verify(&pp, num_steps, z0.clone(), &zi);
@@ -361,7 +397,7 @@ mod tests {
             .get_evaluation_frames(expr, e, s, limit)
             .unwrap();
 
-        let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, &s);
+        let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, s);
 
         let len = multiframes.len();
 
@@ -375,13 +411,15 @@ mod tests {
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize blank");
 
-        for multiframe in multiframes.iter() {
+        for (_i, multiframe) in multiframes.iter().enumerate() {
             let mut cs = TestConstraintSystem::new();
             multiframe.clone().synthesize(&mut cs).unwrap();
 
             if let Some(prev) = previous_frame {
-                assert!(prev.precedes(&multiframe));
+                assert!(prev.precedes(multiframe));
             }
+
+            // dbg!(i);
             assert!(cs.is_satisfied());
             assert!(cs.verify(&multiframe.public_inputs()));
 
@@ -396,9 +434,9 @@ mod tests {
         if let Some(expected_emitted) = expected_emitted {
             let emitted_vec: Vec<_> = frames
                 .iter()
-                .flat_map(|frame| frame.output.maybe_emitted_expression(&s))
+                .flat_map(|frame| frame.output.maybe_emitted_expression(s))
                 .collect();
-            assert_eq!(expected_emitted, emitted_vec);
+            assert_eq!(expected_emitted, &emitted_vec);
         }
 
         if let Some(expected_result) = expected_result {
@@ -423,31 +461,31 @@ mod tests {
     ////////////////////////////////////////////////////////////////////////////
 
     #[test]
-    fn test_outer_prove_binop() {
+    fn test_prove_binop() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
     #[should_panic]
     // This tests the testing mechanism. Since the supplied expected value is wrong,
     // the test should panic on an assertion failure.
-    fn test_outer_prove_binop_fail() {
+    fn test_prove_binop_fail() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(2);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
     #[ignore]
-    fn outer_prove_arithmetic_let() {
+    fn test_prove_arithmetic_let() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((a 5)
                       (b 1)
@@ -463,7 +501,7 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_eq() {
+    fn test_prove_eq() {
         let s = &mut Store::<Fr>::default();
         let expected = s.t();
         let terminal = s.get_cont_terminal();
@@ -477,59 +515,60 @@ mod tests {
             3,
             DEFAULT_CHUNK_FRAME_COUNT,
             true,
+            None,
         );
     }
 
     #[test]
     #[ignore]
-    fn outer_prove_num_equal() {
+    fn test_prove_num_equal() {
         let s = &mut Store::<Fr>::default();
         let expected = s.t();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(= 5 5)", Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, "(= 5 5)", Some(expected), None, Some(terminal), None, 3);
 
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(= 5 6)", Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, "(= 5 6)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
-    fn outer_prove_invalid_num_equal() {
+    fn test_prove_invalid_num_equal() {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(= 5 nil)", Some(expected), None, Some(error), None, 3);
+        test_aux(s, "(= 5 nil)", Some(expected), None, Some(error), None, 3);
 
         let expected = s.num(5);
-        nova_test_aux(s, "(= nil 5)", Some(expected), None, Some(error), None, 3);
+        test_aux(s, "(= nil 5)", Some(expected), None, Some(error), None, 3);
     }
 
     #[test]
-    fn outer_prove_equal() {
+    fn test_prove_equal() {
         let s = &mut Store::<Fr>::default();
         let nil = s.nil();
         let t = s.t();
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, "(eq 5 nil)", Some(nil), None, Some(terminal), None, 3);
-        nova_test_aux(s, "(eq nil 5)", Some(nil), None, Some(terminal), None, 3);
-        nova_test_aux(s, "(eq nil nil)", Some(t), None, Some(terminal), None, 3);
-        nova_test_aux(s, "(eq 5 5)", Some(t), None, Some(terminal), None, 3);
+        test_aux(s, "(eq 5 nil)", Some(nil), None, Some(terminal), None, 3);
+        test_aux(s, "(eq nil 5)", Some(nil), None, Some(terminal), None, 3);
+        test_aux(s, "(eq nil nil)", Some(t), None, Some(terminal), None, 3);
+        test_aux(s, "(eq 5 5)", Some(t), None, Some(terminal), None, 3);
     }
 
     #[test]
-    fn outer_prove_quote_end_is_nil_error() {
+    fn test_prove_quote_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(quote (1) (2))", None, None, Some(error), None, 1);
+        test_aux(s, "(quote (1) (2))", None, None, Some(error), None, 1);
     }
 
     #[test]
-    fn outer_prove_if() {
+    fn test_prove_if() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(if t 5 6)",
             Some(expected),
@@ -541,7 +580,7 @@ mod tests {
 
         let expected = s.num(6);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(if nil 5 6)",
             Some(expected),
@@ -553,11 +592,11 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_if_end_is_nil_error() {
+    fn test_prove_if_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let error = s.get_cont_error();
-        nova_test_aux(
+        test_aux(
             s,
             "(if nil 5 6 7)",
             Some(expected),
@@ -570,11 +609,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_if_fully_evaluates() {
+    fn test_prove_if_fully_evaluates() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(10);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(if t (+ 5 5) 6)",
             Some(expected),
@@ -587,11 +626,11 @@ mod tests {
 
     #[test]
     #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
-    fn outer_prove_recursion1() {
+    fn test_prove_recursion1() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((exp (lambda (base)
                                (lambda (exponent)
@@ -609,11 +648,11 @@ mod tests {
 
     #[test]
     #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
-    fn outer_prove_recursion2() {
+    fn test_prove_recursion2() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((exp (lambda (base)
                                   (lambda (exponent)
@@ -630,7 +669,7 @@ mod tests {
         );
     }
 
-    fn outer_prove_unop_regression_aux(chunk_count: usize) {
+    fn test_prove_unop_regression_aux(chunk_count: usize) {
         let s = &mut Store::<Fr>::default();
         let expected = s.sym("t");
         let terminal = s.get_cont_terminal();
@@ -644,6 +683,7 @@ mod tests {
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
             false,
+            None,
         );
 
         let expected = s.num(1);
@@ -657,6 +697,7 @@ mod tests {
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
             false,
+            None,
         );
 
         let expected = s.num(2);
@@ -670,6 +711,7 @@ mod tests {
             2,
             chunk_count, // This needs to be 1 to exercise the bug.
             false,
+            None,
         );
 
         let expected = s.num(123);
@@ -683,26 +725,27 @@ mod tests {
             3,
             chunk_count,
             false,
+            None,
         )
     }
 
     #[test]
     #[ignore]
-    fn outer_prove_unop_regression() {
+    fn test_prove_unop_regression() {
         // We need to at least use chunk size 1 to exercise the regression.
         // Also use a non-1 value to check the MultiFrame case.
         for i in 1..2 {
-            outer_prove_unop_regression_aux(i);
+            test_prove_unop_regression_aux(i);
         }
     }
 
     #[test]
     #[ignore]
-    fn outer_prove_emit_output() {
+    fn test_prove_emit_output() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(emit 123)",
             Some(expected),
@@ -715,11 +758,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate() {
+    fn test_prove_evaluate() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(99);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "((lambda (x) x) 99)",
             Some(expected),
@@ -732,11 +775,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate2() {
+    fn test_prove_evaluate2() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(99);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "((lambda (y)
                     ((lambda (x) y) 888))
@@ -751,11 +794,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate3() {
+    fn test_prove_evaluate3() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(999);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "((lambda (y)
                      ((lambda (x)
@@ -773,11 +816,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate4() {
+    fn test_prove_evaluate4() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(888);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "((lambda (y)
                      ((lambda (x)
@@ -796,11 +839,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate5() {
+    fn test_prove_evaluate5() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(999);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(((lambda (fn)
                       (lambda (x) (fn x)))
@@ -816,11 +859,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_sum() {
+    fn test_prove_evaluate_sum() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(9);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(+ 2 (+ 3 4))",
             Some(expected),
@@ -832,63 +875,110 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_evaluate_binop_rest_is_nil() {
+    fn test_prove_binop_rest_is_nil() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(9);
         let error = s.get_cont_error();
-        nova_test_aux(s, "(- 9 8 7)", Some(expected), None, Some(error), None, 2);
-        nova_test_aux(s, "(= 9 8 7)", Some(expected), None, Some(error), None, 2);
+        test_aux(s, "(- 9 8 7)", Some(expected), None, Some(error), None, 2);
+        test_aux(s, "(= 9 8 7)", Some(expected), None, Some(error), None, 2);
+    }
+
+    fn op_syntax_error<T: Op + Copy>() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        let mut test = |op: T| {
+            let name = op.symbol_name();
+
+            if !op.supports_arity(0) {
+                let expr = format!("({name})");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
+            if !op.supports_arity(1) {
+                let expr = format!("({name} 123)");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
+            if !op.supports_arity(2) {
+                let expr = format!("({name} 123 456)");
+                dbg!(&expr);
+                test_aux(s, &expr, None, None, Some(error), None, 1);
+            }
+
+            if !op.supports_arity(3) {
+                let expr = format!("({name} 123 456 789)");
+                dbg!(&expr);
+                let iterations = if op.supports_arity(2) { 2 } else { 1 };
+                test_aux(s, &expr, None, None, Some(error), None, iterations);
+            }
+        };
+
+        for op in T::all() {
+            test(*op);
+        }
     }
 
     #[test]
-    fn outer_prove_evaluate_diff() {
+    #[ignore]
+    fn test_prove_unop_syntax_error() {
+        op_syntax_error::<Op1>();
+    }
+
+    #[test]
+    #[ignore]
+    fn test_prove_binop_syntax_error() {
+        op_syntax_error::<Op2>();
+    }
+
+    #[test]
+    fn test_prove_diff() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(4);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(- 9 5)", Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, "(- 9 5)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_product() {
+    fn test_prove_product() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(45);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(* 9 5)", Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, "(* 9 5)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_quotient() {
+    fn test_prove_quotient() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(7);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(/ 21 3)", Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, "(/ 21 3)", Some(expected), None, Some(terminal), None, 3);
     }
 
     #[test]
-    fn outer_prove_error_div_by_zero() {
+    fn test_prove_error_div_by_zero() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(0);
         let error = s.get_cont_error();
-        nova_test_aux(s, "(/ 21 0)", Some(expected), None, Some(error), None, 3);
+        test_aux(s, "(/ 21 0)", Some(expected), None, Some(error), None, 3);
     }
 
     #[test]
-    fn outer_prove_error_invalid_type_and_not_cons() {
+    fn test_prove_error_invalid_type_and_not_cons() {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(/ 21 nil)", Some(expected), None, Some(error), None, 3);
+        test_aux(s, "(/ 21 nil)", Some(expected), None, Some(error), None, 3);
     }
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_adder() {
+    fn test_prove_adder() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(((lambda (x)
                     (lambda (y)
@@ -904,11 +994,11 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_evaluate_current_env_simple() {
+    fn test_prove_current_env_simple() {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(current-env)",
             Some(expected),
@@ -920,11 +1010,11 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_evaluate_current_env_rest_is_nil_error() {
+    fn test_prove_current_env_rest_is_nil_error() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.nil();
+        let expected = s.read("(current-env a)").unwrap();
         let error = s.get_cont_error();
-        nova_test_aux(
+        test_aux(
             s,
             "(current-env a)",
             Some(expected),
@@ -937,11 +1027,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_let_simple() {
+    fn test_prove_let_simple() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(1);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((a 1))
                   a)",
@@ -954,53 +1044,53 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_evaluate_let_end_is_nil_error() {
+    fn test_prove_let_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(let ((a 1 2)) a)", None, None, Some(error), None, 1);
+        test_aux(s, "(let ((a 1 2)) a)", None, None, Some(error), None, 1);
     }
 
     #[test]
-    fn outer_prove_evaluate_letrec_end_is_nil_error() {
+    fn test_prove_letrec_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(letrec ((a 1 2)) a)", None, None, Some(error), None, 1);
+        test_aux(s, "(letrec ((a 1 2)) a)", None, None, Some(error), None, 1);
     }
 
     #[test]
-    fn outer_prove_evaluate_let_empty_error() {
+    fn test_prove_let_empty_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(let)", None, None, Some(error), None, 1);
+        test_aux(s, "(let)", None, None, Some(error), None, 1);
     }
 
     #[test]
-    fn outer_prove_evaluate_let_empty_body_error() {
+    fn test_prove_let_empty_body_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(let ((a 1)))", None, None, Some(error), None, 1);
+        test_aux(s, "(let ((a 1)))", None, None, Some(error), None, 1);
     }
 
     #[test]
-    fn outer_prove_evaluate_letrec_empty_error() {
+    fn test_prove_letrec_empty_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(letrec)", None, None, Some(error), None, 1);
+        test_aux(s, "(letrec)", None, None, Some(error), None, 1);
     }
 
     #[test]
-    fn outer_prove_evaluate_letrec_empty_body_error() {
+    fn test_prove_letrec_empty_body_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(letrec ((a 1)))", None, None, Some(error), None, 1);
+        test_aux(s, "(letrec ((a 1)))", None, None, Some(error), None, 1);
     }
 
     #[test]
-    fn outer_prove_evaluate_let_body_nil() {
+    fn test_prove_let_body_nil() {
         let s = &mut Store::<Fr>::default();
         let expected = s.t();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(eq nil (let () nil))",
             Some(expected),
@@ -1012,26 +1102,26 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_evaluate_let_rest_body_is_nil_error() {
+    fn test_prove_let_rest_body_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(let ((a 1)) a 1)", None, None, Some(error), None, 1);
+        test_aux(s, "(let ((a 1)) a 1)", None, None, Some(error), None, 1);
     }
 
     #[test]
-    fn outer_prove_evaluate_letrec_rest_body_is_nil_error() {
+    fn test_prove_letrec_rest_body_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(letrec ((a 1)) a 1)", None, None, Some(error), None, 1);
+        test_aux(s, "(letrec ((a 1)) a 1)", None, None, Some(error), None, 1);
     }
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_let_null_bindings() {
+    fn test_prove_let_null_bindings() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let () (+ 1 2))",
             Some(expected),
@@ -1043,11 +1133,11 @@ mod tests {
     }
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_letrec_null_bindings() {
+    fn test_prove_letrec_null_bindings() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec () (+ 1 2))",
             Some(expected),
@@ -1060,11 +1150,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_let() {
+    fn test_prove_let() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(6);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((a 1)
                        (b 2)
@@ -1080,11 +1170,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_arithmetic() {
+    fn test_prove_arithmetic() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(20);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "((((lambda (x)
                       (lambda (y)
@@ -1104,31 +1194,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_arithmetic_let() {
-        let s = &mut Store::<Fr>::default();
-        let expected = s.num(20);
-        let terminal = s.get_cont_terminal();
-        nova_test_aux(
-            s,
-            "(let ((x 2)
-                        (y 3)
-                        (z 4))
-                   (* z (+ x y)))",
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            18,
-        );
-    }
-
-    #[test]
-    #[ignore]
-    fn outer_prove_evaluate_comparison() {
+    fn test_prove_comparison() {
         let s = &mut Store::<Fr>::default();
         let expected = s.t();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((x 2)
                        (y 3)
@@ -1145,11 +1215,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_conditional() {
+    fn test_prove_conditional() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((true (lambda (a)
                                (lambda (b)
@@ -1173,11 +1243,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_conditional2() {
+    fn test_prove_conditional2() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(6);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((true (lambda (a)
                                (lambda (b)
@@ -1201,11 +1271,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_fundamental_conditional_bug() {
+    fn test_prove_fundamental_conditional_bug() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((true (lambda (a)
                                (lambda (b)
@@ -1226,28 +1296,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_if() {
-        let s = &mut Store::<Fr>::default();
-        let expected = s.num(6);
-        let terminal = s.get_cont_terminal();
-        nova_test_aux(
-            s,
-            "(if nil 5 6)",
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            3,
-        );
-    }
-
-    #[test]
-    #[ignore]
-    fn outer_prove_evaluate_fully_evaluates() {
+    fn test_prove_fully_evaluates() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(10);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(if t (+ 5 5) 6)",
             Some(expected),
@@ -1260,11 +1313,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_recursion() {
+    fn test_prove_recursion() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((exp (lambda (base)
                                    (lambda (exponent)
@@ -1282,11 +1335,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_recursion_multiarg() {
+    fn test_prove_recursion_multiarg() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((exp (lambda (base exponent)
                                    (if (= 0 exponent)
@@ -1303,11 +1356,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_recursion_optimized() {
+    fn test_prove_recursion_optimized() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((exp (lambda (base)
                                 (letrec ((base-inner
@@ -1327,11 +1380,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_tail_recursion() {
+    fn test_prove_tail_recursion() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((exp (lambda (base)
                                    (lambda (exponent-remaining)
@@ -1350,11 +1403,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_tail_recursion_somewhat_optimized() {
+    fn test_prove_tail_recursion_somewhat_optimized() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((exp (lambda (base)
                                    (letrec ((base-inner
@@ -1375,11 +1428,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_no_mutual_recursion() {
+    fn test_prove_no_mutual_recursion() {
         let s = &mut Store::<Fr>::default();
         let expected = s.t();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((even (lambda (n)
                                   (if (= 0 n)
@@ -1400,10 +1453,10 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_no_mutual_recursion_error() {
+    fn test_prove_no_mutual_recursion_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((even (lambda (n)
                                   (if (= 0 n)
@@ -1424,11 +1477,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_cons1() {
+    fn test_prove_cons1() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(1);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(car (cons 1 2))",
             Some(expected),
@@ -1440,40 +1493,39 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_evaluate_car_end_is_nil_error() {
+    fn test_prove_car_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(car (1 2) 3)", None, None, Some(error), None, 1);
+        test_aux(s, "(car (1 2) 3)", None, None, Some(error), None, 1);
     }
 
     #[test]
-    fn outer_prove_evaluate_cdr_end_is_nil_error() {
+    fn test_prove_cdr_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(cdr (1 2) 3)", None, None, Some(error), None, 1);
+        test_aux(s, "(cdr (1 2) 3)", None, None, Some(error), None, 1);
     }
 
     #[test]
-    fn outer_prove_evaluate_atom_end_is_nil_error() {
+    fn test_prove_atom_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(atom 123 4)", None, None, Some(error), None, 1);
+        test_aux(s, "(atom 123 4)", None, None, Some(error), None, 1);
     }
 
     #[test]
-    fn outer_prove_evaluate_emit_end_is_nil_error() {
+    fn test_prove_emit_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "(emit 123 4)", None, None, Some(error), None, 1);
+        test_aux(s, "(emit 123 4)", None, None, Some(error), None, 1);
     }
 
     #[test]
-    #[ignore]
-    fn outer_prove_evaluate_cons2() {
+    fn test_prove_cons2() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(2);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(cdr (cons 1 2))",
             Some(expected),
@@ -1485,12 +1537,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
-    fn outer_prove_evaluate_zero_arg_lambda1() {
+    fn test_prove_zero_arg_lambda1() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "((lambda () 123))",
             Some(expected),
@@ -1502,12 +1553,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
-    fn outer_prove_evaluate_zero_arg_lambda2() {
+    fn test_prove_zero_arg_lambda2() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(10);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((x 9) (f (lambda () (+ x 1)))) (f))",
             Some(expected),
@@ -1519,7 +1569,7 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_evaluate_zero_arg_lambda3() {
+    fn test_prove_zero_arg_lambda3() {
         let s = &mut Store::<Fr>::default();
         let expected = {
             let arg = s.sym("x");
@@ -1529,7 +1579,7 @@ mod tests {
             s.intern_fun(arg, body, env)
         };
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        nova_test_full_aux(
             s,
             "((lambda (x) 123))",
             Some(expected),
@@ -1537,26 +1587,45 @@ mod tests {
             Some(terminal),
             None,
             3,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            false,
+            None,
         );
     }
 
     #[test]
-    fn outer_prove_evaluate_zero_arg_lambda4() {
+    fn test_prove_zero_arg_lambda4() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, "((lambda () 123) 1)", None, None, Some(error), None, 3);
+        test_aux(s, "((lambda () 123) 1)", None, None, Some(error), None, 3);
     }
 
     #[test]
-    fn outer_prove_evaluate_zero_arg_lambda5() {
+    fn test_prove_zero_arg_lambda5() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.read("(123)").unwrap();
+        let error = s.get_cont_error();
+        test_aux(s, "(123)", Some(expected), None, Some(error), None, 1);
+    }
+
+    #[test]
+    fn test_prove_zero_arg_lambda6() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let error = s.get_cont_error();
-        nova_test_aux(s, "(123)", Some(expected), None, Some(error), None, 2);
+        test_aux(
+            s,
+            "((emit 123))",
+            Some(expected),
+            None,
+            Some(error),
+            None,
+            5,
+        );
     }
 
     #[test]
-    fn outer_prove_nested_let_closure_regression() {
+    fn test_prove_nested_let_closure_regression() {
         let s = &mut Store::<Fr>::default();
         let terminal = s.get_cont_terminal();
         let expected = s.num(6);
@@ -1564,16 +1633,16 @@ mod tests {
                           (x 6)
                           (data (data-function)))
                       x)";
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 14);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 14);
     }
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_minimal_tail_call() {
+    fn test_prove_minimal_tail_call() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec
                    ((f (lambda (x)
@@ -1591,11 +1660,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_cons_in_function1() {
+    fn test_prove_cons_in_function1() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(2);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(((lambda (a)
                     (lambda (b)
@@ -1612,11 +1681,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_cons_in_function2() {
+    fn test_prove_cons_in_function2() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(((lambda (a)
                     (lambda (b)
@@ -1633,11 +1702,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_multiarg_eval_bug() {
+    fn test_prove_multiarg_eval_bug() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(2);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(car (cdr '(1 2 3 4)))",
             Some(expected),
@@ -1650,11 +1719,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_multiple_letrec_bindings() {
+    fn test_prove_multiple_letrec_bindings() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec
                    ((x 888)
@@ -1673,11 +1742,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_tail_call2() {
+    fn test_prove_tail_call2() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec
                    ((f (lambda (x)
@@ -1696,11 +1765,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_multiple_letrecstar_bindings() {
+    fn test_prove_multiple_letrecstar_bindings() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(13);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((double (lambda (x) (* 2 x)))
                            (square (lambda (x) (* x x))))
@@ -1715,11 +1784,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_multiple_letrecstar_bindings_referencing() {
+    fn test_prove_multiple_letrecstar_bindings_referencing() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(11);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((double (lambda (x) (* 2 x)))
                            (double-inc (lambda (x) (+ 1 (double x)))))
@@ -1734,11 +1803,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_multiple_letrecstar_bindings_recursive() {
+    fn test_prove_multiple_letrecstar_bindings_recursive() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(33);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((exp (lambda (base exponent)
                                   (if (= 0 exponent)
@@ -1764,11 +1833,11 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_dont_discard_rest_env() {
+    fn test_prove_dont_discard_rest_env() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(18);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(let ((z 9))
                    (letrec ((a 1)
@@ -1785,7 +1854,7 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_evaluate_fibonacci() {
+    fn test_prove_fibonacci() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(1);
         let terminal = s.get_cont_terminal();
@@ -1807,12 +1876,13 @@ mod tests {
             89,
             5,
             false,
+            None,
         );
     }
 
     // #[test]
     // #[ignore]
-    // fn outer_prove_evaluate_fibonacci_100() {
+    // fn test_prove_fibonacci_100() {
     //     let s = &mut Store::<Fr>::default();
     //     let expected = s.read("354224848179261915075").unwrap();
     //     let terminal = s.get_cont_terminal();
@@ -1838,13 +1908,13 @@ mod tests {
     // }
 
     #[test]
-    fn outer_prove_terminal_continuation_regression() {
+    fn test_prove_terminal_continuation_regression() {
         let s = &mut Store::<Fr>::default();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((a (lambda (x) (cons 2 2))))
-                     (a 1))",
+               (a 1))",
             None,
             None,
             Some(terminal),
@@ -1855,15 +1925,15 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn outer_prove_chained_functional_commitment() {
+    fn test_prove_chained_functional_commitment() {
         let s = &mut Store::<Fr>::default();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             "(letrec ((secret 12345)
-                       (a (lambda (acc x)
-                            (let ((acc (+ acc x)))
-                              (cons acc (cons secret (a acc)))))))
+                      (a (lambda (acc x)
+                           (let ((acc (+ acc x)))
+                             (cons acc (cons secret (a acc)))))))
                 (a 0 5))",
             None,
             None,
@@ -1874,20 +1944,20 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_begin_empty() {
+    fn test_prove_begin_empty() {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, "(begin)", Some(expected), None, Some(terminal), None, 2);
+        test_aux(s, "(begin)", Some(expected), None, Some(terminal), None, 2);
     }
 
     #[test]
-    fn outer_prove_begin_emit() {
+    fn test_prove_begin_emit() {
         let s = &mut Store::<Fr>::default();
         let expr = "(begin (emit 1) (emit 2) (emit 3))";
         let expected_expr = s.num(3);
         let expected_emitted = vec![s.num(1), s.num(2), s.num(3)];
-        nova_test_aux(
+        test_aux(
             s,
             expr,
             Some(expected_expr),
@@ -1899,11 +1969,11 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_str_car() {
+    fn test_prove_str_car() {
         let s = &mut Store::<Fr>::default();
         let expected_a = s.read(r#"#\a"#).unwrap();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(car "apple")"#,
             Some(expected_a),
@@ -1915,11 +1985,11 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_str_cdr() {
+    fn test_prove_str_cdr() {
         let s = &mut Store::<Fr>::default();
         let expected_pple = s.read(r#" "pple" "#).unwrap();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(cdr "apple")"#,
             Some(expected_pple),
@@ -1931,11 +2001,11 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_str_car_empty() {
+    fn test_prove_str_car_empty() {
         let s = &mut Store::<Fr>::default();
         let expected_nil = s.nil();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(car "")"#,
             Some(expected_nil),
@@ -1947,11 +2017,11 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_str_cdr_empty() {
+    fn test_prove_str_cdr_empty() {
         let s = &mut Store::<Fr>::default();
-        let expected_empty_str = s.intern_str(&"");
+        let expected_empty_str = s.intern_str("");
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(cdr "")"#,
             Some(expected_empty_str),
@@ -1963,11 +2033,11 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_strcons() {
+    fn test_prove_strcons() {
         let s = &mut Store::<Fr>::default();
         let expected_apple = s.read(r#" "apple" "#).unwrap();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(strcons #\a "pple")"#,
             Some(expected_apple),
@@ -1979,25 +2049,25 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_str_cons_error() {
+    fn test_prove_str_cons_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, r#"(strcons #\a 123)"#, None, None, Some(error), None, 3);
+        test_aux(s, r#"(strcons #\a 123)"#, None, None, Some(error), None, 3);
     }
 
     #[test]
-    fn outer_prove_one_arg_cons_error() {
+    fn test_prove_one_arg_cons_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, r#"(cons "")"#, None, None, Some(error), None, 1);
+        test_aux(s, r#"(cons "")"#, None, None, Some(error), None, 1);
     }
 
     #[test]
-    fn outer_prove_car_nil() {
+    fn test_prove_car_nil() {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(car NIL)"#,
             Some(expected),
@@ -2009,11 +2079,11 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_cdr_nil() {
+    fn test_prove_cdr_nil() {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(cdr NIL)"#,
             Some(expected),
@@ -2025,34 +2095,60 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_car_cdr_invalid_tag_error_sym() {
+    fn test_prove_car_cdr_invalid_tag_error_sym() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, r#"(car car)"#, None, None, Some(error), None, 2);
-        nova_test_aux(s, r#"(cdr car)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(car car)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(cdr car)"#, None, None, Some(error), None, 2);
     }
 
     #[test]
-    fn outer_prove_car_cdr_invalid_tag_error_char() {
+    fn test_prove_car_cdr_invalid_tag_error_char() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, r#"(car #\a)"#, None, None, Some(error), None, 2);
-        nova_test_aux(s, r#"(cdr #\a)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(car #\a)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(cdr #\a)"#, None, None, Some(error), None, 2);
     }
 
     #[test]
-    fn outer_prove_car_cdr_invalid_tag_error_num() {
+    fn test_prove_car_cdr_invalid_tag_error_num() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(s, r#"(car 42)"#, None, None, Some(error), None, 2);
-        nova_test_aux(s, r#"(cdr 42)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(car 42)"#, None, None, Some(error), None, 2);
+        test_aux(s, r#"(cdr 42)"#, None, None, Some(error), None, 2);
     }
 
     #[test]
-    fn outer_prove_car_cdr_invalid_tag_error_lambda() {
+    fn test_prove_car_cdr_of_cons() {
+        let s = &mut Store::<Fr>::default();
+        let res1 = s.num(1);
+        let res2 = s.num(2);
+        let terminal = s.get_cont_terminal();
+        test_aux(
+            s,
+            r#"(car (cons 1 2))"#,
+            Some(res1),
+            None,
+            Some(terminal),
+            None,
+            5,
+        );
+        test_aux(
+            s,
+            r#"(cdr (cons 1 2))"#,
+            Some(res2),
+            None,
+            Some(terminal),
+            None,
+            5,
+        );
+    }
+
+    #[test]
+    fn test_prove_car_cdr_invalid_tag_error_lambda() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        nova_test_aux(
+        test_aux(
             s,
             r#"(car (lambda (x) x))"#,
             None,
@@ -2061,7 +2157,7 @@ mod tests {
             None,
             2,
         );
-        nova_test_aux(
+        test_aux(
             s,
             r#"(cdr (lambda (x) x))"#,
             None,
@@ -2073,258 +2169,258 @@ mod tests {
     }
 
     #[test]
-    fn outer_prove_hide_open() {
+    fn test_prove_hide_open() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open (hide 123 456))";
         let expected = s.num(456);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
     }
 
     #[test]
-    fn outer_prove_hide_secret() {
+    fn test_prove_hide_wrong_secret_type() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(hide 'x 456)";
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn test_prove_hide_secret() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret (hide 123 456))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
     }
 
     #[test]
-    fn outer_prove_hide_open_sym() {
+    fn test_prove_hide_open_sym() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open (hide 123 'x))";
         let x = s.sym("x");
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(x), None, Some(terminal), None, 5);
+        test_aux(s, expr, Some(x), None, Some(terminal), None, 5);
     }
 
     #[test]
-    fn outer_prove_commit_open_sym() {
+    fn test_prove_commit_open_sym() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open (commit 'x))";
         let x = s.sym("x");
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(x), None, Some(terminal), None, 4);
+        test_aux(s, expr, Some(x), None, Some(terminal), None, 4);
     }
 
     #[test]
-    fn outer_prove_commit_open() {
+    fn test_prove_commit_open() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open (commit 123))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
     }
 
     #[test]
-    fn outer_prove_commit_error() {
+    fn test_prove_commit_error() {
         let s = &mut Store::<Fr>::default();
         let expr = "(commit 123 456)";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+        test_aux(s, expr, None, None, Some(error), None, 1);
     }
 
     #[test]
-    fn outer_prove_open_error() {
+    fn test_prove_open_error() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 123 456)";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 1);
+        test_aux(s, expr, None, None, Some(error), None, 1);
     }
 
     #[test]
-    fn outer_prove_open_wrong_type() {
+    fn test_prove_open_wrong_type() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 'asdf)";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+        test_aux(s, expr, None, None, Some(error), None, 2);
     }
 
     #[test]
-    fn outer_prove_secret_wrong_type() {
+    fn test_prove_secret_wrong_type() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret 'asdf)";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+        test_aux(s, expr, None, None, Some(error), None, 2);
     }
 
     #[test]
-    fn outer_prove_secret_error() {
-        let s = &mut Store::<Fr>::default();
-        let expr = "(secret 123 456)";
-        let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 1);
-    }
-
-    #[test]
-    fn outer_prove_num_error() {
-        let s = &mut Store::<Fr>::default();
-        let expr = "(num 123 456)";
-        let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 1);
-    }
-
-    #[test]
-    fn outer_prove_comm_error() {
-        let s = &mut Store::<Fr>::default();
-        let expr = "(comm 123 456)";
-        let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 1);
-    }
-
-    #[test]
-    fn outer_prove_char_error() {
-        let s = &mut Store::<Fr>::default();
-        let expr = "(char 123 456)";
-        let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 1);
-    }
-
-    #[test]
-    fn outer_prove_commit_secret() {
+    fn test_prove_commit_secret() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret (commit 123))";
         let expected = s.num(0);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
     }
 
     #[test]
-    fn outer_prove_num() {
+    fn test_prove_num() {
         let s = &mut Store::<Fr>::default();
         let expr = "(num 123)";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
     }
 
     #[test]
-    fn outer_prove_num_char() {
+    fn test_prove_num_char() {
         let s = &mut Store::<Fr>::default();
         let expr = r#"(num #\a)"#;
         let expected = s.num(97);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
     }
 
     #[test]
-    fn outer_prove_char_num() {
+    fn test_prove_char_num() {
         let s = &mut Store::<Fr>::default();
         let expr = r#"(char 97)"#;
         let expected_a = s.read(r#"#\a"#).unwrap();
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 2);
+        test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 2);
     }
 
     #[test]
-    fn outer_prove_commit_num() {
+    fn test_prove_char_coercion() {
+        let s = &mut Store::<Fr>::default();
+        let expr = r#"(char (- 0 4294967200))"#;
+        let expr2 = r#"(char (- 0 4294967199))"#;
+        let expected_a = s.read(r#"#\a"#).unwrap();
+        let expected_b = s.read(r#"#\b"#).unwrap();
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 5);
+        test_aux(s, expr2, Some(expected_b), None, Some(terminal), None, 5);
+    }
+
+    #[test]
+    fn test_prove_commit_num() {
         let s = &mut Store::<Fr>::default();
         let expr = "(num (commit 123))";
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, None, None, Some(terminal), None, 4);
+        test_aux(s, expr, None, None, Some(terminal), None, 4);
     }
 
     #[test]
-    fn outer_prove_hide_open_comm_num() {
+    fn test_prove_hide_open_comm_num() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open (comm (num (hide 123 456))))";
         let expected = s.num(456);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
     }
 
     #[test]
-    fn outer_prove_hide_secret_comm_num() {
+    fn test_prove_hide_secret_comm_num() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret (comm (num (hide 123 456))))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
     }
 
     #[test]
-    fn outer_prove_commit_open_comm_num() {
+    fn test_prove_commit_open_comm_num() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open (comm (num (commit 123))))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
     }
 
     #[test]
-    fn outer_prove_commit_secret_comm_num() {
+    fn test_prove_commit_secret_comm_num() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret (comm (num (commit 123))))";
         let expected = s.num(0);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
     }
 
     #[test]
-    fn outer_prove_commit_num_open() {
+    fn test_prove_commit_num_open() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open (num (commit 123)))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 6);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 6);
     }
 
     #[test]
-    fn outer_prove_num_invalid_tag() {
+    fn test_prove_num_invalid_tag() {
         let s = &mut Store::<Fr>::default();
         let expr = "(num (quote x))";
+        let expr1 = "(num \"asdf\")";
+        let expr2 = "(num '(1))";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+        test_aux(s, expr, None, None, Some(error), None, 2);
+        test_aux(s, expr1, None, None, Some(error), None, 2);
+        test_aux(s, expr2, None, None, Some(error), None, 2);
     }
 
     #[test]
-    fn outer_prove_comm_invalid_tag() {
+    fn test_prove_comm_invalid_tag() {
         let s = &mut Store::<Fr>::default();
         let expr = "(comm (quote x))";
+        let expr1 = "(comm \"asdf\")";
+        let expr2 = "(comm '(1))";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+        test_aux(s, expr, None, None, Some(error), None, 2);
+        test_aux(s, expr1, None, None, Some(error), None, 2);
+        test_aux(s, expr2, None, None, Some(error), None, 2);
     }
 
     #[test]
-    fn outer_prove_char_invalid_tag() {
+    fn test_prove_char_invalid_tag() {
         let s = &mut Store::<Fr>::default();
         let expr = "(char (quote x))";
+        let expr1 = "(char \"asdf\")";
+        let expr2 = "(char '(1))";
         let error = s.get_cont_error();
-        nova_test_aux(s, expr, None, None, Some(error), None, 2);
+        test_aux(s, expr, None, None, Some(error), None, 2);
+        test_aux(s, expr1, None, None, Some(error), None, 2);
+        test_aux(s, expr2, None, None, Some(error), None, 2);
     }
 
     #[test]
-    fn outer_prove_terminal_sym() {
+    fn test_prove_terminal_sym() {
         let s = &mut Store::<Fr>::default();
         let expr = "(quote x)";
         let x = s.sym("x");
         let terminal = s.get_cont_terminal();
-        nova_test_aux(s, expr, Some(x), None, Some(terminal), None, 1);
+        test_aux(s, expr, Some(x), None, Some(terminal), None, 1);
     }
 
     #[test]
     #[should_panic = "hidden value could not be opened"]
-    fn outer_prove_open_opaque_commit() {
+    fn test_prove_open_opaque_commit() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 123)";
-        nova_test_aux(s, expr, None, None, None, None, 2);
+        test_aux(s, expr, None, None, None, None, 2);
     }
 
     #[test]
     #[should_panic]
-    fn outer_prove_secret_invalid_tag() {
+    fn test_prove_secret_invalid_tag() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret 123)";
-        nova_test_aux(s, expr, None, None, None, None, 2);
+        test_aux(s, expr, None, None, None, None, 2);
     }
 
     #[test]
     #[should_panic = "secret could not be extracted"]
-    fn outer_prove_secret_opaque_commit() {
+    fn test_prove_secret_opaque_commit() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret (comm 123))";
-        nova_test_aux(s, expr, None, None, None, None, 2);
+        test_aux(s, expr, None, None, None, None, 2);
     }
 
     #[test]
@@ -2334,12 +2430,12 @@ mod tests {
         let apple = s.read(r#" "apple" "#).unwrap();
         let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
         let pple = s.read(r#" "pple" "#).unwrap();
-        let empty = s.intern_str(&"");
+        let empty = s.intern_str("");
         let nil = s.nil();
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
 
-        nova_test_aux(
+        test_aux(
             s,
             r#"(car "apple")"#,
             Some(a),
@@ -2348,7 +2444,7 @@ mod tests {
             None,
             2,
         );
-        nova_test_aux(
+        test_aux(
             s,
             r#"(cdr "apple")"#,
             Some(pple),
@@ -2357,10 +2453,9 @@ mod tests {
             None,
             2,
         );
-        nova_test_aux(s, r#"(car "")"#, Some(nil), None, Some(terminal), None, 2);
-        nova_test_aux(s, r#"(cdr "")"#, Some(empty), None, Some(terminal), None, 2);
-
-        nova_test_aux(
+        test_aux(s, r#"(car "")"#, Some(nil), None, Some(terminal), None, 2);
+        test_aux(s, r#"(cdr "")"#, Some(empty), None, Some(terminal), None, 2);
+        test_aux(
             s,
             r#"(cons #\a "pple")"#,
             Some(a_pple),
@@ -2370,7 +2465,7 @@ mod tests {
             3,
         );
 
-        nova_test_aux(
+        test_aux(
             s,
             r#"(strcons #\a "pple")"#,
             Some(apple),
@@ -2380,24 +2475,24 @@ mod tests {
             3,
         );
 
-        nova_test_aux(s, r#"(strcons #\a #\b)"#, None, None, Some(error), None, 3);
+        test_aux(s, r#"(strcons #\a #\b)"#, None, None, Some(error), None, 3);
 
-        nova_test_aux(s, r#"(strcons "a" "b")"#, None, None, Some(error), None, 3);
+        test_aux(s, r#"(strcons "a" "b")"#, None, None, Some(error), None, 3);
 
-        nova_test_aux(s, r#"(strcons 1 2)"#, None, None, Some(error), None, 3);
+        test_aux(s, r#"(strcons 1 2)"#, None, None, Some(error), None, 3);
     }
 
     fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
-        let expr = &format!("({} {} {})", op, a, b);
+        let expr = &format!("({op} {a} {b})");
         let expected = if res { s.t() } else { s.nil() };
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
     }
 
     #[ignore]
     #[test]
-    fn outer_prove_test_relational() {
+    fn test_prove_test_relational() {
         let s = &mut Store::<Fr>::default();
         let lt = "<";
         let gt = ">";
@@ -2520,6 +2615,487 @@ mod tests {
         let t = s.t();
         let terminal = s.get_cont_terminal();
 
-        nova_test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
+    }
+
+    #[test]
+    fn test_prove_test_eval() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(* 3 (eval  (cons '+ (cons 1 (cons 2 nil)))))";
+        let expr2 = "(* 5 (eval '(+ 1 a) '((a . 3))))"; // two-arg eval, optional second arg is env.
+        let res = s.num(9);
+        let res2 = s.num(20);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 17);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 9);
+    }
+
+    #[test]
+    fn test_prove_test_keyword() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = ":asdf";
+        let expr2 = "(eq :asdf :asdf)";
+        let expr3 = "(eq :asdf 'asdf)";
+        let res = s.key("ASDF");
+        let res2 = s.get_t();
+        let res3 = s.get_nil();
+
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr3, Some(res3), None, Some(terminal), None, 3);
+    }
+
+    // The following functional commitment tests were discovered to fail. They are commented out (as tests) for now so
+    // they can be addressed independently in future work.
+
+    #[test]
+    fn test_prove_functional_commitment() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(let ((f (commit (let ((num 9)) (lambda (f) (f num)))))
+                          (inc (lambda (x) (+ x 1))))
+                      ((open f) inc))";
+        let res = s.num(10);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 25);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_prove_complicated_functional_commitment() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(let ((f (commit (let ((nums '(1 2 3))) (lambda (f) (f nums)))))
+                          (in (letrec ((sum-aux (lambda (acc nums)
+                                              (if nums
+                                                (sum-aux (+ acc (car nums)) (cdr nums))
+                                                acc)))
+                                   (sum (sum-aux 0)))
+                             (lambda (nums)
+                               (sum nums)))))
+
+                      ((open f) in))";
+        let res = s.num(6);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 108);
+    }
+
+    #[test]
+    fn test_prove_test_fold_cons_regression() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(letrec ((fold (lambda (op acc l)
+                                     (if l
+                                         (fold op (op acc (car l)) (cdr l))
+                                         acc))))
+                      (fold (lambda (x y) (+ x y)) 0 '(1 2 3)))";
+        let res = s.num(6);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 152);
+    }
+
+    #[test]
+    fn test_prove_test_lambda_args_regression() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(cons (lambda (x y) nil) nil)";
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, None, None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn test_prove_reduce_sym_contradiction_regression() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(eval 'a '(nil))";
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, None, None, Some(error), None, 4);
+    }
+
+    #[test]
+    fn test_prove_test_self_eval_env_not_nil() {
+        let s = &mut Store::<Fr>::default();
+
+        // NOTE: cond1 shouldn't depend on env-is-not-nil
+        // therefore this unit test is not very useful
+        // the conclusion is that by removing condition env-is-not-nil from cond1,
+        // we solve this soundness problem
+        // this solution makes the circuit a bit smaller
+        let expr = "(let ((a 1)) t)";
+
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, None, None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn test_prove_test_self_eval_nil() {
+        let s = &mut Store::<Fr>::default();
+
+        // nil doesn't have SYM tag
+        let expr = "nil";
+
+        let terminal = s.get_cont_terminal();
+        test_aux(s, expr, None, None, Some(terminal), None, 1);
+    }
+
+    #[test]
+    fn test_prove_test_env_not_nil_and_binding_nil() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(let ((a 1) (b 2)) c)";
+
+        let error = s.get_cont_error();
+        test_aux(s, expr, None, None, Some(error), None, 7);
+    }
+
+    #[test]
+    fn test_prove_test_eval_bad_form() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env. This tests for error on malformed env.
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, None, None, Some(error), None, 8);
+    }
+
+    #[test]
+    fn test_prove_test_u64_self_evaluating() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "123u64";
+        let res = s.uint64(123);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
+    }
+
+    #[test]
+    fn test_prove_test_u64_mul() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(* (u64 18446744073709551615) (u64 2))";
+        let expr2 = "(* 18446744073709551615u64 2u64)";
+        let expr3 = "(* (- 0u64 1u64) 2u64)";
+        let expr4 = "(u64 18446744073709551617)";
+        let res = s.uint64(18446744073709551614);
+        let res2 = s.uint64(1);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 7);
+        test_aux(s, expr2, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr3, Some(res), None, Some(terminal), None, 6);
+        test_aux(s, expr4, Some(res2), None, Some(terminal), None, 2);
+    }
+
+    #[test]
+    fn test_prove_test_u64_add() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(+ 18446744073709551615u64 2u64)";
+        let expr2 = "(+ (- 0u64 1u64) 2u64)";
+        let res = s.uint64(1);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res), None, Some(terminal), None, 6);
+    }
+
+    #[test]
+    fn test_prove_test_u64_sub() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(- 2u64 1u64)";
+        let expr2 = "(- 0u64 1u64)";
+        let expr3 = "(+ 1u64 (- 0u64 1u64))";
+        let res = s.uint64(1);
+        let res2 = s.uint64(18446744073709551615);
+        let res3 = s.uint64(0);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr3, Some(res3), None, Some(terminal), None, 6);
+    }
+
+    #[test]
+    fn test_prove_test_u64_div() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(/ 100u64 2u64)";
+        let res = s.uint64(50);
+
+        let expr2 = "(/ 100u64 3u64)";
+        let res2 = s.uint64(33);
+
+        let expr3 = "(/ 100u64 0u64)";
+
+        let terminal = s.get_cont_terminal();
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn test_prove_test_u64_mod() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 100u64 2u64)";
+        let res = s.uint64(0);
+
+        let expr2 = "(% 100u64 3u64)";
+        let res2 = s.uint64(1);
+
+        let expr3 = "(% 100u64 0u64)";
+
+        let terminal = s.get_cont_terminal();
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn test_prove_test_num_mod() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 100 3)";
+        let expr2 = "(% 100 3u64)";
+        let expr3 = "(% 100u64 3)";
+
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, None, None, Some(error), None, 3);
+        test_aux(s, expr2, None, None, Some(error), None, 3);
+        test_aux(s, expr3, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn test_prove_test_u64_comp() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(< 0u64 1u64)";
+        let expr2 = "(< 1u64 0u64)";
+        let expr3 = "(<= 0u64 1u64)";
+        let expr4 = "(<= 1u64 0u64)";
+
+        let expr5 = "(> 0u64 1u64)";
+        let expr6 = "(> 1u64 0u64)";
+        let expr7 = "(>= 0u64 1u64)";
+        let expr8 = "(>= 1u64 0u64)";
+
+        let expr9 = "(<= 0u64 0u64)";
+        let expr10 = "(>= 0u64 0u64)";
+
+        let t = s.t();
+        let nil = s.nil();
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3);
+        test_aux(s, expr3, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr4, Some(nil), None, Some(terminal), None, 3);
+
+        test_aux(s, expr5, Some(nil), None, Some(terminal), None, 3);
+        test_aux(s, expr6, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr7, Some(nil), None, Some(terminal), None, 3);
+        test_aux(s, expr8, Some(t), None, Some(terminal), None, 3);
+
+        test_aux(s, expr9, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr10, Some(t), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn test_prove_test_u64_conversion() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(+ 0 1u64)";
+        let expr2 = "(num 1u64)";
+        let expr3 = "(+ 1 1u64)";
+        let expr4 = "(u64 (+ 1 1))";
+        let res = s.intern_num(1);
+        let res2 = s.intern_num(2);
+        let res3 = s.get_u64(2);
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res), None, Some(terminal), None, 2);
+        test_aux(s, expr3, Some(res2), None, Some(terminal), None, 3);
+        test_aux(s, expr4, Some(res3), None, Some(terminal), None, 5);
+    }
+
+    #[test]
+    fn test_prove_test_u64_num_comparison() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(= 1 1u64)";
+        let expr2 = "(= 1 2u64)";
+        let t = s.t();
+        let nil = s.nil();
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn test_prove_test_u64_num_cons() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(cons 1 1u64)";
+        let expr2 = "(cons 1u64 1)";
+        let res = s.read("(1 . 1u64)").unwrap();
+        let res2 = s.read("(1u64 . 1)").unwrap();
+        let terminal = s.get_cont_terminal();
+
+        test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
+        test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+    }
+
+    #[test]
+    fn test_prove_test_hide_u64_secret() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(hide 0u64 123)";
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn test_prove_test_mod_by_zero_error() {
+        let s = &mut Store::<Fr>::default();
+
+        let expr = "(% 0 0)";
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn test_prove_dotted_syntax_error() {
+        let s = &mut Store::<Fr>::default();
+        let expr = "(let ((a (lambda (x) (+ x 1)))) (a . 1))";
+        let error = s.get_cont_error();
+
+        test_aux(s, expr, None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    fn test_prove_call_literal_fun() {
+        let s = &mut Store::<Fr>::default();
+        let empty_env = s.get_nil();
+        let arg = s.sym("X");
+        let body = s.read("((+ X 1))").unwrap();
+        let fun = s.intern_fun(arg, body, empty_env);
+        let input = s.num(9);
+        let expr = s.list(&[fun, input]);
+        let res = s.num(10);
+        let terminal = s.get_cont_terminal();
+
+        nova_test_full_aux2(
+            s,
+            expr,
+            Some(res),
+            None,
+            Some(terminal),
+            None,
+            7,
+            DEFAULT_CHUNK_FRAME_COUNT,
+            false,
+            None,
+        );
+    }
+
+    #[test]
+    fn test_prove_lambda_body_syntax() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+
+        test_aux(s, "((lambda ()))", None, None, Some(error), None, 2);
+        test_aux(s, "((lambda () 1 2))", None, None, Some(error), None, 2);
+        test_aux(s, "((lambda (x)) 1)", None, None, Some(error), None, 3);
+        test_aux(s, "((lambda (x) 1 2) 1)", None, None, Some(error), None, 3);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_eval_non_symbol_binding_error() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+
+        let mut test = |x| {
+            let expr = format!("(let (({x} 123)) {x})");
+            let expr2 = format!("(letrec (({x} 123)) {x})");
+            let expr3 = format!("(lambda ({x}) {x})");
+
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+            test_aux(s, &expr2, None, None, Some(error), None, 1);
+            test_aux(s, &expr3, None, None, Some(error), None, 1);
+        };
+
+        test(":a");
+        test("1");
+        test("\"string\"");
+        test("1u64");
+        test("#\\x");
+    }
+    #[test]
+    fn test_prove_head_with_sym_mimicking_value() {
+        use crate::store::ScalarPointer;
+
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+
+        let hash_num = |s: &mut Store<Fr>, name| {
+            let sym = s.sym(name);
+            let scalar_ptr = s.hash_expr(&sym).unwrap();
+            let hash = *scalar_ptr.value();
+            Num::Scalar(hash)
+        };
+        {
+            // binop
+            let expr = format!("({} 1 1)", hash_num(s, "+"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // unop
+            let expr = format!("({} '(1 . 2))", hash_num(s, "car"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // let_or_letrec
+            let expr = format!("({} ((a 1)) a)", hash_num(s, "let"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // current-env
+            let expr = format!("({})", hash_num(s, "current-env"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // lambda
+            let expr = format!("({} (x) 123)", hash_num(s, "lambda"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // quote
+            let expr = format!("({} asdf)", hash_num(s, "quote"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
+        {
+            // if
+            let expr = format!("({} t 123 456)", hash_num(s, "if"));
+            test_aux(s, &expr, None, None, Some(error), None, 1);
+        }
     }
 }

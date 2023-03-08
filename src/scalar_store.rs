@@ -2,8 +2,15 @@ use std::collections::BTreeMap;
 
 use crate::field::LurkField;
 
-use crate::store::{Op1, Op2, Pointer, Ptr, ScalarContPtr, ScalarPtr, Store, Tag};
-use crate::{Num, UInt};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::field::FWrap;
+use crate::store::{Pointer, Ptr, ScalarContPtr, ScalarPtr, Store};
+use crate::tag::{ExprTag, Op1, Op2};
+use crate::{Num, Sym, UInt};
+#[cfg(not(target_arch = "wasm32"))]
+use proptest::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
+use proptest_derive::Arbitrary;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -17,7 +24,7 @@ pub struct ScalarStore<F: LurkField> {
     pending_scalar_ptrs: Vec<ScalarPtr<F>>,
 }
 
-impl<'a, F: LurkField> ScalarStore<F> {
+impl<F: LurkField> ScalarStore<F> {
     /// Create a new `ScalarStore` and add all `ScalarPtr`s reachable in the scalar representation of `expr`.
     pub fn new_with_expr(store: &Store<F>, expr: &Ptr<F>) -> (Self, Option<ScalarPtr<F>>) {
         let mut new = Self::default();
@@ -151,26 +158,25 @@ impl<'a, F: LurkField> ScalarStore<F> {
     }
 }
 
-impl<'a, F: LurkField> ScalarExpression<F> {
+impl<F: LurkField> ScalarExpression<F> {
     fn from_ptr(store: &Store<F>, ptr: &Ptr<F>) -> Option<Self> {
         match ptr.tag() {
-            Tag::Nil => Some(ScalarExpression::Nil),
-            Tag::Cons => store.fetch_cons(ptr).and_then(|(car, cdr)| {
+            ExprTag::Nil => Some(ScalarExpression::Nil),
+            ExprTag::Cons => store.fetch_cons(ptr).and_then(|(car, cdr)| {
                 store.get_expr_hash(car).and_then(|car| {
                     store
                         .get_expr_hash(cdr)
                         .map(|cdr| ScalarExpression::Cons(car, cdr))
                 })
             }),
-            Tag::Comm => store.fetch_comm(ptr).and_then(|(secret, payload)| {
+            ExprTag::Comm => store.fetch_comm(ptr).and_then(|(secret, payload)| {
                 store
                     .get_expr_hash(payload)
                     .map(|payload| ScalarExpression::Comm(secret.0, payload))
             }),
-            Tag::Sym => store
-                .fetch_sym(ptr)
-                .map(|str| ScalarExpression::Sym(str.into())),
-            Tag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
+            ExprTag::Sym => store.fetch_sym(ptr).map(|sym| ScalarExpression::Sym(sym)),
+            ExprTag::Key => store.fetch_sym(ptr).map(|sym| ScalarExpression::Sym(sym)),
+            ExprTag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
                 store.get_expr_hash(arg).and_then(|arg| {
                     store.get_expr_hash(body).and_then(|body| {
                         store
@@ -183,32 +189,44 @@ impl<'a, F: LurkField> ScalarExpression<F> {
                     })
                 })
             }),
-            Tag::Num => store.fetch_num(ptr).map(|num| match num {
+            ExprTag::Num => store.fetch_num(ptr).map(|num| match num {
                 Num::U64(x) => ScalarExpression::Num((*x).into()),
                 Num::Scalar(x) => ScalarExpression::Num(*x),
             }),
 
-            Tag::Str => store
+            ExprTag::Str => store
                 .fetch_str(ptr)
                 .map(|str| ScalarExpression::Str(str.to_string())),
-            Tag::Char => store.fetch_char(ptr).map(ScalarExpression::Char),
-            Tag::U64 => store.fetch_uint(ptr).map(ScalarExpression::UInt),
-            Tag::Thunk => unimplemented!(),
+            ExprTag::Char => store.fetch_char(ptr).map(ScalarExpression::Char),
+            ExprTag::U64 => store.fetch_uint(ptr).map(ScalarExpression::UInt),
+            ExprTag::Thunk => unimplemented!(),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 pub enum ScalarExpression<F: LurkField> {
     Nil,
     Cons(ScalarPtr<F>, ScalarPtr<F>),
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        proptest(
+            strategy = "any::<(FWrap<F>, ScalarPtr<F>)>().prop_map(|(x, y)| Self::Comm(x.0, y))"
+        )
+    )]
     Comm(F, ScalarPtr<F>),
-    Sym(String),
+    Sym(Sym),
     Fun {
         arg: ScalarPtr<F>,
         body: ScalarPtr<F>,
         closed_env: ScalarPtr<F>,
     },
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        proptest(strategy = "any::<FWrap<F>>().prop_map(|x| Self::Num(x.0))")
+    )]
     Num(F),
     Str(String),
     Thunk(ScalarThunk<F>),
@@ -216,7 +234,7 @@ pub enum ScalarExpression<F: LurkField> {
     UInt(UInt),
 }
 
-impl<'a, F: LurkField> Default for ScalarExpression<F> {
+impl<F: LurkField> Default for ScalarExpression<F> {
     fn default() -> Self {
         Self::Nil
     }
@@ -224,6 +242,8 @@ impl<'a, F: LurkField> Default for ScalarExpression<F> {
 
 // Unused for now, but will be needed when we serialize Thunks to IPLD.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 pub struct ScalarThunk<F: LurkField> {
     pub(crate) value: ScalarPtr<F>,
     pub(crate) continuation: ScalarContPtr<F>,
@@ -232,6 +252,8 @@ pub struct ScalarThunk<F: LurkField> {
 impl<F: LurkField> Copy for ScalarThunk<F> {}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 pub enum ScalarContinuation<F: LurkField> {
     Outermost,
     Call {
@@ -295,223 +317,83 @@ pub enum ScalarContinuation<F: LurkField> {
 mod test {
     use super::*;
     use crate::eval::empty_sym_env;
-    use crate::field::FWrap;
+
     use crate::store::ScalarPointer;
+
     use blstrs::Scalar as Fr;
 
-    use quickcheck::{Arbitrary, Gen};
-
-    use crate::test::frequency;
+    use tap::TapFallible;
 
     use libipld::serde::from_ipld;
     use libipld::serde::to_ipld;
 
-    impl Arbitrary for ScalarThunk<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            ScalarThunk {
-                value: Arbitrary::arbitrary(g),
-                continuation: Arbitrary::arbitrary(g),
-            }
+    proptest! {
+        #[test]
+        fn prop_scalar_thunk_ipld(x in any::<ScalarThunk<Fr>>())  {
+            let to_ipld = to_ipld(x).unwrap();
+            let y = from_ipld(to_ipld).unwrap();
+            assert_eq!(x, y);
         }
     }
 
-    #[quickcheck]
-    fn prop_scalar_thunk_ipld(x: ScalarThunk<Fr>) -> bool {
-        if let Ok(ipld) = to_ipld(x) {
-            if let Ok(y) = from_ipld(ipld) {
-                x == y
-            } else {
-                false
-            }
-        } else {
-            false
-        }
-    }
+    proptest! {
+        #[test]
+        fn prop_scalar_expression_ipld(x: ScalarExpression<Fr>) {
+            let to_ipld = to_ipld(x.clone()).tap_err(|e| {
+                println!("ser x: {x:?}");
+                println!("err e: {e:?}");
+            }).unwrap();
 
-    impl Arbitrary for ScalarExpression<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> ScalarExpression<Fr>>)> = vec![
-                (100, Box::new(|_| Self::Nil)),
-                (
-                    100,
-                    Box::new(|g| Self::Cons(ScalarPtr::arbitrary(g), ScalarPtr::arbitrary(g))),
-                ),
-                (100, Box::new(|g| Self::Sym(String::arbitrary(g)))),
-                (100, Box::new(|g| Self::Str(String::arbitrary(g)))),
-                (
-                    100,
-                    Box::new(|g| {
-                        let f = FWrap::arbitrary(g);
-                        Self::Num(f.0)
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Fun {
-                        arg: ScalarPtr::arbitrary(g),
-                        body: ScalarPtr::arbitrary(g),
-                        closed_env: ScalarPtr::arbitrary(g),
-                    }),
-                ),
-                (100, Box::new(|g| Self::Thunk(ScalarThunk::arbitrary(g)))),
-            ];
-            frequency(g, input)
-        }
-    }
+            let y = from_ipld(to_ipld.clone()).tap_err(|e| {
+                println!("ser x: {x:?}");
+                println!("de ipld: {to_ipld:?}");
+                println!("err e: {e:?}");
+            }).unwrap();
 
-    impl Arbitrary for ScalarContinuation<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> ScalarContinuation<Fr>>)> = vec![
-                (100, Box::new(|_| Self::Outermost)),
-                (
-                    100,
-                    Box::new(|g| Self::Call {
-                        unevaled_arg: ScalarPtr::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Call2 {
-                        function: ScalarPtr::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Tail {
-                        saved_env: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (100, Box::new(|_| Self::Error)),
-                (
-                    100,
-                    Box::new(|g| Self::Lookup {
-                        saved_env: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Unop {
-                        operator: Op1::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Binop {
-                        operator: Op2::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        unevaled_args: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Binop2 {
-                        operator: Op2::arbitrary(g),
-                        evaled_arg: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::If {
-                        unevaled_args: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::Let {
-                        var: ScalarPtr::arbitrary(g),
-                        body: ScalarPtr::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (
-                    100,
-                    Box::new(|g| Self::LetRec {
-                        var: ScalarPtr::arbitrary(g),
-                        saved_env: ScalarPtr::arbitrary(g),
-                        body: ScalarPtr::arbitrary(g),
-                        continuation: ScalarContPtr::arbitrary(g),
-                    }),
-                ),
-                (100, Box::new(|_| Self::Dummy)),
-                (100, Box::new(|_| Self::Terminal)),
-            ];
-            frequency(g, input)
-        }
-    }
+            println!("x: {x:?}");
+            println!("y: {y:?}");
 
-    #[quickcheck]
-    fn prop_scalar_expression_ipld(x: ScalarExpression<Fr>) -> bool {
-        match to_ipld(x.clone()) {
-            Ok(ipld) => match from_ipld(ipld.clone()) {
-                Ok(y) => {
-                    println!("x: {:?}", x);
-                    println!("y: {:?}", y);
-                    x == y
-                }
-                Err(e) => {
-                    println!("ser x: {:?}", x);
-                    println!("de ipld: {:?}", ipld);
-                    println!("err e: {:?}", e);
-                    false
-                }
-            },
-            Err(e) => {
-                println!("ser x: {:?}", x);
-                println!("err e: {:?}", e);
-                false
-            }
-        }
-    }
+            assert_eq!(x, y);
 
-    #[quickcheck]
-    fn prop_scalar_continuation_ipld(x: ScalarExpression<Fr>) -> bool {
-        if let Ok(ipld) = to_ipld(x.clone()) {
-            if let Ok(y) = from_ipld(ipld) {
-                x == y
-            } else {
-                false
-            }
-        } else {
-            false
         }
+
+        fn prop_scalar_continuation_ipld(x: ScalarExpression<Fr>) {
+            let to_ipld = to_ipld(x.clone()).unwrap();
+            let from_ipld = from_ipld(to_ipld).unwrap();
+            assert_eq!(x, from_ipld);
+        }
+
     }
 
     // This doesn't create well-defined ScalarStores, so is only useful for
     // testing ipld
-    impl Arbitrary for ScalarStore<Fr> {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let map: Vec<(ScalarPtr<Fr>, Option<ScalarExpression<Fr>>)> = Arbitrary::arbitrary(g);
-            let cont_map: Vec<(ScalarContPtr<Fr>, Option<ScalarContinuation<Fr>>)> =
-                Arbitrary::arbitrary(g);
-            ScalarStore {
-                scalar_map: map.into_iter().collect(),
-                scalar_cont_map: cont_map.into_iter().collect(),
+    fn ipld_scalar_store_strategy<Fr: LurkField>() -> impl Strategy<Value = ScalarStore<Fr>> {
+        (
+            prop::collection::btree_map(
+                any::<ScalarPtr<Fr>>(),
+                any::<Option<ScalarExpression<Fr>>>(),
+                0..100,
+            ),
+            prop::collection::btree_map(
+                any::<ScalarContPtr<Fr>>(),
+                any::<Option<ScalarContinuation<Fr>>>(),
+                0..100,
+            ),
+        )
+            .prop_map(|(scalar_map, scalar_cont_map)| ScalarStore {
+                scalar_map,
+                scalar_cont_map,
                 pending_scalar_ptrs: Vec::new(),
-            }
-        }
+            })
+            .boxed()
     }
 
-    #[quickcheck]
-    fn prop_scalar_store_ipld(x: ScalarStore<Fr>) -> bool {
-        if let Ok(ipld) = to_ipld(x.clone()) {
-            if let Ok(y) = from_ipld(ipld) {
-                x == y
-            } else {
-                false
-            }
-        } else {
-            false
+    proptest! {
+        #[test]
+        fn prop_scalar_store_ipld(x in ipld_scalar_store_strategy::<Fr>()) {
+            let to_ipld = to_ipld(x.clone()).unwrap();
+            let from_ipld = from_ipld(to_ipld).unwrap();
+            assert_eq!(x, from_ipld);
         }
     }
 
@@ -531,21 +413,24 @@ mod test {
                     let (scalar_store3, _) = ScalarStore::new_with_expr(&store2, &expr2);
                     assert_eq!(scalar_store2, scalar_store3)
                 } else {
-                    assert!(false)
+                    panic!()
                 }
             } else {
-                assert!(false)
+                panic!()
             }
         };
 
         test("symbol");
         test("1");
         test("(1 . 2)");
+        test("(1 2)");
         test("\"foo\" . \"bar\")");
         test("(foo . bar)");
+
         test("(1 . 2)");
         test("(+ 1 2 3)");
         test("(+ 1 2 (* 3 4))");
+
         test("(+ 1 2 (* 3 4) \"asdf\" )");
         test("(+ 1 2 2 (* 3 4) \"asdf\" \"asdf\")");
     }
@@ -571,10 +456,10 @@ mod test {
             ) = eval.eval().unwrap();
 
             let (scalar_store, _) = ScalarStore::new_with_expr(&s, &expr);
-            println!("{:?}", scalar_store);
+            println!("{scalar_store:?}");
             let ipld = to_ipld(scalar_store.clone()).unwrap();
             let scalar_store2 = from_ipld(ipld).unwrap();
-            println!("{:?}", scalar_store2);
+            println!("{scalar_store2:?}");
             assert_eq!(scalar_store, scalar_store2);
         };
 
@@ -621,6 +506,7 @@ mod test {
         // If a non-opaque version has been found when interning opaque, children appear in `ScalarStore`.
         assert_eq!(3, scalar_store.scalar_map.len());
     }
+
     #[test]
     fn test_scalar_store_opaque_fun() {
         let mut store = Store::<Fr>::default();
@@ -641,7 +527,7 @@ mod test {
     fn test_scalar_store_opaque_sym() {
         let mut store = Store::<Fr>::default();
 
-        let sym = store.sym(&"sym");
+        let sym = store.sym("sym");
         let sym_hash = store.hash_expr(&sym).unwrap();
         let opaque_sym = store.intern_maybe_opaque_sym(*sym_hash.value());
 
@@ -655,7 +541,7 @@ mod test {
     fn test_scalar_store_opaque_str() {
         let mut store = Store::<Fr>::default();
 
-        let str = store.str(&"str");
+        let str = store.str("str");
         let str_hash = store.hash_expr(&str).unwrap();
         let opaque_str = store.intern_maybe_opaque_sym(*str_hash.value());
 

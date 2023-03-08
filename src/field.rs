@@ -1,9 +1,15 @@
-use ff::{PrimeField, PrimeFieldBits};
-use libipld::cid::Cid;
-use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 use std::hash::Hash;
 
-use multihash::Multihash;
+use ff::{PrimeField, PrimeFieldBits};
+use serde::{Deserialize, Serialize};
+
+#[cfg(not(target_arch = "wasm32"))]
+use proptest::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
+use rand::{rngs::StdRng, SeedableRng};
+
+use crate::tag::{ContTag, ExprTag, Op1, Op2};
 
 pub enum LanguageField {
     Pallas,
@@ -12,18 +18,38 @@ pub enum LanguageField {
 }
 
 pub trait LurkField: PrimeField + PrimeFieldBits {
-    // These constants are assumed to be based on some global table like
-    // multicodec, ideally extended to include arbitrary precision codecs
-    const FIELD_CODEC: u64;
-    const HASH_CODEC: u64;
-    const LURK_CODEC_PREFIX: u64 = 0x10de;
-    const NUM_BYTES: usize;
+    const FIELD: LanguageField;
 
+    fn to_bytes(self) -> Vec<u8> {
+        let repr = self.to_repr();
+        repr.as_ref().to_vec()
+    }
     fn from_bytes(bs: &[u8]) -> Option<Self> {
         let mut def: Self::Repr = Self::default().to_repr();
         def.as_mut().copy_from_slice(bs);
         Self::from_repr(def).into()
     }
+
+    fn hex_digits(self) -> String {
+        let bytes = self.to_bytes();
+        let mut s = String::with_capacity(bytes.len() * 2);
+        for b in bytes.iter().rev() {
+            s.push_str(&format!("{:02x?}", b));
+        }
+        s
+    }
+
+    fn to_u16(&self) -> Option<u16> {
+        for x in &self.to_repr().as_ref()[2..] {
+            if *x != 0 {
+                return None;
+            }
+        }
+        let mut byte_array = [0u8; 2];
+        byte_array.copy_from_slice(&self.to_repr().as_ref()[0..2]);
+        Some(u16::from_le_bytes(byte_array))
+    }
+
     fn to_u32(&self) -> Option<u32> {
         for x in &self.to_repr().as_ref()[4..] {
             if *x != 0 {
@@ -34,6 +60,12 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         byte_array.copy_from_slice(&self.to_repr().as_ref()[0..4]);
         Some(u32::from_le_bytes(byte_array))
     }
+
+    fn to_char(&self) -> Option<char> {
+        let x = self.to_u32()?;
+        char::from_u32(x)
+    }
+
     fn to_u64(&self) -> Option<u64> {
         for x in &self.to_repr().as_ref()[8..] {
             if *x != 0 {
@@ -44,16 +76,32 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         byte_array.copy_from_slice(&self.to_repr().as_ref()[0..8]);
         Some(u64::from_le_bytes(byte_array))
     }
-    // Return a u64 corresponding to the first 8 little-endian bytes of this field element, discarding the remaining bytes.
+
+    fn to_u32_unchecked(&self) -> u32 {
+        let mut byte_array = [0u8; 4];
+        byte_array.copy_from_slice(&self.to_repr().as_ref()[0..4]);
+        u32::from_le_bytes(byte_array)
+    }
+
+    // Return a u64 corresponding to the first 8 little-endian bytes of this field
+    // element, discarding the remaining bytes.
     fn to_u64_unchecked(&self) -> u64 {
         let mut byte_array = [0u8; 8];
         byte_array.copy_from_slice(&self.to_repr().as_ref()[0..8]);
         u64::from_le_bytes(byte_array)
     }
-    fn from_u64(x: u64) -> Option<Self> {
-        let mut bytes = vec![0; 32];
-        bytes[0..8].as_mut().copy_from_slice(&x.to_le_bytes());
-        Self::from_bytes(&bytes)
+
+    fn from_u64(x: u64) -> Self {
+        x.into()
+    }
+    fn from_u32(x: u32) -> Self {
+        (x as u64).into()
+    }
+    fn from_u16(x: u16) -> Self {
+        (x as u64).into()
+    }
+    fn from_char(x: char) -> Self {
+        Self::from_u32(x as u32)
     }
 
     fn most_negative() -> Self {
@@ -77,99 +125,93 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         self.double().is_odd().into()
     }
 
-    // Tags have to be `u32` because we're trying to fit them into `u64`
-    // multicodecs without overlapping with the existing table. If we can
-    // implement arbitrary-sized codecs though we can relax this from
-    // Option<u32>, to a arbitrary sized Vec<u8>.
-    fn to_tag(f: Self) -> Option<u32>;
-
-    fn to_multicodec(f: Self) -> Option<u64> {
-        let tag: u32 = Self::to_tag(f)?;
-
-        Some(Self::LURK_CODEC_PREFIX << 48 | Self::FIELD_CODEC << 32 | u64::from(tag))
+    fn from_expr_tag(tag: ExprTag) -> Self {
+        Self::from_u64(tag.into())
+    }
+    fn to_expr_tag(&self) -> Option<ExprTag> {
+        let x = Self::to_u16(self)?;
+        ExprTag::try_from(x).ok()
     }
 
-    fn from_multicodec(codec: u64) -> Option<Self> {
-        let lurk_prefix = (codec & 0xffff_0000_0000_0000) >> 48;
-        let field_prefix = (codec & 0x0000_ffff_0000_0000) >> 32;
-        let digest = codec & 0x0000_0000_ffff_ffff;
-        if lurk_prefix != Self::LURK_CODEC_PREFIX || field_prefix != Self::FIELD_CODEC {
-            None
-        } else {
-            Some(Self::from(digest as u64))
-        }
+    fn from_cont_tag(tag: ContTag) -> Self {
+        Self::from_u64(tag.into())
     }
 
-    fn to_multihash(f: Self) -> Multihash {
-        Multihash::wrap(Self::HASH_CODEC, f.to_repr().as_ref()).unwrap()
+    fn to_cont_tag(&self) -> Option<ContTag> {
+        let x = Self::to_u16(self)?;
+        ContTag::try_from(x).ok()
+    }
+    fn from_op1(tag: Op1) -> Self {
+        Self::from_u64(tag.into())
     }
 
-    fn from_multihash(hash: Multihash) -> Option<Self> {
-        Self::from_bytes(hash.digest())
+    fn to_op1(&self) -> Option<Op1> {
+        let x = Self::to_u16(self)?;
+        Op1::try_from(x).ok()
+    }
+    fn from_op2(tag: Op2) -> Self {
+        Self::from_u64(tag.into())
     }
 
-    fn to_cid(tag: Self, digest: Self) -> Option<Cid> {
-        let codec = Self::to_multicodec(tag)?;
-        Some(Cid::new_v1(codec, Self::to_multihash(digest)))
+    fn to_op2(&self) -> Option<Op2> {
+        let x = Self::to_u16(self)?;
+        Op2::try_from(x).ok()
     }
-    fn from_cid(cid: Cid) -> Option<(Self, Self)> {
-        let tag = Self::from_multicodec(cid.codec())?;
-        let dig = Self::from_multihash(*cid.hash())?;
-        Some((tag, dig))
+
+    fn get_field(&self) -> LanguageField {
+        Self::FIELD
     }
 }
 
 impl LurkField for blstrs::Scalar {
-    const FIELD_CODEC: u64 = 1;
-    const HASH_CODEC: u64 = 2;
-    const NUM_BYTES: usize = 32;
-
-    fn to_tag(f: Self) -> Option<u32> {
-        let bytes: Vec<u8> = f.to_repr().as_ref().to_vec();
-        let tag_bytes: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
-        if bytes[4..].iter().all(|x| *x == 0) {
-            Some(u32::from_le_bytes(tag_bytes))
-        } else {
-            None
-        }
-    }
-}
-
-impl LurkField for pasta_curves::Fq {
-    const FIELD_CODEC: u64 = 2;
-    const HASH_CODEC: u64 = 3;
-    const NUM_BYTES: usize = 32;
-
-    fn to_tag(f: Self) -> Option<u32> {
-        let bytes: Vec<u8> = f.to_repr().as_ref().to_vec();
-        let tag_bytes: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
-        if bytes[4..].iter().all(|x| *x == 0) {
-            Some(u32::from_le_bytes(tag_bytes))
-        } else {
-            None
-        }
-    }
+    const FIELD: LanguageField = LanguageField::BLS12_381;
 }
 
 impl LurkField for pasta_curves::Fp {
-    const FIELD_CODEC: u64 = 3;
-    const HASH_CODEC: u64 = 3;
-    const NUM_BYTES: usize = 32;
+    const FIELD: LanguageField = LanguageField::Pallas;
+}
 
-    fn to_tag(f: Self) -> Option<u32> {
-        let bytes: Vec<u8> = f.to_repr().as_ref().to_vec();
-        let tag_bytes: [u8; 4] = [bytes[0], bytes[1], bytes[2], bytes[3]];
-        if bytes[4..].iter().all(|x| *x == 0) {
-            Some(u32::from_le_bytes(tag_bytes))
-        } else {
-            None
-        }
-    }
+impl LurkField for pasta_curves::Fq {
+    const FIELD: LanguageField = LanguageField::Vesta;
 }
 
 // For working around the orphan trait impl rule
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FWrap<F: LurkField>(pub F);
+
+impl<F: LurkField> Copy for FWrap<F> {}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl<F: LurkField> Arbitrary for FWrap<F> {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        let strategy = any::<[u8; 32]>()
+            .prop_map(|seed| FWrap(F::random(StdRng::from_seed(seed))))
+            .no_shrink();
+        strategy.boxed()
+    }
+}
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl<F: LurkField> Hash for FWrap<F> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.to_repr().as_ref().hash(state);
+    }
+}
+
+impl<F: LurkField> PartialOrd for FWrap<F> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        (self.0.to_repr().as_ref()).partial_cmp(other.0.to_repr().as_ref())
+    }
+}
+
+impl<F: LurkField> Ord for FWrap<F> {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        (self.0.to_repr().as_ref()).cmp(other.0.to_repr().as_ref())
+    }
+}
 
 impl<F: LurkField> Serialize for FWrap<F> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -195,68 +237,99 @@ impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
     }
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
-impl<F: LurkField> Hash for FWrap<F> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.to_repr().as_ref().hash(state);
-    }
-}
-
 #[cfg(test)]
-mod test {
-    use super::*;
+pub mod tests {
     use blstrs::Scalar as Fr;
 
-    use crate::store::Tag;
-    use quickcheck::{Arbitrary, Gen};
+    use super::*;
 
-    impl<F: LurkField> Arbitrary for FWrap<F> {
-        fn arbitrary(_: &mut Gen) -> Self {
-            let f = F::random(rand::thread_rng());
-            FWrap(f)
-        }
-    }
-
-    #[quickcheck]
-    fn test_bytes_consistency(f1: FWrap<Fr>) -> bool {
+    fn repr_bytes_consistency<F: LurkField>(f1: FWrap<F>) {
         let bytes = f1.0.to_repr().as_ref().to_owned();
-        let f2 = <Fr as LurkField>::from_bytes(&bytes);
-        Some(f1.0) == f2
+        let f2 = <F as LurkField>::from_bytes(&bytes).expect("from_bytes");
+        assert_eq!(f1.0, f2)
     }
 
-    #[quickcheck]
-    fn test_tag_consistency(x: Tag) -> bool {
-        let f1 = Fr::from(x as u64);
-        let tag = <Fr as LurkField>::to_tag(f1).unwrap();
-        let f2 = Fr::from(tag as u64);
-        f1 == f2 && x as u32 == tag
+    proptest! {
+      #[test]
+      fn prop_bls_repr_bytes_consistency(f1 in any::<FWrap<Fr>>()) {
+        repr_bytes_consistency(f1)
+      }
+      #[test]
+      fn prop_pallas_repr_bytes_consistency(f1 in any::<FWrap<pasta_curves::Fp>>()) {
+          repr_bytes_consistency(f1)
+      }
+      #[test]
+      fn prop_vesta_repr_bytes_consistency(f1 in any::<FWrap<pasta_curves::Fq>>()) {
+          repr_bytes_consistency(f1)
+      }
     }
 
-    #[quickcheck]
-    fn test_multicodec_consistency(x: Tag) -> bool {
-        let f1 = Fr::from(x as u64);
-        let codec = <Fr as LurkField>::to_multicodec(f1).unwrap();
-        let f2 = <Fr as LurkField>::from_multicodec(codec);
-        println!("x: {:?}", x);
-        println!("f1: {}", f1);
-        println!("codec: {:0x}", codec);
-        println!("f2: {}", f1);
-        Some(f1) == f2
-    }
-    #[quickcheck]
-    fn test_multihash_consistency(f1: FWrap<Fr>) -> bool {
-        let hash = <Fr as LurkField>::to_multihash(f1.0);
-        let f2 = <Fr as LurkField>::from_multihash(hash);
-        Some(f1.0) == f2
-    }
-    #[quickcheck]
-    fn test_cid_consistency(args: (Tag, FWrap<Fr>)) -> bool {
-        let (tag1, dig1) = args;
-        let cid = <Fr as LurkField>::to_cid(Fr::from(tag1 as u64), dig1.0).unwrap();
-        if let Some((tag2, dig2)) = <Fr as LurkField>::from_cid(cid) {
-            Fr::from(tag1 as u64) == tag2 && dig1.0 == dig2
-        } else {
-            false
+    // Construct canonical bytes from a field element
+    fn to_le_bytes_canonical<F: LurkField>(f: F) -> Vec<u8> {
+        let mut vec = vec![];
+        let bits = f.to_le_bits();
+
+        let len = bits.len();
+        let len_bytes = if len % 8 != 0 { len / 8 + 1 } else { len / 8 };
+        for _ in 0..len_bytes {
+            vec.push(0u8)
         }
+        for (n, b) in bits.into_iter().enumerate() {
+            let (byte_i, bit_i) = (n / 8, n % 8);
+            if b {
+                vec[byte_i] += 1u8 << bit_i;
+            }
+        }
+        vec
+    }
+
+    // Construct field element from possibly canonical bytes
+    fn from_le_bytes_canonical<F: LurkField>(bs: &[u8]) -> F {
+        let mut res = F::zero();
+        let mut bs = bs.iter().rev().peekable();
+        while let Some(b) = bs.next() {
+            let b: F = (*b as u64).into();
+            if bs.peek().is_none() {
+                res.add_assign(b)
+            } else {
+                res.add_assign(b);
+                res.mul_assign(F::from(256u64));
+            }
+        }
+        res
+    }
+
+    fn repr_canonicity<F: LurkField>(f1: FWrap<F>) {
+        let repr_bytes = f1.0.to_bytes();
+        let canonical_bytes = to_le_bytes_canonical(f1.0);
+        let f2_repr = F::from_bytes(&repr_bytes).expect("from_bytes");
+        let f2_canonical = from_le_bytes_canonical::<F>(&canonical_bytes);
+        assert_eq!(repr_bytes, canonical_bytes);
+        assert_eq!(f2_repr, f2_canonical)
+    }
+
+    proptest! {
+      #[test]
+      fn prop_repr_canonicity(f1 in any::<FWrap<Fr>>()) {
+        repr_canonicity(f1)
+      }
+      #[test]
+      fn prop_pallas_repr_canonicity(f1 in any::<FWrap<pasta_curves::Fp>>()) {
+          repr_canonicity(f1)
+      }
+      #[test]
+      fn prop_vesta_repr_canonicity(f1 in any::<FWrap<pasta_curves::Fq>>()) {
+          repr_canonicity(f1)
+      }
+    }
+
+    proptest! {
+      fn prop_tag_consistency(x in any::<ExprTag>()) {
+          let f1 = Fr::from_expr_tag(x);
+          let tag = <Fr as LurkField>::to_expr_tag(&f1).unwrap();
+          let f2 = Fr::from_expr_tag(tag);
+          assert_eq!(f1, f2);
+          assert_eq!(x, tag)
+      }
     }
 }

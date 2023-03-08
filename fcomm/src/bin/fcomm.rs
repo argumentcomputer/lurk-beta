@@ -1,8 +1,4 @@
-use hex::FromHex;
 use log::info;
-use lurk::proof::nova::PublicParams;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
 use std::boxed::Box;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -11,13 +7,17 @@ use std::fs::read_to_string;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use hex::FromHex;
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+
 use lurk::eval::IO;
 use lurk::field::LurkField;
 use lurk::proof::{
-    nova::{public_params, NovaProver},
+    nova::{public_params, NovaProver, PublicParams},
     Prover,
 };
-use lurk::store::{Ptr, Store};
+use lurk::store::{Ptr, Store, TypePredicates};
 
 use clap::{AppSettings, Args, Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
@@ -219,7 +219,7 @@ impl Commit {
     }
 }
 
-impl<'a> Open {
+impl Open {
     fn open(
         &self,
         chain: bool,
@@ -239,7 +239,7 @@ impl<'a> Open {
         let pp = cache::public_params(cache, rc.count());
         let function_map = committed_function_store();
 
-        let handle_proof = |out_path, proof: Proof<'a, S1>| {
+        let handle_proof = |out_path, proof: Proof<S1>| {
             proof.write_to_path(out_path);
             proof.verify(pp).expect("created opening doesn't verify");
         };
@@ -266,7 +266,7 @@ impl<'a> Open {
         } else {
             let function = if let Some(comm_string) = &self.commitment {
                 let commitment =
-                    Commitment::from_hex(&comm_string).map_err(Error::CommitmentParseError)?;
+                    Commitment::from_hex(comm_string).map_err(Error::CommitmentParseError)?;
 
                 function_map
                     .get(commitment)
@@ -274,7 +274,7 @@ impl<'a> Open {
             } else {
                 let function_path = self.function.as_ref().expect("function missing");
                 if self.lurk {
-                    let path = env::current_dir()?.join(&function_path);
+                    let path = env::current_dir()?.join(function_path);
                     let src = read_to_string(path)?;
                     Function {
                         fun: LurkPtr::Source(src),
@@ -282,12 +282,12 @@ impl<'a> Open {
                         commitment: None,
                     }
                 } else {
-                    Function::read_from_path(&function_path)?
+                    Function::read_from_path(function_path)?
                 }
             };
 
             let input_path = self.input.as_ref().expect("input missing");
-            let input = input(s, &input_path, eval_input, limit, quote_input)?;
+            let input = input(s, input_path, eval_input, limit, quote_input)?;
 
             if let Some(out_path) = &self.proof {
                 let proof =

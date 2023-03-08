@@ -1,1 +1,0 @@
-{"Evaluation":{"expr":"(LETREC ((NEXT (LAMBDA (A B N TARGET) (IF (EQ N TARGET) A (NEXT B (+ A B) (+ 1 N) TARGET)))) (FIB (NEXT 0 1 0))) (FIB 1))","env":"NIL","cont":"Outermost","expr_out":"1","env_out":"NIL","cont_out":"Terminal","status":"Terminal","iterations":89}}
