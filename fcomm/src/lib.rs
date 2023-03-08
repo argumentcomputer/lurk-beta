@@ -825,7 +825,7 @@ impl<'a> Proof<'a, S1> {
             // Meanwhile, since Nova currently requires the number of steps to be provided by the verifier, we have
             // to provide it. For now, we should at least be able to calculate this value based on number of real
             // iterations and number of frames per circuit. This is untested and mostly a placeholder to remind us
-            // that all of this will need to be handled in a more principled way eventually.
+            // that all of this will need to be handled in a more principled way eventually. (#282)
 
             let num_steps = self.num_steps;
 
