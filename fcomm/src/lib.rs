@@ -22,7 +22,6 @@ use lurk::{
     proof::{
         self,
         nova::{NovaProver, PublicParams},
-        Prover,
     },
     scalar_store::ScalarStore,
     store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store},
@@ -788,29 +787,6 @@ impl<'a> Proof<'a, S1> {
             reduction_count,
         };
 
-        match claim {
-            Claim::Evaluation(Evaluation {
-                iterations: Some(n),
-                ..
-            }) => {
-                // Currently, claims created by fcomm don't include the iteration count. If they do, then it should be
-                // possible to verify correctness. This may require making the iteration count explicit in the public
-                // output. That will allow maintaining iteration count without incrementing during frames added as
-                // padding; and it will also allow explicitly masking the count when desired for zero-knowledge.
-                // Meanwhile, since Nova currently requires the number of steps to be provided by the verifier, we have
-                // to provide it. For now, we should at least be able to calculate this value based on number of real
-                // iterations and number of frames per circuit. This is untested and mostly a placeholder to remind us
-                // that all of this will need to be handled in a more principled way eventually.
-                let m = nova_prover.chunk_frame_count();
-                let expected_iterations = (n / m) + (n % m != 0) as usize;
-                assert_eq!(
-                    expected_iterations, num_steps,
-                    "claimed number of iterations not equal to actual iterations"
-                )
-            }
-            _ => (),
-        }
-
         match &claim {
             Claim::Opening(o) => {
                 if o.status != Status::Terminal {
@@ -832,9 +808,37 @@ impl<'a> Proof<'a, S1> {
     }
 
     pub fn verify(&self, pp: &PublicParams) -> Result<VerificationResult, Error> {
-        let (public_inputs, public_outputs) = match self.claim {
-            Claim::Evaluation(_) => self.verify_evaluation(),
-            Claim::Opening(_) => self.verify_opening(),
+        let (public_inputs, public_outputs) = match &self.claim {
+            Claim::Evaluation(evaluation) => {
+                // Currently, claims created by fcomm don't include the iteration count. If they do, then it should be
+                // possible to verify correctness. This may require making the iteration count explicit in the public
+                // output. That will allow maintaining iteration count without incrementing during frames added as
+                // padding; and it will also allow explicitly masking the count when desired for zero-knowledge.
+                // Meanwhile, since Nova currently requires the number of steps to be provided by the verifier, we have
+                // to provide it. For now, we should at least be able to calculate this value based on number of real
+                // iterations and number of frames per circuit. This is untested and mostly a placeholder to remind us
+                // that all of this will need to be handled in a more principled way eventually.
+
+                if let Evaluation {
+                    iterations: Some(iterations),
+                    ..
+                } = evaluation
+                {
+                    let num_steps = self.num_steps;
+
+                    let chunk_frame_count = self.reduction_count.count();
+                    let expected_steps = (iterations / chunk_frame_count)
+                        + (iterations % chunk_frame_count != 0) as usize;
+
+                    if expected_steps != num_steps {
+                        // The claimed number of steps and iterations are inconsistent, so verification fails early.
+                        return Ok(VerificationResult::new(false));
+                    }
+                };
+
+                self.evaluation_io()
+            }
+            Claim::Opening(_) => self.opening_io(),
         }?;
 
         let verified = self
@@ -847,7 +851,7 @@ impl<'a> Proof<'a, S1> {
         Ok(result)
     }
 
-    pub fn verify_evaluation(&self) -> Result<(Vec<S1>, Vec<S1>), Error> {
+    pub fn evaluation_io(&self) -> Result<(Vec<S1>, Vec<S1>), Error> {
         let mut s = Store::<S1>::default();
 
         let evaluation = &self.claim.evaluation().expect("expected evaluation claim");
@@ -890,7 +894,7 @@ impl<'a> Proof<'a, S1> {
         Ok((public_inputs, public_outputs))
     }
 
-    pub fn verify_opening(&self) -> Result<(Vec<S1>, Vec<S1>), Error> {
+    pub fn opening_io(&self) -> Result<(Vec<S1>, Vec<S1>), Error> {
         let mut s = Store::<S1>::default();
 
         assert!(self.claim.is_opening());
