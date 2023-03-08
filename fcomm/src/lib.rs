@@ -22,6 +22,7 @@ use lurk::{
     proof::{
         self,
         nova::{NovaProver, PublicParams},
+        Prover,
     },
     scalar_store::ScalarStore,
     store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store},
@@ -786,6 +787,29 @@ impl<'a> Proof<'a, S1> {
             num_steps,
             reduction_count,
         };
+
+        match claim {
+            Claim::Evaluation(Evaluation {
+                iterations: Some(n),
+                ..
+            }) => {
+                // Currently, claims created by fcomm don't include the iteration count. If they do, then it should be
+                // possible to verify correctness. This may require making the iteration count explicit in the public
+                // output. That will allow maintaining iteration count without incrementing during frames added as
+                // padding; and it will also allow explicitly masking the count when desired for zero-knowledge.
+                // Meanwhile, since Nova currently requires the number of steps to be provided by the verifier, we have
+                // to provide it. For now, we should at least be able to calculate this value based on number of real
+                // iterations and number of frames per circuit. This is untested and mostly a placeholder to remind us
+                // that all of this will need to be handled in a more principled way eventually.
+                let m = nova_prover.chunk_frame_count();
+                let expected_iterations = (n / m) + (n % m != 0) as usize;
+                assert_eq!(
+                    expected_iterations, num_steps,
+                    "claimed number of iterations not equal to actual iterations"
+                )
+            }
+            _ => (),
+        }
 
         match &claim {
             Claim::Opening(o) => {
