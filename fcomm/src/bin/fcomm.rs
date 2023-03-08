@@ -1,6 +1,4 @@
 use log::info;
-use std::boxed::Box;
-use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::env;
 use std::fs::read_to_string;
@@ -13,10 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use lurk::eval::IO;
 use lurk::field::LurkField;
-use lurk::proof::{
-    nova::{public_params, NovaProver, PublicParams},
-    Prover,
-};
+use lurk::proof::{nova::NovaProver, Prover};
 use lurk::store::{Ptr, Store, TypePredicates};
 
 use clap::{AppSettings, Args, Parser, Subcommand};
@@ -226,7 +221,6 @@ impl Open {
         limit: usize,
         eval_input: bool,
         quote_input: bool,
-        cache: &'static mut cache::PublicParams,
     ) -> Result<(), Error> {
         assert!(
             !(self.commitment.is_some() && self.function.is_some()),
@@ -236,12 +230,12 @@ impl Open {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count)?;
         let prover = NovaProver::<S1>::new(rc.count());
-        let pp = cache::public_params(cache, rc.count());
+        let pp = cache::public_params(rc.count());
         let function_map = committed_function_store();
 
         let handle_proof = |out_path, proof: Proof<S1>| {
             proof.write_to_path(out_path);
-            proof.verify(pp).expect("created opening doesn't verify");
+            proof.verify(&pp).expect("created opening doesn't verify");
         };
 
         let handle_claim = |claim: Claim<S1>| serde_json::to_writer(io::stdout(), &claim);
@@ -251,12 +245,12 @@ impl Open {
             let request = opening_request(request_path).expect("failed to read opening request");
 
             if let Some(out_path) = &self.proof {
-                let proof = Opening::open_and_prove(s, request, limit, false, &prover, pp)?;
+                let proof = Opening::open_and_prove(s, request, limit, false, &prover, &pp)?;
 
                 handle_proof(out_path, proof);
             } else {
                 let function = function_map
-                    .get(request.commitment)
+                    .get(&request.commitment)
                     .expect("committed function not found");
                 let input = request.input.eval(s, limit)?;
 
@@ -269,7 +263,7 @@ impl Open {
                     Commitment::from_hex(comm_string).map_err(Error::CommitmentParseError)?;
 
                 function_map
-                    .get(commitment)
+                    .get(&commitment)
                     .expect("committed function not found")
             } else {
                 let function_path = self.function.as_ref().expect("function missing");
@@ -290,8 +284,9 @@ impl Open {
             let input = input(s, input_path, eval_input, limit, quote_input)?;
 
             if let Some(out_path) = &self.proof {
-                let proof =
-                    Opening::apply_and_prove(s, input, function, limit, chain, false, &prover, pp)?;
+                let proof = Opening::apply_and_prove(
+                    s, input, function, limit, chain, false, &prover, &pp,
+                )?;
 
                 handle_proof(out_path, proof);
             } else {
@@ -327,11 +322,11 @@ impl Eval {
 }
 
 impl Prove {
-    fn prove(&self, limit: usize, cache: &'static mut cache::PublicParams) -> Result<(), Error> {
+    fn prove(&self, limit: usize) -> Result<(), Error> {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count)?;
         let prover = NovaProver::<S1>::new(rc.count());
-        let pp = cache::public_params(cache, rc.count());
+        let pp = cache::public_params(rc.count());
 
         let proof = match &self.claim {
             Some(claim) => {
@@ -339,7 +334,7 @@ impl Prove {
                     self.expression.is_none(),
                     "claim and expression must not both be supplied"
                 );
-                Proof::prove_claim(s, Claim::read_from_path(claim)?, limit, false, &prover, pp)?
+                Proof::prove_claim(s, Claim::read_from_path(claim)?, limit, false, &prover, &pp)?
             }
 
             None => {
@@ -349,27 +344,23 @@ impl Prove {
                     self.lurk,
                 )?;
 
-                Proof::eval_and_prove(s, expr, limit, false, &prover, pp)?
+                Proof::eval_and_prove(s, expr, limit, false, &prover, &pp)?
             }
         };
 
         // Write first, so prover can debug if proof doesn't verify (it should).
         proof.write_to_path(&self.proof);
-        proof.verify(pp).expect("created proof doesn't verify");
+        proof.verify(&pp).expect("created proof doesn't verify");
 
         Ok(())
     }
 }
 
 impl Verify {
-    fn verify(
-        &self,
-        cli_error: bool,
-        cache: &'static mut cache::PublicParams,
-    ) -> Result<(), Error> {
+    fn verify(&self, cli_error: bool) -> Result<(), Error> {
         let proof = proof(Some(&self.proof))?;
-        let pp = cache::public_params(cache, proof.reduction_count.count());
-        let result = proof.verify(pp)?;
+        let pp = cache::public_params(proof.reduction_count.count());
+        let result = proof.verify(&pp)?;
 
         serde_json::to_writer(io::stdout(), &result)?;
 
@@ -496,87 +487,33 @@ fn main() -> Result<(), Error> {
         .filter_level(cli.verbose.log_level_filter())
         .init();
 
-    // cache lives as long as the process
-    let cache = Box::leak(Box::new(cache::PublicParams {
-        file_store: Path::new(&cache::dir("lurk")).join("pubparams.json"),
-        data: HashMap::<usize, PublicParams>::new(),
-    }));
-
-    cache.read().ok();
-
     match &cli.command {
         Command::Commit(c) => c.commit(cli.limit),
-        Command::Open(o) => o.open(o.chain, cli.limit, cli.eval_input, o.quote_input, cache),
+        Command::Open(o) => o.open(o.chain, cli.limit, cli.eval_input, o.quote_input),
         Command::Eval(e) => e.eval(cli.limit),
-        Command::Prove(p) => p.prove(cli.limit, cache),
-        Command::Verify(v) => v.verify(cli.error, cache),
+        Command::Prove(p) => p.prove(cli.limit),
+        Command::Verify(v) => v.verify(cli.error),
     }
 }
 
 mod cache {
-    use fcomm::error::Error;
-    use lurk::proof::nova;
-    use std::boxed::Box;
-    use std::collections::HashMap;
-    use std::env;
-    use std::hash::Hash;
-    use std::path::PathBuf;
+    use fcomm::file_map::FileMap;
+    use lurk::proof::nova::{self, PublicParams};
 
-    pub struct Cache<
-        K: Eq + Hash + serde::Serialize + serde::de::DeserializeOwned,
-        V: serde::Serialize + serde::de::DeserializeOwned,
-    > {
-        pub data: HashMap<K, V>,
-        pub file_store: PathBuf,
+    fn public_param_cache() -> FileMap<String, PublicParams<'static>> {
+        FileMap::new("public_params").unwrap()
     }
 
-    pub type PublicParams<'a> = Cache<usize, nova::PublicParams<'a>>;
+    pub fn public_params(rc: usize) -> PublicParams<'static> {
+        let cache = public_param_cache();
+        let key = format!("public-params-rc-{rc}");
 
-    impl<
-            'a,
-            K: Eq + Hash + serde::Serialize + serde::de::DeserializeOwned,
-            V: serde::Serialize + serde::de::DeserializeOwned,
-        > Cache<K, V>
-    {
-        pub fn read(&mut self) -> Result<(), Error> {
-            let serialization = std::fs::read(self.file_store.clone())?;
-            self.data = serde_json::from_slice(serialization.as_slice())?;
-            Ok(())
+        if let Some(pp) = cache.get(&key) {
+            return pp;
+        } else {
+            let pp = nova::public_params(rc);
+            cache.set(key, &pp).unwrap();
+            pp
         }
-
-        pub fn write(&mut self) -> Result<(), Error> {
-            std::fs::create_dir_all(self.file_store.as_path().parent().unwrap())?;
-            let db = serde_json::to_string(&self.data)?;
-            std::fs::write(self.file_store.clone(), db)?;
-            Ok(())
-        }
-    }
-    const PREFIX: &str = "LURK";
-
-    /// All cache files and directories paths should be constructed using this function,
-    /// which its base directory from the LURK_CACHE_DIR env var, and defaults to /var/tmp.
-    /// Note that LURK_CACHE_DIR is not a first class setting and can only be set by env var.
-    pub fn dir(s: &str) -> String {
-        let cache_var = format!("{}_CACHE_DIR", PREFIX);
-        let mut cache_name = env::var(cache_var).unwrap_or_else(|_| "/var/tmp/".to_string());
-        cache_name.push_str(s);
-        cache_name
-    }
-
-    pub fn public_params(
-        cache: &'static mut PublicParams,
-        num_iters_per_step: usize,
-    ) -> &'static super::PublicParams<'static> {
-        let mut modified = false;
-
-        cache.data.entry(num_iters_per_step).or_insert_with(|| {
-            modified = true;
-            super::public_params(num_iters_per_step)
-        });
-
-        if modified {
-            cache.write().ok();
-        }
-        Box::leak(Box::new(cache.data.get(&num_iters_per_step).unwrap()))
     }
 }

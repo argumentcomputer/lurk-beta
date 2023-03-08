@@ -35,7 +35,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub mod error;
-mod file_map;
+pub mod file_map;
 
 use error::Error;
 use file_map::FileMap;
@@ -316,13 +316,6 @@ where
     fn has_id(&self, id: String) -> bool;
 }
 
-pub trait Key<T: ToString>
-where
-    Self: Sized,
-{
-    fn key(&self) -> T;
-}
-
 impl<T: Serialize> Id for T
 where
     for<'de> T: Deserialize<'de>,
@@ -585,7 +578,7 @@ impl<'a> Opening<S1> {
 
         let function_map = committed_function_store();
         let function = function_map
-            .get(commitment)
+            .get(&commitment)
             .ok_or(Error::UnknownCommitment)?;
 
         Self::apply_and_prove(
@@ -611,7 +604,7 @@ impl<'a> Opening<S1> {
 
         let function_map = committed_function_store();
         let function = function_map
-            .get(commitment)
+            .get(&commitment)
             .ok_or(Error::UnknownCommitment)?;
 
         Self::apply(s, input, function, limit, chain)
@@ -754,7 +747,9 @@ impl<'a> Proof<'a, S1> {
         let proof_map = nova_proof_cache();
         let function_map = committed_function_store();
 
-        if let Some(proof) = proof_map.get(claim.cid()) {
+        let cid = claim.cid();
+
+        if let Some(proof) = proof_map.get(&cid) {
             return Ok(proof);
         }
 
@@ -777,7 +772,7 @@ impl<'a> Proof<'a, S1> {
 
                 // In order to prove the opening, we need access to the original function.
                 let function = function_map
-                    .get(commitment)
+                    .get(&commitment)
                     .expect("function for commitment missing");
 
                 let input = s.read(&o.input).expect("bad expression");
@@ -815,7 +810,7 @@ impl<'a> Proof<'a, S1> {
 
         proof.verify(pp).expect("Nova verification failed");
 
-        proof_map.set(claim.cid(), &proof).unwrap();
+        proof_map.set(cid, &proof).unwrap();
 
         Ok(proof)
     }
@@ -917,18 +912,6 @@ impl<'a> Proof<'a, S1> {
         let public_outputs = output_io.to_inputs(&s);
 
         Ok((public_inputs, public_outputs))
-    }
-}
-
-impl Key<Commitment<S1>> for Function<S1> {
-    fn key(&self) -> Commitment<S1> {
-        self.commitment.expect("commitment missing")
-    }
-}
-
-impl Key<Cid> for Proof<'_, S1> {
-    fn key(&self) -> Cid {
-        self.claim.cid()
     }
 }
 
