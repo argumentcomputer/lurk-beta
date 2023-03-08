@@ -1,7 +1,7 @@
 use anyhow::Result;
 use lurk::field::LanguageField;
 use lurk::proof::nova;
-use lurk::repl::repl;
+use lurk::repl::{repl, ReplState};
 
 fn main() -> Result<()> {
     pretty_env_logger::init();
@@ -27,8 +27,10 @@ fn main() -> Result<()> {
     };
 
     match field {
-        LanguageField::BLS12_381 => repl::<_, blstrs::Scalar>(lurk_file.as_deref()),
-        LanguageField::Pallas => repl::<_, nova::S1>(lurk_file.as_deref()),
-        LanguageField::Vesta => repl::<_, nova::S2>(lurk_file.as_deref()),
+        LanguageField::BLS12_381 => {
+            repl::<_, blstrs::Scalar, ReplState<blstrs::Scalar>>(lurk_file.as_deref())
+        }
+        LanguageField::Pallas => repl::<_, nova::S1, ReplState<nova::S1>>(lurk_file.as_deref()),
+        LanguageField::Vesta => repl::<_, nova::S2, ReplState<nova::S2>>(lurk_file.as_deref()),
     }
 }
