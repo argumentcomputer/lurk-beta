@@ -41,6 +41,42 @@ pub struct Repl<F: LurkField, T: ReplTrait<F>> {
     _phantom: F,
 }
 
+pub trait ReplTrait<F: LurkField> {
+    fn new(s: &mut Store<F>, limit: usize) -> Self;
+
+    fn handle_run<P: AsRef<Path> + Copy>(
+        &mut self,
+        store: &mut Store<F>,
+        file_path: P,
+        package: &Package,
+    ) -> Result<()>;
+
+    /// Returns two bools.
+    /// First bool is true if input is a command.
+    /// Second bool is true if processing should continue.
+    fn maybe_handle_command(
+        &mut self,
+        store: &mut Store<F>,
+        line: &str,
+        package: &Package,
+    ) -> Result<(bool, bool)>;
+
+    fn handle_meta<P: AsRef<Path> + Copy>(
+        &mut self,
+        store: &mut Store<F>,
+        expr_ptr: Ptr<F>,
+        package: &Package,
+        p: P,
+    ) -> Result<()>;
+
+    fn handle_non_meta(
+        &mut self,
+        store: &mut Store<F>,
+        expr_ptr: Ptr<F>,
+        update_env: bool,
+    ) -> Result<()>;
+}
+
 impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
     pub fn new(s: &mut Store<F>, limit: usize) -> Result<Self> {
         let history_path = dirs::home_dir()
@@ -186,9 +222,6 @@ impl<F: LurkField> ReplState<F> {
         (result, iterations, next_cont, emitted)
     }
 
-    /// Returns two bools.
-    /// First bool is true if input is a command.
-    /// Second bool is true if processing should continue.
     pub fn maybe_handle_command(
         &mut self,
         store: &mut Store<F>,
@@ -315,42 +348,6 @@ impl<F: LurkField> ReplState<F> {
             self.handle_non_meta(store, ptr, update_env)
         }
     }
-}
-
-pub trait ReplTrait<F: LurkField> {
-    fn new(s: &mut Store<F>, limit: usize) -> Self;
-
-    fn handle_run<P: AsRef<Path> + Copy>(
-        &mut self,
-        store: &mut Store<F>,
-        file_path: P,
-        package: &Package,
-    ) -> Result<()>;
-
-    /// Returns two bools.
-    /// First bool is true if input is a command.
-    /// Second bool is true if processing should continue.
-    fn maybe_handle_command(
-        &mut self,
-        store: &mut Store<F>,
-        line: &str,
-        package: &Package,
-    ) -> Result<(bool, bool)>;
-
-    fn handle_meta<P: AsRef<Path> + Copy>(
-        &mut self,
-        store: &mut Store<F>,
-        expr_ptr: Ptr<F>,
-        package: &Package,
-        p: P,
-    ) -> Result<()>;
-
-    fn handle_non_meta(
-        &mut self,
-        store: &mut Store<F>,
-        expr_ptr: Ptr<F>,
-        update_env: bool,
-    ) -> Result<()>;
 }
 
 impl<F: LurkField> ReplTrait<F> for ReplState<F> {
