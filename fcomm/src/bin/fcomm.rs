@@ -18,8 +18,9 @@ use clap::{AppSettings, Args, Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 use fcomm::{
-    self, committed_function_store, error::Error, evaluate, Claim, Commitment, Evaluation,
-    Expression, FileStore, Function, LurkPtr, Opening, OpeningRequest, Proof, ReductionCount, S1,
+    self, committed_function_store, error::Error, evaluate, public_params, Claim, Commitment,
+    Evaluation, Expression, FileStore, Function, LurkPtr, Opening, OpeningRequest, Proof,
+    ReductionCount, S1,
 };
 
 /// Functional commitments
@@ -222,7 +223,7 @@ impl Open {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
         let prover = NovaProver::<S1>::new(rc.count());
-        let pp = cache::public_params(rc.count());
+        let pp = public_params(rc.count());
         let function_map = committed_function_store();
 
         let handle_proof = |out_path, proof: Proof<S1>| {
@@ -317,7 +318,7 @@ impl Prove {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
         let prover = NovaProver::<S1>::new(rc.count());
-        let pp = cache::public_params(rc.count());
+        let pp = public_params(rc.count());
 
         let proof = match &self.claim {
             Some(claim) => {
@@ -357,7 +358,7 @@ impl Prove {
 impl Verify {
     fn verify(&self, cli_error: bool) {
         let proof = proof(Some(&self.proof)).unwrap();
-        let pp = cache::public_params(proof.reduction_count.count());
+        let pp = public_params(proof.reduction_count.count());
         let result = proof.verify(&pp).unwrap();
 
         serde_json::to_writer(io::stdout(), &result).unwrap();
@@ -489,27 +490,5 @@ fn main() {
         Command::Eval(e) => e.eval(cli.limit),
         Command::Prove(p) => p.prove(cli.limit),
         Command::Verify(v) => v.verify(cli.error),
-    }
-}
-
-mod cache {
-    use fcomm::file_map::FileMap;
-    use lurk::proof::nova::{self, PublicParams};
-
-    fn public_param_cache() -> FileMap<String, PublicParams<'static>> {
-        FileMap::new("public_params").unwrap()
-    }
-
-    pub fn public_params(rc: usize) -> PublicParams<'static> {
-        let cache = public_param_cache();
-        let key = format!("public-params-rc-{rc}");
-
-        if let Some(pp) = cache.get(&key) {
-            return pp;
-        } else {
-            let pp = nova::public_params(rc);
-            cache.set(key, &pp).unwrap();
-            pp
-        }
     }
 }

@@ -19,10 +19,7 @@ use lurk::{
     circuit::ToInputs,
     eval::{empty_sym_env, Evaluable, Evaluator, Status, IO},
     field::LurkField,
-    proof::{
-        self,
-        nova::{NovaProver, PublicParams},
-    },
+    proof::nova::{self, NovaProver, PublicParams},
     scalar_store::ScalarStore,
     store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store},
     tag::ExprTag,
@@ -35,7 +32,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub mod error;
-pub mod file_map;
+mod file_map;
 
 use error::Error;
 use file_map::FileMap;
@@ -66,6 +63,23 @@ fn nova_proof_cache() -> FileMap<Cid, Proof<'static, S1>> {
 
 pub fn committed_function_store() -> FileMap<Commitment<S1>, Function<S1>> {
     FileMap::<Commitment<S1>, Function<S1>>::new("functions").unwrap()
+}
+
+fn public_param_cache() -> FileMap<String, PublicParams<'static>> {
+    FileMap::new("public_params").unwrap()
+}
+
+pub fn public_params(rc: usize) -> PublicParams<'static> {
+    let cache = public_param_cache();
+    let key = format!("public-params-rc-{rc}");
+
+    if let Some(pp) = cache.get(&key) {
+        pp
+    } else {
+        let pp = nova::public_params(rc);
+        cache.set(key, &pp).unwrap();
+        pp
+    }
 }
 
 // Number of circuit reductions per step, equivalent to `chunk_frame_count`
@@ -204,7 +218,7 @@ pub struct VerificationResult {
 #[derive(Serialize, Deserialize)]
 pub struct Proof<'a, F: LurkField> {
     pub claim: Claim<F>,
-    pub proof: proof::nova::Proof<'a>,
+    pub proof: nova::Proof<'a>,
     pub num_steps: usize,
     pub reduction_count: ReductionCount,
 }
