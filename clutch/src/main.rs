@@ -72,7 +72,7 @@ impl ReplTrait<F> for ClutchState<F> {
 
                                 let path =
                                     if let Expression::Str(p) = store.fetch(&proof_path).unwrap() {
-                                        format!("{}", p)
+                                        p.to_string()
                                     } else {
                                         panic!("proof path must be a string");
                                     };
@@ -101,7 +101,7 @@ impl ReplTrait<F> for ClutchState<F> {
 
                                 let path =
                                     if let Expression::Str(p) = store.fetch(&proof_path).unwrap() {
-                                        format!("{}", p)
+                                        p.to_string()
                                     } else {
                                         panic!("proof path must be a string");
                                     };
