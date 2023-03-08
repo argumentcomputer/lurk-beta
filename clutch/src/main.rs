@@ -3,8 +3,10 @@ use lurk::field::{LanguageField, LurkField};
 use lurk::package::Package;
 use lurk::proof::nova;
 use lurk::repl::{repl, ReplState, ReplTrait};
-use lurk::store::{Ptr, Store};
-use std::path::{Path, PathBuf};
+use lurk::store::{Expression, Ptr, Store};
+use lurk::writer::Write;
+use std::io;
+use std::path::Path;
 
 struct ClutchState<F: LurkField>(ReplState<F>);
 
@@ -41,7 +43,40 @@ impl<F: LurkField> ReplTrait<F> for ClutchState<F> {
         package: &Package,
         p: P,
     ) -> Result<()> {
-        self.0.handle_meta(store, expr_ptr, package, p)
+        let expr = store.fetch(&expr_ptr).unwrap();
+
+        macro_rules! delegate {
+            () => {
+                self.0.handle_meta(store, expr_ptr, package, p)
+            };
+        }
+
+        let res: Option<Ptr<F>> = match expr {
+            Expression::Cons(car, _rest) => match &store.fetch(&car).unwrap() {
+                Expression::Sym(s) => {
+                    if let Some(name) = s.simple_keyword_name() {
+                        match name.as_str() {
+                            "XXX" => {
+                                println!("BOOM");
+                                None
+                            }
+                            _ => return delegate!(),
+                        }
+                    } else {
+                        return delegate!();
+                    }
+                }
+                _ => return delegate!(),
+            },
+            _ => return delegate!(),
+        };
+
+        if let Some(expr) = res {
+            let mut handle = io::stdout().lock();
+            expr.fmt(store, &mut handle)?;
+            println!();
+        };
+        Ok(())
     }
 
     fn handle_non_meta(
