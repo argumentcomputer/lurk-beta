@@ -70,8 +70,13 @@ impl ReplTrait<F> for ClutchState<F> {
                                 let (proof_path, rest) = store.car_cdr(&rest)?;
                                 let (proof_in_expr, _) = store.car_cdr(&rest)?;
 
-                                let proof_path = proof_path.fmt_to_string(store);
-                                dbg!(&proof_path);
+                                let path =
+                                    if let Expression::Str(p) = store.fetch(&proof_path).unwrap() {
+                                        format!("{}", p)
+                                    } else {
+                                        panic!("proof path must be a string");
+                                    };
+
                                 let chunk_frame_count = 1;
 
                                 let prover = NovaProver::<F>::new(chunk_frame_count);
@@ -86,14 +91,31 @@ impl ReplTrait<F> for ClutchState<F> {
                                 )
                                 .expect("proving failed");
 
-                                proof.write_to_path(proof_path);
+                                proof.write_to_path(path);
                                 proof.verify(&pp).expect("created proof doesn't verify");
 
                                 Some(proof_in_expr)
                             }
-                            "XXX" => {
-                                println!("BOOM");
-                                None
+                            "VERIFY" => {
+                                let (proof_path, _) = store.car_cdr(&rest)?;
+
+                                let path =
+                                    if let Expression::Str(p) = store.fetch(&proof_path).unwrap() {
+                                        format!("{}", p)
+                                    } else {
+                                        panic!("proof path must be a string");
+                                    };
+
+                                let proof = Proof::read_from_path(path).unwrap();
+                                let chunk_frame_count = 1;
+                                let pp = public_params(chunk_frame_count);
+                                let result = proof.verify(&pp).unwrap();
+
+                                if result.verified {
+                                    Some(store.get_t())
+                                } else {
+                                    Some(store.get_nil())
+                                }
                             }
                             _ => return delegate!(),
                         }
