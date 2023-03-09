@@ -47,7 +47,7 @@ impl Arbitrary for LightData {
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         let atom = prop::collection::vec(any::<u8>(), 0..256).prop_map(LightData::Atom);
         atom.prop_recursive(16, 1024, 256, |inner| {
-            prop::collection::vec(inner.clone(), 0..256).prop_map(LightData::Cell)
+            prop::collection::vec(inner, 0..256).prop_map(LightData::Cell)
         })
         .boxed()
     }
@@ -67,11 +67,11 @@ impl LightData {
     }
     pub fn tag(&self) -> u8 {
         match self {
-            Self::Atom(xs) if xs.len() == 0 => 0b0000_0000,
+            Self::Atom(xs) if xs.is_empty() => 0b0000_0000,
             Self::Atom(xs) if xs.len() < 64 => 0b0100_0000u8 + (xs.len() as u8),
             Self::Atom(xs) if xs.len() == 64 => 0b0100_0000u8,
-            Self::Atom(xs) => 0b0000_0000u8 + LightData::byte_count(xs.len()),
-            Self::Cell(xs) if xs.len() == 0 => 0b1000_0000,
+            Self::Atom(xs) => LightData::byte_count(xs.len()),
+            Self::Cell(xs) if xs.is_empty() => 0b1000_0000,
             Self::Cell(xs) if xs.len() < 64 => 0b1100_0000u8 + (xs.len() as u8),
             Self::Cell(xs) if xs.len() == 64 => 0b1100_0000u8,
             Self::Cell(xs) => 0b1000_0000u8 + LightData::byte_count(xs.len()),
@@ -90,13 +90,13 @@ impl LightData {
         let mut res = vec![];
         res.push(self.tag());
         match self {
-            Self::Atom(xs) if xs.len() == 0 => {}
+            Self::Atom(xs) if xs.is_empty() => {}
             Self::Atom(xs) if xs.len() <= 64 => res.extend(xs),
             Self::Atom(xs) => {
                 res.extend(LightData::to_trimmed_le_bytes(xs.len()));
                 res.extend(xs);
             }
-            Self::Cell(xs) if xs.len() == 0 => {}
+            Self::Cell(xs) if xs.is_empty() => {}
             Self::Cell(xs) if xs.len() <= 64 => {
                 for x in xs {
                     res.extend(x.ser())
@@ -132,7 +132,7 @@ impl LightData {
                 (false, _) => {
                     let (i, size) = take(size)(i)?;
                     let size = size.iter().fold(0, |acc, &x| (acc * 256) + x as usize);
-                    (i, size as usize)
+                    (i, size)
                 }
             };
             let (i, data) = take(size)(i)?;
@@ -144,7 +144,7 @@ impl LightData {
                 (false, _) => {
                     let (i, size) = take(size)(i)?;
                     let size = size.iter().fold(0, |acc, &x| (acc * 256) + x as usize);
-                    (i, size as usize)
+                    (i, size)
                 }
             };
             let (i, xs) = count(LightData::de_aux, size)(i)?;
@@ -174,9 +174,9 @@ impl<A: Encodable + Sized> Encodable for Option<A> {
             LightData::Cell(xs) => match xs.as_slice() {
                 [] => Ok(Option::None),
                 [a] => Ok(Option::Some(A::de(a)?)),
-                _ => Err(format!("expected Option")),
+                _ => Err("expected Option".to_string()),
             },
-            _ => Err(format!("expected Option")),
+            _ => Err("expected Option".to_string()),
         }
     }
 }
@@ -189,7 +189,7 @@ impl<A: Encodable + Sized> Encodable for Vec<A> {
     fn de(ld: &LightData) -> Result<Self, String> {
         match ld {
             LightData::Cell(xs) => xs.iter().map(|x| A::de(x)).collect(),
-            _ => Err(format!("expected Vec")),
+            _ => Err("expected Vec".to_string()),
         }
     }
 }
@@ -203,9 +203,9 @@ impl<A: Encodable + Sized, B: Encodable + Sized> Encodable for (A, B) {
         match ld {
             LightData::Cell(xs) => match xs.as_slice() {
                 [x, y] => Ok((A::de(x)?, B::de(y)?)),
-                _ => Err(format!("expected pair")),
+                _ => Err("expected pair".to_string()),
             },
-            _ => Err(format!("expected pair")),
+            _ => Err("expected pair".to_string()),
         }
     }
 }
@@ -230,7 +230,7 @@ pub mod tests {
             let ser = ld.ser();
             assert_eq!(ser, xs);
             println!("{:?}", LightData::de(&ser));
-            assert_eq!(ld.clone(), LightData::de(&ser).expect("valid lightdata"))
+            assert_eq!(ld, LightData::de(&ser).expect("valid lightdata"))
         };
         test(LightData::Atom(vec![]), vec![0b0000_0000]);
         test(LightData::Cell(vec![]), vec![0b1000_0000]);

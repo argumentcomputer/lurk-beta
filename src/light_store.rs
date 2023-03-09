@@ -97,7 +97,7 @@ impl<F: LurkField> LightStore<F> {
                     store.insert_scalar_expression(*ptr, Some(ScalarExpression::Comm(*f, *x)));
                 }
                 Some(LightExpr::Num(f)) => {
-                    store.insert_scalar_expression(*ptr, Some(ScalarExpression::Num((*f).into())));
+                    store.insert_scalar_expression(*ptr, Some(ScalarExpression::Num(*f)));
                 }
                 // TODO: malformed non-unicode Chars breaks this
                 Some(LightExpr::Char(f)) => {
@@ -132,10 +132,7 @@ impl<F: LurkField> LightStore<F> {
     }
 
     pub fn get(&self, ptr: &ScalarPtr<F>) -> Option<Option<LightExpr<F>>> {
-        match self.scalar_map.get(&ptr) {
-            None => None,
-            Some(x) => Some(x.clone()),
-        }
+        self.scalar_map.get(ptr).cloned()
     }
 }
 
@@ -191,5 +188,6 @@ pub mod tests {
         println!("ser {:?}", ser);
         assert_eq!(x, de)
     }
+
     }
 }
