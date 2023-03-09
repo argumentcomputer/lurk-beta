@@ -7,8 +7,6 @@ use crate::field::FWrap;
 use proptest::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
-#[cfg(not(target_arch = "wasm32"))]
-use rand::{rngs::StdRng, SeedableRng};
 
 use std::collections::BTreeMap;
 
@@ -31,7 +29,7 @@ impl<F: LurkField> Encodable for LightStore<F> {
     fn ser(&self) -> LightData {
         todo!()
     }
-    fn de(ld: &LightData) -> Result<Self, String> {
+    fn de(_ld: &LightData) -> Result<Self, String> {
         todo!()
     }
 }
@@ -128,7 +126,6 @@ impl<F: LurkField> LightStore<F> {
                 Some(LightExpr::SymCons(_, _)) => {
                     self.insert_scalar_symbol(*ptr, &mut store);
                 }
-                _ => todo!(),
             }
         }
         store
@@ -175,7 +172,7 @@ impl<F: LurkField> Encodable for LightExpr<F> {
     fn ser(&self) -> LightData {
         todo!()
     }
-    fn de(ld: &LightData) -> Result<Self, String> {
+    fn de(_ld: &LightData) -> Result<Self, String> {
         todo!()
     }
 }

@@ -232,14 +232,12 @@ impl<F: LurkField> Encodable for FWrap<F> {
     }
 
     fn de(ld: &LightData) -> Result<Self, String> {
-        match ld {
-            LightData::Atom(bytes) => {
-                let f = F::from_bytes(&bytes)
-                    .ok_or_else(|| format!("expected field element as bytes, got {:?}", &bytes))?;
-                Ok(FWrap(f))
-            }
-            _ => Err(format!("expected field element got {}", &ld)),
-        }
+        let LightData::Atom(bytes) = ld else {
+            return Err(format!("expected field element got {}", &ld))
+        };
+        F::from_bytes(&bytes)
+            .map(FWrap)
+            .ok_or_else(|| format!("expected field element as bytes, got {:?}", &bytes))
     }
 }
 

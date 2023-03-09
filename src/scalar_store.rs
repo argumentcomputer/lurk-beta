@@ -2,9 +2,6 @@ use std::collections::BTreeMap;
 
 use crate::field::LurkField;
 
-use crate::light_data::Encodable;
-use crate::light_data::LightData;
-
 #[cfg(not(target_arch = "wasm32"))]
 use crate::field::FWrap;
 use crate::store::{Pointer, Ptr, ScalarContPtr, ScalarPtr, Store};

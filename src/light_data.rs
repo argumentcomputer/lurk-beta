@@ -2,8 +2,6 @@ use std::fmt::Display;
 
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
-#[cfg(not(target_arch = "wasm32"))]
-use rand::{rngs::StdRng, SeedableRng};
 
 use nom::bytes::complete::take;
 use nom::multi::count;
@@ -18,34 +16,27 @@ pub enum LightData {
 
 impl Display for LightData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[")?;
         match self {
             Self::Atom(xs) => {
-                write!(f, "[")?;
-                let mut iter = xs.iter().peekable();
-                while let Some(x) = iter.next() {
-                    write!(f, "{:02x?}", x)?;
-                    if let Some(_) = iter.peek() {
-                        write!(f, ", ")?;
-                    } else {
-                        write!(f, "]")?;
-                    }
-                }
-                Ok(())
+                let xs_str = xs
+                    .iter()
+                    .map(|x| format!("{:02x?}", x))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "{}", xs_str)?;
             }
             Self::Cell(xs) => {
-                write!(f, "(")?;
-                let mut iter = xs.iter().peekable();
-                while let Some(x) = iter.next() {
-                    write!(f, "{}", x)?;
-                    if let Some(_) = iter.peek() {
-                        write!(f, ", ")?;
-                    } else {
-                        write!(f, ")")?;
-                    }
-                }
-                Ok(())
+                let xs_str = xs
+                    .iter()
+                    .map(|x| format!("{}", x))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "{}", xs_str)?;
             }
         }
+        write!(f, "]")?;
+        Ok(())
     }
 }
 
@@ -65,25 +56,14 @@ impl Arbitrary for LightData {
 impl LightData {
     pub fn byte_count(x: usize) -> u8 {
         if x == 0 {
-            return 1;
+            1
+        } else {
+            (x.ilog2() / 8 + 1) as u8
         }
-        let mut n: u8 = 0;
-        let mut x = x;
-        while x > 0 {
-            n += 1;
-            x = x / 256;
-        }
-        n
     }
 
     pub fn to_trimmed_le_bytes(x: usize) -> Vec<u8> {
-        let mut res = vec![];
-        let mut x = x;
-        while x > 0 {
-            res.push((x % 256) as u8);
-            x = x / 256;
-        }
-        res
+        x.to_le_bytes()[..Self::byte_count(x) as usize].to_vec()
     }
     pub fn tag(&self) -> u8 {
         match self {
@@ -139,35 +119,38 @@ impl LightData {
         }
     }
 
-    pub fn de_aux(i: &[u8]) -> IResult<&[u8], Self> {
+    #[inline]
+    fn de_aux(i: &[u8]) -> IResult<&[u8], Self> {
         let (i, tag) = take(1u8)(i)?;
         let tag = tag[0];
         let size = tag & 0b11_1111;
-        if Self::tag_is_atom(tag) {
-            let (i, size) = if Self::tag_is_small(tag) && size == 0 {
-                Ok((i, 64))
-            } else if Self::tag_is_small(tag) {
-                Ok((i, size as usize))
-            } else {
-                let (i, size) = take(size)(i)?;
-                let size = size.iter().fold(0, |acc, &x| (acc * 256) + x as usize);
-                Ok((i, size as usize))
-            }?;
-            let (i, xs) = take(size)(i)?;
-            Ok((i, LightData::Atom(xs.to_vec())))
+
+        let res = if Self::tag_is_atom(tag) {
+            let (i, size) = match (Self::tag_is_small(tag), size) {
+                (true, 0) => (i, 64),
+                (true, _) => (i, size as usize),
+                (false, _) => {
+                    let (i, size) = take(size)(i)?;
+                    let size = size.iter().fold(0, |acc, &x| (acc * 256) + x as usize);
+                    (i, size as usize)
+                }
+            };
+            let (i, data) = take(size)(i)?;
+            (i, LightData::Atom(data.to_vec()))
         } else {
-            let (i, size) = if Self::tag_is_small(tag) && size == 0 {
-                Ok((i, 64))
-            } else if Self::tag_is_small(tag) {
-                Ok((i, size as usize))
-            } else {
-                let (i, size) = take(size)(i)?;
-                let size = size.iter().fold(0, |acc, &x| (acc * 256) + x as usize);
-                Ok((i, size as usize))
-            }?;
+            let (i, size) = match (Self::tag_is_small(tag), size) {
+                (true, 0) => (i, 64),
+                (true, _) => (i, size as usize),
+                (false, _) => {
+                    let (i, size) = take(size)(i)?;
+                    let size = size.iter().fold(0, |acc, &x| (acc * 256) + x as usize);
+                    (i, size as usize)
+                }
+            };
             let (i, xs) = count(LightData::de_aux, size)(i)?;
-            Ok((i, LightData::Cell(xs.to_vec())))
-        }
+            (i, LightData::Cell(xs.to_vec()))
+        };
+        Ok(res)
     }
 }
 
@@ -205,13 +188,7 @@ impl<A: Encodable + Sized> Encodable for Vec<A> {
 
     fn de(ld: &LightData) -> Result<Self, String> {
         match ld {
-            LightData::Cell(xs) => {
-                let mut res = vec![];
-                for x in xs {
-                    res.push(A::de(x)?)
-                }
-                Ok(res)
-            }
+            LightData::Cell(xs) => xs.iter().map(|x| A::de(x)).collect(),
             _ => Err(format!("expected Vec")),
         }
     }
