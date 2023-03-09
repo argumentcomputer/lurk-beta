@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use pasta_curves::pallas;
 
 use fcomm::{Commitment, CommittedExpression, FileStore, LurkPtr, Proof};
@@ -103,9 +103,8 @@ impl ReplTrait<F> for ClutchState<F> {
                             }
                             "OPEN" => {
                                 let (maybe_comm, rest) = store.car_cdr(&rest)?;
-                                let (_arg, _) = store.car_cdr(&rest)?;
 
-                                assert!(rest.is_nil()); // TODO: if one or more args, apply to function.
+                                let args = rest.as_cons();
 
                                 let comm = match maybe_comm.tag() {
                                     ExprTag::Comm => Some(maybe_comm),
@@ -122,16 +121,25 @@ impl ReplTrait<F> for ClutchState<F> {
                                     }
                                 };
 
-                                comm.map(|comm| {
+                                let expr = comm.and_then(|comm| {
                                     let commitment = Commitment::from_comm(store, &comm);
                                     let expression_map = fcomm::committed_expression_store();
 
-                                    let committed_expression = expression_map
-                                        .get(&commitment)
-                                        .expect("committed expression not found");
+                                    expression_map.get(&commitment).map(|c| c.expr.ptr(store))
+                                });
 
-                                    committed_expression.expr.ptr(store)
-                                })
+                                if let (Some(e), Some(a)) = (expr, args) {
+                                    let call = store.cons(e, a);
+
+                                    let (result, _iterations, _cont, _xxx) = self
+                                        .0
+                                        .eval_expr(call, store)
+                                        .with_context(|| "Evaluating call")?;
+
+                                    Some(result)
+                                } else {
+                                    expr
+                                }
                             }
                             "PROVE" => {
                                 let (proof_path, rest) = store.car_cdr(&rest)?;

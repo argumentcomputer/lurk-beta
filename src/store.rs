@@ -256,14 +256,43 @@ impl<F: LurkField> Hash for Ptr<F> {
 }
 
 impl<F: LurkField> Ptr<F> {
+    // TODO: Make these methods and the similar ones defined on expression consistent, probably including a shared trait.
+
     // NOTE: Although this could be a type predicate now, when NIL becomes a symbol, it won't be possible.
     pub fn is_nil(&self) -> bool {
         matches!(self.0, ExprTag::Nil)
         // FIXME: check value also, probably
     }
+    pub fn is_cons(&self) -> bool {
+        matches!(self.0, ExprTag::Cons)
+    }
+
+    pub fn is_atom(&self) -> bool {
+        !self.is_cons()
+    }
+
+    pub fn is_list(&self) -> bool {
+        matches!(self.0, ExprTag::Nil | ExprTag::Cons)
+    }
 
     pub fn is_opaque(&self) -> bool {
         self.1.is_opaque()
+    }
+
+    pub fn as_cons(self) -> Option<Self> {
+        if self.is_cons() {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_list(self) -> Option<Self> {
+        if self.is_list() {
+            Some(self)
+        } else {
+            None
+        }
     }
 }
 
