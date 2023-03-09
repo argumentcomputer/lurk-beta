@@ -77,7 +77,8 @@ impl ReplTrait<F> for ClutchState<F> {
                                 } else if let Expression::Num(n) = store.fetch(&second).unwrap() {
                                     (first, n.into_scalar())
                                 } else {
-                                    panic!("secret not a Num")
+                                    println!("Secret must be a Num");
+                                    return Ok(());
                                 };
 
                                 let commitment =
@@ -134,7 +135,8 @@ impl ReplTrait<F> for ClutchState<F> {
                                     if let Expression::Str(p) = store.fetch(&proof_path).unwrap() {
                                         p.to_string()
                                     } else {
-                                        panic!("proof path must be a string");
+                                        println!("Proof path must be a string");
+                                        return Ok(());
                                     };
 
                                 let chunk_frame_count = 1;
@@ -163,7 +165,8 @@ impl ReplTrait<F> for ClutchState<F> {
                                     if let Expression::Str(p) = store.fetch(&proof_path).unwrap() {
                                         p.to_string()
                                     } else {
-                                        panic!("proof path must be a string");
+                                        println!("Proof path must be a string");
+                                        return Ok(());
                                     };
 
                                 let proof = Proof::read_from_path(path).unwrap();
