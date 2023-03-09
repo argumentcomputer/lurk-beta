@@ -18,9 +18,9 @@ use clap::{AppSettings, Args, Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 use fcomm::{
-    self, committed_function_store, error::Error, evaluate, public_params, Claim, Commitment,
-    Evaluation, Expression, FileStore, Function, LurkPtr, Opening, OpeningRequest, Proof,
-    ReductionCount, S1,
+    self, committed_expression_store, error::Error, evaluate, public_params, Claim, Commitment,
+    CommittedExpression, Evaluation, Expression, FileStore, LurkPtr, Opening, OpeningRequest,
+    Proof, ReductionCount, S1,
 };
 
 /// Functional commitments
@@ -174,16 +174,16 @@ impl Commit {
             let path = env::current_dir().unwrap().join(&self.function);
             let src = read_to_string(path).unwrap();
 
-            Function {
-                fun: LurkPtr::Source(src),
+            CommittedExpression {
+                expr: LurkPtr::Source(src),
                 secret: None,
                 commitment: None,
             }
         } else {
-            Function::read_from_path(&self.function).unwrap()
+            CommittedExpression::read_from_path(&self.function).unwrap()
         };
         let fun_ptr = function.fun_ptr(s, limit).unwrap();
-        let function_map = committed_function_store();
+        let function_map = committed_expression_store();
 
         let commitment = if let Some(secret) = function.secret {
             let commitment = Commitment::from_ptr_and_secret(s, &fun_ptr, secret);
@@ -224,7 +224,7 @@ impl Open {
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
         let prover = NovaProver::<S1>::new(rc.count());
         let pp = public_params(rc.count());
-        let function_map = committed_function_store();
+        let function_map = committed_expression_store();
 
         let handle_proof = |out_path, proof: Proof<S1>| {
             proof.write_to_path(out_path);
@@ -265,13 +265,13 @@ impl Open {
                 if self.lurk {
                     let path = env::current_dir().unwrap().join(function_path);
                     let src = read_to_string(path).unwrap();
-                    Function {
-                        fun: LurkPtr::Source(src),
+                    CommittedExpression {
+                        expr: LurkPtr::Source(src),
                         secret: None,
                         commitment: None,
                     }
                 } else {
-                    Function::read_from_path(function_path).unwrap()
+                    CommittedExpression::read_from_path(function_path).unwrap()
                 }
             };
 

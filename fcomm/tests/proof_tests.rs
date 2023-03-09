@@ -8,7 +8,7 @@ use tempdir::TempDir;
 
 use pasta_curves::pallas;
 
-use fcomm::{Commitment, FileStore, Function, LurkPtr, Proof};
+use fcomm::{Commitment, CommittedExpression, FileStore, LurkPtr, Proof};
 use lurk::store::Store;
 
 pub type S1 = pallas::Scalar;
@@ -180,8 +180,8 @@ fn test_aux(
     chained: bool,
     tmp_dir: TempDir,
 ) {
-    let function = Function::<S1> {
-        fun: LurkPtr::Source(function_source.into()),
+    let function = CommittedExpression::<S1> {
+        expr: LurkPtr::Source(function_source.into()),
         secret: None,
         commitment: None,
     };
@@ -190,7 +190,7 @@ fn test_aux(
 }
 
 fn test_function_aux(
-    function: Function<S1>,
+    function: CommittedExpression<S1>,
     expected_io: Vec<(&str, &str)>,
     chained: bool,
     tmp_dir: TempDir,
