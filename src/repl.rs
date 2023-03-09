@@ -44,6 +44,8 @@ pub struct Repl<F: LurkField, T: ReplTrait<F>> {
 pub trait ReplTrait<F: LurkField> {
     fn new(s: &mut Store<F>, limit: usize) -> Self;
 
+    fn name() -> String;
+
     fn handle_run<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
@@ -127,7 +129,8 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
     let package = Package::lurk();
 
     if lurk_file.is_none() {
-        println!("Lurk REPL welcomes you.");
+        let name = T::name();
+        println!("{name} welcomes you.");
     }
 
     {
@@ -356,6 +359,10 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
             env: empty_sym_env(s),
             limit,
         }
+    }
+
+    fn name() -> String {
+        "Lurk REPL".into()
     }
 
     fn handle_run<P: AsRef<Path> + Copy>(

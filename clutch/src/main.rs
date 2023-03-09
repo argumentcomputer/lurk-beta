@@ -26,6 +26,10 @@ impl ReplTrait<F> for ClutchState<F> {
         Self(ReplState::new(s, limit))
     }
 
+    fn name() -> String {
+        "Lurk Clutch".into()
+    }
+
     fn handle_run<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
