@@ -219,8 +219,12 @@ pub mod tests {
         assert_eq!(LightData::byte_count(65), 1);
         assert_eq!(LightData::byte_count(256), 2);
         assert_eq!(LightData::byte_count(u16::MAX as usize), 2);
-        assert_eq!(LightData::byte_count(u32::MAX as usize), 4);
-        assert_eq!(LightData::byte_count(u64::MAX as usize), 8);
+        if usize::BITS >= 32 {
+            assert_eq!(LightData::byte_count(u32::MAX as usize), 4);
+        }
+        if usize::BITS >= 64 {
+            assert_eq!(LightData::byte_count(u64::MAX as usize), 8);
+        }
     }
 
     #[test]
