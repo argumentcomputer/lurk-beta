@@ -171,9 +171,14 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
                 match s.read_maybe_meta(&mut chars, &package) {
                     Ok((expr, is_meta)) => {
                         if is_meta {
-                            repl.state.handle_meta(s, expr, &package, p)?
+                            if let Err(e) = repl.state.handle_meta(s, expr, &package, p) {
+                                eprintln!("!Error: {e:?}");
+                            };
+                            continue;
                         } else {
-                            let _ = repl.state.handle_non_meta(s, expr, false);
+                            if let Err(e) = repl.state.handle_non_meta(s, expr, false) {
+                                eprintln!("REPL Error: {e:?}");
+                            }
 
                             continue;
                         }

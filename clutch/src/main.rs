@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use pasta_curves::pallas;
 
 use fcomm::{Commitment, CommittedExpression, FileStore, LurkPtr, Proof};
@@ -85,8 +85,7 @@ impl ReplTrait<F> for ClutchState<F> {
                                 } else if let Expression::Num(n) = store.fetch(&second).unwrap() {
                                     (first, n.into_scalar())
                                 } else {
-                                    eprintln!("Secret must be a Num");
-                                    return Ok(());
+                                    bail!("Secret must be a Num")
                                 };
 
                                 let commitment =
@@ -119,8 +118,7 @@ impl ReplTrait<F> for ClutchState<F> {
                                         Some(store.intern_maybe_opaque_comm(scalar))
                                     }
                                     _ => {
-                                        eprintln!("not a commitment");
-                                        None
+                                        bail!("not a commitment");
                                     }
                                 };
 
@@ -143,8 +141,7 @@ impl ReplTrait<F> for ClutchState<F> {
                                     if let Expression::Str(p) = store.fetch(&proof_path).unwrap() {
                                         p.to_string()
                                     } else {
-                                        eprintln!("Proof path must be a string");
-                                        return Ok(());
+                                        bail!("Proof path must be a string");
                                     };
 
                                 let chunk_frame_count = 1;
@@ -173,8 +170,7 @@ impl ReplTrait<F> for ClutchState<F> {
                                     if let Expression::Str(p) = store.fetch(&proof_path).unwrap() {
                                         p.to_string()
                                     } else {
-                                        eprintln!("Proof path must be a string");
-                                        return Ok(());
+                                        bail!("Proof path must be a string");
                                     };
 
                                 let proof = Proof::read_from_path(path).unwrap();
