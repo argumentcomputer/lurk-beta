@@ -1,28 +1,43 @@
 use std::fmt::Display;
 
-use nom::bytes::streaming::take;
+#[cfg(not(target_arch = "wasm32"))]
+use proptest::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
+use rand::{rngs::StdRng, SeedableRng};
+
+use nom::bytes::complete::take;
 use nom::multi::count;
+use nom::Finish;
 use nom::IResult;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
-enum LightData {
+pub enum LightData {
     Atom(Vec<u8>),
     Cell(Vec<LightData>),
+}
+
+pub trait Encodable {
+    fn ser(&self) -> Vec<u8>;
+    fn de(xs: &[u8]) -> Result<Self, String>
+    where
+        Self: Sized;
 }
 
 impl Display for LightData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Atom(bytes) => {
-                if bytes.is_empty() {
-                    write!(f, "0x0")
-                } else {
-                    let mut s = String::with_capacity(bytes.len() * 2);
-                    for b in bytes.iter().rev() {
-                        s.push_str(&format!("{:02x?}", b));
+            Self::Atom(xs) => {
+                write!(f, "[")?;
+                let mut iter = xs.iter().peekable();
+                while let Some(x) = iter.next() {
+                    write!(f, "{:02x?}", x)?;
+                    if let Some(_) = iter.peek() {
+                        write!(f, ", ")?;
+                    } else {
+                        write!(f, "]")?;
                     }
-                    write!(f, "0x{}", s)
                 }
+                Ok(())
             }
             Self::Cell(xs) => {
                 write!(f, "(")?;
@@ -30,7 +45,7 @@ impl Display for LightData {
                 while let Some(x) = iter.next() {
                     write!(f, "{}", x)?;
                     if let Some(_) = iter.peek() {
-                        write!(f, " ")?;
+                        write!(f, ", ")?;
                     } else {
                         write!(f, ")")?;
                     }
@@ -41,56 +56,197 @@ impl Display for LightData {
     }
 }
 
+impl Arbitrary for LightData {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        let atom = prop::collection::vec(any::<u8>(), 0..256).prop_map(LightData::Atom);
+        atom.prop_recursive(16, 1024, 256, |inner| {
+            prop::collection::vec(inner.clone(), 0..256).prop_map(LightData::Cell)
+        })
+        .boxed()
+    }
+}
+
 impl LightData {
     pub fn byte_count(x: usize) -> u8 {
-        let mut n: u8 = 1;
+        if x == 0 {
+            return 1;
+        }
+        let mut n: u8 = 0;
         let mut x = x;
-        while x >= 0 {
+        while x > 0 {
             n += 1;
             x = x / 256;
         }
         n
     }
 
-    pub fn tag(self) -> u8 {
+    pub fn to_trimmed_le_bytes(x: usize) -> Vec<u8> {
+        let mut res = vec![];
+        let mut x = x;
+        while x > 0 {
+            res.push((x % 256) as u8);
+            x = x / 256;
+        }
+        res
+    }
+    pub fn tag(&self) -> u8 {
         match self {
+            Self::Atom(xs) if xs.len() == 0 => 0b0000_0000,
+            Self::Atom(xs) if xs.len() < 64 => 0b0100_0000u8 + (xs.len() as u8),
+            Self::Atom(xs) if xs.len() == 64 => 0b0100_0000u8,
             Self::Atom(xs) => 0b0000_0000u8 + LightData::byte_count(xs.len()),
+            Self::Cell(xs) if xs.len() == 0 => 0b1000_0000,
+            Self::Cell(xs) if xs.len() < 64 => 0b1100_0000u8 + (xs.len() as u8),
+            Self::Cell(xs) if xs.len() == 64 => 0b1100_0000u8,
             Self::Cell(xs) => 0b1000_0000u8 + LightData::byte_count(xs.len()),
         }
     }
 
-    pub fn ser(self) -> Vec<u8> {
+    pub fn tag_is_atom(x: u8) -> bool {
+        x & 0b1000_0000 == 0b0000_0000
+    }
+
+    pub fn tag_is_small(x: u8) -> bool {
+        x & 0b0100_0000 == 0b0100_0000
+    }
+
+    pub fn ser(&self) -> Vec<u8> {
+        let mut res = vec![];
+        res.push(self.tag());
         match self {
+            Self::Atom(xs) if xs.len() == 0 => {}
+            Self::Atom(xs) if xs.len() <= 64 => res.extend(xs),
             Self::Atom(xs) => {
-                let mut res = vec![];
-                res.push(0b0000_0000u8 + LightData::byte_count(xs.len()));
-                res.extend(xs.len().to_le_bytes());
+                res.extend(LightData::to_trimmed_le_bytes(xs.len()));
                 res.extend(xs);
-                res
             }
-            Self::Cell(xs) => {
-                let mut res = vec![];
-                res.push(0b1000_0000u8 + LightData::byte_count(xs.len()));
-                res.extend(xs.len().to_le_bytes());
+            Self::Cell(xs) if xs.len() == 0 => {}
+            Self::Cell(xs) if xs.len() <= 64 => {
                 for x in xs {
                     res.extend(x.ser())
                 }
-                res
             }
+            Self::Cell(xs) => {
+                res.extend(LightData::to_trimmed_le_bytes(xs.len()));
+                for x in xs {
+                    res.extend(x.ser())
+                }
+            }
+        };
+        res
+    }
+
+    pub fn de(i: &[u8]) -> Result<Self, ()> {
+        match Self::de_aux(i).finish() {
+            Ok((_, x)) => Ok(x),
+            Err(_) => Err(()),
         }
     }
-    pub fn de(i: &[u8]) -> IResult<&[u8], Self> {
+
+    pub fn de_aux(i: &[u8]) -> IResult<&[u8], Self> {
         let (i, tag) = take(1u8)(i)?;
-        if tag[0] & 0b1000_0000u8 == 0b1000_0000u8 {
-            let (i, size) = take(tag[0] & 0b111_1111)(i)?;
-            let size = size.iter().fold(0, |acc, &x| (acc * 256) + x as usize);
+        let tag = tag[0];
+        let size = tag & 0b11_1111;
+        if Self::tag_is_atom(tag) {
+            let (i, size) = if Self::tag_is_small(tag) && size == 0 {
+                Ok((i, 64))
+            } else if Self::tag_is_small(tag) {
+                Ok((i, size as usize))
+            } else {
+                let (i, size) = take(size)(i)?;
+                let size = size.iter().fold(0, |acc, &x| (acc * 256) + x as usize);
+                Ok((i, size as usize))
+            }?;
             let (i, xs) = take(size)(i)?;
             Ok((i, LightData::Atom(xs.to_vec())))
         } else {
-            let (i, size) = take(tag[0] & 0b111_1111)(i)?;
-            let size = size.iter().fold(0, |acc, &x| (acc * 256) + x as usize);
-            let (i, xs) = count(LightData::de, size)(i)?;
+            let (i, size) = if Self::tag_is_small(tag) && size == 0 {
+                Ok((i, 64))
+            } else if Self::tag_is_small(tag) {
+                Ok((i, size as usize))
+            } else {
+                let (i, size) = take(size)(i)?;
+                let size = size.iter().fold(0, |acc, &x| (acc * 256) + x as usize);
+                Ok((i, size as usize))
+            }?;
+            let (i, xs) = count(LightData::de_aux, size)(i)?;
             Ok((i, LightData::Cell(xs.to_vec())))
         }
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+    #[test]
+    fn unit_byte_count() {
+        assert_eq!(LightData::byte_count(0), 1);
+        assert_eq!(LightData::byte_count(65), 1);
+        assert_eq!(LightData::byte_count(256), 2);
+        assert_eq!(LightData::byte_count(u16::MAX as usize), 2);
+        assert_eq!(LightData::byte_count(u32::MAX as usize), 4);
+        assert_eq!(LightData::byte_count(u64::MAX as usize), 8);
+    }
+
+    #[test]
+    fn unit_light_data() {
+        let test = |ld: LightData, xs: Vec<u8>| {
+            println!("{:?}", ld.ser());
+            let ser = ld.ser();
+            assert_eq!(ser, xs);
+            println!("{:?}", LightData::de(&ser));
+            assert_eq!(ld.clone(), LightData::de(&ser).expect("valid lightdata"))
+        };
+        test(LightData::Atom(vec![]), vec![0b0000_0000]);
+        test(LightData::Cell(vec![]), vec![0b1000_0000]);
+        test(LightData::Atom(vec![0]), vec![0b0100_0001, 0]);
+        test(LightData::Atom(vec![1]), vec![0b0100_0001, 1]);
+        test(
+            LightData::Cell(vec![LightData::Atom(vec![1])]),
+            vec![0b1100_0001, 0b0100_0001, 1],
+        );
+        test(
+            LightData::Cell(vec![LightData::Atom(vec![1]), LightData::Atom(vec![1])]),
+            vec![0b1100_0010, 0b0100_0001, 1, 0b0100_0001, 1],
+        );
+        #[rustfmt::skip]
+        test(
+            LightData::Atom(vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 
+                0, 0, 0, 0, 0, 0, 0, 0, 
+                0, 0, 0, 69, 96, 43, 67, 
+                4, 224, 2, 148, 222, 23, 85, 212, 
+                43, 182, 14, 90, 138, 62, 151, 68, 
+                207, 128, 70, 44, 70, 31, 155, 81, 
+                19, 21, 219, 228, 40, 235, 21, 137, 
+                238, 250, 180, 50, 118, 244, 44, 84,
+                75, 185,
+            ]),
+            vec![0b0000_0001, 65,
+                0, 0, 0, 0, 0, 0, 0, 0, 
+                0, 0, 0, 0, 0, 0, 0, 0, 
+                0, 0, 0, 69, 96, 43, 67, 
+                4, 224, 2, 148, 222, 23, 85, 212, 
+                43, 182, 14, 90, 138, 62, 151, 68, 
+                207, 128, 70, 44, 70, 31, 155, 81, 
+                19, 21, 219, 228, 40, 235, 21, 137, 
+                238, 250, 180, 50, 118, 244, 44, 84,
+                75, 185,
+            ],
+        );
+    }
+
+    proptest! {
+    #[test]
+    fn prop_light_data(x in any::<LightData>()) {
+        let ser = x.ser();
+        let de  = LightData::de(&ser).expect("read LightData");
+        println!("x {}", x);
+        println!("ser {:?}", ser);
+        assert_eq!(x, de)
+    }
     }
 }
