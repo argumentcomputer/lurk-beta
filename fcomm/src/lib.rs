@@ -634,8 +634,6 @@ impl<'a> Opening<S1> {
         limit: usize,
         chain: bool,
     ) -> Result<Claim<S1>, Error> {
-        let function_map = committed_expression_store();
-
         let (commitment, expression) =
             Commitment::construct_with_fun_application(s, function, input, limit)?;
         let (public_output, _iterations) = evaluate(s, expression, limit)?;
@@ -686,6 +684,7 @@ impl<'a> Opening<S1> {
                 commitment: Some(new_commitment),
             };
 
+            let function_map = committed_expression_store();
             function_map.set(new_commitment, &new_function)?;
 
             (Some(new_commitment), result_expr)
