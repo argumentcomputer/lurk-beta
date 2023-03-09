@@ -1,3 +1,4 @@
+use crate::error::LurkError;
 use crate::eval::{empty_sym_env, Evaluator, IO};
 use crate::field::LurkField;
 use crate::package::Package;
@@ -5,7 +6,7 @@ use crate::parser;
 use crate::store::{ContPtr, Expression, Pointer, Ptr, Store};
 use crate::tag::{ContTag, ExprTag};
 use crate::writer::Write;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use peekmore::PeekMore;
 use rustyline::error::ReadlineError;
 use rustyline::validate::{
@@ -217,23 +218,18 @@ impl<F: LurkField> ReplState<F> {
         expr: Ptr<F>,
         store: &mut Store<F>,
     ) -> Result<(Ptr<F>, usize, ContPtr<F>, Vec<Ptr<F>>)> {
-        let (
-            IO {
-                expr: result,
-                env: _env,
-                cont: next_cont,
-            },
-            iterations,
-            emitted,
-        ) = Evaluator::new(expr, self.env, store, self.limit).eval()?;
+        let (io, iterations, emitted) = Evaluator::new(expr, self.env, store, self.limit).eval()?;
 
-        if next_cont == store.get_cont_terminal() {
-            Ok((result, iterations, next_cont, emitted))
+        let IO {
+            expr: result,
+            env: _env,
+            cont: next_cont,
+        } = io;
+
+        if next_cont == store.get_cont_error() {
+            Err(LurkError::IO(io))?
         } else {
-            Err(anyhow!(
-                "Error while evaluating: {}",
-                expr.fmt_to_string(&store)
-            ))
+            Ok((result, iterations, next_cont, emitted))
         }
     }
 
@@ -530,12 +526,8 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                                 let (first, rest) = store.car_cdr(&rest)?;
 
                                 assert!(rest.is_nil());
-                                let (_, _, continuation, _) = self
-                                    .clone()
-                                    .eval_expr(first, store)
-                                    .with_context(|| "evaluating first arg")
-                                    .unwrap();
-                                assert!(continuation.is_error());
+                                assert!(self.clone().eval_expr(first, store).is_err());
+
                                 None
                             }
                             "CLEAR" => {

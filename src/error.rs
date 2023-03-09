@@ -1,3 +1,5 @@
+use crate::eval::IO;
+use crate::field::LurkField;
 use crate::hash_witness::ConsName;
 use crate::store;
 
@@ -35,4 +37,15 @@ pub enum ReductionError {
     Misc(String),
     #[error("Lookup error: {0}")]
     Store(#[from] store::Error),
+}
+
+#[derive(Error, Debug, Clone)]
+pub enum LurkError<F: LurkField> {
+    IO(IO<F>),
+}
+
+impl<F: LurkField> std::fmt::Display for LurkError<F> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{:?}", self)
+    }
 }
