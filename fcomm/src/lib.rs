@@ -464,7 +464,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
         input: Ptr<F>,
         limit: usize,
     ) -> Result<(Self, Ptr<F>), Error> {
-        let fun_ptr = function.fun_ptr(s, limit)?;
+        let fun_ptr = function.expr_ptr(s, limit)?;
         let secret = function.secret.expect("CommittedExpression secret missing");
 
         let commitment = Self::from_ptr_and_secret(s, &fun_ptr, secret);
@@ -494,7 +494,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
 }
 
 impl<F: LurkField + Serialize + DeserializeOwned> CommittedExpression<F> {
-    pub fn fun_ptr(&self, s: &mut Store<F>, limit: usize) -> Result<Ptr<F>, Error> {
+    pub fn expr_ptr(&self, s: &mut Store<F>, limit: usize) -> Result<Ptr<F>, Error> {
         let source_ptr = self.expr.ptr(s);
 
         // Evaluate the source to get an actual function.

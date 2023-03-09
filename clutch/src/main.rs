@@ -10,7 +10,8 @@ use lurk::proof::{
     Prover,
 };
 use lurk::repl::{repl, ReplState, ReplTrait};
-use lurk::store::{Expression, Ptr, Store};
+use lurk::store::{Expression, Pointer, Ptr, Store};
+use lurk::tag::ExprTag;
 use lurk::writer::Write;
 
 use std::io;
@@ -93,6 +94,39 @@ impl ReplTrait<F> for ClutchState<F> {
                                 let expression_map = fcomm::committed_expression_store();
                                 expression_map.set(commitment, &committed_expression)?;
                                 Some(store.intern_maybe_opaque_comm(commitment.comm))
+                            }
+                            "OPEN" => {
+                                let (maybe_comm, rest) = store.car_cdr(&rest)?;
+                                let (_arg, _) = store.car_cdr(&rest)?;
+
+                                assert!(rest.is_nil()); // TODO: if one or more args, apply to function.
+
+                                let comm = match maybe_comm.tag() {
+                                    ExprTag::Comm => Some(maybe_comm),
+                                    ExprTag::Num => {
+                                        // See Store::open_mut().
+                                        let scalar = store
+                                            .fetch_num(&maybe_comm)
+                                            .map(|x| x.into_scalar())
+                                            .unwrap();
+                                        Some(store.intern_maybe_opaque_comm(scalar))
+                                    }
+                                    _ => {
+                                        println!("not a commitment");
+                                        None
+                                    }
+                                };
+
+                                comm.map(|comm| {
+                                    let commitment = Commitment::from_comm(store, &comm);
+                                    let expression_map = fcomm::committed_expression_store();
+
+                                    let committed_expression = expression_map
+                                        .get(&commitment)
+                                        .expect("committed expression not found");
+
+                                    committed_expression.expr.ptr(store)
+                                })
                             }
                             "PROVE" => {
                                 let (proof_path, rest) = store.car_cdr(&rest)?;
