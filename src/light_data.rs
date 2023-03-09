@@ -16,13 +16,6 @@ pub enum LightData {
     Cell(Vec<LightData>),
 }
 
-pub trait Encodable {
-    fn ser(&self) -> Vec<u8>;
-    fn de(xs: &[u8]) -> Result<Self, String>
-    where
-        Self: Sized;
-}
-
 impl Display for LightData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -174,6 +167,68 @@ impl LightData {
             }?;
             let (i, xs) = count(LightData::de_aux, size)(i)?;
             Ok((i, LightData::Cell(xs.to_vec())))
+        }
+    }
+}
+
+pub trait Encodable {
+    fn ser(&self) -> LightData;
+    fn de(ld: &LightData) -> Result<Self, String>
+    where
+        Self: Sized;
+}
+
+impl<A: Encodable + Sized> Encodable for Option<A> {
+    fn ser(&self) -> LightData {
+        match self {
+            None => LightData::Cell(vec![]),
+            Some(a) => LightData::Cell(vec![a.ser()]),
+        }
+    }
+
+    fn de(ld: &LightData) -> Result<Self, String> {
+        match ld {
+            LightData::Cell(xs) => match xs.as_slice() {
+                [] => Ok(Option::None),
+                [a] => Ok(Option::Some(A::de(a)?)),
+                _ => Err(format!("expected Option")),
+            },
+            _ => Err(format!("expected Option")),
+        }
+    }
+}
+
+impl<A: Encodable + Sized> Encodable for Vec<A> {
+    fn ser(&self) -> LightData {
+        LightData::Cell(self.iter().map(|x| x.ser()).collect())
+    }
+
+    fn de(ld: &LightData) -> Result<Self, String> {
+        match ld {
+            LightData::Cell(xs) => {
+                let mut res = vec![];
+                for x in xs {
+                    res.push(A::de(x)?)
+                }
+                Ok(res)
+            }
+            _ => Err(format!("expected Vec")),
+        }
+    }
+}
+
+impl<A: Encodable + Sized, B: Encodable + Sized> Encodable for (A, B) {
+    fn ser(&self) -> LightData {
+        LightData::Cell(vec![self.0.ser(), self.1.ser()])
+    }
+
+    fn de(ld: &LightData) -> Result<Self, String> {
+        match ld {
+            LightData::Cell(xs) => match xs.as_slice() {
+                [x, y] => Ok((A::de(x)?, B::de(y)?)),
+                _ => Err(format!("expected pair")),
+            },
+            _ => Err(format!("expected pair")),
         }
     }
 }

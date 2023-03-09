@@ -15,6 +15,9 @@ use proptest::prelude::*;
 use libipld::Cid;
 use libipld::Multihash;
 
+use crate::light_data::Encodable;
+use crate::light_data::LightData;
+
 use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
@@ -339,6 +342,17 @@ impl<F: LurkField> Ord for ScalarPtr<F> {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
             .cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
+    }
+}
+
+impl<F: LurkField> Encodable for ScalarPtr<F> {
+    fn ser(&self) -> LightData {
+        let (x, y): (FWrap<F>, FWrap<F>) = (FWrap(self.0), FWrap(self.1));
+        (x, y).ser()
+    }
+    fn de(ld: &LightData) -> Result<Self, String> {
+        let (x, y): (FWrap<F>, FWrap<F>) = Encodable::de(ld)?;
+        Ok(ScalarPtr::from_parts(x.0, y.0))
     }
 }
 

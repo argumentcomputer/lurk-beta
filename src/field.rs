@@ -4,6 +4,9 @@ use std::hash::Hash;
 use ff::{PrimeField, PrimeFieldBits};
 use serde::{Deserialize, Serialize};
 
+use crate::light_data::Encodable;
+use crate::light_data::LightData;
+
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
@@ -220,6 +223,23 @@ impl<F: LurkField> Serialize for FWrap<F> {
     {
         let bytes: Vec<u8> = Vec::from(self.0.to_repr().as_ref());
         bytes.serialize(serializer)
+    }
+}
+
+impl<F: LurkField> Encodable for FWrap<F> {
+    fn ser(&self) -> LightData {
+        LightData::Atom(Vec::from(self.0.to_repr().as_ref()))
+    }
+
+    fn de(ld: &LightData) -> Result<Self, String> {
+        match ld {
+            LightData::Atom(bytes) => {
+                let f = F::from_bytes(&bytes)
+                    .ok_or_else(|| format!("expected field element as bytes, got {:?}", &bytes))?;
+                Ok(FWrap(f))
+            }
+            _ => Err(format!("expected field element got {}", &ld)),
+        }
     }
 }
 

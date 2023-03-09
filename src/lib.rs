@@ -11,6 +11,7 @@ pub mod eval;
 pub mod field;
 pub mod hash_witness;
 pub mod light_data;
+pub mod light_store;
 pub mod package;
 pub mod parser;
 pub mod proof;
