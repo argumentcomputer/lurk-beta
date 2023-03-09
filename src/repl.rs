@@ -46,6 +46,8 @@ pub trait ReplTrait<F: LurkField> {
 
     fn name() -> String;
 
+    fn prompt(&self) -> String;
+
     fn handle_run<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
@@ -130,7 +132,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
 
     if lurk_file.is_none() {
         let name = T::name();
-        println!("{name} welcomes you.");
+        eprintln!("{name} welcomes you.");
     }
 
     {
@@ -143,7 +145,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
     let pwd_path = std::env::current_dir().unwrap();
     let p: &Path = pwd_path.as_ref();
     loop {
-        match repl.rl.readline("> ") {
+        match repl.rl.readline(&repl.state.prompt()) {
             Ok(line) => {
                 repl.save_history()?;
 
@@ -159,7 +161,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
                     }
                     Ok(_) => (),
                     Err(e) => {
-                        println!("Error when handling {line}: {e:?}");
+                        eprintln!("Error when handling {line}: {e:?}");
                         continue;
                     }
                 };
@@ -180,16 +182,16 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
                         continue;
                     }
                     Err(e) => {
-                        println!("Read error: {e:?}")
+                        eprintln!("Read error: {e:?}")
                     }
                 }
             }
             Err(ReadlineError::Interrupted | ReadlineError::Eof) => {
-                println!("Exiting...");
+                eprintln!("Exiting...");
                 break;
             }
             Err(err) => {
-                println!("Error: {err:?}");
+                eprintln!("Error: {err:?}");
                 break;
             }
         }
@@ -294,7 +296,7 @@ impl<F: LurkField> ReplState<F> {
         file_path: P,
         package: &Package,
     ) -> Result<()> {
-        println!("Loading from {}.", file_path.as_ref().to_str().unwrap());
+        eprintln!("Loading from {}.", file_path.as_ref().to_str().unwrap());
         self.handle_file(store, file_path.as_ref(), package, true)
     }
 
@@ -308,7 +310,7 @@ impl<F: LurkField> ReplState<F> {
         let file_path = file_path;
 
         let input = read_to_string(file_path)?;
-        println!(
+        eprintln!(
             "Read from {}: {}",
             file_path.as_ref().to_str().unwrap(),
             input
@@ -365,13 +367,17 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
         "Lurk REPL".into()
     }
 
+    fn prompt(&self) -> String {
+        "> ".into()
+    }
+
     fn handle_run<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
         file_path: P,
         package: &Package,
     ) -> Result<()> {
-        println!("Running from {}.", file_path.as_ref().to_str().unwrap());
+        eprintln!("Running from {}.", file_path.as_ref().to_str().unwrap());
         self.handle_file(store, file_path, package, false)
     }
 
@@ -654,7 +660,7 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                 Ok(())
             }
             Err(e) => {
-                println!("Evaluation error: {e:?}");
+                eprintln!("Evaluation error: {e:?}");
                 Err(e.into())
             }
         }

@@ -30,6 +30,10 @@ impl ReplTrait<F> for ClutchState<F> {
         "Lurk Clutch".into()
     }
 
+    fn prompt(&self) -> String {
+        "!> ".into()
+    }
+
     fn handle_run<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
@@ -81,7 +85,7 @@ impl ReplTrait<F> for ClutchState<F> {
                                 } else if let Expression::Num(n) = store.fetch(&second).unwrap() {
                                     (first, n.into_scalar())
                                 } else {
-                                    println!("Secret must be a Num");
+                                    eprintln!("Secret must be a Num");
                                     return Ok(());
                                 };
 
@@ -115,7 +119,7 @@ impl ReplTrait<F> for ClutchState<F> {
                                         Some(store.intern_maybe_opaque_comm(scalar))
                                     }
                                     _ => {
-                                        println!("not a commitment");
+                                        eprintln!("not a commitment");
                                         None
                                     }
                                 };
@@ -139,7 +143,7 @@ impl ReplTrait<F> for ClutchState<F> {
                                     if let Expression::Str(p) = store.fetch(&proof_path).unwrap() {
                                         p.to_string()
                                     } else {
-                                        println!("Proof path must be a string");
+                                        eprintln!("Proof path must be a string");
                                         return Ok(());
                                     };
 
@@ -169,7 +173,7 @@ impl ReplTrait<F> for ClutchState<F> {
                                     if let Expression::Str(p) = store.fetch(&proof_path).unwrap() {
                                         p.to_string()
                                     } else {
-                                        println!("Proof path must be a string");
+                                        eprintln!("Proof path must be a string");
                                         return Ok(());
                                     };
 
