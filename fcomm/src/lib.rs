@@ -19,10 +19,7 @@ use lurk::{
     circuit::ToInputs,
     eval::{empty_sym_env, Evaluable, Evaluator, Status, IO},
     field::LurkField,
-    proof::{
-        self,
-        nova::{NovaProver, PublicParams},
-    },
+    proof::nova::{self, NovaProver, PublicParams},
     scalar_store::ScalarStore,
     store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store},
     tag::ExprTag,
@@ -66,6 +63,23 @@ fn nova_proof_cache() -> FileMap<Cid, Proof<'static, S1>> {
 
 pub fn committed_function_store() -> FileMap<Commitment<S1>, Function<S1>> {
     FileMap::<Commitment<S1>, Function<S1>>::new("functions").unwrap()
+}
+
+fn public_param_cache() -> FileMap<String, PublicParams<'static>> {
+    FileMap::new("public_params").unwrap()
+}
+
+pub fn public_params(rc: usize) -> PublicParams<'static> {
+    let cache = public_param_cache();
+    let key = format!("public-params-rc-{rc}");
+
+    if let Some(pp) = cache.get(&key) {
+        pp
+    } else {
+        let pp = nova::public_params(rc);
+        cache.set(key, &pp).unwrap();
+        pp
+    }
 }
 
 // Number of circuit reductions per step, equivalent to `chunk_frame_count`
@@ -204,7 +218,7 @@ pub struct VerificationResult {
 #[derive(Serialize, Deserialize)]
 pub struct Proof<'a, F: LurkField> {
     pub claim: Claim<F>,
-    pub proof: proof::nova::Proof<'a>,
+    pub proof: nova::Proof<'a>,
     pub num_steps: usize,
     pub reduction_count: ReductionCount,
 }
@@ -301,13 +315,6 @@ where
     fn id(&self) -> String;
     fn cid(&self) -> Cid;
     fn has_id(&self, id: String) -> bool;
-}
-
-pub trait Key<T: ToString>
-where
-    Self: Sized,
-{
-    fn key(&self) -> T;
 }
 
 impl<T: Serialize> Id for T
@@ -572,7 +579,7 @@ impl<'a> Opening<S1> {
 
         let function_map = committed_function_store();
         let function = function_map
-            .get(commitment)
+            .get(&commitment)
             .ok_or(Error::UnknownCommitment)?;
 
         Self::apply_and_prove(
@@ -598,7 +605,7 @@ impl<'a> Opening<S1> {
 
         let function_map = committed_function_store();
         let function = function_map
-            .get(commitment)
+            .get(&commitment)
             .ok_or(Error::UnknownCommitment)?;
 
         Self::apply(s, input, function, limit, chain)
@@ -741,7 +748,9 @@ impl<'a> Proof<'a, S1> {
         let proof_map = nova_proof_cache();
         let function_map = committed_function_store();
 
-        if let Some(proof) = proof_map.get(claim.cid()) {
+        let cid = claim.cid();
+
+        if let Some(proof) = proof_map.get(&cid) {
             return Ok(proof);
         }
 
@@ -764,7 +773,7 @@ impl<'a> Proof<'a, S1> {
 
                 // In order to prove the opening, we need access to the original function.
                 let function = function_map
-                    .get(commitment)
+                    .get(&commitment)
                     .expect("function for commitment missing");
 
                 let input = s.read(&o.input).expect("bad expression");
@@ -802,7 +811,7 @@ impl<'a> Proof<'a, S1> {
 
         proof.verify(pp).expect("Nova verification failed");
 
-        proof_map.set(claim.cid(), &proof).unwrap();
+        proof_map.set(cid, &proof).unwrap();
 
         Ok(proof)
     }
@@ -930,18 +939,6 @@ impl<'a> Proof<'a, S1> {
         let public_outputs = output_io.to_inputs(&s);
 
         Ok((public_inputs, public_outputs))
-    }
-}
-
-impl Key<Commitment<S1>> for Function<S1> {
-    fn key(&self) -> Commitment<S1> {
-        self.commitment.expect("commitment missing")
-    }
-}
-
-impl Key<Cid> for Proof<'_, S1> {
-    fn key(&self) -> Cid {
-        self.claim.cid()
     }
 }
 

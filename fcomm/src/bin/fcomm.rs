@@ -11,18 +11,16 @@ use serde::{Deserialize, Serialize};
 
 use lurk::eval::IO;
 use lurk::field::LurkField;
-use lurk::proof::{
-    nova::{public_params, NovaProver},
-    Prover,
-};
+use lurk::proof::{nova::NovaProver, Prover};
 use lurk::store::{Ptr, Store, TypePredicates};
 
 use clap::{AppSettings, Args, Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 use fcomm::{
-    self, committed_function_store, error::Error, evaluate, Claim, Commitment, Evaluation,
-    Expression, FileStore, Function, LurkPtr, Opening, OpeningRequest, Proof, ReductionCount, S1,
+    self, committed_function_store, error::Error, evaluate, public_params, Claim, Commitment,
+    Evaluation, Expression, FileStore, Function, LurkPtr, Opening, OpeningRequest, Proof,
+    ReductionCount, S1,
 };
 
 /// Functional commitments
@@ -246,7 +244,7 @@ impl Open {
                 handle_proof(out_path, proof);
             } else {
                 let function = function_map
-                    .get(request.commitment)
+                    .get(&request.commitment)
                     .expect("committed function not found");
                 let input = request.input.eval(s, limit).unwrap();
 
@@ -260,7 +258,7 @@ impl Open {
                     .unwrap();
 
                 function_map
-                    .get(commitment)
+                    .get(&commitment)
                     .expect("committed function not found")
             } else {
                 let function_path = self.function.as_ref().expect("function missing");
