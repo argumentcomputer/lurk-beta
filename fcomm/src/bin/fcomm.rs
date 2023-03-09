@@ -182,7 +182,7 @@ impl Commit {
         } else {
             CommittedExpression::read_from_path(&self.function).unwrap()
         };
-        let fun_ptr = function.fun_ptr(s, limit).unwrap();
+        let fun_ptr = function.expr_ptr(s, limit).unwrap();
         let function_map = committed_expression_store();
 
         let commitment = if let Some(secret) = function.secret {
