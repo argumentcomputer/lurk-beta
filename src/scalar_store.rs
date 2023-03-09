@@ -159,6 +159,13 @@ impl<F: LurkField> ScalarStore<F> {
             None
         }
     }
+    pub fn insert_scalar_expression(
+        &mut self,
+        ptr: ScalarPtr<F>,
+        expr: Option<ScalarExpression<F>>,
+    ) -> Option<Option<ScalarExpression<F>>> {
+        self.scalar_map.insert(ptr, expr)
+    }
 }
 
 impl<F: LurkField> ScalarExpression<F> {
