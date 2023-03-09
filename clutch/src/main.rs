@@ -74,12 +74,10 @@ impl ReplTrait<F> for ClutchState<F> {
                                 let (expr, secret) = if rest.is_nil() {
                                     // TODO: also support Commitment::from_ptr_with_hiding (randomized secret at runtime).
                                     (first, F::zero())
+                                } else if let Expression::Num(n) = store.fetch(&second).unwrap() {
+                                    (first, n.into_scalar())
                                 } else {
-                                    if let Expression::Num(n) = store.fetch(&second).unwrap() {
-                                        (first, n.into_scalar())
-                                    } else {
-                                        panic!("secret not a Num")
-                                    }
+                                    panic!("secret not a Num")
                                 };
 
                                 let commitment =
