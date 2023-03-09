@@ -1,7 +1,7 @@
 use anyhow::Result;
 use pasta_curves::pallas;
 
-use fcomm::{FileStore, Proof};
+use fcomm::{Commitment, CommittedExpression, FileStore, LurkPtr, Proof};
 use lurk::field::{LanguageField, LurkField};
 use lurk::package::Package;
 use lurk::proof::{
@@ -66,6 +66,34 @@ impl ReplTrait<F> for ClutchState<F> {
                 Expression::Sym(s) => {
                     if let Some(name) = s.simple_keyword_name() {
                         match name.as_str() {
+                            "COMMIT" => {
+                                let (first, rest) = store.car_cdr(&rest)?;
+                                let (second, _) = store.car_cdr(&rest)?;
+
+                                let (expr, secret) = if rest.is_nil() {
+                                    // TODO: also support Commitment::from_ptr_with_hiding (randomized secret at runtime).
+                                    (first, F::zero())
+                                } else {
+                                    if let Expression::Num(n) = store.fetch(&second).unwrap() {
+                                        (first, n.into_scalar())
+                                    } else {
+                                        panic!("secret not a Num")
+                                    }
+                                };
+
+                                let commitment =
+                                    Commitment::from_ptr_and_secret(store, &expr, secret);
+
+                                let committed_expression = CommittedExpression {
+                                    expr: LurkPtr::from_ptr(store, &expr),
+                                    secret: Some(secret),
+                                    commitment: Some(commitment),
+                                };
+
+                                let expression_map = fcomm::committed_expression_store();
+                                expression_map.set(commitment, &committed_expression)?;
+                                Some(store.intern_maybe_opaque_comm(commitment.comm))
+                            }
                             "PROVE" => {
                                 let (proof_path, rest) = store.car_cdr(&rest)?;
                                 let (proof_in_expr, _) = store.car_cdr(&rest)?;

@@ -62,7 +62,7 @@ fn nova_proof_cache() -> FileMap<Cid, Proof<'static, S1>> {
 }
 
 pub fn committed_expression_store() -> FileMap<Commitment<S1>, CommittedExpression<S1>> {
-    FileMap::<Commitment<S1>, CommittedExpression<S1>>::new("functions").unwrap()
+    FileMap::<Commitment<S1>, CommittedExpression<S1>>::new("committed_expressions").unwrap()
 }
 
 fn public_param_cache() -> FileMap<String, PublicParams<'static>> {
@@ -535,6 +535,25 @@ impl LurkPtr {
             }
         }
     }
+
+    pub fn from_ptr<F: LurkField + Serialize>(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
+        let (scalar_store, scalar_ptr) = ScalarStore::new_with_expr(s, ptr);
+        let scalar_ptr = scalar_ptr.unwrap();
+
+        let scalar_store_ipld = to_ipld(scalar_store).unwrap();
+        let new_fun_ipld = to_ipld(scalar_ptr).unwrap();
+
+        let scalar_store_bytes = DagCborCodec.encode(&scalar_store_ipld).unwrap();
+        let new_fun_bytes = DagCborCodec.encode(&new_fun_ipld).unwrap();
+
+        let again = from_ipld(new_fun_ipld).unwrap();
+        assert_eq!(&scalar_ptr, &again);
+
+        Self::ScalarBytes(LurkScalarBytes {
+            scalar_store: scalar_store_bytes,
+            scalar_ptr: new_fun_bytes,
+        })
+    }
 }
 
 impl Expression {
@@ -639,9 +658,6 @@ impl<'a> Opening<S1> {
         let (public_output, _iterations) = evaluate(s, expression, limit)?;
 
         let (new_commitment, output_expr) = if chain {
-            // FIXME: update for explicit commitments.
-
-            // public_output = (result_expr (secret . new_fun))
             let cons = public_output.expr;
             let result_expr = s.car(&cons)?;
             let new_comm = s.cdr(&cons)?;
@@ -653,33 +669,11 @@ impl<'a> Opening<S1> {
             let new_commitment = Commitment::from_comm(s, &new_comm);
 
             s.hydrate_scalar_cache();
-            let (scalar_store, scalar_ptr) = ScalarStore::new_with_expr(s, &new_fun);
-            let scalar_ptr = scalar_ptr.unwrap();
 
-            let scalar_store_ipld = to_ipld(scalar_store).unwrap();
-            let new_fun_ipld = to_ipld(scalar_ptr).unwrap();
-
-            let scalar_store_bytes = DagCborCodec.encode(&scalar_store_ipld).unwrap();
-            let new_fun_bytes = DagCborCodec.encode(&new_fun_ipld).unwrap();
-
-            let again = from_ipld(new_fun_ipld).unwrap();
-            assert_eq!(&scalar_ptr, &again);
-
-            // TODO: Can this be made to work?
-            // let new_function = CommittedExpression::<S1> {
-            //     fun: LurkPtr::Ipld(LurkScalarIpld {
-            //         scalar_store: scalar_store_ipld,
-            //         scalar_ptr: new_fun_ipld,
-            //     }),
-            //     secret: Some(new_secret),
-            //     commitment: Some(new_commitment),
-            // };
+            let expr = LurkPtr::from_ptr(s, &new_fun);
 
             let new_function = CommittedExpression::<S1> {
-                expr: LurkPtr::ScalarBytes(LurkScalarBytes {
-                    scalar_store: scalar_store_bytes,
-                    scalar_ptr: new_fun_bytes,
-                }),
+                expr,
                 secret: Some(new_secret),
                 commitment: Some(new_commitment),
             };
