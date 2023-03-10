@@ -914,7 +914,7 @@ impl<'a> Proof<'a, S1> {
 
         let output_io = IO::<S1> {
             expr: output,
-            env: empty_sym_env(&s),
+            env: empty_sym_env(s),
             cont: s.intern_cont_terminal(),
         };
 

@@ -646,12 +646,13 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
         update_env: bool,
     ) -> Result<(IO<F>, IO<F>, usize)> {
         match Evaluator::new(expr_ptr, self.env, store, self.limit).eval() {
-            Ok((output, iterations, _emitted)) => match output {
-                IO {
+            Ok((output, iterations, _emitted)) => {
+                let IO {
                     expr: result,
                     env: _env,
                     cont: next_cont,
-                } => {
+                } = output;
+                {
                     if !update_env {
                         print!("[{iterations} iterations] => ");
                     }
@@ -681,7 +682,8 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
 
                     Ok((input, output, 12345))
                 }
-            },
+            }
+
             Err(e) => {
                 eprintln!("Evaluation error: {e:?}");
                 Err(e.into())

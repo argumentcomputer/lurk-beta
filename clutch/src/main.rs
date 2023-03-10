@@ -302,12 +302,7 @@ impl ReplTrait<F> for ClutchState<F> {
             },
             Expression::Num(n) => {
                 let i = n.into_scalar().to_u64_unchecked();
-                if let Some(io) = self.hist(i as usize).clone() {
-                    //self.history.push(*io);
-                    Some(io.expr)
-                } else {
-                    None
-                }
+                self.hist(i as usize).map(|io| io.expr)
             }
             _ => return delegate!(),
         };
