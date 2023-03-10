@@ -227,16 +227,31 @@ impl<F: LurkField> Serialize for FWrap<F> {
 }
 
 impl<F: LurkField> Encodable for FWrap<F> {
+    // Beware, this assumes a little endian encoding
     fn ser(&self) -> LightData {
-        LightData::Atom(Vec::from(self.0.to_repr().as_ref()))
+        let bytes: Vec<u8> = Vec::from(self.0.to_repr().as_ref());
+        let mut trimmed_bytes: Vec<_> = bytes.into_iter().rev().skip_while(|x| *x == 0u8).collect();
+        trimmed_bytes.reverse();
+        LightData::Atom(trimmed_bytes)
     }
 
+    // beware, this assumes a little endian encoding
     fn de(ld: &LightData) -> Result<Self, String> {
         let LightData::Atom(bytes) = ld else {
             return Err(format!("expected field element got {}", &ld))
         };
-        F::from_bytes(&bytes)
-            .map(FWrap)
+        if bytes.len() > F::NUM_BITS as usize / 8 + 1 {
+            return Err(format!(
+                "Lurk does not support field representations beyond {} bits, received {:?}",
+                F::NUM_BITS,
+                &bytes
+            ));
+        }
+        // the field element expects a certain Repr length, whereas LightData trims it.
+        let mut bytes_slice = F::default().to_repr();
+        bytes_slice.as_mut()[..bytes.len()].copy_from_slice(bytes);
+        let f: Option<F> = F::from_repr(bytes_slice).into();
+        f.map(FWrap)
             .ok_or_else(|| format!("expected field element as bytes, got {:?}", &bytes))
     }
 }
