@@ -177,12 +177,11 @@ impl<A: Encodable + Sized> Encodable for Option<A> {
             LightData::Atom(x) => match x.as_slice() {
                 [] => Ok(Option::None),
                 _ => Err("expected Option".to_string()),
-            }
+            },
             LightData::Cell(xs) => match xs.as_slice() {
                 [a] => Ok(Option::Some(A::de(a)?)),
                 _ => Err("expected Option".to_string()),
             },
-            _ => Err("expected Option".to_string()),
         }
     }
 }
@@ -282,13 +281,13 @@ pub mod tests {
     }
 
     proptest! {
-    #[test]
-    fn prop_light_data(x in any::<LightData>()) {
-        let ser = x.ser();
-        let de  = LightData::de(&ser).expect("read LightData");
-        println!("x {}", x);
-        println!("ser {:?}", ser);
-        assert_eq!(x, de)
-    }
+        #[test]
+        fn prop_light_data(x in any::<LightData>()) {
+            let ser = x.ser();
+            let de  = LightData::de(&ser).expect("read LightData");
+            eprintln!("x {}", x);
+            eprintln!("ser {:?}", ser);
+            assert_eq!(x, de)
+        }
     }
 }
