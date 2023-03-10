@@ -3,7 +3,7 @@ pub mod tests {
     use std::fs;
     use blstrs::Scalar as Fr;
 
-    use lurk::{light_store::LightStore, light_data::{LightData, Encodable}};
+    use lurk::{light_data::{LightData, LightStore, Encodable}};
 
     #[test]
     // The following store was created with the following Lean code:
