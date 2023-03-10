@@ -36,6 +36,6 @@ fn test_light_exprs_deserialization() {
     for path_name in path_names {
         let bytes = fs::read(Path::new(path_name)).unwrap();
         let ld = LightData::de(&bytes).unwrap();
-        eprintln!("{}, {}", path_name, ld);
+        let _expr: LightExpr<Fr> = Encodable::de(&ld).unwrap();
     }
 }

@@ -11,9 +11,6 @@ use nom::IResult;
 mod light_store;
 pub use light_store::{LightExpr, LightStore};
 
-use crate::field::LurkField;
-use crate::store::ScalarPtr;
-
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum LightData {
     Atom(Vec<u8>),

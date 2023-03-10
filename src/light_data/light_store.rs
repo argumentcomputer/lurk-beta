@@ -167,10 +167,53 @@ pub enum LightExpr<F: LurkField> {
 
 impl<F: LurkField> Encodable for LightExpr<F> {
     fn ser(&self) -> LightData {
-        todo!()
+        match self {
+            LightExpr::Cons(x, y) => {
+                LightData::Cell(vec![LightData::Atom(vec![0u8]), x.ser(), y.ser()])
+            }
+            LightExpr::StrCons(x, y) => {
+                LightData::Cell(vec![LightData::Atom(vec![1u8]), x.ser(), y.ser()])
+            }
+            LightExpr::SymCons(x, y) => {
+                LightData::Cell(vec![LightData::Atom(vec![2u8]), x.ser(), y.ser()])
+            }
+            LightExpr::Comm(f, x) => {
+                LightData::Cell(vec![LightData::Atom(vec![3u8]), FWrap(*f).ser(), x.ser()])
+            }
+            LightExpr::Num(f) => LightData::Cell(vec![LightData::Atom(vec![]), FWrap(*f).ser()]),
+            LightExpr::Char(f) => LightData::Cell(vec![LightData::Cell(vec![]), FWrap(*f).ser()]),
+            LightExpr::Nil => LightData::Atom(vec![0u8]),
+            LightExpr::StrNil => LightData::Atom(vec![1u8]),
+            LightExpr::SymNil => LightData::Atom(vec![2u8]),
+        }
     }
     fn de(ld: &LightData) -> Result<Self, String> {
-        todo!()
+        match ld {
+            LightData::Atom(v) => match v[..] {
+                [0u8] => Ok(LightExpr::Nil),
+                [1u8] => Ok(LightExpr::StrNil),
+                [2u8] => Ok(LightExpr::SymNil),
+                _ => Err(format!("LightExpr::Atom({:?})", v)),
+            },
+            LightData::Cell(v) => match &v[..] {
+                [LightData::Atom(u), ref x, ref y] => match u[..] {
+                    [0u8] => Ok(LightExpr::Cons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
+                    [1u8] => Ok(LightExpr::StrCons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
+                    [2u8] => Ok(LightExpr::SymCons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
+                    [3u8] => Ok(LightExpr::Comm(FWrap::de(x)?.0, ScalarPtr::de(y)?)),
+                    _ => Err(format!("LightExpr::Cell({:?})", v)),
+                },
+                [LightData::Cell(u), ref x] => match u[..] {
+                    [] => Ok(LightExpr::Char(FWrap::de(x)?.0)),
+                    _ => Err(format!("LightExpr::Cell({:?})", v)),
+                },
+                [LightData::Atom(u), ref x] => match u[..] {
+                    [] => Ok(LightExpr::Num(FWrap::de(x)?.0)),
+                    _ => Err(format!("LightExpr::Cell({:?})", v)),
+                },
+                _ => Err(format!("LightExpr::Cell({:?})", v)),
+            },
+        }
     }
 }
 
@@ -184,8 +227,6 @@ pub mod tests {
         fn prop_light_data(x in any::<LightExpr<Scalar>>()) {
             let ser = x.ser();
             let de  = LightExpr::de(&ser).expect("read LightExpr");
-            println!("x {:?}", x);
-            println!("ser {:?}", ser);
             assert_eq!(x, de)
         }
 
