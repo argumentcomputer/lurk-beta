@@ -23,9 +23,9 @@ use lurk::light_data::{Encodable, LightData, LightExpr};
 //     IO.FS.writeBinFile path ld.toByteArray
 fn test_light_store_deserialization() {
     let path_names = [
-        "exprs/Nil.expr", "exprs/StrNil.expr", "exprs/SymNil.expr",
-        "exprs/CharA", "exprs/Num42", "exprs/Comm0Nil",
-        "exprs/SymConsNilNil", "exprs/StrConsNilNil", "exprs/ConsNilNil"
+        "tests/exprs/Nil.expr", "tests/exprs/StrNil.expr", "tests/exprs/SymNil.expr",
+        "tests/exprs/CharA", "tests/exprs/Num42", "tests/exprs/Comm0Nil",
+        "tests/exprs/SymConsNilNil", "tests/exprs/StrConsNilNil", "tests/exprs/ConsNilNil"
     ];
     for path_name in path_names {
         let bytes = fs::read(Path::new(path_name)).unwrap();
