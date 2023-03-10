@@ -2,8 +2,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use pasta_curves::pallas;
 
 use fcomm::{
-    public_params, Claim, Commitment, CommittedExpression, Evaluation, Id, LurkPtr, NovaProofCache,
-    Opening, Proof,
+    public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, Evaluation, Id,
+    LurkPtr, NovaProofCache, Opening, Proof,
 };
 use lurk::eval::{Evaluable, Status, IO};
 use lurk::field::{LanguageField, LurkField};
@@ -21,6 +21,7 @@ struct ClutchState<F: LurkField> {
     repl_state: ReplState<F>,
     history: Vec<IO<F>>,
     proof_map: NovaProofCache,
+    expression_map: CommittedExpressionMap,
     last_claim: Option<Claim<F>>,
 }
 
@@ -29,10 +30,12 @@ type F = pallas::Scalar;
 impl ReplTrait<F> for ClutchState<F> {
     fn new(s: &mut Store<F>, limit: usize) -> Self {
         let proof_map = fcomm::nova_proof_cache();
+        let expression_map = fcomm::committed_expression_store();
         Self {
             repl_state: ReplState::new(s, limit),
             history: Default::default(),
             proof_map,
+            expression_map,
             last_claim: None,
         }
     }
@@ -110,8 +113,7 @@ impl ReplTrait<F> for ClutchState<F> {
                                     commitment: Some(commitment),
                                 };
 
-                                let expression_map = fcomm::committed_expression_store();
-                                expression_map.set(commitment, &committed_expression)?;
+                                self.expression_map.set(commitment, &committed_expression)?;
                                 Some(store.intern_maybe_opaque_comm(commitment.comm))
                             }
                             "OPEN" => {
@@ -136,9 +138,8 @@ impl ReplTrait<F> for ClutchState<F> {
 
                                 let expr_and_comm = comm.and_then(|comm| {
                                     let commitment = Commitment::from_comm(store, &comm);
-                                    let expression_map = fcomm::committed_expression_store(); // FIXME: move to ClutchState
 
-                                    expression_map.get(&commitment).map(|c| {
+                                    self.expression_map.get(&commitment).map(|c| {
                                         (c.expr.ptr(store, self.repl_state.limit), commitment)
                                     })
                                 });

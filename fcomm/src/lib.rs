@@ -62,7 +62,8 @@ pub fn nova_proof_cache() -> NovaProofCache {
     FileMap::<Cid, Proof<S1>>::new("nova_proofs").unwrap()
 }
 
-pub fn committed_expression_store() -> FileMap<Commitment<S1>, CommittedExpression<S1>> {
+pub type CommittedExpressionMap = FileMap<Commitment<S1>, CommittedExpression<S1>>;
+pub fn committed_expression_store() -> CommittedExpressionMap {
     FileMap::<Commitment<S1>, CommittedExpression<S1>>::new("committed_expressions").unwrap()
 }
 
