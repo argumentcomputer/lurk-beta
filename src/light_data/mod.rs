@@ -11,6 +11,9 @@ use nom::IResult;
 mod light_store;
 pub use light_store::{LightExpr, LightStore};
 
+use crate::field::LurkField;
+use crate::store::ScalarPtr;
+
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum LightData {
     Atom(Vec<u8>),
@@ -27,7 +30,7 @@ impl Display for LightData {
                     .map(|x| format!("{:02x?}", x))
                     .collect::<Vec<_>>()
                     .join(", ");
-                write!(f, "{}", xs_str)?;
+                write!(f, "a:{}", xs_str)?;
             }
             Self::Cell(xs) => {
                 let xs_str = xs
@@ -35,7 +38,7 @@ impl Display for LightData {
                     .map(|x| format!("{}", x))
                     .collect::<Vec<_>>()
                     .join(", ");
-                write!(f, "{}", xs_str)?;
+                write!(f, "c:{}", xs_str)?;
             }
         }
         write!(f, "]")?;

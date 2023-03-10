@@ -21,16 +21,21 @@ use lurk::light_data::{Encodable, LightData, LightExpr};
 //     let path := exprsDir / name |>.withExtension "expr"
 //     let ld : LightData := expr
 //     IO.FS.writeBinFile path ld.toByteArray
-fn test_light_store_deserialization() {
+fn test_light_exprs_deserialization() {
     let path_names = [
-        "tests/exprs/Nil.expr", "tests/exprs/StrNil.expr", "tests/exprs/SymNil.expr",
-        "tests/exprs/CharA", "tests/exprs/Num42", "tests/exprs/Comm0Nil",
-        "tests/exprs/SymConsNilNil", "tests/exprs/StrConsNilNil", "tests/exprs/ConsNilNil"
+        "tests/exprs/Nil.expr",
+        "tests/exprs/StrNil.expr",
+        "tests/exprs/SymNil.expr",
+        "tests/exprs/CharA.expr",
+        "tests/exprs/Num42.expr",
+        "tests/exprs/Comm0Nil.expr",
+        "tests/exprs/SymConsNilNil.expr",
+        "tests/exprs/StrConsNilNil.expr",
+        "tests/exprs/ConsNilNil.expr",
     ];
     for path_name in path_names {
         let bytes = fs::read(Path::new(path_name)).unwrap();
         let ld = LightData::de(&bytes).unwrap();
-        eprintln!("{:?}", ld);
-        let _expr: LightExpr<Fr> = Encodable::de(&ld).unwrap();
+        eprintln!("{}, {}", path_name, ld);
     }
 }

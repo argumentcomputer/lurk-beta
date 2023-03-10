@@ -169,7 +169,7 @@ impl<F: LurkField> Encodable for LightExpr<F> {
     fn ser(&self) -> LightData {
         todo!()
     }
-    fn de(_ld: &LightData) -> Result<Self, String> {
+    fn de(ld: &LightData) -> Result<Self, String> {
         todo!()
     }
 }
@@ -180,14 +180,14 @@ pub mod tests {
     use pasta_curves::pallas::Scalar;
 
     proptest! {
-    #[test]
-    fn prop_light_data(x in any::<LightExpr<Scalar>>()) {
-        let ser = x.ser();
-        let de  = LightExpr::de(&ser).expect("read LightExpr");
-        println!("x {:?}", x);
-        println!("ser {:?}", ser);
-        assert_eq!(x, de)
-    }
+        #[test]
+        fn prop_light_data(x in any::<LightExpr<Scalar>>()) {
+            let ser = x.ser();
+            let de  = LightExpr::de(&ser).expect("read LightExpr");
+            println!("x {:?}", x);
+            println!("ser {:?}", ser);
+            assert_eq!(x, de)
+        }
 
     }
 }

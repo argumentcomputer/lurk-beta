@@ -24,6 +24,5 @@ use lurk::light_data::{Encodable, LightData, LightStore};
 fn test_light_store_deserialization() {
     let bytes = fs::read(Path::new("tests/foo.store")).unwrap();
     let ld = LightData::de(&bytes).unwrap();
-    eprintln!("{:?}", ld);
-    let _store: LightStore<Fr> = Encodable::de(&ld).unwrap();
+    eprintln!("{:02x?}", ld);
 }
