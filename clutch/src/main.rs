@@ -28,7 +28,7 @@ type F = pallas::Scalar;
 
 impl ReplTrait<F> for ClutchState<F> {
     fn new(s: &mut Store<F>, limit: usize) -> Self {
-        let proof_map = fcomm::nova_proof_cache(); // TODO: move to ClutchState
+        let proof_map = fcomm::nova_proof_cache();
         Self {
             repl_state: ReplState::new(s, limit),
             history: Default::default(),
