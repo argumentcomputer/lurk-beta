@@ -297,7 +297,7 @@ impl Eval {
     fn eval(&self, limit: usize) {
         let s = &mut Store::<S1>::default();
 
-        let expr = expression(s, &self.expression, self.lurk).unwrap();
+        let expr = expression(s, &self.expression, self.lurk, limit).unwrap();
 
         let evaluation = Evaluation::eval(s, expr, limit).unwrap();
 
@@ -328,7 +328,7 @@ impl Prove {
                 );
                 Proof::prove_claim(
                     s,
-                    Claim::read_from_path(claim).unwrap(),
+                    &Claim::read_from_path(claim).unwrap(),
                     limit,
                     false,
                     &prover,
@@ -342,6 +342,7 @@ impl Prove {
                     s,
                     self.expression.as_ref().expect("expression missing"),
                     self.lurk,
+                    limit,
                 )
                 .unwrap();
 
@@ -450,12 +451,13 @@ fn expression<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
     store: &mut Store<F>,
     expression_path: P,
     lurk: bool,
+    limit: usize,
 ) -> Result<Ptr<F>, Error> {
     if lurk {
         read_from_path(store, expression_path)
     } else {
         let expression = Expression::read_from_path(expression_path)?;
-        let expr = expression.expr.ptr(store);
+        let expr = expression.expr.ptr(store, limit);
         Ok(expr)
     }
 }

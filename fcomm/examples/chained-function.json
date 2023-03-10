@@ -1,2 +1,1 @@
-{"fun":{"Source":"(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))"}}
-
+{"expr":{"Source":"(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))"}}
