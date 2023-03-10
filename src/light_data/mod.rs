@@ -167,15 +167,18 @@ pub trait Encodable {
 impl<A: Encodable + Sized> Encodable for Option<A> {
     fn ser(&self) -> LightData {
         match self {
-            None => LightData::Cell(vec![]),
+            None => LightData::Atom(vec![]),
             Some(a) => LightData::Cell(vec![a.ser()]),
         }
     }
 
     fn de(ld: &LightData) -> Result<Self, String> {
         match ld {
-            LightData::Cell(xs) => match xs.as_slice() {
+            LightData::Atom(x) => match x.as_slice() {
                 [] => Ok(Option::None),
+                _ => Err("expected Option".to_string()),
+            }
+            LightData::Cell(xs) => match xs.as_slice() {
                 [a] => Ok(Option::Some(A::de(a)?)),
                 _ => Err("expected Option".to_string()),
             },
