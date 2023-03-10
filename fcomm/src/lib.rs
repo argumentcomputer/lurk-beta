@@ -61,8 +61,8 @@ fn nova_proof_cache() -> FileMap<Cid, Proof<'static, S1>> {
     FileMap::<Cid, Proof<S1>>::new("nova_proofs").unwrap()
 }
 
-pub fn committed_function_store() -> FileMap<Commitment<S1>, Function<S1>> {
-    FileMap::<Commitment<S1>, Function<S1>>::new("functions").unwrap()
+pub fn committed_expression_store() -> FileMap<Commitment<S1>, CommittedExpression<S1>> {
+    FileMap::<Commitment<S1>, CommittedExpression<S1>>::new("committed_expressions").unwrap()
 }
 
 fn public_param_cache() -> FileMap<String, PublicParams<'static>> {
@@ -204,8 +204,8 @@ pub enum LurkPtr {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct Function<F: LurkField + Serialize> {
-    pub fun: LurkPtr,
+pub struct CommittedExpression<F: LurkField + Serialize> {
+    pub expr: LurkPtr,
     pub secret: Option<F>,
     pub commitment: Option<Commitment<F>>,
 }
@@ -460,12 +460,12 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
     // Importantly, this ensures the function and secret are in the Store, s.
     fn construct_with_fun_application(
         s: &mut Store<F>,
-        function: Function<F>,
+        function: CommittedExpression<F>,
         input: Ptr<F>,
         limit: usize,
     ) -> Result<(Self, Ptr<F>), Error> {
-        let fun_ptr = function.fun_ptr(s, limit)?;
-        let secret = function.secret.expect("Function secret missing");
+        let fun_ptr = function.expr_ptr(s, limit)?;
+        let secret = function.secret.expect("CommittedExpression secret missing");
 
         let commitment = Self::from_ptr_and_secret(s, &fun_ptr, secret);
 
@@ -493,9 +493,9 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
     }
 }
 
-impl<F: LurkField + Serialize + DeserializeOwned> Function<F> {
-    pub fn fun_ptr(&self, s: &mut Store<F>, limit: usize) -> Result<Ptr<F>, Error> {
-        let source_ptr = self.fun.ptr(s);
+impl<F: LurkField + Serialize + DeserializeOwned> CommittedExpression<F> {
+    pub fn expr_ptr(&self, s: &mut Store<F>, limit: usize) -> Result<Ptr<F>, Error> {
+        let source_ptr = self.expr.ptr(s);
 
         // Evaluate the source to get an actual function.
         let (output, _iterations) = evaluate(s, source_ptr, limit)?;
@@ -535,6 +535,25 @@ impl LurkPtr {
             }
         }
     }
+
+    pub fn from_ptr<F: LurkField + Serialize>(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
+        let (scalar_store, scalar_ptr) = ScalarStore::new_with_expr(s, ptr);
+        let scalar_ptr = scalar_ptr.unwrap();
+
+        let scalar_store_ipld = to_ipld(scalar_store).unwrap();
+        let new_fun_ipld = to_ipld(scalar_ptr).unwrap();
+
+        let scalar_store_bytes = DagCborCodec.encode(&scalar_store_ipld).unwrap();
+        let new_fun_bytes = DagCborCodec.encode(&new_fun_ipld).unwrap();
+
+        let again = from_ipld(new_fun_ipld).unwrap();
+        assert_eq!(&scalar_ptr, &again);
+
+        Self::ScalarBytes(LurkScalarBytes {
+            scalar_store: scalar_store_bytes,
+            scalar_ptr: new_fun_bytes,
+        })
+    }
 }
 
 impl Expression {
@@ -555,7 +574,7 @@ impl<'a> Opening<S1> {
     pub fn apply_and_prove(
         s: &'a mut Store<S1>,
         input: Ptr<S1>,
-        function: Function<S1>,
+        function: CommittedExpression<S1>,
         limit: usize,
         chain: bool,
         only_use_cached_proofs: bool,
@@ -577,7 +596,7 @@ impl<'a> Opening<S1> {
         let input = request.input.expr.ptr(s);
         let commitment = request.commitment;
 
-        let function_map = committed_function_store();
+        let function_map = committed_expression_store();
         let function = function_map
             .get(&commitment)
             .ok_or(Error::UnknownCommitment)?;
@@ -603,7 +622,7 @@ impl<'a> Opening<S1> {
         let input = request.input.expr.ptr(s);
         let commitment = request.commitment;
 
-        let function_map = committed_function_store();
+        let function_map = committed_expression_store();
         let function = function_map
             .get(&commitment)
             .ok_or(Error::UnknownCommitment)?;
@@ -630,20 +649,15 @@ impl<'a> Opening<S1> {
     pub fn apply(
         s: &mut Store<S1>,
         input: Ptr<S1>,
-        function: Function<S1>,
+        function: CommittedExpression<S1>,
         limit: usize,
         chain: bool,
     ) -> Result<Claim<S1>, Error> {
-        let function_map = committed_function_store();
-
         let (commitment, expression) =
             Commitment::construct_with_fun_application(s, function, input, limit)?;
         let (public_output, _iterations) = evaluate(s, expression, limit)?;
 
         let (new_commitment, output_expr) = if chain {
-            // FIXME: update for explicit commitments.
-
-            // public_output = (result_expr (secret . new_fun))
             let cons = public_output.expr;
             let result_expr = s.car(&cons)?;
             let new_comm = s.cdr(&cons)?;
@@ -655,37 +669,16 @@ impl<'a> Opening<S1> {
             let new_commitment = Commitment::from_comm(s, &new_comm);
 
             s.hydrate_scalar_cache();
-            let (scalar_store, scalar_ptr) = ScalarStore::new_with_expr(s, &new_fun);
-            let scalar_ptr = scalar_ptr.unwrap();
 
-            let scalar_store_ipld = to_ipld(scalar_store).unwrap();
-            let new_fun_ipld = to_ipld(scalar_ptr).unwrap();
+            let expr = LurkPtr::from_ptr(s, &new_fun);
 
-            let scalar_store_bytes = DagCborCodec.encode(&scalar_store_ipld).unwrap();
-            let new_fun_bytes = DagCborCodec.encode(&new_fun_ipld).unwrap();
-
-            let again = from_ipld(new_fun_ipld).unwrap();
-            assert_eq!(&scalar_ptr, &again);
-
-            // TODO: Can this be made to work?
-            // let new_function = Function::<S1> {
-            //     fun: LurkPtr::Ipld(LurkScalarIpld {
-            //         scalar_store: scalar_store_ipld,
-            //         scalar_ptr: new_fun_ipld,
-            //     }),
-            //     secret: Some(new_secret),
-            //     commitment: Some(new_commitment),
-            // };
-
-            let new_function = Function::<S1> {
-                fun: LurkPtr::ScalarBytes(LurkScalarBytes {
-                    scalar_store: scalar_store_bytes,
-                    scalar_ptr: new_fun_bytes,
-                }),
+            let new_function = CommittedExpression::<S1> {
+                expr,
                 secret: Some(new_secret),
                 commitment: Some(new_commitment),
             };
 
+            let function_map = committed_expression_store();
             function_map.set(new_commitment, &new_function)?;
 
             (Some(new_commitment), result_expr)
@@ -746,7 +739,7 @@ impl<'a> Proof<'a, S1> {
         pp: &'a PublicParams,
     ) -> Result<Self, Error> {
         let proof_map = nova_proof_cache();
-        let function_map = committed_function_store();
+        let function_map = committed_expression_store();
 
         let cid = claim.cid();
 

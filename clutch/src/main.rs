@@ -1,7 +1,7 @@
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use pasta_curves::pallas;
 
-use fcomm::{FileStore, Proof};
+use fcomm::{Commitment, CommittedExpression, FileStore, LurkPtr, Proof};
 use lurk::field::{LanguageField, LurkField};
 use lurk::package::Package;
 use lurk::proof::{
@@ -10,7 +10,8 @@ use lurk::proof::{
     Prover,
 };
 use lurk::repl::{repl, ReplState, ReplTrait};
-use lurk::store::{Expression, Ptr, Store};
+use lurk::store::{Expression, Pointer, Ptr, Store};
+use lurk::tag::ExprTag;
 use lurk::writer::Write;
 
 use std::io;
@@ -23,6 +24,14 @@ type F = pallas::Scalar;
 impl ReplTrait<F> for ClutchState<F> {
     fn new(s: &mut Store<F>, limit: usize) -> Self {
         Self(ReplState::new(s, limit))
+    }
+
+    fn name() -> String {
+        "Lurk Clutch".into()
+    }
+
+    fn prompt(&self) -> String {
+        "!> ".into()
     }
 
     fn handle_run<P: AsRef<Path> + Copy>(
@@ -66,6 +75,72 @@ impl ReplTrait<F> for ClutchState<F> {
                 Expression::Sym(s) => {
                     if let Some(name) = s.simple_keyword_name() {
                         match name.as_str() {
+                            "COMMIT" => {
+                                let (first, rest) = store.car_cdr(&rest)?;
+                                let (second, _) = store.car_cdr(&rest)?;
+
+                                let (expr, secret) = if rest.is_nil() {
+                                    // TODO: also support Commitment::from_ptr_with_hiding (randomized secret at runtime).
+                                    (first, F::zero())
+                                } else if let Expression::Num(n) = store.fetch(&second).unwrap() {
+                                    (first, n.into_scalar())
+                                } else {
+                                    bail!("Secret must be a Num")
+                                };
+
+                                let commitment =
+                                    Commitment::from_ptr_and_secret(store, &expr, secret);
+
+                                let committed_expression = CommittedExpression {
+                                    expr: LurkPtr::from_ptr(store, &expr),
+                                    secret: Some(secret),
+                                    commitment: Some(commitment),
+                                };
+
+                                let expression_map = fcomm::committed_expression_store();
+                                expression_map.set(commitment, &committed_expression)?;
+                                Some(store.intern_maybe_opaque_comm(commitment.comm))
+                            }
+                            "OPEN" => {
+                                let (maybe_comm, rest) = store.car_cdr(&rest)?;
+
+                                let args = rest.as_cons();
+
+                                let comm = match maybe_comm.tag() {
+                                    ExprTag::Comm => Some(maybe_comm),
+                                    ExprTag::Num => {
+                                        // See Store::open_mut().
+                                        let scalar = store
+                                            .fetch_num(&maybe_comm)
+                                            .map(|x| x.into_scalar())
+                                            .unwrap();
+                                        Some(store.intern_maybe_opaque_comm(scalar))
+                                    }
+                                    _ => {
+                                        bail!("not a commitment");
+                                    }
+                                };
+
+                                let expr = comm.and_then(|comm| {
+                                    let commitment = Commitment::from_comm(store, &comm);
+                                    let expression_map = fcomm::committed_expression_store();
+
+                                    expression_map.get(&commitment).map(|c| c.expr.ptr(store))
+                                });
+
+                                if let (Some(e), Some(a)) = (expr, args) {
+                                    let call = store.cons(e, a);
+
+                                    let (result, _iterations, _cont, _xxx) = self
+                                        .0
+                                        .eval_expr(call, store)
+                                        .with_context(|| "Evaluating call")?;
+
+                                    Some(result)
+                                } else {
+                                    expr
+                                }
+                            }
                             "PROVE" => {
                                 let (proof_path, rest) = store.car_cdr(&rest)?;
                                 let (proof_in_expr, _) = store.car_cdr(&rest)?;
@@ -74,7 +149,7 @@ impl ReplTrait<F> for ClutchState<F> {
                                     if let Expression::Str(p) = store.fetch(&proof_path).unwrap() {
                                         p.to_string()
                                     } else {
-                                        panic!("proof path must be a string");
+                                        bail!("Proof path must be a string");
                                     };
 
                                 let chunk_frame_count = 1;
@@ -103,7 +178,7 @@ impl ReplTrait<F> for ClutchState<F> {
                                     if let Expression::Str(p) = store.fetch(&proof_path).unwrap() {
                                         p.to_string()
                                     } else {
-                                        panic!("proof path must be a string");
+                                        bail!("Proof path must be a string");
                                     };
 
                                 let proof = Proof::read_from_path(path).unwrap();

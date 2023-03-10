@@ -256,14 +256,43 @@ impl<F: LurkField> Hash for Ptr<F> {
 }
 
 impl<F: LurkField> Ptr<F> {
+    // TODO: Make these methods and the similar ones defined on expression consistent, probably including a shared trait.
+
     // NOTE: Although this could be a type predicate now, when NIL becomes a symbol, it won't be possible.
     pub fn is_nil(&self) -> bool {
         matches!(self.0, ExprTag::Nil)
         // FIXME: check value also, probably
     }
+    pub fn is_cons(&self) -> bool {
+        matches!(self.0, ExprTag::Cons)
+    }
+
+    pub fn is_atom(&self) -> bool {
+        !self.is_cons()
+    }
+
+    pub fn is_list(&self) -> bool {
+        matches!(self.0, ExprTag::Nil | ExprTag::Cons)
+    }
 
     pub fn is_opaque(&self) -> bool {
         self.1.is_opaque()
+    }
+
+    pub fn as_cons(self) -> Option<Self> {
+        if self.is_cons() {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_list(self) -> Option<Self> {
+        if self.is_list() {
+            Some(self)
+        } else {
+            None
+        }
     }
 }
 
@@ -1595,7 +1624,7 @@ impl<F: LurkField> Store<F> {
         self.scalar_ptr_cont_map.get(scalar_ptr).map(|p| *p)
     }
 
-    pub(crate) fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
+    pub fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
         debug_assert!(matches!(ptr.0, ExprTag::Sym | ExprTag::Key | ExprTag::Nil));
 
         if ptr.1.is_opaque() {
@@ -1617,18 +1646,18 @@ impl<F: LurkField> Store<F> {
             })
     }
 
-    pub(crate) fn fetch_str(&self, ptr: &Ptr<F>) -> Option<&str> {
+    pub fn fetch_str(&self, ptr: &Ptr<F>) -> Option<&str> {
         debug_assert!(matches!(ptr.0, ExprTag::Str));
         let symbol = SymbolUsize::try_from_usize(ptr.1.idx()).expect("invalid pointer");
         self.str_store.0.resolve(symbol)
     }
 
-    pub(crate) fn fetch_char(&self, ptr: &Ptr<F>) -> Option<char> {
+    pub fn fetch_char(&self, ptr: &Ptr<F>) -> Option<char> {
         debug_assert!(matches!(ptr.0, ExprTag::Char));
         char::from_u32(ptr.1 .0 .0 as u32)
     }
 
-    pub(crate) fn fetch_fun(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>, Ptr<F>)> {
+    pub fn fetch_fun(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>, Ptr<F>)> {
         debug_assert!(matches!(ptr.0, ExprTag::Fun));
         if ptr.1.is_opaque() {
             None
@@ -1638,7 +1667,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub(crate) fn fetch_cons(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>)> {
+    pub fn fetch_cons(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>)> {
         debug_assert!(matches!(ptr.0, ExprTag::Cons));
         if ptr.1.is_opaque() {
             None
@@ -1647,7 +1676,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub(crate) fn fetch_comm(&self, ptr: &Ptr<F>) -> Option<&(FWrap<F>, Ptr<F>)> {
+    pub fn fetch_comm(&self, ptr: &Ptr<F>) -> Option<&(FWrap<F>, Ptr<F>)> {
         debug_assert!(matches!(ptr.0, ExprTag::Comm));
         if ptr.1.is_opaque() {
             None
@@ -1656,7 +1685,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub(crate) fn fetch_num(&self, ptr: &Ptr<F>) -> Option<&Num<F>> {
+    pub fn fetch_num(&self, ptr: &Ptr<F>) -> Option<&Num<F>> {
         debug_assert!(matches!(ptr.0, ExprTag::Num));
         self.num_store.get_index(ptr.1.idx())
     }
@@ -1666,7 +1695,7 @@ impl<F: LurkField> Store<F> {
         self.thunk_store.get_index(ptr.1.idx())
     }
 
-    pub(crate) fn fetch_uint(&self, ptr: &Ptr<F>) -> Option<UInt> {
+    pub fn fetch_uint(&self, ptr: &Ptr<F>) -> Option<UInt> {
         // If more UInt variants are added, the following assertion should be relaxed to check for any of them.
         debug_assert!(matches!(ptr.0, ExprTag::U64));
         match ptr.0 {

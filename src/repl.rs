@@ -1,3 +1,4 @@
+use crate::error::LurkError;
 use crate::eval::{empty_sym_env, Evaluator, IO};
 use crate::field::LurkField;
 use crate::package::Package;
@@ -5,7 +6,7 @@ use crate::parser;
 use crate::store::{ContPtr, Expression, Pointer, Ptr, Store};
 use crate::tag::{ContTag, ExprTag};
 use crate::writer::Write;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use peekmore::PeekMore;
 use rustyline::error::ReadlineError;
 use rustyline::validate::{
@@ -43,6 +44,10 @@ pub struct Repl<F: LurkField, T: ReplTrait<F>> {
 
 pub trait ReplTrait<F: LurkField> {
     fn new(s: &mut Store<F>, limit: usize) -> Self;
+
+    fn name() -> String;
+
+    fn prompt(&self) -> String;
 
     fn handle_run<P: AsRef<Path> + Copy>(
         &mut self,
@@ -127,7 +132,8 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
     let package = Package::lurk();
 
     if lurk_file.is_none() {
-        println!("Lurk REPL welcomes you.");
+        let name = T::name();
+        eprintln!("{name} welcomes you.");
     }
 
     {
@@ -140,7 +146,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
     let pwd_path = std::env::current_dir().unwrap();
     let p: &Path = pwd_path.as_ref();
     loop {
-        match repl.rl.readline("> ") {
+        match repl.rl.readline(&repl.state.prompt()) {
             Ok(line) => {
                 repl.save_history()?;
 
@@ -156,7 +162,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
                     }
                     Ok(_) => (),
                     Err(e) => {
-                        println!("Error when handling {line}: {e:?}");
+                        eprintln!("Error when handling {line}: {e:?}");
                         continue;
                     }
                 };
@@ -166,9 +172,14 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
                 match s.read_maybe_meta(&mut chars, &package) {
                     Ok((expr, is_meta)) => {
                         if is_meta {
-                            repl.state.handle_meta(s, expr, &package, p)?
+                            if let Err(e) = repl.state.handle_meta(s, expr, &package, p) {
+                                eprintln!("!Error: {e:?}");
+                            };
+                            continue;
                         } else {
-                            let _ = repl.state.handle_non_meta(s, expr, false);
+                            if let Err(e) = repl.state.handle_non_meta(s, expr, false) {
+                                eprintln!("REPL Error: {e:?}");
+                            }
 
                             continue;
                         }
@@ -177,16 +188,16 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
                         continue;
                     }
                     Err(e) => {
-                        println!("Read error: {e:?}")
+                        eprintln!("Read error: {e:?}")
                     }
                 }
             }
             Err(ReadlineError::Interrupted | ReadlineError::Eof) => {
-                println!("Exiting...");
+                eprintln!("Exiting...");
                 break;
             }
             Err(err) => {
-                println!("Error: {err:?}");
+                eprintln!("Error: {err:?}");
                 break;
             }
         }
@@ -206,20 +217,20 @@ impl<F: LurkField> ReplState<F> {
         &mut self,
         expr: Ptr<F>,
         store: &mut Store<F>,
-    ) -> (Ptr<F>, usize, ContPtr<F>, Vec<Ptr<F>>) {
-        let (
-            IO {
-                expr: result,
-                env: _env,
-                cont: next_cont,
-            },
-            iterations,
-            emitted,
-        ) = Evaluator::new(expr, self.env, store, self.limit)
-            .eval()
-            .unwrap();
+    ) -> Result<(Ptr<F>, usize, ContPtr<F>, Vec<Ptr<F>>)> {
+        let (io, iterations, emitted) = Evaluator::new(expr, self.env, store, self.limit).eval()?;
 
-        (result, iterations, next_cont, emitted)
+        let IO {
+            expr: result,
+            env: _env,
+            cont: next_cont,
+        } = io;
+
+        if next_cont == store.get_cont_error() {
+            Err(LurkError::IO(io))?
+        } else {
+            Ok((result, iterations, next_cont, emitted))
+        }
     }
 
     pub fn maybe_handle_command(
@@ -291,7 +302,7 @@ impl<F: LurkField> ReplState<F> {
         file_path: P,
         package: &Package,
     ) -> Result<()> {
-        println!("Loading from {}.", file_path.as_ref().to_str().unwrap());
+        eprintln!("Loading from {}.", file_path.as_ref().to_str().unwrap());
         self.handle_file(store, file_path.as_ref(), package, true)
     }
 
@@ -305,7 +316,7 @@ impl<F: LurkField> ReplState<F> {
         let file_path = file_path;
 
         let input = read_to_string(file_path)?;
-        println!(
+        eprintln!(
             "Read from {}: {}",
             file_path.as_ref().to_str().unwrap(),
             input
@@ -358,13 +369,21 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
         }
     }
 
+    fn name() -> String {
+        "Lurk REPL".into()
+    }
+
+    fn prompt(&self) -> String {
+        "> ".into()
+    }
+
     fn handle_run<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
         file_path: P,
         package: &Package,
     ) -> Result<()> {
-        println!("Running from {}.", file_path.as_ref().to_str().unwrap());
+        eprintln!("Running from {}.", file_path.as_ref().to_str().unwrap());
         self.handle_file(store, file_path, package, false)
     }
 
@@ -448,7 +467,10 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                             "ASSERT" => {
                                 let (first, rest) = store.car_cdr(&rest)?;
                                 assert!(rest.is_nil());
-                                let (first_evaled, _, _, _) = self.eval_expr(first, store);
+                                let (first_evaled, _, _, _) = self
+                                    .eval_expr(first, store)
+                                    .with_context(|| "evaluating first arg")
+                                    .unwrap();
                                 assert!(!first_evaled.is_nil());
                                 None
                             }
@@ -456,10 +478,16 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                                 let (first, rest) = store.car_cdr(&rest)?;
                                 let (second, rest) = store.car_cdr(&rest)?;
                                 assert!(rest.is_nil());
-                                let (first_evaled, _, _, _) = self.eval_expr(first, store);
-                                let (second_evaled, _, _, _) = self.eval_expr(second, store);
+                                let (first_evaled, _, _, _) = self
+                                    .eval_expr(first, store)
+                                    .with_context(|| "evaluating first arg")
+                                    .unwrap();
+                                let (second_evaled, _, _, _) = self
+                                    .eval_expr(second, store)
+                                    .with_context(|| "evaluating second arg")
+                                    .unwrap();
                                 assert!(
-                                    store.ptr_eq(&first_evaled, &second_evaled)?,
+                                    store.ptr_eq(&first_evaled, &second_evaled).unwrap(),
                                     "Assertion failed {:?} = {:?},\n {:?} != {:?}",
                                     first.fmt_to_string(store),
                                     second.fmt_to_string(store),
@@ -473,8 +501,12 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                                 let (second, rest) = store.car_cdr(&rest)?;
 
                                 assert!(rest.is_nil());
-                                let (first_evaled, _, _, _) = self.clone().eval_expr(first, store);
-                                let (_, _, _, emitted) = self.eval_expr(second, store);
+                                let (first_evaled, _, _, _) =
+                                    self.clone().eval_expr(first, store)?;
+                                let (_, _, _, emitted) = self
+                                    .eval_expr(second, store)
+                                    .with_context(|| "evaluating first arg")
+                                    .unwrap();
                                 let (mut first_emitted, mut rest_emitted) =
                                     store.car_cdr(&first_evaled)?;
                                 for (i, elem) in emitted.iter().enumerate() {
@@ -494,8 +526,8 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                                 let (first, rest) = store.car_cdr(&rest)?;
 
                                 assert!(rest.is_nil());
-                                let (_, _, continuation, _) = self.clone().eval_expr(first, store);
-                                assert!(continuation.is_error());
+                                assert!(self.clone().eval_expr(first, store).is_err());
+
                                 None
                             }
                             "CLEAR" => {
@@ -520,7 +552,7 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                                 let bindings = store.list(&[binding]);
                                 let current_env_call = store.list(&[current_env]);
                                 let expanded = store.list(&[l, bindings, current_env_call]);
-                                let (expanded_evaled, _, _, _) = self.eval_expr(expanded, store);
+                                let (expanded_evaled, _, _, _) = self.eval_expr(expanded, store)?;
 
                                 self.env = expanded_evaled;
 
@@ -546,7 +578,7 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                                 let bindings = store.list(&[binding]);
                                 let current_env_call = store.list(&[current_env]);
                                 let expanded = store.list(&[l, bindings, current_env_call]);
-                                let (expanded_evaled, _, _, _) = self.eval_expr(expanded, store);
+                                let (expanded_evaled, _, _, _) = self.eval_expr(expanded, store)?;
 
                                 self.env = expanded_evaled;
 
@@ -582,7 +614,7 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                                 // The state's env is set to the result of evaluating the first argument.
                                 let (first, rest) = store.car_cdr(&rest)?;
                                 assert!(rest.is_nil());
-                                let (first_evaled, _, _, _) = self.eval_expr(first, store);
+                                let (first_evaled, _, _, _) = self.eval_expr(first, store)?;
                                 self.env = first_evaled;
                                 None
                             }
@@ -647,7 +679,7 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                 Ok(())
             }
             Err(e) => {
-                println!("Evaluation error: {e:?}");
+                eprintln!("Evaluation error: {e:?}");
                 Err(e.into())
             }
         }
