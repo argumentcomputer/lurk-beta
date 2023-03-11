@@ -89,7 +89,6 @@ impl ReplTrait<F> for ClutchState<F> {
                 Expression::Sym(s) => {
                     if let Some(name) = s.simple_keyword_name() {
                         match name.as_str() {
-                            "APPLY-COMM" => self.apply_comm(store, rest)?,
                             "CHAIN" => self.chain(store, rest)?,
                             "COMMIT" => self.commit(store, rest)?,
                             "OPEN" => self.open(store, rest)?,
@@ -106,11 +105,11 @@ impl ReplTrait<F> for ClutchState<F> {
                 }
                 Expression::Comm(_, c) => {
                     // NOTE: this cannot happen from a text-based REPL, since there is not currrently a literal Comm syntax.
-                    self.call_comm(store, *c, rest)?
+                    self.apply_comm(store, *c, rest)?
                 }
                 Expression::Num(c) => {
-                    let comm = store.intern_opaque_comm(c.into_scalar());
-                    self.call_comm(store, comm, rest)?
+                    let comm = store.intern_num(*c);
+                    self.apply_comm(store, comm, rest)?
                 }
                 _ => return delegate!(),
             },
@@ -197,25 +196,20 @@ impl ClutchState<F> {
         Ok(self.open_aux(store, rest)?.1)
     }
 
-    fn apply_comm(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
-        self.apply_comm_aux(store, rest, false)
-    }
-    fn call_comm(
+    fn apply_comm(
         &mut self,
         store: &mut Store<F>,
         comm: Ptr<F>,
         rest: Ptr<F>,
     ) -> Result<Option<Ptr<F>>> {
-        let xxx = store.cons(comm, rest);
-        dbg!("call_comm");
-        self.apply_comm_aux(store, xxx, false)
+        let call_form = store.cons(comm, rest);
+        self.apply_comm_aux(store, call_form, false)
     }
 
     fn chain(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let x = self.apply_comm_aux(store, rest, true)?;
 
         if let Some(cons) = x {
-            // self.apply_comm_aux(store, rest, true)? {
             let (result_expr, new_comm) = store.car_cdr(&cons)?;
 
             let new_secret0 = store.secret(new_comm).expect("secret missing");
@@ -307,27 +301,12 @@ impl ClutchState<F> {
                 bail!("not a commitment");
             }
         };
+
         let commitment = Commitment::from_comm(store, &comm);
 
-        store.hydrate_scalar_cache();
-
-        let open = store.sym("open");
-        let comm_num = store.num(lurk::Num::Scalar(commitment.comm));
-        let opening = store.list(&[open, comm_num]);
-
-        if let Ok((_secret, value)) = store.open_mut(comm_num) {
+        if let Ok((_secret, value)) = store.open_mut(maybe_comm) {
             return Ok((commitment, Some(value)));
         };
-        dbg!("failed to find", &comm.fmt_to_string(store), &commitment);
-        {
-            let open = store.sym("open");
-            let comm_num = store.num(lurk::Num::Scalar(commitment.comm));
-            let opening = store.list(&[open, comm_num]);
-            dbg!(opening.fmt_to_string(store));
-            if let Ok((out, _, _, _)) = self.repl_state.eval_expr(opening, store) {
-                dbg!(out.fmt_to_string(store));
-            }
-        }
 
         Ok((
             commitment,

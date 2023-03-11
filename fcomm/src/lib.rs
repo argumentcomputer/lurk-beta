@@ -450,16 +450,16 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
         s.intern_opaque_comm(self.comm)
     }
 
-    pub fn from_ptr_with_hiding(s: &mut Store<F>, function_ptr: &Ptr<F>) -> (Self, F) {
+    pub fn from_ptr_with_hiding(s: &mut Store<F>, ptr: &Ptr<F>) -> (Self, F) {
         let secret = F::random(OsRng);
 
-        let commitment = Self::from_ptr_and_secret(s, function_ptr, secret);
+        let commitment = Self::from_ptr_and_secret(s, ptr, secret);
 
         (commitment, secret)
     }
 
-    pub fn from_ptr_and_secret(s: &mut Store<F>, function_ptr: &Ptr<F>, secret: F) -> Self {
-        let hidden = s.hide(secret, *function_ptr);
+    pub fn from_ptr_and_secret(s: &mut Store<F>, ptr: &Ptr<F>, secret: F) -> Self {
+        let hidden = s.hide(secret, *ptr);
 
         Self::from_comm(s, &hidden)
     }
