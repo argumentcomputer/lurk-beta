@@ -10,7 +10,7 @@ use lurk::field::LurkField;
 use lurk::package::Package;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::repl::{ReplState, ReplTrait};
-use lurk::store::{Expression, Pointer, Ptr, Store};
+use lurk::store::{Expression, Pointer, Ptr, ScalarPointer, Store};
 use lurk::tag::ExprTag;
 use lurk::writer::Write;
 
@@ -89,269 +89,28 @@ impl ReplTrait<F> for ClutchState<F> {
                 Expression::Sym(s) => {
                     if let Some(name) = s.simple_keyword_name() {
                         match name.as_str() {
-                            "COMMIT" => {
-                                let (first, rest) = store.car_cdr(&rest)?;
-                                let (second, _) = store.car_cdr(&rest)?;
-
-                                let (expr, secret) = if rest.is_nil() {
-                                    // TODO: also support Commitment::from_ptr_with_hiding (randomized secret at runtime).
-                                    (first, F::zero())
-                                } else if let Expression::Num(n) = store.fetch(&second).unwrap() {
-                                    (first, n.into_scalar())
-                                } else {
-                                    bail!("Secret must be a Num")
-                                };
-
-                                let (evaled, _, _, _) = self.repl_state.eval_expr(expr, store)?;
-
-                                let commitment =
-                                    Commitment::from_ptr_and_secret(store, &evaled, secret);
-
-                                let committed_expression = CommittedExpression {
-                                    expr: LurkPtr::from_ptr(store, &evaled),
-                                    secret: Some(secret),
-                                    commitment: Some(commitment),
-                                };
-
-                                self.expression_map.set(commitment, &committed_expression)?;
-                                Some(store.intern_maybe_opaque_comm(commitment.comm))
-                            }
-                            "OPEN" => {
-                                let (maybe_comm, rest) = store.car_cdr(&rest)?;
-
-                                let args = rest.as_cons();
-
-                                let comm = match maybe_comm.tag() {
-                                    ExprTag::Comm => Some(maybe_comm),
-                                    ExprTag::Num => {
-                                        // See Store::open_mut().
-                                        let scalar = store
-                                            .fetch_num(&maybe_comm)
-                                            .map(|x| x.into_scalar())
-                                            .unwrap();
-                                        Some(store.intern_maybe_opaque_comm(scalar))
-                                    }
-                                    _ => {
-                                        bail!("not a commitment");
-                                    }
-                                };
-
-                                let expr_and_comm = comm.and_then(|comm| {
-                                    let commitment = Commitment::from_comm(store, &comm);
-
-                                    self.expression_map.get(&commitment).map(|c| {
-                                        (c.expr.ptr(store, self.repl_state.limit), commitment)
-                                    })
-                                });
-
-                                match (expr_and_comm, args) {
-                                    (Some((e, commitment)), Some(a)) => {
-                                        let call = store.cons(e, a);
-                                        let (arg, _) = store.car_cdr(&a)?;
-
-                                        let (result, _iterations, cont, _) = self
-                                            .repl_state
-                                            .eval_expr(call, store)
-                                            .with_context(|| "Evaluating call")?;
-
-                                        let claim = Claim::Opening::<F>(Opening {
-                                            input: arg.fmt_to_string(store),
-                                            output: result.fmt_to_string(store),
-                                            status: Status::from(cont),
-                                            commitment,
-                                            new_commitment: None,
-                                        });
-
-                                        self.last_claim = Some(claim);
-
-                                        Some(result)
-                                    }
-                                    (Some((expr, _)), _) => Some(expr),
-                                    _ => None,
-                                }
-                            }
-                            "CHAIN" => {
-                                let (maybe_comm, rest) = store.car_cdr(&rest)?;
-
-                                let args = rest.as_cons();
-
-                                let comm = match maybe_comm.tag() {
-                                    ExprTag::Comm => Some(maybe_comm),
-                                    ExprTag::Num => {
-                                        // See Store::open_mut().
-                                        let scalar = store
-                                            .fetch_num(&maybe_comm)
-                                            .map(|x| x.into_scalar())
-                                            .unwrap();
-                                        Some(store.intern_maybe_opaque_comm(scalar))
-                                    }
-                                    _ => {
-                                        bail!("not a commitment");
-                                    }
-                                };
-
-                                let expr_and_comm = comm.and_then(|comm| {
-                                    let commitment = Commitment::from_comm(store, &comm);
-
-                                    self.expression_map.get(&commitment).map(|c| {
-                                        (c.expr.ptr(store, self.repl_state.limit), commitment)
-                                    })
-                                });
-
-                                match (expr_and_comm, args) {
-                                    (Some((e, commitment)), Some(a)) => {
-                                        let call = store.cons(e, a);
-                                        let (arg, _) = store.car_cdr(&a)?;
-
-                                        let (result, _iterations, cont, _) = self
-                                            .repl_state
-                                            .eval_expr(call, store)
-                                            .with_context(|| "Evaluating call")?;
-
-                                        let claim = Claim::Opening::<F>(Opening {
-                                            input: arg.fmt_to_string(store),
-                                            output: result.fmt_to_string(store),
-                                            status: Status::from(cont),
-                                            commitment,
-                                            new_commitment: None,
-                                        });
-
-                                        self.last_claim = Some(claim);
-
-                                        Some(result)
-                                    }
-                                    (Some((expr, _)), _) => Some(expr),
-                                    _ => None,
-                                }
-                            }
-                            "PROOF-IN-EXPR" => {
-                                let (proof_cid, _rest1) = store.car_cdr(&rest)?;
-                                let cid_string =
-                                    if let Expression::Str(p) = store.fetch(&proof_cid).unwrap() {
-                                        p.to_string()
-                                    } else {
-                                        bail!("Proof path must be a string");
-                                    };
-
-                                let cid = fcomm::cid_from_string(&cid_string)?;
-                                let proof = self
-                                    .proof_map
-                                    .get(&cid)
-                                    .ok_or(anyhow!("proof not found: {cid}"))?;
-                                let (input, _output) = proof.io(store)?;
-
-                                let mut handle = io::stdout().lock();
-                                input.expr.fmt(store, &mut handle)?;
-                                println!();
-                                None
-                            }
-                            "PROOF-OUT-EXPR" => {
-                                let (proof_cid, _rest1) = store.car_cdr(&rest)?;
-                                let cid_string =
-                                    if let Expression::Str(p) = store.fetch(&proof_cid).unwrap() {
-                                        p.to_string()
-                                    } else {
-                                        bail!("Proof path must be a string");
-                                    };
-
-                                let cid = fcomm::cid_from_string(&cid_string)?;
-                                let proof = self
-                                    .proof_map
-                                    .get(&cid)
-                                    .ok_or(anyhow!("proof not found: {cid}"))?;
-                                let (_input, output) = proof.io(store)?;
-
-                                let mut handle = io::stdout().lock();
-                                output.expr.fmt(store, &mut handle)?;
-                                println!();
-                                None
-                            }
-                            "PROOF-CLAIM" => {
-                                let (proof_cid, _rest1) = store.car_cdr(&rest)?;
-                                let cid_string =
-                                    if let Expression::Str(p) = store.fetch(&proof_cid).unwrap() {
-                                        p.to_string()
-                                    } else {
-                                        bail!("Proof path must be a string");
-                                    };
-
-                                let cid = fcomm::cid_from_string(&cid_string)?;
-                                let proof = self
-                                    .proof_map
-                                    .get(&cid)
-                                    .ok_or(anyhow!("proof not found: {cid}"))?;
-
-                                println!("{0:#?}", proof.claim);
-                                None
-                            }
-                            "PROVE" => {
-                                let (proof_in_expr, _rest1) = store.car_cdr(&rest)?;
-
-                                let chunk_frame_count = 1;
-                                let prover = NovaProver::<F>::new(chunk_frame_count);
-                                let pp = public_params(chunk_frame_count);
-
-                                let proof = if rest.is_nil() {
-                                    if let Some(claim) = &self.last_claim {
-                                        Proof::prove_claim(
-                                            store,
-                                            claim,
-                                            self.repl_state.limit,
-                                            false,
-                                            &prover,
-                                            &pp,
-                                        )?
-                                    } else {
-                                        bail!("no last claim");
-                                    }
-                                } else {
-                                    Proof::<pallas::Scalar>::eval_and_prove(
-                                        store,
-                                        proof_in_expr,
-                                        self.repl_state.limit,
-                                        false,
-                                        &prover,
-                                        &pp,
-                                    )?
-                                };
-
-                                proof.verify(&pp).expect("created proof doesn't verify");
-                                let cid_str = proof.claim.cid().to_string();
-                                println!("{0:#?}", proof.claim);
-
-                                let cid = store.str(cid_str);
-                                Some(cid)
-                            }
-                            "VERIFY" => {
-                                let (proof_cid, _) = store.car_cdr(&rest)?;
-
-                                let cid_string =
-                                    if let Expression::Str(p) = store.fetch(&proof_cid).unwrap() {
-                                        p.to_string()
-                                    } else {
-                                        bail!("Proof path must be a string");
-                                    };
-
-                                let cid = fcomm::cid_from_string(&cid_string)?;
-                                let proof = self
-                                    .proof_map
-                                    .get(&cid)
-                                    .ok_or(anyhow!("proof not found: {cid}"))?;
-                                let chunk_frame_count = 1;
-                                let pp = public_params(chunk_frame_count);
-                                let result = proof.verify(&pp).unwrap();
-
-                                if result.verified {
-                                    Some(store.get_t())
-                                } else {
-                                    Some(store.get_nil())
-                                }
-                            }
+                            "APPLY-COMM" => self.apply_comm(store, rest)?,
+                            "CHAIN" => self.chain(store, rest)?,
+                            "COMMIT" => self.commit(store, rest)?,
+                            "OPEN" => self.open(store, rest)?,
+                            "PROOF-IN-EXPR" => self.proof_in_expr(store, rest)?,
+                            "PROOF-OUT-EXPR" => self.proof_out_expr(store, rest)?,
+                            "PROOF-CLAIM" => self.proof_claim(store, rest)?,
+                            "PROVE" => self.prove(store, rest)?,
+                            "VERIFY" => self.verify(store, rest)?,
                             _ => return delegate!(),
                         }
                     } else {
                         return delegate!();
                     }
+                }
+                Expression::Comm(_, c) => {
+                    // NOTE: this cannot happen from a text-based REPL, since there is not currrently a literal Comm syntax.
+                    self.call_comm(store, *c, rest)?
+                }
+                Expression::Num(c) => {
+                    let comm = store.intern_opaque_comm(c.into_scalar());
+                    self.call_comm(store, comm, rest)?
                 }
                 _ => return delegate!(),
             },
@@ -403,5 +162,273 @@ impl ReplTrait<F> for ClutchState<F> {
 impl<F: LurkField> ClutchState<F> {
     fn hist(&self, n: usize) -> Option<&IO<F>> {
         self.history.get(n)
+    }
+}
+
+impl ClutchState<F> {
+    fn commit(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+        let (first, rest) = store.car_cdr(&rest)?;
+        let (second, _) = store.car_cdr(&rest)?;
+
+        let (expr, secret) = if rest.is_nil() {
+            // TODO: also support Commitment::from_ptr_with_hiding (randomized secret at runtime).
+            (first, F::zero())
+        } else if let Expression::Num(n) = store.fetch(&second).unwrap() {
+            (first, n.into_scalar())
+        } else {
+            bail!("Secret must be a Num")
+        };
+
+        let (evaled, _, _, _) = self.repl_state.eval_expr(expr, store)?;
+
+        let commitment = Commitment::from_ptr_and_secret(store, &evaled, secret);
+
+        let committed_expression = CommittedExpression {
+            expr: LurkPtr::from_ptr(store, &evaled),
+            secret: Some(secret),
+            commitment: Some(commitment),
+        };
+
+        self.expression_map.set(commitment, &committed_expression)?;
+        Ok(Some(store.intern_maybe_opaque_comm(commitment.comm)))
+    }
+
+    fn open(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+        Ok(self.open_aux(store, rest)?.1)
+    }
+
+    fn apply_comm(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+        self.apply_comm_aux(store, rest, false)
+    }
+    fn call_comm(
+        &mut self,
+        store: &mut Store<F>,
+        comm: Ptr<F>,
+        rest: Ptr<F>,
+    ) -> Result<Option<Ptr<F>>> {
+        let xxx = store.cons(comm, rest);
+        dbg!("call_comm");
+        self.apply_comm_aux(store, xxx, false)
+    }
+
+    fn chain(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+        let x = self.apply_comm_aux(store, rest, true)?;
+
+        if let Some(cons) = x {
+            // self.apply_comm_aux(store, rest, true)? {
+            let (result_expr, new_comm) = store.car_cdr(&cons)?;
+
+            let new_secret0 = store.secret(new_comm).expect("secret missing");
+            let new_secret = store
+                .get_expr_hash(&new_secret0)
+                .expect("hash missing")
+                .value()
+                .clone();
+            let (_, new_fun) = store.open(new_comm).expect("opening missing");
+            let new_commitment = Commitment::from_comm(store, &new_comm);
+
+            let expr = LurkPtr::from_ptr(store, &new_fun);
+
+            let new_function = CommittedExpression::<F> {
+                expr,
+                secret: Some(new_secret),
+                commitment: Some(new_commitment),
+            };
+
+            self.expression_map.set(new_commitment, &new_function)?;
+
+            let interned_commitment = store.intern_maybe_opaque_comm(new_commitment.comm);
+            let mut handle = io::stdout().lock();
+            interned_commitment.fmt(store, &mut handle)?;
+            println!();
+
+            Ok(Some(result_expr))
+        } else {
+            bail!("chained functional commitment output must be a pair (result, new-commitment)");
+        }
+    }
+    fn apply_comm_aux(
+        &mut self,
+        store: &mut Store<F>,
+        rest: Ptr<F>,
+        chain: bool,
+    ) -> Result<Option<Ptr<F>>> {
+        let args = store.cdr(&rest)?;
+        if let (commitment, Some(e)) = self.open_aux(store, rest)? {
+            let call = store.cons(e, args);
+            let (arg, _) = store.car_cdr(&args)?;
+
+            let (result, _iterations, cont, _) = self
+                .repl_state
+                .eval_expr(call, store)
+                .with_context(|| "Evaluating call")?;
+
+            let (output, new_commitment) = if chain {
+                let (output, new_comm) = store.car_cdr(&result)?;
+                (output, Some(Commitment::from_comm(store, &new_comm)))
+            } else {
+                (result, None)
+            };
+
+            let claim = Claim::Opening::<F>(Opening {
+                input: arg.fmt_to_string(store),
+                output: output.fmt_to_string(store),
+                status: Status::from(cont),
+                commitment,
+                new_commitment,
+            });
+
+            self.last_claim = Some(claim);
+
+            Ok(Some(result))
+        } else {
+            Ok(None)
+        }
+    }
+    fn open_aux(
+        &mut self,
+        store: &mut Store<F>,
+        rest: Ptr<F>,
+    ) -> Result<(Commitment<F>, Option<Ptr<F>>)> {
+        let maybe_comm = store.car(&rest)?;
+
+        let comm = match maybe_comm.tag() {
+            ExprTag::Comm => maybe_comm,
+            ExprTag::Num => {
+                // See Store::open_mut().
+                let scalar = store
+                    .fetch_num(&maybe_comm)
+                    .map(|x| x.into_scalar())
+                    .unwrap();
+
+                store.intern_maybe_opaque_comm(scalar)
+            }
+            _ => {
+                bail!("not a commitment");
+            }
+        };
+        let commitment = Commitment::from_comm(store, &comm);
+
+        store.hydrate_scalar_cache();
+
+        let open = store.sym("open");
+        let comm_num = store.num(lurk::Num::Scalar(commitment.comm));
+        let opening = store.list(&[open, comm_num]);
+
+        if let Ok((_secret, value)) = store.open_mut(comm_num) {
+            return Ok((commitment, Some(value)));
+        };
+        dbg!("failed to find", &comm.fmt_to_string(store), &commitment);
+        {
+            let open = store.sym("open");
+            let comm_num = store.num(lurk::Num::Scalar(commitment.comm));
+            let opening = store.list(&[open, comm_num]);
+            dbg!(opening.fmt_to_string(store));
+            if let Ok((out, _, _, _)) = self.repl_state.eval_expr(opening, store) {
+                dbg!(out.fmt_to_string(store));
+            }
+        }
+
+        Ok((
+            commitment,
+            self.expression_map
+                .get(&commitment)
+                .map(|c| c.expr.ptr(store, self.repl_state.limit)),
+        ))
+    }
+
+    fn proof_in_expr(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+        let proof = self.get_proof(store, rest)?;
+        let (input, _output) = proof.io(store)?;
+
+        let mut handle = io::stdout().lock();
+        input.expr.fmt(store, &mut handle)?;
+        println!();
+        Ok(None)
+    }
+    fn proof_out_expr(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+        let proof = self.get_proof(store, rest)?;
+        let (_input, output) = proof.io(store)?;
+
+        let mut handle = io::stdout().lock();
+        output.expr.fmt(store, &mut handle)?;
+        println!();
+        Ok(None)
+    }
+    fn proof_claim(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+        let proof = self.get_proof(store, rest)?;
+
+        println!("{0:#?}", proof.claim);
+        Ok(None)
+    }
+
+    fn get_proof(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Proof<F>> {
+        let (proof_cid, _rest1) = store.car_cdr(&rest)?;
+        let cid_string = if let Expression::Str(p) = store.fetch(&proof_cid).unwrap() {
+            p.to_string()
+        } else {
+            bail!("Proof path must be a string");
+        };
+
+        let cid = fcomm::cid_from_string(&cid_string)?;
+        self.proof_map
+            .get(&cid)
+            .ok_or(anyhow!("proof not found: {cid}"))
+    }
+
+    fn prove(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+        let (proof_in_expr, _rest1) = store.car_cdr(&rest)?;
+
+        let chunk_frame_count = 1;
+        let prover = NovaProver::<F>::new(chunk_frame_count);
+        let pp = public_params(chunk_frame_count);
+
+        let proof = if rest.is_nil() {
+            if let Some(claim) = &self.last_claim {
+                Proof::prove_claim(store, claim, self.repl_state.limit, false, &prover, &pp)?
+            } else {
+                bail!("no last claim");
+            }
+        } else {
+            Proof::<pallas::Scalar>::eval_and_prove(
+                store,
+                proof_in_expr,
+                self.repl_state.limit,
+                false,
+                &prover,
+                &pp,
+            )?
+        };
+
+        proof.verify(&pp).expect("created proof doesn't verify");
+        let cid_str = proof.claim.cid().to_string();
+        println!("{0:#?}", proof.claim);
+
+        let cid = store.str(cid_str);
+        Ok(Some(cid))
+    }
+    fn verify(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+        let (proof_cid, _) = store.car_cdr(&rest)?;
+
+        let cid_string = if let Expression::Str(p) = store.fetch(&proof_cid).unwrap() {
+            p.to_string()
+        } else {
+            bail!("Proof path must be a string");
+        };
+
+        let cid = fcomm::cid_from_string(&cid_string)?;
+        let proof = self
+            .proof_map
+            .get(&cid)
+            .ok_or(anyhow!("proof not found: {cid}"))?;
+        let chunk_frame_count = 1;
+        let pp = public_params(chunk_frame_count);
+        let result = proof.verify(&pp).unwrap();
+
+        if result.verified {
+            Ok(Some(store.get_t()))
+        } else {
+            Ok(Some(store.get_nil()))
+        }
     }
 }
