@@ -213,11 +213,11 @@ impl ClutchState<F> {
             let (result_expr, new_comm) = store.car_cdr(&cons)?;
 
             let new_secret0 = store.secret(new_comm).expect("secret missing");
-            let new_secret = store
+            let new_secret = *store
                 .get_expr_hash(&new_secret0)
                 .expect("hash missing")
-                .value()
-                .clone();
+                .value();
+
             let (_, new_fun) = store.open(new_comm).expect("opening missing");
             let new_commitment = Commitment::from_comm(store, &new_comm);
 
