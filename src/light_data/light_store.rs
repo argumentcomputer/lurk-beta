@@ -21,16 +21,25 @@ use crate::tag::ExprTag;
 
 use crate::field::LurkField;
 
+#[derive(Debug)]
 pub struct LightStore<F: LurkField> {
     pub scalar_map: BTreeMap<ScalarPtr<F>, Option<LightExpr<F>>>,
 }
 
 impl<F: LurkField> Encodable for LightStore<F> {
     fn ser(&self) -> LightData {
-        todo!()
+        // TODO: this clone is loathsome
+        self.scalar_map
+            .clone()
+            .into_iter()
+            .collect::<Vec<(ScalarPtr<F>, Option<LightExpr<F>>)>>()
+            .ser()
     }
-    fn de(_ld: &LightData) -> Result<Self, String> {
-        todo!()
+    fn de(ld: &LightData) -> Result<Self, String> {
+        let pairs = Vec::<(ScalarPtr<F>, Option<LightExpr<F>>)>::de(ld)?;
+        Ok(LightStore {
+            scalar_map: pairs.into_iter().collect(),
+        })
     }
 }
 
