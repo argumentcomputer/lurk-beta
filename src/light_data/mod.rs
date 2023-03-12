@@ -130,32 +130,26 @@ impl LightData {
         let tag = tag[0];
         let size = tag & 0b11_1111;
 
-        let res = if Self::tag_is_atom(tag) {
-            let (i, size) = match (Self::tag_is_small(tag), size) {
-                (true, 0) => (i, 64),
-                (true, _) => (i, size as usize),
-                (false, _) => {
-                    let (i, size) = take(size)(i)?;
-                    let size = size.iter().fold(0, |acc, &x| (acc * 256) + x as usize);
-                    (i, size)
-                }
-            };
+        let (i, size) = if Self::tag_is_small(tag) {
+            match size {
+                0 => (i, 64),
+                _ => (i, size as usize),
+            }
+        } else {
+            let (i, size) = take(size)(i)?;
+            let size = size.iter().fold(0, |acc, &x| (acc * 256) + x as usize);
+            (i, size)
+        };
+
+        let (i, res) = if Self::tag_is_atom(tag) {
             let (i, data) = take(size)(i)?;
             (i, LightData::Atom(data.to_vec()))
         } else {
-            let (i, size) = match (Self::tag_is_small(tag), size) {
-                (true, 0) => (i, 64),
-                (true, _) => (i, size as usize),
-                (false, _) => {
-                    let (i, size) = take(size)(i)?;
-                    let size = size.iter().fold(0, |acc, &x| (acc * 256) + x as usize);
-                    (i, size)
-                }
-            };
             let (i, xs) = count(LightData::de_aux, size)(i)?;
             (i, LightData::Cell(xs.to_vec()))
         };
-        Ok(res)
+
+        Ok((i, res))
     }
 }
 
