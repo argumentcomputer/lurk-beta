@@ -21,7 +21,9 @@ use crate::tag::ExprTag;
 
 use crate::field::LurkField;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 pub struct LightStore<F: LurkField> {
     pub scalar_map: BTreeMap<ScalarPtr<F>, Option<LightExpr<F>>>,
 }
@@ -233,10 +235,17 @@ pub mod tests {
 
     proptest! {
         #[test]
-        fn prop_light_data(x in any::<LightExpr<Scalar>>()) {
+        fn prop_light_expr(x in any::<LightExpr<Scalar>>()) {
             let ser = x.ser();
             let de  = LightExpr::de(&ser).expect("read LightExpr");
             assert_eq!(x, de)
+        }
+
+        #[test]
+        fn prop_light_store(s in any::<LightStore<Scalar>>()) {
+            let ser = s.ser();
+            let de  = LightStore::de(&ser).expect("read LightStore");
+            assert_eq!(s, de)
         }
 
     }
