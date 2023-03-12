@@ -1,5 +1,5 @@
 use blstrs::Scalar as Fr;
-use std::{fs, path::Path};
+use std::fs;
 
 use lurk::light_data::{Encodable, LightData, LightExpr};
 
@@ -22,20 +22,19 @@ use lurk::light_data::{Encodable, LightData, LightExpr};
 //     let ld : LightData := expr
 //     IO.FS.writeBinFile path ld.toByteArray
 fn test_light_exprs_deserialization() {
-    let path_names = [
-        "tests/exprs/Nil.expr",
-        "tests/exprs/StrNil.expr",
-        "tests/exprs/SymNil.expr",
-        "tests/exprs/CharA.expr",
-        "tests/exprs/Num42.expr",
-        "tests/exprs/Comm0Nil.expr",
-        "tests/exprs/SymConsNilNil.expr",
-        "tests/exprs/StrConsNilNil.expr",
-        "tests/exprs/ConsNilNil.expr",
-    ];
-    for path_name in path_names {
-        let bytes = fs::read(Path::new(path_name)).unwrap();
-        let ld = LightData::de(&bytes).unwrap();
-        let _expr: LightExpr<Fr> = Encodable::de(&ld).unwrap();
+    let directory = "tests/exprs";
+
+    for entry in fs::read_dir(directory).expect("Failed to read directory") {
+        if let Ok(entry) = entry {
+            let path = entry.path();
+            if let Some(extension) = path.extension() {
+                if extension == "expr" {
+                    let file_path = path.to_str().unwrap();
+                    let file_bytes = fs::read(file_path).expect("Failed to read file");
+                    let ld = LightData::de(&file_bytes).unwrap();
+                    let _expr: LightExpr<Fr> = Encodable::de(&ld).unwrap();
+                }
+            }
+        }
     }
 }

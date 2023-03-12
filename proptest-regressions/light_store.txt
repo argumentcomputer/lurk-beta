@@ -1,7 +1,0 @@
-# Seeds for failure cases proptest has generated in the past. It is
-# automatically read and these particular cases re-run before any
-# novel cases are generated.
-#
-# It is recommended to check this file in to source control so that
-# everyone who runs the test benefits from these saved cases.
-cc cb45fd535abfb8cc8be23d595d53bbf427c0ab0354b208d289e4a37af344cf0f # shrinks to x = Cons(ScalarPtr(0x0000000000000000000000000000000000000000000000000000000000000000, 0x0d314c47adb4f609c0efeca524a81c13d700c7a4031474b097cee3a2dead797f), ScalarPtr(0x0000000000000000000000000000000000000000000000000000000000000000, 0x395e490e61f0c17fb4697cb88e2ebba459c12acf15ab3c4d959c4e04880b5eeb))

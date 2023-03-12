@@ -1,7 +1,6 @@
 // This is a temporary shim which should be merged with scalar_store
 // Currently it only exists for reading store-dumps
 
-#[cfg(not(target_arch = "wasm32"))]
 use crate::field::FWrap;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
