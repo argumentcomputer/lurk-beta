@@ -89,6 +89,7 @@ impl ReplTrait<F> for ClutchState<F> {
                 Expression::Sym(s) => {
                     if let Some(name) = s.simple_keyword_name() {
                         match name.as_str() {
+                            "CALL" => self.call(store, rest)?,
                             "CHAIN" => self.chain(store, rest)?,
                             "COMMIT" => self.commit(store, rest)?,
                             "OPEN" => self.open(store, rest)?,
@@ -205,7 +206,9 @@ impl ClutchState<F> {
         let call_form = store.cons(comm, rest);
         self.apply_comm_aux(store, call_form, false)
     }
-
+    fn call(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+        self.apply_comm_aux(store, rest, false)
+    }
     fn chain(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let x = self.apply_comm_aux(store, rest, true)?;
 
