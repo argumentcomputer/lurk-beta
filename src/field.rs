@@ -1,8 +1,8 @@
-use std::convert::TryFrom;
-use std::hash::Hash;
-
+use anyhow::anyhow;
 use ff::{PrimeField, PrimeFieldBits};
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
+use std::hash::Hash;
 
 use crate::light_data::Encodable;
 use crate::light_data::LightData;
@@ -236,23 +236,30 @@ impl<F: LurkField> Encodable for FWrap<F> {
     }
 
     // beware, this assumes a little endian encoding
-    fn de(ld: &LightData) -> Result<Self, String> {
-        let LightData::Atom(bytes) = ld else {
-            return Err(format!("expected field element got {}", &ld))
+    fn de(ld: &LightData) -> anyhow::Result<Self> {
+        let bytes = match ld {
+            LightData::Atom(bytes) => bytes,
+            _ => return Err(anyhow!("expected field element as bytes")),
         };
+
         if bytes.len() > F::NUM_BITS as usize / 8 + 1 {
-            return Err(format!(
+            return Err(anyhow!(
                 "Lurk does not support field representations beyond {} bits, received {:?}",
                 F::NUM_BITS,
-                &bytes
+                bytes
             ));
         }
+
         // the field element expects a certain Repr length, whereas LightData trims it.
         let mut bytes_slice = F::default().to_repr();
-        bytes_slice.as_mut()[..bytes.len()].copy_from_slice(bytes);
+        bytes_slice
+            .as_mut()
+            .iter_mut()
+            .zip(bytes)
+            .for_each(|(byte_slice, byte)| *byte_slice = *byte);
         let f: Option<F> = F::from_repr(bytes_slice).into();
         f.map(FWrap)
-            .ok_or_else(|| format!("expected field element as bytes, got {:?}", &bytes))
+            .ok_or_else(|| anyhow!("expected field element as bytes, got {:?}", bytes))
     }
 }
 

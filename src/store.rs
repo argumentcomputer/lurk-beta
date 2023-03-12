@@ -350,7 +350,7 @@ impl<F: LurkField> Encodable for ScalarPtr<F> {
         let (x, y): (FWrap<F>, FWrap<F>) = (FWrap(self.0), FWrap(self.1));
         (x, y).ser()
     }
-    fn de(ld: &LightData) -> Result<Self, String> {
+    fn de(ld: &LightData) -> anyhow::Result<Self> {
         let (x, y): (FWrap<F>, FWrap<F>) = Encodable::de(ld)?;
         Ok(ScalarPtr::from_parts(x.0, y.0))
     }

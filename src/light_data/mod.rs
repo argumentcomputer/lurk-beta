@@ -3,6 +3,7 @@ use std::fmt::Display;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 
+use anyhow::anyhow;
 use nom::bytes::complete::take;
 use nom::multi::count;
 use nom::Finish;
@@ -43,6 +44,7 @@ impl Display for LightData {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Arbitrary for LightData {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
@@ -115,10 +117,10 @@ impl LightData {
         res
     }
 
-    pub fn de(i: &[u8]) -> Result<Self, ()> {
+    pub fn de(i: &[u8]) -> anyhow::Result<Self> {
         match Self::de_aux(i).finish() {
             Ok((_, x)) => Ok(x),
-            Err(_) => Err(()),
+            Err(e) => Err(anyhow!("Error parsing light data: {:?}", e)),
         }
     }
 
@@ -157,9 +159,11 @@ impl LightData {
     }
 }
 
+use anyhow::Result;
+
 pub trait Encodable {
     fn ser(&self) -> LightData;
-    fn de(ld: &LightData) -> Result<Self, String>
+    fn de(ld: &LightData) -> Result<Self>
     where
         Self: Sized;
 }
@@ -172,15 +176,15 @@ impl<A: Encodable + Sized> Encodable for Option<A> {
         }
     }
 
-    fn de(ld: &LightData) -> Result<Self, String> {
+    fn de(ld: &LightData) -> Result<Self> {
         match ld {
             LightData::Atom(x) => match x.as_slice() {
                 [] => Ok(Option::None),
-                _ => Err("expected Option".to_string()),
+                _ => anyhow::bail!("expected Option"),
             },
             LightData::Cell(xs) => match xs.as_slice() {
                 [a] => Ok(Option::Some(A::de(a)?)),
-                _ => Err("expected Option".to_string()),
+                _ => anyhow::bail!("expected Option"),
             },
         }
     }
@@ -191,10 +195,10 @@ impl<A: Encodable + Sized> Encodable for Vec<A> {
         LightData::Cell(self.iter().map(|x| x.ser()).collect())
     }
 
-    fn de(ld: &LightData) -> Result<Self, String> {
+    fn de(ld: &LightData) -> Result<Self> {
         match ld {
             LightData::Cell(xs) => xs.iter().map(|x| A::de(x)).collect(),
-            _ => Err("expected Vec".to_string()),
+            _ => anyhow::bail!("expected Vec"),
         }
     }
 }
@@ -204,13 +208,13 @@ impl<A: Encodable + Sized, B: Encodable + Sized> Encodable for (A, B) {
         LightData::Cell(vec![self.0.ser(), self.1.ser()])
     }
 
-    fn de(ld: &LightData) -> Result<Self, String> {
+    fn de(ld: &LightData) -> Result<Self> {
         match ld {
             LightData::Cell(xs) => match xs.as_slice() {
                 [x, y] => Ok((A::de(x)?, B::de(y)?)),
-                _ => Err("expected pair".to_string()),
+                _ => anyhow::bail!("expected pair"),
             },
-            _ => Err("expected pair".to_string()),
+            _ => anyhow::bail!("expected pair"),
         }
     }
 }

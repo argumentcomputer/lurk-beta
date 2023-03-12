@@ -7,6 +7,7 @@ use proptest::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 
+use anyhow::anyhow;
 use std::collections::BTreeMap;
 
 use crate::light_data::Encodable;
@@ -34,7 +35,7 @@ impl<F: LurkField> Encodable for LightStore<F> {
             .collect::<Vec<(ScalarPtr<F>, Option<LightExpr<F>>)>>()
             .ser()
     }
-    fn de(ld: &LightData) -> Result<Self, String> {
+    fn de(ld: &LightData) -> anyhow::Result<Self> {
         let pairs = Vec::<(ScalarPtr<F>, Option<LightExpr<F>>)>::de(ld)?;
         Ok(LightStore {
             scalar_map: pairs.into_iter().collect(),
@@ -195,13 +196,13 @@ impl<F: LurkField> Encodable for LightExpr<F> {
             LightExpr::SymNil => LightData::Atom(vec![2u8]),
         }
     }
-    fn de(ld: &LightData) -> Result<Self, String> {
+    fn de(ld: &LightData) -> anyhow::Result<Self> {
         match ld {
             LightData::Atom(v) => match v[..] {
                 [0u8] => Ok(LightExpr::Nil),
                 [1u8] => Ok(LightExpr::StrNil),
                 [2u8] => Ok(LightExpr::SymNil),
-                _ => Err(format!("LightExpr::Atom({:?})", v)),
+                _ => Err(anyhow!("LightExpr::Atom({:?})", v)),
             },
             LightData::Cell(v) => match &v[..] {
                 [LightData::Atom(u), ref x, ref y] => match u[..] {
@@ -209,17 +210,17 @@ impl<F: LurkField> Encodable for LightExpr<F> {
                     [1u8] => Ok(LightExpr::StrCons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
                     [2u8] => Ok(LightExpr::SymCons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
                     [3u8] => Ok(LightExpr::Comm(FWrap::de(x)?.0, ScalarPtr::de(y)?)),
-                    _ => Err(format!("LightExpr::Cell({:?})", v)),
+                    _ => Err(anyhow!("LightExpr::Cell({:?})", v)),
                 },
                 [LightData::Cell(u), ref x] => match u[..] {
                     [] => Ok(LightExpr::Char(FWrap::de(x)?.0)),
-                    _ => Err(format!("LightExpr::Cell({:?})", v)),
+                    _ => Err(anyhow!("LightExpr::Cell({:?})", v)),
                 },
                 [LightData::Atom(u), ref x] => match u[..] {
                     [] => Ok(LightExpr::Num(FWrap::de(x)?.0)),
-                    _ => Err(format!("LightExpr::Cell({:?})", v)),
+                    _ => Err(anyhow!("LightExpr::Cell({:?})", v)),
                 },
-                _ => Err(format!("LightExpr::Cell({:?})", v)),
+                _ => Err(anyhow!("LightExpr::Cell({:?})", v)),
             },
         }
     }
