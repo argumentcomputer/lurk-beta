@@ -24,7 +24,9 @@ use crate::field::LurkField;
 #[derive(Debug, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+/// LightStore contains a fragment of the ScalarStore, but using the `LightExpr` type
 pub struct LightStore<F: LurkField> {
+    /// An analogous to the ScalarStore's scalar_map, but with `LightExpr` instead of `ScalarExpression`
     pub scalar_map: BTreeMap<ScalarPtr<F>, Option<LightExpr<F>>>,
 }
 
@@ -46,7 +48,7 @@ impl<F: LurkField> Encodable for LightStore<F> {
 }
 
 impl<F: LurkField> LightStore<F> {
-    pub fn insert_scalar_string(&self, ptr: ScalarPtr<F>, store: &mut ScalarStore<F>) -> String {
+    fn insert_scalar_string(&self, ptr: ScalarPtr<F>, store: &mut ScalarStore<F>) -> String {
         let mut s = String::new();
         let mut tail_ptrs = vec![];
         let mut ptr = ptr;
@@ -70,7 +72,7 @@ impl<F: LurkField> LightStore<F> {
         s
     }
 
-    pub fn insert_scalar_symbol(&self, ptr: ScalarPtr<F>, store: &mut ScalarStore<F>) -> Sym {
+    fn insert_scalar_symbol(&self, ptr: ScalarPtr<F>, store: &mut ScalarStore<F>) -> Sym {
         let mut path = vec![];
         let mut tail_ptrs = vec![];
         let mut ptr = ptr;
@@ -94,6 +96,7 @@ impl<F: LurkField> LightStore<F> {
         sym
     }
 
+    /// Convert LightStore to ScalarStore.
     pub fn to_scalar_store(self) -> ScalarStore<F> {
         let mut store = ScalarStore::default();
         for (ptr, le) in self.scalar_map.iter() {
@@ -142,7 +145,7 @@ impl<F: LurkField> LightStore<F> {
         store
     }
 
-    pub fn get(&self, ptr: &ScalarPtr<F>) -> Option<Option<LightExpr<F>>> {
+    fn get(&self, ptr: &ScalarPtr<F>) -> Option<Option<LightExpr<F>>> {
         self.scalar_map.get(ptr).cloned()
     }
 }
@@ -150,10 +153,15 @@ impl<F: LurkField> LightStore<F> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+/// Enum to represent a light expression.
 pub enum LightExpr<F: LurkField> {
+    /// Analogous to ScalarExpression::Cons
     Cons(ScalarPtr<F>, ScalarPtr<F>),
+    /// Replaces ScalarExpression::Str, contains a string and a pointer to the tail.
     StrCons(ScalarPtr<F>, ScalarPtr<F>),
+    /// Replaces ScalarExpression::Sym, contains a symbol and a pointer to the tail.
     SymCons(ScalarPtr<F>, ScalarPtr<F>),
+    /// Analogous to ScalarExpression::Comm
     #[cfg_attr(
         not(target_arch = "wasm32"),
         proptest(
@@ -161,18 +169,23 @@ pub enum LightExpr<F: LurkField> {
         )
     )]
     Comm(F, ScalarPtr<F>),
+    /// Analogous to ScalarExpression::Num
     #[cfg_attr(
         not(target_arch = "wasm32"),
         proptest(strategy = "any::<FWrap<F>>().prop_map(|x| Self::Num(x.0))")
     )]
     Num(F),
+    /// Analogous to ScalarExpression::Char
     #[cfg_attr(
         not(target_arch = "wasm32"),
         proptest(strategy = "any::<FWrap<F>>().prop_map(|x| Self::Char(x.0))")
     )]
     Char(F),
+    /// Analogous to ScalarExpression::Nil
     Nil,
+    /// Analogous to ScalarExpression::Str(""), but as a terminal case of StrCons
     StrNil,
+    /// Analogous to ScalarExpression::Sym(Sym::root()), but as a terminal case of SymCons
     SymNil,
 }
 

@@ -1,3 +1,17 @@
+#![deny(missing_docs)]
+//! `LightData` is a lightweight binary data serialization format.
+//!
+//! A `LightData` value is a n-ary tree with two types of nodes:
+//!
+//! - Atom: a leaf node containing a byte sequence
+//! - Cell: an interior node containing an arbitrary number of child nodes
+//!
+//! `LightData` values are encoded as a sequence of bytes in a compact binary format.
+//!
+//! This module also provides several traits that can be used to encode and decode Rust types into
+//! `LightData` values.
+
+use anyhow::Result;
 use std::fmt::Display;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -12,9 +26,25 @@ use nom::IResult;
 mod light_store;
 pub use light_store::{LightExpr, LightStore};
 
+/// `LightData` is a binary tree with two types of nodes: Atom and Cell.
+///
+/// # Examples
+///
+/// ```
+/// use lurk::light_data::LightData;
+///
+/// let data = LightData::Cell(vec![
+///     LightData::Atom(vec![0x01]),
+///     LightData::Atom(vec![0x02, 0x03]),
+/// ]);
+///
+/// assert_eq!(data.to_string(), "[c:[a:01], [a:02, 03]]");
+/// ```
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum LightData {
+    /// An Atom contains a byte sequence.
     Atom(Vec<u8>),
+    /// A Cell contains an arbitrary number of child nodes.
     Cell(Vec<LightData>),
 }
 
@@ -59,6 +89,7 @@ impl Arbitrary for LightData {
 }
 
 impl LightData {
+    /// Returns the number of bytes required to encode the given integer in little-endian byte order.
     pub fn byte_count(x: usize) -> u8 {
         if x == 0 {
             1
@@ -67,9 +98,13 @@ impl LightData {
         }
     }
 
+    /// Returns the little-endian byte sequence for the given integer, trimmed to the minimum number
+    /// of bytes required to represent the integer.
     pub fn to_trimmed_le_bytes(x: usize) -> Vec<u8> {
         x.to_le_bytes()[..Self::byte_count(x) as usize].to_vec()
     }
+
+    /// Returns the tag byte for this `LightData`.
     pub fn tag(&self) -> u8 {
         match self {
             Self::Atom(xs) if xs.is_empty() => 0b0000_0000,
@@ -83,14 +118,17 @@ impl LightData {
         }
     }
 
+    /// Determines if a given tag byte represents an `Atom`.
     pub fn tag_is_atom(x: u8) -> bool {
         x & 0b1000_0000 == 0b0000_0000
     }
 
+    /// Determines if a given tag byte represents a `Cell` with a small number of elements.
     pub fn tag_is_small(x: u8) -> bool {
         x & 0b0100_0000 == 0b0100_0000
     }
 
+    /// Serializes this `LightData` into a `Vec<u8>`.
     pub fn ser(&self) -> Vec<u8> {
         let mut res = vec![];
         res.push(self.tag());
@@ -117,6 +155,7 @@ impl LightData {
         res
     }
 
+    /// Deserializes a `LightData` from a `&[u8]`.
     pub fn de(i: &[u8]) -> anyhow::Result<Self> {
         match Self::de_aux(i).finish() {
             Ok((_, x)) => Ok(x),
@@ -153,10 +192,11 @@ impl LightData {
     }
 }
 
-use anyhow::Result;
-
+/// A trait for types that can be serialized and deserialized using `LightData`.
 pub trait Encodable {
+    /// Serializes this value into a `LightData`.
     fn ser(&self) -> LightData;
+    /// Deserializes a `LightData` into this value.
     fn de(ld: &LightData) -> Result<Self>
     where
         Self: Sized;
