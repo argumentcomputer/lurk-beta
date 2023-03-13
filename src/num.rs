@@ -284,7 +284,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn prop_num_ipld(x: Num<Fr>)  {
+        fn prop_num_ipld(x in any::<Num<Fr>>())  {
              let to_ipld = libipld::serde::to_ipld(x).unwrap();
              let y = libipld::serde::from_ipld(to_ipld).unwrap();
              assert_eq!(
