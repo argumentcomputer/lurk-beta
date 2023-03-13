@@ -48,13 +48,19 @@ impl<F: LurkField> Encodable for LightStore<F> {
 }
 
 impl<F: LurkField> LightStore<F> {
-    fn insert_scalar_string(&self, ptr0: ScalarPtr<F>, store: &mut ScalarStore<F>) -> String {
+    fn insert_scalar_string(
+        &self,
+        ptr0: ScalarPtr<F>,
+        store: &mut ScalarStore<F>,
+    ) -> anyhow::Result<String> {
         let mut s = String::new();
         let mut tail_ptrs = vec![];
         let mut ptr = ptr0;
         let strnil_ptr = ScalarPtr::from_parts(ExprTag::Str.as_field(), F::zero());
         while let Some(Some(LightExpr::StrCons(c, cs))) = self.get(&ptr) {
-            let chr = c.value().to_char().unwrap();
+            let Some(chr) = c.value().to_char() else {
+                return Err(anyhow!("Non-char head in LightExpr::StrCons"));
+            };
             store.insert_scalar_expression(c, Some(ScalarExpression::Char(chr)));
             s.push(chr);
             if cs != strnil_ptr {
@@ -69,16 +75,22 @@ impl<F: LurkField> LightStore<F> {
             store.insert_scalar_expression(*ptr, Some(ScalarExpression::Str(tail.clone())));
         }
         store.insert_scalar_expression(ptr0, Some(ScalarExpression::Str(s.clone())));
-        s
+        Ok(s)
     }
 
-    fn insert_scalar_symbol(&self, ptr0: ScalarPtr<F>, store: &mut ScalarStore<F>) -> Sym {
+    fn insert_scalar_symbol(
+        &self,
+        ptr0: ScalarPtr<F>,
+        store: &mut ScalarStore<F>,
+    ) -> anyhow::Result<Sym> {
         let mut path = Sym::root();
         let mut tail_ptrs = vec![ptr0];
         let mut ptr = ptr0;
         let symnil_ptr = ScalarPtr::from_parts(ExprTag::Sym.as_field(), F::zero());
         while let Some(Some(LightExpr::SymCons(s, ss))) = self.get(&ptr) {
-            let string = self.insert_scalar_string(s, store);
+            let Ok(string) = self.insert_scalar_string(s, store) else {
+                return Err(anyhow!("Non-string head in LightExpr::SymCons"));
+            };
             path = path.child(string);
             if ss != symnil_ptr {
                 tail_ptrs.push(ss);
@@ -91,14 +103,11 @@ impl<F: LurkField> LightStore<F> {
             tail = tail.child(string.clone());
             store.insert_scalar_expression(*ptr, Some(ScalarExpression::Sym(tail.clone())));
         }
-        //let sym = path;
-        // store.insert_scalar_expression(ptr0, Some(ScalarExpression::Sym(sym.clone())));
-        // sym
-        path
+        Ok(path)
     }
 
     /// Convert LightStore to ScalarStore.
-    pub fn to_scalar_store(self) -> ScalarStore<F> {
+    pub fn to_scalar_store(self) -> anyhow::Result<ScalarStore<F>> {
         let mut store = ScalarStore::default();
         for (ptr, le) in self.scalar_map.iter() {
             let se = match le {
@@ -106,25 +115,29 @@ impl<F: LurkField> LightStore<F> {
                 Some(LightExpr::Cons(x, y)) => Some(ScalarExpression::Cons(*x, *y)),
                 Some(LightExpr::Comm(f, x)) => Some(ScalarExpression::Comm(*f, *x)),
                 Some(LightExpr::Num(f)) => Some(ScalarExpression::Num(*f)),
-                // TODO: malformed non-unicode Chars breaks this
-                Some(LightExpr::Char(f)) => Some(ScalarExpression::Char(f.to_char().unwrap())),
+                Some(LightExpr::Char(f)) => {
+                    let Some(f_char) = f.to_char() else {
+                        return Err(anyhow!("Non-char field in LightExpr::Char"));
+                    };
+                    Some(ScalarExpression::Char(f_char))
+                }
                 Some(LightExpr::Nil) => Some(ScalarExpression::Nil),
                 Some(LightExpr::StrNil) => Some(ScalarExpression::Str(String::from(""))),
                 // TODO: StrCons with non-char heads, opaque contents breaks this
                 Some(LightExpr::StrCons(_, _)) => {
-                    self.insert_scalar_string(*ptr, &mut store);
+                    self.insert_scalar_string(*ptr, &mut store)?;
                     continue;
                 }
                 Some(LightExpr::SymNil) => Some(ScalarExpression::Sym(Sym::root())),
                 // TODO: SymCons with non-string heads, opaque contents breaks this
                 Some(LightExpr::SymCons(_, _)) => {
-                    self.insert_scalar_symbol(*ptr, &mut store);
+                    self.insert_scalar_symbol(*ptr, &mut store)?;
                     continue;
                 }
             };
             store.insert_scalar_expression(*ptr, se);
         }
-        store
+        Ok(store)
     }
 
     fn get(&self, ptr: &ScalarPtr<F>) -> Option<Option<LightExpr<F>>> {
@@ -302,7 +315,7 @@ pub mod tests {
                 output
             };
 
-            assert_eq!(LightStore::to_scalar_store(LightStore{scalar_map: store}), expected_output);
+            assert_eq!(LightStore::to_scalar_store(LightStore{scalar_map: store}).unwrap(), expected_output);
         }
 
         #[test]
@@ -351,7 +364,7 @@ pub mod tests {
                 output
             };
 
-            assert_eq!(LightStore::to_scalar_store(LightStore{scalar_map: store}), expected_output);
+            assert_eq!(LightStore::to_scalar_store(LightStore{scalar_map: store}).unwrap(), expected_output);
         }
     }
 }
