@@ -229,7 +229,7 @@ impl ClutchState<F> {
                     .get_expr_hash(&hash)
                     .ok_or_else(|| anyhow!("hash missing"))
             })
-            .and_then(|hash| Ok(hash.value().clone()))?;
+            .map(|hash| *hash.value())?;
 
         let (_, new_fun) = store
             .open(new_comm)
@@ -382,7 +382,7 @@ impl ClutchState<F> {
             self.last_claim
                 .as_ref()
                 .map(|claim| {
-                    Proof::prove_claim(store, &claim, self.repl_state.limit, false, &prover, &pp)
+                    Proof::prove_claim(store, claim, self.repl_state.limit, false, &prover, &pp)
                 })
                 .ok_or_else(|| anyhow!("no last claim"))?
         } else {
