@@ -135,27 +135,26 @@ impl ReplTrait<F> for ClutchState<F> {
         expr_ptr: Ptr<F>,
         update_env: bool,
     ) -> Result<(IO<F>, IO<F>, usize)> {
-        match self.repl_state.handle_non_meta(store, expr_ptr, update_env) {
-            Ok((input, output, iterations)) => {
-                self.history.push(output);
+        let (input, output, iterations) = self
+            .repl_state
+            .handle_non_meta(store, expr_ptr, update_env)?;
 
-                let claim = Claim::Evaluation::<F>(Evaluation {
-                    expr: input.expr.fmt_to_string(store),
-                    env: input.env.fmt_to_string(store),
-                    cont: input.cont.fmt_to_string(store),
-                    expr_out: output.expr.fmt_to_string(store),
-                    env_out: output.env.fmt_to_string(store),
-                    cont_out: output.cont.fmt_to_string(store),
-                    status: output.status(),
-                    iterations: None,
-                });
+        self.history.push(output);
 
-                self.last_claim = Some(claim);
+        let claim = Claim::Evaluation::<F>(Evaluation {
+            expr: input.expr.fmt_to_string(store),
+            env: input.env.fmt_to_string(store),
+            cont: input.cont.fmt_to_string(store),
+            expr_out: output.expr.fmt_to_string(store),
+            env_out: output.env.fmt_to_string(store),
+            cont_out: output.cont.fmt_to_string(store),
+            status: output.status(),
+            iterations: None,
+        });
 
-                Ok((input, output, iterations))
-            }
-            e => e,
-        }
+        self.last_claim = Some(claim);
+
+        Ok((input, output, iterations))
     }
 }
 
@@ -173,7 +172,10 @@ impl ClutchState<F> {
         let (expr, secret) = if rest.is_nil() {
             // TODO: also support Commitment::from_ptr_with_hiding (randomized secret at runtime).
             (first, F::zero())
-        } else if let Expression::Num(n) = store.fetch(&second).unwrap() {
+        } else if let Expression::Num(n) = store
+            .fetch(&second)
+            .ok_or_else(|| anyhow!("second arg to !:COMMIT must be a number."))?
+        {
             (first, n.into_scalar())
         } else {
             bail!("Secret must be a Num")
@@ -296,7 +298,7 @@ impl ClutchState<F> {
                 let scalar = store
                     .fetch_num(&maybe_comm)
                     .map(|x| x.into_scalar())
-                    .unwrap();
+                    .ok_or_else(|| anyhow!("failed to fetch comm"))?;
 
                 store.intern_maybe_opaque_comm(scalar)
             }
@@ -346,7 +348,10 @@ impl ClutchState<F> {
 
     fn get_proof(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Proof<F>> {
         let (proof_cid, _rest1) = store.car_cdr(&rest)?;
-        let cid_string = if let Expression::Str(p) = store.fetch(&proof_cid).unwrap() {
+        let cid_string = if let Expression::Str(p) = store
+            .fetch(&proof_cid)
+            .ok_or_else(|| anyhow!("failed to fetch cid string"))?
+        {
             p.to_string()
         } else {
             bail!("Proof path must be a string");
@@ -355,7 +360,7 @@ impl ClutchState<F> {
         let cid = fcomm::cid_from_string(&cid_string)?;
         self.proof_map
             .get(&cid)
-            .ok_or(anyhow!("proof not found: {cid}"))
+            .ok_or_else(|| anyhow!("proof not found: {cid}"))
     }
 
     fn prove(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
@@ -392,7 +397,10 @@ impl ClutchState<F> {
     fn verify(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (proof_cid, _) = store.car_cdr(&rest)?;
 
-        let cid_string = if let Expression::Str(p) = store.fetch(&proof_cid).unwrap() {
+        let cid_string = if let Expression::Str(p) = store
+            .fetch(&proof_cid)
+            .ok_or_else(|| anyhow!("failed to fetch cid string"))?
+        {
             p.to_string()
         } else {
             bail!("Proof path must be a string");
@@ -402,7 +410,7 @@ impl ClutchState<F> {
         let proof = self
             .proof_map
             .get(&cid)
-            .ok_or(anyhow!("proof not found: {cid}"))?;
+            .ok_or_else(|| anyhow!("proof not found: {cid}"))?;
         let chunk_frame_count = 1;
         let pp = public_params(chunk_frame_count);
         let result = proof.verify(&pp).unwrap();
