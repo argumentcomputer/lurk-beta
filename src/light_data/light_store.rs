@@ -60,14 +60,10 @@ impl<F: LurkField> LightStore<F> {
             if cs != strnil_ptr {
                 tail_ptrs.push(cs);
             }
-
             ptr = cs
         }
         let mut tail = String::new();
-        store.insert_scalar_expression(
-            ScalarPtr::from_parts(ExprTag::Str.as_field(), F::zero()),
-            Some(ScalarExpression::Str(String::from(""))),
-        );
+        store.insert_scalar_expression(strnil_ptr, Some(ScalarExpression::Str(String::from(""))));
         for (ptr, c) in tail_ptrs.iter().rev().zip(s.chars().rev()) {
             tail = format!("{}{}", c, tail);
             store.insert_scalar_expression(*ptr, Some(ScalarExpression::Str(tail.clone())));
@@ -76,28 +72,29 @@ impl<F: LurkField> LightStore<F> {
         s
     }
 
-    fn insert_scalar_symbol(&self, ptr: ScalarPtr<F>, store: &mut ScalarStore<F>) -> Sym {
-        let mut path = vec![];
-        let mut tail_ptrs = vec![];
-        let mut ptr = ptr;
+    fn insert_scalar_symbol(&self, ptr0: ScalarPtr<F>, store: &mut ScalarStore<F>) -> Sym {
+        let mut path = Sym::root();
+        let mut tail_ptrs = vec![ptr0];
+        let mut ptr = ptr0;
+        let symnil_ptr = ScalarPtr::from_parts(ExprTag::Sym.as_field(), F::zero());
         while let Some(Some(LightExpr::SymCons(s, ss))) = self.get(&ptr) {
             let string = self.insert_scalar_string(s, store);
-            path.push(string);
-            tail_ptrs.push(ss);
+            path = path.child(string);
+            if ss != symnil_ptr {
+                tail_ptrs.push(ss);
+            }
             ptr = ss
         }
         let mut tail = Sym::root();
-        store.insert_scalar_expression(
-            ScalarPtr::from_parts(ExprTag::Sym.as_field(), F::zero()),
-            Some(ScalarExpression::Sym(Sym::root())),
-        );
-        for (ptr, string) in tail_ptrs.iter().rev().zip(path.iter().rev()) {
-            tail = tail.extend(&[string.clone()]);
+        store.insert_scalar_expression(symnil_ptr, Some(ScalarExpression::Sym(Sym::root())));
+        for (ptr, string) in tail_ptrs.iter().rev().zip(path.path().iter().rev()) {
+            tail = tail.child(string.clone());
             store.insert_scalar_expression(*ptr, Some(ScalarExpression::Sym(tail.clone())));
         }
-        let sym = Sym::new_from_path(false, path);
-        store.insert_scalar_expression(ptr, Some(ScalarExpression::Sym(sym.clone())));
-        sym
+        //let sym = path;
+        // store.insert_scalar_expression(ptr0, Some(ScalarExpression::Sym(sym.clone())));
+        // sym
+        path
     }
 
     /// Convert LightStore to ScalarStore.
@@ -254,6 +251,8 @@ impl<F: LurkField> Encodable for LightExpr<F> {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::parser;
+
     use super::*;
     use pasta_curves::pallas::Scalar;
     use std::collections::BTreeMap;
@@ -274,7 +273,7 @@ pub mod tests {
         }
 
         #[test]
-        fn test_convert_light_store_basic((ptr3, ptr4, c1, c2) in any::<(ScalarPtr<Scalar>, ScalarPtr<Scalar>, char, char)>().prop_filter(
+        fn test_convert_light_store_basic_strings((ptr3, ptr4, c1, c2) in any::<(ScalarPtr<Scalar>, ScalarPtr<Scalar>, char, char)>().prop_filter(
             "Avoids confusion with StrNil",
             |(ptr3, ptr4,c1, c2)| {
                 let strnil = ScalarPtr::from_parts(ExprTag::Str.as_field(), Scalar::zero());
@@ -299,6 +298,55 @@ pub mod tests {
                 output.insert_scalar_expression(ptr2, Some(ScalarExpression::Char(c2)));
                 output.insert_scalar_expression(ptr3, Some(ScalarExpression::Str(c1.to_string())));
                 output.insert_scalar_expression(ptr4, Some(ScalarExpression::Str(c2.to_string() + &c1.to_string())));
+
+                output
+            };
+
+            assert_eq!(LightStore::to_scalar_store(LightStore{scalar_map: store}), expected_output);
+        }
+
+        #[test]
+        fn test_convert_light_store_basic_symbols((ptr3, ptr4, ptr5, ptr6, c1, c2) in any::<(ScalarPtr<Scalar>, ScalarPtr<Scalar>, ScalarPtr<Scalar>, ScalarPtr<Scalar>, char, char)>().prop_filter(
+            "Avoids confusion with StrNil, Symnil",
+            |(ptr3, ptr4, ptr5, ptr6, c1, c2)| {
+                let symnil = ScalarPtr::from_parts(ExprTag::Sym.as_field(), Scalar::zero());
+                let strnil = ScalarPtr::from_parts(ExprTag::Str.as_field(), Scalar::zero());
+                *ptr3 != strnil && *ptr4 != strnil && *ptr5 != strnil && *ptr6 != strnil &&
+                *ptr3 != symnil && *ptr4 != symnil && *ptr5 != symnil && *ptr6 != strnil &&
+                *c2 != '\0' && *c1 != '\0' &&
+                c2.to_string() != parser::SYM_SEPARATOR && c1.to_string() != parser::SYM_SEPARATOR
+            })
+        ) {
+            let ptr1 = ScalarPtr::from_parts(ExprTag::Char.as_field(), Scalar::from_char(c1));
+            let ptr2 = ScalarPtr::from_parts(ExprTag::Char.as_field(), Scalar::from_char(c2));
+
+            let mut store = BTreeMap::new();
+            let strnil = ScalarPtr::from_parts(ExprTag::Str.as_field(), Scalar::zero());
+            let symnil = ScalarPtr::from_parts(ExprTag::Sym.as_field(), Scalar::zero());
+            store.insert(ptr3, Some(LightExpr::StrCons(ptr1, strnil)));
+            store.insert(ptr4, Some(LightExpr::StrCons(ptr2, ptr3)));
+            store.insert(ptr5, Some(LightExpr::SymCons(ptr3, symnil)));
+            store.insert(ptr6, Some(LightExpr::SymCons(ptr4, ptr5)));
+
+            let expected_output = {
+                let mut output = ScalarStore::default();
+                output.insert_scalar_expression(
+                    strnil,
+                    Some(ScalarExpression::Str(String::from(""))),
+                );
+                output.insert_scalar_expression(
+                    symnil,
+                    Some(ScalarExpression::Sym(Sym::root())),
+                );
+                output.insert_scalar_expression(ptr1, Some(ScalarExpression::Char(c1)));
+                output.insert_scalar_expression(ptr2, Some(ScalarExpression::Char(c2)));
+                output.insert_scalar_expression(ptr3, Some(ScalarExpression::Str(c1.to_string())));
+                output.insert_scalar_expression(ptr4, Some(ScalarExpression::Str(c2.to_string() + &c1.to_string())));
+                let sym1 = Sym::root().child(c1.to_string());
+                output.insert_scalar_expression(ptr5, Some(ScalarExpression::Sym(sym1.clone())));
+                // Beware! this is root <- "c1" <- "c2c1"
+                let sym2 = sym1.child(format!("{c2}{c1}"));
+                output.insert_scalar_expression(ptr6, Some(ScalarExpression::Sym(sym2)));
 
                 output
             };
