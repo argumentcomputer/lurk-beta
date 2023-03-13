@@ -750,7 +750,7 @@
 
     <span class="macro">proptest! </span>{
         <span class="attr">#[test]
-        </span><span class="kw">fn </span>prop_num_ipld(x: Num&lt;Fr&gt;)  {
+        </span><span class="kw">fn </span>prop_num_ipld(x <span class="kw">in </span>any::&lt;Num&lt;Fr&gt;&gt;())  {
              <span class="kw">let </span>to_ipld = libipld::serde::to_ipld(x).unwrap();
              <span class="kw">let </span>y = libipld::serde::from_ipld(to_ipld).unwrap();
              <span class="macro">assert_eq!</span>(
