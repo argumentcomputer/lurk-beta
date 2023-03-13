@@ -57,10 +57,13 @@ impl<F: LurkField> LightStore<F> {
         let mut tail_ptrs = vec![];
         let mut ptr = ptr0;
         let strnil_ptr = ScalarPtr::from_parts(ExprTag::Str.as_field(), F::zero());
-        while let Some(Some(LightExpr::StrCons(c, cs))) = self.get(&ptr) {
-            let Some(chr) = c.value().to_char() else {
-                return Err(anyhow!("Non-char head in LightExpr::StrCons"));
-            };
+        store.insert_scalar_expression(strnil_ptr, Some(ScalarExpression::Str(String::from(""))));
+
+        while let Some(LightExpr::StrCons(c, cs)) = self.get(&ptr).flatten() {
+            let chr = c
+                .value()
+                .to_char()
+                .ok_or_else(|| anyhow!("Non-char head in LightExpr::StrCons"))?;
             store.insert_scalar_expression(c, Some(ScalarExpression::Char(chr)));
             s.push(chr);
             if cs != strnil_ptr {
@@ -68,13 +71,22 @@ impl<F: LurkField> LightStore<F> {
             }
             ptr = cs
         }
+
+        // If we've already inserted this string, no need to go through suffixes again
+        if let Some(ScalarExpression::Str(old_value)) = store
+            .insert_scalar_expression(ptr0, Some(ScalarExpression::Str(s.clone())))
+            .flatten()
+        {
+            if old_value == s {
+                return Ok(s);
+            }
+        }
+
         let mut tail = String::new();
-        store.insert_scalar_expression(strnil_ptr, Some(ScalarExpression::Str(String::from(""))));
         for (ptr, c) in tail_ptrs.iter().rev().zip(s.chars().rev()) {
             tail = format!("{}{}", c, tail);
             store.insert_scalar_expression(*ptr, Some(ScalarExpression::Str(tail.clone())));
         }
-        store.insert_scalar_expression(ptr0, Some(ScalarExpression::Str(s.clone())));
         Ok(s)
     }
 
@@ -87,18 +99,27 @@ impl<F: LurkField> LightStore<F> {
         let mut tail_ptrs = vec![ptr0];
         let mut ptr = ptr0;
         let symnil_ptr = ScalarPtr::from_parts(ExprTag::Sym.as_field(), F::zero());
-        while let Some(Some(LightExpr::SymCons(s, ss))) = self.get(&ptr) {
-            let Ok(string) = self.insert_scalar_string(s, store) else {
-                return Err(anyhow!("Non-string head in LightExpr::SymCons"));
-            };
+        store.insert_scalar_expression(symnil_ptr, Some(ScalarExpression::Sym(Sym::root())));
+
+        while let Some(LightExpr::SymCons(s, ss)) = self.get(&ptr).flatten() {
+            let string = self.insert_scalar_string(s, store)?.into();
             path = path.child(string);
             if ss != symnil_ptr {
                 tail_ptrs.push(ss);
             }
             ptr = ss
         }
+
+        // If we've already inserted this symbol, no need to go through suffixes again
+        if let Some(old_value) =
+            store.insert_scalar_expression(ptr0, Some(ScalarExpression::Sym(path.clone())))
+        {
+            if old_value == Some(ScalarExpression::Sym(path.clone())) {
+                return Ok(path);
+            }
+        }
+
         let mut tail = Sym::root();
-        store.insert_scalar_expression(symnil_ptr, Some(ScalarExpression::Sym(Sym::root())));
         for (ptr, string) in tail_ptrs.iter().rev().zip(path.path().iter().rev()) {
             tail = tail.child(string.clone());
             store.insert_scalar_expression(*ptr, Some(ScalarExpression::Sym(tail.clone())));
