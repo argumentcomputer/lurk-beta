@@ -1,0 +1,37 @@
+name: Benchmarking
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+   benchmark:
+     name: Continuous benchmarking
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@v3
+       - name: Get old benchmarks
+         uses: actions/checkout@v3
+         with:
+           ref: gh-pages
+           path: gh-pages
+       - run: mkdir -p target; cp -r gh-pages/benchmarks/criterion target;
+       - name: Install criterion
+         run: cargo install cargo-criterion
+       - name: Run benchmarks
+         run: cargo criterion --message-format=json > ${{ github.sha }}.json
+       - name: Deploy latest benchmark report
+         uses: peaceiris/actions-gh-pages@v3
+         with:
+           github_token: ${{ secrets.GITHUB_TOKEN }}
+           publish_dir: ./target/criterion
+           destination_dir: benchmarks/criterion
+       - name: Move benchmark json to history
+         run: mkdir history; cp ${{ github.sha }}.json history/
+       - name: Deploy benchmark history
+         uses: peaceiris/actions-gh-pages@v3
+         with:
+           github_token: ${{ secrets.GITHUB_TOKEN }}
+           publish_dir: history/
+           destination_dir: benchmarks/history
+           keep_files: true
