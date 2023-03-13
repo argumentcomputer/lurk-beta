@@ -242,5 +242,24 @@ pub mod tests {
             assert_eq!(s, de)
         }
 
+        #[test]
+        fn test_convert_light_store_basic((ptr1, ptr2, ptr3) in any::<(ScalarPtr<Scalar>, ScalarPtr<Scalar>, ScalarPtr<Scalar>)>()) {
+            use std::collections::BTreeMap;
+
+            let mut store = BTreeMap::new();
+            store.insert(ptr1, Some(LightExpr::StrCons(ptr2, ptr3)));
+            store.insert(ptr2, Some(LightExpr::Char(Scalar::from_u16(97))));
+            store.insert(ptr3, Some(LightExpr::StrNil));
+
+            let expected_output = {
+                let mut output = ScalarStore::default();
+                output.insert_scalar_expression(ptr1, Some(ScalarExpression::Str(String::from("a"))));
+                output.insert_scalar_expression(ptr2, Some(ScalarExpression::Char('a')));
+                output.insert_scalar_expression(ptr3, Some(ScalarExpression::Str(String::from(""))));
+                output
+            };
+
+            assert_eq!(LightStore::to_scalar_store(LightStore{scalar_map: store}), expected_output);
+        }
     }
 }
