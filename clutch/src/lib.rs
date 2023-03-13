@@ -212,39 +212,47 @@ impl ClutchState<F> {
         self.apply_comm_aux(store, rest, false)
     }
     fn chain(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
-        let x = self.apply_comm_aux(store, rest, true)?;
+        let (result_expr, new_comm) = self
+            .apply_comm_aux(store, rest, true)?
+            .and_then(|cons| store.car_cdr(&cons).ok()) // unpack pair
+            .ok_or_else(|| {
+                anyhow!(
+                    "chained functional commitment output must be a pair (result, new-commitment)"
+                )
+            })?;
 
-        if let Some(cons) = x {
-            let (result_expr, new_comm) = store.car_cdr(&cons)?;
+        let new_secret = store
+            .secret(new_comm)
+            .ok_or_else(|| anyhow!("secret missing"))
+            .and_then(|hash| {
+                store
+                    .get_expr_hash(&hash)
+                    .ok_or_else(|| anyhow!("hash missing"))
+            })
+            .and_then(|hash| Ok(hash.value().clone()))?;
 
-            let new_secret0 = store.secret(new_comm).expect("secret missing");
-            let new_secret = *store
-                .get_expr_hash(&new_secret0)
-                .expect("hash missing")
-                .value();
+        let (_, new_fun) = store
+            .open(new_comm)
+            .ok_or_else(|| anyhow!("opening missing"))?;
 
-            let (_, new_fun) = store.open(new_comm).expect("opening missing");
-            let new_commitment = Commitment::from_comm(store, &new_comm);
+        let new_commitment = Commitment::from_comm(store, &new_comm);
 
-            let expr = LurkPtr::from_ptr(store, &new_fun);
+        let expr = LurkPtr::from_ptr(store, &new_fun);
 
-            let new_function = CommittedExpression::<F> {
-                expr,
-                secret: Some(new_secret),
-                commitment: Some(new_commitment),
-            };
+        let new_function = CommittedExpression::<F> {
+            expr,
+            secret: Some(new_secret),
+            commitment: Some(new_commitment),
+        };
 
-            self.expression_map.set(new_commitment, &new_function)?;
+        self.expression_map.set(new_commitment, &new_function)?;
 
-            let interned_commitment = store.intern_maybe_opaque_comm(new_commitment.comm);
-            let mut handle = io::stdout().lock();
-            interned_commitment.fmt(store, &mut handle)?;
-            println!();
+        let interned_commitment = store.intern_maybe_opaque_comm(new_commitment.comm);
+        let mut handle = io::stdout().lock();
+        interned_commitment.fmt(store, &mut handle)?;
+        println!();
 
-            Ok(Some(result_expr))
-        } else {
-            bail!("chained functional commitment output must be a pair (result, new-commitment)");
-        }
+        Ok(Some(result_expr))
     }
     fn apply_comm_aux(
         &mut self,
@@ -387,12 +395,13 @@ impl ClutchState<F> {
             )?
         };
 
-        proof.verify(&pp).expect("created proof doesn't verify");
-        let cid_str = proof.claim.cid().to_string();
-        println!("{0:#?}", proof.claim);
+        Ok(proof.verify(&pp).map(|_| {
+            let cid_str = proof.claim.cid().to_string();
+            println!("{0:#?}", proof.claim);
 
-        let cid = store.str(cid_str);
-        Ok(Some(cid))
+            let cid = store.str(cid_str);
+            Some(cid)
+        })?)
     }
     fn verify(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (proof_cid, _) = store.car_cdr(&rest)?;
