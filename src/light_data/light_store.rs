@@ -100,47 +100,28 @@ impl<F: LurkField> LightStore<F> {
     pub fn to_scalar_store(self) -> ScalarStore<F> {
         let mut store = ScalarStore::default();
         for (ptr, le) in self.scalar_map.iter() {
-            match le {
-                None => {
-                    store.insert_scalar_expression(*ptr, None);
-                }
-                Some(LightExpr::Cons(x, y)) => {
-                    store.insert_scalar_expression(*ptr, Some(ScalarExpression::Cons(*x, *y)));
-                }
-                Some(LightExpr::Comm(f, x)) => {
-                    store.insert_scalar_expression(*ptr, Some(ScalarExpression::Comm(*f, *x)));
-                }
-                Some(LightExpr::Num(f)) => {
-                    store.insert_scalar_expression(*ptr, Some(ScalarExpression::Num(*f)));
-                }
+            let se = match le {
+                None => None,
+                Some(LightExpr::Cons(x, y)) => Some(ScalarExpression::Cons(*x, *y)),
+                Some(LightExpr::Comm(f, x)) => Some(ScalarExpression::Comm(*f, *x)),
+                Some(LightExpr::Num(f)) => Some(ScalarExpression::Num(*f)),
                 // TODO: malformed non-unicode Chars breaks this
-                Some(LightExpr::Char(f)) => {
-                    store.insert_scalar_expression(
-                        *ptr,
-                        Some(ScalarExpression::Char(f.to_char().unwrap())),
-                    );
-                }
-                Some(LightExpr::Nil) => {
-                    store.insert_scalar_expression(*ptr, Some(ScalarExpression::Nil));
-                }
-                Some(LightExpr::StrNil) => {
-                    store.insert_scalar_expression(
-                        *ptr,
-                        Some(ScalarExpression::Str(String::from(""))),
-                    );
-                }
+                Some(LightExpr::Char(f)) => Some(ScalarExpression::Char(f.to_char().unwrap())),
+                Some(LightExpr::Nil) => Some(ScalarExpression::Nil),
+                Some(LightExpr::StrNil) => Some(ScalarExpression::Str(String::from(""))),
                 // TODO: StrCons with non-char heads, opaque contents breaks this
                 Some(LightExpr::StrCons(_, _)) => {
                     self.insert_scalar_string(*ptr, &mut store);
+                    continue;
                 }
-                Some(LightExpr::SymNil) => {
-                    store.insert_scalar_expression(*ptr, Some(ScalarExpression::Sym(Sym::root())));
-                }
+                Some(LightExpr::SymNil) => Some(ScalarExpression::Sym(Sym::root())),
                 // TODO: SymCons with non-string heads, opaque contents breaks this
                 Some(LightExpr::SymCons(_, _)) => {
                     self.insert_scalar_symbol(*ptr, &mut store);
+                    continue;
                 }
-            }
+            };
+            store.insert_scalar_expression(*ptr, se);
         }
         store
     }
