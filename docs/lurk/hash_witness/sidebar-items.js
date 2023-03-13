@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_CONSES_PER_REDUCTION","MAX_CONTS_PER_REDUCTION"],"enum":["ConsName","ContName","Stub"],"struct":["Cons","Cont","HashWitness"],"trait":["HashName"],"type":["ConsStub","ConsWitness","ContStub","ContWitness"]};

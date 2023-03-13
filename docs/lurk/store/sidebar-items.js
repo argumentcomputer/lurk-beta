@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Continuation","Expression","HashArity","HashConst","HashScalar"],"struct":["ConstantPtrs","ContPtr","Error","NamedConstants","Ptr","RawPtr","ScalarContPtr","ScalarPtr","Store","Thunk"],"trait":["IntoHashComponents","Object","Pointer","ScalarPointer","TypePredicates"]};
