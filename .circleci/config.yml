@@ -20,9 +20,9 @@ executors:
     resource_class: arm.large
   darwin:
     macos:
-      xcode: "13.3.0"
+      xcode: "14.2.0"
     working_directory: ~/lurk
-    resource_class: medium
+    resource_class: macos.x86.medium.gen2
 
 commands:
   set_env_path:
