@@ -72,7 +72,7 @@ impl<F: LurkField> LightStore<F> {
             ptr = cs
         }
         // Useful when called from insert_scalar_symbol
-        if s == "" {
+        if s.is_empty() {
             return Err(anyhow!("encountered no StrCons in LightStore::insert_scalar_string, is this a tring pointer?"));
         }
 
