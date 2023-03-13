@@ -48,15 +48,19 @@ impl<F: LurkField> Encodable for LightStore<F> {
 }
 
 impl<F: LurkField> LightStore<F> {
-    fn insert_scalar_string(&self, ptr: ScalarPtr<F>, store: &mut ScalarStore<F>) -> String {
+    fn insert_scalar_string(&self, ptr0: ScalarPtr<F>, store: &mut ScalarStore<F>) -> String {
         let mut s = String::new();
         let mut tail_ptrs = vec![];
-        let mut ptr = ptr;
+        let mut ptr = ptr0;
+        let strnil_ptr = ScalarPtr::from_parts(ExprTag::Str.as_field(), F::zero());
         while let Some(Some(LightExpr::StrCons(c, cs))) = self.get(&ptr) {
             let chr = c.value().to_char().unwrap();
             store.insert_scalar_expression(c, Some(ScalarExpression::Char(chr)));
             s.push(chr);
-            tail_ptrs.push(cs);
+            if cs != strnil_ptr {
+                tail_ptrs.push(cs);
+            }
+
             ptr = cs
         }
         let mut tail = String::new();
@@ -68,7 +72,7 @@ impl<F: LurkField> LightStore<F> {
             tail = format!("{}{}", c, tail);
             store.insert_scalar_expression(*ptr, Some(ScalarExpression::Str(tail.clone())));
         }
-        store.insert_scalar_expression(ptr, Some(ScalarExpression::Str(s.clone())));
+        store.insert_scalar_expression(ptr0, Some(ScalarExpression::Str(s.clone())));
         s
     }
 
@@ -252,6 +256,7 @@ impl<F: LurkField> Encodable for LightExpr<F> {
 pub mod tests {
     use super::*;
     use pasta_curves::pallas::Scalar;
+    use std::collections::BTreeMap;
 
     proptest! {
         #[test]
@@ -269,19 +274,32 @@ pub mod tests {
         }
 
         #[test]
-        fn test_convert_light_store_basic((ptr1, ptr2, ptr3) in any::<(ScalarPtr<Scalar>, ScalarPtr<Scalar>, ScalarPtr<Scalar>)>()) {
-            use std::collections::BTreeMap;
+        fn test_convert_light_store_basic((ptr3, ptr4, c1, c2) in any::<(ScalarPtr<Scalar>, ScalarPtr<Scalar>, char, char)>().prop_filter(
+            "Avoids confusion with StrNil",
+            |(ptr3, ptr4,c1, c2)| {
+                let strnil = ScalarPtr::from_parts(ExprTag::Str.as_field(), Scalar::zero());
+                *ptr3 != strnil && *ptr4 != strnil && *c2 != '\0' && *c1 != '\0'
+            })
+        ) {
+            let ptr1 = ScalarPtr::from_parts(ExprTag::Char.as_field(), Scalar::from_char(c1));
+            let ptr2 = ScalarPtr::from_parts(ExprTag::Char.as_field(), Scalar::from_char(c2));
 
             let mut store = BTreeMap::new();
-            store.insert(ptr1, Some(LightExpr::StrCons(ptr2, ptr3)));
-            store.insert(ptr2, Some(LightExpr::Char(Scalar::from_u16(97))));
-            store.insert(ptr3, Some(LightExpr::StrNil));
+            let strnil = ScalarPtr::from_parts(ExprTag::Str.as_field(), Scalar::zero());
+            store.insert(ptr3, Some(LightExpr::StrCons(ptr1, strnil)));
+            store.insert(ptr4, Some(LightExpr::StrCons(ptr2, ptr3)));
 
             let expected_output = {
                 let mut output = ScalarStore::default();
-                output.insert_scalar_expression(ptr1, Some(ScalarExpression::Str(String::from("a"))));
-                output.insert_scalar_expression(ptr2, Some(ScalarExpression::Char('a')));
-                output.insert_scalar_expression(ptr3, Some(ScalarExpression::Str(String::from(""))));
+                output.insert_scalar_expression(
+                    ScalarPtr::from_parts(ExprTag::Str.as_field(), Scalar::zero()),
+                    Some(ScalarExpression::Str(String::from(""))),
+                );
+                output.insert_scalar_expression(ptr1, Some(ScalarExpression::Char(c1)));
+                output.insert_scalar_expression(ptr2, Some(ScalarExpression::Char(c2)));
+                output.insert_scalar_expression(ptr3, Some(ScalarExpression::Str(c1.to_string())));
+                output.insert_scalar_expression(ptr4, Some(ScalarExpression::Str(c2.to_string() + &c1.to_string())));
+
                 output
             };
 
