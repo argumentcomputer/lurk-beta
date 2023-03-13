@@ -323,9 +323,9 @@ pub mod tests {
         #[test]
         fn test_convert_light_store_basic_strings((ptr3, ptr4, c1, c2) in any::<(ScalarPtr<Scalar>, ScalarPtr<Scalar>, char, char)>().prop_filter(
             "Avoids confusion with StrNil",
-            |(ptr3, ptr4,c1, c2)| {
+            |(ptr3, ptr4,_c1, _c2)| {
                 let strnil = ScalarPtr::from_parts(ExprTag::Str.as_field(), Scalar::zero());
-                *ptr3 != strnil && *ptr4 != strnil && *c2 != '\0' && *c1 != '\0'
+                *ptr3 != strnil && *ptr4 != strnil
             })
         ) {
             let ptr1 = ScalarPtr::from_parts(ExprTag::Char.as_field(), Scalar::from_char(c1));
@@ -361,7 +361,6 @@ pub mod tests {
                 let strnil = ScalarPtr::from_parts(ExprTag::Str.as_field(), Scalar::zero());
                 *ptr3 != strnil && *ptr4 != strnil && *ptr5 != strnil && *ptr6 != strnil &&
                 *ptr3 != symnil && *ptr4 != symnil && *ptr5 != symnil && *ptr6 != symnil &&
-                *c2 != '\0' && *c1 != '\0' &&
                 c2.to_string() != parser::SYM_SEPARATOR && c1.to_string() != parser::SYM_SEPARATOR
             })
         ) {
