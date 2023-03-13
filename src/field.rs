@@ -288,6 +288,7 @@ impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::light_data::Encodable;
     use blstrs::Scalar as Fr;
 
     use super::*;
@@ -373,12 +374,20 @@ pub mod tests {
     }
 
     proptest! {
+      #[test]
       fn prop_tag_consistency(x in any::<ExprTag>()) {
           let f1 = Fr::from_expr_tag(x);
           let tag = <Fr as LurkField>::to_expr_tag(&f1).unwrap();
           let f2 = Fr::from_expr_tag(tag);
           assert_eq!(f1, f2);
           assert_eq!(x, tag)
+      }
+
+      #[test]
+      fn prop_encode_decode(x in any::<FWrap<Fr>>()) {
+            let bytes = x.ser();
+            let f2 = FWrap::de(&bytes).unwrap();
+            assert_eq!(x, f2)
       }
     }
 }

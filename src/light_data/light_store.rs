@@ -57,8 +57,8 @@ impl<F: LurkField> LightStore<F> {
         let mut tail_ptrs = vec![];
         let mut ptr = ptr0;
         let strnil_ptr = ScalarPtr::from_parts(ExprTag::Str.as_field(), F::zero());
-        store.insert_scalar_expression(strnil_ptr, Some(ScalarExpression::Str(String::from(""))));
 
+        // TODO: this needs to bail on encountering an opaque pointer
         while let Some(LightExpr::StrCons(c, cs)) = self.get(&ptr).flatten() {
             let chr = c
                 .value()
@@ -71,6 +71,10 @@ impl<F: LurkField> LightStore<F> {
             }
             ptr = cs
         }
+        // Useful when called from insert_scalar_symbol
+        if s == "" {
+            return Err(anyhow!("encountered no StrCons in LightStore::insert_scalar_string, is this a tring pointer?"));
+        }
 
         // If we've already inserted this string, no need to go through suffixes again
         if let Some(ScalarExpression::Str(old_value)) = store
@@ -81,6 +85,7 @@ impl<F: LurkField> LightStore<F> {
                 return Ok(s);
             }
         }
+        store.insert_scalar_expression(strnil_ptr, Some(ScalarExpression::Str(String::from(""))));
 
         let mut tail = String::new();
         for (ptr, c) in tail_ptrs.iter().rev().zip(s.chars().rev()) {
@@ -99,8 +104,8 @@ impl<F: LurkField> LightStore<F> {
         let mut tail_ptrs = vec![ptr0];
         let mut ptr = ptr0;
         let symnil_ptr = ScalarPtr::from_parts(ExprTag::Sym.as_field(), F::zero());
-        store.insert_scalar_expression(symnil_ptr, Some(ScalarExpression::Sym(Sym::root())));
 
+        // TODO: this needs to bail on encountering an opaque pointer
         while let Some(LightExpr::SymCons(s, ss)) = self.get(&ptr).flatten() {
             let string = self.insert_scalar_string(s, store)?;
             path = path.child(string);
@@ -118,6 +123,7 @@ impl<F: LurkField> LightStore<F> {
                 return Ok(path);
             }
         }
+        store.insert_scalar_expression(symnil_ptr, Some(ScalarExpression::Sym(Sym::root())));
 
         let mut tail = Sym::root();
         for (ptr, string) in tail_ptrs.iter().rev().zip(path.path().iter().rev()) {
@@ -144,13 +150,13 @@ impl<F: LurkField> LightStore<F> {
                 }
                 Some(LightExpr::Nil) => Some(ScalarExpression::Nil),
                 Some(LightExpr::StrNil) => Some(ScalarExpression::Str(String::from(""))),
-                // TODO: StrCons with non-char heads, opaque contents breaks this
+                // TODO: StrCons with opaque contents breaks this
                 Some(LightExpr::StrCons(_, _)) => {
                     self.insert_scalar_string(*ptr, &mut store)?;
                     continue;
                 }
                 Some(LightExpr::SymNil) => Some(ScalarExpression::Sym(Sym::root())),
-                // TODO: SymCons with non-string heads, opaque contents breaks this
+                // TODO: SymCons with opaque contents breaks this
                 Some(LightExpr::SymCons(_, _)) => {
                     self.insert_scalar_symbol(*ptr, &mut store)?;
                     continue;
