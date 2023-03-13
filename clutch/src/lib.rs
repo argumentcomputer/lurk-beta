@@ -261,36 +261,33 @@ impl ClutchState<F> {
         chain: bool,
     ) -> Result<Option<Ptr<F>>> {
         let args = store.cdr(&rest)?;
-        if let (commitment, Some(e)) = self.open_aux(store, rest)? {
-            let call = store.cons(e, args);
-            let (arg, _) = store.car_cdr(&args)?;
+        let (commitment, Some(e)) = self.open_aux(store, rest)? else { return Ok(None) };
+        let call = store.cons(e, args);
+        let (arg, _) = store.car_cdr(&args)?;
 
-            let (result, _iterations, cont, _) = self
-                .repl_state
-                .eval_expr(call, store)
-                .with_context(|| "Evaluating call")?;
+        let (result, _iterations, cont, _) = self
+            .repl_state
+            .eval_expr(call, store)
+            .with_context(|| "Evaluating call")?;
 
-            let (output, new_commitment) = if chain {
-                let (output, new_comm) = store.car_cdr(&result)?;
-                (output, Some(Commitment::from_comm(store, &new_comm)))
-            } else {
-                (result, None)
-            };
-
-            let claim = Claim::Opening::<F>(Opening {
-                input: arg.fmt_to_string(store),
-                output: output.fmt_to_string(store),
-                status: Status::from(cont),
-                commitment,
-                new_commitment,
-            });
-
-            self.last_claim = Some(claim);
-
-            Ok(Some(result))
+        let (output, new_commitment) = if chain {
+            let (output, new_comm) = store.car_cdr(&result)?;
+            (output, Some(Commitment::from_comm(store, &new_comm)))
         } else {
-            Ok(None)
-        }
+            (result, None)
+        };
+
+        let claim = Claim::Opening::<F>(Opening {
+            input: arg.fmt_to_string(store),
+            output: output.fmt_to_string(store),
+            status: Status::from(cont),
+            commitment,
+            new_commitment,
+        });
+
+        self.last_claim = Some(claim);
+
+        Ok(Some(result))
     }
     fn open_aux(
         &mut self,
