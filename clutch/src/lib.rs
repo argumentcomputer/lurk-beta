@@ -362,7 +362,7 @@ impl ClutchState<F> {
         {
             p.to_string()
         } else {
-            bail!("Proof path must be a string");
+            bail!("proof cid must be a string");
         };
 
         let cid = fcomm::cid_from_string(&cid_string)?;
@@ -379,11 +379,12 @@ impl ClutchState<F> {
         let pp = public_params(chunk_frame_count);
 
         let proof = if rest.is_nil() {
-            if let Some(claim) = &self.last_claim {
-                Proof::prove_claim(store, claim, self.repl_state.limit, false, &prover, &pp)?
-            } else {
-                bail!("no last claim");
-            }
+            self.last_claim
+                .as_ref()
+                .map(|claim| {
+                    Proof::prove_claim(store, &claim, self.repl_state.limit, false, &prover, &pp)
+                })
+                .ok_or_else(|| anyhow!("no last claim"))?
         } else {
             Proof::<pallas::Scalar>::eval_and_prove(
                 store,
@@ -392,16 +393,18 @@ impl ClutchState<F> {
                 false,
                 &prover,
                 &pp,
-            )?
-        };
+            )
+        }?;
 
-        Ok(proof.verify(&pp).map(|_| {
+        if proof.verify(&pp)?.verified {
             let cid_str = proof.claim.cid().to_string();
             println!("{0:#?}", proof.claim);
 
             let cid = store.str(cid_str);
-            Some(cid)
-        })?)
+            Ok(Some(cid))
+        } else {
+            bail!("verification of new proof failed");
+        }
     }
     fn verify(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (proof_cid, _) = store.car_cdr(&rest)?;
@@ -412,7 +415,7 @@ impl ClutchState<F> {
         {
             p.to_string()
         } else {
-            bail!("Proof path must be a string");
+            bail!("proof cid must be a string");
         };
 
         let cid = fcomm::cid_from_string(&cid_string)?;
