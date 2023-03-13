@@ -170,6 +170,32 @@ pub enum LightExpr<F: LurkField> {
     SymNil,
 }
 
+impl<F: LurkField> std::fmt::Display for LightExpr<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LightExpr::Cons(x, y) => write!(f, "({} . {})", x, y),
+            LightExpr::StrCons(x, y) => write!(f, "('{}' str. {})", x, y),
+            LightExpr::SymCons(x, y) => write!(f, "({} sym. {})", x, y),
+            LightExpr::Comm(ff, x) => {
+                write!(f, "({} comm. {})", ff.trimmed_hex_digits(), x)
+            }
+            LightExpr::Num(ff) => write!(f, "Num({})", ff.trimmed_hex_digits()),
+            LightExpr::Char(ff) => {
+                write!(
+                    f,
+                    "Char({})",
+                    ff.to_char()
+                        .map(|c| c.to_string())
+                        .unwrap_or_else(|| ff.trimmed_hex_digits())
+                )
+            }
+            LightExpr::Nil => write!(f, "nil"),
+            LightExpr::StrNil => write!(f, "\"\""),
+            LightExpr::SymNil => write!(f, "root"),
+        }
+    }
+}
+
 impl<F: LurkField> Encodable for LightExpr<F> {
     fn ser(&self) -> LightData {
         match self {

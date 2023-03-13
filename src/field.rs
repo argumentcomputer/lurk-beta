@@ -42,6 +42,15 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         s
     }
 
+    fn trimmed_hex_digits(self) -> String {
+        let hex_digits = self.hex_digits();
+        let mut res = hex_digits.trim_start_matches('0');
+        if res.is_empty() {
+            res = "0";
+        }
+        res.to_owned()
+    }
+
     fn to_u16(&self) -> Option<u16> {
         for x in &self.to_repr().as_ref()[2..] {
             if *x != 0 {

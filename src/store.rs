@@ -2,6 +2,7 @@ use generic_array::typenum::{U3, U4, U6, U8};
 use neptune::Poseidon;
 use rayon::prelude::*;
 use std::collections::VecDeque;
+use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::{fmt, marker::PhantomData};
 use string_interner::symbol::{Symbol, SymbolUsize};
@@ -318,6 +319,14 @@ impl<F: LurkField> Pointer<F> for Ptr<F> {
 pub struct ScalarPtr<F: LurkField>(F, F);
 
 impl<F: LurkField> Copy for ScalarPtr<F> {}
+
+impl<F: LurkField> Display for ScalarPtr<F> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let trimmed_f1 = self.0.trimmed_hex_digits();
+        let trimmed_f2 = self.1.trimmed_hex_digits();
+        write!(f, "(ptr->{trimmed_f1}, {trimmed_f2})",)
+    }
+}
 
 #[cfg(not(target_arch = "wasm32"))]
 impl<Fr: LurkField> Arbitrary for ScalarPtr<Fr> {
