@@ -81,4 +81,3 @@ path = "src/main.rs"
 # By compiling dependencies with optimizations, performing tests gets much faster.
 opt-level = 3
 lto = true
-

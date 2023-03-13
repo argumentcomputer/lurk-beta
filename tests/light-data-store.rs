@@ -1,7 +1,10 @@
 use blstrs::Scalar as Fr;
 use std::{fs, path::Path};
 
-use lurk::light_data::{Encodable, LightData, LightStore};
+use lurk::{
+    light_data::{Encodable, LightData, LightStore},
+    scalar_store::ScalarStore,
+};
 
 #[test]
 // The following store was created with the following Lean code:
@@ -26,5 +29,7 @@ fn test_light_store_deserialization() {
     let bytes = fs::read(Path::new("tests/foo.store")).unwrap();
     let ld = LightData::de(&bytes).unwrap();
 
-    let _store: LightStore<Fr> = Encodable::de(&ld).unwrap();
+    let store: LightStore<Fr> = Encodable::de(&ld).unwrap();
+
+    let _scalar_store: ScalarStore<Fr> = store.to_scalar_store().unwrap();
 }
