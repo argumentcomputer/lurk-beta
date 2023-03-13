@@ -31,5 +31,5 @@ fn test_light_store_deserialization() {
 
     let store: LightStore<Fr> = Encodable::de(&ld).unwrap();
 
-    let _scalar_store: ScalarStore<Fr> = store.to_scalar_store().unwrap();
+    let _scalar_store: ScalarStore<Fr> = store.try_into().unwrap();
 }

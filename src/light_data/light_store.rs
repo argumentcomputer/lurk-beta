@@ -102,7 +102,7 @@ impl<F: LurkField> LightStore<F> {
         store.insert_scalar_expression(symnil_ptr, Some(ScalarExpression::Sym(Sym::root())));
 
         while let Some(LightExpr::SymCons(s, ss)) = self.get(&ptr).flatten() {
-            let string = self.insert_scalar_string(s, store)?.into();
+            let string = self.insert_scalar_string(s, store)?;
             path = path.child(string);
             if ss != symnil_ptr {
                 tail_ptrs.push(ss);
@@ -128,7 +128,7 @@ impl<F: LurkField> LightStore<F> {
     }
 
     /// Convert LightStore to ScalarStore.
-    pub fn to_scalar_store(self) -> anyhow::Result<ScalarStore<F>> {
+    fn to_scalar_store(&self) -> anyhow::Result<ScalarStore<F>> {
         let mut store = ScalarStore::default();
         for (ptr, le) in self.scalar_map.iter() {
             let se = match le {
@@ -163,6 +163,14 @@ impl<F: LurkField> LightStore<F> {
 
     fn get(&self, ptr: &ScalarPtr<F>) -> Option<Option<LightExpr<F>>> {
         self.scalar_map.get(ptr).cloned()
+    }
+}
+
+impl<F: LurkField> TryFrom<LightStore<F>> for ScalarStore<F> {
+    type Error = anyhow::Error;
+
+    fn try_from(store: LightStore<F>) -> Result<Self, Self::Error> {
+        store.to_scalar_store()
     }
 }
 
@@ -336,7 +344,7 @@ pub mod tests {
                 output
             };
 
-            assert_eq!(LightStore::to_scalar_store(LightStore{scalar_map: store}).unwrap(), expected_output);
+            assert_eq!(LightStore::to_scalar_store(&LightStore{scalar_map: store}).unwrap(), expected_output);
         }
 
         #[test]
@@ -346,7 +354,7 @@ pub mod tests {
                 let symnil = ScalarPtr::from_parts(ExprTag::Sym.as_field(), Scalar::zero());
                 let strnil = ScalarPtr::from_parts(ExprTag::Str.as_field(), Scalar::zero());
                 *ptr3 != strnil && *ptr4 != strnil && *ptr5 != strnil && *ptr6 != strnil &&
-                *ptr3 != symnil && *ptr4 != symnil && *ptr5 != symnil && *ptr6 != strnil &&
+                *ptr3 != symnil && *ptr4 != symnil && *ptr5 != symnil && *ptr6 != symnil &&
                 *c2 != '\0' && *c1 != '\0' &&
                 c2.to_string() != parser::SYM_SEPARATOR && c1.to_string() != parser::SYM_SEPARATOR
             })
@@ -385,7 +393,7 @@ pub mod tests {
                 output
             };
 
-            assert_eq!(LightStore::to_scalar_store(LightStore{scalar_map: store}).unwrap(), expected_output);
+            assert_eq!(LightStore::to_scalar_store(&LightStore{scalar_map: store}).unwrap(), expected_output);
         }
     }
 }
