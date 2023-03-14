@@ -41,11 +41,6 @@ pub enum ReductionError {
 
 #[derive(Error, Debug, Clone)]
 pub enum LurkError<F: LurkField> {
+    #[error("Explicit Lurk error; IO: {0}")]
     IO(IO<F>),
-}
-
-impl<F: LurkField> std::fmt::Display for LurkError<F> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{:?}", self)
-    }
 }

@@ -79,7 +79,7 @@ pub trait ReplTrait<F: LurkField> {
         store: &mut Store<F>,
         expr_ptr: Ptr<F>,
         update_env: bool,
-    ) -> Result<()>;
+    ) -> Result<(IO<F>, IO<F>, usize)>;
 }
 
 impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
@@ -356,7 +356,7 @@ impl<F: LurkField> ReplState<F> {
             let pwd: &Path = pwd.as_ref();
             self.handle_meta(store, ptr, package, pwd)
         } else {
-            self.handle_non_meta(store, ptr, update_env)
+            self.handle_non_meta(store, ptr, update_env).map(|_| ())
         }
     }
 }
@@ -644,40 +644,46 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
         store: &mut Store<F>,
         expr_ptr: Ptr<F>,
         update_env: bool,
-    ) -> Result<()> {
+    ) -> Result<(IO<F>, IO<F>, usize)> {
         match Evaluator::new(expr_ptr, self.env, store, self.limit).eval() {
-            Ok((
-                IO {
+            Ok((output, iterations, _emitted)) => {
+                let IO {
                     expr: result,
                     env: _env,
                     cont: next_cont,
-                },
-                iterations,
-                _emitted,
-            )) => {
-                if !update_env {
-                    print!("[{iterations} iterations] => ");
-                }
-
-                match next_cont.tag() {
-                    ContTag::Outermost | ContTag::Terminal => {
-                        let mut handle = io::stdout().lock();
-
-                        // We are either loading/running and update the env, or evaluating and don't.
-                        if update_env {
-                            self.env = result
-                        } else {
-                            result.fmt(store, &mut handle)?;
-
-                            println!();
-                        }
+                } = output;
+                {
+                    if !update_env {
+                        print!("[{iterations} iterations] => ");
                     }
-                    ContTag::Error => println!("ERROR!"),
-                    _ => println!("Computation incomplete after limit: {}", self.limit),
-                }
 
-                Ok(())
+                    let input = IO {
+                        expr: expr_ptr,
+                        env: self.env,
+                        cont: store.get_cont_terminal(),
+                    };
+
+                    match next_cont.tag() {
+                        ContTag::Outermost | ContTag::Terminal => {
+                            let mut handle = io::stdout().lock();
+
+                            // We are either loading/running and update the env, or evaluating and don't.
+                            if update_env {
+                                self.env = result
+                            } else {
+                                result.fmt(store, &mut handle)?;
+
+                                println!();
+                            }
+                        }
+                        ContTag::Error => println!("ERROR!"),
+                        _ => println!("Computation incomplete after limit: {}", self.limit),
+                    }
+
+                    Ok((input, output, 12345))
+                }
             }
+
             Err(e) => {
                 eprintln!("Evaluation error: {e:?}");
                 Err(e.into())

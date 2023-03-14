@@ -33,6 +33,12 @@ impl<F: LurkField> Write<F> for IO<F> {
     }
 }
 
+impl<F: LurkField> std::fmt::Display for IO<F> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Frame<T: Copy, W: Copy> {
     pub input: T,
