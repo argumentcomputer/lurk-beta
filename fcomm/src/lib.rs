@@ -1,9 +1,11 @@
 use log::info;
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 
 use ff::PrimeField;
 use hex::FromHex;
@@ -65,20 +67,52 @@ pub fn committed_expression_store() -> FileMap<Commitment<S1>, CommittedExpressi
     FileMap::<Commitment<S1>, CommittedExpression<S1>>::new("committed_expressions").unwrap()
 }
 
-fn public_param_cache() -> FileMap<String, PublicParams<'static>> {
+fn param_mem_cache() -> &'static Mutex<HashMap<usize, Arc<PublicParams<'static>>>> {
+    static CACHE: OnceCell<Mutex<HashMap<usize, Arc<PublicParams<'static>>>>> = OnceCell::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn param_disk_cache() -> FileMap<String, PublicParams<'static>> {
     FileMap::new("public_params").unwrap()
 }
 
-pub fn public_params(rc: usize) -> PublicParams<'static> {
-    let cache = public_param_cache();
-    let key = format!("public-params-rc-{rc}");
+pub enum CacheType {
+    Mem,
+    Disk,
+}
 
-    if let Some(pp) = cache.get(&key) {
-        pp
+pub fn public_params(
+    rc: usize,
+    cache_type: Option<CacheType>,
+) -> Result<Arc<PublicParams<'static>>, Error> {
+    if let Some(ct) = cache_type {
+        match ct {
+            CacheType::Mem => {
+                let mut cache = param_mem_cache().lock().unwrap();
+                if let Some(pp) = cache.get(&rc) {
+                    Ok(pp.clone())
+                } else {
+                    let pp = Arc::new(nova::public_params(rc));
+                    cache.insert(rc, pp.clone());
+                    Ok(pp)
+                }
+            }
+            CacheType::Disk => {
+                let key = format!("public-params-rc-{rc}");
+                let cache = param_disk_cache();
+                if let Some(pp) = cache.get(&key) {
+                    Ok(Arc::new(pp))
+                } else {
+                    let pp = nova::public_params(rc);
+                    cache
+                        .set(key, &pp)
+                        .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                    Ok(Arc::new(pp))
+                }
+            }
+        }
     } else {
-        let pp = nova::public_params(rc);
-        cache.set(key, &pp).unwrap();
-        pp
+        Ok(Arc::new(nova::public_params(rc)))
     }
 }
 
@@ -958,6 +992,7 @@ pub fn evaluate<F: LurkField>(
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::time::Instant;
 
     #[test]
     fn test_cert_serialization() {
@@ -981,5 +1016,32 @@ mod test {
 
         let cert_again: Cert = serde_json::from_str(&string).unwrap();
         assert_eq!(cert, cert_again);
+    }
+
+    #[test]
+    fn bench_mem_cache() {
+        let rc = 1;
+
+        println!("Initial param generation: rc = {rc}");
+        let now = Instant::now();
+        let _pp = public_params(rc, Some(CacheType::Mem));
+        println!("Elapsed {}s\n", now.elapsed().as_secs_f32());
+
+        println!("Cached param retrieval: rc = {rc}");
+        let now = Instant::now();
+        let _pp = public_params(rc, Some(CacheType::Mem));
+        println!("Elapsed: {}s\n", now.elapsed().as_secs_f32());
+
+        let rc = 5;
+
+        println!("Initial param generation: rc = {rc}");
+        let now = Instant::now();
+        let _pp = public_params(rc, Some(CacheType::Mem));
+        println!("Elapsed: {}s\n", now.elapsed().as_secs_f32());
+
+        println!("Cached param retrieval: rc = {rc}");
+        let now = Instant::now();
+        let _pp = public_params(rc, Some(CacheType::Mem));
+        println!("Elapsed: {}s\n", now.elapsed().as_secs_f32());
     }
 }

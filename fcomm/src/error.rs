@@ -14,6 +14,7 @@ pub enum Error {
     OpeningFailure(String),
     EvaluationFailure,
     StoreError(String),
+    CacheError(String),
 }
 
 impl From<io::Error> for Error {

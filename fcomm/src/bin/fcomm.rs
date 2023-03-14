@@ -108,7 +108,7 @@ struct Open {
     #[clap(long, value_parser)]
     request: Option<PathBuf>,
 
-    // Function is lurk source.
+    /// Function is lurk source.
     #[clap(long, value_parser)]
     lurk: bool,
 
@@ -214,7 +214,7 @@ impl Commit {
 }
 
 impl Open {
-    fn open(&self, chain: bool, limit: usize, eval_input: bool, quote_input: bool) {
+    fn open(&self, limit: usize, eval_input: bool) {
         assert!(
             !(self.commitment.is_some() && self.function.is_some()),
             "commitment and function must not both be supplied"
@@ -223,7 +223,7 @@ impl Open {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
         let prover = NovaProver::<S1>::new(rc.count());
-        let pp = public_params(rc.count());
+        let pp = public_params(rc.count(), None).unwrap();
         let function_map = committed_expression_store();
 
         let handle_proof = |out_path, proof: Proof<S1>| {
@@ -234,7 +234,7 @@ impl Open {
         let handle_claim = |claim: Claim<S1>| serde_json::to_writer(io::stdout(), &claim);
 
         if let Some(request_path) = &self.request {
-            assert!(!chain, "chain and request may not both be specified");
+            assert!(!self.chain, "chain and request may not both be specified");
             let request = opening_request(request_path).expect("failed to read opening request");
 
             if let Some(out_path) = &self.proof {
@@ -248,7 +248,7 @@ impl Open {
                     .expect("committed function not found");
                 let input = request.input.eval(s, limit).unwrap();
 
-                let claim = Opening::apply(s, input, function, limit, chain).unwrap();
+                let claim = Opening::apply(s, input, function, limit, self.chain).unwrap();
                 handle_claim(claim).unwrap();
             }
         } else {
@@ -276,16 +276,17 @@ impl Open {
             };
 
             let input_path = self.input.as_ref().expect("input missing");
-            let input = input(s, input_path, eval_input, limit, quote_input).unwrap();
+            let input = input(s, input_path, eval_input, limit, self.quote_input).unwrap();
 
             if let Some(out_path) = &self.proof {
-                let proof =
-                    Opening::apply_and_prove(s, input, function, limit, chain, false, &prover, &pp)
-                        .unwrap();
+                let proof = Opening::apply_and_prove(
+                    s, input, function, limit, self.chain, false, &prover, &pp,
+                )
+                .unwrap();
 
                 handle_proof(out_path, proof);
             } else {
-                let claim = Opening::apply(s, input, function, limit, chain).unwrap();
+                let claim = Opening::apply(s, input, function, limit, self.chain).unwrap();
 
                 handle_claim(claim).unwrap();
             }
@@ -318,7 +319,7 @@ impl Prove {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
         let prover = NovaProver::<S1>::new(rc.count());
-        let pp = public_params(rc.count());
+        let pp = public_params(rc.count(), None).unwrap();
 
         let proof = match &self.claim {
             Some(claim) => {
@@ -358,7 +359,7 @@ impl Prove {
 impl Verify {
     fn verify(&self, cli_error: bool) {
         let proof = proof(Some(&self.proof)).unwrap();
-        let pp = public_params(proof.reduction_count.count());
+        let pp = public_params(proof.reduction_count.count(), None).unwrap();
         let result = proof.verify(&pp).unwrap();
 
         serde_json::to_writer(io::stdout(), &result).unwrap();
@@ -486,7 +487,7 @@ fn main() {
 
     match &cli.command {
         Command::Commit(c) => c.commit(cli.limit),
-        Command::Open(o) => o.open(o.chain, cli.limit, cli.eval_input, o.quote_input),
+        Command::Open(o) => o.open(cli.limit, cli.eval_input),
         Command::Eval(e) => e.eval(cli.limit),
         Command::Prove(p) => p.prove(cli.limit),
         Command::Verify(v) => v.verify(cli.error),
