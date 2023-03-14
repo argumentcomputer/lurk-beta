@@ -235,6 +235,10 @@ impl<F: LurkField> Serialize for FWrap<F> {
     }
 }
 
+const fn bytes_size<F: LurkField>() -> usize {
+    F::NUM_BITS as usize / 8 + (F::NUM_BITS % 8 != 0) as usize
+}
+
 impl<F: LurkField> Encodable for FWrap<F> {
     // Beware, this assumes a little endian encoding
     fn ser(&self) -> LightData {
@@ -251,7 +255,7 @@ impl<F: LurkField> Encodable for FWrap<F> {
             _ => return Err(anyhow!("expected field element as bytes")),
         };
 
-        if bytes.len() > F::NUM_BITS as usize / 8 + 1 {
+        if bytes.len() > bytes_size::<F>() {
             return Err(anyhow!(
                 "Lurk does not support field representations beyond {} bits, received {:?}",
                 F::NUM_BITS,

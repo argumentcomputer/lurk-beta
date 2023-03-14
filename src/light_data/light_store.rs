@@ -73,7 +73,7 @@ impl<F: LurkField> LightStore<F> {
         }
         // Useful when called from insert_scalar_symbol
         if s.is_empty() {
-            return Err(anyhow!("encountered no StrCons in LightStore::insert_scalar_string, is this a tring pointer?"));
+            return Err(anyhow!("encountered no StrCons in LightStore::insert_scalar_string, is this a string pointer?"));
         }
 
         // If we've already inserted this string, no need to go through suffixes again
