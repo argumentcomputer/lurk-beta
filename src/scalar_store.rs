@@ -170,37 +170,38 @@ impl<F: LurkField> ScalarExpression<F> {
         match ptr.tag() {
             ExprTag::Nil => Some(ScalarExpression::Nil),
             ExprTag::Cons => store.fetch_cons(ptr).and_then(|(car, cdr)| {
-                store.get_expr_hash(car).and_then(|car| {
-                    store
-                        .get_expr_hash(cdr)
-                        .map(|cdr| ScalarExpression::Cons(car, cdr))
-                })
+                if let (Some(car), Some(cdr)) = (store.get_expr_hash(car), store.get_expr_hash(cdr))
+                {
+                    Some(ScalarExpression::Cons(car, cdr))
+                } else {
+                    None
+                }
             }),
             ExprTag::Comm => store.fetch_comm(ptr).and_then(|(secret, payload)| {
                 store
                     .get_expr_hash(payload)
                     .map(|payload| ScalarExpression::Comm(secret.0, payload))
             }),
-            ExprTag::Sym => store.fetch_sym(ptr).map(|sym| ScalarExpression::Sym(sym)),
-            ExprTag::Key => store.fetch_sym(ptr).map(|sym| ScalarExpression::Sym(sym)),
+            ExprTag::Sym | ExprTag::Key => store.fetch_sym(ptr).map(ScalarExpression::Sym),
             ExprTag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
-                store.get_expr_hash(arg).and_then(|arg| {
-                    store.get_expr_hash(body).and_then(|body| {
-                        store
-                            .get_expr_hash(closed_env)
-                            .map(|closed_env| ScalarExpression::Fun {
-                                arg,
-                                body,
-                                closed_env,
-                            })
+                if let (Some(arg), Some(body), Some(closed_env)) = (
+                    store.get_expr_hash(arg),
+                    store.get_expr_hash(body),
+                    store.get_expr_hash(closed_env),
+                ) {
+                    Some(ScalarExpression::Fun {
+                        arg,
+                        body,
+                        closed_env,
                     })
-                })
+                } else {
+                    None
+                }
             }),
             ExprTag::Num => store.fetch_num(ptr).map(|num| match num {
                 Num::U64(x) => ScalarExpression::Num((*x).into()),
                 Num::Scalar(x) => ScalarExpression::Num(*x),
             }),
-
             ExprTag::Str => store
                 .fetch_str(ptr)
                 .map(|str| ScalarExpression::Str(str.to_string())),

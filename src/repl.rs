@@ -1,8 +1,10 @@
 use crate::error::LurkError;
 use crate::eval::{empty_sym_env, Evaluator, IO};
 use crate::field::LurkField;
+use crate::light_data::{Encodable, LightData, LightStore};
 use crate::package::Package;
 use crate::parser;
+use crate::scalar_store::ScalarStore;
 use crate::store::{ContPtr, Expression, Pointer, Ptr, Store};
 use crate::tag::{ContTag, ExprTag};
 use crate::writer::Write;
@@ -14,9 +16,10 @@ use rustyline::validate::{
 };
 use rustyline::{Config, Editor};
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
-use std::fs::read_to_string;
+use std::fs::{self, read_to_string};
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
+use tap::TapOptional;
 
 #[derive(Completer, Helper, Highlighter, Hinter)]
 struct InputValidator {
@@ -115,12 +118,28 @@ impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
     }
 }
 
-pub fn repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(lurk_file: Option<P>) -> Result<()> {
-    let s = &mut Store::<F>::default();
+pub fn repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
+    lurk_file: Option<P>,
+    light_store: Option<P>,
+) -> Result<()> {
+    let received_light_store = light_store.is_some();
+    let mut s = light_store
+        .and_then(|light_store_path| fs::read(light_store_path).ok())
+        .and_then(|bytes| LightData::de(&bytes).ok())
+        .and_then(|ld| Encodable::de(&ld).ok())
+        .and_then(|store: LightStore<F>| ScalarStore::try_from(store).ok())
+        .and_then(|mut scalar_store: ScalarStore<F>| scalar_store.to_store())
+        .tap_none(|| {
+            if received_light_store {
+                eprintln!("Failed to load light store. Starting with empty store.")
+            }
+        })
+        .unwrap_or_default();
+    let s_ref = &mut s;
     let limit = 100_000_000;
-    let repl: Repl<F, T> = Repl::new(s, limit)?;
+    let repl: Repl<F, T> = Repl::new(s_ref, limit)?;
 
-    run_repl(s, repl, lurk_file)
+    run_repl(s_ref, repl, lurk_file)
 }
 
 // For the moment, input must be on a single line.
