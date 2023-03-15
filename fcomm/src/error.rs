@@ -1,18 +1,29 @@
 use bellperson::SynthesisError;
 use lurk::store;
 use std::io;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum Error {
+    #[error("Verification error: {0}")]
     VerificationError(String),
+    #[error("Unsupported reduction count: {0}")]
     UnsupportedReductionCount(usize),
+    #[error("IO error: {0}")]
     IOError(io::Error),
+    #[error("JSON error: {0}")]
     JsonError(serde_json::Error),
+    #[error("Synthesis error: {0}")]
     SynthesisError(SynthesisError),
+    #[error("Commitment parser error: {0}")]
     CommitmentParseError(hex::FromHexError),
+    #[error("Unknown commitment")]
     UnknownCommitment,
+    #[error("Opening Failure: {0}")]
     OpeningFailure(String),
+    #[error("Evaluation Failure")]
     EvaluationFailure,
+    #[error("Store error: {0}")]
     StoreError(String),
 }
 

@@ -57,15 +57,18 @@ mod base64 {
     }
 }
 
-fn nova_proof_cache() -> FileMap<Cid, Proof<'static, S1>> {
+pub type NovaProofCache = FileMap<Cid, Proof<'static, S1>>;
+pub fn nova_proof_cache() -> NovaProofCache {
     FileMap::<Cid, Proof<S1>>::new("nova_proofs").unwrap()
 }
 
-pub fn committed_expression_store() -> FileMap<Commitment<S1>, CommittedExpression<S1>> {
+pub type CommittedExpressionMap = FileMap<Commitment<S1>, CommittedExpression<S1>>;
+pub fn committed_expression_store() -> CommittedExpressionMap {
     FileMap::<Commitment<S1>, CommittedExpression<S1>>::new("committed_expressions").unwrap()
 }
 
-fn public_param_cache() -> FileMap<String, PublicParams<'static>> {
+pub type PublicParamCache = FileMap<String, PublicParams<'static>>;
+fn public_param_cache() -> PublicParamCache {
     FileMap::new("public_params").unwrap()
 }
 
@@ -252,7 +255,7 @@ where
     s.serialize_str(&c.to_string())
 }
 
-fn string_cid<'de, D>(d: D) -> Result<Cid, D::Error>
+pub fn string_cid<'de, D>(d: D) -> Result<Cid, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -261,6 +264,10 @@ where
     let string = String::deserialize(d)?;
 
     Cid::from_str(&string).map_err(|e| D::Error::custom(e.to_string()))
+}
+
+pub fn cid_from_string(s: &str) -> Result<Cid, libipld::cid::Error> {
+    Cid::from_str(s)
 }
 
 #[allow(dead_code)]
@@ -443,16 +450,16 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
         s.intern_opaque_comm(self.comm)
     }
 
-    pub fn from_ptr_with_hiding(s: &mut Store<F>, function_ptr: &Ptr<F>) -> (Self, F) {
+    pub fn from_ptr_with_hiding(s: &mut Store<F>, ptr: &Ptr<F>) -> (Self, F) {
         let secret = F::random(OsRng);
 
-        let commitment = Self::from_ptr_and_secret(s, function_ptr, secret);
+        let commitment = Self::from_ptr_and_secret(s, ptr, secret);
 
         (commitment, secret)
     }
 
-    pub fn from_ptr_and_secret(s: &mut Store<F>, function_ptr: &Ptr<F>, secret: F) -> Self {
-        let hidden = s.hide(secret, *function_ptr);
+    pub fn from_ptr_and_secret(s: &mut Store<F>, ptr: &Ptr<F>, secret: F) -> Self {
+        let hidden = s.hide(secret, *ptr);
 
         Self::from_comm(s, &hidden)
     }
@@ -495,20 +502,25 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
 
 impl<F: LurkField + Serialize + DeserializeOwned> CommittedExpression<F> {
     pub fn expr_ptr(&self, s: &mut Store<F>, limit: usize) -> Result<Ptr<F>, Error> {
-        let source_ptr = self.expr.ptr(s);
+        let source_ptr = self.expr.ptr(s, limit);
 
-        // Evaluate the source to get an actual function.
-        let (output, _iterations) = evaluate(s, source_ptr, limit)?;
-        // TODO: Verify that result actually is a function.
-
-        Ok(output.expr)
+        Ok(source_ptr)
     }
 }
 
 impl LurkPtr {
-    pub fn ptr<F: LurkField + Serialize + DeserializeOwned>(&self, s: &mut Store<F>) -> Ptr<F> {
+    pub fn ptr<F: LurkField + Serialize + DeserializeOwned>(
+        &self,
+        s: &mut Store<F>,
+        limit: usize,
+    ) -> Ptr<F> {
         match self {
-            LurkPtr::Source(source) => s.read(source).expect("could not read source"),
+            LurkPtr::Source(source) => {
+                let ptr = s.read(source).expect("could not read source");
+                let (out, _) = evaluate(s, ptr, limit).unwrap();
+
+                out.expr
+            }
             LurkPtr::ScalarBytes(lurk_scalar_bytes) => {
                 let scalar_store: Ipld = DagCborCodec
                     .decode(&lurk_scalar_bytes.scalar_store)
@@ -522,7 +534,7 @@ impl LurkPtr {
                     scalar_ptr,
                 });
 
-                lurk_ptr.ptr(s)
+                lurk_ptr.ptr(s, limit)
             }
             LurkPtr::Ipld(lurk_scalar_ipld) => {
                 // FIXME: put the scalar_store in a new field for the store.
@@ -562,7 +574,7 @@ impl Expression {
         s: &mut Store<F>,
         limit: usize,
     ) -> Result<Ptr<F>, Error> {
-        let expr = self.expr.ptr(s);
+        let expr = self.expr.ptr(s, limit);
         let (io, _iterations) = evaluate(s, expr, limit)?;
 
         Ok(io.expr)
@@ -582,7 +594,7 @@ impl<'a> Opening<S1> {
         pp: &'a PublicParams,
     ) -> Result<Proof<'a, S1>, Error> {
         let claim = Self::apply(s, input, function, limit, chain)?;
-        Proof::prove_claim(s, claim, limit, only_use_cached_proofs, nova_prover, pp)
+        Proof::prove_claim(s, &claim, limit, only_use_cached_proofs, nova_prover, pp)
     }
 
     pub fn open_and_prove(
@@ -593,7 +605,7 @@ impl<'a> Opening<S1> {
         nova_prover: &'a NovaProver<S1>,
         pp: &'a PublicParams,
     ) -> Result<Proof<'a, S1>, Error> {
-        let input = request.input.expr.ptr(s);
+        let input = request.input.expr.ptr(s, limit);
         let commitment = request.commitment;
 
         let function_map = committed_expression_store();
@@ -619,7 +631,7 @@ impl<'a> Opening<S1> {
         limit: usize,
         chain: bool,
     ) -> Result<Claim<S1>, Error> {
-        let input = request.input.expr.ptr(s);
+        let input = request.input.expr.ptr(s, limit);
         let commitment = request.commitment;
 
         let function_map = committed_expression_store();
@@ -727,12 +739,12 @@ impl<'a> Proof<'a, S1> {
         let evaluation = Evaluation::new(s, input, public_output, None);
         let claim = Claim::Evaluation(evaluation);
 
-        Self::prove_claim(s, claim, limit, only_use_cached_proofs, nova_prover, pp)
+        Self::prove_claim(s, &claim, limit, only_use_cached_proofs, nova_prover, pp)
     }
 
     pub fn prove_claim(
         s: &'a mut Store<S1>,
-        claim: Claim<S1>,
+        claim: &Claim<S1>,
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1>,
@@ -810,10 +822,7 @@ impl<'a> Proof<'a, S1> {
     }
 
     pub fn verify(&self, pp: &PublicParams) -> Result<VerificationResult, Error> {
-        let (public_inputs, public_outputs) = match &self.claim {
-            Claim::Evaluation(_) => self.evaluation_io(),
-            Claim::Opening(_) => self.opening_io(),
-        }?;
+        let (public_inputs, public_outputs) = self.io_vecs()?;
 
         let claim_iterations_and_num_steps_are_consistent = if let Claim::Evaluation(Evaluation {
             iterations: Some(iterations),
@@ -851,9 +860,7 @@ impl<'a> Proof<'a, S1> {
         Ok(result)
     }
 
-    pub fn evaluation_io(&self) -> Result<(Vec<S1>, Vec<S1>), Error> {
-        let mut s = Store::<S1>::default();
-
+    pub fn evaluation_io(&self, s: &mut Store<S1>) -> Result<(IO<S1>, IO<S1>), Error> {
         let evaluation = &self.claim.evaluation().expect("expected evaluation claim");
 
         let input_io = {
@@ -871,8 +878,6 @@ impl<'a> Proof<'a, S1> {
             IO::<S1> { expr, env, cont }
         };
 
-        let public_inputs = input_io.to_inputs(&s);
-
         let output_io = {
             let expr = s
                 .read(&evaluation.expr_out)
@@ -883,55 +888,50 @@ impl<'a> Proof<'a, S1> {
                 .map_err(|_| Error::VerificationError("failed to read env out".into()))?;
             let cont = evaluation
                 .status
-                .to_cont(&mut s)
+                .to_cont(s)
                 .ok_or_else(|| Error::VerificationError("continuation cannot be proved".into()))?;
 
             IO::<S1> { expr, env, cont }
         };
 
-        let public_outputs = output_io.to_inputs(&s);
-
-        Ok((public_inputs, public_outputs))
+        Ok((input_io, output_io))
     }
 
-    pub fn opening_io(&self) -> Result<(Vec<S1>, Vec<S1>), Error> {
-        let mut s = Store::<S1>::default();
-
+    pub fn opening_io(&self, s: &mut Store<S1>) -> Result<(IO<S1>, IO<S1>), Error> {
         assert!(self.claim.is_opening());
 
         let opening = self.claim.opening().expect("expected opening claim");
-        let output = opening.public_output_expression(&mut s);
-
+        let output = opening.public_output_expression(s);
         let input = s.read(&opening.input).expect("could not read input");
 
-        let expression = opening.commitment.fun_application(&mut s, input);
-
-        let expr = s
-            .hash_expr(&expression)
-            .expect("failed to hash input expression");
-
-        let empty_env = s.hash_expr(&empty_sym_env(&s)).unwrap();
+        let expression = opening.commitment.fun_application(s, input);
         let outermost = s.intern_cont_outermost();
-        let cont = s.hash_cont(&outermost).unwrap();
 
-        let public_inputs = vec![
-            *expr.tag(),
-            *expr.value(),
-            *empty_env.tag(),
-            *empty_env.value(),
-            *cont.tag(),
-            *cont.value(),
-        ];
+        let input_io = IO::<S1> {
+            expr: expression,
+            env: empty_sym_env(s),
+            cont: outermost,
+        };
 
         let output_io = IO::<S1> {
             expr: output,
-            env: empty_sym_env(&s),
+            env: empty_sym_env(s),
             cont: s.intern_cont_terminal(),
         };
 
-        let public_outputs = output_io.to_inputs(&s);
+        Ok((input_io, output_io))
+    }
 
-        Ok((public_inputs, public_outputs))
+    pub fn io(&self, s: &mut Store<S1>) -> Result<(IO<S1>, IO<S1>), Error> {
+        match self.claim {
+            Claim::Evaluation(_) => self.evaluation_io(s),
+            Claim::Opening(_) => self.opening_io(s),
+        }
+    }
+    fn io_vecs(&self) -> Result<(Vec<S1>, Vec<S1>), Error> {
+        let s = &mut Store::<S1>::default();
+
+        self.io(s).map(|(i, o)| (i.to_inputs(s), o.to_inputs(s)))
     }
 }
 
