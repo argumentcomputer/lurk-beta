@@ -80,43 +80,25 @@ fn public_param_disk_cache() -> PublicParamDiskCache {
     FileMap::new("public_params").unwrap()
 }
 
-pub enum CacheType {
-    Mem,
-    Disk,
-}
-
-pub fn public_params(
-    rc: usize,
-    cache_type: Option<CacheType>,
-) -> Result<Arc<PublicParams<'static>>, Error> {
-    if let Some(ct) = cache_type {
-        match ct {
-            CacheType::Mem => {
-                let mut cache = public_param_mem_cache().lock().unwrap();
-                if let Some(pp) = cache.get(&rc) {
-                    Ok(pp.clone())
-                } else {
-                    let pp = Arc::new(nova::public_params(rc));
-                    cache.insert(rc, pp.clone());
-                    Ok(pp)
-                }
-            }
-            CacheType::Disk => {
-                let key = format!("public-params-rc-{rc}");
-                let cache = public_param_disk_cache();
-                if let Some(pp) = cache.get(&key) {
-                    Ok(Arc::new(pp))
-                } else {
-                    let pp = nova::public_params(rc);
-                    cache
-                        .set(key, &pp)
-                        .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
-                    Ok(Arc::new(pp))
-                }
+pub fn public_params(rc: usize) -> Result<Arc<PublicParams<'static>>, Error> {
+    let mut mem_cache = public_param_mem_cache().lock().unwrap();
+    match mem_cache.get(&rc) {
+        Some(pp) => Ok(pp.clone()),
+        None => {
+            let disk_cache = public_param_disk_cache();
+            // TODO: Add versioning to cache key
+            let key = format!("public-params-rc-{rc}");
+            if let Some(pp) = disk_cache.get(&key) {
+                Ok(Arc::new(pp))
+            } else {
+                let pp = Arc::new(nova::public_params(rc));
+                mem_cache.insert(rc, pp.clone());
+                disk_cache
+                    .set(key, &pp)
+                    .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                Ok(pp)
             }
         }
-    } else {
-        Ok(Arc::new(nova::public_params(rc)))
     }
 }
 

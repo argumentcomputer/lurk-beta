@@ -223,7 +223,7 @@ impl Open {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
         let prover = NovaProver::<S1>::new(rc.count());
-        let pp = public_params(rc.count(), None).unwrap();
+        let pp = public_params(rc.count()).unwrap();
         let function_map = committed_expression_store();
 
         let handle_proof = |out_path, proof: Proof<S1>| {
@@ -319,7 +319,7 @@ impl Prove {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
         let prover = NovaProver::<S1>::new(rc.count());
-        let pp = public_params(rc.count(), None).unwrap();
+        let pp = public_params(rc.count()).unwrap();
 
         let proof = match &self.claim {
             Some(claim) => {
@@ -360,7 +360,7 @@ impl Prove {
 impl Verify {
     fn verify(&self, cli_error: bool) {
         let proof = proof(Some(&self.proof)).unwrap();
-        let pp = public_params(proof.reduction_count.count(), None).unwrap();
+        let pp = public_params(proof.reduction_count.count()).unwrap();
         let result = proof.verify(&pp).unwrap();
 
         serde_json::to_writer(io::stdout(), &result).unwrap();

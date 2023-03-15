@@ -373,7 +373,7 @@ impl ClutchState<F> {
 
         let chunk_frame_count = 1;
         let prover = NovaProver::<F>::new(chunk_frame_count);
-        let pp = public_params(chunk_frame_count, Some(CacheType::Mem))?;
+        let pp = public_params(chunk_frame_count)?;
 
         let proof = if rest.is_nil() {
             self.last_claim
@@ -421,7 +421,7 @@ impl ClutchState<F> {
             .get(&cid)
             .ok_or_else(|| anyhow!("proof not found: {cid}"))?;
         let chunk_frame_count = 1;
-        let pp = public_params(chunk_frame_count, Some(CacheType::Mem))?;
+        let pp = public_params(chunk_frame_count)?;
         let result = proof.verify(&pp).unwrap();
 
         if result.verified {
