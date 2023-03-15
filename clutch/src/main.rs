@@ -30,7 +30,9 @@ fn main() -> Result<()> {
     };
 
     match field {
-        LanguageField::Pallas => repl::<_, nova::S1, ClutchState<nova::S1>>(lurk_file.as_deref()),
+        LanguageField::Pallas => {
+            repl::<_, nova::S1, ClutchState<nova::S1>>(lurk_file.as_deref(), None)
+        }
         _ => panic!("unsupported field"),
     }
 }

@@ -389,12 +389,25 @@ dependencies = [
  "atty",
  "bitflags",
  "clap_derive",
- "clap_lex",
+ "clap_lex 0.2.4",
  "indexmap",
  "once_cell",
  "strsim",
  "termcolor",
  "textwrap 0.16.0",
+]
+
+[[package]]
+name = "clap"
+version = "4.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3d7ae14b20b94cb02149ed21a86c423859cbe18dc7ed69845cace50e52b40a5"
+dependencies = [
+ "bitflags",
+ "clap_lex 0.3.2",
+ "is-terminal",
+ "strsim",
+ "termcolor",
 ]
 
 [[package]]
@@ -425,6 +438,15 @@ name = "clap_lex"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2850f2f5a82cbf437dd5af4d49848fbdfc27c157c3d010345776f952765261c5"
+dependencies = [
+ "os_str_bytes",
+]
+
+[[package]]
+name = "clap_lex"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "350b9cf31731f9957399229e9b2adc51eeabdfbe9d71d9a0552275fd12710d09"
 dependencies = [
  "os_str_bytes",
 ]
@@ -1054,6 +1076,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hermit-abi"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fed44880c466736ef9a5c5b5facefb5ed0785676d0c02d612db14e54f0d84286"
+
+[[package]]
 name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1098,6 +1126,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfa919a82ea574332e2de6e74b4c36e74d41982b335080fa59d4ef31be20fdf3"
 dependencies = [
  "libc",
+ "windows-sys 0.45.0",
+]
+
+[[package]]
+name = "is-terminal"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21b6b32576413a8e69b90e952e4a026476040d81017b80445deda5f2d3921857"
+dependencies = [
+ "hermit-abi 0.3.1",
+ "io-lifetimes",
+ "rustix",
  "windows-sys 0.45.0",
 ]
 
@@ -1204,6 +1244,7 @@ dependencies = [
  "bellperson",
  "blstrs",
  "cid",
+ "clap 4.1.8",
  "criterion",
  "dashmap",
  "dirs",
