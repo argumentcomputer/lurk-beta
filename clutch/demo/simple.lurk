@@ -1,0 +1,18 @@
+123
+
+(+ 1 1)
+
+!(:def square (lambda (x) (* x x)))
+
+(square 8)
+
+!(:def make-adder
+   (lambda (n)
+     (lambda (x)
+       (+ x n))))
+
+!(:def five-plus
+   (make-adder 5))
+
+(five-plus 3)
+

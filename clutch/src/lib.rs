@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail, Context, Result};
+use clap::{Arg, ArgAction, Command};
 use pasta_curves::pallas;
 
 use fcomm::{
@@ -14,8 +15,72 @@ use lurk::store::{Expression, Pointer, Ptr, ScalarPointer, Store};
 use lurk::tag::ExprTag;
 use lurk::writer::Write;
 
-use std::io;
+use std::fs::File;
+use std::io::{self, BufRead};
 use std::path::Path;
+
+#[derive(Clone, Debug)]
+struct Demo {
+    inputs: Vec<String>,
+    index: usize,
+}
+
+impl Demo {
+    fn new(inputs: Vec<String>) -> Self {
+        Demo { inputs, index: 0 }
+    }
+
+    fn new_from_path<P: AsRef<Path>>(p: P, base_prompt_length: usize) -> Self {
+        let file = File::open(p.as_ref()).unwrap();
+        let lines = io::BufReader::new(file).lines();
+
+        let mut inputs = Vec::new();
+
+        let mut current_input = Vec::new();
+        let indent = " ".to_string().repeat(base_prompt_length);
+
+        macro_rules! finalize_current {
+            () => {
+                if !current_input.is_empty() {
+                    let input = current_input.join("\n");
+                    inputs.push(input);
+                    Vec::new()
+                } else {
+                    current_input
+                }
+            };
+        }
+
+        for line in lines {
+            let line = line.unwrap();
+            if line.is_empty() {
+                current_input = finalize_current!();
+            } else {
+                let input_line = if current_input.is_empty() {
+                    line
+                } else {
+                    indent.clone() + &line
+                };
+                current_input.push(input_line);
+            }
+        }
+
+        finalize_current!();
+
+        Self::new(inputs)
+    }
+
+    fn next_input(&mut self) -> Option<&String> {
+        let input = self.inputs.get(self.index);
+        if input.is_some() {
+            self.index += 1;
+        }
+        input
+    }
+    fn peek_input(&self) -> Option<&String> {
+        self.inputs.get(self.index)
+    }
+}
 
 pub struct ClutchState<F: LurkField> {
     repl_state: ReplState<F>,
@@ -23,20 +88,37 @@ pub struct ClutchState<F: LurkField> {
     proof_map: NovaProofCache,
     expression_map: CommittedExpressionMap,
     last_claim: Option<Claim<F>>,
+    demo: Option<Demo>,
 }
 
 type F = pallas::Scalar;
 
+impl<F: LurkField> ClutchState<F> {
+    fn base_prompt() -> String {
+        "\n!> ".into()
+    }
+}
 impl ReplTrait<F> for ClutchState<F> {
-    fn new(s: &mut Store<F>, limit: usize) -> Self {
+    fn new(s: &mut Store<F>, limit: usize, command: Option<Command>) -> Self {
         let proof_map = fcomm::nova_proof_cache();
         let expression_map = fcomm::committed_expression_store();
+
+        let demo = command.clone().and_then(|c| {
+            let l = Self::base_prompt().len();
+            let matches = c.get_matches();
+
+            matches
+                .get_one::<String>("demo")
+                .map(|demo_file| Demo::new_from_path(demo_file, l))
+        });
+
         Self {
-            repl_state: ReplState::new(s, limit),
+            repl_state: ReplState::new(s, limit, command),
             history: Default::default(),
             proof_map,
             expression_map,
             last_claim: None,
+            demo,
         }
     }
 
@@ -44,8 +126,36 @@ impl ReplTrait<F> for ClutchState<F> {
         "Lurk Clutch".into()
     }
 
-    fn prompt(&self) -> String {
-        "!> ".into()
+    fn prompt(&mut self) -> String {
+        if let Some(demo_input) = self.demo.as_ref().and_then(|d: &Demo| d.peek_input()) {
+            format!("{}{demo_input}", Self::base_prompt())
+        } else {
+            Self::base_prompt()
+        }
+    }
+
+    fn command() -> Command {
+        ReplState::<F>::command().arg(
+            Arg::new("demo")
+                .long("demo")
+                .value_parser(clap::builder::NonEmptyStringValueParser::new())
+                .action(ArgAction::Set)
+                .value_name("DEMO")
+                .help("Specifies the demo file path"),
+        )
+    }
+
+    fn process_line(&mut self, line: String) -> String {
+        if !line.is_empty() {
+            return line;
+        };
+        // If line is blank, get the next demo input.
+        self.demo
+            .as_mut()
+            .and_then(Demo::next_input)
+            .ok_or(&line)
+            .unwrap_or(&line)
+            .to_string()
     }
 
     fn handle_run<P: AsRef<Path> + Copy>(
