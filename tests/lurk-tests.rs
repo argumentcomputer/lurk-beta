@@ -17,6 +17,18 @@ fn lurk_tests() {
 
     let example_dir = Path::new("lurk-lib/example/");
 
+    if example_dir
+        .read_dir()
+        .map_or(true, |mut r| r.next().is_none())
+    {
+        panic!(
+            "The example directory is empty. \
+                Please update the submodule by running the following commands:\n\
+                git submodule init\n\
+                git submodule update"
+        );
+    }
+
     for f in test_files {
         let joined = example_dir.join(f);
 
