@@ -19,6 +19,7 @@ use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 use std::fs::{self, read_to_string};
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
+use tap::TapOptional;
 
 #[derive(Completer, Helper, Highlighter, Hinter)]
 struct InputValidator {
@@ -121,12 +122,18 @@ pub fn repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
     lurk_file: Option<P>,
     light_store: Option<P>,
 ) -> Result<()> {
+    let received_light_store = light_store.is_some();
     let mut s = light_store
         .and_then(|light_store_path| fs::read(light_store_path).ok())
         .and_then(|bytes| LightData::de(&bytes).ok())
         .and_then(|ld| Encodable::de(&ld).ok())
         .and_then(|store: LightStore<F>| ScalarStore::try_from(store).ok())
         .and_then(|mut scalar_store: ScalarStore<F>| scalar_store.to_store())
+        .tap_none(|| {
+            if received_light_store {
+                eprintln!("Failed to load light store. Starting with empty store.")
+            }
+        })
         .unwrap_or_default();
     let s_ref = &mut s;
     let limit = 100_000_000;
