@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["LightData","LightExpr"],"struct":["LightStore"],"trait":["Encodable"]};

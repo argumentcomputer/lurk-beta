@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["main"],"macro":["delegate"],"struct":["ClutchState"],"type":["F"]};
+window.SIDEBAR_ITEMS = {"struct":["ClutchState"]};
