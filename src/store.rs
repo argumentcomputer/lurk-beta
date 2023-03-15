@@ -2,6 +2,7 @@ use generic_array::typenum::{U3, U4, U6, U8};
 use neptune::Poseidon;
 use rayon::prelude::*;
 use std::collections::VecDeque;
+use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::{fmt, marker::PhantomData};
 use string_interner::symbol::{Symbol, SymbolUsize};
@@ -14,6 +15,9 @@ use proptest::prelude::*;
 
 use libipld::Cid;
 use libipld::Multihash;
+
+use crate::light_data::Encodable;
+use crate::light_data::LightData;
 
 use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
@@ -316,6 +320,14 @@ pub struct ScalarPtr<F: LurkField>(F, F);
 
 impl<F: LurkField> Copy for ScalarPtr<F> {}
 
+impl<F: LurkField> Display for ScalarPtr<F> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let trimmed_f1 = self.0.trimmed_hex_digits();
+        let trimmed_f2 = self.1.trimmed_hex_digits();
+        write!(f, "(ptr->{trimmed_f1}, {trimmed_f2})",)
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 impl<Fr: LurkField> Arbitrary for ScalarPtr<Fr> {
     type Parameters = ();
@@ -339,6 +351,17 @@ impl<F: LurkField> Ord for ScalarPtr<F> {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
             .cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
+    }
+}
+
+impl<F: LurkField> Encodable for ScalarPtr<F> {
+    fn ser(&self) -> LightData {
+        let (x, y): (FWrap<F>, FWrap<F>) = (FWrap(self.0), FWrap(self.1));
+        (x, y).ser()
+    }
+    fn de(ld: &LightData) -> anyhow::Result<Self> {
+        let (x, y): (FWrap<F>, FWrap<F>) = Encodable::de(ld)?;
+        Ok(ScalarPtr::from_parts(x.0, y.0))
     }
 }
 

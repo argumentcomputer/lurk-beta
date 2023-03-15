@@ -993,7 +993,6 @@ pub fn evaluate<F: LurkField>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::time::Instant;
 
     #[test]
     fn test_cert_serialization() {
@@ -1017,32 +1016,5 @@ mod test {
 
         let cert_again: Cert = serde_json::from_str(&string).unwrap();
         assert_eq!(cert, cert_again);
-    }
-
-    #[test]
-    fn bench_mem_cache() {
-        let rc = 1;
-
-        println!("Initial param generation: rc = {rc}");
-        let now = Instant::now();
-        let _pp = public_params(rc, Some(CacheType::Mem));
-        println!("Elapsed {}s\n", now.elapsed().as_secs_f32());
-
-        println!("Cached param retrieval: rc = {rc}");
-        let now = Instant::now();
-        let _pp = public_params(rc, Some(CacheType::Mem));
-        println!("Elapsed: {}s\n", now.elapsed().as_secs_f32());
-
-        let rc = 5;
-
-        println!("Initial param generation: rc = {rc}");
-        let now = Instant::now();
-        let _pp = public_params(rc, Some(CacheType::Mem));
-        println!("Elapsed: {}s\n", now.elapsed().as_secs_f32());
-
-        println!("Cached param retrieval: rc = {rc}");
-        let now = Instant::now();
-        let _pp = public_params(rc, Some(CacheType::Mem));
-        println!("Elapsed: {}s\n", now.elapsed().as_secs_f32());
     }
 }

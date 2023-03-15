@@ -219,6 +219,7 @@ workflows:
           filters:
             branches:
                 ignore: 
+                  - gh-pages
                   - staging.tmp
                   - trying.tmp
                   - staging-squash-merge.tmp
@@ -228,6 +229,7 @@ workflows:
           filters:
             branches:
                 ignore: 
+                  - gh-pages
                   - staging.tmp
                   - trying.tmp
                   - staging-squash-merge.tmp
@@ -235,6 +237,7 @@ workflows:
           filters:
             branches:
                 ignore: 
+                  - gh-pages
                   - staging.tmp
                   - trying.tmp
                   - staging-squash-merge.tmp
@@ -242,6 +245,7 @@ workflows:
           filters:
             branches:
                 ignore: 
+                  - gh-pages
                   - staging.tmp
                   - trying.tmp
                   - staging-squash-merge.tmp
@@ -251,6 +255,7 @@ workflows:
           filters:
             branches:
                 ignore: 
+                  - gh-pages
                   - staging.tmp
                   - trying.tmp
                   - staging-squash-merge.tmp
@@ -260,6 +265,7 @@ workflows:
           filters:
             branches:
                 ignore: 
+                  - gh-pages
                   - staging.tmp
                   - trying.tmp
                   - staging-squash-merge.tmp
@@ -269,6 +275,7 @@ workflows:
           filters:
             branches:
                 ignore: 
+                  - gh-pages
                   - staging.tmp
                   - trying.tmp
                   - staging-squash-merge.tmp
