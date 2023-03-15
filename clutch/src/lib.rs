@@ -2,8 +2,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use pasta_curves::pallas;
 
 use fcomm::{
-    public_params, CacheType, Claim, Commitment, CommittedExpression, CommittedExpressionMap,
-    Evaluation, Id, LurkPtr, NovaProofCache, Opening, Proof,
+    public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, Evaluation, Id,
+    LurkPtr, NovaProofCache, Opening, Proof,
 };
 use lurk::eval::{Evaluable, Status, IO};
 use lurk::field::LurkField;
