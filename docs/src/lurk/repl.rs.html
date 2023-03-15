@@ -691,11 +691,32 @@
 <a href="#691" id="691">691</a>
 <a href="#692" id="692">692</a>
 <a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::error::LurkError;
 <span class="kw">use </span><span class="kw">crate</span>::eval::{empty_sym_env, Evaluator, IO};
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
+<span class="kw">use </span><span class="kw">crate</span>::light_data::{Encodable, LightData, LightStore};
 <span class="kw">use </span><span class="kw">crate</span>::package::Package;
 <span class="kw">use </span><span class="kw">crate</span>::parser;
+<span class="kw">use </span><span class="kw">crate</span>::scalar_store::ScalarStore;
 <span class="kw">use </span><span class="kw">crate</span>::store::{ContPtr, Expression, Pointer, Ptr, Store};
 <span class="kw">use </span><span class="kw">crate</span>::tag::{ContTag, ExprTag};
 <span class="kw">use </span><span class="kw">crate</span>::writer::Write;
@@ -707,9 +728,10 @@
 };
 <span class="kw">use </span>rustyline::{Config, Editor};
 <span class="kw">use </span>rustyline_derive::{Completer, Helper, Highlighter, Hinter};
-<span class="kw">use </span>std::fs::read_to_string;
+<span class="kw">use </span>std::fs::{<span class="self">self</span>, read_to_string};
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write <span class="kw">as _</span>};
 <span class="kw">use </span>std::path::{Path, PathBuf};
+<span class="kw">use </span>tap::TapOptional;
 
 <span class="attr">#[derive(Completer, Helper, Highlighter, Hinter)]
 </span><span class="kw">struct </span>InputValidator {
@@ -808,12 +830,28 @@
     }
 }
 
-<span class="kw">pub fn </span>repl&lt;P: AsRef&lt;Path&gt;, F: LurkField, T: ReplTrait&lt;F&gt;&gt;(lurk_file: <span class="prelude-ty">Option</span>&lt;P&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-    <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;F&gt;::default();
+<span class="kw">pub fn </span>repl&lt;P: AsRef&lt;Path&gt;, F: LurkField, T: ReplTrait&lt;F&gt;&gt;(
+    lurk_file: <span class="prelude-ty">Option</span>&lt;P&gt;,
+    light_store: <span class="prelude-ty">Option</span>&lt;P&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">let </span>received_light_store = light_store.is_some();
+    <span class="kw">let </span><span class="kw-2">mut </span>s = light_store
+        .and_then(|light_store_path| fs::read(light_store_path).ok())
+        .and_then(|bytes| LightData::de(<span class="kw-2">&amp;</span>bytes).ok())
+        .and_then(|ld| Encodable::de(<span class="kw-2">&amp;</span>ld).ok())
+        .and_then(|store: LightStore&lt;F&gt;| ScalarStore::try_from(store).ok())
+        .and_then(|<span class="kw-2">mut </span>scalar_store: ScalarStore&lt;F&gt;| scalar_store.to_store())
+        .tap_none(|| {
+            <span class="kw">if </span>received_light_store {
+                <span class="macro">eprintln!</span>(<span class="string">&quot;Failed to load light store. Starting with empty store.&quot;</span>)
+            }
+        })
+        .unwrap_or_default();
+    <span class="kw">let </span>s_ref = <span class="kw-2">&amp;mut </span>s;
     <span class="kw">let </span>limit = <span class="number">100_000_000</span>;
-    <span class="kw">let </span>repl: Repl&lt;F, T&gt; = Repl::new(s, limit)<span class="question-mark">?</span>;
+    <span class="kw">let </span>repl: Repl&lt;F, T&gt; = Repl::new(s_ref, limit)<span class="question-mark">?</span>;
 
-    run_repl(s, repl, lurk_file)
+    run_repl(s_ref, repl, lurk_file)
 }
 
 <span class="comment">// For the moment, input must be on a single line.

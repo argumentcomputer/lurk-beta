@@ -576,6 +576,7 @@
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::collections::BTreeMap;
 
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
@@ -748,37 +749,38 @@
         <span class="kw">match </span>ptr.tag() {
             ExprTag::Nil =&gt; <span class="prelude-val">Some</span>(ScalarExpression::Nil),
             ExprTag::Cons =&gt; store.fetch_cons(ptr).and_then(|(car, cdr)| {
-                store.get_expr_hash(car).and_then(|car| {
-                    store
-                        .get_expr_hash(cdr)
-                        .map(|cdr| ScalarExpression::Cons(car, cdr))
-                })
+                <span class="kw">if let </span>(<span class="prelude-val">Some</span>(car), <span class="prelude-val">Some</span>(cdr)) = (store.get_expr_hash(car), store.get_expr_hash(cdr))
+                {
+                    <span class="prelude-val">Some</span>(ScalarExpression::Cons(car, cdr))
+                } <span class="kw">else </span>{
+                    <span class="prelude-val">None
+                </span>}
             }),
             ExprTag::Comm =&gt; store.fetch_comm(ptr).and_then(|(secret, payload)| {
                 store
                     .get_expr_hash(payload)
                     .map(|payload| ScalarExpression::Comm(secret.<span class="number">0</span>, payload))
             }),
-            ExprTag::Sym =&gt; store.fetch_sym(ptr).map(|sym| ScalarExpression::Sym(sym)),
-            ExprTag::Key =&gt; store.fetch_sym(ptr).map(|sym| ScalarExpression::Sym(sym)),
+            ExprTag::Sym | ExprTag::Key =&gt; store.fetch_sym(ptr).map(ScalarExpression::Sym),
             ExprTag::Fun =&gt; store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
-                store.get_expr_hash(arg).and_then(|arg| {
-                    store.get_expr_hash(body).and_then(|body| {
-                        store
-                            .get_expr_hash(closed_env)
-                            .map(|closed_env| ScalarExpression::Fun {
-                                arg,
-                                body,
-                                closed_env,
-                            })
+                <span class="kw">if let </span>(<span class="prelude-val">Some</span>(arg), <span class="prelude-val">Some</span>(body), <span class="prelude-val">Some</span>(closed_env)) = (
+                    store.get_expr_hash(arg),
+                    store.get_expr_hash(body),
+                    store.get_expr_hash(closed_env),
+                ) {
+                    <span class="prelude-val">Some</span>(ScalarExpression::Fun {
+                        arg,
+                        body,
+                        closed_env,
                     })
-                })
+                } <span class="kw">else </span>{
+                    <span class="prelude-val">None
+                </span>}
             }),
             ExprTag::Num =&gt; store.fetch_num(ptr).map(|num| <span class="kw">match </span>num {
                 Num::U64(x) =&gt; ScalarExpression::Num((<span class="kw-2">*</span>x).into()),
                 Num::Scalar(x) =&gt; ScalarExpression::Num(<span class="kw-2">*</span>x),
             }),
-
             ExprTag::Str =&gt; store
                 .fetch_str(ptr)
                 .map(|str| ScalarExpression::Str(str.to_string())),
