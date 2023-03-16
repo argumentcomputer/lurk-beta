@@ -707,7 +707,7 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
             // TODO: Why is this seemingly necessary to flush?
             // This doesn't work: io::stdout().flush().unwrap();
             // We don't really want the newline.
-            println!("");
+            println!();
         };
 
         io::stdout().flush().unwrap();

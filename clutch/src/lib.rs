@@ -106,7 +106,7 @@ impl ReplTrait<F> for ClutchState<F> {
         let expression_map = fcomm::committed_expression_store();
 
         let demo = command.clone().and_then(|c| {
-            let l = Self::base_prompt().trim_start_matches("\n").len();
+            let l = Self::base_prompt().trim_start_matches('\n').len();
             let matches = c.get_matches();
 
             matches
