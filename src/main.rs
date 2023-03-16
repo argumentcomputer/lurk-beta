@@ -19,8 +19,8 @@ fn main() -> Result<()> {
     };
 
     match field {
-        LanguageField::BLS12_381 => repl::<blstrs::Scalar, ReplState<blstrs::Scalar>>(),
-        LanguageField::Pallas => repl::<nova::S1, ReplState<nova::S1>>(),
-        LanguageField::Vesta => repl::<nova::S2, ReplState<nova::S2>>(),
+        LanguageField::BLS12_381 => repl::<blstrs::Scalar, ReplState<blstrs::Scalar>>(true),
+        LanguageField::Pallas => repl::<nova::S1, ReplState<nova::S1>>(true),
+        LanguageField::Vesta => repl::<nova::S2, ReplState<nova::S2>>(true),
     }
 }

@@ -22,7 +22,7 @@ fn main() -> Result<()> {
     };
 
     match field {
-        LanguageField::Pallas => repl::<nova::S1, ClutchState<nova::S1>>(),
+        LanguageField::Pallas => repl::<nova::S1, ClutchState<nova::S1>>(true),
         _ => panic!("unsupported field"),
     }
 }
