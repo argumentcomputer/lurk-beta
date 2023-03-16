@@ -301,8 +301,7 @@ mod tests {
     use pallas::Scalar as Fr;
 
     const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
-    //    const CHUNK_FRAME_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
-    const CHUNK_FRAME_COUNTS_TO_TEST: [usize; 1] = [1];
+    const CHUNK_FRAME_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
     fn test_aux(
         s: &mut Store<Fr>,
         expr: &str,

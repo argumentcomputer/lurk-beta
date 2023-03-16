@@ -9,7 +9,7 @@ use neptune::{
 
 use super::pointer::AsAllocatedHashComponents;
 use crate::field::LurkField;
-use crate::store::{Expression, HashScalar, Pointer, Ptr, Store, Thunk};
+use crate::store::{Expression, Pointer, Ptr, Store, Thunk};
 use crate::store::{IntoHashComponents, ScalarPtr};
 use crate::store::{ScalarContPtr, ScalarPointer};
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
@@ -109,16 +109,6 @@ impl<F: LurkField> GlobalAllocations<F> {
             &store.get_cont_dummy(),
         )?;
 
-        let nil_ptr =
-            AllocatedPtr::alloc_constant_ptr(&mut cs.namespace(|| "nil"), store, &store.get_nil())?;
-        let t_ptr =
-            AllocatedPtr::alloc_constant_ptr(&mut cs.namespace(|| "T"), store, &store.get_t())?;
-        let dummy_arg_ptr = AllocatedPtr::alloc_constant_ptr(
-            &mut cs.namespace(|| "_"),
-            store,
-            &store.get_lurk_sym("_", true).unwrap(),
-        )?;
-
         let empty_str_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "empty_str_ptr"),
             store,
@@ -201,17 +191,14 @@ impl<F: LurkField> GlobalAllocations<F> {
             Ok(Op2::Equal.as_field())
         })?;
 
-        let hash_sym = |name: &str| {
-            store
-                .get_lurk_sym(name, true)
-                .and_then(|s| store.hash_sym(s, HashScalar::Get))
-                .unwrap()
-        };
+        let c = store.get_constants();
 
         macro_rules! defsym {
-            ($var:ident, $name:expr) => {
-                let $var =
-                    AllocatedPtr::alloc_constant(&mut cs.namespace(|| $name), hash_sym($name))?;
+            ($var:ident, $name:expr, $cname:ident) => {
+                let $var = AllocatedPtr::alloc_constant(
+                    &mut cs.namespace(|| $name),
+                    c.$cname.scalar_ptr(),
+                )?;
             };
             ($var:ident, $name:expr, $namespace:expr) => {
                 let $var = AllocatedPtr::alloc_constant(
@@ -221,7 +208,10 @@ impl<F: LurkField> GlobalAllocations<F> {
             };
         }
 
-        defsym!(lambda_sym, "lambda");
+        defsym!(nil_ptr, "nil", nil);
+        defsym!(t_ptr, "t", t);
+        defsym!(dummy_arg_ptr, "_", dummy);
+        defsym!(lambda_sym, "lambda", lambda);
 
         let true_num = allocate_constant(&mut cs.namespace(|| "true"), F::one())?;
         let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::zero())?;

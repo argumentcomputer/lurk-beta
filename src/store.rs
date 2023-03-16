@@ -1339,7 +1339,7 @@ impl<F: LurkField> Store<F> {
             }
             (ExprTag::Str, Some(Str(s))) => Some(self.intern_str(s)),
             (ExprTag::Sym, Some(Sym(s))) => Some(self.intern_sym(s)),
-            (ExprTag::Key, Some(Sym(_))) => todo!(),
+            (ExprTag::Key, Some(Sym(k))) => Some(self.intern_key(k)),
             (ExprTag::Num, Some(Num(x))) => Some(self.intern_num(crate::Num::Scalar(*x))),
             (ExprTag::Thunk, Some(Thunk(t))) => {
                 let value = self.intern_scalar_ptr(t.value, scalar_store)?;
@@ -1420,6 +1420,13 @@ impl<F: LurkField> Store<F> {
 
     pub fn intern_sym(&mut self, sym: &Sym) -> Ptr<F> {
         let name = sym.full_name();
+        self.intern_sym_by_full_name(name)
+    }
+
+    pub fn intern_key(&mut self, sym: &Sym) -> Ptr<F> {
+        let name = sym.full_name();
+
+        assert!(names_keyword(&name).0);
         self.intern_sym_by_full_name(name)
     }
 
