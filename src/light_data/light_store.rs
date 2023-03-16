@@ -151,14 +151,14 @@ impl<F: LurkField> LightStore<F> {
                 (ExprTag::Num, Some(LightExpr::Num(f))) => Some(ScalarExpression::Num(*f)),
                 (ExprTag::Char, Some(LightExpr::Char(f))) => {
                     let Some(f_char) = f.to_char() else {
-                    return Err(anyhow!("Non-char field in LightExpr::Char"));
-                };
+                        return Err(anyhow!("Non-char field in LightExpr::Char"));
+                    };
                     Some(ScalarExpression::Char(f_char))
                 }
                 (ExprTag::Char, None) => {
                     let Some(f_char) = (*ptr).value().to_char() else {
-                    return Err(anyhow!("Non-char field in LightExpr::Char"));
-                };
+                        return Err(anyhow!("Non-char field in LightExpr::Char"));
+                    };
                     Some(ScalarExpression::Char(f_char))
                 }
                 (ExprTag::Nil, Some(LightExpr::Nil)) => Some(ScalarExpression::Nil),
@@ -184,7 +184,7 @@ impl<F: LurkField> LightStore<F> {
                 _ => None,
             };
             store.insert_scalar_expression(*ptr, se);
-        }
+        };
         Ok(store)
     }
 
