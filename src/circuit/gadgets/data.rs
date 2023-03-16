@@ -200,12 +200,6 @@ impl<F: LurkField> GlobalAllocations<F> {
                     c.$cname.scalar_ptr(),
                 )?;
             };
-            ($var:ident, $name:expr, $namespace:expr) => {
-                let $var = AllocatedPtr::alloc_constant(
-                    &mut cs.namespace(|| $namespace),
-                    hash_sym($name),
-                )?;
-            };
         }
 
         defsym!(nil_ptr, "nil", nil);
