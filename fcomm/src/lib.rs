@@ -89,7 +89,9 @@ pub fn public_params(rc: usize) -> Result<Arc<PublicParams<'static>>, Error> {
             // TODO: Add versioning to cache key
             let key = format!("public-params-rc-{rc}");
             if let Some(pp) = disk_cache.get(&key) {
-                Ok(Arc::new(pp))
+                let pp = Arc::new(pp);
+                mem_cache.insert(rc, pp.clone());
+                Ok(pp)
             } else {
                 let pp = Arc::new(nova::public_params(rc));
                 mem_cache.insert(rc, pp.clone());
