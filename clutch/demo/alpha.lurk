@@ -1,0 +1,127 @@
+!(:def people '((:first-name "Alonzo" :last-name "Church" :balance 123 :id 0)
+                (:first-name "Alan" :last-name "Turing" :balance 456 :id 1)
+                (:first-name "Satoshi" :last-name "Nakamoto" :balance 9000 :id 2)))
+
+!(:defrec get (lambda (key plist)
+                (if plist
+                    (if (eq key (car plist))
+                        (car (cdr plist))
+                        (get key (cdr (cdr plist))))
+                    nil)))
+
+(get :last-name (car people))
+
+!(:defrec map (lambda (f list)
+                (if list
+                    (cons (f (car list))
+                          (map f (cdr list)))
+                    ())))
+
+!(:defrec filter (lambda (pred list)
+                   (if list
+                       (if (pred (car list))
+                           (cons (car list) (filter pred (cdr list)))
+                           (filter pred (cdr list)))
+                       ())))
+
+!(:def balance-at-least? (lambda (x)
+                           (lambda (entry)
+                             (>= (get :balance entry) x))))
+
+(map (get :first-name) (filter (balance-at-least? 200) people))
+
+(map (get :balance) people)
+
+!(:defrec sum (lambda (vals)
+                (if vals
+                    (+ (car vals) (sum (cdr vals)))
+                    0)))
+
+!(:def total-funds (lambda (db) (sum (map (get :balance) db))))
+
+!(:def initial-total-funds (emit (total-funds people)))
+
+!(:def funds-are-conserved? (lambda (db) (= initial-total-funds (total-funds db))))
+
+!(:def set (lambda (key value plist)
+             (letrec ((aux (lambda (acc plist)
+                             (if plist
+                                 (if (eq key (car plist))
+                                     (aux (cons key (cons value acc))
+                                          (cdr (cdr plist)))
+                                     (aux (cons (car plist)
+                                                (cons (car (cdr plist)) acc))
+                                          (cdr (cdr plist))))
+                                 acc))))
+               (aux () plist))))
+
+(set :balance 666 (car people))
+
+!(:def update (lambda (key update-fn plist)
+                (letrec ((aux (lambda (acc plist)
+                                (if plist
+                                    (if (eq key (car plist))
+                                        (aux (cons key (cons (update-fn (car (cdr plist))) acc))
+                                             (cdr (cdr plist)))
+                                        (aux (cons (car plist)
+                                                   (cons (car (cdr plist)) acc))
+                                             (cdr (cdr plist))))
+                                    acc))))
+                  (aux () plist))))
+
+;; Double Church's balance!
+(update :balance (lambda (x) (* x 2)) (car people))
+
+!(:def update-where (lambda (predicate key update-fn db)
+                      (letrec ((aux (lambda (db)
+                                      (if db
+                                          (if (predicate (car db))
+                                              (cons (update key update-fn (car db))
+                                                    (aux (cdr db)))
+                                              (cons (car db)
+                                                    (aux (cdr db))))
+                                          nil))))
+                        (aux db))))
+
+!(:def has-id? (lambda (id x) (eq id (get :id x))))
+
+(update-where (has-id? 2) :first-name (lambda (x) (strcons #\Z (cdr x))) people)
+
+!(:def send (lambda (amount from-id to-id db)
+              (let ((from (car (filter (has-id? from-id) db))))
+                (if (balance-at-least? amount from)
+                    (let ((debited (update-where (has-id? from-id) :balance (lambda (x) (- x amount)) db))
+                          (credited (update-where (has-id? to-id) :balance (lambda (x) (+ x amount)) debited)))
+                      credited)
+                    (begin (emit "INSUFFICIENT FUNDS") db)))))
+
+!(:def ledger people)
+
+(send 200 1 0 people)
+
+!(:assert (funds-are-conserved? ledger))
+
+(send 200 0 1 people)
+
+!(:assert (funds-are-conserved? ledger))
+
+;; TODO: when proving multi-arg functions works.
+;; !(:def fn<-db (lambda (db)
+;;                 (lambda (amount from-id to-id)
+;;                   (send amount from-id to-id db))))
+
+!(:def fn<-db (lambda (db)
+                (lambda (transfer)
+                  (let ((amount (car transfer))
+                        (rest (cdr transfer))
+                        (from-id (car rest))
+                        (rest (cdr rest))
+                        (to-id (car rest)))
+                    (send (emit amount) (emit from-id) (emit to-id) (emit db))))))
+
+
+!(:commit (fn<-db ledger))
+0x36283c9973a837574e3e5a15815b60a541df265b0f218ab048e99a7c44ee3769
+
+!(:call 0x36283c9973a837574e3e5a15815b60a541df265b0f218ab048e99a7c44ee3769 '(1 0 2))
+;; !(:prove)
