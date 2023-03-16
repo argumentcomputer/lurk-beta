@@ -124,21 +124,18 @@ impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
     }
 }
 
-pub fn repl<F: LurkField, T: ReplTrait<F>>(is_cli: bool) -> Result<()> {
+pub fn repl_cli<F: LurkField, T: ReplTrait<F>>() -> Result<()> {
     let command = T::command();
     let matches = command.clone().get_matches();
 
-    let (lurk_file, light_store) = if is_cli {
-        (
-            matches.get_one::<String>("lurk_file"),
-            matches.get_one::<String>("lightstore"),
-        )
-    } else {
-        (None, None)
-    };
+    let lurk_file = matches.get_one::<String>("lurk_file");
+    let light_store = matches.get_one::<String>("lightstore");
 
-    let c = if is_cli { Some(command) } else { None };
-    repl_aux::<_, F, T>(lurk_file, light_store, c)
+    repl_aux::<_, F, T>(lurk_file, light_store, Some(command))
+}
+
+pub fn repl<F: LurkField, T: ReplTrait<F>, P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
+    repl_aux::<_, F, T>(lurk_file, None, None)
 }
 
 fn repl_aux<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
@@ -181,7 +178,6 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
 
     {
         if let Some(lurk_file) = lurk_file {
-            dbg!(&lurk_file.as_ref());
             repl.state.handle_run(s, &lurk_file, &package).unwrap();
             return Ok(());
         }

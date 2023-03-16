@@ -4,7 +4,7 @@ use clutch::ClutchState;
 
 use lurk::field::LanguageField;
 use lurk::proof::nova;
-use lurk::repl::repl;
+use lurk::repl::repl_cli;
 
 fn main() -> Result<()> {
     pretty_env_logger::init();
@@ -22,7 +22,7 @@ fn main() -> Result<()> {
     };
 
     match field {
-        LanguageField::Pallas => repl::<nova::S1, ClutchState<nova::S1>>(true),
+        LanguageField::Pallas => repl_cli::<nova::S1, ClutchState<nova::S1>>(),
         _ => panic!("unsupported field"),
     }
 }
