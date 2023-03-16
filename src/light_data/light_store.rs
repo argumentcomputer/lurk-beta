@@ -106,7 +106,7 @@ impl<F: LurkField> LightStore<F> {
 
         // TODO: this needs to bail on encountering an opaque pointer
         while let Some(LightExpr::SymCons(s, ss)) = self.get(&ptr).flatten() {
-            let string = if s == ScalarPtr::from_parts(ExprTag::Str.as_field(), F::zero()) {
+            let string = if s == ScalarPtr::from_parts(ExprTag::Str, F::zero()) {
                 Ok(String::new())
             } else {
                 self.insert_scalar_string(s, store)
@@ -140,30 +140,48 @@ impl<F: LurkField> LightStore<F> {
     fn to_scalar_store(&self) -> anyhow::Result<ScalarStore<F>> {
         let mut store = ScalarStore::default();
         for (ptr, le) in self.scalar_map.iter() {
-            let se = match le {
-                None => None,
-                Some(LightExpr::Cons(x, y)) => Some(ScalarExpression::Cons(*x, *y)),
-                Some(LightExpr::Comm(f, x)) => Some(ScalarExpression::Comm(*f, *x)),
-                Some(LightExpr::Num(f)) => Some(ScalarExpression::Num(*f)),
-                Some(LightExpr::Char(f)) => {
+            let se = match (ptr.tag(), le) {
+                (ExprTag::Cons, Some(LightExpr::Cons(x, y))) => {
+                    Some(ScalarExpression::Cons(*x, *y))
+                }
+                (ExprTag::Comm, Some(LightExpr::Comm(f, x))) => {
+                    Some(ScalarExpression::Comm(*f, *x))
+                }
+                (ExprTag::Num, None) => Some(ScalarExpression::Num(*ptr.value())),
+                (ExprTag::Num, Some(LightExpr::Num(f))) => Some(ScalarExpression::Num(*f)),
+                (ExprTag::Char, Some(LightExpr::Char(f))) => {
                     let Some(f_char) = f.to_char() else {
-                        return Err(anyhow!("Non-char field in LightExpr::Char"));
-                    };
+                    return Err(anyhow!("Non-char field in LightExpr::Char"));
+                };
                     Some(ScalarExpression::Char(f_char))
                 }
-                Some(LightExpr::Nil) => Some(ScalarExpression::Nil),
-                Some(LightExpr::StrNil) => Some(ScalarExpression::Str(String::from(""))),
+                (ExprTag::Char, None) => {
+                    let Some(f_char) = (*ptr).value().to_char() else {
+                    return Err(anyhow!("Non-char field in LightExpr::Char"));
+                };
+                    Some(ScalarExpression::Char(f_char))
+                }
+                (ExprTag::Nil, Some(LightExpr::Nil)) => Some(ScalarExpression::Nil),
+                (ExprTag::Str, Some(LightExpr::StrNil)) => {
+                    Some(ScalarExpression::Str(String::from("")))
+                }
+                (ExprTag::Str, None) if *ptr.value() == F::zero() => {
+                    Some(ScalarExpression::Str(String::from("")))
+                }
                 // TODO: StrCons with opaque contents breaks this
-                Some(LightExpr::StrCons(_, _)) => {
+                (ExprTag::Str, Some(LightExpr::StrCons(_, _))) => {
                     self.insert_scalar_string(*ptr, &mut store)?;
                     continue;
                 }
-                Some(LightExpr::SymNil) => Some(ScalarExpression::Sym(Sym::root())),
-                // TODO: SymCons with opaque contents breaks this
-                Some(LightExpr::SymCons(_, _)) => {
+                (ExprTag::Sym, Some(LightExpr::SymNil)) => Some(ScalarExpression::Sym(Sym::root())),
+                (ExprTag::Sym, None) if *ptr.value() == F::zero() => {
+                    Some(ScalarExpression::Sym(Sym::root()))
+                }
+                (ExprTag::Sym, Some(LightExpr::SymCons(_, _))) => {
                     self.insert_scalar_symbol(*ptr, &mut store)?;
                     continue;
                 }
+                _ => None,
             };
             store.insert_scalar_expression(*ptr, se);
         }

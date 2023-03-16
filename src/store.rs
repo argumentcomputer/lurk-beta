@@ -1253,55 +1253,82 @@ impl<F: LurkField> Store<F> {
 
     pub fn intern_scalar_ptr(
         &mut self,
-        ptr: ScalarPtr<F>,
+        scalar_ptr: ScalarPtr<F>,
         scalar_store: &ScalarStore<F>,
     ) -> Option<Ptr<F>> {
-        let tag: ExprTag = ptr.tag();
-        let expr = scalar_store.get_expr(&ptr);
+        let tag = scalar_ptr.tag();
+        let expr = scalar_store.get_expr(&scalar_ptr);
         //println!("  tag: {}", tag);
         //println!("  expr: {:?}", expr);
-        use ScalarExpression::*;
-        match (tag, expr) {
-            (ExprTag::Nil, Some(Nil)) => Some(self.intern_nil()),
-            (ExprTag::Cons, Some(Cons(car, cdr))) => {
-                let car = self.intern_scalar_ptr(*car, scalar_store)?;
-                let cdr = self.intern_scalar_ptr(*cdr, scalar_store)?;
-                Some(self.intern_cons(car, cdr))
-            }
-            (ExprTag::Comm, Some(Comm(secret, payload))) => {
-                let payload = self.intern_scalar_ptr(*payload, scalar_store)?;
-                Some(self.intern_comm(*secret, payload))
-            }
-            (ExprTag::Str, Some(Str(s))) => Some(self.intern_str(s)),
-            (ExprTag::Sym, Some(Sym(s))) => Some(self.intern_sym(s)),
-            (ExprTag::Key, Some(Sym(k))) => Some(self.intern_key(k)),
-            (ExprTag::Num, Some(Num(x))) => Some(self.intern_num(crate::Num::Scalar(*x))),
-            (ExprTag::Char, Some(Char(x))) => Some((*x).into()),
-            (ExprTag::Thunk, Some(Thunk(t))) => {
-                let value = self.intern_scalar_ptr(t.value, scalar_store)?;
-                let continuation = self.intern_scalar_cont_ptr(t.continuation, scalar_store)?;
-                Some(self.intern_thunk(crate::store::Thunk {
-                    value,
-                    continuation,
-                }))
-            }
-            (
-                ExprTag::Fun,
-                Some(Fun {
-                    arg,
-                    body,
-                    closed_env,
-                }),
-            ) => {
-                let arg = self.intern_scalar_ptr(*arg, scalar_store)?;
-                let body = self.intern_scalar_ptr(*body, scalar_store)?;
-                let env = self.intern_scalar_ptr(*closed_env, scalar_store)?;
-                Some(self.intern_fun(arg, body, env))
-            }
-            (tag, None) => Some(self.intern_maybe_opaque(tag, ptr.1)),
-            (tag, expr) => {
-                //println!("NONE {:?} {:?}", tag, expr);
-                None
+        if let Some(ptr) = self.fetch_scalar(&scalar_ptr) {
+            return Some(ptr);
+        } else {
+            use ScalarExpression::*;
+            match (tag, expr) {
+                (ExprTag::Nil, Some(Nil)) => {
+                    let ptr = self.intern_nil();
+                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Cons, Some(Cons(car, cdr))) => {
+                    let car = self.intern_scalar_ptr(*car, scalar_store)?;
+                    let cdr = self.intern_scalar_ptr(*cdr, scalar_store)?;
+                    let ptr = self.intern_cons(car, cdr);
+                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Comm, Some(Comm(secret, payload))) => {
+                    let payload = self.intern_scalar_ptr(*payload, scalar_store)?;
+                    let ptr = self.intern_comm(*secret, payload);
+                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Str, Some(Str(s))) => {
+                    let ptr = self.intern_str(s);
+                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Sym, Some(Sym(s))) => {
+                    let ptr = self.intern_sym(s);
+                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Key, Some(Sym(k))) => Some(self.intern_key(k)),
+                (ExprTag::Num, Some(Num(x))) => Some(self.intern_num(crate::Num::Scalar(*x))),
+                (ExprTag::Num, None) => {
+                    Some(self.intern_num(crate::Num::Scalar(*scalar_ptr.value())))
+                }
+                (ExprTag::Char, Some(Char(x))) => Some((*x).into()),
+                (ExprTag::Char, None) => {
+                    let c = F::to_char(scalar_ptr.value())?;
+                    Some(c.into())
+                }
+                (ExprTag::Thunk, Some(Thunk(t))) => {
+                    let value = self.intern_scalar_ptr(t.value, scalar_store)?;
+                    let continuation = self.intern_scalar_cont_ptr(t.continuation, scalar_store)?;
+                    Some(self.intern_thunk(crate::store::Thunk {
+                        value,
+                        continuation,
+                    }))
+                }
+                (
+                    ExprTag::Fun,
+                    Some(Fun {
+                        arg,
+                        body,
+                        closed_env,
+                    }),
+                ) => {
+                    let arg = self.intern_scalar_ptr(*arg, scalar_store)?;
+                    let body = self.intern_scalar_ptr(*body, scalar_store)?;
+                    let env = self.intern_scalar_ptr(*closed_env, scalar_store)?;
+                    Some(self.intern_fun(arg, body, env))
+                }
+                (tag, None) => {
+                    // println!("OPAQUE {:?} {:?}", scalar_ptr, tag);
+                    Some(self.intern_maybe_opaque(tag, scalar_ptr.1))
+                }
+                _ => None,
             }
         }
     }
