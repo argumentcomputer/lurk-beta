@@ -108,7 +108,7 @@ impl Package {
 
         let name_is_prefix = sym_path.iter().zip(name.path()).all(|(a, b)| a == b);
 
-        if name_is_prefix {
+        if name_is_prefix && sym_path != name_path {
             Sym::new_from_path(false, sym_path[name_path.len()..].to_vec())
         } else {
             sym.clone()

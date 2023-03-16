@@ -166,6 +166,8 @@ pub struct Store<F: LurkField> {
     dehydrated_cont: Vec<ContPtr<F>>,
     opaque_raw_ptr_count: usize,
 
+    pointer_scalar_ptr_cache: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
+
     pub(crate) lurk_package: Package,
     constants: OnceCell<NamedConstants<F>>,
 }
@@ -909,6 +911,7 @@ impl<F: LurkField> Default for Store<F> {
             dehydrated: Default::default(),
             dehydrated_cont: Default::default(),
             opaque_raw_ptr_count: 0,
+            pointer_scalar_ptr_cache: Default::default(),
             lurk_package: Package::lurk(),
             constants: Default::default(),
         };
@@ -1149,6 +1152,7 @@ impl<F: LurkField> Store<F> {
         let (p, inserted) = self.comm_store.insert_full((FWrap(secret), payload));
 
         let ptr = Ptr(ExprTag::Comm, RawPtr::new(p));
+
         if inserted {
             self.dehydrated.push(ptr);
         }
@@ -1928,7 +1932,12 @@ impl<F: LurkField> Store<F> {
 
     pub fn hash_expr_aux(&self, ptr: &Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
         use ExprTag::*;
-        match ptr.tag() {
+
+        if let Some(scalar_ptr) = &self.pointer_scalar_ptr_cache.get(ptr) {
+            return Some(**scalar_ptr);
+        }
+
+        let scalar_ptr = match ptr.tag() {
             Nil => self.hash_nil(mode),
             Cons => self.hash_cons(*ptr, mode),
             Comm => self.hash_comm(*ptr, mode),
@@ -1940,7 +1949,18 @@ impl<F: LurkField> Store<F> {
             Char => self.hash_char(*ptr, mode),
             Thunk => self.hash_thunk(*ptr, mode),
             U64 => self.hash_uint(*ptr, mode),
+        };
+
+        match mode {
+            HashScalar::Create => {
+                if let Some(sp) = scalar_ptr {
+                    self.pointer_scalar_ptr_cache.insert(*ptr, sp);
+                }
+            }
+            HashScalar::Get => (),
         }
+
+        scalar_ptr
     }
 
     pub fn hash_cont(&self, ptr: &ContPtr<F>) -> Option<ScalarContPtr<F>> {

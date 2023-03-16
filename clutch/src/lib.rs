@@ -440,12 +440,20 @@ impl ClutchState<F> {
             return Ok((commitment, Some(value)));
         };
 
-        Ok((
-            commitment,
-            self.expression_map
-                .get(&commitment)
-                .map(|c| c.expr.ptr(store, self.repl_state.limit)),
-        ))
+        let commitment_expr = self.expression_map.get(&commitment);
+        let commitment_ptr = commitment_expr.map(|c| {
+            let ptr = c.expr.ptr(store, self.repl_state.limit);
+
+            if let Some(secret) = c.secret {
+                store.intern_comm(secret, ptr);
+            };
+
+            ptr
+        });
+
+        store.hydrate_scalar_cache();
+
+        Ok((commitment, commitment_ptr))
     }
 
     fn proof_in_expr(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
