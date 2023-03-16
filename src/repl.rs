@@ -707,8 +707,14 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
         if let Some(expr) = res {
             let mut handle = io::stdout().lock();
             expr.fmt(store, &mut handle)?;
-            println!();
+
+            // TODO: Why is this seemingly necessary to flush?
+            // This doesn't work: io::stdout().flush().unwrap();
+            // We don't really want the newline.
+            println!("");
         };
+
+        io::stdout().flush().unwrap();
         Ok(())
     }
 

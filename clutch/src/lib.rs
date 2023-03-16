@@ -106,7 +106,7 @@ impl ReplTrait<F> for ClutchState<F> {
         let expression_map = fcomm::committed_expression_store();
 
         let demo = command.clone().and_then(|c| {
-            let l = Self::base_prompt().len();
+            let l = Self::base_prompt().trim_start_matches("\n").len();
             let matches = c.get_matches();
 
             matches
@@ -136,7 +136,11 @@ impl ReplTrait<F> for ClutchState<F> {
 
     fn prompt(&mut self) -> String {
         if let Some(demo_input) = self.demo.as_ref().and_then(|d: &Demo| d.peek_input()) {
-            format!("{}{demo_input}", Self::base_prompt())
+            if demo_input.trim().is_empty() {
+                "".to_string()
+            } else {
+                format!("{}{demo_input}", Self::base_prompt())
+            }
         } else {
             Self::base_prompt()
         }
