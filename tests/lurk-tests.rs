@@ -32,6 +32,6 @@ fn lurk_tests() {
     for f in test_files {
         let joined = example_dir.join(f);
 
-        repl::<_, nova::S1, ReplState<nova::S1>>(Some(joined), None).unwrap();
+        repl::<nova::S1, ReplState<nova::S1>, _>(Some(joined)).unwrap();
     }
 }

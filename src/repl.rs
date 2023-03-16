@@ -9,6 +9,7 @@ use crate::store::{ContPtr, Expression, Pointer, Ptr, Store};
 use crate::tag::{ContTag, ExprTag};
 use crate::writer::Write;
 use anyhow::{Context, Result};
+use clap::{Arg, ArgAction, Command};
 use peekmore::PeekMore;
 use rustyline::error::ReadlineError;
 use rustyline::validate::{
@@ -36,6 +37,7 @@ impl Validator for InputValidator {
 pub struct ReplState<F: LurkField> {
     pub env: Ptr<F>,
     pub limit: usize,
+    pub command: Option<Command>,
 }
 
 pub struct Repl<F: LurkField, T: ReplTrait<F>> {
@@ -46,11 +48,15 @@ pub struct Repl<F: LurkField, T: ReplTrait<F>> {
 }
 
 pub trait ReplTrait<F: LurkField> {
-    fn new(s: &mut Store<F>, limit: usize) -> Self;
+    fn new(s: &mut Store<F>, limit: usize, command: Option<Command>) -> Self;
 
     fn name() -> String;
 
-    fn prompt(&self) -> String;
+    fn prompt(&mut self) -> String;
+
+    fn process_line(&mut self, line: String) -> String;
+
+    fn command() -> Command;
 
     fn handle_run<P: AsRef<Path> + Copy>(
         &mut self,
@@ -86,7 +92,7 @@ pub trait ReplTrait<F: LurkField> {
 }
 
 impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
-    pub fn new(s: &mut Store<F>, limit: usize) -> Result<Self> {
+    pub fn new(s: &mut Store<F>, limit: usize, command: Option<Command>) -> Result<Self> {
         let history_path = dirs::home_dir()
             .expect("missing home directory")
             .join(".lurk-history");
@@ -104,7 +110,7 @@ impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
             rl.load_history(&history_path)?;
         }
 
-        let state = T::new(s, limit);
+        let state = T::new(s, limit, command);
         Ok(Self {
             state,
             rl,
@@ -118,9 +124,24 @@ impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
     }
 }
 
-pub fn repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
+pub fn repl_cli<F: LurkField, T: ReplTrait<F>>() -> Result<()> {
+    let command = T::command();
+    let matches = command.clone().get_matches();
+
+    let lurk_file = matches.get_one::<String>("lurk_file");
+    let light_store = matches.get_one::<String>("lightstore");
+
+    repl_aux::<_, F, T>(lurk_file, light_store, Some(command))
+}
+
+pub fn repl<F: LurkField, T: ReplTrait<F>, P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
+    repl_aux::<_, F, T>(lurk_file, None, None)
+}
+
+fn repl_aux<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
     lurk_file: Option<P>,
     light_store: Option<P>,
+    command: Option<Command>,
 ) -> Result<()> {
     let received_light_store = light_store.is_some();
     let mut s = light_store
@@ -137,7 +158,7 @@ pub fn repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
         .unwrap_or_default();
     let s_ref = &mut s;
     let limit = 100_000_000;
-    let repl: Repl<F, T> = Repl::new(s_ref, limit)?;
+    let repl: Repl<F, T> = Repl::new(s_ref, limit, command)?;
 
     run_repl(s_ref, repl, lurk_file)
 }
@@ -165,7 +186,11 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
     let pwd_path = std::env::current_dir().unwrap();
     let p: &Path = pwd_path.as_ref();
     loop {
-        match repl.rl.readline(&repl.state.prompt()) {
+        let line = repl
+            .rl
+            .readline(&repl.state.prompt())
+            .map(|line| repl.state.process_line(line));
+        match line {
             Ok(line) => {
                 repl.save_history()?;
 
@@ -226,10 +251,11 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
 }
 
 impl<F: LurkField> ReplState<F> {
-    pub fn new(s: &mut Store<F>, limit: usize) -> Self {
+    pub fn new(s: &mut Store<F>, limit: usize, command: Option<Command>) -> Self {
         Self {
             env: empty_sym_env(s),
             limit,
+            command,
         }
     }
     pub fn eval_expr(
@@ -381,10 +407,11 @@ impl<F: LurkField> ReplState<F> {
 }
 
 impl<F: LurkField> ReplTrait<F> for ReplState<F> {
-    fn new(s: &mut Store<F>, limit: usize) -> Self {
+    fn new(s: &mut Store<F>, limit: usize, command: Option<Command>) -> Self {
         Self {
             env: empty_sym_env(s),
             limit,
+            command,
         }
     }
 
@@ -392,8 +419,31 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
         "Lurk REPL".into()
     }
 
-    fn prompt(&self) -> String {
+    fn prompt(&mut self) -> String {
         "> ".into()
+    }
+
+    fn process_line(&mut self, line: String) -> String {
+        line
+    }
+    fn command() -> Command {
+        Command::new("Lurk REPL")
+            .arg(
+                Arg::new("lurk_file")
+                    .help("Lurk file to run")
+                    .action(ArgAction::Set)
+                    .value_name("LURKFILE")
+                    .index(1)
+                    .help("Specifies the path of a lurk file to run"),
+            )
+            .arg(
+                Arg::new("lightstore")
+                    .long("lightstore")
+                    .value_parser(clap::builder::NonEmptyStringValueParser::new())
+                    .action(ArgAction::Set)
+                    .value_name("LIGHTSTORE")
+                    .help("Specifies the lightstore file path"),
+            )
     }
 
     fn handle_run<P: AsRef<Path> + Copy>(
@@ -653,8 +703,14 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
         if let Some(expr) = res {
             let mut handle = io::stdout().lock();
             expr.fmt(store, &mut handle)?;
+
+            // TODO: Why is this seemingly necessary to flush?
+            // This doesn't work: io::stdout().flush().unwrap();
+            // We don't really want the newline.
             println!();
         };
+
+        io::stdout().flush().unwrap();
         Ok(())
     }
 

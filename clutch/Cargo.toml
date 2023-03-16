@@ -12,6 +12,7 @@ repository = "https://github.com/lurk-lang/lurk-rs"
 [dependencies]
 anyhow = "1.0.69"
 blstrs = "0.6.1"
+clap = "4.1.8"
 fcomm = { path = "../fcomm" }
 lurk = { path = "../" }
 pasta_curves = { version = "0.5.2", features = ["repr-c", "serde"], package = "fil_pasta_curves" }
