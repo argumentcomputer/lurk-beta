@@ -10,13 +10,13 @@ pub enum Error {
     #[error("Unsupported reduction count: {0}")]
     UnsupportedReductionCount(usize),
     #[error("IO error: {0}")]
-    IOError(io::Error),
+    IOError(#[from] io::Error),
     #[error("JSON error: {0}")]
-    JsonError(serde_json::Error),
+    JsonError(#[from] serde_json::Error),
     #[error("Synthesis error: {0}")]
-    SynthesisError(SynthesisError),
+    SynthesisError(#[from] SynthesisError),
     #[error("Commitment parser error: {0}")]
-    CommitmentParseError(hex::FromHexError),
+    CommitmentParseError(#[from] hex::FromHexError),
     #[error("Unknown commitment")]
     UnknownCommitment,
     #[error("Opening Failure: {0}")]
@@ -24,29 +24,7 @@ pub enum Error {
     #[error("Evaluation Failure")]
     EvaluationFailure,
     #[error("Store error: {0}")]
-    StoreError(String),
-}
-
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Error {
-        Error::IOError(err)
-    }
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(err: serde_json::Error) -> Error {
-        Error::JsonError(err)
-    }
-}
-
-impl From<SynthesisError> for Error {
-    fn from(err: SynthesisError) -> Error {
-        Error::SynthesisError(err)
-    }
-}
-
-impl From<store::Error> for Error {
-    fn from(err: store::Error) -> Error {
-        Error::StoreError(err.0)
-    }
+    StoreError(#[from] store::Error),
+    #[error("Cache error: {0}")]
+    CacheError(String),
 }

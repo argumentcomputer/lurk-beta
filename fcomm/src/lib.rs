@@ -1,9 +1,11 @@
 use log::info;
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 
 use ff::PrimeField;
 use hex::FromHex;
@@ -67,21 +69,36 @@ pub fn committed_expression_store() -> CommittedExpressionMap {
     FileMap::<Commitment<S1>, CommittedExpression<S1>>::new("committed_expressions").unwrap()
 }
 
-pub type PublicParamCache = FileMap<String, PublicParams<'static>>;
-fn public_param_cache() -> PublicParamCache {
+pub type PublicParamMemCache = Mutex<HashMap<usize, Arc<PublicParams<'static>>>>;
+fn public_param_mem_cache() -> &'static PublicParamMemCache {
+    static CACHE: OnceCell<PublicParamMemCache> = OnceCell::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+pub type PublicParamDiskCache = FileMap<String, PublicParams<'static>>;
+fn public_param_disk_cache() -> PublicParamDiskCache {
     FileMap::new("public_params").unwrap()
 }
 
-pub fn public_params(rc: usize) -> PublicParams<'static> {
-    let cache = public_param_cache();
-    let key = format!("public-params-rc-{rc}");
-
-    if let Some(pp) = cache.get(&key) {
-        pp
-    } else {
-        let pp = nova::public_params(rc);
-        cache.set(key, &pp).unwrap();
-        pp
+pub fn public_params(rc: usize) -> Result<Arc<PublicParams<'static>>, Error> {
+    let mut mem_cache = public_param_mem_cache().lock().unwrap();
+    match mem_cache.get(&rc) {
+        Some(pp) => Ok(pp.clone()),
+        None => {
+            let disk_cache = public_param_disk_cache();
+            // TODO: Add versioning to cache key
+            let key = format!("public-params-rc-{rc}");
+            if let Some(pp) = disk_cache.get(&key) {
+                Ok(Arc::new(pp))
+            } else {
+                let pp = Arc::new(nova::public_params(rc));
+                mem_cache.insert(rc, pp.clone());
+                disk_cache
+                    .set(key, &pp)
+                    .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                Ok(pp)
+            }
+        }
     }
 }
 
