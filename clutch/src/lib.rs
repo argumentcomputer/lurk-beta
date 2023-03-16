@@ -18,6 +18,7 @@ use lurk::writer::Write;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
+use std::thread;
 
 #[derive(Clone, Debug)]
 struct Demo {
@@ -84,6 +85,7 @@ impl Demo {
 
 pub struct ClutchState<F: LurkField> {
     repl_state: ReplState<F>,
+    reduction_count: usize,
     history: Vec<IO<F>>,
     proof_map: NovaProofCache,
     expression_map: CommittedExpressionMap,
@@ -112,8 +114,14 @@ impl ReplTrait<F> for ClutchState<F> {
                 .map(|demo_file| Demo::new_from_path(demo_file, l))
         });
 
+        let reduction_count = 1;
+
+        // Load params from disk cache, or generate them in the background.
+        thread::spawn(move || public_params(reduction_count));
+
         Self {
             repl_state: ReplState::new(s, limit, command),
+            reduction_count,
             history: Default::default(),
             proof_map,
             expression_map,
@@ -481,9 +489,8 @@ impl ClutchState<F> {
     fn prove(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (proof_in_expr, _rest1) = store.car_cdr(&rest)?;
 
-        let chunk_frame_count = 1;
-        let prover = NovaProver::<F>::new(chunk_frame_count);
-        let pp = public_params(chunk_frame_count)?;
+        let prover = NovaProver::<F>::new(self.reduction_count);
+        let pp = public_params(self.reduction_count)?;
 
         let proof = if rest.is_nil() {
             self.last_claim
@@ -530,8 +537,7 @@ impl ClutchState<F> {
             .proof_map
             .get(&cid)
             .ok_or_else(|| anyhow!("proof not found: {cid}"))?;
-        let chunk_frame_count = 1;
-        let pp = public_params(chunk_frame_count)?;
+        let pp = public_params(self.reduction_count)?;
         let result = proof.verify(&pp).unwrap();
 
         if result.verified {
