@@ -106,7 +106,11 @@ impl<F: LurkField> LightStore<F> {
 
         // TODO: this needs to bail on encountering an opaque pointer
         while let Some(LightExpr::SymCons(s, ss)) = self.get(&ptr).flatten() {
-            let string = self.insert_scalar_string(s, store)?;
+            let string = if s == ScalarPtr::from_parts(ExprTag::Str.as_field(), F::zero()) {
+                Ok(String::new())
+            } else {
+                self.insert_scalar_string(s, store)
+            }?;
             path = path.child(string);
             if ss != symnil_ptr {
                 tail_ptrs.push(ss);

@@ -1258,6 +1258,8 @@ impl<F: LurkField> Store<F> {
     ) -> Option<Ptr<F>> {
         let tag: ExprTag = ptr.tag();
         let expr = scalar_store.get_expr(&ptr);
+        //println!("  tag: {}", tag);
+        //println!("  expr: {:?}", expr);
         use ScalarExpression::*;
         match (tag, expr) {
             (ExprTag::Nil, Some(Nil)) => Some(self.intern_nil()),
@@ -1266,10 +1268,15 @@ impl<F: LurkField> Store<F> {
                 let cdr = self.intern_scalar_ptr(*cdr, scalar_store)?;
                 Some(self.intern_cons(car, cdr))
             }
+            (ExprTag::Comm, Some(Comm(secret, payload))) => {
+                let payload = self.intern_scalar_ptr(*payload, scalar_store)?;
+                Some(self.intern_comm(*secret, payload))
+            }
             (ExprTag::Str, Some(Str(s))) => Some(self.intern_str(s)),
             (ExprTag::Sym, Some(Sym(s))) => Some(self.intern_sym(s)),
             (ExprTag::Key, Some(Sym(k))) => Some(self.intern_key(k)),
             (ExprTag::Num, Some(Num(x))) => Some(self.intern_num(crate::Num::Scalar(*x))),
+            (ExprTag::Char, Some(Char(x))) => Some((*x).into()),
             (ExprTag::Thunk, Some(Thunk(t))) => {
                 let value = self.intern_scalar_ptr(t.value, scalar_store)?;
                 let continuation = self.intern_scalar_cont_ptr(t.continuation, scalar_store)?;
@@ -1292,7 +1299,10 @@ impl<F: LurkField> Store<F> {
                 Some(self.intern_fun(arg, body, env))
             }
             (tag, None) => Some(self.intern_maybe_opaque(tag, ptr.1)),
-            _ => None,
+            (tag, expr) => {
+                //println!("NONE {:?} {:?}", tag, expr);
+                None
+            }
         }
     }
 
