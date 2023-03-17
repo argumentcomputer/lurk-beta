@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `fcomm/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c4dbdcde0fbd8430.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="fcomm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (171693274 2023-03-14)" data-search-js="search-d1bc581867fd0849.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../static.files/storage-9184409068f70b79.js"></script><script defer src="../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-f5a2577c5297a973.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../fcomm/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `fcomm/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c4dbdcde0fbd8430.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="fcomm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (511364e78 2023-03-16)" data-search-js="search-d1bc581867fd0849.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../static.files/storage-9184409068f70b79.js"></script><script defer src="../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-f5a2577c5297a973.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../fcomm/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -983,12 +983,33 @@
 <a href="#983" id="983">983</a>
 <a href="#984" id="984">984</a>
 <a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
 </pre><pre class="rust"><code><span class="kw">use </span>log::info;
+<span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::convert::TryFrom;
 <span class="kw">use </span>std::fs::File;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, BufReader, BufWriter};
 <span class="kw">use </span>std::path::Path;
 <span class="kw">use </span>std::str::FromStr;
+<span class="kw">use </span>std::sync::{Arc, Mutex};
 
 <span class="kw">use </span>ff::PrimeField;
 <span class="kw">use </span>hex::FromHex;
@@ -1052,21 +1073,38 @@
     FileMap::&lt;Commitment&lt;S1&gt;, CommittedExpression&lt;S1&gt;&gt;::new(<span class="string">&quot;committed_expressions&quot;</span>).unwrap()
 }
 
-<span class="kw">pub type </span>PublicParamCache = FileMap&lt;String, PublicParams&lt;<span class="lifetime">&#39;static</span>&gt;&gt;;
-<span class="kw">fn </span>public_param_cache() -&gt; PublicParamCache {
+<span class="kw">pub type </span>PublicParamMemCache = Mutex&lt;HashMap&lt;usize, Arc&lt;PublicParams&lt;<span class="lifetime">&#39;static</span>&gt;&gt;&gt;&gt;;
+<span class="kw">fn </span>public_param_mem_cache() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>PublicParamMemCache {
+    <span class="kw">static </span>CACHE: OnceCell&lt;PublicParamMemCache&gt; = OnceCell::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+<span class="kw">pub type </span>PublicParamDiskCache = FileMap&lt;String, PublicParams&lt;<span class="lifetime">&#39;static</span>&gt;&gt;;
+<span class="kw">fn </span>public_param_disk_cache() -&gt; PublicParamDiskCache {
     FileMap::new(<span class="string">&quot;public_params&quot;</span>).unwrap()
 }
 
-<span class="kw">pub fn </span>public_params(rc: usize) -&gt; PublicParams&lt;<span class="lifetime">&#39;static</span>&gt; {
-    <span class="kw">let </span>cache = public_param_cache();
-    <span class="kw">let </span>key = <span class="macro">format!</span>(<span class="string">&quot;public-params-rc-{rc}&quot;</span>);
-
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(pp) = cache.get(<span class="kw-2">&amp;</span>key) {
-        pp
-    } <span class="kw">else </span>{
-        <span class="kw">let </span>pp = nova::public_params(rc);
-        cache.set(key, <span class="kw-2">&amp;</span>pp).unwrap();
-        pp
+<span class="kw">pub fn </span>public_params(rc: usize) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;PublicParams&lt;<span class="lifetime">&#39;static</span>&gt;&gt;, Error&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>mem_cache = public_param_mem_cache().lock().unwrap();
+    <span class="kw">match </span>mem_cache.get(<span class="kw-2">&amp;</span>rc) {
+        <span class="prelude-val">Some</span>(pp) =&gt; <span class="prelude-val">Ok</span>(pp.clone()),
+        <span class="prelude-val">None </span>=&gt; {
+            <span class="kw">let </span>disk_cache = public_param_disk_cache();
+            <span class="comment">// TODO: Add versioning to cache key
+            </span><span class="kw">let </span>key = <span class="macro">format!</span>(<span class="string">&quot;public-params-rc-{rc}&quot;</span>);
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(pp) = disk_cache.get(<span class="kw-2">&amp;</span>key) {
+                <span class="kw">let </span>pp = Arc::new(pp);
+                mem_cache.insert(rc, pp.clone());
+                <span class="prelude-val">Ok</span>(pp)
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>pp = Arc::new(nova::public_params(rc));
+                mem_cache.insert(rc, pp.clone());
+                disk_cache
+                    .set(key, <span class="kw-2">&amp;</span>pp)
+                    .map_err(|e| Error::CacheError(<span class="macro">format!</span>(<span class="string">&quot;Disk write error: {e}&quot;</span>)))<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(pp)
+            }
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/data.rs`."><title>data.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c4dbdcde0fbd8430.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (171693274 2023-03-14)" data-search-js="search-d1bc581867fd0849.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../../../static.files/storage-9184409068f70b79.js"></script><script defer src="../../../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../static.files/main-f5a2577c5297a973.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../lurk/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/data.rs`."><title>data.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c4dbdcde0fbd8430.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (511364e78 2023-03-16)" data-search-js="search-d1bc581867fd0849.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../../../static.files/storage-9184409068f70b79.js"></script><script defer src="../../../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../static.files/main-f5a2577c5297a973.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../lurk/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -534,22 +534,6 @@
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
-<a href="#547" id="547">547</a>
-<a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
 </pre><pre class="rust"><code><span class="kw">use </span>bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem, SynthesisError,
@@ -561,7 +545,7 @@
 
 <span class="kw">use </span><span class="kw">super</span>::pointer::AsAllocatedHashComponents;
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
-<span class="kw">use </span><span class="kw">crate</span>::store::{Expression, HashScalar, Pointer, Ptr, Store, Thunk};
+<span class="kw">use </span><span class="kw">crate</span>::store::{Expression, Pointer, Ptr, Store, Thunk};
 <span class="kw">use </span><span class="kw">crate</span>::store::{IntoHashComponents, ScalarPtr};
 <span class="kw">use </span><span class="kw">crate</span>::store::{ScalarContPtr, ScalarPointer};
 <span class="kw">use </span><span class="kw">crate</span>::tag::{ContTag, ExprTag, Op1, Op2};
@@ -661,16 +645,6 @@
             <span class="kw-2">&amp;</span>store.get_cont_dummy(),
         )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>nil_ptr =
-            AllocatedPtr::alloc_constant_ptr(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;nil&quot;</span>), store, <span class="kw-2">&amp;</span>store.get_nil())<span class="question-mark">?</span>;
-        <span class="kw">let </span>t_ptr =
-            AllocatedPtr::alloc_constant_ptr(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;T&quot;</span>), store, <span class="kw-2">&amp;</span>store.get_t())<span class="question-mark">?</span>;
-        <span class="kw">let </span>dummy_arg_ptr = AllocatedPtr::alloc_constant_ptr(
-            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;_&quot;</span>),
-            store,
-            <span class="kw-2">&amp;</span>store.get_lurk_sym(<span class="string">&quot;_&quot;</span>, <span class="bool-val">true</span>).unwrap(),
-        )<span class="question-mark">?</span>;
-
         <span class="kw">let </span>empty_str_ptr = AllocatedPtr::alloc_constant_ptr(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;empty_str_ptr&quot;</span>),
             store,
@@ -753,27 +727,21 @@
             <span class="prelude-val">Ok</span>(Op2::Equal.as_field())
         })<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>hash_sym = |name: <span class="kw-2">&amp;</span>str| {
-            store
-                .get_lurk_sym(name, <span class="bool-val">true</span>)
-                .and_then(|s| store.hash_sym(s, HashScalar::Get))
-                .unwrap()
-        };
+        <span class="kw">let </span>c = store.get_constants();
 
         <span class="macro">macro_rules! </span>defsym {
-            (<span class="macro-nonterminal">$var</span>:ident, <span class="macro-nonterminal">$name</span>:expr) =&gt; {
-                <span class="kw">let </span><span class="macro-nonterminal">$var </span>=
-                    AllocatedPtr::alloc_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro-nonterminal">$name</span>), hash_sym(<span class="macro-nonterminal">$name</span>))<span class="question-mark">?</span>;
-            };
-            (<span class="macro-nonterminal">$var</span>:ident, <span class="macro-nonterminal">$name</span>:expr, <span class="macro-nonterminal">$namespace</span>:expr) =&gt; {
+            (<span class="macro-nonterminal">$var</span>:ident, <span class="macro-nonterminal">$name</span>:expr, <span class="macro-nonterminal">$cname</span>:ident) =&gt; {
                 <span class="kw">let </span><span class="macro-nonterminal">$var </span>= AllocatedPtr::alloc_constant(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro-nonterminal">$namespace</span>),
-                    hash_sym(<span class="macro-nonterminal">$name</span>),
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro-nonterminal">$name</span>),
+                    c.<span class="macro-nonterminal">$cname</span>.scalar_ptr(),
                 )<span class="question-mark">?</span>;
             };
         }
 
-        <span class="macro">defsym!</span>(lambda_sym, <span class="string">&quot;lambda&quot;</span>);
+        <span class="macro">defsym!</span>(nil_ptr, <span class="string">&quot;nil&quot;</span>, nil);
+        <span class="macro">defsym!</span>(t_ptr, <span class="string">&quot;t&quot;</span>, t);
+        <span class="macro">defsym!</span>(dummy_arg_ptr, <span class="string">&quot;_&quot;</span>, dummy);
+        <span class="macro">defsym!</span>(lambda_sym, <span class="string">&quot;lambda&quot;</span>, lambda);
 
         <span class="kw">let </span>true_num = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;true&quot;</span>), F::one())<span class="question-mark">?</span>;
         <span class="kw">let </span>false_num = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;false&quot;</span>), F::zero())<span class="question-mark">?</span>;

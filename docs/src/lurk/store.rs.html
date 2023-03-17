@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c4dbdcde0fbd8430.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (171693274 2023-03-14)" data-search-js="search-d1bc581867fd0849.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../static.files/storage-9184409068f70b79.js"></script><script defer src="../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-f5a2577c5297a973.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c4dbdcde0fbd8430.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (511364e78 2023-03-16)" data-search-js="search-d1bc581867fd0849.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../static.files/storage-9184409068f70b79.js"></script><script defer src="../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-f5a2577c5297a973.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -3332,6 +3332,33 @@
 <a href="#3332" id="3332">3332</a>
 <a href="#3333" id="3333">3333</a>
 <a href="#3334" id="3334">3334</a>
+<a href="#3335" id="3335">3335</a>
+<a href="#3336" id="3336">3336</a>
+<a href="#3337" id="3337">3337</a>
+<a href="#3338" id="3338">3338</a>
+<a href="#3339" id="3339">3339</a>
+<a href="#3340" id="3340">3340</a>
+<a href="#3341" id="3341">3341</a>
+<a href="#3342" id="3342">3342</a>
+<a href="#3343" id="3343">3343</a>
+<a href="#3344" id="3344">3344</a>
+<a href="#3345" id="3345">3345</a>
+<a href="#3346" id="3346">3346</a>
+<a href="#3347" id="3347">3347</a>
+<a href="#3348" id="3348">3348</a>
+<a href="#3349" id="3349">3349</a>
+<a href="#3350" id="3350">3350</a>
+<a href="#3351" id="3351">3351</a>
+<a href="#3352" id="3352">3352</a>
+<a href="#3353" id="3353">3353</a>
+<a href="#3354" id="3354">3354</a>
+<a href="#3355" id="3355">3355</a>
+<a href="#3356" id="3356">3356</a>
+<a href="#3357" id="3357">3357</a>
+<a href="#3358" id="3358">3358</a>
+<a href="#3359" id="3359">3359</a>
+<a href="#3360" id="3360">3360</a>
+<a href="#3361" id="3361">3361</a>
 </pre><pre class="rust"><code><span class="kw">use </span>generic_array::typenum::{U3, U4, U6, U8};
 <span class="kw">use </span>neptune::Poseidon;
 <span class="kw">use </span>rayon::prelude::<span class="kw-2">*</span>;
@@ -3499,6 +3526,8 @@
     </span>dehydrated: Vec&lt;Ptr&lt;F&gt;&gt;,
     dehydrated_cont: Vec&lt;ContPtr&lt;F&gt;&gt;,
     opaque_raw_ptr_count: usize,
+
+    pointer_scalar_ptr_cache: dashmap::DashMap&lt;Ptr&lt;F&gt;, ScalarPtr&lt;F&gt;&gt;,
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) lurk_package: Package,
     constants: OnceCell&lt;NamedConstants&lt;F&gt;&gt;,
@@ -4243,6 +4272,7 @@
             dehydrated: Default::default(),
             dehydrated_cont: Default::default(),
             opaque_raw_ptr_count: <span class="number">0</span>,
+            pointer_scalar_ptr_cache: Default::default(),
             lurk_package: Package::lurk(),
             constants: Default::default(),
         };
@@ -4483,6 +4513,7 @@
         <span class="kw">let </span>(p, inserted) = <span class="self">self</span>.comm_store.insert_full((FWrap(secret), payload));
 
         <span class="kw">let </span>ptr = Ptr(ExprTag::Comm, RawPtr::new(p));
+
         <span class="kw">if </span>inserted {
             <span class="self">self</span>.dehydrated.push(ptr);
         }
@@ -4673,7 +4704,7 @@
             }
             (ExprTag::Str, <span class="prelude-val">Some</span>(Str(s))) =&gt; <span class="prelude-val">Some</span>(<span class="self">self</span>.intern_str(s)),
             (ExprTag::Sym, <span class="prelude-val">Some</span>(Sym(s))) =&gt; <span class="prelude-val">Some</span>(<span class="self">self</span>.intern_sym(s)),
-            (ExprTag::Key, <span class="prelude-val">Some</span>(Sym(<span class="kw">_</span>))) =&gt; <span class="macro">todo!</span>(),
+            (ExprTag::Key, <span class="prelude-val">Some</span>(Sym(k))) =&gt; <span class="prelude-val">Some</span>(<span class="self">self</span>.intern_key(k)),
             (ExprTag::Num, <span class="prelude-val">Some</span>(Num(x))) =&gt; <span class="prelude-val">Some</span>(<span class="self">self</span>.intern_num(<span class="kw">crate</span>::Num::Scalar(<span class="kw-2">*</span>x))),
             (ExprTag::Thunk, <span class="prelude-val">Some</span>(Thunk(t))) =&gt; {
                 <span class="kw">let </span>value = <span class="self">self</span>.intern_scalar_ptr(t.value, scalar_store)<span class="question-mark">?</span>;
@@ -4754,6 +4785,13 @@
 
     <span class="kw">pub fn </span>intern_sym(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sym: <span class="kw-2">&amp;</span>Sym) -&gt; Ptr&lt;F&gt; {
         <span class="kw">let </span>name = sym.full_name();
+        <span class="self">self</span>.intern_sym_by_full_name(name)
+    }
+
+    <span class="kw">pub fn </span>intern_key(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sym: <span class="kw-2">&amp;</span>Sym) -&gt; Ptr&lt;F&gt; {
+        <span class="kw">let </span>name = sym.full_name();
+
+        <span class="macro">assert!</span>(names_keyword(<span class="kw-2">&amp;</span>name).<span class="number">0</span>);
         <span class="self">self</span>.intern_sym_by_full_name(name)
     }
 
@@ -5255,7 +5293,12 @@
 
     <span class="kw">pub fn </span>hash_expr_aux(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, mode: HashScalar) -&gt; <span class="prelude-ty">Option</span>&lt;ScalarPtr&lt;F&gt;&gt; {
         <span class="kw">use </span>ExprTag::<span class="kw-2">*</span>;
-        <span class="kw">match </span>ptr.tag() {
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(scalar_ptr) = <span class="kw-2">&amp;</span><span class="self">self</span>.pointer_scalar_ptr_cache.get(ptr) {
+            <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="kw-2">**</span>scalar_ptr);
+        }
+
+        <span class="kw">let </span>scalar_ptr = <span class="kw">match </span>ptr.tag() {
             Nil =&gt; <span class="self">self</span>.hash_nil(mode),
             Cons =&gt; <span class="self">self</span>.hash_cons(<span class="kw-2">*</span>ptr, mode),
             Comm =&gt; <span class="self">self</span>.hash_comm(<span class="kw-2">*</span>ptr, mode),
@@ -5267,7 +5310,18 @@
             Char =&gt; <span class="self">self</span>.hash_char(<span class="kw-2">*</span>ptr, mode),
             Thunk =&gt; <span class="self">self</span>.hash_thunk(<span class="kw-2">*</span>ptr, mode),
             U64 =&gt; <span class="self">self</span>.hash_uint(<span class="kw-2">*</span>ptr, mode),
+        };
+
+        <span class="kw">match </span>mode {
+            HashScalar::Create =&gt; {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(sp) = scalar_ptr {
+                    <span class="self">self</span>.pointer_scalar_ptr_cache.insert(<span class="kw-2">*</span>ptr, sp);
+                }
+            }
+            HashScalar::Get =&gt; (),
         }
+
+        scalar_ptr
     }
 
     <span class="kw">pub fn </span>hash_cont(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>ContPtr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;ScalarContPtr&lt;F&gt;&gt; {
