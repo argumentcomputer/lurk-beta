@@ -216,17 +216,13 @@ fn repl_aux<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
         .and_then(|bytes| LightData::de(&bytes).ok())
         .and_then(|ld| Encodable::de(&ld).ok())
         .and_then(|store: LightStore<F>| ScalarStore::try_from(store).ok())
-        .and_then(|mut scalar_store: ScalarStore<F>| {
-            fs::write("scalarstoredebug", format!("{:?}", scalar_store)).expect("fs");
-            scalar_store.to_store()
-        })
+        .and_then(|mut scalar_store: ScalarStore<F>| scalar_store.to_store())
         .tap_none(|| {
             if received_light_store {
                 eprintln!("Failed to load light store. Starting with empty store.")
             }
         })
         .unwrap_or_default();
-    fs::write("storedebug", format!("{:?}", s)).expect("fs");
     let s_ref = &mut s;
     let limit = 100_000_000;
     let repl: Repl<F, T> = Repl::new(s_ref, limit, command)?;

@@ -1914,6 +1914,7 @@ impl<F: LurkField> Store<F> {
             HashScalar::Create => {
                 if let Some(sp) = scalar_ptr {
                     self.pointer_scalar_ptr_cache.insert(*ptr, sp);
+                    self.scalar_ptr_map.insert(sp, *ptr);
                 }
             }
             HashScalar::Get => (),
