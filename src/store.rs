@@ -1258,8 +1258,6 @@ impl<F: LurkField> Store<F> {
     ) -> Option<Ptr<F>> {
         let tag = scalar_ptr.tag();
         let expr = scalar_store.get_expr(&scalar_ptr);
-        //println!("  tag: {}", tag);
-        //println!("  expr: {:?}", expr);
         if let Some(ptr) = self.fetch_scalar(&scalar_ptr) {
             return Some(ptr);
         } else {
@@ -1325,10 +1323,13 @@ impl<F: LurkField> Store<F> {
                     Some(self.intern_fun(arg, body, env))
                 }
                 (tag, None) => {
-                    // println!("OPAQUE {:?} {:?}", scalar_ptr, tag);
+                    //println!("OPAQUE {:?} {:?}", scalar_ptr, tag);
                     Some(self.intern_maybe_opaque(tag, scalar_ptr.1))
                 }
-                _ => None,
+                (_tag, _expr) => {
+                    //println!("NONE {:?} {:?}", tag, expr);
+                    None
+                }
             }
         }
     }
@@ -1943,6 +1944,9 @@ impl<F: LurkField> Store<F> {
         let scalar_ptr = ScalarPtr::from_parts(ptr.0, hash);
         let entry = self.scalar_ptr_map.entry(scalar_ptr);
         entry.or_insert(ptr);
+
+        let entry2 = self.pointer_scalar_ptr_cache.entry(ptr);
+        entry2.or_insert(scalar_ptr);
         scalar_ptr
     }
 
