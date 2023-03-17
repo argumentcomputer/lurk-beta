@@ -114,7 +114,7 @@ impl ReplTrait<F> for ClutchState<F> {
                 .map(|demo_file| Demo::new_from_path(demo_file, l))
         });
 
-        let reduction_count = 1;
+        let reduction_count = 10;
 
         // Load params from disk cache, or generate them in the background.
         thread::spawn(move || public_params(reduction_count));
