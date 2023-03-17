@@ -1,0 +1,24 @@
+!(:commit (letrec ((secret 12345)
+                   (a (lambda (acc x) 
+                        (let ((acc (+ acc x))) 
+                          (cons acc (hide secret (a acc)))))))
+            (a 0)))
+; (comm 0x37b702ced0c98ad724d16339232176b5878185cbf29ed66c1a6ec301d133c44b)
+
+!(:chain 0x37b702ced0c98ad724d16339232176b5878185cbf29ed66c1a6ec301d133c44b 9)
+; (comm 0x11f69eeadc8fc1ec94636c1b80eea75d81452236745bd0a18e29decd2067d798)
+; 9
+
+!(:prove)
+
+!(:chain 0x11f69eeadc8fc1ec94636c1b80eea75d81452236745bd0a18e29decd2067d798 12) 
+; (comm 0x3122abb10f8da6425c29f1b05cf85fe5a0334054d93db597ac8d6e707878d14c)
+; 21
+
+!(:prove)
+
+!(:chain 0x3122abb10f8da6425c29f1b05cf85fe5a0334054d93db597ac8d6e707878d14c 14)
+; (comm 0x16b292a8aea41b0e65398e5aef24d4c15c59bc122579076891745ebd7f5ec3f1)
+; 35
+
+!(:prove)

@@ -383,7 +383,7 @@ impl ClutchState<F> {
         chain: bool,
     ) -> Result<Option<Ptr<F>>> {
         let args = store.cdr(&rest)?;
-        let (commitment, Some(e)) = self.open_aux(store, rest)? else { return Ok(None) };
+        let (commitment, Some(e)) = self.open_aux(store, rest)? else { bail!("failed to open") };
         let call = store.cons(e, args);
         let (arg, _) = store.car_cdr(&args)?;
 
