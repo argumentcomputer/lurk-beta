@@ -1,15 +1,32 @@
-!(:commit (lambda (x)
-            (cons (+ 7 (* x x)) (- 9 x))))
+;; Define a function: f(x) = 3x^2 + 9x + 2
 
-!(:call 0x12097a8bc9424e3a20ff559eaa7cea09d55f7c6a931906e61298b03a5c0d3741 5)
+!(:def f (lambda (x) (+ (* 3 (* x x)) (+ (* 9 x) 2))))
+
+;; Create a commitment to f.
+
+!(:commit f)
+
+;; Open the functional commitment on input 5: Evaluate f(5).
+
+!(:call 0x396e9cd726a3c323ad1ec3a7651da94bc08c2d7baa68211186101d3735fb31d3 5)
+
+;; Prove the functional-commitment opening.
 
 !(:prove)
 
-!(:proof-in-expr "bafkr4ibvleouwilvxej6uqrp7kk6whc6c5dclpvmvdawna4yx5h2nrjj3q")
+;; Show the explicit input expression that was proved.
 
-!(:proof-out-expr "bafkr4ibvleouwilvxej6uqrp7kk6whc6c5dclpvmvdawna4yx5h2nrjj3q")
+!(:proof-in-expr "bafkr4icpnzlbslcikkdcitwtgdq6krfxgzsgfdvtrdfzbpgrzwtohaf6dq")
 
-!(:proof-claim "bafkr4ibvleouwilvxej6uqrp7kk6whc6c5dclpvmvdawna4yx5h2nrjj3q")
+;; Show the output expression that was proved.
 
-!(:verify "bafkr4ibvleouwilvxej6uqrp7kk6whc6c5dclpvmvdawna4yx5h2nrjj3q")
+!(:proof-out-expr "bafkr4icpnzlbslcikkdcitwtgdq6krfxgzsgfdvtrdfzbpgrzwtohaf6dq")
+
+;; Show what we claim to have proved.
+
+!(:proof-claim "bafkr4icpnzlbslcikkdcitwtgdq6krfxgzsgfdvtrdfzbpgrzwtohaf6dq")
+
+;; Verify the proof
+
+!(:verify "bafkr4icpnzlbslcikkdcitwtgdq6krfxgzsgfdvtrdfzbpgrzwtohaf6dq")
 
