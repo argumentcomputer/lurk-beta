@@ -40,7 +40,7 @@ mod file_map;
 use error::Error;
 use file_map::FileMap;
 
-pub const DEFAULT_REDUCTION_COUNT: ReductionCount = ReductionCount::One;
+pub const DEFAULT_REDUCTION_COUNT: ReductionCount = ReductionCount::Ten;
 pub static VERBOSE: OnceCell<bool> = OnceCell::new();
 
 pub type S1 = pallas::Scalar;

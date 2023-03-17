@@ -102,7 +102,7 @@ impl<F: LurkField> ClutchState<F> {
 }
 impl ReplTrait<F> for ClutchState<F> {
     fn new(s: &mut Store<F>, limit: usize, command: Option<Command>) -> Self {
-        let reduction_count = 100;
+        let reduction_count = 10;
 
         let proof_map = fcomm::nova_proof_cache(reduction_count);
         let expression_map = fcomm::committed_expression_store();
