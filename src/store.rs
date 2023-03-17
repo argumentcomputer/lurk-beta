@@ -166,6 +166,8 @@ pub struct Store<F: LurkField> {
     dehydrated_cont: Vec<ContPtr<F>>,
     opaque_raw_ptr_count: usize,
 
+    pointer_scalar_ptr_cache: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
+
     pub(crate) lurk_package: Package,
     constants: OnceCell<NamedConstants<F>>,
 }
@@ -909,6 +911,7 @@ impl<F: LurkField> Default for Store<F> {
             dehydrated: Default::default(),
             dehydrated_cont: Default::default(),
             opaque_raw_ptr_count: 0,
+            pointer_scalar_ptr_cache: Default::default(),
             lurk_package: Package::lurk(),
             constants: Default::default(),
         };
@@ -1149,6 +1152,7 @@ impl<F: LurkField> Store<F> {
         let (p, inserted) = self.comm_store.insert_full((FWrap(secret), payload));
 
         let ptr = Ptr(ExprTag::Comm, RawPtr::new(p));
+
         if inserted {
             self.dehydrated.push(ptr);
         }
@@ -1339,7 +1343,7 @@ impl<F: LurkField> Store<F> {
             }
             (ExprTag::Str, Some(Str(s))) => Some(self.intern_str(s)),
             (ExprTag::Sym, Some(Sym(s))) => Some(self.intern_sym(s)),
-            (ExprTag::Key, Some(Sym(_))) => todo!(),
+            (ExprTag::Key, Some(Sym(k))) => Some(self.intern_key(k)),
             (ExprTag::Num, Some(Num(x))) => Some(self.intern_num(crate::Num::Scalar(*x))),
             (ExprTag::Thunk, Some(Thunk(t))) => {
                 let value = self.intern_scalar_ptr(t.value, scalar_store)?;
@@ -1420,6 +1424,13 @@ impl<F: LurkField> Store<F> {
 
     pub fn intern_sym(&mut self, sym: &Sym) -> Ptr<F> {
         let name = sym.full_name();
+        self.intern_sym_by_full_name(name)
+    }
+
+    pub fn intern_key(&mut self, sym: &Sym) -> Ptr<F> {
+        let name = sym.full_name();
+
+        assert!(names_keyword(&name).0);
         self.intern_sym_by_full_name(name)
     }
 
@@ -1921,7 +1932,12 @@ impl<F: LurkField> Store<F> {
 
     pub fn hash_expr_aux(&self, ptr: &Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
         use ExprTag::*;
-        match ptr.tag() {
+
+        if let Some(scalar_ptr) = &self.pointer_scalar_ptr_cache.get(ptr) {
+            return Some(**scalar_ptr);
+        }
+
+        let scalar_ptr = match ptr.tag() {
             Nil => self.hash_nil(mode),
             Cons => self.hash_cons(*ptr, mode),
             Comm => self.hash_comm(*ptr, mode),
@@ -1933,7 +1949,18 @@ impl<F: LurkField> Store<F> {
             Char => self.hash_char(*ptr, mode),
             Thunk => self.hash_thunk(*ptr, mode),
             U64 => self.hash_uint(*ptr, mode),
+        };
+
+        match mode {
+            HashScalar::Create => {
+                if let Some(sp) = scalar_ptr {
+                    self.pointer_scalar_ptr_cache.insert(*ptr, sp);
+                }
+            }
+            HashScalar::Get => (),
         }
+
+        scalar_ptr
     }
 
     pub fn hash_cont(&self, ptr: &ContPtr<F>) -> Option<ScalarContPtr<F>> {
