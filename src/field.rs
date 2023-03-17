@@ -14,25 +14,30 @@ use rand::{rngs::StdRng, SeedableRng};
 
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 
+/// The type of finite fields used in the language
 pub enum LanguageField {
     Pallas,
     Vesta,
     BLS12_381,
 }
 
+/// Trait implemented by finite fields used in the language
 pub trait LurkField: PrimeField + PrimeFieldBits {
     const FIELD: LanguageField;
 
+    /// Converts the field element to a byte vector
     fn to_bytes(self) -> Vec<u8> {
         let repr = self.to_repr();
         repr.as_ref().to_vec()
     }
+    /// Attempts to construct a field element from a byte slice
     fn from_bytes(bs: &[u8]) -> Option<Self> {
         let mut def: Self::Repr = Self::default().to_repr();
         def.as_mut().copy_from_slice(bs);
         Self::from_repr(def).into()
     }
 
+    /// Converts the field element to a hexadecimal string
     fn hex_digits(self) -> String {
         let bytes = self.to_bytes();
         let mut s = String::with_capacity(bytes.len() * 2);
@@ -42,6 +47,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         s
     }
 
+    /// Converts the field to a variable-length hex string
     fn trimmed_hex_digits(self) -> String {
         let hex_digits = self.hex_digits();
         let mut res = hex_digits.trim_start_matches('0');
@@ -51,6 +57,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         res.to_owned()
     }
 
+    /// Attempts to convert the field element to a u16
     fn to_u16(&self) -> Option<u16> {
         for x in &self.to_repr().as_ref()[2..] {
             if *x != 0 {
@@ -62,6 +69,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         Some(u16::from_le_bytes(byte_array))
     }
 
+    /// Attempts to convert the field element to a u32
     fn to_u32(&self) -> Option<u32> {
         for x in &self.to_repr().as_ref()[4..] {
             if *x != 0 {
@@ -73,11 +81,13 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         Some(u32::from_le_bytes(byte_array))
     }
 
+    /// Attempts to convert the field element to a char
     fn to_char(&self) -> Option<char> {
         let x = self.to_u32()?;
         char::from_u32(x)
     }
 
+    /// Attempts to convert the field element to a u64
     fn to_u64(&self) -> Option<u64> {
         for x in &self.to_repr().as_ref()[8..] {
             if *x != 0 {
@@ -89,33 +99,39 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         Some(u64::from_le_bytes(byte_array))
     }
 
+    /// Converts the first 4 bytes of the field element to a u32
     fn to_u32_unchecked(&self) -> u32 {
         let mut byte_array = [0u8; 4];
         byte_array.copy_from_slice(&self.to_repr().as_ref()[0..4]);
         u32::from_le_bytes(byte_array)
     }
 
-    // Return a u64 corresponding to the first 8 little-endian bytes of this field
-    // element, discarding the remaining bytes.
+    /// Converts the first 8 bytes of the field element to a u64
     fn to_u64_unchecked(&self) -> u64 {
         let mut byte_array = [0u8; 8];
         byte_array.copy_from_slice(&self.to_repr().as_ref()[0..8]);
         u64::from_le_bytes(byte_array)
     }
 
+    /// Constructs a field element from a u64
     fn from_u64(x: u64) -> Self {
         x.into()
     }
+
+    /// Constructs a field element from a u32
     fn from_u32(x: u32) -> Self {
         (x as u64).into()
     }
+    /// Constructs a field element from a u16
     fn from_u16(x: u16) -> Self {
         (x as u64).into()
     }
+    /// Constructs a field element from a char
     fn from_char(x: char) -> Self {
         Self::from_u32(x as u32)
     }
 
+    /// We define this to be the smallest negative field element
     fn most_negative() -> Self {
         Self::most_positive() + Self::one()
     }
@@ -137,39 +153,48 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         self.double().is_odd().into()
     }
 
+    /// Constructs a field element from an ExprTag
     fn from_expr_tag(tag: ExprTag) -> Self {
         Self::from_u64(tag.into())
     }
+    /// Attempts to convert the field element to an ExprTag
     fn to_expr_tag(&self) -> Option<ExprTag> {
         let x = Self::to_u16(self)?;
         ExprTag::try_from(x).ok()
     }
 
+    /// Constructs a field element from a ContTag
     fn from_cont_tag(tag: ContTag) -> Self {
         Self::from_u64(tag.into())
     }
 
+    /// Attempts to convert the field element to a ContTag
     fn to_cont_tag(&self) -> Option<ContTag> {
         let x = Self::to_u16(self)?;
         ContTag::try_from(x).ok()
     }
+    /// Constructs a field element from an Op1
     fn from_op1(tag: Op1) -> Self {
         Self::from_u64(tag.into())
     }
 
+    /// Attempts to convert the field element to an Op1
     fn to_op1(&self) -> Option<Op1> {
         let x = Self::to_u16(self)?;
         Op1::try_from(x).ok()
     }
+    /// Constructs a field element from an Op2
     fn from_op2(tag: Op2) -> Self {
         Self::from_u64(tag.into())
     }
 
+    /// Attempts to convert the field element to an Op2
     fn to_op2(&self) -> Option<Op2> {
         let x = Self::to_u16(self)?;
         Op2::try_from(x).ok()
     }
 
+    /// Returns the LanguageField of the field
     fn get_field(&self) -> LanguageField {
         Self::FIELD
     }
@@ -188,12 +213,14 @@ impl LurkField for pasta_curves::Fq {
 }
 
 // For working around the orphan trait impl rule
+/// Wrapper struct around a field element that implements additional traits
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FWrap<F: LurkField>(pub F);
 
 impl<F: LurkField> Copy for FWrap<F> {}
 
 #[cfg(not(target_arch = "wasm32"))]
+/// Trait implementation for generating FWrap<F> instances with proptest
 impl<F: LurkField> Arbitrary for FWrap<F> {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;

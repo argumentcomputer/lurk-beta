@@ -27,6 +27,7 @@ pub struct Symbol {
     pub opaque: bool,
 }
 
+/// Enumeration type for symbol names, which can either be a Symbol or a Keyword Symbol.
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 pub enum Sym {
@@ -37,10 +38,12 @@ pub enum Sym {
 trait SymbolTrait {}
 
 impl Symbol {
+    /// Creates a new Symbol with the root path `[""]`.
     pub fn root() -> Self {
         Self::new_from_path(vec!["".into()])
     }
 
+    /// Creates a new Symbol with the given name and a path derived from it.
     pub fn new(name: String) -> Self {
         let path = Self::path_from_name(&name);
         Self {
@@ -49,6 +52,7 @@ impl Symbol {
         }
     }
 
+    /// Creates a new Symbol with an absolute path derived from the given name.
     pub fn new_absolute(name: String) -> Self {
         let path = Self::root_path_from_name(&name);
         Self {
@@ -57,28 +61,34 @@ impl Symbol {
         }
     }
 
+    /// Returns true if the Symbol is marked as opaque.
     pub fn is_opaque(&self) -> bool {
         self.opaque
     }
 
+    /// Returns true if the Symbol is the root Symbol, i.e. if it has a path of `[""]`.
     pub fn is_root(&self) -> bool {
         !self.is_opaque() && self.path.len() == 1 && self.path[0].is_empty()
     }
 
+    /// Returns true if the Symbol is a top-level Symbol, i.e. if it has more than one path segment and its first segment is empty.
     pub fn is_toplevel(&self) -> bool {
         self.path.len() > 1 && self.path[0].is_empty()
     }
 
+    /// Returns the name of the Symbol.
     pub fn name(&self) -> String {
         let path = self.path();
         let l = path.len();
         path[l - 1].clone()
     }
 
+    /// Returns the full name of the Symbol.
     pub fn full_name(&self) -> String {
         Self::name_from_path(&self.path)
     }
 
+    /// Returns the parent Symbol of the Symbol, if there is one.
     pub fn parent(&self) -> Option<Self> {
         let path = self.path();
         let rest_path = &path[..path.len() - 1];
@@ -89,6 +99,7 @@ impl Symbol {
         }
     }
 
+    /// Creates a new Symbol with a child path segment added to the path of the original Symbol.
     pub fn child(&self, name: String) -> Self {
         assert!(!name.contains(SYM_SEPARATOR));
         let mut path = self.path().clone();
@@ -97,6 +108,7 @@ impl Symbol {
         Self::new_from_path(path)
     }
 
+    /// Creates a new Symbol with the path extended by the given vector of path segments.
     pub fn extend(&self, path: &[String]) -> Self {
         let mut new_path = Vec::with_capacity(self.path.len() + path.len());
         for elt in self.path().iter() {
@@ -109,6 +121,7 @@ impl Symbol {
         Self::new_from_path(new_path)
     }
 
+    /// Creates a new opaque Symbol with an empty path.
     pub fn new_opaque() -> Self {
         Symbol {
             path: Default::default(),
@@ -116,10 +129,12 @@ impl Symbol {
         }
     }
 
+    /// Returns a reference to the path vector of the Symbol.
     pub fn path(&self) -> &Vec<String> {
         &self.path
     }
 
+    /// Derives a Symbol path vector from a string name.
     fn new_from_path(path: Vec<String>) -> Self {
         Symbol {
             path,
@@ -142,6 +157,7 @@ impl Symbol {
             .join(SYM_SEPARATOR)
     }
 
+    /// Derives a Symbol path vector from a string name, ensuring that the path starts with a root segment `""`.
     fn root_path_from_name(name: &str) -> Vec<String> {
         let mut chars = name.chars().peekmore();
 
@@ -159,6 +175,7 @@ impl Symbol {
         }
     }
 
+    /// Derives a Symbol path vector from a string name.
     fn path_from_name(name: &str) -> Vec<String> {
         let mut chars = name.chars().peekmore();
         let (_is_keyword, path) = read_symbol_path(&mut chars)
@@ -173,6 +190,7 @@ impl Symbol {
 }
 
 impl Sym {
+    /// Creates a new Sym with the given name.
     // Name here might include an initial ':'.
     pub fn new(name: String) -> Self {
         let mut chars = name.chars();
@@ -182,6 +200,7 @@ impl Sym {
         }
     }
 
+    /// Creates a new absolute Sym with the given name.
     pub fn new_absolute(name: String) -> Self {
         let mut chars = name.chars();
         match chars.next() {
@@ -192,6 +211,7 @@ impl Sym {
         }
     }
 
+    /// Creates a new Sym from a path vector and a boolean flag indicating whether the Sym is a keyword.
     pub fn new_from_path(is_keyword: bool, path: Vec<String>) -> Self {
         assert!(!path.is_empty());
 
@@ -202,14 +222,17 @@ impl Sym {
         }
     }
 
+    /// Creates a new Sym with a name derived from the given string.
     pub fn new_sym(name: String) -> Self {
         Self::Sym(Symbol::new(format!(".{name}")))
     }
 
+    /// Creates a new Keyword Sym with a name derived from the given string.
     pub fn new_key(name: String) -> Self {
         Self::Key(Symbol::new(format!(":{name}")))
     }
 
+    /// Creates a new opaque Sym.
     pub fn new_opaque(keyword: bool) -> Self {
         let s = Symbol::new_opaque();
         if keyword {
@@ -219,14 +242,17 @@ impl Sym {
         }
     }
 
+    /// Returns the root Symbol.
     pub fn root() -> Self {
         Self::Sym(Symbol::root())
     }
 
+    /// Returns the root Keyword Symbol.
     pub fn key_root() -> Self {
         Self::Key(Symbol::root())
     }
 
+    /// Returns the full name of the Symbol or Keyword symbol.
     // This should parse to the symbol or keyword it self.
     pub fn full_name(&self) -> String {
         match self {
@@ -249,7 +275,7 @@ impl Sym {
         }
     }
 
-    // This is the full name corresponding to the symbol or keyword's hash.
+    /// The full name corresponding to the symbol or keyword's hash.
     pub fn full_sym_name(&self) -> String {
         match self {
             Self::Sym(s) => s.full_name(),
@@ -257,7 +283,7 @@ impl Sym {
         }
     }
 
-    // This is just the name part (i.e. last path segment) of the symbol or keyword.
+    // The name part (i.e. last path segment) of the symbol or keyword.
     pub fn name(&self) -> String {
         match self {
             Self::Sym(s) => s.name(),
@@ -265,6 +291,7 @@ impl Sym {
         }
     }
 
+    /// The full name corresponding to a Sym, if it is a keyword.
     pub fn keyword_name(&self) -> Option<String> {
         match self {
             Self::Key(_) => Some(self.name()),
@@ -272,6 +299,7 @@ impl Sym {
         }
     }
 
+    /// The simple name corresponding to a Sym, if it is a keyword and not at the top level.
     pub fn simple_keyword_name(&self) -> Option<String> {
         if !self.is_toplevel() {
             None
@@ -283,6 +311,7 @@ impl Sym {
         }
     }
 
+    /// Returns a reference to the path vector of the Sym.
     pub fn path(&self) -> &Vec<String> {
         match self {
             Self::Sym(s) => &s.path,
@@ -290,6 +319,7 @@ impl Sym {
         }
     }
 
+    /// Creates a new Sym with a child path segment added to the path of the original Symbol.
     pub fn child(&self, name: String) -> Self {
         match self {
             Self::Sym(s) => Self::Sym(s.child(name)),
@@ -297,6 +327,7 @@ impl Sym {
         }
     }
 
+    /// Returns the parent of the Sym or Keyword, if there is one.
     pub fn parent(&self) -> Option<Self> {
         match self {
             Self::Sym(s) => s.parent().map(Self::Sym),
@@ -304,6 +335,7 @@ impl Sym {
         }
     }
 
+    /// Creates a new Sym with the path extended by the given vector of path segments.
     pub fn extend(&self, path: &[String]) -> Self {
         match self {
             Self::Sym(s) => Self::Sym(s.extend(path)),
@@ -311,18 +343,22 @@ impl Sym {
         }
     }
 
+    /// Returns true if the Sym is a keyword.
     pub fn is_keyword(&self) -> bool {
         matches!(self, Self::Key(_))
     }
 
+    /// Returns true if the Sym is toplevel
     pub fn is_toplevel(&self) -> bool {
         self.symbol().is_toplevel()
     }
 
+    /// Returns true if the Sym is the root symbol.
     pub fn is_root(&self) -> bool {
         self.symbol().is_root()
     }
 
+    /// Returns true if the Sym is a symbol.
     pub fn symbol(&self) -> &Symbol {
         match self {
             Self::Sym(s) => s,
