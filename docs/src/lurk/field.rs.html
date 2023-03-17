@@ -395,6 +395,33 @@
 <a href="#395" id="395">395</a>
 <a href="#396" id="396">396</a>
 <a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
 </pre><pre class="rust"><code><span class="kw">use </span>anyhow::anyhow;
 <span class="kw">use </span>ff::{PrimeField, PrimeFieldBits};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -411,26 +438,31 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::tag::{ContTag, ExprTag, Op1, Op2};
 
-<span class="kw">pub enum </span>LanguageField {
+<span class="doccomment">/// The type of finite fields used in the language
+</span><span class="kw">pub enum </span>LanguageField {
     Pallas,
     Vesta,
     BLS12_381,
 }
 
-<span class="kw">pub trait </span>LurkField: PrimeField + PrimeFieldBits {
+<span class="doccomment">/// Trait implemented by finite fields used in the language
+</span><span class="kw">pub trait </span>LurkField: PrimeField + PrimeFieldBits {
     <span class="kw">const </span>FIELD: LanguageField;
 
-    <span class="kw">fn </span>to_bytes(<span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
+    <span class="doccomment">/// Converts the field element to a byte vector
+    </span><span class="kw">fn </span>to_bytes(<span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
         <span class="kw">let </span>repr = <span class="self">self</span>.to_repr();
         repr.as_ref().to_vec()
     }
-    <span class="kw">fn </span>from_bytes(bs: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+    <span class="doccomment">/// Attempts to construct a field element from a byte slice
+    </span><span class="kw">fn </span>from_bytes(bs: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>def: <span class="self">Self</span>::Repr = <span class="self">Self</span>::default().to_repr();
         def.as_mut().copy_from_slice(bs);
         <span class="self">Self</span>::from_repr(def).into()
     }
 
-    <span class="kw">fn </span>hex_digits(<span class="self">self</span>) -&gt; String {
+    <span class="doccomment">/// Converts the field element to a hexadecimal string
+    </span><span class="kw">fn </span>hex_digits(<span class="self">self</span>) -&gt; String {
         <span class="kw">let </span>bytes = <span class="self">self</span>.to_bytes();
         <span class="kw">let </span><span class="kw-2">mut </span>s = String::with_capacity(bytes.len() * <span class="number">2</span>);
         <span class="kw">for </span>b <span class="kw">in </span>bytes.iter().rev() {
@@ -439,7 +471,8 @@
         s
     }
 
-    <span class="kw">fn </span>trimmed_hex_digits(<span class="self">self</span>) -&gt; String {
+    <span class="doccomment">/// Converts the field to a variable-length hex string
+    </span><span class="kw">fn </span>trimmed_hex_digits(<span class="self">self</span>) -&gt; String {
         <span class="kw">let </span>hex_digits = <span class="self">self</span>.hex_digits();
         <span class="kw">let </span><span class="kw-2">mut </span>res = hex_digits.trim_start_matches(<span class="string">&#39;0&#39;</span>);
         <span class="kw">if </span>res.is_empty() {
@@ -448,7 +481,8 @@
         res.to_owned()
     }
 
-    <span class="kw">fn </span>to_u16(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u16&gt; {
+    <span class="doccomment">/// Attempts to convert the field element to a u16
+    </span><span class="kw">fn </span>to_u16(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u16&gt; {
         <span class="kw">for </span>x <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.to_repr().as_ref()[<span class="number">2</span>..] {
             <span class="kw">if </span><span class="kw-2">*</span>x != <span class="number">0 </span>{
                 <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -459,7 +493,8 @@
         <span class="prelude-val">Some</span>(u16::from_le_bytes(byte_array))
     }
 
-    <span class="kw">fn </span>to_u32(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
+    <span class="doccomment">/// Attempts to convert the field element to a u32
+    </span><span class="kw">fn </span>to_u32(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
         <span class="kw">for </span>x <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.to_repr().as_ref()[<span class="number">4</span>..] {
             <span class="kw">if </span><span class="kw-2">*</span>x != <span class="number">0 </span>{
                 <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -470,12 +505,14 @@
         <span class="prelude-val">Some</span>(u32::from_le_bytes(byte_array))
     }
 
-    <span class="kw">fn </span>to_char(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;char&gt; {
+    <span class="doccomment">/// Attempts to convert the field element to a char
+    </span><span class="kw">fn </span>to_char(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;char&gt; {
         <span class="kw">let </span>x = <span class="self">self</span>.to_u32()<span class="question-mark">?</span>;
         char::from_u32(x)
     }
 
-    <span class="kw">fn </span>to_u64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u64&gt; {
+    <span class="doccomment">/// Attempts to convert the field element to a u64
+    </span><span class="kw">fn </span>to_u64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u64&gt; {
         <span class="kw">for </span>x <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.to_repr().as_ref()[<span class="number">8</span>..] {
             <span class="kw">if </span><span class="kw-2">*</span>x != <span class="number">0 </span>{
                 <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -486,34 +523,40 @@
         <span class="prelude-val">Some</span>(u64::from_le_bytes(byte_array))
     }
 
-    <span class="kw">fn </span>to_u32_unchecked(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+    <span class="doccomment">/// Converts the first 4 bytes of the field element to a u32
+    </span><span class="kw">fn </span>to_u32_unchecked(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
         <span class="kw">let </span><span class="kw-2">mut </span>byte_array = [<span class="number">0u8</span>; <span class="number">4</span>];
         byte_array.copy_from_slice(<span class="kw-2">&amp;</span><span class="self">self</span>.to_repr().as_ref()[<span class="number">0</span>..<span class="number">4</span>]);
         u32::from_le_bytes(byte_array)
     }
 
-    <span class="comment">// Return a u64 corresponding to the first 8 little-endian bytes of this field
-    // element, discarding the remaining bytes.
+    <span class="doccomment">/// Converts the first 8 bytes of the field element to a u64
     </span><span class="kw">fn </span>to_u64_unchecked(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="kw">let </span><span class="kw-2">mut </span>byte_array = [<span class="number">0u8</span>; <span class="number">8</span>];
         byte_array.copy_from_slice(<span class="kw-2">&amp;</span><span class="self">self</span>.to_repr().as_ref()[<span class="number">0</span>..<span class="number">8</span>]);
         u64::from_le_bytes(byte_array)
     }
 
-    <span class="kw">fn </span>from_u64(x: u64) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Constructs a field element from a u64
+    </span><span class="kw">fn </span>from_u64(x: u64) -&gt; <span class="self">Self </span>{
         x.into()
     }
-    <span class="kw">fn </span>from_u32(x: u32) -&gt; <span class="self">Self </span>{
+
+    <span class="doccomment">/// Constructs a field element from a u32
+    </span><span class="kw">fn </span>from_u32(x: u32) -&gt; <span class="self">Self </span>{
         (x <span class="kw">as </span>u64).into()
     }
-    <span class="kw">fn </span>from_u16(x: u16) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Constructs a field element from a u16
+    </span><span class="kw">fn </span>from_u16(x: u16) -&gt; <span class="self">Self </span>{
         (x <span class="kw">as </span>u64).into()
     }
-    <span class="kw">fn </span>from_char(x: char) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Constructs a field element from a char
+    </span><span class="kw">fn </span>from_char(x: char) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::from_u32(x <span class="kw">as </span>u32)
     }
 
-    <span class="kw">fn </span>most_negative() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// We define this to be the smallest negative field element
+    </span><span class="kw">fn </span>most_negative() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::most_positive() + <span class="self">Self</span>::one()
     }
 
@@ -534,40 +577,49 @@
         <span class="self">self</span>.double().is_odd().into()
     }
 
-    <span class="kw">fn </span>from_expr_tag(tag: ExprTag) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Constructs a field element from an ExprTag
+    </span><span class="kw">fn </span>from_expr_tag(tag: ExprTag) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::from_u64(tag.into())
     }
-    <span class="kw">fn </span>to_expr_tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;ExprTag&gt; {
+    <span class="doccomment">/// Attempts to convert the field element to an ExprTag
+    </span><span class="kw">fn </span>to_expr_tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;ExprTag&gt; {
         <span class="kw">let </span>x = <span class="self">Self</span>::to_u16(<span class="self">self</span>)<span class="question-mark">?</span>;
         ExprTag::try_from(x).ok()
     }
 
-    <span class="kw">fn </span>from_cont_tag(tag: ContTag) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Constructs a field element from a ContTag
+    </span><span class="kw">fn </span>from_cont_tag(tag: ContTag) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::from_u64(tag.into())
     }
 
-    <span class="kw">fn </span>to_cont_tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;ContTag&gt; {
+    <span class="doccomment">/// Attempts to convert the field element to a ContTag
+    </span><span class="kw">fn </span>to_cont_tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;ContTag&gt; {
         <span class="kw">let </span>x = <span class="self">Self</span>::to_u16(<span class="self">self</span>)<span class="question-mark">?</span>;
         ContTag::try_from(x).ok()
     }
-    <span class="kw">fn </span>from_op1(tag: Op1) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Constructs a field element from an Op1
+    </span><span class="kw">fn </span>from_op1(tag: Op1) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::from_u64(tag.into())
     }
 
-    <span class="kw">fn </span>to_op1(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Op1&gt; {
+    <span class="doccomment">/// Attempts to convert the field element to an Op1
+    </span><span class="kw">fn </span>to_op1(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Op1&gt; {
         <span class="kw">let </span>x = <span class="self">Self</span>::to_u16(<span class="self">self</span>)<span class="question-mark">?</span>;
         Op1::try_from(x).ok()
     }
-    <span class="kw">fn </span>from_op2(tag: Op2) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Constructs a field element from an Op2
+    </span><span class="kw">fn </span>from_op2(tag: Op2) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::from_u64(tag.into())
     }
 
-    <span class="kw">fn </span>to_op2(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Op2&gt; {
+    <span class="doccomment">/// Attempts to convert the field element to an Op2
+    </span><span class="kw">fn </span>to_op2(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Op2&gt; {
         <span class="kw">let </span>x = <span class="self">Self</span>::to_u16(<span class="self">self</span>)<span class="question-mark">?</span>;
         Op2::try_from(x).ok()
     }
 
-    <span class="kw">fn </span>get_field(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; LanguageField {
+    <span class="doccomment">/// Returns the LanguageField of the field
+    </span><span class="kw">fn </span>get_field(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; LanguageField {
         <span class="self">Self</span>::FIELD
     }
 }
@@ -585,12 +637,14 @@
 }
 
 <span class="comment">// For working around the orphan trait impl rule
+</span><span class="doccomment">/// Wrapper struct around a field element that implements additional traits
 </span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>FWrap&lt;F: LurkField&gt;(<span class="kw">pub </span>F);
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Copy <span class="kw">for </span>FWrap&lt;F&gt; {}
 
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</span><span class="doccomment">/// Trait implementation for generating FWrap&lt;F&gt; instances with proptest
 </span><span class="kw">impl</span>&lt;F: LurkField&gt; Arbitrary <span class="kw">for </span>FWrap&lt;F&gt; {
     <span class="kw">type </span>Parameters = ();
     <span class="kw">type </span>Strategy = BoxedStrategy&lt;<span class="self">Self</span>&gt;;

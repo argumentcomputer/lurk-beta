@@ -380,6 +380,42 @@
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
 <a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::parser::{
     maybe_quote_symbol_name_string, read_symbol_path, KEYWORD_MARKER, SYM_SEPARATOR,
 };
@@ -409,7 +445,8 @@
     </span><span class="kw">pub </span>opaque: bool,
 }
 
-<span class="attr">#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
+<span class="doccomment">/// Enumeration type for symbol names, which can either be a Symbol or a Keyword Symbol.
+</span><span class="attr">#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
 </span><span class="kw">pub enum </span>Sym {
     Sym(Symbol),
@@ -419,11 +456,13 @@
 <span class="kw">trait </span>SymbolTrait {}
 
 <span class="kw">impl </span>Symbol {
-    <span class="kw">pub fn </span>root() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new Symbol with the root path `[&quot;&quot;]`.
+    </span><span class="kw">pub fn </span>root() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::new_from_path(<span class="macro">vec!</span>[<span class="string">&quot;&quot;</span>.into()])
     }
 
-    <span class="kw">pub fn </span>new(name: String) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new Symbol with the given name and a path derived from it.
+    </span><span class="kw">pub fn </span>new(name: String) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>path = <span class="self">Self</span>::path_from_name(<span class="kw-2">&amp;</span>name);
         <span class="self">Self </span>{
             path,
@@ -431,7 +470,8 @@
         }
     }
 
-    <span class="kw">pub fn </span>new_absolute(name: String) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new Symbol with an absolute path derived from the given name.
+    </span><span class="kw">pub fn </span>new_absolute(name: String) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>path = <span class="self">Self</span>::root_path_from_name(<span class="kw-2">&amp;</span>name);
         <span class="self">Self </span>{
             path,
@@ -439,29 +479,35 @@
         }
     }
 
-    <span class="kw">pub fn </span>is_opaque(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="doccomment">/// Returns true if the Symbol is marked as opaque.
+    </span><span class="kw">pub fn </span>is_opaque(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.opaque
     }
 
-    <span class="kw">pub fn </span>is_root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="doccomment">/// Returns true if the Symbol is the root Symbol, i.e. if it has a path of `[&quot;&quot;]`.
+    </span><span class="kw">pub fn </span>is_root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         !<span class="self">self</span>.is_opaque() &amp;&amp; <span class="self">self</span>.path.len() == <span class="number">1 </span>&amp;&amp; <span class="self">self</span>.path[<span class="number">0</span>].is_empty()
     }
 
-    <span class="kw">pub fn </span>is_toplevel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="doccomment">/// Returns true if the Symbol is a top-level Symbol, i.e. if it has more than one path segment and its first segment is empty.
+    </span><span class="kw">pub fn </span>is_toplevel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.path.len() &gt; <span class="number">1 </span>&amp;&amp; <span class="self">self</span>.path[<span class="number">0</span>].is_empty()
     }
 
-    <span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+    <span class="doccomment">/// Returns the name of the Symbol.
+    </span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="kw">let </span>path = <span class="self">self</span>.path();
         <span class="kw">let </span>l = path.len();
         path[l - <span class="number">1</span>].clone()
     }
 
-    <span class="kw">pub fn </span>full_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+    <span class="doccomment">/// Returns the full name of the Symbol.
+    </span><span class="kw">pub fn </span>full_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="self">Self</span>::name_from_path(<span class="kw-2">&amp;</span><span class="self">self</span>.path)
     }
 
-    <span class="kw">pub fn </span>parent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+    <span class="doccomment">/// Returns the parent Symbol of the Symbol, if there is one.
+    </span><span class="kw">pub fn </span>parent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>path = <span class="self">self</span>.path();
         <span class="kw">let </span>rest_path = <span class="kw-2">&amp;</span>path[..path.len() - <span class="number">1</span>];
         <span class="kw">if </span>rest_path.is_empty() {
@@ -471,7 +517,8 @@
         }
     }
 
-    <span class="kw">pub fn </span>child(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new Symbol with a child path segment added to the path of the original Symbol.
+    </span><span class="kw">pub fn </span>child(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String) -&gt; <span class="self">Self </span>{
         <span class="macro">assert!</span>(!name.contains(SYM_SEPARATOR));
         <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="self">self</span>.path().clone();
         path.push(name);
@@ -479,7 +526,8 @@
         <span class="self">Self</span>::new_from_path(path)
     }
 
-    <span class="kw">pub fn </span>extend(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>[String]) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new Symbol with the path extended by the given vector of path segments.
+    </span><span class="kw">pub fn </span>extend(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>[String]) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>new_path = Vec::with_capacity(<span class="self">self</span>.path.len() + path.len());
         <span class="kw">for </span>elt <span class="kw">in </span><span class="self">self</span>.path().iter() {
             new_path.push(elt.clone());
@@ -491,18 +539,21 @@
         <span class="self">Self</span>::new_from_path(new_path)
     }
 
-    <span class="kw">pub fn </span>new_opaque() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new opaque Symbol with an empty path.
+    </span><span class="kw">pub fn </span>new_opaque() -&gt; <span class="self">Self </span>{
         Symbol {
             path: Default::default(),
             opaque: <span class="bool-val">true</span>,
         }
     }
 
-    <span class="kw">pub fn </span>path(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Vec&lt;String&gt; {
+    <span class="doccomment">/// Returns a reference to the path vector of the Symbol.
+    </span><span class="kw">pub fn </span>path(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Vec&lt;String&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.path
     }
 
-    <span class="kw">fn </span>new_from_path(path: Vec&lt;String&gt;) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Derives a Symbol path vector from a string name.
+    </span><span class="kw">fn </span>new_from_path(path: Vec&lt;String&gt;) -&gt; <span class="self">Self </span>{
         Symbol {
             path,
             opaque: <span class="bool-val">false</span>,
@@ -524,7 +575,8 @@
             .join(SYM_SEPARATOR)
     }
 
-    <span class="kw">fn </span>root_path_from_name(name: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;String&gt; {
+    <span class="doccomment">/// Derives a Symbol path vector from a string name, ensuring that the path starts with a root segment `&quot;&quot;`.
+    </span><span class="kw">fn </span>root_path_from_name(name: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;String&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>chars = name.chars().peekmore();
 
         <span class="kw">let </span>(_is_keyword, p) = read_symbol_path(<span class="kw-2">&amp;mut </span>chars)
@@ -541,7 +593,8 @@
         }
     }
 
-    <span class="kw">fn </span>path_from_name(name: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;String&gt; {
+    <span class="doccomment">/// Derives a Symbol path vector from a string name.
+    </span><span class="kw">fn </span>path_from_name(name: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;String&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>chars = name.chars().peekmore();
         <span class="kw">let </span>(_is_keyword, path) = read_symbol_path(<span class="kw-2">&amp;mut </span>chars)
             .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">&quot;does not name a valid path: {}&quot;</span>, name));
@@ -555,7 +608,8 @@
 }
 
 <span class="kw">impl </span>Sym {
-    <span class="comment">// Name here might include an initial &#39;:&#39;.
+    <span class="doccomment">/// Creates a new Sym with the given name.
+    </span><span class="comment">// Name here might include an initial &#39;:&#39;.
     </span><span class="kw">pub fn </span>new(name: String) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>chars = name.chars();
         <span class="kw">match </span>chars.next() {
@@ -564,7 +618,8 @@
         }
     }
 
-    <span class="kw">pub fn </span>new_absolute(name: String) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new absolute Sym with the given name.
+    </span><span class="kw">pub fn </span>new_absolute(name: String) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>chars = name.chars();
         <span class="kw">match </span>chars.next() {
             <span class="prelude-val">Some</span>(c) <span class="kw">if </span>c == KEYWORD_MARKER =&gt; {
@@ -574,7 +629,8 @@
         }
     }
 
-    <span class="kw">pub fn </span>new_from_path(is_keyword: bool, path: Vec&lt;String&gt;) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new Sym from a path vector and a boolean flag indicating whether the Sym is a keyword.
+    </span><span class="kw">pub fn </span>new_from_path(is_keyword: bool, path: Vec&lt;String&gt;) -&gt; <span class="self">Self </span>{
         <span class="macro">assert!</span>(!path.is_empty());
 
         <span class="kw">if </span>is_keyword {
@@ -584,15 +640,18 @@
         }
     }
 
-    <span class="kw">pub fn </span>new_sym(name: String) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new Sym with a name derived from the given string.
+    </span><span class="kw">pub fn </span>new_sym(name: String) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::Sym(Symbol::new(<span class="macro">format!</span>(<span class="string">&quot;.{name}&quot;</span>)))
     }
 
-    <span class="kw">pub fn </span>new_key(name: String) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new Keyword Sym with a name derived from the given string.
+    </span><span class="kw">pub fn </span>new_key(name: String) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::Key(Symbol::new(<span class="macro">format!</span>(<span class="string">&quot;:{name}&quot;</span>)))
     }
 
-    <span class="kw">pub fn </span>new_opaque(keyword: bool) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new opaque Sym.
+    </span><span class="kw">pub fn </span>new_opaque(keyword: bool) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>s = Symbol::new_opaque();
         <span class="kw">if </span>keyword {
             <span class="self">Self</span>::Key(s)
@@ -601,15 +660,18 @@
         }
     }
 
-    <span class="kw">pub fn </span>root() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Returns the root Symbol.
+    </span><span class="kw">pub fn </span>root() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::Sym(Symbol::root())
     }
 
-    <span class="kw">pub fn </span>key_root() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Returns the root Keyword Symbol.
+    </span><span class="kw">pub fn </span>key_root() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::Key(Symbol::root())
     }
 
-    <span class="comment">// This should parse to the symbol or keyword it self.
+    <span class="doccomment">/// Returns the full name of the Symbol or Keyword symbol.
+    </span><span class="comment">// This should parse to the symbol or keyword it self.
     </span><span class="kw">pub fn </span>full_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Sym(s) =&gt; {
@@ -631,7 +693,7 @@
         }
     }
 
-    <span class="comment">// This is the full name corresponding to the symbol or keyword&#39;s hash.
+    <span class="doccomment">/// The full name corresponding to the symbol or keyword&#39;s hash.
     </span><span class="kw">pub fn </span>full_sym_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Sym(s) =&gt; s.full_name(),
@@ -639,7 +701,7 @@
         }
     }
 
-    <span class="comment">// This is just the name part (i.e. last path segment) of the symbol or keyword.
+    <span class="comment">// The name part (i.e. last path segment) of the symbol or keyword.
     </span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Sym(s) =&gt; s.name(),
@@ -647,14 +709,16 @@
         }
     }
 
-    <span class="kw">pub fn </span>keyword_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+    <span class="doccomment">/// The full name corresponding to a Sym, if it is a keyword.
+    </span><span class="kw">pub fn </span>keyword_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Key(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(<span class="self">self</span>.name()),
             <span class="self">Self</span>::Sym(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
         }
     }
 
-    <span class="kw">pub fn </span>simple_keyword_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+    <span class="doccomment">/// The simple name corresponding to a Sym, if it is a keyword and not at the top level.
+    </span><span class="kw">pub fn </span>simple_keyword_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
         <span class="kw">if </span>!<span class="self">self</span>.is_toplevel() {
             <span class="prelude-val">None
         </span>} <span class="kw">else </span>{
@@ -665,47 +729,55 @@
         }
     }
 
-    <span class="kw">pub fn </span>path(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Vec&lt;String&gt; {
+    <span class="doccomment">/// Returns a reference to the path vector of the Sym.
+    </span><span class="kw">pub fn </span>path(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Vec&lt;String&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Sym(s) =&gt; <span class="kw-2">&amp;</span>s.path,
             <span class="self">Self</span>::Key(s) =&gt; <span class="kw-2">&amp;</span>s.path,
         }
     }
 
-    <span class="kw">pub fn </span>child(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new Sym with a child path segment added to the path of the original Symbol.
+    </span><span class="kw">pub fn </span>child(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Sym(s) =&gt; <span class="self">Self</span>::Sym(s.child(name)),
             <span class="self">Self</span>::Key(s) =&gt; <span class="self">Self</span>::Key(s.child(name)),
         }
     }
 
-    <span class="kw">pub fn </span>parent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+    <span class="doccomment">/// Returns the parent of the Sym or Keyword, if there is one.
+    </span><span class="kw">pub fn </span>parent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Sym(s) =&gt; s.parent().map(<span class="self">Self</span>::Sym),
             <span class="self">Self</span>::Key(s) =&gt; s.parent().map(<span class="self">Self</span>::Key),
         }
     }
 
-    <span class="kw">pub fn </span>extend(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>[String]) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new Sym with the path extended by the given vector of path segments.
+    </span><span class="kw">pub fn </span>extend(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>[String]) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Sym(s) =&gt; <span class="self">Self</span>::Sym(s.extend(path)),
             <span class="self">Self</span>::Key(s) =&gt; <span class="self">Self</span>::Key(s.extend(path)),
         }
     }
 
-    <span class="kw">pub fn </span>is_keyword(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="doccomment">/// Returns true if the Sym is a keyword.
+    </span><span class="kw">pub fn </span>is_keyword(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Key(<span class="kw">_</span>))
     }
 
-    <span class="kw">pub fn </span>is_toplevel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="doccomment">/// Returns true if the Sym is toplevel
+    </span><span class="kw">pub fn </span>is_toplevel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.symbol().is_toplevel()
     }
 
-    <span class="kw">pub fn </span>is_root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="doccomment">/// Returns true if the Sym is the root symbol.
+    </span><span class="kw">pub fn </span>is_root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.symbol().is_root()
     }
 
-    <span class="kw">pub fn </span>symbol(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Symbol {
+    <span class="doccomment">/// Returns true if the Sym is a symbol.
+    </span><span class="kw">pub fn </span>symbol(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Symbol {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Sym(s) =&gt; s,
             <span class="self">Self</span>::Key(s) =&gt; s,
