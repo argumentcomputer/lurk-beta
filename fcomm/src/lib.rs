@@ -61,8 +61,8 @@ mod base64 {
 }
 
 pub type NovaProofCache = FileMap<Cid, Proof<'static, S1>>;
-pub fn nova_proof_cache(rc: usize) -> NovaProofCache {
-    FileMap::<Cid, Proof<S1>>::new(format!("nova_proofs.{}", rc)).unwrap()
+pub fn nova_proof_cache(reduction_count: usize) -> NovaProofCache {
+    FileMap::<Cid, Proof<S1>>::new(format!("nova_proofs.{}", reduction_count)).unwrap()
 }
 
 pub type CommittedExpressionMap = FileMap<Commitment<S1>, CommittedExpression<S1>>;

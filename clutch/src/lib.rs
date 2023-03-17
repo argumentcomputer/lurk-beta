@@ -20,6 +20,8 @@ use std::io::{self, BufRead};
 use std::path::Path;
 use std::thread;
 
+const DEFAULT_REDUCTION_COUNT: usize = 10;
+
 #[derive(Clone, Debug)]
 struct Demo {
     inputs: Vec<String>,
@@ -100,9 +102,10 @@ impl<F: LurkField> ClutchState<F> {
         "\n!> ".into()
     }
 }
+
 impl ReplTrait<F> for ClutchState<F> {
     fn new(s: &mut Store<F>, limit: usize, command: Option<Command>) -> Self {
-        let reduction_count = 10;
+        let reduction_count = DEFAULT_REDUCTION_COUNT;
 
         let proof_map = fcomm::nova_proof_cache(reduction_count);
         let expression_map = fcomm::committed_expression_store();

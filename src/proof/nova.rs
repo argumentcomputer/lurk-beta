@@ -65,6 +65,7 @@ impl<'a> MultiFrame<'a, S1, IO<S1>, Witness<S1>> {
 }
 
 pub struct NovaProver<F: LurkField> {
+    // `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
     reduction_count: usize,
     _p: PhantomData<F>,
 }
