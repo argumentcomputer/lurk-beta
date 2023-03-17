@@ -84,7 +84,7 @@ The environment has a list of bindings, which correspond to a mapping between va
   \item[-] \textbf{letrec:} has the same format as \verb|<let>| expressions, following the same rules, but also allowing recursion.
   \item[-] \textbf{quote:} has the format \verb|(quote <datum>)| or \verb|(' <datum>)| and evaluates to \verb|<datum>|.
   \item[-] \textbf{atom:} has the format \verb|(atom <e>)|, and it evaluates to \verb|t| if \verb|<e>| is not a list, and evaluates to \verb|nil| otherwise.
-  \item[-] \textbf{cons, car, cdr:} The expression \verb|(cons <a> <d>)| produces a pair whose \verb|car| is \verb|<a>| and \verb|cdr| if \verb|<d>|.
+  \item[-] \textbf{cons, car, cdr:} The expression \verb|(cons <a> <d>)| produces a pair whose \verb|car| is \verb|<a>| and \verb|cdr| is \verb|<d>|.
   \item[-] \textbf{arithmetic operations:} has the format \verb|(<op> <e1> <e2>)|, where \verb|<op>| corresponds to an arithmetic operation ($+, -, \star, \slash$). \verb|<e1>| is evaluated before \verb|<e2>| and the operation is carried out in the finite field that is used in the subjacent zero-knowledge backend.
   \item[-] \textbf{equality:} has the format \verb|(<op> <e1> <e2>)|, where \verb|<op>| can be either \verb|=| or \verb|eq|. The equality symbol \verb|=| is used to compare expressions whose result is a number (finite field elements), while the symbol \verb|eq| is used to compare pointers.
   \item[-] \textbf{emit:} has the format \verb|(emit <e>)| and is used to return the result of the evaluation of \verb|<e>| as a public value, which can be used to define the instance of the zero-knowledge statement.
