@@ -128,7 +128,7 @@
 !(:call 0x36283c9973a837574e3e5a15815b60a541df265b0f218ab048e99a7c44ee3769 '(1 0 2))
 
 !(:prove)
-;; rc=10; "bafkr4id2eiiu2ajtlrobeizxqjzdhzpdymmhj7fwugl73fx5kgl5n2jtzi"
+;; "bafkr4id2eiiu2ajtlrobeizxqjzdhzpdymmhj7fwugl73fx5kgl5n2jtzi"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Chain
@@ -147,19 +147,19 @@
 
 
 !(:prove)
-;; rc=10 "bafkr4ifwpaa53jdsh7qz62efvt33l3ts7fen6hcwu6m2xcmp3ysv25wxt4"
+;; "bafkr4ifwpaa53jdsh7qz62efvt33l3ts7fen6hcwu6m2xcmp3ysv25wxt4"
 
 !(:chain 0x14f7a28206656cb7cd6bfcdda773c470653f3136d894d9cb8240e28e3eb52e55 '(5 0 2))
 ;; (comm 0x363b52b6be70c524df767e3a0f0289e5a1ebb0abf2c04d01fe4078b18627a66c)
 ;; ((:FIRST-NAME "Alonzo" :LAST-NAME "Church" :BALANCE 117 :ID 0) (:FIRST-NAME "Alan" :LAST-NAME "Turing" :BALANCE 456 :ID 1) (:FIRST-NAME "Satoshi" :LAST-NAME "Nakamoto" :BALANCE 9006 :ID 2))
 
 !(:prove)
-;; rc=10 "bafkr4idsf5btj7bl6nsyx26gfqrqjlchyo4hvmm7gda4b35lhvhew5qbkm"
+;; "bafkr4idsf5btj7bl6nsyx26gfqrqjlchyo4hvmm7gda4b35lhvhew5qbkm"
 
 !(:chain 0x363b52b6be70c524df767e3a0f0289e5a1ebb0abf2c04d01fe4078b18627a66c '(20 1 0))
 ;; (comm 0x1f5fdf82f21b6c6887de6dccc2423b6ce176cf0a1186e6ab49401ca3cd96d45d)
 ;; ((:ID 0 :BALANCE 137 :LAST-NAME "Church" :FIRST-NAME "Alonzo") (:ID 1 :BALANCE 436 :LAST-NAME "Turing" :FIRST-NAME "Alan") (:FIRST-NAME "Satoshi" :LAST-NAME "Nakamoto" :BALANCE 9006 :ID 2))
 
 !(:prove)
-;; rc=10; "bafkr4icwzzdqzmmxia6u3inlcj5tyre3n5qtbhofjub32uwitw5awmplha"
+;; "bafkr4icwzzdqzmmxia6u3inlcj5tyre3n5qtbhofjub32uwitw5awmplha"
 

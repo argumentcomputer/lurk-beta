@@ -22,6 +22,7 @@ use lurk::{
     eval::{empty_sym_env, Evaluable, Evaluator, Status, IO},
     field::LurkField,
     proof::nova::{self, NovaProver, PublicParams},
+    proof::Prover,
     scalar_store::ScalarStore,
     store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store},
     tag::ExprTag,
@@ -60,8 +61,8 @@ mod base64 {
 }
 
 pub type NovaProofCache = FileMap<Cid, Proof<'static, S1>>;
-pub fn nova_proof_cache() -> NovaProofCache {
-    FileMap::<Cid, Proof<S1>>::new("nova_proofs").unwrap()
+pub fn nova_proof_cache(rc: usize) -> NovaProofCache {
+    FileMap::<Cid, Proof<S1>>::new(format!("nova_proofs.{}", rc)).unwrap()
 }
 
 pub type CommittedExpressionMap = FileMap<Commitment<S1>, CommittedExpression<S1>>;
@@ -110,6 +111,7 @@ pub enum ReductionCount {
     One,
     Five,
     Ten,
+    OneHundred,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
@@ -320,6 +322,7 @@ impl TryFrom<usize> for ReductionCount {
             1 => Ok(ReductionCount::One),
             5 => Ok(ReductionCount::Five),
             10 => Ok(ReductionCount::Ten),
+            100 => Ok(ReductionCount::OneHundred),
             c => Err(Error::UnsupportedReductionCount(c)),
         }
     }
@@ -330,6 +333,7 @@ impl ReductionCount {
             Self::One => 1,
             Self::Five => 5,
             Self::Ten => 10,
+            Self::OneHundred => 100,
         }
     }
 }
@@ -769,7 +773,9 @@ impl<'a> Proof<'a, S1> {
         nova_prover: &'a NovaProver<S1>,
         pp: &'a PublicParams,
     ) -> Result<Self, Error> {
-        let proof_map = nova_proof_cache();
+        let reduction_count = nova_prover.reduction_count();
+
+        let proof_map = nova_proof_cache(reduction_count);
         let function_map = committed_expression_store();
 
         let cid = claim.cid();
@@ -782,8 +788,6 @@ impl<'a> Proof<'a, S1> {
             // FIXME: Error handling.
             panic!("no cached proof");
         }
-
-        let reduction_count = DEFAULT_REDUCTION_COUNT;
 
         info!("Starting Proving");
 
@@ -817,7 +821,7 @@ impl<'a> Proof<'a, S1> {
             claim: claim.clone(),
             proof,
             num_steps,
-            reduction_count,
+            reduction_count: ReductionCount::try_from(reduction_count)?,
         };
 
         match &claim {

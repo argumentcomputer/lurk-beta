@@ -102,7 +102,9 @@ impl<F: LurkField> ClutchState<F> {
 }
 impl ReplTrait<F> for ClutchState<F> {
     fn new(s: &mut Store<F>, limit: usize, command: Option<Command>) -> Self {
-        let proof_map = fcomm::nova_proof_cache();
+        let reduction_count = 100;
+
+        let proof_map = fcomm::nova_proof_cache(reduction_count);
         let expression_map = fcomm::committed_expression_store();
 
         let demo = command.clone().and_then(|c| {
@@ -113,8 +115,6 @@ impl ReplTrait<F> for ClutchState<F> {
                 .get_one::<String>("demo")
                 .map(|demo_file| Demo::new_from_path(demo_file, l))
         });
-
-        let reduction_count = 10;
 
         // Load params from disk cache, or generate them in the background.
         thread::spawn(move || public_params(reduction_count));
