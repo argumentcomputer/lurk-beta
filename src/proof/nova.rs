@@ -65,7 +65,8 @@ impl<'a> MultiFrame<'a, S1, IO<S1>, Witness<S1>> {
 }
 
 pub struct NovaProver<F: LurkField> {
-    chunk_frame_count: usize,
+    // `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
+    reduction_count: usize,
     _p: PhantomData<F>,
 }
 
@@ -73,14 +74,14 @@ impl<'a> PublicParameters for PublicParams<'a> {}
 
 impl<'a, F: LurkField> Prover<'a, F> for NovaProver<F> {
     type PublicParams = PublicParams<'a>;
-    fn new(chunk_frame_count: usize) -> Self {
+    fn new(reduction_count: usize) -> Self {
         NovaProver::<F> {
-            chunk_frame_count,
+            reduction_count,
             _p: PhantomData::<F>,
         }
     }
-    fn chunk_frame_count(&self) -> usize {
-        self.chunk_frame_count
+    fn reduction_count(&self) -> usize {
+        self.reduction_count
     }
 }
 
@@ -110,10 +111,10 @@ impl<F: LurkField> NovaProver<F> {
         let frames = self.get_evaluation_frames(expr, env, store, limit)?;
         let z0 = frames[0].input.to_vector(store)?;
         let zi = frames.last().unwrap().output.to_vector(store)?;
-        let circuits = MultiFrame::from_frames(self.chunk_frame_count(), &frames, store);
+        let circuits = MultiFrame::from_frames(self.reduction_count(), &frames, store);
         let num_steps = circuits.len();
         let proof =
-            Proof::prove_recursively(pp, store, &circuits, self.chunk_frame_count, z0.clone())?;
+            Proof::prove_recursively(pp, store, &circuits, self.reduction_count, z0.clone())?;
 
         Ok((proof, z0, zi, num_steps))
     }
@@ -300,8 +301,8 @@ mod tests {
     };
     use pallas::Scalar as Fr;
 
-    const DEFAULT_CHUNK_FRAME_COUNT: usize = 5;
-    const CHUNK_FRAME_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
+    const DEFAULT_REDUCTION_COUNT: usize = 5;
+    const REDUCTION_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
     fn test_aux(
         s: &mut Store<Fr>,
         expr: &str,
@@ -313,7 +314,7 @@ mod tests {
     ) {
         dbg!(expr);
 
-        for chunk_size in CHUNK_FRAME_COUNTS_TO_TEST {
+        for chunk_size in REDUCTION_COUNTS_TO_TEST {
             nova_test_full_aux(
                 s,
                 expr,
@@ -337,7 +338,7 @@ mod tests {
         expected_cont: Option<ContPtr<Fr>>,
         expected_emitted: Option<&Vec<Ptr<Fr>>>,
         expected_iterations: usize,
-        chunk_frame_count: usize,
+        reduction_count: usize,
         check_nova: bool,
         limit: Option<usize>,
     ) {
@@ -350,7 +351,7 @@ mod tests {
             expected_cont,
             expected_emitted,
             expected_iterations,
-            chunk_frame_count,
+            reduction_count,
             check_nova,
             limit,
         )
@@ -364,7 +365,7 @@ mod tests {
         expected_cont: Option<ContPtr<Fr>>,
         expected_emitted: Option<&Vec<Ptr<Fr>>>,
         expected_iterations: usize,
-        chunk_frame_count: usize,
+        reduction_count: usize,
         check_nova: bool,
         limit: Option<usize>,
     ) {
@@ -372,10 +373,10 @@ mod tests {
 
         let e = empty_sym_env(s);
 
-        let nova_prover = NovaProver::<Fr>::new(chunk_frame_count);
+        let nova_prover = NovaProver::<Fr>::new(reduction_count);
 
         if check_nova {
-            let pp = public_params(chunk_frame_count);
+            let pp = public_params(reduction_count);
             let (proof, z0, zi, num_steps) = nova_prover
                 .evaluate_and_prove(&pp, expr, empty_sym_env(s), s, limit)
                 .unwrap();
@@ -396,7 +397,7 @@ mod tests {
             .get_evaluation_frames(expr, e, s, limit)
             .unwrap();
 
-        let multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), &frames, s);
+        let multiframes = MultiFrame::from_frames(nova_prover.reduction_count(), &frames, s);
 
         let len = multiframes.len();
 
@@ -405,7 +406,7 @@ mod tests {
 
         let mut cs_blank = MetricCS::<Fr>::new();
 
-        let blank = MultiFrame::<Fr, IO<Fr>, Witness<Fr>>::blank(chunk_frame_count);
+        let blank = MultiFrame::<Fr, IO<Fr>, Witness<Fr>>::blank(reduction_count);
         blank
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize blank");
@@ -512,7 +513,7 @@ mod tests {
             Some(terminal),
             None,
             3,
-            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_REDUCTION_COUNT,
             true,
             None,
         );
@@ -1586,7 +1587,7 @@ mod tests {
             Some(terminal),
             None,
             3,
-            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_REDUCTION_COUNT,
             false,
             None,
         );
@@ -3009,7 +3010,7 @@ mod tests {
             Some(terminal),
             None,
             7,
-            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_REDUCTION_COUNT,
             false,
             None,
         );

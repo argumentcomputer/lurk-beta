@@ -20,6 +20,8 @@ use std::io::{self, BufRead};
 use std::path::Path;
 use std::thread;
 
+const DEFAULT_REDUCTION_COUNT: usize = 10;
+
 #[derive(Clone, Debug)]
 struct Demo {
     inputs: Vec<String>,
@@ -100,9 +102,12 @@ impl<F: LurkField> ClutchState<F> {
         "\n!> ".into()
     }
 }
+
 impl ReplTrait<F> for ClutchState<F> {
     fn new(s: &mut Store<F>, limit: usize, command: Option<Command>) -> Self {
-        let proof_map = fcomm::nova_proof_cache();
+        let reduction_count = DEFAULT_REDUCTION_COUNT;
+
+        let proof_map = fcomm::nova_proof_cache(reduction_count);
         let expression_map = fcomm::committed_expression_store();
 
         let demo = command.clone().and_then(|c| {
@@ -113,8 +118,6 @@ impl ReplTrait<F> for ClutchState<F> {
                 .get_one::<String>("demo")
                 .map(|demo_file| Demo::new_from_path(demo_file, l))
         });
-
-        let reduction_count = 1;
 
         // Load params from disk cache, or generate them in the background.
         thread::spawn(move || public_params(reduction_count));
@@ -383,7 +386,7 @@ impl ClutchState<F> {
         chain: bool,
     ) -> Result<Option<Ptr<F>>> {
         let args = store.cdr(&rest)?;
-        let (commitment, Some(e)) = self.open_aux(store, rest)? else { return Ok(None) };
+        let (commitment, Some(e)) = self.open_aux(store, rest)? else { bail!("failed to open") };
         let call = store.cons(e, args);
         let (arg, _) = store.car_cdr(&args)?;
 

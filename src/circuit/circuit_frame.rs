@@ -243,7 +243,7 @@ impl<F: LurkField, W: Copy> Provable<F> for MultiFrame<'_, F, IO<F>, W> {
         input_output_size * 2
     }
 
-    fn chunk_frame_count(&self) -> usize {
+    fn reduction_count(&self) -> usize {
         self.count
     }
 }
@@ -5156,7 +5156,7 @@ mod tests {
     use ff::{Field, PrimeField};
     use pairing_lib::Engine;
 
-    const DEFAULT_CHUNK_FRAME_COUNT: usize = 1;
+    const DEFAULT_REDUCTION_COUNT: usize = 1;
 
     #[test]
     fn num_self_evaluating() {
@@ -5172,8 +5172,8 @@ mod tests {
 
         let (_, witness) = input.reduce(&mut store).unwrap();
 
-        let public_params = Groth16Prover::create_groth_params(DEFAULT_CHUNK_FRAME_COUNT).unwrap();
-        let groth_prover = Groth16Prover::new(DEFAULT_CHUNK_FRAME_COUNT);
+        let public_params = Groth16Prover::create_groth_params(DEFAULT_REDUCTION_COUNT).unwrap();
+        let groth_prover = Groth16Prover::new(DEFAULT_REDUCTION_COUNT);
         let groth_params = &public_params.0;
 
         let vk = &groth_params.vk;
@@ -5185,14 +5185,14 @@ mod tests {
 
             let mut cs_blank = MetricCS::<Fr>::new();
             let blank_multiframe =
-                MultiFrame::<<Bls12 as Engine>::Fr, _, _>::blank(DEFAULT_CHUNK_FRAME_COUNT);
+                MultiFrame::<<Bls12 as Engine>::Fr, _, _>::blank(DEFAULT_REDUCTION_COUNT);
 
             blank_multiframe
                 .synthesize(&mut cs_blank)
                 .expect("failed to synthesize");
 
             let multiframes = MultiFrame::from_frames(
-                DEFAULT_CHUNK_FRAME_COUNT,
+                DEFAULT_REDUCTION_COUNT,
                 &[Frame {
                     input,
                     output,
@@ -5310,7 +5310,7 @@ mod tests {
             };
 
             MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
-                DEFAULT_CHUNK_FRAME_COUNT,
+                DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
             )[0]
@@ -5388,7 +5388,7 @@ mod tests {
             };
 
             MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
-                DEFAULT_CHUNK_FRAME_COUNT,
+                DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
             )[0]
@@ -5467,7 +5467,7 @@ mod tests {
             };
 
             MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
-                DEFAULT_CHUNK_FRAME_COUNT,
+                DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
             )[0]
@@ -5547,7 +5547,7 @@ mod tests {
             };
 
             MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
-                DEFAULT_CHUNK_FRAME_COUNT,
+                DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
             )[0]
