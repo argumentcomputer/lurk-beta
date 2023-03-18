@@ -1,11 +1,13 @@
-;; First, we define a stateful function that adds to a counter, initialized with 0.
+;; First, we define a stateful function that adds its input to an internal counter, initialized to 0.
+
+;; The function returns a new counter value and a commitment to a replacement function wrapping the new counter.
 
 !(:commit (letrec ((add (lambda (counter x)
                           (let ((counter (+ counter x)))
                             (cons counter (commit (add counter)))))))
             (add 0)))
 
-;; We make the first chained call to the committed function with a value of 9.
+;; We chain a next commitment by applying the committed  committed function with a value of 9.
 
 !(:chain 0x3ce3d2df00eb623965384c5b57e162221eb984065eadb19f9daa3190afdcb121 9)
 
@@ -25,7 +27,7 @@
 
 !(:chain 0x16e909ae4e83b4fc29faa8e8dad0a90f301cf99fd2a1329f6cec685b81d1091a 12)
 
-;; Now the counter is 21, and we receive a new head commitment.
+;; Now the counter is 21, and we have a new head commitment.
 
 ;; Prove it.
 
@@ -50,3 +52,6 @@
 !(:verify "bafkr4ier43cylaoprfa4sjxqduy3lsjgdimewk6vtottrktapkxf6r4ase")
 
 ;; Repeat indefinitely.
+
+;; At every step, we have proof that the head commitment was correctly derived from the previous and some input.
+
