@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/nova.rs`."><title>nova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c4dbdcde0fbd8430.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (511364e78 2023-03-16)" data-search-js="search-d1bc581867fd0849.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../../static.files/storage-9184409068f70b79.js"></script><script defer src="../../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-f5a2577c5297a973.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/nova.rs`."><title>nova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c4dbdcde0fbd8430.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (13afbdaa0 2023-03-17)" data-search-js="search-d1bc581867fd0849.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../../static.files/storage-9184409068f70b79.js"></script><script defer src="../../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-f5a2577c5297a973.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -3098,6 +3098,7 @@
 <a href="#3098" id="3098">3098</a>
 <a href="#3099" id="3099">3099</a>
 <a href="#3100" id="3100">3100</a>
+<a href="#3101" id="3101">3101</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>std::marker::PhantomData;
@@ -3165,7 +3166,8 @@
 }
 
 <span class="kw">pub struct </span>NovaProver&lt;F: LurkField&gt; {
-    chunk_frame_count: usize,
+    <span class="comment">// `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
+    </span>reduction_count: usize,
     _p: PhantomData&lt;F&gt;,
 }
 
@@ -3173,14 +3175,14 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt; Prover&lt;<span class="lifetime">&#39;a</span>, F&gt; <span class="kw">for </span>NovaProver&lt;F&gt; {
     <span class="kw">type </span>PublicParams = PublicParams&lt;<span class="lifetime">&#39;a</span>&gt;;
-    <span class="kw">fn </span>new(chunk_frame_count: usize) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>new(reduction_count: usize) -&gt; <span class="self">Self </span>{
         NovaProver::&lt;F&gt; {
-            chunk_frame_count,
+            reduction_count,
             _p: PhantomData::&lt;F&gt;,
         }
     }
-    <span class="kw">fn </span>chunk_frame_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.chunk_frame_count
+    <span class="kw">fn </span>reduction_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.reduction_count
     }
 }
 
@@ -3210,10 +3212,10 @@
         <span class="kw">let </span>frames = <span class="self">self</span>.get_evaluation_frames(expr, env, store, limit)<span class="question-mark">?</span>;
         <span class="kw">let </span>z0 = frames[<span class="number">0</span>].input.to_vector(store)<span class="question-mark">?</span>;
         <span class="kw">let </span>zi = frames.last().unwrap().output.to_vector(store)<span class="question-mark">?</span>;
-        <span class="kw">let </span>circuits = MultiFrame::from_frames(<span class="self">self</span>.chunk_frame_count(), <span class="kw-2">&amp;</span>frames, store);
+        <span class="kw">let </span>circuits = MultiFrame::from_frames(<span class="self">self</span>.reduction_count(), <span class="kw-2">&amp;</span>frames, store);
         <span class="kw">let </span>num_steps = circuits.len();
         <span class="kw">let </span>proof =
-            Proof::prove_recursively(pp, store, <span class="kw-2">&amp;</span>circuits, <span class="self">self</span>.chunk_frame_count, z0.clone())<span class="question-mark">?</span>;
+            Proof::prove_recursively(pp, store, <span class="kw-2">&amp;</span>circuits, <span class="self">self</span>.reduction_count, z0.clone())<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>((proof, z0, zi, num_steps))
     }
@@ -3400,8 +3402,8 @@
     };
     <span class="kw">use </span>pallas::Scalar <span class="kw">as </span>Fr;
 
-    <span class="kw">const </span>DEFAULT_CHUNK_FRAME_COUNT: usize = <span class="number">5</span>;
-    <span class="kw">const </span>CHUNK_FRAME_COUNTS_TO_TEST: [usize; <span class="number">3</span>] = [<span class="number">1</span>, <span class="number">2</span>, <span class="number">5</span>];
+    <span class="kw">const </span>DEFAULT_REDUCTION_COUNT: usize = <span class="number">5</span>;
+    <span class="kw">const </span>REDUCTION_COUNTS_TO_TEST: [usize; <span class="number">3</span>] = [<span class="number">1</span>, <span class="number">2</span>, <span class="number">5</span>];
     <span class="kw">fn </span>test_aux(
         s: <span class="kw-2">&amp;mut </span>Store&lt;Fr&gt;,
         expr: <span class="kw-2">&amp;</span>str,
@@ -3413,7 +3415,7 @@
     ) {
         <span class="macro">dbg!</span>(expr);
 
-        <span class="kw">for </span>chunk_size <span class="kw">in </span>CHUNK_FRAME_COUNTS_TO_TEST {
+        <span class="kw">for </span>chunk_size <span class="kw">in </span>REDUCTION_COUNTS_TO_TEST {
             nova_test_full_aux(
                 s,
                 expr,
@@ -3437,7 +3439,7 @@
         expected_cont: <span class="prelude-ty">Option</span>&lt;ContPtr&lt;Fr&gt;&gt;,
         expected_emitted: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;Ptr&lt;Fr&gt;&gt;&gt;,
         expected_iterations: usize,
-        chunk_frame_count: usize,
+        reduction_count: usize,
         check_nova: bool,
         limit: <span class="prelude-ty">Option</span>&lt;usize&gt;,
     ) {
@@ -3450,7 +3452,7 @@
             expected_cont,
             expected_emitted,
             expected_iterations,
-            chunk_frame_count,
+            reduction_count,
             check_nova,
             limit,
         )
@@ -3464,7 +3466,7 @@
         expected_cont: <span class="prelude-ty">Option</span>&lt;ContPtr&lt;Fr&gt;&gt;,
         expected_emitted: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;Ptr&lt;Fr&gt;&gt;&gt;,
         expected_iterations: usize,
-        chunk_frame_count: usize,
+        reduction_count: usize,
         check_nova: bool,
         limit: <span class="prelude-ty">Option</span>&lt;usize&gt;,
     ) {
@@ -3472,10 +3474,10 @@
 
         <span class="kw">let </span>e = empty_sym_env(s);
 
-        <span class="kw">let </span>nova_prover = NovaProver::&lt;Fr&gt;::new(chunk_frame_count);
+        <span class="kw">let </span>nova_prover = NovaProver::&lt;Fr&gt;::new(reduction_count);
 
         <span class="kw">if </span>check_nova {
-            <span class="kw">let </span>pp = public_params(chunk_frame_count);
+            <span class="kw">let </span>pp = public_params(reduction_count);
             <span class="kw">let </span>(proof, z0, zi, num_steps) = nova_prover
                 .evaluate_and_prove(<span class="kw-2">&amp;</span>pp, expr, empty_sym_env(s), s, limit)
                 .unwrap();
@@ -3496,7 +3498,7 @@
             .get_evaluation_frames(expr, e, s, limit)
             .unwrap();
 
-        <span class="kw">let </span>multiframes = MultiFrame::from_frames(nova_prover.chunk_frame_count(), <span class="kw-2">&amp;</span>frames, s);
+        <span class="kw">let </span>multiframes = MultiFrame::from_frames(nova_prover.reduction_count(), <span class="kw-2">&amp;</span>frames, s);
 
         <span class="kw">let </span>len = multiframes.len();
 
@@ -3505,7 +3507,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>cs_blank = MetricCS::&lt;Fr&gt;::new();
 
-        <span class="kw">let </span>blank = MultiFrame::&lt;Fr, IO&lt;Fr&gt;, Witness&lt;Fr&gt;&gt;::blank(chunk_frame_count);
+        <span class="kw">let </span>blank = MultiFrame::&lt;Fr, IO&lt;Fr&gt;, Witness&lt;Fr&gt;&gt;::blank(reduction_count);
         blank
             .synthesize(<span class="kw-2">&amp;mut </span>cs_blank)
             .expect(<span class="string">&quot;failed to synthesize blank&quot;</span>);
@@ -3612,7 +3614,7 @@
             <span class="prelude-val">Some</span>(terminal),
             <span class="prelude-val">None</span>,
             <span class="number">3</span>,
-            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_REDUCTION_COUNT,
             <span class="bool-val">true</span>,
             <span class="prelude-val">None</span>,
         );
@@ -4686,7 +4688,7 @@
             <span class="prelude-val">Some</span>(terminal),
             <span class="prelude-val">None</span>,
             <span class="number">3</span>,
-            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_REDUCTION_COUNT,
             <span class="bool-val">false</span>,
             <span class="prelude-val">None</span>,
         );
@@ -6109,7 +6111,7 @@
             <span class="prelude-val">Some</span>(terminal),
             <span class="prelude-val">None</span>,
             <span class="number">7</span>,
-            DEFAULT_CHUNK_FRAME_COUNT,
+            DEFAULT_REDUCTION_COUNT,
             <span class="bool-val">false</span>,
             <span class="prelude-val">None</span>,
         );

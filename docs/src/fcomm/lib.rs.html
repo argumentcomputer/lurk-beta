@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `fcomm/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c4dbdcde0fbd8430.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="fcomm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (511364e78 2023-03-16)" data-search-js="search-d1bc581867fd0849.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../static.files/storage-9184409068f70b79.js"></script><script defer src="../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-f5a2577c5297a973.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../fcomm/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `fcomm/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c4dbdcde0fbd8430.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="fcomm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (13afbdaa0 2023-03-17)" data-search-js="search-d1bc581867fd0849.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../static.files/storage-9184409068f70b79.js"></script><script defer src="../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-f5a2577c5297a973.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../fcomm/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1002,6 +1002,10 @@
 <a href="#1002" id="1002">1002</a>
 <a href="#1003" id="1003">1003</a>
 <a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
 </pre><pre class="rust"><code><span class="kw">use </span>log::info;
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::convert::TryFrom;
@@ -1026,6 +1030,7 @@
     eval::{empty_sym_env, Evaluable, Evaluator, Status, IO},
     field::LurkField,
     proof::nova::{<span class="self">self</span>, NovaProver, PublicParams},
+    proof::Prover,
     scalar_store::ScalarStore,
     store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store},
     tag::ExprTag,
@@ -1043,7 +1048,7 @@
 <span class="kw">use </span>error::Error;
 <span class="kw">use </span>file_map::FileMap;
 
-<span class="kw">pub const </span>DEFAULT_REDUCTION_COUNT: ReductionCount = ReductionCount::One;
+<span class="kw">pub const </span>DEFAULT_REDUCTION_COUNT: ReductionCount = ReductionCount::Ten;
 <span class="kw">pub static </span>VERBOSE: OnceCell&lt;bool&gt; = OnceCell::new();
 
 <span class="kw">pub type </span>S1 = pallas::Scalar;
@@ -1064,8 +1069,8 @@
 }
 
 <span class="kw">pub type </span>NovaProofCache = FileMap&lt;Cid, Proof&lt;<span class="lifetime">&#39;static</span>, S1&gt;&gt;;
-<span class="kw">pub fn </span>nova_proof_cache() -&gt; NovaProofCache {
-    FileMap::&lt;Cid, Proof&lt;S1&gt;&gt;::new(<span class="string">&quot;nova_proofs&quot;</span>).unwrap()
+<span class="kw">pub fn </span>nova_proof_cache(reduction_count: usize) -&gt; NovaProofCache {
+    FileMap::&lt;Cid, Proof&lt;S1&gt;&gt;::new(<span class="macro">format!</span>(<span class="string">&quot;nova_proofs.{}&quot;</span>, reduction_count)).unwrap()
 }
 
 <span class="kw">pub type </span>CommittedExpressionMap = FileMap&lt;Commitment&lt;S1&gt;, CommittedExpression&lt;S1&gt;&gt;;
@@ -1114,6 +1119,7 @@
     One,
     Five,
     Ten,
+    OneHundred,
 }
 
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
@@ -1324,6 +1330,7 @@
             <span class="number">1 </span>=&gt; <span class="prelude-val">Ok</span>(ReductionCount::One),
             <span class="number">5 </span>=&gt; <span class="prelude-val">Ok</span>(ReductionCount::Five),
             <span class="number">10 </span>=&gt; <span class="prelude-val">Ok</span>(ReductionCount::Ten),
+            <span class="number">100 </span>=&gt; <span class="prelude-val">Ok</span>(ReductionCount::OneHundred),
             c =&gt; <span class="prelude-val">Err</span>(Error::UnsupportedReductionCount(c)),
         }
     }
@@ -1334,6 +1341,7 @@
             <span class="self">Self</span>::One =&gt; <span class="number">1</span>,
             <span class="self">Self</span>::Five =&gt; <span class="number">5</span>,
             <span class="self">Self</span>::Ten =&gt; <span class="number">10</span>,
+            <span class="self">Self</span>::OneHundred =&gt; <span class="number">100</span>,
         }
     }
 }
@@ -1773,7 +1781,9 @@
         nova_prover: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>NovaProver&lt;S1&gt;,
         pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
-        <span class="kw">let </span>proof_map = nova_proof_cache();
+        <span class="kw">let </span>reduction_count = nova_prover.reduction_count();
+
+        <span class="kw">let </span>proof_map = nova_proof_cache(reduction_count);
         <span class="kw">let </span>function_map = committed_expression_store();
 
         <span class="kw">let </span>cid = claim.cid();
@@ -1786,8 +1796,6 @@
             <span class="comment">// FIXME: Error handling.
             </span><span class="macro">panic!</span>(<span class="string">&quot;no cached proof&quot;</span>);
         }
-
-        <span class="kw">let </span>reduction_count = DEFAULT_REDUCTION_COUNT;
 
         <span class="macro">info!</span>(<span class="string">&quot;Starting Proving&quot;</span>);
 
@@ -1821,7 +1829,7 @@
             claim: claim.clone(),
             proof,
             num_steps,
-            reduction_count,
+            reduction_count: ReductionCount::try_from(reduction_count)<span class="question-mark">?</span>,
         };
 
         <span class="kw">match </span><span class="kw-2">&amp;</span>claim {
