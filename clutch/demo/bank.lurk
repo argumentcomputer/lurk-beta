@@ -154,6 +154,7 @@
 
 ;; And assert that funds were conserved. (Nothing was created or destroyed.)
 
+;; [ERRATUM: This assertion should have run against the result of send, not the original ledger.]
 !(:assert (funds-are-conserved? ledger))
 
 ;; Or, using the original ledger, we can try sending 200 from account 0 to 1.
@@ -162,6 +163,7 @@
 
 ;; Notice that this transaction fails due to insufficient funds. However,
 
+;; [ERRATUM: This assertion should have run against the result of send, not the original ledger.]
 !(:assert (funds-are-conserved? ledger))
 
 ;; funds are still conserved

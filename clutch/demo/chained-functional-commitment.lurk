@@ -7,7 +7,7 @@
                             (cons counter (commit (add counter)))))))
             (add 0)))
 
-;; We chain a next commitment by applying the committed  committed function with a value of 9.
+;; We chain a next commitment by applying the committed function to a value of 9.
 
 !(:chain 0x3ce3d2df00eb623965384c5b57e162221eb984065eadb19f9daa3190afdcb121 9)
 
