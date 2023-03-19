@@ -2403,26 +2403,19 @@ impl<F: LurkField> Store<F> {
 
     pub fn hash_string_mut<T: AsRef<str>>(&mut self, s: T) -> F {
         let s = s.as_ref();
-        let mut v = Vec::<char>::new();
-        for c in s.chars() {
-            v.push(c);
-        }
+        if s.is_empty() {
+            return F::zero();
+        };
 
-        let initial_hash = F::zero();
         let initial_scalar_ptr = {
-            let hash = initial_hash;
+            let hash = F::zero();
             let ptr = self.intern_str_aux("");
             self.create_scalar_ptr(ptr, hash)
         };
 
-        if s.is_empty() {
-            initial_hash
-        } else {
-            let all_hashes = self.all_hashes(s, initial_scalar_ptr);
-            // the conversion to a VecDeque is O(1)
-            // https://github.com/rust-lang/rust/blob/ac583f18b75f005023b41d49298d4d343740648a/library/alloc/src/collections/vec_deque/mod.rs#L2791-L2805
-            self.hash_string_mut_aux(v.into(), all_hashes)
-        }
+        let all_hashes = self.all_hashes(s, initial_scalar_ptr);
+        let v: VecDeque<char> = s.chars().collect();
+        self.hash_string_mut_aux(v, all_hashes)
     }
 
     // All hashes of substrings, shortest to longest.
@@ -2436,7 +2429,7 @@ impl<F: LurkField> Store<F> {
             let c = ScalarPtr(ExprTag::Char.as_field(), c_scalar);
             let hash = self.hash_scalar_ptrs_2(&[c, acc]);
             // This bypasses create_scalar_ptr but is okay because we will call it to correctly create each of these
-            // ScalarPtrs belwo, in hash_string_mut_aux.
+            // ScalarPtrs below, in hash_string_mut_aux.
             let new_scalar_ptr = ScalarPtr(ExprTag::Str.as_field(), hash);
             hashes.push(hash);
             new_scalar_ptr
