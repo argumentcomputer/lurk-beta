@@ -265,27 +265,27 @@ impl<F: LurkField> Ptr<F> {
     // TODO: Make these methods and the similar ones defined on expression consistent, probably including a shared trait.
 
     // NOTE: Although this could be a type predicate now, when NIL becomes a symbol, it won't be possible.
-    pub fn is_nil(&self) -> bool {
+    pub const fn is_nil(&self) -> bool {
         matches!(self.0, ExprTag::Nil)
         // FIXME: check value also, probably
     }
-    pub fn is_cons(&self) -> bool {
+    pub const fn is_cons(&self) -> bool {
         matches!(self.0, ExprTag::Cons)
     }
 
-    pub fn is_atom(&self) -> bool {
+    pub const fn is_atom(&self) -> bool {
         !self.is_cons()
     }
 
-    pub fn is_list(&self) -> bool {
+    pub const fn is_list(&self) -> bool {
         matches!(self.0, ExprTag::Nil | ExprTag::Cons)
     }
 
-    pub fn is_opaque(&self) -> bool {
+    pub const fn is_opaque(&self) -> bool {
         self.1.is_opaque()
     }
 
-    pub fn as_cons(self) -> Option<Self> {
+    pub const fn as_cons(self) -> Option<Self> {
         if self.is_cons() {
             Some(self)
         } else {
@@ -293,7 +293,7 @@ impl<F: LurkField> Ptr<F> {
         }
     }
 
-    pub fn as_list(self) -> Option<Self> {
+    pub const fn as_list(self) -> Option<Self> {
         if self.is_list() {
             Some(self)
         } else {
@@ -548,10 +548,10 @@ impl<F: LurkField> Pointer<F> for ContPtr<F> {
 }
 
 impl<F: LurkField> ContPtr<F> {
-    pub fn new(tag: ContTag, raw_ptr: RawPtr<F>) -> Self {
+    pub const fn new(tag: ContTag, raw_ptr: RawPtr<F>) -> Self {
         Self(tag, raw_ptr)
     }
-    pub fn is_error(&self) -> bool {
+    pub const fn is_error(&self) -> bool {
         matches!(self.0, ContTag::Error)
     }
 }
@@ -568,11 +568,11 @@ impl<F: LurkField> RawPtr<F> {
         RawPtr((p, false), Default::default())
     }
 
-    fn is_opaque(&self) -> bool {
+    const fn is_opaque(&self) -> bool {
         self.0 .1
     }
 
-    pub fn idx(&self) -> usize {
+    pub const fn idx(&self) -> usize {
         self.0 .0
     }
 }
@@ -791,7 +791,7 @@ impl<F: LurkField> Continuation<F> {
         }
     }
 
-    pub fn cont_tag(&self) -> ContTag {
+    pub const fn cont_tag(&self) -> ContTag {
         match self {
             Self::Outermost => ContTag::Outermost,
             Self::Dummy => ContTag::Dummy,
@@ -1088,7 +1088,7 @@ impl<F: LurkField> Store<F> {
         Ok(self.car_cdr(expr)?.1)
     }
 
-    pub(crate) fn poseidon_constants(&self) -> &HashConstants<F> {
+    pub(crate) const fn poseidon_constants(&self) -> &HashConstants<F> {
         &self.poseidon_cache.constants
     }
 
@@ -2576,7 +2576,7 @@ impl<F: LurkField> Expression<'_, F> {
         }
     }
 
-    pub fn as_str(&self) -> Option<&str> {
+    pub const fn as_str(&self) -> Option<&str> {
         match self {
             Expression::Str(s) => Some(s),
             _ => None,
@@ -2590,7 +2590,7 @@ impl<F: LurkField> Expression<'_, F> {
         }
     }
 
-    pub fn as_sym(&self) -> Option<&Sym> {
+    pub const fn as_sym(&self) -> Option<&Sym> {
         match self {
             Expression::Sym(s) => Some(s),
             _ => None,
@@ -2604,37 +2604,37 @@ impl<F: LurkField> Expression<'_, F> {
         }
     }
 
-    pub fn is_null(&self) -> bool {
+    pub const fn is_null(&self) -> bool {
         matches!(self, Self::Nil)
     }
 
-    pub fn is_cons(&self) -> bool {
+    pub const fn is_cons(&self) -> bool {
         matches!(self, Self::Cons(_, _))
     }
 
-    pub fn is_list(&self) -> bool {
+    pub const fn is_list(&self) -> bool {
         self.is_null() || self.is_cons()
     }
 
-    pub fn is_sym(&self) -> bool {
+    pub const fn is_sym(&self) -> bool {
         matches!(self, Self::Sym(_))
     }
-    pub fn is_fun(&self) -> bool {
+    pub const fn is_fun(&self) -> bool {
         matches!(self, Self::Fun(_, _, _))
     }
 
-    pub fn is_num(&self) -> bool {
+    pub const fn is_num(&self) -> bool {
         matches!(self, Self::Num(_))
     }
-    pub fn is_str(&self) -> bool {
+    pub const fn is_str(&self) -> bool {
         matches!(self, Self::Str(_))
     }
 
-    pub fn is_thunk(&self) -> bool {
+    pub const fn is_thunk(&self) -> bool {
         matches!(self, Self::Thunk(_))
     }
 
-    pub fn is_opaque(&self) -> bool {
+    pub const fn is_opaque(&self) -> bool {
         matches!(self, Self::Opaque(_))
     }
 }
@@ -2650,7 +2650,7 @@ impl<F: LurkField> ConstantPtrs<F> {
         self.0
             .expect("ScalarPtr missing; hydrate_scalar_cache should have been called.")
     }
-    pub fn ptr(&self) -> Ptr<F> {
+    pub const fn ptr(&self) -> Ptr<F> {
         self.1
     }
 }
