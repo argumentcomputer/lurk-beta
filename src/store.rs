@@ -1650,9 +1650,6 @@ impl<F: LurkField> Store<F> {
     pub fn fetch_scalar(&self, scalar_ptr: &ScalarPtr<F>) -> Option<Ptr<F>> {
         self.scalar_ptr_map.get(scalar_ptr).map(|p| *p)
     }
-    pub fn fetch_scalar_m(&mut self, scalar_ptr: &ScalarPtr<F>) -> Option<Ptr<F>> {
-        self.scalar_ptr_map.get(scalar_ptr).map(|p| *p)
-    }
 
     pub fn fetch_scalar_cont(&self, scalar_ptr: &ScalarContPtr<F>) -> Option<ContPtr<F>> {
         self.scalar_ptr_cont_map.get(scalar_ptr).map(|p| *p)
