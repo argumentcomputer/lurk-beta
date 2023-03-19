@@ -4,6 +4,7 @@ use rayon::prelude::*;
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
+use std::sync::Arc;
 use std::{fmt, marker::PhantomData};
 use string_interner::symbol::{Symbol, SymbolUsize};
 use thiserror;
@@ -168,7 +169,7 @@ pub struct Store<F: LurkField> {
 
     pointer_scalar_ptr_cache: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
 
-    pub(crate) lurk_package: Package,
+    pub(crate) lurk_package: Arc<Package>,
     constants: OnceCell<NamedConstants<F>>,
 }
 
@@ -912,7 +913,7 @@ impl<F: LurkField> Default for Store<F> {
             dehydrated_cont: Default::default(),
             opaque_raw_ptr_count: 0,
             pointer_scalar_ptr_cache: Default::default(),
-            lurk_package: Package::lurk(),
+            lurk_package: Arc::new(Package::lurk()),
             constants: Default::default(),
         };
 
@@ -1053,7 +1054,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn lurk_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        let package = self.lurk_package.clone(); // This clone is annoying.
+        let package = self.lurk_package.clone();
 
         self.intern_sym_with_case_conversion(name, &package)
     }
