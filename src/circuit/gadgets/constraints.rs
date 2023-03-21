@@ -522,7 +522,7 @@ pub fn alloc_num_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     num: Num<F>,
 ) -> Result<Boolean, SynthesisError> {
     let num_value = num.get_value();
-    let x = num_value.unwrap_or(F::zero());
+    let x = num_value.unwrap_or_else(|| F::zero());
     let is_zero = num_value.map(|n| n == F::zero());
 
     // result = (x == 0)
