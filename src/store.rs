@@ -4,6 +4,7 @@ use rayon::prelude::*;
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
+use std::sync::Arc;
 use std::{fmt, marker::PhantomData};
 use string_interner::symbol::{Symbol, SymbolUsize};
 use thiserror;
@@ -168,7 +169,7 @@ pub struct Store<F: LurkField> {
 
     pointer_scalar_ptr_cache: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
 
-    pub(crate) lurk_package: Package,
+    pub(crate) lurk_package: Arc<Package>,
     constants: OnceCell<NamedConstants<F>>,
 }
 
@@ -265,27 +266,27 @@ impl<F: LurkField> Ptr<F> {
     // TODO: Make these methods and the similar ones defined on expression consistent, probably including a shared trait.
 
     // NOTE: Although this could be a type predicate now, when NIL becomes a symbol, it won't be possible.
-    pub fn is_nil(&self) -> bool {
+    pub const fn is_nil(&self) -> bool {
         matches!(self.0, ExprTag::Nil)
         // FIXME: check value also, probably
     }
-    pub fn is_cons(&self) -> bool {
+    pub const fn is_cons(&self) -> bool {
         matches!(self.0, ExprTag::Cons)
     }
 
-    pub fn is_atom(&self) -> bool {
+    pub const fn is_atom(&self) -> bool {
         !self.is_cons()
     }
 
-    pub fn is_list(&self) -> bool {
+    pub const fn is_list(&self) -> bool {
         matches!(self.0, ExprTag::Nil | ExprTag::Cons)
     }
 
-    pub fn is_opaque(&self) -> bool {
+    pub const fn is_opaque(&self) -> bool {
         self.1.is_opaque()
     }
 
-    pub fn as_cons(self) -> Option<Self> {
+    pub const fn as_cons(self) -> Option<Self> {
         if self.is_cons() {
             Some(self)
         } else {
@@ -293,7 +294,7 @@ impl<F: LurkField> Ptr<F> {
         }
     }
 
-    pub fn as_list(self) -> Option<Self> {
+    pub const fn as_list(self) -> Option<Self> {
         if self.is_list() {
             Some(self)
         } else {
@@ -548,10 +549,10 @@ impl<F: LurkField> Pointer<F> for ContPtr<F> {
 }
 
 impl<F: LurkField> ContPtr<F> {
-    pub fn new(tag: ContTag, raw_ptr: RawPtr<F>) -> Self {
+    pub const fn new(tag: ContTag, raw_ptr: RawPtr<F>) -> Self {
         Self(tag, raw_ptr)
     }
-    pub fn is_error(&self) -> bool {
+    pub const fn is_error(&self) -> bool {
         matches!(self.0, ContTag::Error)
     }
 }
@@ -568,11 +569,11 @@ impl<F: LurkField> RawPtr<F> {
         RawPtr((p, false), Default::default())
     }
 
-    fn is_opaque(&self) -> bool {
+    const fn is_opaque(&self) -> bool {
         self.0 .1
     }
 
-    pub fn idx(&self) -> usize {
+    pub const fn idx(&self) -> usize {
         self.0 .0
     }
 }
@@ -791,7 +792,7 @@ impl<F: LurkField> Continuation<F> {
         }
     }
 
-    pub fn cont_tag(&self) -> ContTag {
+    pub const fn cont_tag(&self) -> ContTag {
         match self {
             Self::Outermost => ContTag::Outermost,
             Self::Dummy => ContTag::Dummy,
@@ -912,7 +913,7 @@ impl<F: LurkField> Default for Store<F> {
             dehydrated_cont: Default::default(),
             opaque_raw_ptr_count: 0,
             pointer_scalar_ptr_cache: Default::default(),
-            lurk_package: Package::lurk(),
+            lurk_package: Arc::new(Package::lurk()),
             constants: Default::default(),
         };
 
@@ -1053,7 +1054,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn lurk_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        let package = self.lurk_package.clone(); // This clone is annoying.
+        let package = self.lurk_package.clone();
 
         self.intern_sym_with_case_conversion(name, &package)
     }
@@ -1088,7 +1089,7 @@ impl<F: LurkField> Store<F> {
         Ok(self.car_cdr(expr)?.1)
     }
 
-    pub(crate) fn poseidon_constants(&self) -> &HashConstants<F> {
+    pub(crate) const fn poseidon_constants(&self) -> &HashConstants<F> {
         &self.poseidon_cache.constants
     }
 
@@ -1648,9 +1649,6 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn fetch_scalar(&self, scalar_ptr: &ScalarPtr<F>) -> Option<Ptr<F>> {
-        self.scalar_ptr_map.get(scalar_ptr).map(|p| *p)
-    }
-    pub fn fetch_scalar_m(&mut self, scalar_ptr: &ScalarPtr<F>) -> Option<Ptr<F>> {
         self.scalar_ptr_map.get(scalar_ptr).map(|p| *p)
     }
 
@@ -2403,26 +2401,19 @@ impl<F: LurkField> Store<F> {
 
     pub fn hash_string_mut<T: AsRef<str>>(&mut self, s: T) -> F {
         let s = s.as_ref();
-        let mut v = Vec::<char>::new();
-        for c in s.chars() {
-            v.push(c);
-        }
+        if s.is_empty() {
+            return F::zero();
+        };
 
-        let initial_hash = F::zero();
         let initial_scalar_ptr = {
-            let hash = initial_hash;
+            let hash = F::zero();
             let ptr = self.intern_str_aux("");
             self.create_scalar_ptr(ptr, hash)
         };
 
-        if s.is_empty() {
-            initial_hash
-        } else {
-            let all_hashes = self.all_hashes(s, initial_scalar_ptr);
-            // the conversion to a VecDeque is O(1)
-            // https://github.com/rust-lang/rust/blob/ac583f18b75f005023b41d49298d4d343740648a/library/alloc/src/collections/vec_deque/mod.rs#L2791-L2805
-            self.hash_string_mut_aux(v.into(), all_hashes)
-        }
+        let all_hashes = self.all_hashes(s, initial_scalar_ptr);
+        let v: VecDeque<char> = s.chars().collect();
+        self.hash_string_mut_aux(v, all_hashes)
     }
 
     // All hashes of substrings, shortest to longest.
@@ -2436,7 +2427,7 @@ impl<F: LurkField> Store<F> {
             let c = ScalarPtr(ExprTag::Char.as_field(), c_scalar);
             let hash = self.hash_scalar_ptrs_2(&[c, acc]);
             // This bypasses create_scalar_ptr but is okay because we will call it to correctly create each of these
-            // ScalarPtrs belwo, in hash_string_mut_aux.
+            // ScalarPtrs below, in hash_string_mut_aux.
             let new_scalar_ptr = ScalarPtr(ExprTag::Str.as_field(), hash);
             hashes.push(hash);
             new_scalar_ptr
@@ -2583,7 +2574,7 @@ impl<F: LurkField> Expression<'_, F> {
         }
     }
 
-    pub fn as_str(&self) -> Option<&str> {
+    pub const fn as_str(&self) -> Option<&str> {
         match self {
             Expression::Str(s) => Some(s),
             _ => None,
@@ -2597,7 +2588,7 @@ impl<F: LurkField> Expression<'_, F> {
         }
     }
 
-    pub fn as_sym(&self) -> Option<&Sym> {
+    pub const fn as_sym(&self) -> Option<&Sym> {
         match self {
             Expression::Sym(s) => Some(s),
             _ => None,
@@ -2611,37 +2602,37 @@ impl<F: LurkField> Expression<'_, F> {
         }
     }
 
-    pub fn is_null(&self) -> bool {
+    pub const fn is_null(&self) -> bool {
         matches!(self, Self::Nil)
     }
 
-    pub fn is_cons(&self) -> bool {
+    pub const fn is_cons(&self) -> bool {
         matches!(self, Self::Cons(_, _))
     }
 
-    pub fn is_list(&self) -> bool {
+    pub const fn is_list(&self) -> bool {
         self.is_null() || self.is_cons()
     }
 
-    pub fn is_sym(&self) -> bool {
+    pub const fn is_sym(&self) -> bool {
         matches!(self, Self::Sym(_))
     }
-    pub fn is_fun(&self) -> bool {
+    pub const fn is_fun(&self) -> bool {
         matches!(self, Self::Fun(_, _, _))
     }
 
-    pub fn is_num(&self) -> bool {
+    pub const fn is_num(&self) -> bool {
         matches!(self, Self::Num(_))
     }
-    pub fn is_str(&self) -> bool {
+    pub const fn is_str(&self) -> bool {
         matches!(self, Self::Str(_))
     }
 
-    pub fn is_thunk(&self) -> bool {
+    pub const fn is_thunk(&self) -> bool {
         matches!(self, Self::Thunk(_))
     }
 
-    pub fn is_opaque(&self) -> bool {
+    pub const fn is_opaque(&self) -> bool {
         matches!(self, Self::Opaque(_))
     }
 }
@@ -2657,7 +2648,7 @@ impl<F: LurkField> ConstantPtrs<F> {
         self.0
             .expect("ScalarPtr missing; hydrate_scalar_cache should have been called.")
     }
-    pub fn ptr(&self) -> Ptr<F> {
+    pub const fn ptr(&self) -> Ptr<F> {
         self.1
     }
 }
