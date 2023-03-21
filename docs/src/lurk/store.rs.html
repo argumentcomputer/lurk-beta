@@ -3350,21 +3350,13 @@
 <a href="#3350" id="3350">3350</a>
 <a href="#3351" id="3351">3351</a>
 <a href="#3352" id="3352">3352</a>
-<a href="#3353" id="3353">3353</a>
-<a href="#3354" id="3354">3354</a>
-<a href="#3355" id="3355">3355</a>
-<a href="#3356" id="3356">3356</a>
-<a href="#3357" id="3357">3357</a>
-<a href="#3358" id="3358">3358</a>
-<a href="#3359" id="3359">3359</a>
-<a href="#3360" id="3360">3360</a>
-<a href="#3361" id="3361">3361</a>
 </pre><pre class="rust"><code><span class="kw">use </span>generic_array::typenum::{U3, U4, U6, U8};
 <span class="kw">use </span>neptune::Poseidon;
 <span class="kw">use </span>rayon::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>std::collections::VecDeque;
 <span class="kw">use </span>std::fmt::{Display, Formatter};
 <span class="kw">use </span>std::hash::Hash;
+<span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::{fmt, marker::PhantomData};
 <span class="kw">use </span>string_interner::symbol::{Symbol, SymbolUsize};
 <span class="kw">use </span>thiserror;
@@ -3529,7 +3521,7 @@
 
     pointer_scalar_ptr_cache: dashmap::DashMap&lt;Ptr&lt;F&gt;, ScalarPtr&lt;F&gt;&gt;,
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) lurk_package: Package,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) lurk_package: Arc&lt;Package&gt;,
     constants: OnceCell&lt;NamedConstants&lt;F&gt;&gt;,
 }
 
@@ -3626,27 +3618,27 @@
     <span class="comment">// TODO: Make these methods and the similar ones defined on expression consistent, probably including a shared trait.
 
     // NOTE: Although this could be a type predicate now, when NIL becomes a symbol, it won&#39;t be possible.
-    </span><span class="kw">pub fn </span>is_nil(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    </span><span class="kw">pub const fn </span>is_nil(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(<span class="self">self</span>.<span class="number">0</span>, ExprTag::Nil)
         <span class="comment">// FIXME: check value also, probably
     </span>}
-    <span class="kw">pub fn </span>is_cons(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub const fn </span>is_cons(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(<span class="self">self</span>.<span class="number">0</span>, ExprTag::Cons)
     }
 
-    <span class="kw">pub fn </span>is_atom(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub const fn </span>is_atom(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         !<span class="self">self</span>.is_cons()
     }
 
-    <span class="kw">pub fn </span>is_list(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub const fn </span>is_list(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(<span class="self">self</span>.<span class="number">0</span>, ExprTag::Nil | ExprTag::Cons)
     }
 
-    <span class="kw">pub fn </span>is_opaque(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub const fn </span>is_opaque(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.<span class="number">1</span>.is_opaque()
     }
 
-    <span class="kw">pub fn </span>as_cons(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+    <span class="kw">pub const fn </span>as_cons(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">if </span><span class="self">self</span>.is_cons() {
             <span class="prelude-val">Some</span>(<span class="self">self</span>)
         } <span class="kw">else </span>{
@@ -3654,7 +3646,7 @@
         </span>}
     }
 
-    <span class="kw">pub fn </span>as_list(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+    <span class="kw">pub const fn </span>as_list(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">if </span><span class="self">self</span>.is_list() {
             <span class="prelude-val">Some</span>(<span class="self">self</span>)
         } <span class="kw">else </span>{
@@ -3909,10 +3901,10 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; ContPtr&lt;F&gt; {
-    <span class="kw">pub fn </span>new(tag: ContTag, raw_ptr: RawPtr&lt;F&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub const fn </span>new(tag: ContTag, raw_ptr: RawPtr&lt;F&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(tag, raw_ptr)
     }
-    <span class="kw">pub fn </span>is_error(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub const fn </span>is_error(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(<span class="self">self</span>.<span class="number">0</span>, ContTag::Error)
     }
 }
@@ -3929,11 +3921,11 @@
         RawPtr((p, <span class="bool-val">false</span>), Default::default())
     }
 
-    <span class="kw">fn </span>is_opaque(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">const fn </span>is_opaque(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.<span class="number">0 </span>.<span class="number">1
     </span>}
 
-    <span class="kw">pub fn </span>idx(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+    <span class="kw">pub const fn </span>idx(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.<span class="number">0 </span>.<span class="number">0
     </span>}
 }
@@ -4152,7 +4144,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>cont_tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ContTag {
+    <span class="kw">pub const fn </span>cont_tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ContTag {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Outermost =&gt; ContTag::Outermost,
             <span class="self">Self</span>::Dummy =&gt; ContTag::Dummy,
@@ -4273,7 +4265,7 @@
             dehydrated_cont: Default::default(),
             opaque_raw_ptr_count: <span class="number">0</span>,
             pointer_scalar_ptr_cache: Default::default(),
-            lurk_package: Package::lurk(),
+            lurk_package: Arc::new(Package::lurk()),
             constants: Default::default(),
         };
 
@@ -4414,9 +4406,9 @@
     }
 
     <span class="kw">pub fn </span>lurk_sym&lt;T: AsRef&lt;str&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: T) -&gt; Ptr&lt;F&gt; {
-        <span class="kw">let </span>package = <span class="self">self</span>.lurk_package.clone(); <span class="comment">// This clone is annoying.
+        <span class="kw">let </span>package = <span class="self">self</span>.lurk_package.clone();
 
-        </span><span class="self">self</span>.intern_sym_with_case_conversion(name, <span class="kw-2">&amp;</span>package)
+        <span class="self">self</span>.intern_sym_with_case_conversion(name, <span class="kw-2">&amp;</span>package)
     }
 
     <span class="kw">pub fn </span>sym&lt;T: AsRef&lt;str&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: T) -&gt; Ptr&lt;F&gt; {
@@ -4449,7 +4441,7 @@
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.car_cdr(expr)<span class="question-mark">?</span>.<span class="number">1</span>)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>poseidon_constants(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>HashConstants&lt;F&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const fn </span>poseidon_constants(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>HashConstants&lt;F&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.poseidon_cache.constants
     }
 
@@ -5009,9 +5001,6 @@
     </span>}
 
     <span class="kw">pub fn </span>fetch_scalar(<span class="kw-2">&amp;</span><span class="self">self</span>, scalar_ptr: <span class="kw-2">&amp;</span>ScalarPtr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt; {
-        <span class="self">self</span>.scalar_ptr_map.get(scalar_ptr).map(|p| <span class="kw-2">*</span>p)
-    }
-    <span class="kw">pub fn </span>fetch_scalar_m(<span class="kw-2">&amp;mut </span><span class="self">self</span>, scalar_ptr: <span class="kw-2">&amp;</span>ScalarPtr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt; {
         <span class="self">self</span>.scalar_ptr_map.get(scalar_ptr).map(|p| <span class="kw-2">*</span>p)
     }
 
@@ -5764,26 +5753,19 @@
 
     <span class="kw">pub fn </span>hash_string_mut&lt;T: AsRef&lt;str&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: T) -&gt; F {
         <span class="kw">let </span>s = s.as_ref();
-        <span class="kw">let </span><span class="kw-2">mut </span>v = Vec::&lt;char&gt;::new();
-        <span class="kw">for </span>c <span class="kw">in </span>s.chars() {
-            v.push(c);
-        }
+        <span class="kw">if </span>s.is_empty() {
+            <span class="kw">return </span>F::zero();
+        };
 
-        <span class="kw">let </span>initial_hash = F::zero();
         <span class="kw">let </span>initial_scalar_ptr = {
-            <span class="kw">let </span>hash = initial_hash;
+            <span class="kw">let </span>hash = F::zero();
             <span class="kw">let </span>ptr = <span class="self">self</span>.intern_str_aux(<span class="string">&quot;&quot;</span>);
             <span class="self">self</span>.create_scalar_ptr(ptr, hash)
         };
 
-        <span class="kw">if </span>s.is_empty() {
-            initial_hash
-        } <span class="kw">else </span>{
-            <span class="kw">let </span>all_hashes = <span class="self">self</span>.all_hashes(s, initial_scalar_ptr);
-            <span class="comment">// the conversion to a VecDeque is O(1)
-            // https://github.com/rust-lang/rust/blob/ac583f18b75f005023b41d49298d4d343740648a/library/alloc/src/collections/vec_deque/mod.rs#L2791-L2805
-            </span><span class="self">self</span>.hash_string_mut_aux(v.into(), all_hashes)
-        }
+        <span class="kw">let </span>all_hashes = <span class="self">self</span>.all_hashes(s, initial_scalar_ptr);
+        <span class="kw">let </span>v: VecDeque&lt;char&gt; = s.chars().collect();
+        <span class="self">self</span>.hash_string_mut_aux(v, all_hashes)
     }
 
     <span class="comment">// All hashes of substrings, shortest to longest.
@@ -5797,7 +5779,7 @@
             </span><span class="kw">let </span>c = ScalarPtr(ExprTag::Char.as_field(), c_scalar);
             <span class="kw">let </span>hash = <span class="self">self</span>.hash_scalar_ptrs_2(<span class="kw-2">&amp;</span>[c, acc]);
             <span class="comment">// This bypasses create_scalar_ptr but is okay because we will call it to correctly create each of these
-            // ScalarPtrs belwo, in hash_string_mut_aux.
+            // ScalarPtrs below, in hash_string_mut_aux.
             </span><span class="kw">let </span>new_scalar_ptr = ScalarPtr(ExprTag::Str.as_field(), hash);
             hashes.push(hash);
             new_scalar_ptr
@@ -5944,7 +5926,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>as_str(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt; {
+    <span class="kw">pub const fn </span>as_str(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             Expression::Str(s) =&gt; <span class="prelude-val">Some</span>(s),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
@@ -5958,7 +5940,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>as_sym(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Sym&gt; {
+    <span class="kw">pub const fn </span>as_sym(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Sym&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             Expression::Sym(s) =&gt; <span class="prelude-val">Some</span>(s),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
@@ -5972,37 +5954,37 @@
         }
     }
 
-    <span class="kw">pub fn </span>is_null(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub const fn </span>is_null(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Nil)
     }
 
-    <span class="kw">pub fn </span>is_cons(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub const fn </span>is_cons(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Cons(<span class="kw">_</span>, <span class="kw">_</span>))
     }
 
-    <span class="kw">pub fn </span>is_list(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub const fn </span>is_list(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.is_null() || <span class="self">self</span>.is_cons()
     }
 
-    <span class="kw">pub fn </span>is_sym(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub const fn </span>is_sym(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Sym(<span class="kw">_</span>))
     }
-    <span class="kw">pub fn </span>is_fun(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub const fn </span>is_fun(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Fun(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>))
     }
 
-    <span class="kw">pub fn </span>is_num(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub const fn </span>is_num(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Num(<span class="kw">_</span>))
     }
-    <span class="kw">pub fn </span>is_str(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub const fn </span>is_str(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Str(<span class="kw">_</span>))
     }
 
-    <span class="kw">pub fn </span>is_thunk(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub const fn </span>is_thunk(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Thunk(<span class="kw">_</span>))
     }
 
-    <span class="kw">pub fn </span>is_opaque(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub const fn </span>is_opaque(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Opaque(<span class="kw">_</span>))
     }
 }
@@ -6018,7 +6000,7 @@
         <span class="self">self</span>.<span class="number">0
             </span>.expect(<span class="string">&quot;ScalarPtr missing; hydrate_scalar_cache should have been called.&quot;</span>)
     }
-    <span class="kw">pub fn </span>ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr&lt;F&gt; {
+    <span class="kw">pub const fn </span>ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ptr&lt;F&gt; {
         <span class="self">self</span>.<span class="number">1
     </span>}
 }
