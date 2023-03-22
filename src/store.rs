@@ -316,6 +316,11 @@ impl<F: LurkField> Pointer<F> for Ptr<F> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 // Note: the trait bound E: Tag is not necessary in the struct, but it makes the proptest strategy more efficient.
+/// A struct representing a scalar pointer with a tag and a value.
+///
+/// The `SPtr` struct is used to store a tagged scalar pointer, where `E` is its tag, and `F` the field for its values.
+/// It has two important aliases, `ScalarPtr` and `ScalarContPtr`, which are used respectively with `ExprTag` and `ContTag`,
+/// i.e. the type of expressions and the type of continuations.
 pub struct SPtr<E: Tag, F: LurkField>(
     E,
     #[cfg_attr(
