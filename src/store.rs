@@ -325,9 +325,14 @@ impl<F: LurkField> Pointer<F> for Ptr<F> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
-pub struct SPtr<E, F: LurkField>(
+// Note: the trait bound E: Tag is not necessary in the struct, but it makes the proptest strategy more efficient.
+pub struct SPtr<E: Tag, F: LurkField>(
     E,
-    #[proptest(strategy = "any::<FWrap<F>>().prop_map(|x| x.0)")] F,
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        proptest(strategy = "any::<FWrap<F>>().prop_map(|x| x.0)")
+    )]
+    F,
 );
 
 impl<E: Tag, F: LurkField> Display for SPtr<E, F> {
@@ -441,104 +446,13 @@ impl<F: LurkField> IntoHashComponents<F> for [F; 2] {
     }
 }
 
-impl<F: LurkField> IntoHashComponents<F> for ScalarPtr<F> {
+impl<E: Tag, F: LurkField> IntoHashComponents<F> for SPtr<E, F> {
     fn into_hash_components(self) -> [F; 2] {
         [self.0.to_field::<F>(), self.1]
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ScalarContPtr<F: LurkField>(F, F);
-
-impl<F: LurkField> Copy for ScalarContPtr<F> {}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl<Fr: LurkField> Arbitrary for ScalarContPtr<Fr> {
-    type Parameters = ();
-    type Strategy = BoxedStrategy<Self>;
-
-    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        any::<(ContTag, FWrap<Fr>)>()
-            .prop_map(|(tag, val)| ScalarContPtr::from_parts(tag, val.0))
-            .boxed()
-    }
-}
-
-impl<F: LurkField> PartialOrd for ScalarContPtr<F> {
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
-            .partial_cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
-    }
-}
-
-impl<F: LurkField> Ord for ScalarContPtr<F> {
-    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
-            .cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
-    }
-}
-
-impl<F: LurkField> Serialize for ScalarContPtr<F> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use ser::Error;
-        let tag = self.tag();
-        let val = self.value();
-        // magic numbers to avoid multicodec table collisons
-        // this will disappear when we move from IPLD to LDON
-        let codec: u64 = 0x10de << 48 | tag.to_u64_unchecked();
-        let hash = Multihash::wrap(codec, &val.to_bytes())
-            .map_err(|_| S::Error::custom("expected validly tagged ScalarContPtr".to_string()))?;
-        let cid = Cid::new_v1(codec, hash);
-        cid.serialize(serializer)
-    }
-}
-
-impl<'de, F: LurkField> Deserialize<'de> for ScalarContPtr<F> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        use de::Error;
-        let cid = Cid::deserialize(deserializer)?;
-        let tag = F::from_u64(cid.codec() & 0x0000_0000_ffff_ffff);
-        let val = F::from_bytes(cid.hash().digest())
-            .ok_or_else(|| D::Error::custom("expected ScalarContPtr value".to_string()))?;
-        // TODO(fga): eliminate this round-trip through the field
-        let cont_tag =
-            ContTag::from_field(&tag).ok_or_else(|| D::Error::custom("invalid ContTag"))?;
-        Ok(ScalarContPtr::from_parts(cont_tag, val))
-    }
-}
-
-#[allow(clippy::derive_hash_xor_eq)]
-impl<F: LurkField> Hash for ScalarContPtr<F> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.to_repr().as_ref().hash(state);
-        self.1.to_repr().as_ref().hash(state);
-    }
-}
-
-impl<F: LurkField> ScalarPointer<ContTag, F> for ScalarContPtr<F> {
-    fn from_parts(tag: ContTag, value: F) -> Self {
-        ScalarContPtr(tag.to_field(), value)
-    }
-    fn tag(&self) -> F {
-        self.0
-    }
-
-    fn value(&self) -> &F {
-        &self.1
-    }
-}
-
-impl<F: LurkField> IntoHashComponents<F> for ScalarContPtr<F> {
-    fn into_hash_components(self) -> [F; 2] {
-        [self.0, self.1]
-    }
-}
+pub type ScalarContPtr<F> = SPtr<ContTag, F>;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ContPtr<F: LurkField>(ContTag, RawPtr<F>);
@@ -1227,7 +1141,7 @@ impl<F: LurkField> Store<F> {
         scalar_store: &ScalarStore<F>,
     ) -> Option<ContPtr<F>> {
         use ScalarContinuation::*;
-        let tag: ContTag = ContTag::from_field(&ptr.tag())?;
+        let tag: ContTag = ptr.0;
 
         if let Some(cont) = scalar_store.get_cont(&ptr) {
             let continuation = match cont {
@@ -1652,7 +1566,8 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn scalar_from_parts_cont(&self, tag: F, value: F) -> Option<ScalarContPtr<F>> {
-        let scalar_ptr = ScalarContPtr(tag, value);
+        let Some(e_tag) = ContTag::from_field(&tag) else { return None };
+        let scalar_ptr = ScalarContPtr::from_parts(e_tag, value);
         if self.scalar_ptr_cont_map.contains_key(&scalar_ptr) {
             return Some(scalar_ptr);
         }
@@ -2002,7 +1917,7 @@ impl<F: LurkField> Store<F> {
     /// The only places that `ScalarContPtr`s for `ContPtr`s should be created, to
     /// ensure that they are cached properly
     fn create_cont_scalar_ptr(&self, ptr: ContPtr<F>, hash: F) -> ScalarContPtr<F> {
-        let scalar_ptr = ScalarContPtr(ptr.tag_field(), hash);
+        let scalar_ptr = ScalarContPtr::from_parts(ptr.0, hash);
         self.scalar_ptr_cont_map.entry(scalar_ptr).or_insert(ptr);
 
         scalar_ptr
@@ -2815,9 +2730,7 @@ pub mod test {
         let from_ipld = from_ipld(to_ipld).unwrap();
         assert_eq!(x, from_ipld);
       }
-    }
 
-    proptest! {
       #[test]
       fn prop_scalar_cont_ptr_ipld(x in any::<ScalarContPtr<Fr>>()) {
           let to_ipld = to_ipld(x).unwrap();
@@ -2825,9 +2738,6 @@ pub mod test {
               assert_eq!(x, from_ipld);
 
       }
-    }
-
-    proptest! {
       #[test]
       fn prop_op1_ipld(x in any::<Op1>())  {
           let to_ipld = to_ipld(x).unwrap();
