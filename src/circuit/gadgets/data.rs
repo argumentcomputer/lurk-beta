@@ -12,7 +12,7 @@ use crate::field::LurkField;
 use crate::store::{Expression, Pointer, Ptr, Store, Thunk};
 use crate::store::{IntoHashComponents, ScalarPtr};
 use crate::store::{ScalarContPtr, ScalarPointer};
-use crate::tag::{ContTag, ExprTag, Op1, Op2};
+use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};
 
@@ -178,7 +178,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             Op2::Modulo.allocate_constant(&mut cs.namespace(|| "op2_modulo_tag"))?;
         let op2_numequal_tag =
             AllocatedNum::alloc(&mut cs.namespace(|| "op2_numequal_tag"), || {
-                Ok(Op2::NumEqual.as_field())
+                Ok(Op2::NumEqual.to_field())
             })?;
         let op2_less_tag = Op2::Less.allocate_constant(&mut cs.namespace(|| "op2_less_tag"))?;
         let op2_less_equal_tag =
@@ -188,7 +188,7 @@ impl<F: LurkField> GlobalAllocations<F> {
         let op2_greater_equal_tag =
             Op2::GreaterEqual.allocate_constant(&mut cs.namespace(|| "op2_greater_equal_tag"))?;
         let op2_equal_tag = AllocatedNum::alloc(&mut cs.namespace(|| "op2_equal_tag"), || {
-            Ok(Op2::Equal.as_field())
+            Ok(Op2::Equal.to_field())
         })?;
 
         let c = store.get_constants();
@@ -409,7 +409,7 @@ impl ExprTag {
     ) -> Result<AllocatedNum<F>, SynthesisError> {
         allocate_constant(
             &mut cs.namespace(|| format!("{self:?} tag")),
-            self.as_field(),
+            self.to_field(),
         )
     }
 }
@@ -421,7 +421,7 @@ impl ContTag {
     ) -> Result<AllocatedNum<F>, SynthesisError> {
         allocate_constant(
             &mut cs.namespace(|| format!("{self:?} base continuation tag")),
-            self.as_field(),
+            self.to_field(),
         )
     }
 }
@@ -433,7 +433,7 @@ impl Op1 {
     ) -> Result<AllocatedNum<F>, SynthesisError> {
         allocate_constant(
             &mut cs.namespace(|| format!("{self:?} tag")),
-            self.as_field(),
+            self.to_field(),
         )
     }
 }
@@ -445,7 +445,7 @@ impl Op2 {
     ) -> Result<AllocatedNum<F>, SynthesisError> {
         allocate_constant(
             &mut cs.namespace(|| format!("{self:?} tag")),
-            self.as_field(),
+            self.to_field(),
         )
     }
 }

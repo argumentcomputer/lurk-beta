@@ -7,6 +7,11 @@ use std::{convert::TryFrom, fmt};
 use crate::field::LurkField;
 use crate::store::TypePredicates;
 
+pub trait Tag: Into<u16> + TryFrom<u16> + Copy + Sized {
+    fn from_field<F: LurkField>(f: &F) -> Option<Self>;
+    fn to_field<F: LurkField>(&self) -> F;
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
@@ -100,12 +105,12 @@ impl TypePredicates for ExprTag {
     }
 }
 
-impl ExprTag {
-    pub fn from_field<F: LurkField>(f: &F) -> Option<Self> {
+impl Tag for ExprTag {
+    fn from_field<F: LurkField>(f: &F) -> Option<Self> {
         Self::try_from(f.to_u16()?).ok()
     }
 
-    pub fn as_field<F: LurkField>(&self) -> F {
+    fn to_field<F: LurkField>(&self) -> F {
         F::from(*self as u64)
     }
 }
@@ -170,12 +175,12 @@ impl TryFrom<u16> for ContTag {
     }
 }
 
-impl ContTag {
-    pub fn from_field<F: LurkField>(f: &F) -> Option<Self> {
+impl Tag for ContTag {
+    fn from_field<F: LurkField>(f: &F) -> Option<Self> {
         Self::try_from(f.to_u16()?).ok()
     }
 
-    pub fn as_field<F: LurkField>(&self) -> F {
+    fn to_field<F: LurkField>(&self) -> F {
         F::from(*self as u64)
     }
 }
@@ -267,12 +272,12 @@ where
     }
 }
 
-impl Op1 {
-    pub fn from_field<F: LurkField>(f: &F) -> Option<Self> {
+impl Tag for Op1 {
+    fn from_field<F: LurkField>(f: &F) -> Option<Self> {
         Self::try_from(f.to_u16()?).ok()
     }
 
-    pub fn as_field<F: LurkField>(&self) -> F {
+    fn to_field<F: LurkField>(&self) -> F {
         F::from(*self as u64)
     }
 }
@@ -396,15 +401,17 @@ impl TryFrom<u16> for Op2 {
     }
 }
 
-impl Op2 {
-    pub fn from_field<F: LurkField>(f: &F) -> Option<Self> {
+impl Tag for Op2 {
+    fn from_field<F: LurkField>(f: &F) -> Option<Self> {
         Self::try_from(f.to_u16()?).ok()
     }
 
-    pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
+    fn to_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
+}
 
+impl Op2 {
     pub fn is_numeric(&self) -> bool {
         matches!(
             self,

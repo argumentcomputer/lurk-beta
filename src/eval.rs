@@ -2273,7 +2273,7 @@ pub fn eval_to_ptr<F: LurkField>(s: &mut Store<F>, src: &str) -> Result<Ptr<F>, 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::tag::Op;
+    use crate::tag::{Op, Tag};
     use crate::writer::Write;
     use blstrs::Scalar as Fr;
 
@@ -4286,7 +4286,7 @@ mod test {
         let scalar_ptr = &s.get_expr_hash(&x).unwrap();
 
         assert_eq!(&Fr::zero(), scalar_ptr.value());
-        assert_eq!(&ExprTag::Sym.as_field::<Fr>(), scalar_ptr.tag());
+        assert_eq!(&ExprTag::Sym.to_field::<Fr>(), scalar_ptr.tag());
     }
 
     #[test]
@@ -4339,8 +4339,8 @@ mod test {
         );
 
         // The tags differ though.
-        assert_eq!(&ExprTag::Sym.as_field::<Fr>(), sym_scalar_ptr.tag());
-        assert_eq!(&ExprTag::Key.as_field::<Fr>(), key_scalar_ptr.tag());
+        assert_eq!(&ExprTag::Sym.to_field::<Fr>(), sym_scalar_ptr.tag());
+        assert_eq!(&ExprTag::Key.to_field::<Fr>(), key_scalar_ptr.tag());
     }
 
     #[test]

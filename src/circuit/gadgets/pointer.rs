@@ -13,7 +13,7 @@ use crate::{
         ContPtr, Continuation, Expression, IntoHashComponents, Ptr, ScalarContPtr, ScalarPointer,
         ScalarPtr, Store, Thunk,
     },
-    tag::ExprTag,
+    tag::{ExprTag, Tag},
     writer::Write,
 };
 
@@ -183,34 +183,34 @@ impl<F: LurkField> AllocatedPtr<F> {
         alloc_equal(cs, self.tag(), g.nil_ptr.tag())
     }
     pub fn is_cons<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_cons"), ExprTag::Cons.as_field())
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_cons"), ExprTag::Cons.to_field())
     }
     pub fn is_str<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_str"), ExprTag::Str.as_field())
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_str"), ExprTag::Str.to_field())
     }
     pub fn is_num<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_num"), ExprTag::Num.as_field())
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_num"), ExprTag::Num.to_field())
     }
     pub fn is_u64<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_u64"), ExprTag::U64.as_field())
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_u64"), ExprTag::U64.to_field())
     }
     pub fn is_char<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_char"), ExprTag::Char.as_field())
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_char"), ExprTag::Char.to_field())
     }
     pub fn is_comm<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_comm"), ExprTag::Comm.as_field())
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_comm"), ExprTag::Comm.to_field())
     }
     pub fn is_sym<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_sym"), ExprTag::Sym.as_field())
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_sym"), ExprTag::Sym.to_field())
     }
     pub fn is_fun<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_fun"), ExprTag::Fun.as_field())
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_fun"), ExprTag::Fun.to_field())
     }
     pub fn is_thunk<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
     ) -> Result<Boolean, SynthesisError> {
-        self.alloc_tag_equal(&mut cs.namespace(|| "is_thunk"), ExprTag::Thunk.as_field())
+        self.alloc_tag_equal(&mut cs.namespace(|| "is_thunk"), ExprTag::Thunk.to_field())
     }
 
     pub fn ptr(&self, store: &Store<F>) -> Option<Ptr<F>> {

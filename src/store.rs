@@ -25,7 +25,7 @@ use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
 use crate::scalar_store::{ScalarContinuation, ScalarExpression, ScalarStore};
 use crate::sym::Sym;
-use crate::tag::{ContTag, ExprTag, Op1, Op2};
+use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 use crate::{Num, UInt};
 
 use serde::Deserialize;
@@ -1173,7 +1173,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn get_maybe_opaque(&self, tag: ExprTag, hash: F) -> Option<Ptr<F>> {
-        let scalar_ptr = ScalarPtr::from_parts(tag.as_field(), hash);
+        let scalar_ptr = ScalarPtr::from_parts(tag.to_field(), hash);
 
         let ptr = self.scalar_ptr_map.get(&scalar_ptr);
         if let Some(p) = ptr {
@@ -1191,7 +1191,7 @@ impl<F: LurkField> Store<F> {
         return_non_opaque_if_existing: bool,
     ) -> Ptr<F> {
         self.hydrate_scalar_cache();
-        let scalar_ptr = ScalarPtr::from_parts(tag.as_field(), hash);
+        let scalar_ptr = ScalarPtr::from_parts(tag.to_field(), hash);
 
         // Scope the first immutable borrow.
         {
@@ -2424,11 +2424,11 @@ impl<F: LurkField> Store<F> {
         chars.fold(initial_scalar_ptr, |acc, char| {
             let c_scalar: F = (u32::from(char) as u64).into();
             // This bypasses create_scalar_ptr but is okay because Chars are immediate and don't need to be indexed.
-            let c = ScalarPtr(ExprTag::Char.as_field(), c_scalar);
+            let c = ScalarPtr(ExprTag::Char.to_field(), c_scalar);
             let hash = self.hash_scalar_ptrs_2(&[c, acc]);
             // This bypasses create_scalar_ptr but is okay because we will call it to correctly create each of these
             // ScalarPtrs below, in hash_string_mut_aux.
-            let new_scalar_ptr = ScalarPtr(ExprTag::Str.as_field(), hash);
+            let new_scalar_ptr = ScalarPtr(ExprTag::Str.to_field(), hash);
             hashes.push(hash);
             new_scalar_ptr
         });
@@ -2487,11 +2487,11 @@ impl<F: LurkField> Store<F> {
     }
 
     fn hash_op1(&self, op: &Op1) -> ScalarPtr<F> {
-        ScalarPtr(op.as_field(), F::zero())
+        ScalarPtr(op.to_field(), F::zero())
     }
 
     fn hash_op2(&self, op: &Op2) -> ScalarPtr<F> {
-        ScalarPtr(op.as_field(), F::zero())
+        ScalarPtr(op.to_field(), F::zero())
     }
 
     // An opaque Ptr is one for which we have the hash, but not the preimages.
@@ -3257,7 +3257,7 @@ pub mod test {
         let sym_tag = s.get_expr_hash(&sym).unwrap().0;
         // let sym_hash = s.get_expr_hash(&sym).unwrap().1;
 
-        assert_eq!(ExprTag::Sym.as_field::<Fr>(), sym_tag);
+        assert_eq!(ExprTag::Sym.to_field::<Fr>(), sym_tag);
 
         // FIXME: What should this be? Should this even be allowed?
         // assert_eq!(Fr::from(0), sym_hash)
