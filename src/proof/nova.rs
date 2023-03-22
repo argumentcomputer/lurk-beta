@@ -10,7 +10,7 @@ use nova::{
         circuit::{StepCircuit, TrivialTestCircuit},
         Group,
     },
-    CompressedSNARK, RecursiveSNARK,
+    CompressedSNARK, ProverKey, RecursiveSNARK, VerifierKey,
 };
 use pasta_curves::{pallas, vesta};
 
@@ -45,7 +45,14 @@ pub type SS2 = nova::spartan::RelaxedR1CSSNARK<G2, EE2, CC2>;
 pub type C1<'a> = MultiFrame<'a, S1, IO<S1>, Witness<S1>>;
 pub type C2 = TrivialTestCircuit<<G2 as Group>::Scalar>;
 
-pub type PublicParams<'a> = nova::PublicParams<G1, G2, C1<'a>, C2>;
+pub type NovaPublicParams<'a> = nova::PublicParams<G1, G2, C1<'a>, C2>;
+
+#[derive(Serialize, Deserialize)]
+pub struct PublicParams<'a> {
+    pp: NovaPublicParams<'a>,
+    pk: ProverKey<G1, G2, C1<'a>, C2, SS1, SS2>,
+    vk: VerifierKey<G1, G2, C1<'a>, C2, SS1, SS2>,
+}
 
 use serde::{Deserialize, Serialize};
 
@@ -58,7 +65,9 @@ pub enum Proof<'a> {
 pub fn public_params<'a>(num_iters_per_step: usize) -> PublicParams<'a> {
     let (circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step);
 
-    nova::PublicParams::setup(circuit_primary, circuit_secondary)
+    let pp = nova::PublicParams::setup(circuit_primary, circuit_secondary);
+    let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
+    PublicParams { pp, pk, vk }
 }
 
 impl<'a> MultiFrame<'a, S1, IO<S1>, Witness<S1>> {
@@ -233,7 +242,7 @@ impl<'a> Proof<'a> {
             }
 
             let res = RecursiveSNARK::prove_step(
-                pp,
+                &pp.pp,
                 recursive_snark,
                 circuit_primary.clone(),
                 circuit_secondary.clone(),
@@ -249,19 +258,18 @@ impl<'a> Proof<'a> {
 
     pub fn compress(self, pp: &'a PublicParams) -> Result<Self, ProofError> {
         match &self {
-            Self::Recursive(recursive_snark) => {
-                let (pk, _vk) = CompressedSNARK::setup(&pp).unwrap();
-                Ok(Self::Compressed(Box::new(CompressedSNARK::<
-                    _,
-                    _,
-                    _,
-                    _,
-                    SS1,
-                    SS2,
-                >::prove(
-                    pp, &pk, recursive_snark
-                )?)))
-            }
+            Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(CompressedSNARK::<
+                _,
+                _,
+                _,
+                _,
+                SS1,
+                SS2,
+            >::prove(
+                &pp.pp,
+                &pp.pk,
+                recursive_snark,
+            )?))),
             Self::Compressed(_) => Ok(self),
         }
     }
@@ -277,11 +285,9 @@ impl<'a> Proof<'a> {
         let z0_secondary = Self::z0_secondary();
         let zi_secondary = z0_secondary.clone();
 
-        let (_pk, vk) = CompressedSNARK::setup(&pp).unwrap();
-
         let (zi_primary_verified, zi_secondary_verified) = match self {
-            Self::Recursive(p) => p.verify(pp, num_steps, z0_primary, z0_secondary),
-            Self::Compressed(p) => p.verify(&vk, num_steps, z0_primary, z0_secondary),
+            Self::Recursive(p) => p.verify(&pp.pp, num_steps, z0_primary, z0_secondary),
+            Self::Compressed(p) => p.verify(&pp.vk, num_steps, z0_primary, z0_secondary),
         }?;
 
         Ok(zi_primary == zi_primary_verified && zi_secondary == zi_secondary_verified)
