@@ -14,7 +14,6 @@ use crate::light_data::Encodable;
 use crate::light_data::LightData;
 use crate::scalar_store::ScalarExpression;
 use crate::scalar_store::ScalarStore;
-use crate::store::ScalarPointer;
 use crate::store::ScalarPtr;
 use crate::sym::Sym;
 use crate::tag::ExprTag;

@@ -9,9 +9,9 @@ use neptune::{
 
 use super::pointer::AsAllocatedHashComponents;
 use crate::field::LurkField;
+use crate::store::ScalarContPtr;
 use crate::store::{Expression, Pointer, Ptr, Store, Thunk};
 use crate::store::{IntoHashComponents, ScalarPtr};
-use crate::store::{ScalarContPtr, ScalarPointer};
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};

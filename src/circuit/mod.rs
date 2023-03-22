@@ -2,7 +2,7 @@
 use crate::field::LurkField;
 
 use crate::eval::IO;
-use crate::store::{ScalarPointer, Store};
+use crate::store::Store;
 
 #[macro_use]
 pub(crate) mod gadgets;
@@ -33,11 +33,11 @@ impl<F: LurkField> ToInputs<F> for IO<F> {
         let env = store.get_expr_hash(&self.env).unwrap();
         let cont = store.hash_cont(&self.cont).unwrap();
         let public_inputs = vec![
-            expr.tag(),
+            expr.tag_field(),
             *expr.value(),
-            env.tag(),
+            env.tag_field(),
             *env.value(),
-            cont.tag(),
+            cont.tag_field(),
             *cont.value(),
         ];
 

@@ -239,21 +239,12 @@ pub trait Object<F: LurkField>: fmt::Debug + Clone + PartialEq {
 }
 
 pub trait Pointer<F: LurkField + From<u64>>: fmt::Debug + Copy + Clone + PartialEq + Hash {
-    type Tag: Into<u64> + Tag;
-    type ScalarPointer: ScalarPointer<Self::Tag, F>;
+    type Tag: Tag;
 
     fn tag(&self) -> Self::Tag;
     fn tag_field(&self) -> F {
-        F::from(self.tag().into())
+        F::from(self.tag().into() as u64)
     }
-}
-
-pub trait ScalarPointer<E: Tag, F: LurkField>:
-    fmt::Debug + Copy + Clone + PartialEq + Hash
-{
-    fn from_parts(tag: E, value: F) -> Self;
-    fn tag(&self) -> F;
-    fn value(&self) -> &F;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -316,7 +307,6 @@ impl<F: LurkField> From<char> for Ptr<F> {
 
 impl<F: LurkField> Pointer<F> for Ptr<F> {
     type Tag = ExprTag;
-    type ScalarPointer = ScalarPtr<F>;
 
     fn tag(&self) -> ExprTag {
         self.0
@@ -386,16 +376,20 @@ impl<E: Tag, F: LurkField> Hash for SPtr<E, F> {
     }
 }
 
-impl<E: Tag, F: LurkField> ScalarPointer<E, F> for SPtr<E, F> {
-    fn from_parts(tag: E, value: F) -> Self {
+impl<E: Tag, F: LurkField> SPtr<E, F> {
+    pub fn from_parts(tag: E, value: F) -> Self {
         SPtr(tag, value)
     }
 
-    fn tag(&self) -> F {
+    pub fn tag(&self) -> E {
+        self.0
+    }
+
+    pub fn tag_field(&self) -> F {
         self.0.to_field::<F>()
     }
 
-    fn value(&self) -> &F {
+    pub fn value(&self) -> &F {
         &self.1
     }
 }
@@ -406,7 +400,7 @@ impl<E: Tag, F: LurkField> Serialize for SPtr<E, F> {
         S: serde::Serializer,
     {
         use ser::Error;
-        let tag = self.tag();
+        let tag = self.tag_field();
         let val = self.value();
         // magic numbers to avoid multicodec table collisons
         // this will disappear when we move from IPLD to LDON
@@ -467,7 +461,6 @@ impl<F: LurkField> Hash for ContPtr<F> {
 
 impl<F: LurkField> Pointer<F> for ContPtr<F> {
     type Tag = ContTag;
-    type ScalarPointer = ScalarContPtr<F>;
 
     fn tag(&self) -> Self::Tag {
         self.0
@@ -1141,7 +1134,7 @@ impl<F: LurkField> Store<F> {
         scalar_store: &ScalarStore<F>,
     ) -> Option<ContPtr<F>> {
         use ScalarContinuation::*;
-        let tag: ContTag = ptr.0;
+        let tag: ContTag = ptr.tag();
 
         if let Some(cont) = scalar_store.get_cont(&ptr) {
             let continuation = match cont {
@@ -1258,7 +1251,7 @@ impl<F: LurkField> Store<F> {
         ptr: ScalarPtr<F>,
         scalar_store: &ScalarStore<F>,
     ) -> Option<Ptr<F>> {
-        let tag: ExprTag = ptr.0;
+        let tag: ExprTag = ptr.tag();
         let expr = scalar_store.get_expr(&ptr);
         use ScalarExpression::*;
         match (tag, expr) {

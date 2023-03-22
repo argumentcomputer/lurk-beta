@@ -11,7 +11,7 @@ use lurk::field::LurkField;
 use lurk::package::Package;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::repl::{ReplState, ReplTrait};
-use lurk::store::{Expression, Pointer, Ptr, ScalarPointer, Store};
+use lurk::store::{Expression, Pointer, Ptr, Store};
 use lurk::tag::ExprTag;
 use lurk::writer::Write;
 

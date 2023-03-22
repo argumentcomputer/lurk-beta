@@ -326,8 +326,6 @@ mod test {
     use super::*;
     use crate::eval::empty_sym_env;
 
-    use crate::store::ScalarPointer;
-
     use blstrs::Scalar as Fr;
 
     use tap::TapFallible;
