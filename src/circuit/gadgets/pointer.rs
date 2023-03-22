@@ -64,7 +64,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         let alloc_tag = AllocatedNum::alloc(&mut cs.namespace(|| "tag"), || {
             let ptr = value()?;
             hash = Some(*ptr.value());
-            Ok(*ptr.tag())
+            Ok(ptr.tag())
         })?;
 
         let alloc_hash = AllocatedNum::alloc(&mut cs.namespace(|| "hash"), || {
@@ -81,7 +81,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         cs: &mut CS,
         value: ScalarPtr<F>,
     ) -> Result<Self, SynthesisError> {
-        let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), *value.tag())?;
+        let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), value.tag())?;
         let alloc_hash = allocate_constant(&mut cs.namespace(|| "hash"), *value.value())?;
 
         Ok(AllocatedPtr {
@@ -450,7 +450,7 @@ impl<F: LurkField> AllocatedPtr<F> {
     where
         CS: ConstraintSystem<F>,
     {
-        let tag = pick_const(cs.namespace(|| "tag"), condition, *a.tag(), *b.tag())?;
+        let tag = pick_const(cs.namespace(|| "tag"), condition, a.tag(), b.tag())?;
         let hash = pick_const(cs.namespace(|| "hash"), condition, *a.value(), *b.value())?;
 
         Ok(AllocatedPtr { tag, hash })
@@ -472,7 +472,7 @@ impl<F: LurkField> AllocatedPtr<F> {
 
         let tag = AllocatedNum::alloc(cs.namespace(|| "tag"), || {
             ptr.as_ref()
-                .map(|th| *th.tag())
+                .map(|th| th.tag())
                 .ok_or(SynthesisError::AssignmentMissing)
         })?;
         tag.inputize(cs.namespace(|| "tag input"))?;
@@ -526,7 +526,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
         let alloc_tag = AllocatedNum::alloc(&mut cs.namespace(|| "tag"), || {
             let ptr = value()?;
             hash = Some(*ptr.value());
-            Ok(*ptr.tag())
+            Ok(ptr.tag())
         })?;
 
         let alloc_hash = AllocatedNum::alloc(&mut cs.namespace(|| "hash"), || {
@@ -543,7 +543,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
         cs: &mut CS,
         value: ScalarContPtr<F>,
     ) -> Result<Self, SynthesisError> {
-        let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), *value.tag())?;
+        let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), value.tag())?;
         let alloc_hash = allocate_constant(&mut cs.namespace(|| "hash"), *value.value())?;
 
         Ok(AllocatedContPtr {
@@ -667,7 +667,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
         let ptr = cont.and_then(|c| store.hash_cont(c));
 
         let tag = AllocatedNum::alloc(cs.namespace(|| "continuation tag"), || {
-            ptr.map(|c| *c.tag())
+            ptr.map(|c| c.tag())
                 .ok_or(SynthesisError::AssignmentMissing)
         })?;
         tag.inputize(cs.namespace(|| "continuation tag input"))?;

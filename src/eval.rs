@@ -216,11 +216,11 @@ impl<F: LurkField> IO<F> {
             .hash_cont(&self.cont)
             .ok_or_else(|| store::Error("expr hash missing".into()))?;
         Ok(vec![
-            *expr_scalar_ptr.tag(),
+            expr_scalar_ptr.tag(),
             *expr_scalar_ptr.value(),
-            *env_scalar_ptr.tag(),
+            env_scalar_ptr.tag(),
             *env_scalar_ptr.value(),
-            *cont_scalar_ptr.tag(),
+            cont_scalar_ptr.tag(),
             *cont_scalar_ptr.value(),
         ])
     }
@@ -4286,7 +4286,7 @@ mod test {
         let scalar_ptr = &s.get_expr_hash(&x).unwrap();
 
         assert_eq!(&Fr::zero(), scalar_ptr.value());
-        assert_eq!(&ExprTag::Sym.to_field::<Fr>(), scalar_ptr.tag());
+        assert_eq!(ExprTag::Sym.to_field::<Fr>(), scalar_ptr.tag());
     }
 
     #[test]
@@ -4339,8 +4339,8 @@ mod test {
         );
 
         // The tags differ though.
-        assert_eq!(&ExprTag::Sym.to_field::<Fr>(), sym_scalar_ptr.tag());
-        assert_eq!(&ExprTag::Key.to_field::<Fr>(), key_scalar_ptr.tag());
+        assert_eq!(ExprTag::Sym.to_field::<Fr>(), sym_scalar_ptr.tag());
+        assert_eq!(ExprTag::Key.to_field::<Fr>(), key_scalar_ptr.tag());
     }
 
     #[test]

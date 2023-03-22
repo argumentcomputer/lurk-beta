@@ -33,11 +33,11 @@ impl<F: LurkField> ToInputs<F> for IO<F> {
         let env = store.get_expr_hash(&self.env).unwrap();
         let cont = store.hash_cont(&self.cont).unwrap();
         let public_inputs = vec![
-            *expr.tag(),
+            expr.tag(),
             *expr.value(),
-            *env.tag(),
+            env.tag(),
             *env.value(),
-            *cont.tag(),
+            cont.tag(),
             *cont.value(),
         ];
 

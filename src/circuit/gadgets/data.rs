@@ -474,7 +474,10 @@ impl<F: LurkField> Thunk<F> {
         let value = AllocatedPtr::alloc(&mut cs.namespace(|| "Thunk component: value"), || {
             component_frs
                 .as_ref()
-                .map(|frs| ScalarPtr::from_parts(frs[0], frs[1]))
+                .and_then(|frs| {
+                    let opt_tag = ExprTag::from_field(&frs[0]);
+                    opt_tag.map(|tag| ScalarPtr::from_parts(tag, frs[1]))
+                })
                 .ok_or(SynthesisError::AssignmentMissing)
         })?;
 
@@ -483,7 +486,10 @@ impl<F: LurkField> Thunk<F> {
             || {
                 component_frs
                     .as_ref()
-                    .map(|frs| ScalarContPtr::from_parts(frs[2], frs[3]))
+                    .and_then(|frs| {
+                        let opt_tag = ContTag::from_field(&frs[2]);
+                        opt_tag.map(|tag| ScalarContPtr::from_parts(tag, frs[3]))
+                    })
                     .ok_or(SynthesisError::AssignmentMissing)
             },
         )?;
@@ -498,12 +504,12 @@ impl<F: LurkField> Thunk<F> {
         store: &Store<F>,
     ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         let value = AllocatedPtr::alloc(&mut cs.namespace(|| "Thunk component: value"), || {
-            Ok(ScalarPtr::from_parts(F::zero(), F::zero()))
+            Ok(ScalarPtr::from_parts(ExprTag::Nil, F::zero()))
         })?;
 
         let cont = AllocatedContPtr::alloc(
             &mut cs.namespace(|| "Thunk component: continuation"),
-            || Ok(ScalarContPtr::from_parts(F::zero(), F::zero())),
+            || Ok(ScalarContPtr::from_parts(ContTag::Dummy, F::zero())),
         )?;
 
         let dummy_hash = Self::hash_components(cs.namespace(|| "Thunk"), store, &value, &cont)?;

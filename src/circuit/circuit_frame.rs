@@ -173,7 +173,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
                     // Ensure all intermediate allocated I/O values match the provided executation trace.
                     assert_eq!(
                         allocated_io.0.tag().get_value(),
-                        store.hash_expr(&next_input.expr).map(|x| *x.tag()),
+                        store.hash_expr(&next_input.expr).map(|x| x.tag()),
                         "expr tag mismatch"
                     );
                     assert_eq!(
@@ -183,7 +183,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
                     );
                     assert_eq!(
                         allocated_io.1.tag().get_value(),
-                        store.hash_expr(&next_input.env).map(|x| *x.tag()),
+                        store.hash_expr(&next_input.env).map(|x| x.tag()),
                         "env tag mismatch"
                     );
                     assert_eq!(
@@ -193,7 +193,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
                     );
                     assert_eq!(
                         allocated_io.2.tag().get_value(),
-                        store.hash_cont(&next_input.cont).map(|x| *x.tag()),
+                        store.hash_cont(&next_input.cont).map(|x| x.tag()),
                         "cont tag mismatch"
                     );
                     assert_eq!(

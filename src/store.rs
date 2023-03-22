@@ -1,5 +1,8 @@
+use anyhow::anyhow;
 use generic_array::typenum::{U3, U4, U6, U8};
 use neptune::Poseidon;
+#[cfg(not(target_arch = "wasm32"))]
+use proptest_derive::Arbitrary;
 use rayon::prelude::*;
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
@@ -236,8 +239,8 @@ pub trait Object<F: LurkField>: fmt::Debug + Clone + PartialEq {
 }
 
 pub trait Pointer<F: LurkField + From<u64>>: fmt::Debug + Copy + Clone + PartialEq + Hash {
-    type Tag: Into<u64>;
-    type ScalarPointer: ScalarPointer<F>;
+    type Tag: Into<u64> + Tag;
+    type ScalarPointer: ScalarPointer<Self::Tag, F>;
 
     fn tag(&self) -> Self::Tag;
     fn tag_field(&self) -> F {
@@ -245,9 +248,11 @@ pub trait Pointer<F: LurkField + From<u64>>: fmt::Debug + Copy + Clone + Partial
     }
 }
 
-pub trait ScalarPointer<F: LurkField>: fmt::Debug + Copy + Clone + PartialEq + Hash {
-    fn from_parts(tag: F, value: F) -> Self;
-    fn tag(&self) -> &F;
+pub trait ScalarPointer<E: Tag, F: LurkField>:
+    fmt::Debug + Copy + Clone + PartialEq + Hash
+{
+    fn from_parts(tag: E, value: F) -> Self;
+    fn tag(&self) -> F;
     fn value(&self) -> &F;
 }
 
@@ -318,57 +323,79 @@ impl<F: LurkField> Pointer<F> for Ptr<F> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ScalarPtr<F: LurkField>(F, F);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+pub struct SPtr<E, F: LurkField>(
+    E,
+    #[proptest(strategy = "any::<FWrap<F>>().prop_map(|x| x.0)")] F,
+);
 
-impl<F: LurkField> Copy for ScalarPtr<F> {}
-
-impl<F: LurkField> Display for ScalarPtr<F> {
+impl<E: Tag, F: LurkField> Display for SPtr<E, F> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let trimmed_f1 = self.0.trimmed_hex_digits();
+        let trimmed_f1 = self.0.to_field::<F>().trimmed_hex_digits();
         let trimmed_f2 = self.1.trimmed_hex_digits();
         write!(f, "(ptr->{trimmed_f1}, {trimmed_f2})",)
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-impl<Fr: LurkField> Arbitrary for ScalarPtr<Fr> {
-    type Parameters = ();
-    type Strategy = BoxedStrategy<Self>;
-
-    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        any::<(ExprTag, FWrap<Fr>)>()
-            .prop_map(|(tag, val)| ScalarPtr::from_parts(Fr::from(tag as u64), val.0))
-            .boxed()
-    }
-}
-
-impl<F: LurkField> PartialOrd for ScalarPtr<F> {
+impl<E: Tag, F: LurkField> PartialOrd for SPtr<E, F> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
-            .partial_cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
+        (
+            self.0.to_field::<F>().to_repr().as_ref(),
+            self.1.to_repr().as_ref(),
+        )
+            .partial_cmp(&(
+                other.0.to_field::<F>().to_repr().as_ref(),
+                other.1.to_repr().as_ref(),
+            ))
     }
 }
 
-impl<F: LurkField> Ord for ScalarPtr<F> {
+impl<E: Tag, F: LurkField> Ord for SPtr<E, F> {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        (self.0.to_repr().as_ref(), self.1.to_repr().as_ref())
-            .cmp(&(other.0.to_repr().as_ref(), other.1.to_repr().as_ref()))
+        self.partial_cmp(other)
+            .expect("SPtr::cmp: partial_cmp domain invariant violation")
     }
 }
 
-impl<F: LurkField> Encodable for ScalarPtr<F> {
+impl<E: Tag, F: LurkField> Encodable for SPtr<E, F> {
     fn ser(&self) -> LightData {
-        let (x, y): (FWrap<F>, FWrap<F>) = (FWrap(self.0), FWrap(self.1));
+        let (x, y): (FWrap<F>, FWrap<F>) = (FWrap(self.0.to_field()), FWrap(self.1));
         (x, y).ser()
     }
     fn de(ld: &LightData) -> anyhow::Result<Self> {
         let (x, y): (FWrap<F>, FWrap<F>) = Encodable::de(ld)?;
-        Ok(ScalarPtr::from_parts(x.0, y.0))
+        let tag_as_u16 =
+            x.0.to_u16()
+                .ok_or_else(|| anyhow!("invalid range for field element representing a tag"))?;
+        let tag = E::try_from(tag_as_u16).map_err(|_| anyhow!("invalid tag"))?;
+        Ok(SPtr(tag, y.0))
     }
 }
 
-impl<F: LurkField> Serialize for ScalarPtr<F> {
+#[allow(clippy::derive_hash_xor_eq)]
+impl<E: Tag, F: LurkField> Hash for SPtr<E, F> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.to_field::<F>().to_repr().as_ref().hash(state);
+        self.1.to_repr().as_ref().hash(state);
+    }
+}
+
+impl<E: Tag, F: LurkField> ScalarPointer<E, F> for SPtr<E, F> {
+    fn from_parts(tag: E, value: F) -> Self {
+        SPtr(tag, value)
+    }
+
+    fn tag(&self) -> F {
+        self.0.to_field::<F>()
+    }
+
+    fn value(&self) -> &F {
+        &self.1
+    }
+}
+
+impl<E: Tag, F: LurkField> Serialize for SPtr<E, F> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -386,7 +413,7 @@ impl<F: LurkField> Serialize for ScalarPtr<F> {
     }
 }
 
-impl<'de, F: LurkField> Deserialize<'de> for ScalarPtr<F> {
+impl<'de, E: Tag, F: LurkField> Deserialize<'de> for SPtr<E, F> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -396,31 +423,13 @@ impl<'de, F: LurkField> Deserialize<'de> for ScalarPtr<F> {
         let tag = F::from_u64(cid.codec() & 0x0000_0000_ffff_ffff);
         let val = F::from_bytes(cid.hash().digest())
             .ok_or_else(|| D::Error::custom("expected ScalarContPtr value".to_string()))?;
-        Ok(ScalarPtr::from_parts(tag, val))
+        // TODO(fga): eliminate this round-trip through the field
+        let e_tag = E::from_field(&tag).ok_or_else(|| D::Error::custom("invalid Tag"))?;
+        Ok(SPtr::from_parts(e_tag, val))
     }
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
-impl<F: LurkField> Hash for ScalarPtr<F> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.to_repr().as_ref().hash(state);
-        self.1.to_repr().as_ref().hash(state);
-    }
-}
-
-impl<F: LurkField> ScalarPointer<F> for ScalarPtr<F> {
-    fn from_parts(tag: F, value: F) -> Self {
-        ScalarPtr(tag, value)
-    }
-
-    fn tag(&self) -> &F {
-        &self.0
-    }
-
-    fn value(&self) -> &F {
-        &self.1
-    }
-}
+pub type ScalarPtr<F> = SPtr<ExprTag, F>;
 
 pub trait IntoHashComponents<F: LurkField> {
     fn into_hash_components(self) -> [F; 2];
@@ -434,7 +443,7 @@ impl<F: LurkField> IntoHashComponents<F> for [F; 2] {
 
 impl<F: LurkField> IntoHashComponents<F> for ScalarPtr<F> {
     fn into_hash_components(self) -> [F; 2] {
-        [self.0, self.1]
+        [self.0.to_field::<F>(), self.1]
     }
 }
 
@@ -450,7 +459,7 @@ impl<Fr: LurkField> Arbitrary for ScalarContPtr<Fr> {
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         any::<(ContTag, FWrap<Fr>)>()
-            .prop_map(|(tag, val)| ScalarContPtr::from_parts(Fr::from(tag as u64), val.0))
+            .prop_map(|(tag, val)| ScalarContPtr::from_parts(tag, val.0))
             .boxed()
     }
 }
@@ -497,7 +506,10 @@ impl<'de, F: LurkField> Deserialize<'de> for ScalarContPtr<F> {
         let tag = F::from_u64(cid.codec() & 0x0000_0000_ffff_ffff);
         let val = F::from_bytes(cid.hash().digest())
             .ok_or_else(|| D::Error::custom("expected ScalarContPtr value".to_string()))?;
-        Ok(ScalarContPtr::from_parts(tag, val))
+        // TODO(fga): eliminate this round-trip through the field
+        let cont_tag =
+            ContTag::from_field(&tag).ok_or_else(|| D::Error::custom("invalid ContTag"))?;
+        Ok(ScalarContPtr::from_parts(cont_tag, val))
     }
 }
 
@@ -509,12 +521,12 @@ impl<F: LurkField> Hash for ScalarContPtr<F> {
     }
 }
 
-impl<F: LurkField> ScalarPointer<F> for ScalarContPtr<F> {
-    fn from_parts(tag: F, value: F) -> Self {
-        ScalarContPtr(tag, value)
+impl<F: LurkField> ScalarPointer<ContTag, F> for ScalarContPtr<F> {
+    fn from_parts(tag: ContTag, value: F) -> Self {
+        ScalarContPtr(tag.to_field(), value)
     }
-    fn tag(&self) -> &F {
-        &self.0
+    fn tag(&self) -> F {
+        self.0
     }
 
     fn value(&self) -> &F {
@@ -1173,7 +1185,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn get_maybe_opaque(&self, tag: ExprTag, hash: F) -> Option<Ptr<F>> {
-        let scalar_ptr = ScalarPtr::from_parts(tag.to_field(), hash);
+        let scalar_ptr = ScalarPtr::from_parts(tag, hash);
 
         let ptr = self.scalar_ptr_map.get(&scalar_ptr);
         if let Some(p) = ptr {
@@ -1191,7 +1203,7 @@ impl<F: LurkField> Store<F> {
         return_non_opaque_if_existing: bool,
     ) -> Ptr<F> {
         self.hydrate_scalar_cache();
-        let scalar_ptr = ScalarPtr::from_parts(tag.to_field(), hash);
+        let scalar_ptr = ScalarPtr::from_parts(tag, hash);
 
         // Scope the first immutable borrow.
         {
@@ -1215,7 +1227,7 @@ impl<F: LurkField> Store<F> {
         scalar_store: &ScalarStore<F>,
     ) -> Option<ContPtr<F>> {
         use ScalarContinuation::*;
-        let tag: ContTag = ContTag::from_field(ptr.tag())?;
+        let tag: ContTag = ContTag::from_field(&ptr.tag())?;
 
         if let Some(cont) = scalar_store.get_cont(&ptr) {
             let continuation = match cont {
@@ -1332,7 +1344,7 @@ impl<F: LurkField> Store<F> {
         ptr: ScalarPtr<F>,
         scalar_store: &ScalarStore<F>,
     ) -> Option<Ptr<F>> {
-        let tag: ExprTag = ExprTag::from_field(ptr.tag())?;
+        let tag: ExprTag = ptr.0;
         let expr = scalar_store.get_expr(&ptr);
         use ScalarExpression::*;
         match (tag, expr) {
@@ -1632,12 +1644,11 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn scalar_from_parts(&self, tag: F, value: F) -> Option<ScalarPtr<F>> {
-        let scalar_ptr = ScalarPtr(tag, value);
-        if self.scalar_ptr_map.contains_key(&scalar_ptr) {
-            return Some(scalar_ptr);
-        }
-
-        None
+        let Some(e_tag) = ExprTag::from_field(&tag) else { return None };
+        let scalar_ptr = ScalarPtr::from_parts(e_tag, value);
+        self.scalar_ptr_map
+            .contains_key(&scalar_ptr)
+            .then_some(scalar_ptr)
     }
 
     pub fn scalar_from_parts_cont(&self, tag: F, value: F) -> Option<ScalarContPtr<F>> {
@@ -1978,14 +1989,14 @@ impl<F: LurkField> Store<F> {
     /// The only places that `ScalarPtr`s for `Ptr`s should be created, to
     /// ensure that they are cached properly
     fn create_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ScalarPtr<F> {
-        let scalar_ptr = ScalarPtr(ptr.tag_field(), hash);
+        let scalar_ptr = ScalarPtr::from_parts(ptr.0, hash);
         let entry = self.scalar_ptr_map.entry(scalar_ptr);
         entry.or_insert(ptr);
         scalar_ptr
     }
 
     fn get_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ScalarPtr<F> {
-        ScalarPtr(ptr.tag_field(), hash)
+        ScalarPtr::from_parts(ptr.0, hash)
     }
 
     /// The only places that `ScalarContPtr`s for `ContPtr`s should be created, to
@@ -2122,7 +2133,7 @@ impl<F: LurkField> Store<F> {
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
         let def = [F::zero(), F::zero()];
-        let op = self.hash_op2(op).into_hash_components();
+        let op = [op.to_field(), F::zero()];
         let arg1 = self.get_expr_hash(arg1)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([op, arg1, cont, def])
@@ -2135,7 +2146,7 @@ impl<F: LurkField> Store<F> {
         unevaled_args: &Ptr<F>,
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
-        let op = self.hash_op2(op).into_hash_components();
+        let op = [op.to_field(), F::zero()];
         let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
         let unevaled_args = self.get_expr_hash(unevaled_args)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
@@ -2144,7 +2155,7 @@ impl<F: LurkField> Store<F> {
 
     fn get_hash_components_unop(&self, op: &Op1, cont: &ContPtr<F>) -> Option<[[F; 2]; 4]> {
         let def = [F::zero(), F::zero()];
-        let op = self.hash_op1(op).into_hash_components();
+        let op = [op.to_field(), F::zero()];
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([op, cont, def, def])
     }
@@ -2301,7 +2312,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub(crate) fn commitment_hash(&self, secret_scalar: F, payload: ScalarPtr<F>) -> F {
-        let preimage = [secret_scalar, payload.0, payload.1];
+        let preimage = [secret_scalar, payload.0.to_field(), payload.1];
         self.poseidon_cache.hash3(&preimage)
     }
 
@@ -2424,11 +2435,11 @@ impl<F: LurkField> Store<F> {
         chars.fold(initial_scalar_ptr, |acc, char| {
             let c_scalar: F = (u32::from(char) as u64).into();
             // This bypasses create_scalar_ptr but is okay because Chars are immediate and don't need to be indexed.
-            let c = ScalarPtr(ExprTag::Char.to_field(), c_scalar);
+            let c = ScalarPtr::from_parts(ExprTag::Char, c_scalar);
             let hash = self.hash_scalar_ptrs_2(&[c, acc]);
             // This bypasses create_scalar_ptr but is okay because we will call it to correctly create each of these
             // ScalarPtrs below, in hash_string_mut_aux.
-            let new_scalar_ptr = ScalarPtr(ExprTag::Str.to_field(), hash);
+            let new_scalar_ptr = ScalarPtr::from_parts(ExprTag::Str, hash);
             hashes.push(hash);
             new_scalar_ptr
         });
@@ -2469,13 +2480,23 @@ impl<F: LurkField> Store<F> {
     }
 
     fn hash_scalar_ptrs_2(&self, ptrs: &[ScalarPtr<F>; 2]) -> F {
-        let preimage = [ptrs[0].0, ptrs[0].1, ptrs[1].0, ptrs[1].1];
+        let preimage = [
+            ptrs[0].0.to_field::<F>(),
+            ptrs[0].1,
+            ptrs[1].0.to_field::<F>(),
+            ptrs[1].1,
+        ];
         self.poseidon_cache.hash4(&preimage)
     }
 
     fn hash_scalar_ptrs_3(&self, ptrs: &[ScalarPtr<F>; 3]) -> F {
         let preimage = [
-            ptrs[0].0, ptrs[0].1, ptrs[1].0, ptrs[1].1, ptrs[2].0, ptrs[2].1,
+            ptrs[0].0.to_field::<F>(),
+            ptrs[0].1,
+            ptrs[1].0.to_field::<F>(),
+            ptrs[1].1,
+            ptrs[2].0.to_field::<F>(),
+            ptrs[2].1,
         ];
         self.poseidon_cache.hash6(&preimage)
     }
@@ -2484,14 +2505,6 @@ impl<F: LurkField> Store<F> {
         let nil = self.get_nil();
 
         self.hash_sym(nil, mode)
-    }
-
-    fn hash_op1(&self, op: &Op1) -> ScalarPtr<F> {
-        ScalarPtr(op.to_field(), F::zero())
-    }
-
-    fn hash_op2(&self, op: &Op2) -> ScalarPtr<F> {
-        ScalarPtr(op.to_field(), F::zero())
     }
 
     // An opaque Ptr is one for which we have the hash, but not the preimages.
@@ -3257,7 +3270,7 @@ pub mod test {
         let sym_tag = s.get_expr_hash(&sym).unwrap().0;
         // let sym_hash = s.get_expr_hash(&sym).unwrap().1;
 
-        assert_eq!(ExprTag::Sym.to_field::<Fr>(), sym_tag);
+        assert_eq!(ExprTag::Sym, sym_tag);
 
         // FIXME: What should this be? Should this even be allowed?
         // assert_eq!(Fr::from(0), sym_hash)

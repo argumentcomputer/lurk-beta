@@ -7,7 +7,7 @@ use std::{convert::TryFrom, fmt};
 use crate::field::LurkField;
 use crate::store::TypePredicates;
 
-pub trait Tag: Into<u16> + TryFrom<u16> + Copy + Sized {
+pub trait Tag: Into<u16> + TryFrom<u16> + Copy + Sized + Eq + fmt::Debug {
     fn from_field<F: LurkField>(f: &F) -> Option<Self>;
     fn to_field<F: LurkField>(&self) -> F;
 }
