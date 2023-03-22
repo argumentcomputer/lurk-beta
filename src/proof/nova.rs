@@ -36,8 +36,11 @@ pub type S2 = vesta::Scalar;
 pub type EE1 = nova::provider::ipa_pc::EvaluationEngine<G1>;
 pub type EE2 = nova::provider::ipa_pc::EvaluationEngine<G2>;
 
-pub type SS1 = nova::spartan::RelaxedR1CSSNARK<G1, EE1>;
-pub type SS2 = nova::spartan::RelaxedR1CSSNARK<G2, EE2>;
+type CC1 = nova::spartan::spark::TrivialCompComputationEngine<G1, EE1>;
+type CC2 = nova::spartan::spark::TrivialCompComputationEngine<G2, EE2>;
+
+pub type SS1 = nova::spartan::RelaxedR1CSSNARK<G1, EE1, CC1>;
+pub type SS2 = nova::spartan::RelaxedR1CSSNARK<G2, EE2, CC2>;
 
 pub type C1<'a> = MultiFrame<'a, S1, IO<S1>, Witness<S1>>;
 pub type C2 = TrivialTestCircuit<<G2 as Group>::Scalar>;
@@ -55,7 +58,7 @@ pub enum Proof<'a> {
 pub fn public_params<'a>(num_iters_per_step: usize) -> PublicParams<'a> {
     let (circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step);
 
-    PublicParams::setup(circuit_primary, circuit_secondary)
+    nova::PublicParams::setup(circuit_primary, circuit_secondary)
 }
 
 impl<'a> MultiFrame<'a, S1, IO<S1>, Witness<S1>> {
@@ -246,17 +249,19 @@ impl<'a> Proof<'a> {
 
     pub fn compress(self, pp: &'a PublicParams) -> Result<Self, ProofError> {
         match &self {
-            Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(CompressedSNARK::<
-                _,
-                _,
-                _,
-                _,
-                SS1,
-                SS2,
-            >::prove(
-                pp,
-                recursive_snark,
-            )?))),
+            Self::Recursive(recursive_snark) => {
+                let (pk, _vk) = CompressedSNARK::setup(&pp).unwrap();
+                Ok(Self::Compressed(Box::new(CompressedSNARK::<
+                    _,
+                    _,
+                    _,
+                    _,
+                    SS1,
+                    SS2,
+                >::prove(
+                    pp, &pk, recursive_snark
+                )?)))
+            }
             Self::Compressed(_) => Ok(self),
         }
     }
@@ -272,9 +277,11 @@ impl<'a> Proof<'a> {
         let z0_secondary = Self::z0_secondary();
         let zi_secondary = z0_secondary.clone();
 
+        let (_pk, vk) = CompressedSNARK::setup(&pp).unwrap();
+
         let (zi_primary_verified, zi_secondary_verified) = match self {
             Self::Recursive(p) => p.verify(pp, num_steps, z0_primary, z0_secondary),
-            Self::Compressed(p) => p.verify(pp, num_steps, z0_primary, z0_secondary),
+            Self::Compressed(p) => p.verify(&vk, num_steps, z0_primary, z0_secondary),
         }?;
 
         Ok(zi_primary == zi_primary_verified && zi_secondary == zi_secondary_verified)
