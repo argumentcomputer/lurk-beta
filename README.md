@@ -42,6 +42,7 @@ Lurk backend integration is still immature, so current performance is not repres
 - [Reduction Notes](spec/reduction-notes.md)
 
 ---
+
 # Build
 
 ## Submodules
