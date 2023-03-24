@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c4dbdcde0fbd8430.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (a266f1199 2023-03-22)" data-search-js="search-a6dd7f063a44c279.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../static.files/storage-9184409068f70b79.js"></script><script defer src="../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-f5a2577c5297a973.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-d8cc97c322676e1b.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (1459b3128 2023-03-23)" data-search-js="search-a6dd7f063a44c279.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../static.files/storage-9184409068f70b79.js"></script><script defer src="../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-f5a2577c5297a973.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -3271,87 +3271,11 @@
 <a href="#3271" id="3271">3271</a>
 <a href="#3272" id="3272">3272</a>
 <a href="#3273" id="3273">3273</a>
-<a href="#3274" id="3274">3274</a>
-<a href="#3275" id="3275">3275</a>
-<a href="#3276" id="3276">3276</a>
-<a href="#3277" id="3277">3277</a>
-<a href="#3278" id="3278">3278</a>
-<a href="#3279" id="3279">3279</a>
-<a href="#3280" id="3280">3280</a>
-<a href="#3281" id="3281">3281</a>
-<a href="#3282" id="3282">3282</a>
-<a href="#3283" id="3283">3283</a>
-<a href="#3284" id="3284">3284</a>
-<a href="#3285" id="3285">3285</a>
-<a href="#3286" id="3286">3286</a>
-<a href="#3287" id="3287">3287</a>
-<a href="#3288" id="3288">3288</a>
-<a href="#3289" id="3289">3289</a>
-<a href="#3290" id="3290">3290</a>
-<a href="#3291" id="3291">3291</a>
-<a href="#3292" id="3292">3292</a>
-<a href="#3293" id="3293">3293</a>
-<a href="#3294" id="3294">3294</a>
-<a href="#3295" id="3295">3295</a>
-<a href="#3296" id="3296">3296</a>
-<a href="#3297" id="3297">3297</a>
-<a href="#3298" id="3298">3298</a>
-<a href="#3299" id="3299">3299</a>
-<a href="#3300" id="3300">3300</a>
-<a href="#3301" id="3301">3301</a>
-<a href="#3302" id="3302">3302</a>
-<a href="#3303" id="3303">3303</a>
-<a href="#3304" id="3304">3304</a>
-<a href="#3305" id="3305">3305</a>
-<a href="#3306" id="3306">3306</a>
-<a href="#3307" id="3307">3307</a>
-<a href="#3308" id="3308">3308</a>
-<a href="#3309" id="3309">3309</a>
-<a href="#3310" id="3310">3310</a>
-<a href="#3311" id="3311">3311</a>
-<a href="#3312" id="3312">3312</a>
-<a href="#3313" id="3313">3313</a>
-<a href="#3314" id="3314">3314</a>
-<a href="#3315" id="3315">3315</a>
-<a href="#3316" id="3316">3316</a>
-<a href="#3317" id="3317">3317</a>
-<a href="#3318" id="3318">3318</a>
-<a href="#3319" id="3319">3319</a>
-<a href="#3320" id="3320">3320</a>
-<a href="#3321" id="3321">3321</a>
-<a href="#3322" id="3322">3322</a>
-<a href="#3323" id="3323">3323</a>
-<a href="#3324" id="3324">3324</a>
-<a href="#3325" id="3325">3325</a>
-<a href="#3326" id="3326">3326</a>
-<a href="#3327" id="3327">3327</a>
-<a href="#3328" id="3328">3328</a>
-<a href="#3329" id="3329">3329</a>
-<a href="#3330" id="3330">3330</a>
-<a href="#3331" id="3331">3331</a>
-<a href="#3332" id="3332">3332</a>
-<a href="#3333" id="3333">3333</a>
-<a href="#3334" id="3334">3334</a>
-<a href="#3335" id="3335">3335</a>
-<a href="#3336" id="3336">3336</a>
-<a href="#3337" id="3337">3337</a>
-<a href="#3338" id="3338">3338</a>
-<a href="#3339" id="3339">3339</a>
-<a href="#3340" id="3340">3340</a>
-<a href="#3341" id="3341">3341</a>
-<a href="#3342" id="3342">3342</a>
-<a href="#3343" id="3343">3343</a>
-<a href="#3344" id="3344">3344</a>
-<a href="#3345" id="3345">3345</a>
-<a href="#3346" id="3346">3346</a>
-<a href="#3347" id="3347">3347</a>
-<a href="#3348" id="3348">3348</a>
-<a href="#3349" id="3349">3349</a>
-<a href="#3350" id="3350">3350</a>
-<a href="#3351" id="3351">3351</a>
-<a href="#3352" id="3352">3352</a>
-</pre><pre class="rust"><code><span class="kw">use </span>generic_array::typenum::{U3, U4, U6, U8};
+</pre><pre class="rust"><code><span class="kw">use </span>anyhow::anyhow;
+<span class="kw">use </span>generic_array::typenum::{U3, U4, U6, U8};
 <span class="kw">use </span>neptune::Poseidon;
+<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</span><span class="kw">use </span>proptest_derive::Arbitrary;
 <span class="kw">use </span>rayon::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>std::collections::VecDeque;
 <span class="kw">use </span>std::fmt::{Display, Formatter};
@@ -3377,7 +3301,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::parser::{convert_sym_case, names_keyword};
 <span class="kw">use </span><span class="kw">crate</span>::scalar_store::{ScalarContinuation, ScalarExpression, ScalarStore};
 <span class="kw">use </span><span class="kw">crate</span>::sym::Sym;
-<span class="kw">use </span><span class="kw">crate</span>::tag::{ContTag, ExprTag, Op1, Op2};
+<span class="kw">use </span><span class="kw">crate</span>::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 <span class="kw">use crate</span>::{Num, UInt};
 
 <span class="kw">use </span>serde::Deserialize;
@@ -3588,19 +3512,12 @@
 }
 
 <span class="kw">pub trait </span>Pointer&lt;F: LurkField + From&lt;u64&gt;&gt;: fmt::Debug + Copy + Clone + PartialEq + Hash {
-    <span class="kw">type </span>Tag: Into&lt;u64&gt;;
-    <span class="kw">type </span>ScalarPointer: ScalarPointer&lt;F&gt;;
+    <span class="kw">type </span>Tag: Tag;
 
     <span class="kw">fn </span>tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Tag;
     <span class="kw">fn </span>tag_field(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; F {
-        F::from(<span class="self">self</span>.tag().into())
+        F::from(<span class="self">self</span>.tag().into() <span class="kw">as </span>u64)
     }
-}
-
-<span class="kw">pub trait </span>ScalarPointer&lt;F: LurkField&gt;: fmt::Debug + Copy + Clone + PartialEq + Hash {
-    <span class="kw">fn </span>from_parts(tag: F, value: F) -&gt; <span class="self">Self</span>;
-    <span class="kw">fn </span>tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>F;
-    <span class="kw">fn </span>value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>F;
 }
 
 <span class="attr">#[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -3663,70 +3580,105 @@
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Pointer&lt;F&gt; <span class="kw">for </span>Ptr&lt;F&gt; {
     <span class="kw">type </span>Tag = ExprTag;
-    <span class="kw">type </span>ScalarPointer = ScalarPtr&lt;F&gt;;
 
     <span class="kw">fn </span>tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ExprTag {
         <span class="self">self</span>.<span class="number">0
     </span>}
 }
 
-<span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
-</span><span class="kw">pub struct </span>ScalarPtr&lt;F: LurkField&gt;(F, F);
+<span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
+</span><span class="comment">// Note: the trait bound E: Tag is not necessary in the struct, but it makes the proptest strategy more efficient.
+</span><span class="doccomment">/// A struct representing a scalar pointer with a tag and a value.
+///
+/// The `SPtr` struct is used to store a tagged scalar pointer, where `E` is its tag, and `F` the field for its values.
+/// It has two important aliases, `ScalarPtr` and `ScalarContPtr`, which are used respectively with `ExprTag` and `ContTag`,
+/// i.e. the type of expressions and the type of continuations.
+</span><span class="kw">pub struct </span>SPtr&lt;E: Tag, F: LurkField&gt;(
+    E,
+    <span class="attr">#[cfg_attr(
+        not(target_arch = <span class="string">&quot;wasm32&quot;</span>),
+        proptest(strategy = <span class="string">&quot;any::&lt;FWrap&lt;F&gt;&gt;().prop_map(|x| x.0)&quot;</span>)
+    )]
+    </span>F,
+);
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; Copy <span class="kw">for </span>ScalarPtr&lt;F&gt; {}
-
-<span class="kw">impl</span>&lt;F: LurkField&gt; Display <span class="kw">for </span>ScalarPtr&lt;F&gt; {
+<span class="kw">impl</span>&lt;E: Tag, F: LurkField&gt; Display <span class="kw">for </span>SPtr&lt;E, F&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-        <span class="kw">let </span>trimmed_f1 = <span class="self">self</span>.<span class="number">0</span>.trimmed_hex_digits();
+        <span class="kw">let </span>trimmed_f1 = <span class="self">self</span>.<span class="number">0</span>.to_field::&lt;F&gt;().trimmed_hex_digits();
         <span class="kw">let </span>trimmed_f2 = <span class="self">self</span>.<span class="number">1</span>.trimmed_hex_digits();
         <span class="macro">write!</span>(f, <span class="string">&quot;(ptr-&gt;{trimmed_f1}, {trimmed_f2})&quot;</span>,)
     }
 }
 
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-</span><span class="kw">impl</span>&lt;Fr: LurkField&gt; Arbitrary <span class="kw">for </span>ScalarPtr&lt;Fr&gt; {
-    <span class="kw">type </span>Parameters = ();
-    <span class="kw">type </span>Strategy = BoxedStrategy&lt;<span class="self">Self</span>&gt;;
-
-    <span class="kw">fn </span>arbitrary_with(_args: <span class="self">Self</span>::Parameters) -&gt; <span class="self">Self</span>::Strategy {
-        any::&lt;(ExprTag, FWrap&lt;Fr&gt;)&gt;()
-            .prop_map(|(tag, val)| ScalarPtr::from_parts(Fr::from(tag <span class="kw">as </span>u64), val.<span class="number">0</span>))
-            .boxed()
-    }
-}
-
-<span class="kw">impl</span>&lt;F: LurkField&gt; PartialOrd <span class="kw">for </span>ScalarPtr&lt;F&gt; {
+<span class="kw">impl</span>&lt;E: Tag, F: LurkField&gt; PartialOrd <span class="kw">for </span>SPtr&lt;E, F&gt; {
     <span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;core::cmp::Ordering&gt; {
-        (<span class="self">self</span>.<span class="number">0</span>.to_repr().as_ref(), <span class="self">self</span>.<span class="number">1</span>.to_repr().as_ref())
-            .partial_cmp(<span class="kw-2">&amp;</span>(other.<span class="number">0</span>.to_repr().as_ref(), other.<span class="number">1</span>.to_repr().as_ref()))
+        (
+            <span class="self">self</span>.<span class="number">0</span>.to_field::&lt;F&gt;().to_repr().as_ref(),
+            <span class="self">self</span>.<span class="number">1</span>.to_repr().as_ref(),
+        )
+            .partial_cmp(<span class="kw-2">&amp;</span>(
+                other.<span class="number">0</span>.to_field::&lt;F&gt;().to_repr().as_ref(),
+                other.<span class="number">1</span>.to_repr().as_ref(),
+            ))
     }
 }
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; Ord <span class="kw">for </span>ScalarPtr&lt;F&gt; {
+<span class="kw">impl</span>&lt;E: Tag, F: LurkField&gt; Ord <span class="kw">for </span>SPtr&lt;E, F&gt; {
     <span class="kw">fn </span>cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; core::cmp::Ordering {
-        (<span class="self">self</span>.<span class="number">0</span>.to_repr().as_ref(), <span class="self">self</span>.<span class="number">1</span>.to_repr().as_ref())
-            .cmp(<span class="kw-2">&amp;</span>(other.<span class="number">0</span>.to_repr().as_ref(), other.<span class="number">1</span>.to_repr().as_ref()))
+        <span class="self">self</span>.partial_cmp(other)
+            .expect(<span class="string">&quot;SPtr::cmp: partial_cmp domain invariant violation&quot;</span>)
     }
 }
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; Encodable <span class="kw">for </span>ScalarPtr&lt;F&gt; {
+<span class="kw">impl</span>&lt;E: Tag, F: LurkField&gt; Encodable <span class="kw">for </span>SPtr&lt;E, F&gt; {
     <span class="kw">fn </span>ser(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; LightData {
-        <span class="kw">let </span>(x, y): (FWrap&lt;F&gt;, FWrap&lt;F&gt;) = (FWrap(<span class="self">self</span>.<span class="number">0</span>), FWrap(<span class="self">self</span>.<span class="number">1</span>));
+        <span class="kw">let </span>(x, y): (FWrap&lt;F&gt;, FWrap&lt;F&gt;) = (FWrap(<span class="self">self</span>.<span class="number">0</span>.to_field()), FWrap(<span class="self">self</span>.<span class="number">1</span>));
         (x, y).ser()
     }
     <span class="kw">fn </span>de(ld: <span class="kw-2">&amp;</span>LightData) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>(x, y): (FWrap&lt;F&gt;, FWrap&lt;F&gt;) = Encodable::de(ld)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(ScalarPtr::from_parts(x.<span class="number">0</span>, y.<span class="number">0</span>))
+        <span class="kw">let </span>tag_as_u16 =
+            x.<span class="number">0</span>.to_u16()
+                .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;invalid range for field element representing a tag&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>tag = E::try_from(tag_as_u16).map_err(|<span class="kw">_</span>| <span class="macro">anyhow!</span>(<span class="string">&quot;invalid tag&quot;</span>))<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(SPtr(tag, y.<span class="number">0</span>))
     }
 }
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; Serialize <span class="kw">for </span>ScalarPtr&lt;F&gt; {
+<span class="attr">#[allow(clippy::derive_hash_xor_eq)]
+</span><span class="kw">impl</span>&lt;E: Tag, F: LurkField&gt; Hash <span class="kw">for </span>SPtr&lt;E, F&gt; {
+    <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
+        <span class="self">self</span>.<span class="number">0</span>.to_field::&lt;F&gt;().to_repr().as_ref().hash(state);
+        <span class="self">self</span>.<span class="number">1</span>.to_repr().as_ref().hash(state);
+    }
+}
+
+<span class="kw">impl</span>&lt;E: Tag, F: LurkField&gt; SPtr&lt;E, F&gt; {
+    <span class="kw">pub fn </span>from_parts(tag: E, value: F) -&gt; <span class="self">Self </span>{
+        SPtr(tag, value)
+    }
+
+    <span class="kw">pub fn </span>tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; E {
+        <span class="self">self</span>.<span class="number">0
+    </span>}
+
+    <span class="kw">pub fn </span>tag_field(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; F {
+        <span class="self">self</span>.<span class="number">0</span>.to_field::&lt;F&gt;()
+    }
+
+    <span class="kw">pub fn </span>value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>F {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">1
+    </span>}
+}
+
+<span class="kw">impl</span>&lt;E: Tag, F: LurkField&gt; Serialize <span class="kw">for </span>SPtr&lt;E, F&gt; {
     <span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, serializer: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
     <span class="kw">where
         </span>S: serde::Serializer,
     {
         <span class="kw">use </span>ser::Error;
-        <span class="kw">let </span>tag = <span class="self">self</span>.tag();
+        <span class="kw">let </span>tag = <span class="self">self</span>.tag_field();
         <span class="kw">let </span>val = <span class="self">self</span>.value();
         <span class="comment">// magic numbers to avoid multicodec table collisons
         // this will disappear when we move from IPLD to LDON
@@ -3738,7 +3690,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>, F: LurkField&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>ScalarPtr&lt;F&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>, E: Tag, F: LurkField&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>SPtr&lt;E, F&gt; {
     <span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
     <span class="kw">where
         </span>D: serde::Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
@@ -3748,31 +3700,13 @@
         <span class="kw">let </span>tag = F::from_u64(cid.codec() &amp; <span class="number">0x0000_0000_ffff_ffff</span>);
         <span class="kw">let </span>val = F::from_bytes(cid.hash().digest())
             .ok_or_else(|| D::Error::custom(<span class="string">&quot;expected ScalarContPtr value&quot;</span>.to_string()))<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(ScalarPtr::from_parts(tag, val))
+        <span class="comment">// TODO(fga): eliminate this round-trip through the field
+        </span><span class="kw">let </span>e_tag = E::from_field(<span class="kw-2">&amp;</span>tag).ok_or_else(|| D::Error::custom(<span class="string">&quot;invalid Tag&quot;</span>))<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(SPtr::from_parts(e_tag, val))
     }
 }
 
-<span class="attr">#[allow(clippy::derive_hash_xor_eq)]
-</span><span class="kw">impl</span>&lt;F: LurkField&gt; Hash <span class="kw">for </span>ScalarPtr&lt;F&gt; {
-    <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
-        <span class="self">self</span>.<span class="number">0</span>.to_repr().as_ref().hash(state);
-        <span class="self">self</span>.<span class="number">1</span>.to_repr().as_ref().hash(state);
-    }
-}
-
-<span class="kw">impl</span>&lt;F: LurkField&gt; ScalarPointer&lt;F&gt; <span class="kw">for </span>ScalarPtr&lt;F&gt; {
-    <span class="kw">fn </span>from_parts(tag: F, value: F) -&gt; <span class="self">Self </span>{
-        ScalarPtr(tag, value)
-    }
-
-    <span class="kw">fn </span>tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>F {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
-    </span>}
-
-    <span class="kw">fn </span>value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>F {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">1
-    </span>}
-}
+<span class="kw">pub type </span>ScalarPtr&lt;F&gt; = SPtr&lt;ExprTag, F&gt;;
 
 <span class="kw">pub trait </span>IntoHashComponents&lt;F: LurkField&gt; {
     <span class="kw">fn </span>into_hash_components(<span class="self">self</span>) -&gt; [F; <span class="number">2</span>];
@@ -3784,101 +3718,13 @@
     </span>}
 }
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; IntoHashComponents&lt;F&gt; <span class="kw">for </span>ScalarPtr&lt;F&gt; {
+<span class="kw">impl</span>&lt;E: Tag, F: LurkField&gt; IntoHashComponents&lt;F&gt; <span class="kw">for </span>SPtr&lt;E, F&gt; {
     <span class="kw">fn </span>into_hash_components(<span class="self">self</span>) -&gt; [F; <span class="number">2</span>] {
-        [<span class="self">self</span>.<span class="number">0</span>, <span class="self">self</span>.<span class="number">1</span>]
+        [<span class="self">self</span>.<span class="number">0</span>.to_field::&lt;F&gt;(), <span class="self">self</span>.<span class="number">1</span>]
     }
 }
 
-<span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
-</span><span class="kw">pub struct </span>ScalarContPtr&lt;F: LurkField&gt;(F, F);
-
-<span class="kw">impl</span>&lt;F: LurkField&gt; Copy <span class="kw">for </span>ScalarContPtr&lt;F&gt; {}
-
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-</span><span class="kw">impl</span>&lt;Fr: LurkField&gt; Arbitrary <span class="kw">for </span>ScalarContPtr&lt;Fr&gt; {
-    <span class="kw">type </span>Parameters = ();
-    <span class="kw">type </span>Strategy = BoxedStrategy&lt;<span class="self">Self</span>&gt;;
-
-    <span class="kw">fn </span>arbitrary_with(_args: <span class="self">Self</span>::Parameters) -&gt; <span class="self">Self</span>::Strategy {
-        any::&lt;(ContTag, FWrap&lt;Fr&gt;)&gt;()
-            .prop_map(|(tag, val)| ScalarContPtr::from_parts(Fr::from(tag <span class="kw">as </span>u64), val.<span class="number">0</span>))
-            .boxed()
-    }
-}
-
-<span class="kw">impl</span>&lt;F: LurkField&gt; PartialOrd <span class="kw">for </span>ScalarContPtr&lt;F&gt; {
-    <span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;core::cmp::Ordering&gt; {
-        (<span class="self">self</span>.<span class="number">0</span>.to_repr().as_ref(), <span class="self">self</span>.<span class="number">1</span>.to_repr().as_ref())
-            .partial_cmp(<span class="kw-2">&amp;</span>(other.<span class="number">0</span>.to_repr().as_ref(), other.<span class="number">1</span>.to_repr().as_ref()))
-    }
-}
-
-<span class="kw">impl</span>&lt;F: LurkField&gt; Ord <span class="kw">for </span>ScalarContPtr&lt;F&gt; {
-    <span class="kw">fn </span>cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; core::cmp::Ordering {
-        (<span class="self">self</span>.<span class="number">0</span>.to_repr().as_ref(), <span class="self">self</span>.<span class="number">1</span>.to_repr().as_ref())
-            .cmp(<span class="kw-2">&amp;</span>(other.<span class="number">0</span>.to_repr().as_ref(), other.<span class="number">1</span>.to_repr().as_ref()))
-    }
-}
-
-<span class="kw">impl</span>&lt;F: LurkField&gt; Serialize <span class="kw">for </span>ScalarContPtr&lt;F&gt; {
-    <span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, serializer: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
-    <span class="kw">where
-        </span>S: serde::Serializer,
-    {
-        <span class="kw">use </span>ser::Error;
-        <span class="kw">let </span>tag = <span class="self">self</span>.tag();
-        <span class="kw">let </span>val = <span class="self">self</span>.value();
-        <span class="comment">// magic numbers to avoid multicodec table collisons
-        // this will disappear when we move from IPLD to LDON
-        </span><span class="kw">let </span>codec: u64 = <span class="number">0x10de </span>&lt;&lt; <span class="number">48 </span>| tag.to_u64_unchecked();
-        <span class="kw">let </span>hash = Multihash::wrap(codec, <span class="kw-2">&amp;</span>val.to_bytes())
-            .map_err(|<span class="kw">_</span>| S::Error::custom(<span class="string">&quot;expected validly tagged ScalarContPtr&quot;</span>.to_string()))<span class="question-mark">?</span>;
-        <span class="kw">let </span>cid = Cid::new_v1(codec, hash);
-        cid.serialize(serializer)
-    }
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>, F: LurkField&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>ScalarContPtr&lt;F&gt; {
-    <span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
-    <span class="kw">where
-        </span>D: serde::Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
-    {
-        <span class="kw">use </span>de::Error;
-        <span class="kw">let </span>cid = Cid::deserialize(deserializer)<span class="question-mark">?</span>;
-        <span class="kw">let </span>tag = F::from_u64(cid.codec() &amp; <span class="number">0x0000_0000_ffff_ffff</span>);
-        <span class="kw">let </span>val = F::from_bytes(cid.hash().digest())
-            .ok_or_else(|| D::Error::custom(<span class="string">&quot;expected ScalarContPtr value&quot;</span>.to_string()))<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(ScalarContPtr::from_parts(tag, val))
-    }
-}
-
-<span class="attr">#[allow(clippy::derive_hash_xor_eq)]
-</span><span class="kw">impl</span>&lt;F: LurkField&gt; Hash <span class="kw">for </span>ScalarContPtr&lt;F&gt; {
-    <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
-        <span class="self">self</span>.<span class="number">0</span>.to_repr().as_ref().hash(state);
-        <span class="self">self</span>.<span class="number">1</span>.to_repr().as_ref().hash(state);
-    }
-}
-
-<span class="kw">impl</span>&lt;F: LurkField&gt; ScalarPointer&lt;F&gt; <span class="kw">for </span>ScalarContPtr&lt;F&gt; {
-    <span class="kw">fn </span>from_parts(tag: F, value: F) -&gt; <span class="self">Self </span>{
-        ScalarContPtr(tag, value)
-    }
-    <span class="kw">fn </span>tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>F {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
-    </span>}
-
-    <span class="kw">fn </span>value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>F {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">1
-    </span>}
-}
-
-<span class="kw">impl</span>&lt;F: LurkField&gt; IntoHashComponents&lt;F&gt; <span class="kw">for </span>ScalarContPtr&lt;F&gt; {
-    <span class="kw">fn </span>into_hash_components(<span class="self">self</span>) -&gt; [F; <span class="number">2</span>] {
-        [<span class="self">self</span>.<span class="number">0</span>, <span class="self">self</span>.<span class="number">1</span>]
-    }
-}
+<span class="kw">pub type </span>ScalarContPtr&lt;F&gt; = SPtr&lt;ContTag, F&gt;;
 
 <span class="attr">#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>ContPtr&lt;F: LurkField&gt;(ContTag, RawPtr&lt;F&gt;);
@@ -3893,7 +3739,6 @@
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Pointer&lt;F&gt; <span class="kw">for </span>ContPtr&lt;F&gt; {
     <span class="kw">type </span>Tag = ContTag;
-    <span class="kw">type </span>ScalarPointer = ScalarContPtr&lt;F&gt;;
 
     <span class="kw">fn </span>tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Tag {
         <span class="self">self</span>.<span class="number">0
@@ -4525,7 +4370,7 @@
     }
 
     <span class="kw">pub fn </span>get_maybe_opaque(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: ExprTag, hash: F) -&gt; <span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt; {
-        <span class="kw">let </span>scalar_ptr = ScalarPtr::from_parts(tag.as_field(), hash);
+        <span class="kw">let </span>scalar_ptr = ScalarPtr::from_parts(tag, hash);
 
         <span class="kw">let </span>ptr = <span class="self">self</span>.scalar_ptr_map.get(<span class="kw-2">&amp;</span>scalar_ptr);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(p) = ptr {
@@ -4543,7 +4388,7 @@
         return_non_opaque_if_existing: bool,
     ) -&gt; Ptr&lt;F&gt; {
         <span class="self">self</span>.hydrate_scalar_cache();
-        <span class="kw">let </span>scalar_ptr = ScalarPtr::from_parts(tag.as_field(), hash);
+        <span class="kw">let </span>scalar_ptr = ScalarPtr::from_parts(tag, hash);
 
         <span class="comment">// Scope the first immutable borrow.
         </span>{
@@ -4567,7 +4412,7 @@
         scalar_store: <span class="kw-2">&amp;</span>ScalarStore&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;ContPtr&lt;F&gt;&gt; {
         <span class="kw">use </span>ScalarContinuation::<span class="kw-2">*</span>;
-        <span class="kw">let </span>tag: ContTag = ContTag::from_field(ptr.tag())<span class="question-mark">?</span>;
+        <span class="kw">let </span>tag: ContTag = ptr.tag();
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(cont) = scalar_store.get_cont(<span class="kw-2">&amp;</span>ptr) {
             <span class="kw">let </span>continuation = <span class="kw">match </span>cont {
@@ -4684,7 +4529,7 @@
         ptr: ScalarPtr&lt;F&gt;,
         scalar_store: <span class="kw-2">&amp;</span>ScalarStore&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt; {
-        <span class="kw">let </span>tag: ExprTag = ExprTag::from_field(ptr.tag())<span class="question-mark">?</span>;
+        <span class="kw">let </span>tag: ExprTag = ptr.tag();
         <span class="kw">let </span>expr = scalar_store.get_expr(<span class="kw-2">&amp;</span>ptr);
         <span class="kw">use </span>ScalarExpression::<span class="kw-2">*</span>;
         <span class="kw">match </span>(tag, expr) {
@@ -4984,16 +4829,16 @@
     }
 
     <span class="kw">pub fn </span>scalar_from_parts(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: F, value: F) -&gt; <span class="prelude-ty">Option</span>&lt;ScalarPtr&lt;F&gt;&gt; {
-        <span class="kw">let </span>scalar_ptr = ScalarPtr(tag, value);
-        <span class="kw">if </span><span class="self">self</span>.scalar_ptr_map.contains_key(<span class="kw-2">&amp;</span>scalar_ptr) {
-            <span class="kw">return </span><span class="prelude-val">Some</span>(scalar_ptr);
-        }
-
-        <span class="prelude-val">None
-    </span>}
+        <span class="kw">let </span><span class="prelude-val">Some</span>(e_tag) = ExprTag::from_field(<span class="kw-2">&amp;</span>tag) <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">None </span>};
+        <span class="kw">let </span>scalar_ptr = ScalarPtr::from_parts(e_tag, value);
+        <span class="self">self</span>.scalar_ptr_map
+            .contains_key(<span class="kw-2">&amp;</span>scalar_ptr)
+            .then_some(scalar_ptr)
+    }
 
     <span class="kw">pub fn </span>scalar_from_parts_cont(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: F, value: F) -&gt; <span class="prelude-ty">Option</span>&lt;ScalarContPtr&lt;F&gt;&gt; {
-        <span class="kw">let </span>scalar_ptr = ScalarContPtr(tag, value);
+        <span class="kw">let </span><span class="prelude-val">Some</span>(e_tag) = ContTag::from_field(<span class="kw-2">&amp;</span>tag) <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">None </span>};
+        <span class="kw">let </span>scalar_ptr = ScalarContPtr::from_parts(e_tag, value);
         <span class="kw">if </span><span class="self">self</span>.scalar_ptr_cont_map.contains_key(<span class="kw-2">&amp;</span>scalar_ptr) {
             <span class="kw">return </span><span class="prelude-val">Some</span>(scalar_ptr);
         }
@@ -5330,20 +5175,20 @@
     <span class="doccomment">/// The only places that `ScalarPtr`s for `Ptr`s should be created, to
     /// ensure that they are cached properly
     </span><span class="kw">fn </span>create_scalar_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: Ptr&lt;F&gt;, hash: F) -&gt; ScalarPtr&lt;F&gt; {
-        <span class="kw">let </span>scalar_ptr = ScalarPtr(ptr.tag_field(), hash);
+        <span class="kw">let </span>scalar_ptr = ScalarPtr::from_parts(ptr.<span class="number">0</span>, hash);
         <span class="kw">let </span>entry = <span class="self">self</span>.scalar_ptr_map.entry(scalar_ptr);
         entry.or_insert(ptr);
         scalar_ptr
     }
 
     <span class="kw">fn </span>get_scalar_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: Ptr&lt;F&gt;, hash: F) -&gt; ScalarPtr&lt;F&gt; {
-        ScalarPtr(ptr.tag_field(), hash)
+        ScalarPtr::from_parts(ptr.<span class="number">0</span>, hash)
     }
 
     <span class="doccomment">/// The only places that `ScalarContPtr`s for `ContPtr`s should be created, to
     /// ensure that they are cached properly
     </span><span class="kw">fn </span>create_cont_scalar_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: ContPtr&lt;F&gt;, hash: F) -&gt; ScalarContPtr&lt;F&gt; {
-        <span class="kw">let </span>scalar_ptr = ScalarContPtr(ptr.tag_field(), hash);
+        <span class="kw">let </span>scalar_ptr = ScalarContPtr::from_parts(ptr.<span class="number">0</span>, hash);
         <span class="self">self</span>.scalar_ptr_cont_map.entry(scalar_ptr).or_insert(ptr);
 
         scalar_ptr
@@ -5474,7 +5319,7 @@
         cont: <span class="kw-2">&amp;</span>ContPtr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;[[F; <span class="number">2</span>]; <span class="number">4</span>]&gt; {
         <span class="kw">let </span>def = [F::zero(), F::zero()];
-        <span class="kw">let </span>op = <span class="self">self</span>.hash_op2(op).into_hash_components();
+        <span class="kw">let </span>op = [op.to_field(), F::zero()];
         <span class="kw">let </span>arg1 = <span class="self">self</span>.get_expr_hash(arg1)<span class="question-mark">?</span>.into_hash_components();
         <span class="kw">let </span>cont = <span class="self">self</span>.hash_cont(cont)<span class="question-mark">?</span>.into_hash_components();
         <span class="prelude-val">Some</span>([op, arg1, cont, def])
@@ -5487,7 +5332,7 @@
         unevaled_args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;,
         cont: <span class="kw-2">&amp;</span>ContPtr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;[[F; <span class="number">2</span>]; <span class="number">4</span>]&gt; {
-        <span class="kw">let </span>op = <span class="self">self</span>.hash_op2(op).into_hash_components();
+        <span class="kw">let </span>op = [op.to_field(), F::zero()];
         <span class="kw">let </span>saved_env = <span class="self">self</span>.get_expr_hash(saved_env)<span class="question-mark">?</span>.into_hash_components();
         <span class="kw">let </span>unevaled_args = <span class="self">self</span>.get_expr_hash(unevaled_args)<span class="question-mark">?</span>.into_hash_components();
         <span class="kw">let </span>cont = <span class="self">self</span>.hash_cont(cont)<span class="question-mark">?</span>.into_hash_components();
@@ -5496,7 +5341,7 @@
 
     <span class="kw">fn </span>get_hash_components_unop(<span class="kw-2">&amp;</span><span class="self">self</span>, op: <span class="kw-2">&amp;</span>Op1, cont: <span class="kw-2">&amp;</span>ContPtr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;[[F; <span class="number">2</span>]; <span class="number">4</span>]&gt; {
         <span class="kw">let </span>def = [F::zero(), F::zero()];
-        <span class="kw">let </span>op = <span class="self">self</span>.hash_op1(op).into_hash_components();
+        <span class="kw">let </span>op = [op.to_field(), F::zero()];
         <span class="kw">let </span>cont = <span class="self">self</span>.hash_cont(cont)<span class="question-mark">?</span>.into_hash_components();
         <span class="prelude-val">Some</span>([op, cont, def, def])
     }
@@ -5653,7 +5498,7 @@
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>commitment_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, secret_scalar: F, payload: ScalarPtr&lt;F&gt;) -&gt; F {
-        <span class="kw">let </span>preimage = [secret_scalar, payload.<span class="number">0</span>, payload.<span class="number">1</span>];
+        <span class="kw">let </span>preimage = [secret_scalar, payload.<span class="number">0</span>.to_field(), payload.<span class="number">1</span>];
         <span class="self">self</span>.poseidon_cache.hash3(<span class="kw-2">&amp;</span>preimage)
     }
 
@@ -5776,11 +5621,11 @@
         chars.fold(initial_scalar_ptr, |acc, char| {
             <span class="kw">let </span>c_scalar: F = (u32::from(char) <span class="kw">as </span>u64).into();
             <span class="comment">// This bypasses create_scalar_ptr but is okay because Chars are immediate and don&#39;t need to be indexed.
-            </span><span class="kw">let </span>c = ScalarPtr(ExprTag::Char.as_field(), c_scalar);
+            </span><span class="kw">let </span>c = ScalarPtr::from_parts(ExprTag::Char, c_scalar);
             <span class="kw">let </span>hash = <span class="self">self</span>.hash_scalar_ptrs_2(<span class="kw-2">&amp;</span>[c, acc]);
             <span class="comment">// This bypasses create_scalar_ptr but is okay because we will call it to correctly create each of these
             // ScalarPtrs below, in hash_string_mut_aux.
-            </span><span class="kw">let </span>new_scalar_ptr = ScalarPtr(ExprTag::Str.as_field(), hash);
+            </span><span class="kw">let </span>new_scalar_ptr = ScalarPtr::from_parts(ExprTag::Str, hash);
             hashes.push(hash);
             new_scalar_ptr
         });
@@ -5821,13 +5666,23 @@
     }
 
     <span class="kw">fn </span>hash_scalar_ptrs_2(<span class="kw-2">&amp;</span><span class="self">self</span>, ptrs: <span class="kw-2">&amp;</span>[ScalarPtr&lt;F&gt;; <span class="number">2</span>]) -&gt; F {
-        <span class="kw">let </span>preimage = [ptrs[<span class="number">0</span>].<span class="number">0</span>, ptrs[<span class="number">0</span>].<span class="number">1</span>, ptrs[<span class="number">1</span>].<span class="number">0</span>, ptrs[<span class="number">1</span>].<span class="number">1</span>];
+        <span class="kw">let </span>preimage = [
+            ptrs[<span class="number">0</span>].<span class="number">0</span>.to_field::&lt;F&gt;(),
+            ptrs[<span class="number">0</span>].<span class="number">1</span>,
+            ptrs[<span class="number">1</span>].<span class="number">0</span>.to_field::&lt;F&gt;(),
+            ptrs[<span class="number">1</span>].<span class="number">1</span>,
+        ];
         <span class="self">self</span>.poseidon_cache.hash4(<span class="kw-2">&amp;</span>preimage)
     }
 
     <span class="kw">fn </span>hash_scalar_ptrs_3(<span class="kw-2">&amp;</span><span class="self">self</span>, ptrs: <span class="kw-2">&amp;</span>[ScalarPtr&lt;F&gt;; <span class="number">3</span>]) -&gt; F {
         <span class="kw">let </span>preimage = [
-            ptrs[<span class="number">0</span>].<span class="number">0</span>, ptrs[<span class="number">0</span>].<span class="number">1</span>, ptrs[<span class="number">1</span>].<span class="number">0</span>, ptrs[<span class="number">1</span>].<span class="number">1</span>, ptrs[<span class="number">2</span>].<span class="number">0</span>, ptrs[<span class="number">2</span>].<span class="number">1</span>,
+            ptrs[<span class="number">0</span>].<span class="number">0</span>.to_field::&lt;F&gt;(),
+            ptrs[<span class="number">0</span>].<span class="number">1</span>,
+            ptrs[<span class="number">1</span>].<span class="number">0</span>.to_field::&lt;F&gt;(),
+            ptrs[<span class="number">1</span>].<span class="number">1</span>,
+            ptrs[<span class="number">2</span>].<span class="number">0</span>.to_field::&lt;F&gt;(),
+            ptrs[<span class="number">2</span>].<span class="number">1</span>,
         ];
         <span class="self">self</span>.poseidon_cache.hash6(<span class="kw-2">&amp;</span>preimage)
     }
@@ -5836,14 +5691,6 @@
         <span class="kw">let </span>nil = <span class="self">self</span>.get_nil();
 
         <span class="self">self</span>.hash_sym(nil, mode)
-    }
-
-    <span class="kw">fn </span>hash_op1(<span class="kw-2">&amp;</span><span class="self">self</span>, op: <span class="kw-2">&amp;</span>Op1) -&gt; ScalarPtr&lt;F&gt; {
-        ScalarPtr(op.as_field(), F::zero())
-    }
-
-    <span class="kw">fn </span>hash_op2(<span class="kw-2">&amp;</span><span class="self">self</span>, op: <span class="kw-2">&amp;</span>Op2) -&gt; ScalarPtr&lt;F&gt; {
-        ScalarPtr(op.as_field(), F::zero())
     }
 
     <span class="comment">// An opaque Ptr is one for which we have the hash, but not the preimages.
@@ -6154,9 +6001,7 @@
         <span class="kw">let </span>from_ipld = from_ipld(to_ipld).unwrap();
         <span class="macro">assert_eq!</span>(x, from_ipld);
       }
-    }
 
-    <span class="macro">proptest! </span>{
       <span class="attr">#[test]
       </span><span class="kw">fn </span>prop_scalar_cont_ptr_ipld(x <span class="kw">in </span>any::&lt;ScalarContPtr&lt;Fr&gt;&gt;()) {
           <span class="kw">let </span>to_ipld = to_ipld(x).unwrap();
@@ -6164,9 +6009,6 @@
               <span class="macro">assert_eq!</span>(x, from_ipld);
 
       }
-    }
-
-    <span class="macro">proptest! </span>{
       <span class="attr">#[test]
       </span><span class="kw">fn </span>prop_op1_ipld(x <span class="kw">in </span>any::&lt;Op1&gt;())  {
           <span class="kw">let </span>to_ipld = to_ipld(x).unwrap();
@@ -6609,7 +6451,7 @@
         <span class="kw">let </span>sym_tag = s.get_expr_hash(<span class="kw-2">&amp;</span>sym).unwrap().<span class="number">0</span>;
         <span class="comment">// let sym_hash = s.get_expr_hash(&amp;sym).unwrap().1;
 
-        </span><span class="macro">assert_eq!</span>(ExprTag::Sym.as_field::&lt;Fr&gt;(), sym_tag);
+        </span><span class="macro">assert_eq!</span>(ExprTag::Sym, sym_tag);
 
         <span class="comment">// FIXME: What should this be? Should this even be allowed?
         // assert_eq!(Fr::from(0), sym_hash)

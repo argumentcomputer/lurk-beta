@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c4dbdcde0fbd8430.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (a266f1199 2023-03-22)" data-search-js="search-a6dd7f063a44c279.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../../static.files/storage-9184409068f70b79.js"></script><script defer src="../../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-f5a2577c5297a973.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-d8cc97c322676e1b.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (1459b3128 2023-03-23)" data-search-js="search-a6dd7f063a44c279.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../../static.files/storage-9184409068f70b79.js"></script><script defer src="../../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-f5a2577c5297a973.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -5845,6 +5845,7 @@
 <a href="#5845" id="5845">5845</a>
 <a href="#5846" id="5846">5846</a>
 <a href="#5847" id="5847">5847</a>
+<a href="#5848" id="5848">5848</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
 
 <span class="kw">use </span>bellperson::{
@@ -5861,7 +5862,8 @@
     },
     field::LurkField,
     hash_witness::{ConsName, ContName},
-    store::{NamedConstants, ScalarPointer},
+    store::NamedConstants,
+    tag::Tag,
 };
 
 <span class="kw">use </span><span class="kw">super</span>::gadgets::constraints::{
@@ -6019,7 +6021,7 @@
                     <span class="comment">// Ensure all intermediate allocated I/O values match the provided executation trace.
                     </span><span class="macro">assert_eq!</span>(
                         allocated_io.<span class="number">0</span>.tag().get_value(),
-                        store.hash_expr(<span class="kw-2">&amp;</span>next_input.expr).map(|x| <span class="kw-2">*</span>x.tag()),
+                        store.hash_expr(<span class="kw-2">&amp;</span>next_input.expr).map(|x| x.tag_field()),
                         <span class="string">&quot;expr tag mismatch&quot;
                     </span>);
                     <span class="macro">assert_eq!</span>(
@@ -6029,7 +6031,7 @@
                     </span>);
                     <span class="macro">assert_eq!</span>(
                         allocated_io.<span class="number">1</span>.tag().get_value(),
-                        store.hash_expr(<span class="kw-2">&amp;</span>next_input.env).map(|x| <span class="kw-2">*</span>x.tag()),
+                        store.hash_expr(<span class="kw-2">&amp;</span>next_input.env).map(|x| x.tag_field()),
                         <span class="string">&quot;env tag mismatch&quot;
                     </span>);
                     <span class="macro">assert_eq!</span>(
@@ -6039,7 +6041,7 @@
                     </span>);
                     <span class="macro">assert_eq!</span>(
                         allocated_io.<span class="number">2</span>.tag().get_value(),
-                        store.hash_cont(<span class="kw-2">&amp;</span>next_input.cont).map(|x| <span class="kw-2">*</span>x.tag()),
+                        store.hash_cont(<span class="kw-2">&amp;</span>next_input.cont).map(|x| x.tag_field()),
                         <span class="string">&quot;cont tag mismatch&quot;
                     </span>);
                     <span class="macro">assert_eq!</span>(
@@ -6298,7 +6300,7 @@
         result_cont: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AllocatedContPtr&lt;F&gt;,
         result_apply_continuation: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AllocatedNum&lt;F&gt;,
     ) {
-        <span class="kw">let </span>key = key.as_field();
+        <span class="kw">let </span>key = key.to_field();
         add_clause(
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.expr_tag_clauses,
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.expr_hash_clauses,
@@ -6363,7 +6365,7 @@
         result_env: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AllocatedPtr&lt;F&gt;,
         result_cont: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AllocatedContPtr&lt;F&gt;,
     ) {
-        <span class="kw">let </span>key = key.as_field();
+        <span class="kw">let </span>key = key.to_field();
         add_clause(
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.expr_tag_clauses,
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.expr_hash_clauses,
@@ -6393,7 +6395,7 @@
         make_thunk_num: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AllocatedNum&lt;F&gt;,
         newer_cont2_not_dummy: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AllocatedNum&lt;F&gt;,
     ) {
-        <span class="kw">let </span>key = key.as_field();
+        <span class="kw">let </span>key = key.to_field();
         add_clause(
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.expr_tag_clauses,
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.expr_hash_clauses,
@@ -6537,11 +6539,11 @@
 
     <span class="kw">let </span>cont_is_terminal = cont.alloc_tag_equal(
         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cont_is_terminal&quot;</span>),
-        ContTag::Terminal.as_field(),
+        ContTag::Terminal.to_field(),
     )<span class="question-mark">?</span>;
     <span class="kw">let </span>cont_is_error = cont.alloc_tag_equal(
         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cont_is_error&quot;</span>),
-        ContTag::Error.as_field(),
+        ContTag::Error.to_field(),
     )<span class="question-mark">?</span>;
 
     <span class="comment">// Enforce (expr.tag == thunk_tag) implies (expr_thunk_hash == expr.hash).
@@ -6964,7 +6966,7 @@
 
     <span class="kw">let </span>cont_is_lookup = cont.alloc_tag_equal(
         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cons_is_lookup&quot;</span>),
-        ContTag::Lookup.as_field(),
+        ContTag::Lookup.to_field(),
     )<span class="question-mark">?</span>;
 
     <span class="kw">let </span>needed_env_missing = <span class="macro">and!</span>(cs, <span class="kw-2">&amp;</span>sym_otherwise, <span class="kw-2">&amp;</span>env_is_nil)<span class="question-mark">?</span>;
@@ -7604,14 +7606,14 @@
         </span><span class="kw">let </span>the_op = pick_const(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;eval op&quot;</span>),
             <span class="kw-2">&amp;</span>end_is_nil,
-            ContTag::Unop.as_field(),
-            ContTag::Binop.as_field(),
+            ContTag::Unop.to_field(),
+            ContTag::Binop.to_field(),
         )<span class="question-mark">?</span>;
         <span class="kw">let </span>op1_or_op2 = pick_const(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1 or op2&quot;</span>),
             <span class="kw-2">&amp;</span>end_is_nil,
-            Op1::Eval.as_field(),
-            Op2::Eval.as_field(),
+            Op1::Eval.to_field(),
+            Op2::Eval.to_field(),
         )<span class="question-mark">?</span>;
         <span class="kw">let </span>cont_or_env_tag = pick(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;env or cont tag&quot;</span>),
@@ -8583,7 +8585,7 @@
 
     <span class="kw">let </span>cont_is_tail = cont.alloc_tag_equal(
         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cont_is_tail&quot;</span>),
-        ContTag::Tail.as_field(),
+        ContTag::Tail.to_field(),
     )<span class="question-mark">?</span>;
 
     <span class="kw">let </span>make_thunk_cont_not_dummy = <span class="macro">and!</span>(cs, <span class="kw-2">&amp;</span>cont_is_tail, not_dummy)<span class="question-mark">?</span>;
@@ -8706,19 +8708,19 @@
 
     <span class="kw">let </span>cont_is_terminal = cont.alloc_tag_equal(
         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cont_is_terminal&quot;</span>),
-        ContTag::Terminal.as_field(),
+        ContTag::Terminal.to_field(),
     )<span class="question-mark">?</span>;
     <span class="kw">let </span>cont_is_dummy = cont.alloc_tag_equal(
         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cont_is_dummy&quot;</span>),
-        ContTag::Dummy.as_field(),
+        ContTag::Dummy.to_field(),
     )<span class="question-mark">?</span>;
     <span class="kw">let </span>cont_is_error = cont.alloc_tag_equal(
         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cont_is_error&quot;</span>),
-        ContTag::Error.as_field(),
+        ContTag::Error.to_field(),
     )<span class="question-mark">?</span>;
     <span class="kw">let </span>cont_is_outermost = cont.alloc_tag_equal(
         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cont_is_outermost&quot;</span>),
-        ContTag::Outermost.as_field(),
+        ContTag::Outermost.to_field(),
     )<span class="question-mark">?</span>;
 
     <span class="kw">let </span>cont_is_trivial = <span class="macro">or!</span>(
@@ -8773,7 +8775,7 @@
         default_num_pair,
     ];
     hash_default_results.add_hash_input_clauses(
-        ContTag::Call0.as_field(),
+        ContTag::Call0.to_field(),
         <span class="kw-2">&amp;</span>g.tail_cont_tag,
         call0_components,
     );
@@ -8790,7 +8792,7 @@
     <span class="kw">let </span>call_components: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="kw">dyn </span>AsAllocatedHashComponents&lt;F&gt;; <span class="number">4</span>] =
         <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>saved_env, function, <span class="kw-2">&amp;</span>continuation, default_num_pair];
     hash_default_results.add_hash_input_clauses(
-        ContTag::Call.as_field(),
+        ContTag::Call.to_field(),
         <span class="kw-2">&amp;</span>g.call2_cont_tag,
         call_components,
     );
@@ -8810,7 +8812,7 @@
         default_num_pair,
     ];
     hash_default_results.add_hash_input_clauses(
-        ContTag::Call2.as_field(),
+        ContTag::Call2.to_field(),
         <span class="kw-2">&amp;</span>g.tail_cont_tag,
         call2_components,
     );
@@ -8827,7 +8829,7 @@
         <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>saved_env, <span class="kw-2">&amp;</span>let_cont, default_num_pair, default_num_pair];
 
     hash_default_results.add_hash_input_clauses(
-        ContTag::Let.as_field(),
+        ContTag::Let.to_field(),
         <span class="kw-2">&amp;</span>g.tail_cont_tag,
         let_components,
     );
@@ -8843,7 +8845,7 @@
     <span class="kw">let </span>letrec_components: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="kw">dyn </span>AsAllocatedHashComponents&lt;F&gt;; <span class="number">4</span>] =
         <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>saved_env, <span class="kw-2">&amp;</span>letrec_cont, default_num_pair, default_num_pair];
     hash_default_results.add_hash_input_clauses(
-        ContTag::LetRec.as_field(),
+        ContTag::LetRec.to_field(),
         <span class="kw-2">&amp;</span>g.tail_cont_tag,
         letrec_components,
     );
@@ -8854,12 +8856,12 @@
         <span class="kw">let </span>operator = AllocatedPtr::by_index(<span class="number">0</span>, <span class="kw-2">&amp;</span>continuation_components);
 
         <span class="kw">let </span>is_op2_hide =
-            operator.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;is_op2_hide&quot;</span>), Op2::Hide.as_field())<span class="question-mark">?</span>;
+            operator.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;is_op2_hide&quot;</span>), Op2::Hide.to_field())<span class="question-mark">?</span>;
         <span class="kw">let </span>is_op1_open =
-            operator.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;is_op1_open&quot;</span>), Op1::Open.as_field())<span class="question-mark">?</span>;
+            operator.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;is_op1_open&quot;</span>), Op1::Open.to_field())<span class="question-mark">?</span>;
         <span class="kw">let </span>is_op1_secret = operator.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;is_op1_secret&quot;</span>),
-            Op1::Secret.as_field(),
+            Op1::Secret.to_field(),
         )<span class="question-mark">?</span>;
         <span class="kw">let </span>is_op1_open_or_secret = <span class="macro">or!</span>(cs, <span class="kw-2">&amp;</span>is_op1_open, <span class="kw-2">&amp;</span>is_op1_secret)<span class="question-mark">?</span>;
 
@@ -8903,13 +8905,13 @@
 
         <span class="kw">let </span>cont_is_unop = cont.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cont_is_unop&quot;</span>),
-            ContTag::Unop.as_field(),
+            ContTag::Unop.to_field(),
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>unop_op_is_car =
-            op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;unop_op_is_car&quot;</span>), Op1::Car.as_field())<span class="question-mark">?</span>;
+            op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;unop_op_is_car&quot;</span>), Op1::Car.to_field())<span class="question-mark">?</span>;
         <span class="kw">let </span>unop_op_is_cdr =
-            op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;unop_op_is_cdr&quot;</span>), Op1::Cdr.as_field())<span class="question-mark">?</span>;
+            op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;unop_op_is_cdr&quot;</span>), Op1::Cdr.to_field())<span class="question-mark">?</span>;
         <span class="kw">let </span>unop_op_is_car_or_cdr = <span class="macro">or!</span>(cs, <span class="kw-2">&amp;</span>unop_op_is_car, <span class="kw-2">&amp;</span>unop_op_is_cdr)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>result_is_cons = result.is_cons(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;result_is_cons&quot;</span>))<span class="question-mark">?</span>;
@@ -8961,101 +8963,101 @@
             <span class="kw-2">&amp;</span>[
                 <span class="kw-2">&amp;</span>[
                     CaseClause {
-                        key: Op1::Car.as_field(),
+                        key: Op1::Car.to_field(),
                         value: res_car.tag(),
                     },
                     CaseClause {
-                        key: Op1::Cdr.as_field(),
+                        key: Op1::Cdr.to_field(),
                         value: res_cdr.tag(),
                     },
                     CaseClause {
-                        key: Op1::Atom.as_field(),
+                        key: Op1::Atom.to_field(),
                         value: is_atom_ptr.tag(),
                     },
                     CaseClause {
-                        key: Op1::Emit.as_field(),
+                        key: Op1::Emit.to_field(),
                         value: result.tag(),
                     },
                     CaseClause {
-                        key: Op1::Commit.as_field(),
+                        key: Op1::Commit.to_field(),
                         value: commitment.tag(),
                     },
                     CaseClause {
-                        key: Op1::Open.as_field(),
+                        key: Op1::Open.to_field(),
                         value: committed_expr.tag(),
                     },
                     CaseClause {
-                        key: Op1::Secret.as_field(),
+                        key: Op1::Secret.to_field(),
                         value: <span class="kw-2">&amp;</span>g.num_tag,
                     },
                     CaseClause {
-                        key: Op1::Num.as_field(),
+                        key: Op1::Num.to_field(),
                         value: num.tag(),
                     },
                     CaseClause {
-                        key: Op1::U64.as_field(),
+                        key: Op1::U64.to_field(),
                         value: <span class="kw-2">&amp;</span>g.u64_tag,
                     },
                     CaseClause {
-                        key: Op1::Comm.as_field(),
+                        key: Op1::Comm.to_field(),
                         value: comm.tag(),
                     },
                     CaseClause {
-                        key: Op1::Char.as_field(),
+                        key: Op1::Char.to_field(),
                         value: <span class="kw-2">&amp;</span>g.char_tag,
                     },
                     CaseClause {
-                        key: Op1::Eval.as_field(),
+                        key: Op1::Eval.to_field(),
                         value: result.tag(),
                     },
                 ],
                 <span class="kw-2">&amp;</span>[
                     CaseClause {
-                        key: Op1::Car.as_field(),
+                        key: Op1::Car.to_field(),
                         value: allocated_car.hash(),
                     },
                     CaseClause {
-                        key: Op1::Cdr.as_field(),
+                        key: Op1::Cdr.to_field(),
                         value: allocated_cdr.hash(),
                     },
                     CaseClause {
-                        key: Op1::Atom.as_field(),
+                        key: Op1::Atom.to_field(),
                         value: is_atom_ptr.hash(),
                     },
                     CaseClause {
-                        key: Op1::Emit.as_field(),
+                        key: Op1::Emit.to_field(),
                         value: result.hash(),
                     },
                     CaseClause {
-                        key: Op1::Commit.as_field(),
+                        key: Op1::Commit.to_field(),
                         value: commitment.hash(),
                     },
                     CaseClause {
-                        key: Op1::Open.as_field(),
+                        key: Op1::Open.to_field(),
                         value: committed_expr.hash(),
                     },
                     CaseClause {
-                        key: Op1::Secret.as_field(),
+                        key: Op1::Secret.to_field(),
                         value: <span class="kw-2">&amp;</span>commitment_secret,
                     },
                     CaseClause {
-                        key: Op1::Num.as_field(),
+                        key: Op1::Num.to_field(),
                         value: num.hash(),
                     },
                     CaseClause {
-                        key: Op1::U64.as_field(),
+                        key: Op1::U64.to_field(),
                         value: <span class="kw-2">&amp;</span>u64_elem,
                     },
                     CaseClause {
-                        key: Op1::Comm.as_field(),
+                        key: Op1::Comm.to_field(),
                         value: comm.hash(),
                     },
                     CaseClause {
-                        key: Op1::Char.as_field(),
+                        key: Op1::Char.to_field(),
                         value: <span class="kw-2">&amp;</span>u32_elem,
                     },
                     CaseClause {
-                        key: Op1::Eval.as_field(),
+                        key: Op1::Eval.to_field(),
                         value: result.hash(),
                     },
                 ],
@@ -9074,7 +9076,7 @@
         default_num_pair,
     ];
     hash_default_results.add_hash_input_clauses(
-        ContTag::Unop.as_field(),
+        ContTag::Unop.to_field(),
         <span class="kw-2">&amp;</span>g.emit_cont_tag,
         emit_components,
     );
@@ -9094,7 +9096,7 @@
         default_num_pair,
     ];
     hash_default_results.add_hash_input_clauses(
-        ContTag::Binop.as_field(),
+        ContTag::Binop.to_field(),
         <span class="kw-2">&amp;</span>g.binop2_cont_tag,
         binop_components,
     );
@@ -9157,7 +9159,7 @@
 
         <span class="kw">let </span>cont_is_call0 = cont.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cont_is_call0&quot;</span>),
-            ContTag::Call0.as_field(),
+            ContTag::Call0.to_field(),
         )<span class="question-mark">?</span>;
         <span class="kw">let </span>call0_not_dummy = <span class="macro">and!</span>(cs, <span class="kw-2">&amp;</span>cont_is_call0, <span class="kw-2">&amp;</span>result_is_fun, not_dummy)<span class="question-mark">?</span>;
 
@@ -9194,7 +9196,7 @@
 
         <span class="kw">let </span>continuation_is_tail = continuation.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;continuation is tail&quot;</span>),
-            ContTag::Tail.as_field(),
+            ContTag::Tail.to_field(),
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>tail_cont = AllocatedContPtr::pick(
@@ -9321,7 +9323,7 @@
         {
             <span class="kw">let </span>cont_is_call2_precomp = cont.alloc_tag_equal(
                 <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cont_is_call2_precomp&quot;</span>),
-                ContTag::Call2.as_field(),
+                ContTag::Call2.to_field(),
             )<span class="question-mark">?</span>;
             <span class="kw">let </span>cont_is_call2_and_not_dummy = <span class="macro">and!</span>(cs, <span class="kw-2">&amp;</span>cont_is_call2_precomp, not_dummy)<span class="question-mark">?</span>;
 
@@ -9378,7 +9380,7 @@
 
             <span class="kw">let </span>continuation_is_tail = continuation.alloc_tag_equal(
                 <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;continuation is tail&quot;</span>),
-                ContTag::Tail.as_field(),
+                ContTag::Tail.to_field(),
             )<span class="question-mark">?</span>;
 
             <span class="kw">let </span>tail_cont = AllocatedContPtr::pick(
@@ -9429,7 +9431,7 @@
 
         <span class="kw">let </span>cont_is_binop = cont.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cont_is_binop&quot;</span>),
-            ContTag::Binop.as_field(),
+            ContTag::Binop.to_field(),
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>binop_not_dummy = Boolean::and(
@@ -9449,7 +9451,7 @@
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>op_is_begin =
-            operator.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op_is_begin&quot;</span>), Op2::Begin.as_field())<span class="question-mark">?</span>;
+            operator.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op_is_begin&quot;</span>), Op2::Begin.to_field())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>rest_is_nil = allocated_rest.is_nil(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;rest_is_nil&quot;</span>), g)<span class="question-mark">?</span>;
         <span class="kw">let </span>rest_not_nil = rest_is_nil.not();
@@ -9599,7 +9601,7 @@
 
         <span class="kw">let </span>not_dummy = cont.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;Binop2 not dummy&quot;</span>),
-            ContTag::Binop2.as_field(),
+            ContTag::Binop2.to_field(),
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>sum = add(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;sum&quot;</span>), a, b)<span class="question-mark">?</span>;
@@ -9607,9 +9609,9 @@
         <span class="kw">let </span>product = mul(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;product&quot;</span>), a, b)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>op2_is_div =
-            op2.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_is_div&quot;</span>), Op2::Quotient.as_field())<span class="question-mark">?</span>;
+            op2.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_is_div&quot;</span>), Op2::Quotient.to_field())<span class="question-mark">?</span>;
         <span class="kw">let </span>op2_is_mod =
-            op2.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_is_mod&quot;</span>), Op2::Modulo.as_field())<span class="question-mark">?</span>;
+            op2.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_is_mod&quot;</span>), Op2::Modulo.to_field())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>op2_is_div_or_mod = or(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2 is div or mod&quot;</span>),
@@ -9629,10 +9631,10 @@
         <span class="kw">let </span>quotient = div(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;quotient&quot;</span>), a, <span class="kw-2">&amp;</span>divisor)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>is_cons =
-            op2.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;Op2 is Cons&quot;</span>), Op2::Cons.as_field())<span class="question-mark">?</span>;
+            op2.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;Op2 is Cons&quot;</span>), Op2::Cons.to_field())<span class="question-mark">?</span>;
         <span class="kw">let </span>is_strcons = op2.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;Op2 is StrCons&quot;</span>),
-            Op2::StrCons.as_field(),
+            Op2::StrCons.to_field(),
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>is_cons_or_strcons = or(
@@ -9678,39 +9680,39 @@
             op2.tag(),
             <span class="kw-2">&amp;</span>[
                 CaseClause {
-                    key: Op2::Sum.as_field(),
+                    key: Op2::Sum.to_field(),
                     value: <span class="kw-2">&amp;</span>sum,
                 },
                 CaseClause {
-                    key: Op2::Diff.as_field(),
+                    key: Op2::Diff.to_field(),
                     value: <span class="kw-2">&amp;</span>diff,
                 },
                 CaseClause {
-                    key: Op2::Product.as_field(),
+                    key: Op2::Product.to_field(),
                     value: <span class="kw-2">&amp;</span>product,
                 },
                 CaseClause {
-                    key: Op2::Quotient.as_field(),
+                    key: Op2::Quotient.to_field(),
                     value: <span class="kw-2">&amp;</span>quotient,
                 },
                 CaseClause {
-                    key: Op2::Equal.as_field(),
+                    key: Op2::Equal.to_field(),
                     value: args_equal_ptr.hash(),
                 },
                 CaseClause {
-                    key: Op2::NumEqual.as_field(),
+                    key: Op2::NumEqual.to_field(),
                     value: args_equal_ptr.hash(),
                 },
                 CaseClause {
-                    key: Op2::Cons.as_field(),
+                    key: Op2::Cons.to_field(),
                     value: cons.hash(),
                 },
                 CaseClause {
-                    key: Op2::StrCons.as_field(),
+                    key: Op2::StrCons.to_field(),
                     value: cons.hash(),
                 },
                 CaseClause {
-                    key: Op2::Hide.as_field(),
+                    key: Op2::Hide.to_field(),
                     value: commitment.hash(),
                 },
             ],
@@ -9719,11 +9721,11 @@
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>is_equal =
-            op2.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;Op2 is Equal&quot;</span>), Op2::Equal.as_field())<span class="question-mark">?</span>;
+            op2.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;Op2 is Equal&quot;</span>), Op2::Equal.to_field())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>is_num_equal = op2.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;Op2 is NumEqual&quot;</span>),
-            Op2::NumEqual.as_field(),
+            Op2::NumEqual.to_field(),
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>is_equal_or_num_equal = or(
@@ -9733,7 +9735,7 @@
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>op2_is_hide =
-            op2.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;Op2 is Hide&quot;</span>), Op2::Hide.as_field())<span class="question-mark">?</span>;
+            op2.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;Op2 is Hide&quot;</span>), Op2::Hide.to_field())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>commitment_tag_is_comm =
             commitment.is_comm(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;commitment tag is comm&quot;</span>))<span class="question-mark">?</span>;
@@ -9754,15 +9756,15 @@
         <span class="kw">let </span>cons_tag = pick_const(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cons_tag&quot;</span>),
             <span class="kw-2">&amp;</span>is_strcons,
-            ExprTag::Str.as_field(),
-            ExprTag::Cons.as_field(),
+            ExprTag::Str.to_field(),
+            ExprTag::Cons.to_field(),
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>comm_or_num_tag = pick_const(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;Op2 tag is comm or num&quot;</span>),
             <span class="kw-2">&amp;</span>op2_is_hide,
-            ExprTag::Comm.as_field(),
-            ExprTag::Num.as_field(),
+            ExprTag::Comm.to_field(),
+            ExprTag::Num.to_field(),
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>is_cons_or_hide = <span class="macro">or!</span>(cs, <span class="kw-2">&amp;</span>is_cons, <span class="kw-2">&amp;</span>op2_is_hide)<span class="question-mark">?</span>;
@@ -9818,7 +9820,7 @@
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>op2_is_diff =
-            op2.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_is_diff&quot;</span>), Op2::Diff.as_field())<span class="question-mark">?</span>;
+            op2.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_is_diff&quot;</span>), Op2::Diff.to_field())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>diff_is_negative_and_op2_is_diff = Boolean::and(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;diff is negative and op2 is diff&quot;</span>),
@@ -9932,7 +9934,7 @@
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>op2_is_eval =
-            op2.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_is_eval&quot;</span>), Op2::Eval.as_field())<span class="question-mark">?</span>;
+            op2.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_is_eval&quot;</span>), Op2::Eval.to_field())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>the_cont_ = AllocatedContPtr::pick(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;maybe type or div by zero error&quot;</span>),
@@ -9996,7 +9998,7 @@
         <span class="kw">let </span>condition = result;
 
         <span class="kw">let </span>cont_is_if =
-            cont.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cont_is_if&quot;</span>), ContTag::If.as_field())<span class="question-mark">?</span>;
+            cont.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cont_is_if&quot;</span>), ContTag::If.to_field())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>if_not_dummy = <span class="macro">and!</span>(cs, <span class="kw-2">&amp;</span>cont_is_if, not_dummy)<span class="question-mark">?</span>;
 
@@ -10093,10 +10095,10 @@
         <span class="kw">let </span>let_cont = AllocatedContPtr::by_index(<span class="number">3</span>, <span class="kw-2">&amp;</span>continuation_components);
 
         <span class="kw">let </span>cont_is_let =
-            cont.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cont_is_let&quot;</span>), ContTag::Let.as_field())<span class="question-mark">?</span>;
+            cont.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cont_is_let&quot;</span>), ContTag::Let.to_field())<span class="question-mark">?</span>;
         <span class="kw">let </span>let_cont_is_let = let_cont.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;let_cont_is_let&quot;</span>),
-            ContTag::Let.as_field(),
+            ContTag::Let.to_field(),
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>extended_env_not_dummy = <span class="macro">and!</span>(cs, <span class="kw-2">&amp;</span>let_cont_is_let, not_dummy, <span class="kw-2">&amp;</span>cont_is_let)<span class="question-mark">?</span>;
@@ -10114,7 +10116,7 @@
 
         <span class="kw">let </span>continuation_is_tail = let_cont.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;continuation is tail&quot;</span>),
-            ContTag::Tail.as_field(),
+            ContTag::Tail.to_field(),
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>tail_cont = AllocatedContPtr::pick(
@@ -10150,7 +10152,7 @@
 
         <span class="kw">let </span>letrec_cont_is_letrec_cont = letrec_cont.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;letrec_cont_is_letrec_cont&quot;</span>),
-            ContTag::LetRec.as_field(),
+            ContTag::LetRec.to_field(),
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>extend_rec_not_dummy = <span class="macro">and!</span>(cs, <span class="kw-2">&amp;</span>letrec_cont_is_letrec_cont, not_dummy)<span class="question-mark">?</span>;
@@ -10170,7 +10172,7 @@
 
         <span class="kw">let </span>continuation_is_tail = letrec_cont.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;continuation is tail&quot;</span>),
-            ContTag::Tail.as_field(),
+            ContTag::Tail.to_field(),
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>tail_cont = AllocatedContPtr::pick(
@@ -10207,9 +10209,9 @@
         <span class="kw">let </span>other_unop_continuation = AllocatedContPtr::by_index(<span class="number">1</span>, <span class="kw-2">&amp;</span>continuation_components);
 
         <span class="kw">let </span>op1_is_emit =
-            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_emit&quot;</span>), Op1::Emit.as_field())<span class="question-mark">?</span>;
+            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_emit&quot;</span>), Op1::Emit.to_field())<span class="question-mark">?</span>;
         <span class="kw">let </span>op1_is_eval =
-            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_eval&quot;</span>), Op1::Eval.as_field())<span class="question-mark">?</span>;
+            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_eval&quot;</span>), Op1::Eval.to_field())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>unop_continuation0 = AllocatedContPtr::pick(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;unop_continuation0&quot;</span>),
@@ -10233,42 +10235,42 @@
         <span class="kw">let </span>car_cdr_is_valid = <span class="macro">or!</span>(cs, <span class="kw-2">&amp;</span>result_is_cons, <span class="kw-2">&amp;</span>result_is_str, <span class="kw-2">&amp;</span>result_is_nil)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>op1_is_car =
-            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_car&quot;</span>), Op1::Car.as_field())<span class="question-mark">?</span>;
+            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_car&quot;</span>), Op1::Car.to_field())<span class="question-mark">?</span>;
         <span class="kw">let </span>op1_is_cdr =
-            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_cdr&quot;</span>), Op1::Cdr.as_field())<span class="question-mark">?</span>;
+            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_cdr&quot;</span>), Op1::Cdr.to_field())<span class="question-mark">?</span>;
         <span class="kw">let </span>op1_is_car_or_cdr = <span class="macro">or!</span>(cs, <span class="kw-2">&amp;</span>op1_is_car, <span class="kw-2">&amp;</span>op1_is_cdr)<span class="question-mark">?</span>;
         <span class="kw">let </span>car_cdr_is_invalid = <span class="macro">and!</span>(cs, <span class="kw-2">&amp;</span>op1_is_car_or_cdr, <span class="kw-2">&amp;</span>car_cdr_is_valid.not())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>op1_is_comm =
-            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_comm&quot;</span>), Op1::Comm.as_field())<span class="question-mark">?</span>;
+            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_comm&quot;</span>), Op1::Comm.to_field())<span class="question-mark">?</span>;
         <span class="kw">let </span>op1_is_num =
-            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_num&quot;</span>), Op1::Num.as_field())<span class="question-mark">?</span>;
+            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_num&quot;</span>), Op1::Num.to_field())<span class="question-mark">?</span>;
         <span class="kw">let </span>op1_is_char =
-            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_char&quot;</span>), Op1::Char.as_field())<span class="question-mark">?</span>;
+            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_char&quot;</span>), Op1::Char.to_field())<span class="question-mark">?</span>;
         <span class="kw">let </span>op1_is_open =
-            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_open&quot;</span>), Op1::Open.as_field())<span class="question-mark">?</span>;
+            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_open&quot;</span>), Op1::Open.to_field())<span class="question-mark">?</span>;
         <span class="kw">let </span>op1_is_secret = unop_op1.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_secret&quot;</span>),
-            Op1::Secret.as_field(),
+            Op1::Secret.to_field(),
         )<span class="question-mark">?</span>;
         <span class="kw">let </span>op1_is_u64 =
-            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_u64&quot;</span>), Op1::U64.as_field())<span class="question-mark">?</span>;
+            unop_op1.alloc_tag_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_is_u64&quot;</span>), Op1::U64.to_field())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>tag_is_char = result.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;result_is_char&quot;</span>),
-            ExprTag::Char.as_field(),
+            ExprTag::Char.to_field(),
         )<span class="question-mark">?</span>;
         <span class="kw">let </span>tag_is_num = result.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;result_is_num&quot;</span>),
-            ExprTag::Num.as_field(),
+            ExprTag::Num.to_field(),
         )<span class="question-mark">?</span>;
         <span class="kw">let </span>tag_is_comm = result.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;result_is_comm&quot;</span>),
-            ExprTag::Comm.as_field(),
+            ExprTag::Comm.to_field(),
         )<span class="question-mark">?</span>;
         <span class="kw">let </span>tag_is_u64 = result.alloc_tag_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;result_is_u64&quot;</span>),
-            ExprTag::U64.as_field(),
+            ExprTag::U64.to_field(),
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>tag_is_num_or_comm = <span class="macro">or!</span>(cs, <span class="kw-2">&amp;</span>tag_is_num, <span class="kw-2">&amp;</span>tag_is_comm)<span class="question-mark">?</span>;
@@ -10494,25 +10496,25 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>comp_results = CompResults::default();
     comp_results.add_clauses_comp(
-        Op2::Less.as_field(),
+        Op2::Less.to_field(),
         <span class="kw-2">&amp;</span>alloc_num_diff_is_negative,
         <span class="kw-2">&amp;</span>g.true_num,
         <span class="kw-2">&amp;</span>g.false_num,
     );
     comp_results.add_clauses_comp(
-        Op2::LessEqual.as_field(),
+        Op2::LessEqual.to_field(),
         <span class="kw-2">&amp;</span>alloc_num_diff_is_not_positive,
         <span class="kw-2">&amp;</span>g.true_num,
         <span class="kw-2">&amp;</span>g.false_num,
     );
     comp_results.add_clauses_comp(
-        Op2::Greater.as_field(),
+        Op2::Greater.to_field(),
         <span class="kw-2">&amp;</span>alloc_num_diff_is_positive,
         <span class="kw-2">&amp;</span>g.false_num,
         <span class="kw-2">&amp;</span>g.true_num,
     );
     comp_results.add_clauses_comp(
-        Op2::GreaterEqual.as_field(),
+        Op2::GreaterEqual.to_field(),
         <span class="kw-2">&amp;</span>alloc_num_diff_is_not_negative,
         <span class="kw-2">&amp;</span>g.false_num,
         <span class="kw-2">&amp;</span>g.true_num,
