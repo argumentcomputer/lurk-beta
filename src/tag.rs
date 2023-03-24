@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -5,6 +6,11 @@ use std::{convert::TryFrom, fmt};
 
 use crate::field::LurkField;
 use crate::store::TypePredicates;
+
+pub trait Tag: Into<u16> + TryFrom<u16> + Copy + Sized + Eq + fmt::Debug {
+    fn from_field<F: LurkField>(f: &F) -> Option<Self>;
+    fn to_field<F: LurkField>(&self) -> F;
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
@@ -36,7 +42,7 @@ impl From<ExprTag> for u64 {
 }
 
 impl TryFrom<u16> for ExprTag {
-    type Error = String;
+    type Error = anyhow::Error;
 
     fn try_from(x: u16) -> Result<Self, <ExprTag as TryFrom<u16>>::Error> {
         match x {
@@ -51,7 +57,7 @@ impl TryFrom<u16> for ExprTag {
             f if f == ExprTag::Comm as u16 => Ok(ExprTag::Comm),
             f if f == ExprTag::U64 as u16 => Ok(ExprTag::U64),
             f if f == ExprTag::Key as u16 => Ok(ExprTag::Key),
-            f => Err(format!("Invalid ExprTag value: {}", f)),
+            f => Err(anyhow!("Invalid ExprTag value: {}", f)),
         }
     }
 }
@@ -99,12 +105,12 @@ impl TypePredicates for ExprTag {
     }
 }
 
-impl ExprTag {
-    pub fn from_field<F: LurkField>(f: &F) -> Option<Self> {
+impl Tag for ExprTag {
+    fn from_field<F: LurkField>(f: &F) -> Option<Self> {
         Self::try_from(f.to_u16()?).ok()
     }
 
-    pub fn as_field<F: LurkField>(&self) -> F {
+    fn to_field<F: LurkField>(&self) -> F {
         F::from(*self as u64)
     }
 }
@@ -144,7 +150,7 @@ impl From<ContTag> for u64 {
 }
 
 impl TryFrom<u16> for ContTag {
-    type Error = String;
+    type Error = anyhow::Error;
 
     fn try_from(x: u16) -> Result<Self, <ContTag as TryFrom<u16>>::Error> {
         match x {
@@ -164,17 +170,17 @@ impl TryFrom<u16> for ContTag {
             f if f == ContTag::Dummy as u16 => Ok(ContTag::Dummy),
             f if f == ContTag::Terminal as u16 => Ok(ContTag::Terminal),
             f if f == ContTag::Emit as u16 => Ok(ContTag::Emit),
-            f => Err(format!("Invalid ContTag value: {}", f)),
+            f => Err(anyhow!("Invalid ContTag value: {}", f)),
         }
     }
 }
 
-impl ContTag {
-    pub fn from_field<F: LurkField>(f: &F) -> Option<Self> {
+impl Tag for ContTag {
+    fn from_field<F: LurkField>(f: &F) -> Option<Self> {
         Self::try_from(f.to_u16()?).ok()
     }
 
-    pub fn as_field<F: LurkField>(&self) -> F {
+    fn to_field<F: LurkField>(&self) -> F {
         F::from(*self as u64)
     }
 }
@@ -233,7 +239,7 @@ impl From<Op1> for u64 {
 }
 
 impl TryFrom<u16> for Op1 {
-    type Error = String;
+    type Error = anyhow::Error;
 
     fn try_from(x: u16) -> Result<Self, <Op1 as TryFrom<u16>>::Error> {
         match x {
@@ -249,7 +255,7 @@ impl TryFrom<u16> for Op1 {
             f if f == Op1::Char as u16 => Ok(Op1::Char),
             f if f == Op1::Eval as u16 => Ok(Op1::Eval),
             f if f == Op1::U64 as u16 => Ok(Op1::U64),
-            f => Err(format!("Invalid Op1 value: {}", f)),
+            f => Err(anyhow!("Invalid Op1 value: {}", f)),
         }
     }
 }
@@ -266,12 +272,12 @@ where
     }
 }
 
-impl Op1 {
-    pub fn from_field<F: LurkField>(f: &F) -> Option<Self> {
+impl Tag for Op1 {
+    fn from_field<F: LurkField>(f: &F) -> Option<Self> {
         Self::try_from(f.to_u16()?).ok()
     }
 
-    pub fn as_field<F: LurkField>(&self) -> F {
+    fn to_field<F: LurkField>(&self) -> F {
         F::from(*self as u64)
     }
 }
@@ -370,7 +376,7 @@ impl From<Op2> for u64 {
 }
 
 impl TryFrom<u16> for Op2 {
-    type Error = String;
+    type Error = anyhow::Error;
 
     fn try_from(x: u16) -> Result<Self, <Op2 as TryFrom<u16>>::Error> {
         match x {
@@ -390,20 +396,22 @@ impl TryFrom<u16> for Op2 {
             f if f == Op2::Hide as u16 => Ok(Op2::Hide),
             f if f == Op2::Modulo as u16 => Ok(Op2::Modulo),
             f if f == Op2::Eval as u16 => Ok(Op2::Eval),
-            f => Err(format!("Invalid Op2 value: {}", f)),
+            f => Err(anyhow!("Invalid Op2 value: {}", f)),
         }
     }
 }
 
-impl Op2 {
-    pub fn from_field<F: LurkField>(f: &F) -> Option<Self> {
+impl Tag for Op2 {
+    fn from_field<F: LurkField>(f: &F) -> Option<Self> {
         Self::try_from(f.to_u16()?).ok()
     }
 
-    pub fn as_field<F: From<u64> + ff::Field>(&self) -> F {
+    fn to_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
     }
+}
 
+impl Op2 {
     pub fn is_numeric(&self) -> bool {
         matches!(
             self,

@@ -3064,8 +3064,6 @@ mod tests {
     }
     #[test]
     fn test_prove_head_with_sym_mimicking_value() {
-        use crate::store::ScalarPointer;
-
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
 

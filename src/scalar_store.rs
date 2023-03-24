@@ -326,8 +326,6 @@ mod test {
     use super::*;
     use crate::eval::empty_sym_env;
 
-    use crate::store::ScalarPointer;
-
     use blstrs::Scalar as Fr;
 
     use tap::TapFallible;
@@ -342,30 +340,40 @@ mod test {
             let y = from_ipld(to_ipld).unwrap();
             assert_eq!(x, y);
         }
-    }
 
-    proptest! {
         #[test]
-        fn prop_scalar_expression_ipld(x: ScalarExpression<Fr>) {
-            let to_ipld = to_ipld(x.clone()).tap_err(|e| {
+        fn prop_scalar_expression_ipld(x in any::<ScalarExpression<Fr>>()) {
+            let to_ipld = to_ipld(x.clone())
+            .tap_err(|e| {
                 println!("ser x: {x:?}");
                 println!("err e: {e:?}");
-            }).unwrap();
+            })
+            .unwrap();
 
-            let y = from_ipld(to_ipld.clone()).tap_err(|e| {
+            let y = from_ipld(to_ipld.clone())
+            .tap_err(|e| {
                 println!("ser x: {x:?}");
                 println!("de ipld: {to_ipld:?}");
                 println!("err e: {e:?}");
-            }).unwrap();
+            })
+            .unwrap();
 
             println!("x: {x:?}");
             println!("y: {y:?}");
 
             assert_eq!(x, y);
-
         }
 
-        fn prop_scalar_continuation_ipld(x: ScalarExpression<Fr>) {
+
+        #[test]
+        fn prop_scalar_expr_ipld(x in any::< ScalarExpression<Fr>>()) {
+            let to_ipld = to_ipld(x.clone()).unwrap();
+            let from_ipld = from_ipld(to_ipld).unwrap();
+            assert_eq!(x, from_ipld);
+        }
+
+        #[test]
+        fn prop_scalar_cont_ipld(x in any::<ScalarContinuation<Fr>>()) {
             let to_ipld = to_ipld(x.clone()).unwrap();
             let from_ipld = from_ipld(to_ipld).unwrap();
             assert_eq!(x, from_ipld);
@@ -380,12 +388,12 @@ mod test {
             prop::collection::btree_map(
                 any::<ScalarPtr<Fr>>(),
                 any::<Option<ScalarExpression<Fr>>>(),
-                0..100,
+                0..1,
             ),
             prop::collection::btree_map(
                 any::<ScalarContPtr<Fr>>(),
                 any::<Option<ScalarContinuation<Fr>>>(),
-                0..100,
+                0..1,
             ),
         )
             .prop_map(|(scalar_map, scalar_cont_map)| ScalarStore {

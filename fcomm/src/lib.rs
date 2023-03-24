@@ -24,7 +24,7 @@ use lurk::{
     proof::nova::{self, NovaProver, PublicParams},
     proof::Prover,
     scalar_store::ScalarStore,
-    store::{Pointer, Ptr, ScalarPointer, ScalarPtr, Store},
+    store::{Pointer, Ptr, ScalarPtr, Store},
     tag::ExprTag,
     writer::Write,
 };

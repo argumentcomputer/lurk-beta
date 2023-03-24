@@ -8,7 +8,8 @@ use crate::circuit::gadgets::pointer::{AllocatedPtr, AsAllocatedHashComponents};
 
 use crate::field::LurkField;
 use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness, HashName, Stub};
-use crate::store::{HashConst, HashConstants, ScalarPointer, ScalarPtr, Store};
+use crate::store::{HashConst, HashConstants, ScalarPtr, Store};
+use crate::tag::ExprTag;
 
 #[derive(Clone)]
 pub struct AllocatedHash<F: LurkField, PreimageType> {
@@ -152,8 +153,8 @@ impl<'a, F: LurkField> AllocatedConsWitness<'a, F> {
 
             let (car_ptr, cdr_ptr, cons_hash) = match p {
                 Stub::Dummy => (
-                    Some(ScalarPtr::from_parts(F::zero(), F::zero())),
-                    Some(ScalarPtr::from_parts(F::zero(), F::zero())),
+                    Some(ScalarPtr::from_parts(ExprTag::Nil, F::zero())),
+                    Some(ScalarPtr::from_parts(ExprTag::Nil, F::zero())),
                     None,
                 ),
                 Stub::Blank => (None, None, None),

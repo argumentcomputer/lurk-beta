@@ -4,8 +4,7 @@ use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness};
 use crate::num::Num;
 use crate::store;
 use crate::store::{
-    ContPtr, Continuation, Expression, NamedConstants, Pointer, Ptr, ScalarPointer, Store, Thunk,
-    TypePredicates,
+    ContPtr, Continuation, Expression, NamedConstants, Pointer, Ptr, Store, Thunk, TypePredicates,
 };
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use crate::writer::Write;
@@ -216,11 +215,11 @@ impl<F: LurkField> IO<F> {
             .hash_cont(&self.cont)
             .ok_or_else(|| store::Error("expr hash missing".into()))?;
         Ok(vec![
-            *expr_scalar_ptr.tag(),
+            expr_scalar_ptr.tag_field(),
             *expr_scalar_ptr.value(),
-            *env_scalar_ptr.tag(),
+            env_scalar_ptr.tag_field(),
             *env_scalar_ptr.value(),
-            *cont_scalar_ptr.tag(),
+            cont_scalar_ptr.tag_field(),
             *cont_scalar_ptr.value(),
         ])
     }
@@ -3456,7 +3455,6 @@ mod test {
 
     #[test]
     fn hide_opaque_open_available() {
-        use crate::store::ScalarPointer;
         use crate::Num;
 
         let s = &mut Store::<Fr>::default();
@@ -3494,8 +3492,6 @@ mod test {
     #[test]
     #[should_panic]
     fn hide_opaque_open_unavailable() {
-        use crate::store::ScalarPointer;
-
         let s = &mut Store::<Fr>::default();
         let commitment = eval_to_ptr(s, "(hide 123 'x)").unwrap();
 
@@ -4286,12 +4282,11 @@ mod test {
         let scalar_ptr = &s.get_expr_hash(&x).unwrap();
 
         assert_eq!(&Fr::zero(), scalar_ptr.value());
-        assert_eq!(&ExprTag::Sym.as_field::<Fr>(), scalar_ptr.tag());
+        assert_eq!(ExprTag::Sym, scalar_ptr.tag());
     }
 
     #[test]
     fn test_sym_hash_values() {
-        use crate::store::ScalarPointer;
         use crate::sym::Sym;
 
         let s = &mut Store::<Fr>::default();
@@ -4339,8 +4334,8 @@ mod test {
         );
 
         // The tags differ though.
-        assert_eq!(&ExprTag::Sym.as_field::<Fr>(), sym_scalar_ptr.tag());
-        assert_eq!(&ExprTag::Key.as_field::<Fr>(), key_scalar_ptr.tag());
+        assert_eq!(ExprTag::Sym, sym_scalar_ptr.tag());
+        assert_eq!(ExprTag::Key, key_scalar_ptr.tag());
     }
 
     #[test]

@@ -14,7 +14,8 @@ use crate::{
     },
     field::LurkField,
     hash_witness::{ConsName, ContName},
-    store::{NamedConstants, ScalarPointer},
+    store::NamedConstants,
+    tag::Tag,
 };
 
 use super::gadgets::constraints::{
@@ -172,7 +173,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
                     // Ensure all intermediate allocated I/O values match the provided executation trace.
                     assert_eq!(
                         allocated_io.0.tag().get_value(),
-                        store.hash_expr(&next_input.expr).map(|x| *x.tag()),
+                        store.hash_expr(&next_input.expr).map(|x| x.tag_field()),
                         "expr tag mismatch"
                     );
                     assert_eq!(
@@ -182,7 +183,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
                     );
                     assert_eq!(
                         allocated_io.1.tag().get_value(),
-                        store.hash_expr(&next_input.env).map(|x| *x.tag()),
+                        store.hash_expr(&next_input.env).map(|x| x.tag_field()),
                         "env tag mismatch"
                     );
                     assert_eq!(
@@ -192,7 +193,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
                     );
                     assert_eq!(
                         allocated_io.2.tag().get_value(),
-                        store.hash_cont(&next_input.cont).map(|x| *x.tag()),
+                        store.hash_cont(&next_input.cont).map(|x| x.tag_field()),
                         "cont tag mismatch"
                     );
                     assert_eq!(
@@ -451,7 +452,7 @@ impl<'a, F: LurkField> Results<'a, F> {
         result_cont: &'a AllocatedContPtr<F>,
         result_apply_continuation: &'a AllocatedNum<F>,
     ) {
-        let key = key.as_field();
+        let key = key.to_field();
         add_clause(
             &mut self.expr_tag_clauses,
             &mut self.expr_hash_clauses,
@@ -516,7 +517,7 @@ impl<'a, F: LurkField> Results<'a, F> {
         result_env: &'a AllocatedPtr<F>,
         result_cont: &'a AllocatedContPtr<F>,
     ) {
-        let key = key.as_field();
+        let key = key.to_field();
         add_clause(
             &mut self.expr_tag_clauses,
             &mut self.expr_hash_clauses,
@@ -546,7 +547,7 @@ impl<'a, F: LurkField> Results<'a, F> {
         make_thunk_num: &'a AllocatedNum<F>,
         newer_cont2_not_dummy: &'a AllocatedNum<F>,
     ) {
-        let key = key.as_field();
+        let key = key.to_field();
         add_clause(
             &mut self.expr_tag_clauses,
             &mut self.expr_hash_clauses,
@@ -690,11 +691,11 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
 
     let cont_is_terminal = cont.alloc_tag_equal(
         &mut cs.namespace(|| "cont_is_terminal"),
-        ContTag::Terminal.as_field(),
+        ContTag::Terminal.to_field(),
     )?;
     let cont_is_error = cont.alloc_tag_equal(
         &mut cs.namespace(|| "cont_is_error"),
-        ContTag::Error.as_field(),
+        ContTag::Error.to_field(),
     )?;
 
     // Enforce (expr.tag == thunk_tag) implies (expr_thunk_hash == expr.hash).
@@ -1117,7 +1118,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
 
     let cont_is_lookup = cont.alloc_tag_equal(
         &mut cs.namespace(|| "cons_is_lookup"),
-        ContTag::Lookup.as_field(),
+        ContTag::Lookup.to_field(),
     )?;
 
     let needed_env_missing = and!(cs, &sym_otherwise, &env_is_nil)?;
@@ -1757,14 +1758,14 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         let the_op = pick_const(
             &mut cs.namespace(|| "eval op"),
             &end_is_nil,
-            ContTag::Unop.as_field(),
-            ContTag::Binop.as_field(),
+            ContTag::Unop.to_field(),
+            ContTag::Binop.to_field(),
         )?;
         let op1_or_op2 = pick_const(
             &mut cs.namespace(|| "op1 or op2"),
             &end_is_nil,
-            Op1::Eval.as_field(),
-            Op2::Eval.as_field(),
+            Op1::Eval.to_field(),
+            Op2::Eval.to_field(),
         )?;
         let cont_or_env_tag = pick(
             &mut cs.namespace(|| "env or cont tag"),
@@ -2736,7 +2737,7 @@ fn make_thunk<F: LurkField, CS: ConstraintSystem<F>>(
 
     let cont_is_tail = cont.alloc_tag_equal(
         &mut cs.namespace(|| "cont_is_tail"),
-        ContTag::Tail.as_field(),
+        ContTag::Tail.to_field(),
     )?;
 
     let make_thunk_cont_not_dummy = and!(cs, &cont_is_tail, not_dummy)?;
@@ -2859,19 +2860,19 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
     let cont_is_terminal = cont.alloc_tag_equal(
         &mut cs.namespace(|| "cont_is_terminal"),
-        ContTag::Terminal.as_field(),
+        ContTag::Terminal.to_field(),
     )?;
     let cont_is_dummy = cont.alloc_tag_equal(
         &mut cs.namespace(|| "cont_is_dummy"),
-        ContTag::Dummy.as_field(),
+        ContTag::Dummy.to_field(),
     )?;
     let cont_is_error = cont.alloc_tag_equal(
         &mut cs.namespace(|| "cont_is_error"),
-        ContTag::Error.as_field(),
+        ContTag::Error.to_field(),
     )?;
     let cont_is_outermost = cont.alloc_tag_equal(
         &mut cs.namespace(|| "cont_is_outermost"),
-        ContTag::Outermost.as_field(),
+        ContTag::Outermost.to_field(),
     )?;
 
     let cont_is_trivial = or!(
@@ -2926,7 +2927,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         default_num_pair,
     ];
     hash_default_results.add_hash_input_clauses(
-        ContTag::Call0.as_field(),
+        ContTag::Call0.to_field(),
         &g.tail_cont_tag,
         call0_components,
     );
@@ -2943,7 +2944,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     let call_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&saved_env, function, &continuation, default_num_pair];
     hash_default_results.add_hash_input_clauses(
-        ContTag::Call.as_field(),
+        ContTag::Call.to_field(),
         &g.call2_cont_tag,
         call_components,
     );
@@ -2963,7 +2964,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         default_num_pair,
     ];
     hash_default_results.add_hash_input_clauses(
-        ContTag::Call2.as_field(),
+        ContTag::Call2.to_field(),
         &g.tail_cont_tag,
         call2_components,
     );
@@ -2980,7 +2981,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         &[&saved_env, &let_cont, default_num_pair, default_num_pair];
 
     hash_default_results.add_hash_input_clauses(
-        ContTag::Let.as_field(),
+        ContTag::Let.to_field(),
         &g.tail_cont_tag,
         let_components,
     );
@@ -2996,7 +2997,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     let letrec_components: &[&dyn AsAllocatedHashComponents<F>; 4] =
         &[&saved_env, &letrec_cont, default_num_pair, default_num_pair];
     hash_default_results.add_hash_input_clauses(
-        ContTag::LetRec.as_field(),
+        ContTag::LetRec.to_field(),
         &g.tail_cont_tag,
         letrec_components,
     );
@@ -3007,12 +3008,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let operator = AllocatedPtr::by_index(0, &continuation_components);
 
         let is_op2_hide =
-            operator.alloc_tag_equal(&mut cs.namespace(|| "is_op2_hide"), Op2::Hide.as_field())?;
+            operator.alloc_tag_equal(&mut cs.namespace(|| "is_op2_hide"), Op2::Hide.to_field())?;
         let is_op1_open =
-            operator.alloc_tag_equal(&mut cs.namespace(|| "is_op1_open"), Op1::Open.as_field())?;
+            operator.alloc_tag_equal(&mut cs.namespace(|| "is_op1_open"), Op1::Open.to_field())?;
         let is_op1_secret = operator.alloc_tag_equal(
             &mut cs.namespace(|| "is_op1_secret"),
-            Op1::Secret.as_field(),
+            Op1::Secret.to_field(),
         )?;
         let is_op1_open_or_secret = or!(cs, &is_op1_open, &is_op1_secret)?;
 
@@ -3056,13 +3057,13 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let cont_is_unop = cont.alloc_tag_equal(
             &mut cs.namespace(|| "cont_is_unop"),
-            ContTag::Unop.as_field(),
+            ContTag::Unop.to_field(),
         )?;
 
         let unop_op_is_car =
-            op1.alloc_tag_equal(&mut cs.namespace(|| "unop_op_is_car"), Op1::Car.as_field())?;
+            op1.alloc_tag_equal(&mut cs.namespace(|| "unop_op_is_car"), Op1::Car.to_field())?;
         let unop_op_is_cdr =
-            op1.alloc_tag_equal(&mut cs.namespace(|| "unop_op_is_cdr"), Op1::Cdr.as_field())?;
+            op1.alloc_tag_equal(&mut cs.namespace(|| "unop_op_is_cdr"), Op1::Cdr.to_field())?;
         let unop_op_is_car_or_cdr = or!(cs, &unop_op_is_car, &unop_op_is_cdr)?;
 
         let result_is_cons = result.is_cons(&mut cs.namespace(|| "result_is_cons"))?;
@@ -3114,101 +3115,101 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &[
                 &[
                     CaseClause {
-                        key: Op1::Car.as_field(),
+                        key: Op1::Car.to_field(),
                         value: res_car.tag(),
                     },
                     CaseClause {
-                        key: Op1::Cdr.as_field(),
+                        key: Op1::Cdr.to_field(),
                         value: res_cdr.tag(),
                     },
                     CaseClause {
-                        key: Op1::Atom.as_field(),
+                        key: Op1::Atom.to_field(),
                         value: is_atom_ptr.tag(),
                     },
                     CaseClause {
-                        key: Op1::Emit.as_field(),
+                        key: Op1::Emit.to_field(),
                         value: result.tag(),
                     },
                     CaseClause {
-                        key: Op1::Commit.as_field(),
+                        key: Op1::Commit.to_field(),
                         value: commitment.tag(),
                     },
                     CaseClause {
-                        key: Op1::Open.as_field(),
+                        key: Op1::Open.to_field(),
                         value: committed_expr.tag(),
                     },
                     CaseClause {
-                        key: Op1::Secret.as_field(),
+                        key: Op1::Secret.to_field(),
                         value: &g.num_tag,
                     },
                     CaseClause {
-                        key: Op1::Num.as_field(),
+                        key: Op1::Num.to_field(),
                         value: num.tag(),
                     },
                     CaseClause {
-                        key: Op1::U64.as_field(),
+                        key: Op1::U64.to_field(),
                         value: &g.u64_tag,
                     },
                     CaseClause {
-                        key: Op1::Comm.as_field(),
+                        key: Op1::Comm.to_field(),
                         value: comm.tag(),
                     },
                     CaseClause {
-                        key: Op1::Char.as_field(),
+                        key: Op1::Char.to_field(),
                         value: &g.char_tag,
                     },
                     CaseClause {
-                        key: Op1::Eval.as_field(),
+                        key: Op1::Eval.to_field(),
                         value: result.tag(),
                     },
                 ],
                 &[
                     CaseClause {
-                        key: Op1::Car.as_field(),
+                        key: Op1::Car.to_field(),
                         value: allocated_car.hash(),
                     },
                     CaseClause {
-                        key: Op1::Cdr.as_field(),
+                        key: Op1::Cdr.to_field(),
                         value: allocated_cdr.hash(),
                     },
                     CaseClause {
-                        key: Op1::Atom.as_field(),
+                        key: Op1::Atom.to_field(),
                         value: is_atom_ptr.hash(),
                     },
                     CaseClause {
-                        key: Op1::Emit.as_field(),
+                        key: Op1::Emit.to_field(),
                         value: result.hash(),
                     },
                     CaseClause {
-                        key: Op1::Commit.as_field(),
+                        key: Op1::Commit.to_field(),
                         value: commitment.hash(),
                     },
                     CaseClause {
-                        key: Op1::Open.as_field(),
+                        key: Op1::Open.to_field(),
                         value: committed_expr.hash(),
                     },
                     CaseClause {
-                        key: Op1::Secret.as_field(),
+                        key: Op1::Secret.to_field(),
                         value: &commitment_secret,
                     },
                     CaseClause {
-                        key: Op1::Num.as_field(),
+                        key: Op1::Num.to_field(),
                         value: num.hash(),
                     },
                     CaseClause {
-                        key: Op1::U64.as_field(),
+                        key: Op1::U64.to_field(),
                         value: &u64_elem,
                     },
                     CaseClause {
-                        key: Op1::Comm.as_field(),
+                        key: Op1::Comm.to_field(),
                         value: comm.hash(),
                     },
                     CaseClause {
-                        key: Op1::Char.as_field(),
+                        key: Op1::Char.to_field(),
                         value: &u32_elem,
                     },
                     CaseClause {
-                        key: Op1::Eval.as_field(),
+                        key: Op1::Eval.to_field(),
                         value: result.hash(),
                     },
                 ],
@@ -3227,7 +3228,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         default_num_pair,
     ];
     hash_default_results.add_hash_input_clauses(
-        ContTag::Unop.as_field(),
+        ContTag::Unop.to_field(),
         &g.emit_cont_tag,
         emit_components,
     );
@@ -3247,7 +3248,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         default_num_pair,
     ];
     hash_default_results.add_hash_input_clauses(
-        ContTag::Binop.as_field(),
+        ContTag::Binop.to_field(),
         &g.binop2_cont_tag,
         binop_components,
     );
@@ -3310,7 +3311,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let cont_is_call0 = cont.alloc_tag_equal(
             &mut cs.namespace(|| "cont_is_call0"),
-            ContTag::Call0.as_field(),
+            ContTag::Call0.to_field(),
         )?;
         let call0_not_dummy = and!(cs, &cont_is_call0, &result_is_fun, not_dummy)?;
 
@@ -3347,7 +3348,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let continuation_is_tail = continuation.alloc_tag_equal(
             &mut cs.namespace(|| "continuation is tail"),
-            ContTag::Tail.as_field(),
+            ContTag::Tail.to_field(),
         )?;
 
         let tail_cont = AllocatedContPtr::pick(
@@ -3474,7 +3475,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         {
             let cont_is_call2_precomp = cont.alloc_tag_equal(
                 &mut cs.namespace(|| "cont_is_call2_precomp"),
-                ContTag::Call2.as_field(),
+                ContTag::Call2.to_field(),
             )?;
             let cont_is_call2_and_not_dummy = and!(cs, &cont_is_call2_precomp, not_dummy)?;
 
@@ -3531,7 +3532,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
             let continuation_is_tail = continuation.alloc_tag_equal(
                 &mut cs.namespace(|| "continuation is tail"),
-                ContTag::Tail.as_field(),
+                ContTag::Tail.to_field(),
             )?;
 
             let tail_cont = AllocatedContPtr::pick(
@@ -3582,7 +3583,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let cont_is_binop = cont.alloc_tag_equal(
             &mut cs.namespace(|| "cont_is_binop"),
-            ContTag::Binop.as_field(),
+            ContTag::Binop.to_field(),
         )?;
 
         let binop_not_dummy = Boolean::and(
@@ -3602,7 +3603,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         )?;
 
         let op_is_begin =
-            operator.alloc_tag_equal(&mut cs.namespace(|| "op_is_begin"), Op2::Begin.as_field())?;
+            operator.alloc_tag_equal(&mut cs.namespace(|| "op_is_begin"), Op2::Begin.to_field())?;
 
         let rest_is_nil = allocated_rest.is_nil(&mut cs.namespace(|| "rest_is_nil"), g)?;
         let rest_not_nil = rest_is_nil.not();
@@ -3752,7 +3753,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let not_dummy = cont.alloc_tag_equal(
             &mut cs.namespace(|| "Binop2 not dummy"),
-            ContTag::Binop2.as_field(),
+            ContTag::Binop2.to_field(),
         )?;
 
         let sum = add(&mut cs.namespace(|| "sum"), a, b)?;
@@ -3760,9 +3761,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let product = mul(&mut cs.namespace(|| "product"), a, b)?;
 
         let op2_is_div =
-            op2.alloc_tag_equal(&mut cs.namespace(|| "op2_is_div"), Op2::Quotient.as_field())?;
+            op2.alloc_tag_equal(&mut cs.namespace(|| "op2_is_div"), Op2::Quotient.to_field())?;
         let op2_is_mod =
-            op2.alloc_tag_equal(&mut cs.namespace(|| "op2_is_mod"), Op2::Modulo.as_field())?;
+            op2.alloc_tag_equal(&mut cs.namespace(|| "op2_is_mod"), Op2::Modulo.to_field())?;
 
         let op2_is_div_or_mod = or(
             &mut cs.namespace(|| "op2 is div or mod"),
@@ -3782,10 +3783,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let quotient = div(&mut cs.namespace(|| "quotient"), a, &divisor)?;
 
         let is_cons =
-            op2.alloc_tag_equal(&mut cs.namespace(|| "Op2 is Cons"), Op2::Cons.as_field())?;
+            op2.alloc_tag_equal(&mut cs.namespace(|| "Op2 is Cons"), Op2::Cons.to_field())?;
         let is_strcons = op2.alloc_tag_equal(
             &mut cs.namespace(|| "Op2 is StrCons"),
-            Op2::StrCons.as_field(),
+            Op2::StrCons.to_field(),
         )?;
 
         let is_cons_or_strcons = or(
@@ -3831,39 +3832,39 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             op2.tag(),
             &[
                 CaseClause {
-                    key: Op2::Sum.as_field(),
+                    key: Op2::Sum.to_field(),
                     value: &sum,
                 },
                 CaseClause {
-                    key: Op2::Diff.as_field(),
+                    key: Op2::Diff.to_field(),
                     value: &diff,
                 },
                 CaseClause {
-                    key: Op2::Product.as_field(),
+                    key: Op2::Product.to_field(),
                     value: &product,
                 },
                 CaseClause {
-                    key: Op2::Quotient.as_field(),
+                    key: Op2::Quotient.to_field(),
                     value: &quotient,
                 },
                 CaseClause {
-                    key: Op2::Equal.as_field(),
+                    key: Op2::Equal.to_field(),
                     value: args_equal_ptr.hash(),
                 },
                 CaseClause {
-                    key: Op2::NumEqual.as_field(),
+                    key: Op2::NumEqual.to_field(),
                     value: args_equal_ptr.hash(),
                 },
                 CaseClause {
-                    key: Op2::Cons.as_field(),
+                    key: Op2::Cons.to_field(),
                     value: cons.hash(),
                 },
                 CaseClause {
-                    key: Op2::StrCons.as_field(),
+                    key: Op2::StrCons.to_field(),
                     value: cons.hash(),
                 },
                 CaseClause {
-                    key: Op2::Hide.as_field(),
+                    key: Op2::Hide.to_field(),
                     value: commitment.hash(),
                 },
             ],
@@ -3872,11 +3873,11 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         )?;
 
         let is_equal =
-            op2.alloc_tag_equal(&mut cs.namespace(|| "Op2 is Equal"), Op2::Equal.as_field())?;
+            op2.alloc_tag_equal(&mut cs.namespace(|| "Op2 is Equal"), Op2::Equal.to_field())?;
 
         let is_num_equal = op2.alloc_tag_equal(
             &mut cs.namespace(|| "Op2 is NumEqual"),
-            Op2::NumEqual.as_field(),
+            Op2::NumEqual.to_field(),
         )?;
 
         let is_equal_or_num_equal = or(
@@ -3886,7 +3887,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         )?;
 
         let op2_is_hide =
-            op2.alloc_tag_equal(&mut cs.namespace(|| "Op2 is Hide"), Op2::Hide.as_field())?;
+            op2.alloc_tag_equal(&mut cs.namespace(|| "Op2 is Hide"), Op2::Hide.to_field())?;
 
         let commitment_tag_is_comm =
             commitment.is_comm(&mut cs.namespace(|| "commitment tag is comm"))?;
@@ -3907,15 +3908,15 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let cons_tag = pick_const(
             &mut cs.namespace(|| "cons_tag"),
             &is_strcons,
-            ExprTag::Str.as_field(),
-            ExprTag::Cons.as_field(),
+            ExprTag::Str.to_field(),
+            ExprTag::Cons.to_field(),
         )?;
 
         let comm_or_num_tag = pick_const(
             &mut cs.namespace(|| "Op2 tag is comm or num"),
             &op2_is_hide,
-            ExprTag::Comm.as_field(),
-            ExprTag::Num.as_field(),
+            ExprTag::Comm.to_field(),
+            ExprTag::Num.to_field(),
         )?;
 
         let is_cons_or_hide = or!(cs, &is_cons, &op2_is_hide)?;
@@ -3971,7 +3972,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         )?;
 
         let op2_is_diff =
-            op2.alloc_tag_equal(&mut cs.namespace(|| "op2_is_diff"), Op2::Diff.as_field())?;
+            op2.alloc_tag_equal(&mut cs.namespace(|| "op2_is_diff"), Op2::Diff.to_field())?;
 
         let diff_is_negative_and_op2_is_diff = Boolean::and(
             &mut cs.namespace(|| "diff is negative and op2 is diff"),
@@ -4085,7 +4086,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         )?;
 
         let op2_is_eval =
-            op2.alloc_tag_equal(&mut cs.namespace(|| "op2_is_eval"), Op2::Eval.as_field())?;
+            op2.alloc_tag_equal(&mut cs.namespace(|| "op2_is_eval"), Op2::Eval.to_field())?;
 
         let the_cont_ = AllocatedContPtr::pick(
             &mut cs.namespace(|| "maybe type or div by zero error"),
@@ -4149,7 +4150,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let condition = result;
 
         let cont_is_if =
-            cont.alloc_tag_equal(&mut cs.namespace(|| "cont_is_if"), ContTag::If.as_field())?;
+            cont.alloc_tag_equal(&mut cs.namespace(|| "cont_is_if"), ContTag::If.to_field())?;
 
         let if_not_dummy = and!(cs, &cont_is_if, not_dummy)?;
 
@@ -4246,10 +4247,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let let_cont = AllocatedContPtr::by_index(3, &continuation_components);
 
         let cont_is_let =
-            cont.alloc_tag_equal(&mut cs.namespace(|| "cont_is_let"), ContTag::Let.as_field())?;
+            cont.alloc_tag_equal(&mut cs.namespace(|| "cont_is_let"), ContTag::Let.to_field())?;
         let let_cont_is_let = let_cont.alloc_tag_equal(
             &mut cs.namespace(|| "let_cont_is_let"),
-            ContTag::Let.as_field(),
+            ContTag::Let.to_field(),
         )?;
 
         let extended_env_not_dummy = and!(cs, &let_cont_is_let, not_dummy, &cont_is_let)?;
@@ -4267,7 +4268,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let continuation_is_tail = let_cont.alloc_tag_equal(
             &mut cs.namespace(|| "continuation is tail"),
-            ContTag::Tail.as_field(),
+            ContTag::Tail.to_field(),
         )?;
 
         let tail_cont = AllocatedContPtr::pick(
@@ -4303,7 +4304,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let letrec_cont_is_letrec_cont = letrec_cont.alloc_tag_equal(
             &mut cs.namespace(|| "letrec_cont_is_letrec_cont"),
-            ContTag::LetRec.as_field(),
+            ContTag::LetRec.to_field(),
         )?;
 
         let extend_rec_not_dummy = and!(cs, &letrec_cont_is_letrec_cont, not_dummy)?;
@@ -4323,7 +4324,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let continuation_is_tail = letrec_cont.alloc_tag_equal(
             &mut cs.namespace(|| "continuation is tail"),
-            ContTag::Tail.as_field(),
+            ContTag::Tail.to_field(),
         )?;
 
         let tail_cont = AllocatedContPtr::pick(
@@ -4360,9 +4361,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let other_unop_continuation = AllocatedContPtr::by_index(1, &continuation_components);
 
         let op1_is_emit =
-            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_emit"), Op1::Emit.as_field())?;
+            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_emit"), Op1::Emit.to_field())?;
         let op1_is_eval =
-            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_eval"), Op1::Eval.as_field())?;
+            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_eval"), Op1::Eval.to_field())?;
 
         let unop_continuation0 = AllocatedContPtr::pick(
             &mut cs.namespace(|| "unop_continuation0"),
@@ -4386,42 +4387,42 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let car_cdr_is_valid = or!(cs, &result_is_cons, &result_is_str, &result_is_nil)?;
 
         let op1_is_car =
-            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_car"), Op1::Car.as_field())?;
+            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_car"), Op1::Car.to_field())?;
         let op1_is_cdr =
-            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_cdr"), Op1::Cdr.as_field())?;
+            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_cdr"), Op1::Cdr.to_field())?;
         let op1_is_car_or_cdr = or!(cs, &op1_is_car, &op1_is_cdr)?;
         let car_cdr_is_invalid = and!(cs, &op1_is_car_or_cdr, &car_cdr_is_valid.not())?;
 
         let op1_is_comm =
-            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_comm"), Op1::Comm.as_field())?;
+            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_comm"), Op1::Comm.to_field())?;
         let op1_is_num =
-            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_num"), Op1::Num.as_field())?;
+            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_num"), Op1::Num.to_field())?;
         let op1_is_char =
-            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_char"), Op1::Char.as_field())?;
+            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_char"), Op1::Char.to_field())?;
         let op1_is_open =
-            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_open"), Op1::Open.as_field())?;
+            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_open"), Op1::Open.to_field())?;
         let op1_is_secret = unop_op1.alloc_tag_equal(
             &mut cs.namespace(|| "op1_is_secret"),
-            Op1::Secret.as_field(),
+            Op1::Secret.to_field(),
         )?;
         let op1_is_u64 =
-            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_u64"), Op1::U64.as_field())?;
+            unop_op1.alloc_tag_equal(&mut cs.namespace(|| "op1_is_u64"), Op1::U64.to_field())?;
 
         let tag_is_char = result.alloc_tag_equal(
             &mut cs.namespace(|| "result_is_char"),
-            ExprTag::Char.as_field(),
+            ExprTag::Char.to_field(),
         )?;
         let tag_is_num = result.alloc_tag_equal(
             &mut cs.namespace(|| "result_is_num"),
-            ExprTag::Num.as_field(),
+            ExprTag::Num.to_field(),
         )?;
         let tag_is_comm = result.alloc_tag_equal(
             &mut cs.namespace(|| "result_is_comm"),
-            ExprTag::Comm.as_field(),
+            ExprTag::Comm.to_field(),
         )?;
         let tag_is_u64 = result.alloc_tag_equal(
             &mut cs.namespace(|| "result_is_u64"),
-            ExprTag::U64.as_field(),
+            ExprTag::U64.to_field(),
         )?;
 
         let tag_is_num_or_comm = or!(cs, &tag_is_num, &tag_is_comm)?;
@@ -4647,25 +4648,25 @@ pub fn comparison_helper<F: LurkField, CS: ConstraintSystem<F>>(
 
     let mut comp_results = CompResults::default();
     comp_results.add_clauses_comp(
-        Op2::Less.as_field(),
+        Op2::Less.to_field(),
         &alloc_num_diff_is_negative,
         &g.true_num,
         &g.false_num,
     );
     comp_results.add_clauses_comp(
-        Op2::LessEqual.as_field(),
+        Op2::LessEqual.to_field(),
         &alloc_num_diff_is_not_positive,
         &g.true_num,
         &g.false_num,
     );
     comp_results.add_clauses_comp(
-        Op2::Greater.as_field(),
+        Op2::Greater.to_field(),
         &alloc_num_diff_is_positive,
         &g.false_num,
         &g.true_num,
     );
     comp_results.add_clauses_comp(
-        Op2::GreaterEqual.as_field(),
+        Op2::GreaterEqual.to_field(),
         &alloc_num_diff_is_not_negative,
         &g.false_num,
         &g.true_num,

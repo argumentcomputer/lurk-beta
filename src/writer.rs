@@ -14,7 +14,7 @@ pub trait Write<F: LurkField> {
 
 impl<F: LurkField> Write<F> for Ptr<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
-        use crate::store::{Pointer, ScalarPointer};
+        use crate::store::Pointer;
         if self.is_opaque() {
             // This should never fail.
             write!(w, "<Opaque ")?;

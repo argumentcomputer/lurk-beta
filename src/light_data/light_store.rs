@@ -14,7 +14,6 @@ use crate::light_data::Encodable;
 use crate::light_data::LightData;
 use crate::scalar_store::ScalarExpression;
 use crate::scalar_store::ScalarStore;
-use crate::store::ScalarPointer;
 use crate::store::ScalarPtr;
 use crate::sym::Sym;
 use crate::tag::ExprTag;
@@ -56,7 +55,7 @@ impl<F: LurkField> LightStore<F> {
         let mut s = String::new();
         let mut tail_ptrs = vec![];
         let mut ptr = ptr0;
-        let strnil_ptr = ScalarPtr::from_parts(ExprTag::Str.as_field(), F::zero());
+        let strnil_ptr = ScalarPtr::from_parts(ExprTag::Str, F::zero());
 
         // TODO: this needs to bail on encountering an opaque pointer
         while let Some(LightExpr::StrCons(c, cs)) = self.get(&ptr).flatten() {
@@ -103,7 +102,7 @@ impl<F: LurkField> LightStore<F> {
         let mut path = Sym::root();
         let mut tail_ptrs = vec![ptr0];
         let mut ptr = ptr0;
-        let symnil_ptr = ScalarPtr::from_parts(ExprTag::Sym.as_field(), F::zero());
+        let symnil_ptr = ScalarPtr::from_parts(ExprTag::Sym, F::zero());
 
         // TODO: this needs to bail on encountering an opaque pointer
         while let Some(LightExpr::SymCons(s, ss)) = self.get(&ptr).flatten() {
@@ -324,22 +323,22 @@ pub mod tests {
         fn test_convert_light_store_basic_strings((ptr3, ptr4, c1, c2) in any::<(ScalarPtr<Scalar>, ScalarPtr<Scalar>, char, char)>().prop_filter(
             "Avoids confusion with StrNil",
             |(ptr3, ptr4,_c1, _c2)| {
-                let strnil = ScalarPtr::from_parts(ExprTag::Str.as_field(), Scalar::zero());
+                let strnil = ScalarPtr::from_parts(ExprTag::Str, Scalar::zero());
                 *ptr3 != strnil && *ptr4 != strnil
             })
         ) {
-            let ptr1 = ScalarPtr::from_parts(ExprTag::Char.as_field(), Scalar::from_char(c1));
-            let ptr2 = ScalarPtr::from_parts(ExprTag::Char.as_field(), Scalar::from_char(c2));
+            let ptr1 = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(c1));
+            let ptr2 = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(c2));
 
             let mut store = BTreeMap::new();
-            let strnil = ScalarPtr::from_parts(ExprTag::Str.as_field(), Scalar::zero());
+            let strnil = ScalarPtr::from_parts(ExprTag::Str, Scalar::zero());
             store.insert(ptr3, Some(LightExpr::StrCons(ptr1, strnil)));
             store.insert(ptr4, Some(LightExpr::StrCons(ptr2, ptr3)));
 
             let expected_output = {
                 let mut output = ScalarStore::default();
                 output.insert_scalar_expression(
-                    ScalarPtr::from_parts(ExprTag::Str.as_field(), Scalar::zero()),
+                    ScalarPtr::from_parts(ExprTag::Str, Scalar::zero()),
                     Some(ScalarExpression::Str(String::from(""))),
                 );
                 output.insert_scalar_expression(ptr1, Some(ScalarExpression::Char(c1)));
@@ -357,19 +356,19 @@ pub mod tests {
         fn test_convert_light_store_basic_symbols((ptr3, ptr4, ptr5, ptr6, c1, c2) in any::<(ScalarPtr<Scalar>, ScalarPtr<Scalar>, ScalarPtr<Scalar>, ScalarPtr<Scalar>, char, char)>().prop_filter(
             "Avoids confusion with StrNil, Symnil",
             |(ptr3, ptr4, ptr5, ptr6, c1, c2)| {
-                let symnil = ScalarPtr::from_parts(ExprTag::Sym.as_field(), Scalar::zero());
-                let strnil = ScalarPtr::from_parts(ExprTag::Str.as_field(), Scalar::zero());
+                let symnil = ScalarPtr::from_parts(ExprTag::Sym, Scalar::zero());
+                let strnil = ScalarPtr::from_parts(ExprTag::Str, Scalar::zero());
                 *ptr3 != strnil && *ptr4 != strnil && *ptr5 != strnil && *ptr6 != strnil &&
                 *ptr3 != symnil && *ptr4 != symnil && *ptr5 != symnil && *ptr6 != symnil &&
                 c2.to_string() != parser::SYM_SEPARATOR && c1.to_string() != parser::SYM_SEPARATOR
             })
         ) {
-            let ptr1 = ScalarPtr::from_parts(ExprTag::Char.as_field(), Scalar::from_char(c1));
-            let ptr2 = ScalarPtr::from_parts(ExprTag::Char.as_field(), Scalar::from_char(c2));
+            let ptr1 = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(c1));
+            let ptr2 = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(c2));
 
             let mut store = BTreeMap::new();
-            let strnil = ScalarPtr::from_parts(ExprTag::Str.as_field(), Scalar::zero());
-            let symnil = ScalarPtr::from_parts(ExprTag::Sym.as_field(), Scalar::zero());
+            let strnil = ScalarPtr::from_parts(ExprTag::Str, Scalar::zero());
+            let symnil = ScalarPtr::from_parts(ExprTag::Sym, Scalar::zero());
             store.insert(ptr3, Some(LightExpr::StrCons(ptr1, strnil)));
             store.insert(ptr4, Some(LightExpr::StrCons(ptr2, ptr3)));
             store.insert(ptr5, Some(LightExpr::SymCons(ptr3, symnil)));
