@@ -140,6 +140,7 @@ INFO  lurk::eval > Frame: 9
 
 You can enter into a [Nix](https://nixos.org) shell with the appropriate
 dependencies for Lurk with
+
 ```
 $ nix-shell
 ```
