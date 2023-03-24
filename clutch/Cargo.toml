@@ -5,7 +5,7 @@ authors = ["porcuquine <porcuquine@gmail.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Lurk supertool"
-repository = "https://github.com/lurk-lang/lurk-rs"
+repository = "https://github.com/lurk-lab/lurk-rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -3,7 +3,7 @@
 This document contains general notes about the design, rationale, and implementation of the Lurk reduction step. For a
 more normalized (but still WIP) specification, see the [Eval Spec](eval.md)
 
-The [Lurk Language Specification](https://github.com/lurk-lang/lurk/blob/master/spec/v0-1.md) defines evaluation
+The [Lurk Language Specification](https://github.com/lurk-lab/lurk/blob/master/spec/v0-1.md) defines evaluation
 semantics without specifying the internal data structures or computational steps which an implementation must use to
 calculate an evaluation. `lurk-rs` implements a concrete instance of the Lurk language for which proofs of correct
 evaluation can be generated. `lurk-rs` generates zk-SNARK proofs for multiple backends, and verification of these
@@ -13,7 +13,7 @@ corresponding arithmetic circuit. The initial Lurk circuit implementation is spe
 
 Because the circuit must check the computation to be proved, many aspects of the implementation itself must be fully
 specified. The reference implementation of Lurk expression evaluation in
-[`eval.rs`](https://github.com/lurk-lang/lurk-rs/blob/master/src/eval.rs) provides an intermediate step between the
+[`eval.rs`](https://github.com/lurk-lab/lurk-rs/blob/master/src/eval.rs) provides an intermediate step between the
 high-level specification and the low-level circuit. Not every aspect of the implementation is essential, but every part
 which directly corresponds to the layout of the constraint system is.
 
@@ -29,10 +29,10 @@ This is true in three distinct ways:
 3. When parallelizing synthesis (not currently implemented) of many logically sequential steps.
 
 Taking these one at a time:
-1. Because the SNARK-friendly Poseidon hashes (provided by the [Neptune](https://github.com/filecoin-project/neptune)
+1. Because the SNARK-friendly Poseidon hashes (provided by the [Neptune](https://github.com/lurk-lab/neptune)
    library) are relatively expensive, and because Lurk does not provide explicit access to the hash values, we avoid
    computing them during evaluation -- instead relying on the
-   [Store](https://github.com/lurk-lang/lurk-rs/blob/master/src/store.rs) to manage cheaper expression pointers in a way
+   [Store](https://github.com/lurk-lab/lurk-rs/blob/master/src/store.rs) to manage cheaper expression pointers in a way
    that preserves equality. All such pointers are resolved to content-addressable tagged hashes before circuit
    synthesis. The Store is used during synthesis when the preimage of a hash known at synthesis needs to be 'looked
    up'.
@@ -44,7 +44,7 @@ Taking these one at a time:
 
 
 As a matter of interest, we note that the `lurk-rs` evaluator runs about 7x faster than the one implemented in [Common
-Lisp](https://github.com/lurk-lang/lurk/blob/master/api/api.lisp). The latter's design does not target speed, and we
+Lisp](https://github.com/lurk-lab/lurk/blob/master/api/api.lisp). The latter's design does not target speed, and we
 make this observation only to support our suggestion that the `lurk-rs` evaluator performs well relative to the cost of
 proving. It makes sense to evaluate many frames at a time before proving because doing so is cheap.
 

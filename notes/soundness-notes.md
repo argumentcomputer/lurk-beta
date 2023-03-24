@@ -100,10 +100,10 @@ the result of a previous commitment, then the committed value is already known. 
 possible to find another such value-secret pair. In other words, if a proof of commitment opening can be created at all,
 then we claim that the private input used in the proof *must* have been one initially produced via `commit`.
 
-We delegate this claim to [neptune](https://github.com/filecoin-project/neptune) -- Lurk's underlying Poseidon
+We delegate this claim to [neptune](https://github.com/lurk-lab/neptune) -- Lurk's underlying Poseidon
 implementation. Poseidon's cryptographic security is described in [the paper](https://eprint.iacr.org/2019/458.pdf), and
 `neptune`'s implementation has been
-[audited](https://github.com/filecoin-project/neptune/blob/master/poseidon-in-filecoin-final-report.pdf).
+[audited](https://github.com/lurk-lab/neptune/blob/master/poseidon-in-filecoin-final-report.pdf).
 
 ### Implicit Commitments (expressions)
 
@@ -158,7 +158,7 @@ from the expression. Immediate values are derived with the identity function, an
 their constituents (both type and value elements) using a hash of appropriate arity and a type-specific preimage layout.
 
 For example, an actual Lurk cons has type tag
-[`0x01`](https://github.com/lurk-lang/lurk-rs/blob/a1242270a1285c15b7edb0ab1440f2247f950ead/src/store.rs#L2790), and its
+[`0x01`](https://github.com/lurk-lab/lurk-rs/blob/a1242270a1285c15b7edb0ab1440f2247f950ead/src/store.rs#L2790), and its
 value is `P4(t0, v0, t1, v1)` -- where `P4` is a 4-ary Poseidon hash, `t0` is the type tag of the first paired
 expression, `v0` is the value element of the first paired expression, `t1` is the type tag of the second paired
 expression, and `v1` is the value element of the second paired expression.
