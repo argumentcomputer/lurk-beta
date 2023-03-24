@@ -341,11 +341,11 @@ impl<E: Tag, F: LurkField> Display for SPtr<E, F> {
 impl<E: Tag, F: LurkField> PartialOrd for SPtr<E, F> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         (
-            self.0.to_field::<F>().to_repr().as_ref(),
+            self.0.to_field_bytes::<F>().as_ref(),
             self.1.to_repr().as_ref(),
         )
             .partial_cmp(&(
-                other.0.to_field::<F>().to_repr().as_ref(),
+                other.0.to_field_bytes::<F>().as_ref(),
                 other.1.to_repr().as_ref(),
             ))
     }
@@ -376,7 +376,7 @@ impl<E: Tag, F: LurkField> Encodable for SPtr<E, F> {
 #[allow(clippy::derive_hash_xor_eq)]
 impl<E: Tag, F: LurkField> Hash for SPtr<E, F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.to_field::<F>().to_repr().as_ref().hash(state);
+        self.0.to_field_bytes::<F>().as_ref().hash(state);
         self.1.to_repr().as_ref().hash(state);
     }
 }
