@@ -402,9 +402,6 @@ pub mod tests {
       fn prop_vesta_repr_canonicity(f1 in any::<FWrap<pasta_curves::Fq>>()) {
           repr_canonicity(f1)
       }
-    }
-
-    proptest! {
       #[test]
       fn prop_tag_consistency(x in any::<ExprTag>()) {
           let f1 = Fr::from_expr_tag(x);
@@ -420,5 +417,38 @@ pub mod tests {
             let f2 = FWrap::de(&bytes).unwrap();
             assert_eq!(x, f2)
       }
+    }
+
+    // This checks that the field we're using have a representation
+    // such that forall x: u64, F::from(x).to_repr() == x.to_le_bytes()
+    // This enables a fast conversion for tags, and must be present for all fields
+    // we use this library with.
+    proptest! {
+        #[test]
+        fn prop_pallas_tag_roundtrip(x in any::<u64>()){
+            let f1 = pasta_curves::Fp::from(x);
+            let bytes = f1.to_repr().as_ref().to_vec();
+            let mut bytes_from_u64 = [0u8; 32];
+            bytes_from_u64[..8].copy_from_slice(&x.to_le_bytes());
+            assert_eq!(bytes, bytes_from_u64);
+        }
+
+        #[test]
+        fn prop_vesta_tag_roundtrip(x in any::<u64>()){
+            let f1 = pasta_curves::Fq::from(x);
+            let bytes = f1.to_repr().as_ref().to_vec();
+            let mut bytes_from_u64 = [0u8; 32];
+            bytes_from_u64[..8].copy_from_slice(&x.to_le_bytes());
+            assert_eq!(bytes, bytes_from_u64);
+        }
+
+        #[test]
+        fn prop_bls_tag_roundtrip(x in any::<u64>()){
+            let f1 = blstrs::Scalar::from(x);
+            let bytes = f1.to_repr().as_ref().to_vec();
+            let mut bytes_from_u64 = [0u8; 32];
+            bytes_from_u64[..8].copy_from_slice(&x.to_le_bytes());
+            assert_eq!(bytes, bytes_from_u64);
+        }
     }
 }

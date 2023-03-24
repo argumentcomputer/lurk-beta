@@ -10,6 +10,13 @@ use crate::store::TypePredicates;
 pub trait Tag: Into<u16> + TryFrom<u16> + Copy + Sized + Eq + fmt::Debug {
     fn from_field<F: LurkField>(f: &F) -> Option<Self>;
     fn to_field<F: LurkField>(&self) -> F;
+
+    /// This explicitly defines a shortcut to access the canonical
+    /// byte representation of the field element associated to a
+    /// tag. We expect some tag types to be able to improve upon it.
+    fn to_field_bytes<F: LurkField>(&self) -> F::Repr {
+        self.to_field::<F>().to_repr()
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr)]
@@ -113,6 +120,13 @@ impl Tag for ExprTag {
     fn to_field<F: LurkField>(&self) -> F {
         F::from(*self as u64)
     }
+
+    fn to_field_bytes<F: LurkField>(&self) -> F::Repr {
+        let mut res = F::Repr::default();
+        let u: u16 = (*self).into();
+        res.as_mut()[..2].copy_from_slice(&u.to_le_bytes());
+        res
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -182,6 +196,13 @@ impl Tag for ContTag {
 
     fn to_field<F: LurkField>(&self) -> F {
         F::from(*self as u64)
+    }
+
+    fn to_field_bytes<F: LurkField>(&self) -> F::Repr {
+        let mut res = F::Repr::default();
+        let u: u16 = (*self).into();
+        res.as_mut()[..2].copy_from_slice(&u.to_le_bytes());
+        res
     }
 }
 
@@ -279,6 +300,13 @@ impl Tag for Op1 {
 
     fn to_field<F: LurkField>(&self) -> F {
         F::from(*self as u64)
+    }
+
+    fn to_field_bytes<F: LurkField>(&self) -> F::Repr {
+        let mut res = F::Repr::default();
+        let u: u16 = (*self).into();
+        res.as_mut()[..2].copy_from_slice(&u.to_le_bytes());
+        res
     }
 }
 
@@ -408,6 +436,13 @@ impl Tag for Op2 {
 
     fn to_field<F: From<u64> + ff::Field>(&self) -> F {
         F::from(*self as u64)
+    }
+
+    fn to_field_bytes<F: LurkField>(&self) -> F::Repr {
+        let mut res = F::Repr::default();
+        let u: u16 = (*self).into();
+        res.as_mut()[..2].copy_from_slice(&u.to_le_bytes());
+        res
     }
 }
 
