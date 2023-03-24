@@ -3614,11 +3614,11 @@
 <span class="kw">impl</span>&lt;E: Tag, F: LurkField&gt; PartialOrd <span class="kw">for </span>SPtr&lt;E, F&gt; {
     <span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;core::cmp::Ordering&gt; {
         (
-            <span class="self">self</span>.<span class="number">0</span>.to_field::&lt;F&gt;().to_repr().as_ref(),
+            <span class="self">self</span>.<span class="number">0</span>.to_field_bytes::&lt;F&gt;().as_ref(),
             <span class="self">self</span>.<span class="number">1</span>.to_repr().as_ref(),
         )
             .partial_cmp(<span class="kw-2">&amp;</span>(
-                other.<span class="number">0</span>.to_field::&lt;F&gt;().to_repr().as_ref(),
+                other.<span class="number">0</span>.to_field_bytes::&lt;F&gt;().as_ref(),
                 other.<span class="number">1</span>.to_repr().as_ref(),
             ))
     }
@@ -3649,7 +3649,7 @@
 <span class="attr">#[allow(clippy::derive_hash_xor_eq)]
 </span><span class="kw">impl</span>&lt;E: Tag, F: LurkField&gt; Hash <span class="kw">for </span>SPtr&lt;E, F&gt; {
     <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
-        <span class="self">self</span>.<span class="number">0</span>.to_field::&lt;F&gt;().to_repr().as_ref().hash(state);
+        <span class="self">self</span>.<span class="number">0</span>.to_field_bytes::&lt;F&gt;().as_ref().hash(state);
         <span class="self">self</span>.<span class="number">1</span>.to_repr().as_ref().hash(state);
     }
 }

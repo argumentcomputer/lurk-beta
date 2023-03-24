@@ -602,7 +602,7 @@
 <span class="kw">use </span>serde::Serialize;
 
 <span class="doccomment">/// `ScalarStore` allows realization of a graph of `ScalarPtr`s suitable for serialization to IPLD. `ScalarExpression`s
-/// are composed only of `ScalarPtr`s, so `scalar_map` suffices to allow traverseing an arbitrary DAG.
+/// are composed only of `ScalarPtr`s, so `scalar_map` suffices to allow traversing an arbitrary DAG.
 </span><span class="attr">#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>ScalarStore&lt;F: LurkField&gt; {
     scalar_map: BTreeMap&lt;ScalarPtr&lt;F&gt;, <span class="prelude-ty">Option</span>&lt;ScalarExpression&lt;F&gt;&gt;&gt;,

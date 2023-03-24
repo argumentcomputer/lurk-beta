@@ -422,6 +422,36 @@
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
 <a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
 </pre><pre class="rust"><code><span class="kw">use </span>anyhow::anyhow;
 <span class="kw">use </span>ff::{PrimeField, PrimeFieldBits};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -826,9 +856,6 @@
       </span><span class="kw">fn </span>prop_vesta_repr_canonicity(f1 <span class="kw">in </span>any::&lt;FWrap&lt;pasta_curves::Fq&gt;&gt;()) {
           repr_canonicity(f1)
       }
-    }
-
-    <span class="macro">proptest! </span>{
       <span class="attr">#[test]
       </span><span class="kw">fn </span>prop_tag_consistency(x <span class="kw">in </span>any::&lt;ExprTag&gt;()) {
           <span class="kw">let </span>f1 = Fr::from_expr_tag(x);
@@ -844,6 +871,39 @@
             <span class="kw">let </span>f2 = FWrap::de(<span class="kw-2">&amp;</span>bytes).unwrap();
             <span class="macro">assert_eq!</span>(x, f2)
       }
+    }
+
+    <span class="comment">// This checks that the field we&#39;re using have a representation
+    // such that forall x: u64, F::from(x).to_repr() == x.to_le_bytes()
+    // This enables a fast conversion for tags, and must be present for all fields
+    // we use this library with.
+    </span><span class="macro">proptest! </span>{
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>prop_pallas_tag_roundtrip(x <span class="kw">in </span>any::&lt;u64&gt;()){
+            <span class="kw">let </span>f1 = pasta_curves::Fp::from(x);
+            <span class="kw">let </span>bytes = f1.to_repr().as_ref().to_vec();
+            <span class="kw">let </span><span class="kw-2">mut </span>bytes_from_u64 = [<span class="number">0u8</span>; <span class="number">32</span>];
+            bytes_from_u64[..<span class="number">8</span>].copy_from_slice(<span class="kw-2">&amp;</span>x.to_le_bytes());
+            <span class="macro">assert_eq!</span>(bytes, bytes_from_u64);
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>prop_vesta_tag_roundtrip(x <span class="kw">in </span>any::&lt;u64&gt;()){
+            <span class="kw">let </span>f1 = pasta_curves::Fq::from(x);
+            <span class="kw">let </span>bytes = f1.to_repr().as_ref().to_vec();
+            <span class="kw">let </span><span class="kw-2">mut </span>bytes_from_u64 = [<span class="number">0u8</span>; <span class="number">32</span>];
+            bytes_from_u64[..<span class="number">8</span>].copy_from_slice(<span class="kw-2">&amp;</span>x.to_le_bytes());
+            <span class="macro">assert_eq!</span>(bytes, bytes_from_u64);
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>prop_bls_tag_roundtrip(x <span class="kw">in </span>any::&lt;u64&gt;()){
+            <span class="kw">let </span>f1 = blstrs::Scalar::from(x);
+            <span class="kw">let </span>bytes = f1.to_repr().as_ref().to_vec();
+            <span class="kw">let </span><span class="kw-2">mut </span>bytes_from_u64 = [<span class="number">0u8</span>; <span class="number">32</span>];
+            bytes_from_u64[..<span class="number">8</span>].copy_from_slice(<span class="kw-2">&amp;</span>x.to_le_bytes());
+            <span class="macro">assert_eq!</span>(bytes, bytes_from_u64);
+        }
     }
 }
 </code></pre></div></section></main></body></html>
