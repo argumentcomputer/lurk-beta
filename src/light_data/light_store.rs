@@ -184,7 +184,7 @@ impl<F: LurkField> LightStore<F> {
                 _ => None,
             };
             store.insert_scalar_expression(*ptr, se);
-        };
+        }
         Ok(store)
     }
 
