@@ -63,7 +63,6 @@ impl<F: LurkField> LightStore<F> {
                 .value()
                 .to_char()
                 .ok_or_else(|| anyhow!("Non-char head in LightExpr::StrCons"))?;
-            store.insert_scalar_expression(c, Some(ScalarExpression::Char(chr)));
             s.push(chr);
             if cs != strnil_ptr {
                 tail_ptrs.push(cs);
@@ -299,8 +298,6 @@ impl<F: LurkField> Encodable for LightExpr<F> {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::parser;
-
     use super::*;
     use pasta_curves::pallas::Scalar;
     use std::collections::BTreeMap;
@@ -319,88 +316,83 @@ pub mod tests {
             let de  = LightStore::de(&ser).expect("read LightStore");
             assert_eq!(s, de)
         }
+    }
 
-        #[test]
-        fn test_convert_light_store_basic_strings((ptr3, ptr4, c1, c2) in any::<(ScalarPtr<Scalar>, ScalarPtr<Scalar>, char, char)>().prop_filter(
-            "Avoids confusion with StrNil",
-            |(ptr3, ptr4, _c1, _c2)| {
-                let strnil = ScalarPtr::from_parts(ExprTag::Str, Scalar::zero());
-                *ptr3 != strnil && *ptr4 != strnil
-            })
-        ) {
-            let ptr1 = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(c1));
-            let ptr2 = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(c2));
+    #[test]
+    fn test_convert_light_store_with_strings_and_symbols() {
+        // inserts the strings "hi" and "yo", then the symbols `hi` and `hi.yo`
+        let (str1_c1, str1_c2) = ('h', 'i');
+        let (str2_c1, str2_c2) = ('y', 'o');
+        let str1_c1_ptr = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(str1_c1));
+        let str1_c2_ptr = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(str1_c2));
+        let str2_c1_ptr = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(str2_c1));
+        let str2_c2_ptr = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(str2_c2));
+        let str_nil = ScalarPtr::from_parts(ExprTag::Str, Scalar::zero());
+        let sym_nil = ScalarPtr::from_parts(ExprTag::Sym, Scalar::zero());
 
-            let mut store = BTreeMap::new();
-            let strnil = ScalarPtr::from_parts(ExprTag::Str, Scalar::zero());
-            store.insert(ptr3, Some(LightExpr::StrCons(ptr1, strnil)));
-            store.insert(ptr4, Some(LightExpr::StrCons(ptr2, ptr3)));
+        // placeholder hashes
+        let str1_ptr_half = ScalarPtr::from_parts(ExprTag::Str, Scalar::from_u64(1));
+        let str1_ptr_full = ScalarPtr::from_parts(ExprTag::Str, Scalar::from_u64(2));
+        let str2_ptr_half = ScalarPtr::from_parts(ExprTag::Str, Scalar::from_u64(3));
+        let str2_ptr_full = ScalarPtr::from_parts(ExprTag::Str, Scalar::from_u64(4));
 
-            let expected_output = {
-                let mut output = ScalarStore::default();
-                output.insert_scalar_expression(
-                    ScalarPtr::from_parts(ExprTag::Str, Scalar::zero()),
-                    Some(ScalarExpression::Str(String::from(""))),
-                );
-                output.insert_scalar_expression(ptr1, Some(ScalarExpression::Char(c1)));
-                output.insert_scalar_expression(ptr2, Some(ScalarExpression::Char(c2)));
-                output.insert_scalar_expression(ptr3, Some(ScalarExpression::Str(c1.to_string())));
-                output.insert_scalar_expression(ptr4, Some(ScalarExpression::Str(c2.to_string() + &c1.to_string())));
+        let sym_ptr_half = ScalarPtr::from_parts(ExprTag::Sym, Scalar::from_u64(5));
+        let sym_ptr_full = ScalarPtr::from_parts(ExprTag::Sym, Scalar::from_u64(6));
 
-                output
-            };
+        let mut store = BTreeMap::new();
+        store.insert(
+            str1_ptr_half,
+            Some(LightExpr::StrCons(str1_c2_ptr, str_nil)),
+        );
+        store.insert(
+            str1_ptr_full,
+            Some(LightExpr::StrCons(str1_c1_ptr, str1_ptr_half)),
+        );
+        store.insert(
+            str2_ptr_half,
+            Some(LightExpr::StrCons(str2_c2_ptr, str_nil)),
+        );
+        store.insert(
+            str2_ptr_full,
+            Some(LightExpr::StrCons(str2_c1_ptr, str2_ptr_half)),
+        );
 
-            assert_eq!(LightStore::to_scalar_store(&LightStore{scalar_map: store}).unwrap(), expected_output);
-        }
+        store.insert(
+            sym_ptr_half,
+            Some(LightExpr::SymCons(str2_ptr_full, sym_nil)),
+        );
+        store.insert(
+            sym_ptr_full,
+            Some(LightExpr::SymCons(str1_ptr_full, sym_ptr_half)),
+        );
 
-        #[test]
-        fn test_convert_light_store_basic_symbols((ptr3, ptr4, ptr5, ptr6, c1, c2) in any::<(ScalarPtr<Scalar>, ScalarPtr<Scalar>, ScalarPtr<Scalar>, ScalarPtr<Scalar>, char, char)>().prop_filter(
-            "Avoids confusion with StrNil, SymNil",
-            |(ptr3, ptr4, ptr5, ptr6, c1, c2)| {
-                let symnil = ScalarPtr::from_parts(ExprTag::Sym, Scalar::zero());
-                let strnil = ScalarPtr::from_parts(ExprTag::Str, Scalar::zero());
-                ptr3.tag() == ExprTag::Str && ptr4.tag() == ExprTag::Str &&
-                ptr5.tag() == ExprTag::Sym && ptr6.tag() == ExprTag::Sym &&
-                *ptr3 != strnil && *ptr4 != strnil && *ptr5 != strnil && *ptr6 != strnil &&
-                *ptr3 != symnil && *ptr4 != symnil && *ptr5 != symnil && *ptr6 != symnil &&
-                c2.to_string() != parser::SYM_SEPARATOR && c1.to_string() != parser::SYM_SEPARATOR
-            })
-        ) {
-            let ptr1 = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(c1));
-            let ptr2 = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(c2));
+        let expected_output = {
+            let mut output = ScalarStore::default();
+            let str1 = str1_c1.to_string() + &str1_c2.to_string();
+            let str2 = str2_c1.to_string() + &str2_c2.to_string();
+            output.insert_scalar_expression(
+                str1_ptr_half,
+                Some(ScalarExpression::Str(str1_c2.to_string())),
+            );
+            output
+                .insert_scalar_expression(str1_ptr_full, Some(ScalarExpression::Str(str1.clone())));
+            output.insert_scalar_expression(
+                str2_ptr_half,
+                Some(ScalarExpression::Str(str2_c2.to_string())),
+            );
+            output
+                .insert_scalar_expression(str2_ptr_full, Some(ScalarExpression::Str(str2.clone())));
+            let sym_half = Sym::root().child(str1);
+            let sym_full = sym_half.child(str2);
+            output.insert_scalar_expression(sym_ptr_half, Some(ScalarExpression::Sym(sym_half)));
+            output.insert_scalar_expression(sym_ptr_full, Some(ScalarExpression::Sym(sym_full)));
 
-            let mut store = BTreeMap::new();
-            let strnil = ScalarPtr::from_parts(ExprTag::Str, Scalar::zero());
-            let symnil = ScalarPtr::from_parts(ExprTag::Sym, Scalar::zero());
-            store.insert(ptr3, Some(LightExpr::StrCons(ptr1, strnil)));
-            store.insert(ptr4, Some(LightExpr::StrCons(ptr2, ptr3)));
-            store.insert(ptr5, Some(LightExpr::SymCons(ptr3, symnil)));
-            store.insert(ptr6, Some(LightExpr::SymCons(ptr4, ptr5)));
+            output
+        };
 
-            let expected_output = {
-                let mut output = ScalarStore::default();
-                output.insert_scalar_expression(
-                    strnil,
-                    Some(ScalarExpression::Str(String::from(""))),
-                );
-                output.insert_scalar_expression(
-                    symnil,
-                    Some(ScalarExpression::Sym(Sym::root())),
-                );
-                output.insert_scalar_expression(ptr1, Some(ScalarExpression::Char(c1)));
-                output.insert_scalar_expression(ptr2, Some(ScalarExpression::Char(c2)));
-                output.insert_scalar_expression(ptr3, Some(ScalarExpression::Str(c1.to_string())));
-                output.insert_scalar_expression(ptr4, Some(ScalarExpression::Str(c2.to_string() + &c1.to_string())));
-                let sym1 = Sym::root().child(c1.to_string());
-                output.insert_scalar_expression(ptr5, Some(ScalarExpression::Sym(sym1.clone())));
-                // Beware! this is root <- "c1" <- "c2c1"
-                let sym2 = sym1.child(format!("{c2}{c1}"));
-                output.insert_scalar_expression(ptr6, Some(ScalarExpression::Sym(sym2)));
-
-                output
-            };
-
-            assert_eq!(LightStore::to_scalar_store(&LightStore{scalar_map: store}).unwrap(), expected_output);
-        }
+        assert_eq!(
+            LightStore::to_scalar_store(&LightStore { scalar_map: store }).unwrap(),
+            expected_output
+        );
     }
 }

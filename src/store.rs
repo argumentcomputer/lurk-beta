@@ -1271,7 +1271,7 @@ impl<F: LurkField> Store<F> {
         let tag = scalar_ptr.tag();
         let expr = scalar_store.get_expr(&scalar_ptr);
         if let Some(ptr) = self.fetch_scalar(&scalar_ptr) {
-            return Some(ptr);
+            Some(ptr)
         } else {
             use ScalarExpression::*;
             match (tag, expr) {
