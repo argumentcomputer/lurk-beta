@@ -1,5 +1,10 @@
 # Global Owners
-* @porcuquine
+* @porcuquine @huitseeker
+
+# Order is important; the last matching pattern takes the most
+# precedence. This excludes @huitseeker for /src/eval.rs
+/src/eval.rs @porcuquine
 
 # Circuit
-/src/circuit/* @emmorais
+# And this excludes @huitseeker for /src/circuit/**
+/src/circuit/** @emmorais @porcuquine
