@@ -27,8 +27,8 @@ peekmore = "1.1.0"
 pretty_env_logger = "0.4"
 rand_core = { version = "0.6.4", default-features = false }
 rayon = "1.7.0"
-rustyline = { package = "yatima-rustyline", version = "0.1", default-features = false }
-rustyline-derive = "0.5.0"
+rustyline = { version="11.0", features = ["derive"], default-features = false }
+rustyline-derive = "0.8.0"
 rand_xorshift = "0.3.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_repr = "0.1.10"
