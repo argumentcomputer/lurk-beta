@@ -435,6 +435,18 @@ impl<'de, E: Tag, F: LurkField> Deserialize<'de> for SPtr<E, F> {
 
 pub type ScalarPtr<F> = SPtr<ExprTag, F>;
 
+impl<F: LurkField> ScalarPtr<F> {
+    pub fn is_immediate(self) -> bool {
+        match self.0 {
+            ExprTag::Num => true,
+            ExprTag::Char => true,
+            ExprTag::Str => self.1 == F::zero(),
+            ExprTag::Sym => self.1 == F::zero(),
+            _ => false,
+        }
+    }
+}
+
 pub trait IntoHashComponents<F: LurkField> {
     fn into_hash_components(self) -> [F; 2];
 }

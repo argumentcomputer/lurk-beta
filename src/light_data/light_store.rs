@@ -140,6 +140,9 @@ impl<F: LurkField> LightStore<F> {
     fn to_scalar_store(&self) -> anyhow::Result<ScalarStore<F>> {
         let mut store = ScalarStore::default();
         for (ptr, le) in self.scalar_map.iter() {
+            if ptr.is_immediate() {
+                return Err(anyhow!("Immediate pointer found in store: {ptr}"));
+            }
             let se = match (ptr.tag(), le) {
                 (ExprTag::Cons, Some(LightExpr::Cons(x, y))) => {
                     Some(ScalarExpression::Cons(*x, *y))
@@ -147,35 +150,11 @@ impl<F: LurkField> LightStore<F> {
                 (ExprTag::Comm, Some(LightExpr::Comm(f, x))) => {
                     Some(ScalarExpression::Comm(*f, *x))
                 }
-                (ExprTag::Num, None) => Some(ScalarExpression::Num(*ptr.value())),
-                (ExprTag::Num, Some(LightExpr::Num(f))) => Some(ScalarExpression::Num(*f)),
-                (ExprTag::Char, Some(LightExpr::Char(f))) => {
-                    let Some(f_char) = f.to_char() else {
-                        return Err(anyhow!("Non-char field in LightExpr::Char"));
-                    };
-                    Some(ScalarExpression::Char(f_char))
-                }
-                (ExprTag::Char, None) => {
-                    let Some(f_char) = (*ptr).value().to_char() else {
-                        return Err(anyhow!("Non-char field in LightExpr::Char"));
-                    };
-                    Some(ScalarExpression::Char(f_char))
-                }
                 (ExprTag::Nil, Some(LightExpr::Nil)) => Some(ScalarExpression::Nil),
-                (ExprTag::Str, Some(LightExpr::StrNil)) => {
-                    Some(ScalarExpression::Str(String::from("")))
-                }
-                (ExprTag::Str, None) if *ptr.value() == F::zero() => {
-                    Some(ScalarExpression::Str(String::from("")))
-                }
                 // TODO: StrCons with opaque contents breaks this
                 (ExprTag::Str, Some(LightExpr::StrCons(_, _))) => {
                     self.insert_scalar_string(*ptr, &mut store)?;
                     continue;
-                }
-                (ExprTag::Sym, Some(LightExpr::SymNil)) => Some(ScalarExpression::Sym(Sym::root())),
-                (ExprTag::Sym, None) if *ptr.value() == F::zero() => {
-                    Some(ScalarExpression::Sym(Sym::root()))
                 }
                 (ExprTag::Sym, Some(LightExpr::SymCons(_, _))) => {
                     self.insert_scalar_symbol(*ptr, &mut store)?;
@@ -344,7 +323,7 @@ pub mod tests {
         #[test]
         fn test_convert_light_store_basic_strings((ptr3, ptr4, c1, c2) in any::<(ScalarPtr<Scalar>, ScalarPtr<Scalar>, char, char)>().prop_filter(
             "Avoids confusion with StrNil",
-            |(ptr3, ptr4,_c1, _c2)| {
+            |(ptr3, ptr4, _c1, _c2)| {
                 let strnil = ScalarPtr::from_parts(ExprTag::Str, Scalar::zero());
                 *ptr3 != strnil && *ptr4 != strnil
             })
@@ -376,10 +355,12 @@ pub mod tests {
 
         #[test]
         fn test_convert_light_store_basic_symbols((ptr3, ptr4, ptr5, ptr6, c1, c2) in any::<(ScalarPtr<Scalar>, ScalarPtr<Scalar>, ScalarPtr<Scalar>, ScalarPtr<Scalar>, char, char)>().prop_filter(
-            "Avoids confusion with StrNil, Symnil",
+            "Avoids confusion with StrNil, SymNil",
             |(ptr3, ptr4, ptr5, ptr6, c1, c2)| {
                 let symnil = ScalarPtr::from_parts(ExprTag::Sym, Scalar::zero());
                 let strnil = ScalarPtr::from_parts(ExprTag::Str, Scalar::zero());
+                ptr3.tag() == ExprTag::Str && ptr4.tag() == ExprTag::Str &&
+                ptr5.tag() == ExprTag::Sym && ptr6.tag() == ExprTag::Sym &&
                 *ptr3 != strnil && *ptr4 != strnil && *ptr5 != strnil && *ptr6 != strnil &&
                 *ptr3 != symnil && *ptr4 != symnil && *ptr5 != symnil && *ptr6 != symnil &&
                 c2.to_string() != parser::SYM_SEPARATOR && c1.to_string() != parser::SYM_SEPARATOR
