@@ -248,6 +248,32 @@ impl<F: LurkField> Default for ScalarExpression<F> {
     }
 }
 
+impl<F: LurkField> std::fmt::Display for ScalarExpression<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ScalarExpression::Nil => write!(f, "Nil"),
+            ScalarExpression::Cons(x, y) => write!(f, "Cons({}, {})", x, y),
+            ScalarExpression::Comm(ff, x) => write!(f, "Comm({}, {})", ff.trimmed_hex_digits(), x),
+            ScalarExpression::Sym(s) => write!(f, "Sym({})", s.full_sym_name()),
+            ScalarExpression::Fun {
+                arg,
+                body,
+                closed_env,
+            } => write!(f, "Fun(arg:{}, body:{}, env:{})", arg, body, closed_env),
+            ScalarExpression::Num(ff) => match ff.to_u64() {
+                Some(u) => write!(f, "Num({})", u),
+                None => write!(f, "Num({})", ff.trimmed_hex_digits(),),
+            },
+            ScalarExpression::Str(x) => write!(f, "Str({})", x),
+            ScalarExpression::Thunk(x) => {
+                write!(f, "Thunk(value:{}, cont:{})", x.value, x.continuation)
+            }
+            ScalarExpression::Char(x) => write!(f, "Char({})", x),
+            ScalarExpression::UInt(x) => write!(f, "UInt({})", x),
+        }
+    }
+}
+
 // Unused for now, but will be needed when we serialize Thunks to IPLD.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]

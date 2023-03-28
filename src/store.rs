@@ -330,11 +330,11 @@ pub struct SPtr<E: Tag, F: LurkField>(
     F,
 );
 
-impl<E: Tag, F: LurkField> Display for SPtr<E, F> {
+impl<E: Tag + Display, F: LurkField> Display for SPtr<E, F> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let trimmed_f1 = self.0.to_field::<F>().trimmed_hex_digits();
-        let trimmed_f2 = self.1.trimmed_hex_digits();
-        write!(f, "(ptr->{trimmed_f1}, {trimmed_f2})",)
+        let tag = self.0;
+        let trimmed_f = self.1.trimmed_hex_digits();
+        write!(f, "(ptr->{tag}, {trimmed_f})",)
     }
 }
 
