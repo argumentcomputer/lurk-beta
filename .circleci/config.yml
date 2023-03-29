@@ -41,7 +41,8 @@ commands:
       - run:
           name: Install sccache
           command: |
-            cargo install sccache
+            curl -LsSf "https://github.com/mozilla/sccache/releases/download/v0.4.1/sccache-v0.4.1-x86_64-unknown-linux-musl.tar.gz" | tar xzf -
+            mv sccache-v0.4.1-x86_64-unknown-linux-musl/sccache $HOME/.cargo/bin
             # This configures Rust to use sccache.
             echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
             # This is the maximum space sccache cache will use on disk.
@@ -193,7 +194,16 @@ jobs:
       - set_versions_n_runners
       - set_env_path
       - install_gpu_deps
-      - setup-sccache
+      - run:
+          name: Install sccache binary
+          command: |
+            curl -LsSf "https://github.com/mozilla/sccache/releases/download/v0.4.1/sccache-v0.4.1-aarch64-unknown-linux-musl.tar.gz" | tar xzf -
+            mv sccache-v0.4.1-aarch64-unknown-linux-musl/sccache $HOME/.cargo/bin
+            # This configures Rust to use sccache.
+            echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
+            # This is the maximum space sccache cache will use on disk.                                                                               
+            echo 'export "SCCACHE_CACHE_SIZE"="1G"' >> $BASH_ENV
+            sccache --version
       - restore-sccache-cache
       - run:
           name: Arm64 compiles successfully, incl. benchmarks
@@ -219,7 +229,16 @@ jobs:
            at: "~/"
       - set_versions_n_runners
       - set_env_path
-      - setup-sccache
+      - run:
+          name: Install sccache binary
+          command: |
+            curl -LsSf "https://github.com/mozilla/sccache/releases/download/v0.4.1/sccache-v0.4.1-x86_64-apple-darwin.tar.gz" | tar xzf -
+            mv sccache-v0.4.1-x86_64-apple-darwin/sccache $HOME/.cargo/bin
+            # This configures Rust to use sccache.
+            echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
+            # This is the maximum space sccache cache will use on disk.                                                                               
+            echo 'export "SCCACHE_CACHE_SIZE"="1G"' >> $BASH_ENV
+            sccache --version
       - restore-sccache-cache
       - run:
           name: MacOS compiles successfully, incl. benchmarks
