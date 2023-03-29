@@ -63,6 +63,7 @@ impl<F: LurkField> LightStore<F> {
                 .value()
                 .to_char()
                 .ok_or_else(|| anyhow!("Non-char head in LightExpr::StrCons"))?;
+            store.insert_scalar_expression(c, Some(ScalarExpression::Char(chr)));
             s.push(chr);
             if cs != strnil_ptr {
                 tail_ptrs.push(cs);
@@ -140,7 +141,7 @@ impl<F: LurkField> LightStore<F> {
         let mut store = ScalarStore::default();
         for (ptr, le) in self.scalar_map.iter() {
             if ptr.is_immediate() {
-                return Err(anyhow!("Immediate pointer found in store: {ptr}"));
+                return Err(anyhow!("Immediate pointer found in LightStore: {ptr}"));
             }
             let se = match (ptr.tag(), le) {
                 (ExprTag::Cons, Some(LightExpr::Cons(x, y))) => {
@@ -320,13 +321,14 @@ pub mod tests {
 
     #[test]
     fn test_convert_light_store_with_strings_and_symbols() {
-        // inserts the strings "hi" and "yo", then the symbols `hi` and `hi.yo`
+        // inserts the strings "hi" and "yo", then the symbols `.hi` and `.hi.yo`
         let (str1_c1, str1_c2) = ('h', 'i');
         let (str2_c1, str2_c2) = ('y', 'o');
         let str1_c1_ptr = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(str1_c1));
         let str1_c2_ptr = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(str1_c2));
         let str2_c1_ptr = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(str2_c1));
         let str2_c2_ptr = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(str2_c2));
+
         let str_nil = ScalarPtr::from_parts(ExprTag::Str, Scalar::zero());
         let sym_nil = ScalarPtr::from_parts(ExprTag::Sym, Scalar::zero());
 
@@ -368,6 +370,14 @@ pub mod tests {
 
         let expected_output = {
             let mut output = ScalarStore::default();
+
+            output.insert_scalar_expression(str1_c1_ptr, Some(ScalarExpression::Char(str1_c1)));
+            output.insert_scalar_expression(str1_c2_ptr, Some(ScalarExpression::Char(str1_c2)));
+            output.insert_scalar_expression(str2_c1_ptr, Some(ScalarExpression::Char(str2_c1)));
+            output.insert_scalar_expression(str2_c2_ptr, Some(ScalarExpression::Char(str2_c2)));
+
+            output.insert_scalar_expression(str_nil, Some(ScalarExpression::Str(String::new())));
+
             let str1 = str1_c1.to_string() + &str1_c2.to_string();
             let str2 = str2_c1.to_string() + &str2_c2.to_string();
             output.insert_scalar_expression(
@@ -380,9 +390,12 @@ pub mod tests {
                 str2_ptr_half,
                 Some(ScalarExpression::Str(str2_c2.to_string())),
             );
+
+            let sym_root = Sym::root();
+            output.insert_scalar_expression(sym_nil, Some(ScalarExpression::Sym(sym_root.clone())));
             output
                 .insert_scalar_expression(str2_ptr_full, Some(ScalarExpression::Str(str2.clone())));
-            let sym_half = Sym::root().child(str1);
+            let sym_half = sym_root.child(str1);
             let sym_full = sym_half.child(str2);
             output.insert_scalar_expression(sym_ptr_half, Some(ScalarExpression::Sym(sym_half)));
             output.insert_scalar_expression(sym_ptr_full, Some(ScalarExpression::Sym(sym_full)));
