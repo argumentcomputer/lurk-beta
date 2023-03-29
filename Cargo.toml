@@ -83,3 +83,9 @@ path = "src/main.rs"
 # By compiling dependencies with optimizations, performing tests gets much faster.
 opt-level = 3
 lto = true
+
+[profile.dev-no-assertions]
+# Some tests in the case gadget depend on debug assertions
+# being off (they test release behavior in case of duplicate clauses).
+inherits = "dev"
+debug-assertions = false
