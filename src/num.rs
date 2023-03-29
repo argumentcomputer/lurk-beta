@@ -1,3 +1,8 @@
+#![deny(missing_docs)]
+//! This module defines the `Num` type, which is used to represent field elements in Lurk.
+//! The `Num` type is an enum that can represent a field element in either full field representation
+//! or in U64 representation. The U64 representation is used for convenience, and is converted to full
+//! field representation when necessary (e.g. overflow).
 use crate::field::FWrap;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -13,7 +18,9 @@ use crate::uint::UInt;
 /// Finite field element type for Lurk. Has different internal representations to optimize evaluation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Num<F: LurkField> {
+    /// a scalar field element in full field representation
     Scalar(F),
+    /// a small scalar field element in U64 representation for convenience
     U64(u64),
 }
 
@@ -168,9 +175,10 @@ impl<F: LurkField> DivAssign for Num<F> {
 }
 
 impl<F: LurkField> Num<F> {
+    /// Determines if `self` is zero.
     pub fn is_zero(&self) -> bool {
         match self {
-            Num::Scalar(s) => s.is_zero_vartime(),
+            Num::Scalar(s) => s.is_zero().into(),
             Num::U64(n) => n == &0,
         }
     }
@@ -193,10 +201,12 @@ impl<F: LurkField> Num<F> {
         }
     }
 
+    /// Returns the most negative value representable by `Num<F>`.
     pub fn most_negative() -> Self {
         Num::Scalar(F::most_negative())
     }
 
+    /// Returns the most positive value representable by `Num<F>`.
     pub fn most_positive() -> Self {
         Num::Scalar(F::most_positive())
     }
@@ -210,6 +220,7 @@ impl<F: LurkField> Num<F> {
         }
     }
 
+    /// Converts `self` into a scalar value of type `F`.
     pub fn into_scalar(self) -> F {
         match self {
             Num::U64(n) => F::from(n),
@@ -217,6 +228,7 @@ impl<F: LurkField> Num<F> {
         }
     }
 
+    /// Creates a new `Num<F>` from the given scalar `s`.
     pub fn from_scalar(s: F) -> Self {
         Num::Scalar(s)
     }
