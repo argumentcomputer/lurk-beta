@@ -4,7 +4,7 @@ use std::ffi::OsStr;
 use std::fs::File;
 use std::io::Write;
 use std::process::Command;
-use tempdir::TempDir;
+use tempfile::{Builder, TempDir};
 
 use pasta_curves::pallas;
 
@@ -33,7 +33,7 @@ fn test_eval_expression() {
 
     let expression = "((LAMBDA (A B) (+ (* A 3) B)) 9 7)";
 
-    let tmp_dir = TempDir::new("tmp").unwrap();
+    let tmp_dir = Builder::new().prefix("tmp").tempdir().unwrap();
     let expression_path = tmp_dir.path().join("expression.lurk");
 
     let mut expression_file = File::create(&expression_path).unwrap();
@@ -108,7 +108,7 @@ fn test_prove_and_verify_expression() {
     let expression = "(* 9 7)";
     let expected = "63";
 
-    let tmp_dir = TempDir::new("tmp").unwrap();
+    let tmp_dir = Builder::new().prefix("tmp").tempdir().unwrap();
     let proof_path = tmp_dir.path().join("proof.json");
     let fcomm_data_path = tmp_dir.path().join("fcomm_data");
     let expression_path = tmp_dir.path().join("expression.lurk");
@@ -155,7 +155,7 @@ fn test_create_open_and_verify_functional_commitment_aux(
     function_input: &str,
     expected_output: &str,
 ) {
-    let tmp_dir = TempDir::new("tmp").unwrap();
+    let tmp_dir = Builder::new().prefix("tmp").tempdir().unwrap();
 
     test_aux(
         function_source,
@@ -169,7 +169,7 @@ fn test_create_open_and_verify_chained_functional_commitment_aux(
     function_source: &str,
     expected_io: Vec<(&str, &str)>,
 ) {
-    let tmp_dir = TempDir::new("tmp").unwrap();
+    let tmp_dir = Builder::new().prefix("tmp").tempdir().unwrap();
 
     test_aux(function_source, expected_io, true, tmp_dir);
 }

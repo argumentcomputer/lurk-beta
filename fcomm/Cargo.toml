@@ -34,4 +34,4 @@ pasta_curves = { version = "0.5.2", features = ["serde"], package = "fil_pasta_c
 [dev-dependencies]
 assert_cmd = "2.0.8"
 predicates = "2.1.5"
-tempdir = "0.3.7"
+tempfile = "3.5.0"
