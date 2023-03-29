@@ -3603,11 +3603,11 @@
     </span>F,
 );
 
-<span class="kw">impl</span>&lt;E: Tag, F: LurkField&gt; Display <span class="kw">for </span>SPtr&lt;E, F&gt; {
+<span class="kw">impl</span>&lt;E: Tag + Display, F: LurkField&gt; Display <span class="kw">for </span>SPtr&lt;E, F&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-        <span class="kw">let </span>trimmed_f1 = <span class="self">self</span>.<span class="number">0</span>.to_field::&lt;F&gt;().trimmed_hex_digits();
-        <span class="kw">let </span>trimmed_f2 = <span class="self">self</span>.<span class="number">1</span>.trimmed_hex_digits();
-        <span class="macro">write!</span>(f, <span class="string">&quot;(ptr-&gt;{trimmed_f1}, {trimmed_f2})&quot;</span>,)
+        <span class="kw">let </span>tag = <span class="self">self</span>.<span class="number">0</span>;
+        <span class="kw">let </span>trimmed_f = <span class="self">self</span>.<span class="number">1</span>.trimmed_hex_digits();
+        <span class="macro">write!</span>(f, <span class="string">&quot;(ptr-&gt;{tag}, {trimmed_f})&quot;</span>,)
     }
 }
 

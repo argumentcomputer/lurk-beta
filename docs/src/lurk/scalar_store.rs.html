@@ -585,6 +585,32 @@
 <a href="#585" id="585">585</a>
 <a href="#586" id="586">586</a>
 <a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::collections::BTreeMap;
 
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
@@ -832,6 +858,32 @@
 <span class="kw">impl</span>&lt;F: LurkField&gt; Default <span class="kw">for </span>ScalarExpression&lt;F&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::Nil
+    }
+}
+
+<span class="kw">impl</span>&lt;F: LurkField&gt; std::fmt::Display <span class="kw">for </span>ScalarExpression&lt;F&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            ScalarExpression::Nil =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Nil&quot;</span>),
+            ScalarExpression::Cons(x, y) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Cons({}, {})&quot;</span>, x, y),
+            ScalarExpression::Comm(ff, x) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Comm({}, {})&quot;</span>, ff.trimmed_hex_digits(), x),
+            ScalarExpression::Sym(s) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Sym({})&quot;</span>, s.full_sym_name()),
+            ScalarExpression::Fun {
+                arg,
+                body,
+                closed_env,
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Fun(arg:{}, body:{}, env:{})&quot;</span>, arg, body, closed_env),
+            ScalarExpression::Num(ff) =&gt; <span class="kw">match </span>ff.to_u64() {
+                <span class="prelude-val">Some</span>(u) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Num({})&quot;</span>, u),
+                <span class="prelude-val">None </span>=&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Num({})&quot;</span>, ff.trimmed_hex_digits(),),
+            },
+            ScalarExpression::Str(x) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Str({})&quot;</span>, x),
+            ScalarExpression::Thunk(x) =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">&quot;Thunk(value:{}, cont:{})&quot;</span>, x.value, x.continuation)
+            }
+            ScalarExpression::Char(x) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Char({})&quot;</span>, x),
+            ScalarExpression::UInt(x) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;UInt({})&quot;</span>, x),
+        }
     }
 }
 
