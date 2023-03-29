@@ -65,6 +65,7 @@ gpu = ["neptune/opencl"]
 criterion = "0.3.6"
 structopt = { version = "0.3", default-features = false }
 tap = "1.0.1"
+assert_cmd = "2.0.8"
 
 [[bench]]
 name = "eval"
