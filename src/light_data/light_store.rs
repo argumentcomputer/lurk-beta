@@ -194,7 +194,7 @@ impl<F: LurkField> LightStore<F> {
                         }
                         Some(Some(expr)) => match (ptr.tag(), expr.clone()) {
                             (ExprTag::Nil, LightExpr::Nil) => {
-                                // stack.insert(ScalarPtr::from_parts(ExprTag::Sym, *ptr.value()));
+                                stack.push(ScalarPtr::from_parts(ExprTag::Sym, *ptr.value()));
                                 store.insert_scalar_expression(ptr, Some(ScalarExpression::Nil));
                             }
                             (ExprTag::Cons, LightExpr::Cons(x, y)) => {

@@ -1,5 +1,5 @@
 use blstrs::Scalar as Fr;
-use std::{fs, path::Path};
+use std::fs;
 
 use lurk::{
     light_data::{Encodable, LightData, LightStore},
@@ -7,7 +7,7 @@ use lurk::{
 };
 
 #[test]
-// The following store was created with the following Lean code:
+// `foo.ldstore` was created with the following Lean code:
 //   def foo : IO Unit := do
 //     let ldonNil   := LDON.nil
 //     let ldonNum1  := LDON.num (.ofNat 0)
@@ -25,11 +25,22 @@ use lurk::{
 //       let (_, acc) := ldon.commit acc; acc
 //     let ld : LightData := stt.exprs
 //     IO.FS.writeBinFile ⟨"foo.store"⟩ ld.toByteArray
+// Whereas `id.ldstore` contains the data needed for typechecking the `id` function
 fn test_light_store_deserialization() {
-    let bytes = fs::read(Path::new("tests/foo.store")).unwrap();
-    let ld = LightData::de(&bytes).unwrap();
+    let directory = "tests/ldstores";
 
-    let store: LightStore<Fr> = Encodable::de(&ld).unwrap();
-
-    let _scalar_store: ScalarStore<Fr> = store.try_into().unwrap();
+    for entry in fs::read_dir(directory).expect("Failed to read directory") {
+        if let Ok(entry) = entry {
+            let path = entry.path();
+            if let Some(extension) = path.extension() {
+                if extension == "ldstore" {
+                    let file_path = path.to_str().unwrap();
+                    let file_bytes = fs::read(file_path).expect("Failed to read file");
+                    let ld = LightData::de(&file_bytes).unwrap();
+                    let ldstore: LightStore<Fr> = Encodable::de(&ld).unwrap();
+                    let _scalar_store: ScalarStore<Fr> = ldstore.try_into().unwrap();
+                }
+            }
+        }
+    }
 }

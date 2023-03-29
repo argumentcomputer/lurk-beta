@@ -105,8 +105,8 @@ impl LightData {
     }
     /// Returns the minimum number of bytes required to represent the integer.
     pub fn trimmed_le_bytes_len(xs: &[u8]) -> usize {
-        // usize::from_le_bytes(xs.try_into().unwrap()) // this seems to break when loading big stores: TryFromSliceError(())
-        xs.iter().rev().fold(0, |acc, &x| (acc * 256) + x as usize)
+        usize::from_le_bytes(xs.try_into().unwrap())
+        // xs.iter().rev().fold(0, |acc, &x| (acc * 256) + x as usize)
     }
 
     /// Returns the tag byte for this `LightData`.
