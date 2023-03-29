@@ -146,9 +146,7 @@ impl<F: LurkField> ScalarStore<F> {
             let mut store = Store::new();
 
             for ptr in self.scalar_map.keys() {
-                //println!("cid {:?}", ptr);
-                let _p = store.intern_scalar_ptr(*ptr, self);
-                //println!("ptr {:?}", p);
+                store.intern_scalar_ptr(*ptr, self);
             }
             for ptr in self.scalar_cont_map.keys() {
                 store.intern_scalar_cont_ptr(*ptr, self);
