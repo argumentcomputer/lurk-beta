@@ -440,6 +440,7 @@ impl<F: LurkField> ScalarPtr<F> {
         match self.0 {
             ExprTag::Num => true,
             ExprTag::Char => true,
+            ExprTag::U64 => true,
             ExprTag::Str => self.1 == F::zero(),
             ExprTag::Sym => self.1 == F::zero(),
             _ => false,
@@ -1268,13 +1269,11 @@ impl<F: LurkField> Store<F> {
         scalar_ptr: ScalarPtr<F>,
         scalar_store: &ScalarStore<F>,
     ) -> Option<Ptr<F>> {
-        let tag = scalar_ptr.tag();
-        let expr = scalar_store.get_expr(&scalar_ptr);
         if let Some(ptr) = self.fetch_scalar(&scalar_ptr) {
             Some(ptr)
         } else {
             use ScalarExpression::*;
-            match (tag, expr) {
+            match (scalar_ptr.tag(), scalar_store.get_expr(&scalar_ptr)) {
                 (ExprTag::Nil, Some(Nil)) => {
                     let ptr = self.intern_nil();
                     self.create_scalar_ptr(ptr, *scalar_ptr.value());
@@ -1305,14 +1304,7 @@ impl<F: LurkField> Store<F> {
                 }
                 (ExprTag::Key, Some(Sym(k))) => Some(self.intern_key(k)),
                 (ExprTag::Num, Some(Num(x))) => Some(self.intern_num(crate::Num::Scalar(*x))),
-                (ExprTag::Num, None) => {
-                    Some(self.intern_num(crate::Num::Scalar(*scalar_ptr.value())))
-                }
                 (ExprTag::Char, Some(Char(x))) => Some((*x).into()),
-                (ExprTag::Char, None) => {
-                    let c = F::to_char(scalar_ptr.value())?;
-                    Some(c.into())
-                }
                 (ExprTag::Thunk, Some(Thunk(t))) => {
                     let value = self.intern_scalar_ptr(t.value, scalar_store)?;
                     let continuation = self.intern_scalar_cont_ptr(t.continuation, scalar_store)?;

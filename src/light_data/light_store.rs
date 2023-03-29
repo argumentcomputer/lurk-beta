@@ -136,33 +136,109 @@ impl<F: LurkField> LightStore<F> {
         Ok(path)
     }
 
+    fn intern_ptr_data(
+        &self,
+        ptr0: ScalarPtr<F>,
+        store: &mut ScalarStore<F>,
+    ) -> anyhow::Result<()> {
+        let mut stack = Vec::new();
+        stack.push(ptr0);
+        while let Some(ptr) = stack.pop() {
+            if store.get_expr(&ptr).is_none() {
+                if ptr.is_immediate() {
+                    match ptr.tag() {
+                        ExprTag::Num => {
+                            store.insert_scalar_expression(
+                                ptr,
+                                Some(ScalarExpression::Num(*ptr.value())),
+                            );
+                        }
+                        ExprTag::Char => {
+                            if let Some(c) = ptr.value().to_char() {
+                                store
+                                    .insert_scalar_expression(ptr, Some(ScalarExpression::Char(c)));
+                            } else {
+                                return Err(anyhow!("Invalid char pointer: {ptr}"));
+                            }
+                        }
+                        ExprTag::U64 => {
+                            if let Some(u) = ptr.value().to_u64() {
+                                store.insert_scalar_expression(
+                                    ptr,
+                                    Some(ScalarExpression::UInt(u.into())),
+                                );
+                            } else {
+                                return Err(anyhow!("Invalid u64 pointer: {ptr}"));
+                            }
+                        }
+                        ExprTag::Str => {
+                            store.insert_scalar_expression(
+                                ptr,
+                                Some(ScalarExpression::Str(String::new())),
+                            );
+                        }
+                        ExprTag::Sym => {
+                            store.insert_scalar_expression(
+                                ptr,
+                                Some(ScalarExpression::Sym(Sym::root())),
+                            );
+                        }
+                        _ => return Err(anyhow!("Invalid immediate pointer: {ptr}")),
+                    }
+                } else {
+                    match self.get(&ptr) {
+                        None => return Err(anyhow!("LightExpr not found for pointer {ptr}")),
+                        Some(None) => {
+                            // opaque data
+                            store.insert_scalar_expression(ptr, None);
+                        }
+                        Some(Some(expr)) => match (ptr.tag(), expr.clone()) {
+                            (ExprTag::Nil, LightExpr::Nil) => {
+                                // stack.insert(ScalarPtr::from_parts(ExprTag::Sym, *ptr.value()));
+                                store.insert_scalar_expression(ptr, Some(ScalarExpression::Nil));
+                            }
+                            (ExprTag::Cons, LightExpr::Cons(x, y)) => {
+                                stack.push(x);
+                                stack.push(y);
+                                store.insert_scalar_expression(
+                                    ptr,
+                                    Some(ScalarExpression::Cons(x, y)),
+                                );
+                            }
+                            (ExprTag::Comm, LightExpr::Comm(f, x)) => {
+                                stack.push(x);
+                                store.insert_scalar_expression(
+                                    ptr,
+                                    Some(ScalarExpression::Comm(f, x)),
+                                );
+                            }
+                            (ExprTag::Sym, LightExpr::SymCons(_, _)) => {
+                                self.insert_scalar_symbol(ptr, store)?;
+                            }
+                            (ExprTag::Str, LightExpr::StrCons(_, _)) => {
+                                self.insert_scalar_string(ptr, store)?;
+                            }
+                            (tag, _) => {
+                                return Err(anyhow!(
+                                    "Invalid pair of tag and LightExpr: ({tag}, {expr})"
+                                ))
+                            }
+                        },
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Convert LightStore to ScalarStore.
     fn to_scalar_store(&self) -> anyhow::Result<ScalarStore<F>> {
         let mut store = ScalarStore::default();
-        for (ptr, le) in self.scalar_map.iter() {
+        for ptr in self.scalar_map.keys() {
             if ptr.is_immediate() {
                 return Err(anyhow!("Immediate pointer found in LightStore: {ptr}"));
             }
-            let se = match (ptr.tag(), le) {
-                (ExprTag::Cons, Some(LightExpr::Cons(x, y))) => {
-                    Some(ScalarExpression::Cons(*x, *y))
-                }
-                (ExprTag::Comm, Some(LightExpr::Comm(f, x))) => {
-                    Some(ScalarExpression::Comm(*f, *x))
-                }
-                (ExprTag::Nil, Some(LightExpr::Nil)) => Some(ScalarExpression::Nil),
-                // TODO: StrCons with opaque contents breaks this
-                (ExprTag::Str, Some(LightExpr::StrCons(_, _))) => {
-                    self.insert_scalar_string(*ptr, &mut store)?;
-                    continue;
-                }
-                (ExprTag::Sym, Some(LightExpr::SymCons(_, _))) => {
-                    self.insert_scalar_symbol(*ptr, &mut store)?;
-                    continue;
-                }
-                _ => None,
-            };
-            store.insert_scalar_expression(*ptr, se);
+            self.intern_ptr_data(*ptr, &mut store)?;
         }
         Ok(store)
     }
