@@ -115,12 +115,15 @@ jobs:
       - set_env_path
       - run: rustup target add wasm32-unknown-unknown
       - run:
-          name: Wasm Build
+          name: Wasm compiles sucessfully, 
           command: cargo build --target wasm32-unknown-unknown
       - run:
           name: Linux Tests
           command: cargo nextest run --profile ci --workspace
           no_output_timeout: 120m
+      - run:
+          name: Linux Gadget Tests w/o debug assertions
+          command: cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
 
   linux_release:
     executor: default
@@ -133,11 +136,11 @@ jobs:
       - set_env_path
       - install_gpu_deps
       - run:
-          name: Linux Tests
-          command: cargo nextest run --profile ci --release --workspace --run-ignored all -E 'all() - test(groth16::tests::outer_prove_recursion)'
+          name: Linux compiles successfully, incl. benchmarks
+          command: cargo build --benches
       - run:
-          name: Linux benchmarks compile successfully
-          command: cargo bench --no-run
+          name: Linux Tests
+          command: cargo nextest run --profile ci --workspace --run-ignored all -E 'all() - test(groth16::tests::outer_prove_recursion)'
       - run:
           name: Linux Doc Tests
           command: cargo test --doc --workspace
@@ -157,12 +160,12 @@ jobs:
       - set_env_path
       - install_gpu_deps
       - run:
-          name: Arm64 Tests
-          command: cargo nextest run --profile ci --release --workspace
-          no_output_timeout: 120m
+          name: Arm64 compiles successfully, incl. benchmarks
+          command: cargo build --benches
       - run:
-          name: Arm64 benchmarks compile successfully
-          command: cargo bench --no-run
+          name: Arm64 Tests
+          command: cargo nextest run --profile ci --workspace
+          no_output_timeout: 120m
       - run:
           name: Arm64 Doc Tests
           command: cargo test --doc --workspace
@@ -180,12 +183,12 @@ jobs:
       - set_versions_n_runners
       - set_env_path
       - run:
-          name: MacOS Tests
-          command: cargo nextest run --profile ci --release --workspace
-          no_output_timeout: 120m
+          name: MacOS compiles successfully, incl. benchmarks
+          command: cargo build --benches
       - run:
-          name: MacOS benchmarks compile successfully
-          command: cargo bench --no-run
+          name: MacOS Tests
+          command: cargo nextest run --profile ci --workspace
+          no_output_timeout: 120m
       - run:
           name: MacOS Doc Tests
           command: cargo test --doc --workspace
