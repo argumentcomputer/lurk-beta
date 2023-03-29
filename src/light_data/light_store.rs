@@ -361,11 +361,11 @@ pub mod tests {
 
         store.insert(
             sym_ptr_half,
-            Some(LightExpr::SymCons(str2_ptr_full, sym_nil)),
+            Some(LightExpr::SymCons(str1_ptr_full, sym_nil)),
         );
         store.insert(
             sym_ptr_full,
-            Some(LightExpr::SymCons(str1_ptr_full, sym_ptr_half)),
+            Some(LightExpr::SymCons(str2_ptr_full, sym_ptr_half)),
         );
 
         let expected_output = {
