@@ -1,6 +1,6 @@
 # Lurk
 
-[![CircleCI](https://circleci.com/gh/lurk-lang/lurk-rs.svg?style=shield)](https://circleci.com/gh/lurk-lang/lurk-rs)
+[![CircleCI](https://circleci.com/gh/lurk-lab/lurk-rs.svg?style=shield)](https://circleci.com/gh/lurk-lab/lurk-rs)
 ![minimum rustc 1.60][msrv-image]
 ![crates.io][crates-image]
 
@@ -13,13 +13,13 @@
 
 # Overview
 
-Lurk is a statically scoped dialect of Lisp, influenced by Scheme and Common Lisp. A language specification and reference implementation focused on describing and developing the core language can be found in the [`lurk`](https://github.com/lurk-lang/lurk) repo.
+Lurk is a statically scoped dialect of Lisp, influenced by Scheme and Common Lisp. A language specification and reference implementation focused on describing and developing the core language can be found in the [`lurk`](https://github.com/lurk-lab/lurk) repo.
 
-- [Lurk Language Specification](https://github.com/lurk-lang/lurk/blob/master/spec/v0-1.md)
+- [Lurk Language Specification](https://github.com/lurk-lab/lurk/blob/master/spec/v0-1.md)
 
 Lurk's distinguishing feature relative to most programming languages is that correct execution of Lurk programs can be directly proved using zk-SNARKs. The resulting proofs are succinct: they are relatively small, can be verified quickly, and they reveal only the information explicitly contained in the statement to be proved.
 
-Lurk's distinguishing feature relative to most zk-SNARK authoring languages is that Lurk is Turing complete, so arbitrary computational claims can be made and proved (subject to resource limitations, obviously). Because Lurk is a Lisp, its code is simply Lurk data, and any Lurk data can be directly evaluated as a Lurk program. Lurk constructs compound data using SNARK-friendly Poseidon hashes (provided by [Neptune](https://github.com/filecoin-project/neptune)), so its data is naturally content-addressable.
+Lurk's distinguishing feature relative to most zk-SNARK authoring languages is that Lurk is Turing complete, so arbitrary computational claims can be made and proved (subject to resource limitations, obviously). Because Lurk is a Lisp, its code is simply Lurk data, and any Lurk data can be directly evaluated as a Lurk program. Lurk constructs compound data using SNARK-friendly Poseidon hashes (provided by [Neptune](https://github.com/lurk-lab/neptune)), so its data is naturally content-addressable.
 
 # Proofs
 
@@ -42,11 +42,12 @@ Lurk backend integration is still immature, so current performance is not repres
 - [Reduction Notes](spec/reduction-notes.md)
 
 ---
+
 # Build
 
 ## Submodules
 
-Lurk source files used in tests are in the [lurk-lib](https://github.com/lurk-lang/lurk-lib) submodule. You must
+Lurk source files used in tests are in the [lurk-lib](https://github.com/lurk-lab/lurk-lib) submodule. You must
 initialize and update submodules before test will pass:
 
 ```
@@ -139,6 +140,7 @@ INFO  lurk::eval > Frame: 9
 
 You can enter into a [Nix](https://nixos.org) shell with the appropriate
 dependencies for Lurk with
+
 ```
 $ nix-shell
 ```

@@ -1,0 +1,25 @@
+name: "Check documentation links"
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linkChecker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Link Checker
+        uses: lycheeverse/lychee-action@v1.5.4
+        with:
+          # Can switch to true once we run clean
+          fail: false
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
