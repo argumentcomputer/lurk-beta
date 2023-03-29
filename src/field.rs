@@ -233,7 +233,7 @@ impl<F: LurkField> Arbitrary for FWrap<F> {
     }
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl<F: LurkField> Hash for FWrap<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.to_repr().as_ref().hash(state);

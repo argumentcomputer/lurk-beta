@@ -189,7 +189,7 @@ struct PoseidonCache<F: LurkField> {
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 struct CacheKey<F: LurkField, const N: usize>([F; N]);
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl<F: LurkField, const N: usize> Hash for CacheKey<F, N> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         for el in &self.0 {
@@ -250,7 +250,7 @@ pub trait Pointer<F: LurkField + From<u64>>: fmt::Debug + Copy + Clone + Partial
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Ptr<F: LurkField>(ExprTag, RawPtr<F>);
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl<F: LurkField> Hash for Ptr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
@@ -373,7 +373,7 @@ impl<E: Tag, F: LurkField> Encodable for SPtr<E, F> {
     }
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl<E: Tag, F: LurkField> Hash for SPtr<E, F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.to_field_bytes::<F>().as_ref().hash(state);
@@ -456,7 +456,7 @@ pub type ScalarContPtr<F> = SPtr<ContTag, F>;
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ContPtr<F: LurkField>(ContTag, RawPtr<F>);
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl<F: LurkField> Hash for ContPtr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
@@ -502,7 +502,7 @@ impl<F: LurkField> RawPtr<F> {
     }
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl<F: LurkField> Hash for RawPtr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
@@ -547,7 +547,7 @@ pub struct Thunk<F: LurkField> {
     pub(crate) continuation: ContPtr<F>,
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl<F: LurkField> Hash for Thunk<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.value.hash(state);
