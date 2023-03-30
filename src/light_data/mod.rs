@@ -103,10 +103,12 @@ impl LightData {
     pub fn to_trimmed_le_bytes(x: usize) -> Vec<u8> {
         x.to_le_bytes()[..Self::byte_count(x) as usize].to_vec()
     }
-    /// Returns the minimum number of bytes required to represent the integer.
-    pub fn trimmed_le_bytes_len(xs: &[u8]) -> usize {
-        // usize::from_le_bytes(xs.try_into().unwrap())
-        xs.iter().rev().fold(0, |acc, &x| (acc * 256) + x as usize)
+
+    /// Returns the `usize` represented by a little endian byte array
+    pub fn read_size_bytes(xs: &[u8]) -> usize {
+        let mut xs = xs.to_vec();
+        xs.resize((usize::BITS as usize) / 8, 0);
+        usize::from_le_bytes(xs.try_into().unwrap())
     }
 
     /// Returns the tag byte for this `LightData`.
@@ -181,7 +183,7 @@ impl LightData {
             }
         } else {
             let (i, bytes) = take(size)(i)?;
-            let size = LightData::trimmed_le_bytes_len(bytes);
+            let size = LightData::read_size_bytes(bytes);
             (i, size)
         };
 
@@ -278,9 +280,9 @@ pub mod tests {
     #[test]
     fn unit_trimmed_bytes() {
         assert_eq!(LightData::to_trimmed_le_bytes(43411), vec![147, 169]);
-        assert_eq!(43411, LightData::trimmed_le_bytes_len(&vec![147, 169]));
+        assert_eq!(43411, LightData::read_size_bytes(&vec![147, 169]));
         assert_eq!(LightData::to_trimmed_le_bytes(37801), vec![169, 147]);
-        assert_eq!(37801, LightData::trimmed_le_bytes_len(&vec![169, 147]));
+        assert_eq!(37801, LightData::read_size_bytes(&vec![169, 147]));
     }
 
     #[test]
