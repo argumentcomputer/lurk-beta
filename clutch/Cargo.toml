@@ -1,0 +1,20 @@
+[package]
+name = "clutch"
+version = "0.1.0"
+authors = ["porcuquine <porcuquine@gmail.com>"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Lurk supertool"
+repository = "https://github.com/lurk-lab/lurk-rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.69"
+blstrs = "0.6.1"
+clap = "4.1.8"
+fcomm = { path = "../fcomm" }
+lurk = { path = "../" }
+pasta_curves = { version = "0.5.2", features = ["repr-c", "serde"], package = "fil_pasta_curves" }
+pretty_env_logger = "0.4"
+serde = { version = "1.0", features = ["derive"] }

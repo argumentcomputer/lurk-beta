@@ -1,0 +1,31 @@
+;; Let's define a function: f(x) = 3x^2 + 9x + 2
+
+!(:def f (lambda (x) (+ (* 3 (* x x)) (+ (* 9 x) 2))))
+
+;; We can create a cryptographic commitment to f.
+
+!(:commit f)
+
+;; We open the functional commitment on input 5: Evaluate f(5).
+
+!(:call 0x396e9cd726a3c323ad1ec3a7651da94bc08c2d7baa68211186101d3735fb31d3 5)
+
+;; We can prove the functional-commitment opening.
+
+!(:prove)
+
+;; We can inspect the input expression that was proved.
+
+!(:proof-in-expr "bafkr4icpnzlbslcikkdcitwtgdq6krfxgzsgfdvtrdfzbpgrzwtohaf6dq")
+
+;; And also the output expression.
+
+!(:proof-out-expr "bafkr4icpnzlbslcikkdcitwtgdq6krfxgzsgfdvtrdfzbpgrzwtohaf6dq")
+
+;; We can also see exactly what we claim to have proved.
+
+!(:proof-claim "bafkr4icpnzlbslcikkdcitwtgdq6krfxgzsgfdvtrdfzbpgrzwtohaf6dq")
+
+;; Finally, and most importantly, we can verify the proof.
+
+!(:verify "bafkr4icpnzlbslcikkdcitwtgdq6krfxgzsgfdvtrdfzbpgrzwtohaf6dq")

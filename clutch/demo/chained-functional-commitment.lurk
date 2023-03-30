@@ -1,0 +1,57 @@
+;; First, we define a stateful function that adds its input to an internal counter, initialized to 0.
+
+;; The function returns a new counter value and a commitment to a replacement function wrapping the new counter.
+
+!(:commit (letrec ((add (lambda (counter x)
+                          (let ((counter (+ counter x)))
+                            (cons counter (commit (add counter)))))))
+            (add 0)))
+
+;; We chain a next commitment by applying the committed function to a value of 9.
+
+!(:chain 0x3ce3d2df00eb623965384c5b57e162221eb984065eadb19f9daa3190afdcb121 9)
+
+;; The new counter value is 9, and the function returns a new functional commitment.
+
+;; This new commitment is now the head of the chain.
+
+;; Next, we ccreate a proof of this transtion.
+
+!(:prove)
+
+;; We can verify the proof.
+
+!(:verify "bafkr4if5f6jgci5ot7k57icbiglq3o7dpkmrfhuahddbxuorte7zdudgeq")
+
+;; Now let's chain another call to the new head, adding 12 to the counter.
+
+!(:chain 0x16e909ae4e83b4fc29faa8e8dad0a90f301cf99fd2a1329f6cec685b81d1091a 12)
+
+;; Now the counter is 21, and we have a new head commitment.
+
+;; Prove it.
+
+!(:prove)
+
+;; And verify.
+
+!(:verify "bafkr4ienaoeogd2n6oy4tttgrza5kjff2fqxzdng6lhpnmaqzlilbphpra")
+
+;; One more time, we'll add 14 to the head commitment's internal state.
+
+!(:chain 0x1f9c18bdabf909167df079312b1921010ec5250aa352195ded4eaf6a2aa9c66e 14)
+
+;; 21 + 14 = 35, as expected.
+
+;; Prove.
+
+!(:prove)
+
+;; Verify.
+
+!(:verify "bafkr4ier43cylaoprfa4sjxqduy3lsjgdimewk6vtottrktapkxf6r4ase")
+
+;; Repeat indefinitely.
+
+;; At every step, we have proof that the head commitment was correctly derived from the previous and some input.
+

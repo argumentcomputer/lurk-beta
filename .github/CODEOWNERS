@@ -1,0 +1,10 @@
+# Global Owners: @porcuquine, @huitseeker
+* @lurk-lab/lurk-noncircuit
+
+# Order is important; the last matching pattern takes the most
+# precedence. This excludes @huitseeker for /src/eval.rs
+/src/eval.rs @porcuquine
+
+# Circuit
+# And this excludes everyone but @emmorais for /src/circuit/**
+/src/circuit/** @lurk-lab/lurk-circuit

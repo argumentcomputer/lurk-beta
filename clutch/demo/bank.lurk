@@ -1,0 +1,240 @@
+;; Let's build a functional bank.
+
+;; We'll start by defining a tiny database of people and their balances.
+
+!(:def people '((:first-name "Alonzo" :last-name "Church" :balance 123 :id 0)
+                (:first-name "Alan" :last-name "Turing" :balance 456 :id 1)
+                (:first-name "Satoshi" :last-name "Nakamoto" :balance 9000 :id 2)))
+
+;; We need a way to look up keys in the database records, so we define a getter.
+
+!(:defrec get (lambda (key plist)
+                (if plist
+                    (if (eq key (car plist))
+                        (car (cdr plist))
+                        (get key (cdr (cdr plist))))
+                    nil)))
+
+;; Let's test it by getting the last name of the first person.
+
+(get :last-name (car people))
+
+;; We also need some functional helpers. Map applies a function to each element of a list.
+
+!(:defrec map (lambda (f list)
+                (if list
+                    (cons (f (car list))
+                          (map f (cdr list)))
+                    ())))
+
+;; Filter removes elements of a list that don't satisfy a predicate function.
+
+!(:defrec filter (lambda (pred list)
+                   (if list
+                       (if (pred (car list))
+                           (cons (car list) (filter pred (cdr list)))
+                           (filter pred (cdr list)))
+                       ())))
+
+;; Let's write a predicate that is true when an entry's balance is at least a specified amount.
+
+!(:def balance-at-least? (lambda (x)
+                           (lambda (entry)
+                             (>= (get :balance entry) x))))
+
+;; Putting it together, let's query the database for the first name of people with a balance of at least 200.
+
+(map (get :first-name) (filter (balance-at-least? 200) people))
+
+;; And let's get everyone's balance.
+
+(map (get :balance) people)
+
+;; We can define a function to sum a list of values recursively.
+
+!(:defrec sum (lambda (vals)
+                (if vals
+                    (+ (car vals) (sum (cdr vals)))
+                    0)))
+
+;; Apply this to the balances, and we can calculate the total funds in a database.
+
+!(:def total-funds (lambda (db) (sum (map (get :balance) db))))
+
+;; Let's snapshot the initial funds.
+
+!(:def initial-total-funds (emit (total-funds people)))
+
+;; We can check a database to see if funds were conserved by comparing with the inital total.
+
+!(:def funds-are-conserved? (lambda (db) (= initial-total-funds (total-funds db))))
+
+;; Here's a setter.
+
+!(:def set (lambda (key value plist)
+             (letrec ((aux (lambda (acc plist)
+                             (if plist
+                                 (if (eq key (car plist))
+                                     (aux (cons key (cons value acc))
+                                          (cdr (cdr plist)))
+                                     (aux (cons (car plist)
+                                                (cons (car (cdr plist)) acc))
+                                          (cdr (cdr plist))))
+                                 acc))))
+               (aux () plist))))
+
+;; We can use it to change a balance.
+
+(set :balance 666 (car people))
+
+;; More useful is an update function that modifes a field based on its current value.
+
+!(:def update (lambda (key update-fn plist)
+                (letrec ((aux (lambda (acc plist)
+                                (if plist
+                                    (if (eq key (car plist))
+                                        (aux (cons key (cons (update-fn (car (cdr plist))) acc))
+                                             (cdr (cdr plist)))
+                                        (aux (cons (car plist)
+                                                   (cons (car (cdr plist)) acc))
+                                             (cdr (cdr plist))))
+                                    acc))))
+                  (aux () plist))))
+
+;; For example, we can double Church's balance.
+
+(update :balance (lambda (x) (* x 2)) (car people))
+
+;; And, here's a function that updates only the rows that satisfy a predicate.
+
+!(:def update-where (lambda (predicate key update-fn db)
+                      (letrec ((aux (lambda (db)
+                                      (if db
+                                          (if (predicate (car db))
+                                              (cons (update key update-fn (car db))
+                                                    (aux (cdr db)))
+                                              (cons (car db)
+                                                    (aux (cdr db))))
+                                          nil))))
+                        (aux db))))
+
+;; Let's write a predicate for selecting rows by ID.
+
+!(:def has-id? (lambda (id x) (eq id (get :id x))))
+
+;; That lets us change the first letter of the first name of the person with ID 2.
+
+(update-where (has-id? 2) :first-name (lambda (x) (strcons #\Z (cdr x))) people)
+
+;; Finally, let's put it all together and write a function to send balances from one account to another.
+
+;; We select the from account by filtering on id,
+
+;; Check that its balance is at least the transfer amount,
+
+;; Then update both the sender and receiver's balance by the amount.
+
+;; If the sender doesn't have enough funds, we display an insufficient funds message, and return the database unchanged.
+
+!(:def send (lambda (amount from-id to-id db)
+              (let ((from (car (filter (has-id? from-id) db))))
+                (if (balance-at-least? amount from)
+                    (let ((debited (update-where (has-id? from-id) :balance (lambda (x) (- x amount)) db))
+                          (credited (update-where (has-id? to-id) :balance (lambda (x) (+ x amount)) debited)))
+                      credited)
+                    (begin (emit "INSUFFICIENT FUNDS") db)))))
+
+;; In token of this new function, we'll call our database of people a ledger.
+
+!(:def ledger people)
+
+;; We can send 200 from account 1 to account 0.
+
+(send 200 1 0 ledger)
+
+;; And assert that funds were conserved. (Nothing was created or destroyed.)
+
+;; [ERRATUM: This assertion should have run against the result of send, not the original ledger.]
+!(:assert (funds-are-conserved? ledger))
+
+;; Or, using the original ledger, we can try sending 200 from account 0 to 1.
+
+(send 200 0 1 ledger)
+
+;; Notice that this transaction fails due to insufficient funds. However,
+
+;; [ERRATUM: This assertion should have run against the result of send, not the original ledger.]
+!(:assert (funds-are-conserved? ledger))
+
+;; funds are still conserved
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Functional Commitment to a Database Value
+
+;; Let's define a function that takes a database and returns a transfer function.
+
+;; Transfer function takes an amount, a source id, and a destination id, then attempts to send the funds.
+
+!(:def fn<-db (lambda (db)
+                (lambda (transfer)
+                  (let ((amount (car transfer))
+                        (rest (cdr transfer))
+                        (from-id (car rest))
+                        (rest (cdr rest))
+                        (to-id (car rest)))
+                    (send (emit amount) (emit from-id) (emit to-id) (emit db))))))
+
+;; Now let's create a transfer function for our ledger, and commit to it.
+
+!(:commit (fn<-db ledger))
+
+;; Now we can open the committed ledger transfer function on a transaction.
+
+!(:call 0x36283c9973a837574e3e5a15815b60a541df265b0f218ab048e99a7c44ee3769 '(1 0 2))
+
+;; And the record reflects that Church sent one unit to Satoshi.
+
+;; Let's prove it.
+
+!(:prove)
+
+;; We can verify the proof..
+
+!(:verify "bafkr4id2eiiu2ajtlrobeizxqjzdhzpdymmhj7fwugl73fx5kgl5n2jtzi")
+
+;; Unfortunately, this functional commitment doesn't let us maintain state.
+;; Let's turn our single-transaction function into a chained function.
+
+!(:def chain<-db (lambda (db secret)
+                   (letrec ((foo (lambda (state msg)
+                                   (let ((new-state ((fn<-db state) msg)))
+                                     (cons new-state (hide secret (foo new-state)))))))
+                     (foo db))))
+
+;; We'll call this on our ledger, and protect write-access with a secret value (999).
+
+!(:commit (chain<-db ledger 999))
+
+;; Now we can transfer one unit from Church to Satoshi like before.
+
+!(:chain  0x0757a47095c97d0a58a8ff66a2146949ee9d60d3f0a82887c203edf1748be711 '(1 0 2))
+
+!(:prove)
+
+!(:verify "bafkr4ifwpaa53jdsh7qz62efvt33l3ts7fen6hcwu6m2xcmp3ysv25wxt4")
+
+;; Then we can transfer 5 more, proceeding from the new head of the chain.
+
+!(:chain 0x14f7a28206656cb7cd6bfcdda773c470653f3136d894d9cb8240e28e3eb52e55 '(5 0 2))
+
+!(:prove)
+
+!(:verify "bafkr4idsf5btj7bl6nsyx26gfqrqjlchyo4hvmm7gda4b35lhvhew5qbkm")
+
+;; And once more, this time we'll transfer 20 from Turing to Church.
+
+!(:chain 0x363b52b6be70c524df767e3a0f0289e5a1ebb0abf2c04d01fe4078b18627a66c '(20 1 0))
+
+!(:prove)
+
+!(:verify "bafkr4icwzzdqzmmxia6u3inlcj5tyre3n5qtbhofjub32uwitw5awmplha")
