@@ -107,7 +107,7 @@ impl LightData {
     /// Returns the `usize` represented by a little endian byte array
     pub fn read_size_bytes(xs: &[u8]) -> usize {
         let mut bytes = [0u8; (usize::BITS as usize) / 8];
-        bytes[.. xs.len()].copy_from_slice(&xs);
+        bytes[..xs.len()].copy_from_slice(&xs);
         usize::from_le_bytes(bytes)
     }
 
