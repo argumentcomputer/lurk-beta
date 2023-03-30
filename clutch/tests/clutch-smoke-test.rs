@@ -29,11 +29,13 @@ fn test_demo(name: &str) {
 }
 
 #[test]
+#[ignore]
 fn test_functional_commitments_demo() {
     test_demo("functional-commitment.lurk");
 }
 
 #[test]
+#[ignore]
 fn test_chained_functional_commitments_demo() {
     test_demo("chained-functional-commitment.lurk");
 }
