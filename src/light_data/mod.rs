@@ -106,9 +106,9 @@ impl LightData {
 
     /// Returns the `usize` represented by a little endian byte array
     pub fn read_size_bytes(xs: &[u8]) -> usize {
-        let mut xs = xs.to_vec();
-        xs.resize((usize::BITS as usize) / 8, 0);
-        usize::from_le_bytes(xs.try_into().unwrap())
+        let mut bytes = [0u8; (usize::BITS as usize) / 8];
+        bytes[.. xs.len()].copy_from_slice(&xs);
+        usize::from_le_bytes(bytes)
     }
 
     /// Returns the tag byte for this `LightData`.
@@ -182,6 +182,9 @@ impl LightData {
                 _ => (i, size as usize),
             }
         } else {
+            if size > 4 {
+                panic!("Invalid size for non-small tag {tag}: {size} > 4")
+            }
             let (i, bytes) = take(size)(i)?;
             let size = LightData::read_size_bytes(bytes);
             (i, size)
