@@ -1,3 +1,9 @@
+#![deny(missing_docs)]
+//! The finite field used in the language.
+//!
+//! This defines the LurkField trait used pervasively in the code base
+//! as an extension of the ff::PrimeField trait, with conveniance methods
+//! relating this field to the expresions of the language.
 use anyhow::anyhow;
 use ff::{PrimeField, PrimeFieldBits};
 use serde::{Deserialize, Serialize};
@@ -15,14 +21,19 @@ use rand::{rngs::StdRng, SeedableRng};
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 
 /// The type of finite fields used in the language
+/// For Pallas/Vesta see https://electriccoin.co/blog/the-pasta-curves-for-halo-2-and-beyond/
 pub enum LanguageField {
+    /// The Pallas field,
     Pallas,
+    /// The Vesta field,
     Vesta,
+    /// The BLS12-381 scalar field,
     BLS12_381,
 }
 
 /// Trait implemented by finite fields used in the language
 pub trait LurkField: PrimeField + PrimeFieldBits {
+    /// The type of the field element's representation
     const FIELD: LanguageField;
 
     /// Converts the field element to a byte vector
@@ -233,7 +244,7 @@ impl<F: LurkField> Arbitrary for FWrap<F> {
     }
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl<F: LurkField> Hash for FWrap<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.to_repr().as_ref().hash(state);
