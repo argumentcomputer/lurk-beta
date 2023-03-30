@@ -12,7 +12,6 @@ use anyhow::{Context, Result};
 use clap::{Arg, ArgAction, Command};
 use peekmore::PeekMore;
 use rustyline::error::ReadlineError;
-use rustyline::history::DefaultHistory;
 use rustyline::validate::{
     MatchingBracketValidator, ValidationContext, ValidationResult, Validator,
 };
@@ -43,7 +42,7 @@ pub struct ReplState<F: LurkField> {
 
 pub struct Repl<F: LurkField, T: ReplTrait<F>> {
     state: T,
-    rl: Editor<InputValidator, DefaultHistory>,
+    rl: Editor<InputValidator>,
     history_path: PathBuf,
     _phantom: F,
 }
@@ -105,7 +104,7 @@ impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
             .color_mode(rustyline::ColorMode::Enabled)
             .auto_add_history(true)
             .build();
-        let mut rl = Editor::with_config(config)?;
+        let mut rl = Editor::with_config(config);
         rl.set_helper(Some(h));
         if history_path.exists() {
             rl.load_history(&history_path)?;
