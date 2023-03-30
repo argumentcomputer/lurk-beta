@@ -23,8 +23,8 @@ use lurk::{
 //       ldonCons1, ldonCons2, ldonCons3, ldonCons4]
 //     let stt := ldons.foldl (init := default) fun acc ldon =>
 //       let (_, acc) := ldon.commit acc; acc
-//     let ld : LightData := stt.exprs
-//     IO.FS.writeBinFile ⟨"foo.store"⟩ ld.toByteArray
+//     let ld : LightData := stt.store
+//     IO.FS.writeBinFile ⟨"foo.ldstore"⟩ ld.toByteArray
 // Whereas `id.ldstore` contains the data needed for typechecking the `id` function
 fn test_light_store_deserialization() {
     let directory = "tests/ldstores";

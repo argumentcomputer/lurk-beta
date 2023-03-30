@@ -275,24 +275,8 @@ pub enum LightExpr<F: LurkField> {
         )
     )]
     Comm(F, ScalarPtr<F>),
-    /// Analogous to ScalarExpression::Num
-    #[cfg_attr(
-        not(target_arch = "wasm32"),
-        proptest(strategy = "any::<FWrap<F>>().prop_map(|x| Self::Num(x.0))")
-    )]
-    Num(F),
-    /// Analogous to ScalarExpression::Char
-    #[cfg_attr(
-        not(target_arch = "wasm32"),
-        proptest(strategy = "any::<FWrap<F>>().prop_map(|x| Self::Char(x.0))")
-    )]
-    Char(F),
     /// Analogous to ScalarExpression::Nil
     Nil,
-    /// Analogous to ScalarExpression::Str(""), but as a terminal case of StrCons
-    StrNil,
-    /// Analogous to ScalarExpression::Sym(Sym::root()), but as a terminal case of SymCons
-    SymNil,
 }
 
 impl<F: LurkField> std::fmt::Display for LightExpr<F> {
@@ -304,19 +288,7 @@ impl<F: LurkField> std::fmt::Display for LightExpr<F> {
             LightExpr::Comm(ff, x) => {
                 write!(f, "({} comm. {})", ff.trimmed_hex_digits(), x)
             }
-            LightExpr::Num(ff) => write!(f, "Num({})", ff.trimmed_hex_digits()),
-            LightExpr::Char(ff) => {
-                write!(
-                    f,
-                    "Char({})",
-                    ff.to_char()
-                        .map(|c| c.to_string())
-                        .unwrap_or_else(|| ff.trimmed_hex_digits())
-                )
-            }
             LightExpr::Nil => write!(f, "nil"),
-            LightExpr::StrNil => write!(f, "\"\""),
-            LightExpr::SymNil => write!(f, "root"),
         }
     }
 }
@@ -336,19 +308,13 @@ impl<F: LurkField> Encodable for LightExpr<F> {
             LightExpr::Comm(f, x) => {
                 LightData::Cell(vec![LightData::Atom(vec![3u8]), FWrap(*f).ser(), x.ser()])
             }
-            LightExpr::Num(f) => LightData::Cell(vec![LightData::Atom(vec![]), FWrap(*f).ser()]),
-            LightExpr::Char(f) => LightData::Cell(vec![LightData::Cell(vec![]), FWrap(*f).ser()]),
-            LightExpr::Nil => LightData::Atom(vec![0u8]),
-            LightExpr::StrNil => LightData::Atom(vec![1u8]),
-            LightExpr::SymNil => LightData::Atom(vec![2u8]),
+            LightExpr::Nil => LightData::Atom(vec![]),
         }
     }
     fn de(ld: &LightData) -> anyhow::Result<Self> {
         match ld {
             LightData::Atom(v) => match v[..] {
-                [0u8] => Ok(LightExpr::Nil),
-                [1u8] => Ok(LightExpr::StrNil),
-                [2u8] => Ok(LightExpr::SymNil),
+                [] => Ok(LightExpr::Nil),
                 _ => Err(anyhow!("LightExpr::Atom({:?})", v)),
             },
             LightData::Cell(v) => match &v[..] {
@@ -357,14 +323,6 @@ impl<F: LurkField> Encodable for LightExpr<F> {
                     [1u8] => Ok(LightExpr::StrCons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
                     [2u8] => Ok(LightExpr::SymCons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
                     [3u8] => Ok(LightExpr::Comm(FWrap::de(x)?.0, ScalarPtr::de(y)?)),
-                    _ => Err(anyhow!("LightExpr::Cell({:?})", v)),
-                },
-                [LightData::Cell(u), ref x] => match u[..] {
-                    [] => Ok(LightExpr::Char(FWrap::de(x)?.0)),
-                    _ => Err(anyhow!("LightExpr::Cell({:?})", v)),
-                },
-                [LightData::Atom(u), ref x] => match u[..] {
-                    [] => Ok(LightExpr::Num(FWrap::de(x)?.0)),
                     _ => Err(anyhow!("LightExpr::Cell({:?})", v)),
                 },
                 _ => Err(anyhow!("LightExpr::Cell({:?})", v)),
