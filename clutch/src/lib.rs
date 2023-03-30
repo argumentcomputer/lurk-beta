@@ -173,18 +173,6 @@ impl ReplTrait<F> for ClutchState<F> {
             .to_string()
     }
 
-    /// Returns two bools.
-    /// First bool is true if input is a command.
-    /// Second bool is true if processing should continue.
-    fn maybe_handle_command(
-        &mut self,
-        store: &mut Store<F>,
-        line: &str,
-        package: &Package,
-    ) -> Result<(bool, bool)> {
-        self.repl_state.maybe_handle_command(store, line, package)
-    }
-
     fn handle_meta<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
@@ -249,11 +237,8 @@ impl ReplTrait<F> for ClutchState<F> {
         &mut self,
         store: &mut Store<F>,
         expr_ptr: Ptr<F>,
-        update_env: bool,
     ) -> Result<(IO<F>, IO<F>, usize)> {
-        let (input, output, iterations) = self
-            .repl_state
-            .handle_non_meta(store, expr_ptr, update_env)?;
+        let (input, output, iterations) = self.repl_state.handle_non_meta(store, expr_ptr)?;
 
         self.history.push(output);
 

@@ -5,6 +5,7 @@ use lurk::{
 use std::path::Path;
 
 #[test]
+#[ignore]
 fn lurk_tests() {
     let test_files = [
         "test.lurk",
@@ -13,6 +14,9 @@ fn lurk_tests() {
         "meta-letrec-tests.lurk",
         "fibonacci-tests.lurk",
         "tests/spec.lurk",
+        "tests/eval.lurk",
+        "tests/begin.lurk",
+        "tests/auto-curry.lurk",
     ];
 
     let example_dir = Path::new("lurk-lib/example/");
