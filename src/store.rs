@@ -1303,7 +1303,11 @@ impl<F: LurkField> Store<F> {
                     Some(ptr)
                 }
                 (ExprTag::Key, Some(Sym(k))) => Some(self.intern_key(k)),
-                (ExprTag::Num, Some(Num(x))) => Some(self.intern_num(crate::Num::Scalar(*x))),
+                (ExprTag::Num, Some(Num(x))) => {
+                    let ptr = self.intern_num(crate::Num::Scalar(*x));
+                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
+                    Some(ptr)
+                }
                 (ExprTag::Char, Some(Char(x))) => Some((*x).into()),
                 (ExprTag::Thunk, Some(Thunk(t))) => {
                     let value = self.intern_scalar_ptr(t.value, scalar_store)?;
@@ -1326,14 +1330,8 @@ impl<F: LurkField> Store<F> {
                     let env = self.intern_scalar_ptr(*closed_env, scalar_store)?;
                     Some(self.intern_fun(arg, body, env))
                 }
-                (tag, None) => {
-                    //println!("OPAQUE {:?} {:?}", scalar_ptr, tag);
-                    Some(self.intern_maybe_opaque(tag, scalar_ptr.1))
-                }
-                (_tag, _expr) => {
-                    //println!("NONE {:?} {:?}", tag, expr);
-                    None
-                }
+                (tag, None) => Some(self.intern_maybe_opaque(tag, scalar_ptr.1)),
+                _ => None,
             }
         }
     }
