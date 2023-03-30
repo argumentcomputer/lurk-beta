@@ -1,98 +1,41 @@
-# title: Yatima Standard Rustfmt Configuration
+# title: Lurk Rustfmt Configuration
 # author: John C. Burnham <john@yatima.io>
 
 # For additional information about Rustfmt options see:
-# https://rust-lang.github.io/rustfmt/?version=v1.5.1&
+# https://rust-lang.github.io/rustfmt/?version=v1.5.1&search=
 
 # General
-version              = "One"              # rustfmt 2.0 is not released yet
-edition              = "2021"             # Rust edition
-unstable_features    = false              # don't use unstable rustfmt features
-newline_style        = "Unix"             # Never allow Windows' \n\r newlines
-# disable_all_formatting = false            # mostly useless setting
+edition                      = "2021"     # Rust edition
+newline_style                = "Unix"     # never allow Windows' \n\r newlines
 
 # Indent
-hard_tabs            = false              # hard tabs break consistent layout
-tab_spaces           = 2                  # override default 4 space indent
-indent_style         = "Block"
+hard_tabs                    = false      # hard tabs break consistent layout
+tab_spaces                   = 2          # override default 4 space indent
 
 # Imports
-imports_layout       = "Vertical"         # each import on its own line
-imports_granularity  = "Crate"            # combine imports by crate
-reorder_imports      = true               # reorder from source
-group_imports        = "StdExternalCrate" # in three groups
+reorder_imports              = true       # reorder from source
 
 # Width
-max_width            = 80                 # Don't go over 80 columns
-use_small_heuristics = "Max"              # Inherit max width for most objects
-
-# Braces
-brace_style          = "SameLineWhere"    # open braces stay on the same line
-control_brace_style  = "ClosingNextLine"  # control flow gets a new line
+max_width                    = 80         # don't go over 80 columns
+use_small_heuristics         = "Max"      # inherit max width for most objects
 
 # Layout
-blank_lines_lower_bound      = 0          # 0 to 1 blank lines betwen things
-blank_lines_upper_bound      = 1
 fn_args_layout               = "Tall"     # single line if short, else vertical 
-overflow_delimited_expr      = false      # don't let args overflow
-format_strings               = true       # add line breaks for long strings
-combine_control_expr         = true
-struct_field_align_threshold = 0          # no vertical alignment on structs
-enum_discrim_align_threshold = 0          # .. and on enums
 force_explicit_abi           = true       # C doesn't deserve to be special
-force_multiline_blocks       = false
-skip_children                = false      # include the children
-
-# Single Line Declarations
-empty_item_single_line      = true        # allow single_line for various things
-struct_lit_single_line      = true
-fn_single_line              = true
-where_single_line           = true
 
 # Reordering
-reorder_impl_items          = true        # allow reordering
-reorder_modules             = true
-condense_wildcard_suffixes  = true
+reorder_modules             = true        # reorder alphabetically in group
 
 # Punctuation
-space_before_colon          = false       # type annotations look like `x: A`
-space_after_colon           = true
-type_punctuation_density    = "Wide"      # wrap + and = in spaces in types
-spaces_around_ranges        = false       # 0..10, not 0 .. 10
-binop_separator             = "Front"     # puts binops || in beginning of line
 remove_nested_parens        = true        # ((foo)) => (foo)
-trailing_semicolon = true                 # add trailing semicolon
-trailing_comma = "Vertical"               # add trailing comma only when vertical
-
-# Comments
-wrap_comments               = true        # wrap long comments
-normalize_comments          = true        # convert /* */ to //
-format_code_in_doc_comments = true        # apply formatting to code in docs
-comment_width               = 80          # comment width = max width
-normalize_doc_attributes    = true        # #[doc] becomes ///
 
 # Match blocks
-match_arm_blocks            = true        # put match arms in { } blocks
 match_arm_leading_pipes     = "Never"     # no leading | in match arms
 match_block_trailing_comma  = true        # put a , after a { } match block
 
 # Attributes 
 merge_derives               = true        # merge trait derives to one line
-inline_attribute_width      = 0
-
-# Literals
-hex_literal_case            = "Lower"     # Convert hex literals to lowercase
 
 # Shorthand
 use_field_init_shorthand    = true        # replace Foo { x: x } with Foo { x }
 use_try_shorthand           = true        # replace try! with ?
-
-# Macros
-format_macro_matchers       = true        # turn on macro formatting
-format_macro_bodies         = true
-
-# Misc
-format_generated_files        = true      # apply formatting to generated files
-hide_parse_errors             = false     # don't hide the parser's errors
-error_on_line_overflow        = false     # but don't throw your own errors
-error_on_unformatted          = false
