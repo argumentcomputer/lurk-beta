@@ -1,14 +1,8 @@
 #[cfg(test)]
 mod test {
   use blstrs::Scalar as Fr;
-  use lurk::{
-    eval::IO,
-    store::Store,
-  };
-  use lurk_macro::{
-    let_store,
-    lurk,
-  };
+  use lurk::{eval::IO, store::Store};
+  use lurk_macro::{let_store, lurk};
 
   #[test]
   fn test_let_store() {
@@ -50,10 +44,7 @@ mod test {
     assert_eq!(res2, res);
   }
 
-  use lurk::eval::{
-    empty_sym_env,
-    Evaluator,
-  };
+  use lurk::eval::{empty_sym_env, Evaluator};
 
   #[test]
   fn outer_evaluate_recursion1() {

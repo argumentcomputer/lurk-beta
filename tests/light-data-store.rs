@@ -2,8 +2,8 @@ use blstrs::Scalar as Fr;
 use std::{fs, path::Path};
 
 use lurk::{
-    light_data::{Encodable, LightData, LightStore},
-    scalar_store::ScalarStore,
+  light_data::{Encodable, LightData, LightStore},
+  scalar_store::ScalarStore,
 };
 
 #[test]
@@ -26,10 +26,10 @@ use lurk::{
 //     let ld : LightData := stt.exprs
 //     IO.FS.writeBinFile ⟨"foo.store"⟩ ld.toByteArray
 fn test_light_store_deserialization() {
-    let bytes = fs::read(Path::new("tests/foo.store")).unwrap();
-    let ld = LightData::de(&bytes).unwrap();
+  let bytes = fs::read(Path::new("tests/foo.store")).unwrap();
+  let ld = LightData::de(&bytes).unwrap();
 
-    let store: LightStore<Fr> = Encodable::de(&ld).unwrap();
+  let store: LightStore<Fr> = Encodable::de(&ld).unwrap();
 
-    let _scalar_store: ScalarStore<Fr> = store.try_into().unwrap();
+  let _scalar_store: ScalarStore<Fr> = store.try_into().unwrap();
 }

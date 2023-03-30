@@ -1,16 +1,10 @@
-use peekmore::{
-  PeekMore,
-  PeekMoreIterator,
-};
+use peekmore::{PeekMore, PeekMoreIterator};
 use thiserror;
 
 use crate::{
   field::LurkField,
   package::Package,
-  store::{
-    Ptr,
-    Store,
-  },
+  store::{Ptr, Store},
   sym::Sym,
   uint::UInt,
 };
@@ -38,8 +32,7 @@ impl<F: LurkField> Store<F> {
     let mut chars = input.chars().peekmore();
     if skip_whitespace_and_peek(&mut chars).is_some() {
       self.read_next(&mut chars, package)
-    }
-    else {
+    } else {
       Err(Error::NoInput)
     }
   }
@@ -59,18 +52,15 @@ impl<F: LurkField> Store<F> {
             result.push(c);
             chars.next();
           }
-        }
-        else if c == '"' {
+        } else if c == '"' {
           let str = self.intern_str(result);
           return Ok(str);
-        }
-        else {
+        } else {
           result.push(c);
         }
       }
       Err(Error::Syntax("Could not read string".into()))
-    }
-    else {
+    } else {
       Err(Error::Syntax("Could not read string".into()))
     }
   }
@@ -86,20 +76,17 @@ impl<F: LurkField> Store<F> {
           chars.next();
           if let Ok(s) = self.read_string(chars) {
             Ok((s, true))
-          }
-          else if let Ok((e, is_meta)) = self.read_maybe_meta(chars, package)
+          } else if let Ok((e, is_meta)) = self.read_maybe_meta(chars, package)
           {
             assert!(!is_meta);
             Ok((e, true))
-          }
-          else {
+          } else {
             Err(Error::Syntax("Could not read meta".into()))
           }
         },
         _ => self.read_next(chars, package).map(|expr| (expr, false)),
       }
-    }
-    else {
+    } else {
       Err(Error::NoInput)
     }
   }
@@ -132,8 +119,7 @@ impl<F: LurkField> Store<F> {
           chars.next();
           if skip_line_comment(chars) {
             continue;
-          }
-          else {
+          } else {
             Err(Error::Syntax("Bad comment syntax".into()))
           }
         },
@@ -160,8 +146,7 @@ impl<F: LurkField> Store<F> {
         },
         _ => Err(Error::Syntax("Could not read list".into())),
       }
-    }
-    else {
+    } else {
       Err(Error::Syntax("Could not read list".into()))
     }
   }
@@ -182,8 +167,7 @@ impl<F: LurkField> Store<F> {
         '.' if !first => {
           if is_symbol_char(chars.peek_nth(1).unwrap(), false) {
             self.read_tail(true, chars, package)
-          }
-          else {
+          } else {
             chars.next();
             let cdr = self.read_next(chars, package)?;
             let remaining_tail = self.read_tail(false, chars, package)?;
@@ -205,8 +189,7 @@ impl<F: LurkField> Store<F> {
           Ok(self.cons(car, rest))
         },
       }
-    }
-    else {
+    } else {
       Err(Error::Syntax("premature end of input".into()))
     }
   }
@@ -236,21 +219,18 @@ impl<F: LurkField> Store<F> {
               _ => {
                 if let Some(sym) = read_sym(chars)? {
                   Ok(self.intern_sym_in_package(sym, package))
-                }
-                else {
+                } else {
                   Ok(self.intern_sym_in_package(Sym::new("-".into()), package))
                 }
               },
             }
-          }
-          else {
+          } else {
             Ok(self.intern_sym_in_package(Sym::new("-".into()), package))
           }
         },
         _ => Err(Error::Syntax("Could not read nagative number".into())),
       }
-    }
-    else {
+    } else {
       Err(Error::Syntax("Could not read negative number".into()))
     }
   }
@@ -288,15 +268,13 @@ impl<F: LurkField> Store<F> {
 
         if let Some(new) = acc.checked_mul(ten).and_then(|x| x.checked_add(n)) {
           acc = new;
-        }
-        else {
+        } else {
           // If acc * 10 + n would overflow, convert to F-sized accumulator and
           // continue.
           let scalar_acc = F::from(acc) * F::from(ten) + F::from(n);
           return self.read_number_aux(scalar_acc, chars, maybe_fraction);
         }
-      }
-      else if maybe_fraction && c == '/' {
+      } else if maybe_fraction && c == '/' {
         if let Some(c2) = chars.peek_nth(1) {
           if c2.is_ascii_digit() {
             let mut tmp = crate::num::Num::U64(acc);
@@ -308,16 +286,13 @@ impl<F: LurkField> Store<F> {
               tmp /= *d;
             };
             return Ok(self.intern_num(tmp));
-          }
-          else {
+          } else {
             break;
           }
-        }
-        else {
+        } else {
           break;
         }
-      }
-      else {
+      } else {
         break;
       }
     }
@@ -347,8 +322,7 @@ impl<F: LurkField> Store<F> {
         let n: u64 = digit.into();
         let f: F = n.into();
         acc += f;
-      }
-      else if maybe_fraction && c == '/' {
+      } else if maybe_fraction && c == '/' {
         if let Some(c2) = chars.peek_nth(1) {
           if c2.is_ascii_digit() {
             let mut tmp = crate::num::Num::Scalar(acc);
@@ -360,16 +334,13 @@ impl<F: LurkField> Store<F> {
               tmp /= *d;
             };
             return Ok(self.intern_num(tmp));
-          }
-          else {
+          } else {
             break;
           }
-        }
-        else {
+        } else {
           break;
         }
-      }
-      else {
+      } else {
         break;
       }
     }
@@ -407,8 +378,7 @@ impl<F: LurkField> Store<F> {
         let n: u64 = digit.into();
         let f: F = n.into();
         acc += f;
-      }
-      else if maybe_fraction && c == '/' {
+      } else if maybe_fraction && c == '/' {
         if let Some(c2) = chars.peek_nth(1) {
           if is_hex_digit_char(c2) {
             let mut tmp = crate::num::Num::Scalar(acc);
@@ -420,16 +390,13 @@ impl<F: LurkField> Store<F> {
               tmp /= *d;
             };
             return Ok(self.intern_num(tmp));
-          }
-          else {
+          } else {
             break;
           }
-        }
-        else {
+        } else {
           break;
         }
-      }
-      else {
+      } else {
         break;
       }
     }
@@ -463,28 +430,22 @@ impl<F: LurkField> Store<F> {
                 chars.next();
                 chars.next();
                 Some(UInt::U64(0))
-              }
-              else {
+              } else {
                 None
               }
-            }
-            else {
+            } else {
               None
             }
-          }
-          else {
+          } else {
             None
           }
-        }
-        else {
+        } else {
           None
         }
-      }
-      else {
+      } else {
         None
       }
-    }
-    else {
+    } else {
       None
     }
   }
@@ -496,8 +457,7 @@ impl<F: LurkField> Store<F> {
   ) -> Ptr<F> {
     if sym.is_toplevel() {
       self.intern_sym(&sym)
-    }
-    else {
+    } else {
       let parent_sym = package.name();
       let new_sym = parent_sym.extend(sym.path());
 
@@ -515,12 +475,10 @@ impl<F: LurkField> Store<F> {
         // The root symbol cannot (currently) be read. A naked dot is an error
         // except in the context of a list tail.
         Err(Error::Syntax("Misplaced dot".into()))
-      }
-      else {
+      } else {
         Ok(self.intern_sym_in_package(sym, package))
       }
-    }
-    else {
+    } else {
       Err(Error::NoInput)
     }
   }
@@ -537,15 +495,13 @@ impl<F: LurkField> Store<F> {
           if let Some(&c) = chars.peek() {
             chars.next();
             Ok(c.into())
-          }
-          else {
+          } else {
             Err(Error::Syntax("Could not read character".into()))
           }
         },
         _ => Err(Error::Syntax("Could not read character".into())),
       }
-    }
-    else {
+    } else {
       Err(Error::Syntax("Could not read character".into()))
     }
   }
@@ -560,8 +516,7 @@ fn read_sym<T: Iterator<Item = char>>(
 
   if path.is_empty() {
     Ok(None)
-  }
-  else {
+  } else {
     let sym = Sym::new_from_path(is_keyword, path);
     Ok(Some(sym))
   }
@@ -576,8 +531,7 @@ pub fn read_symbol_path<T: Iterator<Item = char>>(
     chars.next();
     path.push("".into());
     true
-  }
-  else {
+  } else {
     false
   };
 
@@ -592,8 +546,7 @@ pub fn read_symbol_path<T: Iterator<Item = char>>(
     if chars.peek() == Some(&SYM_MARKER) {
       chars.next();
       continue;
-    }
-    else {
+    } else {
       break;
     }
   }
@@ -621,17 +574,14 @@ fn read_quoted_symbol_name<T: Iterator<Item = char>>(
           result.push(c);
           chars.next();
         }
-      }
-      else if c == '|' {
+      } else if c == '|' {
         return Ok(result);
-      }
-      else {
+      } else {
         result.push(c);
       }
     }
     Err(Error::Syntax("Could not read quoted symbol".into()))
-  }
-  else {
+  } else {
     Err(Error::Syntax("End of input when trying to read quoted symbol".into()))
   }
 }
@@ -654,20 +604,17 @@ pub(crate) fn read_unquoted_symbol_name<T: Iterator<Item = char>>(
         if is_symbol_char(&c, is_initial) {
           let c = chars.next().unwrap();
           name.push(c);
-        }
-        else {
+        } else {
           break;
         }
         is_initial = false;
       }
       convert_sym_case(&mut name);
       Ok(name)
-    }
-    else {
+    } else {
       Err(Error::Syntax("Could not read unquoted symbol".into()))
     }
-  }
-  else {
+  } else {
     Err(Error::Syntax(
       "End of input when trying to read unquoted symbol".into(),
     ))
@@ -691,8 +638,7 @@ pub(crate) fn maybe_quote_symbol_name_string(
     for c in symbol_name.chars() {
       if c == '|' {
         write!(out, "\\{c}")?;
-      }
-      else {
+      } else {
         write!(out, "{c}")?;
       }
     }
@@ -705,12 +651,10 @@ pub(crate) fn maybe_quote_symbol_name_string(
   if let Ok(unquoted) = read_unquoted_symbol_name(&mut chars) {
     if !contains_dot && unquoted == symbol_name {
       Ok(symbol_name.into())
-    }
-    else {
+    } else {
       quote_name()
     }
-  }
-  else {
+  } else {
     quote_name()
   }
 }
@@ -751,8 +695,7 @@ fn is_symbol_char(c: &char, initial: bool) -> bool {
     _ => {
       if initial {
         false
-      }
-      else {
+      } else {
         c.is_ascii_digit()
       }
     },
@@ -763,7 +706,9 @@ fn is_initial_symbol_marker(c: &char) -> bool {
   matches!(c, &SYM_MARKER | &KEYWORD_MARKER)
 }
 
-fn is_digit_char(c: &char) -> bool { c.is_ascii_digit() }
+fn is_digit_char(c: &char) -> bool {
+  c.is_ascii_digit()
+}
 
 fn is_hex_digit_char(c: &char) -> bool {
   matches!(c, '0'..='9' | 'a'..='f' | 'A'..='F')
@@ -773,9 +718,13 @@ fn is_whitespace_char(c: &char) -> bool {
   matches!(c, ' ' | '\t' | '\n' | '\r')
 }
 
-fn is_comment_char(c: &char) -> bool { matches!(c, ';') }
+fn is_comment_char(c: &char) -> bool {
+  matches!(c, ';')
+}
 
-fn is_line_end_char(c: &char) -> bool { matches!(c, '\n' | '\r') }
+fn is_line_end_char(c: &char) -> bool {
+  matches!(c, '\n' | '\r')
+}
 
 // Skips whitespace and comments, returning the next character, if any.
 fn skip_whitespace_and_peek<T: Iterator<Item = char>>(
@@ -784,11 +733,9 @@ fn skip_whitespace_and_peek<T: Iterator<Item = char>>(
   while let Some(&c) = chars.peek() {
     if is_whitespace_char(&c) {
       chars.next();
-    }
-    else if is_comment_char(&c) {
+    } else if is_comment_char(&c) {
       skip_line_comment(chars);
-    }
-    else {
+    } else {
       return Some(c);
     }
   }
@@ -803,8 +750,7 @@ fn skip_line_comment<T: Iterator<Item = char>>(
   while let Some(&c) = chars.peek() {
     if !is_line_end_char(&c) {
       chars.next();
-    }
-    else {
+    } else {
       return true;
     }
   }
