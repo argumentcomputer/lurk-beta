@@ -464,7 +464,24 @@
 <a href="#464" id="464">464</a>
 <a href="#465" id="465">465</a>
 <a href="#466" id="466">466</a>
-</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::field::FWrap;
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+</pre><pre class="rust"><code><span class="attr">#![deny(missing_docs)]
+</span><span class="doccomment">//! This module defines the `Num` type, which is used to represent field elements in Lurk.
+//! The `Num` type is an enum that can represent a field element in either full field representation
+//! or in U64 representation. The U64 representation is used for convenience, and is converted to full
+//! field representation when necessary (e.g. overflow).
+</span><span class="kw">use </span><span class="kw">crate</span>::field::FWrap;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{
     cmp::Ordering,
@@ -479,8 +496,10 @@
 <span class="doccomment">/// Finite field element type for Lurk. Has different internal representations to optimize evaluation.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>Num&lt;F: LurkField&gt; {
-    Scalar(F),
-    U64(u64),
+    <span class="doccomment">/// a scalar field element in full field representation
+    </span>Scalar(F),
+    <span class="doccomment">/// a small scalar field element in U64 representation for convenience
+    </span>U64(u64),
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Copy <span class="kw">for </span>Num&lt;F&gt; {}
@@ -501,7 +520,7 @@
     }
 }
 
-<span class="attr">#[allow(clippy::derive_hash_xor_eq)]
+<span class="attr">#[allow(clippy::derived_hash_with_manual_eq)]
 </span><span class="kw">impl</span>&lt;F: LurkField&gt; Hash <span class="kw">for </span>Num&lt;F&gt; {
     <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
         <span class="kw">match </span><span class="self">self </span>{
@@ -634,9 +653,10 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Num&lt;F&gt; {
-    <span class="kw">pub fn </span>is_zero(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="doccomment">/// Determines if `self` is zero.
+    </span><span class="kw">pub fn </span>is_zero(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="kw">match </span><span class="self">self </span>{
-            Num::Scalar(s) =&gt; s.is_zero_vartime(),
+            Num::Scalar(s) =&gt; s.is_zero().into(),
             Num::U64(n) =&gt; n == <span class="kw-2">&amp;</span><span class="number">0</span>,
         }
     }
@@ -659,11 +679,13 @@
         }
     }
 
-    <span class="kw">pub fn </span>most_negative() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Returns the most negative value representable by `Num&lt;F&gt;`.
+    </span><span class="kw">pub fn </span>most_negative() -&gt; <span class="self">Self </span>{
         Num::Scalar(F::most_negative())
     }
 
-    <span class="kw">pub fn </span>most_positive() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Returns the most positive value representable by `Num&lt;F&gt;`.
+    </span><span class="kw">pub fn </span>most_positive() -&gt; <span class="self">Self </span>{
         Num::Scalar(F::most_positive())
     }
 
@@ -676,14 +698,16 @@
         }
     }
 
-    <span class="kw">pub fn </span>into_scalar(<span class="self">self</span>) -&gt; F {
+    <span class="doccomment">/// Converts `self` into a scalar value of type `F`.
+    </span><span class="kw">pub fn </span>into_scalar(<span class="self">self</span>) -&gt; F {
         <span class="kw">match </span><span class="self">self </span>{
             Num::U64(n) =&gt; F::from(n),
             Num::Scalar(s) =&gt; s,
         }
     }
 
-    <span class="kw">pub fn </span>from_scalar(s: F) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new `Num&lt;F&gt;` from the given scalar `s`.
+    </span><span class="kw">pub fn </span>from_scalar(s: F) -&gt; <span class="self">Self </span>{
         Num::Scalar(s)
     }
 }

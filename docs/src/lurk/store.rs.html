@@ -3462,7 +3462,7 @@
 <span class="attr">#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 </span><span class="kw">struct </span>CacheKey&lt;F: LurkField, <span class="kw">const </span>N: usize&gt;([F; N]);
 
-<span class="attr">#[allow(clippy::derive_hash_xor_eq)]
+<span class="attr">#[allow(clippy::derived_hash_with_manual_eq)]
 </span><span class="kw">impl</span>&lt;F: LurkField, <span class="kw">const </span>N: usize&gt; Hash <span class="kw">for </span>CacheKey&lt;F, N&gt; {
     <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
         <span class="kw">for </span>el <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
@@ -3523,7 +3523,7 @@
 <span class="attr">#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>Ptr&lt;F: LurkField&gt;(ExprTag, RawPtr&lt;F&gt;);
 
-<span class="attr">#[allow(clippy::derive_hash_xor_eq)]
+<span class="attr">#[allow(clippy::derived_hash_with_manual_eq)]
 </span><span class="kw">impl</span>&lt;F: LurkField&gt; Hash <span class="kw">for </span>Ptr&lt;F&gt; {
     <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
         <span class="self">self</span>.<span class="number">0</span>.hash(state);
@@ -3646,7 +3646,7 @@
     }
 }
 
-<span class="attr">#[allow(clippy::derive_hash_xor_eq)]
+<span class="attr">#[allow(clippy::derived_hash_with_manual_eq)]
 </span><span class="kw">impl</span>&lt;E: Tag, F: LurkField&gt; Hash <span class="kw">for </span>SPtr&lt;E, F&gt; {
     <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
         <span class="self">self</span>.<span class="number">0</span>.to_field_bytes::&lt;F&gt;().as_ref().hash(state);
@@ -3729,7 +3729,7 @@
 <span class="attr">#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>ContPtr&lt;F: LurkField&gt;(ContTag, RawPtr&lt;F&gt;);
 
-<span class="attr">#[allow(clippy::derive_hash_xor_eq)]
+<span class="attr">#[allow(clippy::derived_hash_with_manual_eq)]
 </span><span class="kw">impl</span>&lt;F: LurkField&gt; Hash <span class="kw">for </span>ContPtr&lt;F&gt; {
     <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
         <span class="self">self</span>.<span class="number">0</span>.hash(state);
@@ -3775,7 +3775,7 @@
     </span>}
 }
 
-<span class="attr">#[allow(clippy::derive_hash_xor_eq)]
+<span class="attr">#[allow(clippy::derived_hash_with_manual_eq)]
 </span><span class="kw">impl</span>&lt;F: LurkField&gt; Hash <span class="kw">for </span>RawPtr&lt;F&gt; {
     <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
         <span class="self">self</span>.<span class="number">0</span>.hash(state);
@@ -3820,7 +3820,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) continuation: ContPtr&lt;F&gt;,
 }
 
-<span class="attr">#[allow(clippy::derive_hash_xor_eq)]
+<span class="attr">#[allow(clippy::derived_hash_with_manual_eq)]
 </span><span class="kw">impl</span>&lt;F: LurkField&gt; Hash <span class="kw">for </span>Thunk&lt;F&gt; {
     <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
         <span class="self">self</span>.value.hash(state);
