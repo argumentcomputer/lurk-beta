@@ -193,10 +193,10 @@ impl LightData {
             }
         } else {
             let (i, bytes) = take(size)(i)?;
-            use nom::{Err, error::*};
+            use nom::{error::*, Err};
             match LightData::read_size_bytes(bytes) {
                 Some(size) => Ok((i, size)),
-                None => Err(Err::Error(Error::new(i, ErrorKind::LengthValue)))
+                None => Err(Err::Error(Error::new(i, ErrorKind::LengthValue))),
             }?
         };
 

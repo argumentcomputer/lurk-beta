@@ -49,7 +49,6 @@ impl<F: LurkField> Encodable for LightStore<F> {
 }
 
 impl<F: LurkField> LightStore<F> {
-
     /// Leaf pointers are those whose values aren't hashes of any piece of data
     /// that's expected to be in the LightStore
     fn is_ptr_leaf(&self, ptr: ScalarPtr<F>) -> bool {
@@ -153,11 +152,7 @@ impl<F: LurkField> LightStore<F> {
         Ok(path)
     }
 
-    fn intern_leaf(
-        &self,
-        ptr: ScalarPtr<F>,
-        store: &mut ScalarStore<F>,
-    ) -> anyhow::Result<()> {
+    fn intern_leaf(&self, ptr: ScalarPtr<F>, store: &mut ScalarStore<F>) -> anyhow::Result<()> {
         match ptr.tag() {
             ExprTag::Num => {
                 store.insert_scalar_expression(ptr, Some(ScalarExpression::Num(*ptr.value())));
