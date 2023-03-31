@@ -173,15 +173,6 @@ impl ReplTrait<F> for ClutchState<F> {
             .to_string()
     }
 
-    fn handle_run<P: AsRef<Path> + Copy>(
-        &mut self,
-        store: &mut Store<F>,
-        file_path: P,
-        package: &Package,
-    ) -> Result<()> {
-        self.repl_state.handle_run(store, file_path, package)
-    }
-
     /// Returns two bools.
     /// First bool is true if input is a command.
     /// Second bool is true if processing should continue.

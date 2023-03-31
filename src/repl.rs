@@ -58,12 +58,79 @@ pub trait ReplTrait<F: LurkField> {
 
     fn command() -> Command;
 
+    fn handle_form<P: AsRef<Path> + Copy, T: Iterator<Item = char>>(
+        &mut self,
+        store: &mut Store<F>,
+        chars: &mut peekmore::PeekMoreIterator<T>,
+        package: &Package,
+        pwd: P,
+        update_env: bool,
+    ) -> Result<()> {
+        let (ptr, is_meta) = store.read_maybe_meta(chars, package)?;
+
+        if is_meta {
+            let pwd: &Path = pwd.as_ref();
+            self.handle_meta(store, ptr, package, pwd)
+        } else {
+            self.handle_non_meta(store, ptr, update_env).map(|_| ())
+        }
+    }
+
     fn handle_run<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
         file_path: P,
         package: &Package,
-    ) -> Result<()>;
+    ) -> Result<()> {
+        eprintln!("Running from {}.", file_path.as_ref().to_str().unwrap());
+        self.handle_file(store, file_path, package, false)
+    }
+
+    fn handle_load<P: AsRef<Path>>(
+        &mut self,
+        store: &mut Store<F>,
+        file_path: P,
+        package: &Package,
+    ) -> Result<()> {
+        eprintln!("Loading from {}.", file_path.as_ref().to_str().unwrap());
+        self.handle_file(store, file_path.as_ref(), package, true)
+    }
+
+    fn handle_file<P: AsRef<Path> + Copy>(
+        &mut self,
+        store: &mut Store<F>,
+        file_path: P,
+        package: &Package,
+        update_env: bool,
+    ) -> Result<()> {
+        let file_path = file_path;
+
+        let input = read_to_string(file_path)?;
+        eprintln!(
+            "Read from {}: {}",
+            file_path.as_ref().to_str().unwrap(),
+            input
+        );
+        let mut chars = input.chars().peekmore();
+
+        loop {
+            if let Err(e) = self.handle_form(
+                store,
+                &mut chars,
+                package,
+                // use this file's dir as pwd for further loading
+                file_path.as_ref().parent().unwrap(),
+                update_env,
+            ) {
+                if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
+                    // It's ok, it just means we've hit the EOF
+                    return Ok(());
+                } else {
+                    return Err(e);
+                }
+            }
+        }
+    }
 
     /// Returns two bools.
     /// First bool is true if input is a command.
@@ -340,70 +407,6 @@ impl<F: LurkField> ReplState<F> {
 
         Ok(result)
     }
-
-    pub fn handle_load<P: AsRef<Path>>(
-        &mut self,
-        store: &mut Store<F>,
-        file_path: P,
-        package: &Package,
-    ) -> Result<()> {
-        eprintln!("Loading from {}.", file_path.as_ref().to_str().unwrap());
-        self.handle_file(store, file_path.as_ref(), package, true)
-    }
-
-    pub fn handle_file<P: AsRef<Path> + Copy>(
-        &mut self,
-        store: &mut Store<F>,
-        file_path: P,
-        package: &Package,
-        update_env: bool,
-    ) -> Result<()> {
-        let file_path = file_path;
-
-        let input = read_to_string(file_path)?;
-        eprintln!(
-            "Read from {}: {}",
-            file_path.as_ref().to_str().unwrap(),
-            input
-        );
-        let mut chars = input.chars().peekmore();
-
-        loop {
-            if let Err(e) = self.handle_form(
-                store,
-                &mut chars,
-                package,
-                // use this file's dir as pwd for further loading
-                file_path.as_ref().parent().unwrap(),
-                update_env,
-            ) {
-                if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
-                    // It's ok, it just means we've hit the EOF
-                    return Ok(());
-                } else {
-                    return Err(e);
-                }
-            }
-        }
-    }
-
-    fn handle_form<P: AsRef<Path> + Copy, T: Iterator<Item = char>>(
-        &mut self,
-        store: &mut Store<F>,
-        chars: &mut peekmore::PeekMoreIterator<T>,
-        package: &Package,
-        pwd: P,
-        update_env: bool,
-    ) -> Result<()> {
-        let (ptr, is_meta) = store.read_maybe_meta(chars, package)?;
-
-        if is_meta {
-            let pwd: &Path = pwd.as_ref();
-            self.handle_meta(store, ptr, package, pwd)
-        } else {
-            self.handle_non_meta(store, ptr, update_env).map(|_| ())
-        }
-    }
 }
 
 impl<F: LurkField> ReplTrait<F> for ReplState<F> {
@@ -444,16 +447,6 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                     .value_name("LIGHTSTORE")
                     .help("Specifies the lightstore file path"),
             )
-    }
-
-    fn handle_run<P: AsRef<Path> + Copy>(
-        &mut self,
-        store: &mut Store<F>,
-        file_path: P,
-        package: &Package,
-    ) -> Result<()> {
-        eprintln!("Running from {}.", file_path.as_ref().to_str().unwrap());
-        self.handle_file(store, file_path, package, false)
     }
 
     fn maybe_handle_command(

@@ -480,6 +480,7 @@ name = "clutch"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "assert_cmd",
  "blstrs",
  "clap 4.1.11",
  "fcomm",
@@ -898,8 +899,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ef1a30ae415c3a691a4f41afddc2dbcd6d70baf338368d85ebc1e8ed92cedb9"
 dependencies = [
  "cfg-if",
- "rustix",
- "windows-sys 0.45.0",
+ "rustix 0.36.11",
+ "windows-sys",
 ]
 
 [[package]]

@@ -2,6 +2,8 @@
 
 !(:def f (lambda (x) (+ (* 3 (* x x)) (+ (* 9 x) 2))))
 
+!(:assert-eq (f 5) 122)
+
 ;; We can create a cryptographic commitment to f.
 
 !(:commit f)
