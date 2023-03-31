@@ -39,6 +39,9 @@ Lurk backend integration is still immature, so current performance is not repres
 - [Evaluation Spec](notes/eval.md)
 - [Reduction Notes](notes/reduction-notes.md)
 
+# Security Audit
+Lurk's Alpha release has undergone a [security audit](https://blog.lurk-lang.org/posts/alpha-audit/inference-security-assessment-3-2023.pdf) as of 03/29/2023, performed by [Inference](https://inference.ag/company/).
+
 ---
 
 # Build
