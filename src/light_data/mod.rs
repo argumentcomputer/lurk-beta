@@ -11,6 +11,7 @@
 //! This module also provides several traits that can be used to encode and decode Rust types into
 //! `LightData` values.
 
+use anyhow::bail;
 use anyhow::Result;
 use std::fmt::Display;
 
@@ -106,14 +107,17 @@ impl LightData {
 
     /// Returns the `usize` that's represented by a little endian byte array.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// This function panics if the input array is longer than 4 bytes on 32-bit systems or
+    /// This function returns an error if the input array is longer than 4 bytes on 32-bit systems or
     /// 8 bytes on 64-bit systems.
-    pub fn read_size_bytes(xs: &[u8]) -> usize {
-        let mut bytes = [0u8; (usize::BITS / 8) as usize];
+    pub fn read_size_bytes(xs: &[u8]) -> Result<usize> {
+        if xs.len() > std::mem::size_of::<usize>() {
+            bail!("Input array is too long");
+        }
+        let mut bytes = [0u8; std::mem::size_of::<usize>()];
         bytes[..xs.len()].copy_from_slice(xs);
-        usize::from_le_bytes(bytes)
+        Ok(usize::from_le_bytes(bytes))
     }
 
     /// Returns the tag byte for this `LightData`.
@@ -192,7 +196,12 @@ impl LightData {
             }
         } else {
             let (i, bytes) = take(size)(i)?;
-            let size = LightData::read_size_bytes(bytes);
+            let size = LightData::read_size_bytes(bytes).map_err(|_e| {
+                nom::Err::Failure(nom::error::make_error(
+                    i,
+                    nom::error::ErrorKind::LengthValue,
+                ))
+            })?;
             (i, size)
         };
 
