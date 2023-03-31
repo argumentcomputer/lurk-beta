@@ -6,5 +6,5 @@ failure-output = "immediate-final"
 status-level = "skip"
 # Do not cancel the test run on the first failure.
 fail-fast = false
-# Mark tests as slow after 20mins, kill them after 50
-slow-timeout = { period = "1200s", terminate-after = 1 }
+# Mark tests as slow after 5mins, kill them after 50
+slow-timeout = { period = "300s", terminate-after = 10 }
