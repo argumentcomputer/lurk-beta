@@ -93,7 +93,7 @@ struct Open {
     proof: Option<PathBuf>,
 
     /// Number of circuit reductions per step
-    #[clap(short = 'r', long, default_value = "1", value_parser)]
+    #[clap(short = 'r', long, default_value = "10", value_parser)]
     reduction_count: usize,
 
     /// Optional commitment value (hex string). Function will be looked-up by commitment if supplied.
@@ -147,7 +147,7 @@ struct Prove {
     proof: PathBuf,
 
     /// Number of circuit reductions per step
-    #[clap(short = 'r', long, default_value = "1", value_parser)]
+    #[clap(short = 'r', long, default_value = "10", value_parser)]
     reduction_count: usize,
 
     /// Path to claim to prove
