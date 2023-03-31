@@ -13,9 +13,7 @@
 
 # Overview
 
-Lurk is a statically scoped dialect of Lisp, influenced by Scheme and Common Lisp. A language specification and reference implementation focused on describing and developing the core language can be found in the [`lurk`](https://github.com/lurk-lab/lurk) repo.
-
-- [Lurk Language Specification](https://github.com/lurk-lab/lurk/blob/master/spec/v0-1.md)
+Lurk is a statically scoped dialect of Lisp, influenced by Scheme and Common Lisp. A reference implementation focused on describing and developing the core language can be found in the [`lurk`](https://github.com/lurk-lab/lurk-lisp) repo.
 
 Lurk's distinguishing feature relative to most programming languages is that correct execution of Lurk programs can be directly proved using zk-SNARKs. The resulting proofs are succinct: they are relatively small, can be verified quickly, and they reveal only the information explicitly contained in the statement to be proved.
 
@@ -26,8 +24,8 @@ Lurk's distinguishing feature relative to most zk-SNARK authoring languages is t
 Integration with backend proving systems and tooling for proof generation are both still very early. Performance and user experience are poor, but simple examples can be found in the [fcomm example directory](fcomm/README.md).
 
 # Backends
-- The `fcomm` example uses Groth16/[SnarkPack](https://eprint.iacr.org/2021/529)[+](https://github.com/filecoin-project/bellperson/pull/257) to generate succinct (but somewhat large) proofs, using Bls12-381.
-- The forthcoming Nova backend will use the [Nova proving system](https://github.com/microsoft/Nova) and the Pasta Curves.
+- The `fcomm` example uses the [Nova proving system](https://github.com/microsoft/Nova) and the [Pasta Curves](https://github.com/zcash/pasta_curves).
+- Lurk also supports Groth16/[SnarkPack](https://eprint.iacr.org/2021/529)[+](https://github.com/filecoin-project/bellperson/pull/257) to generate succinct (but somewhat large) proofs, using Bls12-381.
 - Future work may target Halo2 or other proving systems.
 
 It is an explicit design goal that statements about the evaluation of Lurk programs have identical semantic meaning across backends, with the qualification that Lurk language instances are themselves parameterized on scalar field and hash function. When backends use the same scalar field and hash function, equivalent proofs can be generated across backends. This is because the concrete representation of content-addressed data is fixed.
@@ -36,10 +34,10 @@ It is an explicit design goal that statements about the evaluation of Lurk progr
 
 Lurk backend integration is still immature, so current performance is not representative. As a rough approximation, we estimate that for entirely general computation using Lurk's universal circuit, Nova proving throughput will be on the order of 1,000 iterations per second per GPU. We expect that most compute-heavy applications will use optimized 'coprocessor' circuits, which will  dramatically improve performance. Planned improvements to Nova will allow for smaller inner circuits, further improving throughput -- and for full parallelization of reduction proofs.
 
-# (WIP) Specs
-- [Circuit Spec](spec/main.pdf)
-- [Evaluation Spec](spec/eval.md)
-- [Reduction Notes](spec/reduction-notes.md)
+# Specs
+- [Language and Circuit Spec](notes/lurk-spec.md)
+- [Evaluation Spec](notes/eval.md)
+- [Reduction Notes](notes/reduction-notes.md)
 
 ---
 
@@ -61,7 +59,7 @@ Lurk can be compiled to Wasm with `cargo build --target wasm32-unknown-unknown`
 ## Repl
 
 ```
-cargo run --example repl
+cargo run --release
 ```
 
 Or use the wrapper script:
@@ -136,26 +134,30 @@ INFO  lurk::eval > Frame: 9
 > 
 ```
 
+## Install
+
+You can install the `lurkrs` Repl on your machine with
+```
+$ cargo install --path .
+```
+
 ## Nix
 
-You can enter into a [Nix](https://nixos.org) shell with the appropriate
-dependencies for Lurk with
+Install [Nix](https://nixos.org) and [enable Nix flakes](https://nixos.wiki/wiki/Flakes). Then, you can enter into a Nix devshell with the appropriate dependencies for Lurk with
 
 ```
-$ nix-shell
+$ nix develop
+```
+or
+
+```
+$ direnv allow
 ```
 
-And then building with Cargo as usual:
+And then build with Cargo as usual:
 
 ```
 $ cargo build
-```
-
-## Install
-
-You can install the `lurkrs` binary on your machine with
-```
-$ cargo install --path .
 ```
 
 ## License
