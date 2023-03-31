@@ -8,7 +8,7 @@ use crate::scalar_store::ScalarStore;
 use crate::store::{ContPtr, Expression, Pointer, Ptr, Store};
 use crate::tag::ContTag;
 use crate::writer::Write;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::{Arg, ArgAction, Command};
 use peekmore::PeekMore;
 use rustyline::error::ReadlineError;
@@ -20,7 +20,9 @@ use rustyline::{Config, Editor};
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 use std::fs::{self, read_to_string};
 use std::io::{self, Write as _};
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(not(target = "wasm32"))]
+use std::path::PathBuf;
 use tap::TapOptional;
 
 #[derive(Completer, Helper, Highlighter, Hinter)]
@@ -152,8 +154,11 @@ impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
             .build();
         let mut rl = Editor::with_config(config)?;
         rl.set_helper(Some(h));
-        #[cfg(not(target_arch = "wasm32"))]
+
         if history_path.exists() {
+            #[cfg(target_arch = "wasm32")]
+            return Err(anyhow!("File history not allowed on Wasm"));
+            #[cfg(not(target_arch = "wasm32"))]
             rl.load_history(&history_path)?;
         }
 
@@ -161,6 +166,7 @@ impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
         Ok(Self {
             state,
             rl,
+            #[cfg(not(target_arch = "wasm32"))]
             history_path,
             _phantom: Default::default(),
         })
