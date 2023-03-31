@@ -1,5 +1,18 @@
-// This is a temporary shim which should be merged with scalar_store
-// Currently it only exists for reading store-dumps
+//! This is a prototype for a future version of `ScalarStore`. For now, its main
+//! role is to serve as an intermediate format between a store encoded in `LightData`
+//! and the `ScalarStore` itself. Thus we call it `LightStore`.
+//!
+//! The expressions of a `LightStore` are deliberately unable to represent
+//! "immediate values", which is data that's directly encoded in the pointers
+//! themselves:
+//! * `Num` pointers
+//! * `U64` pointers
+//! * `Char` pointers
+//! * `Str` pointers with value 0 represent the empty string
+//! * `Sym` pointers with value 0 represent the root symbol
+//!
+//! As a consequence, we expect a `LightStore` map not to contain immediate pointers
+//! in its keys. Such data is added to the ScalarStore as the `LightStore` is traversed.
 
 use crate::field::FWrap;
 
@@ -20,23 +33,6 @@ use crate::sym::Sym;
 use crate::tag::ExprTag;
 
 use crate::field::LurkField;
-
-mod light_store {
-    //! This module is a prototype for a future version of scalar_store. For now,
-    //! its main role is to serve as an intermediate format between a store encoded
-    //! in LightData and the ScalarStore itself. Thus we call it LightStore.
-    //!
-    //! The expressions of a LightStore are deliberately unable to represent "immediate
-    //! values", which is data that's directly encoded in the pointers themselves:
-    //! * `Num` pointers
-    //! * `U64` pointers
-    //! * `Char` pointers
-    //! * `Str` pointers with value 0 represent the empty string
-    //! * `Sym` pointers with value 0 represent the root symbol
-    //!
-    //! As a consequence, we expect a LightStore map not to contain immediate pointers
-    //! in its keys. Such data is added to the ScalarStore as the LightStore is traversed.
-}
 
 #[derive(Debug, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
