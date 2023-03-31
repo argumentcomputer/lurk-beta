@@ -104,9 +104,14 @@ impl LightData {
         x.to_le_bytes()[..Self::byte_count(x) as usize].to_vec()
     }
 
-    /// Returns the `usize` represented by a little endian byte array
+    /// Returns the `usize` that's represented by a little endian byte array.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the input array is longer than 4 bytes on 32-bit systems or
+    /// 8 bytes on 64-bit systems.
     pub fn read_size_bytes(xs: &[u8]) -> usize {
-        let mut bytes = [0u8; (usize::BITS as usize) / 8];
+        let mut bytes = [0u8; (usize::BITS / 8) as usize];
         bytes[..xs.len()].copy_from_slice(xs);
         usize::from_le_bytes(bytes)
     }
@@ -163,6 +168,10 @@ impl LightData {
     }
 
     /// Deserializes a `LightData` from a `&[u8]`.
+    ///
+    /// # Errors
+    ///
+    /// This function errors if the input bytes don't correspond to a valid serialization of LightData
     pub fn de(i: &[u8]) -> anyhow::Result<Self> {
         match Self::de_aux(i).finish() {
             Ok((_, x)) => Ok(x),
@@ -182,9 +191,6 @@ impl LightData {
                 _ => (i, size as usize),
             }
         } else {
-            if size > 4 {
-                panic!("Invalid size for non-small tag {tag}: {size} > 4")
-            }
             let (i, bytes) = take(size)(i)?;
             let size = LightData::read_size_bytes(bytes);
             (i, size)
