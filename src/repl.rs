@@ -6,7 +6,7 @@ use crate::package::Package;
 use crate::parser;
 use crate::scalar_store::ScalarStore;
 use crate::store::{ContPtr, Expression, Pointer, Ptr, Store};
-use crate::tag::{ContTag, ExprTag};
+use crate::tag::ContTag;
 use crate::writer::Write;
 use anyhow::{Context, Result};
 use clap::{Arg, ArgAction, Command};
@@ -66,7 +66,6 @@ pub trait ReplTrait<F: LurkField> {
         chars: &mut peekmore::PeekMoreIterator<T>,
         package: &Package,
         pwd: P,
-        update_env: bool,
     ) -> Result<()> {
         let (ptr, is_meta) = store.read_maybe_meta(chars, package)?;
 
@@ -74,18 +73,8 @@ pub trait ReplTrait<F: LurkField> {
             let pwd: &Path = pwd.as_ref();
             self.handle_meta(store, ptr, package, pwd)
         } else {
-            self.handle_non_meta(store, ptr, update_env).map(|_| ())
+            self.handle_non_meta(store, ptr).map(|_| ())
         }
-    }
-
-    fn handle_run<P: AsRef<Path> + Copy>(
-        &mut self,
-        store: &mut Store<F>,
-        file_path: P,
-        package: &Package,
-    ) -> Result<()> {
-        eprintln!("Running from {}.", file_path.as_ref().to_str().unwrap());
-        self.handle_file(store, file_path, package, false)
     }
 
     fn handle_load<P: AsRef<Path>>(
@@ -95,7 +84,7 @@ pub trait ReplTrait<F: LurkField> {
         package: &Package,
     ) -> Result<()> {
         eprintln!("Loading from {}.", file_path.as_ref().to_str().unwrap());
-        self.handle_file(store, file_path.as_ref(), package, true)
+        self.handle_file(store, file_path.as_ref(), package)
     }
 
     fn handle_file<P: AsRef<Path> + Copy>(
@@ -103,7 +92,6 @@ pub trait ReplTrait<F: LurkField> {
         store: &mut Store<F>,
         file_path: P,
         package: &Package,
-        update_env: bool,
     ) -> Result<()> {
         let file_path = file_path;
 
@@ -122,7 +110,6 @@ pub trait ReplTrait<F: LurkField> {
                 package,
                 // use this file's dir as pwd for further loading
                 file_path.as_ref().parent().unwrap(),
-                update_env,
             ) {
                 if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
                     // It's ok, it just means we've hit the EOF
@@ -133,16 +120,6 @@ pub trait ReplTrait<F: LurkField> {
             }
         }
     }
-
-    /// Returns two bools.
-    /// First bool is true if input is a command.
-    /// Second bool is true if processing should continue.
-    fn maybe_handle_command(
-        &mut self,
-        store: &mut Store<F>,
-        line: &str,
-        package: &Package,
-    ) -> Result<(bool, bool)>;
 
     fn handle_meta<P: AsRef<Path> + Copy>(
         &mut self,
@@ -156,7 +133,6 @@ pub trait ReplTrait<F: LurkField> {
         &mut self,
         store: &mut Store<F>,
         expr_ptr: Ptr<F>,
-        update_env: bool,
     ) -> Result<(IO<F>, IO<F>, usize)>;
 }
 
@@ -250,7 +226,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
 
     {
         if let Some(lurk_file) = lurk_file {
-            repl.state.handle_run(s, &lurk_file, &package).unwrap();
+            repl.state.handle_load(s, &lurk_file, &package).unwrap();
             return Ok(());
         }
     }
@@ -267,23 +243,6 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
                 #[cfg(not(target_arch = "wasm32"))]
                 repl.save_history()?;
 
-                let result = repl.state.maybe_handle_command(s, &line, &package);
-
-                match result {
-                    Ok((handled_command, should_continue)) if handled_command => {
-                        if should_continue {
-                            continue;
-                        } else {
-                            break;
-                        };
-                    }
-                    Ok(_) => (),
-                    Err(e) => {
-                        eprintln!("Error when handling {line}: {e:?}");
-                        continue;
-                    }
-                };
-
                 let mut chars = line.chars().peekmore();
 
                 match s.read_maybe_meta(&mut chars, &package) {
@@ -294,7 +253,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
                             };
                             continue;
                         } else {
-                            if let Err(e) = repl.state.handle_non_meta(s, expr, false) {
+                            if let Err(e) = repl.state.handle_non_meta(s, expr) {
                                 eprintln!("REPL Error: {e:?}");
                             }
 
@@ -350,69 +309,6 @@ impl<F: LurkField> ReplState<F> {
             Ok((result, iterations, next_cont, emitted))
         }
     }
-
-    pub fn maybe_handle_command(
-        &mut self,
-        store: &mut Store<F>,
-        line: &str,
-        package: &Package,
-    ) -> Result<(bool, bool)> {
-        let mut chars = line.chars().peekmore();
-        let maybe_command = store.read_next(&mut chars, package);
-
-        let result = match &maybe_command {
-            Ok(maybe_command) => match maybe_command.tag() {
-                ExprTag::Sym => {
-                    if let Some(key_string) = store
-                        .fetch(maybe_command)
-                        .unwrap()
-                        .as_simple_keyword_string()
-                    {
-                        match key_string.as_str() {
-                            "QUIT" => (true, false),
-                            "LOAD" => match store.read_string(&mut chars) {
-                                Ok(s) => match s.tag() {
-                                    ExprTag::Str => {
-                                        let file_path = store.fetch(&s).unwrap();
-                                        let file_path = PathBuf::from(file_path.as_str().unwrap());
-                                        self.handle_load(store, file_path, package)?;
-                                        (true, true)
-                                    }
-                                    other => {
-                                        anyhow::bail!("No valid path found: {:?}", other);
-                                    }
-                                },
-                                Err(_) => {
-                                    anyhow::bail!("No path found");
-                                }
-                            },
-                            "RUN" => {
-                                if let Ok(s) = store.read_string(&mut chars) {
-                                    if s.tag() == ExprTag::Str {
-                                        let file_path = store.fetch(&s).unwrap();
-                                        let file_path = PathBuf::from(file_path.as_str().unwrap());
-                                        self.handle_run(store, &file_path, package)?;
-                                    }
-                                }
-                                (true, true)
-                            }
-                            "CLEAR" => {
-                                self.env = empty_sym_env(store);
-                                (true, true)
-                            }
-                            _ => (true, true),
-                        }
-                    } else {
-                        (false, true)
-                    }
-                }
-                _ => (false, true),
-            },
-            _ => (false, true),
-        };
-
-        Ok(result)
-    }
 }
 
 impl<F: LurkField> ReplTrait<F> for ReplState<F> {
@@ -435,6 +331,7 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
     fn process_line(&mut self, line: String) -> String {
         line
     }
+
     fn command() -> Command {
         Command::new("Lurk REPL")
             .arg(
@@ -453,69 +350,6 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                     .value_name("LIGHTSTORE")
                     .help("Specifies the lightstore file path"),
             )
-    }
-
-    fn maybe_handle_command(
-        &mut self,
-        store: &mut Store<F>,
-        line: &str,
-        package: &Package,
-    ) -> Result<(bool, bool)> {
-        let mut chars = line.chars().peekmore();
-        let maybe_command = store.read_next(&mut chars, package);
-
-        let result = match &maybe_command {
-            Ok(maybe_command) => match maybe_command.tag() {
-                ExprTag::Sym => {
-                    if let Some(key_string) = store
-                        .fetch(maybe_command)
-                        .unwrap()
-                        .as_simple_keyword_string()
-                    {
-                        match key_string.as_str() {
-                            "QUIT" => (true, false),
-                            "LOAD" => match store.read_string(&mut chars) {
-                                Ok(s) => match s.tag() {
-                                    ExprTag::Str => {
-                                        let file_path = store.fetch(&s).unwrap();
-                                        let file_path = PathBuf::from(file_path.as_str().unwrap());
-                                        self.handle_load(store, file_path, package)?;
-                                        (true, true)
-                                    }
-                                    other => {
-                                        anyhow::bail!("No valid path found: {:?}", other);
-                                    }
-                                },
-                                Err(_) => {
-                                    anyhow::bail!("No path found");
-                                }
-                            },
-                            "RUN" => {
-                                if let Ok(s) = store.read_string(&mut chars) {
-                                    if s.tag() == ExprTag::Str {
-                                        let file_path = store.fetch(&s).unwrap();
-                                        let file_path = PathBuf::from(file_path.as_str().unwrap());
-                                        self.handle_run(store, &file_path, package)?;
-                                    }
-                                }
-                                (true, true)
-                            }
-                            "CLEAR" => {
-                                self.env = empty_sym_env(store);
-                                (true, true)
-                            }
-                            _ => (true, true),
-                        }
-                    } else {
-                        (false, true)
-                    }
-                }
-                _ => (false, true),
-            },
-            _ => (false, true),
-        };
-
-        Ok(result)
     }
 
     fn handle_meta<P: AsRef<Path> + Copy>(
@@ -666,18 +500,6 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                                 io::stdout().flush().unwrap();
                                 None
                             }
-                            "RUN" => {
-                                // Running and loading are equivalent, except that :RUN does not modify the env.
-                                match store.fetch(&store.car(&rest)?).unwrap() {
-                                    Expression::Str(path) => {
-                                        let joined = p.as_ref().join(Path::new(&path));
-                                        self.handle_run(store, &joined, package)?
-                                    }
-                                    _ => panic!("Argument to :RUN must be a string."),
-                                }
-                                io::stdout().flush().unwrap();
-                                None
-                            }
                             "SET-ENV" => {
                                 // The state's env is set to the result of evaluating the first argument.
                                 let (first, rest) = store.car_cdr(&rest)?;
@@ -717,7 +539,6 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
         &mut self,
         store: &mut Store<F>,
         expr_ptr: Ptr<F>,
-        update_env: bool,
     ) -> Result<(IO<F>, IO<F>, usize)> {
         match Evaluator::new(expr_ptr, self.env, store, self.limit).eval() {
             Ok((output, iterations, _emitted)) => {
@@ -727,9 +548,7 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                     cont: next_cont,
                 } = output;
                 {
-                    if !update_env {
-                        print!("[{iterations} iterations] => ");
-                    }
+                    print!("[{iterations} iterations] => ");
 
                     let input = IO {
                         expr: expr_ptr,
@@ -741,14 +560,9 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                         ContTag::Outermost | ContTag::Terminal => {
                             let mut handle = io::stdout().lock();
 
-                            // We are either loading/running and update the env, or evaluating and don't.
-                            if update_env {
-                                self.env = result
-                            } else {
-                                result.fmt(store, &mut handle)?;
+                            result.fmt(store, &mut handle)?;
 
-                                println!();
-                            }
+                            println!();
                         }
                         ContTag::Error => println!("ERROR!"),
                         _ => println!("Computation incomplete after limit: {}", self.limit),
