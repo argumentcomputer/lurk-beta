@@ -7,7 +7,9 @@ fn lurkrs_cmd() -> std::process::Command {
 }
 
 fn demo_file(name: &str) -> PathBuf {
-    let demo_dir = Path::new("demo/");
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+
+    let demo_dir = manifest_dir.join("demo/");
 
     demo_dir.join(name)
 }
