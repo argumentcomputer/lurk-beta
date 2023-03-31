@@ -881,6 +881,7 @@ dependencies = [
  "log",
  "lurk",
  "lurk-ipld",
+ "num_cpus",
  "once_cell",
  "pairing",
  "predicates 2.1.5",

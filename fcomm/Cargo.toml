@@ -35,3 +35,4 @@ pasta_curves = { version = "0.5.2", features = ["serde"], package = "fil_pasta_c
 assert_cmd = "2.0.8"
 predicates = "2.1.5"
 tempfile = "3.5.0"
+num_cpus = "1.15.0"
