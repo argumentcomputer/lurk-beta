@@ -104,16 +104,17 @@ impl LightData {
         x.to_le_bytes()[..Self::byte_count(x) as usize].to_vec()
     }
 
-    /// Returns the `usize` that's represented by a little endian byte array.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if the input array is longer than 4 bytes on 32-bit systems or
-    /// 8 bytes on 64-bit systems.
-    pub fn read_size_bytes(xs: &[u8]) -> usize {
-        let mut bytes = [0u8; (usize::BITS / 8) as usize];
-        bytes[..xs.len()].copy_from_slice(xs);
-        usize::from_le_bytes(bytes)
+    /// Returns the `usize` that's represented by a little endian byte array of
+    /// length at most 4
+    pub fn read_size_bytes(xs: &[u8]) -> Option<usize> {
+        let len = xs.len();
+        if len > 4 {
+            None
+        } else {
+            let mut bytes = [0u8; std::mem::size_of::<usize>()];
+            bytes[..len].copy_from_slice(xs);
+            Some(usize::from_le_bytes(bytes))
+        }
     }
 
     /// Returns the tag byte for this `LightData`.
@@ -192,8 +193,11 @@ impl LightData {
             }
         } else {
             let (i, bytes) = take(size)(i)?;
-            let size = LightData::read_size_bytes(bytes);
-            (i, size)
+            use nom::{Err, error::*};
+            match LightData::read_size_bytes(bytes) {
+                Some(size) => Ok((i, size)),
+                None => Err(Err::Error(Error::new(i, ErrorKind::LengthValue)))
+            }?
         };
 
         let (i, res) = if Self::tag_is_atom(tag) {
@@ -289,9 +293,9 @@ pub mod tests {
     #[test]
     fn unit_trimmed_bytes() {
         assert_eq!(LightData::to_trimmed_le_bytes(43411), vec![147, 169]);
-        assert_eq!(43411, LightData::read_size_bytes(&vec![147, 169]));
+        assert_eq!(43411, LightData::read_size_bytes(&vec![147, 169]).unwrap());
         assert_eq!(LightData::to_trimmed_le_bytes(37801), vec![169, 147]);
-        assert_eq!(37801, LightData::read_size_bytes(&vec![169, 147]));
+        assert_eq!(37801, LightData::read_size_bytes(&vec![169, 147]).unwrap());
     }
 
     #[test]

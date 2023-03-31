@@ -1,18 +1,6 @@
 //! This is a prototype for a future version of `ScalarStore`. For now, its main
 //! role is to serve as an intermediate format between a store encoded in `LightData`
 //! and the `ScalarStore` itself. Thus we call it `LightStore`.
-//!
-//! The expressions of a `LightStore` are deliberately unable to represent
-//! "immediate values", which is data that's directly encoded in the pointers
-//! themselves:
-//! * `Num` pointers
-//! * `U64` pointers
-//! * `Char` pointers
-//! * `Str` pointers with value 0 represent the empty string
-//! * `Sym` pointers with value 0 represent the root symbol
-//!
-//! As a consequence, we expect a `LightStore` map not to contain immediate pointers
-//! in its keys. Such data is added to the ScalarStore as the `LightStore` is traversed.
 
 use crate::field::FWrap;
 
@@ -61,6 +49,21 @@ impl<F: LurkField> Encodable for LightStore<F> {
 }
 
 impl<F: LurkField> LightStore<F> {
+
+    /// Leaf pointers are those whose values aren't hashes of any piece of data
+    /// that's expected to be in the LightStore
+    fn is_ptr_leaf(&self, ptr: ScalarPtr<F>) -> bool {
+        match ptr.tag() {
+            ExprTag::Num => true,
+            ExprTag::Char => true,
+            ExprTag::U64 => true,
+            ExprTag::Str => *ptr.value() == F::zero(), // the empty string
+            ExprTag::Sym => *ptr.value() == F::zero(), // the root symbol
+            ExprTag::Key => *ptr.value() == F::zero(), // the root keyword
+            _ => false,
+        }
+    }
+
     fn insert_scalar_string(
         &self,
         ptr0: ScalarPtr<F>,
@@ -150,7 +153,7 @@ impl<F: LurkField> LightStore<F> {
         Ok(path)
     }
 
-    fn intern_immediate(
+    fn intern_leaf(
         &self,
         ptr: ScalarPtr<F>,
         store: &mut ScalarStore<F>,
@@ -179,12 +182,12 @@ impl<F: LurkField> LightStore<F> {
             ExprTag::Sym => {
                 store.insert_scalar_expression(ptr, Some(ScalarExpression::Sym(Sym::root())));
             }
-            _ => return Err(anyhow!("Invalid immediate pointer: {ptr}")),
+            _ => return Err(anyhow!("Invalid leaf pointer: {ptr}")),
         };
         Ok(())
     }
 
-    fn intern_non_immediate(
+    fn intern_non_leaf(
         &self,
         ptr: ScalarPtr<F>,
         store: &mut ScalarStore<F>,
@@ -198,6 +201,7 @@ impl<F: LurkField> LightStore<F> {
             }
             Some(Some(expr)) => match (ptr.tag(), expr.clone()) {
                 (ExprTag::Nil, LightExpr::Nil) => {
+                    // We also need to intern the `.LURK.NIL` symbol
                     stack.push(ScalarPtr::from_parts(ExprTag::Sym, *ptr.value()));
                     store.insert_scalar_expression(ptr, Some(ScalarExpression::Nil));
                 }
@@ -218,7 +222,7 @@ impl<F: LurkField> LightStore<F> {
                 }
                 (tag, _) => {
                     return Err(anyhow!(
-                        "Invalid pair of tag and LightExpr: ({tag}, {expr})"
+                        "Unsupported pair of tag and LightExpr: ({tag}, {expr})"
                     ))
                 }
             },
@@ -228,7 +232,7 @@ impl<F: LurkField> LightStore<F> {
 
     /// Eagerly traverses the LightStore starting out from a ScalarPtr, adding
     /// pointers and their respective expressions to a target ScalarStore. When
-    /// handling non-immediate pointers, their corresponding expressions might
+    /// handling non-leaf pointers, their corresponding expressions might
     /// add more pointers to be visited to a stack.
     ///
     /// TODO: add a cycle detection logic
@@ -243,10 +247,10 @@ impl<F: LurkField> LightStore<F> {
             if store.get_expr(&ptr).is_some() {
                 continue;
             }
-            if ptr.is_immediate() {
-                self.intern_immediate(ptr, store)?;
+            if self.is_ptr_leaf(ptr) {
+                self.intern_leaf(ptr, store)?;
             } else {
-                self.intern_non_immediate(ptr, store, &mut stack)?;
+                self.intern_non_leaf(ptr, store, &mut stack)?;
             }
         }
         Ok(())
@@ -256,8 +260,8 @@ impl<F: LurkField> LightStore<F> {
     fn to_scalar_store(&self) -> anyhow::Result<ScalarStore<F>> {
         let mut store = ScalarStore::default();
         for ptr in self.scalar_map.keys() {
-            if ptr.is_immediate() {
-                return Err(anyhow!("Immediate pointer found in LightStore: {ptr}"));
+            if self.is_ptr_leaf(*ptr) {
+                return Err(anyhow!("Leaf pointer found in LightStore: {ptr}"));
             }
             self.intern_ptr_data(*ptr, &mut store)?;
         }

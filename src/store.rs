@@ -435,19 +435,6 @@ impl<'de, E: Tag, F: LurkField> Deserialize<'de> for SPtr<E, F> {
 
 pub type ScalarPtr<F> = SPtr<ExprTag, F>;
 
-impl<F: LurkField> ScalarPtr<F> {
-    pub fn is_immediate(self) -> bool {
-        match self.0 {
-            ExprTag::Num => true,
-            ExprTag::Char => true,
-            ExprTag::U64 => true,
-            ExprTag::Str => self.1 == F::zero(),
-            ExprTag::Sym => self.1 == F::zero(),
-            _ => false,
-        }
-    }
-}
-
 pub trait IntoHashComponents<F: LurkField> {
     fn into_hash_components(self) -> [F; 2];
 }
@@ -1302,7 +1289,11 @@ impl<F: LurkField> Store<F> {
                     self.create_scalar_ptr(ptr, *scalar_ptr.value());
                     Some(ptr)
                 }
-                (ExprTag::Key, Some(Sym(k))) => Some(self.intern_key(k)),
+                (ExprTag::Key, Some(Sym(k))) => {
+                    let ptr = self.intern_key(k);
+                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
+                    Some(ptr)
+                }
                 (ExprTag::Num, Some(Num(x))) => {
                     let ptr = self.intern_num(crate::Num::Scalar(*x));
                     self.create_scalar_ptr(ptr, *scalar_ptr.value());
@@ -1312,10 +1303,12 @@ impl<F: LurkField> Store<F> {
                 (ExprTag::Thunk, Some(Thunk(t))) => {
                     let value = self.intern_scalar_ptr(t.value, scalar_store)?;
                     let continuation = self.intern_scalar_cont_ptr(t.continuation, scalar_store)?;
-                    Some(self.intern_thunk(crate::store::Thunk {
+                    let ptr = self.intern_thunk(crate::store::Thunk {
                         value,
                         continuation,
-                    }))
+                    });
+                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
+                    Some(ptr)
                 }
                 (
                     ExprTag::Fun,
@@ -1328,9 +1321,15 @@ impl<F: LurkField> Store<F> {
                     let arg = self.intern_scalar_ptr(*arg, scalar_store)?;
                     let body = self.intern_scalar_ptr(*body, scalar_store)?;
                     let env = self.intern_scalar_ptr(*closed_env, scalar_store)?;
-                    Some(self.intern_fun(arg, body, env))
+                    let ptr = self.intern_fun(arg, body, env);
+                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
+                    Some(ptr)
                 }
-                (tag, None) => Some(self.intern_maybe_opaque(tag, scalar_ptr.1)),
+                (tag, None) => {
+                    let ptr = self.intern_maybe_opaque(tag, scalar_ptr.1);
+                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
+                    Some(ptr)
+                }
                 _ => None,
             }
         }
