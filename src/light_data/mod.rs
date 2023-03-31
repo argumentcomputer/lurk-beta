@@ -104,14 +104,17 @@ impl LightData {
         x.to_le_bytes()[..Self::byte_count(x) as usize].to_vec()
     }
 
-    /// Returns the `usize` that's represented by a little endian byte array of
-    /// length at most 4
+    /// Returns the `usize` that's represented by a little endian byte array.
+    ///
+    /// On 32-bit systems, the input must not be longer than 4. On 64-bit systems,
+    /// the input size limit is 8.
     pub fn read_size_bytes(xs: &[u8]) -> Option<usize> {
         let len = xs.len();
-        if len > 4 {
+        const MAX_LEN: usize = std::mem::size_of::<usize>();
+        if len > MAX_LEN {
             None
         } else {
-            let mut bytes = [0u8; std::mem::size_of::<usize>()];
+            let mut bytes = [0u8; MAX_LEN];
             bytes[..len].copy_from_slice(xs);
             Some(usize::from_le_bytes(bytes))
         }
@@ -193,10 +196,12 @@ impl LightData {
             }
         } else {
             let (i, bytes) = take(size)(i)?;
-            use nom::{error::*, Err};
             match LightData::read_size_bytes(bytes) {
                 Some(size) => Ok((i, size)),
-                None => Err(Err::Error(Error::new(i, ErrorKind::LengthValue))),
+                None => Err(nom::Err::Error(nom::error::Error::new(
+                    i,
+                    nom::error::ErrorKind::LengthValue,
+                ))),
             }?
         };
 
