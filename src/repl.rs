@@ -12,6 +12,7 @@ use anyhow::{Context, Result};
 use clap::{Arg, ArgAction, Command};
 use peekmore::PeekMore;
 use rustyline::error::ReadlineError;
+use rustyline::history::DefaultHistory;
 use rustyline::validate::{
     MatchingBracketValidator, ValidationContext, ValidationResult, Validator,
 };
@@ -19,7 +20,9 @@ use rustyline::{Config, Editor};
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 use std::fs::{self, read_to_string};
 use std::io::{self, Write as _};
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::PathBuf;
 use tap::TapOptional;
 
 #[derive(Completer, Helper, Highlighter, Hinter)]
@@ -42,7 +45,8 @@ pub struct ReplState<F: LurkField> {
 
 pub struct Repl<F: LurkField, T: ReplTrait<F>> {
     state: T,
-    rl: Editor<InputValidator>,
+    rl: Editor<InputValidator, DefaultHistory>,
+    #[cfg(not(target_arch = "wasm32"))]
     history_path: PathBuf,
     _phantom: F,
 }
@@ -136,6 +140,7 @@ pub trait ReplTrait<F: LurkField> {
 
 impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
     pub fn new(s: &mut Store<F>, limit: usize, command: Option<Command>) -> Result<Self> {
+        #[cfg(not(target_arch = "wasm32"))]
         let history_path = dirs::home_dir()
             .expect("missing home directory")
             .join(".lurk-history");
@@ -147,8 +152,10 @@ impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
             .color_mode(rustyline::ColorMode::Enabled)
             .auto_add_history(true)
             .build();
-        let mut rl = Editor::with_config(config);
+        let mut rl = Editor::with_config(config)?;
         rl.set_helper(Some(h));
+
+        #[cfg(not(target_arch = "wasm32"))]
         if history_path.exists() {
             rl.load_history(&history_path)?;
         }
@@ -157,10 +164,12 @@ impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
         Ok(Self {
             state,
             rl,
+            #[cfg(not(target_arch = "wasm32"))]
             history_path,
             _phantom: Default::default(),
         })
     }
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn save_history(&mut self) -> Result<()> {
         self.rl.save_history(&self.history_path)?;
         Ok(())
@@ -235,6 +244,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
             .map(|line| repl.state.process_line(line));
         match line {
             Ok(line) => {
+                #[cfg(not(target_arch = "wasm32"))]
                 repl.save_history()?;
 
                 let mut chars = line.chars().peekmore();
@@ -571,5 +581,28 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                 Err(e.into())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rustyline::DefaultEditor;
+    use std::fs;
+    use tempfile::Builder;
+
+    #[test]
+    fn test_file_history() {
+        let input = "(+ 1 1)";
+        let tmp_path = Builder::new().prefix("tmp").tempdir().unwrap().into_path();
+        let tmp_file = tmp_path.join("lurk-history");
+
+        let mut rl = DefaultEditor::new().unwrap();
+        rl.add_history_entry(input).unwrap();
+        rl.save_history(&tmp_file).unwrap();
+
+        assert!(fs::read_to_string(&tmp_file).unwrap().contains(input));
+
+        // Needed because the `into_path` tempfile function removes automatic deletion
+        fs::remove_dir_all(tmp_path).unwrap();
     }
 }
