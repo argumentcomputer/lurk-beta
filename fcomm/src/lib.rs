@@ -1,3 +1,5 @@
+//! The `fcomm` CLI exposes an interface for creating and verifying Lurk proofs, and for manipulating functional commitments.
+
 use log::info;
 use std::collections::HashMap;
 use std::convert::TryFrom;
