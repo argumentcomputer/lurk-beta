@@ -8,7 +8,7 @@ use crate::scalar_store::ScalarStore;
 use crate::store::{ContPtr, Expression, Pointer, Ptr, Store};
 use crate::tag::ContTag;
 use crate::writer::Write;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use clap::{Arg, ArgAction, Command};
 use peekmore::PeekMore;
 use rustyline::error::ReadlineError;
@@ -21,7 +21,7 @@ use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 use std::fs::{self, read_to_string};
 use std::io::{self, Write as _};
 use std::path::Path;
-#[cfg(not(target = "wasm32"))]
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 use tap::TapOptional;
 
@@ -155,10 +155,8 @@ impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
         let mut rl = Editor::with_config(config)?;
         rl.set_helper(Some(h));
 
+        #[cfg(not(target_arch = "wasm32"))]
         if history_path.exists() {
-            #[cfg(target_arch = "wasm32")]
-            return Err(anyhow!("File history not allowed on Wasm"));
-            #[cfg(not(target_arch = "wasm32"))]
             rl.load_history(&history_path)?;
         }
 
