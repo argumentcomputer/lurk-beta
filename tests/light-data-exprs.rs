@@ -7,9 +7,7 @@ use lurk::light_data::{Encodable, LightData, LightExpr};
 // The following expressions were created with the following Lean code:
 // def foo : IO Unit := do
 //   let list : List (String × ScalarExpr) := [
-//     ("Nil", .nil), ("SymNil", .symNil), ("StrNil", .strNil),
-//     ("CharA", .char (.ofNat 'A'.toNat)),
-//     ("Num42", .num (.ofNat 42)),
+//     ("Nil", .nil),
 //     ("Comm0Nil", .comm (.ofNat 0) ⟨.nil, .ofNat 0⟩),
 //     ("SymConsNilNil", .symCons ⟨.nil, .ofNat 0⟩ ⟨.nil, .ofNat 0⟩),
 //     ("StrConsNilNil", .strCons ⟨.nil, .ofNat 0⟩ ⟨.nil, .ofNat 0⟩),

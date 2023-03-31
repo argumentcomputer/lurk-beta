@@ -104,6 +104,22 @@ impl LightData {
         x.to_le_bytes()[..Self::byte_count(x) as usize].to_vec()
     }
 
+    /// Returns the `usize` that's represented by a little endian byte array.
+    ///
+    /// On 32-bit systems, the input must not be longer than 4. On 64-bit systems,
+    /// the input size limit is 8.
+    pub fn read_size_bytes(xs: &[u8]) -> Option<usize> {
+        let len = xs.len();
+        const MAX_LEN: usize = std::mem::size_of::<usize>();
+        if len > MAX_LEN {
+            None
+        } else {
+            let mut bytes = [0u8; MAX_LEN];
+            bytes[..len].copy_from_slice(xs);
+            Some(usize::from_le_bytes(bytes))
+        }
+    }
+
     /// Returns the tag byte for this `LightData`.
     pub fn tag(&self) -> u8 {
         match self {
@@ -156,6 +172,10 @@ impl LightData {
     }
 
     /// Deserializes a `LightData` from a `&[u8]`.
+    ///
+    /// # Errors
+    ///
+    /// This function errors if the input bytes don't correspond to a valid serialization of LightData
     pub fn de(i: &[u8]) -> anyhow::Result<Self> {
         match Self::de_aux(i).finish() {
             Ok((_, x)) => Ok(x),
@@ -175,9 +195,14 @@ impl LightData {
                 _ => (i, size as usize),
             }
         } else {
-            let (i, size) = take(size)(i)?;
-            let size = size.iter().fold(0, |acc, &x| (acc * 256) + x as usize);
-            (i, size)
+            let (i, bytes) = take(size)(i)?;
+            match LightData::read_size_bytes(bytes) {
+                Some(size) => Ok((i, size)),
+                None => Err(nom::Err::Error(nom::error::Error::new(
+                    i,
+                    nom::error::ErrorKind::LengthValue,
+                ))),
+            }?
         };
 
         let (i, res) = if Self::tag_is_atom(tag) {
@@ -268,6 +293,14 @@ pub mod tests {
         if usize::BITS >= 64 {
             assert_eq!(LightData::byte_count(u64::MAX as usize), 8);
         }
+    }
+
+    #[test]
+    fn unit_trimmed_bytes() {
+        assert_eq!(LightData::to_trimmed_le_bytes(43411), vec![147, 169]);
+        assert_eq!(43411, LightData::read_size_bytes(&vec![147, 169]).unwrap());
+        assert_eq!(LightData::to_trimmed_le_bytes(37801), vec![169, 147]);
+        assert_eq!(37801, LightData::read_size_bytes(&vec![169, 147]).unwrap());
     }
 
     #[test]
