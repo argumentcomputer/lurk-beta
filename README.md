@@ -35,7 +35,7 @@ It is an explicit design goal that statements about the evaluation of Lurk progr
 Lurk backend integration is still immature, so current performance is not representative. As a rough approximation, we estimate that for entirely general computation using Lurk's universal circuit, Nova proving throughput will be on the order of 1,000 iterations per second per GPU. We expect that most compute-heavy applications will use optimized 'coprocessor' circuits, which will  dramatically improve performance. Planned improvements to Nova will allow for smaller inner circuits, further improving throughput -- and for full parallelization of reduction proofs.
 
 # Specs
-- [Language and Circuit Spec](notes/lurk-spec.md)
+- [Language and Circuit Spec](https://blog.lurk-lang.org/posts/circuit-spec)
 - [Evaluation Spec](notes/eval.md)
 - [Reduction Notes](notes/reduction-notes.md)
 
