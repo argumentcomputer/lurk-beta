@@ -7,9 +7,11 @@
 [msrv-image]: https://img.shields.io/badge/rustc-1.60+-blue.svg
 [crates-image]: https://img.shields.io/crates/v/lurk.svg
 
-# Disclaimer
+# Status (Alpha)
 
-**DISCLAIMER:** Lurk is an early research-stage language. Neither the cryptography nor the software has been audited, and there is currently no trusted setup for Groth16 circuits. Do not use Lurk in production environments or anywhere else that security is necessary.
+Lurk is currently in Alpha. Code that runs in the Lurk Alpha release is expected to also run in Lurk Beta, and eventually Lurk 1.0. However, some low-level data representations are anticipated to change, and we will be refactoring the circuit implementation to increase auditability and further our confidence in Lurk's cryptographic security. Also note that since Lurk inherits some security properties from the underlying proving system, those who would rely on Lurk should investigate the security and status of Nova itself. We encourage early adopters to begin writing real applications taking advantage of Lurk so you can begin to familiarize themselves with the programming model. Likewise, we welcome your feedback -- which will help ensure ongoing development meets user need.
+
+Note that Groth16 support is only partial, since no trusted setup has been run. If you wish to use Lurk with Groth16, a trusted setup will be required; and we would not recommend undertaking this until the 1.0 circuit has been released.
 
 # Overview
 
@@ -24,8 +26,9 @@ Lurk's distinguishing feature relative to most zk-SNARK authoring languages is t
 Integration with backend proving systems and tooling for proof generation are both still very early. Performance and user experience are poor, but simple examples can be found in the [fcomm example directory](fcomm/README.md).
 
 # Backends
-- The `fcomm` example uses the [Nova proving system](https://github.com/microsoft/Nova) and the [Pasta Curves](https://github.com/zcash/pasta_curves).
-- Lurk also supports Groth16/[SnarkPack](https://eprint.iacr.org/2021/529)[+](https://github.com/filecoin-project/bellperson/pull/257) to generate succinct (but somewhat large) proofs, using Bls12-381.
+- Nova is Lurk's officially-supported backend. It uses the [Nova proving system](https://github.com/microsoft/Nova) and the Pasta Curves.
+- The `fcomm` example uses
+- There is also a Groth16 [SnarkPack](https://eprint.iacr.org/2021/529)[+](https://github.com/filecoin-project/bellperson/pull/257) backend using Bls12-381 (but see notes at *Status* above).
 - Future work may target Halo2 or other proving systems.
 
 It is an explicit design goal that statements about the evaluation of Lurk programs have identical semantic meaning across backends, with the qualification that Lurk language instances are themselves parameterized on scalar field and hash function. When backends use the same scalar field and hash function, equivalent proofs can be generated across backends. This is because the concrete representation of content-addressed data is fixed.
@@ -41,6 +44,10 @@ Lurk backend integration is still immature, so current performance is not repres
 
 # Security Audit
 Lurk's Alpha release has undergone a [security audit](https://blog.lurk-lang.org/posts/alpha-audit/inference-security-assessment-3-2023.pdf) as of 03/29/2023, performed by [Inference](https://inference.ag/company/).
+
+# Versioning
+
+Please note that the Lurk language and spec will be versioned independently from the crates that implement the spec. This is necessary semantic versioning implies different requirements for the language and its implementation. For example, Lurk Alpha is released as crate `lurk 0.2.0`. It is our intention for these two versioning systems to coincide at 1.0. The next major Lurk release will be Lurk Beta, but there may be multiple minor-version crate releases before then.
 
 ---
 
