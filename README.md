@@ -30,7 +30,7 @@ Integration with backend proving systems and tooling for proof generation are bo
 - There is also a Groth16 [SnarkPack](https://eprint.iacr.org/2021/529)[+](https://github.com/filecoin-project/bellperson/pull/257) backend using Bls12-381 (but see notes at *Status* above).
 - Future work may target Halo2 or other proving systems.
 
-It is an explicit design goal that statements about the evaluation of Lurk programs have identical semantic meaning across backends, with the qualification that Lurk language instances are themselves parameterized on scalar field and hash function. When backends use the same scalar field and hash function, equivalent proofs can be generated across backends. This is because the concrete representation of content-addressed data is fixed.
+It is an explicit design goal that statements about the evaluation of Lurk programs have identical semantic meaning across backends, with the qualification that Lurk language instances are themselves parameterized on scalar field and hash function. When backends use the same scalar field and hash function, they can be used to generate equivalent proofs. This is because the concrete representation of content-addressed data is fixed.
 
 # Performance
 
