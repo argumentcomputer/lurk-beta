@@ -3271,6 +3271,49 @@
 <a href="#3271" id="3271">3271</a>
 <a href="#3272" id="3272">3272</a>
 <a href="#3273" id="3273">3273</a>
+<a href="#3274" id="3274">3274</a>
+<a href="#3275" id="3275">3275</a>
+<a href="#3276" id="3276">3276</a>
+<a href="#3277" id="3277">3277</a>
+<a href="#3278" id="3278">3278</a>
+<a href="#3279" id="3279">3279</a>
+<a href="#3280" id="3280">3280</a>
+<a href="#3281" id="3281">3281</a>
+<a href="#3282" id="3282">3282</a>
+<a href="#3283" id="3283">3283</a>
+<a href="#3284" id="3284">3284</a>
+<a href="#3285" id="3285">3285</a>
+<a href="#3286" id="3286">3286</a>
+<a href="#3287" id="3287">3287</a>
+<a href="#3288" id="3288">3288</a>
+<a href="#3289" id="3289">3289</a>
+<a href="#3290" id="3290">3290</a>
+<a href="#3291" id="3291">3291</a>
+<a href="#3292" id="3292">3292</a>
+<a href="#3293" id="3293">3293</a>
+<a href="#3294" id="3294">3294</a>
+<a href="#3295" id="3295">3295</a>
+<a href="#3296" id="3296">3296</a>
+<a href="#3297" id="3297">3297</a>
+<a href="#3298" id="3298">3298</a>
+<a href="#3299" id="3299">3299</a>
+<a href="#3300" id="3300">3300</a>
+<a href="#3301" id="3301">3301</a>
+<a href="#3302" id="3302">3302</a>
+<a href="#3303" id="3303">3303</a>
+<a href="#3304" id="3304">3304</a>
+<a href="#3305" id="3305">3305</a>
+<a href="#3306" id="3306">3306</a>
+<a href="#3307" id="3307">3307</a>
+<a href="#3308" id="3308">3308</a>
+<a href="#3309" id="3309">3309</a>
+<a href="#3310" id="3310">3310</a>
+<a href="#3311" id="3311">3311</a>
+<a href="#3312" id="3312">3312</a>
+<a href="#3313" id="3313">3313</a>
+<a href="#3314" id="3314">3314</a>
+<a href="#3315" id="3315">3315</a>
+<a href="#3316" id="3316">3316</a>
 </pre><pre class="rust"><code><span class="kw">use </span>anyhow::anyhow;
 <span class="kw">use </span>generic_array::typenum::{U3, U4, U6, U8};
 <span class="kw">use </span>neptune::Poseidon;
@@ -4526,46 +4569,85 @@
 
     <span class="kw">pub fn </span>intern_scalar_ptr(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        ptr: ScalarPtr&lt;F&gt;,
+        scalar_ptr: ScalarPtr&lt;F&gt;,
         scalar_store: <span class="kw-2">&amp;</span>ScalarStore&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt; {
-        <span class="kw">let </span>tag: ExprTag = ptr.tag();
-        <span class="kw">let </span>expr = scalar_store.get_expr(<span class="kw-2">&amp;</span>ptr);
-        <span class="kw">use </span>ScalarExpression::<span class="kw-2">*</span>;
-        <span class="kw">match </span>(tag, expr) {
-            (ExprTag::Nil, <span class="prelude-val">Some</span>(Nil)) =&gt; <span class="prelude-val">Some</span>(<span class="self">self</span>.intern_nil()),
-            (ExprTag::Cons, <span class="prelude-val">Some</span>(Cons(car, cdr))) =&gt; {
-                <span class="kw">let </span>car = <span class="self">self</span>.intern_scalar_ptr(<span class="kw-2">*</span>car, scalar_store)<span class="question-mark">?</span>;
-                <span class="kw">let </span>cdr = <span class="self">self</span>.intern_scalar_ptr(<span class="kw-2">*</span>cdr, scalar_store)<span class="question-mark">?</span>;
-                <span class="prelude-val">Some</span>(<span class="self">self</span>.intern_cons(car, cdr))
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(ptr) = <span class="self">self</span>.fetch_scalar(<span class="kw-2">&amp;</span>scalar_ptr) {
+            <span class="prelude-val">Some</span>(ptr)
+        } <span class="kw">else </span>{
+            <span class="kw">use </span>ScalarExpression::<span class="kw-2">*</span>;
+            <span class="kw">match </span>(scalar_ptr.tag(), scalar_store.get_expr(<span class="kw-2">&amp;</span>scalar_ptr)) {
+                (ExprTag::Nil, <span class="prelude-val">Some</span>(Nil)) =&gt; {
+                    <span class="kw">let </span>ptr = <span class="self">self</span>.intern_nil();
+                    <span class="self">self</span>.create_scalar_ptr(ptr, <span class="kw-2">*</span>scalar_ptr.value());
+                    <span class="prelude-val">Some</span>(ptr)
+                }
+                (ExprTag::Cons, <span class="prelude-val">Some</span>(Cons(car, cdr))) =&gt; {
+                    <span class="kw">let </span>car = <span class="self">self</span>.intern_scalar_ptr(<span class="kw-2">*</span>car, scalar_store)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>cdr = <span class="self">self</span>.intern_scalar_ptr(<span class="kw-2">*</span>cdr, scalar_store)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>ptr = <span class="self">self</span>.intern_cons(car, cdr);
+                    <span class="self">self</span>.create_scalar_ptr(ptr, <span class="kw-2">*</span>scalar_ptr.value());
+                    <span class="prelude-val">Some</span>(ptr)
+                }
+                (ExprTag::Comm, <span class="prelude-val">Some</span>(Comm(secret, payload))) =&gt; {
+                    <span class="kw">let </span>payload = <span class="self">self</span>.intern_scalar_ptr(<span class="kw-2">*</span>payload, scalar_store)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>ptr = <span class="self">self</span>.intern_comm(<span class="kw-2">*</span>secret, payload);
+                    <span class="self">self</span>.create_scalar_ptr(ptr, <span class="kw-2">*</span>scalar_ptr.value());
+                    <span class="prelude-val">Some</span>(ptr)
+                }
+                (ExprTag::Str, <span class="prelude-val">Some</span>(Str(s))) =&gt; {
+                    <span class="kw">let </span>ptr = <span class="self">self</span>.intern_str(s);
+                    <span class="self">self</span>.create_scalar_ptr(ptr, <span class="kw-2">*</span>scalar_ptr.value());
+                    <span class="prelude-val">Some</span>(ptr)
+                }
+                (ExprTag::Sym, <span class="prelude-val">Some</span>(Sym(s))) =&gt; {
+                    <span class="kw">let </span>ptr = <span class="self">self</span>.intern_sym(s);
+                    <span class="self">self</span>.create_scalar_ptr(ptr, <span class="kw-2">*</span>scalar_ptr.value());
+                    <span class="prelude-val">Some</span>(ptr)
+                }
+                (ExprTag::Key, <span class="prelude-val">Some</span>(Sym(k))) =&gt; {
+                    <span class="kw">let </span>ptr = <span class="self">self</span>.intern_key(k);
+                    <span class="self">self</span>.create_scalar_ptr(ptr, <span class="kw-2">*</span>scalar_ptr.value());
+                    <span class="prelude-val">Some</span>(ptr)
+                }
+                (ExprTag::Num, <span class="prelude-val">Some</span>(Num(x))) =&gt; {
+                    <span class="kw">let </span>ptr = <span class="self">self</span>.intern_num(<span class="kw">crate</span>::Num::Scalar(<span class="kw-2">*</span>x));
+                    <span class="self">self</span>.create_scalar_ptr(ptr, <span class="kw-2">*</span>scalar_ptr.value());
+                    <span class="prelude-val">Some</span>(ptr)
+                }
+                (ExprTag::Char, <span class="prelude-val">Some</span>(Char(x))) =&gt; <span class="prelude-val">Some</span>((<span class="kw-2">*</span>x).into()),
+                (ExprTag::Thunk, <span class="prelude-val">Some</span>(Thunk(t))) =&gt; {
+                    <span class="kw">let </span>value = <span class="self">self</span>.intern_scalar_ptr(t.value, scalar_store)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>continuation = <span class="self">self</span>.intern_scalar_cont_ptr(t.continuation, scalar_store)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>ptr = <span class="self">self</span>.intern_thunk(<span class="kw">crate</span>::store::Thunk {
+                        value,
+                        continuation,
+                    });
+                    <span class="self">self</span>.create_scalar_ptr(ptr, <span class="kw-2">*</span>scalar_ptr.value());
+                    <span class="prelude-val">Some</span>(ptr)
+                }
+                (
+                    ExprTag::Fun,
+                    <span class="prelude-val">Some</span>(Fun {
+                        arg,
+                        body,
+                        closed_env,
+                    }),
+                ) =&gt; {
+                    <span class="kw">let </span>arg = <span class="self">self</span>.intern_scalar_ptr(<span class="kw-2">*</span>arg, scalar_store)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>body = <span class="self">self</span>.intern_scalar_ptr(<span class="kw-2">*</span>body, scalar_store)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>env = <span class="self">self</span>.intern_scalar_ptr(<span class="kw-2">*</span>closed_env, scalar_store)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>ptr = <span class="self">self</span>.intern_fun(arg, body, env);
+                    <span class="self">self</span>.create_scalar_ptr(ptr, <span class="kw-2">*</span>scalar_ptr.value());
+                    <span class="prelude-val">Some</span>(ptr)
+                }
+                (tag, <span class="prelude-val">None</span>) =&gt; {
+                    <span class="kw">let </span>ptr = <span class="self">self</span>.intern_maybe_opaque(tag, scalar_ptr.<span class="number">1</span>);
+                    <span class="self">self</span>.create_scalar_ptr(ptr, <span class="kw-2">*</span>scalar_ptr.value());
+                    <span class="prelude-val">Some</span>(ptr)
+                }
+                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
             }
-            (ExprTag::Str, <span class="prelude-val">Some</span>(Str(s))) =&gt; <span class="prelude-val">Some</span>(<span class="self">self</span>.intern_str(s)),
-            (ExprTag::Sym, <span class="prelude-val">Some</span>(Sym(s))) =&gt; <span class="prelude-val">Some</span>(<span class="self">self</span>.intern_sym(s)),
-            (ExprTag::Key, <span class="prelude-val">Some</span>(Sym(k))) =&gt; <span class="prelude-val">Some</span>(<span class="self">self</span>.intern_key(k)),
-            (ExprTag::Num, <span class="prelude-val">Some</span>(Num(x))) =&gt; <span class="prelude-val">Some</span>(<span class="self">self</span>.intern_num(<span class="kw">crate</span>::Num::Scalar(<span class="kw-2">*</span>x))),
-            (ExprTag::Thunk, <span class="prelude-val">Some</span>(Thunk(t))) =&gt; {
-                <span class="kw">let </span>value = <span class="self">self</span>.intern_scalar_ptr(t.value, scalar_store)<span class="question-mark">?</span>;
-                <span class="kw">let </span>continuation = <span class="self">self</span>.intern_scalar_cont_ptr(t.continuation, scalar_store)<span class="question-mark">?</span>;
-                <span class="prelude-val">Some</span>(<span class="self">self</span>.intern_thunk(<span class="kw">crate</span>::store::Thunk {
-                    value,
-                    continuation,
-                }))
-            }
-            (
-                ExprTag::Fun,
-                <span class="prelude-val">Some</span>(Fun {
-                    arg,
-                    body,
-                    closed_env,
-                }),
-            ) =&gt; {
-                <span class="kw">let </span>arg = <span class="self">self</span>.intern_scalar_ptr(<span class="kw-2">*</span>arg, scalar_store)<span class="question-mark">?</span>;
-                <span class="kw">let </span>body = <span class="self">self</span>.intern_scalar_ptr(<span class="kw-2">*</span>body, scalar_store)<span class="question-mark">?</span>;
-                <span class="kw">let </span>env = <span class="self">self</span>.intern_scalar_ptr(<span class="kw-2">*</span>closed_env, scalar_store)<span class="question-mark">?</span>;
-                <span class="prelude-val">Some</span>(<span class="self">self</span>.intern_fun(arg, body, env))
-            }
-            (tag, <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Some</span>(<span class="self">self</span>.intern_maybe_opaque(tag, ptr.<span class="number">1</span>)),
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
 
@@ -5150,6 +5232,7 @@
             HashScalar::Create =&gt; {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(sp) = scalar_ptr {
                     <span class="self">self</span>.pointer_scalar_ptr_cache.insert(<span class="kw-2">*</span>ptr, sp);
+                    <span class="self">self</span>.scalar_ptr_map.insert(sp, <span class="kw-2">*</span>ptr);
                 }
             }
             HashScalar::Get =&gt; (),
@@ -5178,6 +5261,9 @@
         <span class="kw">let </span>scalar_ptr = ScalarPtr::from_parts(ptr.<span class="number">0</span>, hash);
         <span class="kw">let </span>entry = <span class="self">self</span>.scalar_ptr_map.entry(scalar_ptr);
         entry.or_insert(ptr);
+
+        <span class="kw">let </span>entry2 = <span class="self">self</span>.pointer_scalar_ptr_cache.entry(ptr);
+        entry2.or_insert(scalar_ptr);
         scalar_ptr
     }
 

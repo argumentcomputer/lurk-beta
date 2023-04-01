@@ -573,6 +573,39 @@
 <a href="#573" id="573">573</a>
 <a href="#574" id="574">574</a>
 <a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::error::LurkError;
 <span class="kw">use </span><span class="kw">crate</span>::eval::{empty_sym_env, Evaluator, IO};
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
@@ -587,6 +620,7 @@
 <span class="kw">use </span>clap::{Arg, ArgAction, Command};
 <span class="kw">use </span>peekmore::PeekMore;
 <span class="kw">use </span>rustyline::error::ReadlineError;
+<span class="kw">use </span>rustyline::history::DefaultHistory;
 <span class="kw">use </span>rustyline::validate::{
     MatchingBracketValidator, ValidationContext, ValidationResult, Validator,
 };
@@ -594,7 +628,9 @@
 <span class="kw">use </span>rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 <span class="kw">use </span>std::fs::{<span class="self">self</span>, read_to_string};
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write <span class="kw">as _</span>};
-<span class="kw">use </span>std::path::{Path, PathBuf};
+<span class="kw">use </span>std::path::Path;
+<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</span><span class="kw">use </span>std::path::PathBuf;
 <span class="kw">use </span>tap::TapOptional;
 
 <span class="attr">#[derive(Completer, Helper, Highlighter, Hinter)]
@@ -617,8 +653,9 @@
 
 <span class="kw">pub struct </span>Repl&lt;F: LurkField, T: ReplTrait&lt;F&gt;&gt; {
     state: T,
-    rl: Editor&lt;InputValidator&gt;,
-    history_path: PathBuf,
+    rl: Editor&lt;InputValidator, DefaultHistory&gt;,
+    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span>history_path: PathBuf,
     _phantom: F,
 }
 
@@ -711,7 +748,8 @@
 
 <span class="kw">impl</span>&lt;F: LurkField, T: ReplTrait&lt;F&gt;&gt; Repl&lt;F, T&gt; {
     <span class="kw">pub fn </span>new(s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, limit: usize, command: <span class="prelude-ty">Option</span>&lt;Command&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>history_path = dirs::home_dir()
+        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        </span><span class="kw">let </span>history_path = dirs::home_dir()
             .expect(<span class="string">&quot;missing home directory&quot;</span>)
             .join(<span class="string">&quot;.lurk-history&quot;</span>);
 
@@ -722,9 +760,11 @@
             .color_mode(rustyline::ColorMode::Enabled)
             .auto_add_history(<span class="bool-val">true</span>)
             .build();
-        <span class="kw">let </span><span class="kw-2">mut </span>rl = Editor::with_config(config);
+        <span class="kw">let </span><span class="kw-2">mut </span>rl = Editor::with_config(config)<span class="question-mark">?</span>;
         rl.set_helper(<span class="prelude-val">Some</span>(h));
-        <span class="kw">if </span>history_path.exists() {
+
+        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        </span><span class="kw">if </span>history_path.exists() {
             rl.load_history(<span class="kw-2">&amp;</span>history_path)<span class="question-mark">?</span>;
         }
 
@@ -732,11 +772,13 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             state,
             rl,
-            history_path,
+            <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+            </span>history_path,
             _phantom: Default::default(),
         })
     }
-    <span class="kw">pub fn </span>save_history(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="kw">pub fn </span>save_history(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="self">self</span>.rl.save_history(<span class="kw-2">&amp;</span><span class="self">self</span>.history_path)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
@@ -810,7 +852,8 @@
             .map(|line| repl.state.process_line(line));
         <span class="kw">match </span>line {
             <span class="prelude-val">Ok</span>(line) =&gt; {
-                repl.save_history()<span class="question-mark">?</span>;
+                <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+                </span>repl.save_history()<span class="question-mark">?</span>;
 
                 <span class="kw">let </span><span class="kw-2">mut </span>chars = line.chars().peekmore();
 
@@ -1146,6 +1189,29 @@
                 <span class="prelude-val">Err</span>(e.into())
             }
         }
+    }
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>rustyline::DefaultEditor;
+    <span class="kw">use </span>std::fs;
+    <span class="kw">use </span>tempfile::Builder;
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_file_history() {
+        <span class="kw">let </span>input = <span class="string">&quot;(+ 1 1)&quot;</span>;
+        <span class="kw">let </span>tmp_path = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().unwrap().into_path();
+        <span class="kw">let </span>tmp_file = tmp_path.join(<span class="string">&quot;lurk-history&quot;</span>);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>rl = DefaultEditor::new().unwrap();
+        rl.add_history_entry(input).unwrap();
+        rl.save_history(<span class="kw-2">&amp;</span>tmp_file).unwrap();
+
+        <span class="macro">assert!</span>(fs::read_to_string(<span class="kw-2">&amp;</span>tmp_file).unwrap().contains(input));
+
+        <span class="comment">// Needed because the `into_path` tempfile function removes automatic deletion
+        </span>fs::remove_dir_all(tmp_path).unwrap();
     }
 }
 </code></pre></div></section></main></body></html>
