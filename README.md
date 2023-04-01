@@ -27,7 +27,6 @@ Integration with backend proving systems and tooling for proof generation are bo
 
 # Backends
 - Nova is Lurk's officially-supported backend. It uses the [Nova proving system](https://github.com/microsoft/Nova) and the Pasta Curves.
-- The `fcomm` example uses
 - There is also a Groth16 [SnarkPack](https://eprint.iacr.org/2021/529)[+](https://github.com/filecoin-project/bellperson/pull/257) backend using Bls12-381 (but see notes at *Status* above).
 - Future work may target Halo2 or other proving systems.
 
