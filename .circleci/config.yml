@@ -158,6 +158,9 @@ jobs:
           name: Linux Gadget Tests w/o debug assertions
           command: cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
       - save-sccache-cache
+      - run:
+          name: Print sccache stats
+          command: sccache -s
 
   linux_release:
     executor: default
@@ -180,6 +183,9 @@ jobs:
           name: Linux Doc Tests
           command: cargo test --doc --workspace --profile dev-ci
       - save-sccache-cache
+      - run:
+          name: Print sccache stats
+          command: sccache -s
 
   linux_exhaustive:
     executor: default
@@ -202,6 +208,9 @@ jobs:
           name: Linux Doc Tests
           command: cargo test --doc --workspace --profile dev-ci
       - save-sccache-cache
+      - run:
+          name: Print sccache stats
+          command: sccache -s
 
   arm64:
     executor: arm64
@@ -240,6 +249,9 @@ jobs:
           name: Arm64 Doc Tests
           command: cargo test --doc --workspace --profile dev-ci
       - save-sccache-cache
+      - run:
+          name: Print sccache stats
+          command: sccache -s
 
   mac:
     executor: darwin
@@ -277,6 +289,9 @@ jobs:
           name: MacOS Doc Tests
           command: cargo test --doc --workspace --profile dev-ci
       - save-sccache-cache
+      - run:
+          name: Print sccache stats
+          command: sccache -s
 
   clippy:
     executor: default
