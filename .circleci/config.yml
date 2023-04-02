@@ -47,6 +47,7 @@ commands:
             echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
             # This is the maximum space sccache cache will use on disk.
             echo 'export "SCCACHE_CACHE_SIZE"="1G"' >> $BASH_ENV
+            echo 'export "SCCACHE_DIR"="$HOME/.cache/sccache"' >> $BASH_ENV
             sccache --version
 
   restore-sccache-cache:
@@ -225,6 +226,7 @@ jobs:
             echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
             # This is the maximum space sccache cache will use on disk.                                                                               
             echo 'export "SCCACHE_CACHE_SIZE"="1G"' >> $BASH_ENV
+            echo 'export "SCCACHE_DIR"="$HOME/.cache/sccache"' >> $BASH_ENV
             sccache --version
       - restore-sccache-cache
       - run:
@@ -260,6 +262,8 @@ jobs:
             echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
             # This is the maximum space sccache cache will use on disk.                                                                               
             echo 'export "SCCACHE_CACHE_SIZE"="1G"' >> $BASH_ENV
+            # important to normalize location on OSX 
+            echo 'export "SCCACHE_DIR"="$HOME/.cache/sccache"' >> $BASH_ENV
             sccache --version
       - restore-sccache-cache
       - run:
