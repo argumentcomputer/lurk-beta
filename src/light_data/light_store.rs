@@ -352,7 +352,7 @@ impl<F: LurkField> Encodable for LightExpr<F> {
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use super::*;
     use pasta_curves::pallas::Scalar;
     use std::collections::BTreeMap;

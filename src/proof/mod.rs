@@ -18,9 +18,9 @@ pub trait Provable<F: LurkField> {
 
 #[allow(dead_code)]
 pub fn verify_sequential_css<F: LurkField + Copy>(
-    css: &SequentialCS<F, IO<F>, Witness<F>>,
+    css: &SequentialCS<'_, F, IO<F>, Witness<F>>,
 ) -> Result<bool, SynthesisError> {
-    let mut previous_frame: Option<&MultiFrame<F, IO<F>, Witness<F>>> = None;
+    let mut previous_frame: Option<&MultiFrame<'_, F, IO<F>, Witness<F>>> = None;
 
     for (i, (multiframe, cs)) in css.iter().enumerate() {
         if let Some(prev) = previous_frame {
@@ -79,7 +79,7 @@ pub trait Prover<'a, F: LurkField> {
 
     fn outer_synthesize(
         &self,
-        multiframes: &'a [MultiFrame<F, IO<F>, Witness<F>>],
+        multiframes: &'a [MultiFrame<'_, F, IO<F>, Witness<F>>],
     ) -> Result<SequentialCS<'a, F, IO<F>, Witness<F>>, SynthesisError> {
         let res = multiframes
             .iter()

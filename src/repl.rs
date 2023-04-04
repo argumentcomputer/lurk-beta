@@ -31,7 +31,7 @@ struct InputValidator {
 }
 
 impl Validator for InputValidator {
-    fn validate(&self, ctx: &mut ValidationContext) -> rustyline::Result<ValidationResult> {
+    fn validate(&self, ctx: &mut ValidationContext<'_>) -> rustyline::Result<ValidationResult> {
         self.brackets.validate(ctx)
     }
 }

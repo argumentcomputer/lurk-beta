@@ -162,7 +162,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
         input_expr: AllocatedPtr<F>,
         input_env: AllocatedPtr<F>,
         input_cont: AllocatedContPtr<F>,
-        frames: &[CircuitFrame<F, IO<F>, Witness<F>>],
+        frames: &[CircuitFrame<'_, F, IO<F>, Witness<F>>],
         g: &GlobalAllocations<F>,
     ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
         let acc = (input_expr, input_env, input_cont);
@@ -313,7 +313,7 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
         //
         // Initial input:
         let mut synth = |store,
-                         frames: &[CircuitFrame<F, IO<F>, Witness<F>>],
+                         frames: &[CircuitFrame<'_, F, IO<F>, Witness<F>>],
                          input: Option<IO<F>>,
                          output: Option<IO<F>>| {
             let input_expr = AllocatedPtr::bind_input(
@@ -666,8 +666,8 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     env: &AllocatedPtr<F>,
     cont: &AllocatedContPtr<F>,
     witness: &Option<Witness<F>>,
-    allocated_cons_witness: &mut AllocatedConsWitness<F>,
-    allocated_cont_witness: &mut AllocatedContWitness<F>,
+    allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
+    allocated_cont_witness: &mut AllocatedContWitness<'_, F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
@@ -951,8 +951,8 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     cont: &AllocatedContPtr<F>,
     not_dummy: &Boolean,
     witness: &Option<Witness<F>>,
-    allocated_cons_witness: &mut AllocatedConsWitness<F>,
-    allocated_cont_witness: &mut AllocatedContWitness<F>,
+    allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
+    allocated_cont_witness: &mut AllocatedContWitness<'_, F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<
@@ -1267,8 +1267,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     cont: &AllocatedContPtr<F>,
     not_dummy: &Boolean,
     _witness: &Option<Witness<F>>,
-    allocated_cons_witness: &mut AllocatedConsWitness<F>,
-    allocated_cont_witness: &mut AllocatedContWitness<F>,
+    allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
+    allocated_cont_witness: &mut AllocatedContWitness<'_, F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<
@@ -2729,7 +2729,7 @@ fn make_thunk<F: LurkField, CS: ConstraintSystem<F>>(
     result: &AllocatedPtr<F>,
     env: &AllocatedPtr<F>,
     not_dummy: &Boolean,
-    allocated_cont_witness: &mut AllocatedContWitness<F>,
+    allocated_cont_witness: &mut AllocatedContWitness<'_, F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
@@ -2816,8 +2816,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     result: &AllocatedPtr<F>,
     env: &AllocatedPtr<F>,
     not_dummy: &Boolean,
-    allocated_cons_witness: &mut AllocatedConsWitness<F>,
-    allocated_cont_witness: &mut AllocatedContWitness<F>,
+    allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
+    allocated_cont_witness: &mut AllocatedContWitness<'_, F>,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<
@@ -4569,7 +4569,7 @@ fn get_named_components<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     cont_ptr: &AllocatedContPtr<F>,
     name: ContName,
-    allocated_cont_witness: &mut AllocatedContWitness<F>,
+    allocated_cont_witness: &mut AllocatedContWitness<'_, F>,
     not_dummy: &Boolean,
     _store: &Store<F>,
 ) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {
@@ -4587,7 +4587,7 @@ fn get_named_components<F: LurkField, CS: ConstraintSystem<F>>(
 // It receives as input argument `diff`, which must be constrained to be
 // equal to the difference (a - b).
 // The last argument is `op2`, which can be <, <=, >, >=
-pub fn comparison_helper<F: LurkField, CS: ConstraintSystem<F>>(
+fn comparison_helper<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
     a: &AllocatedNum<F>,
@@ -4720,13 +4720,13 @@ pub fn comparison_helper<F: LurkField, CS: ConstraintSystem<F>>(
 
 // Lurk supported uint coercion
 #[derive(Copy, Clone)]
-pub enum UnsignedInt {
+enum UnsignedInt {
     U32,
     U64,
 }
 
 impl UnsignedInt {
-    pub fn num_bits(&self) -> u32 {
+    fn num_bits(&self) -> u32 {
         match self {
             UnsignedInt::U32 => 32,
             UnsignedInt::U64 => 64,
@@ -4734,7 +4734,7 @@ impl UnsignedInt {
     }
 }
 
-pub fn to_unsigned_integer_helper<F: LurkField, CS: ConstraintSystem<F>>(
+fn to_unsigned_integer_helper<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
     field_elem: &AllocatedNum<F>,
@@ -4775,7 +4775,7 @@ pub fn to_unsigned_integer_helper<F: LurkField, CS: ConstraintSystem<F>>(
 // Convert from num to unsigned integers by taking the least significant bits.
 // The output is a pair of allocated numbers, where the first one corresponds to
 // the u32 coercion, while the second corresponds to the u64 coercion.
-pub fn to_unsigned_integers<F: LurkField, CS: ConstraintSystem<F>>(
+fn to_unsigned_integers<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
     maybe_unsigned: &AllocatedNum<F>,
@@ -4810,7 +4810,7 @@ pub fn to_unsigned_integers<F: LurkField, CS: ConstraintSystem<F>>(
 }
 
 // Convert from num to u64.
-pub fn to_u64<F: LurkField, CS: ConstraintSystem<F>>(
+fn to_u64<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
     maybe_u64: &AllocatedNum<F>,
@@ -4833,7 +4833,7 @@ pub fn to_u64<F: LurkField, CS: ConstraintSystem<F>>(
 
 // Enforce div and mod operation for U64. We need to show that
 // arg1 = q * arg2 + r, such that 0 <= r < arg2.
-pub fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
+fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     cond: Boolean,
     arg1: &AllocatedPtr<F>,
@@ -4905,7 +4905,7 @@ pub fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
 // This is done by proving (bound - num) is positive.
 // `num` and `bound` must be a positive field element.
 // `cond` is a Boolean condition that enforces the validation iff it is True.
-pub fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
+fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     cond: Boolean,
     num: AllocatedNum<F>,
@@ -4930,7 +4930,7 @@ pub fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
 // In the circuit we use it to prove u64 decomposition, since using bn
 // we have division with remainder, which is used to find the quotient
 // after dividing by 2ˆ64. Therefore we constrain this relation afterwards.
-pub fn allocate_unconstrained_bignum<F: LurkField, CS: ConstraintSystem<F>>(
+fn allocate_unconstrained_bignum<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     bn: BigUint,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
@@ -4947,7 +4947,7 @@ fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
     g: &GlobalAllocations<F>,
     maybe_cons: &AllocatedPtr<F>,
     name: ConsName,
-    allocated_cons_witness: &mut AllocatedConsWitness<F>,
+    allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
     not_dummy: &Boolean,
     _store: &Store<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
@@ -4989,7 +4989,7 @@ fn extend_named<F: LurkField, CS: ConstraintSystem<F>>(
     var: &AllocatedPtr<F>,
     val: &AllocatedPtr<F>,
     name: ConsName,
-    allocated_cons_witness: &mut AllocatedConsWitness<F>,
+    allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
     not_dummy: &Boolean,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {
     let new_binding = AllocatedPtr::construct_cons_named(
@@ -5018,7 +5018,7 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
     env: &AllocatedPtr<F>,
     var: &AllocatedPtr<F>,
     val: &AllocatedPtr<F>,
-    allocated_cons_witness: &mut AllocatedConsWitness<F>,
+    allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
     not_dummy: &Boolean,
     store: &Store<F>,
 ) -> Result<AllocatedPtr<F>, SynthesisError> {

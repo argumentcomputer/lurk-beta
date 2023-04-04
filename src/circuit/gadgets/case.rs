@@ -17,9 +17,9 @@ use std::fmt::Debug;
 Initialized map entry for a fixed `key` with
 an allocated `value` computed at runtime.
 */
-pub struct CaseClause<'a, F: LurkField> {
-    pub key: F,
-    pub value: &'a AllocatedNum<F>,
+pub(crate) struct CaseClause<'a, F: LurkField> {
+    pub(crate) key: F,
+    pub(crate) value: &'a AllocatedNum<F>,
 }
 
 impl<F: LurkField + Debug> Debug for CaseClause<'_, F> {
@@ -42,7 +42,7 @@ impl<F: LurkField + Debug> Debug for CaseClause<'_, F> {
 An allocated `selected_key` supposedly equal to one of the fixed keys
 in the list of allocated map entries defined in `clauses`.
 */
-pub struct CaseConstraint<'a, F: LurkField> {
+pub(crate) struct CaseConstraint<'a, F: LurkField> {
     selected_key: AllocatedNum<F>,
     clauses: &'a [CaseClause<'a, F>],
 }
@@ -179,10 +179,10 @@ fn selector_dot_product<F: LurkField, CS: ConstraintSystem<F>>(
 Selects the clause whose key is equal to selected and returns its value,
 or if no key is selected, returns the default.
 */
-pub fn case<F: LurkField, CS: ConstraintSystem<F>>(
+pub(crate) fn case<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selected: &AllocatedNum<F>,
-    clauses: &[CaseClause<F>],
+    clauses: &[CaseClause<'_, F>],
     default: &AllocatedNum<F>,
     g: &GlobalAllocations<F>,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
@@ -194,10 +194,10 @@ Selects the clauses whose key is equal to selected and returns
 a vector containing the corresponding values, or if no key is selected,
 returns the default.
 */
-pub fn multi_case<F: LurkField, CS: ConstraintSystem<F>>(
+pub(crate) fn multi_case<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selected: &AllocatedNum<F>,
-    cases: &[&[CaseClause<F>]],
+    cases: &[&[CaseClause<'_, F>]],
     defaults: &[&AllocatedNum<F>],
     g: &GlobalAllocations<F>,
 ) -> Result<Vec<AllocatedNum<F>>, SynthesisError> {
@@ -210,10 +210,10 @@ pub fn multi_case<F: LurkField, CS: ConstraintSystem<F>>(
  * Returns not only the selected clause, but also a Boolean that can
  * be used to determine if the default clause was returned.
  */
-pub fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
+pub(crate) fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selected: &AllocatedNum<F>,
-    cases: &[&[CaseClause<F>]],
+    cases: &[&[CaseClause<'_, F>]],
     defaults: &[&AllocatedNum<F>],
     g: &GlobalAllocations<F>,
 ) -> Result<(Vec<AllocatedNum<F>>, Boolean), SynthesisError> {
@@ -445,7 +445,7 @@ mod tests {
         ];
 
         {
-            let clauses0: [CaseClause<Fr>; 2] = [
+            let clauses0: [CaseClause<'_, Fr>; 2] = [
                 CaseClause {
                     key: x,
                     value: &val0,
@@ -455,7 +455,7 @@ mod tests {
                     value: &val1,
                 },
             ];
-            let clauses1: [CaseClause<Fr>; 2] = [
+            let clauses1: [CaseClause<'_, Fr>; 2] = [
                 CaseClause {
                     key: x,
                     value: &val1,
@@ -465,7 +465,7 @@ mod tests {
                     value: &val0,
                 },
             ];
-            let clauses2: [CaseClause<Fr>; 2] = [
+            let clauses2: [CaseClause<'_, Fr>; 2] = [
                 CaseClause {
                     key: x,
                     value: &val2,
@@ -475,7 +475,7 @@ mod tests {
                     value: &val0,
                 },
             ];
-            let clauses_vec: [&[CaseClause<Fr>]; 3] = [&clauses0, &clauses1, &clauses2];
+            let clauses_vec: [&[CaseClause<'_, Fr>]; 3] = [&clauses0, &clauses1, &clauses2];
 
             // Test regular multicase, select first clause
             let mut result = multi_case(
@@ -541,7 +541,7 @@ mod tests {
             &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
         ];
 
-        let clauses0: [CaseClause<Fr>; 2] = [
+        let clauses0: [CaseClause<'_, Fr>; 2] = [
             CaseClause {
                 key: x,
                 value: &val0,
@@ -551,7 +551,7 @@ mod tests {
                 value: &val1,
             },
         ];
-        let clauses1: [CaseClause<Fr>; 2] = [
+        let clauses1: [CaseClause<'_, Fr>; 2] = [
             CaseClause {
                 key: x,
                 value: &val2,
@@ -563,7 +563,7 @@ mod tests {
         ];
 
         // Test repeated keys
-        let invalid_clauses_vec: [&[CaseClause<Fr>]; 2] = [&clauses0, &clauses1];
+        let invalid_clauses_vec: [&[CaseClause<'_, Fr>]; 2] = [&clauses0, &clauses1];
 
         let _ = multi_case(
             &mut cs.namespace(|| "selected case"),
@@ -598,7 +598,7 @@ mod tests {
             &AllocatedNum::alloc(cs.namespace(|| "default2"), || Ok(Fr::from(997))).unwrap(),
         ];
 
-        let clauses0: [CaseClause<Fr>; 2] = [
+        let clauses0: [CaseClause<'_, Fr>; 2] = [
             CaseClause {
                 key: x,
                 value: &val0,
@@ -608,7 +608,7 @@ mod tests {
                 value: &val1,
             },
         ];
-        let clauses1: [CaseClause<Fr>; 2] = [
+        let clauses1: [CaseClause<'_, Fr>; 2] = [
             CaseClause {
                 key: y,
                 value: &val2,
@@ -619,7 +619,7 @@ mod tests {
             },
         ];
 
-        let invalid_clauses_vec: [&[CaseClause<Fr>]; 2] = [&clauses0, &clauses1];
+        let invalid_clauses_vec: [&[CaseClause<'_, Fr>]; 2] = [&clauses0, &clauses1];
 
         // Test keys ordering
         let _ = multi_case(
@@ -653,7 +653,7 @@ mod tests {
             &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
         ];
 
-        let clauses0: [CaseClause<Fr>; 2] = [
+        let clauses0: [CaseClause<'_, Fr>; 2] = [
             CaseClause {
                 key: x,
                 value: &val0,
@@ -663,7 +663,7 @@ mod tests {
                 value: &val1,
             },
         ];
-        let clauses1: [CaseClause<Fr>; 3] = [
+        let clauses1: [CaseClause<'_, Fr>; 3] = [
             CaseClause {
                 key: x,
                 value: &val2,
@@ -679,7 +679,7 @@ mod tests {
         ];
 
         // Test invalid clauses sizes
-        let invalid_clauses_vec: [&[CaseClause<Fr>]; 2] = [&clauses0, &clauses1];
+        let invalid_clauses_vec: [&[CaseClause<'_, Fr>]; 2] = [&clauses0, &clauses1];
 
         let _ = multi_case(
             &mut cs.namespace(|| "selected case"),
@@ -730,7 +730,7 @@ mod tests {
         let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
         let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
         let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(700))).unwrap();
-        let clauses0: [CaseClause<Fr>; 2] = [
+        let clauses0: [CaseClause<'_, Fr>; 2] = [
             CaseClause {
                 key: x,
                 value: &val0,
@@ -740,7 +740,7 @@ mod tests {
                 value: &val1,
             },
         ];
-        let clauses1: [CaseClause<Fr>; 3] = [
+        let clauses1: [CaseClause<'_, Fr>; 3] = [
             CaseClause {
                 key: x,
                 value: &val2,
@@ -754,7 +754,7 @@ mod tests {
                 value: &val0,
             },
         ];
-        let clauses_vec: [&[CaseClause<Fr>]; 2] = [&clauses0, &clauses1];
+        let clauses_vec: [&[CaseClause<'_, Fr>]; 2] = [&clauses0, &clauses1];
 
         // Test invalid, empty defaults
         let _ = multi_case(
@@ -784,7 +784,7 @@ mod tests {
             &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
             &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
         ];
-        let clauses0: [CaseClause<Fr>; 2] = [
+        let clauses0: [CaseClause<'_, Fr>; 2] = [
             CaseClause {
                 key: x,
                 value: &val0,
@@ -795,7 +795,7 @@ mod tests {
             },
         ];
         let clauses1 = [];
-        let clauses_vec: [&[CaseClause<Fr>]; 2] = [&clauses0, &clauses1];
+        let clauses_vec: [&[CaseClause<'_, Fr>]; 2] = [&clauses0, &clauses1];
 
         // Test invalid, empty clauses.
         let _ = multi_case(

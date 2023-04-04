@@ -114,12 +114,12 @@ impl<F: LurkField> NovaProver<F> {
     }
     pub fn evaluate_and_prove<'a>(
         &'a self,
-        pp: &'a PublicParams,
+        pp: &'a PublicParams<'_>,
         expr: Ptr<S1>,
         env: Ptr<S1>,
         store: &'a mut Store<S1>,
         limit: usize,
-    ) -> Result<(Proof, Vec<S1>, Vec<S1>, usize), ProofError> {
+    ) -> Result<(Proof<'_>, Vec<S1>, Vec<S1>, usize), ProofError> {
         let frames = self.get_evaluation_frames(expr, env, store, limit)?;
         let z0 = frames[0].input.to_vector(store)?;
         let zi = frames.last().unwrap().output.to_vector(store)?;
@@ -193,7 +193,7 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F, IO<F>, Witness<F>> {
 
 impl<'a> Proof<'a> {
     pub fn prove_recursively(
-        pp: &'a PublicParams,
+        pp: &'a PublicParams<'_>,
         store: &'a Store<S1>,
         circuits: &[C1<'a>],
         num_iters_per_step: usize,
@@ -256,7 +256,7 @@ impl<'a> Proof<'a> {
         Ok(Self::Recursive(Box::new(recursive_snark.unwrap())))
     }
 
-    pub fn compress(self, pp: &'a PublicParams) -> Result<Self, ProofError> {
+    pub fn compress(self, pp: &'a PublicParams<'_>) -> Result<Self, ProofError> {
         match &self {
             Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(CompressedSNARK::<
                 _,
@@ -276,7 +276,7 @@ impl<'a> Proof<'a> {
 
     pub fn verify(
         &self,
-        pp: &PublicParams,
+        pp: &PublicParams<'_>,
         num_steps: usize,
         z0: Vec<S1>,
         zi: &[S1],
@@ -415,7 +415,7 @@ mod tests {
         let len = multiframes.len();
 
         let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
-        let mut previous_frame: Option<MultiFrame<Fr, IO<Fr>, Witness<Fr>>> = None;
+        let mut previous_frame: Option<MultiFrame<'_, Fr, IO<Fr>, Witness<Fr>>> = None;
 
         let mut cs_blank = MetricCS::<Fr>::new();
 

@@ -1,7 +1,6 @@
 #![allow(clippy::single_match, clippy::type_complexity)]
 #![allow(clippy::uninlined_format_args)]
-
-extern crate core;
+#![warn(rust_2018_idioms, unreachable_pub)]
 
 #[macro_use]
 extern crate alloc;
@@ -22,7 +21,7 @@ pub mod tag;
 pub mod uint;
 pub mod writer;
 
-mod error;
+pub mod error;
 mod num;
 pub use num::Num;
 pub use sym::{Sym, Symbol};

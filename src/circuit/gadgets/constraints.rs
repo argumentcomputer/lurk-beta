@@ -14,7 +14,7 @@ use ff::PrimeField;
 /// Adds a constraint to CS, enforcing an equality relationship between the allocated numbers a and b.
 ///
 /// a == b
-pub fn enforce_equal<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
+pub(crate) fn enforce_equal<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
     a: &AllocatedNum<F>,
@@ -36,7 +36,7 @@ pub fn enforce_equal<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
 /// Adds a constraint to CS, enforcing a add relationship between the allocated numbers a, b, and sum.
 ///
 /// a + b = sum
-pub fn enforce_sum<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
+pub(crate) fn enforce_sum<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
     a: &AllocatedNum<F>,
@@ -55,7 +55,7 @@ pub fn enforce_sum<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     );
 }
 
-pub fn add<F: PrimeField, CS: ConstraintSystem<F>>(
+pub(crate) fn add<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     a: &AllocatedNum<F>,
     b: &AllocatedNum<F>,
@@ -78,7 +78,7 @@ pub fn add<F: PrimeField, CS: ConstraintSystem<F>>(
 ///
 /// summation(v) = sum
 #[allow(dead_code)]
-pub fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
+pub(crate) fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     v: &[Boolean],
     sum: &AllocatedNum<F>,
@@ -99,7 +99,7 @@ pub fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(())
 }
 
-pub fn add_to_lc<F: PrimeField, CS: ConstraintSystem<F>>(
+pub(crate) fn add_to_lc<F: PrimeField, CS: ConstraintSystem<F>>(
     b: &Boolean,
     lc: LinearCombination<F>,
     scalar: F,
@@ -121,7 +121,7 @@ pub fn add_to_lc<F: PrimeField, CS: ConstraintSystem<F>>(
 }
 
 // Enforce v is the bit decomposition of num, therefore we have that 0 <= num < 2ˆ(sizeof(v)).
-pub fn enforce_pack<F: LurkField, CS: ConstraintSystem<F>>(
+pub(crate) fn enforce_pack<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     v: &[Boolean],
     num: &AllocatedNum<F>,
@@ -147,7 +147,7 @@ pub fn enforce_pack<F: LurkField, CS: ConstraintSystem<F>>(
 /// Adds a constraint to CS, enforcing a difference relationship between the allocated numbers a, b, and difference.
 ///
 /// a - b = difference
-pub fn enforce_difference<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
+pub(crate) fn enforce_difference<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
     a: &AllocatedNum<F>,
@@ -168,7 +168,7 @@ pub fn enforce_difference<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     );
 }
 
-pub fn sub<F: PrimeField, CS: ConstraintSystem<F>>(
+pub(crate) fn sub<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     a: &AllocatedNum<F>,
     b: &AllocatedNum<F>,
@@ -191,7 +191,7 @@ pub fn sub<F: PrimeField, CS: ConstraintSystem<F>>(
 /// a * b + c = num is enforced.
 ///
 /// a * b = num - c
-pub fn linear<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
+pub(crate) fn linear<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
     a: &AllocatedNum<F>,
@@ -214,7 +214,7 @@ pub fn linear<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
 /// Adds a constraint to CS, enforcing a product relationship between the allocated numbers a, b, and product.
 ///
 /// a * b = product
-pub fn product<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
+pub(crate) fn product<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
     a: &AllocatedNum<F>,
@@ -233,7 +233,7 @@ pub fn product<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     );
 }
 
-pub fn mul<F: PrimeField, CS: ConstraintSystem<F>>(
+pub(crate) fn mul<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     a: &AllocatedNum<F>,
     b: &AllocatedNum<F>,
@@ -251,7 +251,7 @@ pub fn mul<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(res)
 }
 
-pub fn div<F: PrimeField, CS: ConstraintSystem<F>>(
+pub(crate) fn div<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     a: &AllocatedNum<F>,
     b: &AllocatedNum<F>,
@@ -278,7 +278,7 @@ pub fn div<F: PrimeField, CS: ConstraintSystem<F>>(
 /// The returned result contains the selected element, and constraints are enforced.
 /// `from.len()` must be a power of two.
 #[allow(dead_code)]
-pub fn select<F: PrimeField, CS: ConstraintSystem<F>>(
+pub(crate) fn select<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     from: &[AllocatedNum<F>],
     path_bits: &[Boolean],
@@ -308,7 +308,7 @@ pub fn select<F: PrimeField, CS: ConstraintSystem<F>>(
 }
 
 /// Takes two allocated numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.
-pub fn pick<F: PrimeField, CS: ConstraintSystem<F>>(
+pub(crate) fn pick<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     condition: &Boolean,
     a: &AllocatedNum<F>,
@@ -341,7 +341,7 @@ where
 }
 
 /// Takes two numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.
-pub fn pick_const<F: PrimeField, CS: ConstraintSystem<F>>(
+pub(crate) fn pick_const<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     condition: &Boolean,
     a: F,
@@ -374,7 +374,7 @@ where
 }
 
 /// Convert from Boolean to AllocatedNum
-pub fn boolean_to_num<F: PrimeField, CS: ConstraintSystem<F>>(
+pub(crate) fn boolean_to_num<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     bit: &Boolean,
 ) -> Result<AllocatedNum<F>, SynthesisError>
@@ -401,7 +401,7 @@ where
 }
 
 // This could now use alloc_is_zero to avoid duplication.
-pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
+pub(crate) fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     a: &AllocatedNum<F>,
     b: &AllocatedNum<F>,
@@ -456,7 +456,7 @@ pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
 }
 
 // Like `alloc_equal`, but with second argument a constant.
-pub fn alloc_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
+pub(crate) fn alloc_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     a: &AllocatedNum<F>,
     b: F,
@@ -510,14 +510,14 @@ pub fn alloc_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(Boolean::Is(result))
 }
 
-pub fn alloc_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
+pub(crate) fn alloc_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: CS,
     x: &AllocatedNum<F>,
 ) -> Result<Boolean, SynthesisError> {
     alloc_num_is_zero(cs, Num::from(x.clone()))
 }
 
-pub fn alloc_num_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
+pub(crate) fn alloc_num_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     num: Num<F>,
 ) -> Result<Boolean, SynthesisError> {
@@ -565,7 +565,7 @@ pub fn alloc_num_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(Boolean::Is(result))
 }
 
-pub fn or_v<CS: ConstraintSystem<F>, F: PrimeField>(
+pub(crate) fn or_v<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     v: &[&Boolean],
 ) -> Result<Boolean, SynthesisError> {
@@ -586,7 +586,7 @@ pub fn or_v<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(nor.not())
 }
 
-pub fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
+pub(crate) fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     v: &[&Boolean],
 ) -> Result<Boolean, SynthesisError> {
@@ -607,7 +607,7 @@ pub fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(and)
 }
 
-pub fn enforce_implication<CS: ConstraintSystem<F>, F: PrimeField>(
+pub(crate) fn enforce_implication<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     a: &Boolean,
     b: &Boolean,
@@ -617,7 +617,7 @@ pub fn enforce_implication<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(())
 }
 
-pub fn enforce_true<CS: ConstraintSystem<F>, F: PrimeField>(
+pub(crate) fn enforce_true<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: CS,
     prop: &Boolean,
 ) -> Result<(), SynthesisError> {
@@ -625,7 +625,7 @@ pub fn enforce_true<CS: ConstraintSystem<F>, F: PrimeField>(
 }
 
 #[allow(dead_code)]
-pub fn enforce_false<CS: ConstraintSystem<F>, F: PrimeField>(
+pub(crate) fn enforce_false<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: CS,
     prop: &Boolean,
 ) -> Result<(), SynthesisError> {
@@ -634,7 +634,7 @@ pub fn enforce_false<CS: ConstraintSystem<F>, F: PrimeField>(
 
 // a => b
 // not (a and (not b))
-pub fn implies<CS: ConstraintSystem<F>, F: PrimeField>(
+pub(crate) fn implies<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: CS,
     a: &Boolean,
     b: &Boolean,
@@ -642,7 +642,7 @@ pub fn implies<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(Boolean::and(cs, a, &b.not())?.not())
 }
 
-pub fn or<CS: ConstraintSystem<F>, F: PrimeField>(
+pub(crate) fn or<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     a: &Boolean,
     b: &Boolean,
@@ -655,7 +655,7 @@ pub fn or<CS: ConstraintSystem<F>, F: PrimeField>(
 }
 
 #[allow(dead_code)]
-pub fn must_be_simple_bit(x: &Boolean) -> AllocatedBit {
+pub(crate) fn must_be_simple_bit(x: &Boolean) -> AllocatedBit {
     match x {
         Boolean::Constant(_) => panic!("Expected a non-constant Boolean."),
         Boolean::Is(b) => b.clone(),
@@ -670,7 +670,7 @@ pub fn must_be_simple_bit(x: &Boolean) -> AllocatedBit {
 // field, then a modular reduction must have been carried out, changing the parity that
 // should be even (since we multiplied by 2) to odd. In other words, we define
 // negative numbers to be those field elements that are larger than p/2.
-pub fn allocate_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
+pub(crate) fn allocate_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     num: &AllocatedNum<F>,
 ) -> Result<Boolean, SynthesisError> {

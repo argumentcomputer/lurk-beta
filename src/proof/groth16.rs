@@ -420,8 +420,8 @@ mod tests {
         };
     }
 
-    pub fn check_cs_deltas(
-        constraint_systems: &SequentialCS<Fr, IO<Fr>, Witness<Fr>>,
+    fn check_cs_deltas(
+        constraint_systems: &SequentialCS<'_, Fr, IO<Fr>, Witness<Fr>>,
         limit: usize,
     ) {
         let mut cs_blank = MetricCS::<Fr>::new();
