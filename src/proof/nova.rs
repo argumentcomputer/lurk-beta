@@ -13,6 +13,7 @@ use nova::{
     CompressedSNARK, ProverKey, RecursiveSNARK, VerifierKey,
 };
 use pasta_curves::{pallas, vesta};
+use serde::{Deserialize, Serialize};
 
 use crate::circuit::{
     gadgets::{
@@ -27,26 +28,40 @@ use crate::field::LurkField;
 use crate::proof::{Prover, PublicParameters};
 use crate::store::{Ptr, Store};
 
+/// Type alias for G1 group elements using the Pallas curve.
 pub type G1 = pallas::Point;
+/// Type alias for G2 group elements using the Vesta curve.
 pub type G2 = vesta::Point;
 
+/// Type alias for scalar field elements on the Pallas curve.
 pub type S1 = pallas::Scalar;
+/// Type alias for scalar field elements on the Vesta curve.
 pub type S2 = vesta::Scalar;
 
+/// Type alias for the Evaluation Engine using G1 group elements.
 pub type EE1 = nova::provider::ipa_pc::EvaluationEngine<G1>;
+/// Type alias for the Evaluation Engine using G2 group elements.
 pub type EE2 = nova::provider::ipa_pc::EvaluationEngine<G2>;
 
+/// Type alias for Nova's Trivial Compressed Computation Engine using G1 group elements and EE1.
 type CC1 = nova::spartan::spark::TrivialCompComputationEngine<G1, EE1>;
+/// Type alias for Nova's Trivial Compressed Computation Engine using G2 group elements and EE2.
 type CC2 = nova::spartan::spark::TrivialCompComputationEngine<G2, EE2>;
 
+/// Type alias for the Relaxed R1CS Spartan SNARK using G1 group elements, EE1, and CC1.
 pub type SS1 = nova::spartan::RelaxedR1CSSNARK<G1, EE1, CC1>;
+/// Type alias for the Relaxed R1CS Spartan SNARK using G2 group elements, EE2, and CC2.
 pub type SS2 = nova::spartan::RelaxedR1CSSNARK<G2, EE2, CC2>;
 
+/// Type alias for a MultiFrame with S1 field elements.
 pub type C1<'a> = MultiFrame<'a, S1, IO<S1>, Witness<S1>>;
+/// Type alias for a Trivial Test Circuit with G2 scalar field elements.
 pub type C2 = TrivialTestCircuit<<G2 as Group>::Scalar>;
 
+/// Type alias for Nova Public Parameters with the curve cycle types defined above.
 pub type NovaPublicParams<'a> = nova::PublicParams<G1, G2, C1<'a>, C2>;
 
+/// A struct that contains public parameters for the Nova proving system.
 #[derive(Serialize, Deserialize)]
 pub struct PublicParams<'a> {
     pp: NovaPublicParams<'a>,
@@ -54,14 +69,16 @@ pub struct PublicParams<'a> {
     vk: VerifierKey<G1, G2, C1<'a>, C2, SS1, SS2>,
 }
 
-use serde::{Deserialize, Serialize};
-
+/// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
 pub enum Proof<'a> {
+    /// A proof for the intermediate steps of a recursive computation
     Recursive(Box<RecursiveSNARK<G1, G2, C1<'a>, C2>>),
+    /// A proof for the final step of a recursive computation
     Compressed(Box<CompressedSNARK<G1, G2, C1<'a>, C2, SS1, SS2>>),
 }
 
+/// Generates the public parameters for the Nova proving system.
 pub fn public_params<'a>(num_iters_per_step: usize) -> PublicParams<'a> {
     let (circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step);
 
@@ -76,6 +93,7 @@ impl<'a> MultiFrame<'a, S1, IO<S1>, Witness<S1>> {
     }
 }
 
+/// A struct for the Nova prover that operates on field elements of type `F`.
 pub struct NovaProver<F: LurkField> {
     // `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
     reduction_count: usize,
@@ -112,6 +130,8 @@ impl<F: LurkField> NovaProver<F> {
 
         Ok(frames)
     }
+
+    /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
     pub fn evaluate_and_prove<'a>(
         &'a self,
         pp: &'a PublicParams<'_>,
@@ -192,6 +212,7 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F, IO<F>, Witness<F>> {
 }
 
 impl<'a> Proof<'a> {
+    /// Proves the computation recursively, generating a recursive SNARK proof.
     pub fn prove_recursively(
         pp: &'a PublicParams<'_>,
         store: &'a Store<S1>,
@@ -256,6 +277,7 @@ impl<'a> Proof<'a> {
         Ok(Self::Recursive(Box::new(recursive_snark.unwrap())))
     }
 
+    /// Compresses the proof using a (Spartan) Snark (finishing step)
     pub fn compress(self, pp: &'a PublicParams<'_>) -> Result<Self, ProofError> {
         match &self {
             Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(CompressedSNARK::<
@@ -274,6 +296,7 @@ impl<'a> Proof<'a> {
         }
     }
 
+    /// Verifies the proof given the public parameters, the number of steps, and the input and output values.
     pub fn verify(
         &self,
         pp: &PublicParams<'_>,
