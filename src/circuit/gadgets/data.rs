@@ -283,7 +283,7 @@ impl<F: LurkField> GlobalAllocations<F> {
     }
 }
 
-pub fn hash_poseidon<CS: ConstraintSystem<F>, F: LurkField, A: Arity<F>>(
+pub(crate) fn hash_poseidon<CS: ConstraintSystem<F>, F: LurkField, A: Arity<F>>(
     cs: CS,
     preimage: Vec<AllocatedNum<F>>,
     constants: &PoseidonConstants<F, A>,
@@ -385,7 +385,7 @@ impl<F: LurkField> Ptr<F> {
     }
 }
 
-pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
+pub(crate) fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     val: F,
 ) -> Result<AllocatedNum<F>, SynthesisError> {

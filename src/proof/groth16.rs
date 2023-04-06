@@ -35,12 +35,14 @@ const DUMMY_RNG_SEED: [u8; 16] = [
     0x01, 0x03, 0x02, 0x04, 0x05, 0x07, 0x06, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0C, 0x0B, 0x0A,
 ];
 
+/// The SRS for the inner product argument.
 #[cfg(not(target_arch = "wasm32"))]
 pub static INNER_PRODUCT_SRS: Lazy<GenericSRS<Bls12>> = Lazy::new(|| load_srs().unwrap());
 
 #[cfg(not(target_arch = "wasm32"))]
 const MAX_FAKE_SRS_SIZE: usize = (2 << 14) + 1;
 
+/// A domain separator for the transcript.
 pub const TRANSCRIPT_INCLUDE: &[u8] = b"LURK-CIRCUIT";
 
 // If you don't have a real SnarkPack SRS symlinked, generate a fake one.
@@ -70,6 +72,7 @@ fn load_srs() -> Result<GenericSRS<Bls12>, io::Error> {
     }
 }
 
+/// A struct representing a proof using the Groth16 proving system with the specified engine.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Proof<E: Engine + MultiMillerLoop>
 where
@@ -80,16 +83,20 @@ where
     <E as Engine>::Fr: Serialize,
     <E as Engine>::Gt: blstrs::Compress + Serialize,
 {
+    /// The aggregate proof and instance.
     #[serde(bound(
         serialize = "AggregateProofAndInstance<E>: Serialize",
         deserialize = "AggregateProofAndInstance<E>: Deserialize<'de>"
     ))]
     pub proof: AggregateProofAndInstance<E>,
+    /// The number of proofs in the aggregate proof.
     pub proof_count: usize,
+    /// The number of reductions used in the proof.
     pub reduction_count: usize,
 }
 
 impl Groth16Prover<Bls12> {
+    /// Creates Groth16 parameters using the given reduction count.
     pub fn create_groth_params(
         reduction_count: usize,
     ) -> Result<PublicParams<Bls12>, SynthesisError> {
@@ -104,6 +111,7 @@ impl Groth16Prover<Bls12> {
         Ok(PublicParams(params))
     }
 
+    /// Generates a Groth16 proof using the given multi_frame, parameters, and random number generator.
     pub fn prove<R: RngCore>(
         &self,
         multi_frame: MultiFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>>,
@@ -113,6 +121,8 @@ impl Groth16Prover<Bls12> {
         groth16::create_random_proof(multi_frame, params, &mut rng)
     }
 
+    /// Generates an outer Groth16 proof using the given parameters, SRS, expression, environment,
+    /// store, limit, and random number generator.
     #[allow(clippy::too_many_arguments)]
     pub fn outer_prove<R: RngCore + Clone>(
         &self,
@@ -192,6 +202,7 @@ impl Groth16Prover<Bls12> {
         ))
     }
 
+    /// Verifies a single Groth16 proof using the given multi_frame, prepared verifier key, and proof.
     pub fn verify_groth16_proof(
         // multiframe need not have inner frames populated for verification purposes.
         multiframe: MultiFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>>,
@@ -203,6 +214,7 @@ impl Groth16Prover<Bls12> {
         verify_proof(pvk, &proof, &inputs)
     }
 
+    /// Verifies an aggregated Groth16 proof using the given prepared verifier key, SRS, public parameters, proof and rng.
     pub fn verify<R: RngCore + Send>(
         pvk: &groth16::PreparedVerifyingKey<Bls12>,
         srs_vk: &VerifierSRS<Bls12>,
@@ -224,11 +236,15 @@ impl Groth16Prover<Bls12> {
     }
 }
 
+/// A prover struct for the Groth16 proving system.
+/// Implements the crate::Prover trait.
 pub struct Groth16Prover<E: Engine + MultiMillerLoop> {
     reduction_count: usize,
     _p: PhantomData<E>,
 }
 
+/// Public parameters for the Groth16 proving system.
+/// implements the crate::PublicParameters trait.
 pub struct PublicParams<E: Engine + MultiMillerLoop>(pub groth16::Parameters<E>);
 
 impl PublicParameters for PublicParams<Bls12> {}
@@ -420,8 +436,8 @@ mod tests {
         };
     }
 
-    pub fn check_cs_deltas(
-        constraint_systems: &SequentialCS<Fr, IO<Fr>, Witness<Fr>>,
+    fn check_cs_deltas(
+        constraint_systems: &SequentialCS<'_, Fr, IO<Fr>, Witness<Fr>>,
         limit: usize,
     ) {
         let mut cs_blank = MetricCS::<Fr>::new();

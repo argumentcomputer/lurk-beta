@@ -17,25 +17,25 @@ pub struct AllocatedHash<F: LurkField, PreimageType> {
     digest: AllocatedNum<F>,
 }
 
-pub type AllocatedPtrHash<F> = AllocatedHash<F, AllocatedPtr<F>>;
-pub type AllocatedNumHash<F> = AllocatedHash<F, AllocatedNum<F>>;
+pub(crate) type AllocatedPtrHash<F> = AllocatedHash<F, AllocatedPtr<F>>;
+pub(crate) type AllocatedNumHash<F> = AllocatedHash<F, AllocatedNum<F>>;
 
 #[derive(Clone, Debug)]
-pub struct Slot<Name: Debug, AllocatedType> {
+pub(crate) struct Slot<Name: Debug, AllocatedType> {
     name: Result<Name, ()>,
     allocated: AllocatedType,
     consumed: bool,
 }
 
 impl<Name: Debug, F: LurkField, PreimageType> Slot<Name, AllocatedHash<F, PreimageType>> {
-    pub fn new(name: Name, allocated: AllocatedHash<F, PreimageType>) -> Self {
+    pub(crate) fn new(name: Name, allocated: AllocatedHash<F, PreimageType>) -> Self {
         Self {
             name: Ok(name),
             allocated,
             consumed: false,
         }
     }
-    pub fn new_dummy(allocated: AllocatedHash<F, PreimageType>) -> Self {
+    pub(crate) fn new_dummy(allocated: AllocatedHash<F, PreimageType>) -> Self {
         Self {
             name: Err(()),
             allocated,
@@ -43,13 +43,13 @@ impl<Name: Debug, F: LurkField, PreimageType> Slot<Name, AllocatedHash<F, Preima
         }
     }
     #[allow(dead_code)]
-    pub fn is_dummy(&self) -> bool {
+    pub(crate) fn is_dummy(&self) -> bool {
         self.name.is_err()
     }
-    pub fn is_blank(&self) -> bool {
+    pub(crate) fn is_blank(&self) -> bool {
         self.allocated.digest.get_value().is_none()
     }
-    pub fn is_consumed(&self) -> bool {
+    pub(crate) fn is_consumed(&self) -> bool {
         self.consumed
     }
     fn consume(&mut self) {
@@ -85,9 +85,9 @@ impl<'a, VanillaWitness, Name: Debug, F: LurkField, PreimageType>
     }
 }
 
-pub type AllocatedConsWitness<'a, F> =
+pub(crate) type AllocatedConsWitness<'a, F> =
     AllocatedWitness<'a, ConsWitness<F>, ConsName, AllocatedPtrHash<F>>;
-pub type AllocatedContWitness<'a, F> =
+pub(crate) type AllocatedContWitness<'a, F> =
     AllocatedWitness<'a, ContWitness<F>, ContName, AllocatedNumHash<F>>;
 
 impl<F: LurkField> AllocatedPtrHash<F> {

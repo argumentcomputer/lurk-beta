@@ -1,8 +1,8 @@
 #[macro_use]
-pub mod macros;
+pub(crate) mod macros;
 
-pub mod case;
-pub mod constraints;
-pub mod data;
-pub mod hashes;
-pub mod pointer;
+pub(crate) mod case;
+pub(crate) mod constraints;
+pub(crate) mod data;
+pub(crate) mod hashes;
+pub(crate) mod pointer;

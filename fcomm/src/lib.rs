@@ -1,4 +1,4 @@
-//! The `fcomm` CLI exposes an interface for creating and verifying Lurk proofs, and for manipulating functional commitments.
+#![doc = include_str!("../README.md")]
 
 use log::info;
 use std::collections::HashMap;

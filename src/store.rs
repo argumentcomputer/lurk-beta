@@ -82,23 +82,23 @@ impl<F: LurkField> Default for HashConstants<F> {
 }
 
 impl<F: LurkField> HashConstants<F> {
-    pub fn c3(&self) -> &PoseidonConstants<F, U3> {
+    pub(crate) fn c3(&self) -> &PoseidonConstants<F, U3> {
         self.c3.get_or_init(|| PoseidonConstants::new())
     }
 
-    pub fn c4(&self) -> &PoseidonConstants<F, U4> {
+    pub(crate) fn c4(&self) -> &PoseidonConstants<F, U4> {
         self.c4.get_or_init(|| PoseidonConstants::new())
     }
 
-    pub fn c6(&self) -> &PoseidonConstants<F, U6> {
+    pub(crate) fn c6(&self) -> &PoseidonConstants<F, U6> {
         self.c6.get_or_init(|| PoseidonConstants::new())
     }
 
-    pub fn c8(&self) -> &PoseidonConstants<F, U8> {
+    pub(crate) fn c8(&self) -> &PoseidonConstants<F, U8> {
         self.c8.get_or_init(|| PoseidonConstants::new())
     }
 
-    pub fn constants(&self, arity: HashArity) -> HashConst<F> {
+    pub(crate) fn constants(&self, arity: HashArity) -> HashConst<'_, F> {
         match arity {
             HashArity::A3 => HashConst::A3(self.c3.get_or_init(|| PoseidonConstants::new())),
             HashArity::A4 => HashConst::A4(self.c4.get_or_init(|| PoseidonConstants::new())),
@@ -861,7 +861,7 @@ impl<F: LurkField> Default for Store<F> {
 pub struct Error(pub String);
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "StoreError: {}", self.0)
     }
 }
@@ -1699,7 +1699,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn fetch(&self, ptr: &Ptr<F>) -> Option<Expression<F>> {
+    pub fn fetch(&self, ptr: &Ptr<F>) -> Option<Expression<'_, F>> {
         if ptr.is_opaque() {
             return Some(Expression::Opaque(*ptr));
         }
