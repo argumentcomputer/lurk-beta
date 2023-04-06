@@ -1,10 +1,14 @@
 # Global Owners: @porcuquine, @huitseeker
 * @lurk-lab/lurk-noncircuit
 
+# CI maintenance
+/.circleci/** @lurk-lab/lurk-ci
+/.config/** @lurk-lab/lurk-ci
+/.github/** @lurk-lab/lurk-ci
+
 # Order is important; the last matching pattern takes the most
-# precedence. This excludes @huitseeker for /src/eval.rs
+# precedence. This excludes @everyone but @porcuquine for /src/eval.rs
 /src/eval.rs @porcuquine
 
 # Circuit
-# And this excludes everyone but @emmorais for /src/circuit/**
 /src/circuit/** @lurk-lab/lurk-circuit
