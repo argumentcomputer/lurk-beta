@@ -26,7 +26,7 @@ use lurk::{
     proof::nova::{self, NovaProver, PublicParams},
     proof::Prover,
     scalar_store::ScalarStore,
-    store::{Pointer, Ptr, ScalarPtr, Store},
+    store::{ContPtr, Pointer, Ptr, ScalarPtr, Store},
     tag::ExprTag,
     writer::Write,
 };
@@ -128,6 +128,18 @@ pub struct Evaluation {
     pub iterations: Option<usize>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+pub struct PtrEvaluation {
+    pub expr: LurkPtr,
+    pub env: LurkPtr,
+    pub cont: LurkCont,
+    pub expr_out: LurkPtr,
+    pub env_out: LurkPtr,
+    pub cont_out: LurkCont,
+    pub status: Status,
+    pub iterations: Option<usize>,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Commitment<F: LurkField> {
     pub comm: F,
@@ -213,7 +225,7 @@ pub struct LurkScalarBytes {
     #[serde(with = "base64")]
     scalar_store: Vec<u8>,
     #[serde(with = "base64")]
-    scalar_ptr: Vec<u8>,
+    scalar_ptr: Vec<u8>, // can also be a scalar_cont_ptr
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -228,6 +240,22 @@ pub enum LurkPtr {
     ScalarBytes(LurkScalarBytes),
     Ipld(LurkScalarIpld),
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+pub enum LurkCont {
+    #[default]
+    Outermost,
+    Terminal,
+    Error,
+}
+
+impl Default for LurkPtr {
+    fn default() -> Self {
+        Self::Source("NIL".to_string())
+    }
+}
+
+impl Eq for LurkPtr {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct CommittedExpression<F: LurkField + Serialize> {
@@ -252,6 +280,7 @@ pub struct Proof<'a, F: LurkField> {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Claim<F: LurkField> {
     Evaluation(Evaluation),
+    PtrEvaluation(PtrEvaluation),
     Opening(Opening<F>),
 }
 
@@ -304,6 +333,12 @@ impl<F: LurkField> Claim<F> {
     pub fn evaluation(&self) -> Option<Evaluation> {
         match self {
             Self::Evaluation(e) => Some(e.clone()),
+            _ => None,
+        }
+    }
+    pub fn ptr_evaluation(&self) -> Option<PtrEvaluation> {
+        match self {
+            Self::PtrEvaluation(e) => Some(e.clone()),
             _ => None,
         }
     }
@@ -462,6 +497,32 @@ impl Evaluation {
     }
 }
 
+impl PtrEvaluation {
+    fn new<F: LurkField + Serialize>(
+        s: &mut Store<F>,
+        input: IO<F>,
+        output: IO<F>,
+        iterations: Option<usize>, // This might be padded, so is not quite 'iterations' in the sense of number of actual reduction steps required
+                                   // to evaluate.
+    ) -> Self {
+        let status: Status = output.cont.into();
+
+        // NOTE: We do not implement the `maybe_hide!` logic found in `Evaluation::new()`. That was a speculative design
+        // unsupported by this patch. In ny case, `Evaluation` and `PtrEvaluation` should be unified in the future, and
+        // an appropriate hiding mechanism/configuration can be added then.
+        Self {
+            expr: LurkPtr::from_ptr(s, &input.expr),
+            env: LurkPtr::from_ptr(s, &input.env),
+            cont: LurkCont::from_cont_ptr(s, &input.cont),
+            expr_out: LurkPtr::from_ptr(s, &output.expr),
+            env_out: LurkPtr::from_ptr(s, &output.env),
+            cont_out: LurkCont::from_cont_ptr(s, &output.cont),
+            status,
+            iterations,
+        }
+    }
+}
+
 impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
     pub fn from_comm(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
         let digest = *s.hash_expr(ptr).expect("couldn't hash ptr").value();
@@ -542,7 +603,7 @@ impl LurkPtr {
         match self {
             LurkPtr::Source(source) => {
                 let ptr = s.read(source).expect("could not read source");
-                let (out, _) = evaluate(s, ptr, limit).unwrap();
+                let (out, _) = evaluate(s, ptr, None, limit).unwrap();
 
                 out.expr
             }
@@ -593,6 +654,33 @@ impl LurkPtr {
     }
 }
 
+impl LurkCont {
+    pub fn cont_ptr<F: LurkField + Serialize + DeserializeOwned>(
+        &self,
+        s: &mut Store<F>,
+    ) -> ContPtr<F> {
+        match self {
+            Self::Outermost => s.get_cont_outermost(),
+            Self::Terminal => s.get_cont_terminal(),
+            Self::Error => s.get_cont_error(),
+        }
+    }
+
+    pub fn from_cont_ptr<F: LurkField + Serialize>(
+        _s: &mut Store<F>,
+        cont_ptr: &ContPtr<F>,
+    ) -> Self {
+        use lurk::tag::ContTag;
+
+        match cont_ptr.tag() {
+            ContTag::Outermost => Self::Outermost,
+            ContTag::Terminal => Self::Terminal,
+            ContTag::Error => Self::Error,
+            _ => panic!("unsupported continuation"),
+        }
+    }
+}
+
 impl Expression {
     pub fn eval<F: LurkField + Serialize + DeserializeOwned>(
         &self,
@@ -600,7 +688,7 @@ impl Expression {
         limit: usize,
     ) -> Result<Ptr<F>, Error> {
         let expr = self.expr.ptr(s, limit);
-        let (io, _iterations) = evaluate(s, expr, limit)?;
+        let (io, _iterations) = evaluate(s, expr, None, limit)?;
 
         Ok(io.expr)
     }
@@ -692,7 +780,7 @@ impl<'a> Opening<S1> {
     ) -> Result<Claim<S1>, Error> {
         let (commitment, expression) =
             Commitment::construct_with_fun_application(s, function, input, limit)?;
-        let (public_output, _iterations) = evaluate(s, expression, limit)?;
+        let (public_output, _iterations) = evaluate(s, expression, None, limit)?;
 
         let (new_commitment, output_expr) = if chain {
             let cons = public_output.expr;
@@ -751,18 +839,29 @@ impl<'a> Proof<'a, S1> {
     pub fn eval_and_prove(
         s: &'a mut Store<S1>,
         expr: Ptr<S1>,
+        supplied_env: Option<Ptr<S1>>,
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1>,
         pp: &'a PublicParams,
     ) -> Result<Self, Error> {
-        let env = empty_sym_env(s);
+        let env = supplied_env.unwrap_or_else(|| empty_sym_env(s));
         let cont = s.intern_cont_outermost();
         let input = IO { expr, env, cont };
 
-        let (public_output, _iterations) = evaluate(s, expr, limit)?;
-        let evaluation = Evaluation::new(s, input, public_output, None);
-        let claim = Claim::Evaluation(evaluation);
+        // TODO: It's a little silly that we evaluate here, but evaluation is also repeated in `NovaProver::evaluate_and_prove()`.
+        // Refactor to avoid that.
+        let (public_output, _iterations) = evaluate(s, expr, supplied_env, limit)?;
+
+        let claim = if supplied_env.is_some() {
+            // This is a bit of a hack, but the idea is that if the env was supplied it's likely to contain a literal function,
+            // which we will not be able to read. Therefore, we should not produce a string-based claim.
+            let ptr_evaluation = PtrEvaluation::new(s, input, public_output, None);
+            Claim::PtrEvaluation(ptr_evaluation)
+        } else {
+            let evaluation = Evaluation::new(s, input, public_output, None);
+            Claim::Evaluation(evaluation)
+        };
 
         Self::prove_claim(s, &claim, limit, only_use_cached_proofs, nova_prover, pp)
     }
@@ -798,6 +897,7 @@ impl<'a> Proof<'a, S1> {
                 s.read(&e.expr).expect("bad expression"),
                 s.read(&e.env).expect("bad env"),
             ),
+            Claim::PtrEvaluation(e) => (e.expr.ptr(s, limit), e.env.ptr(s, limit)),
             Claim::Opening(o) => {
                 let commitment = o.commitment;
 
@@ -836,6 +936,11 @@ impl<'a> Proof<'a, S1> {
                 if e.status != Status::Terminal {
                     return Err(Error::EvaluationFailure);
                 };
+            }
+            Claim::PtrEvaluation(e) => {
+                if e.status != Status::Terminal {
+                    return Err(Error::EvaluationFailure);
+                }
             }
         };
 
@@ -922,6 +1027,31 @@ impl<'a> Proof<'a, S1> {
         Ok((input_io, output_io))
     }
 
+    pub fn ptr_evaluation_io(&self, s: &mut Store<S1>) -> Result<(IO<S1>, IO<S1>), Error> {
+        let ptr_evaluation = &self
+            .claim
+            .ptr_evaluation()
+            .expect("expected PtrEvaluation claim");
+
+        let input_io = {
+            let expr = ptr_evaluation.expr.ptr(s, 0); // limit is unneeded because we will not eval. we already have the ptr.
+            let env = ptr_evaluation.env.ptr(s, 0);
+            let cont = ptr_evaluation.cont.cont_ptr(s);
+
+            IO::<S1> { expr, env, cont }
+        };
+
+        let output_io = {
+            let expr = ptr_evaluation.expr_out.ptr(s, 0);
+            let env = ptr_evaluation.env_out.ptr(s, 0);
+            let cont = ptr_evaluation.cont_out.cont_ptr(s);
+
+            IO::<S1> { expr, env, cont }
+        };
+
+        Ok((input_io, output_io))
+    }
+
     pub fn opening_io(&self, s: &mut Store<S1>) -> Result<(IO<S1>, IO<S1>), Error> {
         assert!(self.claim.is_opening());
 
@@ -950,9 +1080,11 @@ impl<'a> Proof<'a, S1> {
     pub fn io(&self, s: &mut Store<S1>) -> Result<(IO<S1>, IO<S1>), Error> {
         match self.claim {
             Claim::Evaluation(_) => self.evaluation_io(s),
+            Claim::PtrEvaluation(_) => self.ptr_evaluation_io(s),
             Claim::Opening(_) => self.opening_io(s),
         }
     }
+
     fn io_vecs(&self) -> Result<(Vec<S1>, Vec<S1>), Error> {
         let s = &mut Store::<S1>::default();
 
@@ -969,9 +1101,10 @@ impl VerificationResult {
 pub fn evaluate<F: LurkField>(
     store: &mut Store<F>,
     expr: Ptr<F>,
+    supplied_env: Option<Ptr<F>>,
     limit: usize,
 ) -> Result<(IO<F>, usize), Error> {
-    let env = empty_sym_env(store);
+    let env = supplied_env.unwrap_or_else(|| empty_sym_env(store));
     let mut evaluator = Evaluator::new(expr, env, store, limit);
 
     let (io, iterations, _) = evaluator.eval().map_err(|_| Error::EvaluationFailure)?;

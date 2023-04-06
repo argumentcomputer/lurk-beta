@@ -347,7 +347,7 @@ impl Prove {
                 )
                 .unwrap();
 
-                Proof::eval_and_prove(s, expr, limit, false, &prover, &pp).unwrap()
+                Proof::eval_and_prove(s, expr, None, limit, false, &prover, &pp).unwrap()
             }
         };
 
@@ -398,7 +398,7 @@ fn read_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
             cont: _,
         },
         _iterations,
-    ) = evaluate(store, src, limit)?;
+    ) = evaluate(store, src, None, limit)?;
 
     Ok((expr, src))
 }

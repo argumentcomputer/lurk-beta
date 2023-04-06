@@ -15,8 +15,8 @@ use clap::{Arg, ArgAction, Command};
 use pasta_curves::pallas;
 
 use fcomm::{
-    public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, Evaluation, Id,
-    LurkPtr, NovaProofCache, Opening, Proof,
+    public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, Id, LurkCont,
+    LurkPtr, NovaProofCache, Opening, Proof, PtrEvaluation,
 };
 use lurk::eval::{Evaluable, Status, IO};
 use lurk::field::LurkField;
@@ -254,13 +254,13 @@ impl ReplTrait<F> for ClutchState<F> {
 
         self.history.push(output);
 
-        let claim = Claim::Evaluation::<F>(Evaluation {
-            expr: input.expr.fmt_to_string(store),
-            env: input.env.fmt_to_string(store),
-            cont: input.cont.fmt_to_string(store),
-            expr_out: output.expr.fmt_to_string(store),
-            env_out: output.env.fmt_to_string(store),
-            cont_out: output.cont.fmt_to_string(store),
+        let claim = Claim::PtrEvaluation::<F>(PtrEvaluation {
+            expr: LurkPtr::from_ptr(store, &input.expr),
+            env: LurkPtr::from_ptr(store, &input.env),
+            cont: LurkCont::from_cont_ptr(store, &input.cont),
+            expr_out: LurkPtr::from_ptr(store, &output.expr),
+            env_out: LurkPtr::from_ptr(store, &output.env),
+            cont_out: LurkCont::from_cont_ptr(store, &output.cont),
             status: output.status(),
             iterations: None,
         });
@@ -506,6 +506,7 @@ impl ClutchState<F> {
             Proof::<pallas::Scalar>::eval_and_prove(
                 store,
                 proof_in_expr,
+                Some(self.repl_state.env),
                 self.repl_state.limit,
                 false,
                 &prover,
@@ -515,7 +516,10 @@ impl ClutchState<F> {
 
         if proof.verify(&pp)?.verified {
             let cid_str = proof.claim.cid().to_string();
-            println!("{0:#?}", proof.claim);
+            match proof.claim {
+                Claim::Evaluation(_) | Claim::Opening(_) => println!("{0:#?}", proof.claim),
+                Claim::PtrEvaluation(_) => println!("Claim::PtrEvaluation elided."),
+            }
 
             let cid = store.str(cid_str);
             Ok(Some(cid))
@@ -540,6 +544,7 @@ impl ClutchState<F> {
             .proof_map
             .get(&cid)
             .ok_or_else(|| anyhow!("proof not found: {cid}"))?;
+
         let pp = public_params(self.reduction_count)?;
         let result = proof.verify(&pp).unwrap();
 
