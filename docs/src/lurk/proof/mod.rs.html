@@ -94,8 +94,42 @@
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
-</pre><pre class="rust"><code><span class="kw">pub mod </span>groth16;
-<span class="kw">pub mod </span>nova;
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+</pre><pre class="rust"><code><span class="attr">#![deny(missing_docs)]
+
+</span><span class="doccomment">//! This module offers a connection the the backend proving engine of Lurk.
+//! Abstracted behind the `Prover` and `Verifier` traits, the proving engine
+//! has two instantiations:
+//! - the Groth16/SnarkPack proving system, implemented in the `groth16` module
+//! - the Nova proving system, implemented in the `nova` module.
+/// An adapter to a Groth16 proving system implementation.
+</span><span class="kw">pub mod </span>groth16;
+<span class="doccomment">/// An adapter to a Nova proving system implementation.
+</span><span class="kw">pub mod </span>nova;
 
 <span class="kw">use </span>bellperson::{util_cs::test_cs::TestConstraintSystem, Circuit, SynthesisError};
 
@@ -103,20 +137,25 @@
 <span class="kw">use </span><span class="kw">crate</span>::eval::{Witness, IO};
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>SequentialCS&lt;<span class="lifetime">&#39;a</span>, F, IO, Witness&gt; =
+<span class="doccomment">/// Represents a sequential Constraint System for a given proof.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>SequentialCS&lt;<span class="lifetime">&#39;a</span>, F, IO, Witness&gt; =
     Vec&lt;(MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, IO, Witness&gt;, TestConstraintSystem&lt;F&gt;)&gt;;
 
-<span class="kw">pub trait </span>Provable&lt;F: LurkField&gt; {
-    <span class="kw">fn </span>public_inputs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;F&gt;;
-    <span class="kw">fn </span>public_input_size() -&gt; usize;
-    <span class="kw">fn </span>reduction_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
+<span class="doccomment">/// A trait for provable structures over a field `F`.
+</span><span class="kw">pub trait </span>Provable&lt;F: LurkField&gt; {
+    <span class="doccomment">/// Returns the public inputs of the provable structure.
+    </span><span class="kw">fn </span>public_inputs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;F&gt;;
+    <span class="doccomment">/// Returns the size of the public inputs.
+    </span><span class="kw">fn </span>public_input_size() -&gt; usize;
+    <span class="doccomment">/// Returns the number of reductions in the provable structure.
+    </span><span class="kw">fn </span>reduction_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
 }
 
-<span class="attr">#[allow(dead_code)]
+<span class="doccomment">/// Verifies a sequence of constraint systems (CSs) for sequentiality &amp; validity.
 </span><span class="kw">pub fn </span>verify_sequential_css&lt;F: LurkField + Copy&gt;(
-    css: <span class="kw-2">&amp;</span>SequentialCS&lt;F, IO&lt;F&gt;, Witness&lt;F&gt;&gt;,
+    css: <span class="kw-2">&amp;</span>SequentialCS&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, SynthesisError&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>previous_frame: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiFrame&lt;F, IO&lt;F&gt;, Witness&lt;F&gt;&gt;&gt; = <span class="prelude-val">None</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>previous_frame: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;&gt;&gt; = <span class="prelude-val">None</span>;
 
     <span class="kw">for </span>(i, (multiframe, cs)) <span class="kw">in </span>css.iter().enumerate() {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(prev) = previous_frame {
@@ -139,23 +178,31 @@
     }
     <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
 }
-<span class="kw">pub trait </span>PublicParameters {}
+<span class="doccomment">/// A trait representing the public parameters for a proving system.
+</span><span class="kw">pub trait </span>PublicParameters {}
 
-<span class="kw">pub trait </span>Prover&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt; {
-    <span class="kw">type </span>PublicParams: PublicParameters;
+<span class="doccomment">/// A trait for a prover that works with a field `F`.
+</span><span class="kw">pub trait </span>Prover&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt; {
+    <span class="doccomment">/// The associated public parameters type for the prover.
+    </span><span class="kw">type </span>PublicParams: PublicParameters;
 
-    <span class="kw">fn </span>new(reduction_count: usize) -&gt; <span class="self">Self</span>;
+    <span class="doccomment">/// Creates a new prover with the specified number of reductions.
+    </span><span class="kw">fn </span>new(reduction_count: usize) -&gt; <span class="self">Self</span>;
 
-    <span class="kw">fn </span>reduction_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
+    <span class="doccomment">/// Returns the number of reductions for the prover.
+    </span><span class="kw">fn </span>reduction_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
 
-    <span class="kw">fn </span>needs_frame_padding(<span class="kw-2">&amp;</span><span class="self">self</span>, total_frames: usize) -&gt; bool {
+    <span class="doccomment">/// Determines if the prover needs padding for a given total number of frames.
+    </span><span class="kw">fn </span>needs_frame_padding(<span class="kw-2">&amp;</span><span class="self">self</span>, total_frames: usize) -&gt; bool {
         <span class="self">self</span>.frame_padding_count(total_frames) != <span class="number">0
     </span>}
-    <span class="kw">fn </span>frame_padding_count(<span class="kw-2">&amp;</span><span class="self">self</span>, total_frames: usize) -&gt; usize {
+    <span class="doccomment">/// Returns the number of padding frames needed for a given total number of frames.
+    </span><span class="kw">fn </span>frame_padding_count(<span class="kw-2">&amp;</span><span class="self">self</span>, total_frames: usize) -&gt; usize {
         total_frames % <span class="self">self</span>.reduction_count()
     }
 
-    <span class="kw">fn </span>expected_total_iterations(<span class="kw-2">&amp;</span><span class="self">self</span>, raw_iterations: usize) -&gt; usize {
+    <span class="doccomment">/// Returns the expected total number of iterations for the prover given raw iterations.
+    </span><span class="kw">fn </span>expected_total_iterations(<span class="kw-2">&amp;</span><span class="self">self</span>, raw_iterations: usize) -&gt; usize {
         <span class="kw">let </span>raw_iterations = raw_iterations + <span class="number">1</span>;
         <span class="kw">let </span>cfc = <span class="self">self</span>.reduction_count();
         <span class="kw">let </span>full_multiframe_count = raw_iterations / cfc;
@@ -165,17 +212,20 @@
         raw_multiframe_count + <span class="self">self</span>.multiframe_padding_count(raw_multiframe_count)
     }
 
-    <span class="kw">fn </span>multiframe_padding_count(<span class="kw-2">&amp;</span><span class="self">self</span>, _raw_multiframe_count: usize) -&gt; usize {
+    <span class="doccomment">/// Returns the number of padding multiframes needed for a given raw multiframe count.
+    </span><span class="kw">fn </span>multiframe_padding_count(<span class="kw-2">&amp;</span><span class="self">self</span>, _raw_multiframe_count: usize) -&gt; usize {
         <span class="comment">// By default, any number of multiframes is fine.
         </span><span class="number">0
     </span>}
-    <span class="kw">fn </span>needs_multiframe_padding(<span class="kw-2">&amp;</span><span class="self">self</span>, raw_multiframe_count: usize) -&gt; bool {
+    <span class="doccomment">/// Determines if the prover needs padding for a given raw multiframe count.
+    </span><span class="kw">fn </span>needs_multiframe_padding(<span class="kw-2">&amp;</span><span class="self">self</span>, raw_multiframe_count: usize) -&gt; bool {
         <span class="self">self</span>.multiframe_padding_count(raw_multiframe_count) != <span class="number">0
     </span>}
 
-    <span class="kw">fn </span>outer_synthesize(
+    <span class="doccomment">/// Synthesizes the outer circuit for the prover given a slice of multiframes.
+    </span><span class="kw">fn </span>outer_synthesize(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        multiframes: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[MultiFrame&lt;F, IO&lt;F&gt;, Witness&lt;F&gt;&gt;],
+        multiframes: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;&gt;],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;SequentialCS&lt;<span class="lifetime">&#39;a</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;&gt;, SynthesisError&gt; {
         <span class="kw">let </span>res = multiframes
             .iter()

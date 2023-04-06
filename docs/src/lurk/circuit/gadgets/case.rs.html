@@ -910,9 +910,9 @@
 Initialized map entry for a fixed `key` with
 an allocated `value` computed at runtime.
 */
-</span><span class="kw">pub struct </span>CaseClause&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt; {
-    <span class="kw">pub </span>key: F,
-    <span class="kw">pub </span>value: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AllocatedNum&lt;F&gt;,
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CaseClause&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) key: F,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) value: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AllocatedNum&lt;F&gt;,
 }
 
 <span class="kw">impl</span>&lt;F: LurkField + Debug&gt; Debug <span class="kw">for </span>CaseClause&lt;<span class="lifetime">&#39;_</span>, F&gt; {
@@ -935,7 +935,7 @@ an allocated `value` computed at runtime.
 An allocated `selected_key` supposedly equal to one of the fixed keys
 in the list of allocated map entries defined in `clauses`.
 */
-</span><span class="kw">pub struct </span>CaseConstraint&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CaseConstraint&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt; {
     selected_key: AllocatedNum&lt;F&gt;,
     clauses: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[CaseClause&lt;<span class="lifetime">&#39;a</span>, F&gt;],
 }
@@ -1072,10 +1072,10 @@ Returns ∑ᵢ  selector[i] ⋅ value_vector[i].
 Selects the clause whose key is equal to selected and returns its value,
 or if no key is selected, returns the default.
 */
-</span><span class="kw">pub fn </span>case&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>case&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     selected: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
-    clauses: <span class="kw-2">&amp;</span>[CaseClause&lt;F&gt;],
+    clauses: <span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, F&gt;],
     default: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
@@ -1087,10 +1087,10 @@ Selects the clauses whose key is equal to selected and returns
 a vector containing the corresponding values, or if no key is selected,
 returns the default.
 */
-</span><span class="kw">pub fn </span>multi_case&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>multi_case&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     selected: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
-    cases: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>[CaseClause&lt;F&gt;]],
+    cases: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, F&gt;]],
     defaults: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;],
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AllocatedNum&lt;F&gt;&gt;, SynthesisError&gt; {
@@ -1103,10 +1103,10 @@ returns the default.
  * Returns not only the selected clause, but also a Boolean that can
  * be used to determine if the default clause was returned.
  */
-</span><span class="kw">pub fn </span>multi_case_aux&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>multi_case_aux&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     selected: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
-    cases: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>[CaseClause&lt;F&gt;]],
+    cases: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, F&gt;]],
     defaults: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;],
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, Boolean), SynthesisError&gt; {
@@ -1338,7 +1338,7 @@ returns the default.
         ];
 
         {
-            <span class="kw">let </span>clauses0: [CaseClause&lt;Fr&gt;; <span class="number">2</span>] = [
+            <span class="kw">let </span>clauses0: [CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;; <span class="number">2</span>] = [
                 CaseClause {
                     key: x,
                     value: <span class="kw-2">&amp;</span>val0,
@@ -1348,7 +1348,7 @@ returns the default.
                     value: <span class="kw-2">&amp;</span>val1,
                 },
             ];
-            <span class="kw">let </span>clauses1: [CaseClause&lt;Fr&gt;; <span class="number">2</span>] = [
+            <span class="kw">let </span>clauses1: [CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;; <span class="number">2</span>] = [
                 CaseClause {
                     key: x,
                     value: <span class="kw-2">&amp;</span>val1,
@@ -1358,7 +1358,7 @@ returns the default.
                     value: <span class="kw-2">&amp;</span>val0,
                 },
             ];
-            <span class="kw">let </span>clauses2: [CaseClause&lt;Fr&gt;; <span class="number">2</span>] = [
+            <span class="kw">let </span>clauses2: [CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;; <span class="number">2</span>] = [
                 CaseClause {
                     key: x,
                     value: <span class="kw-2">&amp;</span>val2,
@@ -1368,7 +1368,7 @@ returns the default.
                     value: <span class="kw-2">&amp;</span>val0,
                 },
             ];
-            <span class="kw">let </span>clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;Fr&gt;]; <span class="number">3</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1, <span class="kw-2">&amp;</span>clauses2];
+            <span class="kw">let </span>clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;]; <span class="number">3</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1, <span class="kw-2">&amp;</span>clauses2];
 
             <span class="comment">// Test regular multicase, select first clause
             </span><span class="kw">let </span><span class="kw-2">mut </span>result = multi_case(
@@ -1434,7 +1434,7 @@ returns the default.
             <span class="kw-2">&amp;</span>AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;default1&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(<span class="number">998</span>))).unwrap(),
         ];
 
-        <span class="kw">let </span>clauses0: [CaseClause&lt;Fr&gt;; <span class="number">2</span>] = [
+        <span class="kw">let </span>clauses0: [CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;; <span class="number">2</span>] = [
             CaseClause {
                 key: x,
                 value: <span class="kw-2">&amp;</span>val0,
@@ -1444,7 +1444,7 @@ returns the default.
                 value: <span class="kw-2">&amp;</span>val1,
             },
         ];
-        <span class="kw">let </span>clauses1: [CaseClause&lt;Fr&gt;; <span class="number">2</span>] = [
+        <span class="kw">let </span>clauses1: [CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;; <span class="number">2</span>] = [
             CaseClause {
                 key: x,
                 value: <span class="kw-2">&amp;</span>val2,
@@ -1456,7 +1456,7 @@ returns the default.
         ];
 
         <span class="comment">// Test repeated keys
-        </span><span class="kw">let </span>invalid_clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
+        </span><span class="kw">let </span>invalid_clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
 
         <span class="kw">let _ </span>= multi_case(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;selected case&quot;</span>),
@@ -1491,7 +1491,7 @@ returns the default.
             <span class="kw-2">&amp;</span>AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;default2&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(<span class="number">997</span>))).unwrap(),
         ];
 
-        <span class="kw">let </span>clauses0: [CaseClause&lt;Fr&gt;; <span class="number">2</span>] = [
+        <span class="kw">let </span>clauses0: [CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;; <span class="number">2</span>] = [
             CaseClause {
                 key: x,
                 value: <span class="kw-2">&amp;</span>val0,
@@ -1501,7 +1501,7 @@ returns the default.
                 value: <span class="kw-2">&amp;</span>val1,
             },
         ];
-        <span class="kw">let </span>clauses1: [CaseClause&lt;Fr&gt;; <span class="number">2</span>] = [
+        <span class="kw">let </span>clauses1: [CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;; <span class="number">2</span>] = [
             CaseClause {
                 key: y,
                 value: <span class="kw-2">&amp;</span>val2,
@@ -1512,7 +1512,7 @@ returns the default.
             },
         ];
 
-        <span class="kw">let </span>invalid_clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
+        <span class="kw">let </span>invalid_clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
 
         <span class="comment">// Test keys ordering
         </span><span class="kw">let _ </span>= multi_case(
@@ -1546,7 +1546,7 @@ returns the default.
             <span class="kw-2">&amp;</span>AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;default1&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(<span class="number">998</span>))).unwrap(),
         ];
 
-        <span class="kw">let </span>clauses0: [CaseClause&lt;Fr&gt;; <span class="number">2</span>] = [
+        <span class="kw">let </span>clauses0: [CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;; <span class="number">2</span>] = [
             CaseClause {
                 key: x,
                 value: <span class="kw-2">&amp;</span>val0,
@@ -1556,7 +1556,7 @@ returns the default.
                 value: <span class="kw-2">&amp;</span>val1,
             },
         ];
-        <span class="kw">let </span>clauses1: [CaseClause&lt;Fr&gt;; <span class="number">3</span>] = [
+        <span class="kw">let </span>clauses1: [CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;; <span class="number">3</span>] = [
             CaseClause {
                 key: x,
                 value: <span class="kw-2">&amp;</span>val2,
@@ -1572,7 +1572,7 @@ returns the default.
         ];
 
         <span class="comment">// Test invalid clauses sizes
-        </span><span class="kw">let </span>invalid_clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
+        </span><span class="kw">let </span>invalid_clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
 
         <span class="kw">let _ </span>= multi_case(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;selected case&quot;</span>),
@@ -1623,7 +1623,7 @@ returns the default.
         <span class="kw">let </span>val0 = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;val0&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(<span class="number">666</span>))).unwrap();
         <span class="kw">let </span>val1 = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;val1&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(<span class="number">777</span>))).unwrap();
         <span class="kw">let </span>val2 = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;val2&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(<span class="number">700</span>))).unwrap();
-        <span class="kw">let </span>clauses0: [CaseClause&lt;Fr&gt;; <span class="number">2</span>] = [
+        <span class="kw">let </span>clauses0: [CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;; <span class="number">2</span>] = [
             CaseClause {
                 key: x,
                 value: <span class="kw-2">&amp;</span>val0,
@@ -1633,7 +1633,7 @@ returns the default.
                 value: <span class="kw-2">&amp;</span>val1,
             },
         ];
-        <span class="kw">let </span>clauses1: [CaseClause&lt;Fr&gt;; <span class="number">3</span>] = [
+        <span class="kw">let </span>clauses1: [CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;; <span class="number">3</span>] = [
             CaseClause {
                 key: x,
                 value: <span class="kw-2">&amp;</span>val2,
@@ -1647,7 +1647,7 @@ returns the default.
                 value: <span class="kw-2">&amp;</span>val0,
             },
         ];
-        <span class="kw">let </span>clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
+        <span class="kw">let </span>clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
 
         <span class="comment">// Test invalid, empty defaults
         </span><span class="kw">let _ </span>= multi_case(
@@ -1677,7 +1677,7 @@ returns the default.
             <span class="kw-2">&amp;</span>AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;default0&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(<span class="number">999</span>))).unwrap(),
             <span class="kw-2">&amp;</span>AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;default1&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(<span class="number">998</span>))).unwrap(),
         ];
-        <span class="kw">let </span>clauses0: [CaseClause&lt;Fr&gt;; <span class="number">2</span>] = [
+        <span class="kw">let </span>clauses0: [CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;; <span class="number">2</span>] = [
             CaseClause {
                 key: x,
                 value: <span class="kw-2">&amp;</span>val0,
@@ -1688,7 +1688,7 @@ returns the default.
             },
         ];
         <span class="kw">let </span>clauses1 = [];
-        <span class="kw">let </span>clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
+        <span class="kw">let </span>clauses_vec: [<span class="kw-2">&amp;</span>[CaseClause&lt;<span class="lifetime">&#39;_</span>, Fr&gt;]; <span class="number">2</span>] = [<span class="kw-2">&amp;</span>clauses0, <span class="kw-2">&amp;</span>clauses1];
 
         <span class="comment">// Test invalid, empty clauses.
         </span><span class="kw">let _ </span>= multi_case(

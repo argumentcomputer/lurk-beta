@@ -6010,7 +6010,7 @@
         input_expr: AllocatedPtr&lt;F&gt;,
         input_env: AllocatedPtr&lt;F&gt;,
         input_cont: AllocatedContPtr&lt;F&gt;,
-        frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;F, IO&lt;F&gt;, Witness&lt;F&gt;&gt;],
+        frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;&gt;],
         g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
     ) -&gt; (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;) {
         <span class="kw">let </span>acc = (input_expr, input_env, input_cont);
@@ -6161,7 +6161,7 @@
         //
         // Initial input:
         </span><span class="kw">let </span><span class="kw-2">mut </span>synth = |store,
-                         frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;F, IO&lt;F&gt;, Witness&lt;F&gt;&gt;],
+                         frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;&gt;],
                          input: <span class="prelude-ty">Option</span>&lt;IO&lt;F&gt;&gt;,
                          output: <span class="prelude-ty">Option</span>&lt;IO&lt;F&gt;&gt;| {
             <span class="kw">let </span>input_expr = AllocatedPtr::bind_input(
@@ -6514,8 +6514,8 @@
     env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     cont: <span class="kw-2">&amp;</span>AllocatedContPtr&lt;F&gt;,
     witness: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Witness&lt;F&gt;&gt;,
-    allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;F&gt;,
-    allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;F&gt;,
+    allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
+    allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;), SynthesisError&gt; {
@@ -6799,8 +6799,8 @@
     cont: <span class="kw-2">&amp;</span>AllocatedContPtr&lt;F&gt;,
     not_dummy: <span class="kw-2">&amp;</span>Boolean,
     witness: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Witness&lt;F&gt;&gt;,
-    allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;F&gt;,
-    allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;F&gt;,
+    allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
+    allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
@@ -7115,8 +7115,8 @@
     cont: <span class="kw-2">&amp;</span>AllocatedContPtr&lt;F&gt;,
     not_dummy: <span class="kw-2">&amp;</span>Boolean,
     _witness: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Witness&lt;F&gt;&gt;,
-    allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;F&gt;,
-    allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;F&gt;,
+    allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
+    allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
@@ -8577,7 +8577,7 @@
     result: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     not_dummy: <span class="kw-2">&amp;</span>Boolean,
-    allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;F&gt;,
+    allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;), SynthesisError&gt; {
@@ -8664,8 +8664,8 @@
     result: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     not_dummy: <span class="kw-2">&amp;</span>Boolean,
-    allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;F&gt;,
-    allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;F&gt;,
+    allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
+    allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
@@ -10417,7 +10417,7 @@
     <span class="kw-2">mut </span>cs: CS,
     cont_ptr: <span class="kw-2">&amp;</span>AllocatedContPtr&lt;F&gt;,
     name: ContName,
-    allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;F&gt;,
+    allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
     not_dummy: <span class="kw-2">&amp;</span>Boolean,
     _store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedNum&lt;F&gt;, Vec&lt;AllocatedNum&lt;F&gt;&gt;), SynthesisError&gt; {
@@ -10435,7 +10435,7 @@
 // It receives as input argument `diff`, which must be constrained to be
 // equal to the difference (a - b).
 // The last argument is `op2`, which can be &lt;, &lt;=, &gt;, &gt;=
-</span><span class="kw">pub fn </span>comparison_helper&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="kw">fn </span>comparison_helper&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     <span class="kw-2">mut </span>cs: CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
     a: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
@@ -10568,13 +10568,13 @@
 
 <span class="comment">// Lurk supported uint coercion
 </span><span class="attr">#[derive(Copy, Clone)]
-</span><span class="kw">pub enum </span>UnsignedInt {
+</span><span class="kw">enum </span>UnsignedInt {
     U32,
     U64,
 }
 
 <span class="kw">impl </span>UnsignedInt {
-    <span class="kw">pub fn </span>num_bits(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+    <span class="kw">fn </span>num_bits(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
         <span class="kw">match </span><span class="self">self </span>{
             UnsignedInt::U32 =&gt; <span class="number">32</span>,
             UnsignedInt::U64 =&gt; <span class="number">64</span>,
@@ -10582,7 +10582,7 @@
     }
 }
 
-<span class="kw">pub fn </span>to_unsigned_integer_helper&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+<span class="kw">fn </span>to_unsigned_integer_helper&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     <span class="kw-2">mut </span>cs: CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
     field_elem: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
@@ -10623,7 +10623,7 @@
 <span class="comment">// Convert from num to unsigned integers by taking the least significant bits.
 // The output is a pair of allocated numbers, where the first one corresponds to
 // the u32 coercion, while the second corresponds to the u64 coercion.
-</span><span class="kw">pub fn </span>to_unsigned_integers&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="kw">fn </span>to_unsigned_integers&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     <span class="kw-2">mut </span>cs: CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
     maybe_unsigned: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
@@ -10658,7 +10658,7 @@
 }
 
 <span class="comment">// Convert from num to u64.
-</span><span class="kw">pub fn </span>to_u64&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="kw">fn </span>to_u64&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     <span class="kw-2">mut </span>cs: CS,
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
     maybe_u64: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
@@ -10681,7 +10681,7 @@
 
 <span class="comment">// Enforce div and mod operation for U64. We need to show that
 // arg1 = q * arg2 + r, such that 0 &lt;= r &lt; arg2.
-</span><span class="kw">pub fn </span>enforce_u64_div_mod&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="kw">fn </span>enforce_u64_div_mod&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     <span class="kw-2">mut </span>cs: CS,
     cond: Boolean,
     arg1: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
@@ -10753,7 +10753,7 @@
 // This is done by proving (bound - num) is positive.
 // `num` and `bound` must be a positive field element.
 // `cond` is a Boolean condition that enforces the validation iff it is True.
-</span><span class="kw">pub fn </span>enforce_less_than_bound&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="kw">fn </span>enforce_less_than_bound&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     <span class="kw-2">mut </span>cs: CS,
     cond: Boolean,
     num: AllocatedNum&lt;F&gt;,
@@ -10778,7 +10778,7 @@
 // In the circuit we use it to prove u64 decomposition, since using bn
 // we have division with remainder, which is used to find the quotient
 // after dividing by 2ˆ64. Therefore we constrain this relation afterwards.
-</span><span class="kw">pub fn </span>allocate_unconstrained_bignum&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+</span><span class="kw">fn </span>allocate_unconstrained_bignum&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     <span class="kw-2">mut </span>cs: CS,
     bn: BigUint,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
@@ -10795,7 +10795,7 @@
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
     maybe_cons: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     name: ConsName,
-    allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;F&gt;,
+    allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
     not_dummy: <span class="kw-2">&amp;</span>Boolean,
     _store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;), SynthesisError&gt; {
@@ -10837,7 +10837,7 @@
     var: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     val: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     name: ConsName,
-    allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;F&gt;,
+    allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
     not_dummy: <span class="kw-2">&amp;</span>Boolean,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
     <span class="kw">let </span>new_binding = AllocatedPtr::construct_cons_named(
@@ -10866,7 +10866,7 @@
     env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     var: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
     val: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
-    allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;F&gt;,
+    allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
     not_dummy: <span class="kw-2">&amp;</span>Boolean,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {

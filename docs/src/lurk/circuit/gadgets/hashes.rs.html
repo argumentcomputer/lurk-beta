@@ -368,25 +368,25 @@
     digest: AllocatedNum&lt;F&gt;,
 }
 
-<span class="kw">pub type </span>AllocatedPtrHash&lt;F&gt; = AllocatedHash&lt;F, AllocatedPtr&lt;F&gt;&gt;;
-<span class="kw">pub type </span>AllocatedNumHash&lt;F&gt; = AllocatedHash&lt;F, AllocatedNum&lt;F&gt;&gt;;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>AllocatedPtrHash&lt;F&gt; = AllocatedHash&lt;F, AllocatedPtr&lt;F&gt;&gt;;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>AllocatedNumHash&lt;F&gt; = AllocatedHash&lt;F, AllocatedNum&lt;F&gt;&gt;;
 
 <span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>Slot&lt;Name: Debug, AllocatedType&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Slot&lt;Name: Debug, AllocatedType&gt; {
     name: <span class="prelude-ty">Result</span>&lt;Name, ()&gt;,
     allocated: AllocatedType,
     consumed: bool,
 }
 
 <span class="kw">impl</span>&lt;Name: Debug, F: LurkField, PreimageType&gt; Slot&lt;Name, AllocatedHash&lt;F, PreimageType&gt;&gt; {
-    <span class="kw">pub fn </span>new(name: Name, allocated: AllocatedHash&lt;F, PreimageType&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(name: Name, allocated: AllocatedHash&lt;F, PreimageType&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             name: <span class="prelude-val">Ok</span>(name),
             allocated,
             consumed: <span class="bool-val">false</span>,
         }
     }
-    <span class="kw">pub fn </span>new_dummy(allocated: AllocatedHash&lt;F, PreimageType&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new_dummy(allocated: AllocatedHash&lt;F, PreimageType&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             name: <span class="prelude-val">Err</span>(()),
             allocated,
@@ -394,13 +394,13 @@
         }
     }
     <span class="attr">#[allow(dead_code)]
-    </span><span class="kw">pub fn </span>is_dummy(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_dummy(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.name.is_err()
     }
-    <span class="kw">pub fn </span>is_blank(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_blank(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.allocated.digest.get_value().is_none()
     }
-    <span class="kw">pub fn </span>is_consumed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_consumed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.consumed
     }
     <span class="kw">fn </span>consume(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
@@ -436,9 +436,9 @@
     }
 }
 
-<span class="kw">pub type </span>AllocatedConsWitness&lt;<span class="lifetime">&#39;a</span>, F&gt; =
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>AllocatedConsWitness&lt;<span class="lifetime">&#39;a</span>, F&gt; =
     AllocatedWitness&lt;<span class="lifetime">&#39;a</span>, ConsWitness&lt;F&gt;, ConsName, AllocatedPtrHash&lt;F&gt;&gt;;
-<span class="kw">pub type </span>AllocatedContWitness&lt;<span class="lifetime">&#39;a</span>, F&gt; =
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>AllocatedContWitness&lt;<span class="lifetime">&#39;a</span>, F&gt; =
     AllocatedWitness&lt;<span class="lifetime">&#39;a</span>, ContWitness&lt;F&gt;, ContName, AllocatedNumHash&lt;F&gt;&gt;;
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; AllocatedPtrHash&lt;F&gt; {

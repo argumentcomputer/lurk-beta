@@ -3110,6 +3110,29 @@
 <a href="#3110" id="3110">3110</a>
 <a href="#3111" id="3111">3111</a>
 <a href="#3112" id="3112">3112</a>
+<a href="#3113" id="3113">3113</a>
+<a href="#3114" id="3114">3114</a>
+<a href="#3115" id="3115">3115</a>
+<a href="#3116" id="3116">3116</a>
+<a href="#3117" id="3117">3117</a>
+<a href="#3118" id="3118">3118</a>
+<a href="#3119" id="3119">3119</a>
+<a href="#3120" id="3120">3120</a>
+<a href="#3121" id="3121">3121</a>
+<a href="#3122" id="3122">3122</a>
+<a href="#3123" id="3123">3123</a>
+<a href="#3124" id="3124">3124</a>
+<a href="#3125" id="3125">3125</a>
+<a href="#3126" id="3126">3126</a>
+<a href="#3127" id="3127">3127</a>
+<a href="#3128" id="3128">3128</a>
+<a href="#3129" id="3129">3129</a>
+<a href="#3130" id="3130">3130</a>
+<a href="#3131" id="3131">3131</a>
+<a href="#3132" id="3132">3132</a>
+<a href="#3133" id="3133">3133</a>
+<a href="#3134" id="3134">3134</a>
+<a href="#3135" id="3135">3135</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>std::marker::PhantomData;
@@ -3125,6 +3148,7 @@
     CompressedSNARK, ProverKey, RecursiveSNARK, VerifierKey,
 };
 <span class="kw">use </span>pasta_curves::{pallas, vesta};
+<span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use </span><span class="kw">crate</span>::circuit::{
     gadgets::{
@@ -3139,42 +3163,58 @@
 <span class="kw">use </span><span class="kw">crate</span>::proof::{Prover, PublicParameters};
 <span class="kw">use </span><span class="kw">crate</span>::store::{Ptr, Store};
 
-<span class="kw">pub type </span>G1 = pallas::Point;
-<span class="kw">pub type </span>G2 = vesta::Point;
+<span class="doccomment">/// Type alias for G1 group elements using the Pallas curve.
+</span><span class="kw">pub type </span>G1 = pallas::Point;
+<span class="doccomment">/// Type alias for G2 group elements using the Vesta curve.
+</span><span class="kw">pub type </span>G2 = vesta::Point;
 
-<span class="kw">pub type </span>S1 = pallas::Scalar;
-<span class="kw">pub type </span>S2 = vesta::Scalar;
+<span class="doccomment">/// Type alias for scalar field elements on the Pallas curve.
+</span><span class="kw">pub type </span>S1 = pallas::Scalar;
+<span class="doccomment">/// Type alias for scalar field elements on the Vesta curve.
+</span><span class="kw">pub type </span>S2 = vesta::Scalar;
 
-<span class="kw">pub type </span>EE1 = nova::provider::ipa_pc::EvaluationEngine&lt;G1&gt;;
-<span class="kw">pub type </span>EE2 = nova::provider::ipa_pc::EvaluationEngine&lt;G2&gt;;
+<span class="doccomment">/// Type alias for the Evaluation Engine using G1 group elements.
+</span><span class="kw">pub type </span>EE1 = nova::provider::ipa_pc::EvaluationEngine&lt;G1&gt;;
+<span class="doccomment">/// Type alias for the Evaluation Engine using G2 group elements.
+</span><span class="kw">pub type </span>EE2 = nova::provider::ipa_pc::EvaluationEngine&lt;G2&gt;;
 
-<span class="kw">type </span>CC1 = nova::spartan::spark::TrivialCompComputationEngine&lt;G1, EE1&gt;;
-<span class="kw">type </span>CC2 = nova::spartan::spark::TrivialCompComputationEngine&lt;G2, EE2&gt;;
+<span class="doccomment">/// Type alias for Nova&#39;s Trivial Compressed Computation Engine using G1 group elements and EE1.
+</span><span class="kw">type </span>CC1 = nova::spartan::spark::TrivialCompComputationEngine&lt;G1, EE1&gt;;
+<span class="doccomment">/// Type alias for Nova&#39;s Trivial Compressed Computation Engine using G2 group elements and EE2.
+</span><span class="kw">type </span>CC2 = nova::spartan::spark::TrivialCompComputationEngine&lt;G2, EE2&gt;;
 
-<span class="kw">pub type </span>SS1 = nova::spartan::RelaxedR1CSSNARK&lt;G1, EE1, CC1&gt;;
-<span class="kw">pub type </span>SS2 = nova::spartan::RelaxedR1CSSNARK&lt;G2, EE2, CC2&gt;;
+<span class="doccomment">/// Type alias for the Relaxed R1CS Spartan SNARK using G1 group elements, EE1, and CC1.
+</span><span class="kw">pub type </span>SS1 = nova::spartan::RelaxedR1CSSNARK&lt;G1, EE1, CC1&gt;;
+<span class="doccomment">/// Type alias for the Relaxed R1CS Spartan SNARK using G2 group elements, EE2, and CC2.
+</span><span class="kw">pub type </span>SS2 = nova::spartan::RelaxedR1CSSNARK&lt;G2, EE2, CC2&gt;;
 
-<span class="kw">pub type </span>C1&lt;<span class="lifetime">&#39;a</span>&gt; = MultiFrame&lt;<span class="lifetime">&#39;a</span>, S1, IO&lt;S1&gt;, Witness&lt;S1&gt;&gt;;
-<span class="kw">pub type </span>C2 = TrivialTestCircuit&lt;&lt;G2 <span class="kw">as </span>Group&gt;::Scalar&gt;;
+<span class="doccomment">/// Type alias for a MultiFrame with S1 field elements.
+</span><span class="kw">pub type </span>C1&lt;<span class="lifetime">&#39;a</span>&gt; = MultiFrame&lt;<span class="lifetime">&#39;a</span>, S1, IO&lt;S1&gt;, Witness&lt;S1&gt;&gt;;
+<span class="doccomment">/// Type alias for a Trivial Test Circuit with G2 scalar field elements.
+</span><span class="kw">pub type </span>C2 = TrivialTestCircuit&lt;&lt;G2 <span class="kw">as </span>Group&gt;::Scalar&gt;;
 
-<span class="kw">pub type </span>NovaPublicParams&lt;<span class="lifetime">&#39;a</span>&gt; = nova::PublicParams&lt;G1, G2, C1&lt;<span class="lifetime">&#39;a</span>&gt;, C2&gt;;
+<span class="doccomment">/// Type alias for Nova Public Parameters with the curve cycle types defined above.
+</span><span class="kw">pub type </span>NovaPublicParams&lt;<span class="lifetime">&#39;a</span>&gt; = nova::PublicParams&lt;G1, G2, C1&lt;<span class="lifetime">&#39;a</span>&gt;, C2&gt;;
 
-<span class="attr">#[derive(Serialize, Deserialize)]
+<span class="doccomment">/// A struct that contains public parameters for the Nova proving system.
+</span><span class="attr">#[derive(Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>PublicParams&lt;<span class="lifetime">&#39;a</span>&gt; {
     pp: NovaPublicParams&lt;<span class="lifetime">&#39;a</span>&gt;,
     pk: ProverKey&lt;G1, G2, C1&lt;<span class="lifetime">&#39;a</span>&gt;, C2, SS1, SS2&gt;,
     vk: VerifierKey&lt;G1, G2, C1&lt;<span class="lifetime">&#39;a</span>&gt;, C2, SS1, SS2&gt;,
 }
 
-<span class="kw">use </span>serde::{Deserialize, Serialize};
-
-<span class="attr">#[derive(Serialize, Deserialize)]
+<span class="doccomment">/// An enum representing the two types of proofs that can be generated and verified.
+</span><span class="attr">#[derive(Serialize, Deserialize)]
 </span><span class="kw">pub enum </span>Proof&lt;<span class="lifetime">&#39;a</span>&gt; {
-    Recursive(Box&lt;RecursiveSNARK&lt;G1, G2, C1&lt;<span class="lifetime">&#39;a</span>&gt;, C2&gt;&gt;),
-    Compressed(Box&lt;CompressedSNARK&lt;G1, G2, C1&lt;<span class="lifetime">&#39;a</span>&gt;, C2, SS1, SS2&gt;&gt;),
+    <span class="doccomment">/// A proof for the intermediate steps of a recursive computation
+    </span>Recursive(Box&lt;RecursiveSNARK&lt;G1, G2, C1&lt;<span class="lifetime">&#39;a</span>&gt;, C2&gt;&gt;),
+    <span class="doccomment">/// A proof for the final step of a recursive computation
+    </span>Compressed(Box&lt;CompressedSNARK&lt;G1, G2, C1&lt;<span class="lifetime">&#39;a</span>&gt;, C2, SS1, SS2&gt;&gt;),
 }
 
-<span class="kw">pub fn </span>public_params&lt;<span class="lifetime">&#39;a</span>&gt;(num_iters_per_step: usize) -&gt; PublicParams&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="doccomment">/// Generates the public parameters for the Nova proving system.
+</span><span class="kw">pub fn </span>public_params&lt;<span class="lifetime">&#39;a</span>&gt;(num_iters_per_step: usize) -&gt; PublicParams&lt;<span class="lifetime">&#39;a</span>&gt; {
     <span class="kw">let </span>(circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step);
 
     <span class="kw">let </span>pp = nova::PublicParams::setup(circuit_primary, circuit_secondary);
@@ -3188,7 +3228,8 @@
     }
 }
 
-<span class="kw">pub struct </span>NovaProver&lt;F: LurkField&gt; {
+<span class="doccomment">/// A struct for the Nova prover that operates on field elements of type `F`.
+</span><span class="kw">pub struct </span>NovaProver&lt;F: LurkField&gt; {
     <span class="comment">// `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
     </span>reduction_count: usize,
     _p: PhantomData&lt;F&gt;,
@@ -3224,14 +3265,16 @@
 
         <span class="prelude-val">Ok</span>(frames)
     }
-    <span class="kw">pub fn </span>evaluate_and_prove&lt;<span class="lifetime">&#39;a</span>&gt;(
+
+    <span class="doccomment">/// Evaluates and proves the computation given the public parameters, expression, environment, and store.
+    </span><span class="kw">pub fn </span>evaluate_and_prove&lt;<span class="lifetime">&#39;a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
-        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams,
+        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>&gt;,
         expr: Ptr&lt;S1&gt;,
         env: Ptr&lt;S1&gt;,
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Store&lt;S1&gt;,
         limit: usize,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof, Vec&lt;S1&gt;, Vec&lt;S1&gt;, usize), ProofError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;_</span>&gt;, Vec&lt;S1&gt;, Vec&lt;S1&gt;, usize), ProofError&gt; {
         <span class="kw">let </span>frames = <span class="self">self</span>.get_evaluation_frames(expr, env, store, limit)<span class="question-mark">?</span>;
         <span class="kw">let </span>z0 = frames[<span class="number">0</span>].input.to_vector(store)<span class="question-mark">?</span>;
         <span class="kw">let </span>zi = frames.last().unwrap().output.to_vector(store)<span class="question-mark">?</span>;
@@ -3304,8 +3347,9 @@
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Proof&lt;<span class="lifetime">&#39;a</span>&gt; {
-    <span class="kw">pub fn </span>prove_recursively(
-        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams,
+    <span class="doccomment">/// Proves the computation recursively, generating a recursive SNARK proof.
+    </span><span class="kw">pub fn </span>prove_recursively(
+        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>&gt;,
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;S1&gt;,
         circuits: <span class="kw-2">&amp;</span>[C1&lt;<span class="lifetime">&#39;a</span>&gt;],
         num_iters_per_step: usize,
@@ -3368,7 +3412,8 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Recursive(Box::new(recursive_snark.unwrap())))
     }
 
-    <span class="kw">pub fn </span>compress(<span class="self">self</span>, pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
+    <span class="doccomment">/// Compresses the proof using a (Spartan) Snark (finishing step)
+    </span><span class="kw">pub fn </span>compress(<span class="self">self</span>, pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
             <span class="self">Self</span>::Recursive(recursive_snark) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Compressed(Box::new(CompressedSNARK::&lt;
                 <span class="kw">_</span>,
@@ -3386,9 +3431,10 @@
         }
     }
 
-    <span class="kw">pub fn </span>verify(
+    <span class="doccomment">/// Verifies the proof given the public parameters, the number of steps, and the input and output values.
+    </span><span class="kw">pub fn </span>verify(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        pp: <span class="kw-2">&amp;</span>PublicParams,
+        pp: <span class="kw-2">&amp;</span>PublicParams&lt;<span class="lifetime">&#39;_</span>&gt;,
         num_steps: usize,
         z0: Vec&lt;S1&gt;,
         zi: <span class="kw-2">&amp;</span>[S1],
@@ -3527,7 +3573,7 @@
         <span class="kw">let </span>len = multiframes.len();
 
         <span class="kw">let </span>adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
-        <span class="kw">let </span><span class="kw-2">mut </span>previous_frame: <span class="prelude-ty">Option</span>&lt;MultiFrame&lt;Fr, IO&lt;Fr&gt;, Witness&lt;Fr&gt;&gt;&gt; = <span class="prelude-val">None</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>previous_frame: <span class="prelude-ty">Option</span>&lt;MultiFrame&lt;<span class="lifetime">&#39;_</span>, Fr, IO&lt;Fr&gt;, Witness&lt;Fr&gt;&gt;&gt; = <span class="prelude-val">None</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>cs_blank = MetricCS::&lt;Fr&gt;::new();
 

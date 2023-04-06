@@ -825,7 +825,7 @@
     }
 }
 
-<span class="kw">pub fn </span>hash_poseidon&lt;CS: ConstraintSystem&lt;F&gt;, F: LurkField, A: Arity&lt;F&gt;&gt;(
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>hash_poseidon&lt;CS: ConstraintSystem&lt;F&gt;, F: LurkField, A: Arity&lt;F&gt;&gt;(
     cs: CS,
     preimage: Vec&lt;AllocatedNum&lt;F&gt;&gt;,
     constants: <span class="kw-2">&amp;</span>PoseidonConstants&lt;F, A&gt;,
@@ -927,7 +927,7 @@
     }
 }
 
-<span class="kw">pub fn </span>allocate_constant&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>allocate_constant&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     val: F,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {

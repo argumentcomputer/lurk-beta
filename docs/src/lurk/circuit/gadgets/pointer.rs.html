@@ -1113,7 +1113,7 @@
         car: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         cdr: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
         name: ConsName,
-        allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;F&gt;,
+        allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
         not_dummy: <span class="kw-2">&amp;</span>Boolean,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedPtr&lt;F&gt;, SynthesisError&gt; {
         <span class="kw">let </span>expect_dummy = !(not_dummy.get_value().unwrap_or(<span class="bool-val">false</span>));
@@ -1517,7 +1517,7 @@
         name: ContName,
         cont_tag: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
         components: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="kw">dyn </span>AsAllocatedHashComponents&lt;F&gt;; <span class="number">4</span>],
-        allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;F&gt;,
+        allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
         not_dummy: <span class="kw-2">&amp;</span>Boolean,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SynthesisError&gt; {
         <span class="kw">let </span>expect_dummy = !(not_dummy.get_value().unwrap_or(<span class="bool-val">false</span>));
@@ -1568,7 +1568,7 @@
         name: ContName,
         cont_tag: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
         components: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="kw">dyn </span>AsAllocatedHashComponents&lt;F&gt;; <span class="number">4</span>],
-        allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;F&gt;,
+        allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, AllocatedNum&lt;F&gt;), SynthesisError&gt; {
         <span class="kw">let </span>(found_components, hash) = allocated_cont_witness.get_components_unconstrained(name);
 

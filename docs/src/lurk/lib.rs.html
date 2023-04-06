@@ -30,13 +30,11 @@
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
 <a href="#32" id="32">32</a>
-<a href="#33" id="33">33</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(clippy::single_match, clippy::type_complexity)]
 #![allow(clippy::uninlined_format_args)]
+#![warn(rust_2018_idioms, unreachable_pub)]
 
-</span><span class="kw">extern crate </span>core;
-
-<span class="attr">#[macro_use]
+#[macro_use]
 </span><span class="kw">extern crate </span>alloc;
 
 <span class="kw">pub mod </span>circuit;
@@ -55,7 +53,7 @@
 <span class="kw">pub mod </span>uint;
 <span class="kw">pub mod </span>writer;
 
-<span class="kw">mod </span>error;
+<span class="kw">pub mod </span>error;
 <span class="kw">mod </span>num;
 <span class="kw">pub use </span>num::Num;
 <span class="kw">pub use </span>sym::{Sym, Symbol};
