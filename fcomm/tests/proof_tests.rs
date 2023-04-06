@@ -1,6 +1,5 @@
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
-use std::ffi::OsStr;
 use std::fs::File;
 use std::io::Write;
 use std::process::Command;
@@ -10,6 +9,8 @@ use pasta_curves::pallas;
 
 use fcomm::{Commitment, CommittedExpression, FileStore, LurkPtr, Proof};
 use lurk::store::Store;
+
+use camino::Utf8Path;
 
 pub type S1 = pallas::Scalar;
 
@@ -49,11 +50,11 @@ fn test_eval_expression() {
         .stdout("{\"expr\":\"((LAMBDA (A B) (+ (* A 3) B)) 9 7)\",\"env\":\"NIL\",\"cont\":\"Outermost\",\"expr_out\":\"34\",\"env_out\":\"NIL\",\"cont_out\":\"Terminal\",\"status\":\"Terminal\",\"iterations\":17}");
 }
 
-fn test_prove_expression<T: AsRef<OsStr>>(
+fn test_prove_expression(
     cmd: &mut Command,
-    expression_path: T,
-    proof_path: T,
-    data_path: T,
+    expression_path: &Utf8Path,
+    proof_path: &Utf8Path,
+    data_path: &Utf8Path,
 ) {
     cmd.env("FCOMM_DATA_PATH", data_path)
         .arg("prove")
@@ -66,12 +67,12 @@ fn test_prove_expression<T: AsRef<OsStr>>(
     cmd.assert().success();
 }
 
-fn test_open_commitment<T: AsRef<OsStr>>(
+fn test_open_commitment(
     mut cmd: Command,
     commitment: String,
-    input_path: T,
-    proof_path: T,
-    data_path: T,
+    input_path: &Utf8Path,
+    proof_path: &Utf8Path,
+    data_path: &Utf8Path,
     chained: bool,
 ) {
     cmd.env("FCOMM_DATA_PATH", data_path)
@@ -90,13 +91,13 @@ fn test_open_commitment<T: AsRef<OsStr>>(
     cmd.assert().success();
 }
 
-fn test_verify_expression_proof<T: AsRef<OsStr>>(mut cmd: Command, proof_path: T, _data_path: T) {
+fn test_verify_expression_proof(mut cmd: Command, proof_path: &Utf8Path, _data_path: &Utf8Path) {
     cmd.arg("verify").arg("--proof").arg(proof_path);
 
     cmd.assert().success().stdout("{\"verified\":true}");
 }
 
-fn test_verify_opening<T: AsRef<OsStr>>(mut cmd: Command, proof_path: T, _data_path: T) {
+fn test_verify_opening(mut cmd: Command, proof_path: &Utf8Path, _data_path: &Utf8Path) {
     cmd.arg("verify").arg("--proof").arg(proof_path);
 
     cmd.assert().success().stdout("{\"verified\":true}");
@@ -109,9 +110,10 @@ fn test_prove_and_verify_expression() {
     let expected = "63";
 
     let tmp_dir = Builder::new().prefix("tmp").tempdir().unwrap();
-    let proof_path = tmp_dir.path().join("proof.json");
-    let fcomm_data_path = tmp_dir.path().join("fcomm_data");
-    let expression_path = tmp_dir.path().join("expression.lurk");
+    let tmp_dir_path = Utf8Path::from_path(tmp_dir.path()).unwrap();
+    let proof_path = tmp_dir_path.join("proof.json");
+    let fcomm_data_path = tmp_dir_path.join("fcomm_data");
+    let expression_path = tmp_dir_path.join("expression.lurk");
 
     let mut expression_file = File::create(&expression_path).unwrap();
     write!(expression_file, "{expression}").unwrap();
@@ -139,14 +141,14 @@ fn test_prove_and_verify_expression() {
     test_verify_expression_proof(fcomm_cmd(), &proof_path, &fcomm_data_path);
 }
 
-fn commit<T: AsRef<OsStr>>(function_path: T, commitment_path: T, data_path: T) {
+fn commit(function_path: &Utf8Path, commitment_path: &Utf8Path, data_path: &Utf8Path) {
     let mut cmd = fcomm_cmd();
     cmd.env("FCOMM_DATA_PATH", data_path)
         .arg("commit")
         .arg("--function")
-        .arg(&function_path)
+        .arg(function_path)
         .arg("--commitment")
-        .arg(&commitment_path)
+        .arg(commitment_path)
         .assert()
         .success();
 }
@@ -199,11 +201,12 @@ fn test_function_aux(
 
     let io = expected_io.iter();
 
-    let proof_path = tmp_dir.path().join("proof.json");
-    let function_path = tmp_dir.path().join("function.json");
-    let input_path = tmp_dir.path().join("input.lurk");
-    let commitment_path = tmp_dir.path().join("commitment.json");
-    let fcomm_data_path = tmp_dir.path().join("fcomm_data");
+    let tmp_dir_path = Utf8Path::from_path(tmp_dir.path()).unwrap();
+    let proof_path = tmp_dir_path.join("proof.json");
+    let function_path = tmp_dir_path.join("function.json");
+    let input_path = tmp_dir_path.join("input.lurk");
+    let commitment_path = tmp_dir_path.join("commitment.json");
+    let fcomm_data_path = tmp_dir_path.join("fcomm_data");
 
     function.write_to_path(&function_path);
 
