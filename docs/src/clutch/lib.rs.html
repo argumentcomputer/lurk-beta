@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `clutch/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-a4c7ec2e5b837b95.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="clutch" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (2eaeb1eee 2023-04-05)" data-search-js="search-bc5a112813b5d712.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../static.files/storage-d4a1a279bad1a0c0.js"></script><script defer src="../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-8e6affb8c73a5ff1.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../clutch/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `clutch/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-63a85fc7cf22dee2.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="clutch" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (28a29282f 2023-04-06)" data-search-js="search-bc5a112813b5d712.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../static.files/storage-d4a1a279bad1a0c0.js"></script><script defer src="../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-8e6affb8c73a5ff1.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../clutch/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -540,15 +540,20 @@
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
 <a href="#542" id="542">542</a>
-</pre><pre class="rust"><code><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">&quot;../README.md&quot;</span>)]
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+</pre></div><pre class="rust"><code><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">&quot;../README.md&quot;</span>)]
 
 </span><span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::{Arg, ArgAction, Command};
 <span class="kw">use </span>pasta_curves::pallas;
 
 <span class="kw">use </span>fcomm::{
-    public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, Evaluation, Id,
-    LurkPtr, NovaProofCache, Opening, Proof,
+    public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, Id, LurkCont,
+    LurkPtr, NovaProofCache, Opening, Proof, PtrEvaluation,
 };
 <span class="kw">use </span>lurk::eval::{Evaluable, Status, IO};
 <span class="kw">use </span>lurk::field::LurkField;
@@ -786,13 +791,13 @@
 
         <span class="self">self</span>.history.push(output);
 
-        <span class="kw">let </span>claim = Claim::Evaluation::&lt;F&gt;(Evaluation {
-            expr: input.expr.fmt_to_string(store),
-            env: input.env.fmt_to_string(store),
-            cont: input.cont.fmt_to_string(store),
-            expr_out: output.expr.fmt_to_string(store),
-            env_out: output.env.fmt_to_string(store),
-            cont_out: output.cont.fmt_to_string(store),
+        <span class="kw">let </span>claim = Claim::PtrEvaluation::&lt;F&gt;(PtrEvaluation {
+            expr: LurkPtr::from_ptr(store, <span class="kw-2">&amp;</span>input.expr),
+            env: LurkPtr::from_ptr(store, <span class="kw-2">&amp;</span>input.env),
+            cont: LurkCont::from_cont_ptr(store, <span class="kw-2">&amp;</span>input.cont),
+            expr_out: LurkPtr::from_ptr(store, <span class="kw-2">&amp;</span>output.expr),
+            env_out: LurkPtr::from_ptr(store, <span class="kw-2">&amp;</span>output.env),
+            cont_out: LurkCont::from_cont_ptr(store, <span class="kw-2">&amp;</span>output.cont),
             status: output.status(),
             iterations: <span class="prelude-val">None</span>,
         });
@@ -1038,6 +1043,7 @@
             Proof::&lt;pallas::Scalar&gt;::eval_and_prove(
                 store,
                 proof_in_expr,
+                <span class="prelude-val">Some</span>(<span class="self">self</span>.repl_state.env),
                 <span class="self">self</span>.repl_state.limit,
                 <span class="bool-val">false</span>,
                 <span class="kw-2">&amp;</span>prover,
@@ -1047,7 +1053,10 @@
 
         <span class="kw">if </span>proof.verify(<span class="kw-2">&amp;</span>pp)<span class="question-mark">?</span>.verified {
             <span class="kw">let </span>cid_str = proof.claim.cid().to_string();
-            <span class="macro">println!</span>(<span class="string">&quot;{0:#?}&quot;</span>, proof.claim);
+            <span class="kw">match </span>proof.claim {
+                Claim::Evaluation(<span class="kw">_</span>) | Claim::Opening(<span class="kw">_</span>) =&gt; <span class="macro">println!</span>(<span class="string">&quot;{0:#?}&quot;</span>, proof.claim),
+                Claim::PtrEvaluation(<span class="kw">_</span>) =&gt; <span class="macro">println!</span>(<span class="string">&quot;Claim::PtrEvaluation elided.&quot;</span>),
+            }
 
             <span class="kw">let </span>cid = store.str(cid_str);
             <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cid))
@@ -1072,6 +1081,7 @@
             </span>.proof_map
             .get(<span class="kw-2">&amp;</span>cid)
             .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;proof not found: {cid}&quot;</span>))<span class="question-mark">?</span>;
+
         <span class="kw">let </span>pp = public_params(<span class="self">self</span>.reduction_count)<span class="question-mark">?</span>;
         <span class="kw">let </span>result = proof.verify(<span class="kw-2">&amp;</span>pp).unwrap();
 

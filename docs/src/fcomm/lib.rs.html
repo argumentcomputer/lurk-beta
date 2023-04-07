@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `fcomm/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-a4c7ec2e5b837b95.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="fcomm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (2eaeb1eee 2023-04-05)" data-search-js="search-bc5a112813b5d712.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../static.files/storage-d4a1a279bad1a0c0.js"></script><script defer src="../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-8e6affb8c73a5ff1.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../fcomm/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `fcomm/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-63a85fc7cf22dee2.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="fcomm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (28a29282f 2023-04-06)" data-search-js="search-bc5a112813b5d712.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../static.files/storage-d4a1a279bad1a0c0.js"></script><script defer src="../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-8e6affb8c73a5ff1.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../fcomm/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1008,7 +1008,140 @@
 <a href="#1008" id="1008">1008</a>
 <a href="#1009" id="1009">1009</a>
 <a href="#1010" id="1010">1010</a>
-</pre><pre class="rust"><code><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">&quot;../README.md&quot;</span>)]
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+</pre></div><pre class="rust"><code><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">&quot;../README.md&quot;</span>)]
 
 </span><span class="kw">use </span>log::info;
 <span class="kw">use </span>std::collections::HashMap;
@@ -1036,7 +1169,7 @@
     proof::nova::{<span class="self">self</span>, NovaProver, PublicParams},
     proof::Prover,
     scalar_store::ScalarStore,
-    store::{Pointer, Ptr, ScalarPtr, Store},
+    store::{ContPtr, Pointer, Ptr, ScalarPtr, Store},
     tag::ExprTag,
     writer::Write,
 };
@@ -1138,6 +1271,18 @@
     <span class="kw">pub </span>iterations: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 }
 
+<span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>PtrEvaluation {
+    <span class="kw">pub </span>expr: LurkPtr,
+    <span class="kw">pub </span>env: LurkPtr,
+    <span class="kw">pub </span>cont: LurkCont,
+    <span class="kw">pub </span>expr_out: LurkPtr,
+    <span class="kw">pub </span>env_out: LurkPtr,
+    <span class="kw">pub </span>cont_out: LurkCont,
+    <span class="kw">pub </span>status: Status,
+    <span class="kw">pub </span>iterations: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+}
+
 <span class="attr">#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>Commitment&lt;F: LurkField&gt; {
     <span class="kw">pub </span>comm: F,
@@ -1223,8 +1368,8 @@
     <span class="attr">#[serde(with = <span class="string">&quot;base64&quot;</span>)]
     </span>scalar_store: Vec&lt;u8&gt;,
     <span class="attr">#[serde(with = <span class="string">&quot;base64&quot;</span>)]
-    </span>scalar_ptr: Vec&lt;u8&gt;,
-}
+    </span>scalar_ptr: Vec&lt;u8&gt;, <span class="comment">// can also be a scalar_cont_ptr
+</span>}
 
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 </span><span class="kw">pub struct </span>LurkScalarIpld {
@@ -1238,6 +1383,22 @@
     ScalarBytes(LurkScalarBytes),
     Ipld(LurkScalarIpld),
 }
+
+<span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+</span><span class="kw">pub enum </span>LurkCont {
+    <span class="attr">#[default]
+    </span>Outermost,
+    Terminal,
+    Error,
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>LurkPtr {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::Source(<span class="string">&quot;NIL&quot;</span>.to_string())
+    }
+}
+
+<span class="kw">impl </span>Eq <span class="kw">for </span>LurkPtr {}
 
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 </span><span class="kw">pub struct </span>CommittedExpression&lt;F: LurkField + Serialize&gt; {
@@ -1262,6 +1423,7 @@
 <span class="attr">#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>Claim&lt;F: LurkField&gt; {
     Evaluation(Evaluation),
+    PtrEvaluation(PtrEvaluation),
     Opening(Opening&lt;F&gt;),
 }
 
@@ -1314,6 +1476,12 @@
     <span class="kw">pub fn </span>evaluation(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Evaluation&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Evaluation(e) =&gt; <span class="prelude-val">Some</span>(e.clone()),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        }
+    }
+    <span class="kw">pub fn </span>ptr_evaluation(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;PtrEvaluation&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::PtrEvaluation(e) =&gt; <span class="prelude-val">Some</span>(e.clone()),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
@@ -1472,6 +1640,32 @@
     }
 }
 
+<span class="kw">impl </span>PtrEvaluation {
+    <span class="kw">fn </span>new&lt;F: LurkField + Serialize&gt;(
+        s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        input: IO&lt;F&gt;,
+        output: IO&lt;F&gt;,
+        iterations: <span class="prelude-ty">Option</span>&lt;usize&gt;, <span class="comment">// This might be padded, so is not quite &#39;iterations&#39; in the sense of number of actual reduction steps required
+                                   // to evaluate.
+    </span>) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>status: Status = output.cont.into();
+
+        <span class="comment">// NOTE: We do not implement the `maybe_hide!` logic found in `Evaluation::new()`. That was a speculative design
+        // unsupported by this patch. In ny case, `Evaluation` and `PtrEvaluation` should be unified in the future, and
+        // an appropriate hiding mechanism/configuration can be added then.
+        </span><span class="self">Self </span>{
+            expr: LurkPtr::from_ptr(s, <span class="kw-2">&amp;</span>input.expr),
+            env: LurkPtr::from_ptr(s, <span class="kw-2">&amp;</span>input.env),
+            cont: LurkCont::from_cont_ptr(s, <span class="kw-2">&amp;</span>input.cont),
+            expr_out: LurkPtr::from_ptr(s, <span class="kw-2">&amp;</span>output.expr),
+            env_out: LurkPtr::from_ptr(s, <span class="kw-2">&amp;</span>output.env),
+            cont_out: LurkCont::from_cont_ptr(s, <span class="kw-2">&amp;</span>output.cont),
+            status,
+            iterations,
+        }
+    }
+}
+
 <span class="kw">impl</span>&lt;F: LurkField + Serialize + DeserializeOwned&gt; Commitment&lt;F&gt; {
     <span class="kw">pub fn </span>from_comm(s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>digest = <span class="kw-2">*</span>s.hash_expr(ptr).expect(<span class="string">&quot;couldn&#39;t hash ptr&quot;</span>).value();
@@ -1552,7 +1746,7 @@
         <span class="kw">match </span><span class="self">self </span>{
             LurkPtr::Source(source) =&gt; {
                 <span class="kw">let </span>ptr = s.read(source).expect(<span class="string">&quot;could not read source&quot;</span>);
-                <span class="kw">let </span>(out, <span class="kw">_</span>) = evaluate(s, ptr, limit).unwrap();
+                <span class="kw">let </span>(out, <span class="kw">_</span>) = evaluate(s, ptr, <span class="prelude-val">None</span>, limit).unwrap();
 
                 out.expr
             }
@@ -1603,6 +1797,33 @@
     }
 }
 
+<span class="kw">impl </span>LurkCont {
+    <span class="kw">pub fn </span>cont_ptr&lt;F: LurkField + Serialize + DeserializeOwned&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+    ) -&gt; ContPtr&lt;F&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Outermost =&gt; s.get_cont_outermost(),
+            <span class="self">Self</span>::Terminal =&gt; s.get_cont_terminal(),
+            <span class="self">Self</span>::Error =&gt; s.get_cont_error(),
+        }
+    }
+
+    <span class="kw">pub fn </span>from_cont_ptr&lt;F: LurkField + Serialize&gt;(
+        _s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        cont_ptr: <span class="kw-2">&amp;</span>ContPtr&lt;F&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="kw">use </span>lurk::tag::ContTag;
+
+        <span class="kw">match </span>cont_ptr.tag() {
+            ContTag::Outermost =&gt; <span class="self">Self</span>::Outermost,
+            ContTag::Terminal =&gt; <span class="self">Self</span>::Terminal,
+            ContTag::Error =&gt; <span class="self">Self</span>::Error,
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;unsupported continuation&quot;</span>),
+        }
+    }
+}
+
 <span class="kw">impl </span>Expression {
     <span class="kw">pub fn </span>eval&lt;F: LurkField + Serialize + DeserializeOwned&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1610,7 +1831,7 @@
         limit: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;, Error&gt; {
         <span class="kw">let </span>expr = <span class="self">self</span>.expr.ptr(s, limit);
-        <span class="kw">let </span>(io, _iterations) = evaluate(s, expr, limit)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(io, _iterations) = evaluate(s, expr, <span class="prelude-val">None</span>, limit)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(io.expr)
     }
@@ -1702,7 +1923,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Claim&lt;S1&gt;, Error&gt; {
         <span class="kw">let </span>(commitment, expression) =
             Commitment::construct_with_fun_application(s, function, input, limit)<span class="question-mark">?</span>;
-        <span class="kw">let </span>(public_output, _iterations) = evaluate(s, expression, limit)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(public_output, _iterations) = evaluate(s, expression, <span class="prelude-val">None</span>, limit)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>(new_commitment, output_expr) = <span class="kw">if </span>chain {
             <span class="kw">let </span>cons = public_output.expr;
@@ -1761,18 +1982,29 @@
     <span class="kw">pub fn </span>eval_and_prove(
         s: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Store&lt;S1&gt;,
         expr: Ptr&lt;S1&gt;,
+        supplied_env: <span class="prelude-ty">Option</span>&lt;Ptr&lt;S1&gt;&gt;,
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>NovaProver&lt;S1&gt;,
         pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
-        <span class="kw">let </span>env = empty_sym_env(s);
+        <span class="kw">let </span>env = supplied_env.unwrap_or_else(|| empty_sym_env(s));
         <span class="kw">let </span>cont = s.intern_cont_outermost();
         <span class="kw">let </span>input = IO { expr, env, cont };
 
-        <span class="kw">let </span>(public_output, _iterations) = evaluate(s, expr, limit)<span class="question-mark">?</span>;
-        <span class="kw">let </span>evaluation = Evaluation::new(s, input, public_output, <span class="prelude-val">None</span>);
-        <span class="kw">let </span>claim = Claim::Evaluation(evaluation);
+        <span class="comment">// TODO: It&#39;s a little silly that we evaluate here, but evaluation is also repeated in `NovaProver::evaluate_and_prove()`.
+        // Refactor to avoid that.
+        </span><span class="kw">let </span>(public_output, _iterations) = evaluate(s, expr, supplied_env, limit)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>claim = <span class="kw">if </span>supplied_env.is_some() {
+            <span class="comment">// This is a bit of a hack, but the idea is that if the env was supplied it&#39;s likely to contain a literal function,
+            // which we will not be able to read. Therefore, we should not produce a string-based claim.
+            </span><span class="kw">let </span>ptr_evaluation = PtrEvaluation::new(s, input, public_output, <span class="prelude-val">None</span>);
+            Claim::PtrEvaluation(ptr_evaluation)
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>evaluation = Evaluation::new(s, input, public_output, <span class="prelude-val">None</span>);
+            Claim::Evaluation(evaluation)
+        };
 
         <span class="self">Self</span>::prove_claim(s, <span class="kw-2">&amp;</span>claim, limit, only_use_cached_proofs, nova_prover, pp)
     }
@@ -1808,6 +2040,7 @@
                 s.read(<span class="kw-2">&amp;</span>e.expr).expect(<span class="string">&quot;bad expression&quot;</span>),
                 s.read(<span class="kw-2">&amp;</span>e.env).expect(<span class="string">&quot;bad env&quot;</span>),
             ),
+            Claim::PtrEvaluation(e) =&gt; (e.expr.ptr(s, limit), e.env.ptr(s, limit)),
             Claim::Opening(o) =&gt; {
                 <span class="kw">let </span>commitment = o.commitment;
 
@@ -1846,6 +2079,11 @@
                 <span class="kw">if </span>e.status != Status::Terminal {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(Error::EvaluationFailure);
                 };
+            }
+            Claim::PtrEvaluation(e) =&gt; {
+                <span class="kw">if </span>e.status != Status::Terminal {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(Error::EvaluationFailure);
+                }
             }
         };
 
@@ -1932,6 +2170,31 @@
         <span class="prelude-val">Ok</span>((input_io, output_io))
     }
 
+    <span class="kw">pub fn </span>ptr_evaluation_io(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span>Store&lt;S1&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;S1&gt;, IO&lt;S1&gt;), Error&gt; {
+        <span class="kw">let </span>ptr_evaluation = <span class="kw-2">&amp;</span><span class="self">self
+            </span>.claim
+            .ptr_evaluation()
+            .expect(<span class="string">&quot;expected PtrEvaluation claim&quot;</span>);
+
+        <span class="kw">let </span>input_io = {
+            <span class="kw">let </span>expr = ptr_evaluation.expr.ptr(s, <span class="number">0</span>); <span class="comment">// limit is unneeded because we will not eval. we already have the ptr.
+            </span><span class="kw">let </span>env = ptr_evaluation.env.ptr(s, <span class="number">0</span>);
+            <span class="kw">let </span>cont = ptr_evaluation.cont.cont_ptr(s);
+
+            IO::&lt;S1&gt; { expr, env, cont }
+        };
+
+        <span class="kw">let </span>output_io = {
+            <span class="kw">let </span>expr = ptr_evaluation.expr_out.ptr(s, <span class="number">0</span>);
+            <span class="kw">let </span>env = ptr_evaluation.env_out.ptr(s, <span class="number">0</span>);
+            <span class="kw">let </span>cont = ptr_evaluation.cont_out.cont_ptr(s);
+
+            IO::&lt;S1&gt; { expr, env, cont }
+        };
+
+        <span class="prelude-val">Ok</span>((input_io, output_io))
+    }
+
     <span class="kw">pub fn </span>opening_io(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span>Store&lt;S1&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;S1&gt;, IO&lt;S1&gt;), Error&gt; {
         <span class="macro">assert!</span>(<span class="self">self</span>.claim.is_opening());
 
@@ -1960,9 +2223,11 @@
     <span class="kw">pub fn </span>io(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span>Store&lt;S1&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;S1&gt;, IO&lt;S1&gt;), Error&gt; {
         <span class="kw">match </span><span class="self">self</span>.claim {
             Claim::Evaluation(<span class="kw">_</span>) =&gt; <span class="self">self</span>.evaluation_io(s),
+            Claim::PtrEvaluation(<span class="kw">_</span>) =&gt; <span class="self">self</span>.ptr_evaluation_io(s),
             Claim::Opening(<span class="kw">_</span>) =&gt; <span class="self">self</span>.opening_io(s),
         }
     }
+
     <span class="kw">fn </span>io_vecs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;S1&gt;, Vec&lt;S1&gt;), Error&gt; {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;S1&gt;::default();
 
@@ -1979,9 +2244,10 @@
 <span class="kw">pub fn </span>evaluate&lt;F: LurkField&gt;(
     store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
     expr: Ptr&lt;F&gt;,
+    supplied_env: <span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;,
     limit: usize,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;F&gt;, usize), Error&gt; {
-    <span class="kw">let </span>env = empty_sym_env(store);
+    <span class="kw">let </span>env = supplied_env.unwrap_or_else(|| empty_sym_env(store));
     <span class="kw">let </span><span class="kw-2">mut </span>evaluator = Evaluator::new(expr, env, store, limit);
 
     <span class="kw">let </span>(io, iterations, <span class="kw">_</span>) = evaluator.eval().map_err(|<span class="kw">_</span>| Error::EvaluationFailure)<span class="question-mark">?</span>;
