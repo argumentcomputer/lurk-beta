@@ -368,156 +368,151 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
         let res = match expr {
             Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
                 Expression::Sym(s) => {
-                    if let Some(name) = s.simple_keyword_name() {
-                        match name.as_str() {
-                            "ASSERT" => {
-                                let (first, rest) = store.car_cdr(&rest)?;
-                                assert!(rest.is_nil());
-                                let (first_evaled, _, _, _) = self
-                                    .eval_expr(first, store)
-                                    .with_context(|| "evaluating first arg")
-                                    .unwrap();
-                                assert!(!first_evaled.is_nil());
-                                None
-                            }
-                            "ASSERT-EQ" => {
-                                let (first, rest) = store.car_cdr(&rest)?;
-                                let (second, rest) = store.car_cdr(&rest)?;
-                                assert!(rest.is_nil());
-                                let (first_evaled, _, _, _) = self
-                                    .eval_expr(first, store)
-                                    .with_context(|| "evaluating first arg")
-                                    .unwrap();
-                                let (second_evaled, _, _, _) = self
-                                    .eval_expr(second, store)
-                                    .with_context(|| "evaluating second arg")
-                                    .unwrap();
-                                assert!(
-                                    store.ptr_eq(&first_evaled, &second_evaled).unwrap(),
-                                    "Assertion failed {:?} = {:?},\n {:?} != {:?}",
-                                    first.fmt_to_string(store),
-                                    second.fmt_to_string(store),
-                                    first_evaled.fmt_to_string(store),
-                                    second_evaled.fmt_to_string(store)
-                                );
-                                None
-                            }
-                            "ASSERT-EMITTED" => {
-                                let (first, rest) = store.car_cdr(&rest)?;
-                                let (second, rest) = store.car_cdr(&rest)?;
+                    match s.name().as_str() {
+                        "ASSERT" => {
+                            let (first, rest) = store.car_cdr(&rest)?;
+                            assert!(rest.is_nil());
+                            let (first_evaled, _, _, _) = self
+                                .eval_expr(first, store)
+                                .with_context(|| "evaluating first arg")
+                                .unwrap();
+                            assert!(!first_evaled.is_nil());
+                            None
+                        }
+                        "ASSERT-EQ" => {
+                            let (first, rest) = store.car_cdr(&rest)?;
+                            let (second, rest) = store.car_cdr(&rest)?;
+                            assert!(rest.is_nil());
+                            let (first_evaled, _, _, _) = self
+                                .eval_expr(first, store)
+                                .with_context(|| "evaluating first arg")
+                                .unwrap();
+                            let (second_evaled, _, _, _) = self
+                                .eval_expr(second, store)
+                                .with_context(|| "evaluating second arg")
+                                .unwrap();
+                            assert!(
+                                store.ptr_eq(&first_evaled, &second_evaled).unwrap(),
+                                "Assertion failed {:?} = {:?},\n {:?} != {:?}",
+                                first.fmt_to_string(store),
+                                second.fmt_to_string(store),
+                                first_evaled.fmt_to_string(store),
+                                second_evaled.fmt_to_string(store)
+                            );
+                            None
+                        }
+                        "ASSERT-EMITTED" => {
+                            let (first, rest) = store.car_cdr(&rest)?;
+                            let (second, rest) = store.car_cdr(&rest)?;
 
-                                assert!(rest.is_nil());
-                                let (first_evaled, _, _, _) =
-                                    self.clone().eval_expr(first, store)?;
-                                let (_, _, _, emitted) = self
-                                    .eval_expr(second, store)
-                                    .with_context(|| "evaluating first arg")
-                                    .unwrap();
-                                let (mut first_emitted, mut rest_emitted) =
-                                    store.car_cdr(&first_evaled)?;
-                                for (i, elem) in emitted.iter().enumerate() {
-                                    if elem != &first_emitted {
-                                        panic!(
+                            assert!(rest.is_nil());
+                            let (first_evaled, _, _, _) = self.clone().eval_expr(first, store)?;
+                            let (_, _, _, emitted) = self
+                                .eval_expr(second, store)
+                                .with_context(|| "evaluating first arg")
+                                .unwrap();
+                            let (mut first_emitted, mut rest_emitted) =
+                                store.car_cdr(&first_evaled)?;
+                            for (i, elem) in emitted.iter().enumerate() {
+                                if elem != &first_emitted {
+                                    panic!(
                                             ":ASSERT-EMITTED failed at position {}. Expected {}, but found {}.",
                                             i,
                                             first_emitted.fmt_to_string(store),
                                             elem.fmt_to_string(store),
                                         );
-                                    }
-                                    (first_emitted, rest_emitted) = store.car_cdr(&rest_emitted)?;
                                 }
-                                None
+                                (first_emitted, rest_emitted) = store.car_cdr(&rest_emitted)?;
                             }
-                            "ASSERT-ERROR" => {
-                                let (first, rest) = store.car_cdr(&rest)?;
-
-                                assert!(rest.is_nil());
-                                assert!(self.clone().eval_expr(first, store).is_err());
-
-                                None
-                            }
-                            "CLEAR" => {
-                                self.env = empty_sym_env(store);
-                                None
-                            }
-                            "DEF" => {
-                                // Extends env with a non-recursive binding.
-                                //
-                                // This: !(:def foo (lambda () 123))
-                                //
-                                // Gets macroexpanded to this: (let ((foo (lambda () 123)))
-                                //                               (current-env))
-                                //
-                                // And the state's env is set to the result.
-                                let (first, rest) = store.car_cdr(&rest)?;
-                                let (second, rest) = store.car_cdr(&rest)?;
-                                assert!(rest.is_nil());
-                                let l = store.sym("LET");
-                                let current_env = store.sym("CURRENT-ENV");
-                                let binding = store.list(&[first, second]);
-                                let bindings = store.list(&[binding]);
-                                let current_env_call = store.list(&[current_env]);
-                                let expanded = store.list(&[l, bindings, current_env_call]);
-                                let (expanded_evaled, _, _, _) = self.eval_expr(expanded, store)?;
-
-                                self.env = expanded_evaled;
-
-                                let (new_binding, _) = store.car_cdr(&expanded_evaled)?;
-                                let (new_name, _) = store.car_cdr(&new_binding)?;
-                                Some(new_name)
-                            }
-                            "DEFREC" => {
-                                // Extends env with a recursive binding.
-                                //
-                                // This: !(:def foo (lambda () 123))
-                                //
-                                // Gets macroexpanded to this: (letrec ((foo (lambda () 123)))
-                                //                               (current-env))
-                                //
-                                // And the state's env is set to the result.
-                                let (first, rest) = store.car_cdr(&rest)?;
-                                let (second, rest) = store.car_cdr(&rest)?;
-                                assert!(rest.is_nil());
-                                let l = store.sym("LETREC");
-                                let current_env = store.sym("CURRENT-ENV");
-                                let binding = store.list(&[first, second]);
-                                let bindings = store.list(&[binding]);
-                                let current_env_call = store.list(&[current_env]);
-                                let expanded = store.list(&[l, bindings, current_env_call]);
-                                let (expanded_evaled, _, _, _) = self.eval_expr(expanded, store)?;
-
-                                self.env = expanded_evaled;
-
-                                let (new_binding_outer, _) = store.car_cdr(&expanded_evaled)?;
-                                let (new_binding_inner, _) = store.car_cdr(&new_binding_outer)?;
-                                let (new_name, _) = store.car_cdr(&new_binding_inner)?;
-                                Some(new_name)
-                            }
-                            "LOAD" => {
-                                match store.fetch(&store.car(&rest)?).unwrap() {
-                                    Expression::Str(path) => {
-                                        let joined = p.as_ref().join(Path::new(&path));
-                                        self.handle_load(store, &joined, package)?
-                                    }
-                                    _ => panic!("Argument to :LOAD must be a string."),
-                                }
-                                io::stdout().flush().unwrap();
-                                None
-                            }
-                            "SET-ENV" => {
-                                // The state's env is set to the result of evaluating the first argument.
-                                let (first, rest) = store.car_cdr(&rest)?;
-                                assert!(rest.is_nil());
-                                let (first_evaled, _, _, _) = self.eval_expr(first, store)?;
-                                self.env = first_evaled;
-                                None
-                            }
-                            _ => {
-                                panic!("!({} ...) is unsupported.", s.name());
-                            }
+                            None
                         }
-                    } else {
-                        panic!("!({} ...) is unsupported.", s.name());
+                        "ASSERT-ERROR" => {
+                            let (first, rest) = store.car_cdr(&rest)?;
+
+                            assert!(rest.is_nil());
+                            assert!(self.clone().eval_expr(first, store).is_err());
+
+                            None
+                        }
+                        "CLEAR" => {
+                            self.env = empty_sym_env(store);
+                            None
+                        }
+                        "DEF" => {
+                            // Extends env with a non-recursive binding.
+                            //
+                            // This: !(:def foo (lambda () 123))
+                            //
+                            // Gets macroexpanded to this: (let ((foo (lambda () 123)))
+                            //                               (current-env))
+                            //
+                            // And the state's env is set to the result.
+                            let (first, rest) = store.car_cdr(&rest)?;
+                            let (second, rest) = store.car_cdr(&rest)?;
+                            assert!(rest.is_nil());
+                            let l = store.sym("LET");
+                            let current_env = store.sym("CURRENT-ENV");
+                            let binding = store.list(&[first, second]);
+                            let bindings = store.list(&[binding]);
+                            let current_env_call = store.list(&[current_env]);
+                            let expanded = store.list(&[l, bindings, current_env_call]);
+                            let (expanded_evaled, _, _, _) = self.eval_expr(expanded, store)?;
+
+                            self.env = expanded_evaled;
+
+                            let (new_binding, _) = store.car_cdr(&expanded_evaled)?;
+                            let (new_name, _) = store.car_cdr(&new_binding)?;
+                            Some(new_name)
+                        }
+                        "DEFREC" => {
+                            // Extends env with a recursive binding.
+                            //
+                            // This: !(:def foo (lambda () 123))
+                            //
+                            // Gets macroexpanded to this: (letrec ((foo (lambda () 123)))
+                            //                               (current-env))
+                            //
+                            // And the state's env is set to the result.
+                            let (first, rest) = store.car_cdr(&rest)?;
+                            let (second, rest) = store.car_cdr(&rest)?;
+                            assert!(rest.is_nil());
+                            let l = store.sym("LETREC");
+                            let current_env = store.sym("CURRENT-ENV");
+                            let binding = store.list(&[first, second]);
+                            let bindings = store.list(&[binding]);
+                            let current_env_call = store.list(&[current_env]);
+                            let expanded = store.list(&[l, bindings, current_env_call]);
+                            let (expanded_evaled, _, _, _) = self.eval_expr(expanded, store)?;
+
+                            self.env = expanded_evaled;
+
+                            let (new_binding_outer, _) = store.car_cdr(&expanded_evaled)?;
+                            let (new_binding_inner, _) = store.car_cdr(&new_binding_outer)?;
+                            let (new_name, _) = store.car_cdr(&new_binding_inner)?;
+                            Some(new_name)
+                        }
+                        "LOAD" => {
+                            match store.fetch(&store.car(&rest)?).unwrap() {
+                                Expression::Str(path) => {
+                                    let joined = p.as_ref().join(Path::new(&path));
+                                    self.handle_load(store, &joined, package)?
+                                }
+                                _ => panic!("Argument to :LOAD must be a string."),
+                            }
+                            io::stdout().flush().unwrap();
+                            None
+                        }
+                        "SET-ENV" => {
+                            // The state's env is set to the result of evaluating the first argument.
+                            let (first, rest) = store.car_cdr(&rest)?;
+                            assert!(rest.is_nil());
+                            let (first_evaled, _, _, _) = self.eval_expr(first, store)?;
+                            self.env = first_evaled;
+                            None
+                        }
+                        _ => {
+                            panic!("!({} ...) is unsupported.", s.name());
+                        }
                     }
                 }
                 _ => panic!("!(<COMMAND> ...) must be a (:keyword) symbol."),
