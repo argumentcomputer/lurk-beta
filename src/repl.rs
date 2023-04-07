@@ -557,7 +557,7 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                     let input = IO {
                         expr: expr_ptr,
                         env: self.env,
-                        cont: store.get_cont_terminal(),
+                        cont: store.get_cont_outermost(),
                     };
 
                     match next_cont.tag() {
@@ -572,7 +572,7 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                         _ => println!("Computation incomplete after limit: {}", self.limit),
                     }
 
-                    Ok((input, output, 12345))
+                    Ok((input, output, iterations))
                 }
             }
 

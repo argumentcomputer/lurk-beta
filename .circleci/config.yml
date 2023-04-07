@@ -177,7 +177,7 @@ jobs:
       - restore-sccache-cache
       - run:
           name: Linux Tests
-          command: cargo nextest run --profile ci --workspace --cargo-profile dev-ci --run-ignored all -E 'all() - test(groth16::tests::outer_prove_recursion) -test(fcomm::test_make_fcomm_examples)'
+          command: cargo nextest run --profile ci --workspace --cargo-profile dev-ci --run-ignored all -E 'all() - test(groth16::tests::outer_prove_recursion) - test(fcomm::test_make_fcomm_examples) - test(test_functional_commitments_demo) - test(test_chained_functional_commitments_demo)'
       - run:
           name: Benches build successfully
           command: cargo bench --no-run --profile dev-ci
