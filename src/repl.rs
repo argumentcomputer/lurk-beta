@@ -6,9 +6,10 @@ use crate::package::Package;
 use crate::parser;
 use crate::scalar_store::ScalarStore;
 use crate::store::{ContPtr, Expression, Pointer, Ptr, Store};
+use crate::sym::Sym;
 use crate::tag::ContTag;
 use crate::writer::Write;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::{Arg, ArgAction, Command};
 use peekmore::PeekMore;
 use rustyline::error::ReadlineError;
@@ -367,7 +368,7 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
 
         let res = match expr {
             Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
-                Expression::Sym(s) => {
+                Expression::Sym(Sym::Sym(s)) => {
                     match s.name().as_str() {
                         "ASSERT" => {
                             let (first, rest) = store.car_cdr(&rest)?;
@@ -497,7 +498,7 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                                     let joined = p.as_ref().join(Path::new(&path));
                                     self.handle_load(store, &joined, package)?
                                 }
-                                _ => panic!("Argument to :LOAD must be a string."),
+                                _ => bail!("Argument to :LOAD must be a string."),
                             }
                             io::stdout().flush().unwrap();
                             None
@@ -511,13 +512,13 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                             None
                         }
                         _ => {
-                            panic!("!({} ...) is unsupported.", s.name());
+                            bail!("Unsupported command: {}", car.fmt_to_string(store));
                         }
                     }
                 }
-                _ => panic!("!(<COMMAND> ...) must be a (:keyword) symbol."),
+                _ => bail!("Unsupported command: {}", car.fmt_to_string(store)),
             },
-            _ => panic!("!<COMMAND> form is unsupported."),
+            _ => bail!("Unsupported meta form: {}", expr_ptr.fmt_to_string(store)),
         };
 
         if let Some(expr) = res {

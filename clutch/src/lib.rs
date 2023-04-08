@@ -14,6 +14,7 @@ use lurk::package::Package;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::repl::{ReplState, ReplTrait};
 use lurk::store::{Expression, Pointer, Ptr, Store};
+use lurk::sym::Sym;
 use lurk::tag::ExprTag;
 use lurk::writer::Write;
 
@@ -192,7 +193,7 @@ impl ReplTrait<F> for ClutchState<F> {
 
         let res: Option<Ptr<F>> = match expr {
             Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
-                Expression::Sym(s) => match s.name().as_str() {
+                Expression::Sym(Sym::Sym(s)) => match s.name().as_str() {
                     "CALL" => self.call(store, rest)?,
                     "CHAIN" => self.chain(store, rest)?,
                     "COMMIT" => self.commit(store, rest)?,
