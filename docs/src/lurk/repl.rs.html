@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/repl.rs`."><title>repl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-63a85fc7cf22dee2.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (28a29282f 2023-04-06)" data-search-js="search-bc5a112813b5d712.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../static.files/storage-d4a1a279bad1a0c0.js"></script><script defer src="../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-8e6affb8c73a5ff1.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/repl.rs`."><title>repl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-63a85fc7cf22dee2.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (23ee2af2f 2023-04-07)" data-search-js="search-bc5a112813b5d712.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../static.files/storage-d4a1a279bad1a0c0.js"></script><script defer src="../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-8e6affb8c73a5ff1.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -602,10 +602,6 @@
 <a href="#602" id="602">602</a>
 <a href="#603" id="603">603</a>
 <a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::error::LurkError;
 <span class="kw">use </span><span class="kw">crate</span>::eval::{empty_sym_env, Evaluator, IO};
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
@@ -614,9 +610,10 @@
 <span class="kw">use </span><span class="kw">crate</span>::parser;
 <span class="kw">use </span><span class="kw">crate</span>::scalar_store::ScalarStore;
 <span class="kw">use </span><span class="kw">crate</span>::store::{ContPtr, Expression, Pointer, Ptr, Store};
+<span class="kw">use </span><span class="kw">crate</span>::sym::Sym;
 <span class="kw">use </span><span class="kw">crate</span>::tag::ContTag;
 <span class="kw">use </span><span class="kw">crate</span>::writer::Write;
-<span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::{Arg, ArgAction, Command};
 <span class="kw">use </span>peekmore::PeekMore;
 <span class="kw">use </span>rustyline::error::ReadlineError;
@@ -975,162 +972,157 @@
 
         <span class="kw">let </span>res = <span class="kw">match </span>expr {
             Expression::Cons(car, rest) =&gt; <span class="kw">match </span><span class="kw-2">&amp;</span>store.fetch(<span class="kw-2">&amp;</span>car).unwrap() {
-                Expression::Sym(s) =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = s.simple_keyword_name() {
-                        <span class="kw">match </span>name.as_str() {
-                            <span class="string">&quot;ASSERT&quot; </span>=&gt; {
-                                <span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
-                                <span class="macro">assert!</span>(rest.is_nil());
-                                <span class="kw">let </span>(first_evaled, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="self">self
-                                    </span>.eval_expr(first, store)
-                                    .with_context(|| <span class="string">&quot;evaluating first arg&quot;</span>)
-                                    .unwrap();
-                                <span class="macro">assert!</span>(!first_evaled.is_nil());
-                                <span class="prelude-val">None
-                            </span>}
-                            <span class="string">&quot;ASSERT-EQ&quot; </span>=&gt; {
-                                <span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
-                                <span class="kw">let </span>(second, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
-                                <span class="macro">assert!</span>(rest.is_nil());
-                                <span class="kw">let </span>(first_evaled, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="self">self
-                                    </span>.eval_expr(first, store)
-                                    .with_context(|| <span class="string">&quot;evaluating first arg&quot;</span>)
-                                    .unwrap();
-                                <span class="kw">let </span>(second_evaled, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="self">self
-                                    </span>.eval_expr(second, store)
-                                    .with_context(|| <span class="string">&quot;evaluating second arg&quot;</span>)
-                                    .unwrap();
-                                <span class="macro">assert!</span>(
-                                    store.ptr_eq(<span class="kw-2">&amp;</span>first_evaled, <span class="kw-2">&amp;</span>second_evaled).unwrap(),
-                                    <span class="string">&quot;Assertion failed {:?} = {:?},\n {:?} != {:?}&quot;</span>,
-                                    first.fmt_to_string(store),
-                                    second.fmt_to_string(store),
-                                    first_evaled.fmt_to_string(store),
-                                    second_evaled.fmt_to_string(store)
-                                );
-                                <span class="prelude-val">None
-                            </span>}
-                            <span class="string">&quot;ASSERT-EMITTED&quot; </span>=&gt; {
-                                <span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
-                                <span class="kw">let </span>(second, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
+                Expression::Sym(Sym::Sym(s)) =&gt; {
+                    <span class="kw">match </span>s.name().as_str() {
+                        <span class="string">&quot;ASSERT&quot; </span>=&gt; {
+                            <span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
+                            <span class="macro">assert!</span>(rest.is_nil());
+                            <span class="kw">let </span>(first_evaled, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="self">self
+                                </span>.eval_expr(first, store)
+                                .with_context(|| <span class="string">&quot;evaluating first arg&quot;</span>)
+                                .unwrap();
+                            <span class="macro">assert!</span>(!first_evaled.is_nil());
+                            <span class="prelude-val">None
+                        </span>}
+                        <span class="string">&quot;ASSERT-EQ&quot; </span>=&gt; {
+                            <span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
+                            <span class="kw">let </span>(second, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
+                            <span class="macro">assert!</span>(rest.is_nil());
+                            <span class="kw">let </span>(first_evaled, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="self">self
+                                </span>.eval_expr(first, store)
+                                .with_context(|| <span class="string">&quot;evaluating first arg&quot;</span>)
+                                .unwrap();
+                            <span class="kw">let </span>(second_evaled, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="self">self
+                                </span>.eval_expr(second, store)
+                                .with_context(|| <span class="string">&quot;evaluating second arg&quot;</span>)
+                                .unwrap();
+                            <span class="macro">assert!</span>(
+                                store.ptr_eq(<span class="kw-2">&amp;</span>first_evaled, <span class="kw-2">&amp;</span>second_evaled).unwrap(),
+                                <span class="string">&quot;Assertion failed {:?} = {:?},\n {:?} != {:?}&quot;</span>,
+                                first.fmt_to_string(store),
+                                second.fmt_to_string(store),
+                                first_evaled.fmt_to_string(store),
+                                second_evaled.fmt_to_string(store)
+                            );
+                            <span class="prelude-val">None
+                        </span>}
+                        <span class="string">&quot;ASSERT-EMITTED&quot; </span>=&gt; {
+                            <span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
+                            <span class="kw">let </span>(second, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
 
-                                <span class="macro">assert!</span>(rest.is_nil());
-                                <span class="kw">let </span>(first_evaled, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) =
-                                    <span class="self">self</span>.clone().eval_expr(first, store)<span class="question-mark">?</span>;
-                                <span class="kw">let </span>(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, emitted) = <span class="self">self
-                                    </span>.eval_expr(second, store)
-                                    .with_context(|| <span class="string">&quot;evaluating first arg&quot;</span>)
-                                    .unwrap();
-                                <span class="kw">let </span>(<span class="kw-2">mut </span>first_emitted, <span class="kw-2">mut </span>rest_emitted) =
-                                    store.car_cdr(<span class="kw-2">&amp;</span>first_evaled)<span class="question-mark">?</span>;
-                                <span class="kw">for </span>(i, elem) <span class="kw">in </span>emitted.iter().enumerate() {
-                                    <span class="kw">if </span>elem != <span class="kw-2">&amp;</span>first_emitted {
-                                        <span class="macro">panic!</span>(
+                            <span class="macro">assert!</span>(rest.is_nil());
+                            <span class="kw">let </span>(first_evaled, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="self">self</span>.clone().eval_expr(first, store)<span class="question-mark">?</span>;
+                            <span class="kw">let </span>(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, emitted) = <span class="self">self
+                                </span>.eval_expr(second, store)
+                                .with_context(|| <span class="string">&quot;evaluating first arg&quot;</span>)
+                                .unwrap();
+                            <span class="kw">let </span>(<span class="kw-2">mut </span>first_emitted, <span class="kw-2">mut </span>rest_emitted) =
+                                store.car_cdr(<span class="kw-2">&amp;</span>first_evaled)<span class="question-mark">?</span>;
+                            <span class="kw">for </span>(i, elem) <span class="kw">in </span>emitted.iter().enumerate() {
+                                <span class="kw">if </span>elem != <span class="kw-2">&amp;</span>first_emitted {
+                                    <span class="macro">panic!</span>(
                                             <span class="string">&quot;:ASSERT-EMITTED failed at position {}. Expected {}, but found {}.&quot;</span>,
                                             i,
                                             first_emitted.fmt_to_string(store),
                                             elem.fmt_to_string(store),
                                         );
-                                    }
-                                    (first_emitted, rest_emitted) = store.car_cdr(<span class="kw-2">&amp;</span>rest_emitted)<span class="question-mark">?</span>;
                                 }
-                                <span class="prelude-val">None
-                            </span>}
-                            <span class="string">&quot;ASSERT-ERROR&quot; </span>=&gt; {
-                                <span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
-
-                                <span class="macro">assert!</span>(rest.is_nil());
-                                <span class="macro">assert!</span>(<span class="self">self</span>.clone().eval_expr(first, store).is_err());
-
-                                <span class="prelude-val">None
-                            </span>}
-                            <span class="string">&quot;CLEAR&quot; </span>=&gt; {
-                                <span class="self">self</span>.env = empty_sym_env(store);
-                                <span class="prelude-val">None
-                            </span>}
-                            <span class="string">&quot;DEF&quot; </span>=&gt; {
-                                <span class="comment">// Extends env with a non-recursive binding.
-                                //
-                                // This: !(:def foo (lambda () 123))
-                                //
-                                // Gets macroexpanded to this: (let ((foo (lambda () 123)))
-                                //                               (current-env))
-                                //
-                                // And the state&#39;s env is set to the result.
-                                </span><span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
-                                <span class="kw">let </span>(second, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
-                                <span class="macro">assert!</span>(rest.is_nil());
-                                <span class="kw">let </span>l = store.sym(<span class="string">&quot;LET&quot;</span>);
-                                <span class="kw">let </span>current_env = store.sym(<span class="string">&quot;CURRENT-ENV&quot;</span>);
-                                <span class="kw">let </span>binding = store.list(<span class="kw-2">&amp;</span>[first, second]);
-                                <span class="kw">let </span>bindings = store.list(<span class="kw-2">&amp;</span>[binding]);
-                                <span class="kw">let </span>current_env_call = store.list(<span class="kw-2">&amp;</span>[current_env]);
-                                <span class="kw">let </span>expanded = store.list(<span class="kw-2">&amp;</span>[l, bindings, current_env_call]);
-                                <span class="kw">let </span>(expanded_evaled, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="self">self</span>.eval_expr(expanded, store)<span class="question-mark">?</span>;
-
-                                <span class="self">self</span>.env = expanded_evaled;
-
-                                <span class="kw">let </span>(new_binding, <span class="kw">_</span>) = store.car_cdr(<span class="kw-2">&amp;</span>expanded_evaled)<span class="question-mark">?</span>;
-                                <span class="kw">let </span>(new_name, <span class="kw">_</span>) = store.car_cdr(<span class="kw-2">&amp;</span>new_binding)<span class="question-mark">?</span>;
-                                <span class="prelude-val">Some</span>(new_name)
+                                (first_emitted, rest_emitted) = store.car_cdr(<span class="kw-2">&amp;</span>rest_emitted)<span class="question-mark">?</span>;
                             }
-                            <span class="string">&quot;DEFREC&quot; </span>=&gt; {
-                                <span class="comment">// Extends env with a recursive binding.
-                                //
-                                // This: !(:def foo (lambda () 123))
-                                //
-                                // Gets macroexpanded to this: (letrec ((foo (lambda () 123)))
-                                //                               (current-env))
-                                //
-                                // And the state&#39;s env is set to the result.
-                                </span><span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
-                                <span class="kw">let </span>(second, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
-                                <span class="macro">assert!</span>(rest.is_nil());
-                                <span class="kw">let </span>l = store.sym(<span class="string">&quot;LETREC&quot;</span>);
-                                <span class="kw">let </span>current_env = store.sym(<span class="string">&quot;CURRENT-ENV&quot;</span>);
-                                <span class="kw">let </span>binding = store.list(<span class="kw-2">&amp;</span>[first, second]);
-                                <span class="kw">let </span>bindings = store.list(<span class="kw-2">&amp;</span>[binding]);
-                                <span class="kw">let </span>current_env_call = store.list(<span class="kw-2">&amp;</span>[current_env]);
-                                <span class="kw">let </span>expanded = store.list(<span class="kw-2">&amp;</span>[l, bindings, current_env_call]);
-                                <span class="kw">let </span>(expanded_evaled, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="self">self</span>.eval_expr(expanded, store)<span class="question-mark">?</span>;
+                            <span class="prelude-val">None
+                        </span>}
+                        <span class="string">&quot;ASSERT-ERROR&quot; </span>=&gt; {
+                            <span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
 
-                                <span class="self">self</span>.env = expanded_evaled;
+                            <span class="macro">assert!</span>(rest.is_nil());
+                            <span class="macro">assert!</span>(<span class="self">self</span>.clone().eval_expr(first, store).is_err());
 
-                                <span class="kw">let </span>(new_binding_outer, <span class="kw">_</span>) = store.car_cdr(<span class="kw-2">&amp;</span>expanded_evaled)<span class="question-mark">?</span>;
-                                <span class="kw">let </span>(new_binding_inner, <span class="kw">_</span>) = store.car_cdr(<span class="kw-2">&amp;</span>new_binding_outer)<span class="question-mark">?</span>;
-                                <span class="kw">let </span>(new_name, <span class="kw">_</span>) = store.car_cdr(<span class="kw-2">&amp;</span>new_binding_inner)<span class="question-mark">?</span>;
-                                <span class="prelude-val">Some</span>(new_name)
-                            }
-                            <span class="string">&quot;LOAD&quot; </span>=&gt; {
-                                <span class="kw">match </span>store.fetch(<span class="kw-2">&amp;</span>store.car(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>).unwrap() {
-                                    Expression::Str(path) =&gt; {
-                                        <span class="kw">let </span>joined = p.as_ref().join(Path::new(<span class="kw-2">&amp;</span>path));
-                                        <span class="self">self</span>.handle_load(store, <span class="kw-2">&amp;</span>joined, package)<span class="question-mark">?
-                                    </span>}
-                                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Argument to :LOAD must be a string.&quot;</span>),
-                                }
-                                io::stdout().flush().unwrap();
-                                <span class="prelude-val">None
-                            </span>}
-                            <span class="string">&quot;SET-ENV&quot; </span>=&gt; {
-                                <span class="comment">// The state&#39;s env is set to the result of evaluating the first argument.
-                                </span><span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
-                                <span class="macro">assert!</span>(rest.is_nil());
-                                <span class="kw">let </span>(first_evaled, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="self">self</span>.eval_expr(first, store)<span class="question-mark">?</span>;
-                                <span class="self">self</span>.env = first_evaled;
-                                <span class="prelude-val">None
-                            </span>}
-                            <span class="kw">_ </span>=&gt; {
-                                <span class="macro">panic!</span>(<span class="string">&quot;!({} ...) is unsupported.&quot;</span>, s.name());
-                            }
+                            <span class="prelude-val">None
+                        </span>}
+                        <span class="string">&quot;CLEAR&quot; </span>=&gt; {
+                            <span class="self">self</span>.env = empty_sym_env(store);
+                            <span class="prelude-val">None
+                        </span>}
+                        <span class="string">&quot;DEF&quot; </span>=&gt; {
+                            <span class="comment">// Extends env with a non-recursive binding.
+                            //
+                            // This: !(:def foo (lambda () 123))
+                            //
+                            // Gets macroexpanded to this: (let ((foo (lambda () 123)))
+                            //                               (current-env))
+                            //
+                            // And the state&#39;s env is set to the result.
+                            </span><span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
+                            <span class="kw">let </span>(second, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
+                            <span class="macro">assert!</span>(rest.is_nil());
+                            <span class="kw">let </span>l = store.sym(<span class="string">&quot;LET&quot;</span>);
+                            <span class="kw">let </span>current_env = store.sym(<span class="string">&quot;CURRENT-ENV&quot;</span>);
+                            <span class="kw">let </span>binding = store.list(<span class="kw-2">&amp;</span>[first, second]);
+                            <span class="kw">let </span>bindings = store.list(<span class="kw-2">&amp;</span>[binding]);
+                            <span class="kw">let </span>current_env_call = store.list(<span class="kw-2">&amp;</span>[current_env]);
+                            <span class="kw">let </span>expanded = store.list(<span class="kw-2">&amp;</span>[l, bindings, current_env_call]);
+                            <span class="kw">let </span>(expanded_evaled, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="self">self</span>.eval_expr(expanded, store)<span class="question-mark">?</span>;
+
+                            <span class="self">self</span>.env = expanded_evaled;
+
+                            <span class="kw">let </span>(new_binding, <span class="kw">_</span>) = store.car_cdr(<span class="kw-2">&amp;</span>expanded_evaled)<span class="question-mark">?</span>;
+                            <span class="kw">let </span>(new_name, <span class="kw">_</span>) = store.car_cdr(<span class="kw-2">&amp;</span>new_binding)<span class="question-mark">?</span>;
+                            <span class="prelude-val">Some</span>(new_name)
                         }
-                    } <span class="kw">else </span>{
-                        <span class="macro">panic!</span>(<span class="string">&quot;!({} ...) is unsupported.&quot;</span>, s.name());
+                        <span class="string">&quot;DEFREC&quot; </span>=&gt; {
+                            <span class="comment">// Extends env with a recursive binding.
+                            //
+                            // This: !(:def foo (lambda () 123))
+                            //
+                            // Gets macroexpanded to this: (letrec ((foo (lambda () 123)))
+                            //                               (current-env))
+                            //
+                            // And the state&#39;s env is set to the result.
+                            </span><span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
+                            <span class="kw">let </span>(second, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
+                            <span class="macro">assert!</span>(rest.is_nil());
+                            <span class="kw">let </span>l = store.sym(<span class="string">&quot;LETREC&quot;</span>);
+                            <span class="kw">let </span>current_env = store.sym(<span class="string">&quot;CURRENT-ENV&quot;</span>);
+                            <span class="kw">let </span>binding = store.list(<span class="kw-2">&amp;</span>[first, second]);
+                            <span class="kw">let </span>bindings = store.list(<span class="kw-2">&amp;</span>[binding]);
+                            <span class="kw">let </span>current_env_call = store.list(<span class="kw-2">&amp;</span>[current_env]);
+                            <span class="kw">let </span>expanded = store.list(<span class="kw-2">&amp;</span>[l, bindings, current_env_call]);
+                            <span class="kw">let </span>(expanded_evaled, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="self">self</span>.eval_expr(expanded, store)<span class="question-mark">?</span>;
+
+                            <span class="self">self</span>.env = expanded_evaled;
+
+                            <span class="kw">let </span>(new_binding_outer, <span class="kw">_</span>) = store.car_cdr(<span class="kw-2">&amp;</span>expanded_evaled)<span class="question-mark">?</span>;
+                            <span class="kw">let </span>(new_binding_inner, <span class="kw">_</span>) = store.car_cdr(<span class="kw-2">&amp;</span>new_binding_outer)<span class="question-mark">?</span>;
+                            <span class="kw">let </span>(new_name, <span class="kw">_</span>) = store.car_cdr(<span class="kw-2">&amp;</span>new_binding_inner)<span class="question-mark">?</span>;
+                            <span class="prelude-val">Some</span>(new_name)
+                        }
+                        <span class="string">&quot;LOAD&quot; </span>=&gt; {
+                            <span class="kw">match </span>store.fetch(<span class="kw-2">&amp;</span>store.car(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>).unwrap() {
+                                Expression::Str(path) =&gt; {
+                                    <span class="kw">let </span>joined = p.as_ref().join(Path::new(<span class="kw-2">&amp;</span>path));
+                                    <span class="self">self</span>.handle_load(store, <span class="kw-2">&amp;</span>joined, package)<span class="question-mark">?
+                                </span>}
+                                <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Argument to :LOAD must be a string.&quot;</span>),
+                            }
+                            io::stdout().flush().unwrap();
+                            <span class="prelude-val">None
+                        </span>}
+                        <span class="string">&quot;SET-ENV&quot; </span>=&gt; {
+                            <span class="comment">// The state&#39;s env is set to the result of evaluating the first argument.
+                            </span><span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
+                            <span class="macro">assert!</span>(rest.is_nil());
+                            <span class="kw">let </span>(first_evaled, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="self">self</span>.eval_expr(first, store)<span class="question-mark">?</span>;
+                            <span class="self">self</span>.env = first_evaled;
+                            <span class="prelude-val">None
+                        </span>}
+                        <span class="kw">_ </span>=&gt; {
+                            <span class="macro">bail!</span>(<span class="string">&quot;Unsupported command: {}&quot;</span>, car.fmt_to_string(store));
+                        }
                     }
                 }
-                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;!(&lt;COMMAND&gt; ...) must be a (:keyword) symbol.&quot;</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Unsupported command: {}&quot;</span>, car.fmt_to_string(store)),
             },
-            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;!&lt;COMMAND&gt; form is unsupported.&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Unsupported meta form: {}&quot;</span>, expr_ptr.fmt_to_string(store)),
         };
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(expr) = res {
