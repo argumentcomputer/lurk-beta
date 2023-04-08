@@ -1,6 +1,5 @@
-
 ;; Hat tip to JP Aumasson.
-!(:defrec fastexp (lambda (b e)
+!(defrec fastexp (lambda (b e)
                     (if (= e 0) 1
                         (if (< (/ e 2) 0) ; is e odd?
                             (* b (fastexp (* b b) (/ (- e 1) 2)))
@@ -9,17 +8,17 @@
 (fastexp 2 5)
 
 ;; (4p - 3) / 5
-!(:def r 23158417847463239084714197001737581570690445185553317903743794198714690358477)
+!(def r 23158417847463239084714197001737581570690445185553317903743794198714690358477)
 
-!(:def fifth-root (lambda (n) (fastexp n r)))
+!(def fifth-root (lambda (n) (fastexp n r)))
 
-!(:def fifth (lambda (n) (fastexp n 5)))
+!(def fifth (lambda (n) (fastexp n 5)))
 
 (fifth-root 42)
 
 (fifth 0x2e6606ca7e8983f71964677e06cd8fd13ee0d46bf3c3e52d3af1b80df06f730b)
 
-!(:def round (lambda (state)
+!(def round (lambda (state)
                (let ((x (car state))
                      (y (car (cdr state)))
                      (i (car (cdr (cdr state)))))
@@ -27,7 +26,7 @@
                        (cons (+ x i)
                              (cons (+ i 1) nil))))))
 
-!(:def inverse-round (lambda (state)
+!(def inverse-round (lambda (state)
                        (let ((x (car state))
                              (y (car (cdr state)))
                              (i (car (cdr (cdr state))))
@@ -36,12 +35,12 @@
                              (new-y (- (fifth x) new-x)))
                          (cons new-x (cons new-y (cons new-i nil))))))
 
-!(:defrec minroot (lambda (state rounds)
+!(defrec minroot (lambda (state rounds)
                     (if (= rounds 0)
                         state
                         (minroot (round state) (- rounds 1)))))
 
-!(:defrec minroot-inverse (lambda (state rounds)
+!(defrec minroot-inverse (lambda (state rounds)
                             (if (= rounds 0)
                                 state
                                 (minroot-inverse (inverse-round state) (- rounds 1)))))
@@ -50,16 +49,16 @@
 
 (minroot-inverse '(0x27ec1d892ff1b85d98dd8e61509c0ce63b6954da8a743ee54b1f405cde722eb1 0x0da555f3ff604e853948466204d773c4c34d8cf38cea55351c9c97593613fb3b 11) 10)
 
-!(:prove)
+!(prove)
 
-!(:verify "bafkr4ihoaqtkt3fa2gbcurqd6io4iqf4s7e63efknh7xxa65g4e4nkwdl4")
+!(verify "bafkr4ihoaqtkt3fa2gbcurqd6io4iqf4s7e63efknh7xxa65g4e4nkwdl4")
 
-!(:def timelock-encrypt (lambda (secret-key plaintext rounds)
+!(def timelock-encrypt (lambda (secret-key plaintext rounds)
                           (let ((ciphertext (+ secret-key plaintext))
                                 (timelocked-key-state (minroot-inverse (cons secret-key '(0 1)) rounds)))
                             (cons timelocked-key-state ciphertext))))
 
-!(:def timelock-decrypt (lambda (timelocked-key-state ciphertext rounds)
+!(def timelock-decrypt (lambda (timelocked-key-state ciphertext rounds)
                           (let ((secret-key (car (minroot timelocked-key-state rounds)))
                                 (plaintext (- ciphertext secret-key)))
                             plaintext)))

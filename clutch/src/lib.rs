@@ -14,6 +14,7 @@ use lurk::package::Package;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::repl::{ReplState, ReplTrait};
 use lurk::store::{Expression, Pointer, Ptr, Store};
+use lurk::sym::Sym;
 use lurk::tag::ExprTag;
 use lurk::writer::Write;
 
@@ -192,24 +193,18 @@ impl ReplTrait<F> for ClutchState<F> {
 
         let res: Option<Ptr<F>> = match expr {
             Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
-                Expression::Sym(s) => {
-                    if let Some(name) = s.simple_keyword_name() {
-                        match name.as_str() {
-                            "CALL" => self.call(store, rest)?,
-                            "CHAIN" => self.chain(store, rest)?,
-                            "COMMIT" => self.commit(store, rest)?,
-                            "OPEN" => self.open(store, rest)?,
-                            "PROOF-IN-EXPR" => self.proof_in_expr(store, rest)?,
-                            "PROOF-OUT-EXPR" => self.proof_out_expr(store, rest)?,
-                            "PROOF-CLAIM" => self.proof_claim(store, rest)?,
-                            "PROVE" => self.prove(store, rest)?,
-                            "VERIFY" => self.verify(store, rest)?,
-                            _ => return delegate!(),
-                        }
-                    } else {
-                        return delegate!();
-                    }
-                }
+                Expression::Sym(Sym::Sym(s)) => match s.name().as_str() {
+                    "CALL" => self.call(store, rest)?,
+                    "CHAIN" => self.chain(store, rest)?,
+                    "COMMIT" => self.commit(store, rest)?,
+                    "OPEN" => self.open(store, rest)?,
+                    "PROOF-IN-EXPR" => self.proof_in_expr(store, rest)?,
+                    "PROOF-OUT-EXPR" => self.proof_out_expr(store, rest)?,
+                    "PROOF-CLAIM" => self.proof_claim(store, rest)?,
+                    "PROVE" => self.prove(store, rest)?,
+                    "VERIFY" => self.verify(store, rest)?,
+                    _ => return delegate!(),
+                },
                 Expression::Comm(_, c) => {
                     // NOTE: this cannot happen from a text-based REPL, since there is not currrently a literal Comm syntax.
                     self.apply_comm(store, *c, rest)?
