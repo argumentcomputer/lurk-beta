@@ -1,4 +1,3 @@
-
 ;; Hat tip to JP Aumasson.
 !(defrec fastexp (lambda (b e)
                     (if (= e 0) 1
