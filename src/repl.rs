@@ -498,7 +498,7 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
                                     let joined = p.as_ref().join(Path::new(&path));
                                     self.handle_load(store, &joined, package)?
                                 }
-                                _ => bail!("Argument to :LOAD must be a string."),
+                                _ => bail!("Argument to LOAD must be a string."),
                             }
                             io::stdout().flush().unwrap();
                             None
