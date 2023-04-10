@@ -1,7 +1,7 @@
 use super::*;
 use crate::eval::reduction::{extend, lookup, reduce};
-
-use crate::tag::Op;
+use crate::num::Num;
+use crate::tag::{ExprTag, Op, Op1, Op2};
 use crate::writer::Write;
 use blstrs::Scalar as Fr;
 

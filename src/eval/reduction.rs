@@ -10,7 +10,7 @@ use crate::store::{
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use crate::writer::Write;
 
-pub fn reduce<F: LurkField>(
+pub(crate) fn reduce<F: LurkField>(
     expr: Ptr<F>,
     env: Ptr<F>,
     cont: ContPtr<F>,
@@ -24,7 +24,7 @@ pub fn reduce<F: LurkField>(
 }
 
 #[derive(Debug, Clone)]
-pub enum Control<F: LurkField> {
+enum Control<F: LurkField> {
     Return(Ptr<F>, Ptr<F>, ContPtr<F>),
     MakeThunk(Ptr<F>, Ptr<F>, ContPtr<F>),
     ApplyContinuation(Ptr<F>, Ptr<F>, ContPtr<F>),
@@ -32,7 +32,7 @@ pub enum Control<F: LurkField> {
 }
 
 impl<F: LurkField> Control<F> {
-    pub fn into_results(self, store: &mut Store<F>) -> (Ptr<F>, Ptr<F>, ContPtr<F>) {
+    fn into_results(self, store: &mut Store<F>) -> (Ptr<F>, Ptr<F>, ContPtr<F>) {
         match self {
             Self::Return(expr, env, cont) => (expr, env, cont),
             Self::MakeThunk(expr, env, cont) => (expr, env, cont),
@@ -40,13 +40,14 @@ impl<F: LurkField> Control<F> {
             Self::Error(expr, env) => (expr, env, store.intern_cont_error()),
         }
     }
-    pub fn is_return(&self) -> bool {
+    #[allow(dead_code)]
+    fn is_return(&self) -> bool {
         matches!(self, Self::Return(_, _, _))
     }
-    pub fn is_make_thunk(&self) -> bool {
+    fn is_make_thunk(&self) -> bool {
         matches!(self, Self::MakeThunk(_, _, _))
     }
-    pub fn is_apply_continuation(&self) -> bool {
+    fn is_apply_continuation(&self) -> bool {
         matches!(self, Self::ApplyContinuation(_, _, _))
     }
 }
@@ -1047,7 +1048,7 @@ fn reduce_with_witness_inner<F: LurkField>(
     ))
 }
 
-pub fn reduce_with_witness<F: LurkField>(
+fn reduce_with_witness<F: LurkField>(
     expr: Ptr<F>,
     env: Ptr<F>,
     cont: ContPtr<F>,
