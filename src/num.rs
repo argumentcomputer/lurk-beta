@@ -9,7 +9,7 @@ use std::{
     cmp::Ordering,
     fmt::Display,
     hash::Hash,
-    ops::{Add, AddAssign, DivAssign, MulAssign, SubAssign},
+    ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
 use crate::field::LurkField;

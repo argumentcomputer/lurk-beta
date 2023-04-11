@@ -140,7 +140,7 @@ impl<F: LurkField, W: Copy> Frame<IO<F>, W> {
 }
 
 pub trait Evaluable<F: LurkField, W> {
-    fn reduce(&self, store: &mut Store<F>, lang: &Lang<F>) -> Result<(Self, W), ReductionError>
+    fn reduce(&self, store: &mut Store<F>, lang: &Lang<'_, F>) -> Result<(Self, W), ReductionError>
     where
         Self: Sized;
 
@@ -156,7 +156,7 @@ impl<F: LurkField> Evaluable<F, Witness<F>> for IO<F> {
     fn reduce(
         &self,
         store: &mut Store<F>,
-        lang: &Lang<F>,
+        lang: &Lang<'_, F>,
     ) -> Result<(Self, Witness<F>), ReductionError> {
         let (expr, env, cont, witness) =
             reduction::reduce(self.expr, self.env, self.cont, store, lang)?;
@@ -261,7 +261,7 @@ impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame
     fn from_initial_input(
         input: T,
         store: &mut Store<F>,
-        lang: &Lang<F>,
+        lang: &Lang<'_, F>,
     ) -> Result<Self, ReductionError> {
         input.log(store, 0);
         let (output, witness) = input.reduce(store, lang)?;
@@ -286,7 +286,7 @@ impl<'a, F: LurkField> FrameIt<'a, Witness<F>, F> {
     fn new(
         initial_input: IO<F>,
         store: &'a mut Store<F>,
-        lang: &'a Lang<F>,
+        lang: &'a Lang<'_, F>,
     ) -> Result<Self, ReductionError> {
         let frame = Frame::from_initial_input(initial_input, store, lang)?;
         Ok(Self {

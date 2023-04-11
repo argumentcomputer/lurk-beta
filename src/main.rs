@@ -1,5 +1,4 @@
 use anyhow::Result;
-use once_cell::sync::OnceCell;
 
 use lurk::eval::lang::Lang;
 use lurk::field::LanguageField;

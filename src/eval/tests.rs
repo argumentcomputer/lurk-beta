@@ -2553,6 +2553,44 @@ fn test_eval_non_symbol_binding_error() {
 }
 
 #[test]
+#[derive(Debug, Default)]
+/// A dumb Coprocessor for testing.
+pub(crate) struct DumbCoprocessor<F: LurkField> {
+    pub _p: PhantomData<F>,
+}
+
+#[test]
+impl<F: LurkField> Coprocessor<F> for DumbCoprocessor<F> {
+    /// Dumb Coprocessor takes two arguments.
+    fn arity(&self) -> usize {
+        2
+    }
+
+    /// It squares the first arg and adds it to the second.
+    fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+        let a = args[0];
+        let b = args[1];
+
+        let a_num = s.fetch_num(&a).unwrap();
+        let b_num = s.fetch_num(&b).unwrap();
+        let mut result = *a_num;
+        result *= *a_num;
+        result += *b_num;
+
+        s.intern_num(result)
+    }
+}
+
+#[test]
+impl<F: LurkField> DumbCoprocessor<F> {
+    pub(crate) fn new() -> Self {
+        Self {
+            _p: Default::default(),
+        }
+    }
+}
+
+#[test]
 fn test_dumb_lang() {
     use super::lang::Lang;
     use crate::coprocessor::DumbCoprocessor;
