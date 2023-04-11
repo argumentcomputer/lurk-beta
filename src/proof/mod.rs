@@ -13,7 +13,7 @@ pub mod nova;
 use bellperson::{util_cs::test_cs::TestConstraintSystem, Circuit, SynthesisError};
 
 use crate::circuit::MultiFrame;
-use crate::eval::{Witness, IO};
+use crate::eval::{lang::Lang, Witness, IO};
 use crate::field::LurkField;
 
 /// Represents a sequential Constraint System for a given proof.
@@ -65,9 +65,8 @@ pub trait Prover<'a, F: LurkField> {
     /// The associated public parameters type for the prover.
     type PublicParams: PublicParameters;
 
-    // FIXME: This must take a Lang parameter.
     /// Creates a new prover with the specified number of reductions.
-    fn new(reduction_count: usize) -> Self;
+    fn new(reduction_count: usize, lang: &Lang<'a, F>) -> Self;
 
     /// Returns the number of reductions for the prover.
     fn reduction_count(&self) -> usize;

@@ -30,13 +30,20 @@ impl<'a, F: LurkField> Lang<'a, F> {
             .and_then(|sym| self.coprocessors.get(&sym))
             .copied()
     }
+
+    pub fn has_coprocessors(&self) -> bool {
+        !self.coprocessors.is_empty()
+    }
+
+    pub fn is_default(&self) -> bool {
+        !self.has_coprocessors()
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::coprocessor::DumbCoprocessor;
-    use crate::store::Store;
+    use crate::coprocessor::test::DumbCoprocessor;
 
     use pasta_curves::pallas::Scalar as Fr;
 

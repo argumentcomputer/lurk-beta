@@ -250,10 +250,14 @@ pub struct PublicParams<E: Engine + MultiMillerLoop>(pub groth16::Parameters<E>)
 
 impl PublicParameters for PublicParams<Bls12> {}
 
-impl Prover<'_, Scalar> for Groth16Prover<Bls12> {
+impl<'a> Prover<'a, Scalar> for Groth16Prover<Bls12> {
     type PublicParams = PublicParams<Bls12>;
 
-    fn new(reduction_count: usize) -> Self {
+    fn new(reduction_count: usize, lang: &Lang<'a, Scalar>) -> Self {
+        assert!(
+            lang.is_default(),
+            "Coprocessors are not yet supported in circuits."
+        );
         Groth16Prover {
             reduction_count,
             _p: PhantomData::<Bls12>,
@@ -368,7 +372,7 @@ mod tests {
         let rng = OsRng;
 
         let public_params = Groth16Prover::create_groth_params(DEFAULT_REDUCTION_COUNT).unwrap();
-        let groth_prover = Groth16Prover::new(DEFAULT_REDUCTION_COUNT);
+        let groth_prover = Groth16Prover::new(DEFAULT_REDUCTION_COUNT, lang);
         let groth_params = &public_params.0;
 
         let pvk = groth16::prepare_verifying_key(&groth_params.vk);

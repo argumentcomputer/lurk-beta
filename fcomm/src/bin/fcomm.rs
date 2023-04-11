@@ -222,7 +222,7 @@ impl Open {
 
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
-        let prover = NovaProver::<S1>::new(rc.count());
+        let prover = NovaProver::<S1>::new(rc.count(), lang);
         let pp = public_params(rc.count()).unwrap();
         let function_map = committed_expression_store();
 
@@ -320,7 +320,7 @@ impl Prove {
     fn prove(&self, limit: usize, lang: &Lang<'_, S1>) {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
-        let prover = NovaProver::<S1>::new(rc.count());
+        let prover = NovaProver::<S1>::new(rc.count(), lang);
         let pp = public_params(rc.count()).unwrap();
 
         let proof = match &self.claim {

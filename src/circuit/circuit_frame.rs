@@ -5174,7 +5174,7 @@ mod tests {
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
 
         let public_params = Groth16Prover::create_groth_params(DEFAULT_REDUCTION_COUNT).unwrap();
-        let groth_prover = Groth16Prover::new(DEFAULT_REDUCTION_COUNT);
+        let groth_prover = Groth16Prover::new(DEFAULT_REDUCTION_COUNT, &lang);
         let groth_params = &public_params.0;
 
         let vk = &groth_params.vk;

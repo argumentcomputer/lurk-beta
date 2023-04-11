@@ -8,7 +8,7 @@
 
 # Order is important; the last matching pattern takes the most
 # precedence. This excludes @everyone but @porcuquine for /src/eval.rs
-/src/eval.rs @porcuquine
+/src/eval/** @porcuquine
 
 # Circuit
 /src/circuit/** @lurk-lab/lurk-circuit

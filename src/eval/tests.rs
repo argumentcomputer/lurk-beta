@@ -1826,7 +1826,7 @@ fn test_relational() {
 
     let most_negative = &format!("{}", Num::<Fr>::most_negative());
     let most_positive = &format!("{}", Num::<Fr>::most_positive());
-    use ff::Field;
+
     let neg_one = &format!("{}", Num::<Fr>::Scalar(Fr::zero() - Fr::one()));
 
     relational_aux(s, lt, one, two, true);
@@ -2320,7 +2320,6 @@ fn test_keyword() {
 #[test]
 fn test_root_sym() {
     use crate::sym::Sym;
-    use ff::Field;
 
     let s = &mut Store::<Fr>::default();
 
@@ -2553,47 +2552,9 @@ fn test_eval_non_symbol_binding_error() {
 }
 
 #[test]
-#[derive(Debug, Default)]
-/// A dumb Coprocessor for testing.
-pub(crate) struct DumbCoprocessor<F: LurkField> {
-    pub _p: PhantomData<F>,
-}
-
-#[test]
-impl<F: LurkField> Coprocessor<F> for DumbCoprocessor<F> {
-    /// Dumb Coprocessor takes two arguments.
-    fn arity(&self) -> usize {
-        2
-    }
-
-    /// It squares the first arg and adds it to the second.
-    fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
-        let a = args[0];
-        let b = args[1];
-
-        let a_num = s.fetch_num(&a).unwrap();
-        let b_num = s.fetch_num(&b).unwrap();
-        let mut result = *a_num;
-        result *= *a_num;
-        result += *b_num;
-
-        s.intern_num(result)
-    }
-}
-
-#[test]
-impl<F: LurkField> DumbCoprocessor<F> {
-    pub(crate) fn new() -> Self {
-        Self {
-            _p: Default::default(),
-        }
-    }
-}
-
-#[test]
 fn test_dumb_lang() {
     use super::lang::Lang;
-    use crate::coprocessor::DumbCoprocessor;
+    use crate::coprocessor::test::DumbCoprocessor;
     use crate::store::Store;
     use crate::sym::Sym;
 
@@ -2615,6 +2576,5 @@ fn test_dumb_lang() {
     let res = s.num(89);
 
     test_aux(s, &expr, Some(res), None, None, None, 2, Some(&lang));
-
     test_aux(s, &expr2, Some(res), None, None, None, 4, Some(&lang));
 }

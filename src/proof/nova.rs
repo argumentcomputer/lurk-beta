@@ -104,7 +104,12 @@ impl<'a> PublicParameters for PublicParams<'a> {}
 
 impl<'a, F: LurkField> Prover<'a, F> for NovaProver<F> {
     type PublicParams = PublicParams<'a>;
-    fn new(reduction_count: usize) -> Self {
+    fn new(reduction_count: usize, lang: &Lang<'a, F>) -> Self {
+        assert!(
+            lang.is_default(),
+            "Coprocessors are not yet supported in circuits."
+        );
+
         NovaProver::<F> {
             reduction_count,
             _p: PhantomData::<F>,
@@ -415,7 +420,7 @@ mod tests {
 
         let e = empty_sym_env(s);
 
-        let nova_prover = NovaProver::<Fr>::new(reduction_count);
+        let nova_prover = NovaProver::<Fr>::new(reduction_count, lang);
 
         if check_nova {
             let pp = public_params(reduction_count);

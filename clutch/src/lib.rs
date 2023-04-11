@@ -485,7 +485,7 @@ impl ClutchState<F> {
     fn prove(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (proof_in_expr, _rest1) = store.car_cdr(&rest)?;
 
-        let prover = NovaProver::<F>::new(self.reduction_count);
+        let prover = NovaProver::<F>::new(self.reduction_count, &self.lang());
         let pp = public_params(self.reduction_count)?;
 
         let proof = if rest.is_nil() {
