@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
 
+pub mod lang;
 mod reduction;
 
 #[cfg(test)]
