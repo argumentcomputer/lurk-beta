@@ -65,6 +65,7 @@ pub trait Prover<'a, F: LurkField> {
     /// The associated public parameters type for the prover.
     type PublicParams: PublicParameters;
 
+    // FIXME: This must take a Lang parameter.
     /// Creates a new prover with the specified number of reductions.
     fn new(reduction_count: usize) -> Self;
 

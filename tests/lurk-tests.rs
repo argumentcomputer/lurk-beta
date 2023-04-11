@@ -1,4 +1,5 @@
 use lurk::{
+    eval::lang::Lang,
     proof::nova,
     repl::{repl, ReplState},
 };
@@ -36,6 +37,6 @@ fn lurk_tests() {
     for f in test_files {
         let joined = example_dir.join(f);
 
-        repl::<nova::S1, ReplState<nova::S1>, _>(Some(joined)).unwrap();
+        repl::<nova::S1, ReplState<nova::S1>, _>(Some(joined), Lang::new()).unwrap();
     }
 }

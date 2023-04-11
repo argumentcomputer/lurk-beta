@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::circuit::MultiFrame;
 use crate::error::ProofError;
-use crate::eval::{Evaluator, Witness, IO};
+use crate::eval::{lang::Lang, Evaluator, Witness, IO};
 use crate::proof::{Provable, Prover, PublicParameters};
 use crate::store::{Ptr, Store};
 
@@ -133,9 +133,10 @@ impl Groth16Prover<Bls12> {
         store: &mut Store<Scalar>,
         limit: usize,
         mut rng: R,
+        lang: &Lang<'_, Scalar>,
     ) -> Result<(Proof<Bls12>, IO<Scalar>, IO<Scalar>), ProofError> {
         let padding_predicate = |count| self.needs_frame_padding(count);
-        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate)?;
+        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate, lang)?;
         store.hydrate_scalar_cache();
 
         let multiframes = MultiFrame::from_frames(self.reduction_count(), &frames, store);
@@ -338,6 +339,7 @@ mod tests {
         let expected_result = expected_result(&mut s);
 
         let expr = s.read(source).unwrap();
+        let lang = Lang::new();
 
         outer_prove_aux0(
             &mut s,
@@ -348,6 +350,7 @@ mod tests {
             check_constraint_systems,
             limit,
             debug,
+            &lang,
         )
     }
 
@@ -360,6 +363,7 @@ mod tests {
         check_constraint_systems: bool,
         limit: usize,
         debug: bool,
+        lang: &Lang<'_, Fr>,
     ) {
         let rng = OsRng;
 
@@ -373,7 +377,8 @@ mod tests {
 
         if check_constraint_systems {
             let padding_predicate = |count| groth_prover.needs_frame_padding(count);
-            let frames = Evaluator::generate_frames(expr, e, s, limit, padding_predicate).unwrap();
+            let frames =
+                Evaluator::generate_frames(expr, e, s, limit, padding_predicate, &lang).unwrap();
             s.hydrate_scalar_cache();
 
             let multi_frames = MultiFrame::from_frames(DEFAULT_REDUCTION_COUNT, &frames, s);
@@ -411,6 +416,7 @@ mod tests {
                         s,
                         limit,
                         rng,
+                        lang,
                     )
                     .unwrap(),
             )
@@ -613,8 +619,9 @@ mod tests {
             )
             .unwrap();
         let limit = 300;
+        let lang = Lang::new();
 
-        let (evaled, _, _) = Evaluator::new(fun_src, empty_sym_env(&s), &mut s, limit)
+        let (evaled, _, _) = Evaluator::new(fun_src, empty_sym_env(&s), &mut s, limit, &lang)
             .eval()
             .unwrap();
 
@@ -631,12 +638,22 @@ mod tests {
         let input = s.list(&[fun_from_comm, five]);
 
         let (output, _iterations, _emitted) =
-            Evaluator::new(input, empty_sym_env(&s), &mut s, limit)
+            Evaluator::new(input, empty_sym_env(&s), &mut s, limit, &lang)
                 .eval()
                 .unwrap();
 
         let result_expr = output.expr;
 
-        outer_prove_aux0(&mut s, input, result_expr, 32, true, true, limit, false);
+        outer_prove_aux0(
+            &mut s,
+            input,
+            result_expr,
+            32,
+            true,
+            true,
+            limit,
+            false,
+            &lang,
+        );
     }
 }

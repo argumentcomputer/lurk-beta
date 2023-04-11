@@ -1,5 +1,5 @@
 use crate::error::LurkError;
-use crate::eval::{empty_sym_env, Evaluator, IO};
+use crate::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
 use crate::field::LurkField;
 use crate::light_data::{Encodable, LightData, LightStore};
 use crate::package::Package;
@@ -42,6 +42,7 @@ pub struct ReplState<F: LurkField> {
     pub env: Ptr<F>,
     pub limit: usize,
     pub command: Option<Command>,
+    pub lang: Lang<'static, F>,
 }
 
 pub struct Repl<F: LurkField, T: ReplTrait<F>> {
@@ -53,7 +54,12 @@ pub struct Repl<F: LurkField, T: ReplTrait<F>> {
 }
 
 pub trait ReplTrait<F: LurkField> {
-    fn new(s: &mut Store<F>, limit: usize, command: Option<Command>) -> Self;
+    fn new(
+        s: &mut Store<F>,
+        limit: usize,
+        command: Option<Command>,
+        lang: Lang<'static, F>,
+    ) -> Self;
 
     fn name() -> String;
 
@@ -140,7 +146,12 @@ pub trait ReplTrait<F: LurkField> {
 }
 
 impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
-    pub fn new(s: &mut Store<F>, limit: usize, command: Option<Command>) -> Result<Self> {
+    pub fn new(
+        s: &mut Store<F>,
+        limit: usize,
+        command: Option<Command>,
+        lang: Lang<'static, F>,
+    ) -> Result<Self> {
         #[cfg(not(target_arch = "wasm32"))]
         let history_path = dirs::home_dir()
             .expect("missing home directory")
@@ -161,7 +172,7 @@ impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
             rl.load_history(&history_path)?;
         }
 
-        let state = T::new(s, limit, command);
+        let state = T::new(s, limit, command, lang);
         Ok(Self {
             state,
             rl,
@@ -177,24 +188,28 @@ impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
     }
 }
 
-pub fn repl_cli<F: LurkField, T: ReplTrait<F>>() -> Result<()> {
+pub fn repl_cli<F: LurkField, T: ReplTrait<F>>(lang: Lang<'static, F>) -> Result<()> {
     let command = T::command();
     let matches = command.clone().get_matches();
 
     let lurk_file = matches.get_one::<String>("lurk_file");
     let light_store = matches.get_one::<String>("lightstore");
 
-    repl_aux::<_, F, T>(lurk_file, light_store, Some(command))
+    repl_aux::<_, F, T>(lurk_file, light_store, Some(command), lang)
 }
 
-pub fn repl<F: LurkField, T: ReplTrait<F>, P: AsRef<Path>>(lurk_file: Option<P>) -> Result<()> {
-    repl_aux::<_, F, T>(lurk_file, None, None)
+pub fn repl<F: LurkField, T: ReplTrait<F>, P: AsRef<Path>>(
+    lurk_file: Option<P>,
+    lang: Lang<'static, F>,
+) -> Result<()> {
+    repl_aux::<_, F, T>(lurk_file, None, None, lang)
 }
 
 fn repl_aux<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
     lurk_file: Option<P>,
     light_store: Option<P>,
     command: Option<Command>,
+    lang: Lang<'static, F>,
 ) -> Result<()> {
     let received_light_store = light_store.is_some();
     let mut s = light_store
@@ -211,7 +226,7 @@ fn repl_aux<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
         .unwrap_or_default();
     let s_ref = &mut s;
     let limit = 100_000_000;
-    let repl: Repl<F, T> = Repl::new(s_ref, limit, command)?;
+    let repl: Repl<F, T> = Repl::new(s_ref, limit, command, lang)?;
 
     run_repl(s_ref, repl, lurk_file)
 }
@@ -288,11 +303,17 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
 }
 
 impl<F: LurkField> ReplState<F> {
-    pub fn new(s: &mut Store<F>, limit: usize, command: Option<Command>) -> Self {
+    pub fn new(
+        s: &mut Store<F>,
+        limit: usize,
+        command: Option<Command>,
+        lang: Lang<'static, F>,
+    ) -> Self {
         Self {
             env: empty_sym_env(s),
             limit,
             command,
+            lang,
         }
     }
     pub fn eval_expr(
@@ -300,7 +321,8 @@ impl<F: LurkField> ReplState<F> {
         expr: Ptr<F>,
         store: &mut Store<F>,
     ) -> Result<(Ptr<F>, usize, ContPtr<F>, Vec<Ptr<F>>)> {
-        let (io, iterations, emitted) = Evaluator::new(expr, self.env, store, self.limit).eval()?;
+        let (io, iterations, emitted) =
+            Evaluator::new(expr, self.env, store, self.limit, &self.lang).eval()?;
 
         let IO {
             expr: result,
@@ -317,11 +339,17 @@ impl<F: LurkField> ReplState<F> {
 }
 
 impl<F: LurkField> ReplTrait<F> for ReplState<F> {
-    fn new(s: &mut Store<F>, limit: usize, command: Option<Command>) -> Self {
+    fn new(
+        s: &mut Store<F>,
+        limit: usize,
+        command: Option<Command>,
+        lang: Lang<'static, F>,
+    ) -> Self {
         Self {
             env: empty_sym_env(s),
             limit,
             command,
+            lang,
         }
     }
 
@@ -540,7 +568,7 @@ impl<F: LurkField> ReplTrait<F> for ReplState<F> {
         store: &mut Store<F>,
         expr_ptr: Ptr<F>,
     ) -> Result<(IO<F>, IO<F>, usize)> {
-        match Evaluator::new(expr_ptr, self.env, store, self.limit).eval() {
+        match Evaluator::new(expr_ptr, self.env, store, self.limit, &self.lang).eval() {
             Ok((output, iterations, _emitted)) => {
                 let IO {
                     expr: result,

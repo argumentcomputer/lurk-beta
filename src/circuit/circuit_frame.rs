@@ -5145,7 +5145,7 @@ pub(crate) fn print_cs<F: LurkField, C: Comparable<F>>(this: &C) -> String {
 mod tests {
     use super::*;
     use crate::circuit::circuit_frame::constraints::{popcount, sub};
-    use crate::eval::{empty_sym_env, Evaluable, IO};
+    use crate::eval::{empty_sym_env, lang::Lang, Evaluable, IO};
     use crate::proof::Provable;
     use crate::proof::{groth16::Groth16Prover, Prover};
     use crate::store::Store;
@@ -5170,8 +5170,8 @@ mod tests {
             env,
             cont: store.intern_cont_outermost(),
         };
-
-        let (_, witness) = input.reduce(&mut store).unwrap();
+        let lang = Lang::new();
+        let (_, witness) = input.reduce(&mut store, &lang).unwrap();
 
         let public_params = Groth16Prover::create_groth_params(DEFAULT_REDUCTION_COUNT).unwrap();
         let groth_prover = Groth16Prover::new(DEFAULT_REDUCTION_COUNT);
@@ -5297,7 +5297,8 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let (_, witness) = input.reduce(&mut store).unwrap();
+        let lang = Lang::new();
+        let (_, witness) = input.reduce(&mut store, &lang).unwrap();
         store.hydrate_scalar_cache();
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
@@ -5375,7 +5376,8 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let (_, witness) = input.reduce(&mut store).unwrap();
+        let lang = Lang::new();
+        let (_, witness) = input.reduce(&mut store, &lang).unwrap();
         store.hydrate_scalar_cache();
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
@@ -5453,7 +5455,8 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let (_, witness) = input.reduce(&mut store).unwrap();
+        let lang = Lang::new();
+        let (_, witness) = input.reduce(&mut store, &lang).unwrap();
 
         store.hydrate_scalar_cache();
 
@@ -5533,7 +5536,8 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let (_, witness) = input.reduce(&mut store).unwrap();
+        let lang = Lang::new();
+        let (_, witness) = input.reduce(&mut store, &lang).unwrap();
 
         store.hydrate_scalar_cache();
 

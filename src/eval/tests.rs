@@ -13,18 +13,34 @@ fn test_aux(
     expected_cont: Option<ContPtr<Fr>>,
     expected_emitted: Option<Vec<Ptr<Fr>>>,
     expected_iterations: usize,
+    lang: Option<&Lang<'_, Fr>>,
 ) {
     let ptr = s.read(expr).unwrap();
 
-    test_aux2(
-        s,
-        &ptr,
-        expected_result,
-        expected_env,
-        expected_cont,
-        expected_emitted,
-        expected_iterations,
-    )
+    if let Some(lang) = lang {
+        test_aux2(
+            s,
+            &ptr,
+            expected_result,
+            expected_env,
+            expected_cont,
+            expected_emitted,
+            expected_iterations,
+            lang,
+        )
+    } else {
+        let lang = Lang::new();
+        test_aux2(
+            s,
+            &ptr,
+            expected_result,
+            expected_env,
+            expected_cont,
+            expected_emitted,
+            expected_iterations,
+            &lang,
+        )
+    }
 }
 
 fn test_aux2(
@@ -35,6 +51,7 @@ fn test_aux2(
     expected_cont: Option<ContPtr<Fr>>,
     expected_emitted: Option<Vec<Ptr<Fr>>>,
     expected_iterations: usize,
+    lang: &Lang<'_, Fr>,
 ) {
     let limit = 100000;
     let env = empty_sym_env(s);
@@ -46,7 +63,7 @@ fn test_aux2(
         },
         iterations,
         emitted,
-    ) = Evaluator::new(*expr, env, s, limit).eval().unwrap();
+    ) = Evaluator::new(*expr, env, s, limit, lang).eval().unwrap();
 
     if let Some(expected_result) = expected_result {
         assert!(s.ptr_eq(&expected_result, &new_expr).unwrap());
@@ -86,14 +103,16 @@ fn test_lookup() {
 #[test]
 fn test_reduce_simple() {
     let mut store = Store::<Fr>::default();
-
+    let lang = Lang::new();
     {
         let num = store.num(123);
+
         let (result, _new_env, _cont, _witness) = reduce(
             num,
             empty_sym_env(&store),
             store.intern_cont_outermost(),
             &mut store,
+            &lang,
         )
         .unwrap();
         assert_eq!(num, result);
@@ -105,6 +124,7 @@ fn test_reduce_simple() {
             empty_sym_env(&store),
             store.intern_cont_outermost(),
             &mut store,
+            &lang,
         )
         .unwrap();
         assert!(result.is_nil());
@@ -117,7 +137,7 @@ fn evaluate_simple() {
 
     let expr = "999";
     let expected = s.num(999);
-    test_aux(s, expr, Some(expected), None, None, None, 1);
+    test_aux(s, expr, Some(expected), None, None, None, 1, None);
 }
 
 #[test]
@@ -130,6 +150,7 @@ fn evaluate_lookup() {
     let val2 = store.num(888);
     let var2 = store.sym("banana");
     let env = extend(empty_sym_env(&store), var, val, &mut store);
+    let lang = Lang::new();
 
     {
         let (
@@ -140,7 +161,9 @@ fn evaluate_lookup() {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(var, env, &mut store, limit).eval().unwrap();
+        ) = Evaluator::new(var, env, &mut store, limit, &lang)
+            .eval()
+            .unwrap();
 
         assert_eq!(1, iterations);
         assert_eq!(&result_expr, &val);
@@ -155,7 +178,9 @@ fn evaluate_lookup() {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(var, env2, &mut store, limit).eval().unwrap();
+        ) = Evaluator::new(var, env2, &mut store, limit, &lang)
+            .eval()
+            .unwrap();
 
         assert_eq!(2, iterations);
         assert_eq!(&result_expr, &val);
@@ -189,7 +214,7 @@ fn evaluate_cons() {
     let cdr = s.num(2);
     let expected = s.cons(car, cdr);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
 }
 
 #[test]
@@ -207,6 +232,7 @@ fn emit_output() {
         Some(terminal),
         Some(emitted),
         3,
+        None,
     );
 }
 
@@ -217,7 +243,7 @@ fn evaluate_lambda() {
 
     let expected = s.num(123);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 4, None);
 }
 
 #[test]
@@ -227,7 +253,7 @@ fn evaluate_lambda2() {
 
     let expected = s.num(123);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 9, None);
 }
 
 #[test]
@@ -237,7 +263,16 @@ fn evaluate_lambda3() {
 
     let expected = s.num(123);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 10);
+    test_aux(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        10,
+        None,
+    );
 }
 
 #[test]
@@ -249,7 +284,16 @@ fn evaluate_lambda4() {
 
     let expected = s.num(888);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 10);
+    test_aux(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        10,
+        None,
+    );
 }
 
 #[test]
@@ -261,7 +305,16 @@ fn evaluate_lambda5() {
 
     let expected = s.num(999);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 13);
+    test_aux(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        13,
+        None,
+    );
 }
 
 #[test]
@@ -271,7 +324,7 @@ fn evaluate_sum() {
 
     let expected = s.num(9);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 6);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 6, None);
 }
 
 #[test]
@@ -281,7 +334,7 @@ fn evaluate_diff() {
 
     let expected = s.num(4);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
 }
 
 #[test]
@@ -291,7 +344,7 @@ fn evaluate_product() {
 
     let expected = s.num(45);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
 }
 
 #[test]
@@ -301,7 +354,7 @@ fn evaluate_quotient() {
 
     let expected = s.num(3);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
 }
 
 #[test]
@@ -310,7 +363,7 @@ fn evaluate_quotient_divide_by_zero() {
     let expr = "(/ 21 0)";
 
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 3);
+    test_aux(s, expr, None, None, Some(error), None, 3, None);
 }
 
 #[test]
@@ -328,14 +381,14 @@ fn evaluate_num_equal() {
         // neither T/NIL as 1/0 will *not* be hashes of their symbol names.
         let expected = s.t();
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
     {
         let expr = "(= 5 6)";
 
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
 }
 
@@ -346,7 +399,16 @@ fn evaluate_adder1() {
 
     let expected = s.num(5);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 13);
+    test_aux(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        13,
+        None,
+    );
 }
 
 // Enable this when we have LET.
@@ -358,7 +420,16 @@ fn evaluate_adder2() {
 
     let expected = s.num(5);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 15);
+    test_aux(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        15,
+        None,
+    );
 }
 
 #[test]
@@ -368,7 +439,7 @@ fn evaluate_let_simple() {
 
     let expected = s.num(1);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
 }
 
 #[test]
@@ -378,7 +449,7 @@ fn evaluate_empty_let_bug() {
 
     let expected = s.num(3);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 4, None);
 }
 
 #[test]
@@ -390,7 +461,16 @@ fn evaluate_let() {
 
     let expected = s.num(3);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 10);
+    test_aux(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        10,
+        None,
+    );
 }
 
 #[test]
@@ -399,7 +479,7 @@ fn evaluate_let_empty_error() {
     let expr = "(let)";
 
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 1);
+    test_aux(s, expr, None, None, Some(error), None, 1, None);
 }
 
 #[test]
@@ -408,7 +488,7 @@ fn evaluate_let_empty_body_error() {
     let expr = "(let ((a 1)))";
 
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 1);
+    test_aux(s, expr, None, None, Some(error), None, 1, None);
 }
 
 #[test]
@@ -417,7 +497,7 @@ fn evaluate_letrec_empty_error() {
     let expr = "(letrec)";
 
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 1);
+    test_aux(s, expr, None, None, Some(error), None, 1, None);
 }
 
 #[test]
@@ -426,7 +506,7 @@ fn evaluate_letrec_empty_body_error() {
     let expr = "(letrec ((a 1)))";
 
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 1);
+    test_aux(s, expr, None, None, Some(error), None, 1, None);
 }
 
 #[test]
@@ -436,7 +516,7 @@ fn evaluate_letrec_body_nil() {
 
     let expected = s.t();
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 4, None);
 }
 
 #[test]
@@ -446,7 +526,7 @@ fn evaluate_let_parallel_binding() {
 
     let expected = s.num(1);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 5)
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 5, None);
 }
 
 #[test]
@@ -468,6 +548,7 @@ fn evaluate_arithmetic_let() {
         Some(terminal),
         None,
         18,
+        None,
     );
 }
 
@@ -490,7 +571,16 @@ fn evaluate_fundamental_conditional() {
 
         let expected = s.num(5);
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 35);
+        test_aux(
+            s,
+            expr,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            35,
+            None,
+        );
     }
     {
         let s = &mut Store::<Fr>::default();
@@ -508,7 +598,16 @@ fn evaluate_fundamental_conditional() {
 
         let expected = s.num(6);
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 32);
+        test_aux(
+            s,
+            expr,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            32,
+            None,
+        );
     }
 }
 
@@ -520,7 +619,7 @@ fn evaluate_if() {
 
         let expected = s.num(5);
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
     {
         let s = &mut Store::<Fr>::default();
@@ -528,7 +627,7 @@ fn evaluate_if() {
 
         let expected = s.num(6);
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
 }
 
@@ -540,7 +639,7 @@ fn evaluate_fully_evaluates() {
 
         let expected = s.num(10);
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 5);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 5, None);
     }
 }
 
@@ -556,7 +655,16 @@ fn evaluate_recursion1() {
 
     let expected = s.num(125);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 91);
+    test_aux(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        91,
+        None,
+    );
 }
 
 #[test]
@@ -572,7 +680,16 @@ fn evaluate_recursion2() {
 
     let expected = s.num(3125);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 201);
+    test_aux(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        201,
+        None,
+    );
 }
 
 #[test]
@@ -586,7 +703,16 @@ fn evaluate_recursion_multiarg() {
 
     let expected = s.num(125);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 95);
+    test_aux(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        95,
+        None,
+    );
 }
 
 #[test]
@@ -603,7 +729,16 @@ fn evaluate_recursion_optimized() {
 
     let expected = s.num(125);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 75);
+    test_aux(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        75,
+        None,
+    );
 }
 
 #[test]
@@ -619,7 +754,16 @@ fn evaluate_tail_recursion() {
 
     let expected = s.num(125);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 129);
+    test_aux(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        129,
+        None,
+    );
 }
 
 #[test]
@@ -638,7 +782,16 @@ fn evaluate_tail_recursion_somewhat_optimized() {
 
     let expected = s.num(125);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 110);
+    test_aux(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        110,
+        None,
+    );
 }
 
 #[test]
@@ -650,7 +803,16 @@ fn evaluate_multiple_letrec_bindings() {
 
     let expected = s.num(13);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 22);
+    test_aux(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        22,
+        None,
+    );
 }
 
 #[test]
@@ -662,7 +824,16 @@ fn evaluate_multiple_letrec_bindings_referencing() {
 
     let expected = s.num(11);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 31);
+    test_aux(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        31,
+        None,
+    );
 }
 
 #[test]
@@ -685,7 +856,16 @@ fn evaluate_multiple_letrec_bindings_recursive() {
 
     let expected = s.num(33);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 242);
+    test_aux(
+        s,
+        expr,
+        Some(expected),
+        None,
+        Some(terminal),
+        None,
+        242,
+        None,
+    );
 }
 
 #[test]
@@ -700,7 +880,16 @@ fn nested_let_closure_regression() {
                               (data-function (lambda () 123))
                               (data (data-function)))
                           x)";
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 13);
+        test_aux(
+            s,
+            expr,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            13,
+            None,
+        );
     }
     {
         // This fails if zero-arg functions don't save and restore the env.
@@ -708,7 +897,16 @@ fn nested_let_closure_regression() {
                               (x 6)
                               (data (data-function)))
                           x)";
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 14);
+        test_aux(
+            s,
+            expr,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            14,
+            None,
+        );
     }
 }
 
@@ -720,7 +918,7 @@ fn evaluate_eq() {
 
         let expected = s.t();
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
     {
         let s = &mut Store::<Fr>::default();
@@ -728,7 +926,7 @@ fn evaluate_eq() {
 
         let expected = s.t();
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
     {
         let s = &mut Store::<Fr>::default();
@@ -736,7 +934,7 @@ fn evaluate_eq() {
 
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
 
     {
@@ -745,7 +943,7 @@ fn evaluate_eq() {
 
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
 }
 #[test]
@@ -756,7 +954,7 @@ fn evaluate_zero_arg_lambda() {
         let expr = "((lambda () 123))";
 
         let expected = s.num(123);
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
     {
         let expected = {
@@ -769,13 +967,22 @@ fn evaluate_zero_arg_lambda() {
 
         // One arg expected but zero supplied.
         let expr = "((lambda (x) 123))";
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
     {
         let expr = "(letrec ((x 9) (f (lambda () (+ x 1)))) (f))";
 
         let expected = s.num(10);
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 12);
+        test_aux(
+            s,
+            expr,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            12,
+            None,
+        );
     }
 }
 
@@ -785,6 +992,7 @@ fn evaluate_zero_arg_lambda_variants() {
         let mut s = Store::<Fr>::default();
         let limit = 20;
         let expr = s.read("((lambda (x) 123))").unwrap();
+        let lang = Lang::new();
 
         let (
             IO {
@@ -794,7 +1002,7 @@ fn evaluate_zero_arg_lambda_variants() {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit)
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit, &lang)
             .eval()
             .unwrap();
 
@@ -806,14 +1014,14 @@ fn evaluate_zero_arg_lambda_variants() {
         let expr = "((lambda () 123) 1)";
 
         let error = s.get_cont_error();
-        test_aux(s, expr, None, None, Some(error), None, 3);
+        test_aux(s, expr, None, None, Some(error), None, 3, None);
     }
     {
         let s = &mut Store::<Fr>::default();
         let expr = "(123)";
 
         let error = s.get_cont_error();
-        test_aux(s, expr, None, None, Some(error), None, 1);
+        test_aux(s, expr, None, None, Some(error), None, 1, None);
     }
 }
 
@@ -849,7 +1057,16 @@ fn evaluate_make_tree() {
             .read("(((h . g) . (f . e)) . ((d . c) . (b . a)))")
             .unwrap();
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 493);
+        test_aux(
+            s,
+            expr,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            493,
+            None,
+        );
     }
 }
 
@@ -870,6 +1087,7 @@ fn evaluate_make_tree_minimal_regression() {
             )
             .unwrap();
 
+        let lang = Lang::new();
         let (
             IO {
                 expr: _result_expr,
@@ -878,7 +1096,7 @@ fn evaluate_make_tree_minimal_regression() {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit)
+        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit, &lang)
             .eval()
             .unwrap();
 
@@ -898,7 +1116,16 @@ fn evaluate_map_tree_bug() {
 
         let expected = s.read("((2 . 3) . (4 . 5))").unwrap();
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 170);
+        test_aux(
+            s,
+            expr,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            170,
+            None,
+        );
     }
 }
 
@@ -916,7 +1143,7 @@ fn evaluate_map_tree_numequal_bug() {
                        (map-tree (lambda (x) (+ 1 x)) '((1 . 2) . (3 . 4))))";
         let expected = s.nil();
         let error = s.get_cont_error();
-        test_aux(s, expr, Some(expected), None, Some(error), None, 169);
+        test_aux(s, expr, Some(expected), None, Some(error), None, 169, None);
     }
 }
 
@@ -942,7 +1169,16 @@ fn env_lost_bug() {
 ";
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 25);
+        test_aux(
+            s,
+            expr,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            25,
+            None,
+        );
     }
 }
 
@@ -958,7 +1194,16 @@ fn dont_discard_rest_env() {
                          (l 9)))";
         let expected = s.num(18);
         let terminal = s.get_cont_terminal();
-        test_aux(s, expr, Some(expected), None, Some(terminal), None, 22);
+        test_aux(
+            s,
+            expr,
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            22,
+            None,
+        );
     }
 }
 
@@ -982,6 +1227,7 @@ fn test_str_car_cdr_cons() {
         Some(terminal),
         None,
         2,
+        None,
     );
     test_aux(
         s,
@@ -991,9 +1237,28 @@ fn test_str_car_cdr_cons() {
         Some(terminal),
         None,
         2,
+        None,
     );
-    test_aux(s, r#"(car "")"#, Some(nil), None, Some(terminal), None, 2);
-    test_aux(s, r#"(cdr "")"#, Some(empty), None, Some(terminal), None, 2);
+    test_aux(
+        s,
+        r#"(car "")"#,
+        Some(nil),
+        None,
+        Some(terminal),
+        None,
+        2,
+        None,
+    );
+    test_aux(
+        s,
+        r#"(cdr "")"#,
+        Some(empty),
+        None,
+        Some(terminal),
+        None,
+        2,
+        None,
+    );
     test_aux(
         s,
         r#"(cons #\a "pple")"#,
@@ -1002,6 +1267,7 @@ fn test_str_car_cdr_cons() {
         Some(terminal),
         None,
         3,
+        None,
     );
     test_aux(
         s,
@@ -1011,18 +1277,46 @@ fn test_str_car_cdr_cons() {
         Some(terminal),
         None,
         3,
+        None,
     );
-    test_aux(s, r#"(strcons #\a #\b)"#, None, None, Some(error), None, 3);
-    test_aux(s, r#"(strcons "a" "b")"#, None, None, Some(error), None, 3);
-    test_aux(s, r#"(strcons 1 2)"#, None, None, Some(error), None, 3);
-    test_aux(s, r#"(strcons)"#, None, None, Some(error), None, 1);
+    test_aux(
+        s,
+        r#"(strcons #\a #\b)"#,
+        None,
+        None,
+        Some(error),
+        None,
+        3,
+        None,
+    );
+    test_aux(
+        s,
+        r#"(strcons "a" "b")"#,
+        None,
+        None,
+        Some(error),
+        None,
+        3,
+        None,
+    );
+    test_aux(
+        s,
+        r#"(strcons 1 2)"#,
+        None,
+        None,
+        Some(error),
+        None,
+        3,
+        None,
+    );
+    test_aux(s, r#"(strcons)"#, None, None, Some(error), None, 1, None);
 }
 
 #[test]
 fn test_one_arg_cons_error() {
     let s = &mut Store::<Fr>::default();
     let error = s.get_cont_error();
-    test_aux(s, r#"(cons "")"#, None, None, Some(error), None, 1);
+    test_aux(s, r#"(cons "")"#, None, None, Some(error), None, 1, None);
 }
 
 #[test]
@@ -1038,6 +1332,7 @@ fn test_car_nil() {
         Some(terminal),
         None,
         2,
+        None,
     );
 }
 
@@ -1054,6 +1349,7 @@ fn test_cdr_nil() {
         Some(terminal),
         None,
         2,
+        None,
     );
 }
 
@@ -1061,24 +1357,24 @@ fn test_cdr_nil() {
 fn test_car_cdr_invalid_tag_error_sym() {
     let s = &mut Store::<Fr>::default();
     let error = s.get_cont_error();
-    test_aux(s, r#"(car 'car)"#, None, None, Some(error), None, 2);
-    test_aux(s, r#"(cdr 'car)"#, None, None, Some(error), None, 2);
+    test_aux(s, r#"(car 'car)"#, None, None, Some(error), None, 2, None);
+    test_aux(s, r#"(cdr 'car)"#, None, None, Some(error), None, 2, None);
 }
 
 #[test]
 fn test_car_cdr_invalid_tag_error_char() {
     let s = &mut Store::<Fr>::default();
     let error = s.get_cont_error();
-    test_aux(s, r#"(car #\a)"#, None, None, Some(error), None, 2);
-    test_aux(s, r#"(cdr #\a)"#, None, None, Some(error), None, 2);
+    test_aux(s, r#"(car #\a)"#, None, None, Some(error), None, 2, None);
+    test_aux(s, r#"(cdr #\a)"#, None, None, Some(error), None, 2, None);
 }
 
 #[test]
 fn test_car_cdr_invalid_tag_error_num() {
     let s = &mut Store::<Fr>::default();
     let error = s.get_cont_error();
-    test_aux(s, r#"(car 42)"#, None, None, Some(error), None, 2);
-    test_aux(s, r#"(cdr 42)"#, None, None, Some(error), None, 2);
+    test_aux(s, r#"(car 42)"#, None, None, Some(error), None, 2, None);
+    test_aux(s, r#"(cdr 42)"#, None, None, Some(error), None, 2, None);
 }
 
 #[test]
@@ -1093,6 +1389,7 @@ fn test_car_cdr_invalid_tag_error_lambda() {
         Some(error),
         None,
         2,
+        None,
     );
     test_aux(
         s,
@@ -1102,6 +1399,7 @@ fn test_car_cdr_invalid_tag_error_lambda() {
         Some(error),
         None,
         2,
+        None,
     );
 }
 
@@ -1137,6 +1435,7 @@ fn go_translate() {
         None,
         None,
         1114,
+        None,
     );
 }
 
@@ -1146,7 +1445,7 @@ fn begin_current_env() {
         let s = &mut Store::<Fr>::default();
         let expr = "(begin (current-env))";
         let expected = s.nil();
-        test_aux(s, expr, Some(expected), None, None, None, 2);
+        test_aux(s, expr, Some(expected), None, None, None, 2, None);
     }
 }
 
@@ -1156,7 +1455,7 @@ fn begin() {
         let s = &mut Store::<Fr>::default();
         let expr = "(car (begin 1 2 '(3 . 4)))";
         let expected = s.num(3);
-        test_aux(s, expr, Some(expected), None, None, None, 6);
+        test_aux(s, expr, Some(expected), None, None, None, 6, None);
     }
 }
 
@@ -1170,7 +1469,7 @@ fn begin_current_env1() {
         let one = s.num(1);
         let binding = s.cons(a, one);
         let expected = s.list(&[binding]);
-        test_aux(s, expr, Some(expected), None, None, None, 5);
+        test_aux(s, expr, Some(expected), None, None, None, 5, None);
     }
 }
 
@@ -1179,7 +1478,7 @@ fn hide_open() {
     let s = &mut Store::<Fr>::default();
     let expr = "(open (hide 123 'x))";
     let x = s.sym("x");
-    test_aux(s, expr, Some(x), None, None, None, 5);
+    test_aux(s, expr, Some(x), None, None, None, 5, None);
 }
 
 #[test]
@@ -1197,24 +1496,25 @@ fn hide_opaque_open_available() {
 
     let open = s.sym("open");
     let x = s.sym("x");
+    let lang = Lang::new();
 
     {
         let expr = s.list(&[open, comm]);
-        test_aux2(s, &expr, Some(x), None, None, None, 2);
+        test_aux2(s, &expr, Some(x), None, None, None, 2, &lang);
     }
 
     {
         let secret = s.sym("secret");
         let expr = s.list(&[secret, comm]);
         let sec = s.num(123);
-        test_aux2(s, &expr, Some(sec), None, None, None, 2);
+        test_aux2(s, &expr, Some(sec), None, None, None, 2, &lang);
     }
 
     {
         // We can open a commitment identified by its corresponding `Num`.
         let comm_num = s.num(Num::from_scalar(*c));
         let expr2 = s.list(&[open, comm_num]);
-        test_aux2(s, &expr2, Some(x), None, None, None, 2);
+        test_aux2(s, &expr2, Some(x), None, None, None, 2, &lang);
     }
 }
 
@@ -1233,8 +1533,9 @@ fn hide_opaque_open_unavailable() {
     let x = s2.sym("x");
 
     let expr = s2.list(&[open, comm]);
+    let lang = Lang::new();
 
-    test_aux2(s2, &expr, Some(x), None, None, None, 2);
+    test_aux2(s2, &expr, Some(x), None, None, None, 2, &lang);
 }
 
 #[test]
@@ -1242,7 +1543,7 @@ fn commit_open_sym() {
     let s = &mut Store::<Fr>::default();
     let expr = "(open (commit 'x))";
     let x = s.sym("x");
-    test_aux(s, expr, Some(x), None, None, None, 4);
+    test_aux(s, expr, Some(x), None, None, None, 4, None);
 }
 
 #[test]
@@ -1252,7 +1553,7 @@ fn commitment_value() {
     let x = s
         .read("0x2937881eff06c2bcc2c8c1fa0818ae3733c759376f76fc10b7439269e9aaa9bc")
         .unwrap();
-    test_aux(s, expr, Some(x), None, None, None, 4);
+    test_aux(s, expr, Some(x), None, None, None, 4, None);
 }
 
 #[test]
@@ -1260,7 +1561,7 @@ fn commit_error() {
     let s = &mut Store::<Fr>::default();
     let expr = "(commit 123 456)";
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 1);
+    test_aux(s, expr, None, None, Some(error), None, 1, None);
 }
 
 #[test]
@@ -1268,7 +1569,7 @@ fn open_error() {
     let s = &mut Store::<Fr>::default();
     let expr = "(open 123 456)";
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 1);
+    test_aux(s, expr, None, None, Some(error), None, 1, None);
 }
 
 #[test]
@@ -1276,7 +1577,7 @@ fn secret_error() {
     let s = &mut Store::<Fr>::default();
     let expr = "(secret 123 456)";
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 1);
+    test_aux(s, expr, None, None, Some(error), None, 1, None);
 }
 
 #[test]
@@ -1284,7 +1585,7 @@ fn num_error() {
     let s = &mut Store::<Fr>::default();
     let expr = "(num 123 456)";
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 1);
+    test_aux(s, expr, None, None, Some(error), None, 1, None);
 }
 
 #[test]
@@ -1292,7 +1593,7 @@ fn comm_error() {
     let s = &mut Store::<Fr>::default();
     let expr = "(comm 123 456)";
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 1);
+    test_aux(s, expr, None, None, Some(error), None, 1, None);
 }
 
 #[test]
@@ -1300,7 +1601,7 @@ fn char_error() {
     let s = &mut Store::<Fr>::default();
     let expr = "(char 123 456)";
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 1);
+    test_aux(s, expr, None, None, Some(error), None, 1, None);
 }
 
 #[test]
@@ -1309,7 +1610,7 @@ fn prove_commit_secret() {
     let expr = "(secret (commit 123))";
     let expected = s.num(0);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 4);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 4, None);
 }
 
 #[test]
@@ -1318,7 +1619,7 @@ fn num() {
     let expr = "(num 123)";
     let expected = s.num(123);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 2, None);
 }
 
 #[test]
@@ -1327,7 +1628,7 @@ fn num_char() {
     let expr = r#"(num #\a)"#;
     let expected = s.num(97);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 2);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 2, None);
 }
 
 #[test]
@@ -1336,7 +1637,16 @@ fn char_num() {
     let expr = r#"(char 97)"#;
     let expected_a = s.read(r#"#\a"#).unwrap();
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 2);
+    test_aux(
+        s,
+        expr,
+        Some(expected_a),
+        None,
+        Some(terminal),
+        None,
+        2,
+        None,
+    );
 }
 
 #[test]
@@ -1345,7 +1655,16 @@ fn char_coercion() {
     let expr = r#"(char (- 0 4294967200))"#;
     let expected_a = s.read(r#"#\a"#).unwrap();
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected_a), None, Some(terminal), None, 5);
+    test_aux(
+        s,
+        expr,
+        Some(expected_a),
+        None,
+        Some(terminal),
+        None,
+        5,
+        None,
+    );
 }
 
 #[test]
@@ -1353,7 +1672,7 @@ fn commit_num() {
     let s = &mut Store::<Fr>::default();
     let expr = "(num (commit 123))";
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, None, None, Some(terminal), None, 4);
+    test_aux(s, expr, None, None, Some(terminal), None, 4, None);
 }
 
 #[test]
@@ -1362,7 +1681,7 @@ fn hide_open_comm_num() {
     let expr = "(open (comm (num (hide 123 456))))";
     let expected = s.num(456);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 9, None);
 }
 
 #[test]
@@ -1371,7 +1690,7 @@ fn hide_secret_comm_num() {
     let expr = "(secret (comm (num (hide 123 456))))";
     let expected = s.num(123);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 9);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 9, None);
 }
 
 #[test]
@@ -1380,7 +1699,7 @@ fn commit_open_comm_num() {
     let expr = "(open (comm (num (commit 123))))";
     let expected = s.num(123);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 8, None);
 }
 
 #[test]
@@ -1389,7 +1708,7 @@ fn commit_secret_comm_num() {
     let expr = "(secret (comm (num (commit 123))))";
     let expected = s.num(0);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 8);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 8, None);
 }
 
 #[test]
@@ -1398,7 +1717,7 @@ fn commit_num_open() {
     let expr = "(open (num (commit 123)))";
     let expected = s.num(123);
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 6);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 6, None);
 }
 
 #[test]
@@ -1408,9 +1727,9 @@ fn num_invalid_tag() {
     let expr1 = "(num \"asdf\")";
     let expr2 = "(num '(1))";
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 2);
-    test_aux(s, expr1, None, None, Some(error), None, 2);
-    test_aux(s, expr2, None, None, Some(error), None, 2);
+    test_aux(s, expr, None, None, Some(error), None, 2, None);
+    test_aux(s, expr1, None, None, Some(error), None, 2, None);
+    test_aux(s, expr2, None, None, Some(error), None, 2, None);
 }
 
 #[test]
@@ -1420,9 +1739,9 @@ fn comm_invalid_tag() {
     let expr1 = "(comm \"asdf\")";
     let expr2 = "(comm '(1))";
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 2);
-    test_aux(s, expr1, None, None, Some(error), None, 2);
-    test_aux(s, expr2, None, None, Some(error), None, 2);
+    test_aux(s, expr, None, None, Some(error), None, 2, None);
+    test_aux(s, expr1, None, None, Some(error), None, 2, None);
+    test_aux(s, expr2, None, None, Some(error), None, 2, None);
 }
 
 #[test]
@@ -1432,9 +1751,9 @@ fn char_invalid_tag() {
     let expr1 = "(char \"asdf\")";
     let expr2 = "(char '(1))";
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 2);
-    test_aux(s, expr1, None, None, Some(error), None, 2);
-    test_aux(s, expr2, None, None, Some(error), None, 2);
+    test_aux(s, expr, None, None, Some(error), None, 2, None);
+    test_aux(s, expr1, None, None, Some(error), None, 2, None);
+    test_aux(s, expr2, None, None, Some(error), None, 2, None);
 }
 
 #[test]
@@ -1443,7 +1762,7 @@ fn terminal_sym() {
     let expr = "(quote x)";
     let x = s.sym("x");
     let terminal = s.get_cont_terminal();
-    test_aux(s, expr, Some(x), None, Some(terminal), None, 1);
+    test_aux(s, expr, Some(x), None, Some(terminal), None, 1, None);
 }
 
 #[test]
@@ -1451,7 +1770,7 @@ fn terminal_sym() {
 fn open_opaque_commit() {
     let s = &mut Store::<Fr>::default();
     let expr = "(open 123)";
-    test_aux(s, expr, None, None, None, None, 2);
+    test_aux(s, expr, None, None, None, None, 2, None);
 }
 
 #[test]
@@ -1459,7 +1778,7 @@ fn open_wrong_type() {
     let s = &mut Store::<Fr>::default();
     let expr = "(open 'asdf)";
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 2);
+    test_aux(s, expr, None, None, Some(error), None, 2, None);
 }
 
 #[test]
@@ -1467,7 +1786,7 @@ fn secret_wrong_type() {
     let s = &mut Store::<Fr>::default();
     let expr = "(secret 'asdf)";
     let error = s.get_cont_error();
-    test_aux(s, expr, None, None, Some(error), None, 2);
+    test_aux(s, expr, None, None, Some(error), None, 2, None);
 }
 
 #[test]
@@ -1475,7 +1794,7 @@ fn secret_wrong_type() {
 fn secret_invalid_tag() {
     let s = &mut Store::<Fr>::default();
     let expr = "(secret 123)";
-    test_aux(s, expr, None, None, None, None, 2);
+    test_aux(s, expr, None, None, None, None, 2, None);
 }
 
 #[test]
@@ -1483,7 +1802,7 @@ fn secret_invalid_tag() {
 fn secret_opaque_commit() {
     let s = &mut Store::<Fr>::default();
     let expr = "(secret (comm 123))";
-    test_aux(s, expr, None, None, None, None, 2);
+    test_aux(s, expr, None, None, None, None, 2, None);
 }
 
 fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
@@ -1491,7 +1810,7 @@ fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
     let expected = if res { s.t() } else { s.nil() };
     let terminal = s.get_cont_terminal();
 
-    test_aux(s, expr, Some(expected), None, Some(terminal), None, 3);
+    test_aux(s, expr, Some(expected), None, Some(terminal), None, 3, None);
 }
 
 #[test]
@@ -1621,7 +1940,7 @@ fn test_relational_edge_case_identity() {
                           (most-negative (+ 1 most-positive)))
                       (< most-negative most-positive))";
 
-        test_aux(s, expr, Some(t), None, Some(terminal), None, 19);
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 19, None);
     }
 
     // Regression: comparisons with negative numbers should *not* be exceptions.
@@ -1631,7 +1950,7 @@ fn test_relational_edge_case_identity() {
                               (less-negative (+ 1 most-negative)))
                       (< most-negative  less-negative)) ";
 
-        test_aux(s, expr, Some(t), None, Some(terminal), None, 24);
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 24, None);
     }
 }
 
@@ -1646,31 +1965,31 @@ fn test_num_syntax_implications() {
                               (most-negative 1/2))
                           (< most-negative most-positive))";
 
-        test_aux(s, expr, Some(t), None, Some(terminal), None, 10);
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 10, None);
     }
 
     {
         let expr = "(= (* 6 3/2) 9)";
 
-        test_aux(s, expr, Some(t), None, Some(terminal), None, 6);
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 6, None);
     }
 
     {
         let expr = "(= (* 2/3 3/2) 1)";
 
-        test_aux(s, expr, Some(t), None, Some(terminal), None, 6);
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 6, None);
     }
 
     {
         let expr = "(= (* -2/3 3/2) -1)";
 
-        test_aux(s, expr, Some(t), None, Some(terminal), None, 6);
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 6, None);
     }
 
     {
         let expr = "(= (+ 1/3 1/2) 5/6)";
 
-        test_aux(s, expr, Some(t), None, Some(terminal), None, 6);
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 6, None);
     }
 
     // Comparisons of field elements produced by fractional notation don't yield the results
@@ -1680,7 +1999,7 @@ fn test_num_syntax_implications() {
         // but this violates expectations if you consider 1/2 to behave like a rational.
         let expr = "(< 1/2 1/3)";
 
-        test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 3, None);
     }
 
     {
@@ -1688,13 +2007,13 @@ fn test_num_syntax_implications() {
         // expected if fractional notation yielded true rational numbers.
         let expr = "(< 3/4 5/8)";
 
-        test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 3, None);
     }
     {
         // It's not that they *can't* compare in the naively expected way, though.
         let expr = "(< 3/5 3/4)";
 
-        test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
+        test_aux(s, expr, Some(t), None, Some(terminal), None, 3, None);
     }
 }
 
@@ -1707,7 +2026,7 @@ fn test_quoted_symbols() {
     let res = s.num(81);
     let terminal = s.get_cont_terminal();
 
-    test_aux(s, expr, Some(res), None, Some(terminal), None, 13);
+    test_aux(s, expr, Some(res), None, Some(terminal), None, 13, None);
 }
 
 #[test]
@@ -1719,8 +2038,8 @@ fn test_eval() {
     let res2 = s.num(20);
     let terminal = s.get_cont_terminal();
 
-    test_aux(s, expr, Some(res), None, Some(terminal), None, 17);
-    test_aux(s, expr2, Some(res2), None, Some(terminal), None, 9);
+    test_aux(s, expr, Some(res), None, Some(terminal), None, 17, None);
+    test_aux(s, expr2, Some(res2), None, Some(terminal), None, 9, None);
 }
 
 #[test]
@@ -1732,8 +2051,8 @@ fn test_eval_env_regression() {
     let error = s.get_cont_error();
     let terminal = s.get_cont_terminal();
 
-    test_aux(s, expr, None, None, Some(error), None, 5);
-    test_aux(s, expr2, Some(res), None, Some(terminal), None, 6);
+    test_aux(s, expr, None, None, Some(error), None, 5, None);
+    test_aux(s, expr2, Some(res), None, Some(terminal), None, 6, None);
 }
 
 #[test]
@@ -1744,7 +2063,7 @@ fn test_u64_self_evaluating() {
     let res = s.uint64(123);
     let terminal = s.get_cont_terminal();
 
-    test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
+    test_aux(s, expr, Some(res), None, Some(terminal), None, 1, None);
 }
 
 #[test]
@@ -1757,9 +2076,9 @@ fn test_u64_mul() {
     let res = s.uint64(18446744073709551614);
     let terminal = s.get_cont_terminal();
 
-    test_aux(s, expr, Some(res), None, Some(terminal), None, 7);
-    test_aux(s, expr2, Some(res), None, Some(terminal), None, 3);
-    test_aux(s, expr3, Some(res), None, Some(terminal), None, 6);
+    test_aux(s, expr, Some(res), None, Some(terminal), None, 7, None);
+    test_aux(s, expr2, Some(res), None, Some(terminal), None, 3, None);
+    test_aux(s, expr3, Some(res), None, Some(terminal), None, 6, None);
 }
 
 #[test]
@@ -1771,8 +2090,8 @@ fn test_u64_add() {
     let res = s.uint64(1);
     let terminal = s.get_cont_terminal();
 
-    test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
-    test_aux(s, expr2, Some(res), None, Some(terminal), None, 6);
+    test_aux(s, expr, Some(res), None, Some(terminal), None, 3, None);
+    test_aux(s, expr2, Some(res), None, Some(terminal), None, 6, None);
 }
 
 #[test]
@@ -1787,9 +2106,9 @@ fn test_u64_sub() {
     let res3 = s.uint64(0);
     let terminal = s.get_cont_terminal();
 
-    test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
-    test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
-    test_aux(s, expr3, Some(res3), None, Some(terminal), None, 6);
+    test_aux(s, expr, Some(res), None, Some(terminal), None, 3, None);
+    test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
+    test_aux(s, expr3, Some(res3), None, Some(terminal), None, 6, None);
 }
 
 #[test]
@@ -1807,9 +2126,9 @@ fn test_u64_div() {
     let terminal = s.get_cont_terminal();
     let error = s.get_cont_error();
 
-    test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
-    test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
-    test_aux(s, expr3, None, None, Some(error), None, 3);
+    test_aux(s, expr, Some(res), None, Some(terminal), None, 3, None);
+    test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
+    test_aux(s, expr3, None, None, Some(error), None, 3, None);
 }
 
 #[test]
@@ -1827,9 +2146,9 @@ fn test_u64_mod() {
     let terminal = s.get_cont_terminal();
     let error = s.get_cont_error();
 
-    test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
-    test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
-    test_aux(s, expr3, None, None, Some(error), None, 3);
+    test_aux(s, expr, Some(res), None, Some(terminal), None, 3, None);
+    test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
+    test_aux(s, expr3, None, None, Some(error), None, 3, None);
 }
 
 #[test]
@@ -1842,9 +2161,9 @@ fn test_num_mod() {
 
     let error = s.get_cont_error();
 
-    test_aux(s, expr, None, None, Some(error), None, 3);
-    test_aux(s, expr2, None, None, Some(error), None, 3);
-    test_aux(s, expr3, None, None, Some(error), None, 3);
+    test_aux(s, expr, None, None, Some(error), None, 3, None);
+    test_aux(s, expr2, None, None, Some(error), None, 3, None);
+    test_aux(s, expr3, None, None, Some(error), None, 3, None);
 }
 
 #[test]
@@ -1871,21 +2190,21 @@ fn test_u64_comp() {
     let nil = s.nil();
     let terminal = s.get_cont_terminal();
 
-    test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
-    test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3);
-    test_aux(s, expr3, Some(t), None, Some(terminal), None, 3);
-    test_aux(s, expr4, Some(nil), None, Some(terminal), None, 3);
+    test_aux(s, expr, Some(t), None, Some(terminal), None, 3, None);
+    test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3, None);
+    test_aux(s, expr3, Some(t), None, Some(terminal), None, 3, None);
+    test_aux(s, expr4, Some(nil), None, Some(terminal), None, 3, None);
 
-    test_aux(s, expr5, Some(nil), None, Some(terminal), None, 3);
-    test_aux(s, expr6, Some(t), None, Some(terminal), None, 3);
-    test_aux(s, expr7, Some(nil), None, Some(terminal), None, 3);
-    test_aux(s, expr8, Some(t), None, Some(terminal), None, 3);
+    test_aux(s, expr5, Some(nil), None, Some(terminal), None, 3, None);
+    test_aux(s, expr6, Some(t), None, Some(terminal), None, 3, None);
+    test_aux(s, expr7, Some(nil), None, Some(terminal), None, 3, None);
+    test_aux(s, expr8, Some(t), None, Some(terminal), None, 3, None);
 
-    test_aux(s, expr9, Some(t), None, Some(terminal), None, 3);
-    test_aux(s, expr10, Some(t), None, Some(terminal), None, 3);
+    test_aux(s, expr9, Some(t), None, Some(terminal), None, 3, None);
+    test_aux(s, expr10, Some(t), None, Some(terminal), None, 3, None);
 
-    test_aux(s, expr11, Some(t), None, Some(terminal), None, 3);
-    test_aux(s, expr12, Some(nil), None, Some(terminal), None, 3);
+    test_aux(s, expr11, Some(t), None, Some(terminal), None, 3, None);
+    test_aux(s, expr12, Some(nil), None, Some(terminal), None, 3, None);
 }
 
 #[test]
@@ -1907,14 +2226,14 @@ fn test_u64_conversion() {
     let terminal = s.get_cont_terminal();
     let error = s.get_cont_error();
 
-    test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
-    test_aux(s, expr2, Some(res), None, Some(terminal), None, 2);
-    test_aux(s, expr3, Some(res2), None, Some(terminal), None, 3);
+    test_aux(s, expr, Some(res), None, Some(terminal), None, 3, None);
+    test_aux(s, expr2, Some(res), None, Some(terminal), None, 2, None);
+    test_aux(s, expr3, Some(res2), None, Some(terminal), None, 3, None);
 
-    test_aux(s, expr4, Some(res3), None, Some(terminal), None, 5);
-    test_aux(s, expr5, Some(res5), None, Some(terminal), None, 2);
-    test_aux(s, expr6, None, None, Some(error), None, 1);
-    test_aux(s, expr7, None, None, Some(error), None, 1);
+    test_aux(s, expr4, Some(res3), None, Some(terminal), None, 5, None);
+    test_aux(s, expr5, Some(res5), None, Some(terminal), None, 2, None);
+    test_aux(s, expr6, None, None, Some(error), None, 1, None);
+    test_aux(s, expr7, None, None, Some(error), None, 1, None);
 }
 
 #[test]
@@ -1926,8 +2245,8 @@ fn test_numeric_type_error() {
         let expr = &format!("({op} 0 'a)");
         let expr2 = &format!("({op} 0u64 'a)");
 
-        test_aux(s, expr, None, None, Some(error), None, 3);
-        test_aux(s, expr2, None, None, Some(error), None, 3);
+        test_aux(s, expr, None, None, Some(error), None, 3, None);
+        test_aux(s, expr2, None, None, Some(error), None, 3, None);
     };
 
     test("+");
@@ -1952,8 +2271,8 @@ fn test_u64_num_comparison() {
     let nil = s.nil();
     let terminal = s.get_cont_terminal();
 
-    test_aux(s, expr, Some(t), None, Some(terminal), None, 3);
-    test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3);
+    test_aux(s, expr, Some(t), None, Some(terminal), None, 3, None);
+    test_aux(s, expr2, Some(nil), None, Some(terminal), None, 3, None);
 }
 
 #[test]
@@ -1966,8 +2285,8 @@ fn test_u64_num_cons() {
     let res2 = s.read("(1u64 . 1)").unwrap();
     let terminal = s.get_cont_terminal();
 
-    test_aux(s, expr, Some(res), None, Some(terminal), None, 3);
-    test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
+    test_aux(s, expr, Some(res), None, Some(terminal), None, 3, None);
+    test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
 }
 
 #[test]
@@ -1977,7 +2296,7 @@ fn test_hide_u64_secret() {
     let expr = "(hide 0u64 123)";
     let error = s.get_cont_error();
 
-    test_aux(s, expr, None, None, Some(error), None, 3);
+    test_aux(s, expr, None, None, Some(error), None, 3, None);
 }
 
 #[test]
@@ -1993,9 +2312,9 @@ fn test_keyword() {
 
     let terminal = s.get_cont_terminal();
 
-    test_aux(s, expr, Some(res), None, Some(terminal), None, 1);
-    test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3);
-    test_aux(s, expr3, Some(res3), None, Some(terminal), None, 3);
+    test_aux(s, expr, Some(res), None, Some(terminal), None, 1, None);
+    test_aux(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
+    test_aux(s, expr3, Some(res3), None, Some(terminal), None, 3, None);
 }
 
 #[test]
@@ -2026,6 +2345,7 @@ fn test_sym_hash_values() {
 
     let limit = 10;
     let env = empty_sym_env(s);
+    let lang = Lang::new();
     let (
         IO {
             expr: new_expr,
@@ -2034,7 +2354,7 @@ fn test_sym_hash_values() {
         },
         _iterations,
         _emitted,
-    ) = Evaluator::new(expr, env, s, limit).eval().unwrap();
+    ) = Evaluator::new(expr, env, s, limit, &lang).eval().unwrap();
 
     let toplevel_sym = s.sym(".ASDF");
 
@@ -2079,7 +2399,7 @@ fn test_fold_cons_regression() {
     let res = s.num(6);
     let terminal = s.get_cont_terminal();
 
-    test_aux(s, expr, Some(res), None, Some(terminal), None, 152);
+    test_aux(s, expr, Some(res), None, Some(terminal), None, 152, None);
 }
 
 #[test]
@@ -2089,7 +2409,7 @@ fn test_lambda_args_regression() {
     let expr = "(cons (lambda (x y) nil) nil)";
     let terminal = s.get_cont_terminal();
 
-    test_aux(s, expr, None, None, Some(terminal), None, 3);
+    test_aux(s, expr, None, None, Some(terminal), None, 3, None);
 }
 
 #[test]
@@ -2098,7 +2418,7 @@ fn test_eval_bad_form() {
     let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env.
     let error = s.get_cont_error();
 
-    test_aux(s, expr, None, None, Some(error), None, 8);
+    test_aux(s, expr, None, None, Some(error), None, 8, None);
 }
 
 #[test]
@@ -2106,10 +2426,10 @@ fn test_eval_quote_error() {
     let s = &mut Store::<Fr>::default();
     let error = s.get_cont_error();
 
-    test_aux(s, "(1)", None, None, Some(error), None, 1);
-    test_aux(s, "(quote . 1)", None, None, Some(error), None, 1);
-    test_aux(s, "(quote 1 . 1)", None, None, Some(error), None, 1);
-    test_aux(s, "(quote 1 1)", None, None, Some(error), None, 1);
+    test_aux(s, "(1)", None, None, Some(error), None, 1, None);
+    test_aux(s, "(quote . 1)", None, None, Some(error), None, 1, None);
+    test_aux(s, "(quote 1 . 1)", None, None, Some(error), None, 1, None);
+    test_aux(s, "(quote 1 1)", None, None, Some(error), None, 1, None);
 }
 
 #[test]
@@ -2118,7 +2438,7 @@ fn test_eval_dotted_syntax_error() {
     let expr = "(let ((a (lambda (x) (+ x 1)))) (a . 1))";
     let error = s.get_cont_error();
 
-    test_aux(s, expr, None, None, Some(error), None, 3);
+    test_aux(s, expr, None, None, Some(error), None, 3, None);
 }
 
 fn op_syntax_error<T: Op + Copy>() {
@@ -2130,30 +2450,30 @@ fn op_syntax_error<T: Op + Copy>() {
         {
             let expr = format!("({name} . 1)");
             dbg!(&expr);
-            test_aux(s, &expr, None, None, Some(error), None, 1);
+            test_aux(s, &expr, None, None, Some(error), None, 1, None);
         }
 
         if !op.supports_arity(0) {
             let expr = format!("({name})");
             dbg!(&expr);
-            test_aux(s, &expr, None, None, Some(error), None, 1);
+            test_aux(s, &expr, None, None, Some(error), None, 1, None);
         }
         if !op.supports_arity(1) {
             let expr = format!("({name} 123)");
             dbg!(&expr);
-            test_aux(s, &expr, None, None, Some(error), None, 1);
+            test_aux(s, &expr, None, None, Some(error), None, 1, None);
         }
         if !op.supports_arity(2) {
             let expr = format!("({name} 123 456)");
             dbg!(&expr);
-            test_aux(s, &expr, None, None, Some(error), None, 1);
+            test_aux(s, &expr, None, None, Some(error), None, 1, None);
         }
 
         if !op.supports_arity(3) {
             let expr = format!("({name} 123 456 789)");
             dbg!(&expr);
             let iterations = if op.supports_arity(2) { 2 } else { 1 };
-            test_aux(s, &expr, None, None, Some(error), None, iterations);
+            test_aux(s, &expr, None, None, Some(error), None, iterations, None);
         }
     };
 
@@ -2177,10 +2497,37 @@ fn test_eval_lambda_body_syntax() {
     let s = &mut Store::<Fr>::default();
     let error = s.get_cont_error();
 
-    test_aux(s, "((lambda ()))", None, None, Some(error), None, 2);
-    test_aux(s, "((lambda () 1 2))", None, None, Some(error), None, 2);
-    test_aux(s, "((lambda (x)) 1)", None, None, Some(error), None, 3);
-    test_aux(s, "((lambda (x) 1 2) 1)", None, None, Some(error), None, 3);
+    test_aux(s, "((lambda ()))", None, None, Some(error), None, 2, None);
+    test_aux(
+        s,
+        "((lambda () 1 2))",
+        None,
+        None,
+        Some(error),
+        None,
+        2,
+        None,
+    );
+    test_aux(
+        s,
+        "((lambda (x)) 1)",
+        None,
+        None,
+        Some(error),
+        None,
+        3,
+        None,
+    );
+    test_aux(
+        s,
+        "((lambda (x) 1 2) 1)",
+        None,
+        None,
+        Some(error),
+        None,
+        3,
+        None,
+    );
 }
 
 #[test]
@@ -2193,9 +2540,9 @@ fn test_eval_non_symbol_binding_error() {
         let expr2 = format!("(letrec (({x} 123)) {x})");
         let expr3 = format!("(lambda ({x}) {x})");
 
-        test_aux(s, &expr, None, None, Some(error), None, 1);
-        test_aux(s, &expr2, None, None, Some(error), None, 1);
-        test_aux(s, &expr3, None, None, Some(error), None, 1);
+        test_aux(s, &expr, None, None, Some(error), None, 1, None);
+        test_aux(s, &expr2, None, None, Some(error), None, 1, None);
+        test_aux(s, &expr3, None, None, Some(error), None, 1, None);
     };
 
     test(":a");
@@ -2203,4 +2550,33 @@ fn test_eval_non_symbol_binding_error() {
     test("\"string\"");
     test("1u64");
     test("#\\x");
+}
+
+#[test]
+fn test_dumb_lang() {
+    use super::lang::Lang;
+    use crate::coprocessor::DumbCoprocessor;
+    use crate::store::Store;
+    use crate::sym::Sym;
+
+    let s = &mut Store::<Fr>::new();
+
+    let mut lang = Lang::<Fr>::new();
+    let name = Sym::new(".cproc.dumb".to_string());
+    let dumb = DumbCoprocessor::new();
+
+    lang.add_coprocessor(name, &dumb);
+
+    // 9^2 + 8 = 89
+    let expr = "(.cproc.dumb 9 8)";
+
+    // The dumb coprocessor cannot be shadowed.
+    let expr2 = "(let ((.cproc.dumb (lambda (a b) (* a b))))
+                   (.cproc.dumb 9 8))";
+
+    let res = s.num(89);
+
+    test_aux(s, &expr, Some(res), None, None, None, 2, Some(&lang));
+
+    test_aux(s, &expr2, Some(res), None, None, None, 4, Some(&lang));
 }

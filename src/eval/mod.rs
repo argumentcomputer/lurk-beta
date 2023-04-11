@@ -5,12 +5,15 @@ use crate::store;
 use crate::store::{ContPtr, Expression, Pointer, Ptr, Store};
 use crate::tag::ContTag;
 use crate::writer::Write;
+use lang::Lang;
+
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
 
 pub mod lang;
+
 mod reduction;
 
 #[cfg(test)]
@@ -137,7 +140,7 @@ impl<F: LurkField, W: Copy> Frame<IO<F>, W> {
 }
 
 pub trait Evaluable<F: LurkField, W> {
-    fn reduce(&self, store: &mut Store<F>) -> Result<(Self, W), ReductionError>
+    fn reduce(&self, store: &mut Store<F>, lang: &Lang<F>) -> Result<(Self, W), ReductionError>
     where
         Self: Sized;
 
@@ -150,8 +153,13 @@ pub trait Evaluable<F: LurkField, W> {
 }
 
 impl<F: LurkField> Evaluable<F, Witness<F>> for IO<F> {
-    fn reduce(&self, store: &mut Store<F>) -> Result<(Self, Witness<F>), ReductionError> {
-        let (expr, env, cont, witness) = reduction::reduce(self.expr, self.env, self.cont, store)?;
+    fn reduce(
+        &self,
+        store: &mut Store<F>,
+        lang: &Lang<F>,
+    ) -> Result<(Self, Witness<F>), ReductionError> {
+        let (expr, env, cont, witness) =
+            reduction::reduce(self.expr, self.env, self.cont, store, lang)?;
         Ok((Self { expr, env, cont }, witness))
     }
 
@@ -229,9 +237,13 @@ impl<F: LurkField> IO<F> {
 }
 
 impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame<T, Witness<F>> {
-    pub(crate) fn next(&self, store: &mut Store<F>) -> Result<Self, ReductionError> {
+    pub(crate) fn next(
+        &self,
+        store: &mut Store<F>,
+        lang: &Lang<'_, F>,
+    ) -> Result<Self, ReductionError> {
         let input = self.output;
-        let (output, witness) = input.reduce(store)?;
+        let (output, witness) = input.reduce(store, lang)?;
 
         // FIXME: Why isn't this method found?
         // self.log(store);
@@ -246,9 +258,13 @@ impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame
 }
 
 impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame<T, Witness<F>> {
-    fn from_initial_input(input: T, store: &mut Store<F>) -> Result<Self, ReductionError> {
+    fn from_initial_input(
+        input: T,
+        store: &mut Store<F>,
+        lang: &Lang<F>,
+    ) -> Result<Self, ReductionError> {
         input.log(store, 0);
-        let (output, witness) = input.reduce(store)?;
+        let (output, witness) = input.reduce(store, lang)?;
         Ok(Self {
             input,
             output,
@@ -263,15 +279,21 @@ pub struct FrameIt<'a, W: Copy, F: LurkField> {
     first: bool,
     frame: Frame<IO<F>, W>,
     store: &'a mut Store<F>,
+    lang: &'a Lang<'a, F>,
 }
 
 impl<'a, F: LurkField> FrameIt<'a, Witness<F>, F> {
-    fn new(initial_input: IO<F>, store: &'a mut Store<F>) -> Result<Self, ReductionError> {
-        let frame = Frame::from_initial_input(initial_input, store)?;
+    fn new(
+        initial_input: IO<F>,
+        store: &'a mut Store<F>,
+        lang: &'a Lang<F>,
+    ) -> Result<Self, ReductionError> {
+        let frame = Frame::from_initial_input(initial_input, store, lang)?;
         Ok(Self {
             first: true,
             frame,
             store,
+            lang,
         })
     }
 
@@ -294,7 +316,7 @@ impl<'a, F: LurkField> FrameIt<'a, Witness<F>, F> {
             if self.frame.is_complete() {
                 break;
             }
-            let new_frame = self.frame.next(self.store)?;
+            let new_frame = self.frame.next(self.store, self.lang)?;
 
             if let Some(expr) = new_frame.output.maybe_emitted_expression(self.store) {
                 emitted.push(expr);
@@ -326,7 +348,7 @@ impl<'a, F: LurkField> Iterator for ResultFrame<'a, F> {
             return None;
         }
 
-        frame_it.frame = match frame_it.frame.next(frame_it.store) {
+        frame_it.frame = match frame_it.frame.next(frame_it.store, frame_it.lang) {
             Ok(f) => f,
             Err(e) => return Some(Err(e)),
         };
@@ -349,7 +371,7 @@ impl<'a, F: LurkField> Iterator for FrameIt<'a, Witness<F>, F> {
         }
 
         // TODO: Error info lost here
-        self.frame = self.frame.next(self.store).ok()?;
+        self.frame = self.frame.next(self.store, self.lang).ok()?;
 
         Some(self.frame.clone())
     }
@@ -371,19 +393,26 @@ impl<'a, F: LurkField> Evaluator<'a, F>
 where
     IO<F>: Copy,
 {
-    pub fn new(expr: Ptr<F>, env: Ptr<F>, store: &'a mut Store<F>, limit: usize) -> Self {
+    pub fn new(
+        expr: Ptr<F>,
+        env: Ptr<F>,
+        store: &'a mut Store<F>,
+        limit: usize,
+        lang: &'a Lang<'a, F>,
+    ) -> Self {
         Evaluator {
             expr,
             env,
             store,
             limit,
             terminal_frame: None,
+            lang,
         }
     }
 
     pub fn eval(&mut self) -> Result<(IO<F>, usize, Vec<Ptr<F>>), ReductionError> {
         let initial_input = self.initial();
-        let frame_iterator = FrameIt::new(initial_input, self.store)?;
+        let frame_iterator = FrameIt::new(initial_input, self.store, self.lang)?;
 
         // Initial input performs one reduction, so we need limit - 1 more.
         let (ultimate_frame, _penultimate_frame, emitted) =
@@ -411,12 +440,12 @@ where
     pub fn iter(&mut self) -> Result<Take<FrameIt<'_, Witness<F>, F>>, ReductionError> {
         let initial_input = self.initial();
 
-        Ok(FrameIt::new(initial_input, self.store)?.take(self.limit))
+        Ok(FrameIt::new(initial_input, self.store, self.lang)?.take(self.limit))
     }
 
     // Wraps frames in Result type in order to fail gracefully
     pub fn get_frames(&mut self) -> Result<Vec<Frame<IO<F>, Witness<F>>>, ReductionError> {
-        let frame = FrameIt::new(self.initial(), self.store)?;
+        let frame = FrameIt::new(self.initial(), self.store, self.lang)?;
         let result_frame = ResultFrame(Ok(frame)).take(self.limit);
         let ret: Result<Vec<_>, _> = result_frame.collect();
         ret
@@ -428,8 +457,9 @@ where
         store: &'a mut Store<F>,
         limit: usize,
         needs_frame_padding: Fp,
+        lang: &'a Lang<'a, F>,
     ) -> Result<Vec<Frame<IO<F>, Witness<F>>>, ReductionError> {
-        let mut evaluator = Self::new(expr, env, store, limit);
+        let mut evaluator = Self::new(expr, env, store, limit, lang);
 
         let mut frames = evaluator.get_frames()?;
         assert!(!frames.is_empty());
@@ -461,7 +491,8 @@ pub fn empty_sym_env<F: LurkField>(store: &Store<F>) -> Ptr<F> {
 pub fn eval_to_ptr<F: LurkField>(s: &mut Store<F>, src: &str) -> Result<Ptr<F>, ReductionError> {
     let expr = s.read(src).unwrap();
     let limit = 1000000;
-    Ok(Evaluator::new(expr, empty_sym_env(s), s, limit)
+    let lang = Lang::new();
+    Ok(Evaluator::new(expr, empty_sym_env(s), s, limit, &lang)
         .eval()?
         .0
         .expr)
@@ -473,4 +504,5 @@ pub struct Evaluator<'a, F: LurkField> {
     store: &'a mut Store<F>,
     limit: usize,
     terminal_frame: Option<Frame<IO<F>, Witness<F>>>,
+    lang: &'a Lang<'a, F>,
 }

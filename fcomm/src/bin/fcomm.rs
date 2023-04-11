@@ -9,7 +9,7 @@ use hex::FromHex;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use lurk::eval::IO;
+use lurk::eval::{lang::Lang, IO};
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::store::{Ptr, Store, TypePredicates};
@@ -167,7 +167,7 @@ struct Verify {
 }
 
 impl Commit {
-    fn commit(&self, limit: usize) {
+    fn commit(&self, limit: usize, lang: &Lang<'_, S1>) {
         let s = &mut Store::<S1>::default();
 
         let mut function = if self.lurk {
@@ -182,7 +182,7 @@ impl Commit {
         } else {
             CommittedExpression::read_from_path(&self.function).unwrap()
         };
-        let fun_ptr = function.expr_ptr(s, limit).unwrap();
+        let fun_ptr = function.expr_ptr(s, limit, lang).unwrap();
         let function_map = committed_expression_store();
 
         let commitment = if let Some(secret) = function.secret {
@@ -214,7 +214,7 @@ impl Commit {
 }
 
 impl Open {
-    fn open(&self, limit: usize, eval_input: bool) {
+    fn open(&self, limit: usize, eval_input: bool, lang: &Lang<'_, S1>) {
         assert!(
             !(self.commitment.is_some() && self.function.is_some()),
             "commitment and function must not both be supplied"
@@ -228,7 +228,9 @@ impl Open {
 
         let handle_proof = |out_path, proof: Proof<S1>| {
             proof.write_to_path(out_path);
-            proof.verify(&pp).expect("created opening doesn't verify");
+            proof
+                .verify(&pp, lang)
+                .expect("created opening doesn't verify");
         };
 
         let handle_claim = |claim: Claim<S1>| serde_json::to_writer(io::stdout(), &claim);
@@ -239,16 +241,16 @@ impl Open {
 
             if let Some(out_path) = &self.proof {
                 let proof =
-                    Opening::open_and_prove(s, request, limit, false, &prover, &pp).unwrap();
+                    Opening::open_and_prove(s, request, limit, false, &prover, &pp, lang).unwrap();
 
                 handle_proof(out_path, proof);
             } else {
                 let function = function_map
                     .get(&request.commitment)
                     .expect("committed function not found");
-                let input = request.input.eval(s, limit).unwrap();
+                let input = request.input.eval(s, limit, lang).unwrap();
 
-                let claim = Opening::apply(s, input, function, limit, self.chain).unwrap();
+                let claim = Opening::apply(s, input, function, limit, self.chain, lang).unwrap();
                 handle_claim(claim).unwrap();
             }
         } else {
@@ -276,17 +278,17 @@ impl Open {
             };
 
             let input_path = self.input.as_ref().expect("input missing");
-            let input = input(s, input_path, eval_input, limit, self.quote_input).unwrap();
+            let input = input(s, input_path, eval_input, limit, self.quote_input, lang).unwrap();
 
             if let Some(out_path) = &self.proof {
                 let proof = Opening::apply_and_prove(
-                    s, input, function, limit, self.chain, false, &prover, &pp,
+                    s, input, function, limit, self.chain, false, &prover, &pp, lang,
                 )
                 .unwrap();
 
                 handle_proof(out_path, proof);
             } else {
-                let claim = Opening::apply(s, input, function, limit, self.chain).unwrap();
+                let claim = Opening::apply(s, input, function, limit, self.chain, lang).unwrap();
 
                 handle_claim(claim).unwrap();
             }
@@ -295,10 +297,10 @@ impl Open {
 }
 
 impl Eval {
-    fn eval(&self, limit: usize) {
+    fn eval(&self, limit: usize, lang: &Lang<'_, S1>) {
         let s = &mut Store::<S1>::default();
 
-        let expr = expression(s, &self.expression, self.lurk, limit).unwrap();
+        let expr = expression(s, &self.expression, self.lurk, limit, lang).unwrap();
 
         let evaluation = Evaluation::eval(s, expr, limit).unwrap();
 
@@ -315,7 +317,7 @@ impl Eval {
 }
 
 impl Prove {
-    fn prove(&self, limit: usize) {
+    fn prove(&self, limit: usize, lang: &Lang<'_, S1>) {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
         let prover = NovaProver::<S1>::new(rc.count());
@@ -334,6 +336,7 @@ impl Prove {
                     false,
                     &prover,
                     &pp,
+                    lang,
                 )
                 .unwrap()
             }
@@ -344,24 +347,27 @@ impl Prove {
                     self.expression.as_ref().expect("expression missing"),
                     self.lurk,
                     limit,
+                    lang,
                 )
                 .unwrap();
 
-                Proof::eval_and_prove(s, expr, None, limit, false, &prover, &pp).unwrap()
+                Proof::eval_and_prove(s, expr, None, limit, false, &prover, &pp, lang).unwrap()
             }
         };
 
         // Write first, so prover can debug if proof doesn't verify (it should).
         proof.write_to_path(&self.proof);
-        proof.verify(&pp).expect("created proof doesn't verify");
+        proof
+            .verify(&pp, lang)
+            .expect("created proof doesn't verify");
     }
 }
 
 impl Verify {
-    fn verify(&self, cli_error: bool) {
+    fn verify(&self, cli_error: bool, lang: &Lang<'_, S1>) {
         let proof = proof(Some(&self.proof)).unwrap();
         let pp = public_params(proof.reduction_count.count()).unwrap();
-        let result = proof.verify(&pp).unwrap();
+        let result = proof.verify(&pp, lang).unwrap();
 
         serde_json::to_writer(io::stdout(), &result).unwrap();
 
@@ -389,6 +395,7 @@ fn read_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
     store: &mut Store<F>,
     path: P,
     limit: usize,
+    lang: &Lang<'_, F>,
 ) -> Result<(Ptr<F>, Ptr<F>), Error> {
     let src = read_from_path(store, path)?;
     let (
@@ -398,7 +405,7 @@ fn read_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
             cont: _,
         },
         _iterations,
-    ) = evaluate(store, src, None, limit)?;
+    ) = evaluate(store, src, None, limit, lang)?;
 
     Ok((expr, src))
 }
@@ -418,9 +425,10 @@ fn _lurk_function<P: AsRef<Path>, F: LurkField + Serialize>(
     store: &mut Store<F>,
     function_path: P,
     limit: usize,
+    lang: &Lang<'_, F>,
 ) -> Result<(Ptr<F>, Ptr<F>), Error> {
     let (function, src) =
-        read_eval_from_path(store, function_path, limit).expect("failed to read function");
+        read_eval_from_path(store, function_path, limit, lang).expect("failed to read function");
     assert!(function.is_fun(), "FComm can only commit to functions.");
 
     Ok((function, src))
@@ -432,9 +440,10 @@ fn input<P: AsRef<Path>, F: LurkField + Serialize>(
     eval_input: bool,
     limit: usize,
     quote_input: bool,
+    lang: &Lang<'_, F>,
 ) -> Result<Ptr<F>, Error> {
     let input = if eval_input {
-        let (evaled_input, _src) = read_eval_from_path(store, input_path, limit)?;
+        let (evaled_input, _src) = read_eval_from_path(store, input_path, limit, lang)?;
         evaled_input
     } else {
         let (quoted, src) = read_no_eval_from_path(store, input_path)?;
@@ -453,12 +462,13 @@ fn expression<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
     expression_path: P,
     lurk: bool,
     limit: usize,
+    lang: &Lang<'_, F>,
 ) -> Result<Ptr<F>, Error> {
     if lurk {
         read_from_path(store, expression_path)
     } else {
         let expression = Expression::read_from_path(expression_path)?;
-        let expr = expression.expr.ptr(store, limit);
+        let expr = expression.expr.ptr(store, limit, lang);
         Ok(expr)
     }
 }
@@ -487,11 +497,12 @@ fn main() {
         .filter_level(cli.verbose.log_level_filter())
         .init();
 
+    let lang = Lang::new();
     match &cli.command {
-        Command::Commit(c) => c.commit(cli.limit),
-        Command::Open(o) => o.open(cli.limit, cli.eval_input),
-        Command::Eval(e) => e.eval(cli.limit),
-        Command::Prove(p) => p.prove(cli.limit),
-        Command::Verify(v) => v.verify(cli.error),
+        Command::Commit(c) => c.commit(cli.limit, &lang),
+        Command::Open(o) => o.open(cli.limit, cli.eval_input, &lang),
+        Command::Eval(e) => e.eval(cli.limit, &lang),
+        Command::Prove(p) => p.prove(cli.limit, &lang),
+        Command::Verify(v) => v.verify(cli.error, &lang),
     }
 }

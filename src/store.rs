@@ -1619,6 +1619,14 @@ impl<F: LurkField> Store<F> {
         self.scalar_ptr_cont_map.get(scalar_ptr).map(|p| *p)
     }
 
+    pub fn fetch_maybe_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
+        if matches!(ptr.tag(), ExprTag::Sym) {
+            self.fetch_sym(ptr)
+        } else {
+            None
+        }
+    }
+
     pub fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
         debug_assert!(matches!(ptr.0, ExprTag::Sym | ExprTag::Key | ExprTag::Nil));
 
@@ -1718,6 +1726,23 @@ impl<F: LurkField> Store<F> {
             ExprTag::Char => self.fetch_char(ptr).map(Expression::Char),
             ExprTag::U64 => self.fetch_uint(ptr).map(Expression::UInt),
         }
+    }
+
+    /// Returns a `Vec` of `Ptr`s representing the elements of a proper list, `ptr`.
+    /// This is intended to be the inverse of `Store::list()`.
+    /// The following permissive behavior is incidental:
+    /// - Returns an empty `Vec` if `ptr` is not a cons.
+    /// - The final element of an improper (not NIL-terminated) list is not included in the result.
+    pub fn fetch_list(&self, ptr: &Ptr<F>) -> Vec<Ptr<F>> {
+        let mut list = Vec::new();
+        let mut cons = self.fetch_cons(ptr);
+
+        while let Some((car, cdr)) = cons {
+            list.push(*car);
+
+            cons = self.fetch_cons(cdr);
+        }
+        list
     }
 
     pub fn fetch_cont(&self, ptr: &ContPtr<F>) -> Option<Continuation<F>> {
@@ -2753,7 +2778,7 @@ impl<F: LurkField> NamedConstants<F> {
 
 #[cfg(test)]
 pub mod test {
-    use crate::eval::{empty_sym_env, Evaluator};
+    use crate::eval::{empty_sym_env, lang::Lang, Evaluator};
     use crate::num;
     use crate::writer::Write;
     use blstrs::Scalar as Fr;
@@ -2907,27 +2932,31 @@ pub mod test {
         let t = store.sym("t");
         let nil = store.nil();
         let limit = 10;
+        let lang = Lang::new();
         {
             let comparison_expr = store.list(&[eq, fun, opaque_fun]);
             println!("comparison_expr: {}", comparison_expr.fmt_to_string(&store));
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, fun2, opaque_fun]);
             println!("comparison_expr: {}", comparison_expr.fmt_to_string(&store));
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(nil, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, fun2, opaque_fun2]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
         {
@@ -2940,9 +2969,10 @@ pub mod test {
             let cons_expr2 = store.list(&[cons, opaque_fun, n]);
 
             let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
     }
@@ -3015,25 +3045,29 @@ pub mod test {
             store.fetch_sym(&other_opaque_sym3).unwrap()
         );
 
+        let lang = Lang::new();
         {
             let comparison_expr = store.list(&[eq, qsym, qsym_opaque]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qsym2, qsym_opaque]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(nil, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qsym2, qsym_opaque2]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
         {
@@ -3046,9 +3080,11 @@ pub mod test {
             let cons_expr2 = store.list(&[cons, qsym_opaque, n]);
 
             let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let lang = Lang::new();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
     }
@@ -3078,6 +3114,8 @@ pub mod test {
         let qcons_opaque2 = store.list(&[quote, opaque_cons2]);
 
         let num = Expression::Num(num::Num::Scalar(*cons_hash.value()));
+        let lang = Lang::new();
+
         assert_eq!(
             format!("<Opaque Cons {}>", num.fmt_to_string(&store)),
             opaque_cons.fmt_to_string(&store)
@@ -3086,23 +3124,26 @@ pub mod test {
         {
             let comparison_expr = store.list(&[eq, qcons, qcons_opaque]);
             // FIXME: need to implement Write for opaque data.
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qcons2, qcons_opaque]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(nil, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qcons2, qcons_opaque2]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
         {
@@ -3118,16 +3159,20 @@ pub mod test {
 
             let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
             let comparison_expr2 = store.list(&[eq, cons_expr1, cons_expr3]);
+
+            let lang = Lang::new();
             {
-                let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                    .eval()
-                    .unwrap();
+                let (result, _, _) =
+                    Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                        .eval()
+                        .unwrap();
                 assert_eq!(t, result.expr);
             }
             {
-                let (result, _, _) = Evaluator::new(comparison_expr2, empty_env, &mut store, limit)
-                    .eval()
-                    .unwrap();
+                let (result, _, _) =
+                    Evaluator::new(comparison_expr2, empty_env, &mut store, limit, &lang)
+                        .eval()
+                        .unwrap();
                 assert_eq!(nil, result.expr);
             }
         }

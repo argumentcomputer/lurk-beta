@@ -23,7 +23,7 @@ use crate::circuit::{
     CircuitFrame, MultiFrame,
 };
 use crate::error::ProofError;
-use crate::eval::{Evaluator, Frame, Witness, IO};
+use crate::eval::{lang::Lang, Evaluator, Frame, Witness, IO};
 use crate::field::LurkField;
 use crate::proof::{Prover, PublicParameters};
 use crate::store::{Ptr, Store};
@@ -122,10 +122,11 @@ impl<F: LurkField> NovaProver<F> {
         env: Ptr<S1>,
         store: &mut Store<S1>,
         limit: usize,
+        lang: &Lang<'_, S1>,
     ) -> Result<Vec<Frame<IO<S1>, Witness<S1>>>, ProofError> {
         let padding_predicate = |count| self.needs_frame_padding(count);
 
-        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate)?;
+        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate, lang)?;
         store.hydrate_scalar_cache();
 
         Ok(frames)
@@ -139,8 +140,9 @@ impl<F: LurkField> NovaProver<F> {
         env: Ptr<S1>,
         store: &'a mut Store<S1>,
         limit: usize,
+        lang: &Lang<'_, S1>,
     ) -> Result<(Proof<'_>, Vec<S1>, Vec<S1>, usize), ProofError> {
-        let frames = self.get_evaluation_frames(expr, env, store, limit)?;
+        let frames = self.get_evaluation_frames(expr, env, store, limit, lang)?;
         let z0 = frames[0].input.to_vector(store)?;
         let zi = frames.last().unwrap().output.to_vector(store)?;
         let circuits = MultiFrame::from_frames(self.reduction_count(), &frames, store);
@@ -379,6 +381,8 @@ mod tests {
         limit: Option<usize>,
     ) {
         let expr = s.read(expr).unwrap();
+        let lang = Lang::new();
+
         nova_test_full_aux2(
             s,
             expr,
@@ -390,6 +394,7 @@ mod tests {
             reduction_count,
             check_nova,
             limit,
+            &lang,
         )
     }
 
@@ -404,6 +409,7 @@ mod tests {
         reduction_count: usize,
         check_nova: bool,
         limit: Option<usize>,
+        lang: &Lang<'_, Fr>,
     ) {
         let limit = limit.unwrap_or(10000);
 
@@ -414,7 +420,7 @@ mod tests {
         if check_nova {
             let pp = public_params(reduction_count);
             let (proof, z0, zi, num_steps) = nova_prover
-                .evaluate_and_prove(&pp, expr, empty_sym_env(s), s, limit)
+                .evaluate_and_prove(&pp, expr, empty_sym_env(s), s, limit, lang)
                 .unwrap();
 
             let res = proof.verify(&pp, num_steps, z0.clone(), &zi);
@@ -430,7 +436,7 @@ mod tests {
         }
 
         let frames = nova_prover
-            .get_evaluation_frames(expr, e, s, limit)
+            .get_evaluation_frames(expr, e, s, limit, lang)
             .unwrap();
 
         let multiframes = MultiFrame::from_frames(nova_prover.reduction_count(), &frames, s);
@@ -3037,6 +3043,7 @@ mod tests {
         let expr = s.list(&[fun, input]);
         let res = s.num(10);
         let terminal = s.get_cont_terminal();
+        let lang = Lang::new();
 
         nova_test_full_aux2(
             s,
@@ -3049,6 +3056,7 @@ mod tests {
             DEFAULT_REDUCTION_COUNT,
             false,
             None,
+            &lang,
         );
     }
 
