@@ -3,7 +3,7 @@ use crate::eval::reduction::{extend, lookup, reduce};
 use crate::num::Num;
 use crate::tag::{ExprTag, Op, Op1, Op2};
 use crate::writer::Write;
-use blstrs::Scalar as Fr;
+use pasta_curves::pallas::Scalar as Fr;
 
 fn test_aux(
     s: &mut Store<Fr>,
@@ -1250,7 +1250,7 @@ fn commitment_value() {
     let s = &mut Store::<Fr>::default();
     let expr = "(num (commit 123))";
     let x = s
-        .read("0x5655b8656a51cf3bb9f9c9ac7b7dd80c0e2481b039594c39f56efb1e0f81c64a")
+        .read("0x2937881eff06c2bcc2c8c1fa0818ae3733c759376f76fc10b7439269e9aaa9bc")
         .unwrap();
     test_aux(s, expr, Some(x), None, None, None, 4);
 }
