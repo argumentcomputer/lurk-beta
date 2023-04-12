@@ -1,7 +1,7 @@
 use blstrs::Scalar as Fr;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lurk::{
-    eval::{empty_sym_env, Evaluator},
+    eval::{empty_sym_env, lang::Lang, Evaluator},
     field::LurkField,
     store::{Ptr, Store},
 };
@@ -28,12 +28,16 @@ fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
 fn criterion_benchmark(c: &mut Criterion) {
     let limit = 1_000_000_000;
 
+    let lang_bls = Lang::<Fr>::new();
+    let lang_pallas = Lang::<pasta_curves::Fp>::new();
+
     c.bench_function("go_base_10_16_bls12", |b| {
         let mut store = Store::default();
         let ptr = go_base::<Fr>(&mut store, black_box(10), black_box(16));
 
         b.iter(|| {
-            let result = Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit).eval();
+            let result =
+                Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit, &lang_bls).eval();
             black_box(result)
         })
     });
@@ -43,7 +47,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         let ptr = go_base::<Fr>(&mut store, black_box(10), black_box(160));
 
         b.iter(|| {
-            let result = Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit).eval();
+            let result =
+                Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit, &lang_bls).eval();
             black_box(result)
         })
     });
@@ -53,7 +58,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         let ptr = go_base::<pasta_curves::Fp>(&mut store, black_box(10), black_box(16));
 
         b.iter(|| {
-            let result = Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit).eval();
+            let result =
+                Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas).eval();
             black_box(result)
         })
     });
@@ -63,7 +69,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         let ptr = go_base::<pasta_curves::Fp>(&mut store, black_box(10), black_box(160));
 
         b.iter(|| {
-            let result = Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit).eval();
+            let result =
+                Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas).eval();
             black_box(result)
         })
     });
