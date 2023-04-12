@@ -1730,19 +1730,23 @@ impl<F: LurkField> Store<F> {
 
     /// Returns a `Vec` of `Ptr`s representing the elements of a proper list, `ptr`.
     /// This is intended to be the inverse of `Store::list()`.
-    /// The following permissive behavior is incidental:
-    /// - Returns an empty `Vec` if `ptr` is not a cons.
-    /// - The final element of an improper (not NIL-terminated) list is not included in the result.
-    pub fn fetch_list(&self, ptr: &Ptr<F>) -> Vec<Ptr<F>> {
+    /// IF `ptr` isn't a proper list, return an explicit Lurk error.
+    pub fn fetch_list(&self, ptr: &Ptr<F>) -> Option<Vec<Ptr<F>>> {
         let mut list = Vec::new();
-        let mut cons = self.fetch_cons(ptr);
+        let mut p = *ptr;
 
-        while let Some((car, cdr)) = cons {
-            list.push(*car);
-
-            cons = self.fetch_cons(cdr);
+        loop {
+            match self.fetch(&p) {
+                Some(Expression::Cons(car, cdr)) => {
+                    list.push(car);
+                    p = cdr;
+                }
+                Some(Expression::Nil) => break,
+                _ => return None,
+            }
         }
-        list
+
+        Some(list)
     }
 
     pub fn fetch_cont(&self, ptr: &ContPtr<F>) -> Option<Continuation<F>> {

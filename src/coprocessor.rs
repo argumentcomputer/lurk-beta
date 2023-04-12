@@ -9,10 +9,16 @@ pub trait Coprocessor<F: LurkField>: Debug + Sync {
     fn arity(&self) -> usize;
 
     fn evaluate(&self, s: &mut Store<F>, args: Ptr<F>, env: Ptr<F>, cont: ContPtr<F>) -> IO<F> {
-        let argv: Vec<Ptr<F>> = s.fetch_list(&args);
+        let argv: Vec<Ptr<F>> = if let Some(list) = s.fetch_list(&args) {
+            list
+        } else {
+            return IO {
+                expr: args,
+                env,
+                cont: s.intern_cont_error(),
+            };
+        };
 
-        use crate::writer::Write;
-        dbg!(args.fmt_to_string(s));
         assert_eq!(argv.len(), self.arity());
 
         let result = self.simple_evaluate(s, &argv);
