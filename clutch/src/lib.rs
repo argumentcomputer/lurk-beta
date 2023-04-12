@@ -426,7 +426,7 @@ impl ClutchState<F> {
 
         let commitment_expr = self.expression_map.get(&commitment);
         let commitment_ptr = commitment_expr.map(|c| {
-            let ptr = c.expr.ptr(store, self.repl_state.limit, &self.lang());
+            let ptr = c.expr.ptr(store, self.repl_state.limit, self.lang());
 
             if let Some(secret) = c.secret {
                 store.intern_comm(secret, ptr);
@@ -442,7 +442,7 @@ impl ClutchState<F> {
 
     fn proof_in_expr(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let proof = self.get_proof(store, rest)?;
-        let (input, _output) = proof.io(store, &self.lang())?;
+        let (input, _output) = proof.io(store, self.lang())?;
 
         let mut handle = io::stdout().lock();
         input.expr.fmt(store, &mut handle)?;
@@ -451,7 +451,7 @@ impl ClutchState<F> {
     }
     fn proof_out_expr(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let proof = self.get_proof(store, rest)?;
-        let (_input, output) = proof.io(store, &self.lang())?;
+        let (_input, output) = proof.io(store, self.lang())?;
 
         let mut handle = io::stdout().lock();
         output.expr.fmt(store, &mut handle)?;
@@ -485,7 +485,7 @@ impl ClutchState<F> {
     fn prove(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (proof_in_expr, _rest1) = store.car_cdr(&rest)?;
 
-        let prover = NovaProver::<F>::new(self.reduction_count, &self.lang());
+        let prover = NovaProver::<F>::new(self.reduction_count, self.lang());
         let pp = public_params(self.reduction_count)?;
 
         let proof = if rest.is_nil() {
@@ -499,7 +499,7 @@ impl ClutchState<F> {
                         false,
                         &prover,
                         &pp,
-                        &self.lang(),
+                        self.lang(),
                     )
                 })
                 .ok_or_else(|| anyhow!("no last claim"))?
@@ -512,11 +512,11 @@ impl ClutchState<F> {
                 false,
                 &prover,
                 &pp,
-                &self.lang(),
+                self.lang(),
             )
         }?;
 
-        if proof.verify(&pp, &self.lang())?.verified {
+        if proof.verify(&pp, self.lang())?.verified {
             let cid_str = proof.claim.cid().to_string();
             match proof.claim {
                 Claim::Evaluation(_) | Claim::Opening(_) => println!("{0:#?}", proof.claim),
@@ -548,7 +548,7 @@ impl ClutchState<F> {
             .ok_or_else(|| anyhow!("proof not found: {cid}"))?;
 
         let pp = public_params(self.reduction_count)?;
-        let result = proof.verify(&pp, &self.lang()).unwrap();
+        let result = proof.verify(&pp, self.lang()).unwrap();
 
         if result.verified {
             Ok(Some(store.get_t()))

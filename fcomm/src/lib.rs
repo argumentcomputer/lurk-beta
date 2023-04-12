@@ -858,6 +858,7 @@ impl<'a> Opening<S1> {
 }
 
 impl<'a> Proof<'a, S1> {
+    #[allow(clippy::too_many_arguments)]
     pub fn eval_and_prove(
         s: &'a mut Store<S1>,
         expr: Ptr<S1>,
