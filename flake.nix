@@ -21,7 +21,7 @@
 
         toolchain = with fenix.packages.${system}; fromToolchainFile {
           file = ./rust-toolchain.toml; # alternatively, dir = ./.;
-          sha256 = "sha256-S4dA7ne2IpFHG+EnjXfogmqwGyDFSRWFnJ8cy4KZr1k=";
+          sha256 = "sha256-4vetmUhTUsew5FODnjlnQYInzyLNyDwocGa4IvMk3DM=";
         };
 
       in rec {
@@ -38,6 +38,7 @@
           buildInputs = with pkgs; [
             ocl-icd
             toolchain
+            clang
           ];
         };
       }
