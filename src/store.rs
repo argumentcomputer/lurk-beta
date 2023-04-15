@@ -911,11 +911,8 @@ impl<F: LurkField> Store<F> {
             _ => return None,
         };
 
-        if let Some((secret, payload)) = self.fetch_comm(&p) {
-            Some((secret.0, *payload))
-        } else {
-            None
-        }
+        self.fetch_comm(&p)
+            .map(|(secret, payload)| (secret.0, *payload))
     }
 
     pub fn open_mut(&mut self, ptr: Ptr<F>) -> Result<(F, Ptr<F>), Error> {
