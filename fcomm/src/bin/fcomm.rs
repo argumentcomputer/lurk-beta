@@ -186,25 +186,17 @@ impl Commit {
         let function_map = committed_expression_store();
 
         let commitment = if let Some(secret) = function.secret {
-            let commitment = Commitment::from_ptr_and_secret(s, &fun_ptr, secret);
-
-            function.commitment = Some(commitment);
-
-            function_map.set(commitment, &function).unwrap();
-            function.write_to_path(&self.function);
-
-            commitment
+            Commitment::from_ptr_and_secret(s, &fun_ptr, secret)
         } else {
             let (commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr);
             function.secret = Some(secret);
-            function.commitment = Some(commitment);
-
-            function_map.set(commitment, &function).unwrap();
-
-            function.write_to_path(&self.function);
-
             commitment
         };
+        function.commitment = Some(commitment);
+
+        function_map.set(commitment, &function).unwrap();
+        function.write_to_path(&self.function);
+
         if let Some(commitment_path) = &self.commitment {
             commitment.write_to_path(commitment_path);
         } else {
