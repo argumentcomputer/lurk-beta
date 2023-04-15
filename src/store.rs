@@ -1406,11 +1406,14 @@ impl<F: LurkField> Store<F> {
         } else {
             let (names_keyword, symbol_name) = names_keyword(name);
 
-            if names_keyword {
-                (ExprTag::Key, symbol_name)
-            } else {
-                (ExprTag::Sym, symbol_name)
-            }
+            (
+                if names_keyword {
+                    ExprTag::Key
+                } else {
+                    ExprTag::Sym
+                },
+                symbol_name,
+            )
         };
 
         if let Some(ptr) = self.sym_store.0.get(&symbol_name) {
@@ -1430,11 +1433,14 @@ impl<F: LurkField> Store<F> {
         } else {
             let (names_keyword, symbol_name) = names_keyword(name);
 
-            if names_keyword {
-                (ExprTag::Key, symbol_name)
-            } else {
-                (ExprTag::Sym, symbol_name)
-            }
+            (
+                if names_keyword {
+                    ExprTag::Key
+                } else {
+                    ExprTag::Sym
+                },
+                symbol_name,
+            )
         };
 
         // We need to intern each of the path segments individually, so they will be in the store.
