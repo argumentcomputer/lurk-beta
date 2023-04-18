@@ -104,17 +104,10 @@ pub(crate) fn add_to_lc<F: PrimeField, CS: ConstraintSystem<F>>(
     lc: LinearCombination<F>,
     scalar: F,
 ) -> Result<LinearCombination<F>, SynthesisError> {
-    let mut v_lc = lc;
-    match b {
-        Boolean::Constant(c) => {
-            if *c {
-                v_lc = v_lc + (scalar, CS::one())
-            } else {
-                v_lc = v_lc + (F::zero(), CS::one())
-            }
-        }
-        Boolean::Is(ref v) => v_lc = v_lc + (scalar, v.get_variable()),
-        Boolean::Not(ref v) => v_lc = v_lc + (scalar, CS::one()) - (scalar, v.get_variable()),
+    let v_lc = match b {
+        Boolean::Constant(c) => lc + (if *c { scalar } else { F::zero() }, CS::one()),
+        Boolean::Is(ref v) => lc + (scalar, v.get_variable()),
+        Boolean::Not(ref v) => lc + (scalar, CS::one()) - (scalar, v.get_variable()),
     };
 
     Ok(v_lc)

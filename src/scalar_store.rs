@@ -29,11 +29,7 @@ impl<F: LurkField> ScalarStore<F> {
     pub fn new_with_expr(store: &Store<F>, expr: &Ptr<F>) -> (Self, Option<ScalarPtr<F>>) {
         let mut new = Self::default();
         let scalar_ptr = new.add_one_ptr(store, expr);
-        if let Some(scalar_ptr) = scalar_ptr {
-            (new, Some(scalar_ptr))
-        } else {
-            (new, None)
-        }
+        (new, scalar_ptr)
     }
 
     /// Add all ScalarPtrs representing and reachable from expr.

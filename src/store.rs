@@ -911,11 +911,8 @@ impl<F: LurkField> Store<F> {
             _ => return None,
         };
 
-        if let Some((secret, payload)) = self.fetch_comm(&p) {
-            Some((secret.0, *payload))
-        } else {
-            None
-        }
+        self.fetch_comm(&p)
+            .map(|(secret, payload)| (secret.0, *payload))
     }
 
     pub fn open_mut(&mut self, ptr: Ptr<F>) -> Result<(F, Ptr<F>), Error> {
@@ -1406,11 +1403,14 @@ impl<F: LurkField> Store<F> {
         } else {
             let (names_keyword, symbol_name) = names_keyword(name);
 
-            if names_keyword {
-                (ExprTag::Key, symbol_name)
-            } else {
-                (ExprTag::Sym, symbol_name)
-            }
+            (
+                if names_keyword {
+                    ExprTag::Key
+                } else {
+                    ExprTag::Sym
+                },
+                symbol_name,
+            )
         };
 
         if let Some(ptr) = self.sym_store.0.get(&symbol_name) {
@@ -1430,11 +1430,14 @@ impl<F: LurkField> Store<F> {
         } else {
             let (names_keyword, symbol_name) = names_keyword(name);
 
-            if names_keyword {
-                (ExprTag::Key, symbol_name)
-            } else {
-                (ExprTag::Sym, symbol_name)
-            }
+            (
+                if names_keyword {
+                    ExprTag::Key
+                } else {
+                    ExprTag::Sym
+                },
+                symbol_name,
+            )
         };
 
         // We need to intern each of the path segments individually, so they will be in the store.
