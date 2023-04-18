@@ -63,7 +63,18 @@ git submodule update --init --recursive
 
 ## Wasm
 
-Lurk can be compiled to Wasm with `cargo build --target wasm32-unknown-unknown`
+### Prerequisites
+- [clang](https://clang.llvm.org/get_started.html)
+
+Lurk can be compiled to Wasm with
+```
+cargo build --target wasm32-unknown-unknown
+```
+
+If using Nix without a system-wide `clang` install (e.g. NixOS):
+```
+CC=clang cargo build --target wasm32-unknown-unknown
+```
 
 ## Repl
 
