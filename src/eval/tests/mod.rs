@@ -2613,7 +2613,7 @@ pub(crate) mod coproc {
             let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;
             let c = add(&mut cs.namespace(|| "add"), &a2, b.hash())?;
             let c_ptr = AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)?;
-            dbg!(&c_ptr);
+
             Ok((c_ptr, input_env.clone(), input_cont.clone()))
         }
     }
