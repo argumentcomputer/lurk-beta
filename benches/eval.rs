@@ -1,7 +1,11 @@
 use blstrs::Scalar as Fr;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lurk::{
-    eval::{empty_sym_env, lang::Lang, Evaluator},
+    eval::{
+        empty_sym_env,
+        lang::{Coproc, Lang},
+        Evaluator,
+    },
     field::LurkField,
     store::{Ptr, Store},
 };
@@ -28,8 +32,8 @@ fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
 fn criterion_benchmark(c: &mut Criterion) {
     let limit = 1_000_000_000;
 
-    let lang_bls = Lang::<Fr>::new();
-    let lang_pallas = Lang::<pasta_curves::Fp>::new();
+    let lang_bls = Lang::<Fr, Coproc<Fr>>::new();
+    let lang_pallas = Lang::<pasta_curves::Fp, Coproc<pasta_curves::Fp>>::new();
 
     c.bench_function("go_base_10_16_bls12", |b| {
         let mut store = Store::default();

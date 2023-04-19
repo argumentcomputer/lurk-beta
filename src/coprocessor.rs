@@ -11,9 +11,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + CoCircuit<F> {
     fn eval_arity(&self) -> usize;
 
     fn evaluate(&self, s: &mut Store<F>, args: Ptr<F>, env: Ptr<F>, cont: ContPtr<F>) -> IO<F> {
-        let argv: Vec<Ptr<F>> = if let Some(list) = s.fetch_list(&args) {
-            list
-        } else {
+        let Some(argv) = s.fetch_list(&args) else {
             return IO {
                 expr: args,
                 env,
@@ -87,7 +85,6 @@ pub(crate) mod test {
             let mut result = *a_num;
             result *= *a_num;
             result += *b_num;
-            use crate::writer::Write;
             let x = s.intern_num(result);
 
             return x;
