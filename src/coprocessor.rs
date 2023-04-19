@@ -41,7 +41,6 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + CoCircuit<F> {
     fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F>;
 }
 
-/// A helper trait for a step of the incremental computation (i.e., circuit for F)
 pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
     fn arity(&self) -> usize {
         todo!()
