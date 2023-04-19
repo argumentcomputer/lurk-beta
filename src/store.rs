@@ -1738,7 +1738,7 @@ impl<F: LurkField> Store<F> {
 
     /// Returns a `Vec` of `Ptr`s representing the elements of a proper list, `ptr`.
     /// This is intended to be the inverse of `Store::list()`.
-    /// IF `ptr` isn't a proper list, return an explicit Lurk error.
+    /// IF `ptr` isn't a proper list, return None.
     pub fn fetch_list(&self, ptr: &Ptr<F>) -> Option<Vec<Ptr<F>>> {
         let mut list = Vec::new();
         let mut p = *ptr;
