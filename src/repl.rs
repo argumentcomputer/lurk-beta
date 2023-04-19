@@ -1,3 +1,4 @@
+use crate::coprocessor::Coprocessor;
 use crate::error::LurkError;
 use crate::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
 use crate::field::LurkField;
@@ -21,6 +22,7 @@ use rustyline::{Config, Editor};
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 use std::fs::{self, read_to_string};
 use std::io::{self, Write as _};
+use std::marker::PhantomData;
 use std::path::Path;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
@@ -38,28 +40,23 @@ impl Validator for InputValidator {
 }
 
 #[derive(Clone)]
-pub struct ReplState<F: LurkField> {
+pub struct ReplState<F: LurkField, C: Coprocessor<F>> {
     pub env: Ptr<F>,
     pub limit: usize,
     pub command: Option<Command>,
-    pub lang: Lang<'static, F>,
+    pub lang: Lang<F, C>,
 }
 
-pub struct Repl<F: LurkField, T: ReplTrait<F>> {
+pub struct Repl<F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>> {
     state: T,
     rl: Editor<InputValidator, DefaultHistory>,
     #[cfg(not(target_arch = "wasm32"))]
     history_path: PathBuf,
-    _phantom: F,
+    _phantom: PhantomData<(F, C)>,
 }
 
-pub trait ReplTrait<F: LurkField> {
-    fn new(
-        s: &mut Store<F>,
-        limit: usize,
-        command: Option<Command>,
-        lang: Lang<'static, F>,
-    ) -> Self;
+pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
+    fn new(s: &mut Store<F>, limit: usize, command: Option<Command>, lang: Lang<F, C>) -> Self;
 
     fn name() -> String;
 
@@ -145,12 +142,12 @@ pub trait ReplTrait<F: LurkField> {
     ) -> Result<(IO<F>, IO<F>, usize)>;
 }
 
-impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
+impl<F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>> Repl<F, T, C> {
     pub fn new(
         s: &mut Store<F>,
         limit: usize,
         command: Option<Command>,
-        lang: Lang<'static, F>,
+        lang: Lang<F, C>,
     ) -> Result<Self> {
         #[cfg(not(target_arch = "wasm32"))]
         let history_path = dirs::home_dir()
@@ -188,28 +185,30 @@ impl<F: LurkField, T: ReplTrait<F>> Repl<F, T> {
     }
 }
 
-pub fn repl_cli<F: LurkField, T: ReplTrait<F>>(lang: Lang<'static, F>) -> Result<()> {
+pub fn repl_cli<F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>>(
+    lang: Lang<F, C>,
+) -> Result<()> {
     let command = T::command();
     let matches = command.clone().get_matches();
 
     let lurk_file = matches.get_one::<String>("lurk_file");
     let light_store = matches.get_one::<String>("lightstore");
 
-    repl_aux::<_, F, T>(lurk_file, light_store, Some(command), lang)
+    repl_aux::<_, F, T, C>(lurk_file, light_store, Some(command), lang)
 }
 
-pub fn repl<F: LurkField, T: ReplTrait<F>, P: AsRef<Path>>(
+pub fn repl<F: LurkField, T: ReplTrait<F, C>, P: AsRef<Path>, C: Coprocessor<F>>(
     lurk_file: Option<P>,
-    lang: Lang<'static, F>,
+    lang: Lang<F, C>,
 ) -> Result<()> {
-    repl_aux::<_, F, T>(lurk_file, None, None, lang)
+    repl_aux::<_, F, T, C>(lurk_file, None, None, lang)
 }
 
-fn repl_aux<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
+fn repl_aux<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>>(
     lurk_file: Option<P>,
     light_store: Option<P>,
     command: Option<Command>,
-    lang: Lang<'static, F>,
+    lang: Lang<F, C>,
 ) -> Result<()> {
     let received_light_store = light_store.is_some();
     let mut s = light_store
@@ -226,15 +225,15 @@ fn repl_aux<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
         .unwrap_or_default();
     let s_ref = &mut s;
     let limit = 100_000_000;
-    let repl: Repl<F, T> = Repl::new(s_ref, limit, command, lang)?;
+    let repl: Repl<F, T, C> = Repl::new(s_ref, limit, command, lang)?;
 
     run_repl(s_ref, repl, lurk_file)
 }
 
 // For the moment, input must be on a single line.
-pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
+pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>>(
     s: &mut Store<F>,
-    mut repl: Repl<F, T>,
+    mut repl: Repl<F, T, C>,
     lurk_file: Option<P>,
 ) -> Result<()> {
     let package = Package::lurk();
@@ -302,13 +301,8 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F>>(
     Ok(())
 }
 
-impl<F: LurkField> ReplState<F> {
-    pub fn new(
-        s: &mut Store<F>,
-        limit: usize,
-        command: Option<Command>,
-        lang: Lang<'static, F>,
-    ) -> Self {
+impl<F: LurkField, C: Coprocessor<F>> ReplState<F, C> {
+    pub fn new(s: &mut Store<F>, limit: usize, command: Option<Command>, lang: Lang<F, C>) -> Self {
         Self {
             env: empty_sym_env(s),
             limit,
@@ -338,13 +332,8 @@ impl<F: LurkField> ReplState<F> {
     }
 }
 
-impl<F: LurkField> ReplTrait<F> for ReplState<F> {
-    fn new(
-        s: &mut Store<F>,
-        limit: usize,
-        command: Option<Command>,
-        lang: Lang<'static, F>,
-    ) -> Self {
+impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
+    fn new(s: &mut Store<F>, limit: usize, command: Option<Command>, lang: Lang<F, C>) -> Self {
         Self {
             env: empty_sym_env(s),
             limit,

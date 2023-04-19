@@ -1,34 +1,121 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
-use crate::coprocessor::Coprocessor;
+use bellperson::{ConstraintSystem, SynthesisError};
+use serde::{Deserialize, Serialize};
+
+use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
+use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::field::LurkField;
-use crate::store::{Ptr, Store};
+use crate::store::{Ptr, ScalarPtr, Store};
 use crate::sym::Sym;
 
-// TODO: Define a trait for the Hash and parameterize on that also.
-#[derive(Debug, Default, Clone)]
-pub struct Lang<'a, F: LurkField> {
-    coprocessors: HashMap<Sym, &'a dyn Coprocessor<F>>,
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct DummyCoprocessor<F: LurkField> {
+    pub(crate) _p: PhantomData<F>,
 }
 
-impl<'a, F: LurkField> Lang<'a, F> {
-    pub fn new() -> Self {
+impl<F: LurkField> Coprocessor<F> for DummyCoprocessor<F> {
+    /// Dummy Coprocessor takes no arguments.
+    fn eval_arity(&self) -> usize {
+        0
+    }
+
+    /// It squares the first arg and adds it to the second.
+    fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+        assert!(args.is_empty());
+        s.get_nil()
+    }
+}
+
+impl<F: LurkField> CoCircuit<F> for DummyCoprocessor<F> {}
+
+impl<F: LurkField> DummyCoprocessor<F> {
+    #[allow(dead_code)]
+    pub(crate) fn new() -> Self {
         Self {
-            coprocessors: Default::default(),
+            _p: Default::default(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum Coproc<F: LurkField> {
+    Dummy(DummyCoprocessor<F>),
+}
+
+impl<F: LurkField> Coprocessor<F> for Coproc<F> {
+    fn eval_arity(&self) -> usize {
+        match self {
+            Self::Dummy(c) => c.eval_arity(),
         }
     }
 
-    pub fn add_coprocessor(&mut self, name: Sym, cproc: &'a dyn Coprocessor<F>) {
-        self.coprocessors.insert(name, cproc);
+    fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+        match self {
+            Self::Dummy(c) => c.simple_evaluate(s, args),
+        }
+    }
+}
+
+impl<F: LurkField> CoCircuit<F> for Coproc<F> {
+    fn arity(&self) -> usize {
+        match self {
+            Self::Dummy(c) => c.arity(),
+        }
     }
 
-    pub fn lookup(&self, s: &Store<F>, name: Ptr<F>) -> Option<&dyn Coprocessor<F>> {
-        let name_ptr = s.fetch_maybe_sym(&name);
+    fn synthesize<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &Store<F>,
+        input_exprs: &[AllocatedPtr<F>],
+        input_env: &AllocatedPtr<F>,
+        input_cont: &AllocatedContPtr<F>,
+    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
+        match self {
+            Self::Dummy(c) => c.synthesize(cs, store, input_exprs, input_env, input_cont),
+        }
+    }
+}
 
-        name_ptr
-            .and_then(|sym| self.coprocessors.get(&sym))
-            .copied()
+// TODO: Define a trait for the Hash and parameterize on that also.
+#[derive(Debug, Default, Clone)]
+pub struct Lang<F: LurkField, C: Coprocessor<F>> {
+    coprocessors: HashMap<Sym, (C, ScalarPtr<F>)>,
+    _p: PhantomData<F>,
+}
+
+impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
+    pub fn new() -> Self {
+        Self {
+            coprocessors: Default::default(),
+            _p: Default::default(),
+        }
+    }
+
+    pub fn add_coprocessor(&mut self, name: Sym, cproc: C, store: &mut Store<F>) {
+        let ptr = store.intern_sym_and_ancestors(&name).unwrap();
+        let scalar_ptr = store.get_expr_hash(&ptr).unwrap();
+
+        self.coprocessors.insert(name, (cproc, scalar_ptr));
+    }
+
+    pub fn coprocessors(&self) -> &HashMap<Sym, (C, ScalarPtr<F>)> {
+        &self.coprocessors
+    }
+
+    pub fn max_coprocessor_arity(&self) -> usize {
+        let c: Option<&(C, _)> = self.coprocessors.values().max_by_key(|(c, _)| c.arity());
+
+        c.map(|(c, _)| c.arity()).unwrap_or(0)
+    }
+
+    pub fn lookup(&self, s: &Store<F>, name: Ptr<F>) -> Option<&(C, ScalarPtr<F>)> {
+        let maybe_sym = s.fetch_maybe_sym(&name);
+
+        maybe_sym.and_then(|sym| self.coprocessors.get(&sym))
     }
 
     pub fn has_coprocessors(&self) -> bool {
@@ -41,23 +128,22 @@ impl<'a, F: LurkField> Lang<'a, F> {
 }
 
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
     use super::*;
-    use crate::coprocessor::test::DumbCoprocessor;
-
     use pasta_curves::pallas::Scalar as Fr;
 
     #[test]
     fn lang() {
-        Lang::<Fr>::new();
+        Lang::<Fr, Coproc<Fr>>::new();
     }
 
     #[test]
-    fn dumb_lang() {
-        let mut lang = Lang::<Fr>::new();
-        let name = Sym::new(".cproc.dumb".to_string());
-        let dumb = DumbCoprocessor::new();
+    fn dummy_lang() {
+        let store = &mut Store::<Fr>::default();
+        let mut lang = Lang::<Fr, Coproc<Fr>>::new();
+        let name = Sym::new(".cproc.dummy".to_string());
+        let dummy = DummyCoprocessor::new();
 
-        lang.add_coprocessor(name, &dumb);
+        lang.add_coprocessor(name, Coproc::Dummy(dummy), store);
     }
 }

@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use lurk::eval::lang::Lang;
+use lurk::eval::lang::{Coproc, Lang};
 use lurk::field::LanguageField;
 use lurk::proof::nova;
 use lurk::repl::{repl_cli, ReplState};
@@ -21,10 +21,20 @@ fn main() -> Result<()> {
     };
 
     match field {
-        LanguageField::BLS12_381 => {
-            repl_cli::<blstrs::Scalar, ReplState<blstrs::Scalar>>(Lang::<blstrs::Scalar>::new())
-        }
-        LanguageField::Pallas => repl_cli::<nova::S1, ReplState<nova::S1>>(Lang::<nova::S1>::new()),
-        LanguageField::Vesta => repl_cli::<nova::S2, ReplState<nova::S2>>(Lang::<nova::S2>::new()),
+        LanguageField::BLS12_381 => repl_cli::<
+            blstrs::Scalar,
+            ReplState<blstrs::Scalar, Coproc<blstrs::Scalar>>,
+            Coproc<blstrs::Scalar>,
+        >(Lang::<blstrs::Scalar, Coproc<blstrs::Scalar>>::new()),
+        LanguageField::Pallas => repl_cli::<
+            nova::S1,
+            ReplState<nova::S1, Coproc<nova::S1>>,
+            Coproc<nova::S1>,
+        >(Lang::<nova::S1, Coproc<nova::S1>>::new()),
+        LanguageField::Vesta => repl_cli::<
+            nova::S2,
+            ReplState<nova::S2, Coproc<nova::S2>>,
+            Coproc<nova::S2>,
+        >(Lang::<nova::S2, Coproc<nova::S2>>::new()),
     }
 }

@@ -569,10 +569,10 @@ pub(crate) fn or_v<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     v: &[&Boolean],
 ) -> Result<Boolean, SynthesisError> {
-    assert!(
-        v.len() >= 4,
-        "with less than 4 elements, or_v is more expensive than repeated or"
-    );
+    // assert!(
+    //     v.len() >= 4,
+    //     "with less than 4 elements, or_v is more expensive than repeated or"
+    // );
 
     // Count the number of true values in v.
     let count_true = v.iter().fold(Num::zero(), |acc, b| {

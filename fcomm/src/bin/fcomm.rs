@@ -9,7 +9,10 @@ use hex::FromHex;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use lurk::eval::{lang::Lang, IO};
+use lurk::eval::{
+    lang::{Coproc, Lang},
+    IO,
+};
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::store::{Ptr, Store, TypePredicates};
@@ -167,7 +170,7 @@ struct Verify {
 }
 
 impl Commit {
-    fn commit(&self, limit: usize, lang: &Lang<'_, S1>) {
+    fn commit(&self, limit: usize, lang: &Lang<S1, Coproc<S1>>) {
         let s = &mut Store::<S1>::default();
 
         let mut function = if self.lurk {
@@ -214,7 +217,7 @@ impl Commit {
 }
 
 impl Open {
-    fn open(&self, limit: usize, eval_input: bool, lang: &Lang<'_, S1>) {
+    fn open(&self, limit: usize, eval_input: bool, lang: &Lang<S1, Coproc<S1>>) {
         assert!(
             !(self.commitment.is_some() && self.function.is_some()),
             "commitment and function must not both be supplied"
@@ -222,7 +225,7 @@ impl Open {
 
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
-        let prover = NovaProver::<S1>::new(rc.count(), lang);
+        let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), fcomm::lang().clone());
         let pp = public_params(rc.count()).unwrap();
         let function_map = committed_expression_store();
 
@@ -297,7 +300,7 @@ impl Open {
 }
 
 impl Eval {
-    fn eval(&self, limit: usize, lang: &Lang<'_, S1>) {
+    fn eval(&self, limit: usize, lang: &Lang<S1, Coproc<S1>>) {
         let s = &mut Store::<S1>::default();
 
         let expr = expression(s, &self.expression, self.lurk, limit, lang).unwrap();
@@ -317,10 +320,10 @@ impl Eval {
 }
 
 impl Prove {
-    fn prove(&self, limit: usize, lang: &Lang<'_, S1>) {
+    fn prove(&self, limit: usize, lang: &Lang<S1, Coproc<S1>>) {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
-        let prover = NovaProver::<S1>::new(rc.count(), lang);
+        let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), fcomm::lang().clone());
         let pp = public_params(rc.count()).unwrap();
 
         let proof = match &self.claim {
@@ -364,7 +367,7 @@ impl Prove {
 }
 
 impl Verify {
-    fn verify(&self, cli_error: bool, lang: &Lang<'_, S1>) {
+    fn verify(&self, cli_error: bool, lang: &Lang<S1, Coproc<S1>>) {
         let proof = proof(Some(&self.proof)).unwrap();
         let pp = public_params(proof.reduction_count.count()).unwrap();
         let result = proof.verify(&pp, lang).unwrap();
@@ -395,7 +398,7 @@ fn read_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
     store: &mut Store<F>,
     path: P,
     limit: usize,
-    lang: &Lang<'_, F>,
+    lang: &Lang<F, Coproc<F>>,
 ) -> Result<(Ptr<F>, Ptr<F>), Error> {
     let src = read_from_path(store, path)?;
     let (
@@ -425,7 +428,7 @@ fn _lurk_function<P: AsRef<Path>, F: LurkField + Serialize>(
     store: &mut Store<F>,
     function_path: P,
     limit: usize,
-    lang: &Lang<'_, F>,
+    lang: &Lang<F, Coproc<F>>,
 ) -> Result<(Ptr<F>, Ptr<F>), Error> {
     let (function, src) =
         read_eval_from_path(store, function_path, limit, lang).expect("failed to read function");
@@ -440,7 +443,7 @@ fn input<P: AsRef<Path>, F: LurkField + Serialize>(
     eval_input: bool,
     limit: usize,
     quote_input: bool,
-    lang: &Lang<'_, F>,
+    lang: &Lang<F, Coproc<F>>,
 ) -> Result<Ptr<F>, Error> {
     let input = if eval_input {
         let (evaled_input, _src) = read_eval_from_path(store, input_path, limit, lang)?;
@@ -462,7 +465,7 @@ fn expression<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
     expression_path: P,
     lurk: bool,
     limit: usize,
-    lang: &Lang<'_, F>,
+    lang: &Lang<F, Coproc<F>>,
 ) -> Result<Ptr<F>, Error> {
     if lurk {
         read_from_path(store, expression_path)

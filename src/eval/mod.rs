@@ -1,3 +1,4 @@
+use crate::coprocessor::Coprocessor;
 use crate::error::ReductionError;
 use crate::field::LurkField;
 use crate::hash_witness::{ConsWitness, ContWitness};
@@ -11,13 +12,14 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
+use std::marker::PhantomData;
 
 pub mod lang;
 
 mod reduction;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 #[derive(Clone, Debug, PartialEq, Copy, Eq)]
 pub struct IO<F: LurkField> {
@@ -45,11 +47,12 @@ impl<F: LurkField> std::fmt::Display for IO<F> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Frame<T: Copy, W: Copy> {
+pub struct Frame<T: Copy, W: Copy, C> {
     pub input: T,
     pub output: T,
     pub i: usize,
     pub witness: W,
+    pub _p: PhantomData<C>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -112,7 +115,7 @@ impl<F: LurkField> From<ContPtr<F>> for Status {
     }
 }
 
-impl<F: LurkField, W: Copy> Frame<IO<F>, W> {
+impl<F: LurkField, W: Copy, C: Coprocessor<F>> Frame<IO<F>, W, C> {
     pub fn precedes(&self, maybe_next: &Self) -> bool {
         let sequential = self.i + 1 == maybe_next.i;
         let io_match = self.output == maybe_next.input;
@@ -121,16 +124,17 @@ impl<F: LurkField, W: Copy> Frame<IO<F>, W> {
     }
 
     pub fn is_complete(&self) -> bool {
-        self.input == self.output && self.output.is_complete()
+        self.input == self.output
+            && <IO<F> as Evaluable<F, Witness<F>, C>>::is_complete(&self.output)
     }
 
     pub fn log(&self, store: &Store<F>) {
         // This frame's output is the input for the next frame.
         // Report that index. Otherwise we can't report the initial input.
-        self.output.log(store, self.i + 1);
+        <IO<F> as Evaluable<F, Witness<F>, C>>::log(&self.output, store, self.i + 1);
     }
 
-    pub fn significant_frame_count(frames: &[Frame<IO<F>, W>]) -> usize {
+    pub fn significant_frame_count(frames: &[Frame<IO<F>, W, C>]) -> usize {
         frames
             .iter()
             .rev()
@@ -139,8 +143,8 @@ impl<F: LurkField, W: Copy> Frame<IO<F>, W> {
     }
 }
 
-pub trait Evaluable<F: LurkField, W> {
-    fn reduce(&self, store: &mut Store<F>, lang: &Lang<'_, F>) -> Result<(Self, W), ReductionError>
+pub trait Evaluable<F: LurkField, W, C: Coprocessor<F>> {
+    fn reduce(&self, store: &mut Store<F>, lang: &Lang<F, C>) -> Result<(Self, W), ReductionError>
     where
         Self: Sized;
 
@@ -152,11 +156,11 @@ pub trait Evaluable<F: LurkField, W> {
     fn log(&self, store: &Store<F>, i: usize);
 }
 
-impl<F: LurkField> Evaluable<F, Witness<F>> for IO<F> {
+impl<F: LurkField, C: Coprocessor<F>> Evaluable<F, Witness<F>, C> for IO<F> {
     fn reduce(
         &self,
         store: &mut Store<F>,
-        lang: &Lang<'_, F>,
+        lang: &Lang<F, C>,
     ) -> Result<(Self, Witness<F>), ReductionError> {
         let (expr, env, cont, witness) =
             reduction::reduce(self.expr, self.env, self.cont, store, lang)?;
@@ -168,14 +172,14 @@ impl<F: LurkField> Evaluable<F, Witness<F>> for IO<F> {
     }
 
     fn is_complete(&self) -> bool {
-        self.status().is_complete()
+        <IO<F> as Evaluable<F, Witness<F>, C>>::status(self).is_complete()
     }
     fn is_terminal(&self) -> bool {
-        self.status().is_complete()
+        <IO<F> as Evaluable<F, Witness<F>, C>>::status(self).is_complete()
     }
 
     fn is_error(&self) -> bool {
-        self.status().is_error()
+        <IO<F> as Evaluable<F, Witness<F>, C>>::status(self).is_complete()
     }
 
     fn log(&self, store: &Store<F>, i: usize) {
@@ -236,11 +240,16 @@ impl<F: LurkField> IO<F> {
     }
 }
 
-impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame<T, Witness<F>> {
+impl<
+        F: LurkField,
+        T: Evaluable<F, Witness<F>, C> + Clone + PartialEq + Copy,
+        C: Coprocessor<F>,
+    > Frame<T, Witness<F>, C>
+{
     pub(crate) fn next(
         &self,
         store: &mut Store<F>,
-        lang: &Lang<'_, F>,
+        lang: &Lang<F, C>,
     ) -> Result<Self, ReductionError> {
         let input = self.output;
         let (output, witness) = input.reduce(store, lang)?;
@@ -253,15 +262,21 @@ impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame
             output,
             i: self.i + 1,
             witness,
+            _p: Default::default(),
         })
     }
 }
 
-impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame<T, Witness<F>> {
+impl<
+        F: LurkField,
+        T: Evaluable<F, Witness<F>, C> + Clone + PartialEq + Copy,
+        C: Coprocessor<F>,
+    > Frame<T, Witness<F>, C>
+{
     fn from_initial_input(
         input: T,
         store: &mut Store<F>,
-        lang: &Lang<'_, F>,
+        lang: &Lang<F, C>,
     ) -> Result<Self, ReductionError> {
         input.log(store, 0);
         let (output, witness) = input.reduce(store, lang)?;
@@ -270,23 +285,24 @@ impl<F: LurkField, T: Evaluable<F, Witness<F>> + Clone + PartialEq + Copy> Frame
             output,
             i: 0,
             witness,
+            _p: Default::default(),
         })
     }
 }
 
 #[derive(Debug)]
-pub struct FrameIt<'a, W: Copy, F: LurkField> {
+pub struct FrameIt<'a, W: Copy, F: LurkField, C: Coprocessor<F>> {
     first: bool,
-    frame: Frame<IO<F>, W>,
+    frame: Frame<IO<F>, W, C>,
     store: &'a mut Store<F>,
-    lang: &'a Lang<'a, F>,
+    lang: &'a Lang<F, C>,
 }
 
-impl<'a, F: LurkField> FrameIt<'a, Witness<F>, F> {
+impl<'a, F: LurkField, C: Coprocessor<F>> FrameIt<'a, Witness<F>, F, C> {
     fn new(
         initial_input: IO<F>,
         store: &'a mut Store<F>,
-        lang: &'a Lang<'_, F>,
+        lang: &'a Lang<F, C>,
     ) -> Result<Self, ReductionError> {
         let frame = Frame::from_initial_input(initial_input, store, lang)?;
         Ok(Self {
@@ -304,8 +320,8 @@ impl<'a, F: LurkField> FrameIt<'a, Witness<F>, F> {
         n: usize,
     ) -> Result<
         (
-            Frame<IO<F>, Witness<F>>,
-            Frame<IO<F>, Witness<F>>,
+            Frame<IO<F>, Witness<F>, C>,
+            Frame<IO<F>, Witness<F>, C>,
             Vec<Ptr<F>>,
         ),
         ReductionError,
@@ -329,10 +345,12 @@ impl<'a, F: LurkField> FrameIt<'a, Witness<F>, F> {
 
 // Wrapper struct to preserve errors that would otherwise be lost during iteration
 #[derive(Debug)]
-struct ResultFrame<'a, F: LurkField>(Result<FrameIt<'a, Witness<F>, F>, ReductionError>);
+struct ResultFrame<'a, F: LurkField, C: Coprocessor<F>>(
+    Result<FrameIt<'a, Witness<F>, F, C>, ReductionError>,
+);
 
-impl<'a, F: LurkField> Iterator for ResultFrame<'a, F> {
-    type Item = Result<Frame<IO<F>, Witness<F>>, ReductionError>;
+impl<'a, F: LurkField, C: Coprocessor<F>> Iterator for ResultFrame<'a, F, C> {
+    type Item = Result<Frame<IO<F>, Witness<F>, C>, ReductionError>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         let mut frame_it = match &mut self.0 {
             Ok(f) => f,
@@ -357,8 +375,8 @@ impl<'a, F: LurkField> Iterator for ResultFrame<'a, F> {
     }
 }
 
-impl<'a, F: LurkField> Iterator for FrameIt<'a, Witness<F>, F> {
-    type Item = Frame<IO<F>, Witness<F>>;
+impl<'a, F: LurkField, C: Coprocessor<F>> Iterator for FrameIt<'a, Witness<F>, F, C> {
+    type Item = Frame<IO<F>, Witness<F>, C>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         // skip first iteration, as one evaluation happens on construction
         if self.first {
@@ -389,7 +407,7 @@ pub struct Witness<F: LurkField> {
     pub(crate) conts: ContWitness<F>,
 }
 
-impl<'a, F: LurkField> Evaluator<'a, F>
+impl<'a, F: LurkField, C: Coprocessor<F>> Evaluator<'a, F, C>
 where
     IO<F>: Copy,
 {
@@ -398,7 +416,7 @@ where
         env: Ptr<F>,
         store: &'a mut Store<F>,
         limit: usize,
-        lang: &'a Lang<'a, F>,
+        lang: &'a Lang<F, C>,
     ) -> Self {
         Evaluator {
             expr,
@@ -437,14 +455,14 @@ where
         }
     }
 
-    pub fn iter(&mut self) -> Result<Take<FrameIt<'_, Witness<F>, F>>, ReductionError> {
+    pub fn iter(&mut self) -> Result<Take<FrameIt<'_, Witness<F>, F, C>>, ReductionError> {
         let initial_input = self.initial();
 
         Ok(FrameIt::new(initial_input, self.store, self.lang)?.take(self.limit))
     }
 
     // Wraps frames in Result type in order to fail gracefully
-    pub fn get_frames(&mut self) -> Result<Vec<Frame<IO<F>, Witness<F>>>, ReductionError> {
+    pub fn get_frames(&mut self) -> Result<Vec<Frame<IO<F>, Witness<F>, C>>, ReductionError> {
         let frame = FrameIt::new(self.initial(), self.store, self.lang)?;
         let result_frame = ResultFrame(Ok(frame)).take(self.limit);
         let ret: Result<Vec<_>, _> = result_frame.collect();
@@ -457,8 +475,8 @@ where
         store: &'a mut Store<F>,
         limit: usize,
         needs_frame_padding: Fp,
-        lang: &'a Lang<'a, F>,
-    ) -> Result<Vec<Frame<IO<F>, Witness<F>>>, ReductionError> {
+        lang: &'a Lang<F, C>,
+    ) -> Result<Vec<Frame<IO<F>, Witness<F>, C>>, ReductionError> {
         let mut evaluator = Self::new(expr, env, store, limit, lang);
 
         let mut frames = evaluator.get_frames()?;
@@ -488,21 +506,24 @@ pub fn empty_sym_env<F: LurkField>(store: &Store<F>) -> Ptr<F> {
 
 // Convenience functions, mostly for use in tests.
 
-pub fn eval_to_ptr<F: LurkField>(s: &mut Store<F>, src: &str) -> Result<Ptr<F>, ReductionError> {
+pub fn eval_to_ptr<F: LurkField, C: Coprocessor<F>>(
+    s: &mut Store<F>,
+    src: &str,
+) -> Result<Ptr<F>, ReductionError> {
     let expr = s.read(src).unwrap();
     let limit = 1000000;
-    let lang = Lang::new();
+    let lang = Lang::<F, C>::new();
     Ok(Evaluator::new(expr, empty_sym_env(s), s, limit, &lang)
         .eval()?
         .0
         .expr)
 }
 
-pub struct Evaluator<'a, F: LurkField> {
+pub struct Evaluator<'a, F: LurkField, C: Coprocessor<F>> {
     expr: Ptr<F>,
     env: Ptr<F>,
     store: &'a mut Store<F>,
     limit: usize,
-    terminal_frame: Option<Frame<IO<F>, Witness<F>>>,
-    lang: &'a Lang<'a, F>,
+    terminal_frame: Option<Frame<IO<F>, Witness<F>, C>>,
+    lang: &'a Lang<F, C>,
 }

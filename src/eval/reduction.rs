@@ -1,4 +1,5 @@
 use super::{empty_sym_env, Witness};
+use crate::coprocessor::Coprocessor;
 use crate::error::ReductionError;
 use crate::eval::{lang::Lang, IO};
 use crate::field::LurkField;
@@ -11,12 +12,12 @@ use crate::store::{
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use crate::writer::Write;
 
-pub(crate) fn reduce<F: LurkField>(
+pub(crate) fn reduce<F: LurkField, C: Coprocessor<F>>(
     expr: Ptr<F>,
     env: Ptr<F>,
     cont: ContPtr<F>,
     store: &mut Store<F>,
-    lang: &Lang<'_, F>,
+    lang: &Lang<F, C>,
 ) -> Result<(Ptr<F>, Ptr<F>, ContPtr<F>, Witness<F>), ReductionError> {
     let c = *store.get_constants();
     let (ctrl, witness) = reduce_with_witness(expr, env, cont, store, &c, lang)?;
@@ -55,7 +56,7 @@ impl<F: LurkField> Control<F> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn reduce_with_witness_inner<F: LurkField>(
+fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
     expr: Ptr<F>,
     env: Ptr<F>,
     cont: ContPtr<F>,
@@ -63,7 +64,7 @@ fn reduce_with_witness_inner<F: LurkField>(
     cons_witness: &mut ConsWitness<F>,
     cont_witness: &mut ContWitness<F>,
     c: &NamedConstants<F>,
-    lang: &Lang<'_, F>,
+    lang: &Lang<F, C>,
 ) -> Result<(Control<F>, Option<Ptr<F>>), ReductionError> {
     let mut closure_to_extend = None;
 
@@ -985,7 +986,9 @@ fn reduce_with_witness_inner<F: LurkField>(
                         let args = rest;
 
                         // NOTE: Any Coprocessor found will take precedence, which means coprocessor bindings cannot be shadowed.
-                        if let Some(coprocessor) = lang.lookup(store, head) {
+                        if let Some((coprocessor, _scalar_ptr)) = lang.lookup(store, head) {
+                            let (_arg, _more_args) = car_cdr_named!(ConsName::ExprCdr, &args)?;
+
                             let IO { expr, env, cont } =
                                 coprocessor.evaluate(store, args, env, cont);
 
@@ -1061,13 +1064,13 @@ fn reduce_with_witness_inner<F: LurkField>(
     ))
 }
 
-fn reduce_with_witness<F: LurkField>(
+fn reduce_with_witness<F: LurkField, C: Coprocessor<F>>(
     expr: Ptr<F>,
     env: Ptr<F>,
     cont: ContPtr<F>,
     store: &mut Store<F>,
     c: &NamedConstants<F>,
-    lang: &Lang<'_, F>,
+    lang: &Lang<F, C>,
 ) -> Result<(Control<F>, Witness<F>), ReductionError> {
     let cons_witness = &mut ConsWitness::<F>::new_dummy();
     let cont_witness = &mut ContWitness::<F>::new_dummy();

@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
@@ -27,7 +28,8 @@ use crate::circuit::circuit_frame::constraints::{
 };
 use crate::circuit::gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness};
 use crate::circuit::ToInputs;
-use crate::eval::{Frame, Witness, IO};
+use crate::coprocessor::Coprocessor;
+use crate::eval::{lang::Lang, Frame, Witness, IO};
 use crate::hash_witness::HashWitness;
 use crate::proof::Provable;
 use crate::store::{Ptr, Store, Thunk};
@@ -37,46 +39,53 @@ use num_integer::Integer;
 use num_traits::FromPrimitive;
 
 #[derive(Clone, Copy, Debug)]
-pub struct CircuitFrame<'a, F: LurkField, T, W> {
+pub struct CircuitFrame<'a, F: LurkField, T, W, C: Coprocessor<F>> {
     pub store: Option<&'a Store<F>>,
     pub input: Option<T>,
     pub output: Option<T>,
     pub witness: Option<W>,
+    _p: PhantomData<C>,
 }
 
 #[derive(Clone)]
-pub struct MultiFrame<'a, F: LurkField, T: Copy, W> {
+pub struct MultiFrame<'a, F: LurkField, T: Copy, W, C: Coprocessor<F>> {
     pub store: Option<&'a Store<F>>,
+    pub lang: Option<&'a Lang<F, C>>,
     pub input: Option<T>,
     pub output: Option<T>,
-    pub frames: Option<Vec<CircuitFrame<'a, F, T, W>>>,
+    pub frames: Option<Vec<CircuitFrame<'a, F, T, W, C>>>,
     pub count: usize,
 }
 
-impl<'a, F: LurkField, T: Clone + Copy, W: Copy> CircuitFrame<'a, F, T, W> {
+impl<'a, F: LurkField, T: Clone + Copy, W: Copy, C: Coprocessor<F>> CircuitFrame<'a, F, T, W, C> {
     pub fn blank() -> Self {
         Self {
             store: None,
             input: None,
             output: None,
             witness: None,
+            _p: Default::default(),
         }
     }
 
-    pub fn from_frame(frame: &Frame<T, W>, store: &'a Store<F>) -> Self {
+    pub fn from_frame(frame: &Frame<T, W, C>, store: &'a Store<F>) -> Self {
         CircuitFrame {
             store: Some(store),
             input: Some(frame.input),
             output: Some(frame.output),
             witness: Some(frame.witness),
+            _p: Default::default(),
         }
     }
 }
 
-impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFrame<'a, F, T, W> {
-    pub fn blank(count: usize) -> Self {
+impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coprocessor<F>>
+    MultiFrame<'a, F, T, W, C>
+{
+    pub fn blank(count: usize, lang: &'a Lang<F, C>) -> Self {
         Self {
             store: None,
+            lang: Some(lang),
             input: None,
             output: None,
             frames: None,
@@ -92,7 +101,12 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
         self.count
     }
 
-    pub fn from_frames(count: usize, frames: &[Frame<T, W>], store: &'a Store<F>) -> Vec<Self> {
+    pub fn from_frames(
+        count: usize,
+        frames: &[Frame<T, W, C>],
+        store: &'a Store<F>,
+        lang: &'a Lang<F, C>,
+    ) -> Vec<Self> {
         // `count` is the number of `Frames` to include per `MultiFrame`.
         let total_frames = frames.len();
         let n = total_frames / count + (total_frames % count != 0) as usize;
@@ -107,11 +121,14 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
             }
 
             let last_frame = chunk.last().expect("chunk must not be empty");
-            let last_circuit_frame = *inner_frames.last().expect("chunk must not be empty");
+            let last_circuit_frame = inner_frames
+                .last()
+                .expect("chunk must not be empty")
+                .clone();
 
             // Fill out the MultiFrame, if needed, and capture output of the final actual frame.
             for _ in chunk.len()..count {
-                inner_frames.push(last_circuit_frame);
+                inner_frames.push(last_circuit_frame.clone());
             }
 
             let output = last_frame.output;
@@ -119,6 +136,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
 
             let mf = MultiFrame {
                 store: Some(store),
+                lang: Some(lang),
                 input: Some(chunk[0].input),
                 output: Some(output),
                 frames: Some(inner_frames),
@@ -134,12 +152,13 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
     /// Make a dummy `MultiFrame`, duplicating `self`'s final `CircuitFrame`.
     pub(crate) fn make_dummy(
         count: usize,
-        circuit_frame: Option<CircuitFrame<'a, F, T, W>>,
+        circuit_frame: Option<CircuitFrame<'a, F, T, W, C>>,
         store: &'a Store<F>,
+        lang: &'a Lang<F, C>,
     ) -> Self {
         let (frames, input, output) = if let Some(circuit_frame) = circuit_frame {
             (
-                Some(vec![circuit_frame; count]),
+                Some(vec![circuit_frame.clone(); count]),
                 circuit_frame.input,
                 circuit_frame.output,
             )
@@ -148,6 +167,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
         };
         Self {
             store: Some(store),
+            lang: Some(lang),
             input,
             output,
             frames,
@@ -162,7 +182,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
         input_expr: AllocatedPtr<F>,
         input_env: AllocatedPtr<F>,
         input_cont: AllocatedContPtr<F>,
-        frames: &[CircuitFrame<'_, F, IO<F>, Witness<F>>],
+        frames: &[CircuitFrame<'_, F, IO<F>, Witness<F>, C>],
         g: &GlobalAllocations<F>,
     ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
         let acc = (input_expr, input_env, input_cont);
@@ -202,26 +222,31 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy> MultiFram
                         "cont mismatch"
                     );
                 };
-                (i + 1, frame.synthesize(cs, i, allocated_io, g).unwrap())
+                (
+                    i + 1,
+                    frame
+                        .synthesize(cs, i, allocated_io, self.lang.expect("Lang missing"), g)
+                        .unwrap(),
+                )
             });
 
         (new_expr, new_env, new_cont)
     }
 }
 
-impl<F: LurkField, T: PartialEq + Debug, W> CircuitFrame<'_, F, T, W> {
+impl<F: LurkField, T: PartialEq + Debug, W, C: Coprocessor<F>> CircuitFrame<'_, F, T, W, C> {
     pub fn precedes(&self, maybe_next: &Self) -> bool {
         self.output == maybe_next.input
     }
 }
 
-impl<F: LurkField, T: PartialEq + Debug + Copy, W> MultiFrame<'_, F, T, W> {
+impl<F: LurkField, T: PartialEq + Debug + Copy, W, C: Coprocessor<F>> MultiFrame<'_, F, T, W, C> {
     pub fn precedes(&self, maybe_next: &Self) -> bool {
         self.output == maybe_next.input
     }
 }
 
-impl<F: LurkField, W: Copy> Provable<F> for MultiFrame<'_, F, IO<F>, W> {
+impl<F: LurkField, W: Copy, C: Coprocessor<F>> Provable<F> for MultiFrame<'_, F, IO<F>, W, C> {
     fn public_inputs(&self) -> Vec<F> {
         let mut inputs: Vec<_> = Vec::with_capacity(Self::public_input_size());
 
@@ -251,12 +276,13 @@ impl<F: LurkField, W: Copy> Provable<F> for MultiFrame<'_, F, IO<F>, W> {
 
 type AllocatedIO<F> = (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>);
 
-impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
+impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, IO<F>, Witness<F>, C> {
     pub(crate) fn synthesize<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         i: usize,
         inputs: AllocatedIO<F>,
+        lang: &Lang<F, C>,
         g: &GlobalAllocations<F>,
     ) -> Result<AllocatedIO<F>, SynthesisError> {
         let (input_expr, input_env, input_cont) = inputs;
@@ -292,6 +318,7 @@ impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
                 &mut allocated_cons_witness,
                 &mut allocated_cont_witness,
                 store,
+                lang,
                 g,
             )
         };
@@ -306,14 +333,14 @@ impl<F: LurkField> CircuitFrame<'_, F, IO<F>, Witness<F>> {
     }
 }
 
-impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
+impl<F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>, C> {
     fn synthesize<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         ////////////////////////////////////////////////////////////////////////////////
         // Bind public inputs.
         //
         // Initial input:
         let mut synth = |store,
-                         frames: &[CircuitFrame<'_, F, IO<F>, Witness<F>>],
+                         frames: &[CircuitFrame<'_, F, IO<F>, Witness<F>, C>],
                          input: Option<IO<F>>,
                          output: Option<IO<F>>| {
             let input_expr = AllocatedPtr::bind_input(
@@ -360,16 +387,6 @@ impl<F: LurkField> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>> {
 
             let (new_expr, new_env, new_cont) =
                 self.synthesize_frames(cs, store, input_expr, input_env, input_cont, frames, &g);
-
-            // dbg!(
-            //     (&new_expr, &output_expr),
-            //     new_expr.fetch_and_write_str(store),
-            //     output_expr.fetch_and_write_str(store),
-            //     (&new_env, &output_env),
-            //     (&new_cont, &output_cont),
-            //     new_cont.fetch_and_write_cont_str(store),
-            //     output_cont.fetch_and_write_cont_str(store),
-            // );
 
             output_expr.enforce_equal(
                 &mut cs.namespace(|| "outer output expr is correct"),
@@ -660,7 +677,7 @@ impl<'a, F: LurkField> CompResults<'a, F> {
     }
 }
 
-fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
+fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     cs: &mut CS,
     expr: &AllocatedPtr<F>,
     env: &AllocatedPtr<F>,
@@ -669,6 +686,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
     allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
     allocated_cont_witness: &mut AllocatedContWitness<'_, F>,
     store: &Store<F>,
+    lang: &Lang<F, C>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
     // dbg!("reduce_expression");
@@ -765,6 +783,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>>(
         allocated_cons_witness,
         allocated_cont_witness,
         store,
+        lang,
         g,
     )?;
 
@@ -1260,7 +1279,7 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
     Ok((output_expr, output_env, output_cont, apply_cont_num))
 }
 
-fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
+fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     cs: &mut CS,
     expr: &AllocatedPtr<F>,
     env: &AllocatedPtr<F>,
@@ -1270,6 +1289,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
     allocated_cont_witness: &mut AllocatedContWitness<'_, F>,
     store: &Store<F>,
+    lang: &Lang<F, C>,
     g: &GlobalAllocations<F>,
 ) -> Result<
     (
@@ -1388,6 +1408,25 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     let head_is_current_env = and!(cs, &head_is_current_env0, &head_is_a_sym)?;
     let head_is_if = and!(cs, &head_is_if0, &head_is_a_sym)?;
 
+    let mut head_is_coprocessor_bools = Vec::with_capacity(lang.coprocessors().len());
+
+    for (sym, (_coproc, scalar_ptr)) in lang.coprocessors().iter() {
+        let cs = &mut cs.namespace(|| format!("head is {}", sym.full_name()));
+
+        let allocated_boolean = head.alloc_hash_equal(cs, *scalar_ptr.value())?;
+
+        head_is_coprocessor_bools.push(allocated_boolean);
+    }
+
+    let head_is_coprocessor = if head_is_coprocessor_bools.is_empty() {
+        Boolean::Constant(false)
+    } else {
+        constraints::or_v(
+            &mut cs.namespace(|| "head_is_coprocessor"),
+            &head_is_coprocessor_bools.iter().collect::<Vec<_>>(),
+        )?
+    };
+
     // This should enumerate all symbols, and it's important that each of these groups (some of which cover only one
     // symbol) also enforce that `head_is_a_sym`. Otherwise, expressions mimicking the symbol value can wreak havoc. See
     // `test_prove_head_with_sym_mimicking_value` in nova.rs and ensure it remains in sync with this code.
@@ -1399,7 +1438,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
         &head_is_current_env,
         &head_is_let_or_letrec,
         &head_is_unop,
-        &head_is_binop
+        &head_is_binop,
+        &head_is_coprocessor
     )?;
 
     let head_potentially_fun_type = or!(cs, &head_is_a_sym, &head_is_a_cons, &head_is_fun)?;
@@ -2572,6 +2612,55 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>>(
     // head == IF, newer_cont is allocated
     /////////////////////////////////////////////////////////////////////////////
     results.add_clauses_cons(c.if_.value(), &arg1, env, &newer_cont, &g.false_num);
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // HEAD == some Coprocessor's associated name.
+    //
+    // NOTE: This means that Coprocessors must not conflict with built-in operators, and cannot be shadowed by lexical bindings.
+    // The latter also means that all Coprocessor invocations only require 1 iteration.
+
+    let mut coprocessor_results = Vec::new();
+
+    {
+        if !lang.coprocessors().is_empty() {
+            let max_coprocessor_arity = lang.max_coprocessor_arity();
+
+            let (inputs, actual_length) = destructure_list(
+                &mut cs.namespace(|| "coprocessor inputs"),
+                store,
+                g,
+                max_coprocessor_arity,
+                &rest,
+            )?;
+
+            for (sym, (coproc, scalar_ptr)) in lang.coprocessors().iter() {
+                let cs = &mut cs.namespace(|| format!("{} coprocessor", sym.full_name()));
+
+                let arity = coproc.arity();
+
+                let arity_is_correct = alloc_equal_const(
+                    &mut cs.namespace(|| "arity_is_correct"),
+                    &actual_length,
+                    F::from(arity as u64),
+                )?;
+
+                let (result_expr, result_env, result_cont) =
+                    coproc.synthesize(cs, store, &inputs[..arity], env, cont)?;
+
+                let new_expr = pick_ptr!(cs, &arity_is_correct, &result_expr, &rest)?; // TODO: The error case should probably be expr, but this is harder in straight evaluation atm.
+                let new_env = pick_ptr!(cs, &arity_is_correct, &result_env, &env)?;
+                let new_cont =
+                    pick_cont_ptr!(cs, &arity_is_correct, &result_cont, &g.error_ptr_cont)?;
+
+                // We can't just call `results.add_clauses_cons` here because of lifetime issues.
+                coprocessor_results.push((scalar_ptr, new_expr, new_env, new_cont));
+            }
+        }
+    }
+
+    for c in &coprocessor_results {
+        results.add_clauses_cons(*c.0.value(), &c.1, &c.2, &c.3, &g.false_num);
+    }
 
     let is_zero_arg_call = rest_is_nil;
 
@@ -5116,6 +5205,110 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
     )
 }
 
+fn destructure_list<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    store: &Store<F>,
+    g: &GlobalAllocations<F>,
+    n: usize,
+    list: &AllocatedPtr<F>,
+) -> Result<(Vec<AllocatedPtr<F>>, AllocatedNum<F>), SynthesisError> {
+    let mut elements = Vec::with_capacity(n);
+
+    let actual_length = destructure_list_aux(cs, store, g, n, list, &mut elements, &g.false_num)?;
+
+    Ok((elements, actual_length))
+}
+
+fn destructure_list_aux<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    store: &Store<F>,
+    g: &GlobalAllocations<F>,
+    n: usize,
+    list: &AllocatedPtr<F>,
+    elements: &mut Vec<AllocatedPtr<F>>,
+    length_so_far: &AllocatedNum<F>,
+) -> Result<AllocatedNum<F>, SynthesisError> {
+    let is_cons = alloc_equal(&mut cs.namespace(|| "is_cons"), list.tag(), &g.cons_tag)?;
+    let increment = boolean_to_num(&mut cs.namespace(|| "increment"), &is_cons)?;
+
+    let new_length_so_far = add(
+        &mut cs.namespace(|| "new_length_so_far"),
+        &increment,
+        length_so_far,
+    )?;
+
+    if n == 0 {
+        return Ok(new_length_so_far.clone());
+    };
+
+    let (element, tail) = car_cdr(
+        &mut cs.namespace(|| format!("element-{}", n)),
+        g,
+        list,
+        store,
+        &is_cons,
+    )?;
+
+    elements.push(element);
+
+    destructure_list_aux(
+        &mut cs.namespace(|| format!("tail-{}", n)),
+        store,
+        g,
+        n - 1,
+        &tail,
+        elements,
+        &new_length_so_far,
+    )
+}
+
+fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    g: &GlobalAllocations<F>,
+    maybe_cons: &AllocatedPtr<F>,
+    store: &Store<F>,
+    not_dummy: &Boolean,
+) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>), SynthesisError> {
+    let (car, cdr) = if let Some(ptr) = maybe_cons.ptr(store).as_ref() {
+        if not_dummy.get_value().expect("not_dummy is missing") {
+            store
+                .car_cdr(ptr)
+                .map_err(|_| SynthesisError::AssignmentMissing)?
+        } else {
+            (store.get_nil(), store.get_nil())
+        }
+    } else {
+        (store.get_nil(), store.get_nil())
+    };
+
+    let allocated_car = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "car"), store, || Ok(&car))?;
+    let allocated_cdr = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "cdr"), store, || Ok(&cdr))?;
+
+    let constructed_cons = AllocatedPtr::construct_cons(
+        &mut cs.namespace(|| "cons"),
+        g,
+        store,
+        &allocated_car,
+        &allocated_cdr,
+    )?;
+
+    let real_cons = alloc_equal(
+        &mut cs.namespace(|| "cons is real"),
+        maybe_cons.hash(),
+        constructed_cons.hash(),
+    )?;
+
+    // If `maybe_cons` is not a cons, then it is dummy. No check is necessary.
+    // Otherwise, we must enforce equality of hashes.
+    enforce_implication(
+        &mut cs.namespace(|| "is cons implies real cons"),
+        not_dummy,
+        &real_cons,
+    )?;
+
+    Ok((allocated_car, allocated_cdr))
+}
+
 /// Prints out the full CS for debugging purposes
 #[allow(dead_code)]
 pub(crate) fn print_cs<F: LurkField, C: Comparable<F>>(this: &C) -> String {
@@ -5145,9 +5338,13 @@ pub(crate) fn print_cs<F: LurkField, C: Comparable<F>>(this: &C) -> String {
 mod tests {
     use super::*;
     use crate::circuit::circuit_frame::constraints::{popcount, sub};
-    use crate::eval::{empty_sym_env, lang::Lang, Evaluable, IO};
-    use crate::proof::Provable;
-    use crate::proof::{groth16::Groth16Prover, Prover};
+    use crate::eval::{
+        empty_sym_env,
+        lang::{Coproc, Lang},
+        Evaluable, IO,
+    };
+    use crate::proof::groth16::Groth16Prover;
+    use crate::proof::{Provable, Prover};
     use crate::store::Store;
     use bellperson::groth16;
     use bellperson::util_cs::{
@@ -5170,11 +5367,16 @@ mod tests {
             env,
             cont: store.intern_cont_outermost(),
         };
-        let lang = Lang::new();
+        let lang = Lang::<Fr, Coproc<Fr>>::new();
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
 
-        let public_params = Groth16Prover::create_groth_params(DEFAULT_REDUCTION_COUNT).unwrap();
-        let groth_prover = Groth16Prover::new(DEFAULT_REDUCTION_COUNT, &lang);
+        let public_params = Groth16Prover::<Bls12, Coproc<Fr>, Fr>::create_groth_params(
+            DEFAULT_REDUCTION_COUNT,
+            &lang,
+        )
+        .unwrap();
+        let groth_prover =
+            Groth16Prover::<Bls12, Coproc<Fr>, Fr>::new(DEFAULT_REDUCTION_COUNT, lang.clone());
         let groth_params = &public_params.0;
 
         let vk = &groth_params.vk;
@@ -5185,8 +5387,10 @@ mod tests {
             let mut cs = TestConstraintSystem::new();
 
             let mut cs_blank = MetricCS::<Fr>::new();
-            let blank_multiframe =
-                MultiFrame::<<Bls12 as Engine>::Fr, _, _>::blank(DEFAULT_REDUCTION_COUNT);
+            let blank_multiframe = MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::blank(
+                DEFAULT_REDUCTION_COUNT,
+                &lang,
+            );
 
             blank_multiframe
                 .synthesize(&mut cs_blank)
@@ -5199,8 +5403,10 @@ mod tests {
                     output,
                     i: 0,
                     witness,
+                    _p: Default::default(),
                 }],
                 store,
+                &lang,
             );
 
             let multiframe = &multiframes[0];
@@ -5297,7 +5503,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let lang = Lang::new();
+        let lang = Lang::<Fr, Coproc<Fr>>::new();
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
         store.hydrate_scalar_cache();
 
@@ -5309,12 +5515,14 @@ mod tests {
                 output,
                 i: 0,
                 witness,
+                _p: Default::default(),
             };
 
-            MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
+            MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
+                &lang,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5376,7 +5584,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let lang = Lang::new();
+        let lang = Lang::<Fr, Coproc<Fr>>::new();
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
         store.hydrate_scalar_cache();
 
@@ -5388,12 +5596,14 @@ mod tests {
                 output,
                 i: 0,
                 witness,
+                _p: Default::default(),
             };
 
-            MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
+            MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
+                &lang,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5455,7 +5665,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let lang = Lang::new();
+        let lang = Lang::<Fr, Coproc<Fr>>::new();
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
 
         store.hydrate_scalar_cache();
@@ -5468,12 +5678,14 @@ mod tests {
                 output,
                 i: 0,
                 witness,
+                _p: Default::default(),
             };
 
-            MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
+            MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
+                &lang,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5536,7 +5748,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let lang = Lang::new();
+        let lang = Lang::<Fr, Coproc<Fr>>::new();
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
 
         store.hydrate_scalar_cache();
@@ -5549,12 +5761,14 @@ mod tests {
                 output,
                 i: 0,
                 witness,
+                _p: Default::default(),
             };
 
-            MultiFrame::<<Bls12 as Engine>::Fr, _, _>::from_frames(
+            MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
+                &lang,
             )[0]
             .clone()
             .synthesize(&mut cs)

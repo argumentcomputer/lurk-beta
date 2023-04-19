@@ -8,7 +8,11 @@ use fcomm::{
     public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, Id, LurkCont,
     LurkPtr, NovaProofCache, Opening, Proof, PtrEvaluation,
 };
-use lurk::eval::{lang::Lang, Evaluable, Status, IO};
+use lurk::coprocessor::Coprocessor;
+use lurk::eval::{
+    lang::{Coproc, Lang},
+    Evaluable, Status, Witness, IO,
+};
 use lurk::field::LurkField;
 use lurk::package::Package;
 use lurk::proof::{nova::NovaProver, Prover};
@@ -88,8 +92,8 @@ impl Demo {
     }
 }
 
-pub struct ClutchState<F: LurkField> {
-    repl_state: ReplState<F>,
+pub struct ClutchState<F: LurkField, C: Coprocessor<F>> {
+    repl_state: ReplState<F, C>,
     reduction_count: usize,
     history: Vec<IO<F>>,
     proof_map: NovaProofCache,
@@ -100,18 +104,18 @@ pub struct ClutchState<F: LurkField> {
 
 type F = pallas::Scalar;
 
-impl<F: LurkField> ClutchState<F> {
+impl<F: LurkField, C: Coprocessor<F>> ClutchState<F, C> {
     fn base_prompt() -> String {
         "\n!> ".into()
     }
 }
 
-impl ReplTrait<F> for ClutchState<F> {
+impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
     fn new(
         s: &mut Store<F>,
         limit: usize,
         command: Option<Command>,
-        lang: Lang<'static, F>,
+        lang: Lang<F, Coproc<F>>,
     ) -> Self {
         let reduction_count = DEFAULT_REDUCTION_COUNT;
 
@@ -158,7 +162,7 @@ impl ReplTrait<F> for ClutchState<F> {
     }
 
     fn command() -> Command {
-        ReplState::<F>::command().arg(
+        ReplState::<F, Coproc<F>>::command().arg(
             Arg::new("demo")
                 .long("demo")
                 .value_parser(clap::builder::NonEmptyStringValueParser::new())
@@ -251,7 +255,8 @@ impl ReplTrait<F> for ClutchState<F> {
             expr_out: LurkPtr::from_ptr(store, &output.expr),
             env_out: LurkPtr::from_ptr(store, &output.env),
             cont_out: LurkCont::from_cont_ptr(store, &output.cont),
-            status: output.status(),
+            status: <lurk::eval::IO<F> as Evaluable<F, Witness<F>, Coproc<F>>>::status(&output),
+
             iterations: None,
         });
 
@@ -261,14 +266,14 @@ impl ReplTrait<F> for ClutchState<F> {
     }
 }
 
-impl<F: LurkField> ClutchState<F> {
+impl<F: LurkField, C: Coprocessor<F>> ClutchState<F, C> {
     fn hist(&self, n: usize) -> Option<&IO<F>> {
         self.history.get(n)
     }
 }
 
-impl ClutchState<F> {
-    fn lang(&self) -> &Lang<'static, F> {
+impl ClutchState<F, Coproc<F>> {
+    fn lang(&self) -> &Lang<F, Coproc<F>> {
         &self.repl_state.lang
     }
     fn commit(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
@@ -485,7 +490,7 @@ impl ClutchState<F> {
     fn prove(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (proof_in_expr, _rest1) = store.car_cdr(&rest)?;
 
-        let prover = NovaProver::<F>::new(self.reduction_count, self.lang());
+        let prover = NovaProver::<F, Coproc<F>>::new(self.reduction_count, self.lang().clone());
         let pp = public_params(self.reduction_count)?;
 
         let proof = if rest.is_nil() {

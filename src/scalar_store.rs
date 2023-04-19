@@ -350,7 +350,10 @@ pub enum ScalarContinuation<F: LurkField> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::eval::{empty_sym_env, lang::Lang};
+    use crate::eval::{
+        empty_sym_env,
+        lang::{Coproc, Lang},
+    };
 
     use blstrs::Scalar as Fr;
 
@@ -486,7 +489,7 @@ mod test {
             s.hydrate_scalar_cache();
 
             let env = empty_sym_env(&s);
-            let lang = Lang::new();
+            let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
             let mut eval = eval::Evaluator::new(expr, env, &mut s, 100, &lang);
             let (
                 eval::IO {
