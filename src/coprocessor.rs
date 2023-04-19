@@ -90,8 +90,6 @@ pub(crate) mod test {
             use crate::writer::Write;
             let x = s.intern_num(result);
 
-            dbg!(x.fmt_to_string(s));
-
             return x;
         }
     }
