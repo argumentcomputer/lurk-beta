@@ -157,14 +157,10 @@ impl<C: Coprocessor<S1>> NovaProver<S1, C> {
         lang: &'a Lang<S1, C>,
     ) -> Result<(Proof<'_, C>, Vec<S1>, Vec<S1>, usize), ProofError> {
         let frames = self.get_evaluation_frames(expr, env, store, limit, lang)?;
-
-        dbg!(&store.sym_store.all_strings());
-
         let z0 = frames[0].input.to_vector(store)?;
         let zi = frames.last().unwrap().output.to_vector(store)?;
         let circuits = MultiFrame::from_frames(self.reduction_count(), &frames, store, lang);
         let num_steps = circuits.len();
-        dbg!(&store.sym_store.all_strings());
         let proof =
             Proof::prove_recursively(pp, store, &circuits, self.reduction_count, z0.clone(), lang)?;
 
@@ -375,8 +371,6 @@ mod tests {
         expected_iterations: usize,
         lang: Option<&Lang<Fr, C>>,
     ) {
-        dbg!(expr);
-
         for chunk_size in REDUCTION_COUNTS_TO_TEST {
             nova_test_full_aux(
                 s,
@@ -487,16 +481,20 @@ mod tests {
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize blank");
 
-        for (i, multiframe) in multiframes.iter().enumerate() {
+        for (_i, multiframe) in multiframes.iter().enumerate() {
             let mut cs = TestConstraintSystem::new();
             multiframe.clone().synthesize(&mut cs).unwrap();
 
             if let Some(prev) = previous_frame {
                 assert!(prev.precedes(multiframe));
+            };
+            // dbg!(i);
+            let unsat = cs.which_is_unsatisfied();
+            if unsat.is_some() {
+                // For some reason, this isn't getting printed from within the implementation as expected.
+                // Since we always want to know this information, if the condition occurs, just print it here.
+                dbg!(unsat);
             }
-
-            dbg!(i);
-            dbg!(cs.which_is_unsatisfied());
             assert!(cs.is_satisfied());
             assert!(cs.verify(&multiframe.public_inputs()));
 
