@@ -1421,7 +1421,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     let head_is_coprocessor = if head_is_coprocessor_bools.is_empty() {
         Boolean::Constant(false)
     } else {
-        constraints::or_v(
+        constraints::or_v_unchecked_for_optimization(
             &mut cs.namespace(|| "head_is_coprocessor"),
             &head_is_coprocessor_bools.iter().collect::<Vec<_>>(),
         )?
