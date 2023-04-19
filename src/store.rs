@@ -1422,7 +1422,6 @@ impl<F: LurkField> Store<F> {
         if let Some(ptr) = self.sym_store.0.get(&symbol_name) {
             Ptr(tag, RawPtr::new(ptr.to_usize()))
         } else {
-            dbg!(&symbol_name);
             let ptr = self.sym_store.0.get(symbol_name).unwrap();
             Ptr(tag, RawPtr::new(ptr.to_usize()))
         }
@@ -2572,7 +2571,6 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_sym_and_ancestors(&mut self, sym: &Sym) -> Option<Ptr<F>> {
-        dbg!(&sym, &sym.full_name());
         if let Some(s) = sym.parent() {
             if !s.is_root() {
                 self.intern_sym_and_ancestors(&s);
