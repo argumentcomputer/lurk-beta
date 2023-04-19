@@ -108,9 +108,11 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
     }
 
     pub fn max_coprocessor_arity(&self) -> usize {
-        let c: Option<&(C, _)> = self.coprocessors.values().max_by_key(|(c, _)| c.arity());
-
-        c.map(|(c, _)| c.arity()).unwrap_or(0)
+        self.coprocessors
+            .values()
+            .map(|(c, _)| c.arity())
+            .max()
+            .unwrap_or(0)
     }
 
     pub fn lookup(&self, s: &Store<F>, name: Ptr<F>) -> Option<&(C, ScalarPtr<F>)> {
