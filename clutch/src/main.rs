@@ -2,6 +2,7 @@ use anyhow::Result;
 
 use clutch::ClutchState;
 
+use lurk::eval::lang::{Coproc, Lang};
 use lurk::field::LanguageField;
 use lurk::proof::nova;
 use lurk::repl::repl_cli;
@@ -22,7 +23,11 @@ fn main() -> Result<()> {
     };
 
     match field {
-        LanguageField::Pallas => repl_cli::<nova::S1, ClutchState<nova::S1>>(),
+        LanguageField::Pallas => repl_cli::<
+            nova::S1,
+            ClutchState<nova::S1, Coproc<nova::S1>>,
+            Coproc<nova::S1>,
+        >(Lang::<nova::S1, Coproc<nova::S1>>::new()),
         _ => panic!("unsupported field"),
     }
 }

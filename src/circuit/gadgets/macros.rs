@@ -39,7 +39,7 @@ macro_rules! pick {
         let c = $c;
         let cs = $cs.namespace(|| {
             format!(
-                "ifx {} {} {}",
+                "if {} {} {}",
                 stringify!($a),
                 stringify!($b),
                 stringify!($c)
@@ -56,13 +56,30 @@ macro_rules! pick_ptr {
         let c = $c;
         let cs = $cs.namespace(|| {
             format!(
-                "ifx_t {} {} {}",
+                "if {} {} {}",
                 stringify!($a),
                 stringify!($b),
                 stringify!($c)
             )
         });
         AllocatedPtr::pick(cs, a, b, c)
+    }};
+}
+
+macro_rules! pick_cont_ptr {
+    ($cs:ident, $a:expr, $b:expr, $c:expr) => {{
+        let a = $a;
+        let b = $b;
+        let c = $c;
+        let cs = $cs.namespace(|| {
+            format!(
+                "if {} {} {}",
+                stringify!($a),
+                stringify!($b),
+                stringify!($c)
+            )
+        });
+        AllocatedContPtr::pick(cs, a, b, c)
     }};
 }
 

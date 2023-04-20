@@ -559,7 +559,7 @@ pub(crate) fn alloc_num_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
 }
 
 pub(crate) fn or_v<CS: ConstraintSystem<F>, F: PrimeField>(
-    mut cs: CS,
+    cs: CS,
     v: &[&Boolean],
 ) -> Result<Boolean, SynthesisError> {
     assert!(
@@ -567,6 +567,13 @@ pub(crate) fn or_v<CS: ConstraintSystem<F>, F: PrimeField>(
         "with less than 4 elements, or_v is more expensive than repeated or"
     );
 
+    or_v_unchecked_for_optimization(cs, v)
+}
+
+pub(crate) fn or_v_unchecked_for_optimization<CS: ConstraintSystem<F>, F: PrimeField>(
+    mut cs: CS,
+    v: &[&Boolean],
+) -> Result<Boolean, SynthesisError> {
     // Count the number of true values in v.
     let count_true = v.iter().fold(Num::zero(), |acc, b| {
         acc.add_bool_with_coeff(CS::one(), b, F::one())

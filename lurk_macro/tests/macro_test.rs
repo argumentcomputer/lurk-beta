@@ -1,8 +1,14 @@
 #[cfg(test)]
 mod test {
     use blstrs::Scalar as Fr;
-    use lurk::{eval::IO, store::Store};
+    use lurk::{
+        eval::lang::{Coproc, Lang},
+        eval::IO,
+        store::Store,
+    };
     use lurk_macro::{let_store, lurk};
+
+    type TestLang = Lang<Fr, Coproc<Fr>>;
 
     #[test]
     fn test_let_store() {
@@ -62,6 +68,8 @@ mod test {
                           ((exp 5) 3)))
         .unwrap();
 
+        let lang: TestLang = Lang::new();
+
         let (
             IO {
                 expr: result_expr,
@@ -70,7 +78,7 @@ mod test {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit)
+        ) = Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit, &lang)
             .eval()
             .unwrap();
 
@@ -85,6 +93,7 @@ mod test {
         let limit = 20;
         let val = s_.num(123);
         let expr = lurk!(((lambda (x) x) 123)).unwrap();
+        let lang: TestLang = Lang::new();
 
         let (
             IO {
@@ -94,7 +103,7 @@ mod test {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit)
+        ) = Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit, &lang)
             .eval()
             .unwrap();
 

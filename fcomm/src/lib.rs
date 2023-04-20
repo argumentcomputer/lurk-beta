@@ -21,7 +21,11 @@ use libipld::{
 };
 use lurk::{
     circuit::ToInputs,
-    eval::{empty_sym_env, Evaluable, Evaluator, Status, IO},
+    eval::{
+        empty_sym_env,
+        lang::{Coproc, Lang},
+        Evaluable, Evaluator, Status, Witness, IO,
+    },
     field::LurkField,
     proof::nova::{self, NovaProver, PublicParams},
     proof::Prover,
@@ -72,18 +76,24 @@ pub fn committed_expression_store() -> CommittedExpressionMap {
     FileMap::<Commitment<S1>, CommittedExpression<S1>>::new("committed_expressions").unwrap()
 }
 
-pub type PublicParamMemCache = Mutex<HashMap<usize, Arc<PublicParams<'static>>>>;
+pub type PublicParamMemCache = Mutex<HashMap<usize, Arc<PublicParams<'static, Coproc<S1>>>>>;
 fn public_param_mem_cache() -> &'static PublicParamMemCache {
     static CACHE: OnceCell<PublicParamMemCache> = OnceCell::new();
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-pub type PublicParamDiskCache = FileMap<String, PublicParams<'static>>;
+pub type PublicParamDiskCache = FileMap<String, PublicParams<'static, Coproc<S1>>>;
 fn public_param_disk_cache() -> PublicParamDiskCache {
     FileMap::new("public_params").unwrap()
 }
 
-pub fn public_params(rc: usize) -> Result<Arc<PublicParams<'static>>, Error> {
+pub fn lang<'a>() -> &'a Lang<S1, Coproc<S1>> {
+    static LANG: OnceCell<Lang<S1, Coproc<S1>>> = OnceCell::new();
+
+    LANG.get_or_init(Lang::<S1, Coproc<S1>>::new)
+}
+
+pub fn public_params(rc: usize) -> Result<Arc<PublicParams<'static, Coproc<S1>>>, Error> {
     let mut mem_cache = public_param_mem_cache().lock().unwrap();
     match mem_cache.get(&rc) {
         Some(pp) => Ok(pp.clone()),
@@ -96,7 +106,8 @@ pub fn public_params(rc: usize) -> Result<Arc<PublicParams<'static>>, Error> {
                 mem_cache.insert(rc, pp.clone());
                 Ok(pp)
             } else {
-                let pp = Arc::new(nova::public_params(rc));
+                let lang = lang();
+                let pp = Arc::new(nova::public_params(rc, lang));
                 mem_cache.insert(rc, pp.clone());
                 disk_cache
                     .set(key, &pp)
@@ -272,7 +283,7 @@ pub struct VerificationResult {
 #[derive(Serialize, Deserialize)]
 pub struct Proof<'a, F: LurkField> {
     pub claim: Claim<F>,
-    pub proof: nova::Proof<'a>,
+    pub proof: nova::Proof<'a, Coproc<S1>>,
     pub num_steps: usize,
     pub reduction_count: ReductionCount,
 }
@@ -487,7 +498,8 @@ impl Evaluation {
         limit: usize,
     ) -> Result<Self, Error> {
         let env = empty_sym_env(store);
-        let mut evaluator = Evaluator::new(expr, env, store, limit);
+        let lang = &Lang::<F, Coproc<F>>::new();
+        let mut evaluator = Evaluator::new(expr, env, store, limit, lang);
 
         let input = evaluator.initial();
 
@@ -556,8 +568,9 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
         function: CommittedExpression<F>,
         input: Ptr<F>,
         limit: usize,
+        lang: &Lang<F, Coproc<F>>,
     ) -> Result<(Self, Ptr<F>), Error> {
-        let fun_ptr = function.expr_ptr(s, limit)?;
+        let fun_ptr = function.expr_ptr(s, limit, lang)?;
         let secret = function.secret.expect("CommittedExpression secret missing");
 
         let commitment = Self::from_ptr_and_secret(s, &fun_ptr, secret);
@@ -587,8 +600,13 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
 }
 
 impl<F: LurkField + Serialize + DeserializeOwned> CommittedExpression<F> {
-    pub fn expr_ptr(&self, s: &mut Store<F>, limit: usize) -> Result<Ptr<F>, Error> {
-        let source_ptr = self.expr.ptr(s, limit);
+    pub fn expr_ptr(
+        &self,
+        s: &mut Store<F>,
+        limit: usize,
+        lang: &Lang<F, Coproc<F>>,
+    ) -> Result<Ptr<F>, Error> {
+        let source_ptr = self.expr.ptr(s, limit, lang);
 
         Ok(source_ptr)
     }
@@ -599,11 +617,12 @@ impl LurkPtr {
         &self,
         s: &mut Store<F>,
         limit: usize,
+        lang: &Lang<F, Coproc<F>>,
     ) -> Ptr<F> {
         match self {
             LurkPtr::Source(source) => {
                 let ptr = s.read(source).expect("could not read source");
-                let (out, _) = evaluate(s, ptr, None, limit).unwrap();
+                let (out, _) = evaluate(s, ptr, None, limit, lang).unwrap();
 
                 out.expr
             }
@@ -620,7 +639,7 @@ impl LurkPtr {
                     scalar_ptr,
                 });
 
-                lurk_ptr.ptr(s, limit)
+                lurk_ptr.ptr(s, limit, lang)
             }
             LurkPtr::Ipld(lurk_scalar_ipld) => {
                 // FIXME: put the scalar_store in a new field for the store.
@@ -686,9 +705,10 @@ impl Expression {
         &self,
         s: &mut Store<F>,
         limit: usize,
+        lang: &Lang<F, Coproc<F>>,
     ) -> Result<Ptr<F>, Error> {
-        let expr = self.expr.ptr(s, limit);
-        let (io, _iterations) = evaluate(s, expr, None, limit)?;
+        let expr = self.expr.ptr(s, limit, lang);
+        let (io, _iterations) = evaluate(s, expr, None, limit, lang)?;
 
         Ok(io.expr)
     }
@@ -703,11 +723,20 @@ impl<'a> Opening<S1> {
         limit: usize,
         chain: bool,
         only_use_cached_proofs: bool,
-        nova_prover: &'a NovaProver<S1>,
-        pp: &'a PublicParams,
+        nova_prover: &'a NovaProver<S1, Coproc<S1>>,
+        pp: &'a PublicParams<Coproc<S1>>,
+        lang: &'a Lang<S1, Coproc<S1>>,
     ) -> Result<Proof<'a, S1>, Error> {
-        let claim = Self::apply(s, input, function, limit, chain)?;
-        Proof::prove_claim(s, &claim, limit, only_use_cached_proofs, nova_prover, pp)
+        let claim = Self::apply(s, input, function, limit, chain, lang)?;
+        Proof::prove_claim(
+            s,
+            &claim,
+            limit,
+            only_use_cached_proofs,
+            nova_prover,
+            pp,
+            lang,
+        )
     }
 
     pub fn open_and_prove(
@@ -715,10 +744,11 @@ impl<'a> Opening<S1> {
         request: OpeningRequest<S1>,
         limit: usize,
         only_use_cached_proofs: bool,
-        nova_prover: &'a NovaProver<S1>,
-        pp: &'a PublicParams,
+        nova_prover: &'a NovaProver<S1, Coproc<S1>>,
+        pp: &'a PublicParams<Coproc<S1>>,
+        lang: &'a Lang<S1, Coproc<S1>>,
     ) -> Result<Proof<'a, S1>, Error> {
-        let input = request.input.expr.ptr(s, limit);
+        let input = request.input.expr.ptr(s, limit, lang);
         let commitment = request.commitment;
 
         let function_map = committed_expression_store();
@@ -735,6 +765,7 @@ impl<'a> Opening<S1> {
             only_use_cached_proofs,
             nova_prover,
             pp,
+            lang,
         )
     }
 
@@ -743,8 +774,9 @@ impl<'a> Opening<S1> {
         request: OpeningRequest<S1>,
         limit: usize,
         chain: bool,
+        lang: &Lang<S1, Coproc<S1>>,
     ) -> Result<Claim<S1>, Error> {
-        let input = request.input.expr.ptr(s, limit);
+        let input = request.input.expr.ptr(s, limit, lang);
         let commitment = request.commitment;
 
         let function_map = committed_expression_store();
@@ -752,7 +784,7 @@ impl<'a> Opening<S1> {
             .get(&commitment)
             .ok_or(Error::UnknownCommitment)?;
 
-        Self::apply(s, input, function, limit, chain)
+        Self::apply(s, input, function, limit, chain, lang)
     }
 
     fn _is_chained(&self) -> bool {
@@ -777,10 +809,11 @@ impl<'a> Opening<S1> {
         function: CommittedExpression<S1>,
         limit: usize,
         chain: bool,
+        lang: &Lang<S1, Coproc<S1>>,
     ) -> Result<Claim<S1>, Error> {
         let (commitment, expression) =
-            Commitment::construct_with_fun_application(s, function, input, limit)?;
-        let (public_output, _iterations) = evaluate(s, expression, None, limit)?;
+            Commitment::construct_with_fun_application(s, function, input, limit, lang)?;
+        let (public_output, _iterations) = evaluate(s, expression, None, limit, lang)?;
 
         let (new_commitment, output_expr) = if chain {
             let cons = public_output.expr;
@@ -812,7 +845,8 @@ impl<'a> Opening<S1> {
         };
 
         let input_string = input.fmt_to_string(s);
-        let status = public_output.status();
+        let status =
+            <lurk::eval::IO<S1> as Evaluable<S1, Witness<S1>, Coproc<S1>>>::status(&public_output);
         let output_string = if status.is_terminal() {
             // Only actual output if result is terminal.
             output_expr.fmt_to_string(s)
@@ -836,14 +870,16 @@ impl<'a> Opening<S1> {
 }
 
 impl<'a> Proof<'a, S1> {
+    #[allow(clippy::too_many_arguments)]
     pub fn eval_and_prove(
         s: &'a mut Store<S1>,
         expr: Ptr<S1>,
         supplied_env: Option<Ptr<S1>>,
         limit: usize,
         only_use_cached_proofs: bool,
-        nova_prover: &'a NovaProver<S1>,
-        pp: &'a PublicParams,
+        nova_prover: &'a NovaProver<S1, Coproc<S1>>,
+        pp: &'a PublicParams<Coproc<S1>>,
+        lang: &'a Lang<S1, Coproc<S1>>,
     ) -> Result<Self, Error> {
         let env = supplied_env.unwrap_or_else(|| empty_sym_env(s));
         let cont = s.intern_cont_outermost();
@@ -851,7 +887,7 @@ impl<'a> Proof<'a, S1> {
 
         // TODO: It's a little silly that we evaluate here, but evaluation is also repeated in `NovaProver::evaluate_and_prove()`.
         // Refactor to avoid that.
-        let (public_output, _iterations) = evaluate(s, expr, supplied_env, limit)?;
+        let (public_output, _iterations) = evaluate(s, expr, supplied_env, limit, lang)?;
 
         let claim = if supplied_env.is_some() {
             // This is a bit of a hack, but the idea is that if the env was supplied it's likely to contain a literal function,
@@ -863,7 +899,15 @@ impl<'a> Proof<'a, S1> {
             Claim::Evaluation(evaluation)
         };
 
-        Self::prove_claim(s, &claim, limit, only_use_cached_proofs, nova_prover, pp)
+        Self::prove_claim(
+            s,
+            &claim,
+            limit,
+            only_use_cached_proofs,
+            nova_prover,
+            pp,
+            lang,
+        )
     }
 
     pub fn prove_claim(
@@ -871,8 +915,9 @@ impl<'a> Proof<'a, S1> {
         claim: &Claim<S1>,
         limit: usize,
         only_use_cached_proofs: bool,
-        nova_prover: &'a NovaProver<S1>,
-        pp: &'a PublicParams,
+        nova_prover: &'a NovaProver<S1, Coproc<S1>>,
+        pp: &'a PublicParams<Coproc<S1>>,
+        lang: &'a Lang<S1, Coproc<S1>>,
     ) -> Result<Self, Error> {
         let reduction_count = nova_prover.reduction_count();
 
@@ -897,7 +942,7 @@ impl<'a> Proof<'a, S1> {
                 s.read(&e.expr).expect("bad expression"),
                 s.read(&e.env).expect("bad env"),
             ),
-            Claim::PtrEvaluation(e) => (e.expr.ptr(s, limit), e.env.ptr(s, limit)),
+            Claim::PtrEvaluation(e) => (e.expr.ptr(s, limit, lang), e.env.ptr(s, limit, lang)),
             Claim::Opening(o) => {
                 let commitment = o.commitment;
 
@@ -908,7 +953,7 @@ impl<'a> Proof<'a, S1> {
 
                 let input = s.read(&o.input).expect("bad expression");
                 let (c, expression) =
-                    Commitment::construct_with_fun_application(s, function, input, limit)?;
+                    Commitment::construct_with_fun_application(s, function, input, limit, lang)?;
 
                 assert_eq!(commitment, c);
                 (expression, empty_sym_env(s))
@@ -916,7 +961,7 @@ impl<'a> Proof<'a, S1> {
         };
 
         let (proof, _public_input, _public_output, num_steps) = nova_prover
-            .evaluate_and_prove(pp, expr, env, s, limit)
+            .evaluate_and_prove(pp, expr, env, s, limit, lang)
             .expect("Nova proof failed");
 
         let proof = Self {
@@ -944,15 +989,19 @@ impl<'a> Proof<'a, S1> {
             }
         };
 
-        proof.verify(pp).expect("Nova verification failed");
+        proof.verify(pp, lang).expect("Nova verification failed");
 
         proof_map.set(cid, &proof).unwrap();
 
         Ok(proof)
     }
 
-    pub fn verify(&self, pp: &PublicParams) -> Result<VerificationResult, Error> {
-        let (public_inputs, public_outputs) = self.io_vecs()?;
+    pub fn verify(
+        &self,
+        pp: &PublicParams<Coproc<S1>>,
+        lang: &Lang<S1, Coproc<S1>>,
+    ) -> Result<VerificationResult, Error> {
+        let (public_inputs, public_outputs) = self.io_vecs(lang)?;
 
         let claim_iterations_and_num_steps_are_consistent = if let Claim::Evaluation(Evaluation {
             iterations: Some(iterations),
@@ -1027,23 +1076,27 @@ impl<'a> Proof<'a, S1> {
         Ok((input_io, output_io))
     }
 
-    pub fn ptr_evaluation_io(&self, s: &mut Store<S1>) -> Result<(IO<S1>, IO<S1>), Error> {
+    pub fn ptr_evaluation_io(
+        &self,
+        s: &mut Store<S1>,
+        lang: &Lang<S1, Coproc<S1>>,
+    ) -> Result<(IO<S1>, IO<S1>), Error> {
         let ptr_evaluation = &self
             .claim
             .ptr_evaluation()
             .expect("expected PtrEvaluation claim");
 
         let input_io = {
-            let expr = ptr_evaluation.expr.ptr(s, 0); // limit is unneeded because we will not eval. we already have the ptr.
-            let env = ptr_evaluation.env.ptr(s, 0);
+            let expr = ptr_evaluation.expr.ptr(s, 0, lang); // limit is unneeded because we will not eval. we already have the ptr.
+            let env = ptr_evaluation.env.ptr(s, 0, lang);
             let cont = ptr_evaluation.cont.cont_ptr(s);
 
             IO::<S1> { expr, env, cont }
         };
 
         let output_io = {
-            let expr = ptr_evaluation.expr_out.ptr(s, 0);
-            let env = ptr_evaluation.env_out.ptr(s, 0);
+            let expr = ptr_evaluation.expr_out.ptr(s, 0, lang);
+            let env = ptr_evaluation.env_out.ptr(s, 0, lang);
             let cont = ptr_evaluation.cont_out.cont_ptr(s);
 
             IO::<S1> { expr, env, cont }
@@ -1077,18 +1130,23 @@ impl<'a> Proof<'a, S1> {
         Ok((input_io, output_io))
     }
 
-    pub fn io(&self, s: &mut Store<S1>) -> Result<(IO<S1>, IO<S1>), Error> {
+    pub fn io(
+        &self,
+        s: &mut Store<S1>,
+        lang: &Lang<S1, Coproc<S1>>,
+    ) -> Result<(IO<S1>, IO<S1>), Error> {
         match self.claim {
             Claim::Evaluation(_) => self.evaluation_io(s),
-            Claim::PtrEvaluation(_) => self.ptr_evaluation_io(s),
+            Claim::PtrEvaluation(_) => self.ptr_evaluation_io(s, lang),
             Claim::Opening(_) => self.opening_io(s),
         }
     }
 
-    fn io_vecs(&self) -> Result<(Vec<S1>, Vec<S1>), Error> {
+    fn io_vecs(&self, lang: &Lang<S1, Coproc<S1>>) -> Result<(Vec<S1>, Vec<S1>), Error> {
         let s = &mut Store::<S1>::default();
 
-        self.io(s).map(|(i, o)| (i.to_inputs(s), o.to_inputs(s)))
+        self.io(s, lang)
+            .map(|(i, o)| (i.to_inputs(s), o.to_inputs(s)))
     }
 }
 
@@ -1103,13 +1161,14 @@ pub fn evaluate<F: LurkField>(
     expr: Ptr<F>,
     supplied_env: Option<Ptr<F>>,
     limit: usize,
+    lang: &Lang<F, Coproc<F>>,
 ) -> Result<(IO<F>, usize), Error> {
     let env = supplied_env.unwrap_or_else(|| empty_sym_env(store));
-    let mut evaluator = Evaluator::new(expr, env, store, limit);
+    let mut evaluator = Evaluator::new(expr, env, store, limit, lang);
 
     let (io, iterations, _) = evaluator.eval().map_err(|_| Error::EvaluationFailure)?;
 
-    assert!(io.is_terminal());
+    assert!(<lurk::eval::IO<F> as Evaluable<F, Witness<F>, Coproc<F>>>::is_terminal(&io));
     Ok((io, iterations))
 }
 

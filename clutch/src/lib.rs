@@ -8,7 +8,11 @@ use fcomm::{
     public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, Id, LurkCont,
     LurkPtr, NovaProofCache, Opening, Proof, PtrEvaluation,
 };
-use lurk::eval::{Evaluable, Status, IO};
+use lurk::coprocessor::Coprocessor;
+use lurk::eval::{
+    lang::{Coproc, Lang},
+    Evaluable, Status, Witness, IO,
+};
 use lurk::field::LurkField;
 use lurk::package::Package;
 use lurk::proof::{nova::NovaProver, Prover};
@@ -88,8 +92,8 @@ impl Demo {
     }
 }
 
-pub struct ClutchState<F: LurkField> {
-    repl_state: ReplState<F>,
+pub struct ClutchState<F: LurkField, C: Coprocessor<F>> {
+    repl_state: ReplState<F, C>,
     reduction_count: usize,
     history: Vec<IO<F>>,
     proof_map: NovaProofCache,
@@ -100,14 +104,19 @@ pub struct ClutchState<F: LurkField> {
 
 type F = pallas::Scalar;
 
-impl<F: LurkField> ClutchState<F> {
+impl<F: LurkField, C: Coprocessor<F>> ClutchState<F, C> {
     fn base_prompt() -> String {
         "\n!> ".into()
     }
 }
 
-impl ReplTrait<F> for ClutchState<F> {
-    fn new(s: &mut Store<F>, limit: usize, command: Option<Command>) -> Self {
+impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
+    fn new(
+        s: &mut Store<F>,
+        limit: usize,
+        command: Option<Command>,
+        lang: Lang<F, Coproc<F>>,
+    ) -> Self {
         let reduction_count = DEFAULT_REDUCTION_COUNT;
 
         let proof_map = fcomm::nova_proof_cache(reduction_count);
@@ -126,13 +135,13 @@ impl ReplTrait<F> for ClutchState<F> {
         thread::spawn(move || public_params(reduction_count));
 
         Self {
-            repl_state: ReplState::new(s, limit, command),
+            repl_state: ReplState::new(s, limit, command, lang),
             reduction_count,
             history: Default::default(),
             proof_map,
             expression_map,
-            last_claim: None,
             demo,
+            last_claim: None,
         }
     }
 
@@ -153,7 +162,7 @@ impl ReplTrait<F> for ClutchState<F> {
     }
 
     fn command() -> Command {
-        ReplState::<F>::command().arg(
+        ReplState::<F, Coproc<F>>::command().arg(
             Arg::new("demo")
                 .long("demo")
                 .value_parser(clap::builder::NonEmptyStringValueParser::new())
@@ -246,7 +255,8 @@ impl ReplTrait<F> for ClutchState<F> {
             expr_out: LurkPtr::from_ptr(store, &output.expr),
             env_out: LurkPtr::from_ptr(store, &output.env),
             cont_out: LurkCont::from_cont_ptr(store, &output.cont),
-            status: output.status(),
+            status: <lurk::eval::IO<F> as Evaluable<F, Witness<F>, Coproc<F>>>::status(&output),
+
             iterations: None,
         });
 
@@ -256,13 +266,16 @@ impl ReplTrait<F> for ClutchState<F> {
     }
 }
 
-impl<F: LurkField> ClutchState<F> {
+impl<F: LurkField, C: Coprocessor<F>> ClutchState<F, C> {
     fn hist(&self, n: usize) -> Option<&IO<F>> {
         self.history.get(n)
     }
 }
 
-impl ClutchState<F> {
+impl ClutchState<F, Coproc<F>> {
+    fn lang(&self) -> &Lang<F, Coproc<F>> {
+        &self.repl_state.lang
+    }
     fn commit(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (first, rest) = store.car_cdr(&rest)?;
         let (second, _) = store.car_cdr(&rest)?;
@@ -293,7 +306,7 @@ impl ClutchState<F> {
         Ok(Some(store.intern_maybe_opaque_comm(commitment.comm)))
     }
 
-    fn open(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+    fn open(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         Ok(self.open_aux(store, rest)?.1)
     }
 
@@ -388,7 +401,7 @@ impl ClutchState<F> {
         Ok(Some(result))
     }
     fn open_aux(
-        &mut self,
+        &self,
         store: &mut Store<F>,
         rest: Ptr<F>,
     ) -> Result<(Commitment<F>, Option<Ptr<F>>)> {
@@ -418,7 +431,7 @@ impl ClutchState<F> {
 
         let commitment_expr = self.expression_map.get(&commitment);
         let commitment_ptr = commitment_expr.map(|c| {
-            let ptr = c.expr.ptr(store, self.repl_state.limit);
+            let ptr = c.expr.ptr(store, self.repl_state.limit, self.lang());
 
             if let Some(secret) = c.secret {
                 store.intern_comm(secret, ptr);
@@ -432,32 +445,32 @@ impl ClutchState<F> {
         Ok((commitment, commitment_ptr))
     }
 
-    fn proof_in_expr(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+    fn proof_in_expr(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let proof = self.get_proof(store, rest)?;
-        let (input, _output) = proof.io(store)?;
+        let (input, _output) = proof.io(store, self.lang())?;
 
         let mut handle = io::stdout().lock();
         input.expr.fmt(store, &mut handle)?;
         println!();
         Ok(None)
     }
-    fn proof_out_expr(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+    fn proof_out_expr(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let proof = self.get_proof(store, rest)?;
-        let (_input, output) = proof.io(store)?;
+        let (_input, output) = proof.io(store, self.lang())?;
 
         let mut handle = io::stdout().lock();
         output.expr.fmt(store, &mut handle)?;
         println!();
         Ok(None)
     }
-    fn proof_claim(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+    fn proof_claim(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let proof = self.get_proof(store, rest)?;
 
         println!("{0:#?}", proof.claim);
         Ok(None)
     }
 
-    fn get_proof(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Proof<F>> {
+    fn get_proof(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Proof<F>> {
         let (proof_cid, _rest1) = store.car_cdr(&rest)?;
         let cid_string = if let Expression::Str(p) = store
             .fetch(&proof_cid)
@@ -477,14 +490,22 @@ impl ClutchState<F> {
     fn prove(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (proof_in_expr, _rest1) = store.car_cdr(&rest)?;
 
-        let prover = NovaProver::<F>::new(self.reduction_count);
+        let prover = NovaProver::<F, Coproc<F>>::new(self.reduction_count, self.lang().clone());
         let pp = public_params(self.reduction_count)?;
 
         let proof = if rest.is_nil() {
             self.last_claim
                 .as_ref()
                 .map(|claim| {
-                    Proof::prove_claim(store, claim, self.repl_state.limit, false, &prover, &pp)
+                    Proof::prove_claim(
+                        store,
+                        claim,
+                        self.repl_state.limit,
+                        false,
+                        &prover,
+                        &pp,
+                        self.lang(),
+                    )
                 })
                 .ok_or_else(|| anyhow!("no last claim"))?
         } else {
@@ -496,10 +517,11 @@ impl ClutchState<F> {
                 false,
                 &prover,
                 &pp,
+                self.lang(),
             )
         }?;
 
-        if proof.verify(&pp)?.verified {
+        if proof.verify(&pp, self.lang())?.verified {
             let cid_str = proof.claim.cid().to_string();
             match proof.claim {
                 Claim::Evaluation(_) | Claim::Opening(_) => println!("{0:#?}", proof.claim),
@@ -531,7 +553,7 @@ impl ClutchState<F> {
             .ok_or_else(|| anyhow!("proof not found: {cid}"))?;
 
         let pp = public_params(self.reduction_count)?;
-        let result = proof.verify(&pp).unwrap();
+        let result = proof.verify(&pp, self.lang()).unwrap();
 
         if result.verified {
             Ok(Some(store.get_t()))

@@ -117,8 +117,8 @@ pub enum HashScalar {
 type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
 
 #[derive(Debug)]
-struct StringSet(
-    string_interner::StringInterner<
+pub(crate) struct StringSet(
+    pub(crate)  string_interner::StringInterner<
         string_interner::backend::BufferBackend<SymbolUsize>,
         ahash::RandomState,
     >,
@@ -130,6 +130,13 @@ impl Default for StringSet {
     }
 }
 
+impl StringSet {
+    #[allow(dead_code)]
+    pub(crate) fn all_strings(&self) -> Vec<&str> {
+        self.0.into_iter().map(|x| x.1).collect::<Vec<_>>()
+    }
+}
+
 #[derive(Debug)]
 pub struct Store<F: LurkField> {
     pub(crate) cons_store: IndexSet<(Ptr<F>, Ptr<F>)>,
@@ -137,7 +144,7 @@ pub struct Store<F: LurkField> {
 
     fun_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    sym_store: StringSet,
+    pub(crate) sym_store: StringSet,
 
     // Other sparse storage format without hashing is likely more efficient
     pub(crate) num_store: IndexSet<Num<F>>,
@@ -1440,15 +1447,16 @@ impl<F: LurkField> Store<F> {
             )
         };
 
-        // We need to intern each of the path segments individually, so they will be in the store.
-        // Otherwise, there can be an error when calling `hash_symbol()` with an immutable store.
-        Sym::new_absolute(name.into()).path().iter().for_each(|x| {
-            self.intern_str(x);
-        });
-
         if let Some(ptr) = self.sym_store.0.get(&symbol_name) {
             Ptr(tag, RawPtr::new(ptr.to_usize()))
         } else {
+            // We need to intern each of the path segments individually, so they will be in the store.
+            // Otherwise, there can be an error when calling `hash_symbol()` with an immutable store.
+
+            Sym::new_absolute(name.into()).path().iter().for_each(|x| {
+                self.intern_str(x);
+            });
+
             let ptr = self.sym_store.0.get_or_intern(symbol_name);
             let ptr = Ptr(tag, RawPtr::new(ptr.to_usize()));
             self.dehydrated.push(ptr);
@@ -1535,7 +1543,7 @@ impl<F: LurkField> Store<F> {
         Some(Ptr(ExprTag::Str, RawPtr::new(ptr.to_usize())))
     }
 
-    pub fn get_sym<T: AsRef<str>>(&self, sym: Sym) -> Option<Ptr<F>> {
+    pub fn get_sym(&self, sym: &Sym) -> Option<Ptr<F>> {
         let name = sym.full_sym_name();
         let ptr = self.sym_store.0.get(name)?;
         Some(Ptr(ExprTag::Sym, RawPtr::new(ptr.to_usize())))
@@ -1620,6 +1628,14 @@ impl<F: LurkField> Store<F> {
 
     pub fn fetch_scalar_cont(&self, scalar_ptr: &ScalarContPtr<F>) -> Option<ContPtr<F>> {
         self.scalar_ptr_cont_map.get(scalar_ptr).map(|p| *p)
+    }
+
+    pub fn fetch_maybe_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
+        if matches!(ptr.tag(), ExprTag::Sym) {
+            self.fetch_sym(ptr)
+        } else {
+            None
+        }
     }
 
     pub fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
@@ -1721,6 +1737,27 @@ impl<F: LurkField> Store<F> {
             ExprTag::Char => self.fetch_char(ptr).map(Expression::Char),
             ExprTag::U64 => self.fetch_uint(ptr).map(Expression::UInt),
         }
+    }
+
+    /// Returns a `Vec` of `Ptr`s representing the elements of a proper list, `ptr`.
+    /// This is intended to be the inverse of `Store::list()`.
+    /// IF `ptr` isn't a proper list, return None.
+    pub fn fetch_list(&self, ptr: &Ptr<F>) -> Option<Vec<Ptr<F>>> {
+        let mut list = Vec::new();
+        let mut p = *ptr;
+
+        loop {
+            match self.fetch(&p) {
+                Some(Expression::Cons(car, cdr)) => {
+                    list.push(car);
+                    p = cdr;
+                }
+                Some(Expression::Nil) => break,
+                _ => return None,
+            }
+        }
+
+        Some(list)
     }
 
     pub fn fetch_cont(&self, ptr: &ContPtr<F>) -> Option<Continuation<F>> {
@@ -2536,6 +2573,15 @@ impl<F: LurkField> Store<F> {
     pub fn get_constants(&self) -> &NamedConstants<F> {
         self.constants.get_or_init(|| NamedConstants::new(self))
     }
+
+    pub fn intern_sym_and_ancestors(&mut self, sym: &Sym) -> Option<Ptr<F>> {
+        if let Some(s) = sym.parent() {
+            if !s.is_root() {
+                self.intern_sym_and_ancestors(&s);
+            }
+        };
+        Some(self.intern_sym(sym))
+    }
 }
 
 impl<F: LurkField> Expression<'_, F> {
@@ -2756,9 +2802,14 @@ impl<F: LurkField> NamedConstants<F> {
 
 #[cfg(test)]
 pub mod test {
-    use crate::eval::{empty_sym_env, Evaluator};
+    use crate::eval::{
+        empty_sym_env,
+        lang::{Coproc, Lang},
+        Evaluator,
+    };
     use crate::num;
     use crate::writer::Write;
+
     use blstrs::Scalar as Fr;
 
     use super::*;
@@ -2910,27 +2961,31 @@ pub mod test {
         let t = store.sym("t");
         let nil = store.nil();
         let limit = 10;
+        let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
         {
             let comparison_expr = store.list(&[eq, fun, opaque_fun]);
             println!("comparison_expr: {}", comparison_expr.fmt_to_string(&store));
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, fun2, opaque_fun]);
             println!("comparison_expr: {}", comparison_expr.fmt_to_string(&store));
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(nil, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, fun2, opaque_fun2]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
         {
@@ -2943,9 +2998,10 @@ pub mod test {
             let cons_expr2 = store.list(&[cons, opaque_fun, n]);
 
             let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
     }
@@ -3018,25 +3074,29 @@ pub mod test {
             store.fetch_sym(&other_opaque_sym3).unwrap()
         );
 
+        let lang = Lang::<Fr, Coproc<Fr>>::new();
         {
             let comparison_expr = store.list(&[eq, qsym, qsym_opaque]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qsym2, qsym_opaque]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(nil, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qsym2, qsym_opaque2]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
         {
@@ -3049,9 +3109,11 @@ pub mod test {
             let cons_expr2 = store.list(&[cons, qsym_opaque, n]);
 
             let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
     }
@@ -3081,6 +3143,8 @@ pub mod test {
         let qcons_opaque2 = store.list(&[quote, opaque_cons2]);
 
         let num = Expression::Num(num::Num::Scalar(*cons_hash.value()));
+        let lang = Lang::<Fr, Coproc<Fr>>::new();
+
         assert_eq!(
             format!("<Opaque Cons {}>", num.fmt_to_string(&store)),
             opaque_cons.fmt_to_string(&store)
@@ -3089,23 +3153,26 @@ pub mod test {
         {
             let comparison_expr = store.list(&[eq, qcons, qcons_opaque]);
             // FIXME: need to implement Write for opaque data.
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qcons2, qcons_opaque]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(nil, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qcons2, qcons_opaque2]);
-            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                .eval()
-                .unwrap();
+            let (result, _, _) =
+                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    .eval()
+                    .unwrap();
             assert_eq!(t, result.expr);
         }
         {
@@ -3121,16 +3188,20 @@ pub mod test {
 
             let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
             let comparison_expr2 = store.list(&[eq, cons_expr1, cons_expr3]);
+
+            let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
             {
-                let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &mut store, limit)
-                    .eval()
-                    .unwrap();
+                let (result, _, _) =
+                    Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                        .eval()
+                        .unwrap();
                 assert_eq!(t, result.expr);
             }
             {
-                let (result, _, _) = Evaluator::new(comparison_expr2, empty_env, &mut store, limit)
-                    .eval()
-                    .unwrap();
+                let (result, _, _) =
+                    Evaluator::new(comparison_expr2, empty_env, &mut store, limit, &lang)
+                        .eval()
+                        .unwrap();
                 assert_eq!(nil, result.expr);
             }
         }

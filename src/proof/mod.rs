@@ -13,12 +13,13 @@ pub mod nova;
 use bellperson::{util_cs::test_cs::TestConstraintSystem, Circuit, SynthesisError};
 
 use crate::circuit::MultiFrame;
-use crate::eval::{Witness, IO};
+use crate::coprocessor::Coprocessor;
+use crate::eval::{lang::Lang, Witness, IO};
 use crate::field::LurkField;
 
 /// Represents a sequential Constraint System for a given proof.
-pub(crate) type SequentialCS<'a, F, IO, Witness> =
-    Vec<(MultiFrame<'a, F, IO, Witness>, TestConstraintSystem<F>)>;
+pub(crate) type SequentialCS<'a, F, IO, Witness, C> =
+    Vec<(MultiFrame<'a, F, IO, Witness, C>, TestConstraintSystem<F>)>;
 
 /// A trait for provable structures over a field `F`.
 pub trait Provable<F: LurkField> {
@@ -31,10 +32,10 @@ pub trait Provable<F: LurkField> {
 }
 
 /// Verifies a sequence of constraint systems (CSs) for sequentiality & validity.
-pub fn verify_sequential_css<F: LurkField + Copy>(
-    css: &SequentialCS<'_, F, IO<F>, Witness<F>>,
+pub fn verify_sequential_css<F: LurkField + Copy, C: Coprocessor<F>>(
+    css: &SequentialCS<'_, F, IO<F>, Witness<F>, C>,
 ) -> Result<bool, SynthesisError> {
-    let mut previous_frame: Option<&MultiFrame<'_, F, IO<F>, Witness<F>>> = None;
+    let mut previous_frame: Option<&MultiFrame<'_, F, IO<F>, Witness<F>, C>> = None;
 
     for (i, (multiframe, cs)) in css.iter().enumerate() {
         if let Some(prev) = previous_frame {
@@ -61,15 +62,18 @@ pub fn verify_sequential_css<F: LurkField + Copy>(
 pub trait PublicParameters {}
 
 /// A trait for a prover that works with a field `F`.
-pub trait Prover<'a, F: LurkField> {
+pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>> {
     /// The associated public parameters type for the prover.
     type PublicParams: PublicParameters;
 
     /// Creates a new prover with the specified number of reductions.
-    fn new(reduction_count: usize) -> Self;
+    fn new(reduction_count: usize, lang: Lang<F, C>) -> Self;
 
     /// Returns the number of reductions for the prover.
     fn reduction_count(&self) -> usize;
+
+    /// Returns a reference to the Prover's Lang.
+    fn lang(&self) -> &Lang<F, C>;
 
     /// Determines if the prover needs padding for a given total number of frames.
     fn needs_frame_padding(&self, total_frames: usize) -> bool {
@@ -104,8 +108,8 @@ pub trait Prover<'a, F: LurkField> {
     /// Synthesizes the outer circuit for the prover given a slice of multiframes.
     fn outer_synthesize(
         &self,
-        multiframes: &'a [MultiFrame<'_, F, IO<F>, Witness<F>>],
-    ) -> Result<SequentialCS<'a, F, IO<F>, Witness<F>>, SynthesisError> {
+        multiframes: &'a [MultiFrame<'_, F, IO<F>, Witness<F>, C>],
+    ) -> Result<SequentialCS<'a, F, IO<F>, Witness<F>, C>, SynthesisError> {
         let res = multiframes
             .iter()
             .enumerate()

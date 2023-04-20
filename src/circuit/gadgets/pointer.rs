@@ -77,6 +77,19 @@ impl<F: LurkField> AllocatedPtr<F> {
         })
     }
 
+    pub fn alloc_tag<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        tag: F,
+        alloc_hash: AllocatedNum<F>,
+    ) -> Result<Self, SynthesisError> {
+        let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), tag)?;
+
+        Ok(AllocatedPtr {
+            tag: alloc_tag,
+            hash: alloc_hash,
+        })
+    }
+
     pub fn alloc_constant<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         value: ScalarPtr<F>,
@@ -261,7 +274,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         Ok(Self { tag, hash })
     }
 
-    fn construct_cons<CS: ConstraintSystem<F>>(
+    pub fn construct_cons<CS: ConstraintSystem<F>>(
         mut cs: CS,
         g: &GlobalAllocations<F>,
         store: &Store<F>,
