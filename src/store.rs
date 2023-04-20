@@ -131,6 +131,7 @@ impl Default for StringSet {
 }
 
 impl StringSet {
+    #[allow(dead_code)]
     pub(crate) fn all_strings(&self) -> Vec<&str> {
         self.0.into_iter().map(|x| x.1).collect::<Vec<_>>()
     }

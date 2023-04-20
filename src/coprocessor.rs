@@ -7,13 +7,24 @@ use crate::eval::IO;
 use crate::field::LurkField;
 use crate::store::{ContPtr, Ptr, Store};
 
+/// `Coprocessor` is a trait that represents a generalized interface for coprocessors.
+/// Coprocessors augment the Lurk circuit and evaluation with additional built-in functionality.
+/// This trait generalizes over functionality needed in the evaluator, the sibling `CoCircuit` trait,
+/// generalizes over functionality needed in the circuit.
+///
+/// The trait is implemented by concrete coprocessor types, such as `DummyCoprocessor`.
+///
+/// # Pattern
+/// We use a type class (trait) pattern to provide extensibility for the coprocessor implementations.
+/// The pattern involves:
+/// - A trait [`crate::coprocessor::Coprocessor`], which defines the methods and behavior for all coprocessors.
+/// - An enum such as [`crate::eval::lang::Coproc`], which "closes" the hierarchy of possible coprocessor
+///   implementations we want to instantiate at a particular point in the code.
 pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + CoCircuit<F> {
     fn eval_arity(&self) -> usize;
 
     fn evaluate(&self, s: &mut Store<F>, args: Ptr<F>, env: Ptr<F>, cont: ContPtr<F>) -> IO<F> {
-        let argv: Vec<Ptr<F>> = if let Some(list) = s.fetch_list(&args) {
-            list
-        } else {
+        let Some(argv) = s.fetch_list(&args) else {
             return IO {
                 expr: args,
                 env,
@@ -41,6 +52,12 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + CoCircuit<F> {
     fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F>;
 }
 
+/// `CoCircuit` is a trait that represents a generalized interface for coprocessors.
+/// Coprocessors augment the Lurk circuit and evaluation with additional built-in functionality.
+/// This trait generalizes over functionality needed in the circuit, the sibling `Coprocessor` trait,
+/// generalizes over functionality needed in the evaluator.
+///
+/// The trait is implemented by concrete coprocessor types, such as `DumbCoprocessor`.
 pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
     fn arity(&self) -> usize {
         todo!()
@@ -87,7 +104,6 @@ pub(crate) mod test {
             let mut result = *a_num;
             result *= *a_num;
             result += *b_num;
-            use crate::writer::Write;
             let x = s.intern_num(result);
 
             return x;

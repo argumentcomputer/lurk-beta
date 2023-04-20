@@ -11,6 +11,13 @@ use crate::field::LurkField;
 use crate::store::{Ptr, ScalarPtr, Store};
 use crate::sym::Sym;
 
+/// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.
+///
+/// It provides specific behavior for a dummy coprocessor.
+///
+/// # Pattern
+/// This struct is an example of a coprocessor implementation that would extend the [`crate::coprocessor::Coprocessor`] trait.
+/// More implementations can be added without modifying the existing code, adhering to the open-closed principle.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct DummyCoprocessor<F: LurkField> {
     pub(crate) _p: PhantomData<F>,
@@ -41,11 +48,21 @@ impl<F: LurkField> DummyCoprocessor<F> {
     }
 }
 
+/// `CoProc` is an enum that wraps over different implementations of the [`crate::coprocessor::Coprocessor`] trait.
+/// It is used at runtime to encode a finite choice of acceptable coprocessors.
+///
+/// This enum is the key to constrainting a trait hierarchy by allowing us to have a common type
+/// for all implementations of the [`crate::coprocessor::Coprocessor`] trait (which e.g. allows putting them in a collection).
+///
+/// # Pattern
+/// The enum `CoProc` serves as the "closing" element of a trait hierarchy, providing
+/// a common type for all coprocessor implementations.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Coproc<F: LurkField> {
     Dummy(DummyCoprocessor<F>),
 }
 
+// TODO: Auto-generate this with a macro.
 impl<F: LurkField> Coprocessor<F> for Coproc<F> {
     fn eval_arity(&self) -> usize {
         match self {
@@ -81,18 +98,27 @@ impl<F: LurkField> CoCircuit<F> for Coproc<F> {
     }
 }
 
+/// `Lang` is a struct that represents a language with coprocessors.
+///
+/// It allows late-binding of the exact set of coprocessors by using a type parameter `C` that
+/// is expected to have the [`crate::coprocessor::Coprocessor`] trait bound in concrete instantiations.
+///
+/// # Type Parameters
+/// - `F`: A field type that implements the [`crate::field::LurkField`] trait.
+/// - `C`: A type that implements the [`crate::coprocessor::Coprocessor`] trait. This allows late-binding of the
+///   exact set of coprocessors to be allowed in the `Lang` struct.
+///
 // TODO: Define a trait for the Hash and parameterize on that also.
 #[derive(Debug, Default, Clone)]
 pub struct Lang<F: LurkField, C: Coprocessor<F>> {
+    //  A HashMap that stores coprocessors with their associated `Sym` keys.
     coprocessors: HashMap<Sym, (C, ScalarPtr<F>)>,
-    _p: PhantomData<F>,
 }
 
 impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
     pub fn new() -> Self {
         Self {
             coprocessors: Default::default(),
-            _p: Default::default(),
         }
     }
 
@@ -108,9 +134,11 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
     }
 
     pub fn max_coprocessor_arity(&self) -> usize {
-        let c: Option<&(C, _)> = self.coprocessors.values().max_by_key(|(c, _)| c.arity());
-
-        c.map(|(c, _)| c.arity()).unwrap_or(0)
+        self.coprocessors
+            .values()
+            .map(|(c, _)| c.arity())
+            .max()
+            .unwrap_or(0)
     }
 
     pub fn lookup(&self, s: &Store<F>, name: Ptr<F>) -> Option<&(C, ScalarPtr<F>)> {
