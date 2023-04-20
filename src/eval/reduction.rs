@@ -367,29 +367,25 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                             expanded0,
                                         )
                                     };
-                                    let cont = if head == head_ptr {
-                                        cont_witness.intern_named_cont(
-                                            ContName::NewerCont,
-                                            store,
+                                    let cont = cont_witness.intern_named_cont(
+                                        ContName::NewerCont,
+                                        store,
+                                        if head == head_ptr {
                                             Continuation::Let {
                                                 var,
                                                 saved_env: env,
                                                 body: expanded,
                                                 continuation: cont,
-                                            },
-                                        )
-                                    } else {
-                                        cont_witness.intern_named_cont(
-                                            ContName::NewerCont,
-                                            store,
+                                            }
+                                        } else {
                                             Continuation::LetRec {
                                                 var,
                                                 saved_env: env,
                                                 body: expanded,
                                                 continuation: cont,
-                                            },
-                                        )
-                                    };
+                                            }
+                                        },
+                                    );
                                     Control::Return(val, env, cont)
                                 }
                             }
@@ -619,19 +615,6 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
 
                         if rest.is_nil() {
                             Control::Error(expr, env)
-                        } else if more.is_nil() {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Unop {
-                                        operator: Op1::Eval,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
                         } else {
                             Control::Return(
                                 arg1,
@@ -639,11 +622,18 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 cont_witness.intern_named_cont(
                                     ContName::NewerCont,
                                     store,
-                                    Continuation::Binop {
-                                        operator: Op2::Eval,
-                                        saved_env: env,
-                                        unevaled_args: more,
-                                        continuation: cont,
+                                    if more.is_nil() {
+                                        Continuation::Unop {
+                                            operator: Op1::Eval,
+                                            continuation: cont,
+                                        }
+                                    } else {
+                                        Continuation::Binop {
+                                            operator: Op2::Eval,
+                                            saved_env: env,
+                                            unevaled_args: more,
+                                            continuation: cont,
+                                        }
                                     },
                                 ),
                             )
@@ -1613,10 +1603,12 @@ fn apply_continuation<F: LurkField>(
                     cons_witness.car_cdr_named(ConsName::UnevaledArgsCdr, store, &more)?;
                 if !end.is_nil() {
                     Control::Return(arg1, env, store.intern_cont_error())
-                } else if condition.is_nil() {
-                    Control::Return(arg2, env, continuation)
                 } else {
-                    Control::Return(arg1, env, continuation)
+                    Control::Return(
+                        if condition.is_nil() { arg2 } else { arg1 },
+                        env,
+                        continuation,
+                    )
                 }
             }
             _ => unreachable!(),
