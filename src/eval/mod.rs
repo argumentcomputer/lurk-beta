@@ -202,18 +202,19 @@ impl<F: LurkField> IO<F> {
     // Returns any expression that was emitted in this IO (if an output) or previous (if an input).
     // The intention is that this method will be used to extract and handle all output as needed.
     pub fn maybe_emitted_expression(&self, store: &Store<F>) -> Option<Ptr<F>> {
-        if self.expr.tag() == crate::tag::ExprTag::Thunk
-            && self.cont.tag() == crate::tag::ContTag::Dummy
+        if self.expr.tag() != crate::tag::ExprTag::Thunk
+            || self.cont.tag() != crate::tag::ContTag::Dummy
         {
-            if let Some(Expression::Thunk(thunk)) = store.fetch(&self.expr) {
-                if thunk.continuation.tag() == crate::tag::ContTag::Emit {
-                    Some(thunk.value)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
+            return None;
+        }
+
+        let expr = match store.fetch(&self.expr) {
+            Some(Expression::Thunk(thunk)) => thunk,
+            _ => return None,
+        };
+
+        if expr.continuation.tag() == crate::tag::ContTag::Emit {
+            Some(expr.value)
         } else {
             None
         }
