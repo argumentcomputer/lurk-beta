@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/repl.rs`."><title>repl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-ba5701c5741a7b69.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.71.0-nightly (7908a1d65 2023-04-17)" data-search-js="search-e077946657036a58.js" data-settings-js="settings-298e1ea74db45b39.js" data-settings-css="settings-7bfb4c59cc6bc502.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../static.files/source-script-905937fbbdc8e9ea.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-1a524efa7bd4ab32.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/repl.rs`."><title>repl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-ba5701c5741a7b69.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.71.0-nightly (39c6804b9 2023-04-19)" data-search-js="search-e077946657036a58.js" data-settings-js="settings-298e1ea74db45b39.js" data-settings-css="settings-7bfb4c59cc6bc502.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../static.files/source-script-905937fbbdc8e9ea.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-1a524efa7bd4ab32.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -602,8 +602,26 @@
 <a href="#602" id="602">602</a>
 <a href="#603" id="603">603</a>
 <a href="#604" id="604">604</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::error::LurkError;
-<span class="kw">use </span><span class="kw">crate</span>::eval::{empty_sym_env, Evaluator, IO};
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
+<span class="kw">use </span><span class="kw">crate</span>::error::LurkError;
+<span class="kw">use </span><span class="kw">crate</span>::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span><span class="kw">crate</span>::light_data::{Encodable, LightData, LightStore};
 <span class="kw">use </span><span class="kw">crate</span>::package::Package;
@@ -625,6 +643,7 @@
 <span class="kw">use </span>rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 <span class="kw">use </span>std::fs::{<span class="self">self</span>, read_to_string};
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write <span class="kw">as _</span>};
+<span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::path::Path;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>std::path::PathBuf;
@@ -642,22 +661,23 @@
 }
 
 <span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>ReplState&lt;F: LurkField&gt; {
+</span><span class="kw">pub struct </span>ReplState&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
     <span class="kw">pub </span>env: Ptr&lt;F&gt;,
     <span class="kw">pub </span>limit: usize,
     <span class="kw">pub </span>command: <span class="prelude-ty">Option</span>&lt;Command&gt;,
+    <span class="kw">pub </span>lang: Lang&lt;F, C&gt;,
 }
 
-<span class="kw">pub struct </span>Repl&lt;F: LurkField, T: ReplTrait&lt;F&gt;&gt; {
+<span class="kw">pub struct </span>Repl&lt;F: LurkField, T: ReplTrait&lt;F, C&gt;, C: Coprocessor&lt;F&gt;&gt; {
     state: T,
     rl: Editor&lt;InputValidator, DefaultHistory&gt;,
     <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
     </span>history_path: PathBuf,
-    _phantom: F,
+    _phantom: PhantomData&lt;(F, C)&gt;,
 }
 
-<span class="kw">pub trait </span>ReplTrait&lt;F: LurkField&gt; {
-    <span class="kw">fn </span>new(s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, limit: usize, command: <span class="prelude-ty">Option</span>&lt;Command&gt;) -&gt; <span class="self">Self</span>;
+<span class="kw">pub trait </span>ReplTrait&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
+    <span class="kw">fn </span>new(s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, limit: usize, command: <span class="prelude-ty">Option</span>&lt;Command&gt;, lang: Lang&lt;F, C&gt;) -&gt; <span class="self">Self</span>;
 
     <span class="kw">fn </span>name() -&gt; String;
 
@@ -743,8 +763,13 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;F&gt;, IO&lt;F&gt;, usize)&gt;;
 }
 
-<span class="kw">impl</span>&lt;F: LurkField, T: ReplTrait&lt;F&gt;&gt; Repl&lt;F, T&gt; {
-    <span class="kw">pub fn </span>new(s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, limit: usize, command: <span class="prelude-ty">Option</span>&lt;Command&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+<span class="kw">impl</span>&lt;F: LurkField, T: ReplTrait&lt;F, C&gt;, C: Coprocessor&lt;F&gt;&gt; Repl&lt;F, T, C&gt; {
+    <span class="kw">pub fn </span>new(
+        s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        limit: usize,
+        command: <span class="prelude-ty">Option</span>&lt;Command&gt;,
+        lang: Lang&lt;F, C&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
         </span><span class="kw">let </span>history_path = dirs::home_dir()
             .expect(<span class="string">&quot;missing home directory&quot;</span>)
@@ -765,7 +790,7 @@
             rl.load_history(<span class="kw-2">&amp;</span>history_path)<span class="question-mark">?</span>;
         }
 
-        <span class="kw">let </span>state = T::new(s, limit, command);
+        <span class="kw">let </span>state = T::new(s, limit, command, lang);
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             state,
             rl,
@@ -781,24 +806,30 @@
     }
 }
 
-<span class="kw">pub fn </span>repl_cli&lt;F: LurkField, T: ReplTrait&lt;F&gt;&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<span class="kw">pub fn </span>repl_cli&lt;F: LurkField, T: ReplTrait&lt;F, C&gt;, C: Coprocessor&lt;F&gt;&gt;(
+    lang: Lang&lt;F, C&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>command = T::command();
     <span class="kw">let </span>matches = command.clone().get_matches();
 
     <span class="kw">let </span>lurk_file = matches.get_one::&lt;String&gt;(<span class="string">&quot;lurk_file&quot;</span>);
     <span class="kw">let </span>light_store = matches.get_one::&lt;String&gt;(<span class="string">&quot;lightstore&quot;</span>);
 
-    repl_aux::&lt;<span class="kw">_</span>, F, T&gt;(lurk_file, light_store, <span class="prelude-val">Some</span>(command))
+    repl_aux::&lt;<span class="kw">_</span>, F, T, C&gt;(lurk_file, light_store, <span class="prelude-val">Some</span>(command), lang)
 }
 
-<span class="kw">pub fn </span>repl&lt;F: LurkField, T: ReplTrait&lt;F&gt;, P: AsRef&lt;Path&gt;&gt;(lurk_file: <span class="prelude-ty">Option</span>&lt;P&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-    repl_aux::&lt;<span class="kw">_</span>, F, T&gt;(lurk_file, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+<span class="kw">pub fn </span>repl&lt;F: LurkField, T: ReplTrait&lt;F, C&gt;, P: AsRef&lt;Path&gt;, C: Coprocessor&lt;F&gt;&gt;(
+    lurk_file: <span class="prelude-ty">Option</span>&lt;P&gt;,
+    lang: Lang&lt;F, C&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    repl_aux::&lt;<span class="kw">_</span>, F, T, C&gt;(lurk_file, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, lang)
 }
 
-<span class="kw">fn </span>repl_aux&lt;P: AsRef&lt;Path&gt;, F: LurkField, T: ReplTrait&lt;F&gt;&gt;(
+<span class="kw">fn </span>repl_aux&lt;P: AsRef&lt;Path&gt;, F: LurkField, T: ReplTrait&lt;F, C&gt;, C: Coprocessor&lt;F&gt;&gt;(
     lurk_file: <span class="prelude-ty">Option</span>&lt;P&gt;,
     light_store: <span class="prelude-ty">Option</span>&lt;P&gt;,
     command: <span class="prelude-ty">Option</span>&lt;Command&gt;,
+    lang: Lang&lt;F, C&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>received_light_store = light_store.is_some();
     <span class="kw">let </span><span class="kw-2">mut </span>s = light_store
@@ -815,15 +846,15 @@
         .unwrap_or_default();
     <span class="kw">let </span>s_ref = <span class="kw-2">&amp;mut </span>s;
     <span class="kw">let </span>limit = <span class="number">100_000_000</span>;
-    <span class="kw">let </span>repl: Repl&lt;F, T&gt; = Repl::new(s_ref, limit, command)<span class="question-mark">?</span>;
+    <span class="kw">let </span>repl: Repl&lt;F, T, C&gt; = Repl::new(s_ref, limit, command, lang)<span class="question-mark">?</span>;
 
     run_repl(s_ref, repl, lurk_file)
 }
 
 <span class="comment">// For the moment, input must be on a single line.
-</span><span class="kw">pub fn </span>run_repl&lt;P: AsRef&lt;Path&gt;, F: LurkField, T: ReplTrait&lt;F&gt;&gt;(
+</span><span class="kw">pub fn </span>run_repl&lt;P: AsRef&lt;Path&gt;, F: LurkField, T: ReplTrait&lt;F, C&gt;, C: Coprocessor&lt;F&gt;&gt;(
     s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
-    <span class="kw-2">mut </span>repl: Repl&lt;F, T&gt;,
+    <span class="kw-2">mut </span>repl: Repl&lt;F, T, C&gt;,
     lurk_file: <span class="prelude-ty">Option</span>&lt;P&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>package = Package::lurk();
@@ -891,12 +922,13 @@
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; ReplState&lt;F&gt; {
-    <span class="kw">pub fn </span>new(s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, limit: usize, command: <span class="prelude-ty">Option</span>&lt;Command&gt;) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; ReplState&lt;F, C&gt; {
+    <span class="kw">pub fn </span>new(s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, limit: usize, command: <span class="prelude-ty">Option</span>&lt;Command&gt;, lang: Lang&lt;F, C&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             env: empty_sym_env(s),
             limit,
             command,
+            lang,
         }
     }
     <span class="kw">pub fn </span>eval_expr(
@@ -904,7 +936,8 @@
         expr: Ptr&lt;F&gt;,
         store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Ptr&lt;F&gt;, usize, ContPtr&lt;F&gt;, Vec&lt;Ptr&lt;F&gt;&gt;)&gt; {
-        <span class="kw">let </span>(io, iterations, emitted) = Evaluator::new(expr, <span class="self">self</span>.env, store, <span class="self">self</span>.limit).eval()<span class="question-mark">?</span>;
+        <span class="kw">let </span>(io, iterations, emitted) =
+            Evaluator::new(expr, <span class="self">self</span>.env, store, <span class="self">self</span>.limit, <span class="kw-2">&amp;</span><span class="self">self</span>.lang).eval()<span class="question-mark">?</span>;
 
         <span class="kw">let </span>IO {
             expr: result,
@@ -920,12 +953,13 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; ReplTrait&lt;F&gt; <span class="kw">for </span>ReplState&lt;F&gt; {
-    <span class="kw">fn </span>new(s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, limit: usize, command: <span class="prelude-ty">Option</span>&lt;Command&gt;) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; ReplTrait&lt;F, C&gt; <span class="kw">for </span>ReplState&lt;F, C&gt; {
+    <span class="kw">fn </span>new(s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, limit: usize, command: <span class="prelude-ty">Option</span>&lt;Command&gt;, lang: Lang&lt;F, C&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             env: empty_sym_env(s),
             limit,
             command,
+            lang,
         }
     }
 
@@ -1144,7 +1178,7 @@
         store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
         expr_ptr: Ptr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;F&gt;, IO&lt;F&gt;, usize)&gt; {
-        <span class="kw">match </span>Evaluator::new(expr_ptr, <span class="self">self</span>.env, store, <span class="self">self</span>.limit).eval() {
+        <span class="kw">match </span>Evaluator::new(expr_ptr, <span class="self">self</span>.env, store, <span class="self">self</span>.limit, <span class="kw-2">&amp;</span><span class="self">self</span>.lang).eval() {
             <span class="prelude-val">Ok</span>((output, iterations, _emitted)) =&gt; {
                 <span class="kw">let </span>IO {
                     expr: result,
