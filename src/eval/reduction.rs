@@ -419,9 +419,18 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 ),
                             )
                         }
-                    } else if head == c.car.ptr() {
+                    } else if let Some(op) = HashMap::from([
+                        (c.car.ptr(), Op1::Car),
+                        (c.cdr.ptr(), Op1::Cdr),
+                        (c.commit.ptr(), Op1::Commit),
+                        (c.num.ptr(), Op1::Num),
+                        (c.u64.ptr(), Op1::U64),
+                        (c.comm.ptr(), Op1::Comm),
+                        (c.char.ptr(), Op1::Char),
+                    ])
+                    .get(&head)
+                    {
                         let (arg1, end) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
                         if rest.is_nil() || !end.is_nil() {
                             Control::Error(expr, env)
                         } else {
@@ -432,121 +441,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                     ContName::NewerCont,
                                     store,
                                     Continuation::Unop {
-                                        operator: Op1::Car,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.cdr.ptr() {
-                        let (arg1, end) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || !end.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Unop {
-                                        operator: Op1::Cdr,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.commit.ptr() {
-                        let (arg1, end) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || !end.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Unop {
-                                        operator: Op1::Commit,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.num.ptr() {
-                        let (arg1, end) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || !end.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Unop {
-                                        operator: Op1::Num,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.u64.ptr() {
-                        let (arg1, end) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || !end.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Unop {
-                                        operator: Op1::U64,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.comm.ptr() {
-                        let (arg1, end) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || !end.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Unop {
-                                        operator: Op1::Comm,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.char.ptr() {
-                        let (arg1, end) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || !end.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Unop {
-                                        operator: Op1::Char,
+                                        operator: *op,
                                         continuation: cont,
                                     },
                                 ),
@@ -583,9 +478,15 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 ),
                             )
                         }
-                    } else if head == c.open.ptr() {
+                    } else if let Some(op) = HashMap::from([
+                        (c.open.ptr(), Op1::Open),
+                        (c.secret.ptr(), Op1::Secret),
+                        (c.atom.ptr(), Op1::Atom),
+                        (c.emit.ptr(), Op1::Emit),
+                    ])
+                    .get(&head)
+                    {
                         let (arg1, end) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
                         if rest.is_nil() || !end.is_nil() {
                             Control::Error(expr, env)
                         } else {
@@ -596,64 +497,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                     ContName::NewerCont,
                                     store,
                                     Continuation::Unop {
-                                        operator: Op1::Open,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.secret.ptr() {
-                        let (arg1, end) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || !end.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Unop {
-                                        operator: Op1::Secret,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.atom.ptr() {
-                        let (arg1, end) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || !end.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Unop {
-                                        operator: Op1::Atom,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.emit.ptr() {
-                        let (arg1, end) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || !end.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Unop {
-                                        operator: Op1::Emit,
+                                        operator: *op,
                                         continuation: cont,
                                     },
                                 ),
