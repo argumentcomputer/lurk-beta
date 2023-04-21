@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::{empty_sym_env, Witness};
 use crate::coprocessor::Coprocessor;
 use crate::error::ReductionError;
@@ -390,9 +392,15 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 }
                             }
                         }
-                    } else if head == c.cons.ptr() {
+                    } else if let Some(op) = HashMap::from([
+                        (c.cons.ptr(), Op2::Cons),
+                        (c.strcons.ptr(), Op2::StrCons),
+                        (c.hide.ptr(), Op2::Hide),
+                        (c.begin.ptr(), Op2::Begin),
+                    ])
+                    .get(&head)
+                    {
                         let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
                         if rest.is_nil() || more.is_nil() {
                             Control::Error(expr, env)
                         } else {
@@ -403,70 +411,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                     ContName::NewerCont,
                                     store,
                                     Continuation::Binop {
-                                        operator: Op2::Cons,
-                                        saved_env: env,
-                                        unevaled_args: more,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.strcons.ptr() {
-                        let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || more.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Binop {
-                                        operator: Op2::StrCons,
-                                        saved_env: env,
-                                        unevaled_args: more,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.hide.ptr() {
-                        let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || more.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Binop {
-                                        operator: Op2::Hide,
-                                        saved_env: env,
-                                        unevaled_args: more,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.begin.ptr() {
-                        let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if more.is_nil() {
-                            Control::Return(arg1, env, cont)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Binop {
-                                        operator: Op2::Begin,
+                                        operator: *op,
                                         saved_env: env,
                                         unevaled_args: more,
                                         continuation: cont,
@@ -714,9 +659,22 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 ),
                             )
                         }
-                    } else if head == c.sum.ptr() {
+                    } else if let Some(op) = HashMap::from([
+                        (c.sum.ptr(), Op2::Sum),
+                        (c.diff.ptr(), Op2::Diff),
+                        (c.product.ptr(), Op2::Product),
+                        (c.quotient.ptr(), Op2::Quotient),
+                        (c.modulo.ptr(), Op2::Modulo),
+                        (c.num_equal.ptr(), Op2::NumEqual),
+                        (c.equal.ptr(), Op2::Equal),
+                        (c.less.ptr(), Op2::Less),
+                        (c.greater.ptr(), Op2::Greater),
+                        (c.less_equal.ptr(), Op2::LessEqual),
+                        (c.greater_equal.ptr(), Op2::GreaterEqual),
+                    ])
+                    .get(&head)
+                    {
                         let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
                         if rest.is_nil() || more.is_nil() {
                             Control::Error(expr, env)
                         } else {
@@ -727,217 +685,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                     ContName::NewerCont,
                                     store,
                                     Continuation::Binop {
-                                        operator: Op2::Sum,
-                                        saved_env: env,
-                                        unevaled_args: more,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.diff.ptr() {
-                        let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || more.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Binop {
-                                        operator: Op2::Diff,
-                                        saved_env: env,
-                                        unevaled_args: more,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.product.ptr() {
-                        let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || more.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Binop {
-                                        operator: Op2::Product,
-                                        saved_env: env,
-                                        unevaled_args: more,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.quotient.ptr() {
-                        let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || more.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Binop {
-                                        operator: Op2::Quotient,
-                                        saved_env: env,
-                                        unevaled_args: more,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.modulo.ptr() {
-                        let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || more.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Binop {
-                                        operator: Op2::Modulo,
-                                        saved_env: env,
-                                        unevaled_args: more,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.num_equal.ptr() {
-                        let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || more.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Binop {
-                                        operator: Op2::NumEqual,
-                                        saved_env: env,
-                                        unevaled_args: more,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.equal.ptr() {
-                        let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || more.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Binop {
-                                        operator: Op2::Equal,
-                                        saved_env: env,
-                                        unevaled_args: more,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.less.ptr() {
-                        let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || more.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Binop {
-                                        operator: Op2::Less,
-                                        saved_env: env,
-                                        unevaled_args: more,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.greater.ptr() {
-                        let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || more.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Binop {
-                                        operator: Op2::Greater,
-                                        saved_env: env,
-                                        unevaled_args: more,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.less_equal.ptr() {
-                        let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || more.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Binop {
-                                        operator: Op2::LessEqual,
-                                        saved_env: env,
-                                        unevaled_args: more,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if head == c.greater_equal.ptr() {
-                        let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-
-                        if rest.is_nil() || more.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Binop {
-                                        operator: Op2::GreaterEqual,
+                                        operator: *op,
                                         saved_env: env,
                                         unevaled_args: more,
                                         continuation: cont,
