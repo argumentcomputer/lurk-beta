@@ -145,7 +145,7 @@ fn selector_dot_product<F: LurkField, CS: ConstraintSystem<F>>(
     value_vector: &[AllocatedNum<F>],
     zero: &AllocatedNum<F>, // Must be a constant-allocated zero.
 ) -> Result<AllocatedNum<F>, SynthesisError> {
-    let mut computed_result = F::zero();
+    let mut computed_result = F::ZERO;
 
     let mut all_products = Vec::new();
 

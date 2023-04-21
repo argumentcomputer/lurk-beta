@@ -3105,14 +3105,11 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let digest = result.hash();
 
         let (open_secret_scalar, open_expr_ptr) = store
-            .get_maybe_opaque(
-                ExprTag::Comm,
-                digest.get_value().unwrap_or_else(|| F::zero()),
-            )
+            .get_maybe_opaque(ExprTag::Comm, digest.get_value().unwrap_or_else(|| F::ZERO))
             .and_then(|commit| store.open(commit))
             .unwrap_or_else(|| {
                 // nil is dummy
-                (F::zero(), store.get_nil())
+                (F::ZERO, store.get_nil())
             });
 
         let open_expr = AllocatedPtr::alloc(&mut cs.namespace(|| "open_expr"), || {
@@ -4508,7 +4505,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
     // This is all clunky because we can't currently return AllocatedBit from case expressions.
     let newer_cont2_not_dummy_result_num = case_results[7].clone();
-    let newer_cont2_not_dummy_ = equal_const!(cs, &newer_cont2_not_dummy_result_num, F::one())?;
+    let newer_cont2_not_dummy_ = equal_const!(cs, &newer_cont2_not_dummy_result_num, F::ONE)?;
     let newer_cont2_not_dummy = and!(cs, &newer_cont2_not_dummy_, not_dummy)?;
 
     implies_equal!(
@@ -4764,7 +4761,7 @@ fn to_unsigned_integers<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<(AllocatedNum<F>, AllocatedNum<F>), SynthesisError> {
     let field_elem = maybe_unsigned.get_value().unwrap_or_else(|| {
         // dummy
-        F::zero()
+        F::ZERO
     });
     let field_bn = BigUint::from_bytes_le(field_elem.to_repr().as_ref());
     // Since bit decomposition is expensive, we compute it only once here
@@ -4797,7 +4794,7 @@ fn to_u64<F: LurkField, CS: ConstraintSystem<F>>(
     g: &GlobalAllocations<F>,
     maybe_u64: &AllocatedNum<F>,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
-    let field_elem = maybe_u64.get_value().unwrap_or_else(|| F::zero()); //
+    let field_elem = maybe_u64.get_value().unwrap_or(F::ZERO); //
     let field_bn = BigUint::from_bytes_le(field_elem.to_repr().as_ref());
     let field_elem_bits = maybe_u64.to_bits_le(&mut cs.namespace(|| "field element bit decomp"))?;
 
