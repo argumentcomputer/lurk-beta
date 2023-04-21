@@ -62,6 +62,8 @@ rustyline = { version = "11.0", features = ["derive"], default-features = false 
 default = []
 opencl = ["neptune/opencl"]
 cuda = ["neptune/cuda"]
+# compile without ISA extensions
+portable = ["blstrs/portable", "pasta-msm/portable"]
 
 [dev-dependencies]
 criterion = "0.3.6"
