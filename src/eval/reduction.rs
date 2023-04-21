@@ -68,6 +68,38 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
     c: &NamedConstants<F>,
     lang: &Lang<F, C>,
 ) -> Result<(Control<F>, Option<Ptr<F>>), ReductionError> {
+    let UNOPS_MAP: HashMap<Ptr<F>, _> = HashMap::from([
+        (c.car.ptr(), Op1::Car),
+        (c.cdr.ptr(), Op1::Cdr),
+        (c.commit.ptr(), Op1::Commit),
+        (c.num.ptr(), Op1::Num),
+        (c.u64.ptr(), Op1::U64),
+        (c.comm.ptr(), Op1::Comm),
+        (c.char.ptr(), Op1::Char),
+        (c.open.ptr(), Op1::Open),
+        (c.secret.ptr(), Op1::Secret),
+        (c.atom.ptr(), Op1::Atom),
+        (c.emit.ptr(), Op1::Emit),
+    ]);
+
+    let BINOPS_MAP: HashMap<Ptr<F>, _> = HashMap::from([
+        (c.cons.ptr(), Op2::Cons),
+        (c.strcons.ptr(), Op2::StrCons),
+        (c.hide.ptr(), Op2::Hide),
+        (c.begin.ptr(), Op2::Begin),
+        (c.sum.ptr(), Op2::Sum),
+        (c.diff.ptr(), Op2::Diff),
+        (c.product.ptr(), Op2::Product),
+        (c.quotient.ptr(), Op2::Quotient),
+        (c.modulo.ptr(), Op2::Modulo),
+        (c.num_equal.ptr(), Op2::NumEqual),
+        (c.equal.ptr(), Op2::Equal),
+        (c.less.ptr(), Op2::Less),
+        (c.greater.ptr(), Op2::Greater),
+        (c.less_equal.ptr(), Op2::LessEqual),
+        (c.greater_equal.ptr(), Op2::GreaterEqual),
+    ]);
+
     let mut closure_to_extend = None;
 
     Ok((
@@ -392,14 +424,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 }
                             }
                         }
-                    } else if let Some(op) = HashMap::from([
-                        (c.cons.ptr(), Op2::Cons),
-                        (c.strcons.ptr(), Op2::StrCons),
-                        (c.hide.ptr(), Op2::Hide),
-                        (c.begin.ptr(), Op2::Begin),
-                    ])
-                    .get(&head)
-                    {
+                    } else if let Some(op) = BINOPS_MAP.get(&head) {
                         let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
                         if rest.is_nil() || more.is_nil() {
                             Control::Error(expr, env)
@@ -419,17 +444,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 ),
                             )
                         }
-                    } else if let Some(op) = HashMap::from([
-                        (c.car.ptr(), Op1::Car),
-                        (c.cdr.ptr(), Op1::Cdr),
-                        (c.commit.ptr(), Op1::Commit),
-                        (c.num.ptr(), Op1::Num),
-                        (c.u64.ptr(), Op1::U64),
-                        (c.comm.ptr(), Op1::Comm),
-                        (c.char.ptr(), Op1::Char),
-                    ])
-                    .get(&head)
-                    {
+                    } else if let Some(op) = UNOPS_MAP.get(&head) {
                         let (arg1, end) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
                         if rest.is_nil() || !end.is_nil() {
                             Control::Error(expr, env)
@@ -474,65 +489,6 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                             unevaled_args: more,
                                             continuation: cont,
                                         }
-                                    },
-                                ),
-                            )
-                        }
-                    } else if let Some(op) = HashMap::from([
-                        (c.open.ptr(), Op1::Open),
-                        (c.secret.ptr(), Op1::Secret),
-                        (c.atom.ptr(), Op1::Atom),
-                        (c.emit.ptr(), Op1::Emit),
-                    ])
-                    .get(&head)
-                    {
-                        let (arg1, end) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-                        if rest.is_nil() || !end.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Unop {
-                                        operator: *op,
-                                        continuation: cont,
-                                    },
-                                ),
-                            )
-                        }
-                    } else if let Some(op) = HashMap::from([
-                        (c.sum.ptr(), Op2::Sum),
-                        (c.diff.ptr(), Op2::Diff),
-                        (c.product.ptr(), Op2::Product),
-                        (c.quotient.ptr(), Op2::Quotient),
-                        (c.modulo.ptr(), Op2::Modulo),
-                        (c.num_equal.ptr(), Op2::NumEqual),
-                        (c.equal.ptr(), Op2::Equal),
-                        (c.less.ptr(), Op2::Less),
-                        (c.greater.ptr(), Op2::Greater),
-                        (c.less_equal.ptr(), Op2::LessEqual),
-                        (c.greater_equal.ptr(), Op2::GreaterEqual),
-                    ])
-                    .get(&head)
-                    {
-                        let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
-                        if rest.is_nil() || more.is_nil() {
-                            Control::Error(expr, env)
-                        } else {
-                            Control::Return(
-                                arg1,
-                                env,
-                                cont_witness.intern_named_cont(
-                                    ContName::NewerCont,
-                                    store,
-                                    Continuation::Binop {
-                                        operator: *op,
-                                        saved_env: env,
-                                        unevaled_args: more,
-                                        continuation: cont,
                                     },
                                 ),
                             )
