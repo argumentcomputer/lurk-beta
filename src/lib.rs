@@ -9,6 +9,7 @@ pub mod circuit;
 pub mod coprocessor;
 pub mod eval;
 pub mod field;
+pub mod hash;
 pub mod hash_witness;
 pub mod light_data;
 pub mod package;
