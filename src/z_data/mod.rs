@@ -234,6 +234,52 @@ pub trait Encodable {
         Self: Sized;
 }
 
+impl Encodable for u64 {
+    fn ser(&self) -> ZData {
+        ZData::Atom(u64::to_le_bytes(*self).to_vec())
+    }
+
+    fn de(ld: &ZData) -> Result<Self> {
+        match ld {
+            // TODO: remove clone
+            ZData::Atom(x) => match (*x).clone().try_into() {
+                Ok(a) => Ok(u64::from_le_bytes(a)),
+                Err(_) => anyhow::bail!("expected u64"),
+            },
+            ZData::Cell(_) => anyhow::bail!("expected u64"),
+        }
+    }
+}
+
+impl Encodable for u32 {
+    fn ser(&self) -> ZData {
+        ZData::Atom(u32::to_le_bytes(*self).to_vec())
+    }
+    fn de(ld: &ZData) -> Result<Self> {
+        match ld {
+            // TODO: remove clone
+            ZData::Atom(x) => match (*x).clone().try_into() {
+                Ok(a) => Ok(u32::from_le_bytes(a)),
+                Err(_) => anyhow::bail!("expected u32"),
+            },
+            ZData::Cell(_) => anyhow::bail!("expected u32"),
+        }
+    }
+}
+
+impl Encodable for char {
+    fn ser(&self) -> ZData {
+        ((*self) as u32).ser()
+    }
+
+    fn de(ld: &ZData) -> Result<Self> {
+        match char::from_u32(u32::de(ld)?) {
+            Some(x) => Ok(x),
+            None => anyhow::bail!("expected char"),
+        }
+    }
+}
+
 impl<A: Encodable + Sized> Encodable for Option<A> {
     fn ser(&self) -> ZData {
         match self {

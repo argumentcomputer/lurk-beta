@@ -6,6 +6,9 @@ use std::{
     ops::{Add, Div, Mul, Rem, Sub},
 };
 
+use crate::z_data::Encodable;
+use crate::z_data::ZData;
+
 /// Unsigned fixed-width integer type for Lurk.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Serialize, Deserialize)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
@@ -40,6 +43,16 @@ impl Display for UInt {
         match self {
             UInt::U64(n) => write!(f, "{n}"),
         }
+    }
+}
+
+impl Encodable for UInt {
+    fn ser(&self) -> ZData {
+        u64::ser(&u64::from(*self))
+    }
+
+    fn de(ld: &ZData) -> anyhow::Result<Self> {
+        Ok(UInt::from(u64::de(ld)?))
     }
 }
 
