@@ -23,27 +23,53 @@ use serde::{de, ser};
 
 use crate::hash::IntoHashComponents;
 
-pub trait Object<F: LurkField>: fmt::Debug + Clone + PartialEq {
-    type Pointer: Pointer<F>;
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum RawPtr {
+    Null,
+    Opaque(usize),
+    Index(usize),
 }
 
-pub trait Pointer<F: LurkField + From<u64>>: fmt::Debug + Copy + Clone + PartialEq + Hash {
-    type Tag: Tag;
+impl RawPtr {
+    pub fn new(p: usize) -> Self {
+        Self::Index(p)
+    }
 
-    fn tag(&self) -> Self::Tag;
-    fn tag_field(&self) -> F {
-        F::from(self.tag().into() as u64)
+    pub const fn is_opaque(&self) -> bool {
+        matches!(self, Self::Opaque(_))
+    }
+
+    pub fn is_null(&self) -> bool {
+        matches!(self, Self::Null)
+    }
+
+    pub fn opaque_idx(&self) -> Option<usize> {
+        match self {
+            Self::Opaque(x) => Some(*x),
+            _ => None,
+        }
+    }
+
+    pub fn idx(&self) -> Option<usize> {
+        match self {
+            Self::Index(x) => Some(*x),
+            _ => None,
+        }
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Ptr<F: LurkField>(pub ExprTag, pub RawPtr<F>);
+pub struct Ptr<F: LurkField> {
+    pub tag: ExprTag,
+    pub raw: RawPtr,
+    pub _f: PhantomData<F>,
+}
 
-#[allow(clippy::derived_hash_with_manual_eq)]
+#[allow(clippy::derive_hash_xor_eq)]
 impl<F: LurkField> Hash for Ptr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-        self.1.hash(state);
+        self.tag.hash(state);
+        self.raw.hash(state);
     }
 }
 
@@ -52,11 +78,11 @@ impl<F: LurkField> Ptr<F> {
 
     // NOTE: Although this could be a type predicate now, when NIL becomes a symbol, it won't be possible.
     pub const fn is_nil(&self) -> bool {
-        matches!(self.0, ExprTag::Nil)
+        matches!(self.tag, ExprTag::Nil)
         // FIXME: check value also, probably
     }
     pub const fn is_cons(&self) -> bool {
-        matches!(self.0, ExprTag::Cons)
+        matches!(self.tag, ExprTag::Cons)
     }
 
     pub const fn is_atom(&self) -> bool {
@@ -64,11 +90,11 @@ impl<F: LurkField> Ptr<F> {
     }
 
     pub const fn is_list(&self) -> bool {
-        matches!(self.0, ExprTag::Nil | ExprTag::Cons)
+        matches!(self.tag, ExprTag::Nil | ExprTag::Cons)
     }
 
     pub const fn is_opaque(&self) -> bool {
-        self.1.is_opaque()
+        self.raw.is_opaque()
     }
 
     pub const fn as_cons(self) -> Option<Self> {
@@ -86,19 +112,91 @@ impl<F: LurkField> Ptr<F> {
             None
         }
     }
+
+    pub fn index(tag: ExprTag, idx: usize) -> Self {
+        Ptr {
+            tag,
+            raw: RawPtr::Index(idx),
+            _f: Default::default(),
+        }
+    }
+
+    pub fn opaque(tag: ExprTag, idx: usize) -> Self {
+        Ptr {
+            tag,
+            raw: RawPtr::Opaque(idx),
+            _f: Default::default(),
+        }
+    }
+
+    pub fn null(tag: ExprTag) -> Self {
+        Ptr {
+            tag,
+            raw: RawPtr::Null,
+            _f: Default::default(),
+        }
+    }
 }
 
 impl<F: LurkField> From<char> for Ptr<F> {
     fn from(c: char) -> Self {
-        Self(ExprTag::Char, RawPtr::new(u32::from(c) as usize))
+        Self {
+            tag: ExprTag::Char,
+            raw: RawPtr::Index(u32::from(c) as usize),
+            _f: Default::default(),
+        }
     }
 }
 
-impl<F: LurkField> Pointer<F> for Ptr<F> {
-    type Tag = ExprTag;
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct ContPtr<F: LurkField> {
+    pub tag: ContTag,
+    pub raw: RawPtr,
+    pub _f: PhantomData<F>,
+}
 
-    fn tag(&self) -> ExprTag {
-        self.0
+#[allow(clippy::derived_hash_with_manual_eq)]
+impl<F: LurkField> Hash for ContPtr<F> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.tag.hash(state);
+        self.raw.hash(state);
+    }
+}
+
+impl<F: LurkField> ContPtr<F> {
+    pub fn new(tag: ContTag, raw: RawPtr) -> Self {
+        Self {
+            tag,
+            raw,
+            _f: Default::default(),
+        }
+    }
+    pub const fn is_error(&self) -> bool {
+        matches!(self.tag, ContTag::Error)
+    }
+
+    pub fn index(tag: ContTag, idx: usize) -> Self {
+        ContPtr {
+            tag,
+            raw: RawPtr::Index(idx),
+            _f: Default::default(),
+        }
+    }
+
+    pub fn opaque(tag: ContTag, idx: usize) -> Self {
+        ContPtr {
+            tag,
+            raw: RawPtr::Index(idx),
+            _f: Default::default(),
+        }
+    }
+
+    pub fn null(tag: ContTag) -> Self {
+        ContPtr {
+            tag,
+            raw: RawPtr::Null,
+            _f: Default::default(),
+        }
     }
 }
 
@@ -231,59 +329,3 @@ impl<E: Tag, F: LurkField> IntoHashComponents<F> for SPtr<E, F> {
 }
 
 pub type ScalarContPtr<F> = SPtr<ContTag, F>;
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct ContPtr<F: LurkField>(pub ContTag, pub RawPtr<F>);
-
-#[allow(clippy::derived_hash_with_manual_eq)]
-impl<F: LurkField> Hash for ContPtr<F> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-        self.1.hash(state);
-    }
-}
-
-impl<F: LurkField> Pointer<F> for ContPtr<F> {
-    type Tag = ContTag;
-
-    fn tag(&self) -> Self::Tag {
-        self.0
-    }
-}
-
-impl<F: LurkField> ContPtr<F> {
-    pub const fn new(tag: ContTag, raw_ptr: RawPtr<F>) -> Self {
-        Self(tag, raw_ptr)
-    }
-    pub const fn is_error(&self) -> bool {
-        matches!(self.0, ContTag::Error)
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-#[repr(transparent)]
-// If .0 is negative, RawPtr is opaque. This lets us retain the efficiency and structure of the current implementation.
-// It cuts the local store's address space in half, which is likely not an issue. This representation does not affect
-// external data, so if we want to change it in the future, we can do so without a change of defined behavior.
-pub struct RawPtr<F: LurkField>(pub (usize, bool), pub PhantomData<F>);
-
-impl<F: LurkField> RawPtr<F> {
-    pub fn new(p: usize) -> Self {
-        RawPtr((p, false), Default::default())
-    }
-
-    pub const fn is_opaque(&self) -> bool {
-        self.0 .1
-    }
-
-    pub const fn idx(&self) -> usize {
-        self.0 .0
-    }
-}
-
-#[allow(clippy::derived_hash_with_manual_eq)]
-impl<F: LurkField> Hash for RawPtr<F> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-    }
-}

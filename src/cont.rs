@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 use crate::field::LurkField;
-use crate::ptr::{ContPtr, Object, Ptr, RawPtr};
+use crate::ptr::{ContPtr, Ptr};
 use crate::tag::{ContTag, Op1, Op2};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -68,10 +68,6 @@ pub enum Continuation<F: LurkField> {
     Terminal,
 }
 
-impl<F: LurkField> Object<F> for Continuation<F> {
-    type Pointer = ContPtr<F>;
-}
-
 impl<F: LurkField> Continuation<F> {
     pub(crate) fn intern_aux(&self, store: &mut crate::store::Store<F>) -> ContPtr<F> {
         match self {
@@ -82,7 +78,7 @@ impl<F: LurkField> Continuation<F> {
             }
             _ => {
                 let (p, inserted) = self.insert_in_store(store);
-                let ptr = ContPtr(self.cont_tag(), RawPtr::new(p));
+                let ptr = ContPtr::index(self.cont_tag(), p);
                 if inserted {
                     store.dehydrated_cont.push(ptr)
                 }
@@ -230,7 +226,7 @@ impl<F: LurkField> Continuation<F> {
     pub fn get_simple_cont(&self) -> ContPtr<F> {
         match self {
             Self::Outermost | Self::Dummy | Self::Error | Self::Terminal => {
-                ContPtr(self.cont_tag(), RawPtr::new(0))
+                ContPtr::null(self.cont_tag())
             }
 
             _ => unreachable!("Not a simple Continuation: {:?}", self),

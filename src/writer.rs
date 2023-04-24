@@ -1,7 +1,7 @@
 use crate::cont::Continuation;
 use crate::expr::Expression;
 use crate::field::LurkField;
-use crate::ptr::{ContPtr, Pointer, Ptr};
+use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
 use crate::Sym;
 use std::io;
@@ -20,7 +20,7 @@ impl<F: LurkField> Write<F> for Ptr<F> {
         if self.is_opaque() {
             // This should never fail.
             write!(w, "<Opaque ")?;
-            write!(w, "{:?}", self.tag())?;
+            write!(w, "{:?}", self.tag)?;
 
             if let Some(x) = store.get_expr_hash(self) {
                 write!(w, " ")?;

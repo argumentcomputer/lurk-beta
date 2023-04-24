@@ -4,7 +4,7 @@ use crate::field::LurkField;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::field::FWrap;
-use crate::ptr::{Pointer, Ptr, ScalarContPtr, ScalarPtr};
+use crate::ptr::{Ptr, ScalarContPtr, ScalarPtr};
 use crate::store::Store;
 use crate::tag::{ExprTag, Op1, Op2};
 use crate::{Num, Sym, UInt};
@@ -164,7 +164,7 @@ impl<F: LurkField> ScalarStore<F> {
 
 impl<F: LurkField> ScalarExpression<F> {
     fn from_ptr(store: &Store<F>, ptr: &Ptr<F>) -> Option<Self> {
-        match ptr.tag() {
+        match ptr.tag {
             ExprTag::Nil => Some(ScalarExpression::Nil),
             ExprTag::Cons => store.fetch_cons(ptr).and_then(|(car, cdr)| {
                 if let (Some(car), Some(cdr)) = (store.get_expr_hash(car), store.get_expr_hash(cdr))

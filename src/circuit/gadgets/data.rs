@@ -11,7 +11,7 @@ use super::pointer::AsAllocatedHashComponents;
 use crate::expr::{Expression, Thunk};
 use crate::field::LurkField;
 use crate::hash::IntoHashComponents;
-use crate::ptr::{Pointer, Ptr, ScalarContPtr, ScalarPtr};
+use crate::ptr::{Ptr, ScalarContPtr, ScalarPtr};
 use crate::store::Store;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 
@@ -306,7 +306,7 @@ impl<F: LurkField> Ptr<F> {
         ),
         SynthesisError,
     > {
-        match maybe_fun.map(|ptr| (ptr, ptr.tag())) {
+        match maybe_fun.map(|ptr| (ptr, ptr.tag)) {
             Some((ptr, ExprTag::Fun)) => match store.fetch(ptr).expect("missing fun") {
                 Expression::Fun(arg, body, closed_env) => {
                     let arg = store.get_expr_hash(&arg).expect("missing arg");

@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 use crate::field::LurkField;
-use crate::ptr::{ContPtr, Object, Ptr};
+use crate::ptr::{ContPtr, Ptr};
 use crate::sym::Sym;
 use crate::{Num, UInt};
 
@@ -31,10 +31,6 @@ pub enum Expression<'a, F: LurkField> {
     Opaque(Ptr<F>),
     Char(char),
     UInt(UInt),
-}
-
-impl<F: LurkField> Object<F> for Expression<'_, F> {
-    type Pointer = Ptr<F>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
