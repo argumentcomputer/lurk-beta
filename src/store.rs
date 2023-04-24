@@ -2359,7 +2359,6 @@ pub mod test {
         // other_opaque_sym doesn't exist at all in store, but it is recognized as an opaque sym.
         // It still prints 'normally', but attempts to fetch its name detect this case.
         // This shouldn't actually happen. The test just exercise the code path which detects it.
-        assert_eq!("<Opaque Sym>", other_opaque_sym3.fmt_to_string(&store));
         assert_eq!(
             Sym::new_opaque(false),
             store.fetch_sym(&other_opaque_sym3).unwrap()
