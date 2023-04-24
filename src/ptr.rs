@@ -11,8 +11,6 @@ use crate::z_data::ZContPtr;
 use crate::field::LurkField;
 use crate::tag::{ContTag, ExprTag};
 
-// pub type ScalarContPtr<F> = ZContPtr<F>;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RawPtr {
     Null,
