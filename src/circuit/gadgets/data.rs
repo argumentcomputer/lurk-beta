@@ -11,7 +11,8 @@ use super::pointer::AsAllocatedHashComponents;
 use crate::expr::{Expression, Thunk};
 use crate::field::LurkField;
 use crate::hash::IntoHashComponents;
-use crate::ptr::{Ptr, ScalarContPtr, ScalarPtr};
+use crate::ptr::Ptr;
+use crate::z_data::{ZExprPtr, ZContPtr};
 use crate::store::Store;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 
@@ -477,7 +478,7 @@ impl<F: LurkField> Thunk<F> {
                 .as_ref()
                 .and_then(|frs| {
                     let opt_tag = ExprTag::from_field(&frs[0]);
-                    opt_tag.map(|tag| ScalarPtr::from_parts(tag, frs[1]))
+                    opt_tag.map(|tag| ZExprPtr::from_parts(tag, frs[1]))
                 })
                 .ok_or(SynthesisError::AssignmentMissing)
         })?;
@@ -489,7 +490,7 @@ impl<F: LurkField> Thunk<F> {
                     .as_ref()
                     .and_then(|frs| {
                         let opt_tag = ContTag::from_field(&frs[2]);
-                        opt_tag.map(|tag| ScalarContPtr::from_parts(tag, frs[3]))
+                        opt_tag.map(|tag| ZContPtr::from_parts(tag, frs[3]))
                     })
                     .ok_or(SynthesisError::AssignmentMissing)
             },
@@ -505,12 +506,12 @@ impl<F: LurkField> Thunk<F> {
         store: &Store<F>,
     ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         let value = AllocatedPtr::alloc(&mut cs.namespace(|| "Thunk component: value"), || {
-            Ok(ScalarPtr::from_parts(ExprTag::Nil, F::zero()))
+            Ok(ZExprPtr::from_parts(ExprTag::Nil, F::zero()))
         })?;
 
         let cont = AllocatedContPtr::alloc(
             &mut cs.namespace(|| "Thunk component: continuation"),
-            || Ok(ScalarContPtr::from_parts(ContTag::Dummy, F::zero())),
+            || Ok(ZContPtr::from_parts(ContTag::Dummy, F::zero())),
         )?;
 
         let dummy_hash = Self::hash_components(cs.namespace(|| "Thunk"), store, &value, &cont)?;

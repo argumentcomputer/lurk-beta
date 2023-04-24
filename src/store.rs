@@ -13,7 +13,8 @@ use crate::expr::{Expression, Thunk};
 use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
-use crate::ptr::{ContPtr, Ptr, ScalarContPtr, ScalarPtr};
+use crate::ptr::{ContPtr, Ptr};
+use crate::z_data::{ZExprPtr, ZContPtr};
 use crate::scalar_store::{ScalarContinuation, ScalarExpression, ScalarStore};
 use crate::sym::Sym;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
@@ -77,13 +78,13 @@ pub struct Store<F: LurkField> {
     pub letrec_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
     pub emit_store: IndexSet<ContPtr<F>>,
 
-    pub opaque_ptrs: IndexSet<ScalarPtr<F>>,
-    pub opaque_cont_ptrs: IndexSet<ScalarContPtr<F>>,
+    pub opaque_ptrs: IndexSet<ZExprPtr<F>>,
+    pub opaque_cont_ptrs: IndexSet<ZContPtr<F>>,
 
-    /// Holds a mapping of ScalarPtr -> Ptr for reverse lookups
-    pub scalar_ptr_map: dashmap::DashMap<ScalarPtr<F>, Ptr<F>, ahash::RandomState>,
-    /// Holds a mapping of ScalarPtr -> ContPtr<F> for reverse lookups
-    pub scalar_ptr_cont_map: dashmap::DashMap<ScalarContPtr<F>, ContPtr<F>, ahash::RandomState>,
+    /// Holds a mapping of ZExprPtr -> Ptr for reverse lookups
+    pub scalar_ptr_map: dashmap::DashMap<ZExprPtr<F>, Ptr<F>, ahash::RandomState>,
+    /// Holds a mapping of ZExprPtr -> ContPtr<F> for reverse lookups
+    pub scalar_ptr_cont_map: dashmap::DashMap<ZContPtr<F>, ContPtr<F>, ahash::RandomState>,
 
     /// Caches poseidon hashes
     pub poseidon_cache: PoseidonCache<F>,
@@ -91,7 +92,7 @@ pub struct Store<F: LurkField> {
     pub dehydrated: Vec<Ptr<F>>,
     pub dehydrated_cont: Vec<ContPtr<F>>,
 
-    pub pointer_scalar_ptr_cache: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
+    pub pointer_scalar_ptr_cache: dashmap::DashMap<Ptr<F>, ZExprPtr<F>>,
 
     pub lurk_package: Arc<Package>,
     pub constants: OnceCell<NamedConstants<F>>,
@@ -402,7 +403,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn get_maybe_opaque(&self, tag: ExprTag, hash: F) -> Option<Ptr<F>> {
-        let scalar_ptr = ScalarPtr::from_parts(tag, hash);
+        let scalar_ptr = ZExprPtr::from_parts(tag, hash);
 
         let ptr = self.scalar_ptr_map.get(&scalar_ptr);
         if let Some(p) = ptr {
@@ -420,7 +421,7 @@ impl<F: LurkField> Store<F> {
         return_non_opaque_if_existing: bool,
     ) -> Ptr<F> {
         self.hydrate_scalar_cache();
-        let scalar_ptr = ScalarPtr::from_parts(tag, hash);
+        let scalar_ptr = ZExprPtr::from_parts(tag, hash);
 
         // Scope the first immutable borrow.
         {
@@ -438,7 +439,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn intern_scalar_cont_ptr(
         &mut self,
-        ptr: ScalarContPtr<F>,
+        ptr: ZContPtr<F>,
         scalar_store: &ScalarStore<F>,
     ) -> Option<ContPtr<F>> {
         use ScalarContinuation::*;
@@ -556,7 +557,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn intern_scalar_ptr(
         &mut self,
-        scalar_ptr: ScalarPtr<F>,
+        scalar_ptr: ZExprPtr<F>,
         scalar_store: &ScalarStore<F>,
     ) -> Option<Ptr<F>> {
         if let Some(ptr) = self.fetch_scalar(&scalar_ptr) {
@@ -904,28 +905,28 @@ impl<F: LurkField> Store<F> {
         self.mark_dehydrated_cont(self.get_cont_dummy())
     }
 
-    pub fn scalar_from_parts(&self, tag: F, value: F) -> Option<ScalarPtr<F>> {
+    pub fn scalar_from_parts(&self, tag: F, value: F) -> Option<ZExprPtr<F>> {
         let Some(e_tag) = ExprTag::from_field(&tag) else { return None };
-        let scalar_ptr = ScalarPtr::from_parts(e_tag, value);
+        let scalar_ptr = ZExprPtr::from_parts(e_tag, value);
         self.scalar_ptr_map
             .contains_key(&scalar_ptr)
             .then_some(scalar_ptr)
     }
 
-    pub fn scalar_from_parts_cont(&self, tag: F, value: F) -> Option<ScalarContPtr<F>> {
+    pub fn scalar_from_parts_cont(&self, tag: F, value: F) -> Option<ZContPtr<F>> {
         let Some(e_tag) = ContTag::from_field(&tag) else { return None };
-        let scalar_ptr = ScalarContPtr::from_parts(e_tag, value);
+        let scalar_ptr = ZContPtr::from_parts(e_tag, value);
         if self.scalar_ptr_cont_map.contains_key(&scalar_ptr) {
             return Some(scalar_ptr);
         }
         None
     }
 
-    pub fn fetch_scalar(&self, scalar_ptr: &ScalarPtr<F>) -> Option<Ptr<F>> {
+    pub fn fetch_scalar(&self, scalar_ptr: &ZExprPtr<F>) -> Option<Ptr<F>> {
         self.scalar_ptr_map.get(scalar_ptr).map(|p| *p)
     }
 
-    pub fn fetch_scalar_cont(&self, scalar_ptr: &ScalarContPtr<F>) -> Option<ContPtr<F>> {
+    pub fn fetch_scalar_cont(&self, scalar_ptr: &ZContPtr<F>) -> Option<ContPtr<F>> {
         self.scalar_ptr_cont_map.get(scalar_ptr).map(|p| *p)
     }
 
@@ -1221,7 +1222,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn hash_expr(&self, ptr: &Ptr<F>) -> Option<ScalarPtr<F>> {
+    pub fn hash_expr(&self, ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
         self.hash_expr_aux(ptr, HashScalar::Create)
     }
 
@@ -1229,11 +1230,11 @@ impl<F: LurkField> Store<F> {
     // this after the cache has been hydrated. NOTE: because dashmap::entry can deadlock, it is important not to call
     // hash_expr in nested call graphs which might trigger that behavior. This discovery is what led to get_expr_hash
     // and the 'get' versions of hash_cons, hash_sym, etc.
-    pub fn get_expr_hash(&self, ptr: &Ptr<F>) -> Option<ScalarPtr<F>> {
+    pub fn get_expr_hash(&self, ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
         self.hash_expr_aux(ptr, HashScalar::Get)
     }
 
-    pub fn hash_expr_aux(&self, ptr: &Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
+    pub fn hash_expr_aux(&self, ptr: &Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
         use ExprTag::*;
 
         if let Some(scalar_ptr) = &self.pointer_scalar_ptr_cache.get(ptr) {
@@ -1267,24 +1268,24 @@ impl<F: LurkField> Store<F> {
         scalar_ptr
     }
 
-    pub fn hash_cont(&self, ptr: &ContPtr<F>) -> Option<ScalarContPtr<F>> {
+    pub fn hash_cont(&self, ptr: &ContPtr<F>) -> Option<ZContPtr<F>> {
         let components = self.get_hash_components_cont(ptr)?;
         let hash = self.poseidon_cache.hash8(&components);
 
         Some(self.create_cont_scalar_ptr(*ptr, hash))
     }
 
-    fn scalar_ptr(&self, ptr: Ptr<F>, hash: F, mode: HashScalar) -> ScalarPtr<F> {
+    fn scalar_ptr(&self, ptr: Ptr<F>, hash: F, mode: HashScalar) -> ZExprPtr<F> {
         match mode {
             HashScalar::Create => self.create_scalar_ptr(ptr, hash),
             HashScalar::Get => self.get_scalar_ptr(ptr, hash),
         }
     }
 
-    /// The only places that `ScalarPtr`s for `Ptr`s should be created, to
+    /// The only places that `ZExprPtr`s for `Ptr`s should be created, to
     /// ensure that they are cached properly
-    fn create_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ScalarPtr<F> {
-        let scalar_ptr = ScalarPtr::from_parts(ptr.tag, hash);
+    fn create_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ZExprPtr<F> {
+        let scalar_ptr = ZExprPtr::from_parts(ptr.tag, hash);
         let entry = self.scalar_ptr_map.entry(scalar_ptr);
         entry.or_insert(ptr);
 
@@ -1293,14 +1294,14 @@ impl<F: LurkField> Store<F> {
         scalar_ptr
     }
 
-    fn get_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ScalarPtr<F> {
-        ScalarPtr::from_parts(ptr.tag, hash)
+    fn get_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ZExprPtr<F> {
+        ZExprPtr::from_parts(ptr.tag, hash)
     }
 
-    /// The only places that `ScalarContPtr`s for `ContPtr`s should be created, to
+    /// The only places that `ZContPtr`s for `ContPtr`s should be created, to
     /// ensure that they are cached properly
-    fn create_cont_scalar_ptr(&self, ptr: ContPtr<F>, hash: F) -> ScalarContPtr<F> {
-        let scalar_ptr = ScalarContPtr::from_parts(ptr.tag, hash);
+    fn create_cont_scalar_ptr(&self, ptr: ContPtr<F>, hash: F) -> ZContPtr<F> {
+        let scalar_ptr = ZContPtr::from_parts(ptr.tag, hash);
         self.scalar_ptr_cont_map.entry(scalar_ptr).or_insert(ptr);
 
         scalar_ptr
@@ -1540,12 +1541,12 @@ impl<F: LurkField> Store<F> {
         ])
     }
 
-    pub fn get_opaque_ptr(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
+    pub fn get_opaque_ptr(&self, ptr: Ptr<F>) -> Option<ZExprPtr<F>> {
         let s = self.opaque_ptrs.get_index(ptr.raw.opaque_idx()?)?;
         Some(*s)
     }
 
-    pub fn hash_sym(&self, sym: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
+    pub fn hash_sym(&self, sym: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
         if sym.is_opaque() {
             return self.get_opaque_ptr(sym);
         }
@@ -1556,7 +1557,7 @@ impl<F: LurkField> Store<F> {
         Some(self.scalar_ptr(sym, sym_hash, mode))
     }
 
-    fn hash_str(&self, str: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
+    fn hash_str(&self, str: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
         if str.is_opaque() {
             return self.get_opaque_ptr(str);
         }
@@ -1565,7 +1566,7 @@ impl<F: LurkField> Store<F> {
         Some(self.scalar_ptr(str, self.hash_string(s), mode))
     }
 
-    fn hash_fun(&self, fun: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
+    fn hash_fun(&self, fun: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
         if fun.is_opaque() {
             self.get_opaque_ptr(fun)
         } else {
@@ -1578,7 +1579,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    fn hash_cons(&self, cons: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
+    fn hash_cons(&self, cons: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
         if cons.is_opaque() {
             return self.get_opaque_ptr(cons);
         }
@@ -1587,7 +1588,7 @@ impl<F: LurkField> Store<F> {
         Some(self.scalar_ptr(cons, self.hash_ptrs_2(&[*car, *cdr], mode)?, mode))
     }
 
-    fn hash_comm(&self, comm: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
+    fn hash_comm(&self, comm: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
         if comm.is_opaque() {
             return self.get_opaque_ptr(comm);
         }
@@ -1599,30 +1600,30 @@ impl<F: LurkField> Store<F> {
         Some(self.scalar_ptr(comm, hashed, mode))
     }
 
-    pub(crate) fn commitment_hash(&self, secret_scalar: F, payload: ScalarPtr<F>) -> F {
+    pub(crate) fn commitment_hash(&self, secret_scalar: F, payload: ZExprPtr<F>) -> F {
         let preimage = [secret_scalar, payload.0.to_field(), payload.1];
         self.poseidon_cache.hash3(&preimage)
     }
 
-    fn hash_thunk(&self, ptr: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
+    fn hash_thunk(&self, ptr: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
         let thunk = self.fetch_thunk(&ptr)?;
         let components = self.get_hash_components_thunk(thunk)?;
         Some(self.scalar_ptr(ptr, self.poseidon_cache.hash4(&components), mode))
     }
 
-    fn hash_char(&self, ptr: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
+    fn hash_char(&self, ptr: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
         let char_code = ptr.raw.idx()?;
 
         Some(self.scalar_ptr(ptr, F::from(char_code as u64), mode))
     }
 
-    fn hash_num(&self, ptr: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
+    fn hash_num(&self, ptr: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
         let n = self.fetch_num(&ptr)?;
 
         Some(self.scalar_ptr(ptr, n.into_scalar(), mode))
     }
 
-    fn hash_uint(&self, ptr: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
+    fn hash_uint(&self, ptr: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
         let n = self.fetch_uint(&ptr)?;
 
         match n {
@@ -1716,18 +1717,18 @@ impl<F: LurkField> Store<F> {
     }
 
     // All hashes of substrings, shortest to longest.
-    fn all_hashes(&mut self, s: &str, initial_scalar_ptr: ScalarPtr<F>) -> Vec<F> {
+    fn all_hashes(&mut self, s: &str, initial_scalar_ptr: ZExprPtr<F>) -> Vec<F> {
         let chars = s.chars().rev();
         let mut hashes = Vec::with_capacity(s.len());
 
         chars.fold(initial_scalar_ptr, |acc, char| {
             let c_scalar: F = (u32::from(char) as u64).into();
             // This bypasses create_scalar_ptr but is okay because Chars are immediate and don't need to be indexed.
-            let c = ScalarPtr::from_parts(ExprTag::Char, c_scalar);
+            let c = ZExprPtr::from_parts(ExprTag::Char, c_scalar);
             let hash = self.hash_scalar_ptrs_2(&[c, acc]);
             // This bypasses create_scalar_ptr but is okay because we will call it to correctly create each of these
-            // ScalarPtrs below, in hash_string_mut_aux.
-            let new_scalar_ptr = ScalarPtr::from_parts(ExprTag::Str, hash);
+            // ZExprPtrs below, in hash_string_mut_aux.
+            let new_scalar_ptr = ZExprPtr::from_parts(ExprTag::Str, hash);
             hashes.push(hash);
             new_scalar_ptr
         });
@@ -1767,7 +1768,7 @@ impl<F: LurkField> Store<F> {
         Some(self.hash_scalar_ptrs_3(&scalar_ptrs))
     }
 
-    fn hash_scalar_ptrs_2(&self, ptrs: &[ScalarPtr<F>; 2]) -> F {
+    fn hash_scalar_ptrs_2(&self, ptrs: &[ZExprPtr<F>; 2]) -> F {
         let preimage = [
             ptrs[0].0.to_field::<F>(),
             ptrs[0].1,
@@ -1777,7 +1778,7 @@ impl<F: LurkField> Store<F> {
         self.poseidon_cache.hash4(&preimage)
     }
 
-    fn hash_scalar_ptrs_3(&self, ptrs: &[ScalarPtr<F>; 3]) -> F {
+    fn hash_scalar_ptrs_3(&self, ptrs: &[ZExprPtr<F>; 3]) -> F {
         let preimage = [
             ptrs[0].0.to_field::<F>(),
             ptrs[0].1,
@@ -1789,7 +1790,7 @@ impl<F: LurkField> Store<F> {
         self.poseidon_cache.hash6(&preimage)
     }
 
-    pub fn hash_nil(&self, mode: HashScalar) -> Option<ScalarPtr<F>> {
+    pub fn hash_nil(&self, mode: HashScalar) -> Option<ZExprPtr<F>> {
         let nil = self.get_nil();
 
         self.hash_sym(nil, mode)
@@ -1943,15 +1944,15 @@ impl<F: LurkField> Expression<'_, F> {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct ConstantPtrs<F: LurkField>(Option<ScalarPtr<F>>, Ptr<F>);
+pub struct ConstantPtrs<F: LurkField>(Option<ZExprPtr<F>>, Ptr<F>);
 
 impl<F: LurkField> ConstantPtrs<F> {
     pub fn value(&self) -> F {
         *self.scalar_ptr().value()
     }
-    pub fn scalar_ptr(&self) -> ScalarPtr<F> {
+    pub fn scalar_ptr(&self) -> ZExprPtr<F> {
         self.0
-            .expect("ScalarPtr missing; hydrate_scalar_cache should have been called.")
+            .expect("ZExprPtr missing; hydrate_scalar_cache should have been called.")
     }
     pub const fn ptr(&self) -> Ptr<F> {
         self.1
@@ -2111,14 +2112,14 @@ pub mod test {
 
     proptest! {
       #[test]
-      fn test_scalar_ptr_ipld(x in any::<ScalarPtr<Fr>>())  {
+      fn test_scalar_ptr_ipld(x in any::<ZExprPtr<Fr>>())  {
         let to_ipld = to_ipld(x).unwrap();
         let from_ipld = from_ipld(to_ipld).unwrap();
         assert_eq!(x, from_ipld);
       }
 
       #[test]
-      fn prop_scalar_cont_ptr_ipld(x in any::<ScalarContPtr<Fr>>()) {
+      fn prop_scalar_cont_ptr_ipld(x in any::<ZContPtr<Fr>>()) {
           let to_ipld = to_ipld(x).unwrap();
               let from_ipld = from_ipld(to_ipld).unwrap();
               assert_eq!(x, from_ipld);
@@ -2613,7 +2614,7 @@ pub mod test {
         let str = s.read(str).unwrap();
         let str2 = s.cdr(&str).unwrap();
 
-        // Unless the cache is hydrated, the inner destructuring will not map the ScalarPtr to corresponding Ptr.
+        // Unless the cache is hydrated, the inner destructuring will not map the ZExprPtr to corresponding Ptr.
         if hydrate {
             s.hydrate_scalar_cache();
         };
@@ -2640,7 +2641,7 @@ pub mod test {
 
         let str = s.read(r#" "" "#).unwrap();
 
-        // Unless the cache is hydrated, the inner destructuring will not map the ScalarPtr to corresponding Ptr.
+        // Unless the cache is hydrated, the inner destructuring will not map the ZExprPtr to corresponding Ptr.
         if hydrate {
             s.hydrate_scalar_cache();
         };

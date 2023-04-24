@@ -8,7 +8,7 @@ use proptest_derive::Arbitrary;
 use anyhow::anyhow;
 use std::collections::BTreeMap;
 
-use crate::ptr::ScalarPtr;
+use crate::z_data::ZExprPtr;
 use crate::scalar_store::ScalarExpression;
 use crate::scalar_store::ScalarStore;
 use crate::sym::Sym;
@@ -26,7 +26,7 @@ use crate::field::LurkField;
 /// ZStore contains a fragment of the ScalarStore, but using the `ZExpr` type
 pub struct ZStore<F: LurkField> {
     /// An analogous to the ScalarStore's scalar_map, but with `ZExpr` instead of `ScalarExpression`
-    pub scalar_map: BTreeMap<ScalarPtr<F>, Option<ZExpr<F>>>,
+    pub scalar_map: BTreeMap<ZExprPtr<F>, Option<ZExpr<F>>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -44,11 +44,11 @@ impl<F: LurkField> Encodable for ZStore<F> {
         self.scalar_map
             .clone()
             .into_iter()
-            .collect::<Vec<(ScalarPtr<F>, Option<ZExpr<F>>)>>()
+            .collect::<Vec<(ZExprPtr<F>, Option<ZExpr<F>>)>>()
             .ser()
     }
     fn de(ld: &ZData) -> anyhow::Result<Self> {
-        let pairs = Vec::<(ScalarPtr<F>, Option<ZExpr<F>>)>::de(ld)?;
+        let pairs = Vec::<(ZExprPtr<F>, Option<ZExpr<F>>)>::de(ld)?;
         Ok(ZStore {
             scalar_map: pairs.into_iter().collect(),
         })
@@ -58,7 +58,7 @@ impl<F: LurkField> Encodable for ZStore<F> {
 impl<F: LurkField> ZStore<F> {
     /// Leaf pointers are those whose values aren't hashes of any piece of data
     /// that's expected to be in the ZStore
-    fn is_ptr_leaf(&self, ptr: ScalarPtr<F>) -> bool {
+    fn is_ptr_leaf(&self, ptr: ZExprPtr<F>) -> bool {
         match ptr.tag() {
             ExprTag::Num => true,
             ExprTag::Char => true,
@@ -72,13 +72,13 @@ impl<F: LurkField> ZStore<F> {
 
     fn insert_scalar_string(
         &self,
-        ptr0: ScalarPtr<F>,
+        ptr0: ZExprPtr<F>,
         store: &mut ScalarStore<F>,
     ) -> anyhow::Result<String> {
         let mut s = String::new();
         let mut tail_ptrs = vec![];
         let mut ptr = ptr0;
-        let strnil_ptr = ScalarPtr::from_parts(ExprTag::Str, F::zero());
+        let strnil_ptr = ZExprPtr::from_parts(ExprTag::Str, F::zero());
 
         // TODO: this needs to bail on encountering an opaque pointer
         while let Some(ZExpr::StrCons(c, cs)) = self.get(&ptr).flatten() {
@@ -121,17 +121,17 @@ impl<F: LurkField> ZStore<F> {
 
     fn insert_scalar_symbol(
         &self,
-        ptr0: ScalarPtr<F>,
+        ptr0: ZExprPtr<F>,
         store: &mut ScalarStore<F>,
     ) -> anyhow::Result<Sym> {
         let mut path = Sym::root();
         let mut tail_ptrs = vec![ptr0];
         let mut ptr = ptr0;
-        let symnil_ptr = ScalarPtr::from_parts(ExprTag::Sym, F::zero());
+        let symnil_ptr = ZExprPtr::from_parts(ExprTag::Sym, F::zero());
 
         // TODO: this needs to bail on encountering an opaque pointer
         while let Some(ZExpr::SymCons(s, ss)) = self.get(&ptr).flatten() {
-            let string = if s == ScalarPtr::from_parts(ExprTag::Str, F::zero()) {
+            let string = if s == ZExprPtr::from_parts(ExprTag::Str, F::zero()) {
                 Ok(String::new())
             } else {
                 self.insert_scalar_string(s, store)
@@ -161,7 +161,7 @@ impl<F: LurkField> ZStore<F> {
         Ok(path)
     }
 
-    fn intern_leaf(&self, ptr: ScalarPtr<F>, store: &mut ScalarStore<F>) -> anyhow::Result<()> {
+    fn intern_leaf(&self, ptr: ZExprPtr<F>, store: &mut ScalarStore<F>) -> anyhow::Result<()> {
         match ptr.tag() {
             ExprTag::Num => {
                 store.insert_scalar_expression(ptr, Some(ScalarExpression::Num(*ptr.value())));
@@ -193,9 +193,9 @@ impl<F: LurkField> ZStore<F> {
 
     fn intern_non_leaf(
         &self,
-        ptr: ScalarPtr<F>,
+        ptr: ZExprPtr<F>,
         store: &mut ScalarStore<F>,
-        stack: &mut Vec<ScalarPtr<F>>,
+        stack: &mut Vec<ZExprPtr<F>>,
     ) -> anyhow::Result<()> {
         match self.get(&ptr) {
             None => return Err(anyhow!("ZExpr not found for pointer {ptr}")),
@@ -206,7 +206,7 @@ impl<F: LurkField> ZStore<F> {
             Some(Some(expr)) => match (ptr.tag(), expr.clone()) {
                 (ExprTag::Nil, ZExpr::Nil) => {
                     // We also need to intern the `.LURK.NIL` symbol
-                    stack.push(ScalarPtr::from_parts(ExprTag::Sym, *ptr.value()));
+                    stack.push(ZExprPtr::from_parts(ExprTag::Sym, *ptr.value()));
                     store.insert_scalar_expression(ptr, Some(ScalarExpression::Nil));
                 }
                 (ExprTag::Cons, ZExpr::Cons(x, y)) => {
@@ -234,7 +234,7 @@ impl<F: LurkField> ZStore<F> {
         Ok(())
     }
 
-    /// Eagerly traverses the ZStore starting out from a ScalarPtr, adding
+    /// Eagerly traverses the ZStore starting out from a ZExprPtr, adding
     /// pointers and their respective expressions to a target ScalarStore. When
     /// handling non-leaf pointers, their corresponding expressions might
     /// add more pointers to be visited to a stack.
@@ -242,7 +242,7 @@ impl<F: LurkField> ZStore<F> {
     /// TODO: add a cycle detection logic
     fn intern_ptr_data(
         &self,
-        ptr0: ScalarPtr<F>,
+        ptr0: ZExprPtr<F>,
         store: &mut ScalarStore<F>,
     ) -> anyhow::Result<()> {
         let mut stack = Vec::new();
@@ -272,7 +272,7 @@ impl<F: LurkField> ZStore<F> {
         Ok(store)
     }
 
-    fn get(&self, ptr: &ScalarPtr<F>) -> Option<Option<ZExpr<F>>> {
+    fn get(&self, ptr: &ZExprPtr<F>) -> Option<Option<ZExpr<F>>> {
         self.scalar_map.get(ptr).cloned()
     }
 }
@@ -312,22 +312,22 @@ mod tests {
         // inserts the strings "hi" and "yo", then the symbols `.hi` and `.hi.yo`
         let (str1_c1, str1_c2) = ('h', 'i');
         let (str2_c1, str2_c2) = ('y', 'o');
-        let str1_c1_ptr = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(str1_c1));
-        let str1_c2_ptr = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(str1_c2));
-        let str2_c1_ptr = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(str2_c1));
-        let str2_c2_ptr = ScalarPtr::from_parts(ExprTag::Char, Scalar::from_char(str2_c2));
+        let str1_c1_ptr = ZExprPtr::from_parts(ExprTag::Char, Scalar::from_char(str1_c1));
+        let str1_c2_ptr = ZExprPtr::from_parts(ExprTag::Char, Scalar::from_char(str1_c2));
+        let str2_c1_ptr = ZExprPtr::from_parts(ExprTag::Char, Scalar::from_char(str2_c1));
+        let str2_c2_ptr = ZExprPtr::from_parts(ExprTag::Char, Scalar::from_char(str2_c2));
 
-        let str_nil = ScalarPtr::from_parts(ExprTag::Str, Scalar::zero());
-        let sym_nil = ScalarPtr::from_parts(ExprTag::Sym, Scalar::zero());
+        let str_nil = ZExprPtr::from_parts(ExprTag::Str, Scalar::zero());
+        let sym_nil = ZExprPtr::from_parts(ExprTag::Sym, Scalar::zero());
 
         // placeholder hashes
-        let str1_ptr_half = ScalarPtr::from_parts(ExprTag::Str, Scalar::from_u64(1));
-        let str1_ptr_full = ScalarPtr::from_parts(ExprTag::Str, Scalar::from_u64(2));
-        let str2_ptr_half = ScalarPtr::from_parts(ExprTag::Str, Scalar::from_u64(3));
-        let str2_ptr_full = ScalarPtr::from_parts(ExprTag::Str, Scalar::from_u64(4));
+        let str1_ptr_half = ZExprPtr::from_parts(ExprTag::Str, Scalar::from_u64(1));
+        let str1_ptr_full = ZExprPtr::from_parts(ExprTag::Str, Scalar::from_u64(2));
+        let str2_ptr_half = ZExprPtr::from_parts(ExprTag::Str, Scalar::from_u64(3));
+        let str2_ptr_full = ZExprPtr::from_parts(ExprTag::Str, Scalar::from_u64(4));
 
-        let sym_ptr_half = ScalarPtr::from_parts(ExprTag::Sym, Scalar::from_u64(5));
-        let sym_ptr_full = ScalarPtr::from_parts(ExprTag::Sym, Scalar::from_u64(6));
+        let sym_ptr_half = ZExprPtr::from_parts(ExprTag::Sym, Scalar::from_u64(5));
+        let sym_ptr_full = ZExprPtr::from_parts(ExprTag::Sym, Scalar::from_u64(6));
 
         let mut store = BTreeMap::new();
         store.insert(str1_ptr_half, Some(ZExpr::StrCons(str1_c2_ptr, str_nil)));

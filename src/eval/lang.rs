@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::field::LurkField;
-use crate::ptr::{Ptr, ScalarPtr};
+use crate::ptr::Ptr;
+use crate::z_data::ZExprPtr;
 use crate::store::Store;
 use crate::sym::Sym;
 
@@ -113,7 +114,7 @@ impl<F: LurkField> CoCircuit<F> for Coproc<F> {
 #[derive(Debug, Default, Clone)]
 pub struct Lang<F: LurkField, C: Coprocessor<F>> {
     //  A HashMap that stores coprocessors with their associated `Sym` keys.
-    coprocessors: HashMap<Sym, (C, ScalarPtr<F>)>,
+    coprocessors: HashMap<Sym, (C, ZExprPtr<F>)>,
 }
 
 impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
@@ -130,7 +131,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         self.coprocessors.insert(name, (cproc, scalar_ptr));
     }
 
-    pub fn coprocessors(&self) -> &HashMap<Sym, (C, ScalarPtr<F>)> {
+    pub fn coprocessors(&self) -> &HashMap<Sym, (C, ZExprPtr<F>)> {
         &self.coprocessors
     }
 
@@ -142,7 +143,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
             .unwrap_or(0)
     }
 
-    pub fn lookup(&self, s: &Store<F>, name: Ptr<F>) -> Option<&(C, ScalarPtr<F>)> {
+    pub fn lookup(&self, s: &Store<F>, name: Ptr<F>) -> Option<&(C, ZExprPtr<F>)> {
         let maybe_sym = s.fetch_maybe_sym(&name);
 
         maybe_sym.and_then(|sym| self.coprocessors.get(&sym))

@@ -1,22 +1,17 @@
-use anyhow::anyhow;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 use std::hash::Hash;
-use std::{fmt, marker::PhantomData};
+use std::marker::PhantomData;
 
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 
 use crate::z_data::ZContPtr;
-use crate::z_data::ZExprPtr;
-use crate::z_data::ZPtr;
 
-use crate::field::{FWrap, LurkField};
-use crate::tag::{ContTag, ExprTag, Tag};
+use crate::field::LurkField;
+use crate::tag::{ContTag, ExprTag};
 
-pub type SPtr<E, F> = ZPtr<E, F>;
-pub type ScalarPtr<F> = ZExprPtr<F>;
-pub type ScalarContPtr<F> = ZContPtr<F>;
+// pub type ScalarContPtr<F> = ZContPtr<F>;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RawPtr {

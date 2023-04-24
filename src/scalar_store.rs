@@ -4,7 +4,8 @@ use crate::field::LurkField;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::field::FWrap;
-use crate::ptr::{Ptr, ScalarContPtr, ScalarPtr};
+use crate::ptr::Ptr;
+use crate::z_data::{ZExprPtr, ZContPtr};
 use crate::store::Store;
 use crate::tag::{ExprTag, Op1, Op2};
 use crate::{Num, Sym, UInt};
@@ -15,33 +16,33 @@ use proptest_derive::Arbitrary;
 use serde::Deserialize;
 use serde::Serialize;
 
-/// `ScalarStore` allows realization of a graph of `ScalarPtr`s suitable for serialization to IPLD. `ScalarExpression`s
-/// are composed only of `ScalarPtr`s, so `scalar_map` suffices to allow traversing an arbitrary DAG.
+/// `ScalarStore` allows realization of a graph of `ZExprPtr`s suitable for serialization to IPLD. `ScalarExpression`s
+/// are composed only of `ZExprPtr`s, so `scalar_map` suffices to allow traversing an arbitrary DAG.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScalarStore<F: LurkField> {
-    scalar_map: BTreeMap<ScalarPtr<F>, Option<ScalarExpression<F>>>,
-    scalar_cont_map: BTreeMap<ScalarContPtr<F>, Option<ScalarContinuation<F>>>,
+    scalar_map: BTreeMap<ZExprPtr<F>, Option<ScalarExpression<F>>>,
+    scalar_cont_map: BTreeMap<ZContPtr<F>, Option<ScalarContinuation<F>>>,
     #[serde(skip)]
-    pending_scalar_ptrs: Vec<ScalarPtr<F>>,
+    pending_scalar_ptrs: Vec<ZExprPtr<F>>,
 }
 
 impl<F: LurkField> ScalarStore<F> {
-    /// Create a new `ScalarStore` and add all `ScalarPtr`s reachable in the scalar representation of `expr`.
-    pub fn new_with_expr(store: &Store<F>, expr: &Ptr<F>) -> (Self, Option<ScalarPtr<F>>) {
+    /// Create a new `ScalarStore` and add all `ZExprPtr`s reachable in the scalar representation of `expr`.
+    pub fn new_with_expr(store: &Store<F>, expr: &Ptr<F>) -> (Self, Option<ZExprPtr<F>>) {
         let mut new = Self::default();
         let scalar_ptr = new.add_one_ptr(store, expr);
         (new, scalar_ptr)
     }
 
-    /// Add all ScalarPtrs representing and reachable from expr.
-    pub fn add_one_ptr(&mut self, store: &Store<F>, expr: &Ptr<F>) -> Option<ScalarPtr<F>> {
+    /// Add all ZExprPtrs representing and reachable from expr.
+    pub fn add_one_ptr(&mut self, store: &Store<F>, expr: &Ptr<F>) -> Option<ZExprPtr<F>> {
         let scalar_ptr = self.add_ptr(store, expr);
         self.finalize(store);
         scalar_ptr
     }
 
-    /// Add the `ScalarPtr` representing `expr`, and queue it for proceessing.
-    pub fn add_ptr(&mut self, store: &Store<F>, expr: &Ptr<F>) -> Option<ScalarPtr<F>> {
+    /// Add the `ZExprPtr` representing `expr`, and queue it for proceessing.
+    pub fn add_ptr(&mut self, store: &Store<F>, expr: &Ptr<F>) -> Option<ZExprPtr<F>> {
         // Find the scalar_ptr representing ptr.
         if let Some(scalar_ptr) = store.get_expr_hash(expr) {
             self.add(store, expr, scalar_ptr);
@@ -51,20 +52,20 @@ impl<F: LurkField> ScalarStore<F> {
         }
     }
 
-    /// Add a single `ScalarPtr` and queue it for processing.
+    /// Add a single `ZExprPtr` and queue it for processing.
     /// NOTE: This requires that `store.scalar_cache` has been hydrated.
-    fn add_scalar_ptr(&mut self, store: &Store<F>, scalar_ptr: ScalarPtr<F>) {
+    fn add_scalar_ptr(&mut self, store: &Store<F>, scalar_ptr: ZExprPtr<F>) {
         // Find the ptr corresponding to scalar_ptr.
         if let Some(ptr) = store.scalar_ptr_map.get(&scalar_ptr) {
             self.add(store, &*ptr, scalar_ptr);
         }
     }
 
-    /// Add the `ScalarPtr` and `ScalarExpression` associated with `ptr`. The relationship between `ptr` and
+    /// Add the `ZExprPtr` and `ScalarExpression` associated with `ptr`. The relationship between `ptr` and
     /// `scalar_ptr` is not checked here, so `add` should only be called by `add_ptr` and `add_scalar_ptr`, which
     /// enforce this relationship.
-    fn add(&mut self, store: &Store<F>, ptr: &Ptr<F>, scalar_ptr: ScalarPtr<F>) {
-        let mut new_pending_scalar_ptrs: Vec<ScalarPtr<F>> = Default::default();
+    fn add(&mut self, store: &Store<F>, ptr: &Ptr<F>, scalar_ptr: ZExprPtr<F>) {
+        let mut new_pending_scalar_ptrs: Vec<ZExprPtr<F>> = Default::default();
 
         // If `scalar_ptr` is not already in the map, queue its children for processing.
         self.scalar_map.entry(scalar_ptr).or_insert_with(|| {
@@ -78,8 +79,8 @@ impl<F: LurkField> ScalarStore<F> {
         self.pending_scalar_ptrs.extend(new_pending_scalar_ptrs);
     }
 
-    /// All the `ScalarPtr`s directly reachable from `scalar_expression`, if any.
-    fn child_scalar_ptrs(scalar_expression: &ScalarExpression<F>) -> Option<Vec<ScalarPtr<F>>> {
+    /// All the `ZExprPtr`s directly reachable from `scalar_expression`, if any.
+    fn child_scalar_ptrs(scalar_expression: &ScalarExpression<F>) -> Option<Vec<ZExprPtr<F>>> {
         match scalar_expression {
             ScalarExpression::Nil => None,
             ScalarExpression::Cons(car, cdr) => Some([*car, *cdr].into()),
@@ -98,7 +99,7 @@ impl<F: LurkField> ScalarStore<F> {
         }
     }
 
-    /// Unqueue all the pending `ScalarPtr`s and add them, queueing all of their children, then repeat until the queue
+    /// Unqueue all the pending `ZExprPtr`s and add them, queueing all of their children, then repeat until the queue
     /// is pending queue is empty.
     fn add_pending_scalar_ptrs(&mut self, store: &Store<F>) {
         while let Some(scalar_ptr) = self.pending_scalar_ptrs.pop() {
@@ -107,21 +108,21 @@ impl<F: LurkField> ScalarStore<F> {
         assert!(self.pending_scalar_ptrs.is_empty());
     }
 
-    /// Method which finalizes the `ScalarStore`, ensuring that all reachable `ScalarPtr`s have been added.
+    /// Method which finalizes the `ScalarStore`, ensuring that all reachable `ZExprPtr`s have been added.
     pub fn finalize(&mut self, store: &Store<F>) {
         self.add_pending_scalar_ptrs(store);
     }
-    pub fn get_expr(&self, ptr: &ScalarPtr<F>) -> Option<&ScalarExpression<F>> {
+    pub fn get_expr(&self, ptr: &ZExprPtr<F>) -> Option<&ScalarExpression<F>> {
         let x = self.scalar_map.get(ptr)?;
         (*x).as_ref()
     }
 
-    pub fn get_cont(&self, ptr: &ScalarContPtr<F>) -> Option<&ScalarContinuation<F>> {
+    pub fn get_cont(&self, ptr: &ZContPtr<F>) -> Option<&ScalarContinuation<F>> {
         let x = self.scalar_cont_map.get(ptr)?;
         (*x).as_ref()
     }
 
-    pub fn to_store_with_expr(&mut self, ptr: &ScalarPtr<F>) -> Option<(Store<F>, Ptr<F>)> {
+    pub fn to_store_with_expr(&mut self, ptr: &ZExprPtr<F>) -> Option<(Store<F>, Ptr<F>)> {
         if self.pending_scalar_ptrs.is_empty() {
             let mut store = Store::new();
 
@@ -155,7 +156,7 @@ impl<F: LurkField> ScalarStore<F> {
     }
     pub(crate) fn insert_scalar_expression(
         &mut self,
-        ptr: ScalarPtr<F>,
+        ptr: ZExprPtr<F>,
         expr: Option<ScalarExpression<F>>,
     ) -> Option<Option<ScalarExpression<F>>> {
         self.scalar_map.insert(ptr, expr)
@@ -214,19 +215,19 @@ impl<F: LurkField> ScalarExpression<F> {
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 pub enum ScalarExpression<F: LurkField> {
     Nil,
-    Cons(ScalarPtr<F>, ScalarPtr<F>),
+    Cons(ZExprPtr<F>, ZExprPtr<F>),
     #[cfg_attr(
         not(target_arch = "wasm32"),
         proptest(
-            strategy = "any::<(FWrap<F>, ScalarPtr<F>)>().prop_map(|(x, y)| Self::Comm(x.0, y))"
+            strategy = "any::<(FWrap<F>, ZExprPtr<F>)>().prop_map(|(x, y)| Self::Comm(x.0, y))"
         )
     )]
-    Comm(F, ScalarPtr<F>),
+    Comm(F, ZExprPtr<F>),
     Sym(Sym),
     Fun {
-        arg: ScalarPtr<F>,
-        body: ScalarPtr<F>,
-        closed_env: ScalarPtr<F>,
+        arg: ZExprPtr<F>,
+        body: ZExprPtr<F>,
+        closed_env: ZExprPtr<F>,
     },
     #[cfg_attr(
         not(target_arch = "wasm32"),
@@ -276,8 +277,8 @@ impl<F: LurkField> std::fmt::Display for ScalarExpression<F> {
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 pub struct ScalarThunk<F: LurkField> {
-    pub(crate) value: ScalarPtr<F>,
-    pub(crate) continuation: ScalarContPtr<F>,
+    pub(crate) value: ZExprPtr<F>,
+    pub(crate) continuation: ZContPtr<F>,
 }
 
 impl<F: LurkField> Copy for ScalarThunk<F> {}
@@ -288,57 +289,57 @@ impl<F: LurkField> Copy for ScalarThunk<F> {}
 pub enum ScalarContinuation<F: LurkField> {
     Outermost,
     Call {
-        unevaled_arg: ScalarPtr<F>,
-        saved_env: ScalarPtr<F>,
-        continuation: ScalarContPtr<F>,
+        unevaled_arg: ZExprPtr<F>,
+        saved_env: ZExprPtr<F>,
+        continuation: ZContPtr<F>,
     },
     Call2 {
-        function: ScalarPtr<F>,
-        saved_env: ScalarPtr<F>,
-        continuation: ScalarContPtr<F>,
+        function: ZExprPtr<F>,
+        saved_env: ZExprPtr<F>,
+        continuation: ZContPtr<F>,
     },
     Tail {
-        saved_env: ScalarPtr<F>,
-        continuation: ScalarContPtr<F>,
+        saved_env: ZExprPtr<F>,
+        continuation: ZContPtr<F>,
     },
     Error,
     Lookup {
-        saved_env: ScalarPtr<F>,
-        continuation: ScalarContPtr<F>,
+        saved_env: ZExprPtr<F>,
+        continuation: ZContPtr<F>,
     },
     Unop {
         operator: Op1,
-        continuation: ScalarContPtr<F>,
+        continuation: ZContPtr<F>,
     },
     Binop {
         operator: Op2,
-        saved_env: ScalarPtr<F>,
-        unevaled_args: ScalarPtr<F>,
-        continuation: ScalarContPtr<F>,
+        saved_env: ZExprPtr<F>,
+        unevaled_args: ZExprPtr<F>,
+        continuation: ZContPtr<F>,
     },
     Binop2 {
         operator: Op2,
-        evaled_arg: ScalarPtr<F>,
-        continuation: ScalarContPtr<F>,
+        evaled_arg: ZExprPtr<F>,
+        continuation: ZContPtr<F>,
     },
     If {
-        unevaled_args: ScalarPtr<F>,
-        continuation: ScalarContPtr<F>,
+        unevaled_args: ZExprPtr<F>,
+        continuation: ZContPtr<F>,
     },
     Let {
-        var: ScalarPtr<F>,
-        body: ScalarPtr<F>,
-        saved_env: ScalarPtr<F>,
-        continuation: ScalarContPtr<F>,
+        var: ZExprPtr<F>,
+        body: ZExprPtr<F>,
+        saved_env: ZExprPtr<F>,
+        continuation: ZContPtr<F>,
     },
     LetRec {
-        var: ScalarPtr<F>,
-        body: ScalarPtr<F>,
-        saved_env: ScalarPtr<F>,
-        continuation: ScalarContPtr<F>,
+        var: ZExprPtr<F>,
+        body: ZExprPtr<F>,
+        saved_env: ZExprPtr<F>,
+        continuation: ZContPtr<F>,
     },
     Emit {
-        continuation: ScalarContPtr<F>,
+        continuation: ZContPtr<F>,
     },
     Dummy,
     Terminal,
@@ -412,12 +413,12 @@ mod test {
     fn ipld_scalar_store_strategy<Fr: LurkField>() -> impl Strategy<Value = ScalarStore<Fr>> {
         (
             prop::collection::btree_map(
-                any::<ScalarPtr<Fr>>(),
+                any::<ZExprPtr<Fr>>(),
                 any::<Option<ScalarExpression<Fr>>>(),
                 0..1,
             ),
             prop::collection::btree_map(
-                any::<ScalarContPtr<Fr>>(),
+                any::<ZContPtr<Fr>>(),
                 any::<Option<ScalarContinuation<Fr>>>(),
                 0..1,
             ),
