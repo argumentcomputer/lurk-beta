@@ -14,7 +14,8 @@ use crate::sym::Sym;
 use crate::tag::ExprTag;
 use crate::z_data::Encodable;
 use crate::z_data::ZData;
-use crate::z_data::{ZContPtr, ZExprPtr, ZPtr};
+use crate::z_data::{ZContPtr, ZExprPtr};
+use crate::UInt;
 
 use crate::field::LurkField;
 
@@ -23,13 +24,8 @@ use crate::field::LurkField;
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 /// Enum to represent a z expression.
 pub enum ZExpr<F: LurkField> {
-    /// Analogous to ScalarExpression::Cons
+    Nil,
     Cons(ZExprPtr<F>, ZExprPtr<F>),
-    /// Replaces ScalarExpression::Str, contains a string and a pointer to the tail.
-    StrCons(ZExprPtr<F>, ZExprPtr<F>),
-    /// Replaces ScalarExpression::Sym, contains a symbol and a pointer to the tail.
-    SymCons(ZExprPtr<F>, ZExprPtr<F>),
-    /// Analogous to ScalarExpression::Comm
     #[cfg_attr(
         not(target_arch = "wasm32"),
         proptest(
@@ -37,8 +33,24 @@ pub enum ZExpr<F: LurkField> {
         )
     )]
     Comm(F, ZExprPtr<F>),
-    /// Analogous to ScalarExpression::Nil
-    Nil,
+    SymNil,
+    SymCons(ZExprPtr<F>, ZExprPtr<F>),
+    Fun {
+        arg: ZExprPtr<F>,
+        body: ZExprPtr<F>,
+        closed_env: ZExprPtr<F>,
+    },
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        proptest(strategy = "any::<FWrap<F>>().prop_map(|x| Self::Num(x.0))")
+    )]
+    Num(F),
+    StrNil,
+    /// Contains a string and a pointer to the tail.
+    StrCons(ZExprPtr<F>, ZExprPtr<F>),
+    Thunk(ZExprPtr<F>, ZContPtr<F>),
+    Char(char),
+    Uint(UInt),
 }
 
 impl<F: LurkField> std::fmt::Display for ZExpr<F> {
@@ -51,20 +63,35 @@ impl<F: LurkField> std::fmt::Display for ZExpr<F> {
                 write!(f, "({} comm. {})", ff.trimmed_hex_digits(), x)
             }
             ZExpr::Nil => write!(f, "nil"),
+            ZExpr::StrNil => write!(f, "strnil"),
+            ZExpr::SymNil => write!(f, "symnil"),
+            _ => todo!(),
         }
     }
 }
 
+// TODO: Wrong
 impl<F: LurkField> Encodable for ZExpr<F> {
     fn ser(&self) -> ZData {
         match self {
-            ZExpr::Cons(x, y) => ZData::Cell(vec![ZData::Atom(vec![0u8]), x.ser(), y.ser()]),
-            ZExpr::StrCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![1u8]), x.ser(), y.ser()]),
-            ZExpr::SymCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![2u8]), x.ser(), y.ser()]),
+            ZExpr::Nil => ZData::Cell(vec![ZData::Atom(vec![0u8])]),
+            ZExpr::Cons(x, y) => ZData::Cell(vec![ZData::Atom(vec![1u8]), x.ser(), y.ser()]),
             ZExpr::Comm(f, x) => {
-                ZData::Cell(vec![ZData::Atom(vec![3u8]), FWrap(*f).ser(), x.ser()])
+                ZData::Cell(vec![ZData::Atom(vec![2u8]), FWrap(*f).ser(), x.ser()])
             }
-            ZExpr::Nil => ZData::Atom(vec![]),
+            ZExpr::SymNil => ZData::Cell(vec![ZData::Atom(vec![3u8])]),
+            ZExpr::SymCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![4u8]), x.ser(), y.ser()]),
+            ZExpr::Fun {
+                arg,
+                body,
+                closed_env,
+            } => ZData::Cell(vec![ZData::Atom(vec![5u8])]),
+            ZExpr::Num(F) => ZData::Cell(vec![ZData::Atom(vec![6u8])]),
+            ZExpr::StrNil => ZData::Cell(vec![ZData::Atom(vec![7u8])]),
+            ZExpr::StrCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![8u8]), x.ser(), y.ser()]),
+            ZExpr::Thunk(x, y) => ZData::Cell(vec![ZData::Atom(vec![9u8])]),
+            ZExpr::Char(x) => ZData::Cell(vec![ZData::Atom(vec![10u8])]),
+            ZExpr::Uint(x) => ZData::Cell(vec![ZData::Atom(vec![11u8])]),
         }
     }
     fn de(ld: &ZData) -> anyhow::Result<Self> {
