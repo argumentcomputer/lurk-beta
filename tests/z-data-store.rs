@@ -2,8 +2,8 @@ use blstrs::Scalar as Fr;
 use std::fs;
 
 use lurk::{
-    light_data::{Encodable, LightData, LightStore},
     scalar_store::ScalarStore,
+    z_data::{Encodable, ZData, ZStore},
 };
 
 #[test]
@@ -23,10 +23,10 @@ use lurk::{
 //       ldonCons1, ldonCons2, ldonCons3, ldonCons4]
 //     let stt := ldons.foldl (init := default) fun acc ldon =>
 //       let (_, acc) := ldon.commit acc; acc
-//     let ld : LightData := stt.store
+//     let ld : ZData := stt.store
 //     IO.FS.writeBinFile ⟨"foo.ldstore"⟩ ld.toByteArray
 // Whereas `id.ldstore` contains the data needed for typechecking the `id` function
-fn test_light_store_deserialization() {
+fn test_z_store_deserialization() {
     let directory = "tests/ldstores";
 
     for entry in fs::read_dir(directory).expect("Failed to read directory") {
@@ -36,8 +36,8 @@ fn test_light_store_deserialization() {
                 if extension == "ldstore" {
                     let file_path = path.to_str().unwrap();
                     let file_bytes = fs::read(file_path).expect("Failed to read file");
-                    let ld = LightData::de(&file_bytes).unwrap();
-                    let ldstore: LightStore<Fr> = Encodable::de(&ld).unwrap();
+                    let ld = ZData::de(&file_bytes).unwrap();
+                    let ldstore: ZStore<Fr> = Encodable::de(&ld).unwrap();
                     let _scalar_store: ScalarStore<Fr> = ldstore.try_into().unwrap();
                 }
             }

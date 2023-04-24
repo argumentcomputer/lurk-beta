@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::hash::Hash;
 
-use crate::light_data::Encodable;
-use crate::light_data::LightData;
+use crate::z_data::Encodable;
+use crate::z_data::ZData;
 
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
@@ -279,17 +279,17 @@ const fn bytes_size<F: LurkField>() -> usize {
 
 impl<F: LurkField> Encodable for FWrap<F> {
     // Beware, this assumes a little endian encoding
-    fn ser(&self) -> LightData {
+    fn ser(&self) -> ZData {
         let bytes: Vec<u8> = Vec::from(self.0.to_repr().as_ref());
         let mut trimmed_bytes: Vec<_> = bytes.into_iter().rev().skip_while(|x| *x == 0u8).collect();
         trimmed_bytes.reverse();
-        LightData::Atom(trimmed_bytes)
+        ZData::Atom(trimmed_bytes)
     }
 
     // beware, this assumes a little endian encoding
-    fn de(ld: &LightData) -> anyhow::Result<Self> {
+    fn de(ld: &ZData) -> anyhow::Result<Self> {
         let bytes = match ld {
-            LightData::Atom(bytes) => bytes,
+            ZData::Atom(bytes) => bytes,
             _ => return Err(anyhow!("expected field element as bytes")),
         };
 
@@ -301,7 +301,7 @@ impl<F: LurkField> Encodable for FWrap<F> {
             ));
         }
 
-        // the field element expects a certain Repr length, whereas LightData trims it.
+        // the field element expects a certain Repr length, whereas ZData trims it.
         let mut bytes_slice = F::default().to_repr();
         bytes_slice
             .as_mut()
@@ -330,7 +330,7 @@ impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::light_data::Encodable;
+    use crate::z_data::Encodable;
     use blstrs::Scalar as Fr;
 
     use super::*;

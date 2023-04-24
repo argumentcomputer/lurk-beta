@@ -13,7 +13,6 @@ pub mod expr;
 pub mod field;
 pub mod hash;
 pub mod hash_witness;
-pub mod light_data;
 pub mod package;
 pub mod parser;
 pub mod proof;
@@ -25,6 +24,7 @@ pub mod sym;
 pub mod tag;
 pub mod uint;
 pub mod writer;
+pub mod z_data;
 
 pub mod error;
 mod num;

@@ -11,8 +11,8 @@ use proptest::prelude::*;
 use libipld::Cid;
 use libipld::Multihash;
 
-use crate::light_data::Encodable;
-use crate::light_data::LightData;
+use crate::z_data::Encodable;
+use crate::z_data::ZData;
 
 use crate::field::{FWrap, LurkField};
 use crate::tag::{ContTag, ExprTag, Tag};
@@ -246,11 +246,11 @@ impl<E: Tag, F: LurkField> Ord for SPtr<E, F> {
 }
 
 impl<E: Tag, F: LurkField> Encodable for SPtr<E, F> {
-    fn ser(&self) -> LightData {
+    fn ser(&self) -> ZData {
         let (x, y): (FWrap<F>, FWrap<F>) = (FWrap(self.0.to_field()), FWrap(self.1));
         (x, y).ser()
     }
-    fn de(ld: &LightData) -> anyhow::Result<Self> {
+    fn de(ld: &ZData) -> anyhow::Result<Self> {
         let (x, y): (FWrap<F>, FWrap<F>) = Encodable::de(ld)?;
         let tag_as_u16 =
             x.0.to_u16()

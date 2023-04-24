@@ -1,15 +1,15 @@
 #![deny(missing_docs)]
-//! `LightData` is a lightweight binary data serialization format.
+//! `ZData` is a lightweight binary data serialization format.
 //!
-//! A `LightData` value is a n-ary tree with two types of nodes:
+//! A `ZData` value is a n-ary tree with two types of nodes:
 //!
 //! - Atom: a leaf node containing a byte sequence
 //! - Cell: an interior node containing an arbitrary number of child nodes
 //!
-//! `LightData` values are encoded as a sequence of bytes in a compact binary format.
+//! `ZData` values are encoded as a sequence of bytes in a compact binary format.
 //!
 //! This module also provides several traits that can be used to encode and decode Rust types into
-//! `LightData` values.
+//! `ZData` values.
 
 use anyhow::Result;
 use std::fmt::Display;
@@ -23,32 +23,32 @@ use nom::multi::count;
 use nom::Finish;
 use nom::IResult;
 
-mod light_store;
-pub use light_store::{LightExpr, LightStore};
+mod z_store;
+pub use z_store::{ZExpr, ZStore};
 
-/// `LightData` is a binary tree with two types of nodes: Atom and Cell.
+/// `ZData` is a binary tree with two types of nodes: Atom and Cell.
 ///
 /// # Examples
 ///
 /// ```
-/// use lurk::light_data::LightData;
+/// use lurk::light_data::ZData;
 ///
-/// let data = LightData::Cell(vec![
-///     LightData::Atom(vec![0x01]),
-///     LightData::Atom(vec![0x02, 0x03]),
+/// let data = ZData::Cell(vec![
+///     ZData::Atom(vec![0x01]),
+///     ZData::Atom(vec![0x02, 0x03]),
 /// ]);
 ///
 /// assert_eq!(data.to_string(), "[c:[a:01], [a:02, 03]]");
 /// ```
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub enum LightData {
+pub enum ZData {
     /// An Atom contains a byte sequence.
     Atom(Vec<u8>),
     /// A Cell contains an arbitrary number of child nodes.
-    Cell(Vec<LightData>),
+    Cell(Vec<ZData>),
 }
 
-impl Display for LightData {
+impl Display for ZData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[")?;
         match self {
@@ -75,20 +75,20 @@ impl Display for LightData {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-impl Arbitrary for LightData {
+impl Arbitrary for ZData {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        let atom = prop::collection::vec(any::<u8>(), 0..256).prop_map(LightData::Atom);
+        let atom = prop::collection::vec(any::<u8>(), 0..256).prop_map(ZData::Atom);
         atom.prop_recursive(16, 1024, 256, |inner| {
-            prop::collection::vec(inner, 0..256).prop_map(LightData::Cell)
+            prop::collection::vec(inner, 0..256).prop_map(ZData::Cell)
         })
         .boxed()
     }
 }
 
-impl LightData {
+impl ZData {
     /// Returns the number of bytes required to encode the given integer in little-endian byte order.
     pub fn byte_count(x: usize) -> u8 {
         if x == 0 {
@@ -120,17 +120,17 @@ impl LightData {
         }
     }
 
-    /// Returns the tag byte for this `LightData`.
+    /// Returns the tag byte for this `ZData`.
     pub fn tag(&self) -> u8 {
         match self {
             Self::Atom(xs) if xs.is_empty() => 0b0000_0000,
             Self::Atom(xs) if xs.len() < 64 => 0b0100_0000u8 + (xs.len() as u8),
             Self::Atom(xs) if xs.len() == 64 => 0b0100_0000u8,
-            Self::Atom(xs) => LightData::byte_count(xs.len()),
+            Self::Atom(xs) => ZData::byte_count(xs.len()),
             Self::Cell(xs) if xs.is_empty() => 0b1000_0000,
             Self::Cell(xs) if xs.len() < 64 => 0b1100_0000u8 + (xs.len() as u8),
             Self::Cell(xs) if xs.len() == 64 => 0b1100_0000u8,
-            Self::Cell(xs) => 0b1000_0000u8 + LightData::byte_count(xs.len()),
+            Self::Cell(xs) => 0b1000_0000u8 + ZData::byte_count(xs.len()),
         }
     }
 
@@ -144,7 +144,7 @@ impl LightData {
         x & 0b0100_0000 == 0b0100_0000
     }
 
-    /// Serializes this `LightData` into a `Vec<u8>`.
+    /// Serializes this `ZData` into a `Vec<u8>`.
     pub fn ser(&self) -> Vec<u8> {
         let mut res = vec![];
         res.push(self.tag());
@@ -152,7 +152,7 @@ impl LightData {
             Self::Atom(xs) if xs.is_empty() => {}
             Self::Atom(xs) if xs.len() <= 64 => res.extend(xs),
             Self::Atom(xs) => {
-                res.extend(LightData::to_trimmed_le_bytes(xs.len()));
+                res.extend(ZData::to_trimmed_le_bytes(xs.len()));
                 res.extend(xs);
             }
             Self::Cell(xs) if xs.is_empty() => {}
@@ -162,7 +162,7 @@ impl LightData {
                 }
             }
             Self::Cell(xs) => {
-                res.extend(LightData::to_trimmed_le_bytes(xs.len()));
+                res.extend(ZData::to_trimmed_le_bytes(xs.len()));
                 for x in xs {
                     res.extend(x.ser())
                 }
@@ -171,11 +171,11 @@ impl LightData {
         res
     }
 
-    /// Deserializes a `LightData` from a `&[u8]`.
+    /// Deserializes a `ZData` from a `&[u8]`.
     ///
     /// # Errors
     ///
-    /// This function errors if the input bytes don't correspond to a valid serialization of LightData
+    /// This function errors if the input bytes don't correspond to a valid serialization of ZData
     pub fn de(i: &[u8]) -> anyhow::Result<Self> {
         match Self::de_aux(i).finish() {
             Ok((_, x)) => Ok(x),
@@ -196,7 +196,7 @@ impl LightData {
             }
         } else {
             let (i, bytes) = take(size)(i)?;
-            match LightData::read_size_bytes(bytes) {
+            match ZData::read_size_bytes(bytes) {
                 Some(size) => Ok((i, size)),
                 None => Err(nom::Err::Error(nom::error::Error::new(
                     i,
@@ -207,41 +207,41 @@ impl LightData {
 
         let (i, res) = if Self::tag_is_atom(tag) {
             let (i, data) = take(size)(i)?;
-            (i, LightData::Atom(data.to_vec()))
+            (i, ZData::Atom(data.to_vec()))
         } else {
-            let (i, xs) = count(LightData::de_aux, size)(i)?;
-            (i, LightData::Cell(xs.to_vec()))
+            let (i, xs) = count(ZData::de_aux, size)(i)?;
+            (i, ZData::Cell(xs.to_vec()))
         };
 
         Ok((i, res))
     }
 }
 
-/// A trait for types that can be serialized and deserialized using `LightData`.
+/// A trait for types that can be serialized and deserialized using `ZData`.
 pub trait Encodable {
-    /// Serializes this value into a `LightData`.
-    fn ser(&self) -> LightData;
-    /// Deserializes a `LightData` into this value.
-    fn de(ld: &LightData) -> Result<Self>
+    /// Serializes this value into a `ZData`.
+    fn ser(&self) -> ZData;
+    /// Deserializes a `ZData` into this value.
+    fn de(ld: &ZData) -> Result<Self>
     where
         Self: Sized;
 }
 
 impl<A: Encodable + Sized> Encodable for Option<A> {
-    fn ser(&self) -> LightData {
+    fn ser(&self) -> ZData {
         match self {
-            None => LightData::Atom(vec![]),
-            Some(a) => LightData::Cell(vec![a.ser()]),
+            None => ZData::Atom(vec![]),
+            Some(a) => ZData::Cell(vec![a.ser()]),
         }
     }
 
-    fn de(ld: &LightData) -> Result<Self> {
+    fn de(ld: &ZData) -> Result<Self> {
         match ld {
-            LightData::Atom(x) => match x.as_slice() {
+            ZData::Atom(x) => match x.as_slice() {
                 [] => Ok(Option::None),
                 _ => anyhow::bail!("expected Option"),
             },
-            LightData::Cell(xs) => match xs.as_slice() {
+            ZData::Cell(xs) => match xs.as_slice() {
                 [a] => Ok(Option::Some(A::de(a)?)),
                 _ => anyhow::bail!("expected Option"),
             },
@@ -250,26 +250,26 @@ impl<A: Encodable + Sized> Encodable for Option<A> {
 }
 
 impl<A: Encodable + Sized> Encodable for Vec<A> {
-    fn ser(&self) -> LightData {
-        LightData::Cell(self.iter().map(|x| x.ser()).collect())
+    fn ser(&self) -> ZData {
+        ZData::Cell(self.iter().map(|x| x.ser()).collect())
     }
 
-    fn de(ld: &LightData) -> Result<Self> {
+    fn de(ld: &ZData) -> Result<Self> {
         match ld {
-            LightData::Cell(xs) => xs.iter().map(|x| A::de(x)).collect(),
+            ZData::Cell(xs) => xs.iter().map(|x| A::de(x)).collect(),
             _ => anyhow::bail!("expected Vec"),
         }
     }
 }
 
 impl<A: Encodable + Sized, B: Encodable + Sized> Encodable for (A, B) {
-    fn ser(&self) -> LightData {
-        LightData::Cell(vec![self.0.ser(), self.1.ser()])
+    fn ser(&self) -> ZData {
+        ZData::Cell(vec![self.0.ser(), self.1.ser()])
     }
 
-    fn de(ld: &LightData) -> Result<Self> {
+    fn de(ld: &ZData) -> Result<Self> {
         match ld {
-            LightData::Cell(xs) => match xs.as_slice() {
+            ZData::Cell(xs) => match xs.as_slice() {
                 [x, y] => Ok((A::de(x)?, B::de(y)?)),
                 _ => anyhow::bail!("expected pair"),
             },
@@ -283,50 +283,50 @@ pub mod tests {
     use super::*;
     #[test]
     fn unit_byte_count() {
-        assert_eq!(LightData::byte_count(0), 1);
-        assert_eq!(LightData::byte_count(65), 1);
-        assert_eq!(LightData::byte_count(256), 2);
-        assert_eq!(LightData::byte_count(u16::MAX as usize), 2);
+        assert_eq!(ZData::byte_count(0), 1);
+        assert_eq!(ZData::byte_count(65), 1);
+        assert_eq!(ZData::byte_count(256), 2);
+        assert_eq!(ZData::byte_count(u16::MAX as usize), 2);
         if usize::BITS >= 32 {
-            assert_eq!(LightData::byte_count(u32::MAX as usize), 4);
+            assert_eq!(ZData::byte_count(u32::MAX as usize), 4);
         }
         if usize::BITS >= 64 {
-            assert_eq!(LightData::byte_count(u64::MAX as usize), 8);
+            assert_eq!(ZData::byte_count(u64::MAX as usize), 8);
         }
     }
 
     #[test]
     fn unit_trimmed_bytes() {
-        assert_eq!(LightData::to_trimmed_le_bytes(43411), vec![147, 169]);
-        assert_eq!(43411, LightData::read_size_bytes(&vec![147, 169]).unwrap());
-        assert_eq!(LightData::to_trimmed_le_bytes(37801), vec![169, 147]);
-        assert_eq!(37801, LightData::read_size_bytes(&vec![169, 147]).unwrap());
+        assert_eq!(ZData::to_trimmed_le_bytes(43411), vec![147, 169]);
+        assert_eq!(43411, ZData::read_size_bytes(&vec![147, 169]).unwrap());
+        assert_eq!(ZData::to_trimmed_le_bytes(37801), vec![169, 147]);
+        assert_eq!(37801, ZData::read_size_bytes(&vec![169, 147]).unwrap());
     }
 
     #[test]
     fn unit_light_data() {
-        let test = |ld: LightData, xs: Vec<u8>| {
+        let test = |ld: ZData, xs: Vec<u8>| {
             println!("{:?}", ld.ser());
             let ser = ld.ser();
             assert_eq!(ser, xs);
-            println!("{:?}", LightData::de(&ser));
-            assert_eq!(ld, LightData::de(&ser).expect("valid lightdata"))
+            println!("{:?}", ZData::de(&ser));
+            assert_eq!(ld, ZData::de(&ser).expect("valid lightdata"))
         };
-        test(LightData::Atom(vec![]), vec![0b0000_0000]);
-        test(LightData::Cell(vec![]), vec![0b1000_0000]);
-        test(LightData::Atom(vec![0]), vec![0b0100_0001, 0]);
-        test(LightData::Atom(vec![1]), vec![0b0100_0001, 1]);
+        test(ZData::Atom(vec![]), vec![0b0000_0000]);
+        test(ZData::Cell(vec![]), vec![0b1000_0000]);
+        test(ZData::Atom(vec![0]), vec![0b0100_0001, 0]);
+        test(ZData::Atom(vec![1]), vec![0b0100_0001, 1]);
         test(
-            LightData::Cell(vec![LightData::Atom(vec![1])]),
+            ZData::Cell(vec![ZData::Atom(vec![1])]),
             vec![0b1100_0001, 0b0100_0001, 1],
         );
         test(
-            LightData::Cell(vec![LightData::Atom(vec![1]), LightData::Atom(vec![1])]),
+            ZData::Cell(vec![ZData::Atom(vec![1]), ZData::Atom(vec![1])]),
             vec![0b1100_0010, 0b0100_0001, 1, 0b0100_0001, 1],
         );
         #[rustfmt::skip]
         test(
-            LightData::Atom(vec![
+            ZData::Atom(vec![
                 0, 0, 0, 0, 0, 0, 0, 0, 
                 0, 0, 0, 0, 0, 0, 0, 0, 
                 0, 0, 0, 69, 96, 43, 67, 
@@ -353,9 +353,9 @@ pub mod tests {
 
     proptest! {
         #[test]
-        fn prop_light_data(x in any::<LightData>()) {
+        fn prop_z_data(x in any::<ZData>()) {
             let ser = x.ser();
-            let de  = LightData::de(&ser).expect("read LightData");
+            let de  = ZData::de(&ser).expect("read ZData");
             eprintln!("x {}", x);
             eprintln!("ser {:?}", ser);
             assert_eq!(x, de)

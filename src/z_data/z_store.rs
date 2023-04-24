@@ -1,6 +1,6 @@
 //! This is a prototype for a future version of `ScalarStore`. For now, its main
-//! role is to serve as an intermediate format between a store encoded in `LightData`
-//! and the `ScalarStore` itself. Thus we call it `LightStore`.
+//! role is to serve as an intermediate format between a store encoded in `ZData`
+//! and the `ScalarStore` itself. Thus we call it `ZStore`.
 
 use crate::field::FWrap;
 
@@ -12,45 +12,45 @@ use proptest_derive::Arbitrary;
 use anyhow::anyhow;
 use std::collections::BTreeMap;
 
-use crate::light_data::Encodable;
-use crate::light_data::LightData;
 use crate::ptr::ScalarPtr;
 use crate::scalar_store::ScalarExpression;
 use crate::scalar_store::ScalarStore;
 use crate::sym::Sym;
 use crate::tag::ExprTag;
+use crate::z_data::Encodable;
+use crate::z_data::ZData;
 
 use crate::field::LurkField;
 
 #[derive(Debug, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
-/// LightStore contains a fragment of the ScalarStore, but using the `LightExpr` type
-pub struct LightStore<F: LurkField> {
-    /// An analogous to the ScalarStore's scalar_map, but with `LightExpr` instead of `ScalarExpression`
-    pub scalar_map: BTreeMap<ScalarPtr<F>, Option<LightExpr<F>>>,
+/// ZStore contains a fragment of the ScalarStore, but using the `ZExpr` type
+pub struct ZStore<F: LurkField> {
+    /// An analogous to the ScalarStore's scalar_map, but with `ZExpr` instead of `ScalarExpression`
+    pub scalar_map: BTreeMap<ScalarPtr<F>, Option<ZExpr<F>>>,
 }
 
-impl<F: LurkField> Encodable for LightStore<F> {
-    fn ser(&self) -> LightData {
+impl<F: LurkField> Encodable for ZStore<F> {
+    fn ser(&self) -> ZData {
         // TODO: this clone is loathsome
         self.scalar_map
             .clone()
             .into_iter()
-            .collect::<Vec<(ScalarPtr<F>, Option<LightExpr<F>>)>>()
+            .collect::<Vec<(ScalarPtr<F>, Option<ZExpr<F>>)>>()
             .ser()
     }
-    fn de(ld: &LightData) -> anyhow::Result<Self> {
-        let pairs = Vec::<(ScalarPtr<F>, Option<LightExpr<F>>)>::de(ld)?;
-        Ok(LightStore {
+    fn de(ld: &ZData) -> anyhow::Result<Self> {
+        let pairs = Vec::<(ScalarPtr<F>, Option<ZExpr<F>>)>::de(ld)?;
+        Ok(ZStore {
             scalar_map: pairs.into_iter().collect(),
         })
     }
 }
 
-impl<F: LurkField> LightStore<F> {
+impl<F: LurkField> ZStore<F> {
     /// Leaf pointers are those whose values aren't hashes of any piece of data
-    /// that's expected to be in the LightStore
+    /// that's expected to be in the ZStore
     fn is_ptr_leaf(&self, ptr: ScalarPtr<F>) -> bool {
         match ptr.tag() {
             ExprTag::Num => true,
@@ -74,11 +74,11 @@ impl<F: LurkField> LightStore<F> {
         let strnil_ptr = ScalarPtr::from_parts(ExprTag::Str, F::zero());
 
         // TODO: this needs to bail on encountering an opaque pointer
-        while let Some(LightExpr::StrCons(c, cs)) = self.get(&ptr).flatten() {
+        while let Some(ZExpr::StrCons(c, cs)) = self.get(&ptr).flatten() {
             let chr = c
                 .value()
                 .to_char()
-                .ok_or_else(|| anyhow!("Non-char head in LightExpr::StrCons"))?;
+                .ok_or_else(|| anyhow!("Non-char head in ZExpr::StrCons"))?;
             store.insert_scalar_expression(c, Some(ScalarExpression::Char(chr)));
             s.push(chr);
             if cs != strnil_ptr {
@@ -88,7 +88,9 @@ impl<F: LurkField> LightStore<F> {
         }
         // Useful when called from insert_scalar_symbol
         if s.is_empty() {
-            return Err(anyhow!("encountered no StrCons in LightStore::insert_scalar_string, is this a string pointer?"));
+            return Err(anyhow!(
+                "encountered no StrCons in ZStore::insert_scalar_string, is this a string pointer?"
+            ));
         }
 
         // If we've already inserted this string, no need to go through suffixes again
@@ -121,7 +123,7 @@ impl<F: LurkField> LightStore<F> {
         let symnil_ptr = ScalarPtr::from_parts(ExprTag::Sym, F::zero());
 
         // TODO: this needs to bail on encountering an opaque pointer
-        while let Some(LightExpr::SymCons(s, ss)) = self.get(&ptr).flatten() {
+        while let Some(ZExpr::SymCons(s, ss)) = self.get(&ptr).flatten() {
             let string = if s == ScalarPtr::from_parts(ExprTag::Str, F::zero()) {
                 Ok(String::new())
             } else {
@@ -189,35 +191,35 @@ impl<F: LurkField> LightStore<F> {
         stack: &mut Vec<ScalarPtr<F>>,
     ) -> anyhow::Result<()> {
         match self.get(&ptr) {
-            None => return Err(anyhow!("LightExpr not found for pointer {ptr}")),
+            None => return Err(anyhow!("ZExpr not found for pointer {ptr}")),
             Some(None) => {
                 // opaque data
                 store.insert_scalar_expression(ptr, None);
             }
             Some(Some(expr)) => match (ptr.tag(), expr.clone()) {
-                (ExprTag::Nil, LightExpr::Nil) => {
+                (ExprTag::Nil, ZExpr::Nil) => {
                     // We also need to intern the `.LURK.NIL` symbol
                     stack.push(ScalarPtr::from_parts(ExprTag::Sym, *ptr.value()));
                     store.insert_scalar_expression(ptr, Some(ScalarExpression::Nil));
                 }
-                (ExprTag::Cons, LightExpr::Cons(x, y)) => {
+                (ExprTag::Cons, ZExpr::Cons(x, y)) => {
                     stack.push(x);
                     stack.push(y);
                     store.insert_scalar_expression(ptr, Some(ScalarExpression::Cons(x, y)));
                 }
-                (ExprTag::Comm, LightExpr::Comm(f, x)) => {
+                (ExprTag::Comm, ZExpr::Comm(f, x)) => {
                     stack.push(x);
                     store.insert_scalar_expression(ptr, Some(ScalarExpression::Comm(f, x)));
                 }
-                (ExprTag::Sym, LightExpr::SymCons(_, _)) => {
+                (ExprTag::Sym, ZExpr::SymCons(_, _)) => {
                     self.insert_scalar_symbol(ptr, store)?;
                 }
-                (ExprTag::Str, LightExpr::StrCons(_, _)) => {
+                (ExprTag::Str, ZExpr::StrCons(_, _)) => {
                     self.insert_scalar_string(ptr, store)?;
                 }
                 (tag, _) => {
                     return Err(anyhow!(
-                        "Unsupported pair of tag and LightExpr: ({tag}, {expr})"
+                        "Unsupported pair of tag and ZExpr: ({tag}, {expr})"
                     ))
                 }
             },
@@ -225,7 +227,7 @@ impl<F: LurkField> LightStore<F> {
         Ok(())
     }
 
-    /// Eagerly traverses the LightStore starting out from a ScalarPtr, adding
+    /// Eagerly traverses the ZStore starting out from a ScalarPtr, adding
     /// pointers and their respective expressions to a target ScalarStore. When
     /// handling non-leaf pointers, their corresponding expressions might
     /// add more pointers to be visited to a stack.
@@ -251,27 +253,27 @@ impl<F: LurkField> LightStore<F> {
         Ok(())
     }
 
-    /// Convert LightStore to ScalarStore.
+    /// Convert ZStore to ScalarStore.
     fn to_scalar_store(&self) -> anyhow::Result<ScalarStore<F>> {
         let mut store = ScalarStore::default();
         for ptr in self.scalar_map.keys() {
             if self.is_ptr_leaf(*ptr) {
-                return Err(anyhow!("Leaf pointer found in LightStore: {ptr}"));
+                return Err(anyhow!("Leaf pointer found in ZStore: {ptr}"));
             }
             self.intern_ptr_data(*ptr, &mut store)?;
         }
         Ok(store)
     }
 
-    fn get(&self, ptr: &ScalarPtr<F>) -> Option<Option<LightExpr<F>>> {
+    fn get(&self, ptr: &ScalarPtr<F>) -> Option<Option<ZExpr<F>>> {
         self.scalar_map.get(ptr).cloned()
     }
 }
 
-impl<F: LurkField> TryFrom<LightStore<F>> for ScalarStore<F> {
+impl<F: LurkField> TryFrom<ZStore<F>> for ScalarStore<F> {
     type Error = anyhow::Error;
 
-    fn try_from(store: LightStore<F>) -> Result<Self, Self::Error> {
+    fn try_from(store: ZStore<F>) -> Result<Self, Self::Error> {
         store.to_scalar_store()
     }
 }
@@ -279,8 +281,8 @@ impl<F: LurkField> TryFrom<LightStore<F>> for ScalarStore<F> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
-/// Enum to represent a light expression.
-pub enum LightExpr<F: LurkField> {
+/// Enum to represent a z expression.
+pub enum ZExpr<F: LurkField> {
     /// Analogous to ScalarExpression::Cons
     Cons(ScalarPtr<F>, ScalarPtr<F>),
     /// Replaces ScalarExpression::Str, contains a string and a pointer to the tail.
@@ -299,53 +301,47 @@ pub enum LightExpr<F: LurkField> {
     Nil,
 }
 
-impl<F: LurkField> std::fmt::Display for LightExpr<F> {
+impl<F: LurkField> std::fmt::Display for ZExpr<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LightExpr::Cons(x, y) => write!(f, "({} . {})", x, y),
-            LightExpr::StrCons(x, y) => write!(f, "('{}' str. {})", x, y),
-            LightExpr::SymCons(x, y) => write!(f, "({} sym. {})", x, y),
-            LightExpr::Comm(ff, x) => {
+            ZExpr::Cons(x, y) => write!(f, "({} . {})", x, y),
+            ZExpr::StrCons(x, y) => write!(f, "('{}' str. {})", x, y),
+            ZExpr::SymCons(x, y) => write!(f, "({} sym. {})", x, y),
+            ZExpr::Comm(ff, x) => {
                 write!(f, "({} comm. {})", ff.trimmed_hex_digits(), x)
             }
-            LightExpr::Nil => write!(f, "nil"),
+            ZExpr::Nil => write!(f, "nil"),
         }
     }
 }
 
-impl<F: LurkField> Encodable for LightExpr<F> {
-    fn ser(&self) -> LightData {
+impl<F: LurkField> Encodable for ZExpr<F> {
+    fn ser(&self) -> ZData {
         match self {
-            LightExpr::Cons(x, y) => {
-                LightData::Cell(vec![LightData::Atom(vec![0u8]), x.ser(), y.ser()])
+            ZExpr::Cons(x, y) => ZData::Cell(vec![ZData::Atom(vec![0u8]), x.ser(), y.ser()]),
+            ZExpr::StrCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![1u8]), x.ser(), y.ser()]),
+            ZExpr::SymCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![2u8]), x.ser(), y.ser()]),
+            ZExpr::Comm(f, x) => {
+                ZData::Cell(vec![ZData::Atom(vec![3u8]), FWrap(*f).ser(), x.ser()])
             }
-            LightExpr::StrCons(x, y) => {
-                LightData::Cell(vec![LightData::Atom(vec![1u8]), x.ser(), y.ser()])
-            }
-            LightExpr::SymCons(x, y) => {
-                LightData::Cell(vec![LightData::Atom(vec![2u8]), x.ser(), y.ser()])
-            }
-            LightExpr::Comm(f, x) => {
-                LightData::Cell(vec![LightData::Atom(vec![3u8]), FWrap(*f).ser(), x.ser()])
-            }
-            LightExpr::Nil => LightData::Atom(vec![]),
+            ZExpr::Nil => ZData::Atom(vec![]),
         }
     }
-    fn de(ld: &LightData) -> anyhow::Result<Self> {
+    fn de(ld: &ZData) -> anyhow::Result<Self> {
         match ld {
-            LightData::Atom(v) => match v[..] {
-                [] => Ok(LightExpr::Nil),
-                _ => Err(anyhow!("LightExpr::Atom({:?})", v)),
+            ZData::Atom(v) => match v[..] {
+                [] => Ok(ZExpr::Nil),
+                _ => Err(anyhow!("ZExpr::Atom({:?})", v)),
             },
-            LightData::Cell(v) => match &v[..] {
-                [LightData::Atom(u), ref x, ref y] => match u[..] {
-                    [0u8] => Ok(LightExpr::Cons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
-                    [1u8] => Ok(LightExpr::StrCons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
-                    [2u8] => Ok(LightExpr::SymCons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
-                    [3u8] => Ok(LightExpr::Comm(FWrap::de(x)?.0, ScalarPtr::de(y)?)),
-                    _ => Err(anyhow!("LightExpr::Cell({:?})", v)),
+            ZData::Cell(v) => match &v[..] {
+                [ZData::Atom(u), ref x, ref y] => match u[..] {
+                    [0u8] => Ok(ZExpr::Cons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
+                    [1u8] => Ok(ZExpr::StrCons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
+                    [2u8] => Ok(ZExpr::SymCons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
+                    [3u8] => Ok(ZExpr::Comm(FWrap::de(x)?.0, ScalarPtr::de(y)?)),
+                    _ => Err(anyhow!("ZExpr::Cell({:?})", v)),
                 },
-                _ => Err(anyhow!("LightExpr::Cell({:?})", v)),
+                _ => Err(anyhow!("ZExpr::Cell({:?})", v)),
             },
         }
     }
@@ -359,22 +355,22 @@ mod tests {
 
     proptest! {
         #[test]
-        fn prop_light_expr(x in any::<LightExpr<Scalar>>()) {
+        fn prop_z_expr(x in any::<ZExpr<Scalar>>()) {
             let ser = x.ser();
-            let de  = LightExpr::de(&ser).expect("read LightExpr");
+            let de  = ZExpr::de(&ser).expect("read ZExpr");
             assert_eq!(x, de)
         }
 
         #[test]
-        fn prop_light_store(s in any::<LightStore<Scalar>>()) {
+        fn prop_z_store(s in any::<ZStore<Scalar>>()) {
             let ser = s.ser();
-            let de  = LightStore::de(&ser).expect("read LightStore");
+            let de  = ZStore::de(&ser).expect("read ZStore");
             assert_eq!(s, de)
         }
     }
 
     #[test]
-    fn test_convert_light_store_with_strings_and_symbols() {
+    fn test_convert_z_store_with_strings_and_symbols() {
         // inserts the strings "hi" and "yo", then the symbols `.hi` and `.hi.yo`
         let (str1_c1, str1_c2) = ('h', 'i');
         let (str2_c1, str2_c2) = ('y', 'o');
@@ -396,30 +392,21 @@ mod tests {
         let sym_ptr_full = ScalarPtr::from_parts(ExprTag::Sym, Scalar::from_u64(6));
 
         let mut store = BTreeMap::new();
-        store.insert(
-            str1_ptr_half,
-            Some(LightExpr::StrCons(str1_c2_ptr, str_nil)),
-        );
+        store.insert(str1_ptr_half, Some(ZExpr::StrCons(str1_c2_ptr, str_nil)));
         store.insert(
             str1_ptr_full,
-            Some(LightExpr::StrCons(str1_c1_ptr, str1_ptr_half)),
+            Some(ZExpr::StrCons(str1_c1_ptr, str1_ptr_half)),
         );
-        store.insert(
-            str2_ptr_half,
-            Some(LightExpr::StrCons(str2_c2_ptr, str_nil)),
-        );
+        store.insert(str2_ptr_half, Some(ZExpr::StrCons(str2_c2_ptr, str_nil)));
         store.insert(
             str2_ptr_full,
-            Some(LightExpr::StrCons(str2_c1_ptr, str2_ptr_half)),
+            Some(ZExpr::StrCons(str2_c1_ptr, str2_ptr_half)),
         );
 
-        store.insert(
-            sym_ptr_half,
-            Some(LightExpr::SymCons(str1_ptr_full, sym_nil)),
-        );
+        store.insert(sym_ptr_half, Some(ZExpr::SymCons(str1_ptr_full, sym_nil)));
         store.insert(
             sym_ptr_full,
-            Some(LightExpr::SymCons(str2_ptr_full, sym_ptr_half)),
+            Some(ZExpr::SymCons(str2_ptr_full, sym_ptr_half)),
         );
 
         let expected_output = {
@@ -458,7 +445,7 @@ mod tests {
         };
 
         assert_eq!(
-            LightStore::to_scalar_store(&LightStore { scalar_map: store }).unwrap(),
+            ZStore::to_scalar_store(&ZStore { scalar_map: store }).unwrap(),
             expected_output
         );
     }

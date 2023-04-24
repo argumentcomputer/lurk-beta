@@ -3,7 +3,6 @@ use crate::error::LurkError;
 use crate::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
 use crate::expr::Expression;
 use crate::field::LurkField;
-use crate::light_data::{Encodable, LightData, LightStore};
 use crate::package::Package;
 use crate::parser;
 use crate::ptr::{ContPtr, Ptr};
@@ -12,6 +11,7 @@ use crate::store::Store;
 use crate::sym::Sym;
 use crate::tag::ContTag;
 use crate::writer::Write;
+use crate::z_data::{Encodable, ZData, ZStore};
 use anyhow::{bail, Context, Result};
 use clap::{Arg, ArgAction, Command};
 use peekmore::PeekMore;
@@ -215,9 +215,9 @@ fn repl_aux<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>>
     let received_light_store = light_store.is_some();
     let mut s = light_store
         .and_then(|light_store_path| fs::read(light_store_path).ok())
-        .and_then(|bytes| LightData::de(&bytes).ok())
+        .and_then(|bytes| ZData::de(&bytes).ok())
         .and_then(|ld| Encodable::de(&ld).ok())
-        .and_then(|store: LightStore<F>| ScalarStore::try_from(store).ok())
+        .and_then(|store: ZStore<F>| ScalarStore::try_from(store).ok())
         .and_then(|mut scalar_store: ScalarStore<F>| scalar_store.to_store())
         .tap_none(|| {
             if received_light_store {
