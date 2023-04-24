@@ -1,6 +1,8 @@
+use crate::cont::Continuation;
+use crate::expr::Expression;
 use crate::field::LurkField;
 use crate::ptr::{ContPtr, Pointer, Ptr};
-use crate::store::{Continuation, Expression, Store};
+use crate::store::Store;
 use crate::Sym;
 use std::io;
 
@@ -22,7 +24,7 @@ impl<F: LurkField> Write<F> for Ptr<F> {
 
             if let Some(x) = store.get_expr_hash(self) {
                 write!(w, " ")?;
-                crate::store::Expression::Num(crate::num::Num::Scalar(*x.value())).fmt(store, w)?;
+                crate::expr::Expression::Num(crate::num::Num::Scalar(*x.value())).fmt(store, w)?;
             }
             write!(w, ">")
         } else if let Some(expr) = store.fetch(self) {

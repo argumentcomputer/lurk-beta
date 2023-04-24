@@ -1,13 +1,15 @@
 use super::{empty_sym_env, Witness};
+use crate::cont::Continuation;
 use crate::coprocessor::Coprocessor;
 use crate::error::ReductionError;
 use crate::eval::{lang::Lang, IO};
+use crate::expr::{Expression, Thunk};
 use crate::field::LurkField;
 use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness};
 use crate::num::Num;
 use crate::ptr::{ContPtr, Pointer, Ptr};
 use crate::store;
-use crate::store::{Continuation, Expression, NamedConstants, Store, Thunk, TypePredicates};
+use crate::store::{NamedConstants, Store, TypePredicates};
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use crate::writer::Write;
 

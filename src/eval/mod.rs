@@ -1,10 +1,11 @@
 use crate::coprocessor::Coprocessor;
 use crate::error::ReductionError;
+use crate::expr::Expression;
 use crate::field::LurkField;
 use crate::hash_witness::{ConsWitness, ContWitness};
 use crate::ptr::{ContPtr, Pointer, Ptr};
 use crate::store;
-use crate::store::{Expression, Store};
+use crate::store::Store;
 use crate::tag::ContTag;
 use crate::writer::Write;
 use lang::Lang;

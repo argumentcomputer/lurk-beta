@@ -6,8 +6,10 @@
 extern crate alloc;
 
 pub mod circuit;
+pub mod cont;
 pub mod coprocessor;
 pub mod eval;
+pub mod expr;
 pub mod field;
 pub mod hash;
 pub mod hash_witness;

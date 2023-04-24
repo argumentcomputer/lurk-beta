@@ -8,10 +8,11 @@ use neptune::{
 };
 
 use super::pointer::AsAllocatedHashComponents;
+use crate::expr::{Expression, Thunk};
 use crate::field::LurkField;
 use crate::hash::IntoHashComponents;
 use crate::ptr::{Pointer, Ptr, ScalarContPtr, ScalarPtr};
-use crate::store::{Expression, Store, Thunk};
+use crate::store::Store;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};

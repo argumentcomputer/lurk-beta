@@ -1,13 +1,14 @@
 use crate::coprocessor::Coprocessor;
 use crate::error::LurkError;
 use crate::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
+use crate::expr::Expression;
 use crate::field::LurkField;
 use crate::light_data::{Encodable, LightData, LightStore};
 use crate::package::Package;
 use crate::parser;
 use crate::ptr::{ContPtr, Pointer, Ptr};
 use crate::scalar_store::ScalarStore;
-use crate::store::{Expression, Store};
+use crate::store::Store;
 use crate::sym::Sym;
 use crate::tag::ContTag;
 use crate::writer::Write;

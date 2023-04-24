@@ -30,10 +30,11 @@ use crate::circuit::gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness
 use crate::circuit::ToInputs;
 use crate::coprocessor::Coprocessor;
 use crate::eval::{lang::Lang, Frame, Witness, IO};
+use crate::expr::Thunk;
 use crate::hash_witness::HashWitness;
 use crate::proof::Provable;
 use crate::ptr::Ptr;
-use crate::store::{Store, Thunk};
+use crate::store::Store;
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use num_bigint::BigUint;
 use num_integer::Integer;

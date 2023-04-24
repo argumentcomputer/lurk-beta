@@ -8,10 +8,12 @@ use ff::PrimeField;
 
 use crate::hash::IntoHashComponents;
 use crate::{
+    cont::Continuation,
+    expr::{Expression, Thunk},
     field::LurkField,
     hash_witness::{ConsName, ContName},
     ptr::{ContPtr, Ptr, ScalarContPtr, ScalarPtr},
-    store::{Continuation, Expression, Store, Thunk},
+    store::Store,
     tag::{ExprTag, Tag},
     writer::Write,
 };

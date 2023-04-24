@@ -1206,7 +1206,7 @@ mod test {
         let ptr = s.read(input).unwrap();
         let res = s.fetch(&ptr).unwrap();
         match res {
-            crate::store::Expression::Char(c) => assert_eq!(a, c),
+            crate::expr::Expression::Char(c) => assert_eq!(a, c),
             _ => panic!("not a Char"),
         };
         let printed = res.fmt_to_string(s);

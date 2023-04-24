@@ -1,17 +1,18 @@
 use rayon::prelude::*;
 use std::collections::VecDeque;
 use std::fmt;
-use std::hash::Hash;
 use std::sync::Arc;
 use string_interner::symbol::{Symbol, SymbolUsize};
 use thiserror;
 
 use once_cell::sync::OnceCell;
 
+use crate::cont::Continuation;
+use crate::expr::{Expression, Thunk};
 use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
-use crate::ptr::{ContPtr, Object, Pointer, Ptr, RawPtr, ScalarContPtr, ScalarPtr};
+use crate::ptr::{ContPtr, Pointer, Ptr, RawPtr, ScalarContPtr, ScalarPtr};
 use crate::scalar_store::{ScalarContinuation, ScalarExpression, ScalarStore};
 use crate::sym::Sym;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
@@ -28,8 +29,8 @@ pub enum HashScalar {
 type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
 
 #[derive(Debug)]
-pub(crate) struct StringSet(
-    pub(crate)  string_interner::StringInterner<
+pub struct StringSet(
+    pub  string_interner::StringInterner<
         string_interner::backend::BufferBackend<SymbolUsize>,
         ahash::RandomState,
     >,
@@ -43,335 +44,55 @@ impl Default for StringSet {
 
 impl StringSet {
     #[allow(dead_code)]
-    pub(crate) fn all_strings(&self) -> Vec<&str> {
+    pub fn all_strings(&self) -> Vec<&str> {
         self.0.into_iter().map(|x| x.1).collect::<Vec<_>>()
     }
 }
 
 #[derive(Debug)]
 pub struct Store<F: LurkField> {
-    pub(crate) cons_store: IndexSet<(Ptr<F>, Ptr<F>)>,
-    pub(crate) comm_store: IndexSet<(FWrap<F>, Ptr<F>)>,
+    pub cons_store: IndexSet<(Ptr<F>, Ptr<F>)>,
+    pub comm_store: IndexSet<(FWrap<F>, Ptr<F>)>,
 
-    fun_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
+    pub fun_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    pub(crate) sym_store: StringSet,
+    pub sym_store: StringSet,
 
     // Other sparse storage format without hashing is likely more efficient
-    pub(crate) num_store: IndexSet<Num<F>>,
+    pub num_store: IndexSet<Num<F>>,
 
-    str_store: StringSet,
-    thunk_store: IndexSet<Thunk<F>>,
-    call0_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    call_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    call2_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    tail_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    lookup_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    unop_store: IndexSet<(Op1, ContPtr<F>)>,
-    binop_store: IndexSet<(Op2, Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    binop2_store: IndexSet<(Op2, Ptr<F>, ContPtr<F>)>,
-    if_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    let_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    letrec_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    emit_store: IndexSet<ContPtr<F>>,
+    pub str_store: StringSet,
+    pub thunk_store: IndexSet<Thunk<F>>,
+    pub call0_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
+    pub call_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
+    pub call2_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
+    pub tail_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
+    pub lookup_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
+    pub unop_store: IndexSet<(Op1, ContPtr<F>)>,
+    pub binop_store: IndexSet<(Op2, Ptr<F>, Ptr<F>, ContPtr<F>)>,
+    pub binop2_store: IndexSet<(Op2, Ptr<F>, ContPtr<F>)>,
+    pub if_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
+    pub let_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
+    pub letrec_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
+    pub emit_store: IndexSet<ContPtr<F>>,
 
-    opaque_map: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
+    pub opaque_map: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
     /// Holds a mapping of ScalarPtr -> Ptr for reverse lookups
-    pub(crate) scalar_ptr_map: dashmap::DashMap<ScalarPtr<F>, Ptr<F>, ahash::RandomState>,
+    pub scalar_ptr_map: dashmap::DashMap<ScalarPtr<F>, Ptr<F>, ahash::RandomState>,
     /// Holds a mapping of ScalarPtr -> ContPtr<F> for reverse lookups
-    scalar_ptr_cont_map: dashmap::DashMap<ScalarContPtr<F>, ContPtr<F>, ahash::RandomState>,
+    pub scalar_ptr_cont_map: dashmap::DashMap<ScalarContPtr<F>, ContPtr<F>, ahash::RandomState>,
 
     /// Caches poseidon hashes
-    poseidon_cache: PoseidonCache<F>,
+    pub poseidon_cache: PoseidonCache<F>,
     /// Contains Ptrs which have not yet been hydrated.
-    dehydrated: Vec<Ptr<F>>,
-    dehydrated_cont: Vec<ContPtr<F>>,
-    opaque_raw_ptr_count: usize,
+    pub dehydrated: Vec<Ptr<F>>,
+    pub dehydrated_cont: Vec<ContPtr<F>>,
+    pub opaque_raw_ptr_count: usize,
 
-    pointer_scalar_ptr_cache: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
+    pub pointer_scalar_ptr_cache: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
 
-    pub(crate) lurk_package: Arc<Package>,
-    constants: OnceCell<NamedConstants<F>>,
-}
-
-// Expressions, Continuations, Op1, Op2 occupy the same namespace in
-// their encoding.
-// As a 16bit integer their representation is as follows
-//    [typ] [value       ]
-// 0b 0000_ 0000_0000_0000
-//
-// where typ is
-// - `0b0000` for ExprTag
-// - `0b0001` for ContTag
-// - `0b0010` for Op1
-// - `0b0011` for Op2
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Expression<'a, F: LurkField> {
-    Nil,
-    Cons(Ptr<F>, Ptr<F>),
-    Comm(F, Ptr<F>),
-    Sym(Sym),
-    /// arg, body, closed env
-    Fun(Ptr<F>, Ptr<F>, Ptr<F>),
-    Num(Num<F>),
-    Str(&'a str),
-    Thunk(Thunk<F>),
-    Opaque(Ptr<F>),
-    Char(char),
-    UInt(UInt),
-}
-
-impl<F: LurkField> Object<F> for Expression<'_, F> {
-    type Pointer = Ptr<F>;
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Thunk<F: LurkField> {
-    pub(crate) value: Ptr<F>,
-    pub(crate) continuation: ContPtr<F>,
-}
-
-#[allow(clippy::derived_hash_with_manual_eq)]
-impl<F: LurkField> Hash for Thunk<F> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.value.hash(state);
-        self.continuation.hash(state);
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Continuation<F: LurkField> {
-    Outermost,
-    Call0 {
-        saved_env: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Call {
-        unevaled_arg: Ptr<F>,
-        saved_env: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Call2 {
-        function: Ptr<F>,
-        saved_env: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Tail {
-        saved_env: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Error,
-    Lookup {
-        saved_env: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Unop {
-        operator: Op1,
-        continuation: ContPtr<F>,
-    },
-    Binop {
-        operator: Op2,
-        saved_env: Ptr<F>,
-        unevaled_args: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Binop2 {
-        operator: Op2,
-        evaled_arg: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    If {
-        unevaled_args: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Let {
-        var: Ptr<F>,
-        body: Ptr<F>,
-        saved_env: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    LetRec {
-        var: Ptr<F>,
-        saved_env: Ptr<F>,
-        body: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Emit {
-        continuation: ContPtr<F>,
-    },
-    Dummy,
-    Terminal,
-}
-
-impl<F: LurkField> Object<F> for Continuation<F> {
-    type Pointer = ContPtr<F>;
-}
-
-impl<F: LurkField> Continuation<F> {
-    pub(crate) fn intern_aux(&self, store: &mut Store<F>) -> ContPtr<F> {
-        match self {
-            Self::Outermost | Self::Dummy | Self::Error | Self::Terminal => {
-                let cont_ptr = self.get_simple_cont();
-                store.mark_dehydrated_cont(cont_ptr);
-                cont_ptr
-            }
-            _ => {
-                let (p, inserted) = self.insert_in_store(store);
-                let ptr = ContPtr(self.cont_tag(), RawPtr::new(p));
-                if inserted {
-                    store.dehydrated_cont.push(ptr)
-                }
-                ptr
-            }
-        }
-    }
-    pub fn insert_in_store(&self, store: &mut Store<F>) -> (usize, bool) {
-        match self {
-            Self::Outermost | Self::Dummy | Self::Error | Self::Terminal => (0, false),
-            Self::Call0 {
-                saved_env,
-                continuation,
-            } => store.call0_store.insert_full((*saved_env, *continuation)),
-            Self::Call {
-                unevaled_arg,
-                saved_env,
-                continuation,
-            } => store
-                .call_store
-                .insert_full((*unevaled_arg, *saved_env, *continuation)),
-            Self::Call2 {
-                function,
-                saved_env,
-                continuation,
-            } => store
-                .call2_store
-                .insert_full((*function, *saved_env, *continuation)),
-            Self::Tail {
-                saved_env,
-                continuation,
-            } => store.tail_store.insert_full((*saved_env, *continuation)),
-            Self::Lookup {
-                saved_env,
-                continuation,
-            } => store.lookup_store.insert_full((*saved_env, *continuation)),
-            Self::Unop {
-                operator,
-                continuation,
-            } => store.unop_store.insert_full((*operator, *continuation)),
-            Self::Binop {
-                operator,
-                saved_env,
-                unevaled_args,
-                continuation,
-            } => store.binop_store.insert_full((
-                *operator,
-                *saved_env,
-                *unevaled_args,
-                *continuation,
-            )),
-            Self::Binop2 {
-                operator,
-                evaled_arg,
-                continuation,
-            } => store
-                .binop2_store
-                .insert_full((*operator, *evaled_arg, *continuation)),
-            Self::If {
-                unevaled_args,
-                continuation,
-            } => store.if_store.insert_full((*unevaled_args, *continuation)),
-            Self::Let {
-                var,
-                body,
-                saved_env,
-                continuation,
-            } => store
-                .let_store
-                .insert_full((*var, *body, *saved_env, *continuation)),
-            Self::LetRec {
-                var,
-                body,
-                saved_env,
-                continuation,
-            } => store
-                .letrec_store
-                .insert_full((*var, *body, *saved_env, *continuation)),
-            Self::Emit { continuation } => store.emit_store.insert_full(*continuation),
-        }
-    }
-
-    pub const fn cont_tag(&self) -> ContTag {
-        match self {
-            Self::Outermost => ContTag::Outermost,
-            Self::Dummy => ContTag::Dummy,
-            Self::Error => ContTag::Error,
-            Self::Terminal => ContTag::Terminal,
-            Self::Call0 {
-                saved_env: _,
-                continuation: _,
-            } => ContTag::Call0,
-            Self::Call {
-                unevaled_arg: _,
-                saved_env: _,
-                continuation: _,
-            } => ContTag::Call,
-            Self::Call2 {
-                function: _,
-                saved_env: _,
-                continuation: _,
-            } => ContTag::Call2,
-            Self::Tail {
-                saved_env: _,
-                continuation: _,
-            } => ContTag::Tail,
-            Self::Lookup {
-                saved_env: _,
-                continuation: _,
-            } => ContTag::Lookup,
-            Self::Unop {
-                operator: _,
-                continuation: _,
-            } => ContTag::Unop,
-            Self::Binop {
-                operator: _,
-                saved_env: _,
-                unevaled_args: _,
-                continuation: _,
-            } => ContTag::Binop,
-            Self::Binop2 {
-                operator: _,
-                evaled_arg: _,
-                continuation: _,
-            } => ContTag::Binop2,
-            Self::If {
-                unevaled_args: _,
-                continuation: _,
-            } => ContTag::If,
-            Self::Let {
-                var: _,
-                body: _,
-                saved_env: _,
-                continuation: _,
-            } => ContTag::Let,
-            Self::LetRec {
-                var: _,
-                body: _,
-                saved_env: _,
-                continuation: _,
-            } => ContTag::LetRec,
-            Self::Emit { continuation: _ } => ContTag::Emit,
-        }
-    }
-    pub fn get_simple_cont(&self) -> ContPtr<F> {
-        match self {
-            Self::Outermost | Self::Dummy | Self::Error | Self::Terminal => {
-                ContPtr(self.cont_tag(), RawPtr::new(0))
-            }
-
-            _ => unreachable!("Not a simple Continuation: {:?}", self),
-        }
-    }
+    pub lurk_package: Arc<Package>,
+    pub constants: OnceCell<NamedConstants<F>>,
 }
 
 pub trait TypePredicates {
@@ -1147,7 +868,7 @@ impl<F: LurkField> Store<F> {
         ptr
     }
 
-    fn mark_dehydrated_cont(&mut self, p: ContPtr<F>) -> ContPtr<F> {
+    pub fn mark_dehydrated_cont(&mut self, p: ContPtr<F>) -> ContPtr<F> {
         self.dehydrated_cont.push(p);
         p
     }
@@ -2388,8 +2109,6 @@ pub mod test {
     };
     use crate::num;
     use crate::writer::Write;
-    #[cfg(not(target_arch = "wasm32"))]
-    use proptest_derive::Arbitrary;
 
     #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;

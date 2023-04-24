@@ -2,10 +2,11 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+use crate::cont::Continuation;
 use crate::error::ReductionError;
 use crate::field::LurkField;
 use crate::ptr::{ContPtr, Pointer, Ptr};
-use crate::store::{self, Continuation, Store};
+use crate::store::{self, Store};
 use crate::tag::ExprTag;
 
 pub const MAX_CONSES_PER_REDUCTION: usize = 11;
