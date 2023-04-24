@@ -7,7 +7,8 @@ use lurk::{
         Evaluator,
     },
     field::LurkField,
-    store::{Ptr, Store},
+    ptr::Ptr,
+    store::Store,
 };
 
 fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
