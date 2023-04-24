@@ -18,16 +18,7 @@ use crate::z_data::ZData;
 
 use crate::field::LurkField;
 
-#[derive(Debug, PartialEq)]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
-#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
-/// ZStore contains a fragment of the ScalarStore, but using the `ZExpr` type
-pub struct ZStore<F: LurkField> {
-    /// An analogous to the ScalarStore's scalar_map, but with `ZExpr` instead of `ScalarExpression`
-    pub scalar_map: BTreeMap<ZExprPtr<F>, Option<ZExpr<F>>>,
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 pub enum ZEntry<F: LurkField> {
@@ -36,20 +27,32 @@ pub enum ZEntry<F: LurkField> {
     Opaque,
 }
 
+#[derive(Debug, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+/// ZStore contains a fragment of the ScalarStore, but using the `ZEntry` type
+pub struct ZStore<F: LurkField> {
+    /// An analogous to the ScalarStore's scalar_map, but with `ZEntry` instead of `ScalarExpression`
+    pub map: BTreeMap<ZExprPtr<F>, ZEntry<F>>,
+}
+
+// TODO Implement Encodable for ZEntry
 impl<F: LurkField> Encodable for ZStore<F> {
     fn ser(&self) -> ZData {
         // TODO: this clone is loathsome
-        self.scalar_map
-            .clone()
-            .into_iter()
-            .collect::<Vec<(ZExprPtr<F>, Option<ZExpr<F>>)>>()
-            .ser()
+        // self.map
+        //     .clone()
+        //     .into_iter()
+        //     .collect::<Vec<(ZExprPtr<F>, ZEntry<F>)>>()
+        //     .ser()
+        todo!()
     }
     fn de(ld: &ZData) -> anyhow::Result<Self> {
-        let pairs = Vec::<(ZExprPtr<F>, Option<ZExpr<F>>)>::de(ld)?;
-        Ok(ZStore {
-            scalar_map: pairs.into_iter().collect(),
-        })
+        // let pairs = Vec::<(ZExprPtr<F>, ZEntry<F>)>::de(ld)?;
+        // Ok(ZStore {
+        //     map: pairs.into_iter().collect(),
+        // })
+        todo!()
     }
 }
 
@@ -68,8 +71,8 @@ impl<F: LurkField> ZStore<F> {
         }
     }
 
-    fn get(&self, ptr: &ZExprPtr<F>) -> Option<Option<ZExpr<F>>> {
-        self.scalar_map.get(ptr).cloned()
+    fn get(&self, ptr: &ZExprPtr<F>) -> Option<ZEntry<F>> {
+        self.map.get(ptr).cloned()
     }
 }
 
