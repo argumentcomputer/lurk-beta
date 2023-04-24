@@ -65,7 +65,7 @@ pub struct Ptr<F: LurkField> {
     pub _f: PhantomData<F>,
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl<F: LurkField> Hash for Ptr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.tag.hash(state);

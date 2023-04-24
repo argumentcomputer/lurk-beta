@@ -1567,7 +1567,7 @@ impl<F: LurkField> Store<F> {
 
     fn hash_fun(&self, fun: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
         if fun.is_opaque() {
-            return self.get_opaque_ptr(fun);
+            self.get_opaque_ptr(fun)
         } else {
             let (arg, body, closed_env) = self.fetch_fun(&fun)?;
             Some(self.scalar_ptr(
