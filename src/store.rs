@@ -1811,7 +1811,7 @@ impl<F: LurkField> Store<F> {
         // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
         // compound data with opaque data in either element's transitive closure.
         match (self.get_expr_hash(a), self.get_expr_hash(b)) {
-            (Some(a_hash), Some(b_hash)) => Ok(a.raw == b.raw && a_hash == b_hash),
+            (Some(a_hash), Some(b_hash)) => Ok(a.tag == b.tag && a_hash == b_hash),
             _ => Err(Error(
                 "one or more values missing when comparing Ptrs for equality".into(),
             )),
