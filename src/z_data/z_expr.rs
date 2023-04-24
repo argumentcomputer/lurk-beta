@@ -8,8 +8,6 @@ use proptest_derive::Arbitrary;
 use anyhow::anyhow;
 use std::collections::BTreeMap;
 
-use crate::scalar_store::ScalarExpression;
-use crate::scalar_store::ScalarStore;
 use crate::sym::Sym;
 use crate::tag::ExprTag;
 use crate::z_data::Encodable;
