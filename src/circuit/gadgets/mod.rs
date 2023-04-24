@@ -5,4 +5,4 @@ pub(crate) mod case;
 pub(crate) mod constraints;
 pub(crate) mod data;
 pub(crate) mod hashes;
-pub(crate) mod pointer;
+pub mod pointer;
