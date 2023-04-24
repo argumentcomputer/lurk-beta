@@ -2,7 +2,8 @@ use peekmore::{PeekMore, PeekMoreIterator};
 
 use crate::field::LurkField;
 use crate::package::Package;
-use crate::store::{Ptr, Store};
+use crate::ptr::Ptr;
+use crate::store::Store;
 use crate::sym::Sym;
 use crate::uint::UInt;
 use thiserror;

@@ -4,7 +4,8 @@ use crate::field::LurkField;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::field::FWrap;
-use crate::store::{Pointer, Ptr, ScalarContPtr, ScalarPtr, Store};
+use crate::ptr::{Pointer, Ptr, ScalarContPtr, ScalarPtr};
+use crate::store::Store;
 use crate::tag::{ExprTag, Op1, Op2};
 use crate::{Num, Sym, UInt};
 #[cfg(not(target_arch = "wasm32"))]

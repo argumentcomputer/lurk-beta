@@ -9,7 +9,8 @@ use crate::circuit::gadgets::pointer::{AllocatedPtr, AsAllocatedHashComponents};
 use crate::field::LurkField;
 use crate::hash::{HashConst, HashConstants};
 use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness, HashName, Stub};
-use crate::store::{ScalarPtr, Store};
+use crate::ptr::ScalarPtr;
+use crate::store::Store;
 use crate::tag::ExprTag;
 
 #[derive(Clone)]

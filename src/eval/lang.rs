@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::field::LurkField;
-use crate::store::{Ptr, ScalarPtr, Store};
+use crate::ptr::{Ptr, ScalarPtr};
+use crate::store::Store;
 use crate::sym::Sym;
 
 /// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.

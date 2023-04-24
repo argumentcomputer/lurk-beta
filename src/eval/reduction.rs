@@ -5,10 +5,9 @@ use crate::eval::{lang::Lang, IO};
 use crate::field::LurkField;
 use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness};
 use crate::num::Num;
+use crate::ptr::{ContPtr, Pointer, Ptr};
 use crate::store;
-use crate::store::{
-    ContPtr, Continuation, Expression, NamedConstants, Pointer, Ptr, Store, Thunk, TypePredicates,
-};
+use crate::store::{Continuation, Expression, NamedConstants, Store, Thunk, TypePredicates};
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use crate::writer::Write;
 

@@ -135,3 +135,13 @@ impl<F: LurkField> PoseidonCache<F> {
         *hash
     }
 }
+
+pub trait IntoHashComponents<F: LurkField> {
+    fn into_hash_components(self) -> [F; 2];
+}
+
+impl<F: LurkField> IntoHashComponents<F> for [F; 2] {
+    fn into_hash_components(self) -> [F; 2] {
+        self
+    }
+}

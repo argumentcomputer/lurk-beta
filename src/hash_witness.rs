@@ -4,7 +4,8 @@ use std::marker::PhantomData;
 
 use crate::error::ReductionError;
 use crate::field::LurkField;
-use crate::store::{self, ContPtr, Continuation, Pointer, Ptr, Store};
+use crate::ptr::{ContPtr, Pointer, Ptr};
+use crate::store::{self, Continuation, Store};
 use crate::tag::ExprTag;
 
 pub const MAX_CONSES_PER_REDUCTION: usize = 11;
