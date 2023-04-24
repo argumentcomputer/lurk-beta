@@ -25,8 +25,12 @@ use crate::hash::IntoHashComponents;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RawPtr {
+    /// A Null ptr is used when the hash is F::zero(), such as StrNil, SymNil
     Null,
+    /// An Opaque ptr is created from a ScalarPtr or ScalarContPtr with unknown
+    /// preimage. It points into `store.opaque_ptrs` or `store.opaque_cont_ptrs`
     Opaque(usize),
+    /// An Index is the ordinary ptr into the IndexSet corresponding to its tag
     Index(usize),
 }
 
@@ -60,8 +64,13 @@ impl RawPtr {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Ptr<F: LurkField> {
+    /// An expression tag
     pub tag: ExprTag,
+    /// The underlying pointer, which can be null, opaque, or an index
     pub raw: RawPtr,
+    /// PhantomData is needed to consume the `F: LurkField` parameter, since
+    /// we want to pin our Ptr to a specific field (even though we don't
+    /// actually use it)
     pub _f: PhantomData<F>,
 }
 
