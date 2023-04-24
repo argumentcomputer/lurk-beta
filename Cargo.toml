@@ -64,6 +64,8 @@ gpu = ["neptune/opencl"]
 
 [dev-dependencies]
 criterion = "0.3.6"
+hex = "0.4.3"
+sha2 = { version = "0.10.2"}
 structopt = { version = "0.3", default-features = false }
 tap = "1.0.1"
 assert_cmd = "2.0.8"
@@ -95,3 +97,9 @@ codegen-units = 16
 # being off (they test release behavior in case of duplicate clauses).
 inherits = "dev-ci"
 debug-assertions = false
+
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"

@@ -23,7 +23,7 @@ pub mod uint;
 pub mod writer;
 
 pub mod error;
-mod num;
+pub mod num;
 pub use num::Num;
 pub use sym::{Sym, Symbol};
 pub use uint::UInt;
