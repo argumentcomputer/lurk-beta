@@ -1,7 +1,3 @@
-//! This is a prototype for a future version of `ScalarStore`. For now, its main
-//! role is to serve as an intermediate format between a store encoded in `ZData`
-//! and the `ScalarStore` itself. Thus we call it `ZStore`.
-
 use crate::field::FWrap;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -17,6 +13,8 @@ use crate::scalar_store::ScalarExpression;
 use crate::scalar_store::ScalarStore;
 use crate::sym::Sym;
 use crate::tag::ExprTag;
+use crate::z_data::z_cont::ZCont;
+use crate::z_data::z_expr::ZExpr;
 use crate::z_data::Encodable;
 use crate::z_data::ZData;
 
@@ -29,6 +27,15 @@ use crate::field::LurkField;
 pub struct ZStore<F: LurkField> {
     /// An analogous to the ScalarStore's scalar_map, but with `ZExpr` instead of `ScalarExpression`
     pub scalar_map: BTreeMap<ScalarPtr<F>, Option<ZExpr<F>>>,
+}
+
+#[derive(Debug, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+pub enum ZEntry<F: LurkField> {
+    Expr(ZExpr<F>),
+    Cont(ZCont<F>),
+    Opaque,
 }
 
 impl<F: LurkField> Encodable for ZStore<F> {
@@ -275,75 +282,6 @@ impl<F: LurkField> TryFrom<ZStore<F>> for ScalarStore<F> {
 
     fn try_from(store: ZStore<F>) -> Result<Self, Self::Error> {
         store.to_scalar_store()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
-#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
-/// Enum to represent a z expression.
-pub enum ZExpr<F: LurkField> {
-    /// Analogous to ScalarExpression::Cons
-    Cons(ScalarPtr<F>, ScalarPtr<F>),
-    /// Replaces ScalarExpression::Str, contains a string and a pointer to the tail.
-    StrCons(ScalarPtr<F>, ScalarPtr<F>),
-    /// Replaces ScalarExpression::Sym, contains a symbol and a pointer to the tail.
-    SymCons(ScalarPtr<F>, ScalarPtr<F>),
-    /// Analogous to ScalarExpression::Comm
-    #[cfg_attr(
-        not(target_arch = "wasm32"),
-        proptest(
-            strategy = "any::<(FWrap<F>, ScalarPtr<F>)>().prop_map(|(x, y)| Self::Comm(x.0, y))"
-        )
-    )]
-    Comm(F, ScalarPtr<F>),
-    /// Analogous to ScalarExpression::Nil
-    Nil,
-}
-
-impl<F: LurkField> std::fmt::Display for ZExpr<F> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ZExpr::Cons(x, y) => write!(f, "({} . {})", x, y),
-            ZExpr::StrCons(x, y) => write!(f, "('{}' str. {})", x, y),
-            ZExpr::SymCons(x, y) => write!(f, "({} sym. {})", x, y),
-            ZExpr::Comm(ff, x) => {
-                write!(f, "({} comm. {})", ff.trimmed_hex_digits(), x)
-            }
-            ZExpr::Nil => write!(f, "nil"),
-        }
-    }
-}
-
-impl<F: LurkField> Encodable for ZExpr<F> {
-    fn ser(&self) -> ZData {
-        match self {
-            ZExpr::Cons(x, y) => ZData::Cell(vec![ZData::Atom(vec![0u8]), x.ser(), y.ser()]),
-            ZExpr::StrCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![1u8]), x.ser(), y.ser()]),
-            ZExpr::SymCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![2u8]), x.ser(), y.ser()]),
-            ZExpr::Comm(f, x) => {
-                ZData::Cell(vec![ZData::Atom(vec![3u8]), FWrap(*f).ser(), x.ser()])
-            }
-            ZExpr::Nil => ZData::Atom(vec![]),
-        }
-    }
-    fn de(ld: &ZData) -> anyhow::Result<Self> {
-        match ld {
-            ZData::Atom(v) => match v[..] {
-                [] => Ok(ZExpr::Nil),
-                _ => Err(anyhow!("ZExpr::Atom({:?})", v)),
-            },
-            ZData::Cell(v) => match &v[..] {
-                [ZData::Atom(u), ref x, ref y] => match u[..] {
-                    [0u8] => Ok(ZExpr::Cons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
-                    [1u8] => Ok(ZExpr::StrCons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
-                    [2u8] => Ok(ZExpr::SymCons(ScalarPtr::de(x)?, ScalarPtr::de(y)?)),
-                    [3u8] => Ok(ZExpr::Comm(FWrap::de(x)?.0, ScalarPtr::de(y)?)),
-                    _ => Err(anyhow!("ZExpr::Cell({:?})", v)),
-                },
-                _ => Err(anyhow!("ZExpr::Cell({:?})", v)),
-            },
-        }
     }
 }
 

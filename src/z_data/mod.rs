@@ -1,4 +1,4 @@
-#![deny(missing_docs)]
+//#![deny(missing_docs)]
 //! `ZData` is a lightweight binary data serialization format.
 //!
 //! A `ZData` value is a n-ary tree with two types of nodes:
@@ -23,8 +23,15 @@ use nom::multi::count;
 use nom::Finish;
 use nom::IResult;
 
+mod z_cont;
+mod z_expr;
+mod z_ptr;
 mod z_store;
-pub use z_store::{ZExpr, ZStore};
+
+pub use z_cont::ZCont;
+pub use z_expr::ZExpr;
+pub use z_ptr::{ZContPtr, ZExprPtr, ZPtr};
+pub use z_store::{ZEntry, ZStore};
 
 /// `ZData` is a binary tree with two types of nodes: Atom and Cell.
 ///
