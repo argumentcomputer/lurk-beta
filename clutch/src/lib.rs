@@ -13,11 +13,13 @@ use lurk::eval::{
     lang::{Coproc, Lang},
     Evaluable, Status, Witness, IO,
 };
+use lurk::expr::Expression;
 use lurk::field::LurkField;
 use lurk::package::Package;
 use lurk::proof::{nova::NovaProver, Prover};
+use lurk::ptr::Ptr;
 use lurk::repl::{ReplState, ReplTrait};
-use lurk::store::{Expression, Pointer, Ptr, Store};
+use lurk::store::Store;
 use lurk::sym::Sym;
 use lurk::tag::ExprTag;
 use lurk::writer::Write;
@@ -407,7 +409,7 @@ impl ClutchState<F, Coproc<F>> {
     ) -> Result<(Commitment<F>, Option<Ptr<F>>)> {
         let maybe_comm = store.car(&rest)?;
 
-        let comm = match maybe_comm.tag() {
+        let comm = match maybe_comm.tag {
             ExprTag::Comm => maybe_comm,
             ExprTag::Num => {
                 // See Store::open_mut().
