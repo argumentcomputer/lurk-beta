@@ -29,11 +29,12 @@ use lurk::{
     field::LurkField,
     proof::nova::{self, NovaProver, PublicParams},
     proof::Prover,
-    ptr::{ContPtr, Ptr, ScalarPtr},
+    ptr::{ContPtr, Ptr},
     scalar_store::ScalarStore,
     store::Store,
     tag::ExprTag,
     writer::Write,
+    z_data::ZExprPtr,
 };
 use once_cell::sync::OnceCell;
 use pasta_curves::pallas;
@@ -646,7 +647,7 @@ impl LurkPtr {
                 // FIXME: put the scalar_store in a new field for the store.
                 let fun_scalar_store: ScalarStore<F> =
                     from_ipld(lurk_scalar_ipld.scalar_store.clone()).unwrap();
-                let fun_scalar_ptr: ScalarPtr<F> =
+                let fun_scalar_ptr: ZExprPtr<F> =
                     from_ipld(lurk_scalar_ipld.scalar_ptr.clone()).unwrap();
                 s.intern_scalar_ptr(fun_scalar_ptr, &fun_scalar_store)
                     .expect("failed to intern scalar_ptr for fun")
