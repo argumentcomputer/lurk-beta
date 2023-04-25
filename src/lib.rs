@@ -6,14 +6,18 @@
 extern crate alloc;
 
 pub mod circuit;
+pub mod cont;
 pub mod coprocessor;
 pub mod eval;
+pub mod expr;
 pub mod field;
+pub mod hash;
 pub mod hash_witness;
 pub mod light_data;
 pub mod package;
 pub mod parser;
 pub mod proof;
+pub mod ptr;
 pub mod repl;
 pub mod scalar_store;
 pub mod store;

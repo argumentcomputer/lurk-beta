@@ -1,12 +1,14 @@
 use crate::coprocessor::Coprocessor;
 use crate::error::LurkError;
 use crate::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
+use crate::expr::Expression;
 use crate::field::LurkField;
 use crate::light_data::{Encodable, LightData, LightStore};
 use crate::package::Package;
 use crate::parser;
+use crate::ptr::{ContPtr, Ptr};
 use crate::scalar_store::ScalarStore;
-use crate::store::{ContPtr, Expression, Pointer, Ptr, Store};
+use crate::store::Store;
 use crate::sym::Sym;
 use crate::tag::ContTag;
 use crate::writer::Write;
@@ -573,7 +575,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                         cont: store.get_cont_outermost(),
                     };
 
-                    match next_cont.tag() {
+                    match next_cont.tag {
                         ContTag::Outermost | ContTag::Terminal => {
                             let mut handle = io::stdout().lock();
 

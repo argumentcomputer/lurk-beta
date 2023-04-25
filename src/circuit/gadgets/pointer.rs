@@ -6,13 +6,14 @@ use bellperson::{
 };
 use ff::PrimeField;
 
+use crate::hash::IntoHashComponents;
 use crate::{
+    cont::Continuation,
+    expr::{Expression, Thunk},
     field::LurkField,
     hash_witness::{ConsName, ContName},
-    store::{
-        ContPtr, Continuation, Expression, IntoHashComponents, Ptr, ScalarContPtr, ScalarPtr,
-        Store, Thunk,
-    },
+    ptr::{ContPtr, Ptr, ScalarContPtr, ScalarPtr},
+    store::Store,
     tag::{ExprTag, Tag},
     writer::Write,
 };

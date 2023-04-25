@@ -27,7 +27,8 @@ use crate::error::ProofError;
 use crate::eval::{lang::Lang, Evaluator, Witness, IO};
 use crate::field::LurkField;
 use crate::proof::{Provable, Prover, PublicParameters};
-use crate::store::{Ptr, Store};
+use crate::ptr::Ptr;
+use crate::store::Store;
 
 use std::marker::PhantomData;
 #[cfg(not(target_arch = "wasm32"))]

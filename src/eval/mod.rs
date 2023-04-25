@@ -1,9 +1,11 @@
 use crate::coprocessor::Coprocessor;
 use crate::error::ReductionError;
+use crate::expr::Expression;
 use crate::field::LurkField;
 use crate::hash_witness::{ConsWitness, ContWitness};
+use crate::ptr::{ContPtr, Ptr};
 use crate::store;
-use crate::store::{ContPtr, Expression, Pointer, Ptr, Store};
+use crate::store::Store;
 use crate::tag::ContTag;
 use crate::writer::Write;
 use lang::Lang;
@@ -107,7 +109,7 @@ impl Status {
 
 impl<F: LurkField> From<ContPtr<F>> for Status {
     fn from(cont: ContPtr<F>) -> Self {
-        match cont.tag() {
+        match cont.tag {
             ContTag::Terminal => Self::Terminal,
             ContTag::Error => Self::Error,
             _ => Self::Incomplete,
@@ -202,8 +204,8 @@ impl<F: LurkField> IO<F> {
     // Returns any expression that was emitted in this IO (if an output) or previous (if an input).
     // The intention is that this method will be used to extract and handle all output as needed.
     pub fn maybe_emitted_expression(&self, store: &Store<F>) -> Option<Ptr<F>> {
-        if self.expr.tag() != crate::tag::ExprTag::Thunk
-            || self.cont.tag() != crate::tag::ContTag::Dummy
+        if self.expr.tag != crate::tag::ExprTag::Thunk
+            || self.cont.tag != crate::tag::ContTag::Dummy
         {
             return None;
         }
@@ -213,7 +215,7 @@ impl<F: LurkField> IO<F> {
             _ => return None,
         };
 
-        if expr.continuation.tag() == crate::tag::ContTag::Emit {
+        if expr.continuation.tag == crate::tag::ContTag::Emit {
             Some(expr.value)
         } else {
             None

@@ -5,7 +5,8 @@ use bellperson::{ConstraintSystem, SynthesisError};
 use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::eval::IO;
 use crate::field::LurkField;
-use crate::store::{ContPtr, Ptr, Store};
+use crate::ptr::{ContPtr, Ptr};
+use crate::store::Store;
 
 /// `Coprocessor` is a trait that represents a generalized interface for coprocessors.
 /// Coprocessors augment the Lurk circuit and evaluation with additional built-in functionality.

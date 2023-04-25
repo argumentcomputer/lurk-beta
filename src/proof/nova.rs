@@ -27,7 +27,8 @@ use crate::error::ProofError;
 use crate::eval::{lang::Lang, Evaluator, Frame, Witness, IO};
 use crate::field::LurkField;
 use crate::proof::{Prover, PublicParameters};
-use crate::store::{Ptr, Store};
+use crate::ptr::Ptr;
+use crate::store::Store;
 
 /// Type alias for G1 group elements using the Pallas curve.
 pub type G1 = pallas::Point;
@@ -350,7 +351,7 @@ mod tests {
     use crate::eval::empty_sym_env;
     use crate::eval::lang::Coproc;
     use crate::proof::Provable;
-    use crate::store::ContPtr;
+    use crate::ptr::ContPtr;
     use crate::tag::{Op, Op1, Op2};
 
     use bellperson::{

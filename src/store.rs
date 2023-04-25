@@ -1,112 +1,25 @@
-use anyhow::anyhow;
-use generic_array::typenum::{U3, U4, U6, U8};
-use neptune::Poseidon;
-#[cfg(not(target_arch = "wasm32"))]
-use proptest_derive::Arbitrary;
 use rayon::prelude::*;
 use std::collections::VecDeque;
-use std::fmt::{Display, Formatter};
-use std::hash::Hash;
+use std::fmt;
 use std::sync::Arc;
-use std::{fmt, marker::PhantomData};
+use std::usize;
 use string_interner::symbol::{Symbol, SymbolUsize};
 use thiserror;
 
-use neptune::poseidon::PoseidonConstants;
 use once_cell::sync::OnceCell;
-#[cfg(not(target_arch = "wasm32"))]
-use proptest::prelude::*;
 
-use libipld::Cid;
-use libipld::Multihash;
-
-use crate::light_data::Encodable;
-use crate::light_data::LightData;
-
+use crate::cont::Continuation;
+use crate::expr::{Expression, Thunk};
 use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
+use crate::ptr::{ContPtr, Ptr, ScalarContPtr, ScalarPtr};
 use crate::scalar_store::{ScalarContinuation, ScalarExpression, ScalarStore};
 use crate::sym::Sym;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 use crate::{Num, UInt};
 
-use serde::Deserialize;
-use serde::Serialize;
-use serde::{de, ser};
-
-pub enum HashArity {
-    A3,
-    A4,
-    A6,
-    A8,
-}
-
-impl From<usize> for HashArity {
-    fn from(n: usize) -> Self {
-        match n {
-            3 => Self::A3,
-            4 => Self::A4,
-            6 => Self::A6,
-            8 => Self::A8,
-            _ => panic!("unsupported arity: {}", n),
-        }
-    }
-}
-
-pub enum HashConst<'a, F: LurkField> {
-    A3(&'a PoseidonConstants<F, U3>),
-    A4(&'a PoseidonConstants<F, U4>),
-    A6(&'a PoseidonConstants<F, U6>),
-    A8(&'a PoseidonConstants<F, U8>),
-}
-
-/// Holds the constants needed for poseidon hashing.
-#[derive(Debug)]
-pub(crate) struct HashConstants<F: LurkField> {
-    c3: OnceCell<PoseidonConstants<F, U3>>,
-    c4: OnceCell<PoseidonConstants<F, U4>>,
-    c6: OnceCell<PoseidonConstants<F, U6>>,
-    c8: OnceCell<PoseidonConstants<F, U8>>,
-}
-
-impl<F: LurkField> Default for HashConstants<F> {
-    fn default() -> Self {
-        Self {
-            c3: OnceCell::new(),
-            c4: OnceCell::new(),
-            c6: OnceCell::new(),
-            c8: OnceCell::new(),
-        }
-    }
-}
-
-impl<F: LurkField> HashConstants<F> {
-    pub(crate) fn c3(&self) -> &PoseidonConstants<F, U3> {
-        self.c3.get_or_init(|| PoseidonConstants::new())
-    }
-
-    pub(crate) fn c4(&self) -> &PoseidonConstants<F, U4> {
-        self.c4.get_or_init(|| PoseidonConstants::new())
-    }
-
-    pub(crate) fn c6(&self) -> &PoseidonConstants<F, U6> {
-        self.c6.get_or_init(|| PoseidonConstants::new())
-    }
-
-    pub(crate) fn c8(&self) -> &PoseidonConstants<F, U8> {
-        self.c8.get_or_init(|| PoseidonConstants::new())
-    }
-
-    pub(crate) fn constants(&self, arity: HashArity) -> HashConst<'_, F> {
-        match arity {
-            HashArity::A3 => HashConst::A3(self.c3.get_or_init(|| PoseidonConstants::new())),
-            HashArity::A4 => HashConst::A4(self.c4.get_or_init(|| PoseidonConstants::new())),
-            HashArity::A6 => HashConst::A6(self.c6.get_or_init(|| PoseidonConstants::new())),
-            HashArity::A8 => HashConst::A8(self.c8.get_or_init(|| PoseidonConstants::new())),
-        }
-    }
-}
+use crate::hash::{HashConstants, IntoHashComponents, PoseidonCache};
 
 #[derive(Clone, Copy, Debug)]
 pub enum HashScalar {
@@ -117,8 +30,8 @@ pub enum HashScalar {
 type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
 
 #[derive(Debug)]
-pub(crate) struct StringSet(
-    pub(crate)  string_interner::StringInterner<
+pub struct StringSet(
+    pub  string_interner::StringInterner<
         string_interner::backend::BufferBackend<SymbolUsize>,
         ahash::RandomState,
     >,
@@ -132,668 +45,56 @@ impl Default for StringSet {
 
 impl StringSet {
     #[allow(dead_code)]
-    pub(crate) fn all_strings(&self) -> Vec<&str> {
+    pub fn all_strings(&self) -> Vec<&str> {
         self.0.into_iter().map(|x| x.1).collect::<Vec<_>>()
     }
 }
 
 #[derive(Debug)]
 pub struct Store<F: LurkField> {
-    pub(crate) cons_store: IndexSet<(Ptr<F>, Ptr<F>)>,
-    pub(crate) comm_store: IndexSet<(FWrap<F>, Ptr<F>)>,
+    pub cons_store: IndexSet<(Ptr<F>, Ptr<F>)>,
+    pub comm_store: IndexSet<(FWrap<F>, Ptr<F>)>,
 
-    fun_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
+    pub fun_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    pub(crate) sym_store: StringSet,
+    pub sym_store: StringSet,
 
     // Other sparse storage format without hashing is likely more efficient
-    pub(crate) num_store: IndexSet<Num<F>>,
+    pub num_store: IndexSet<Num<F>>,
 
-    str_store: StringSet,
-    thunk_store: IndexSet<Thunk<F>>,
-    call0_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    call_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    call2_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    tail_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    lookup_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    unop_store: IndexSet<(Op1, ContPtr<F>)>,
-    binop_store: IndexSet<(Op2, Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    binop2_store: IndexSet<(Op2, Ptr<F>, ContPtr<F>)>,
-    if_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    let_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    letrec_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    emit_store: IndexSet<ContPtr<F>>,
+    pub str_store: StringSet,
+    pub thunk_store: IndexSet<Thunk<F>>,
+    pub call0_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
+    pub call_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
+    pub call2_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
+    pub tail_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
+    pub lookup_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
+    pub unop_store: IndexSet<(Op1, ContPtr<F>)>,
+    pub binop_store: IndexSet<(Op2, Ptr<F>, Ptr<F>, ContPtr<F>)>,
+    pub binop2_store: IndexSet<(Op2, Ptr<F>, ContPtr<F>)>,
+    pub if_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
+    pub let_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
+    pub letrec_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
+    pub emit_store: IndexSet<ContPtr<F>>,
 
-    opaque_map: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
+    pub opaque_ptrs: IndexSet<ScalarPtr<F>>,
+    pub opaque_cont_ptrs: IndexSet<ScalarContPtr<F>>,
+
     /// Holds a mapping of ScalarPtr -> Ptr for reverse lookups
-    pub(crate) scalar_ptr_map: dashmap::DashMap<ScalarPtr<F>, Ptr<F>, ahash::RandomState>,
+    pub scalar_ptr_map: dashmap::DashMap<ScalarPtr<F>, Ptr<F>, ahash::RandomState>,
     /// Holds a mapping of ScalarPtr -> ContPtr<F> for reverse lookups
-    scalar_ptr_cont_map: dashmap::DashMap<ScalarContPtr<F>, ContPtr<F>, ahash::RandomState>,
+    pub scalar_ptr_cont_map: dashmap::DashMap<ScalarContPtr<F>, ContPtr<F>, ahash::RandomState>,
 
     /// Caches poseidon hashes
-    poseidon_cache: PoseidonCache<F>,
+    pub poseidon_cache: PoseidonCache<F>,
     /// Contains Ptrs which have not yet been hydrated.
-    dehydrated: Vec<Ptr<F>>,
-    dehydrated_cont: Vec<ContPtr<F>>,
-    opaque_raw_ptr_count: usize,
+    pub dehydrated: Vec<Ptr<F>>,
+    pub dehydrated_cont: Vec<ContPtr<F>>,
 
-    pointer_scalar_ptr_cache: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
+    pub pointer_scalar_ptr_cache: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
 
-    pub(crate) lurk_package: Arc<Package>,
-    constants: OnceCell<NamedConstants<F>>,
-}
-
-#[derive(Default, Debug)]
-struct PoseidonCache<F: LurkField> {
-    a3: dashmap::DashMap<CacheKey<F, 3>, F, ahash::RandomState>,
-    a4: dashmap::DashMap<CacheKey<F, 4>, F, ahash::RandomState>,
-    a6: dashmap::DashMap<CacheKey<F, 6>, F, ahash::RandomState>,
-    a8: dashmap::DashMap<CacheKey<F, 8>, F, ahash::RandomState>,
-
-    constants: HashConstants<F>,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-struct CacheKey<F: LurkField, const N: usize>([F; N]);
-
-#[allow(clippy::derived_hash_with_manual_eq)]
-impl<F: LurkField, const N: usize> Hash for CacheKey<F, N> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        for el in &self.0 {
-            el.to_repr().as_ref().hash(state);
-        }
-    }
-}
-
-impl<F: LurkField> PoseidonCache<F> {
-    fn hash3(&self, preimage: &[F; 3]) -> F {
-        let hash = self
-            .a3
-            .entry(CacheKey(*preimage))
-            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c3()).hash());
-
-        *hash
-    }
-
-    fn hash4(&self, preimage: &[F; 4]) -> F {
-        let hash = self
-            .a4
-            .entry(CacheKey(*preimage))
-            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c4()).hash());
-
-        *hash
-    }
-
-    fn hash6(&self, preimage: &[F; 6]) -> F {
-        let hash = self
-            .a6
-            .entry(CacheKey(*preimage))
-            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c6()).hash());
-        *hash
-    }
-
-    fn hash8(&self, preimage: &[F; 8]) -> F {
-        let hash = self
-            .a8
-            .entry(CacheKey(*preimage))
-            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c8()).hash());
-        *hash
-    }
-}
-
-pub trait Object<F: LurkField>: fmt::Debug + Clone + PartialEq {
-    type Pointer: Pointer<F>;
-}
-
-pub trait Pointer<F: LurkField + From<u64>>: fmt::Debug + Copy + Clone + PartialEq + Hash {
-    type Tag: Tag;
-
-    fn tag(&self) -> Self::Tag;
-    fn tag_field(&self) -> F {
-        F::from(self.tag().into() as u64)
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Ptr<F: LurkField>(ExprTag, RawPtr<F>);
-
-#[allow(clippy::derived_hash_with_manual_eq)]
-impl<F: LurkField> Hash for Ptr<F> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-        self.1.hash(state);
-    }
-}
-
-impl<F: LurkField> Ptr<F> {
-    // TODO: Make these methods and the similar ones defined on expression consistent, probably including a shared trait.
-
-    // NOTE: Although this could be a type predicate now, when NIL becomes a symbol, it won't be possible.
-    pub const fn is_nil(&self) -> bool {
-        matches!(self.0, ExprTag::Nil)
-        // FIXME: check value also, probably
-    }
-    pub const fn is_cons(&self) -> bool {
-        matches!(self.0, ExprTag::Cons)
-    }
-
-    pub const fn is_atom(&self) -> bool {
-        !self.is_cons()
-    }
-
-    pub const fn is_list(&self) -> bool {
-        matches!(self.0, ExprTag::Nil | ExprTag::Cons)
-    }
-
-    pub const fn is_opaque(&self) -> bool {
-        self.1.is_opaque()
-    }
-
-    pub const fn as_cons(self) -> Option<Self> {
-        if self.is_cons() {
-            Some(self)
-        } else {
-            None
-        }
-    }
-
-    pub const fn as_list(self) -> Option<Self> {
-        if self.is_list() {
-            Some(self)
-        } else {
-            None
-        }
-    }
-}
-
-impl<F: LurkField> From<char> for Ptr<F> {
-    fn from(c: char) -> Self {
-        Self(ExprTag::Char, RawPtr::new(u32::from(c) as usize))
-    }
-}
-
-impl<F: LurkField> Pointer<F> for Ptr<F> {
-    type Tag = ExprTag;
-
-    fn tag(&self) -> ExprTag {
-        self.0
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
-// Note: the trait bound E: Tag is not necessary in the struct, but it makes the proptest strategy more efficient.
-/// A struct representing a scalar pointer with a tag and a value.
-///
-/// The `SPtr` struct is used to store a tagged scalar pointer, where `E` is its tag, and `F` the field for its values.
-/// It has two important aliases, `ScalarPtr` and `ScalarContPtr`, which are used respectively with `ExprTag` and `ContTag`,
-/// i.e. the type of expressions and the type of continuations.
-pub struct SPtr<E: Tag, F: LurkField>(
-    E,
-    #[cfg_attr(
-        not(target_arch = "wasm32"),
-        proptest(strategy = "any::<FWrap<F>>().prop_map(|x| x.0)")
-    )]
-    F,
-);
-
-impl<E: Tag + Display, F: LurkField> Display for SPtr<E, F> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let tag = self.0;
-        let trimmed_f = self.1.trimmed_hex_digits();
-        write!(f, "(ptr->{tag}, {trimmed_f})",)
-    }
-}
-
-impl<E: Tag, F: LurkField> PartialOrd for SPtr<E, F> {
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        (
-            self.0.to_field_bytes::<F>().as_ref(),
-            self.1.to_repr().as_ref(),
-        )
-            .partial_cmp(&(
-                other.0.to_field_bytes::<F>().as_ref(),
-                other.1.to_repr().as_ref(),
-            ))
-    }
-}
-
-impl<E: Tag, F: LurkField> Ord for SPtr<E, F> {
-    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        self.partial_cmp(other)
-            .expect("SPtr::cmp: partial_cmp domain invariant violation")
-    }
-}
-
-impl<E: Tag, F: LurkField> Encodable for SPtr<E, F> {
-    fn ser(&self) -> LightData {
-        let (x, y): (FWrap<F>, FWrap<F>) = (FWrap(self.0.to_field()), FWrap(self.1));
-        (x, y).ser()
-    }
-    fn de(ld: &LightData) -> anyhow::Result<Self> {
-        let (x, y): (FWrap<F>, FWrap<F>) = Encodable::de(ld)?;
-        let tag_as_u16 =
-            x.0.to_u16()
-                .ok_or_else(|| anyhow!("invalid range for field element representing a tag"))?;
-        let tag = E::try_from(tag_as_u16).map_err(|_| anyhow!("invalid tag"))?;
-        Ok(SPtr(tag, y.0))
-    }
-}
-
-#[allow(clippy::derived_hash_with_manual_eq)]
-impl<E: Tag, F: LurkField> Hash for SPtr<E, F> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.to_field_bytes::<F>().as_ref().hash(state);
-        self.1.to_repr().as_ref().hash(state);
-    }
-}
-
-impl<E: Tag, F: LurkField> SPtr<E, F> {
-    pub fn from_parts(tag: E, value: F) -> Self {
-        SPtr(tag, value)
-    }
-
-    pub fn tag(&self) -> E {
-        self.0
-    }
-
-    pub fn tag_field(&self) -> F {
-        self.0.to_field::<F>()
-    }
-
-    pub fn value(&self) -> &F {
-        &self.1
-    }
-}
-
-impl<E: Tag, F: LurkField> Serialize for SPtr<E, F> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use ser::Error;
-        let tag = self.tag_field();
-        let val = self.value();
-        // magic numbers to avoid multicodec table collisons
-        // this will disappear when we move from IPLD to LDON
-        let codec: u64 = 0x10de << 48 | tag.to_u64_unchecked();
-        let hash = Multihash::wrap(codec, &val.to_bytes())
-            .map_err(|_| S::Error::custom("expected validly tagged ScalarPtr".to_string()))?;
-        let cid = Cid::new_v1(codec, hash);
-        cid.serialize(serializer)
-    }
-}
-
-impl<'de, E: Tag, F: LurkField> Deserialize<'de> for SPtr<E, F> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        use de::Error;
-        let cid = Cid::deserialize(deserializer)?;
-        let tag = F::from_u64(cid.codec() & 0x0000_0000_ffff_ffff);
-        let val = F::from_bytes(cid.hash().digest())
-            .ok_or_else(|| D::Error::custom("expected ScalarContPtr value".to_string()))?;
-        // TODO(fga): eliminate this round-trip through the field
-        let e_tag = E::from_field(&tag).ok_or_else(|| D::Error::custom("invalid Tag"))?;
-        Ok(SPtr::from_parts(e_tag, val))
-    }
-}
-
-pub type ScalarPtr<F> = SPtr<ExprTag, F>;
-
-pub trait IntoHashComponents<F: LurkField> {
-    fn into_hash_components(self) -> [F; 2];
-}
-
-impl<F: LurkField> IntoHashComponents<F> for [F; 2] {
-    fn into_hash_components(self) -> [F; 2] {
-        self
-    }
-}
-
-impl<E: Tag, F: LurkField> IntoHashComponents<F> for SPtr<E, F> {
-    fn into_hash_components(self) -> [F; 2] {
-        [self.0.to_field::<F>(), self.1]
-    }
-}
-
-pub type ScalarContPtr<F> = SPtr<ContTag, F>;
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct ContPtr<F: LurkField>(ContTag, RawPtr<F>);
-
-#[allow(clippy::derived_hash_with_manual_eq)]
-impl<F: LurkField> Hash for ContPtr<F> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-        self.1.hash(state);
-    }
-}
-
-impl<F: LurkField> Pointer<F> for ContPtr<F> {
-    type Tag = ContTag;
-
-    fn tag(&self) -> Self::Tag {
-        self.0
-    }
-}
-
-impl<F: LurkField> ContPtr<F> {
-    pub const fn new(tag: ContTag, raw_ptr: RawPtr<F>) -> Self {
-        Self(tag, raw_ptr)
-    }
-    pub const fn is_error(&self) -> bool {
-        matches!(self.0, ContTag::Error)
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-#[repr(transparent)]
-// If .0 is negative, RawPtr is opaque. This lets us retain the efficiency and structure of the current implementation.
-// It cuts the local store's address space in half, which is likely not an issue. This representation does not affect
-// external data, so if we want to change it in the future, we can do so without a change of defined behavior.
-pub struct RawPtr<F: LurkField>((usize, bool), PhantomData<F>);
-
-impl<F: LurkField> RawPtr<F> {
-    fn new(p: usize) -> Self {
-        RawPtr((p, false), Default::default())
-    }
-
-    const fn is_opaque(&self) -> bool {
-        self.0 .1
-    }
-
-    pub const fn idx(&self) -> usize {
-        self.0 .0
-    }
-}
-
-#[allow(clippy::derived_hash_with_manual_eq)]
-impl<F: LurkField> Hash for RawPtr<F> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-    }
-}
-
-// Expressions, Continuations, Op1, Op2 occupy the same namespace in
-// their encoding.
-// As a 16bit integer their representation is as follows
-//    [typ] [value       ]
-// 0b 0000_ 0000_0000_0000
-//
-// where typ is
-// - `0b0000` for ExprTag
-// - `0b0001` for ContTag
-// - `0b0010` for Op1
-// - `0b0011` for Op2
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Expression<'a, F: LurkField> {
-    Nil,
-    Cons(Ptr<F>, Ptr<F>),
-    Comm(F, Ptr<F>),
-    Sym(Sym),
-    /// arg, body, closed env
-    Fun(Ptr<F>, Ptr<F>, Ptr<F>),
-    Num(Num<F>),
-    Str(&'a str),
-    Thunk(Thunk<F>),
-    Opaque(Ptr<F>),
-    Char(char),
-    UInt(UInt),
-}
-
-impl<F: LurkField> Object<F> for Expression<'_, F> {
-    type Pointer = Ptr<F>;
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Thunk<F: LurkField> {
-    pub(crate) value: Ptr<F>,
-    pub(crate) continuation: ContPtr<F>,
-}
-
-#[allow(clippy::derived_hash_with_manual_eq)]
-impl<F: LurkField> Hash for Thunk<F> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.value.hash(state);
-        self.continuation.hash(state);
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Continuation<F: LurkField> {
-    Outermost,
-    Call0 {
-        saved_env: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Call {
-        unevaled_arg: Ptr<F>,
-        saved_env: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Call2 {
-        function: Ptr<F>,
-        saved_env: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Tail {
-        saved_env: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Error,
-    Lookup {
-        saved_env: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Unop {
-        operator: Op1,
-        continuation: ContPtr<F>,
-    },
-    Binop {
-        operator: Op2,
-        saved_env: Ptr<F>,
-        unevaled_args: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Binop2 {
-        operator: Op2,
-        evaled_arg: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    If {
-        unevaled_args: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Let {
-        var: Ptr<F>,
-        body: Ptr<F>,
-        saved_env: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    LetRec {
-        var: Ptr<F>,
-        saved_env: Ptr<F>,
-        body: Ptr<F>,
-        continuation: ContPtr<F>,
-    },
-    Emit {
-        continuation: ContPtr<F>,
-    },
-    Dummy,
-    Terminal,
-}
-
-impl<F: LurkField> Object<F> for Continuation<F> {
-    type Pointer = ContPtr<F>;
-}
-
-impl<F: LurkField> Continuation<F> {
-    pub(crate) fn intern_aux(&self, store: &mut Store<F>) -> ContPtr<F> {
-        match self {
-            Self::Outermost | Self::Dummy | Self::Error | Self::Terminal => {
-                let cont_ptr = self.get_simple_cont();
-                store.mark_dehydrated_cont(cont_ptr);
-                cont_ptr
-            }
-            _ => {
-                let (p, inserted) = self.insert_in_store(store);
-                let ptr = ContPtr(self.cont_tag(), RawPtr::new(p));
-                if inserted {
-                    store.dehydrated_cont.push(ptr)
-                }
-                ptr
-            }
-        }
-    }
-    pub fn insert_in_store(&self, store: &mut Store<F>) -> (usize, bool) {
-        match self {
-            Self::Outermost | Self::Dummy | Self::Error | Self::Terminal => (0, false),
-            Self::Call0 {
-                saved_env,
-                continuation,
-            } => store.call0_store.insert_full((*saved_env, *continuation)),
-            Self::Call {
-                unevaled_arg,
-                saved_env,
-                continuation,
-            } => store
-                .call_store
-                .insert_full((*unevaled_arg, *saved_env, *continuation)),
-            Self::Call2 {
-                function,
-                saved_env,
-                continuation,
-            } => store
-                .call2_store
-                .insert_full((*function, *saved_env, *continuation)),
-            Self::Tail {
-                saved_env,
-                continuation,
-            } => store.tail_store.insert_full((*saved_env, *continuation)),
-            Self::Lookup {
-                saved_env,
-                continuation,
-            } => store.lookup_store.insert_full((*saved_env, *continuation)),
-            Self::Unop {
-                operator,
-                continuation,
-            } => store.unop_store.insert_full((*operator, *continuation)),
-            Self::Binop {
-                operator,
-                saved_env,
-                unevaled_args,
-                continuation,
-            } => store.binop_store.insert_full((
-                *operator,
-                *saved_env,
-                *unevaled_args,
-                *continuation,
-            )),
-            Self::Binop2 {
-                operator,
-                evaled_arg,
-                continuation,
-            } => store
-                .binop2_store
-                .insert_full((*operator, *evaled_arg, *continuation)),
-            Self::If {
-                unevaled_args,
-                continuation,
-            } => store.if_store.insert_full((*unevaled_args, *continuation)),
-            Self::Let {
-                var,
-                body,
-                saved_env,
-                continuation,
-            } => store
-                .let_store
-                .insert_full((*var, *body, *saved_env, *continuation)),
-            Self::LetRec {
-                var,
-                body,
-                saved_env,
-                continuation,
-            } => store
-                .letrec_store
-                .insert_full((*var, *body, *saved_env, *continuation)),
-            Self::Emit { continuation } => store.emit_store.insert_full(*continuation),
-        }
-    }
-
-    pub const fn cont_tag(&self) -> ContTag {
-        match self {
-            Self::Outermost => ContTag::Outermost,
-            Self::Dummy => ContTag::Dummy,
-            Self::Error => ContTag::Error,
-            Self::Terminal => ContTag::Terminal,
-            Self::Call0 {
-                saved_env: _,
-                continuation: _,
-            } => ContTag::Call0,
-            Self::Call {
-                unevaled_arg: _,
-                saved_env: _,
-                continuation: _,
-            } => ContTag::Call,
-            Self::Call2 {
-                function: _,
-                saved_env: _,
-                continuation: _,
-            } => ContTag::Call2,
-            Self::Tail {
-                saved_env: _,
-                continuation: _,
-            } => ContTag::Tail,
-            Self::Lookup {
-                saved_env: _,
-                continuation: _,
-            } => ContTag::Lookup,
-            Self::Unop {
-                operator: _,
-                continuation: _,
-            } => ContTag::Unop,
-            Self::Binop {
-                operator: _,
-                saved_env: _,
-                unevaled_args: _,
-                continuation: _,
-            } => ContTag::Binop,
-            Self::Binop2 {
-                operator: _,
-                evaled_arg: _,
-                continuation: _,
-            } => ContTag::Binop2,
-            Self::If {
-                unevaled_args: _,
-                continuation: _,
-            } => ContTag::If,
-            Self::Let {
-                var: _,
-                body: _,
-                saved_env: _,
-                continuation: _,
-            } => ContTag::Let,
-            Self::LetRec {
-                var: _,
-                body: _,
-                saved_env: _,
-                continuation: _,
-            } => ContTag::LetRec,
-            Self::Emit { continuation: _ } => ContTag::Emit,
-        }
-    }
-    pub fn get_simple_cont(&self) -> ContPtr<F> {
-        match self {
-            Self::Outermost | Self::Dummy | Self::Error | Self::Terminal => {
-                ContPtr(self.cont_tag(), RawPtr::new(0))
-            }
-
-            _ => unreachable!("Not a simple Continuation: {:?}", self),
-        }
-    }
+    pub lurk_package: Arc<Package>,
+    pub constants: OnceCell<NamedConstants<F>>,
 }
 
 pub trait TypePredicates {
@@ -804,13 +105,13 @@ pub trait TypePredicates {
 
 impl<F: LurkField> TypePredicates for Ptr<F> {
     fn is_fun(&self) -> bool {
-        self.tag().is_fun()
+        self.tag.is_fun()
     }
     fn is_self_evaluating(&self) -> bool {
-        self.tag().is_self_evaluating()
+        self.tag.is_self_evaluating()
     }
     fn is_potentially(&self, tag: ExprTag) -> bool {
-        self.tag().is_potentially(tag)
+        self.tag.is_potentially(tag)
     }
 }
 
@@ -836,13 +137,13 @@ impl<F: LurkField> Default for Store<F> {
             let_store: Default::default(),
             letrec_store: Default::default(),
             emit_store: Default::default(),
-            opaque_map: Default::default(),
+            opaque_ptrs: Default::default(),
+            opaque_cont_ptrs: Default::default(),
             scalar_ptr_map: Default::default(),
             scalar_ptr_cont_map: Default::default(),
             poseidon_cache: Default::default(),
             dehydrated: Default::default(),
             dehydrated_cont: Default::default(),
-            opaque_raw_ptr_count: 0,
             pointer_scalar_ptr_cache: Default::default(),
             lurk_package: Arc::new(Package::lurk()),
             constants: Default::default(),
@@ -896,7 +197,7 @@ impl<F: LurkField> Store<F> {
     pub fn hidden(&self, secret: F, payload: Ptr<F>) -> Option<Ptr<F>> {
         self.comm_store
             .get_index_of(&(FWrap(secret), payload))
-            .map(|c| Ptr(ExprTag::Comm, RawPtr::new(c)))
+            .map(|c| Ptr::index(ExprTag::Comm, c))
     }
 
     pub fn hide(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
@@ -904,7 +205,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn open(&self, ptr: Ptr<F>) -> Option<(F, Ptr<F>)> {
-        let p = match ptr.0 {
+        let p = match ptr.tag {
             ExprTag::Comm => ptr,
             ExprTag::Num => {
                 let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
@@ -923,7 +224,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn open_mut(&mut self, ptr: Ptr<F>) -> Result<(F, Ptr<F>), Error> {
-        let p = match ptr.0 {
+        let p = match ptr.tag {
             ExprTag::Comm => ptr,
             ExprTag::Num => {
                 let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
@@ -941,7 +242,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn secret(&self, ptr: Ptr<F>) -> Option<Ptr<F>> {
-        let p = match ptr.0 {
+        let p = match ptr.tag {
             ExprTag::Comm => ptr,
             _ => return None,
         };
@@ -951,7 +252,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn secret_mut(&mut self, ptr: Ptr<F>) -> Result<Ptr<F>, Error> {
-        let p = match ptr.0 {
+        let p = match ptr.tag {
             ExprTag::Comm => ptr,
             _ => return Err(Error("wrong type for commitment specifier".into())),
         };
@@ -1052,7 +353,7 @@ impl<F: LurkField> Store<F> {
         }
 
         let (p, inserted) = self.cons_store.insert_full((car, cdr));
-        let ptr = Ptr(ExprTag::Cons, RawPtr::new(p));
+        let ptr = Ptr::index(ExprTag::Cons, p);
         if inserted {
             self.dehydrated.push(ptr);
         }
@@ -1064,7 +365,7 @@ impl<F: LurkField> Store<F> {
             self.hash_expr(&car);
             self.hash_expr(&cdr);
         }
-        assert_eq!((car.tag(), cdr.tag()), (ExprTag::Char, ExprTag::Str));
+        assert_eq!((car.tag, cdr.tag), (ExprTag::Char, ExprTag::Str));
         let (c, s) = (
             self.fetch_char(&car).unwrap(),
             self.fetch_str(&cdr).unwrap(),
@@ -1080,7 +381,7 @@ impl<F: LurkField> Store<F> {
         }
         let (p, inserted) = self.comm_store.insert_full((FWrap(secret), payload));
 
-        let ptr = Ptr(ExprTag::Comm, RawPtr::new(p));
+        let ptr = Ptr::index(ExprTag::Comm, p);
 
         if inserted {
             self.dehydrated.push(ptr);
@@ -1131,10 +432,8 @@ impl<F: LurkField> Store<F> {
             }
         }
 
-        let ptr = Ptr(tag, self.new_opaque_raw_ptr());
-        // Always insert. Key is unique because of newly allocated opaque raw_ptr.
-        self.opaque_map.insert(ptr, scalar_ptr);
-        ptr
+        let (i, _) = self.opaque_ptrs.insert_full(scalar_ptr);
+        Ptr::opaque(tag, i)
     }
 
     pub fn intern_scalar_cont_ptr(
@@ -1421,10 +720,10 @@ impl<F: LurkField> Store<F> {
         };
 
         if let Some(ptr) = self.sym_store.0.get(&symbol_name) {
-            Ptr(tag, RawPtr::new(ptr.to_usize()))
+            Ptr::index(tag, ptr.to_usize())
         } else {
             let ptr = self.sym_store.0.get(symbol_name).unwrap();
-            Ptr(tag, RawPtr::new(ptr.to_usize()))
+            Ptr::index(tag, ptr.to_usize())
         }
     }
 
@@ -1448,7 +747,7 @@ impl<F: LurkField> Store<F> {
         };
 
         if let Some(ptr) = self.sym_store.0.get(&symbol_name) {
-            Ptr(tag, RawPtr::new(ptr.to_usize()))
+            Ptr::index(tag, ptr.to_usize())
         } else {
             // We need to intern each of the path segments individually, so they will be in the store.
             // Otherwise, there can be an error when calling `hash_symbol()` with an immutable store.
@@ -1458,7 +757,7 @@ impl<F: LurkField> Store<F> {
             });
 
             let ptr = self.sym_store.0.get_or_intern(symbol_name);
-            let ptr = Ptr(tag, RawPtr::new(ptr.to_usize()));
+            let ptr = Ptr::index(tag, ptr.to_usize());
             self.dehydrated.push(ptr);
             ptr
         }
@@ -1487,7 +786,7 @@ impl<F: LurkField> Store<F> {
         };
         let (ptr, _) = self.num_store.insert_full(num);
 
-        Ptr(ExprTag::Num, RawPtr::new(ptr))
+        Ptr::index(ExprTag::Num, ptr)
     }
 
     pub fn get_num<T: Into<Num<F>>>(&self, num: T) -> Option<Ptr<F>> {
@@ -1505,7 +804,7 @@ impl<F: LurkField> Store<F> {
 
         self.num_store
             .get_index_of::<Num<F>>(&num)
-            .map(|x| Ptr(ExprTag::Num, RawPtr::new(x)))
+            .map(|x| Ptr::index(ExprTag::Num, x))
     }
 
     pub fn get_char(&self, c: char) -> Ptr<F> {
@@ -1513,11 +812,11 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn get_char_from_u32(&self, code: u32) -> Ptr<F> {
-        Ptr(ExprTag::Char, RawPtr::new(code as usize))
+        Ptr::index(ExprTag::Char, code as usize)
     }
 
     pub fn get_u64(&self, n: u64) -> Ptr<F> {
-        Ptr(ExprTag::U64, RawPtr::new(n as usize))
+        Ptr::index(ExprTag::U64, n as usize)
     }
 
     pub fn intern_str<T: AsRef<str>>(&mut self, str: T) -> Ptr<F> {
@@ -1528,10 +827,10 @@ impl<F: LurkField> Store<F> {
 
     fn intern_str_aux<T: AsRef<str>>(&mut self, str: T) -> Ptr<F> {
         if let Some(ptr) = self.str_store.0.get(&str) {
-            Ptr(ExprTag::Str, RawPtr::new(ptr.to_usize()))
+            Ptr::index(ExprTag::Str, ptr.to_usize())
         } else {
             let ptr = self.str_store.0.get_or_intern(str);
-            let ptr = Ptr(ExprTag::Str, RawPtr::new(ptr.to_usize()));
+            let ptr = Ptr::index(ExprTag::Str, ptr.to_usize());
 
             self.dehydrated.push(ptr);
             ptr
@@ -1540,20 +839,20 @@ impl<F: LurkField> Store<F> {
 
     pub fn get_str<T: AsRef<str>>(&self, name: T) -> Option<Ptr<F>> {
         let ptr = self.str_store.0.get(name)?;
-        Some(Ptr(ExprTag::Str, RawPtr::new(ptr.to_usize())))
+        Some(Ptr::index(ExprTag::Str, ptr.to_usize()))
     }
 
     pub fn get_sym(&self, sym: &Sym) -> Option<Ptr<F>> {
         let name = sym.full_sym_name();
         let ptr = self.sym_store.0.get(name)?;
-        Some(Ptr(ExprTag::Sym, RawPtr::new(ptr.to_usize())))
+        Some(Ptr::index(ExprTag::Sym, ptr.to_usize()))
     }
 
     pub fn intern_fun(&mut self, arg: Ptr<F>, body: Ptr<F>, closed_env: Ptr<F>) -> Ptr<F> {
         // TODO: closed_env must be an env
-        assert!(matches!(arg.0, ExprTag::Sym), "ARG must be a symbol");
+        assert!(matches!(arg.tag, ExprTag::Sym), "ARG must be a symbol");
         let (p, inserted) = self.fun_store.insert_full((arg, body, closed_env));
-        let ptr = Ptr(ExprTag::Fun, RawPtr::new(p));
+        let ptr = Ptr::index(ExprTag::Fun, p);
         if inserted {
             self.dehydrated.push(ptr);
         }
@@ -1562,14 +861,14 @@ impl<F: LurkField> Store<F> {
 
     pub fn intern_thunk(&mut self, thunk: Thunk<F>) -> Ptr<F> {
         let (p, inserted) = self.thunk_store.insert_full(thunk);
-        let ptr = Ptr(ExprTag::Thunk, RawPtr::new(p));
+        let ptr = Ptr::index(ExprTag::Thunk, p);
         if inserted {
             self.dehydrated.push(ptr);
         }
         ptr
     }
 
-    fn mark_dehydrated_cont(&mut self, p: ContPtr<F>) -> ContPtr<F> {
+    pub fn mark_dehydrated_cont(&mut self, p: ContPtr<F>) -> ContPtr<F> {
         self.dehydrated_cont.push(p);
         p
     }
@@ -1631,7 +930,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn fetch_maybe_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
-        if matches!(ptr.tag(), ExprTag::Sym) {
+        if matches!(ptr.tag, ExprTag::Sym) {
             self.fetch_sym(ptr)
         } else {
             None
@@ -1639,21 +938,24 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
-        debug_assert!(matches!(ptr.0, ExprTag::Sym | ExprTag::Key | ExprTag::Nil));
+        debug_assert!(matches!(
+            ptr.tag,
+            ExprTag::Sym | ExprTag::Key | ExprTag::Nil
+        ));
 
-        if ptr.1.is_opaque() {
-            let is_keyword = ptr.0 == ExprTag::Key;
+        if ptr.raw.is_opaque() {
+            let is_keyword = ptr.tag == ExprTag::Key;
 
             return Some(Sym::new_opaque(is_keyword));
         }
 
-        if ptr.0 == ExprTag::Nil {
+        if ptr.tag == ExprTag::Nil {
             return Some(Sym::new(".LURK.NIL".into()));
         };
         self.sym_store
             .0
-            .resolve(SymbolUsize::try_from_usize(ptr.1.idx()).unwrap())
-            .map(|s| match ptr.0 {
+            .resolve(SymbolUsize::try_from_usize(ptr.raw.idx()?).unwrap())
+            .map(|s| match ptr.tag {
                 ExprTag::Sym => Sym::new_sym(s.into()),
                 ExprTag::Key => Sym::new_key(s.into()),
                 _ => unreachable!(),
@@ -1661,59 +963,59 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn fetch_str(&self, ptr: &Ptr<F>) -> Option<&str> {
-        debug_assert!(matches!(ptr.0, ExprTag::Str));
-        let symbol = SymbolUsize::try_from_usize(ptr.1.idx()).expect("invalid pointer");
+        debug_assert!(matches!(ptr.tag, ExprTag::Str));
+        let symbol = SymbolUsize::try_from_usize(ptr.raw.idx()?)?;
         self.str_store.0.resolve(symbol)
     }
 
     pub fn fetch_char(&self, ptr: &Ptr<F>) -> Option<char> {
-        debug_assert!(matches!(ptr.0, ExprTag::Char));
-        char::from_u32(ptr.1 .0 .0 as u32)
+        debug_assert!(matches!(ptr.tag, ExprTag::Char));
+        char::from_u32(ptr.raw.idx()? as u32)
     }
 
     pub fn fetch_fun(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>, Ptr<F>)> {
-        debug_assert!(matches!(ptr.0, ExprTag::Fun));
-        if ptr.1.is_opaque() {
+        debug_assert!(matches!(ptr.tag, ExprTag::Fun));
+        if ptr.raw.is_opaque() {
             None
             // Some(&self.opaque_fun)
         } else {
-            self.fun_store.get_index(ptr.1.idx())
+            self.fun_store.get_index(ptr.raw.idx()?)
         }
     }
 
     pub fn fetch_cons(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>)> {
-        debug_assert!(matches!(ptr.0, ExprTag::Cons));
-        if ptr.1.is_opaque() {
+        debug_assert!(matches!(ptr.tag, ExprTag::Cons));
+        if ptr.raw.is_opaque() {
             None
         } else {
-            self.cons_store.get_index(ptr.1.idx())
+            self.cons_store.get_index(ptr.raw.idx()?)
         }
     }
 
     pub fn fetch_comm(&self, ptr: &Ptr<F>) -> Option<&(FWrap<F>, Ptr<F>)> {
-        debug_assert!(matches!(ptr.0, ExprTag::Comm));
-        if ptr.1.is_opaque() {
+        debug_assert!(matches!(ptr.tag, ExprTag::Comm));
+        if ptr.raw.is_opaque() {
             None
         } else {
-            self.comm_store.get_index(ptr.1.idx())
+            self.comm_store.get_index(ptr.raw.idx()?)
         }
     }
 
     pub fn fetch_num(&self, ptr: &Ptr<F>) -> Option<&Num<F>> {
-        debug_assert!(matches!(ptr.0, ExprTag::Num));
-        self.num_store.get_index(ptr.1.idx())
+        debug_assert!(matches!(ptr.tag, ExprTag::Num));
+        self.num_store.get_index(ptr.raw.idx()?)
     }
 
     fn fetch_thunk(&self, ptr: &Ptr<F>) -> Option<&Thunk<F>> {
-        debug_assert!(matches!(ptr.0, ExprTag::Thunk));
-        self.thunk_store.get_index(ptr.1.idx())
+        debug_assert!(matches!(ptr.tag, ExprTag::Thunk));
+        self.thunk_store.get_index(ptr.raw.idx()?)
     }
 
     pub fn fetch_uint(&self, ptr: &Ptr<F>) -> Option<UInt> {
         // If more UInt variants are added, the following assertion should be relaxed to check for any of them.
-        debug_assert!(matches!(ptr.0, ExprTag::U64));
-        match ptr.0 {
-            ExprTag::U64 => Some(UInt::U64(ptr.1 .0 .0 as u64)),
+        debug_assert!(matches!(ptr.tag, ExprTag::U64));
+        match ptr.tag {
+            ExprTag::U64 => Some(UInt::U64(ptr.raw.idx()? as u64)),
             _ => unreachable!(),
         }
     }
@@ -1722,7 +1024,7 @@ impl<F: LurkField> Store<F> {
         if ptr.is_opaque() {
             return Some(Expression::Opaque(*ptr));
         }
-        match ptr.0 {
+        match ptr.tag {
             ExprTag::Nil => Some(Expression::Nil),
             ExprTag::Cons => self.fetch_cons(ptr).map(|(a, b)| Expression::Cons(*a, *b)),
             ExprTag::Comm => self.fetch_comm(ptr).map(|(a, b)| Expression::Comm(a.0, *b)),
@@ -1762,82 +1064,82 @@ impl<F: LurkField> Store<F> {
 
     pub fn fetch_cont(&self, ptr: &ContPtr<F>) -> Option<Continuation<F>> {
         use ContTag::*;
-        match ptr.0 {
+        match ptr.tag {
             Outermost => Some(Continuation::Outermost),
             Call0 => self
                 .call0_store
-                .get_index(ptr.1.idx())
+                .get_index(ptr.raw.idx()?)
                 .map(|(saved_env, continuation)| Continuation::Call0 {
                     saved_env: *saved_env,
                     continuation: *continuation,
                 }),
             Call => self
                 .call_store
-                .get_index(ptr.1.idx())
+                .get_index(ptr.raw.idx()?)
                 .map(|(a, b, c)| Continuation::Call {
                     unevaled_arg: *a,
                     saved_env: *b,
                     continuation: *c,
                 }),
-            Call2 => self
-                .call2_store
-                .get_index(ptr.1.idx())
-                .map(|(a, b, c)| Continuation::Call2 {
-                    function: *a,
-                    saved_env: *b,
-                    continuation: *c,
-                }),
+            Call2 => {
+                self.call2_store
+                    .get_index(ptr.raw.idx()?)
+                    .map(|(a, b, c)| Continuation::Call2 {
+                        function: *a,
+                        saved_env: *b,
+                        continuation: *c,
+                    })
+            }
             Tail => self
                 .tail_store
-                .get_index(ptr.1.idx())
+                .get_index(ptr.raw.idx()?)
                 .map(|(a, b)| Continuation::Tail {
                     saved_env: *a,
                     continuation: *b,
                 }),
             Error => Some(Continuation::Error),
-            Lookup => self
-                .lookup_store
-                .get_index(ptr.1.idx())
-                .map(|(a, b)| Continuation::Lookup {
-                    saved_env: *a,
-                    continuation: *b,
-                }),
+            Lookup => {
+                self.lookup_store
+                    .get_index(ptr.raw.idx()?)
+                    .map(|(a, b)| Continuation::Lookup {
+                        saved_env: *a,
+                        continuation: *b,
+                    })
+            }
             Unop => self
                 .unop_store
-                .get_index(ptr.1.idx())
+                .get_index(ptr.raw.idx()?)
                 .map(|(a, b)| Continuation::Unop {
                     operator: *a,
                     continuation: *b,
                 }),
-            Binop => {
-                self.binop_store
-                    .get_index(ptr.1.idx())
-                    .map(|(a, b, c, d)| Continuation::Binop {
-                        operator: *a,
-                        saved_env: *b,
-                        unevaled_args: *c,
-                        continuation: *d,
-                    })
-            }
-            Binop2 => {
-                self.binop2_store
-                    .get_index(ptr.1.idx())
-                    .map(|(a, b, c)| Continuation::Binop2 {
-                        operator: *a,
-                        evaled_arg: *b,
-                        continuation: *c,
-                    })
-            }
+            Binop => self
+                .binop_store
+                .get_index(ptr.raw.idx()?)
+                .map(|(a, b, c, d)| Continuation::Binop {
+                    operator: *a,
+                    saved_env: *b,
+                    unevaled_args: *c,
+                    continuation: *d,
+                }),
+            Binop2 => self
+                .binop2_store
+                .get_index(ptr.raw.idx()?)
+                .map(|(a, b, c)| Continuation::Binop2 {
+                    operator: *a,
+                    evaled_arg: *b,
+                    continuation: *c,
+                }),
             If => self
                 .if_store
-                .get_index(ptr.1.idx())
+                .get_index(ptr.raw.idx()?)
                 .map(|(a, b)| Continuation::If {
                     unevaled_args: *a,
                     continuation: *b,
                 }),
             Let => self
                 .let_store
-                .get_index(ptr.1.idx())
+                .get_index(ptr.raw.idx()?)
                 .map(|(a, b, c, d)| Continuation::Let {
                     var: *a,
                     body: *b,
@@ -1846,7 +1148,7 @@ impl<F: LurkField> Store<F> {
                 }),
             LetRec => self
                 .letrec_store
-                .get_index(ptr.1.idx())
+                .get_index(ptr.raw.idx()?)
                 .map(|(a, b, c, d)| Continuation::LetRec {
                     var: *a,
                     body: *b,
@@ -1857,7 +1159,7 @@ impl<F: LurkField> Store<F> {
             Terminal => Some(Continuation::Terminal),
             Emit => self
                 .emit_store
-                .get_index(ptr.1.idx())
+                .get_index(ptr.raw.idx()?)
                 .map(|continuation| Continuation::Emit {
                     continuation: *continuation,
                 }),
@@ -1866,7 +1168,7 @@ impl<F: LurkField> Store<F> {
 
     /// Mutable version of car_cdr to handle Str. `(cdr str)` may return a new str (the tail), which must be allocated.
     pub fn car_cdr_mut(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
-        match ptr.0 {
+        match ptr.tag {
             ExprTag::Nil => Ok((self.get_nil(), self.get_nil())),
             ExprTag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
@@ -1892,7 +1194,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn car_cdr(&self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
-        match ptr.0 {
+        match ptr.tag {
             ExprTag::Nil => Ok((self.get_nil(), self.get_nil())),
             ExprTag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
@@ -1938,7 +1240,7 @@ impl<F: LurkField> Store<F> {
             return Some(**scalar_ptr);
         }
 
-        let scalar_ptr = match ptr.tag() {
+        let scalar_ptr = match ptr.tag {
             Nil => self.hash_nil(mode),
             Cons => self.hash_cons(*ptr, mode),
             Comm => self.hash_comm(*ptr, mode),
@@ -1982,7 +1284,7 @@ impl<F: LurkField> Store<F> {
     /// The only places that `ScalarPtr`s for `Ptr`s should be created, to
     /// ensure that they are cached properly
     fn create_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ScalarPtr<F> {
-        let scalar_ptr = ScalarPtr::from_parts(ptr.0, hash);
+        let scalar_ptr = ScalarPtr::from_parts(ptr.tag, hash);
         let entry = self.scalar_ptr_map.entry(scalar_ptr);
         entry.or_insert(ptr);
 
@@ -1992,13 +1294,13 @@ impl<F: LurkField> Store<F> {
     }
 
     fn get_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ScalarPtr<F> {
-        ScalarPtr::from_parts(ptr.0, hash)
+        ScalarPtr::from_parts(ptr.tag, hash)
     }
 
     /// The only places that `ScalarContPtr`s for `ContPtr`s should be created, to
     /// ensure that they are cached properly
     fn create_cont_scalar_ptr(&self, ptr: ContPtr<F>, hash: F) -> ScalarContPtr<F> {
-        let scalar_ptr = ScalarContPtr::from_parts(ptr.0, hash);
+        let scalar_ptr = ScalarContPtr::from_parts(ptr.tag, hash);
         self.scalar_ptr_cont_map.entry(scalar_ptr).or_insert(ptr);
 
         scalar_ptr
@@ -2238,9 +1540,14 @@ impl<F: LurkField> Store<F> {
         ])
     }
 
+    pub fn get_opaque_ptr(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
+        let s = self.opaque_ptrs.get_index(ptr.raw.opaque_idx()?)?;
+        Some(*s)
+    }
+
     pub fn hash_sym(&self, sym: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
         if sym.is_opaque() {
-            return self.opaque_map.get(&sym).map(|s| *s);
+            return self.get_opaque_ptr(sym);
         }
 
         let s = self.fetch_sym(&sym)?;
@@ -2251,7 +1558,7 @@ impl<F: LurkField> Store<F> {
 
     fn hash_str(&self, str: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
         if str.is_opaque() {
-            return self.opaque_map.get(&str).map(|s| *s);
+            return self.get_opaque_ptr(str);
         }
 
         let s = self.fetch_str(&str)?;
@@ -2260,12 +1567,7 @@ impl<F: LurkField> Store<F> {
 
     fn hash_fun(&self, fun: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
         if fun.is_opaque() {
-            Some(
-                *self
-                    .opaque_map
-                    .get(&fun)
-                    .expect("ScalarPtr for opaque Fun missing"),
-            )
+            self.get_opaque_ptr(fun)
         } else {
             let (arg, body, closed_env) = self.fetch_fun(&fun)?;
             Some(self.scalar_ptr(
@@ -2278,12 +1580,7 @@ impl<F: LurkField> Store<F> {
 
     fn hash_cons(&self, cons: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
         if cons.is_opaque() {
-            return Some(
-                *self
-                    .opaque_map
-                    .get(&cons)
-                    .expect("ScalarPtr for opaque Cons missing"),
-            );
+            return self.get_opaque_ptr(cons);
         }
 
         let (car, cdr) = self.fetch_cons(&cons)?;
@@ -2292,12 +1589,7 @@ impl<F: LurkField> Store<F> {
 
     fn hash_comm(&self, comm: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
         if comm.is_opaque() {
-            return Some(
-                *self
-                    .opaque_map
-                    .get(&comm)
-                    .expect("ScalarPtr for opaque Comm missing"),
-            );
+            return self.get_opaque_ptr(comm);
         }
 
         let (secret, payload) = self.fetch_comm(&comm)?;
@@ -2319,7 +1611,7 @@ impl<F: LurkField> Store<F> {
     }
 
     fn hash_char(&self, ptr: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
-        let char_code = ptr.1 .0 .0 as u32;
+        let char_code = ptr.raw.idx()?;
 
         Some(self.scalar_ptr(ptr, F::from(char_code as u64), mode))
     }
@@ -2510,21 +1802,16 @@ impl<F: LurkField> Store<F> {
         // TODO: May need new tag for this.
         // Meanwhile, it is illegal to try to dereference/follow an opaque PTR.
         // So any tag and RawPtr are okay.
-        Ptr(ExprTag::Nil, self.new_opaque_raw_ptr())
-    }
-
-    pub fn new_opaque_raw_ptr(&mut self) -> RawPtr<F> {
-        self.opaque_raw_ptr_count += 1;
-        let p = self.opaque_raw_ptr_count;
-
-        RawPtr((p, true), Default::default())
+        let scalar_ptr = self.hash_nil(HashScalar::Get).unwrap();
+        let (i, _) = self.opaque_ptrs.insert_full(scalar_ptr);
+        Ptr::opaque(ExprTag::Nil, i)
     }
 
     pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> Result<bool, Error> {
         // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
         // compound data with opaque data in either element's transitive closure.
         match (self.get_expr_hash(a), self.get_expr_hash(b)) {
-            (Some(a_hash), Some(b_hash)) => Ok(a.0 == b.0 && a_hash == b_hash),
+            (Some(a_hash), Some(b_hash)) => Ok(a.tag == b.tag && a_hash == b_hash),
             _ => Err(Error(
                 "one or more values missing when comparing Ptrs for equality".into(),
             )),
@@ -2532,8 +1819,8 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn cons_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> bool {
-        assert_eq!(ExprTag::Cons, a.tag());
-        assert_eq!(ExprTag::Cons, b.tag());
+        assert_eq!(ExprTag::Cons, a.tag);
+        assert_eq!(ExprTag::Cons, b.tag);
 
         let a_opaque = a.is_opaque();
         let b_opaque = b.is_opaque();
@@ -2802,6 +2089,7 @@ impl<F: LurkField> NamedConstants<F> {
 
 #[cfg(test)]
 pub mod test {
+
     use crate::eval::{
         empty_sym_env,
         lang::{Coproc, Lang},
@@ -2809,6 +2097,9 @@ pub mod test {
     };
     use crate::num;
     use crate::writer::Write;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    use proptest::prelude::*;
 
     use blstrs::Scalar as Fr;
 
@@ -3068,7 +2359,6 @@ pub mod test {
         // other_opaque_sym doesn't exist at all in store, but it is recognized as an opaque sym.
         // It still prints 'normally', but attempts to fetch its name detect this case.
         // This shouldn't actually happen. The test just exercise the code path which detects it.
-        assert_eq!("<Opaque Sym>", other_opaque_sym3.fmt_to_string(&store));
         assert_eq!(
             Sym::new_opaque(false),
             store.fetch_sym(&other_opaque_sym3).unwrap()

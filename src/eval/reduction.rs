@@ -1,14 +1,15 @@
 use super::{empty_sym_env, Witness};
+use crate::cont::Continuation;
 use crate::coprocessor::Coprocessor;
 use crate::error::ReductionError;
 use crate::eval::{lang::Lang, IO};
+use crate::expr::{Expression, Thunk};
 use crate::field::LurkField;
 use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness};
 use crate::num::Num;
+use crate::ptr::{ContPtr, Ptr};
 use crate::store;
-use crate::store::{
-    ContPtr, Continuation, Expression, NamedConstants, Pointer, Ptr, Store, Thunk, TypePredicates,
-};
+use crate::store::{NamedConstants, Store, TypePredicates};
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use crate::writer::Write;
 
@@ -69,10 +70,10 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
     let mut closure_to_extend = None;
 
     Ok((
-        if matches!(cont.tag(), ContTag::Terminal | ContTag::Error) {
+        if matches!(cont.tag, ContTag::Terminal | ContTag::Error) {
             Control::Return(expr, env, cont)
         } else {
-            match expr.tag() {
+            match expr.tag {
                 // Self-evaluating
                 ExprTag::Nil
                 | ExprTag::Fun
@@ -82,7 +83,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                 | ExprTag::Comm
                 | ExprTag::U64
                 | ExprTag::Key => {
-                    debug_assert!(expr.tag().is_self_evaluating());
+                    debug_assert!(expr.tag.is_self_evaluating());
                     Control::ApplyContinuation(expr, env, cont)
                 }
 
@@ -126,7 +127,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 let (var_or_rec_binding, val_or_more_rec_env) = cons_witness
                                     .car_cdr_named(ConsName::EnvCar, store, &binding)?;
 
-                                match var_or_rec_binding.tag() {
+                                match var_or_rec_binding.tag {
                                     ExprTag::Sym => {
                                         // We are in a simple env (not a recursive env),
                                         // looking at a binding's variable.
@@ -147,7 +148,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                             // expr does not match the binding's var.
 
                                             // CIRCUIT: with_sym_binding_unmatched
-                                            match cont.tag() {
+                                            match cont.tag {
                                                 ContTag::Lookup => {
                                                     // If performing a lookup, continue with remaining env.
 
@@ -194,7 +195,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
 
                                             let val_to_use = {
                                                 // CIRCUIT: val_to_use
-                                                match val2.tag() {
+                                                match val2.tag {
                                                     ExprTag::Fun => {
                                                         closure_to_extend = Some(val2);
                                                         // CIRCUIT: val2_is_fun
@@ -231,7 +232,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                                     smaller_env,
                                                 )
                                             };
-                                            match cont.tag() {
+                                            match cont.tag {
                                                 ContTag::Lookup => {
                                                     // CIRCUIT: with_cons_binding_unmatched_old_lookup
                                                     Control::Return(expr, env_to_use, cont)
@@ -320,7 +321,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                         } else {
                             cons_witness.car_cdr_named(ConsName::ExprCadr, store, &args)?
                         };
-                        if arg.tag() != ExprTag::Sym {
+                        if arg.tag != ExprTag::Sym {
                             Control::Error(expr, env)
                         } else {
                             let (_, cdr_args) =
@@ -370,7 +371,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 store,
                                 &binding1,
                             )?;
-                            if var.tag() != ExprTag::Sym {
+                            if var.tag != ExprTag::Sym {
                                 Control::Error(expr, env)
                             } else {
                                 let (val, end) = cons_witness.car_cdr_named(
@@ -573,7 +574,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                             )
                         } else {
                             let (arg, more_args) = car_cdr_named!(ConsName::ExprCdr, &args)?;
-                            match more_args.tag() {
+                            match more_args.tag {
                                 // (fn arg)
                                 // Interpreting as call.
                                 ExprTag::Nil => Control::Return(
@@ -676,7 +677,7 @@ fn apply_continuation<F: LurkField>(
     let cons_witness = &mut witness.conses;
     let cont_witness = &mut witness.conts;
 
-    let control = match cont.tag() {
+    let control = match cont.tag {
         ContTag::Terminal | ContTag::Error => Control::Return(result, env, cont),
         ContTag::Dummy => unreachable!("Dummy Continuation should never be applied."),
         ContTag::Outermost => Control::Return(result, env, store.intern_cont_terminal()),
@@ -696,7 +697,7 @@ fn apply_continuation<F: LurkField>(
             Continuation::Call0 {
                 saved_env,
                 continuation,
-            } => match result.tag() {
+            } => match result.tag {
                 ExprTag::Fun => match store
                     .fetch(&result)
                     .ok_or_else(|| store::Error("Fetch failed".into()))?
@@ -733,7 +734,7 @@ fn apply_continuation<F: LurkField>(
             },
             _ => unreachable!(),
         },
-        ContTag::Call => match result.tag() {
+        ContTag::Call => match result.tag {
             ExprTag::Fun => match cont_witness
                 .fetch_named_cont(ContName::ApplyContinuation, store, &cont)
                 .ok_or_else(|| store::Error("Fetch failed".into()))?
@@ -772,7 +773,7 @@ fn apply_continuation<F: LurkField>(
                 function,
                 saved_env,
                 continuation,
-            } => match function.tag() {
+            } => match function.tag {
                 ExprTag::Fun => match store
                     .fetch(&function)
                     .ok_or_else(|| store::Error("Fetch failed".into()))?
@@ -875,7 +876,7 @@ fn apply_continuation<F: LurkField>(
                             Err(_) => return Ok(Control::Error(result, env)),
                         }
                     }
-                    Op1::Atom => match result.tag() {
+                    Op1::Atom => match result.tag {
                         ExprTag::Cons => store.nil(),
                         _ => store.t(),
                     },
@@ -891,16 +892,16 @@ fn apply_continuation<F: LurkField>(
                             ),
                         ));
                     }
-                    Op1::Open => match result.tag() {
+                    Op1::Open => match result.tag {
                         ExprTag::Num | ExprTag::Comm => store.open_mut(result)?.1,
                         _ => return Ok(Control::Error(result, env)),
                     },
-                    Op1::Secret => match result.tag() {
+                    Op1::Secret => match result.tag {
                         ExprTag::Num | ExprTag::Comm => store.secret_mut(result)?,
                         _ => return Ok(Control::Error(result, env)),
                     },
                     Op1::Commit => store.hide(F::zero(), result),
-                    Op1::Num => match result.tag() {
+                    Op1::Num => match result.tag {
                         ExprTag::Num | ExprTag::Comm | ExprTag::Char | ExprTag::U64 => {
                             let scalar_ptr = store
                                 .get_expr_hash(&result)
@@ -909,7 +910,7 @@ fn apply_continuation<F: LurkField>(
                         }
                         _ => return Ok(Control::Error(result, env)),
                     },
-                    Op1::U64 => match result.tag() {
+                    Op1::U64 => match result.tag {
                         ExprTag::Num => {
                             let scalar_ptr = store
                                 .get_expr_hash(&result)
@@ -920,7 +921,7 @@ fn apply_continuation<F: LurkField>(
                         ExprTag::U64 => result,
                         _ => return Ok(Control::Error(result, env)),
                     },
-                    Op1::Comm => match result.tag() {
+                    Op1::Comm => match result.tag {
                         ExprTag::Num | ExprTag::Comm => {
                             let scalar_ptr = store
                                 .get_expr_hash(&result)
@@ -929,7 +930,7 @@ fn apply_continuation<F: LurkField>(
                         }
                         _ => return Ok(Control::Error(result, env)),
                     },
-                    Op1::Char => match result.tag() {
+                    Op1::Char => match result.tag {
                         ExprTag::Num | ExprTag::Char => {
                             let scalar_ptr = store
                                 .get_expr_hash(&result)
@@ -1225,13 +1226,13 @@ fn make_thunk<F: LurkField>(
 
     let (result, env, cont) = control.into_results(store);
 
-    if let ExprTag::Thunk = result.tag() {
+    if let ExprTag::Thunk = result.tag {
         unreachable!("make_thunk should never be called with a thunk");
     };
 
     let cont_witness = &mut witness.conts;
 
-    match cont.tag() {
+    match cont.tag {
         ContTag::Tail => match cont_witness
             .fetch_named_cont(ContName::MakeThunk, store, &cont)
             .ok_or_else(|| store::Error("Fetch failed".into()))?
@@ -1268,7 +1269,7 @@ fn make_tail_continuation<F: LurkField>(
     cont_witness: &mut ContWitness<F>,
 ) -> ContPtr<F> {
     // Result must be either a Tail or Outermost continuation.
-    match continuation.tag() {
+    match continuation.tag {
         // If continuation is already tail, just return it.
         //ContTag::Tail => continuation,
         ContTag::Tail => continuation,
@@ -1308,7 +1309,7 @@ fn extend_rec<F: LurkField>(
     let (binding_or_env, rest) = cons_witness.car_cdr_named(ConsName::Env, store, &env)?;
     let (var_or_binding, _val_or_more_bindings) =
         cons_witness.car_cdr_named(ConsName::EnvCar, store, &binding_or_env)?;
-    match var_or_binding.tag() {
+    match var_or_binding.tag {
         // It's a var, so we are extending a simple env with a recursive env.
         ExprTag::Sym | ExprTag::Nil => {
             let cons = cons_witness.cons_named(ConsName::NewRecCadr, store, var, val);
@@ -1336,7 +1337,7 @@ fn extend_closure<F: LurkField>(
     store: &mut Store<F>,
     cons_witness: &mut ConsWitness<F>,
 ) -> Result<Ptr<F>, ReductionError> {
-    match fun.tag() {
+    match fun.tag {
         ExprTag::Fun => match store
             .fetch(fun)
             .ok_or_else(|| store::Error("Fetch failed".into()))?
@@ -1353,7 +1354,7 @@ fn extend_closure<F: LurkField>(
             _ => unreachable!(),
         },
         _ => unreachable!(
-            "fun.tag() stopped being ExprTag::Fun after already having been checked in caller."
+            "fun.tag stopped being ExprTag::Fun after already having been checked in caller."
         ),
     }
 }
@@ -1375,8 +1376,8 @@ pub(crate) fn lookup<F: LurkField>(
     var: &Ptr<F>,
     store: &Store<F>,
 ) -> Result<Ptr<F>, store::Error> {
-    assert!(matches!(var.tag(), ExprTag::Sym));
-    match env.tag() {
+    assert!(matches!(var.tag, ExprTag::Sym));
+    match env.tag {
         ExprTag::Nil => Ok(store.get_nil()),
         ExprTag::Cons => {
             let (binding, smaller_env) = store.car_cdr(env)?;

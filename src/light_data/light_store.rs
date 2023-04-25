@@ -14,9 +14,9 @@ use std::collections::BTreeMap;
 
 use crate::light_data::Encodable;
 use crate::light_data::LightData;
+use crate::ptr::ScalarPtr;
 use crate::scalar_store::ScalarExpression;
 use crate::scalar_store::ScalarStore;
-use crate::store::ScalarPtr;
 use crate::sym::Sym;
 use crate::tag::ExprTag;
 

@@ -7,8 +7,10 @@ use neptune::circuit2::poseidon_hash_allocated as poseidon_hash;
 use crate::circuit::gadgets::pointer::{AllocatedPtr, AsAllocatedHashComponents};
 
 use crate::field::LurkField;
+use crate::hash::{HashConst, HashConstants};
 use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness, HashName, Stub};
-use crate::store::{HashConst, HashConstants, ScalarPtr, Store};
+use crate::ptr::ScalarPtr;
+use crate::store::Store;
 use crate::tag::ExprTag;
 
 #[derive(Clone)]

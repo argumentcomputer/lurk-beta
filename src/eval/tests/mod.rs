@@ -1010,7 +1010,7 @@ fn evaluate_zero_arg_lambda_variants() {
             .eval()
             .unwrap();
 
-        assert_eq!(crate::tag::ExprTag::Fun, result_expr.tag());
+        assert_eq!(crate::tag::ExprTag::Fun, result_expr.tag);
         assert_eq!(3, iterations);
     }
     {

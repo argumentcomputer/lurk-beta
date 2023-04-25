@@ -15,7 +15,8 @@ use lurk::eval::{
 };
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
-use lurk::store::{Ptr, Store, TypePredicates};
+use lurk::ptr::Ptr;
+use lurk::store::{Store, TypePredicates};
 
 use clap::{AppSettings, Args, Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};

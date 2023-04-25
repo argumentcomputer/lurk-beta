@@ -29,8 +29,9 @@ use lurk::{
     field::LurkField,
     proof::nova::{self, NovaProver, PublicParams},
     proof::Prover,
+    ptr::{ContPtr, Ptr, ScalarPtr},
     scalar_store::ScalarStore,
-    store::{ContPtr, Pointer, Ptr, ScalarPtr, Store},
+    store::Store,
     tag::ExprTag,
     writer::Write,
 };
@@ -539,7 +540,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
     pub fn from_comm(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
         let digest = *s.hash_expr(ptr).expect("couldn't hash ptr").value();
 
-        assert_eq!(ExprTag::Comm, ptr.tag());
+        assert_eq!(ExprTag::Comm, ptr.tag);
 
         Commitment { comm: digest }
     }
@@ -691,7 +692,7 @@ impl LurkCont {
     ) -> Self {
         use lurk::tag::ContTag;
 
-        match cont_ptr.tag() {
+        match cont_ptr.tag {
             ContTag::Outermost => Self::Outermost,
             ContTag::Terminal => Self::Terminal,
             ContTag::Error => Self::Error,

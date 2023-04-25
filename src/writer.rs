@@ -1,5 +1,8 @@
+use crate::cont::Continuation;
+use crate::expr::Expression;
 use crate::field::LurkField;
-use crate::store::{ContPtr, Continuation, Expression, Ptr, Store};
+use crate::ptr::{ContPtr, Ptr};
+use crate::store::Store;
 use crate::Sym;
 use std::io;
 
@@ -14,15 +17,14 @@ pub trait Write<F: LurkField> {
 
 impl<F: LurkField> Write<F> for Ptr<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
-        use crate::store::Pointer;
         if self.is_opaque() {
             // This should never fail.
             write!(w, "<Opaque ")?;
-            write!(w, "{:?}", self.tag())?;
+            write!(w, "{:?}", self.tag)?;
 
             if let Some(x) = store.get_expr_hash(self) {
                 write!(w, " ")?;
-                crate::store::Expression::Num(crate::num::Num::Scalar(*x.value())).fmt(store, w)?;
+                crate::expr::Expression::Num(crate::num::Num::Scalar(*x.value())).fmt(store, w)?;
             }
             write!(w, ">")
         } else if let Some(expr) = store.fetch(self) {
