@@ -552,10 +552,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                             let IO { expr, env, cont } =
                                 coprocessor.evaluate(store, args, env, cont);
 
-                            return Ok((
-                                Control::ApplyContinuation(expr, env, cont),
-                                closure_to_extend,
-                            ));
+                            return Ok((Control::ApplyContinuation(expr, env, cont), closure_to_extend));
                         };
 
                         // `fun_form` must be a function or potentially evaluate to one.
