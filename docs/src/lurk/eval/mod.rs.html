@@ -528,12 +528,16 @@
 <a href="#528" id="528">528</a>
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
 <span class="kw">use </span><span class="kw">crate</span>::error::ReductionError;
+<span class="kw">use </span><span class="kw">crate</span>::expr::Expression;
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span><span class="kw">crate</span>::hash_witness::{ConsWitness, ContWitness};
+<span class="kw">use </span><span class="kw">crate</span>::ptr::{ContPtr, Ptr};
 <span class="kw">use </span><span class="kw">crate</span>::store;
-<span class="kw">use </span><span class="kw">crate</span>::store::{ContPtr, Expression, Pointer, Ptr, Store};
+<span class="kw">use </span><span class="kw">crate</span>::store::Store;
 <span class="kw">use </span><span class="kw">crate</span>::tag::ContTag;
 <span class="kw">use </span><span class="kw">crate</span>::writer::Write;
 <span class="kw">use </span>lang::Lang;
@@ -637,7 +641,7 @@
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; From&lt;ContPtr&lt;F&gt;&gt; <span class="kw">for </span>Status {
     <span class="kw">fn </span>from(cont: ContPtr&lt;F&gt;) -&gt; <span class="self">Self </span>{
-        <span class="kw">match </span>cont.tag() {
+        <span class="kw">match </span>cont.tag {
             ContTag::Terminal =&gt; <span class="self">Self</span>::Terminal,
             ContTag::Error =&gt; <span class="self">Self</span>::Error,
             <span class="kw">_ </span>=&gt; <span class="self">Self</span>::Incomplete,
@@ -732,8 +736,8 @@
     <span class="comment">// Returns any expression that was emitted in this IO (if an output) or previous (if an input).
     // The intention is that this method will be used to extract and handle all output as needed.
     </span><span class="kw">pub fn </span>maybe_emitted_expression(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt; {
-        <span class="kw">if </span><span class="self">self</span>.expr.tag() != <span class="kw">crate</span>::tag::ExprTag::Thunk
-            || <span class="self">self</span>.cont.tag() != <span class="kw">crate</span>::tag::ContTag::Dummy
+        <span class="kw">if </span><span class="self">self</span>.expr.tag != <span class="kw">crate</span>::tag::ExprTag::Thunk
+            || <span class="self">self</span>.cont.tag != <span class="kw">crate</span>::tag::ContTag::Dummy
         {
             <span class="kw">return </span><span class="prelude-val">None</span>;
         }
@@ -743,7 +747,7 @@
             <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
         };
 
-        <span class="kw">if </span>expr.continuation.tag() == <span class="kw">crate</span>::tag::ContTag::Emit {
+        <span class="kw">if </span>expr.continuation.tag == <span class="kw">crate</span>::tag::ContTag::Emit {
             <span class="prelude-val">Some</span>(expr.value)
         } <span class="kw">else </span>{
             <span class="prelude-val">None

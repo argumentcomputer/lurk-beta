@@ -3606,6 +3606,7 @@
 <a href="#3606" id="3606">3606</a>
 <a href="#3607" id="3607">3607</a>
 <a href="#3608" id="3608">3608</a>
+<a href="#3609" id="3609">3609</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>std::marker::PhantomData;
@@ -3635,7 +3636,8 @@
 <span class="kw">use </span><span class="kw">crate</span>::eval::{lang::Lang, Evaluator, Frame, Witness, IO};
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span><span class="kw">crate</span>::proof::{Prover, PublicParameters};
-<span class="kw">use </span><span class="kw">crate</span>::store::{Ptr, Store};
+<span class="kw">use </span><span class="kw">crate</span>::ptr::Ptr;
+<span class="kw">use </span><span class="kw">crate</span>::store::Store;
 
 <span class="doccomment">/// Type alias for G1 group elements using the Pallas curve.
 </span><span class="kw">pub type </span>G1 = pallas::Point;
@@ -3958,7 +3960,7 @@
     <span class="kw">use </span><span class="kw">crate</span>::eval::empty_sym_env;
     <span class="kw">use </span><span class="kw">crate</span>::eval::lang::Coproc;
     <span class="kw">use </span><span class="kw">crate</span>::proof::Provable;
-    <span class="kw">use </span><span class="kw">crate</span>::store::ContPtr;
+    <span class="kw">use </span><span class="kw">crate</span>::ptr::ContPtr;
     <span class="kw">use </span><span class="kw">crate</span>::tag::{Op, Op1, Op2};
 
     <span class="kw">use </span>bellperson::{

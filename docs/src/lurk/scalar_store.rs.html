@@ -611,13 +611,15 @@
 <a href="#611" id="611">611</a>
 <a href="#612" id="612">612</a>
 <a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::BTreeMap;
 
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span><span class="kw">crate</span>::field::FWrap;
-<span class="kw">use </span><span class="kw">crate</span>::store::{Pointer, Ptr, ScalarContPtr, ScalarPtr, Store};
+<span class="kw">use </span><span class="kw">crate</span>::ptr::{Ptr, ScalarContPtr, ScalarPtr};
+<span class="kw">use </span><span class="kw">crate</span>::store::Store;
 <span class="kw">use </span><span class="kw">crate</span>::tag::{ExprTag, Op1, Op2};
 <span class="kw">use crate</span>::{Num, Sym, UInt};
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
@@ -776,7 +778,7 @@
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; ScalarExpression&lt;F&gt; {
     <span class="kw">fn </span>from_ptr(store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">match </span>ptr.tag() {
+        <span class="kw">match </span>ptr.tag {
             ExprTag::Nil =&gt; <span class="prelude-val">Some</span>(ScalarExpression::Nil),
             ExprTag::Cons =&gt; store.fetch_cons(ptr).and_then(|(car, cdr)| {
                 <span class="kw">if let </span>(<span class="prelude-val">Some</span>(car), <span class="prelude-val">Some</span>(cdr)) = (store.get_expr_hash(car), store.get_expr_hash(cdr))

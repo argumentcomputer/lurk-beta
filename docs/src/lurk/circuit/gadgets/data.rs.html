@@ -540,6 +540,7 @@
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
 <a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem, SynthesisError,
@@ -550,10 +551,11 @@
 };
 
 <span class="kw">use </span><span class="kw">super</span>::pointer::AsAllocatedHashComponents;
+<span class="kw">use </span><span class="kw">crate</span>::expr::{Expression, Thunk};
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
-<span class="kw">use </span><span class="kw">crate</span>::store::ScalarContPtr;
-<span class="kw">use </span><span class="kw">crate</span>::store::{Expression, Pointer, Ptr, Store, Thunk};
-<span class="kw">use </span><span class="kw">crate</span>::store::{IntoHashComponents, ScalarPtr};
+<span class="kw">use </span><span class="kw">crate</span>::hash::IntoHashComponents;
+<span class="kw">use </span><span class="kw">crate</span>::ptr::{Ptr, ScalarContPtr, ScalarPtr};
+<span class="kw">use </span><span class="kw">crate</span>::store::Store;
 <span class="kw">use </span><span class="kw">crate</span>::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 
 <span class="kw">use </span><span class="kw">super</span>::pointer::{AllocatedContPtr, AllocatedPtr};
@@ -847,7 +849,7 @@
         ),
         SynthesisError,
     &gt; {
-        <span class="kw">match </span>maybe_fun.map(|ptr| (ptr, ptr.tag())) {
+        <span class="kw">match </span>maybe_fun.map(|ptr| (ptr, ptr.tag)) {
             <span class="prelude-val">Some</span>((ptr, ExprTag::Fun)) =&gt; <span class="kw">match </span>store.fetch(ptr).expect(<span class="string">&quot;missing fun&quot;</span>) {
                 Expression::Fun(arg, body, closed_env) =&gt; {
                     <span class="kw">let </span>arg = store.get_expr_hash(<span class="kw-2">&amp;</span>arg).expect(<span class="string">&quot;missing arg&quot;</span>);

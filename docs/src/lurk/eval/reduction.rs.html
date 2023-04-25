@@ -1390,17 +1390,19 @@
 <a href="#1390" id="1390">1390</a>
 <a href="#1391" id="1391">1391</a>
 <a href="#1392" id="1392">1392</a>
+<a href="#1393" id="1393">1393</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{empty_sym_env, Witness};
+<span class="kw">use </span><span class="kw">crate</span>::cont::Continuation;
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
 <span class="kw">use </span><span class="kw">crate</span>::error::ReductionError;
 <span class="kw">use </span><span class="kw">crate</span>::eval::{lang::Lang, IO};
+<span class="kw">use </span><span class="kw">crate</span>::expr::{Expression, Thunk};
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span><span class="kw">crate</span>::hash_witness::{ConsName, ConsWitness, ContName, ContWitness};
 <span class="kw">use </span><span class="kw">crate</span>::num::Num;
+<span class="kw">use </span><span class="kw">crate</span>::ptr::{ContPtr, Ptr};
 <span class="kw">use </span><span class="kw">crate</span>::store;
-<span class="kw">use </span><span class="kw">crate</span>::store::{
-    ContPtr, Continuation, Expression, NamedConstants, Pointer, Ptr, Store, Thunk, TypePredicates,
-};
+<span class="kw">use </span><span class="kw">crate</span>::store::{NamedConstants, Store, TypePredicates};
 <span class="kw">use </span><span class="kw">crate</span>::tag::{ContTag, ExprTag, Op1, Op2};
 <span class="kw">use </span><span class="kw">crate</span>::writer::Write;
 
@@ -1461,10 +1463,10 @@
     <span class="kw">let </span><span class="kw-2">mut </span>closure_to_extend = <span class="prelude-val">None</span>;
 
     <span class="prelude-val">Ok</span>((
-        <span class="kw">if </span><span class="macro">matches!</span>(cont.tag(), ContTag::Terminal | ContTag::Error) {
+        <span class="kw">if </span><span class="macro">matches!</span>(cont.tag, ContTag::Terminal | ContTag::Error) {
             Control::Return(expr, env, cont)
         } <span class="kw">else </span>{
-            <span class="kw">match </span>expr.tag() {
+            <span class="kw">match </span>expr.tag {
                 <span class="comment">// Self-evaluating
                 </span>ExprTag::Nil
                 | ExprTag::Fun
@@ -1474,7 +1476,7 @@
                 | ExprTag::Comm
                 | ExprTag::U64
                 | ExprTag::Key =&gt; {
-                    <span class="macro">debug_assert!</span>(expr.tag().is_self_evaluating());
+                    <span class="macro">debug_assert!</span>(expr.tag.is_self_evaluating());
                     Control::ApplyContinuation(expr, env, cont)
                 }
 
@@ -1518,7 +1520,7 @@
                                 </span><span class="kw">let </span>(var_or_rec_binding, val_or_more_rec_env) = cons_witness
                                     .car_cdr_named(ConsName::EnvCar, store, <span class="kw-2">&amp;</span>binding)<span class="question-mark">?</span>;
 
-                                <span class="kw">match </span>var_or_rec_binding.tag() {
+                                <span class="kw">match </span>var_or_rec_binding.tag {
                                     ExprTag::Sym =&gt; {
                                         <span class="comment">// We are in a simple env (not a recursive env),
                                         // looking at a binding&#39;s variable.
@@ -1539,7 +1541,7 @@
                                             <span class="comment">// expr does not match the binding&#39;s var.
 
                                             // CIRCUIT: with_sym_binding_unmatched
-                                            </span><span class="kw">match </span>cont.tag() {
+                                            </span><span class="kw">match </span>cont.tag {
                                                 ContTag::Lookup =&gt; {
                                                     <span class="comment">// If performing a lookup, continue with remaining env.
 
@@ -1586,7 +1588,7 @@
 
                                             </span><span class="kw">let </span>val_to_use = {
                                                 <span class="comment">// CIRCUIT: val_to_use
-                                                </span><span class="kw">match </span>val2.tag() {
+                                                </span><span class="kw">match </span>val2.tag {
                                                     ExprTag::Fun =&gt; {
                                                         closure_to_extend = <span class="prelude-val">Some</span>(val2);
                                                         <span class="comment">// CIRCUIT: val2_is_fun
@@ -1623,7 +1625,7 @@
                                                     smaller_env,
                                                 )
                                             };
-                                            <span class="kw">match </span>cont.tag() {
+                                            <span class="kw">match </span>cont.tag {
                                                 ContTag::Lookup =&gt; {
                                                     <span class="comment">// CIRCUIT: with_cons_binding_unmatched_old_lookup
                                                     </span>Control::Return(expr, env_to_use, cont)
@@ -1712,7 +1714,7 @@
                         } <span class="kw">else </span>{
                             cons_witness.car_cdr_named(ConsName::ExprCadr, store, <span class="kw-2">&amp;</span>args)<span class="question-mark">?
                         </span>};
-                        <span class="kw">if </span>arg.tag() != ExprTag::Sym {
+                        <span class="kw">if </span>arg.tag != ExprTag::Sym {
                             Control::Error(expr, env)
                         } <span class="kw">else </span>{
                             <span class="kw">let </span>(<span class="kw">_</span>, cdr_args) =
@@ -1762,7 +1764,7 @@
                                 store,
                                 <span class="kw-2">&amp;</span>binding1,
                             )<span class="question-mark">?</span>;
-                            <span class="kw">if </span>var.tag() != ExprTag::Sym {
+                            <span class="kw">if </span>var.tag != ExprTag::Sym {
                                 Control::Error(expr, env)
                             } <span class="kw">else </span>{
                                 <span class="kw">let </span>(val, end) = cons_witness.car_cdr_named(
@@ -1965,7 +1967,7 @@
                             )
                         } <span class="kw">else </span>{
                             <span class="kw">let </span>(arg, more_args) = <span class="macro">car_cdr_named!</span>(ConsName::ExprCdr, <span class="kw-2">&amp;</span>args)<span class="question-mark">?</span>;
-                            <span class="kw">match </span>more_args.tag() {
+                            <span class="kw">match </span>more_args.tag {
                                 <span class="comment">// (fn arg)
                                 // Interpreting as call.
                                 </span>ExprTag::Nil =&gt; Control::Return(
@@ -2068,7 +2070,7 @@
     <span class="kw">let </span>cons_witness = <span class="kw-2">&amp;mut </span>witness.conses;
     <span class="kw">let </span>cont_witness = <span class="kw-2">&amp;mut </span>witness.conts;
 
-    <span class="kw">let </span>control = <span class="kw">match </span>cont.tag() {
+    <span class="kw">let </span>control = <span class="kw">match </span>cont.tag {
         ContTag::Terminal | ContTag::Error =&gt; Control::Return(result, env, cont),
         ContTag::Dummy =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Dummy Continuation should never be applied.&quot;</span>),
         ContTag::Outermost =&gt; Control::Return(result, env, store.intern_cont_terminal()),
@@ -2088,7 +2090,7 @@
             Continuation::Call0 {
                 saved_env,
                 continuation,
-            } =&gt; <span class="kw">match </span>result.tag() {
+            } =&gt; <span class="kw">match </span>result.tag {
                 ExprTag::Fun =&gt; <span class="kw">match </span>store
                     .fetch(<span class="kw-2">&amp;</span>result)
                     .ok_or_else(|| store::Error(<span class="string">&quot;Fetch failed&quot;</span>.into()))<span class="question-mark">?
@@ -2125,7 +2127,7 @@
             },
             <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
         },
-        ContTag::Call =&gt; <span class="kw">match </span>result.tag() {
+        ContTag::Call =&gt; <span class="kw">match </span>result.tag {
             ExprTag::Fun =&gt; <span class="kw">match </span>cont_witness
                 .fetch_named_cont(ContName::ApplyContinuation, store, <span class="kw-2">&amp;</span>cont)
                 .ok_or_else(|| store::Error(<span class="string">&quot;Fetch failed&quot;</span>.into()))<span class="question-mark">?
@@ -2164,7 +2166,7 @@
                 function,
                 saved_env,
                 continuation,
-            } =&gt; <span class="kw">match </span>function.tag() {
+            } =&gt; <span class="kw">match </span>function.tag {
                 ExprTag::Fun =&gt; <span class="kw">match </span>store
                     .fetch(<span class="kw-2">&amp;</span>function)
                     .ok_or_else(|| store::Error(<span class="string">&quot;Fetch failed&quot;</span>.into()))<span class="question-mark">?
@@ -2267,7 +2269,7 @@
                             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Error(result, env)),
                         }
                     }
-                    Op1::Atom =&gt; <span class="kw">match </span>result.tag() {
+                    Op1::Atom =&gt; <span class="kw">match </span>result.tag {
                         ExprTag::Cons =&gt; store.nil(),
                         <span class="kw">_ </span>=&gt; store.t(),
                     },
@@ -2283,16 +2285,16 @@
                             ),
                         ));
                     }
-                    Op1::Open =&gt; <span class="kw">match </span>result.tag() {
+                    Op1::Open =&gt; <span class="kw">match </span>result.tag {
                         ExprTag::Num | ExprTag::Comm =&gt; store.open_mut(result)<span class="question-mark">?</span>.<span class="number">1</span>,
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Error(result, env)),
                     },
-                    Op1::Secret =&gt; <span class="kw">match </span>result.tag() {
+                    Op1::Secret =&gt; <span class="kw">match </span>result.tag {
                         ExprTag::Num | ExprTag::Comm =&gt; store.secret_mut(result)<span class="question-mark">?</span>,
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Error(result, env)),
                     },
                     Op1::Commit =&gt; store.hide(F::zero(), result),
-                    Op1::Num =&gt; <span class="kw">match </span>result.tag() {
+                    Op1::Num =&gt; <span class="kw">match </span>result.tag {
                         ExprTag::Num | ExprTag::Comm | ExprTag::Char | ExprTag::U64 =&gt; {
                             <span class="kw">let </span>scalar_ptr = store
                                 .get_expr_hash(<span class="kw-2">&amp;</span>result)
@@ -2301,7 +2303,7 @@
                         }
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Error(result, env)),
                     },
-                    Op1::U64 =&gt; <span class="kw">match </span>result.tag() {
+                    Op1::U64 =&gt; <span class="kw">match </span>result.tag {
                         ExprTag::Num =&gt; {
                             <span class="kw">let </span>scalar_ptr = store
                                 .get_expr_hash(<span class="kw-2">&amp;</span>result)
@@ -2312,7 +2314,7 @@
                         ExprTag::U64 =&gt; result,
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Error(result, env)),
                     },
-                    Op1::Comm =&gt; <span class="kw">match </span>result.tag() {
+                    Op1::Comm =&gt; <span class="kw">match </span>result.tag {
                         ExprTag::Num | ExprTag::Comm =&gt; {
                             <span class="kw">let </span>scalar_ptr = store
                                 .get_expr_hash(<span class="kw-2">&amp;</span>result)
@@ -2321,7 +2323,7 @@
                         }
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Error(result, env)),
                     },
-                    Op1::Char =&gt; <span class="kw">match </span>result.tag() {
+                    Op1::Char =&gt; <span class="kw">match </span>result.tag {
                         ExprTag::Num | ExprTag::Char =&gt; {
                             <span class="kw">let </span>scalar_ptr = store
                                 .get_expr_hash(<span class="kw-2">&amp;</span>result)
@@ -2617,13 +2619,13 @@
 
     <span class="kw">let </span>(result, env, cont) = control.into_results(store);
 
-    <span class="kw">if let </span>ExprTag::Thunk = result.tag() {
+    <span class="kw">if let </span>ExprTag::Thunk = result.tag {
         <span class="macro">unreachable!</span>(<span class="string">&quot;make_thunk should never be called with a thunk&quot;</span>);
     };
 
     <span class="kw">let </span>cont_witness = <span class="kw-2">&amp;mut </span>witness.conts;
 
-    <span class="kw">match </span>cont.tag() {
+    <span class="kw">match </span>cont.tag {
         ContTag::Tail =&gt; <span class="kw">match </span>cont_witness
             .fetch_named_cont(ContName::MakeThunk, store, <span class="kw-2">&amp;</span>cont)
             .ok_or_else(|| store::Error(<span class="string">&quot;Fetch failed&quot;</span>.into()))<span class="question-mark">?
@@ -2660,7 +2662,7 @@
     cont_witness: <span class="kw-2">&amp;mut </span>ContWitness&lt;F&gt;,
 ) -&gt; ContPtr&lt;F&gt; {
     <span class="comment">// Result must be either a Tail or Outermost continuation.
-    </span><span class="kw">match </span>continuation.tag() {
+    </span><span class="kw">match </span>continuation.tag {
         <span class="comment">// If continuation is already tail, just return it.
         //ContTag::Tail =&gt; continuation,
         </span>ContTag::Tail =&gt; continuation,
@@ -2700,7 +2702,7 @@
     <span class="kw">let </span>(binding_or_env, rest) = cons_witness.car_cdr_named(ConsName::Env, store, <span class="kw-2">&amp;</span>env)<span class="question-mark">?</span>;
     <span class="kw">let </span>(var_or_binding, _val_or_more_bindings) =
         cons_witness.car_cdr_named(ConsName::EnvCar, store, <span class="kw-2">&amp;</span>binding_or_env)<span class="question-mark">?</span>;
-    <span class="kw">match </span>var_or_binding.tag() {
+    <span class="kw">match </span>var_or_binding.tag {
         <span class="comment">// It&#39;s a var, so we are extending a simple env with a recursive env.
         </span>ExprTag::Sym | ExprTag::Nil =&gt; {
             <span class="kw">let </span>cons = cons_witness.cons_named(ConsName::NewRecCadr, store, var, val);
@@ -2728,7 +2730,7 @@
     store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
     cons_witness: <span class="kw-2">&amp;mut </span>ConsWitness&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;, ReductionError&gt; {
-    <span class="kw">match </span>fun.tag() {
+    <span class="kw">match </span>fun.tag {
         ExprTag::Fun =&gt; <span class="kw">match </span>store
             .fetch(fun)
             .ok_or_else(|| store::Error(<span class="string">&quot;Fetch failed&quot;</span>.into()))<span class="question-mark">?
@@ -2745,7 +2747,7 @@
             <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
         },
         <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(
-            <span class="string">&quot;fun.tag() stopped being ExprTag::Fun after already having been checked in caller.&quot;
+            <span class="string">&quot;fun.tag stopped being ExprTag::Fun after already having been checked in caller.&quot;
         </span>),
     }
 }
@@ -2767,8 +2769,8 @@
     var: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;, store::Error&gt; {
-    <span class="macro">assert!</span>(<span class="macro">matches!</span>(var.tag(), ExprTag::Sym));
-    <span class="kw">match </span>env.tag() {
+    <span class="macro">assert!</span>(<span class="macro">matches!</span>(var.tag, ExprTag::Sym));
+    <span class="kw">match </span>env.tag {
         ExprTag::Nil =&gt; <span class="prelude-val">Ok</span>(store.get_nil()),
         ExprTag::Cons =&gt; {
             <span class="kw">let </span>(binding, smaller_env) = store.car_cdr(env)<span class="question-mark">?</span>;

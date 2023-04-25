@@ -680,6 +680,7 @@
 <a href="#680" id="680">680</a>
 <a href="#681" id="681">681</a>
 <a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>bellperson::groth16::aggregate::setup_fake_srs;
 <span class="kw">use </span>bellperson::{
@@ -709,7 +710,8 @@
 <span class="kw">use </span><span class="kw">crate</span>::eval::{lang::Lang, Evaluator, Witness, IO};
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span><span class="kw">crate</span>::proof::{Provable, Prover, PublicParameters};
-<span class="kw">use </span><span class="kw">crate</span>::store::{Ptr, Store};
+<span class="kw">use </span><span class="kw">crate</span>::ptr::Ptr;
+<span class="kw">use </span><span class="kw">crate</span>::store::Store;
 
 <span class="kw">use </span>std::marker::PhantomData;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]

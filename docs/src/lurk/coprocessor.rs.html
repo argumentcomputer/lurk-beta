@@ -118,6 +118,7 @@
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
 
 <span class="kw">use </span>bellperson::{ConstraintSystem, SynthesisError};
@@ -125,7 +126,8 @@
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 <span class="kw">use </span><span class="kw">crate</span>::eval::IO;
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
-<span class="kw">use </span><span class="kw">crate</span>::store::{ContPtr, Ptr, Store};
+<span class="kw">use </span><span class="kw">crate</span>::ptr::{ContPtr, Ptr};
+<span class="kw">use </span><span class="kw">crate</span>::store::Store;
 
 <span class="doccomment">/// `Coprocessor` is a trait that represents a generalized interface for coprocessors.
 /// Coprocessors augment the Lurk circuit and evaluation with additional built-in functionality.

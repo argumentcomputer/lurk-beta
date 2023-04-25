@@ -1200,6 +1200,7 @@
 <a href="#1200" id="1200">1200</a>
 <a href="#1201" id="1201">1201</a>
 <a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
 </pre></div><pre class="rust"><code><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">&quot;../README.md&quot;</span>)]
 
 </span><span class="kw">use </span>log::info;
@@ -1231,8 +1232,9 @@
     field::LurkField,
     proof::nova::{<span class="self">self</span>, NovaProver, PublicParams},
     proof::Prover,
+    ptr::{ContPtr, Ptr, ScalarPtr},
     scalar_store::ScalarStore,
-    store::{ContPtr, Pointer, Ptr, ScalarPtr, Store},
+    store::Store,
     tag::ExprTag,
     writer::Write,
 };
@@ -1741,7 +1743,7 @@
     <span class="kw">pub fn </span>from_comm(s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>digest = <span class="kw-2">*</span>s.hash_expr(ptr).expect(<span class="string">&quot;couldn&#39;t hash ptr&quot;</span>).value();
 
-        <span class="macro">assert_eq!</span>(ExprTag::Comm, ptr.tag());
+        <span class="macro">assert_eq!</span>(ExprTag::Comm, ptr.tag);
 
         Commitment { comm: digest }
     }
@@ -1893,7 +1895,7 @@
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">use </span>lurk::tag::ContTag;
 
-        <span class="kw">match </span>cont_ptr.tag() {
+        <span class="kw">match </span>cont_ptr.tag {
             ContTag::Outermost =&gt; <span class="self">Self</span>::Outermost,
             ContTag::Terminal =&gt; <span class="self">Self</span>::Terminal,
             ContTag::Error =&gt; <span class="self">Self</span>::Error,

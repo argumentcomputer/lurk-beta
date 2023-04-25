@@ -619,15 +619,19 @@
 <a href="#619" id="619">619</a>
 <a href="#620" id="620">620</a>
 <a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
 <span class="kw">use </span><span class="kw">crate</span>::error::LurkError;
 <span class="kw">use </span><span class="kw">crate</span>::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
+<span class="kw">use </span><span class="kw">crate</span>::expr::Expression;
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span><span class="kw">crate</span>::light_data::{Encodable, LightData, LightStore};
 <span class="kw">use </span><span class="kw">crate</span>::package::Package;
 <span class="kw">use </span><span class="kw">crate</span>::parser;
+<span class="kw">use </span><span class="kw">crate</span>::ptr::{ContPtr, Ptr};
 <span class="kw">use </span><span class="kw">crate</span>::scalar_store::ScalarStore;
-<span class="kw">use </span><span class="kw">crate</span>::store::{ContPtr, Expression, Pointer, Ptr, Store};
+<span class="kw">use </span><span class="kw">crate</span>::store::Store;
 <span class="kw">use </span><span class="kw">crate</span>::sym::Sym;
 <span class="kw">use </span><span class="kw">crate</span>::tag::ContTag;
 <span class="kw">use </span><span class="kw">crate</span>::writer::Write;
@@ -1194,7 +1198,7 @@
                         cont: store.get_cont_outermost(),
                     };
 
-                    <span class="kw">match </span>next_cont.tag() {
+                    <span class="kw">match </span>next_cont.tag {
                         ContTag::Outermost | ContTag::Terminal =&gt; {
                             <span class="kw">let </span><span class="kw-2">mut </span>handle = io::stdout().lock();
 

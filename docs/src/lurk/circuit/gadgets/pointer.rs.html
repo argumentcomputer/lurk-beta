@@ -830,6 +830,7 @@
 <a href="#830" id="830">830</a>
 <a href="#831" id="831">831</a>
 <a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
 
 <span class="kw">use </span>bellperson::{
@@ -838,13 +839,14 @@
 };
 <span class="kw">use </span>ff::PrimeField;
 
+<span class="kw">use </span><span class="kw">crate</span>::hash::IntoHashComponents;
 <span class="kw">use crate</span>::{
+    cont::Continuation,
+    expr::{Expression, Thunk},
     field::LurkField,
     hash_witness::{ConsName, ContName},
-    store::{
-        ContPtr, Continuation, Expression, IntoHashComponents, Ptr, ScalarContPtr, ScalarPtr,
-        Store, Thunk,
-    },
+    ptr::{ContPtr, Ptr, ScalarContPtr, ScalarPtr},
+    store::Store,
     tag::{ExprTag, Tag},
     writer::Write,
 };

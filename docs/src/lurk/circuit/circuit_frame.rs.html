@@ -6064,6 +6064,8 @@
 <a href="#6064" id="6064">6064</a>
 <a href="#6065" id="6065">6065</a>
 <a href="#6066" id="6066">6066</a>
+<a href="#6067" id="6067">6067</a>
+<a href="#6068" id="6068">6068</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
 
@@ -6096,9 +6098,11 @@
 <span class="kw">use </span><span class="kw">crate</span>::circuit::ToInputs;
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
 <span class="kw">use </span><span class="kw">crate</span>::eval::{lang::Lang, Frame, Witness, IO};
+<span class="kw">use </span><span class="kw">crate</span>::expr::Thunk;
 <span class="kw">use </span><span class="kw">crate</span>::hash_witness::HashWitness;
 <span class="kw">use </span><span class="kw">crate</span>::proof::Provable;
-<span class="kw">use </span><span class="kw">crate</span>::store::{Ptr, Store, Thunk};
+<span class="kw">use </span><span class="kw">crate</span>::ptr::Ptr;
+<span class="kw">use </span><span class="kw">crate</span>::store::Store;
 <span class="kw">use </span><span class="kw">crate</span>::tag::{ContTag, ExprTag, Op1, Op2};
 <span class="kw">use </span>num_bigint::BigUint;
 <span class="kw">use </span>num_integer::Integer;

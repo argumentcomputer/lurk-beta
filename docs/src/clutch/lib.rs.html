@@ -562,6 +562,8 @@
 <a href="#562" id="562">562</a>
 <a href="#563" id="563">563</a>
 <a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
 </pre></div><pre class="rust"><code><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">&quot;../README.md&quot;</span>)]
 
 </span><span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
@@ -577,11 +579,13 @@
     lang::{Coproc, Lang},
     Evaluable, Status, Witness, IO,
 };
+<span class="kw">use </span>lurk::expr::Expression;
 <span class="kw">use </span>lurk::field::LurkField;
 <span class="kw">use </span>lurk::package::Package;
 <span class="kw">use </span>lurk::proof::{nova::NovaProver, Prover};
+<span class="kw">use </span>lurk::ptr::Ptr;
 <span class="kw">use </span>lurk::repl::{ReplState, ReplTrait};
-<span class="kw">use </span>lurk::store::{Expression, Pointer, Ptr, Store};
+<span class="kw">use </span>lurk::store::Store;
 <span class="kw">use </span>lurk::sym::Sym;
 <span class="kw">use </span>lurk::tag::ExprTag;
 <span class="kw">use </span>lurk::writer::Write;
@@ -971,7 +975,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Commitment&lt;F&gt;, <span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;)&gt; {
         <span class="kw">let </span>maybe_comm = store.car(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>comm = <span class="kw">match </span>maybe_comm.tag() {
+        <span class="kw">let </span>comm = <span class="kw">match </span>maybe_comm.tag {
             ExprTag::Comm =&gt; maybe_comm,
             ExprTag::Num =&gt; {
                 <span class="comment">// See Store::open_mut().

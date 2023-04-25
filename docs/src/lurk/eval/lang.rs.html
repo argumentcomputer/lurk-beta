@@ -176,6 +176,7 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
@@ -186,7 +187,8 @@
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::{CoCircuit, Coprocessor};
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
-<span class="kw">use </span><span class="kw">crate</span>::store::{Ptr, ScalarPtr, Store};
+<span class="kw">use </span><span class="kw">crate</span>::ptr::{Ptr, ScalarPtr};
+<span class="kw">use </span><span class="kw">crate</span>::store::Store;
 <span class="kw">use </span><span class="kw">crate</span>::sym::Sym;
 
 <span class="doccomment">/// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.
