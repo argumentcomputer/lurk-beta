@@ -33,8 +33,10 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         let input = vec![0u8; self.n];
 
         hasher.update(input);
-        let result = hasher.finalize();
+        let mut result = hasher.finalize();
 
+        result.reverse();
+        dbg!(&result);
         // This could actually overflow. To be completely correct, we need to
         // return more than one field element, or a Lurk commitment to the value.
         let f = LurkField::from_bytes(result.as_slice()).unwrap();
