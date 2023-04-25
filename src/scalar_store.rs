@@ -2,13 +2,15 @@ use std::collections::BTreeMap;
 
 use crate::field::LurkField;
 
+use crate::cont::Continuation;
+use crate::expr;
 #[cfg(not(target_arch = "wasm32"))]
-
 use crate::field::FWrap;
 use crate::ptr::{ContPtr, Ptr};
-use crate::z_data::{ZExpr, ZExprPtr, ZContPtr, ZStore};
 use crate::store::Store;
+use crate::tag::ContTag;
 use crate::tag::{ExprTag, Op1, Op2};
+use crate::z_data::{ZContPtr, ZExpr, ZExprPtr, ZStore};
 use crate::{Num, Sym, UInt};
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
@@ -16,9 +18,6 @@ use proptest::prelude::*;
 use proptest_derive::Arbitrary;
 use serde::Deserialize;
 use serde::Serialize;
-use crate::cont::Continuation;
-use crate::expr;
-use crate::tag::ContTag;
 
 /// `ScalarStore` allows realization of a graph of `ZExprPtr`s suitable for serialization to IPLD. `ScalarExpression`s
 /// are composed only of `ZExprPtr`s, so `scalar_map` suffices to allow traversing an arbitrary DAG.
@@ -551,7 +550,6 @@ impl<F: LurkField> Store<F> {
             }
         }
     }
-
 }
 
 impl<F: LurkField> ZStore<F> {
@@ -1060,20 +1058,20 @@ mod test {
         let sym_ptr_half = ZExprPtr::from_parts(ExprTag::Sym, Scalar::from_u64(5));
         let sym_ptr_full = ZExprPtr::from_parts(ExprTag::Sym, Scalar::from_u64(6));
 
-        let mut store = BTreeMap::new();
-        store.insert(str1_ptr_half, Some(ZExpr::StrCons(str1_c2_ptr, str_nil)));
-        store.insert(
+        let mut z_store = BTreeMap::new();
+        z_store.insert(str1_ptr_half, Some(ZExpr::StrCons(str1_c2_ptr, str_nil)));
+        z_store.insert(
             str1_ptr_full,
             Some(ZExpr::StrCons(str1_c1_ptr, str1_ptr_half)),
         );
-        store.insert(str2_ptr_half, Some(ZExpr::StrCons(str2_c2_ptr, str_nil)));
-        store.insert(
+        z_store.insert(str2_ptr_half, Some(ZExpr::StrCons(str2_c2_ptr, str_nil)));
+        z_store.insert(
             str2_ptr_full,
             Some(ZExpr::StrCons(str2_c1_ptr, str2_ptr_half)),
         );
 
-        store.insert(sym_ptr_half, Some(ZExpr::SymCons(str1_ptr_full, sym_nil)));
-        store.insert(
+        z_store.insert(sym_ptr_half, Some(ZExpr::SymCons(str1_ptr_full, sym_nil)));
+        z_store.insert(
             sym_ptr_full,
             Some(ZExpr::SymCons(str2_ptr_full, sym_ptr_half)),
         );
@@ -1114,7 +1112,11 @@ mod test {
         };
 
         assert_eq!(
-            ZStore::to_scalar_store(&ZStore { scalar_map: store }).unwrap(),
+            ZStore::to_scalar_store(&ZStore {
+                expr_map: z_store,
+                cont_map: Default::default()
+            })
+            .unwrap(),
             expected_output
         );
     }

@@ -8,32 +8,23 @@ use proptest_derive::Arbitrary;
 use anyhow::anyhow;
 use std::collections::BTreeMap;
 
-use crate::z_data::ZExprPtr;
 use crate::sym::Sym;
 use crate::tag::ExprTag;
 use crate::z_data::z_cont::ZCont;
 use crate::z_data::z_expr::ZExpr;
 use crate::z_data::Encodable;
+use crate::z_data::ZContPtr;
 use crate::z_data::ZData;
+use crate::z_data::ZExprPtr;
 
 use crate::field::LurkField;
-
-#[derive(Debug, PartialEq, Clone)]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
-#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
-pub enum ZEntry<F: LurkField> {
-    Expr(ZExpr<F>),
-    Cont(ZCont<F>),
-    Opaque,
-}
 
 #[derive(Debug, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
-/// ZStore contains a fragment of the ScalarStore, but using the `ZEntry` type
 pub struct ZStore<F: LurkField> {
-    /// An analogous to the ScalarStore's scalar_map, but with `ZEntry` instead of `ScalarExpression`
-    pub map: BTreeMap<ZExprPtr<F>, ZEntry<F>>,
+    pub expr_map: BTreeMap<ZExprPtr<F>, Option<ZExpr<F>>>,
+    pub cont_map: BTreeMap<ZContPtr<F>, Option<ZCont<F>>>,
 }
 
 // TODO Implement Encodable for ZEntry
@@ -71,8 +62,12 @@ impl<F: LurkField> ZStore<F> {
         }
     }
 
-    fn get(&self, ptr: &ZExprPtr<F>) -> Option<ZEntry<F>> {
-        self.map.get(ptr).cloned()
+    pub fn get_expr(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
+        self.expr_map.get(ptr).cloned()?
+    }
+
+    pub fn get_cont(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
+        self.expr_map.get(ptr).cloned()?
     }
 }
 
@@ -97,5 +92,4 @@ mod tests {
             assert_eq!(s, de)
         }
     }
-
 }

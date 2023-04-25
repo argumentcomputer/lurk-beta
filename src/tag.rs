@@ -6,6 +6,8 @@ use std::{convert::TryFrom, fmt};
 
 use crate::field::LurkField;
 use crate::store::TypePredicates;
+use crate::z_data::Encodable;
+use crate::z_data::ZData;
 
 pub trait Tag: Into<u16> + TryFrom<u16> + Copy + Sized + Eq + fmt::Debug {
     fn from_field<F: LurkField>(f: &F) -> Option<Self>;
@@ -281,6 +283,21 @@ impl TryFrom<u16> for Op1 {
     }
 }
 
+impl Encodable for Op1 {
+    fn ser(&self) -> ZData {
+        ZData::Atom((*self as u16).to_le_bytes().to_vec())
+    }
+    fn de(ld: &ZData) -> anyhow::Result<Self> {
+        match ld {
+            ZData::Atom(x) => match x.as_slice().try_into() {
+                Ok(a) => u16::from_le_bytes(a).try_into(),
+                Err(_) => anyhow::bail!("expected u32"),
+            },
+            ZData::Cell(_) => anyhow::bail!("expected u32"),
+        }
+    }
+}
+
 pub trait Op
 where
     Self: 'static,
@@ -425,6 +442,21 @@ impl TryFrom<u16> for Op2 {
             f if f == Op2::Modulo as u16 => Ok(Op2::Modulo),
             f if f == Op2::Eval as u16 => Ok(Op2::Eval),
             f => Err(anyhow!("Invalid Op2 value: {}", f)),
+        }
+    }
+}
+
+impl Encodable for Op2 {
+    fn ser(&self) -> ZData {
+        ZData::Atom((*self as u16).to_le_bytes().to_vec())
+    }
+    fn de(ld: &ZData) -> anyhow::Result<Self> {
+        match ld {
+            ZData::Atom(x) => match x.as_slice().try_into() {
+                Ok(a) => u16::from_le_bytes(a).try_into(),
+                Err(_) => anyhow::bail!("expected u32"),
+            },
+            ZData::Cell(_) => anyhow::bail!("expected u32"),
         }
     }
 }

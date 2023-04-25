@@ -1,4 +1,8 @@
+use anyhow::anyhow;
+
 use crate::field::LurkField;
+use crate::z_data::Encodable;
+use crate::z_data::ZData;
 
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
@@ -70,4 +74,196 @@ pub enum ZCont<F: LurkField> {
     },
     Dummy,
     Terminal,
+}
+
+impl<F: LurkField> Encodable for ZCont<F> {
+    fn ser(&self) -> ZData {
+        match self {
+            ZCont::Outermost => ZData::Cell(vec![ZData::Atom(vec![0u8])]),
+            ZCont::Call {
+                unevaled_arg,
+                saved_env,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![1u8]),
+                unevaled_arg.ser(),
+                saved_env.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::Call2 {
+                function,
+                saved_env,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![2u8]),
+                function.ser(),
+                saved_env.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::Tail {
+                saved_env,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![3u8]),
+                saved_env.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::Error => ZData::Cell(vec![ZData::Atom(vec![4u8])]),
+            ZCont::Lookup {
+                saved_env,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![5u8]),
+                saved_env.ser(),
+                continuation.ser(),
+            ]),
+
+            ZCont::Unop {
+                operator,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![6u8]),
+                operator.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::Binop {
+                operator,
+                saved_env,
+                unevaled_args,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![7u8]),
+                operator.ser(),
+                saved_env.ser(),
+                unevaled_args.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::Binop2 {
+                operator,
+                evaled_arg,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![8u8]),
+                operator.ser(),
+                evaled_arg.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::If {
+                unevaled_args,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![9u8]),
+                unevaled_args.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::Let {
+                var,
+                body,
+                saved_env,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![10u8]),
+                var.ser(),
+                body.ser(),
+                saved_env.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::LetRec {
+                var,
+                body,
+                saved_env,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![11u8]),
+                var.ser(),
+                body.ser(),
+                saved_env.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::Emit { continuation } => {
+                ZData::Cell(vec![ZData::Atom(vec![12u8]), continuation.ser()])
+            }
+            ZCont::Dummy => ZData::Cell(vec![ZData::Atom(vec![13u8])]),
+            ZCont::Terminal => ZData::Cell(vec![ZData::Atom(vec![14u8])]),
+        }
+    }
+    fn de(ld: &ZData) -> anyhow::Result<Self> {
+        match ld {
+            ZData::Atom(v) => Err(anyhow!("ZExpr::Atom({:?})", v)),
+            ZData::Cell(v) => match (*v).as_slice() {
+                [ZData::Atom(u)] if *u == vec![0u8] => Ok(ZCont::Outermost),
+                [ZData::Atom(u), x, y, z] if *u == vec![1u8] => Ok(ZCont::Call {
+                    unevaled_arg: ZExprPtr::de(x)?,
+                    saved_env: ZExprPtr::de(y)?,
+                    continuation: ZContPtr::de(z)?,
+                }),
+                [ZData::Atom(u), x, y, z] if *u == vec![2u8] => Ok(ZCont::Call2 {
+                    function: ZExprPtr::de(x)?,
+                    saved_env: ZExprPtr::de(y)?,
+                    continuation: ZContPtr::de(z)?,
+                }),
+                [ZData::Atom(u), x, y] if *u == vec![3u8] => Ok(ZCont::Tail {
+                    saved_env: ZExprPtr::de(x)?,
+                    continuation: ZContPtr::de(y)?,
+                }),
+                [ZData::Atom(u)] if *u == vec![4u8] => Ok(ZCont::Error),
+                [ZData::Atom(u), x, y] if *u == vec![5u8] => Ok(ZCont::Lookup {
+                    saved_env: ZExprPtr::de(x)?,
+                    continuation: ZContPtr::de(y)?,
+                }),
+                [ZData::Atom(u), x, y] if *u == vec![6u8] => Ok(ZCont::Unop {
+                    operator: Op1::de(x)?,
+                    continuation: ZContPtr::de(y)?,
+                }),
+                [ZData::Atom(u), w, x, y, z] if *u == vec![7u8] => Ok(ZCont::Binop {
+                    operator: Op2::de(w)?,
+                    saved_env: ZExprPtr::de(x)?,
+                    unevaled_args: ZExprPtr::de(y)?,
+                    continuation: ZContPtr::de(z)?,
+                }),
+                [ZData::Atom(u), x, y, z] if *u == vec![8u8] => Ok(ZCont::Binop2 {
+                    operator: Op2::de(x)?,
+                    evaled_arg: ZExprPtr::de(y)?,
+                    continuation: ZContPtr::de(z)?,
+                }),
+                [ZData::Atom(u), x, y] if *u == vec![9u8] => Ok(ZCont::If {
+                    unevaled_args: ZExprPtr::de(x)?,
+                    continuation: ZContPtr::de(y)?,
+                }),
+                [ZData::Atom(u), w, x, y, z] if *u == vec![10u8] => Ok(ZCont::Let {
+                    var: ZExprPtr::de(w)?,
+                    body: ZExprPtr::de(x)?,
+                    saved_env: ZExprPtr::de(y)?,
+                    continuation: ZContPtr::de(z)?,
+                }),
+                [ZData::Atom(u), w, x, y, z] if *u == vec![11u8] => Ok(ZCont::LetRec {
+                    var: ZExprPtr::de(w)?,
+                    body: ZExprPtr::de(x)?,
+                    saved_env: ZExprPtr::de(y)?,
+                    continuation: ZContPtr::de(z)?,
+                }),
+                [ZData::Atom(u), x] if *u == vec![12u8] => Ok(ZCont::Emit {
+                    continuation: ZContPtr::de(x)?,
+                }),
+                [ZData::Atom(u)] if *u == vec![13u8] => Ok(ZCont::Dummy),
+                [ZData::Atom(u)] if *u == vec![14u8] => Ok(ZCont::Terminal),
+                _ => Err(anyhow!("ZExpr::Cell({:?})", v)),
+            },
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pasta_curves::pallas::Scalar;
+
+    proptest! {
+          #[test]
+          fn prop_z_cont(x in any::<ZCont<Scalar>>()) {
+              let ser = x.ser();
+              let de  = ZCont::de(&ser).expect("read ZCont");
+              assert_eq!(x, de)
+          }
+    }
 }

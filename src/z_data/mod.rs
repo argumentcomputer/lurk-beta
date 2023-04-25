@@ -31,7 +31,7 @@ mod z_store;
 pub use z_cont::ZCont;
 pub use z_expr::ZExpr;
 pub use z_ptr::{ZContPtr, ZExprPtr, ZPtr};
-pub use z_store::{ZEntry, ZStore};
+pub use z_store::ZStore;
 
 /// `ZData` is a binary tree with two types of nodes: Atom and Cell.
 ///
@@ -241,8 +241,7 @@ impl Encodable for u64 {
 
     fn de(ld: &ZData) -> Result<Self> {
         match ld {
-            // TODO: remove clone
-            ZData::Atom(x) => match (*x).clone().try_into() {
+            ZData::Atom(x) => match x.as_slice().try_into() {
                 Ok(a) => Ok(u64::from_le_bytes(a)),
                 Err(_) => anyhow::bail!("expected u64"),
             },
@@ -257,8 +256,7 @@ impl Encodable for u32 {
     }
     fn de(ld: &ZData) -> Result<Self> {
         match ld {
-            // TODO: remove clone
-            ZData::Atom(x) => match (*x).clone().try_into() {
+            ZData::Atom(x) => match x.as_slice().try_into() {
                 Ok(a) => Ok(u32::from_le_bytes(a)),
                 Err(_) => anyhow::bail!("expected u32"),
             },

@@ -5,15 +5,11 @@ use proptest::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 
-use anyhow::anyhow;
-use std::collections::BTreeMap;
-
-use crate::sym::Sym;
-use crate::tag::ExprTag;
 use crate::z_data::Encodable;
 use crate::z_data::ZData;
 use crate::z_data::{ZContPtr, ZExprPtr};
 use crate::UInt;
+use anyhow::anyhow;
 
 use crate::field::LurkField;
 
@@ -136,7 +132,6 @@ impl<F: LurkField> Encodable for ZExpr<F> {
 mod tests {
     use super::*;
     use pasta_curves::pallas::Scalar;
-    use std::collections::BTreeMap;
 
     proptest! {
           #[test]
