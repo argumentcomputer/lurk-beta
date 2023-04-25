@@ -1,7 +1,14 @@
 use std::env;
 use std::marker::PhantomData;
 
+// use bellperson::gadgets::multipack;
+use bellperson::gadgets::sha256::sha256;
 use bellperson::{ConstraintSystem, SynthesisError};
+use bellperson::gadgets::num::AllocatedNum;
+use bellperson::gadgets::boolean::{Boolean, AllocatedBit};
+use bellperson::gadgets::num::Num as BNum;
+// use bellperson::gadgets::Assignment;
+use lurk::tag::{ExprTag, Tag};
 use pasta_curves::pallas::Scalar as Fr;
 use sha2::{Digest, Sha256};
 
@@ -9,11 +16,11 @@ use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use lurk::coprocessor::{CoCircuit, Coprocessor};
 use lurk::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
 use lurk::field::LurkField;
-use lurk::num::Num;
+// use lurk::num::Num;
 use lurk::store::{Ptr, Store};
 use lurk::sym::Sym;
-use lurk::uint::UInt;
-use lurk::writer::Write;
+// use lurk::uint::UInt;
+// use lurk::writer::Write;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Sha256Coprocessor<F: LurkField> {
@@ -21,7 +28,35 @@ pub(crate) struct Sha256Coprocessor<F: LurkField> {
     pub(crate) _p: PhantomData<F>,
 }
 
-impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {}
+impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
+    fn arity(&self) -> usize {
+        0
+    }
+
+    fn synthesize<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        _store: &Store<F>,
+        input_exprs: &[AllocatedPtr<F>],
+        input_env: &AllocatedPtr<F>,
+        input_cont: &AllocatedContPtr<F>,
+    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
+        
+        // TODO: Maybe fix this
+        let false_bool = Boolean::from(AllocatedBit::alloc(cs.namespace(|| "false"), Some(false))?);
+        
+        let preimage = vec![false_bool; self.n * 8];
+
+        let bits = sha256(cs.namespace(|| "SHA hash"), &preimage)?;
+
+        let num1 = make_u64_from_bits(&mut cs.namespace(|| "num1"), &bits[0..64])?;
+        let num2 = make_u64_from_bits(&mut cs.namespace(|| "num2"), &bits[64..128])?;
+        let num3 = make_u64_from_bits(&mut cs.namespace(|| "num3"), &bits[128..192])?;
+        let num4 = make_u64_from_bits(&mut cs.namespace(|| "num4"), &bits[192..256])?;
+
+        Ok((num1, input_env.clone(), input_cont.clone()))
+    }
+}
 
 impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
     fn eval_arity(&self) -> usize {
@@ -83,20 +118,6 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coproc<F> {
 }
 
 impl<F: LurkField> CoCircuit<F> for Sha256Coproc<F> {
-    fn arity(&self) -> usize {
-        0
-    }
-
-    fn synthesize<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        _store: &Store<F>,
-        input_exprs: &[AllocatedPtr<F>],
-        input_env: &AllocatedPtr<F>,
-        input_cont: &AllocatedContPtr<F>,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        todo!()
-    }
 }
 
 // cargo run --example sha256 1 f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b false
@@ -140,4 +161,29 @@ fn main() {
     // };
 
     println!("Yo");
+}
+
+fn make_u64_from_bits<F, CS>(mut cs: CS, bits: &[Boolean]) -> Result<AllocatedPtr<F>, SynthesisError>
+where
+    F: LurkField,
+    CS: ConstraintSystem<F>
+{
+    let mut num = BNum::<F>::zero();
+    let mut coeff = F::one();
+    for bit in bits {
+        num = num.add_bool_with_coeff(CS::one(), bit, coeff);
+
+        coeff = coeff.double();
+    }
+
+    let allocated_num = AllocatedNum::alloc(&mut cs.namespace(|| "chunk"), || num.get_value().ok_or(SynthesisError::AssignmentMissing))?;
+    // num * 1 = input
+    cs.enforce(
+        || "packing constraint",
+        |_| num.lc(F::one()),
+        |lc| lc + CS::one(),
+        |lc| lc + allocated_num.get_variable(),
+    );
+
+    AllocatedPtr::alloc_tag(&mut cs, ExprTag::U64.to_field(), allocated_num)
 }
