@@ -2589,7 +2589,7 @@ pub(crate) mod coproc {
             }
         }
     }
-
+        
     impl<F: LurkField> CoCircuit<F> for DumbCoproc<F> {
         fn arity(&self) -> usize {
             2
