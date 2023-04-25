@@ -38,18 +38,19 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
 
         let mut array = [0u8; 8];
         array.copy_from_slice(&result[0..8]);
-        let a = s.get_u64(u64::from_le_bytes(array));
+        let a = u64::from_be_bytes(array);
 
         array.copy_from_slice(&result[8..16]);
-        let b = s.get_u64(u64::from_le_bytes(array));
+        let b = u64::from_be_bytes(array);
 
         array.copy_from_slice(&result[16..24]);
-        let c = s.get_u64(u64::from_le_bytes(array));
+        let c = u64::from_be_bytes(array);
 
         array.copy_from_slice(&result[24..]);
-        let d = s.get_u64(u64::from_le_bytes(array));
+        let d = u64::from_be_bytes(array);
 
-        return s.list(&[a, b, c, d]);
+        println!("{:x}{:x}{:x}{:x}", a, b, c, d);
+        return s.list(&[a, b, c, d].map(|x| s.get_u64(x)));
     }
 }
 

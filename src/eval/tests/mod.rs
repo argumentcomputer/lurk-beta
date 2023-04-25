@@ -2642,8 +2642,8 @@ pub(crate) mod coproc {
         let res = s.num(89);
         let error = s.get_cont_error();
 
-        test_aux(s, &expr, Some(res), None, None, None, 2, Some(&lang));
-        test_aux(s, &expr2, Some(res), None, None, None, 4, Some(&lang));
+        test_aux(s, &expr, Some(res), None, None, None, 1, Some(&lang));
+        test_aux(s, &expr2, Some(res), None, None, None, 3, Some(&lang));
         test_aux(s, &expr3, None, None, Some(error), None, 1, Some(&lang));
     }
 }
