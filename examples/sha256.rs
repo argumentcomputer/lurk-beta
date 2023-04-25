@@ -12,6 +12,7 @@ use lurk::tag::{ExprTag, Tag};
 use pasta_curves::pallas::Scalar as Fr;
 use sha2::{Digest, Sha256};
 
+use lurk::proof::nova::tests::{self, test_aux};
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use lurk::coprocessor::{CoCircuit, Coprocessor};
 use lurk::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
@@ -118,6 +119,23 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coproc<F> {
 }
 
 impl<F: LurkField> CoCircuit<F> for Sha256Coproc<F> {
+    fn arity(&self) -> usize {
+        match self {
+            Self::SC(c) => c.arity(),
+        }
+    }
+    fn synthesize<CS: ConstraintSystem<F>>(
+            &self,
+            _cs: &mut CS,
+            _store: &Store<F>,
+            _input_exprs: &[AllocatedPtr<F>],
+            _input_env: &AllocatedPtr<F>,
+            _input_cont: &AllocatedContPtr<F>,
+        ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
+        match self {
+            Self::SC(c) => c.synthesize(_cs, _store, _input_exprs, _input_env, _input_cont)
+        }
+    }
 }
 
 // cargo run --example sha256 1 f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b false
@@ -155,6 +173,9 @@ fn main() {
         emitted,
     ) = Evaluator::new(ptr, env, s, limit, &lang).eval().unwrap();
 
+    let t = s.num(3); // dumb fake example
+
+    test_aux(s, expr.as_str(), Some(t), None, None, None, 1, Some(&lang));
     // let circuit = Sha256Circuit {
     //     data: input_str,
     //     expect: expect.clone(),

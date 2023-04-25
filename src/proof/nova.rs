@@ -343,8 +343,9 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
     }
 }
 
-#[cfg(test)]
-mod tests {
+/// fake docs
+// #[cfg(test)]
+pub mod tests {
     use crate::num::Num;
 
     use super::*;
@@ -362,7 +363,8 @@ mod tests {
 
     const DEFAULT_REDUCTION_COUNT: usize = 5;
     const REDUCTION_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
-    fn test_aux<C: Coprocessor<Fr>>(
+    /// fake docs
+    pub fn test_aux<C: Coprocessor<Fr>>(
         s: &mut Store<Fr>,
         expr: &str,
         expected_result: Option<Ptr<Fr>>,
