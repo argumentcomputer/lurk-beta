@@ -2571,6 +2571,50 @@ pub(crate) mod coproc {
         DC(DumbCoprocessor<F>),
     }
 
+    use bellperson::SynthesisError;
+
+    impl<F: LurkField> Coprocessor<F> for DumbCoproc<F> {
+        fn eval_arity(&self) -> usize {
+            match self {
+                Self::DC(c) => c.eval_arity(),
+            }
+        }
+
+        fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+            match self {
+                Self::DC(c) => c.simple_evaluate(s, args),
+            }
+        }
+    }
+        
+    impl<F: LurkField> CoCircuit<F> for DumbCoproc<F> {
+        fn arity(&self) -> usize {
+            2
+        }
+
+        fn synthesize<CS: ConstraintSystem<F>>(
+            &self,
+            cs: &mut CS,
+            _store: &Store<F>,
+            input_exprs: &[AllocatedPtr<F>],
+            input_env: &AllocatedPtr<F>,
+            input_cont: &AllocatedContPtr<F>,
+        ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError>
+        {
+            let a = input_exprs[0].clone();
+            let b = &input_exprs[1];
+
+            // FIXME: Check tags.
+
+            // a^2 + b = c
+            let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;
+            let c = add(&mut cs.namespace(|| "add"), &a2, b.hash())?;
+            let c_ptr = AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)?;
+
+            Ok((c_ptr, input_env.clone(), input_cont.clone()))
+        }
+    }
+
     #[test]
     fn test_dumb_lang() {
         let s = &mut Store::<Fr>::new();

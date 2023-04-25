@@ -12,6 +12,7 @@ use lurk::field::LurkField;
 use lurk::num::Num;
 use lurk::store::{Ptr, Store};
 use lurk::sym::Sym;
+use lurk::uint::UInt;
 use lurk::writer::Write;
 
 #[derive(Clone, Debug)]
@@ -33,17 +34,22 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         let input = vec![0u8; self.n];
 
         hasher.update(input);
-        let mut result = hasher.finalize();
+        let result = hasher.finalize();
 
-        result.reverse();
-        dbg!(&result);
-        // This could actually overflow. To be completely correct, we need to
-        // return more than one field element, or a Lurk commitment to the value.
-        let f = LurkField::from_bytes(result.as_slice()).unwrap();
-        let x = s.intern_num(Num::Scalar(f));
-        println!("{}", x.fmt_to_string(s));
+        let mut array = [0u8; 8];
+        array.copy_from_slice(&result[0..8]);
+        let a = s.get_u64(u64::from_le_bytes(array));
 
-        return x;
+        array.copy_from_slice(&result[8..16]);
+        let b = s.get_u64(u64::from_le_bytes(array));
+
+        array.copy_from_slice(&result[16..24]);
+        let c = s.get_u64(u64::from_le_bytes(array));
+
+        array.copy_from_slice(&result[24..]);
+        let d = s.get_u64(u64::from_le_bytes(array));
+
+        return s.list(&[a, b, c, d]);
     }
 }
 
