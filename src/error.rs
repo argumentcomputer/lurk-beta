@@ -10,17 +10,11 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum ProofError {
     #[error("Nova error")]
-    Nova(NovaError),
+    Nova(#[from] NovaError),
     #[error("Synthesis error: {0}")]
     Synthesis(#[from] SynthesisError),
     #[error("Reduction error: {0}")]
     Reduction(#[from] ReductionError),
-}
-
-impl From<NovaError> for ProofError {
-    fn from(e: NovaError) -> Self {
-        Self::Nova(e)
-    }
 }
 
 impl From<store::Error> for ProofError {
