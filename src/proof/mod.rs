@@ -118,6 +118,6 @@ pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>> {
 
                 multiframe.clone().synthesize(&mut cs).map(|_| (multiframe.clone(), cs))
             })
-            .collect::<Result<_,_>>()
+            .collect::<Result<_, _>>()
     }
 }
