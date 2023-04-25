@@ -116,7 +116,10 @@ pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>> {
             .map(|multiframe| {
                 let mut cs = TestConstraintSystem::new();
 
-                multiframe.clone().synthesize(&mut cs).map(|_| (multiframe.clone(), cs))
+                multiframe
+                    .clone()
+                    .synthesize(&mut cs)
+                    .map(|_| (multiframe.clone(), cs))
             })
             .collect::<Result<_, _>>()
     }
