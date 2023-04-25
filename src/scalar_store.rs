@@ -10,7 +10,7 @@ use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
 use crate::tag::ContTag;
 use crate::tag::{ExprTag, Op1, Op2};
-use crate::z_data::{ZContPtr, ZExpr, ZExprPtr, ZStore};
+use crate::z_data::{ZContPtr, ZExprPtr, ZStore};
 use crate::{Num, Sym, UInt};
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
@@ -157,7 +157,7 @@ impl<F: LurkField> ScalarStore<F> {
             None
         }
     }
-    pub(crate) fn insert_scalar_expression(
+    pub fn insert_scalar_expression(
         &mut self,
         ptr: ZExprPtr<F>,
         expr: Option<ScalarExpression<F>>,
@@ -777,6 +777,7 @@ mod test {
 
     use tap::TapFallible;
 
+    use crate::z_data::ZExpr;
     use libipld::serde::from_ipld;
     use libipld::serde::to_ipld;
 

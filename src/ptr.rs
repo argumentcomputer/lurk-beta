@@ -1,12 +1,6 @@
 #[cfg(not(target_arch = "wasm32"))]
-use proptest_derive::Arbitrary;
 use std::hash::Hash;
 use std::marker::PhantomData;
-
-#[cfg(not(target_arch = "wasm32"))]
-use proptest::prelude::*;
-
-use crate::z_data::ZContPtr;
 
 use crate::field::LurkField;
 use crate::tag::{ContTag, ExprTag};

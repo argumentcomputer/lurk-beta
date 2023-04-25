@@ -14,10 +14,9 @@ use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
 use crate::ptr::{ContPtr, Ptr};
-use crate::z_data::{ZExprPtr, ZContPtr};
-use crate::scalar_store::{ScalarContinuation, ScalarExpression, ScalarStore};
 use crate::sym::Sym;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
+use crate::z_data::{ZContPtr, ZExprPtr};
 use crate::{Num, UInt};
 
 use crate::hash::{HashConstants, IntoHashComponents, PoseidonCache};

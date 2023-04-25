@@ -1,14 +1,11 @@
-use crate::field::FWrap;
-
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 
-use anyhow::anyhow;
+// use anyhow::anyhow;
 use std::collections::BTreeMap;
 
-use crate::sym::Sym;
 use crate::tag::ExprTag;
 use crate::z_data::z_cont::ZCont;
 use crate::z_data::z_expr::ZExpr;
@@ -38,7 +35,7 @@ impl<F: LurkField> Encodable for ZStore<F> {
         //     .ser()
         todo!()
     }
-    fn de(ld: &ZData) -> anyhow::Result<Self> {
+    fn de(_ld: &ZData) -> anyhow::Result<Self> {
         // let pairs = Vec::<(ZExprPtr<F>, ZEntry<F>)>::de(ld)?;
         // Ok(ZStore {
         //     map: pairs.into_iter().collect(),
@@ -50,7 +47,7 @@ impl<F: LurkField> Encodable for ZStore<F> {
 impl<F: LurkField> ZStore<F> {
     /// Leaf pointers are those whose values aren't hashes of any piece of data
     /// that's expected to be in the ZStore
-    fn is_ptr_leaf(&self, ptr: ZExprPtr<F>) -> bool {
+    pub fn is_ptr_leaf(&self, ptr: ZExprPtr<F>) -> bool {
         match ptr.tag() {
             ExprTag::Num => true,
             ExprTag::Char => true,
@@ -75,7 +72,6 @@ impl<F: LurkField> ZStore<F> {
 mod tests {
     use super::*;
     use pasta_curves::pallas::Scalar;
-    use std::collections::BTreeMap;
 
     proptest! {
         #[test]
