@@ -110,16 +110,14 @@ pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>> {
         &self,
         multiframes: &'a [MultiFrame<'_, F, IO<F>, Witness<F>, C>],
     ) -> Result<SequentialCS<'a, F, IO<F>, Witness<F>, C>, SynthesisError> {
-        let res = multiframes
+        // Note: This loop terminates and throws an error on the first occurrence of `SynthesisError`.
+        multiframes
             .iter()
-            .enumerate()
-            .map(|(_, multiframe)| {
+            .map(|multiframe| {
                 let mut cs = TestConstraintSystem::new();
 
-                multiframe.clone().synthesize(&mut cs).unwrap(); // FIXME: unwrap
-                (multiframe.clone(), cs)
+                multiframe.clone().synthesize(&mut cs).map(|_| (multiframe.clone(), cs))
             })
-            .collect::<Vec<_>>();
-        Ok(res)
+            .collect::<Result<_,_>>()
     }
 }
