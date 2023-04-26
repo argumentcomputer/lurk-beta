@@ -2599,7 +2599,7 @@ pub(crate) mod coproc {
         fn synthesize<CS: ConstraintSystem<F>>(
             &self,
             cs: &mut CS,
-            g: &GlobalAllocations<F>,
+            _g: &GlobalAllocations<F>,
             _store: &Store<F>,
             input_exprs: &[AllocatedPtr<F>],
             input_env: &AllocatedPtr<F>,

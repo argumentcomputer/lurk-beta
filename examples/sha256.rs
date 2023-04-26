@@ -38,8 +38,8 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
     fn synthesize<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        g: &mut GlobalAllocations<F>,
-        _store: &Store<F>,
+        g: &GlobalAllocations<F>,
+        store: &Store<F>,
         input_exprs: &[AllocatedPtr<F>],
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
@@ -58,8 +58,16 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         let num4 = make_u64_from_bits(&mut cs.namespace(|| "num4"), &bits[192..256])?;
 
         // AllocatedPtr
+
+        let result_ptr: &AllocatedPtr<F> = &g.nil_ptr;
+
+        let result_ptr1 = AllocatedPtr::construct_cons(cs.namespace(|| "limb_1"), g, store, &num1, &result_ptr)?;
+        let result_ptr2 = AllocatedPtr::construct_cons(cs.namespace(|| "limb_2"), g, store, &num2, &result_ptr1)?;
+        let result_ptr3 = AllocatedPtr::construct_cons(cs.namespace(|| "limb_3"), g, store, &num3, &result_ptr2)?;
+        let result_ptr4 = AllocatedPtr::construct_cons(cs.namespace(|| "limb_4"), g, store, &num4, &result_ptr3)?;
+
         // construct_cons <-- bellperson gadgets pointer
-        Ok((num1, input_env.clone(), input_cont.clone()))
+        Ok((result_ptr4, input_env.clone(), input_cont.clone()))
     }
 }
 
@@ -80,8 +88,6 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         array.copy_from_slice(&result[0..8]);
         let a = u64::from_be_bytes(array);
 
-        dbg!(a);
-
         array.copy_from_slice(&result[8..16]);
         let b = u64::from_be_bytes(array);
 
@@ -91,7 +97,7 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         array.copy_from_slice(&result[24..]);
         let d = u64::from_be_bytes(array);
 
-        println!("{:x}{:x}{:x}{:x}", a, b, c, d);
+        // println!("{:x}{:x}{:x}{:x}", a, b, c, d);
         return s.list(&[a, b, c, d].map(|x| s.get_u64(x)));
     }
 }
@@ -132,15 +138,15 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coproc<F> {
     }
     fn synthesize<CS: ConstraintSystem<F>>(
             &self,
-            _cs: &mut CS,
-            _g: &mut GlobalAllocations<F>,
-            _store: &Store<F>,
-            _input_exprs: &[AllocatedPtr<F>],
-            _input_env: &AllocatedPtr<F>,
-            _input_cont: &AllocatedContPtr<F>,
+            cs: &mut CS,
+            g: &GlobalAllocations<F>,
+            store: &Store<F>,
+            input_exprs: &[AllocatedPtr<F>],
+            input_env: &AllocatedPtr<F>,
+            input_cont: &AllocatedContPtr<F>,
         ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         match self {
-            Self::SC(c) => c.synthesize(_cs, _g, _store, _input_exprs, _input_env, _input_cont)
+            Self::SC(c) => c.synthesize(cs, g, store, input_exprs, input_env, input_cont)
         }
     }
 }
@@ -148,7 +154,7 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coproc<F> {
 // cargo run --example sha256 1 f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b false
 fn main() {
     let args: Vec<String> = env::args().collect();
-    println!("{}", args[1]);
+    // println!("{}", args[1]);
     let num_of_64_bytes = args[1].parse::<usize>().unwrap();
     let expect = hex::decode(args[2].parse::<String>().unwrap()).unwrap();
     let setup_only = args[3].parse::<bool>().unwrap();
