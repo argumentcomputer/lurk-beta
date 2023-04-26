@@ -7,7 +7,7 @@ use proptest_derive::Arbitrary;
 use std::collections::BTreeMap;
 
 use crate::hash::PoseidonCache;
-use crate::tag::ExprTag;
+
 use crate::z_data::z_cont::ZCont;
 use crate::z_data::z_expr::ZExpr;
 use crate::z_data::Encodable;
@@ -29,11 +29,11 @@ impl<F: LurkField> Encodable for ZStore<F> {
     fn ser(&self) -> ZData {
         (self.expr_map.clone(), self.cont_map.clone()).ser()
     }
-    fn de(ld: &ZData) -> anyhow::Result<Self> {
+    fn de(zd: &ZData) -> anyhow::Result<Self> {
         let xs: (
             BTreeMap<ZExprPtr<F>, Option<ZExpr<F>>>,
             BTreeMap<ZContPtr<F>, Option<ZCont<F>>>,
-        ) = Encodable::de(ld)?;
+        ) = Encodable::de(zd)?;
         Ok(ZStore {
             expr_map: xs.0,
             cont_map: xs.1,

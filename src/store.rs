@@ -974,6 +974,14 @@ impl<F: LurkField> Store<F> {
         todo!()
     }
 
+    pub fn put_z_str(&self, s: &str, z_store: Option<Rc<RefCell<ZStore<F>>>>) -> Result<(ZExprPtr<F>, Option<ZExpr<F>>), Error> {
+        todo!()
+    }
+
+    pub fn put_z_sym(&self, s: Sym, z_store: Option<Rc<RefCell<ZStore<F>>>>) -> Result<(ZExprPtr<F>, Option<ZExpr<F>>), Error> {
+        todo!()
+    }
+
     pub fn get_z_expr(
         &self,
         ptr: &Ptr<F>,
@@ -1042,6 +1050,9 @@ impl<F: LurkField> Store<F> {
                    let z_expr = ZExpr::Uint(u);
                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
+                // Some(Expression::Str(s)) => {
+                //     let (z_ptr, _) = self.put_z_str(s)?;
+                // }
                 _ => todo!(),
             };
             // TODO
