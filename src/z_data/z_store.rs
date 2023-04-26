@@ -24,23 +24,19 @@ pub struct ZStore<F: LurkField> {
     pub cont_map: BTreeMap<ZContPtr<F>, Option<ZCont<F>>>,
 }
 
-// TODO Implement Encodable for ZEntry
 impl<F: LurkField> Encodable for ZStore<F> {
     fn ser(&self) -> ZData {
-        // TODO: this clone is loathsome
-        // self.map
-        //     .clone()
-        //     .into_iter()
-        //     .collect::<Vec<(ZExprPtr<F>, ZEntry<F>)>>()
-        //     .ser()
-        todo!()
+        ZData::Cell(vec![self.expr_map.ser(), self.cont_map.ser()])
     }
-    fn de(_ld: &ZData) -> anyhow::Result<Self> {
-        // let pairs = Vec::<(ZExprPtr<F>, ZEntry<F>)>::de(ld)?;
-        // Ok(ZStore {
-        //     map: pairs.into_iter().collect(),
-        // })
-        todo!()
+    fn de(ld: &ZData) -> anyhow::Result<Self> {
+        let xs: (
+            BTreeMap<ZExprPtr<F>, Option<ZExpr<F>>>,
+            BTreeMap<ZContPtr<F>, Option<ZCont<F>>>,
+        ) = Encodable::de(ld)?;
+        Ok(ZStore {
+            expr_map: xs.0,
+            cont_map: xs.1,
+        })
     }
 }
 

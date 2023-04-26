@@ -12,6 +12,7 @@
 //! `ZData` values.
 
 use anyhow::Result;
+use std::collections::BTreeMap;
 use std::fmt::Display;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -310,6 +311,21 @@ impl<A: Encodable + Sized> Encodable for Vec<A> {
             ZData::Cell(xs) => xs.iter().map(|x| A::de(x)).collect(),
             _ => anyhow::bail!("expected Vec"),
         }
+    }
+}
+
+impl<A: Encodable + Sized + Ord, B: Encodable + Sized> Encodable for BTreeMap<A, B> {
+    fn ser(&self) -> ZData {
+        let mut res = Vec::new();
+        for (k, v) in self {
+            res.push(ZData::Cell(vec![k.ser(), v.ser()]))
+        }
+        ZData::Cell(res)
+    }
+
+    fn de(ld: &ZData) -> Result<Self> {
+        let xs: Vec<(A, B)> = Encodable::de(ld)?;
+        Ok(xs.into_iter().collect())
     }
 }
 
