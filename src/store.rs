@@ -76,7 +76,6 @@ pub struct Store<F: LurkField> {
     pub let_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
     pub letrec_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
     pub emit_store: IndexSet<ContPtr<F>>,
-<<<<<<< HEAD
 
     pub opaque_ptrs: IndexSet<ZExprPtr<F>>,
     pub opaque_cont_ptrs: IndexSet<ZContPtr<F>>,
@@ -85,16 +84,6 @@ pub struct Store<F: LurkField> {
     pub scalar_ptr_map: dashmap::DashMap<ZExprPtr<F>, Ptr<F>, ahash::RandomState>,
     /// Holds a mapping of ZExprPtr -> ContPtr<F> for reverse lookups
     pub scalar_ptr_cont_map: dashmap::DashMap<ZContPtr<F>, ContPtr<F>, ahash::RandomState>,
-=======
-
-    pub opaque_ptrs: IndexSet<ScalarPtr<F>>,
-    pub opaque_cont_ptrs: IndexSet<ScalarContPtr<F>>,
-
-    /// Holds a mapping of ScalarPtr -> Ptr for reverse lookups
-    pub scalar_ptr_map: dashmap::DashMap<ScalarPtr<F>, Ptr<F>, ahash::RandomState>,
-    /// Holds a mapping of ScalarPtr -> ContPtr<F> for reverse lookups
-    pub scalar_ptr_cont_map: dashmap::DashMap<ScalarContPtr<F>, ContPtr<F>, ahash::RandomState>,
->>>>>>> 3bcdcf02712fd7fc7e358e508cd592eeb61f8d70
 
     /// Caches poseidon hashes
     pub poseidon_cache: PoseidonCache<F>,
@@ -102,11 +91,7 @@ pub struct Store<F: LurkField> {
     pub dehydrated: Vec<Ptr<F>>,
     pub dehydrated_cont: Vec<ContPtr<F>>,
 
-<<<<<<< HEAD
     pub pointer_scalar_ptr_cache: dashmap::DashMap<Ptr<F>, ZExprPtr<F>>,
-=======
-    pub pointer_scalar_ptr_cache: dashmap::DashMap<Ptr<F>, ScalarPtr<F>>,
->>>>>>> 3bcdcf02712fd7fc7e358e508cd592eeb61f8d70
 
     pub lurk_package: Arc<Package>,
     pub constants: OnceCell<NamedConstants<F>>,
@@ -449,211 +434,6 @@ impl<F: LurkField> Store<F> {
 
         let (i, _) = self.opaque_ptrs.insert_full(scalar_ptr);
         Ptr::opaque(tag, i)
-<<<<<<< HEAD
-=======
-    }
-
-    pub fn intern_scalar_cont_ptr(
-        &mut self,
-        ptr: ScalarContPtr<F>,
-        scalar_store: &ScalarStore<F>,
-    ) -> Option<ContPtr<F>> {
-        use ScalarContinuation::*;
-        let tag: ContTag = ptr.tag();
-
-        if let Some(cont) = scalar_store.get_cont(&ptr) {
-            let continuation = match cont {
-                Outermost => Continuation::Outermost,
-                Dummy => Continuation::Dummy,
-                Terminal => Continuation::Terminal,
-                Call {
-                    unevaled_arg,
-                    saved_env,
-                    continuation,
-                } => Continuation::Call {
-                    unevaled_arg: self.intern_scalar_ptr(*unevaled_arg, scalar_store)?,
-                    saved_env: self.intern_scalar_ptr(*saved_env, scalar_store)?,
-                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
-                },
-
-                Call2 {
-                    function,
-                    saved_env,
-                    continuation,
-                } => Continuation::Call2 {
-                    function: self.intern_scalar_ptr(*function, scalar_store)?,
-                    saved_env: self.intern_scalar_ptr(*saved_env, scalar_store)?,
-                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
-                },
-                Tail {
-                    saved_env,
-                    continuation,
-                } => Continuation::Tail {
-                    saved_env: self.intern_scalar_ptr(*saved_env, scalar_store)?,
-                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
-                },
-                Error => Continuation::Error,
-                Lookup {
-                    saved_env,
-                    continuation,
-                } => Continuation::Lookup {
-                    saved_env: self.intern_scalar_ptr(*saved_env, scalar_store)?,
-                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
-                },
-                Unop {
-                    operator,
-                    continuation,
-                } => Continuation::Unop {
-                    operator: *operator,
-                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
-                },
-                Binop {
-                    operator,
-                    saved_env,
-                    unevaled_args,
-                    continuation,
-                } => Continuation::Binop {
-                    operator: *operator,
-                    saved_env: self.intern_scalar_ptr(*saved_env, scalar_store)?,
-                    unevaled_args: self.intern_scalar_ptr(*unevaled_args, scalar_store)?,
-                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
-                },
-                Binop2 {
-                    operator,
-                    evaled_arg,
-                    continuation,
-                } => Continuation::Binop2 {
-                    operator: *operator,
-                    evaled_arg: self.intern_scalar_ptr(*evaled_arg, scalar_store)?,
-                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
-                },
-                If {
-                    unevaled_args,
-                    continuation,
-                } => Continuation::If {
-                    unevaled_args: self.intern_scalar_ptr(*unevaled_args, scalar_store)?,
-                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
-                },
-                Let {
-                    var,
-                    body,
-                    saved_env,
-                    continuation,
-                } => Continuation::Let {
-                    var: self.intern_scalar_ptr(*var, scalar_store)?,
-                    body: self.intern_scalar_ptr(*body, scalar_store)?,
-                    saved_env: self.intern_scalar_ptr(*saved_env, scalar_store)?,
-                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
-                },
-                LetRec {
-                    var,
-                    body,
-                    saved_env,
-                    continuation,
-                } => Continuation::LetRec {
-                    var: self.intern_scalar_ptr(*var, scalar_store)?,
-                    body: self.intern_scalar_ptr(*body, scalar_store)?,
-                    saved_env: self.intern_scalar_ptr(*saved_env, scalar_store)?,
-                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
-                },
-                Emit { continuation } => Continuation::Emit {
-                    continuation: self.intern_scalar_cont_ptr(*continuation, scalar_store)?,
-                },
-            };
-
-            if continuation.cont_tag() == tag {
-                Some(continuation.intern_aux(self))
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
-    pub fn intern_scalar_ptr(
-        &mut self,
-        scalar_ptr: ScalarPtr<F>,
-        scalar_store: &ScalarStore<F>,
-    ) -> Option<Ptr<F>> {
-        if let Some(ptr) = self.fetch_scalar(&scalar_ptr) {
-            Some(ptr)
-        } else {
-            use ScalarExpression::*;
-            match (scalar_ptr.tag(), scalar_store.get_expr(&scalar_ptr)) {
-                (ExprTag::Nil, Some(Nil)) => {
-                    let ptr = self.intern_nil();
-                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
-                    Some(ptr)
-                }
-                (ExprTag::Cons, Some(Cons(car, cdr))) => {
-                    let car = self.intern_scalar_ptr(*car, scalar_store)?;
-                    let cdr = self.intern_scalar_ptr(*cdr, scalar_store)?;
-                    let ptr = self.intern_cons(car, cdr);
-                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
-                    Some(ptr)
-                }
-                (ExprTag::Comm, Some(Comm(secret, payload))) => {
-                    let payload = self.intern_scalar_ptr(*payload, scalar_store)?;
-                    let ptr = self.intern_comm(*secret, payload);
-                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
-                    Some(ptr)
-                }
-                (ExprTag::Str, Some(Str(s))) => {
-                    let ptr = self.intern_str(s);
-                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
-                    Some(ptr)
-                }
-                (ExprTag::Sym, Some(Sym(s))) => {
-                    let ptr = self.intern_sym(s);
-                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
-                    Some(ptr)
-                }
-                (ExprTag::Key, Some(Sym(k))) => {
-                    let ptr = self.intern_key(k);
-                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
-                    Some(ptr)
-                }
-                (ExprTag::Num, Some(Num(x))) => {
-                    let ptr = self.intern_num(crate::Num::Scalar(*x));
-                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
-                    Some(ptr)
-                }
-                (ExprTag::Char, Some(Char(x))) => Some((*x).into()),
-                (ExprTag::Thunk, Some(Thunk(t))) => {
-                    let value = self.intern_scalar_ptr(t.value, scalar_store)?;
-                    let continuation = self.intern_scalar_cont_ptr(t.continuation, scalar_store)?;
-                    let ptr = self.intern_thunk(crate::store::Thunk {
-                        value,
-                        continuation,
-                    });
-                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
-                    Some(ptr)
-                }
-                (
-                    ExprTag::Fun,
-                    Some(Fun {
-                        arg,
-                        body,
-                        closed_env,
-                    }),
-                ) => {
-                    let arg = self.intern_scalar_ptr(*arg, scalar_store)?;
-                    let body = self.intern_scalar_ptr(*body, scalar_store)?;
-                    let env = self.intern_scalar_ptr(*closed_env, scalar_store)?;
-                    let ptr = self.intern_fun(arg, body, env);
-                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
-                    Some(ptr)
-                }
-                (tag, None) => {
-                    let ptr = self.intern_maybe_opaque(tag, scalar_ptr.1);
-                    self.create_scalar_ptr(ptr, *scalar_ptr.value());
-                    Some(ptr)
-                }
-                _ => None,
-            }
-        }
->>>>>>> 3bcdcf02712fd7fc7e358e508cd592eeb61f8d70
     }
 
     pub fn intern_maybe_opaque_fun(&mut self, hash: F) -> Ptr<F> {
@@ -1301,13 +1081,8 @@ impl<F: LurkField> Store<F> {
 
     /// The only places that `ZExprPtr`s for `Ptr`s should be created, to
     /// ensure that they are cached properly
-<<<<<<< HEAD
     pub fn create_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ZExprPtr<F> {
         let scalar_ptr = ZExprPtr::from_parts(ptr.tag, hash);
-=======
-    fn create_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ScalarPtr<F> {
-        let scalar_ptr = ScalarPtr::from_parts(ptr.tag, hash);
->>>>>>> 3bcdcf02712fd7fc7e358e508cd592eeb61f8d70
         let entry = self.scalar_ptr_map.entry(scalar_ptr);
         entry.or_insert(ptr);
 
@@ -1316,24 +1091,14 @@ impl<F: LurkField> Store<F> {
         scalar_ptr
     }
 
-<<<<<<< HEAD
     fn get_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ZExprPtr<F> {
         ZExprPtr::from_parts(ptr.tag, hash)
-=======
-    fn get_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ScalarPtr<F> {
-        ScalarPtr::from_parts(ptr.tag, hash)
->>>>>>> 3bcdcf02712fd7fc7e358e508cd592eeb61f8d70
     }
 
     /// The only places that `ZContPtr`s for `ContPtr`s should be created, to
     /// ensure that they are cached properly
-<<<<<<< HEAD
     fn create_cont_scalar_ptr(&self, ptr: ContPtr<F>, hash: F) -> ZContPtr<F> {
         let scalar_ptr = ZContPtr::from_parts(ptr.tag, hash);
-=======
-    fn create_cont_scalar_ptr(&self, ptr: ContPtr<F>, hash: F) -> ScalarContPtr<F> {
-        let scalar_ptr = ScalarContPtr::from_parts(ptr.tag, hash);
->>>>>>> 3bcdcf02712fd7fc7e358e508cd592eeb61f8d70
         self.scalar_ptr_cont_map.entry(scalar_ptr).or_insert(ptr);
 
         scalar_ptr
@@ -1573,20 +1338,12 @@ impl<F: LurkField> Store<F> {
         ])
     }
 
-<<<<<<< HEAD
     pub fn get_opaque_ptr(&self, ptr: Ptr<F>) -> Option<ZExprPtr<F>> {
-=======
-    pub fn get_opaque_ptr(&self, ptr: Ptr<F>) -> Option<ScalarPtr<F>> {
->>>>>>> 3bcdcf02712fd7fc7e358e508cd592eeb61f8d70
         let s = self.opaque_ptrs.get_index(ptr.raw.opaque_idx()?)?;
         Some(*s)
     }
 
-<<<<<<< HEAD
     pub fn hash_sym(&self, sym: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
-=======
-    pub fn hash_sym(&self, sym: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
->>>>>>> 3bcdcf02712fd7fc7e358e508cd592eeb61f8d70
         if sym.is_opaque() {
             return self.get_opaque_ptr(sym);
         }
@@ -1651,11 +1408,7 @@ impl<F: LurkField> Store<F> {
         Some(self.scalar_ptr(ptr, self.poseidon_cache.hash4(&components), mode))
     }
 
-<<<<<<< HEAD
     fn hash_char(&self, ptr: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
-=======
-    fn hash_char(&self, ptr: Ptr<F>, mode: HashScalar) -> Option<ScalarPtr<F>> {
->>>>>>> 3bcdcf02712fd7fc7e358e508cd592eeb61f8d70
         let char_code = ptr.raw.idx()?;
 
         Some(self.scalar_ptr(ptr, F::from(char_code as u64), mode))
