@@ -5,9 +5,12 @@ use proptest::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 
+use crate::hash::PoseidonCache;
+use crate::tag::{ExprTag, Tag};
 use crate::z_data::Encodable;
 use crate::z_data::ZData;
-use crate::z_data::{ZContPtr, ZExprPtr};
+use crate::z_data::ZStore;
+use crate::z_data::{ZContPtr, ZExprPtr, ZPtr};
 use crate::UInt;
 use anyhow::anyhow;
 
@@ -60,6 +63,53 @@ impl<F: LurkField> std::fmt::Display for ZExpr<F> {
             ZExpr::StrNil => write!(f, "strnil"),
             ZExpr::SymNil => write!(f, "symnil"),
             _ => todo!(),
+        }
+    }
+}
+
+impl<F: LurkField> ZExpr<F> {
+    pub fn z_ptr(&self, cache: PoseidonCache<F>) -> ZExprPtr<F> {
+        match self {
+            ZExpr::Nil => ZPtr(ExprTag::Nil, ZStore::nil_z_ptr().1),
+            ZExpr::Cons(x, y) => ZPtr(
+                ExprTag::Cons,
+                cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),
+            ),
+            ZExpr::Comm(f, x) => ZPtr(ExprTag::Comm, cache.hash3(&[*f, x.0.to_field(), x.1])),
+            ZExpr::SymNil => ZPtr(ExprTag::Sym, F::zero()),
+            ZExpr::SymCons(x, y) => ZPtr(
+                ExprTag::Sym,
+                cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),
+            ),
+            ZExpr::Fun {
+                arg,
+                body,
+                closed_env,
+            } => ZPtr(
+                ExprTag::Fun,
+                cache.hash6(&[
+                    arg.0.to_field(),
+                    arg.1,
+                    body.0.to_field(),
+                    body.1,
+                    closed_env.0.to_field(),
+                    closed_env.1,
+                ]),
+            ),
+            ZExpr::Num(f) => ZPtr(ExprTag::Num, *f),
+            ZExpr::StrNil => ZPtr(ExprTag::Str, F::zero()),
+            ZExpr::StrCons(x, y) => ZPtr(
+                ExprTag::Str,
+                cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),
+            ),
+            ZExpr::Thunk(x, y) => ZPtr(
+                ExprTag::Thunk,
+                cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),
+            ),
+            ZExpr::Char(f) => ZPtr(ExprTag::Char, F::from_char(*f)),
+            ZExpr::Uint(x) => match x {
+                UInt::U64(x) => ZPtr(ExprTag::U64, F::from_u64(*x)),
+            },
         }
     }
 }

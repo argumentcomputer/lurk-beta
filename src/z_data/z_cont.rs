@@ -9,10 +9,12 @@ use proptest::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 
+use crate::hash::PoseidonCache;
+use crate::tag::ContTag;
 use crate::tag::Op1;
 use crate::tag::Op2;
-use crate::z_data::ZContPtr;
-use crate::z_data::ZExprPtr;
+use crate::tag::Tag;
+use crate::z_data::{ZContPtr, ZExprPtr, ZPtr};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
@@ -74,6 +76,214 @@ pub enum ZCont<F: LurkField> {
     },
     Dummy,
     Terminal,
+}
+impl<F: LurkField> ZCont<F> {
+    pub fn z_ptr(&self, cache: PoseidonCache<F>) -> ZContPtr<F> {
+        match self {
+            Self::Outermost => {
+                // TODO: replace hash8 of F::zero with digest F::zero()
+                let hash = cache.hash8(&[F::zero(); 8]);
+                ZPtr(ContTag::Outermost, hash)
+            }
+            Self::Call {
+                unevaled_arg,
+                saved_env,
+                continuation,
+            } => {
+                let hash = cache.hash8(&[
+                    unevaled_arg.0.to_field(),
+                    unevaled_arg.1,
+                    saved_env.0.to_field(),
+                    saved_env.1,
+                    continuation.0.to_field(),
+                    continuation.1,
+                    F::zero(),
+                    F::zero(),
+                ]);
+                ZPtr(ContTag::Call, hash)
+            }
+            Self::Call2 {
+                function,
+                saved_env,
+                continuation,
+            } => {
+                let hash = cache.hash8(&[
+                    function.0.to_field(),
+                    function.1,
+                    saved_env.0.to_field(),
+                    saved_env.1,
+                    continuation.0.to_field(),
+                    continuation.1,
+                    F::zero(),
+                    F::zero(),
+                ]);
+                ZPtr(ContTag::Call2, hash)
+            }
+            Self::Tail {
+                saved_env,
+                continuation,
+            } => {
+                let hash = cache.hash8(&[
+                    saved_env.0.to_field(),
+                    saved_env.1,
+                    continuation.0.to_field(),
+                    continuation.1,
+                    F::zero(),
+                    F::zero(),
+                    F::zero(),
+                    F::zero(),
+                ]);
+                ZPtr(ContTag::Tail, hash)
+            }
+            Self::Error => {
+                // TODO: replace hash8 of F::zero with digest F::zero()
+                let hash = cache.hash8(&[F::zero(); 8]);
+                ZPtr(ContTag::Error, hash)
+            }
+            Self::Lookup {
+                saved_env,
+                continuation,
+            } => {
+                let hash = cache.hash8(&[
+                    saved_env.0.to_field(),
+                    saved_env.1,
+                    continuation.0.to_field(),
+                    continuation.1,
+                    F::zero(),
+                    F::zero(),
+                    F::zero(),
+                    F::zero(),
+                ]);
+                ZPtr(ContTag::Lookup, hash)
+            }
+            Self::Unop {
+                operator,
+                continuation,
+            } => {
+                let hash = cache.hash8(&[
+                    operator.to_field(),
+                    F::zero(),
+                    continuation.0.to_field(),
+                    continuation.1,
+                    F::zero(),
+                    F::zero(),
+                    F::zero(),
+                    F::zero(),
+                ]);
+                ZPtr(ContTag::Unop, hash)
+            }
+            Self::Binop {
+                operator,
+                saved_env,
+                unevaled_args,
+                continuation,
+            } => {
+                let hash = cache.hash8(&[
+                    operator.to_field(),
+                    F::zero(),
+                    saved_env.0.to_field(),
+                    saved_env.1,
+                    unevaled_args.0.to_field(),
+                    unevaled_args.1,
+                    continuation.0.to_field(),
+                    continuation.1,
+                ]);
+                ZPtr(ContTag::Binop, hash)
+            }
+            Self::Binop2 {
+                operator,
+                evaled_arg,
+                continuation,
+            } => {
+                let hash = cache.hash8(&[
+                    operator.to_field(),
+                    F::zero(),
+                    evaled_arg.0.to_field(),
+                    evaled_arg.1,
+                    continuation.0.to_field(),
+                    continuation.1,
+                    F::zero(),
+                    F::zero(),
+                ]);
+                ZPtr(ContTag::Binop2, hash)
+            }
+            Self::If {
+                unevaled_args,
+                continuation,
+            } => {
+                let hash = cache.hash8(&[
+                    unevaled_args.0.to_field(),
+                    unevaled_args.1,
+                    continuation.0.to_field(),
+                    continuation.1,
+                    F::zero(),
+                    F::zero(),
+                    F::zero(),
+                    F::zero(),
+                ]);
+                ZPtr(ContTag::If, hash)
+            }
+            Self::Let {
+                var,
+                body,
+                saved_env,
+                continuation,
+            } => {
+                let hash = cache.hash8(&[
+                    var.0.to_field(),
+                    var.1,
+                    body.0.to_field(),
+                    body.1,
+                    saved_env.0.to_field(),
+                    saved_env.1,
+                    continuation.0.to_field(),
+                    continuation.1,
+                ]);
+                ZPtr(ContTag::Let, hash)
+            }
+            Self::LetRec {
+                var,
+                body,
+                saved_env,
+                continuation,
+            } => {
+                let hash = cache.hash8(&[
+                    var.0.to_field(),
+                    var.1,
+                    body.0.to_field(),
+                    body.1,
+                    saved_env.0.to_field(),
+                    saved_env.1,
+                    continuation.0.to_field(),
+                    continuation.1,
+                ]);
+                ZPtr(ContTag::Lookup, hash)
+            }
+            Self::Emit { continuation } => {
+                let hash = cache.hash8(&[
+                    continuation.0.to_field(),
+                    continuation.1,
+                    F::zero(),
+                    F::zero(),
+                    F::zero(),
+                    F::zero(),
+                    F::zero(),
+                    F::zero(),
+                ]);
+                ZPtr(ContTag::LetRec, hash)
+            }
+            Self::Dummy => {
+                // TODO: replace hash8 of F::zero with digest F::zero()
+                let hash = cache.hash8(&[F::zero(); 8]);
+                ZPtr(ContTag::Dummy, hash)
+            }
+            Self::Terminal => {
+                // TODO: replace hash8 of F::zero with digest F::zero()
+                let hash = cache.hash8(&[F::zero(); 8]);
+                ZPtr(ContTag::Terminal, hash)
+            }
+        }
+    }
 }
 
 impl<F: LurkField> Encodable for ZCont<F> {

@@ -62,6 +62,9 @@ impl<F: LurkField> ZStore<F> {
     pub fn get_cont(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
         self.expr_map.get(ptr).cloned()?
     }
+    pub fn nil_z_ptr() -> ZExprPtr<F> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
