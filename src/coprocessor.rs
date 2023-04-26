@@ -49,6 +49,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + CoCircuit<F> {
         }
     }
 
+    /// As with all evaluation, the value returned from `simple_evaluate` must be fully evaluated.
     fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F>;
 }
 
@@ -71,7 +72,8 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
         _input_env: &AllocatedPtr<F>,
         _input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        todo!()
+        // A `synthesize` implementation needs to be provided by implementers of `CoCircuit`.
+        unimplemented!()
     }
 }
 
