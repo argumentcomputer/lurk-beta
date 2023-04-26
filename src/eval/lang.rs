@@ -9,9 +9,9 @@ use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::field::LurkField;
 use crate::ptr::Ptr;
-use crate::z_data::ZExprPtr;
 use crate::store::Store;
 use crate::sym::Sym;
+use crate::z_data::ZExprPtr;
 
 /// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.
 ///

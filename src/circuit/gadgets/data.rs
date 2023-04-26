@@ -12,9 +12,9 @@ use crate::expr::{Expression, Thunk};
 use crate::field::LurkField;
 use crate::hash::IntoHashComponents;
 use crate::ptr::Ptr;
-use crate::z_data::{ZExprPtr, ZContPtr};
 use crate::store::Store;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
+use crate::z_data::{ZContPtr, ZExprPtr};
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};
 

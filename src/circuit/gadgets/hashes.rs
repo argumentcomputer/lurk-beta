@@ -9,9 +9,9 @@ use crate::circuit::gadgets::pointer::{AllocatedPtr, AsAllocatedHashComponents};
 use crate::field::LurkField;
 use crate::hash::{HashConst, HashConstants};
 use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness, HashName, Stub};
-use crate::z_data::ZExprPtr;
 use crate::store::Store;
 use crate::tag::ExprTag;
+use crate::z_data::ZExprPtr;
 
 #[derive(Clone)]
 pub struct AllocatedHash<F: LurkField, PreimageType> {
