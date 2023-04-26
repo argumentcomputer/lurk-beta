@@ -59,7 +59,7 @@ impl<F: LurkField> ScalarStore<F> {
     /// NOTE: This requires that `store.scalar_cache` has been hydrated.
     fn add_scalar_ptr(&mut self, store: &Store<F>, scalar_ptr: ZExprPtr<F>) {
         // Find the ptr corresponding to scalar_ptr.
-        if let Some(ptr) = store.scalar_ptr_map.get(&scalar_ptr) {
+        if let Some(ptr) = store.z_expr_ptr_map.get(&scalar_ptr) {
             self.add(store, &*ptr, scalar_ptr);
         }
     }

@@ -1,6 +1,8 @@
 use rayon::prelude::*;
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::fmt;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::usize;
 use string_interner::symbol::{Symbol, SymbolUsize};
@@ -16,7 +18,7 @@ use crate::parser::{convert_sym_case, names_keyword};
 use crate::ptr::{ContPtr, Ptr};
 use crate::sym::Sym;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
-use crate::z_data::{ZContPtr, ZExprPtr};
+use crate::z_data::{ZCont, ZContPtr, ZExpr, ZExprPtr, ZStore};
 use crate::{Num, UInt};
 
 use crate::hash::{HashConstants, IntoHashComponents, PoseidonCache};
@@ -81,9 +83,9 @@ pub struct Store<F: LurkField> {
     pub opaque_cont_ptrs: IndexSet<ZContPtr<F>>,
 
     /// Holds a mapping of ZExprPtr -> Ptr for reverse lookups
-    pub scalar_ptr_map: dashmap::DashMap<ZExprPtr<F>, Ptr<F>, ahash::RandomState>,
+    pub z_expr_ptr_map: dashmap::DashMap<ZExprPtr<F>, Ptr<F>, ahash::RandomState>,
     /// Holds a mapping of ZExprPtr -> ContPtr<F> for reverse lookups
-    pub scalar_ptr_cont_map: dashmap::DashMap<ZContPtr<F>, ContPtr<F>, ahash::RandomState>,
+    pub z_cont_ptr_map: dashmap::DashMap<ZContPtr<F>, ContPtr<F>, ahash::RandomState>,
 
     /// Caches poseidon hashes
     pub poseidon_cache: PoseidonCache<F>,
@@ -139,8 +141,8 @@ impl<F: LurkField> Default for Store<F> {
             emit_store: Default::default(),
             opaque_ptrs: Default::default(),
             opaque_cont_ptrs: Default::default(),
-            scalar_ptr_map: Default::default(),
-            scalar_ptr_cont_map: Default::default(),
+            z_expr_ptr_map: Default::default(),
+            z_cont_ptr_map: Default::default(),
             poseidon_cache: Default::default(),
             dehydrated: Default::default(),
             dehydrated_cont: Default::default(),
@@ -404,7 +406,7 @@ impl<F: LurkField> Store<F> {
     pub fn get_maybe_opaque(&self, tag: ExprTag, hash: F) -> Option<Ptr<F>> {
         let scalar_ptr = ZExprPtr::from_parts(tag, hash);
 
-        let ptr = self.scalar_ptr_map.get(&scalar_ptr);
+        let ptr = self.z_expr_ptr_map.get(&scalar_ptr);
         if let Some(p) = ptr {
             return Some(*p);
         }
@@ -424,7 +426,7 @@ impl<F: LurkField> Store<F> {
 
         // Scope the first immutable borrow.
         {
-            let ptr = self.scalar_ptr_map.get(&scalar_ptr);
+            let ptr = self.z_expr_ptr_map.get(&scalar_ptr);
             if let Some(p) = ptr {
                 if return_non_opaque_if_existing || p.is_opaque() {
                     return *p;
@@ -705,7 +707,7 @@ impl<F: LurkField> Store<F> {
     pub fn scalar_from_parts(&self, tag: F, value: F) -> Option<ZExprPtr<F>> {
         let Some(e_tag) = ExprTag::from_field(&tag) else { return None };
         let scalar_ptr = ZExprPtr::from_parts(e_tag, value);
-        self.scalar_ptr_map
+        self.z_expr_ptr_map
             .contains_key(&scalar_ptr)
             .then_some(scalar_ptr)
     }
@@ -713,18 +715,18 @@ impl<F: LurkField> Store<F> {
     pub fn scalar_from_parts_cont(&self, tag: F, value: F) -> Option<ZContPtr<F>> {
         let Some(e_tag) = ContTag::from_field(&tag) else { return None };
         let scalar_ptr = ZContPtr::from_parts(e_tag, value);
-        if self.scalar_ptr_cont_map.contains_key(&scalar_ptr) {
+        if self.z_cont_ptr_map.contains_key(&scalar_ptr) {
             return Some(scalar_ptr);
         }
         None
     }
 
     pub fn fetch_scalar(&self, scalar_ptr: &ZExprPtr<F>) -> Option<Ptr<F>> {
-        self.scalar_ptr_map.get(scalar_ptr).map(|p| *p)
+        self.z_expr_ptr_map.get(scalar_ptr).map(|p| *p)
     }
 
     pub fn fetch_scalar_cont(&self, scalar_ptr: &ZContPtr<F>) -> Option<ContPtr<F>> {
-        self.scalar_ptr_cont_map.get(scalar_ptr).map(|p| *p)
+        self.z_cont_ptr_map.get(scalar_ptr).map(|p| *p)
     }
 
     pub fn fetch_maybe_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
@@ -964,6 +966,53 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    pub fn get_z_expr(
+        &self,
+        ptr: &Ptr<F>,
+        z_store: Option<Rc<RefCell<ZStore<F>>>>,
+    ) -> Result<(ZExprPtr<F>, Option<ZExpr<F>>), Error> {
+        if let Some(idx) = ptr.raw.opaque_idx() {
+            let z_ptr = self
+                .opaque_ptrs
+                .get_index(idx)
+                .ok_or(Error(format!("get_z_expr unknown opaque")))?;
+            match self.z_expr_ptr_map.try_get(z_ptr) {
+                dashmap::try_result::TryResult::Absent => {
+                    // TODO: cache the z_ptr -> ptr in the z_expr_ptr_map
+                    Ok((*z_ptr, None))
+                }
+                // TODO: cycle-detection needed either here or on opaque ptr creation
+                dashmap::try_result::TryResult::Present(p) => self.get_z_expr(&p, z_store.clone()),
+                dashmap::try_result::TryResult::Locked => {
+                    Err(Error(format!("get_z_expr locked z_expr_ptr_map")))
+                }
+            }
+        } else {
+            let (z_ptr, z_expr) = match self.fetch(ptr) {
+                Some(Expression::Nil) => (ZExpr::Nil.z_ptr(&self.poseidon_cache), Some(ZExpr::Nil)),
+                Some(Expression::Cons(car, cdr)) => {
+                    let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
+                    let (z_cdr, _) = self.get_z_expr(&cdr, z_store.clone())?;
+                    let z_expr = ZExpr::Cons(z_car, z_cdr);
+                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
+                }
+                Some(Expression::Comm(secret, payload)) => {
+                    let (z_payload, _) = self.get_z_expr(&payload, z_store.clone())?;
+                    let z_expr = ZExpr::Comm(secret, z_payload);
+                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
+                }
+                _ => todo!(),
+            };
+            // TODO
+            if let Some(z_store) = z_store {
+                z_store
+                    .borrow_mut()
+                    .insert_expr(&self.poseidon_cache, z_ptr, z_expr.clone());
+            };
+            Ok((z_ptr, z_expr))
+        }
+    }
+
     /// Mutable version of car_cdr to handle Str. `(cdr str)` may return a new str (the tail), which must be allocated.
     pub fn car_cdr_mut(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
         match ptr.tag {
@@ -1056,7 +1105,7 @@ impl<F: LurkField> Store<F> {
             HashScalar::Create => {
                 if let Some(sp) = scalar_ptr {
                     self.pointer_scalar_ptr_cache.insert(*ptr, sp);
-                    self.scalar_ptr_map.insert(sp, *ptr);
+                    self.z_expr_ptr_map.insert(sp, *ptr);
                 }
             }
             HashScalar::Get => (),
@@ -1083,7 +1132,7 @@ impl<F: LurkField> Store<F> {
     /// ensure that they are cached properly
     pub fn create_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ZExprPtr<F> {
         let scalar_ptr = ZExprPtr::from_parts(ptr.tag, hash);
-        let entry = self.scalar_ptr_map.entry(scalar_ptr);
+        let entry = self.z_expr_ptr_map.entry(scalar_ptr);
         entry.or_insert(ptr);
 
         let entry2 = self.pointer_scalar_ptr_cache.entry(ptr);
@@ -1099,7 +1148,7 @@ impl<F: LurkField> Store<F> {
     /// ensure that they are cached properly
     fn create_cont_scalar_ptr(&self, ptr: ContPtr<F>, hash: F) -> ZContPtr<F> {
         let scalar_ptr = ZContPtr::from_parts(ptr.tag, hash);
-        self.scalar_ptr_cont_map.entry(scalar_ptr).or_insert(ptr);
+        self.z_cont_ptr_map.entry(scalar_ptr).or_insert(ptr);
 
         scalar_ptr
     }

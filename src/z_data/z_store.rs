@@ -6,6 +6,7 @@ use proptest_derive::Arbitrary;
 // use anyhow::anyhow;
 use std::collections::BTreeMap;
 
+use crate::hash::PoseidonCache;
 use crate::tag::ExprTag;
 use crate::z_data::z_cont::ZCont;
 use crate::z_data::z_expr::ZExpr;
@@ -57,6 +58,9 @@ impl<F: LurkField> ZStore<F> {
 
     pub fn get_expr(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
         self.expr_map.get(ptr).cloned()?
+    }
+    pub fn insert_expr(&self, cache: &PoseidonCache<F>, ptr: ZExprPtr<F>, expr: Option<ZExpr<F>>) {
+        todo!()
     }
 
     pub fn get_cont(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
