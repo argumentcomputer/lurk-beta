@@ -42,25 +42,12 @@ impl<F: LurkField> Encodable for ZStore<F> {
 }
 
 impl<F: LurkField> ZStore<F> {
-    /// Leaf pointers are those whose values aren't hashes of any piece of data
-    /// that's expected to be in the ZStore
-    pub fn is_ptr_leaf(&self, ptr: ZExprPtr<F>) -> bool {
-        match ptr.tag() {
-            ExprTag::Num => true,
-            ExprTag::Char => true,
-            ExprTag::U64 => true,
-            ExprTag::Str => *ptr.value() == F::zero(), // the empty string
-            ExprTag::Sym => *ptr.value() == F::zero(), // the root symbol
-            ExprTag::Key => *ptr.value() == F::zero(), // the root keyword
-            _ => false,
-        }
-    }
-
     pub fn get_expr(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
         self.expr_map.get(ptr).cloned()?
     }
     pub fn insert_expr(&self, cache: &PoseidonCache<F>, ptr: ZExprPtr<F>, expr: Option<ZExpr<F>>) {
-        todo!()
+        // is that it?
+        self.expr_map.insert(ptr, expr);
     }
 
     pub fn get_cont(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {

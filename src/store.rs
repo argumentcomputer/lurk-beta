@@ -966,6 +966,14 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    pub fn get_z_cont(
+        &self,
+        ptr: &ContPtr<F>,
+        z_store: Option<Rc<RefCell<ZStore<F>>>>,
+    ) -> Result<(ZContPtr<F>, Option<ZCont<F>>), Error> {
+        todo!()
+    }
+
     pub fn get_z_expr(
         &self,
         ptr: &Ptr<F>,
@@ -1000,6 +1008,39 @@ impl<F: LurkField> Store<F> {
                     let (z_payload, _) = self.get_z_expr(&payload, z_store.clone())?;
                     let z_expr = ZExpr::Comm(secret, z_payload);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
+                }
+                Some(Expression::Fun(args, env, body)) => {
+                    let (z_args, _) = self.get_z_expr(&args, z_store.clone())?;
+                    let (z_env, _) = self.get_z_expr(&env, z_store.clone())?;
+                    let (z_body, _) = self.get_z_expr(&body, z_store.clone())?;
+                    let z_expr = ZExpr::Fun { arg: z_args, body: z_body, closed_env: z_env };
+                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
+                }
+                Some(Expression::Num(n)) => {
+                    let f = match n {
+                        Num::Scalar(f) => f,
+                        Num::U64(u) => F::from_u64(u),
+                    };
+                    let z_expr = ZExpr::Num(f);
+                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
+                }
+                Some(Expression::Thunk(Thunk { value, continuation })) => {
+                    let (z_value, _) = self.get_z_expr(&value, z_store.clone())?;
+                    let (z_cont, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let z_expr = ZExpr::Thunk(z_value, z_cont);
+                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
+                }
+                Some(Expression::Opaque(ptr)) => {
+                    let (z_ptr, _) = self.get_z_expr(&ptr, z_store.clone())?;
+                    (z_ptr, None)
+                }
+                Some(Expression::Char(c)) => {
+                   let z_expr = ZExpr::Char(c);
+                   (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
+                }
+                Some(Expression::UInt(u)) => {
+                   let z_expr = ZExpr::Uint(u);
+                   (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
                 _ => todo!(),
             };
