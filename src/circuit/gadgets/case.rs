@@ -132,7 +132,7 @@ impl<F: LurkField> CaseConstraint<'_, F> {
     }
 }
 
-/// Returns `product = ∑ᵢ selector[i] ⋅ value_vector[i]` and enforces the equality in the circuit 
+/// Returns `product = ∑ᵢ selector[i] ⋅ value_vector[i]` and enforces the equality in the circuit
 fn selector_dot_product<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selector: &[AllocatedBit],
@@ -289,8 +289,8 @@ pub(crate) fn multi_case<F: LurkField, CS: ConstraintSystem<F>>(
 
 /// Returns not only the selected clause, but also a Boolean that can
 /// be used to determine if the default clause was returned.
-/// 
-/// Take a look at the documentation on [multi_case](multi_case) for 
+///
+/// Take a look at the documentation on [multi_case](multi_case) for
 /// an example for how to construct a `multi_case`.
 pub(crate) fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
