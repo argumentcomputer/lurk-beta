@@ -2562,7 +2562,10 @@ pub(crate) mod coproc {
     use super::super::lang::Lang;
     use super::super::*;
     use super::*;
-    use crate::coprocessor::test::DumbCoprocessor;
+    use crate::circuit::gadgets::constraints::{add, mul};
+    use crate::circuit::gadgets::data::GlobalAllocations;
+    use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
+    use crate::coprocessor::{test::DumbCoprocessor, CoCircuit};
     use crate::store::Store;
     use crate::sym::Sym;
 
@@ -2595,6 +2598,7 @@ pub(crate) mod coproc {
         fn synthesize<CS: ConstraintSystem<F>>(
             &self,
             cs: &mut CS,
+            g: &GlobalAllocations<F>,
             _store: &Store<F>,
             input_exprs: &[AllocatedPtr<F>],
             input_env: &AllocatedPtr<F>,

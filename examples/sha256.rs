@@ -7,6 +7,7 @@ use bellperson::{ConstraintSystem, SynthesisError};
 use bellperson::gadgets::num::AllocatedNum;
 use bellperson::gadgets::boolean::{Boolean, AllocatedBit};
 use bellperson::gadgets::num::Num as BNum;
+use lurk::circuit::gadgets::data::GlobalAllocations;
 // use bellperson::gadgets::Assignment;
 use lurk::tag::{ExprTag, Tag};
 use pasta_curves::pallas::Scalar as Fr;
@@ -37,6 +38,7 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
     fn synthesize<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
+        g: &mut GlobalAllocations<F>,
         _store: &Store<F>,
         input_exprs: &[AllocatedPtr<F>],
         input_env: &AllocatedPtr<F>,
@@ -48,7 +50,6 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         
         let preimage = vec![false_bool; self.n * 8];
 
-        let bits = sha256(cs.namespace(|| "SHA hash"), &preimage)?;
         let bits = sha256(cs.namespace(|| "SHAhash"), &preimage)?;
 
         let num1 = make_u64_from_bits(&mut cs.namespace(|| "num1"), &bits[0..64])?;
@@ -56,6 +57,8 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         let num3 = make_u64_from_bits(&mut cs.namespace(|| "num3"), &bits[128..192])?;
         let num4 = make_u64_from_bits(&mut cs.namespace(|| "num4"), &bits[192..256])?;
 
+        // AllocatedPtr
+        // construct_cons <-- bellperson gadgets pointer
         Ok((num1, input_env.clone(), input_cont.clone()))
     }
 }
@@ -76,6 +79,8 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         let mut array = [0u8; 8];
         array.copy_from_slice(&result[0..8]);
         let a = u64::from_be_bytes(array);
+
+        dbg!(a);
 
         array.copy_from_slice(&result[8..16]);
         let b = u64::from_be_bytes(array);
@@ -128,13 +133,14 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coproc<F> {
     fn synthesize<CS: ConstraintSystem<F>>(
             &self,
             _cs: &mut CS,
+            _g: &mut GlobalAllocations<F>,
             _store: &Store<F>,
             _input_exprs: &[AllocatedPtr<F>],
             _input_env: &AllocatedPtr<F>,
             _input_cont: &AllocatedContPtr<F>,
         ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         match self {
-            Self::SC(c) => c.synthesize(_cs, _store, _input_exprs, _input_env, _input_cont)
+            Self::SC(c) => c.synthesize(_cs, _g, _store, _input_exprs, _input_env, _input_cont)
         }
     }
 }
@@ -174,7 +180,6 @@ fn main() {
         emitted,
     ) = Evaluator::new(ptr, env, s, limit, &lang).eval().unwrap();
 
-    let t = s.num(3); // dumb fake example
     let t = s.num(17700832373872664624u64); 
 
     test_aux(s, expr.as_str(), Some(t), None, None, None, 1, Some(&lang));
