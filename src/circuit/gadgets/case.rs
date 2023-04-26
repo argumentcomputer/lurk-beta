@@ -292,8 +292,6 @@ pub(crate) fn multi_case<F: LurkField, CS: ConstraintSystem<F>>(
 /// 
 /// Take a look at the documentation on [multi_case](multi_case) for 
 /// an example for how to construct a `multi_case`.
-/// 
-/// 
 pub(crate) fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selected: &AllocatedNum<F>,
