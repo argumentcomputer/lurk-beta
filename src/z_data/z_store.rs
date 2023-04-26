@@ -26,7 +26,7 @@ pub struct ZStore<F: LurkField> {
 
 impl<F: LurkField> Encodable for ZStore<F> {
     fn ser(&self) -> ZData {
-        ZData::Cell(vec![self.expr_map.ser(), self.cont_map.ser()])
+        (self.expr_map.clone(), self.cont_map.clone()).ser()
     }
     fn de(ld: &ZData) -> anyhow::Result<Self> {
         let xs: (
