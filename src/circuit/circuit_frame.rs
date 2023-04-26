@@ -2645,7 +2645,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 )?;
 
                 let (result_expr, result_env, result_cont) =
-                    coproc.synthesize(cs, store, &inputs[..arity], env, cont)?;
+                    coproc.synthesize(cs, g, store, &inputs[..arity], env, cont)?;
 
                 let new_expr = pick_ptr!(cs, &arity_is_correct, &result_expr, &rest)?; // TODO: The error case should probably be expr, but this is harder in straight evaluation atm.
                 let new_env = pick_ptr!(cs, &arity_is_correct, &result_env, &env)?;

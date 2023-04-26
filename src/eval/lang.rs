@@ -5,6 +5,7 @@ use std::marker::PhantomData;
 use bellperson::{ConstraintSystem, SynthesisError};
 use serde::{Deserialize, Serialize};
 
+use crate::circuit::gadgets::data::GlobalAllocations;
 use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::field::LurkField;
@@ -87,13 +88,14 @@ impl<F: LurkField> CoCircuit<F> for Coproc<F> {
     fn synthesize<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
+        g: &GlobalAllocations<F>,
         store: &Store<F>,
         input_exprs: &[AllocatedPtr<F>],
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         match self {
-            Self::Dummy(c) => c.synthesize(cs, store, input_exprs, input_env, input_cont),
+            Self::Dummy(c) => c.synthesize(cs, g, store, input_exprs, input_env, input_cont),
         }
     }
 }

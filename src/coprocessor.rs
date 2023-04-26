@@ -6,6 +6,7 @@ use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::eval::IO;
 use crate::field::LurkField;
 use crate::store::{ContPtr, Ptr, Store};
+use crate::circuit::gadgets::data::GlobalAllocations;
 
 /// `Coprocessor` is a trait that represents a generalized interface for coprocessors.
 /// Coprocessors augment the Lurk circuit and evaluation with additional built-in functionality.
@@ -66,6 +67,7 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
     fn synthesize<CS: ConstraintSystem<F>>(
         &self,
         _cs: &mut CS,
+        _g: &GlobalAllocations<F>,
         _store: &Store<F>,
         _input_exprs: &[AllocatedPtr<F>],
         _input_env: &AllocatedPtr<F>,
