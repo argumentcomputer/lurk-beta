@@ -132,9 +132,7 @@ impl<F: LurkField> CaseConstraint<'_, F> {
     }
 }
 
-/*
-Returns ∑ᵢ  selector[i] ⋅ value_vector[i].
-*/
+/// Returns `product = ∑ᵢ selector[i] ⋅ value_vector[i]` and enforces the equality in the circuit 
 fn selector_dot_product<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selector: &[AllocatedBit],
@@ -189,11 +187,94 @@ pub(crate) fn case<F: LurkField, CS: ConstraintSystem<F>>(
     multi_case(cs, selected, &[clauses], &[default], g).map(|r| r[0].to_owned())
 }
 
-/*
-Selects the clauses whose key is equal to selected and returns
-a vector containing the corresponding values, or if no key is selected,
-returns the default.
-*/
+///
+/// Selects the clauses whose key is equal to selected and returns
+/// a vector containing the corresponding values, or if no key is selected,
+/// returns the default value.
+///
+/// ```
+/// let mut cs = TestConstraintSystem::<Fr>::new();
+/// let s = &mut Store::<Fr>::default();
+/// let g = GlobalAllocations::new(&mut cs, s).unwrap();
+
+/// let x = Fr::from(123);
+/// let y = Fr::from(124);
+/// let z = Fr::from(125);
+/// let selected0 = AllocatedNum::alloc(cs.namespace(|| "selected0"), || Ok(x)).unwrap();
+/// let selected1 = AllocatedNum::alloc(cs.namespace(|| "selected1"), || Ok(z)).unwrap();
+/// let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
+/// let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
+/// let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(700))).unwrap();
+/// let default_vec = [
+///     &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
+///     &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
+///     &AllocatedNum::alloc(cs.namespace(|| "default2"), || Ok(Fr::from(997))).unwrap(),
+/// ];
+
+/// {
+///     let clauses0: [CaseClause<'_, Fr>; 2] = [
+///         CaseClause {
+///             key: x,
+///             value: &val0,
+///         },
+///         CaseClause {
+///             key: y,
+///             value: &val1,
+///         },
+///     ];
+///     let clauses1: [CaseClause<'_, Fr>; 2] = [
+///         CaseClause {
+///             key: x,
+///             value: &val1,
+///         },
+///         CaseClause {
+///             key: y,
+///             value: &val0,
+///         },
+///     ];
+///     let clauses2: [CaseClause<'_, Fr>; 2] = [
+///         CaseClause {
+///             key: x,
+///             value: &val2,
+///         },
+///         CaseClause {
+///             key: y,
+///             value: &val0,
+///         },
+///     ];
+///     let clauses_vec: [&[CaseClause<'_, Fr>]; 3] = [&clauses0, &clauses1, &clauses2];
+
+///     /// Test regular multicase, select first clause
+///     let mut result = multi_case(
+///         &mut cs.namespace(|| "selected case 0"),
+///         &selected0,
+///         &clauses_vec,
+///         &default_vec,
+///         &g,
+///     )
+///     .unwrap();
+
+///     assert_eq!(val0.get_value(), result[0].get_value());
+///     assert_eq!(val1.get_value(), result[1].get_value());
+///     assert_eq!(val2.get_value(), result[2].get_value());
+///     assert!(cs.is_satisfied());
+
+///     /// Test regular multicase, select default
+///     result = multi_case(
+///         &mut cs.namespace(|| "selected case 1"),
+///         &selected1,
+///         &clauses_vec,
+///         &default_vec,
+///         &g,
+///     )
+///     .unwrap();
+
+///     assert_eq!(default_vec[0].get_value(), result[0].get_value());
+///     assert_eq!(default_vec[1].get_value(), result[1].get_value());
+///     assert_eq!(default_vec[2].get_value(), result[2].get_value());
+///     assert!(cs.is_satisfied());
+/// }
+/// ```
 pub(crate) fn multi_case<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selected: &AllocatedNum<F>,
@@ -206,10 +287,13 @@ pub(crate) fn multi_case<F: LurkField, CS: ConstraintSystem<F>>(
     Ok(selected)
 }
 
-/*
- * Returns not only the selected clause, but also a Boolean that can
- * be used to determine if the default clause was returned.
- */
+/// Returns not only the selected clause, but also a Boolean that can
+/// be used to determine if the default clause was returned.
+/// 
+/// Take a look at the documentation on [multi_case](multi_case) for 
+/// an example for how to construct a `multi_case`.
+/// 
+/// 
 pub(crate) fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     selected: &AllocatedNum<F>,
