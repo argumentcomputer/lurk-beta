@@ -12,7 +12,7 @@ use lurk::tag::{ExprTag, Tag};
 use pasta_curves::pallas::Scalar as Fr;
 use sha2::{Digest, Sha256};
 
-use lurk::proof::nova::tests::{self, test_aux};
+use lurk::proof::nova::tests::test_aux;
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use lurk::coprocessor::{CoCircuit, Coprocessor};
 use lurk::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
@@ -49,6 +49,7 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         let preimage = vec![false_bool; self.n * 8];
 
         let bits = sha256(cs.namespace(|| "SHA hash"), &preimage)?;
+        let bits = sha256(cs.namespace(|| "SHAhash"), &preimage)?;
 
         let num1 = make_u64_from_bits(&mut cs.namespace(|| "num1"), &bits[0..64])?;
         let num2 = make_u64_from_bits(&mut cs.namespace(|| "num2"), &bits[64..128])?;
@@ -174,6 +175,7 @@ fn main() {
     ) = Evaluator::new(ptr, env, s, limit, &lang).eval().unwrap();
 
     let t = s.num(3); // dumb fake example
+    let t = s.num(17700832373872664624u64); 
 
     test_aux(s, expr.as_str(), Some(t), None, None, None, 1, Some(&lang));
     // let circuit = Sha256Circuit {
