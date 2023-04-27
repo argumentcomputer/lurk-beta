@@ -18,8 +18,10 @@ use crate::parser::{convert_sym_case, names_keyword};
 use crate::ptr::{ContPtr, Ptr};
 use crate::sym::Sym;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
-use crate::z_data::{ZCont, ZContPtr, ZExpr, ZExprPtr, ZStore};
+use crate::z_data::{ZCont, ZContPtr, ZExpr, ZExprPtr, ZPtr, ZStore};
 use crate::{Num, UInt};
+
+use std::collections::HashMap;
 
 use crate::hash::{HashConstants, IntoHashComponents, PoseidonCache};
 
@@ -97,6 +99,10 @@ pub struct Store<F: LurkField> {
 
     pub lurk_package: Arc<Package>,
     pub constants: OnceCell<NamedConstants<F>>,
+
+    vec_char_cache: HashMap<Vec<char>, (ZExprPtr<F>, ZExpr<F>)>,
+    vec_str_cache: HashMap<Vec<String>, (ZExprPtr<F>, ZExpr<F>)>,
+    str_cache: HashMap<String, (ZExprPtr<F>, ZExpr<F>)>,
 }
 
 pub trait TypePredicates {
@@ -149,6 +155,9 @@ impl<F: LurkField> Default for Store<F> {
             pointer_scalar_ptr_cache: Default::default(),
             lurk_package: Arc::new(Package::lurk()),
             constants: Default::default(),
+            vec_char_cache: Default::default(),
+            vec_str_cache: Default::default(),
+            str_cache: Default::default(),
         };
 
         store.lurk_sym("");
@@ -966,19 +975,120 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    pub fn put_z_chars(
+        &mut self,
+        chars: Vec<char>,
+        z_store: Option<Rc<RefCell<ZStore<F>>>>,
+    ) -> (ZExprPtr<F>, ZExpr<F>) {
+        let mut ptr: ZExprPtr<F>;
+        let mut expr: ZExpr<F>;
+        let mut chars_rev = chars;
+        chars_rev.reverse();
+        let mut heads_acc: Vec<char> = vec![];
+        loop {
+            if chars_rev.is_empty() {
+                ptr = ZPtr(ExprTag::Str, F::zero());
+                expr = ZExpr::StrNil;
+                break;
+            }
+            heads_acc.push(chars_rev.pop().unwrap());
+            match self.vec_char_cache.get(&chars_rev) {
+                Some((ptr_cache, expr_cache)) => {
+                    ptr = ptr_cache.clone();
+                    expr = expr_cache.clone();
+                    break;
+                }
+                None => continue,
+            }
+        }
+        while let Some(c) = heads_acc.pop() {
+            let preimage = [
+                ExprTag::Char.to_field(),
+                F::from_char(c),
+                ptr.0.to_field(),
+                ptr.1,
+            ];
+            let hash = self.poseidon_cache.hash4(&preimage);
+            ptr = ZPtr(ExprTag::Str, hash);
+            expr = ZExpr::StrCons(ZPtr(ExprTag::Char, F::from_char(c)), ptr.clone());
+            if let Some(z_store) = z_store.clone() {
+                z_store
+                    .borrow_mut()
+                    .expr_map
+                    .insert(ptr.clone(), Some(expr.clone()));
+            };
+            chars_rev.push(c);
+            self.vec_char_cache.insert(chars_rev.clone(), (ptr.clone(), expr.clone()));
+        }
+        (ptr, expr)
+    }
+
+    pub fn put_z_strs(
+        &mut self,
+        strs: Vec<String>,
+        z_store: Option<Rc<RefCell<ZStore<F>>>>,
+    ) -> (ZExprPtr<F>, ZExpr<F>) {
+        let mut ptr: ZExprPtr<F>;
+        let mut expr: ZExpr<F>;
+        let mut strs_rev = strs;
+        strs_rev.reverse();
+        let mut heads_acc: Vec<String> = vec![];
+        loop {
+            if strs_rev.is_empty() {
+                ptr = ZPtr(ExprTag::Sym, F::zero());
+                expr = ZExpr::SymNil;
+                break;
+            }
+            heads_acc.push(strs_rev.pop().unwrap());
+            match self.vec_str_cache.get(&strs_rev) {
+                Some((ptr_cache, expr_cache)) => {
+                    ptr = ptr_cache.clone();
+                    expr = expr_cache.clone();
+                    break;
+                }
+                None => continue,
+            }
+        }
+        while let Some(s) = heads_acc.pop() {
+            let (name_ptr, _) = self.put_z_chars(s.chars().collect(), z_store.clone());
+            let name_ptr_ = name_ptr.clone();
+            let preimage = [name_ptr_.0.to_field(), name_ptr_.1, ptr.0.to_field(), ptr.1];
+            let hash = self.poseidon_cache.hash4(&preimage);
+            ptr = ZPtr(ExprTag::Sym, hash);
+            expr = ZExpr::SymCons(name_ptr, ptr.clone());
+            if let Some(z_store) = z_store.clone() {
+                z_store
+                    .borrow_mut()
+                    .expr_map
+                    .insert(ptr.clone(), Some(expr.clone()));
+            };
+            strs_rev.push(s);
+            self.vec_str_cache.insert(strs_rev.clone(), (ptr.clone(), expr.clone()));
+        }
+        (ptr, expr)
+    }
+
+    pub fn put_z_str(
+        &self,
+        s: String,
+        z_store: Option<Rc<RefCell<ZStore<F>>>>,
+    ) -> Result<(ZExprPtr<F>, Option<ZExpr<F>>), Error> {
+        todo!()
+    }
+
+    pub fn put_z_sym(
+        &self,
+        s: Sym,
+        z_store: Option<Rc<RefCell<ZStore<F>>>>,
+    ) -> Result<(ZExprPtr<F>, Option<ZExpr<F>>), Error> {
+        todo!()
+    }
+
     pub fn get_z_cont(
         &self,
         ptr: &ContPtr<F>,
         z_store: Option<Rc<RefCell<ZStore<F>>>>,
     ) -> Result<(ZContPtr<F>, Option<ZCont<F>>), Error> {
-        todo!()
-    }
-
-    pub fn put_z_str(&self, s: &str, z_store: Option<Rc<RefCell<ZStore<F>>>>) -> Result<(ZExprPtr<F>, Option<ZExpr<F>>), Error> {
-        todo!()
-    }
-
-    pub fn put_z_sym(&self, s: Sym, z_store: Option<Rc<RefCell<ZStore<F>>>>) -> Result<(ZExprPtr<F>, Option<ZExpr<F>>), Error> {
         todo!()
     }
 
@@ -1021,7 +1131,11 @@ impl<F: LurkField> Store<F> {
                     let (z_args, _) = self.get_z_expr(&args, z_store.clone())?;
                     let (z_env, _) = self.get_z_expr(&env, z_store.clone())?;
                     let (z_body, _) = self.get_z_expr(&body, z_store.clone())?;
-                    let z_expr = ZExpr::Fun { arg: z_args, body: z_body, closed_env: z_env };
+                    let z_expr = ZExpr::Fun {
+                        arg: z_args,
+                        body: z_body,
+                        closed_env: z_env,
+                    };
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
                 Some(Expression::Num(n)) => {
@@ -1032,28 +1146,33 @@ impl<F: LurkField> Store<F> {
                     let z_expr = ZExpr::Num(f);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
-                Some(Expression::Thunk(Thunk { value, continuation })) => {
+                Some(Expression::Thunk(Thunk {
+                    value,
+                    continuation,
+                })) => {
                     let (z_value, _) = self.get_z_expr(&value, z_store.clone())?;
                     let (z_cont, _) = self.get_z_cont(&continuation, z_store.clone())?;
                     let z_expr = ZExpr::Thunk(z_value, z_cont);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
+                }
+                None => {
+                    let (z_ptr, _) = self.get_z_expr(&ptr, z_store.clone())?;
+                    (z_ptr, None)
                 }
                 Some(Expression::Opaque(ptr)) => {
                     let (z_ptr, _) = self.get_z_expr(&ptr, z_store.clone())?;
                     (z_ptr, None)
                 }
                 Some(Expression::Char(c)) => {
-                   let z_expr = ZExpr::Char(c);
-                   (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
+                    let z_expr = ZExpr::Char(c);
+                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
                 Some(Expression::UInt(u)) => {
-                   let z_expr = ZExpr::Uint(u);
-                   (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
+                    let z_expr = ZExpr::Uint(u);
+                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
-                // Some(Expression::Str(s)) => {
-                //     let (z_ptr, _) = self.put_z_str(s)?;
-                // }
-                _ => todo!(),
+                Some(Expression::Str(s)) => self.put_z_str(s.to_string(), z_store.clone())?,
+                Some(Expression::Sym(s)) => self.put_z_sym(s, z_store.clone())?,
             };
             // TODO
             if let Some(z_store) = z_store {
