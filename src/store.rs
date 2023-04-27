@@ -1167,44 +1167,28 @@ impl<F: LurkField> Store<F> {
             }
         } else {
             let (z_ptr, z_cont) = match self.fetch_cont(ptr) {
-                Some(Continuation::Outermost) => (
-                    ZCont::Outermost.z_ptr(&self.poseidon_cache),
-                    Some(ZCont::<F>::Outermost),
-                ),
+                Some(Continuation::Outermost) => {
+                    let z_cont = ZCont::<F>::Outermost;
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::Call0 { saved_env, continuation }) => {
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let z_cont = ZCont::<F>::Call0 { saved_env: z_env_ptr, continuation: z_cont_ptr };
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
                 _ => todo!(),
             };
 
             if let Some(z_store) = z_store {
                 z_store
                     .borrow_mut()
-                    .insert_cont(&self.poseidon_cache, z_ptr, z_cont.clone());
+                    .cont_map.insert(z_ptr, z_cont.clone());
             };
             Ok((z_ptr, z_cont))
         }
-    }
-
-    pub fn to_z_expr(&self, ptr: &Ptr<F>) -> Option<ZExpr<F>> {
-        self.get_z_expr(ptr, None).ok()?.1
-    }
-
-    pub fn hash_expr(&self, ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
-        self.get_z_expr(ptr, None).ok().map(|x| x.0)
-    }
-
-    pub fn to_z_cont(&self, ptr: &ContPtr<F>) -> Option<ZCont<F>> {
-        self.get_z_cont(ptr, None).ok()?.1
-    }
-
-    pub fn hash_cont(&self, ptr: &ContPtr<F>) -> Option<ZContPtr<F>> {
-        self.get_z_cont(ptr, None).ok().map(|x| x.0)
-    }
-
-    pub fn hash_string(&mut self, s: &str) -> ZExprPtr<F> {
-        self.put_z_str(s.to_string(), None).0
-    }
-
-    pub fn hash_symbol(&mut self, s: Sym) -> ZExprPtr<F> {
-        self.put_z_sym(s, None).0
     }
 
     pub fn get_z_expr(
@@ -1299,10 +1283,34 @@ impl<F: LurkField> Store<F> {
             if let Some(z_store) = z_store {
                 z_store
                     .borrow_mut()
-                    .insert_expr(&self.poseidon_cache, z_ptr, z_expr.clone());
+                    .expr_map.insert(z_ptr, z_expr.clone());
             };
             Ok((z_ptr, z_expr))
         }
+    }
+    
+    pub fn to_z_expr(&self, ptr: &Ptr<F>) -> Option<ZExpr<F>> {
+        self.get_z_expr(ptr, None).ok()?.1
+    }
+
+    pub fn hash_expr(&self, ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
+        self.get_z_expr(ptr, None).ok().map(|x| x.0)
+    }
+
+    pub fn to_z_cont(&self, ptr: &ContPtr<F>) -> Option<ZCont<F>> {
+        self.get_z_cont(ptr, None).ok()?.1
+    }
+
+    pub fn hash_cont(&self, ptr: &ContPtr<F>) -> Option<ZContPtr<F>> {
+        self.get_z_cont(ptr, None).ok().map(|x| x.0)
+    }
+
+    pub fn hash_string(&mut self, s: &str) -> ZExprPtr<F> {
+        self.put_z_str(s.to_string(), None).0
+    }
+
+    pub fn hash_symbol(&mut self, s: Sym) -> ZExprPtr<F> {
+        self.put_z_sym(s, None).0
     }
 
     pub fn from_z_store(z_store: &ZStore<F>) -> Option<Self> {
@@ -1587,6 +1595,13 @@ impl<F: LurkField> Store<F> {
                 Outermost => Continuation::Outermost,
                 Dummy => Continuation::Dummy,
                 Terminal => Continuation::Terminal,
+                Call0 {
+                    saved_env,
+                    continuation,
+                } => Continuation::Call0 {
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
                 Call {
                     unevaled_arg,
                     saved_env,
@@ -1596,7 +1611,6 @@ impl<F: LurkField> Store<F> {
                     saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
                     continuation: self.intern_z_cont_ptr(continuation, z_store)?,
                 },
-
                 Call2 {
                     function,
                     saved_env,

@@ -21,6 +21,10 @@ use crate::z_data::{ZContPtr, ZExprPtr, ZPtr};
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 pub enum ZCont<F: LurkField> {
     Outermost,
+    Call0 {
+        saved_env: ZExprPtr<F>,
+        continuation: ZContPtr<F>,
+    },
     Call {
         unevaled_arg: ZExprPtr<F>,
         saved_env: ZExprPtr<F>,
@@ -82,6 +86,19 @@ impl<F: LurkField> ZCont<F> {
     pub fn hash_components(&self) -> [F; 8] {
         match self {
             Self::Outermost => [F::zero(); 8],
+            Self::Call0 {
+                saved_env,
+                continuation,
+            } => [
+                saved_env.0.to_field(),
+                saved_env.1,
+                continuation.0.to_field(),
+                continuation.1,
+                F::zero(),
+                F::zero(),
+                F::zero(),
+                F::zero(),
+            ],
             Self::Call {
                 unevaled_arg,
                 saved_env,
@@ -241,6 +258,7 @@ impl<F: LurkField> ZCont<F> {
         let hash = cache.hash8(&self.hash_components());
         match self {
             Self::Outermost => ZPtr(ContTag::Outermost, hash),
+            Self::Call0 { .. } => ZPtr(ContTag::Call0, hash),
             Self::Call { .. } => ZPtr(ContTag::Call, hash),
             Self::Call2 { .. } => ZPtr(ContTag::Call2, hash),
             Self::Tail { .. } => ZPtr(ContTag::Tail, hash),
@@ -263,6 +281,14 @@ impl<F: LurkField> Encodable for ZCont<F> {
     fn ser(&self) -> ZData {
         match self {
             ZCont::Outermost => ZData::Cell(vec![ZData::Atom(vec![0u8])]),
+            ZCont::Call0 {
+                saved_env,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![1u8]),
+                saved_env.ser(),
+                continuation.ser(),
+            ]),
             ZCont::Call {
                 unevaled_arg,
                 saved_env,
