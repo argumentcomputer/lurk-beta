@@ -9,8 +9,8 @@ use crate::hash::PoseidonCache;
 use crate::tag::{ExprTag, Tag};
 use crate::z_data::Encodable;
 use crate::z_data::ZData;
-use crate::z_data::ZStore;
-use crate::z_data::{ZContPtr, ZExprPtr, ZPtr};
+use crate::z_store::ZStore;
+use crate::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
 use crate::UInt;
 use anyhow::anyhow;
 

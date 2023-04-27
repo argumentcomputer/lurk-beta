@@ -25,6 +25,10 @@ pub mod tag;
 pub mod uint;
 pub mod writer;
 pub mod z_data;
+pub mod z_store;
+pub mod z_ptr;
+pub mod z_expr;
+pub mod z_cont;
 
 pub mod error;
 mod num;

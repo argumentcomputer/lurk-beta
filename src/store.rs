@@ -19,7 +19,10 @@ use crate::parser::{convert_sym_case, names_keyword};
 use crate::ptr::{ContPtr, Ptr};
 use crate::sym::Sym;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
-use crate::z_data::{ZCont, ZContPtr, ZExpr, ZExprPtr, ZPtr, ZStore};
+use crate::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
+use crate::z_store::ZStore;
+use crate::z_expr::ZExpr;
+use crate::z_cont::ZCont;
 use crate::{Num, UInt};
 use crate::cache_map::CacheMap;
 

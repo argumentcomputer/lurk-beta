@@ -14,10 +14,6 @@ use crate::z_data::ZData;
 use crate::field::{FWrap, LurkField};
 use crate::tag::{ContTag, ExprTag, Tag};
 
-use serde::Deserialize;
-use serde::Serialize;
-use serde::{de, ser};
-
 use crate::hash::IntoHashComponents;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

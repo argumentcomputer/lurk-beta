@@ -13,11 +13,10 @@ use crate::{
     field::LurkField,
     hash_witness::{ConsName, ContName},
     ptr::{ContPtr, Ptr},
-    z_data::ZPtr,
     store::Store,
     tag::{ExprTag, ContTag, Tag},
     writer::Write,
-    z_data::{ZContPtr, ZExprPtr},
+    z_ptr::{ZPtr,ZContPtr, ZExprPtr},
 };
 
 use super::{
