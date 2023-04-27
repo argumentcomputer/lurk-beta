@@ -1273,27 +1273,11 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn from_z_store(z_store: &ZStore<F>) -> Option<Self> {
-        todo!()
-    }
-    pub fn z_store_with_expr(&self, expr: &Ptr<F>) -> (ZStore<F>, ZExprPtr<F>) {
-        todo!()
-    }
-
-    pub fn intern_z_expr(
-        &mut self,
-        ptr: ZExprPtr<F>,
-        scalar_store: &ZStore<F>,
-    ) -> Option<ContPtr<F>> {
-        todo!()
-    }
-
-    pub fn intern_z_cont(
-        &mut self,
-        ptr: ZContPtr<F>,
-        scalar_store: &ZStore<F>,
-    ) -> Option<ContPtr<F>> {
-        todo!()
+    pub fn to_z_store_with_ptr(&self, ptr: &Ptr<F>) -> Result<(ZStore<F>, ZExprPtr<F>), Error> {
+        let z_store = Rc::new(RefCell::new(ZStore::new()));
+        let (z_ptr, _) = self.get_z_expr(ptr, Some(z_store.clone()))?;
+        // TODO: remove heinous clone
+        Ok((z_store.as_ref().clone().into_inner(), z_ptr))
     }
 
     /// Mutable version of car_cdr to handle Str. `(cdr str)` may return a new str (the tail), which must be allocated.
@@ -1876,7 +1860,7 @@ impl<F: LurkField> NamedConstants<F> {
 }
 
 impl<F: LurkField> ZStore<F> {
-    pub fn to_store(&mut self) -> Store<F> {
+    pub fn to_store(&self) -> Store<F> {
         let mut store = Store::new();
 
         for ptr in self.expr_map.keys() {

@@ -24,11 +24,6 @@ use nom::multi::count;
 use nom::Finish;
 use nom::IResult;
 
-use crate::z_cont::ZCont;
-use crate::z_expr::ZExpr;
-use crate::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
-use crate::z_store::ZStore;
-
 /// `ZData` is a binary tree with two types of nodes: Atom and Cell.
 ///
 /// # Examples

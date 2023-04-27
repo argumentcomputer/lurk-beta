@@ -17,7 +17,7 @@ use crate::z_data::ZData;
 
 use crate::field::LurkField;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 pub struct ZStore<F: LurkField> {
@@ -42,6 +42,10 @@ impl<F: LurkField> Encodable for ZStore<F> {
 }
 
 impl<F: LurkField> ZStore<F> {
+    pub fn new() -> Self {
+        ZStore { expr_map : BTreeMap::new(), cont_map: BTreeMap::new() }
+    }
+
     pub fn get_expr(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
         self.expr_map.get(ptr).cloned()?
     }
