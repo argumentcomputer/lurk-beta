@@ -18,7 +18,6 @@ use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
 use crate::ptr::{ContPtr, Ptr};
 use crate::sym::Sym;
-use crate::sym;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 use crate::z_data::{ZCont, ZContPtr, ZExpr, ZExprPtr, ZPtr, ZStore};
 use crate::{Num, UInt};
@@ -1545,7 +1544,7 @@ impl<F: LurkField> Store<F> {
                 (ExprTag::Key, Some(SymCons(keycar, keycdr))) => {
                     let keycar = self.intern_z_expr_ptr(keycar, z_store)?;
                     let keycdr = self.intern_z_expr_ptr(keycdr, z_store)?;
-                    let ptr = self.intern_keycons(keycar, keycdr, true);
+                    let ptr = self.intern_symcons(keycar, keycdr, true);
                     self.create_z_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
