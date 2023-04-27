@@ -80,30 +80,6 @@ fn criterion_benchmark(c: &mut Criterion) {
             black_box(result)
         })
     });
-
-    // I'm not sure sure these make sense, since `vesta` isn't one of the base curves
-    // we use in groth16/nova, so this store/curve variant will never be instantiated
-    c.bench_function("eval_go_base_10_16_pasta_vesta", |b| {
-        let mut store = Store::default();
-        let ptr = go_base::<pasta_curves::Fq>(&mut store, black_box(10), black_box(16));
-
-        b.iter(|| {
-            let result =
-                Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit, &lang_vesta).eval();
-            black_box(result)
-        })
-    });
-
-    c.bench_function("eval_go_base_10_160_pasta_vesta", |b| {
-        let mut store = Store::default();
-        let ptr = go_base::<pasta_curves::Fq>(&mut store, black_box(10), black_box(160));
-
-        b.iter(|| {
-            let result =
-                Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit, &lang_vesta).eval();
-            black_box(result)
-        })
-    });
 }
 
 criterion_group!{

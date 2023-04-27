@@ -70,14 +70,6 @@ tap = "1.0.1"
 assert_cmd = "2.0.8"
 tempfile = "3.5.0"
 
-[[bench]]
-name = "eval"
-harness = false
-
-[[bench]]
-name = "store"
-harness = false
-
 [workspace]
 members = [
  "fcomm", "clutch", "lurk-macros"
@@ -100,3 +92,15 @@ codegen-units = 16
 # being off (they test release behavior in case of duplicate clauses).
 inherits = "dev-ci"
 debug-assertions = false
+
+[[bench]]
+name = "eval"
+harness = false
+
+[[bench]]
+name = "store"
+harness = false
+
+[[bench]]
+name = "hydration"
+harness = false
