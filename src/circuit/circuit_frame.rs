@@ -2661,7 +2661,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     }
 
     for c in &coprocessor_results {
-        results.add_clauses_cons(*c.0.value(), &c.1, &c.2, &c.3, &g.false_num);
+        results.add_clauses_cons(*c.0.value(), &c.1, &c.2, &c.3, &g.true_num);
     }
 
     let is_zero_arg_call = rest_is_nil;

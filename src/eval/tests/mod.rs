@@ -2560,12 +2560,10 @@ pub(crate) mod coproc {
     use super::super::lang::Lang;
     use super::super::*;
     use super::*;
-    use crate::circuit::gadgets::constraints::{add, mul};
     use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
     use crate::coprocessor::{test::DumbCoprocessor, CoCircuit};
     use crate::store::Store;
     use crate::sym::Sym;
-    use crate::tag::{ExprTag, Tag};
 
     use bellperson::ConstraintSystem;
 
@@ -2592,29 +2590,23 @@ pub(crate) mod coproc {
 
     impl<F: LurkField> CoCircuit<F> for DumbCoproc<F> {
         fn arity(&self) -> usize {
-            2
+            match self {
+                Self::DC(x) => x.arity(),
+            }
         }
 
         fn synthesize<CS: ConstraintSystem<F>>(
             &self,
             cs: &mut CS,
-            _store: &Store<F>,
+            store: &Store<F>,
             input_exprs: &[AllocatedPtr<F>],
             input_env: &AllocatedPtr<F>,
             input_cont: &AllocatedContPtr<F>,
         ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError>
         {
-            let a = input_exprs[0].clone();
-            let b = &input_exprs[1];
-
-            // FIXME: Check tags.
-
-            // a^2 + b = c
-            let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;
-            let c = add(&mut cs.namespace(|| "add"), &a2, b.hash())?;
-            let c_ptr = AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)?;
-
-            Ok((c_ptr, input_env.clone(), input_cont.clone()))
+            match self {
+                Self::DC(x) => x.synthesize(cs, store, input_exprs, input_env, input_cont),
+            }
         }
     }
 
@@ -2642,8 +2634,8 @@ pub(crate) mod coproc {
         let res = s.num(89);
         let error = s.get_cont_error();
 
-        test_aux(s, &expr, Some(res), None, None, None, 2, Some(&lang));
-        test_aux(s, &expr2, Some(res), None, None, None, 4, Some(&lang));
+        test_aux(s, &expr, Some(res), None, None, None, 1, Some(&lang));
+        test_aux(s, &expr2, Some(res), None, None, None, 3, Some(&lang));
         test_aux(s, &expr3, None, None, Some(error), None, 1, Some(&lang));
     }
 }

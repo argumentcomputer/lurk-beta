@@ -50,6 +50,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + CoCircuit<F> {
         }
     }
 
+    /// As with all evaluation, the value returned from `simple_evaluate` must be fully evaluated.
     fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F>;
 }
 
@@ -72,13 +73,16 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
         _input_env: &AllocatedPtr<F>,
         _input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        todo!()
+        // A `synthesize` implementation needs to be provided by implementers of `CoCircuit`.
+        unimplemented!()
     }
 }
 
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
+    use crate::circuit::gadgets::constraints::{add, mul};
+    use crate::tag::{ExprTag, Tag};
     use std::marker::PhantomData;
 
     /// A dumb Coprocessor for testing.
@@ -87,7 +91,33 @@ pub(crate) mod test {
         pub(crate) _p: PhantomData<F>,
     }
 
-    impl<F: LurkField> CoCircuit<F> for DumbCoprocessor<F> {}
+    impl<F: LurkField> CoCircuit<F> for DumbCoprocessor<F> {
+        fn arity(&self) -> usize {
+            2
+        }
+
+        fn synthesize<CS: ConstraintSystem<F>>(
+            &self,
+            cs: &mut CS,
+            _store: &Store<F>,
+            input_exprs: &[AllocatedPtr<F>],
+            input_env: &AllocatedPtr<F>,
+            input_cont: &AllocatedContPtr<F>,
+        ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError>
+        {
+            let a = input_exprs[0].clone();
+            let b = &input_exprs[1];
+
+            // FIXME: Check tags.
+
+            // a^2 + b = c
+            let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;
+            let c = add(&mut cs.namespace(|| "add"), &a2, b.hash())?;
+            let c_ptr = AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)?;
+
+            Ok((c_ptr, input_env.clone(), input_cont.clone()))
+        }
+    }
 
     impl<F: LurkField> Coprocessor<F> for DumbCoprocessor<F> {
         /// Dumb Coprocessor takes two arguments.
