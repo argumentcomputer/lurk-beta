@@ -1,11 +1,13 @@
 use blstrs::Scalar as Fr;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lurk::{
-    eval::lang::{Coproc, Lang},
     field::LurkField,
     ptr::Ptr,
     store::Store,
 };
+
+// NOTE: update this after store PR is merged, since "hydration" will be merged
+// with just interning into `ZStore`
 
 fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
     let program = format!(
@@ -28,46 +30,46 @@ fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
 
 fn criterion_benchmark(c: &mut Criterion) {
 
-    c.bench_function("store_go_base_10_16_bls12", |b| {
+    c.bench_function("hydration_go_base_10_16_bls12", |b| {
         let mut store = Store::default();
+        let _ptr = go_base::<Fr>(&mut store, black_box(10), black_box(16));
 
         b.iter(|| {
-            let ptr = go_base::<Fr>(&mut store, black_box(10), black_box(16));
-            black_box(ptr)
+            black_box(store.hydrate_scalar_cache())
         })
     });
 
-    c.bench_function("store_go_base_10_160_bls12", |b| {
+    c.bench_function("hydration_go_base_10_160_bls12", |b| {
         let mut store = Store::default();
+        let _ptr = go_base::<Fr>(&mut store, black_box(10), black_box(16));
 
         b.iter(|| {
-            let ptr = go_base::<Fr>(&mut store, black_box(10), black_box(16));
-            black_box(ptr)
+            black_box(store.hydrate_scalar_cache())
         })
     });
 
-    c.bench_function("store_go_base_10_16_pasta_pallas", |b| {
+    c.bench_function("hydration_go_base_10_16_pasta_pallas", |b| {
         let mut store = Store::default();
+        let _ptr = go_base::<pasta_curves::Fp>(&mut store, black_box(10), black_box(16));
 
         b.iter(|| {
-            let ptr = go_base::<pasta_curves::Fp>(&mut store, black_box(10), black_box(16));
-            black_box(ptr)
+            black_box(store.hydrate_scalar_cache())
         })
     });
 
-    c.bench_function("store_go_base_10_160_pasta_pallas", |b| {
+    c.bench_function("hydration_go_base_10_160_pasta_pallas", |b| {
         let mut store = Store::default();
+        let _ptr = go_base::<pasta_curves::Fp>(&mut store, black_box(10), black_box(160));
 
         b.iter(|| {
-            let ptr = go_base::<pasta_curves::Fp>(&mut store, black_box(10), black_box(160));
-            black_box(ptr)
+            black_box(store.hydrate_scalar_cache())
         })
     });
 }
 
 criterion_group!{
-    name = store;
+    name = hydration;
     config = Criterion::default().sample_size(60);
     targets = criterion_benchmark
 }
-criterion_main!(store);
+criterion_main!(hydration);

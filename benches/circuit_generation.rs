@@ -41,24 +41,6 @@ fn criterion_benchmark(c: &mut Criterion) {
     let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
 
     let reduction_count = DEFAULT_REDUCTION_COUNT;
-
-    // this is weirder, since groth16 uses `outer_prove`/`prove`
-
-    // c.bench_function("prove_go_base_10_16_groth", |b| {
-    //     let mut store = Store::default();
-    //     let env = empty_sym_env(&store);
-    //     let ptr = go_base::<Fr>(&mut store, black_box(10), black_box(16));
-    //     let prover = Groth16Prover::new(reduction_count, lang_bls.clone());
-        
-    //     let pp = public_params(reduction_count, &lang_vesta);
-    //     let frames = prover
-    //         .get_evaluation_frames(ptr, env, &mut store, limit, &lang_vesta)
-    //         .unwrap();
-
-    //     b.iter(|| {
-    //         black_box(prover.prove(&pp, frames.clone(), &mut store, &lang_vesta).unwrap());
-    //     })
-    // });
     
     c.bench_function("prove_go_base_10_16_nova", |b| {
         let mut store = Store::default();
@@ -75,39 +57,6 @@ fn criterion_benchmark(c: &mut Criterion) {
             black_box(prover.prove(&pp, frames.clone(), &mut store, &lang_vesta).unwrap());
         })
     });
-
-    // c.bench_function("prove_go_base_10_160_bls12", |b| {
-    //     let mut store = Store::default();
-    //     let ptr = go_base::<Fr>(&mut store, black_box(10), black_box(160));
-    //     let result =
-    //         Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit, &lang_bls).eval();
-
-    //     b.iter(|| {
-    //         black_box(result)
-    //     })
-    // });
-
-    // c.bench_function("prove_go_base_10_16_pasta_pallas", |b| {
-    //     let mut store = Store::default();
-    //     let ptr = go_base::<pasta_curves::Fp>(&mut store, black_box(10), black_box(16));
-    //     let result =
-    //         Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas).eval();
-
-    //     b.iter(|| {
-    //         black_box(result)
-    //     })
-    // });
-
-    // c.bench_function("prove_go_base_10_160_pasta_pallas", |b| {
-    //     let mut store = Store::default();
-    //     let ptr = go_base::<pasta_curves::Fp>(&mut store, black_box(10), black_box(160));
-    //     let result =
-    //         Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas).eval();
-
-    //     b.iter(|| {
-    //         black_box(result)
-    //     })
-    // });
 }
 
 criterion_group!(benches, criterion_benchmark);
