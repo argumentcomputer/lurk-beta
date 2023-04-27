@@ -45,9 +45,21 @@ impl<F: LurkField> ZStore<F> {
     pub fn get_expr(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
         self.expr_map.get(ptr).cloned()?
     }
-    pub fn insert_expr(&mut self, cache: &PoseidonCache<F>, ptr: ZExprPtr<F>, expr: Option<ZExpr<F>>) {
-        // is that it?
+    pub fn insert_expr(
+        &mut self,
+        cache: &PoseidonCache<F>,
+        ptr: ZExprPtr<F>,
+        expr: Option<ZExpr<F>>,
+    ) {
         self.expr_map.insert(ptr, expr);
+    }
+    pub fn insert_cont(
+        &mut self,
+        cache: &PoseidonCache<F>,
+        ptr: ZContPtr<F>,
+        cont: Option<ZCont<F>>,
+    ) {
+        self.cont_map.insert(ptr, cont);
     }
 
     pub fn get_cont(&self, ptr: &ZContPtr<F>) -> Option<ZCont<F>> {

@@ -237,7 +237,7 @@ impl<F: LurkField> ZCont<F> {
         }
     }
 
-    pub fn z_ptr(&self, cache: PoseidonCache<F>) -> ZContPtr<F> {
+    pub fn z_ptr(&self, cache: &PoseidonCache<F>) -> ZContPtr<F> {
         let hash = cache.hash8(&self.hash_components());
         match self {
             Self::Outermost => ZPtr(ContTag::Outermost, hash),
