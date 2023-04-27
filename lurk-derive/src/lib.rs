@@ -1,7 +1,7 @@
 //! Derive macros for Lurk
 //! This crate contains derive macros to manage trait dispatch in Lurk.
 //!
-//! - The `Coproc` macro adds dispatching `Coprocessor` and `Cocircuit` implementaitons to enums whose variants all
+//! - The `Coproc` macro adds dispatching `Coprocessor` and `Cocircuit` implementations to enums whose variants all
 //!   atomically enclose types implementing `Coprocessor`.
 
 extern crate proc_macro;
