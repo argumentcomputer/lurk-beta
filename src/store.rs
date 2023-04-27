@@ -18,6 +18,7 @@ use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
 use crate::ptr::{ContPtr, Ptr};
 use crate::sym::Sym;
+use crate::sym;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 use crate::z_data::{ZCont, ZContPtr, ZExpr, ZExprPtr, ZPtr, ZStore};
 use crate::{Num, UInt};
@@ -339,14 +340,14 @@ impl<F: LurkField> Store<F> {
         self.lurk_sym("nil")
     }
 
-    pub fn intern_keynil(&self) -> Ptr<F> {
+    pub fn intern_symnil(&self, key : bool) -> Ptr<F> {
         // TODO: Is this right?
-        Ptr::null(ExprTag::Key)
-    }
-
-    pub fn intern_symnil(&self) -> Ptr<F> {
-        // TODO: Is this right?
-        Ptr::null(ExprTag::Sym)
+        if key {
+            Ptr::null(ExprTag::Key)
+        }
+        else {
+            Ptr::null(ExprTag::Sym)
+        }
     }
 
     pub fn intern_strnil(&self) -> Ptr<F> {
@@ -399,12 +400,31 @@ impl<F: LurkField> Store<F> {
         self.intern_str(&new_str)
     }
 
-    pub fn intern_symcons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
-        todo!()
-    }
-
-    pub fn intern_keycons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
-        todo!()
+    pub fn intern_symcons(&mut self, car: Ptr<F>, cdr: Ptr<F>, key: bool) -> Ptr<F> {
+        // TODO Is this right?
+        if car.is_opaque() || cdr.is_opaque() {
+            self.hash_expr(&car);
+            self.hash_expr(&cdr);
+        }
+        assert_eq!((car.tag, cdr.tag), (ExprTag::Str, ExprTag::Sym));
+        let (c, s) = (
+            self.fetch_str(&car).unwrap(),
+            self.fetch_sym(&cdr).unwrap(),
+        );
+        match s.extend(&[c.to_string()]) {
+            Sym::Key(sym) => if key {
+                self.intern_sym(&Sym::Key(sym))
+            }
+            else {
+                self.intern_sym(&Sym::Sym(sym))
+            }
+            Sym::Sym(sym) => if key {
+                self.intern_sym(&Sym::Key(sym))
+            }
+            else {
+                self.intern_sym(&Sym::Sym(sym))
+            },
+        }
     }
 
     pub fn intern_comm(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
@@ -1506,26 +1526,26 @@ impl<F: LurkField> Store<F> {
                     Some(ptr)
                 }
                 (ExprTag::Str, Some(SymNil)) => {
-                    let ptr = self.intern_symnil();
+                    let ptr = self.intern_symnil(false);
                     self.create_z_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Sym, Some(SymCons(symcar, symcdr))) => {
                     let symcar = self.intern_z_expr_ptr(symcar, z_store)?;
                     let symcdr = self.intern_z_expr_ptr(symcdr, z_store)?;
-                    let ptr = self.intern_symcons(symcar, symcdr);
+                    let ptr = self.intern_symcons(symcar, symcdr, false);
                     self.create_z_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Key, Some(SymNil)) => {
-                    let ptr = self.intern_keynil();
+                    let ptr = self.intern_symnil(true);
                     self.create_z_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Key, Some(SymCons(keycar, keycdr))) => {
                     let keycar = self.intern_z_expr_ptr(keycar, z_store)?;
                     let keycdr = self.intern_z_expr_ptr(keycdr, z_store)?;
-                    let ptr = self.intern_keycons(keycar, keycdr);
+                    let ptr = self.intern_keycons(keycar, keycdr, true);
                     self.create_z_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
