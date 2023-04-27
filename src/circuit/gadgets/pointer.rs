@@ -14,9 +14,9 @@ use crate::{
     hash_witness::{ConsName, ContName},
     ptr::{ContPtr, Ptr},
     store::Store,
-    tag::{ExprTag, ContTag, Tag},
+    tag::{ContTag, ExprTag, Tag},
     writer::Write,
-    z_ptr::{ZPtr,ZContPtr, ZExprPtr},
+    z_ptr::{ZContPtr, ZExprPtr, ZPtr},
 };
 
 use super::{

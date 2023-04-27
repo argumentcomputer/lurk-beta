@@ -10,6 +10,7 @@ use thiserror;
 
 use once_cell::sync::OnceCell;
 
+use crate::cache_map::CacheMap;
 use crate::cont::Continuation;
 use crate::expr;
 use crate::expr::{Expression, Thunk};
@@ -19,12 +20,11 @@ use crate::parser::{convert_sym_case, names_keyword};
 use crate::ptr::{ContPtr, Ptr};
 use crate::sym::Sym;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
+use crate::z_cont::ZCont;
+use crate::z_expr::ZExpr;
 use crate::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
 use crate::z_store::ZStore;
-use crate::z_expr::ZExpr;
-use crate::z_cont::ZCont;
 use crate::{Num, UInt};
-use crate::cache_map::CacheMap;
 
 use crate::hash::{HashConstants, PoseidonCache};
 
@@ -1141,44 +1141,212 @@ impl<F: LurkField> Store<F> {
             }
         } else {
             let (z_ptr, z_cont) = match self.fetch_cont(ptr) {
-                Some(Continuation::Outermost) => (
-                    ZCont::Outermost.z_ptr(&self.poseidon_cache),
-                    Some(ZCont::<F>::Outermost),
-                ),
-                _ => todo!(),
+                Some(Continuation::Outermost) => {
+                    let z_cont = ZCont::<F>::Outermost;
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::Call0 {
+                    saved_env,
+                    continuation,
+                }) => {
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let z_cont = ZCont::<F>::Call0 {
+                        saved_env: z_env_ptr,
+                        continuation: z_cont_ptr,
+                    };
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::Call {
+                    unevaled_arg,
+                    saved_env,
+                    continuation,
+                }) => {
+                    let (z_arg_ptr, _) = self.get_z_expr(&unevaled_arg, z_store.clone())?;
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let z_cont = ZCont::<F>::Call {
+                        unevaled_arg: z_arg_ptr,
+                        saved_env: z_env_ptr,
+                        continuation: z_cont_ptr,
+                    };
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::Call2 {
+                    function,
+                    saved_env,
+                    continuation,
+                }) => {
+                    let (z_fun_ptr, _) = self.get_z_expr(&function, z_store.clone())?;
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let z_cont = ZCont::<F>::Call2 {
+                        function: z_fun_ptr,
+                        saved_env: z_env_ptr,
+                        continuation: z_cont_ptr,
+                    };
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::Tail {
+                    saved_env,
+                    continuation,
+                }) => {
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let z_cont = ZCont::<F>::Tail {
+                        saved_env: z_env_ptr,
+                        continuation: z_cont_ptr,
+                    };
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::Error) => {
+                    let z_cont = ZCont::<F>::Error;
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::Lookup {
+                    saved_env,
+                    continuation,
+                }) => {
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let z_cont = ZCont::<F>::Lookup {
+                        saved_env: z_env_ptr,
+                        continuation: z_cont_ptr,
+                    };
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::Unop {
+                    operator,
+                    continuation,
+                }) => {
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let z_cont = ZCont::<F>::Unop {
+                        operator,
+                        continuation: z_cont_ptr,
+                    };
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::Binop {
+                    operator,
+                    saved_env,
+                    unevaled_args,
+                    continuation,
+                }) => {
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
+                    let (z_args_ptr, _) = self.get_z_expr(&unevaled_args, z_store.clone())?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let z_cont = ZCont::<F>::Binop {
+                        operator,
+                        saved_env: z_env_ptr,
+                        unevaled_args: z_args_ptr,
+                        continuation: z_cont_ptr,
+                    };
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::Binop2 {
+                    operator,
+                    evaled_arg,
+                    continuation,
+                }) => {
+                    let (z_arg_ptr, _) = self.get_z_expr(&evaled_arg, z_store.clone())?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let z_cont = ZCont::<F>::Binop2 {
+                        operator,
+                        evaled_arg: z_arg_ptr,
+                        continuation: z_cont_ptr,
+                    };
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::If {
+                    unevaled_args,
+                    continuation,
+                }) => {
+                    let (z_args_ptr, _) = self.get_z_expr(&unevaled_args, z_store.clone())?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let z_cont = ZCont::<F>::If {
+                        unevaled_args: z_args_ptr,
+                        continuation: z_cont_ptr,
+                    };
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::Let {
+                    var,
+                    body,
+                    saved_env,
+                    continuation,
+                }) => {
+                    let (z_var_ptr, _) = self.get_z_expr(&var, z_store.clone())?;
+                    let (z_body_ptr, _) = self.get_z_expr(&body, z_store.clone())?;
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let z_cont = ZCont::<F>::Let {
+                        var: z_var_ptr,
+                        body: z_body_ptr,
+                        saved_env: z_env_ptr,
+                        continuation: z_cont_ptr,
+                    };
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::LetRec {
+                    var,
+                    body,
+                    saved_env,
+                    continuation,
+                }) => {
+                    let (z_var_ptr, _) = self.get_z_expr(&var, z_store.clone())?;
+                    let (z_body_ptr, _) = self.get_z_expr(&body, z_store.clone())?;
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let z_cont = ZCont::<F>::LetRec {
+                        var: z_var_ptr,
+                        body: z_body_ptr,
+                        saved_env: z_env_ptr,
+                        continuation: z_cont_ptr,
+                    };
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::Emit { continuation }) => {
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let z_cont = ZCont::<F>::Emit {
+                        continuation: z_cont_ptr,
+                    };
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::Dummy) => {
+                    let z_cont = ZCont::<F>::Dummy;
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                Some(Continuation::Terminal) => {
+                    let z_cont = ZCont::<F>::Terminal;
+                    let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
+                    (z_ptr, Some(z_cont))
+                }
+                None => {
+                    let (z_ptr, _) = self.get_z_cont(&ptr, z_store.clone())?;
+                    (z_ptr, None)
+                }
             };
 
             if let Some(z_store) = z_store {
-                z_store
-                    .borrow_mut()
-                    .insert_cont(&self.poseidon_cache, z_ptr, z_cont.clone());
+                z_store.borrow_mut().cont_map.insert(z_ptr, z_cont.clone());
             };
             Ok((z_ptr, z_cont))
         }
-    }
-
-    pub fn to_z_expr(&self, ptr: &Ptr<F>) -> Option<ZExpr<F>> {
-        self.get_z_expr(ptr, None).ok()?.1
-    }
-
-    pub fn hash_expr(&self, ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
-        self.get_z_expr(ptr, None).ok().map(|x| x.0)
-    }
-
-    pub fn to_z_cont(&self, ptr: &ContPtr<F>) -> Option<ZCont<F>> {
-        self.get_z_cont(ptr, None).ok()?.1
-    }
-
-    pub fn hash_cont(&self, ptr: &ContPtr<F>) -> Option<ZContPtr<F>> {
-        self.get_z_cont(ptr, None).ok().map(|x| x.0)
-    }
-
-    pub fn hash_string(&mut self, s: &str) -> ZExprPtr<F> {
-        self.put_z_str(s.to_string(), None).0
-    }
-
-    pub fn hash_symbol(&mut self, s: Sym) -> ZExprPtr<F> {
-        self.put_z_sym(s, None).0
     }
 
     pub fn get_z_expr(
@@ -1265,9 +1433,7 @@ impl<F: LurkField> Store<F> {
             };
             // TODO
             if let Some(z_store) = z_store {
-                z_store
-                    .borrow_mut()
-                    .insert_expr(&self.poseidon_cache, z_ptr, z_expr.clone());
+                z_store.borrow_mut().expr_map.insert(z_ptr, z_expr.clone());
             };
             Ok((z_ptr, z_expr))
         }
@@ -1278,6 +1444,30 @@ impl<F: LurkField> Store<F> {
         let (z_ptr, _) = self.get_z_expr(ptr, Some(z_store.clone()))?;
         // TODO: remove heinous clone
         Ok((z_store.as_ref().clone().into_inner(), z_ptr))
+   }
+
+    pub fn to_z_expr(&self, ptr: &Ptr<F>) -> Option<ZExpr<F>> {
+        self.get_z_expr(ptr, None).ok()?.1
+    }
+
+    pub fn hash_expr(&self, ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
+        self.get_z_expr(ptr, None).ok().map(|x| x.0)
+    }
+
+    pub fn to_z_cont(&self, ptr: &ContPtr<F>) -> Option<ZCont<F>> {
+        self.get_z_cont(ptr, None).ok()?.1
+    }
+
+    pub fn hash_cont(&self, ptr: &ContPtr<F>) -> Option<ZContPtr<F>> {
+        self.get_z_cont(ptr, None).ok().map(|x| x.0)
+    }
+
+    pub fn hash_string(&mut self, s: &str) -> ZExprPtr<F> {
+        self.put_z_str(s.to_string(), None).0
+    }
+
+    pub fn hash_symbol(&mut self, s: Sym) -> ZExprPtr<F> {
+        self.put_z_sym(s, None).0
     }
 
     /// Mutable version of car_cdr to handle Str. `(cdr str)` may return a new str (the tail), which must be allocated.
@@ -1537,6 +1727,13 @@ impl<F: LurkField> Store<F> {
                 Outermost => Continuation::Outermost,
                 Dummy => Continuation::Dummy,
                 Terminal => Continuation::Terminal,
+                Call0 {
+                    saved_env,
+                    continuation,
+                } => Continuation::Call0 {
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
                 Call {
                     unevaled_arg,
                     saved_env,
@@ -1546,7 +1743,6 @@ impl<F: LurkField> Store<F> {
                     saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
                     continuation: self.intern_z_cont_ptr(continuation, z_store)?,
                 },
-
                 Call2 {
                     function,
                     saved_env,

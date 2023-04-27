@@ -3,17 +3,14 @@ use proptest::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 
-// use anyhow::anyhow;
 use std::collections::BTreeMap;
 
-use crate::hash::PoseidonCache;
-
 use crate::z_cont::ZCont;
-use crate::z_expr::ZExpr;
 use crate::z_data::Encodable;
+use crate::z_data::ZData;
+use crate::z_expr::ZExpr;
 use crate::z_ptr::ZContPtr;
 use crate::z_ptr::ZExprPtr;
-use crate::z_data::ZData;
 
 use crate::field::LurkField;
 
@@ -49,26 +46,11 @@ impl<F: LurkField> ZStore<F> {
     pub fn get_expr(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
         self.expr_map.get(ptr).cloned()?
     }
-    pub fn insert_expr(
-        &mut self,
-        cache: &PoseidonCache<F>,
-        ptr: ZExprPtr<F>,
-        expr: Option<ZExpr<F>>,
-    ) {
-        self.expr_map.insert(ptr, expr);
-    }
-    pub fn insert_cont(
-        &mut self,
-        cache: &PoseidonCache<F>,
-        ptr: ZContPtr<F>,
-        cont: Option<ZCont<F>>,
-    ) {
-        self.cont_map.insert(ptr, cont);
-    }
 
     pub fn get_cont(&self, ptr: &ZContPtr<F>) -> Option<ZCont<F>> {
         self.cont_map.get(ptr).cloned()?
     }
+
     pub fn nil_z_ptr() -> ZExprPtr<F> {
         todo!()
     }

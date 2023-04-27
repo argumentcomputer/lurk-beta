@@ -5,6 +5,7 @@
 #[macro_use]
 extern crate alloc;
 
+pub mod cache_map;
 pub mod circuit;
 pub mod cont;
 pub mod coprocessor;
@@ -13,7 +14,6 @@ pub mod expr;
 pub mod field;
 pub mod hash;
 pub mod hash_witness;
-pub mod cache_map;
 pub mod package;
 pub mod parser;
 pub mod proof;
@@ -24,11 +24,11 @@ pub mod sym;
 pub mod tag;
 pub mod uint;
 pub mod writer;
-pub mod z_data;
-pub mod z_store;
-pub mod z_ptr;
-pub mod z_expr;
 pub mod z_cont;
+pub mod z_data;
+pub mod z_expr;
+pub mod z_ptr;
+pub mod z_store;
 
 pub mod error;
 mod num;
