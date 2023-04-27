@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use rayon::prelude::*;
 use std::cell::RefCell;
 use std::fmt;
@@ -20,8 +21,6 @@ use crate::sym::Sym;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 use crate::z_data::{ZCont, ZContPtr, ZExpr, ZExprPtr, ZPtr, ZStore};
 use crate::{Num, UInt};
-
-use std::collections::HashMap;
 
 use crate::hash::{HashConstants, PoseidonCache};
 
@@ -98,9 +97,10 @@ pub struct Store<F: LurkField> {
     pub lurk_package: Arc<Package>,
     pub constants: OnceCell<NamedConstants<F>>,
 
-    vec_char_cache: HashMap<Vec<char>, (ZExprPtr<F>, ZExpr<F>)>,
-    vec_str_cache: HashMap<Vec<String>, (ZExprPtr<F>, ZExpr<F>)>,
-    str_cache: HashMap<String, (ZExprPtr<F>, ZExpr<F>)>,
+    vec_char_cache: dashmap::DashMap<Vec<char>, (ZExprPtr<F>, ZExpr<F>), ahash::RandomState>,
+    vec_str_cache: dashmap::DashMap<Vec<String>, (ZExprPtr<F>, ZExpr<F>), ahash::RandomState>,
+    str_cache: dashmap::DashMap<String, (ZExprPtr<F>, ZExpr<F>), ahash::RandomState>,
+    sym_cache: dashmap::DashMap<Sym, (ZExprPtr<F>, ZExpr<F>), ahash::RandomState>,
 }
 
 pub trait TypePredicates {
@@ -155,6 +155,7 @@ impl<F: LurkField> Default for Store<F> {
             vec_char_cache: Default::default(),
             vec_str_cache: Default::default(),
             str_cache: Default::default(),
+            sym_cache: Default::default(),
         };
 
         store.lurk_sym("");
@@ -1012,7 +1013,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn put_z_chars(
-        &mut self,
+        &self,
         chars: Vec<char>,
         z_store: Option<Rc<RefCell<ZStore<F>>>>,
     ) -> (ZExprPtr<F>, ZExpr<F>) {
@@ -1029,7 +1030,8 @@ impl<F: LurkField> Store<F> {
             }
             heads_acc.push(chars_rev.pop().unwrap());
             match self.vec_char_cache.get(&chars_rev) {
-                Some((ptr_cache, expr_cache)) => {
+                Some(cache) => {
+                    let (ptr_cache, expr_cache) = &*cache;
                     ptr = ptr_cache.clone();
                     expr = expr_cache.clone();
                     break;
@@ -1061,7 +1063,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn put_z_strs(
-        &mut self,
+        &self,
         strs: Vec<String>,
         z_store: Option<Rc<RefCell<ZStore<F>>>>,
     ) -> (ZExprPtr<F>, ZExpr<F>) {
@@ -1078,7 +1080,8 @@ impl<F: LurkField> Store<F> {
             }
             heads_acc.push(strs_rev.pop().unwrap());
             match self.vec_str_cache.get(&strs_rev) {
-                Some((ptr_cache, expr_cache)) => {
+                Some(cache) => {
+                    let (ptr_cache, expr_cache) = &*cache;
                     ptr = ptr_cache.clone();
                     expr = expr_cache.clone();
                     break;
@@ -1110,16 +1113,31 @@ impl<F: LurkField> Store<F> {
         &self,
         s: String,
         z_store: Option<Rc<RefCell<ZStore<F>>>>,
-    ) -> Result<(ZExprPtr<F>, Option<ZExpr<F>>), Error> {
-        todo!()
+    ) -> (ZExprPtr<F>, ZExpr<F>) {
+        match self.str_cache.get(&s) {
+            Some(pair) => (&*pair).clone(),
+            None => {
+                let (ptr, expr) = self.put_z_chars(s.chars().collect_vec(), z_store);
+                self.str_cache.insert(s, (ptr.clone(), expr.clone()));
+                (ptr, expr)
+            }
+        }
     }
 
     pub fn put_z_sym(
         &self,
         s: Sym,
         z_store: Option<Rc<RefCell<ZStore<F>>>>,
-    ) -> Result<(ZExprPtr<F>, Option<ZExpr<F>>), Error> {
-        todo!()
+    ) -> (ZExprPtr<F>, ZExpr<F>) {
+        match self.sym_cache.get(&s) {
+            Some(pair) => (&*pair).clone(),
+            None => {
+                let path: Vec<String> = s.path().to_vec();
+                let (ptr, expr) = self.put_z_strs(path, z_store);
+                self.sym_cache.insert(s, (ptr.clone(), expr.clone()));
+                (ptr, expr)
+            }
+        }
     }
 
     pub fn get_z_cont(
@@ -1177,12 +1195,12 @@ impl<F: LurkField> Store<F> {
         self.get_z_cont(ptr, None).ok().map(|x| x.0)
     }
 
-    pub fn hash_string(&self, ptr: &str) -> Option<ZExprPtr<F>> {
-        todo!()
+    pub fn hash_string(&mut self, s: &str) -> ZExprPtr<F> {
+        self.put_z_str(s.to_string(), None).0
     }
 
-    pub fn hash_symbol(&self, ptr: &str) -> Option<ZExprPtr<F>> {
-        todo!()
+    pub fn hash_symbol(&mut self, s: Sym) -> ZExprPtr<F> {
+        self.put_z_sym(s, None).0
     }
 
     pub fn get_z_expr(
@@ -1264,8 +1282,14 @@ impl<F: LurkField> Store<F> {
                     let z_expr = ZExpr::Uint(u);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
-                Some(Expression::Str(s)) => self.put_z_str(s.to_string(), z_store.clone())?,
-                Some(Expression::Sym(s)) => self.put_z_sym(s, z_store.clone())?,
+                Some(Expression::Str(s)) => {
+                    let (ptr, expr) = self.put_z_str(s.to_string(), z_store.clone());
+                    (ptr, Some(expr))
+                }
+                Some(Expression::Sym(s)) => {
+                    let (ptr, expr) = self.put_z_sym(s, z_store.clone());
+                    (ptr, Some(expr))
+                }
             };
             // TODO
             if let Some(z_store) = z_store {
