@@ -6,6 +6,7 @@ use crate::num::Num;
 use crate::tag::{ExprTag, Op, Op1, Op2};
 use crate::writer::Write;
 
+use lurk_derive::Coproc;
 use pasta_curves::pallas::Scalar as Fr;
 
 fn test_aux<C: Coprocessor<Fr>>(
@@ -2560,54 +2561,13 @@ pub(crate) mod coproc {
     use super::super::lang::Lang;
     use super::super::*;
     use super::*;
-    use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
-    use crate::coprocessor::{test::DumbCoprocessor, CoCircuit};
+    use crate::coprocessor::test::DumbCoprocessor;
     use crate::store::Store;
     use crate::sym::Sym;
 
-    use bellperson::ConstraintSystem;
-
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Coproc)]
     pub(crate) enum DumbCoproc<F: LurkField> {
         DC(DumbCoprocessor<F>),
-    }
-
-    use bellperson::SynthesisError;
-
-    impl<F: LurkField> Coprocessor<F> for DumbCoproc<F> {
-        fn eval_arity(&self) -> usize {
-            match self {
-                Self::DC(c) => c.eval_arity(),
-            }
-        }
-
-        fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
-            match self {
-                Self::DC(c) => c.simple_evaluate(s, args),
-            }
-        }
-    }
-
-    impl<F: LurkField> CoCircuit<F> for DumbCoproc<F> {
-        fn arity(&self) -> usize {
-            match self {
-                Self::DC(x) => x.arity(),
-            }
-        }
-
-        fn synthesize<CS: ConstraintSystem<F>>(
-            &self,
-            cs: &mut CS,
-            store: &Store<F>,
-            input_exprs: &[AllocatedPtr<F>],
-            input_env: &AllocatedPtr<F>,
-            input_cont: &AllocatedContPtr<F>,
-        ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError>
-        {
-            match self {
-                Self::DC(x) => x.synthesize(cs, store, input_exprs, input_env, input_cont),
-            }
-        }
     }
 
     #[test]

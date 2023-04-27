@@ -1,0 +1,17 @@
+[package]
+name = "lurk-derive"
+version = "0.1.0"
+authors = ["porcuquine <porcuquine@gmail.com>"]
+license = "MIT OR Apache-2.0"
+description = "Custom derives for `lurk`"
+edition = "2021"
+repository = "https://github.com/lurk-lab/lurk-rs"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "1.0.64", features = ["derive", "full"] }
+quote = "1.0.9"
+proc-macro2 = "1.0.24"
+
