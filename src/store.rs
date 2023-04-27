@@ -1924,6 +1924,20 @@ impl<F: LurkField> NamedConstants<F> {
     }
 }
 
+impl<F: LurkField> ZStore<F> {
+    pub fn to_store(&mut self) -> Store<F> {
+        let mut store = Store::new();
+
+        for ptr in self.expr_map.keys() {
+            store.intern_z_expr_ptr(*ptr, self);
+        }
+        for ptr in self.cont_map.keys() {
+            store.intern_z_cont_ptr(*ptr, self);
+        }
+        store
+    }
+}
+
 #[cfg(test)]
 pub mod test {
 
