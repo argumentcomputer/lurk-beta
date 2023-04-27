@@ -50,8 +50,8 @@ impl<F: LurkField> ZStore<F> {
         self.expr_map.insert(ptr, expr);
     }
 
-    pub fn get_cont(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
-        self.expr_map.get(ptr).cloned()?
+    pub fn get_cont(&self, ptr: &ZContPtr<F>) -> Option<ZCont<F>> {
+        self.cont_map.get(ptr).cloned()?
     }
     pub fn nil_z_ptr() -> ZExprPtr<F> {
         todo!()
