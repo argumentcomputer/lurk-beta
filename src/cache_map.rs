@@ -2,7 +2,7 @@ use stable_deref_trait::StableDeref;
 use std::alloc::Layout;
 use std::borrow::Borrow;
 use std::collections::BTreeMap;
-use std::collections::{HashMap, hash_map::RandomState};
+use std::collections::{hash_map::RandomState, HashMap};
 use std::hash::{BuildHasher, Hash};
 use std::iter::{FromIterator, IntoIterator};
 use std::ops::Index;
@@ -16,7 +16,6 @@ use std::sync::RwLock;
 pub struct CacheMap<K, V> {
     map: RwLock<HashMap<K, V, ahash::RandomState>>,
 }
-
 
 impl<K, V> Default for CacheMap<K, V> {
     fn default() -> Self {

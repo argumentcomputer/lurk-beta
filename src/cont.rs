@@ -57,8 +57,8 @@ pub enum Continuation<F: LurkField> {
     },
     LetRec {
         var: Ptr<F>,
-        saved_env: Ptr<F>,
         body: Ptr<F>,
+        saved_env: Ptr<F>,
         continuation: ContPtr<F>,
     },
     Emit {

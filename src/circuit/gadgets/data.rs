@@ -14,7 +14,7 @@ use crate::hash::IntoHashComponents;
 use crate::ptr::Ptr;
 use crate::store::Store;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
-use crate::z_data::{ZContPtr, ZExprPtr};
+use crate::z_ptr::{ZContPtr, ZExprPtr};
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};
 

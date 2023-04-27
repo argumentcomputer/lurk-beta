@@ -5,12 +5,12 @@ use proptest_derive::Arbitrary;
 
 use std::collections::BTreeMap;
 
-use crate::z_data::z_cont::ZCont;
-use crate::z_data::z_expr::ZExpr;
+use crate::z_cont::ZCont;
 use crate::z_data::Encodable;
-use crate::z_data::ZContPtr;
 use crate::z_data::ZData;
-use crate::z_data::ZExprPtr;
+use crate::z_expr::ZExpr;
+use crate::z_ptr::ZContPtr;
+use crate::z_ptr::ZExprPtr;
 
 use crate::field::LurkField;
 

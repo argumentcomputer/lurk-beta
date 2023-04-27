@@ -11,7 +11,7 @@ use crate::field::LurkField;
 use crate::ptr::Ptr;
 use crate::store::Store;
 use crate::sym::Sym;
-use crate::z_data::ZExprPtr;
+use crate::z_ptr::ZExprPtr;
 
 /// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.
 ///

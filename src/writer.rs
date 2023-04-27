@@ -3,7 +3,7 @@ use crate::expr::Expression;
 use crate::field::LurkField;
 use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
-use crate::z_data::ZExpr;
+use crate::z_expr::ZExpr;
 use crate::Sym;
 use std::io;
 

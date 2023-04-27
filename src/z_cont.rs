@@ -14,7 +14,7 @@ use crate::tag::ContTag;
 use crate::tag::Op1;
 use crate::tag::Op2;
 use crate::tag::Tag;
-use crate::z_data::{ZContPtr, ZExprPtr, ZPtr};
+use crate::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
