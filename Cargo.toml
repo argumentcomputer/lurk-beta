@@ -35,15 +35,13 @@ ahash = "0.7.6"
 pasta_curves = { version = "0.5.2", features = ["repr-c", "serde"], package = "fil_pasta_curves" }
 string-interner = "0.14.0"
 dashmap = "5.4.0"
-libipld = { package = "lurk-ipld", version = "0.3.0", default-features = false, features = ["dag-cbor", "dag-json", "serde-codec"] }
-cid = { version = "0.8.6", default-features = false, features = ["alloc", "serde-codec"]}
-multihash = { version = "0.16.3", default-features = false, features = ["alloc", "blake3"] }
 num-bigint = "0.4.3"
 num-integer = "0.1.45"
 num-traits = "0.2.15"
 nom = "7.1.3"
 clap = "4.1.8"
 tap = "1.0.1"
+stable_deref_trait = "1.1.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 memmap = { version = "0.5.10", package = "memmap2" }
