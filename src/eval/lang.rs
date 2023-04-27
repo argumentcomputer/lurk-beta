@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use lurk_derive::Coproc;
+use lurk_macros::Coproc;
 use serde::{Deserialize, Serialize};
 
 use crate::coprocessor::{CoCircuit, Coprocessor};

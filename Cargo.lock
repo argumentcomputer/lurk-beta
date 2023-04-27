@@ -1343,8 +1343,8 @@ dependencies = [
  "indexmap",
  "itertools 0.9.0",
  "log",
- "lurk-derive",
  "lurk-ipld",
+ "lurk-macros",
  "lurk-pasta-msm",
  "memmap2",
  "multihash",
@@ -1373,15 +1373,6 @@ dependencies = [
  "tap",
  "tempfile",
  "thiserror",
-]
-
-[[package]]
-name = "lurk-derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro2 1.0.56",
- "quote 1.0.26",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -1448,6 +1439,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "lurk-macros"
+version = "0.1.0"
+dependencies = [
+ "fil_pasta_curves",
+ "lurk",
+ "proc-macro2 1.0.56",
+ "quote 1.0.26",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "lurk-pasta-msm"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1458,17 +1460,6 @@ dependencies = [
  "semolina",
  "sppark",
  "which",
-]
-
-[[package]]
-name = "lurk_macro"
-version = "0.1.0"
-dependencies = [
- "blstrs",
- "lurk",
- "proc-macro2 1.0.56",
- "quote 1.0.26",
- "syn 1.0.109",
 ]
 
 [[package]]

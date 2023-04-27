@@ -6,7 +6,7 @@ use crate::num::Num;
 use crate::tag::{ExprTag, Op, Op1, Op2};
 use crate::writer::Write;
 
-use lurk_derive::Coproc;
+use lurk_macros::{let_store, lurk, Coproc};
 use pasta_curves::pallas::Scalar as Fr;
 
 fn test_aux<C: Coprocessor<Fr>>(
@@ -994,9 +994,10 @@ fn evaluate_zero_arg_lambda() {
 #[test]
 fn evaluate_zero_arg_lambda_variants() {
     {
-        let mut s = Store::<Fr>::default();
+        let_store!();
+
         let limit = 20;
-        let expr = s.read("((lambda (x) 123))").unwrap();
+        let expr = lurk!(((lambda (x) 123))).unwrap();
         let lang = Lang::<Fr, Coproc<Fr>>::new();
 
         let (
@@ -1007,7 +1008,7 @@ fn evaluate_zero_arg_lambda_variants() {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit, &lang)
+        ) = Evaluator::new(expr, empty_sym_env(s_), s_, limit, &lang)
             .eval()
             .unwrap();
 

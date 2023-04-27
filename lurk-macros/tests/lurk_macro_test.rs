@@ -1,32 +1,33 @@
 #[cfg(test)]
 mod test {
-    use blstrs::Scalar as Fr;
-    use lurk::{
+    use lurk_crate::{
         eval::lang::{Coproc, Lang},
-        eval::IO,
+        eval::{empty_sym_env, Evaluator, IO},
         store::Store,
     };
-    use lurk_macro::{let_store, lurk};
+    use lurk_macros::{let_store, lurk};
+    use pasta_curves::pallas::Scalar as Fr;
 
     type TestLang = Lang<Fr, Coproc<Fr>>;
 
     #[test]
     fn test_let_store() {
-        let_store!();
+        let_store!(s);
     }
 
     #[test]
     fn test_lurk() {
-        let_store!();
+        let_store!(s);
         let res = lurk!((cons 1 2)).unwrap();
 
         let res2 = s_.read("(cons 1 2)").unwrap();
 
         assert_eq!(res2, res);
     }
+
     #[test]
-    fn test_letstar() {
-        let_store!();
+    fn test_let() {
+        let_store!(s);
         let res = lurk!((let ((a 1)) a)).unwrap();
 
         let res2 = s_.read("(let ((a 1)) a)").unwrap();
@@ -35,8 +36,8 @@ mod test {
     }
 
     #[test]
-    fn test_letrecstar() {
-        let_store!();
+    fn test_letrec() {
+        let_store!(s);
         let res = lurk!((letrec ((a 1)) a)).unwrap();
 
         lurk!((let ((a 1)
@@ -50,14 +51,12 @@ mod test {
         assert_eq!(res2, res);
     }
 
-    use lurk::eval::{empty_sym_env, Evaluator};
-
     #[test]
     fn outer_evaluate_recursion1() {
         // This test is an example of simple usage. Compare to the commented-out original source for this test.
 
         // let mut s = Store::<Fr>::default();
-        let_store!();
+        let_store!(s);
         let limit = 200;
 
         let expr = lurk!((letrec ((exp (lambda (base)
@@ -78,7 +77,7 @@ mod test {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit, &lang)
+        ) = Evaluator::new(expr, empty_sym_env(&s_), s_, limit, &lang)
             .eval()
             .unwrap();
 
@@ -88,7 +87,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_lambda() {
-        let_store!();
+        let_store!(s);
 
         let limit = 20;
         let val = s_.num(123);
@@ -103,7 +102,7 @@ mod test {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit, &lang)
+        ) = Evaluator::new(expr, empty_sym_env(&s_), s_, limit, &lang)
             .eval()
             .unwrap();
 

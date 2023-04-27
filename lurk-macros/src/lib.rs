@@ -1,8 +1,16 @@
-//! Derive macros for Lurk
+//! # Lurk Macros
+//!
+//! ## Derive macros for Lurk
+//!
 //! This crate contains derive macros to manage trait dispatch in Lurk.
 //!
 //! - The `Coproc` macro adds dispatching `Coprocessor` and `Cocircuit` implementations to enums whose variants all
 //!   atomically enclose types implementing `Coprocessor`.
+//!
+//! ## Lurk macro
+//!
+//! Although severely limited in the expressions it can represent, and still lacking quasiquoting,
+//! the `lurk` macro allows embedding Lurk code in Rust source. See tests for examples.
 
 extern crate proc_macro;
 
@@ -131,4 +139,48 @@ fn synthesize_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::Toke
         });
     }
     match_arms
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Lurk Macro
+
+#[derive(Debug)]
+enum Lurk {
+    Src(String),
+}
+
+impl Lurk {
+    fn parse_raw(input: proc_macro2::TokenStream) -> Result<Self, syn::Error> {
+        // We just immediately turn the `TokenStream` into a string then delegate
+        // to the Lurk parser. Although this is a little silly, it is simple.
+        let string = input.to_string();
+        let mut input_it = input.into_iter().peekable();
+        while input_it.next().is_some() {}
+
+        Ok(Lurk::Src(string))
+    }
+
+    fn emit(&self) -> TokenStream {
+        let output = match self {
+            Lurk::Src(string) => {
+                quote!(s_.read(&#string))
+            }
+        };
+
+        output.into()
+    }
+}
+
+#[proc_macro]
+/// Binds a mutable `Store` to the variable `s_`, which is (somewhat unfortunately) hard-coded into the `lurk!` macro.
+/// Users should therefore avoid using `s_` for other purposes, and will need to use `s_` directly when manipulating the
+/// `Store`. The name `s_` was chosen to walk the line between obscurity and brevity/clarity. Accidental collisions are
+/// undesirable, but so is an awkward or unwieldy name.
+pub fn let_store(_tokens: TokenStream) -> TokenStream {
+    quote!(let s_ = &mut Store::<Fr>::default();).into()
+}
+
+#[proc_macro]
+pub fn lurk(tokens: TokenStream) -> TokenStream {
+    Lurk::parse_raw(tokens.into()).unwrap().emit()
 }
