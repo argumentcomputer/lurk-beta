@@ -12,6 +12,7 @@ use once_cell::sync::OnceCell;
 
 use crate::cont::Continuation;
 use crate::expr::{Expression, Thunk};
+use crate::expr;
 use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::parser::{convert_sym_case, names_keyword};
@@ -332,6 +333,21 @@ impl<F: LurkField> Store<F> {
         self.lurk_sym("nil")
     }
 
+    pub fn intern_keynil(&self) -> Ptr<F> {
+        // TODO: Is this right?
+        Ptr::null(ExprTag::Key)
+    }
+
+    pub fn intern_symnil(&self) -> Ptr<F> {
+        // TODO: Is this right?
+        Ptr::null(ExprTag::Sym)
+    }
+
+    pub fn intern_strnil(&self) -> Ptr<F> {
+        // TODO: Is this right?
+        Ptr::null(ExprTag::Str)
+    }
+
     pub fn get_nil(&self) -> Ptr<F> {
         self.get_lurk_sym("nil", true).expect("missing NIL")
     }
@@ -375,6 +391,14 @@ impl<F: LurkField> Store<F> {
         let new_str = format!("{c}{s}");
 
         self.intern_str(&new_str)
+    }
+
+    pub fn intern_symcons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+        todo!()
+    }
+
+    pub fn intern_keycons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+        todo!()
     }
 
     pub fn intern_comm(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
@@ -1767,6 +1791,119 @@ impl<F: LurkField> Store<F> {
             }
         };
         Some(self.intern_sym(sym))
+    }
+
+    pub fn intern_z_expr_ptr(
+        &mut self,
+        z_ptr: ZExprPtr<F>,
+        z_store: &ZStore<F>,
+    ) -> Option<Ptr<F>> {
+        if let Some(ptr) = self.fetch_scalar(&z_ptr) {
+            Some(ptr)
+        } else {
+            use ZExpr::*;
+            match (z_ptr.tag(), z_store.get_expr(&z_ptr)) {
+                (ExprTag::Nil, Some(Nil)) => {
+                    let ptr = self.intern_nil();
+                    self.create_scalar_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Cons, Some(Cons(car, cdr))) => {
+                    let car = self.intern_z_expr_ptr(car, z_store)?;
+                    let cdr = self.intern_z_expr_ptr(cdr, z_store)?;
+                    let ptr = self.intern_cons(car, cdr);
+                    self.create_scalar_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Comm, Some(Comm(secret, payload))) => {
+                    let payload = self.intern_z_expr_ptr(payload, z_store)?;
+                    let ptr = self.intern_comm(secret, payload);
+                    self.create_scalar_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Str, Some(StrNil)) => {
+                    let ptr = self.intern_strnil();
+                    self.create_scalar_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Str, Some(StrCons(strcar, strcdr))) => {
+                    let strcar = self.intern_z_expr_ptr(strcar, z_store)?;
+                    let strcdr = self.intern_z_expr_ptr(strcdr, z_store)?;
+                    let ptr = self.intern_strcons(strcar, strcdr);
+                    self.create_scalar_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Str, Some(SymNil)) => {
+                    let ptr = self.intern_symnil();
+                    self.create_scalar_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Sym, Some(SymCons(symcar, symcdr))) => {
+                    let symcar = self.intern_z_expr_ptr(symcar, z_store)?;
+                    let symcdr = self.intern_z_expr_ptr(symcdr, z_store)?;
+                    let ptr = self.intern_symcons(symcar, symcdr);
+                    self.create_scalar_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Key, Some(SymNil)) => {
+                    let ptr = self.intern_keynil();
+                    self.create_scalar_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Key, Some(SymCons(keycar, keycdr))) => {
+                    let keycar = self.intern_z_expr_ptr(keycar, z_store)?;
+                    let keycdr = self.intern_z_expr_ptr(keycdr, z_store)?;
+                    let ptr = self.intern_keycons(keycar, keycdr);
+                    self.create_scalar_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Num, Some(Num(x))) => {
+                    let ptr = self.intern_num(crate::Num::Scalar(x));
+                    self.create_scalar_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Char, Some(Char(x))) => Some(x.into()),
+                (ExprTag::Thunk, Some(Thunk(value, continuation))) => {
+                    let value = self.intern_z_expr_ptr(value, z_store)?;
+                    let continuation = self.intern_z_cont_ptr(continuation, z_store)?;
+                    let ptr = self.intern_thunk(expr::Thunk {
+                        value,
+                        continuation,
+                    });
+                    self.create_scalar_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (
+                    ExprTag::Fun,
+                    Some(Fun {
+                        arg,
+                        body,
+                        closed_env,
+                    }),
+                ) => {
+                    let arg = self.intern_z_expr_ptr(arg, z_store)?;
+                    let body = self.intern_z_expr_ptr(body, z_store)?;
+                    let env = self.intern_z_expr_ptr(closed_env, z_store)?;
+                    let ptr = self.intern_fun(arg, body, env);
+                    self.create_scalar_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (tag, None) => {
+                    let ptr = self.intern_maybe_opaque(tag, z_ptr.1);
+                    self.create_scalar_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                _ => None,
+            }
+        }
+    }
+
+    pub fn intern_z_cont_ptr(
+        &mut self,
+        z_ptr: ZContPtr<F>,
+        z_store: &ZStore<F>,
+    ) -> Option<ContPtr<F>> {
+        todo!()
     }
 }
 
