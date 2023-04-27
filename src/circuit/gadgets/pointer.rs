@@ -117,7 +117,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         AllocatedPtr::alloc(cs, || {
             let ptr = value()?;
             store
-                .get_expr_hash(ptr)
+                .hash_expr(ptr)
                 .ok_or(SynthesisError::AssignmentMissing)
         })
     }
@@ -128,7 +128,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         value: &Ptr<F>,
     ) -> Result<Self, SynthesisError> {
         let ptr = store
-            .get_expr_hash(value)
+            .hash_expr(value)
             .ok_or(SynthesisError::AssignmentMissing)?;
         AllocatedPtr::alloc_constant(cs, ptr)
     }
@@ -488,7 +488,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         expr: Option<&Ptr<F>>,
         store: &Store<F>,
     ) -> Result<Self, SynthesisError> {
-        let ptr = expr.and_then(|e| store.get_expr_hash(e));
+        let ptr = expr.and_then(|e| store.hash_expr(e));
 
         let tag = AllocatedNum::alloc(cs.namespace(|| "tag"), || {
             ptr.as_ref()
