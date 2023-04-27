@@ -183,10 +183,6 @@ impl Symbol {
 
         path
     }
-
-    pub fn is_keyword(&self) -> bool {
-        self.path().len() == 2
-    }
 }
 
 impl Sym {

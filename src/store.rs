@@ -21,14 +21,9 @@ use crate::sym::Sym;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 use crate::z_data::{ZCont, ZContPtr, ZExpr, ZExprPtr, ZPtr, ZStore};
 use crate::{Num, UInt};
+use crate::cache_map::CacheMap;
 
 use crate::hash::{HashConstants, PoseidonCache};
-
-#[derive(Clone, Copy, Debug)]
-pub enum HashScalar {
-    Create,
-    Get,
-}
 
 type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
 
@@ -84,9 +79,9 @@ pub struct Store<F: LurkField> {
     pub opaque_cont_ptrs: IndexSet<ZContPtr<F>>,
 
     /// Holds a mapping of ZExprPtr -> Ptr for reverse lookups
-    pub z_expr_ptr_map: dashmap::DashMap<ZExprPtr<F>, Ptr<F>, ahash::RandomState>,
+    pub z_expr_ptr_map: CacheMap<ZExprPtr<F>, Box<Ptr<F>>>,
     /// Holds a mapping of ZExprPtr -> ContPtr<F> for reverse lookups
-    pub z_cont_ptr_map: dashmap::DashMap<ZContPtr<F>, ContPtr<F>, ahash::RandomState>,
+    pub z_cont_ptr_map: CacheMap<ZContPtr<F>, Box<ContPtr<F>>>,
 
     /// Caches poseidon hashes
     pub poseidon_cache: PoseidonCache<F>,
@@ -97,10 +92,10 @@ pub struct Store<F: LurkField> {
     pub lurk_package: Arc<Package>,
     pub constants: OnceCell<NamedConstants<F>>,
 
-    vec_char_cache: dashmap::DashMap<Vec<char>, (ZExprPtr<F>, ZExpr<F>), ahash::RandomState>,
-    vec_str_cache: dashmap::DashMap<Vec<String>, (ZExprPtr<F>, ZExpr<F>), ahash::RandomState>,
-    str_cache: dashmap::DashMap<String, (ZExprPtr<F>, ZExpr<F>), ahash::RandomState>,
-    sym_cache: dashmap::DashMap<Sym, (ZExprPtr<F>, ZExpr<F>), ahash::RandomState>,
+    vec_char_cache: CacheMap<Vec<char>, Box<(ZExprPtr<F>, ZExpr<F>)>>,
+    vec_str_cache: CacheMap<Vec<String>, Box<(ZExprPtr<F>, ZExpr<F>)>>,
+    str_cache: CacheMap<String, Box<(ZExprPtr<F>, ZExpr<F>)>>,
+    sym_cache: CacheMap<Sym, Box<(ZExprPtr<F>, ZExpr<F>)>>,
 }
 
 pub trait TypePredicates {
@@ -339,12 +334,11 @@ impl<F: LurkField> Store<F> {
         self.lurk_sym("nil")
     }
 
-    pub fn intern_symnil(&self, key : bool) -> Ptr<F> {
+    pub fn intern_symnil(&self, key: bool) -> Ptr<F> {
         // TODO: Is this right?
         if key {
             Ptr::null(ExprTag::Key)
-        }
-        else {
+        } else {
             Ptr::null(ExprTag::Sym)
         }
     }
@@ -406,23 +400,22 @@ impl<F: LurkField> Store<F> {
             self.hash_expr(&cdr);
         }
         assert_eq!((car.tag, cdr.tag), (ExprTag::Str, ExprTag::Sym));
-        let (c, s) = (
-            self.fetch_str(&car).unwrap(),
-            self.fetch_sym(&cdr).unwrap(),
-        );
+        let (c, s) = (self.fetch_str(&car).unwrap(), self.fetch_sym(&cdr).unwrap());
         match s.extend(&[c.to_string()]) {
-            Sym::Key(sym) => if key {
-                self.intern_sym(&Sym::Key(sym))
+            Sym::Key(sym) => {
+                if key {
+                    self.intern_sym(&Sym::Key(sym))
+                } else {
+                    self.intern_sym(&Sym::Sym(sym))
+                }
             }
-            else {
-                self.intern_sym(&Sym::Sym(sym))
+            Sym::Sym(sym) => {
+                if key {
+                    self.intern_sym(&Sym::Key(sym))
+                } else {
+                    self.intern_sym(&Sym::Sym(sym))
+                }
             }
-            Sym::Sym(sym) => if key {
-                self.intern_sym(&Sym::Key(sym))
-            }
-            else {
-                self.intern_sym(&Sym::Sym(sym))
-            },
         }
     }
 
@@ -769,23 +762,6 @@ impl<F: LurkField> Store<F> {
         self.mark_dehydrated_cont(self.get_cont_dummy())
     }
 
-    pub fn scalar_from_parts(&self, tag: F, value: F) -> Option<ZExprPtr<F>> {
-        let Some(e_tag) = ExprTag::from_field(&tag) else { return None };
-        let scalar_ptr = ZExprPtr::from_parts(e_tag, value);
-        self.z_expr_ptr_map
-            .contains_key(&scalar_ptr)
-            .then_some(scalar_ptr)
-    }
-
-    pub fn scalar_from_parts_cont(&self, tag: F, value: F) -> Option<ZContPtr<F>> {
-        let Some(e_tag) = ContTag::from_field(&tag) else { return None };
-        let scalar_ptr = ZContPtr::from_parts(e_tag, value);
-        if self.z_cont_ptr_map.contains_key(&scalar_ptr) {
-            return Some(scalar_ptr);
-        }
-        None
-    }
-
     pub fn fetch_scalar(&self, scalar_ptr: &ZExprPtr<F>) -> Option<Ptr<F>> {
         self.z_expr_ptr_map.get(scalar_ptr).map(|p| *p)
     }
@@ -1076,7 +1052,7 @@ impl<F: LurkField> Store<F> {
             };
             chars_rev.push(c);
             self.vec_char_cache
-                .insert(chars_rev.clone(), (ptr.clone(), expr.clone()));
+                .insert(chars_rev.clone(), Box::new((ptr.clone(), expr.clone())));
         }
         (ptr, expr)
     }
@@ -1123,7 +1099,7 @@ impl<F: LurkField> Store<F> {
             };
             strs_rev.push(s);
             self.vec_str_cache
-                .insert(strs_rev.clone(), (ptr.clone(), expr.clone()));
+                .insert(strs_rev.clone(), Box::new((ptr.clone(), expr.clone())));
         }
         (ptr, expr)
     }
@@ -1137,7 +1113,7 @@ impl<F: LurkField> Store<F> {
             Some(pair) => (&*pair).clone(),
             None => {
                 let (ptr, expr) = self.put_z_chars(s.chars().collect_vec(), z_store);
-                self.str_cache.insert(s, (ptr.clone(), expr.clone()));
+                self.str_cache.insert(s, Box::new((ptr.clone(), expr.clone())));
                 (ptr, expr)
             }
         }
@@ -1153,7 +1129,7 @@ impl<F: LurkField> Store<F> {
             None => {
                 let path: Vec<String> = s.path().to_vec();
                 let (ptr, expr) = self.put_z_strs(path, z_store);
-                self.sym_cache.insert(s, (ptr.clone(), expr.clone()));
+                self.sym_cache.insert(s, Box::new((ptr.clone(), expr.clone())));
                 (ptr, expr)
             }
         }
@@ -1169,16 +1145,10 @@ impl<F: LurkField> Store<F> {
                 .opaque_cont_ptrs
                 .get_index(idx)
                 .ok_or(Error(format!("get_z_expr unknown opaque")))?;
-            match self.z_cont_ptr_map.try_get(z_ptr) {
-                dashmap::try_result::TryResult::Absent => {
-                    // TODO: cache the z_ptr -> ptr in the z_expr_ptr_map
-                    Ok((*z_ptr, None))
-                }
+            match self.z_cont_ptr_map.get(z_ptr) {
                 // TODO: cycle-detection needed either here or on opaque ptr creation
-                dashmap::try_result::TryResult::Present(p) => self.get_z_cont(&p, z_store.clone()),
-                dashmap::try_result::TryResult::Locked => {
-                    Err(Error(format!("get_z_cont locked z_expr_ptr_map")))
-                }
+                Some(p) => self.get_z_cont(&p, z_store.clone()),
+                None => Ok((*z_ptr, None)),
             }
         } else {
             let (z_ptr, z_cont) = match self.fetch_cont(ptr) {
@@ -1232,16 +1202,10 @@ impl<F: LurkField> Store<F> {
                 .opaque_ptrs
                 .get_index(idx)
                 .ok_or(Error(format!("get_z_expr unknown opaque")))?;
-            match self.z_expr_ptr_map.try_get(z_ptr) {
-                dashmap::try_result::TryResult::Absent => {
-                    // TODO: cache the z_ptr -> ptr in the z_expr_ptr_map
-                    Ok((*z_ptr, None))
-                }
+            match self.z_expr_ptr_map.get(z_ptr) {
+                None => Ok((*z_ptr, None)),
                 // TODO: cycle-detection needed either here or on opaque ptr creation
-                dashmap::try_result::TryResult::Present(p) => self.get_z_expr(&p, z_store.clone()),
-                dashmap::try_result::TryResult::Locked => {
-                    Err(Error(format!("get_z_expr locked z_expr_ptr_map")))
-                }
+                Some(p) => self.get_z_expr(&p, z_store.clone()),
             }
         } else {
             let (z_ptr, z_expr) = match self.fetch(ptr) {
@@ -1482,9 +1446,7 @@ impl<F: LurkField> Store<F> {
     /// ensure that they are cached properly
     fn create_z_ptr(&self, ptr: Ptr<F>, hash: F) -> ZExprPtr<F> {
         let z_ptr = ZPtr(ptr.tag, hash);
-        let entry = self.z_expr_ptr_map.entry(z_ptr);
-        entry.or_insert(ptr);
-
+        self.z_expr_ptr_map.insert(z_ptr, Box::new(ptr));
         z_ptr
     }
 

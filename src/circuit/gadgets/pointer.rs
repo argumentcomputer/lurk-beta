@@ -13,8 +13,9 @@ use crate::{
     field::LurkField,
     hash_witness::{ConsName, ContName},
     ptr::{ContPtr, Ptr},
+    z_data::ZPtr,
     store::Store,
-    tag::{ExprTag, Tag},
+    tag::{ExprTag, ContTag, Tag},
     writer::Write,
     z_data::{ZContPtr, ZExprPtr},
 };
@@ -235,7 +236,7 @@ impl<F: LurkField> AllocatedPtr<F> {
 
     pub fn scalar_ptr(&self, store: &Store<F>) -> Option<ZExprPtr<F>> {
         let (tag, value) = (self.tag.get_value()?, self.hash.get_value()?);
-        store.scalar_from_parts(tag, value)
+        Some(ZPtr(ExprTag::from_field(&tag)?, value))
     }
 
     pub fn fetch_and_write_str(&self, store: &Store<F>) -> String {
@@ -648,13 +649,13 @@ impl<F: LurkField> AllocatedContPtr<F> {
     }
 
     pub fn get_cont_ptr(&self, store: &Store<F>) -> Option<ContPtr<F>> {
-        let scalar_ptr = self.get_scalar_ptr_cont(store)?;
+        let scalar_ptr = self.get_scalar_ptr_cont()?;
         store.fetch_scalar_cont(&scalar_ptr)
     }
 
-    pub fn get_scalar_ptr_cont(&self, store: &Store<F>) -> Option<ZContPtr<F>> {
+    pub fn get_scalar_ptr_cont(&self) -> Option<ZContPtr<F>> {
         let (tag, value) = (self.tag.get_value()?, self.hash.get_value()?);
-        store.scalar_from_parts_cont(tag, value)
+        Some(ZPtr(ContTag::from_field(&tag)?, value))
     }
 
     pub fn fetch_and_write_cont_str(&self, store: &Store<F>) -> String {
