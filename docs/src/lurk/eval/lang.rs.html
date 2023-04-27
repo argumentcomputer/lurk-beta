@@ -140,51 +140,13 @@
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
 
-<span class="kw">use </span>bellperson::{ConstraintSystem, SynthesisError};
+<span class="kw">use </span>lurk_macros::Coproc;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::{CoCircuit, Coprocessor};
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span><span class="kw">crate</span>::ptr::{Ptr, ScalarPtr};
@@ -231,51 +193,15 @@
 <span class="doccomment">/// `CoProc` is an enum that wraps over different implementations of the [`crate::coprocessor::Coprocessor`] trait.
 /// It is used at runtime to encode a finite choice of acceptable coprocessors.
 ///
-/// This enum is the key to constrainting a trait hierarchy by allowing us to have a common type
+/// This enum is the key to constraining a trait hierarchy by allowing us to have a common type
 /// for all implementations of the [`crate::coprocessor::Coprocessor`] trait (which e.g. allows putting them in a collection).
 ///
 /// # Pattern
 /// The enum `CoProc` serves as the &quot;closing&quot; element of a trait hierarchy, providing
 /// a common type for all coprocessor implementations.
-</span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize)]
+</span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, Coproc)]
 </span><span class="kw">pub enum </span>Coproc&lt;F: LurkField&gt; {
     Dummy(DummyCoprocessor&lt;F&gt;),
-}
-
-<span class="comment">// TODO: Auto-generate this with a macro.
-</span><span class="kw">impl</span>&lt;F: LurkField&gt; Coprocessor&lt;F&gt; <span class="kw">for </span>Coproc&lt;F&gt; {
-    <span class="kw">fn </span>eval_arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Dummy(c) =&gt; c.eval_arity(),
-        }
-    }
-
-    <span class="kw">fn </span>simple_evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; Ptr&lt;F&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Dummy(c) =&gt; c.simple_evaluate(s, args),
-        }
-    }
-}
-
-<span class="kw">impl</span>&lt;F: LurkField&gt; CoCircuit&lt;F&gt; <span class="kw">for </span>Coproc&lt;F&gt; {
-    <span class="kw">fn </span>arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Dummy(c) =&gt; c.arity(),
-        }
-    }
-
-    <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        cs: <span class="kw-2">&amp;mut </span>CS,
-        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        input_exprs: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
-        input_env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
-        input_cont: <span class="kw-2">&amp;</span>AllocatedContPtr&lt;F&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;), SynthesisError&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Dummy(c) =&gt; c.synthesize(cs, store, input_exprs, input_env, input_cont),
-        }
-    }
 }
 
 <span class="doccomment">/// `Lang` is a struct that represents a language with coprocessors.
