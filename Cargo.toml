@@ -73,6 +73,10 @@ tempfile = "3.5.0"
 name = "eval"
 harness = false
 
+[[bench]]
+name = "store"
+harness = false
+
 [workspace]
 members = [
   "lurk_macro", "fcomm", "clutch"
