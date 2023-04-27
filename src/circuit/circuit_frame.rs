@@ -2751,7 +2751,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
         &expr_cdr_not_dummy.not(),
         &head_is_begin.not(),
         &head_is_current_env.not(),
-        &head_potentially_fun.not()
+        &head_potentially_fun.not(),
+        &head_is_coprocessor.not()
     )?;
     let zero_arg_built_in_too_many_args_error =
         and!(cs, &head_is_current_env, &is_zero_arg_call.not())?;
