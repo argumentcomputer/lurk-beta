@@ -1903,7 +1903,117 @@ impl<F: LurkField> Store<F> {
         z_ptr: ZContPtr<F>,
         z_store: &ZStore<F>,
     ) -> Option<ContPtr<F>> {
-        todo!()
+        use ZCont::*;
+        let tag: ContTag = z_ptr.tag();
+
+        if let Some(cont) = z_store.get_cont(&z_ptr) {
+            let continuation = match cont {
+                Outermost => Continuation::Outermost,
+                Dummy => Continuation::Dummy,
+                Terminal => Continuation::Terminal,
+                Call {
+                    unevaled_arg,
+                    saved_env,
+                    continuation,
+                } => Continuation::Call {
+                    unevaled_arg: self.intern_z_expr_ptr(unevaled_arg, z_store)?,
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+
+                Call2 {
+                    function,
+                    saved_env,
+                    continuation,
+                } => Continuation::Call2 {
+                    function: self.intern_z_expr_ptr(function, z_store)?,
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                Tail {
+                    saved_env,
+                    continuation,
+                } => Continuation::Tail {
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                Error => Continuation::Error,
+                Lookup {
+                    saved_env,
+                    continuation,
+                } => Continuation::Lookup {
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                Unop {
+                    operator,
+                    continuation,
+                } => Continuation::Unop {
+                    operator: operator,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                Binop {
+                    operator,
+                    saved_env,
+                    unevaled_args,
+                    continuation,
+                } => Continuation::Binop {
+                    operator: operator,
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    unevaled_args: self.intern_z_expr_ptr(unevaled_args, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                Binop2 {
+                    operator,
+                    evaled_arg,
+                    continuation,
+                } => Continuation::Binop2 {
+                    operator: operator,
+                    evaled_arg: self.intern_z_expr_ptr(evaled_arg, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                If {
+                    unevaled_args,
+                    continuation,
+                } => Continuation::If {
+                    unevaled_args: self.intern_z_expr_ptr(unevaled_args, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                Let {
+                    var,
+                    body,
+                    saved_env,
+                    continuation,
+                } => Continuation::Let {
+                    var: self.intern_z_expr_ptr(var, z_store)?,
+                    body: self.intern_z_expr_ptr(body, z_store)?,
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                LetRec {
+                    var,
+                    body,
+                    saved_env,
+                    continuation,
+                } => Continuation::LetRec {
+                    var: self.intern_z_expr_ptr(var, z_store)?,
+                    body: self.intern_z_expr_ptr(body, z_store)?,
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                Emit { continuation } => Continuation::Emit {
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+            };
+
+            if continuation.cont_tag() == tag {
+                Some(continuation.intern_aux(self))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 }
 
