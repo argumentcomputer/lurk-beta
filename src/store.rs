@@ -97,10 +97,13 @@ pub struct Store<F: LurkField> {
     pub lurk_package: Arc<Package>,
     pub constants: OnceCell<NamedConstants<F>>,
 
+    /// Speeds up the internalization of strings into the ZStore
+    /// When interning "blah", search for ['h', 'a', 'l', 'b']
     vec_char_cache: dashmap::DashMap<Vec<char>, (ZExprPtr<F>, ZExpr<F>), ahash::RandomState>,
+
+    /// Speeds up the internalization of symbols into the ZStore
+    /// When interning .foo.bar, search for ["bar", "foo"]
     vec_str_cache: dashmap::DashMap<Vec<String>, (ZExprPtr<F>, ZExpr<F>), ahash::RandomState>,
-    str_cache: dashmap::DashMap<String, (ZExprPtr<F>, ZExpr<F>), ahash::RandomState>,
-    sym_cache: dashmap::DashMap<Sym, (ZExprPtr<F>, ZExpr<F>), ahash::RandomState>,
 }
 
 pub trait TypePredicates {
@@ -154,8 +157,6 @@ impl<F: LurkField> Default for Store<F> {
             constants: Default::default(),
             vec_char_cache: Default::default(),
             vec_str_cache: Default::default(),
-            str_cache: Default::default(),
-            sym_cache: Default::default(),
         };
 
         store.lurk_sym("");
@@ -339,12 +340,11 @@ impl<F: LurkField> Store<F> {
         self.lurk_sym("nil")
     }
 
-    pub fn intern_symnil(&self, key : bool) -> Ptr<F> {
+    pub fn intern_symnil(&self, key: bool) -> Ptr<F> {
         // TODO: Is this right?
         if key {
             Ptr::null(ExprTag::Key)
-        }
-        else {
+        } else {
             Ptr::null(ExprTag::Sym)
         }
     }
@@ -406,23 +406,22 @@ impl<F: LurkField> Store<F> {
             self.hash_expr(&cdr);
         }
         assert_eq!((car.tag, cdr.tag), (ExprTag::Str, ExprTag::Sym));
-        let (c, s) = (
-            self.fetch_str(&car).unwrap(),
-            self.fetch_sym(&cdr).unwrap(),
-        );
+        let (c, s) = (self.fetch_str(&car).unwrap(), self.fetch_sym(&cdr).unwrap());
         match s.extend(&[c.to_string()]) {
-            Sym::Key(sym) => if key {
-                self.intern_sym(&Sym::Key(sym))
+            Sym::Key(sym) => {
+                if key {
+                    self.intern_sym(&Sym::Key(sym))
+                } else {
+                    self.intern_sym(&Sym::Sym(sym))
+                }
             }
-            else {
-                self.intern_sym(&Sym::Sym(sym))
+            Sym::Sym(sym) => {
+                if key {
+                    self.intern_sym(&Sym::Key(sym))
+                } else {
+                    self.intern_sym(&Sym::Sym(sym))
+                }
             }
-            Sym::Sym(sym) => if key {
-                self.intern_sym(&Sym::Key(sym))
-            }
-            else {
-                self.intern_sym(&Sym::Sym(sym))
-            },
         }
     }
 
@@ -1031,6 +1030,13 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    /// Folds over a vector of chars, from right to left, hashing and caching
+    /// the hashes of string tails formed by such sequences. For example, when
+    /// hashing ['a', 'b', 'c'], it will also store the hashes of ['b', 'c'],
+    /// ['c'] and [].
+    ///
+    /// While computing this right folded hashes, `put_z_chars` tries to find
+    /// previously computed hashes so it can stop in case of cache hits.
     pub fn put_z_chars(
         &self,
         chars: Vec<char>,
@@ -1043,8 +1049,8 @@ impl<F: LurkField> Store<F> {
         let mut heads_acc: Vec<char> = vec![];
         loop {
             if chars_rev.is_empty() {
-                ptr = ZPtr(ExprTag::Str, F::zero());
                 expr = ZExpr::StrNil;
+                ptr = expr.z_ptr(&self.poseidon_cache);
                 break;
             }
             heads_acc.push(chars_rev.pop().unwrap());
@@ -1059,15 +1065,8 @@ impl<F: LurkField> Store<F> {
             }
         }
         while let Some(c) = heads_acc.pop() {
-            let preimage = [
-                ExprTag::Char.to_field(),
-                F::from_char(c),
-                ptr.0.to_field(),
-                ptr.1,
-            ];
-            let hash = self.poseidon_cache.hash4(&preimage);
-            ptr = ZPtr(ExprTag::Str, hash);
             expr = ZExpr::StrCons(ZPtr(ExprTag::Char, F::from_char(c)), ptr.clone());
+            ptr = expr.z_ptr(&self.poseidon_cache);
             if let Some(z_store) = z_store.clone() {
                 z_store
                     .borrow_mut()
@@ -1081,6 +1080,8 @@ impl<F: LurkField> Store<F> {
         (ptr, expr)
     }
 
+    /// Similar to `put_z_chars`, but deals with strings instead of chars and
+    /// computes symbol hashes instead of string hashes.
     pub fn put_z_strs(
         &self,
         strs: Vec<String>,
@@ -1093,8 +1094,8 @@ impl<F: LurkField> Store<F> {
         let mut heads_acc: Vec<String> = vec![];
         loop {
             if strs_rev.is_empty() {
-                ptr = ZPtr(ExprTag::Sym, F::zero());
                 expr = ZExpr::SymNil;
+                ptr = expr.z_ptr(&self.poseidon_cache);
                 break;
             }
             heads_acc.push(strs_rev.pop().unwrap());
@@ -1110,11 +1111,8 @@ impl<F: LurkField> Store<F> {
         }
         while let Some(s) = heads_acc.pop() {
             let (name_ptr, _) = self.put_z_chars(s.chars().collect(), z_store.clone());
-            let name_ptr_ = name_ptr.clone();
-            let preimage = [name_ptr_.0.to_field(), name_ptr_.1, ptr.0.to_field(), ptr.1];
-            let hash = self.poseidon_cache.hash4(&preimage);
-            ptr = ZPtr(ExprTag::Sym, hash);
             expr = ZExpr::SymCons(name_ptr, ptr.clone());
+            ptr = expr.z_ptr(&self.poseidon_cache);
             if let Some(z_store) = z_store.clone() {
                 z_store
                     .borrow_mut()
@@ -1128,35 +1126,22 @@ impl<F: LurkField> Store<F> {
         (ptr, expr)
     }
 
+    #[inline]
     pub fn put_z_str(
         &self,
         s: String,
         z_store: Option<Rc<RefCell<ZStore<F>>>>,
     ) -> (ZExprPtr<F>, ZExpr<F>) {
-        match self.str_cache.get(&s) {
-            Some(pair) => (&*pair).clone(),
-            None => {
-                let (ptr, expr) = self.put_z_chars(s.chars().collect_vec(), z_store);
-                self.str_cache.insert(s, (ptr.clone(), expr.clone()));
-                (ptr, expr)
-            }
-        }
+        self.put_z_chars(s.chars().collect_vec(), z_store)
     }
 
+    #[inline]
     pub fn put_z_sym(
         &self,
         s: Sym,
         z_store: Option<Rc<RefCell<ZStore<F>>>>,
     ) -> (ZExprPtr<F>, ZExpr<F>) {
-        match self.sym_cache.get(&s) {
-            Some(pair) => (&*pair).clone(),
-            None => {
-                let path: Vec<String> = s.path().to_vec();
-                let (ptr, expr) = self.put_z_strs(path, z_store);
-                self.sym_cache.insert(s, (ptr.clone(), expr.clone()));
-                (ptr, expr)
-            }
-        }
+        self.put_z_strs(s.path().to_vec(), z_store)
     }
 
     pub fn get_z_cont(
