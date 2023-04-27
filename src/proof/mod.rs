@@ -110,7 +110,7 @@ pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>> {
         &self,
         multiframes: &'a [MultiFrame<'_, F, IO<F>, Witness<F>, C>],
     ) -> Result<SequentialCS<'a, F, IO<F>, Witness<F>, C>, SynthesisError> {
-        // Note: This loop terminates and throws an error on the first occurrence of `SynthesisError`.
+        // Note: This loop terminates and returns an error on the first occurrence of `SynthesisError`.
         multiframes
             .iter()
             .map(|multiframe| {
