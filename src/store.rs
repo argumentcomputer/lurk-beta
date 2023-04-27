@@ -1336,7 +1336,10 @@ impl<F: LurkField> Store<F> {
                     let z_ptr = z_cont.z_ptr(&self.poseidon_cache);
                     (z_ptr, Some(z_cont))
                 }
-                _ => todo!(),
+                None => {
+                    let (z_ptr, _) = self.get_z_cont(&ptr, z_store.clone())?;
+                    (z_ptr, None)
+                }
             };
 
             if let Some(z_store) = z_store {
