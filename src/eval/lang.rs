@@ -126,7 +126,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
 
     pub fn add_coprocessor(&mut self, name: Sym, cproc: C, store: &mut Store<F>) {
         let ptr = store.intern_sym_and_ancestors(&name).unwrap();
-        let scalar_ptr = store.get_expr_hash(&ptr).unwrap();
+        let scalar_ptr = store.hash_expr(&ptr).unwrap();
 
         self.coprocessors.insert(name, (cproc, scalar_ptr));
     }

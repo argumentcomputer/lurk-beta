@@ -6,7 +6,6 @@ use crate::field::LurkField;
 use crate::package::Package;
 use crate::parser;
 use crate::ptr::{ContPtr, Ptr};
-use crate::scalar_store::ScalarStore;
 use crate::store::Store;
 use crate::sym::Sym;
 use crate::tag::ContTag;
@@ -217,8 +216,8 @@ fn repl_aux<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>>
         .and_then(|light_store_path| fs::read(light_store_path).ok())
         .and_then(|bytes| ZData::de(&bytes).ok())
         .and_then(|ld| Encodable::de(&ld).ok())
-        .and_then(|store: ZStore<F>| ScalarStore::try_from(store).ok())
-        .and_then(|mut scalar_store: ScalarStore<F>| scalar_store.to_store())
+        .and_then(|store: ZStore<F>| ZStore::try_from(store).ok())
+        .and_then(|z_store: ZStore<F>| Store::from_z_store(&z_store))
         .tap_none(|| {
             if received_light_store {
                 eprintln!("Failed to load light store. Starting with empty store.")

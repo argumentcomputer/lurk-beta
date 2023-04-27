@@ -3,6 +3,7 @@ use crate::expr::Expression;
 use crate::field::LurkField;
 use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
+use crate::z_data::ZExpr;
 use crate::Sym;
 use std::io;
 
@@ -22,7 +23,7 @@ impl<F: LurkField> Write<F> for Ptr<F> {
             write!(w, "<Opaque ")?;
             write!(w, "{:?}", self.tag)?;
 
-            if let Some(x) = store.get_expr_hash(self) {
+            if let Some(x) = store.hash_expr(self) {
                 write!(w, " ")?;
                 crate::expr::Expression::Num(crate::num::Num::Scalar(*x.value())).fmt(store, w)?;
             }
@@ -107,8 +108,9 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                 // This requires a run-time coercion.
                 // Consider implementing the equivalent of CL's #. reader macro to let this happen at read-time.
                 write!(w, "(comm ")?;
-                let c = store.commitment_hash(*secret, store.get_expr_hash(payload).unwrap());
-                Num(crate::num::Num::Scalar(c)).fmt(store, w)?;
+                let c = ZExpr::Comm(*secret, store.hash_expr(payload).unwrap())
+                    .z_ptr(&store.poseidon_cache);
+                Num(crate::num::Num::Scalar(c.1)).fmt(store, w)?;
                 write!(w, ")")
             }
             Opaque(f) => f.fmt(store, w),

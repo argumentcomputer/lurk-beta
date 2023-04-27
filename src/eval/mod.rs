@@ -224,10 +224,10 @@ impl<F: LurkField> IO<F> {
 
     pub fn to_vector(&self, store: &Store<F>) -> Result<Vec<F>, store::Error> {
         let expr_scalar_ptr = store
-            .get_expr_hash(&self.expr)
+            .hash_expr(&self.expr)
             .ok_or_else(|| store::Error("expr hash missing".into()))?;
         let env_scalar_ptr = store
-            .get_expr_hash(&self.env)
+            .hash_expr(&self.env)
             .ok_or_else(|| store::Error("expr hash missing".into()))?;
         let cont_scalar_ptr = store
             .hash_cont(&self.cont)

@@ -1,6 +1,5 @@
 use rayon::prelude::*;
 use std::cell::RefCell;
-use std::collections::VecDeque;
 use std::fmt;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -11,6 +10,7 @@ use thiserror;
 use once_cell::sync::OnceCell;
 
 use crate::cont::Continuation;
+use crate::expr;
 use crate::expr::{Expression, Thunk};
 use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
@@ -23,7 +23,7 @@ use crate::{Num, UInt};
 
 use std::collections::HashMap;
 
-use crate::hash::{HashConstants, IntoHashComponents, PoseidonCache};
+use crate::hash::{HashConstants, PoseidonCache};
 
 #[derive(Clone, Copy, Debug)]
 pub enum HashScalar {
@@ -95,8 +95,6 @@ pub struct Store<F: LurkField> {
     pub dehydrated: Vec<Ptr<F>>,
     pub dehydrated_cont: Vec<ContPtr<F>>,
 
-    pub pointer_scalar_ptr_cache: dashmap::DashMap<Ptr<F>, ZExprPtr<F>>,
-
     pub lurk_package: Arc<Package>,
     pub constants: OnceCell<NamedConstants<F>>,
 
@@ -152,7 +150,6 @@ impl<F: LurkField> Default for Store<F> {
             poseidon_cache: Default::default(),
             dehydrated: Default::default(),
             dehydrated_cont: Default::default(),
-            pointer_scalar_ptr_cache: Default::default(),
             lurk_package: Arc::new(Package::lurk()),
             constants: Default::default(),
             vec_char_cache: Default::default(),
@@ -341,6 +338,21 @@ impl<F: LurkField> Store<F> {
         self.lurk_sym("nil")
     }
 
+    pub fn intern_keynil(&self) -> Ptr<F> {
+        // TODO: Is this right?
+        Ptr::null(ExprTag::Key)
+    }
+
+    pub fn intern_symnil(&self) -> Ptr<F> {
+        // TODO: Is this right?
+        Ptr::null(ExprTag::Sym)
+    }
+
+    pub fn intern_strnil(&self) -> Ptr<F> {
+        // TODO: Is this right?
+        Ptr::null(ExprTag::Str)
+    }
+
     pub fn get_nil(&self) -> Ptr<F> {
         self.get_lurk_sym("nil", true).expect("missing NIL")
     }
@@ -384,6 +396,14 @@ impl<F: LurkField> Store<F> {
         let new_str = format!("{c}{s}");
 
         self.intern_str(&new_str)
+    }
+
+    pub fn intern_symcons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+        todo!()
+    }
+
+    pub fn intern_keycons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+        todo!()
     }
 
     pub fn intern_comm(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
@@ -538,7 +558,7 @@ impl<F: LurkField> Store<F> {
 
     fn intern_sym_by_full_name<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
         let name = name.as_ref();
-        self.hash_string_mut(name);
+        self.hash_string(name);
 
         let (tag, symbol_name) = if name == ".LURK.NIL" {
             (ExprTag::Nil, "LURK.NIL")
@@ -630,7 +650,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn intern_str<T: AsRef<str>>(&mut self, str: T) -> Ptr<F> {
         // Hash string for side effect. This will cause all tails to be interned.
-        self.hash_string_mut(str.as_ref());
+        self.hash_string(str.as_ref());
         self.intern_str_aux(str)
     }
 
@@ -695,6 +715,22 @@ impl<F: LurkField> Store<F> {
 
     pub fn get_cont_dummy(&self) -> ContPtr<F> {
         Continuation::Dummy.get_simple_cont()
+    }
+
+    pub fn get_hash_components_cont(&self, ptr: &ContPtr<F>) -> Option<[F; 8]> {
+        Some(self.to_z_cont(ptr)?.hash_components())
+    }
+
+    pub fn get_hash_components_thunk(&self, thunk: &Thunk<F>) -> Option<[F; 4]> {
+        let value_hash = self.hash_expr(&thunk.value)?;
+        let continuation_hash = self.hash_cont(&thunk.continuation)?;
+
+        Some([
+            value_hash.0.to_field(),
+            value_hash.1,
+            continuation_hash.0.to_field(),
+            continuation_hash.1,
+        ])
     }
 
     pub fn intern_cont_error(&mut self) -> ContPtr<F> {
@@ -1018,7 +1054,8 @@ impl<F: LurkField> Store<F> {
                     .insert(ptr.clone(), Some(expr.clone()));
             };
             chars_rev.push(c);
-            self.vec_char_cache.insert(chars_rev.clone(), (ptr.clone(), expr.clone()));
+            self.vec_char_cache
+                .insert(chars_rev.clone(), (ptr.clone(), expr.clone()));
         }
         (ptr, expr)
     }
@@ -1063,7 +1100,8 @@ impl<F: LurkField> Store<F> {
                     .insert(ptr.clone(), Some(expr.clone()));
             };
             strs_rev.push(s);
-            self.vec_str_cache.insert(strs_rev.clone(), (ptr.clone(), expr.clone()));
+            self.vec_str_cache
+                .insert(strs_rev.clone(), (ptr.clone(), expr.clone()));
         }
         (ptr, expr)
     }
@@ -1089,6 +1127,61 @@ impl<F: LurkField> Store<F> {
         ptr: &ContPtr<F>,
         z_store: Option<Rc<RefCell<ZStore<F>>>>,
     ) -> Result<(ZContPtr<F>, Option<ZCont<F>>), Error> {
+        if let Some(idx) = ptr.raw.opaque_idx() {
+            let z_ptr = self
+                .opaque_cont_ptrs
+                .get_index(idx)
+                .ok_or(Error(format!("get_z_expr unknown opaque")))?;
+            match self.z_cont_ptr_map.try_get(z_ptr) {
+                dashmap::try_result::TryResult::Absent => {
+                    // TODO: cache the z_ptr -> ptr in the z_expr_ptr_map
+                    Ok((*z_ptr, None))
+                }
+                // TODO: cycle-detection needed either here or on opaque ptr creation
+                dashmap::try_result::TryResult::Present(p) => self.get_z_cont(&p, z_store.clone()),
+                dashmap::try_result::TryResult::Locked => {
+                    Err(Error(format!("get_z_cont locked z_expr_ptr_map")))
+                }
+            }
+        } else {
+            let (z_ptr, z_cont) = match self.fetch_cont(ptr) {
+                Some(Continuation::Outermost) => (
+                    ZCont::Outermost.z_ptr(&self.poseidon_cache),
+                    Some(ZCont::<F>::Outermost),
+                ),
+                _ => todo!(),
+            };
+
+            if let Some(z_store) = z_store {
+                z_store
+                    .borrow_mut()
+                    .insert_cont(&self.poseidon_cache, z_ptr, z_cont.clone());
+            };
+            Ok((z_ptr, z_cont))
+        }
+    }
+
+    pub fn to_z_expr(&self, ptr: &Ptr<F>) -> Option<ZExpr<F>> {
+        self.get_z_expr(ptr, None).ok()?.1
+    }
+
+    pub fn hash_expr(&self, ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
+        self.get_z_expr(ptr, None).ok().map(|x| x.0)
+    }
+
+    pub fn to_z_cont(&self, ptr: &ContPtr<F>) -> Option<ZCont<F>> {
+        self.get_z_cont(ptr, None).ok()?.1
+    }
+
+    pub fn hash_cont(&self, ptr: &ContPtr<F>) -> Option<ZContPtr<F>> {
+        self.get_z_cont(ptr, None).ok().map(|x| x.0)
+    }
+
+    pub fn hash_string(&self, ptr: &str) -> Option<ZExprPtr<F>> {
+        todo!()
+    }
+
+    pub fn hash_symbol(&self, ptr: &str) -> Option<ZExprPtr<F>> {
         todo!()
     }
 
@@ -1184,6 +1277,29 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    pub fn from_z_store(z_store: &ZStore<F>) -> Option<Self> {
+        todo!()
+    }
+    pub fn z_store_with_expr(&self, expr: &Ptr<F>) -> (ZStore<F>, ZExprPtr<F>) {
+        todo!()
+    }
+
+    pub fn intern_z_expr(
+        &mut self,
+        ptr: ZExprPtr<F>,
+        scalar_store: &ZStore<F>,
+    ) -> Option<ContPtr<F>> {
+        todo!()
+    }
+
+    pub fn intern_z_cont(
+        &mut self,
+        ptr: ZContPtr<F>,
+        scalar_store: &ZStore<F>,
+    ) -> Option<ContPtr<F>> {
+        todo!()
+    }
+
     /// Mutable version of car_cdr to handle Str. `(cdr str)` may return a new str (the tail), which must be allocated.
     pub fn car_cdr_mut(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
         match ptr.tag {
@@ -1239,578 +1355,9 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn hash_expr(&self, ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
-        self.hash_expr_aux(ptr, HashScalar::Create)
-    }
-
-    // Get hash for expr, but only if it already exists. This should never cause create_scalar_ptr to be called. Use
-    // this after the cache has been hydrated. NOTE: because dashmap::entry can deadlock, it is important not to call
-    // hash_expr in nested call graphs which might trigger that behavior. This discovery is what led to get_expr_hash
-    // and the 'get' versions of hash_cons, hash_sym, etc.
-    pub fn get_expr_hash(&self, ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
-        self.hash_expr_aux(ptr, HashScalar::Get)
-    }
-
-    pub fn hash_expr_aux(&self, ptr: &Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
-        use ExprTag::*;
-
-        if let Some(scalar_ptr) = &self.pointer_scalar_ptr_cache.get(ptr) {
-            return Some(**scalar_ptr);
-        }
-
-        let scalar_ptr = match ptr.tag {
-            Nil => self.hash_nil(mode),
-            Cons => self.hash_cons(*ptr, mode),
-            Comm => self.hash_comm(*ptr, mode),
-            Sym => self.hash_sym(*ptr, mode),
-            Key => self.hash_sym(*ptr, mode),
-            Fun => self.hash_fun(*ptr, mode),
-            Num => self.hash_num(*ptr, mode),
-            Str => self.hash_str(*ptr, mode),
-            Char => self.hash_char(*ptr, mode),
-            Thunk => self.hash_thunk(*ptr, mode),
-            U64 => self.hash_uint(*ptr, mode),
-        };
-
-        match mode {
-            HashScalar::Create => {
-                if let Some(sp) = scalar_ptr {
-                    self.pointer_scalar_ptr_cache.insert(*ptr, sp);
-                    self.z_expr_ptr_map.insert(sp, *ptr);
-                }
-            }
-            HashScalar::Get => (),
-        }
-
-        scalar_ptr
-    }
-
-    pub fn hash_cont(&self, ptr: &ContPtr<F>) -> Option<ZContPtr<F>> {
-        let components = self.get_hash_components_cont(ptr)?;
-        let hash = self.poseidon_cache.hash8(&components);
-
-        Some(self.create_cont_scalar_ptr(*ptr, hash))
-    }
-
-    fn scalar_ptr(&self, ptr: Ptr<F>, hash: F, mode: HashScalar) -> ZExprPtr<F> {
-        match mode {
-            HashScalar::Create => self.create_scalar_ptr(ptr, hash),
-            HashScalar::Get => self.get_scalar_ptr(ptr, hash),
-        }
-    }
-
-    /// The only places that `ZExprPtr`s for `Ptr`s should be created, to
-    /// ensure that they are cached properly
-    pub fn create_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ZExprPtr<F> {
-        let scalar_ptr = ZExprPtr::from_parts(ptr.tag, hash);
-        let entry = self.z_expr_ptr_map.entry(scalar_ptr);
-        entry.or_insert(ptr);
-
-        let entry2 = self.pointer_scalar_ptr_cache.entry(ptr);
-        entry2.or_insert(scalar_ptr);
-        scalar_ptr
-    }
-
-    fn get_scalar_ptr(&self, ptr: Ptr<F>, hash: F) -> ZExprPtr<F> {
-        ZExprPtr::from_parts(ptr.tag, hash)
-    }
-
-    /// The only places that `ZContPtr`s for `ContPtr`s should be created, to
-    /// ensure that they are cached properly
-    fn create_cont_scalar_ptr(&self, ptr: ContPtr<F>, hash: F) -> ZContPtr<F> {
-        let scalar_ptr = ZContPtr::from_parts(ptr.tag, hash);
-        self.z_cont_ptr_map.entry(scalar_ptr).or_insert(ptr);
-
-        scalar_ptr
-    }
-
-    /// The `get_hash_components_*` functions should be kept in sync with the
-    /// the arguments of each variant of ScalarContinuation with respect to the
-    /// sourc position order of elements
-    fn get_hash_components_default(&self) -> [[F; 2]; 4] {
-        let def = [F::zero(), F::zero()];
-        [def, def, def, def]
-    }
-
-    pub fn get_hash_components_cont(&self, ptr: &ContPtr<F>) -> Option<[F; 8]> {
-        use Continuation::*;
-
-        let cont = self.fetch_cont(ptr)?;
-
-        let hash = match &cont {
-            Outermost | Terminal | Dummy | Error => self.get_hash_components_default(),
-            Call0 {
-                saved_env,
-                continuation,
-            } => self.get_hash_components_call0(saved_env, continuation)?,
-            Call {
-                unevaled_arg,
-                saved_env,
-                continuation,
-            } => self.get_hash_components_call(unevaled_arg, saved_env, continuation)?,
-            Call2 {
-                function,
-                saved_env,
-                continuation,
-            } => self.get_hash_components_call2(function, saved_env, continuation)?,
-            Tail {
-                saved_env,
-                continuation,
-            } => self.get_hash_components_tail(saved_env, continuation)?,
-            Lookup {
-                saved_env,
-                continuation,
-            } => self.get_hash_components_lookup(saved_env, continuation)?,
-            Unop {
-                operator,
-                continuation,
-            } => self.get_hash_components_unop(operator, continuation)?,
-            Binop {
-                operator,
-                saved_env,
-                unevaled_args,
-                continuation,
-            } => {
-                self.get_hash_components_binop(operator, saved_env, unevaled_args, continuation)?
-            }
-            Binop2 {
-                operator,
-                evaled_arg,
-                continuation,
-            } => self.get_hash_components_binop2(operator, evaled_arg, continuation)?,
-            If {
-                unevaled_args,
-                continuation,
-            } => self.get_hash_components_if(unevaled_args, continuation)?,
-            Let {
-                var,
-                body,
-                saved_env,
-                continuation,
-            } => self.get_hash_components_let(var, body, saved_env, continuation)?,
-            LetRec {
-                var,
-                body,
-                saved_env,
-                continuation,
-            } => self.get_hash_components_let_rec(var, body, saved_env, continuation)?,
-            Emit { continuation } => self.get_hash_components_emit(continuation)?,
-        };
-
-        Some([
-            hash[0][0], hash[0][1], hash[1][0], hash[1][1], hash[2][0], hash[2][1], hash[3][0],
-            hash[3][1],
-        ])
-    }
-
-    fn get_hash_components_let_rec(
-        &self,
-        var: &Ptr<F>,
-        body: &Ptr<F>,
-        saved_env: &Ptr<F>,
-        cont: &ContPtr<F>,
-    ) -> Option<[[F; 2]; 4]> {
-        let var = self.get_expr_hash(var)?.into_hash_components();
-        let body = self.get_expr_hash(body)?.into_hash_components();
-        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
-        let cont = self.hash_cont(cont)?.into_hash_components();
-        Some([var, body, saved_env, cont])
-    }
-
-    fn get_hash_components_let(
-        &self,
-        var: &Ptr<F>,
-        body: &Ptr<F>,
-        saved_env: &Ptr<F>,
-        cont: &ContPtr<F>,
-    ) -> Option<[[F; 2]; 4]> {
-        let var = self.get_expr_hash(var)?.into_hash_components();
-        let body = self.get_expr_hash(body)?.into_hash_components();
-        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
-        let cont = self.hash_cont(cont)?.into_hash_components();
-        Some([var, body, saved_env, cont])
-    }
-
-    fn get_hash_components_if(
-        &self,
-        unevaled_args: &Ptr<F>,
-        cont: &ContPtr<F>,
-    ) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
-        let unevaled_args = self.get_expr_hash(unevaled_args)?.into_hash_components();
-        let cont = self.hash_cont(cont)?.into_hash_components();
-        Some([unevaled_args, cont, def, def])
-    }
-
-    fn get_hash_components_binop2(
-        &self,
-        op: &Op2,
-        arg1: &Ptr<F>,
-        cont: &ContPtr<F>,
-    ) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
-        let op = [op.to_field(), F::zero()];
-        let arg1 = self.get_expr_hash(arg1)?.into_hash_components();
-        let cont = self.hash_cont(cont)?.into_hash_components();
-        Some([op, arg1, cont, def])
-    }
-
-    fn get_hash_components_binop(
-        &self,
-        op: &Op2,
-        saved_env: &Ptr<F>,
-        unevaled_args: &Ptr<F>,
-        cont: &ContPtr<F>,
-    ) -> Option<[[F; 2]; 4]> {
-        let op = [op.to_field(), F::zero()];
-        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
-        let unevaled_args = self.get_expr_hash(unevaled_args)?.into_hash_components();
-        let cont = self.hash_cont(cont)?.into_hash_components();
-        Some([op, saved_env, unevaled_args, cont])
-    }
-
-    fn get_hash_components_unop(&self, op: &Op1, cont: &ContPtr<F>) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
-        let op = [op.to_field(), F::zero()];
-        let cont = self.hash_cont(cont)?.into_hash_components();
-        Some([op, cont, def, def])
-    }
-
-    fn get_hash_components_lookup(
-        &self,
-        saved_env: &Ptr<F>,
-        cont: &ContPtr<F>,
-    ) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
-        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
-        let cont = self.hash_cont(cont)?.into_hash_components();
-        Some([saved_env, cont, def, def])
-    }
-
-    fn get_hash_components_tail(
-        &self,
-        saved_env: &Ptr<F>,
-        cont: &ContPtr<F>,
-    ) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
-        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
-        let cont = self.hash_cont(cont)?.into_hash_components();
-        Some([saved_env, cont, def, def])
-    }
-
-    fn get_hash_components_call0(
-        &self,
-        saved_env: &Ptr<F>,
-        cont: &ContPtr<F>,
-    ) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
-
-        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
-        let cont = self.hash_cont(cont)?.into_hash_components();
-
-        Some([saved_env, cont, def, def])
-    }
-
-    fn get_hash_components_call(
-        &self,
-        arg: &Ptr<F>,
-        saved_env: &Ptr<F>,
-        cont: &ContPtr<F>,
-    ) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
-        let arg = self.get_expr_hash(arg)?.into_hash_components();
-        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
-        let cont = self.hash_cont(cont)?.into_hash_components();
-
-        Some([saved_env, arg, cont, def])
-    }
-
-    fn get_hash_components_call2(
-        &self,
-        fun: &Ptr<F>,
-        saved_env: &Ptr<F>,
-        cont: &ContPtr<F>,
-    ) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
-        let fun = self.get_expr_hash(fun)?.into_hash_components();
-        let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
-        let cont = self.hash_cont(cont)?.into_hash_components();
-        Some([saved_env, fun, cont, def])
-    }
-
-    fn get_hash_components_emit(&self, cont: &ContPtr<F>) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
-
-        let cont = self.hash_cont(cont)?.into_hash_components();
-
-        Some([cont, def, def, def])
-    }
-
-    pub fn get_hash_components_thunk(&self, thunk: &Thunk<F>) -> Option<[F; 4]> {
-        let value_hash = self.get_expr_hash(&thunk.value)?.into_hash_components();
-        let continuation_hash = self.hash_cont(&thunk.continuation)?.into_hash_components();
-
-        Some([
-            value_hash[0],
-            value_hash[1],
-            continuation_hash[0],
-            continuation_hash[1],
-        ])
-    }
-
     pub fn get_opaque_ptr(&self, ptr: Ptr<F>) -> Option<ZExprPtr<F>> {
         let s = self.opaque_ptrs.get_index(ptr.raw.opaque_idx()?)?;
         Some(*s)
-    }
-
-    pub fn hash_sym(&self, sym: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
-        if sym.is_opaque() {
-            return self.get_opaque_ptr(sym);
-        }
-
-        let s = self.fetch_sym(&sym)?;
-        let sym_hash = self.hash_symbol(&s, mode);
-
-        Some(self.scalar_ptr(sym, sym_hash, mode))
-    }
-
-    fn hash_str(&self, str: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
-        if str.is_opaque() {
-            return self.get_opaque_ptr(str);
-        }
-
-        let s = self.fetch_str(&str)?;
-        Some(self.scalar_ptr(str, self.hash_string(s), mode))
-    }
-
-    fn hash_fun(&self, fun: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
-        if fun.is_opaque() {
-            self.get_opaque_ptr(fun)
-        } else {
-            let (arg, body, closed_env) = self.fetch_fun(&fun)?;
-            Some(self.scalar_ptr(
-                fun,
-                self.hash_ptrs_3(&[*arg, *body, *closed_env], mode)?,
-                mode,
-            ))
-        }
-    }
-
-    fn hash_cons(&self, cons: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
-        if cons.is_opaque() {
-            return self.get_opaque_ptr(cons);
-        }
-
-        let (car, cdr) = self.fetch_cons(&cons)?;
-        Some(self.scalar_ptr(cons, self.hash_ptrs_2(&[*car, *cdr], mode)?, mode))
-    }
-
-    fn hash_comm(&self, comm: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
-        if comm.is_opaque() {
-            return self.get_opaque_ptr(comm);
-        }
-
-        let (secret, payload) = self.fetch_comm(&comm)?;
-
-        let scalar_payload = self.hash_expr(payload)?;
-        let hashed = self.commitment_hash(secret.0, scalar_payload);
-        Some(self.scalar_ptr(comm, hashed, mode))
-    }
-
-    pub(crate) fn commitment_hash(&self, secret_scalar: F, payload: ZExprPtr<F>) -> F {
-        let preimage = [secret_scalar, payload.0.to_field(), payload.1];
-        self.poseidon_cache.hash3(&preimage)
-    }
-
-    fn hash_thunk(&self, ptr: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
-        let thunk = self.fetch_thunk(&ptr)?;
-        let components = self.get_hash_components_thunk(thunk)?;
-        Some(self.scalar_ptr(ptr, self.poseidon_cache.hash4(&components), mode))
-    }
-
-    fn hash_char(&self, ptr: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
-        let char_code = ptr.raw.idx()?;
-
-        Some(self.scalar_ptr(ptr, F::from(char_code as u64), mode))
-    }
-
-    fn hash_num(&self, ptr: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
-        let n = self.fetch_num(&ptr)?;
-
-        Some(self.scalar_ptr(ptr, n.into_scalar(), mode))
-    }
-
-    fn hash_uint(&self, ptr: Ptr<F>, mode: HashScalar) -> Option<ZExprPtr<F>> {
-        let n = self.fetch_uint(&ptr)?;
-
-        match n {
-            UInt::U64(x) => Some(self.scalar_ptr(ptr, F::from_u64(x), mode)),
-        }
-    }
-
-    fn hash_symbol(&self, s: &Sym, mode: HashScalar) -> F {
-        if s.is_root() {
-            return F::zero();
-        }
-
-        let path = s.path();
-        assert!(!path.is_empty());
-
-        let mut full_name_acc: Option<String> = None;
-        let mut final_hash = None;
-        for name in path.iter() {
-            let name_str = self.get_str(name).unwrap();
-
-            let (prev_full_name, full_name) = if let Some(x) = full_name_acc.clone() {
-                // We need to quote the path segment when constructing the incremental full-name.
-                // This is because when symbols are interned by full-name, the canonical name,
-                // which includes any necessary quoting, is used.
-                //
-                // Eventually, we will remove symbol lookup by full-name, simplifying this.
-                let name = crate::parser::maybe_quote_symbol_name_string(name).unwrap();
-
-                if x.is_empty() {
-                    let x: String = x;
-                    (x, format!(".{name}"))
-                } else if x.starts_with('.') {
-                    let x: String = x;
-                    (x.clone(), format!("{x}.{name}"))
-                } else {
-                    (x.clone(), format!(".{x}.{name}"))
-                }
-            } else {
-                ("".to_string(), "".to_string())
-            };
-
-            let p = { self.get_sym_by_full_name(prev_full_name) };
-            full_name_acc = Some(full_name);
-
-            let hash = self.hash_ptrs_2(&[name_str, p], mode).unwrap();
-
-            if let Some(prev_hash) = final_hash {
-                self.scalar_ptr(p, prev_hash, mode);
-            }
-            final_hash = Some(hash);
-        }
-
-        let final_hash = final_hash.unwrap();
-        if let Some(x) = full_name_acc {
-            let p = self.get_sym_by_full_name(x);
-            self.scalar_ptr(p, final_hash, mode);
-        };
-
-        final_hash
-    }
-
-    fn hash_string(&self, s: &str) -> F {
-        if s.is_empty() {
-            return F::zero();
-        };
-        let mut chars = s.chars();
-        let char = chars.next().unwrap();
-        let rest_string = chars.collect::<String>();
-        let c = self.get_char(char);
-
-        let rest = self.get_str(rest_string).expect("str missing from store");
-
-        self.hash_ptrs_2(&[c, rest], HashScalar::Get).unwrap()
-    }
-
-    pub fn hash_string_mut<T: AsRef<str>>(&mut self, s: T) -> F {
-        let s = s.as_ref();
-        if s.is_empty() {
-            return F::zero();
-        };
-
-        let initial_scalar_ptr = {
-            let hash = F::zero();
-            let ptr = self.intern_str_aux("");
-            self.create_scalar_ptr(ptr, hash)
-        };
-
-        let all_hashes = self.all_hashes(s, initial_scalar_ptr);
-        let v: VecDeque<char> = s.chars().collect();
-        self.hash_string_mut_aux(v, all_hashes)
-    }
-
-    // All hashes of substrings, shortest to longest.
-    fn all_hashes(&mut self, s: &str, initial_scalar_ptr: ZExprPtr<F>) -> Vec<F> {
-        let chars = s.chars().rev();
-        let mut hashes = Vec::with_capacity(s.len());
-
-        chars.fold(initial_scalar_ptr, |acc, char| {
-            let c_scalar: F = (u32::from(char) as u64).into();
-            // This bypasses create_scalar_ptr but is okay because Chars are immediate and don't need to be indexed.
-            let c = ZExprPtr::from_parts(ExprTag::Char, c_scalar);
-            let hash = self.hash_scalar_ptrs_2(&[c, acc]);
-            // This bypasses create_scalar_ptr but is okay because we will call it to correctly create each of these
-            // ZExprPtrs below, in hash_string_mut_aux.
-            let new_scalar_ptr = ZExprPtr::from_parts(ExprTag::Str, hash);
-            hashes.push(hash);
-            new_scalar_ptr
-        });
-
-        hashes
-    }
-
-    fn hash_string_mut_aux(&mut self, mut s: VecDeque<char>, all_hashes: Vec<F>) -> F {
-        debug_assert_eq!(s.len(), all_hashes.len());
-
-        let final_hash = all_hashes.last().unwrap();
-
-        for hash in all_hashes.iter().rev() {
-            let string = s.iter().collect::<String>();
-            let ptr = self.intern_str_aux(&string);
-            self.create_scalar_ptr(ptr, *hash);
-            s.pop_front();
-        }
-
-        *final_hash
-    }
-
-    fn hash_ptrs_2(&self, ptrs: &[Ptr<F>; 2], mode: HashScalar) -> Option<F> {
-        let scalar_ptrs = [
-            self.hash_expr_aux(&ptrs[0], mode)?,
-            self.hash_expr_aux(&ptrs[1], mode)?,
-        ];
-        Some(self.hash_scalar_ptrs_2(&scalar_ptrs))
-    }
-
-    fn hash_ptrs_3(&self, ptrs: &[Ptr<F>; 3], mode: HashScalar) -> Option<F> {
-        let scalar_ptrs = [
-            self.hash_expr_aux(&ptrs[0], mode)?,
-            self.hash_expr_aux(&ptrs[1], mode)?,
-            self.hash_expr_aux(&ptrs[2], mode)?,
-        ];
-        Some(self.hash_scalar_ptrs_3(&scalar_ptrs))
-    }
-
-    fn hash_scalar_ptrs_2(&self, ptrs: &[ZExprPtr<F>; 2]) -> F {
-        let preimage = [
-            ptrs[0].0.to_field::<F>(),
-            ptrs[0].1,
-            ptrs[1].0.to_field::<F>(),
-            ptrs[1].1,
-        ];
-        self.poseidon_cache.hash4(&preimage)
-    }
-
-    fn hash_scalar_ptrs_3(&self, ptrs: &[ZExprPtr<F>; 3]) -> F {
-        let preimage = [
-            ptrs[0].0.to_field::<F>(),
-            ptrs[0].1,
-            ptrs[1].0.to_field::<F>(),
-            ptrs[1].1,
-            ptrs[2].0.to_field::<F>(),
-            ptrs[2].1,
-        ];
-        self.poseidon_cache.hash6(&preimage)
-    }
-
-    pub fn hash_nil(&self, mode: HashScalar) -> Option<ZExprPtr<F>> {
-        let nil = self.get_nil();
-
-        self.hash_sym(nil, mode)
     }
 
     // An opaque Ptr is one for which we have the hash, but not the preimages.
@@ -1820,15 +1367,15 @@ impl<F: LurkField> Store<F> {
         // TODO: May need new tag for this.
         // Meanwhile, it is illegal to try to dereference/follow an opaque PTR.
         // So any tag and RawPtr are okay.
-        let scalar_ptr = self.hash_nil(HashScalar::Get).unwrap();
-        let (i, _) = self.opaque_ptrs.insert_full(scalar_ptr);
+        let z_ptr = ZExpr::Nil.z_ptr(&self.poseidon_cache);
+        let (i, _) = self.opaque_ptrs.insert_full(z_ptr);
         Ptr::opaque(ExprTag::Nil, i)
     }
 
     pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> Result<bool, Error> {
         // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
         // compound data with opaque data in either element's transitive closure.
-        match (self.get_expr_hash(a), self.get_expr_hash(b)) {
+        match (self.hash_expr(a), self.hash_expr(b)) {
             (Some(a_hash), Some(b_hash)) => Ok(a.tag == b.tag && a_hash == b_hash),
             _ => Err(Error(
                 "one or more values missing when comparing Ptrs for equality".into(),
@@ -1846,7 +1393,7 @@ impl<F: LurkField> Store<F> {
         if !a_opaque && !b_opaque {
             return a == b;
         }
-        self.get_expr_hash(a) == self.get_expr_hash(b)
+        self.hash_expr(a) == self.hash_expr(b)
     }
 
     /// Fill the cache for Scalars. Only Ptrs which have been interned since last hydration will be hashed, so it is
@@ -1886,6 +1433,235 @@ impl<F: LurkField> Store<F> {
             }
         };
         Some(self.intern_sym(sym))
+    }
+
+    /// The only places that `ZPtr`s for `Ptr`s should be created, to
+    /// ensure that they are cached properly
+    fn create_z_ptr(&self, ptr: Ptr<F>, hash: F) -> ZExprPtr<F> {
+        let z_ptr = ZPtr(ptr.tag, hash);
+        let entry = self.z_expr_ptr_map.entry(z_ptr);
+        entry.or_insert(ptr);
+
+        z_ptr
+    }
+
+    pub fn intern_z_expr_ptr(&mut self, z_ptr: ZExprPtr<F>, z_store: &ZStore<F>) -> Option<Ptr<F>> {
+        if let Some(ptr) = self.fetch_scalar(&z_ptr) {
+            Some(ptr)
+        } else {
+            use ZExpr::*;
+            match (z_ptr.tag(), z_store.get_expr(&z_ptr)) {
+                (ExprTag::Nil, Some(Nil)) => {
+                    let ptr = self.intern_nil();
+                    self.create_z_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Cons, Some(Cons(car, cdr))) => {
+                    let car = self.intern_z_expr_ptr(car, z_store)?;
+                    let cdr = self.intern_z_expr_ptr(cdr, z_store)?;
+                    let ptr = self.intern_cons(car, cdr);
+                    self.create_z_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Comm, Some(Comm(secret, payload))) => {
+                    let payload = self.intern_z_expr_ptr(payload, z_store)?;
+                    let ptr = self.intern_comm(secret, payload);
+                    self.create_z_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Str, Some(StrNil)) => {
+                    let ptr = self.intern_strnil();
+                    self.create_z_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Str, Some(StrCons(strcar, strcdr))) => {
+                    let strcar = self.intern_z_expr_ptr(strcar, z_store)?;
+                    let strcdr = self.intern_z_expr_ptr(strcdr, z_store)?;
+                    let ptr = self.intern_strcons(strcar, strcdr);
+                    self.create_z_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Str, Some(SymNil)) => {
+                    let ptr = self.intern_symnil();
+                    self.create_z_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Sym, Some(SymCons(symcar, symcdr))) => {
+                    let symcar = self.intern_z_expr_ptr(symcar, z_store)?;
+                    let symcdr = self.intern_z_expr_ptr(symcdr, z_store)?;
+                    let ptr = self.intern_symcons(symcar, symcdr);
+                    self.create_z_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Key, Some(SymNil)) => {
+                    let ptr = self.intern_keynil();
+                    self.create_z_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Key, Some(SymCons(keycar, keycdr))) => {
+                    let keycar = self.intern_z_expr_ptr(keycar, z_store)?;
+                    let keycdr = self.intern_z_expr_ptr(keycdr, z_store)?;
+                    let ptr = self.intern_keycons(keycar, keycdr);
+                    self.create_z_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Num, Some(Num(x))) => {
+                    let ptr = self.intern_num(crate::Num::Scalar(x));
+                    self.create_z_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (ExprTag::Char, Some(Char(x))) => Some(x.into()),
+                (ExprTag::Thunk, Some(Thunk(value, continuation))) => {
+                    let value = self.intern_z_expr_ptr(value, z_store)?;
+                    let continuation = self.intern_z_cont_ptr(continuation, z_store)?;
+                    let ptr = self.intern_thunk(expr::Thunk {
+                        value,
+                        continuation,
+                    });
+                    self.create_z_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (
+                    ExprTag::Fun,
+                    Some(Fun {
+                        arg,
+                        body,
+                        closed_env,
+                    }),
+                ) => {
+                    let arg = self.intern_z_expr_ptr(arg, z_store)?;
+                    let body = self.intern_z_expr_ptr(body, z_store)?;
+                    let env = self.intern_z_expr_ptr(closed_env, z_store)?;
+                    let ptr = self.intern_fun(arg, body, env);
+                    self.create_z_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                (tag, None) => {
+                    let ptr = self.intern_maybe_opaque(tag, z_ptr.1);
+                    self.create_z_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
+                _ => None,
+            }
+        }
+    }
+
+    pub fn intern_z_cont_ptr(
+        &mut self,
+        z_ptr: ZContPtr<F>,
+        z_store: &ZStore<F>,
+    ) -> Option<ContPtr<F>> {
+        use ZCont::*;
+        let tag: ContTag = z_ptr.tag();
+
+        if let Some(cont) = z_store.get_cont(&z_ptr) {
+            let continuation = match cont {
+                Outermost => Continuation::Outermost,
+                Dummy => Continuation::Dummy,
+                Terminal => Continuation::Terminal,
+                Call {
+                    unevaled_arg,
+                    saved_env,
+                    continuation,
+                } => Continuation::Call {
+                    unevaled_arg: self.intern_z_expr_ptr(unevaled_arg, z_store)?,
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+
+                Call2 {
+                    function,
+                    saved_env,
+                    continuation,
+                } => Continuation::Call2 {
+                    function: self.intern_z_expr_ptr(function, z_store)?,
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                Tail {
+                    saved_env,
+                    continuation,
+                } => Continuation::Tail {
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                Error => Continuation::Error,
+                Lookup {
+                    saved_env,
+                    continuation,
+                } => Continuation::Lookup {
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                Unop {
+                    operator,
+                    continuation,
+                } => Continuation::Unop {
+                    operator: operator,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                Binop {
+                    operator,
+                    saved_env,
+                    unevaled_args,
+                    continuation,
+                } => Continuation::Binop {
+                    operator: operator,
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    unevaled_args: self.intern_z_expr_ptr(unevaled_args, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                Binop2 {
+                    operator,
+                    evaled_arg,
+                    continuation,
+                } => Continuation::Binop2 {
+                    operator: operator,
+                    evaled_arg: self.intern_z_expr_ptr(evaled_arg, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                If {
+                    unevaled_args,
+                    continuation,
+                } => Continuation::If {
+                    unevaled_args: self.intern_z_expr_ptr(unevaled_args, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                Let {
+                    var,
+                    body,
+                    saved_env,
+                    continuation,
+                } => Continuation::Let {
+                    var: self.intern_z_expr_ptr(var, z_store)?,
+                    body: self.intern_z_expr_ptr(body, z_store)?,
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                LetRec {
+                    var,
+                    body,
+                    saved_env,
+                    continuation,
+                } => Continuation::LetRec {
+                    var: self.intern_z_expr_ptr(var, z_store)?,
+                    body: self.intern_z_expr_ptr(body, z_store)?,
+                    saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+                Emit { continuation } => Continuation::Emit {
+                    continuation: self.intern_z_cont_ptr(continuation, z_store)?,
+                },
+            };
+
+            if continuation.cont_tag() == tag {
+                Some(continuation.intern_aux(self))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 }
 
@@ -2020,13 +1796,13 @@ impl<F: LurkField> NamedConstants<F> {
     pub fn new(store: &Store<F>) -> Self {
         let hash_sym = |name: &str| {
             let ptr = store.get_lurk_sym(name, true).unwrap();
-            let maybe_scalar_ptr = store.hash_sym(ptr, HashScalar::Get);
-            ConstantPtrs(maybe_scalar_ptr, ptr)
+            let maybe_z_ptr = store.hash_expr(&ptr);
+            ConstantPtrs(maybe_z_ptr, ptr)
         };
 
         let t = hash_sym("t");
         let nil = ConstantPtrs(
-            Some(store.hash_nil(HashScalar::Get).unwrap()),
+            Some(ZExpr::Nil.z_ptr(&store.poseidon_cache)),
             store.get_nil(),
         );
         let lambda = hash_sym("lambda");
@@ -2567,7 +2343,7 @@ pub mod test {
         let sym = s.root_sym("orange", false);
         let key = s.key("orange");
 
-        let sym_ptr = s.get_expr_hash(&sym).unwrap();
+        let sym_ptr = s.hash_expr(&sym).unwrap();
         let key_ptr = s.hash_expr(&key).unwrap();
         let sym_hash = sym_ptr.1;
         let key_hash = key_ptr.1;
@@ -2589,7 +2365,7 @@ pub mod test {
         let sym = s.read("foo").unwrap();
         let sym1 = s.car(&expr).unwrap();
         let sss = s.fetch_sym(&sym);
-        let hash = s.get_expr_hash(&sym);
+        let hash = s.hash_expr(&sym);
         dbg!(&sym1, &sss, &hash);
 
         assert_eq!(sym, sym1);
@@ -2600,8 +2376,8 @@ pub mod test {
         let s = &mut Store::<Fr>::default();
 
         let sym = s.sym("");
-        let sym_tag = s.get_expr_hash(&sym).unwrap().0;
-        // let sym_hash = s.get_expr_hash(&sym).unwrap().1;
+        let sym_tag = s.hash_expr(&sym).unwrap().0;
+        // let sym_hash = s.hash_expr(&sym).unwrap().1;
 
         assert_eq!(ExprTag::Sym, sym_tag);
 
@@ -2636,7 +2412,7 @@ pub mod test {
             s.hydrate_scalar_cache();
         };
 
-        let str2_scalar_ptr = s.get_expr_hash(&str2).unwrap();
+        let str2_scalar_ptr = s.hash_expr(&str2).unwrap();
 
         let str2_again = s.fetch_scalar(&str2_scalar_ptr).unwrap();
 
@@ -2663,7 +2439,7 @@ pub mod test {
             s.hydrate_scalar_cache();
         };
 
-        let str_scalar_ptr = s.get_expr_hash(&str).unwrap();
+        let str_scalar_ptr = s.hash_expr(&str).unwrap();
 
         let str_again = s.fetch_scalar(&str_scalar_ptr).unwrap();
 

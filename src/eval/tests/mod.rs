@@ -2330,7 +2330,7 @@ fn test_root_sym() {
     let sym = Sym::root();
     let x = s.intern_sym(&sym);
 
-    let scalar_ptr = &s.get_expr_hash(&x).unwrap();
+    let scalar_ptr = &s.hash_expr(&x).unwrap();
 
     assert_eq!(&Fr::zero(), scalar_ptr.value());
     assert_eq!(ExprTag::Sym, scalar_ptr.tag());
@@ -2367,12 +2367,12 @@ fn test_sym_hash_values() {
     let asdf = s.str("ASDF");
     let consed_with_root = s.cons(asdf, root_sym);
 
-    let cons_scalar_ptr = &s.get_expr_hash(&new_expr).unwrap();
-    let sym_scalar_ptr = &s.get_expr_hash(&sym).unwrap();
-    let key_scalar_ptr = &s.get_expr_hash(&key).unwrap();
+    let cons_scalar_ptr = &s.hash_expr(&new_expr).unwrap();
+    let sym_scalar_ptr = &s.hash_expr(&sym).unwrap();
+    let key_scalar_ptr = &s.hash_expr(&key).unwrap();
 
-    let consed_with_root_scalar_ptr = &s.get_expr_hash(&consed_with_root).unwrap();
-    let toplevel_scalar_ptr = &s.get_expr_hash(&toplevel_sym).unwrap();
+    let consed_with_root_scalar_ptr = &s.hash_expr(&consed_with_root).unwrap();
+    let toplevel_scalar_ptr = &s.hash_expr(&toplevel_sym).unwrap();
 
     // Symbol and keyword scalar hash values are the same as
     // those of the name string consed onto the parent symbol.

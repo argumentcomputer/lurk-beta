@@ -18,7 +18,6 @@ pub mod parser;
 pub mod proof;
 pub mod ptr;
 pub mod repl;
-pub mod scalar_store;
 pub mod store;
 pub mod sym;
 pub mod tag;

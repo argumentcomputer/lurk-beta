@@ -904,7 +904,7 @@ fn apply_continuation<F: LurkField>(
                     Op1::Num => match result.tag {
                         ExprTag::Num | ExprTag::Comm | ExprTag::Char | ExprTag::U64 => {
                             let scalar_ptr = store
-                                .get_expr_hash(&result)
+                                .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
                             store.intern_num(crate::Num::Scalar::<F>(*scalar_ptr.value()))
                         }
@@ -913,7 +913,7 @@ fn apply_continuation<F: LurkField>(
                     Op1::U64 => match result.tag {
                         ExprTag::Num => {
                             let scalar_ptr = store
-                                .get_expr_hash(&result)
+                                .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
 
                             store.get_u64(scalar_ptr.value().to_u64_unchecked())
@@ -924,7 +924,7 @@ fn apply_continuation<F: LurkField>(
                     Op1::Comm => match result.tag {
                         ExprTag::Num | ExprTag::Comm => {
                             let scalar_ptr = store
-                                .get_expr_hash(&result)
+                                .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
                             store.intern_maybe_opaque_comm(*scalar_ptr.value())
                         }
@@ -933,7 +933,7 @@ fn apply_continuation<F: LurkField>(
                     Op1::Char => match result.tag {
                         ExprTag::Num | ExprTag::Char => {
                             let scalar_ptr = store
-                                .get_expr_hash(&result)
+                                .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
                             store.get_char_from_u32(scalar_ptr.value().to_u32_unchecked())
                         }
