@@ -12,12 +12,12 @@ mod test {
 
     #[test]
     fn test_let_store() {
-        let_store!(s);
+        let_store!();
     }
 
     #[test]
     fn test_lurk() {
-        let_store!(s);
+        let_store!();
         let res = lurk!((cons 1 2)).unwrap();
 
         let res2 = s_.read("(cons 1 2)").unwrap();
@@ -27,7 +27,7 @@ mod test {
 
     #[test]
     fn test_let() {
-        let_store!(s);
+        let_store!();
         let res = lurk!((let ((a 1)) a)).unwrap();
 
         let res2 = s_.read("(let ((a 1)) a)").unwrap();
@@ -37,7 +37,7 @@ mod test {
 
     #[test]
     fn test_letrec() {
-        let_store!(s);
+        let_store!();
         let res = lurk!((letrec ((a 1)) a)).unwrap();
 
         lurk!((let ((a 1)
@@ -56,7 +56,7 @@ mod test {
         // This test is an example of simple usage. Compare to the commented-out original source for this test.
 
         // let mut s = Store::<Fr>::default();
-        let_store!(s);
+        let_store!();
         let limit = 200;
 
         let expr = lurk!((letrec ((exp (lambda (base)
@@ -87,7 +87,7 @@ mod test {
 
     #[test]
     fn outer_evaluate_lambda() {
-        let_store!(s);
+        let_store!();
 
         let limit = 20;
         let val = s_.num(123);
