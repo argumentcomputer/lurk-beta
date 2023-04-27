@@ -40,7 +40,7 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         cs: &mut CS,
         g: &GlobalAllocations<F>,
         store: &Store<F>,
-        input_exprs: &[AllocatedPtr<F>],
+        _input_exprs: &[AllocatedPtr<F>],
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
@@ -50,14 +50,16 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         
         let preimage = vec![false_bool; self.n * 8];
 
-        let bits = sha256(cs.namespace(|| "SHAhash"), &preimage)?;
+        let mut bits = sha256(cs.namespace(|| "SHAhash"), &preimage)?;
+
+        bits.reverse();
 
         let num1 = make_u64_from_bits(&mut cs.namespace(|| "num1"), &bits[0..64])?;
         let num2 = make_u64_from_bits(&mut cs.namespace(|| "num2"), &bits[64..128])?;
         let num3 = make_u64_from_bits(&mut cs.namespace(|| "num3"), &bits[128..192])?;
         let num4 = make_u64_from_bits(&mut cs.namespace(|| "num4"), &bits[192..256])?;
 
-        // AllocatedPtr
+        // dbg!(num1.fetch_and_write_str(store), num2.fetch_and_write_str(store), num3.fetch_and_write_str(store), num4.fetch_and_write_str(store));
 
         let result_ptr: &AllocatedPtr<F> = &g.nil_ptr;
 
@@ -66,7 +68,6 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         let result_ptr3 = AllocatedPtr::construct_cons(cs.namespace(|| "limb_3"), g, store, &num3, &result_ptr2)?;
         let result_ptr4 = AllocatedPtr::construct_cons(cs.namespace(|| "limb_4"), g, store, &num4, &result_ptr3)?;
 
-        // construct_cons <-- bellperson gadgets pointer
         Ok((result_ptr4, input_env.clone(), input_cont.clone()))
     }
 }
@@ -76,7 +77,7 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         0
     }
 
-    fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+    fn simple_evaluate(&self, s: &mut Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
         let mut hasher = Sha256::new();
 
         let input = vec![0u8; self.n];
@@ -97,7 +98,7 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         array.copy_from_slice(&result[24..]);
         let d = u64::from_be_bytes(array);
 
-        // println!("{:x}{:x}{:x}{:x}", a, b, c, d);
+        // println!("{} {} {} {}", a, b, c, d);
         return s.list(&[a, b, c, d].map(|x| s.get_u64(x)));
     }
 }
@@ -156,11 +157,11 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     // println!("{}", args[1]);
     let num_of_64_bytes = args[1].parse::<usize>().unwrap();
-    let expect = hex::decode(args[2].parse::<String>().unwrap()).unwrap();
-    let setup_only = args[3].parse::<bool>().unwrap();
+    let _expect = hex::decode(args[2].parse::<String>().unwrap()).unwrap();
+    let _setup_only = args[3].parse::<bool>().unwrap();
 
     let input_size = 64 * num_of_64_bytes;
-    let input_str = vec![0u8; input_size];
+    let _input_str = vec![0u8; input_size];
 
     let s = &mut Store::<Fr>::new();
     let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
@@ -174,27 +175,25 @@ fn main() {
     let expr = format!("({})", sym_str);
     let ptr = s.read(&expr).unwrap();
 
+    let result_expr = format!("({}u64 {}u64 {}u64 {}u64)", 17700832373872664624u64, 2853293623205271451u64, 4827926021625475304u64, 16904315803914599243u64);
+
+    // dbg!(result_expr.clone());
+    let result_ptr = s.read(&result_expr).unwrap();
+
     let limit = 100000;
     let env = empty_sym_env(s);
     let (
         IO {
-            expr: new_expr,
-            env: new_env,
-            cont: new_cont,
+            expr: _new_expr,
+            env: _new_env,
+            cont: _new_cont,
         },
-        iterations,
-        emitted,
+        _iterations,
+        _emitted,
     ) = Evaluator::new(ptr, env, s, limit, &lang).eval().unwrap();
 
-    let t = s.num(17700832373872664624u64); 
 
-    test_aux(s, expr.as_str(), Some(t), None, None, None, 1, Some(&lang));
-    // let circuit = Sha256Circuit {
-    //     data: input_str,
-    //     expect: expect.clone(),
-    // };
-
-    println!("Yo");
+    test_aux(s, expr.as_str(), Some(result_ptr), None, None, None, 1, Some(&lang));
 }
 
 fn make_u64_from_bits<F, CS>(mut cs: CS, bits: &[Boolean]) -> Result<AllocatedPtr<F>, SynthesisError>
@@ -204,6 +203,7 @@ where
 {
     let mut num = BNum::<F>::zero();
     let mut coeff = F::one();
+
     for bit in bits {
         num = num.add_bool_with_coeff(CS::one(), bit, coeff);
 
