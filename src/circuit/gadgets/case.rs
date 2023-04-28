@@ -22,6 +22,12 @@ pub(crate) struct CaseClause<'a, F: LurkField> {
     pub(crate) value: &'a AllocatedNum<F>,
 }
 
+impl<'a, F: LurkField> CaseClause<'a, F> {
+    fn new(key: F, value: &'a AllocatedNum<F>) -> Self {
+        CaseClause::<'a, F> { key, value }
+    }
+}
+
 impl<F: LurkField + Debug> Debug for CaseClause<'_, F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CaseClause")
@@ -193,87 +199,57 @@ pub(crate) fn case<F: LurkField, CS: ConstraintSystem<F>>(
 /// returns the default value.
 ///
 /// ```
-/// let mut cs = TestConstraintSystem::<Fr>::new();
-/// let s = &mut Store::<Fr>::default();
-/// let g = GlobalAllocations::new(&mut cs, s).unwrap();
+/// # let mut cs = TestConstraintSystem::<Fr>::new();
+/// # let s = &mut Store::<Fr>::default();
+/// # let g = GlobalAllocations::new(&mut cs, s).unwrap();
 
-/// let x = Fr::from(123);
-/// let y = Fr::from(124);
-/// let z = Fr::from(125);
+/// # let x = Fr::from(123);
+/// # let y = Fr::from(124);
+/// # let z = Fr::from(125);
+/// # let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
+/// # let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
+/// # let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(700))).unwrap();
+/// # let default_vec = [
+/// #     &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
+/// #     &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
+/// #     &AllocatedNum::alloc(cs.namespace(|| "default2"), || Ok(Fr::from(997))).unwrap(),
+/// # ];
+/// /// Allocate `[x, y, z] = [123, 124, 125]`
+/// /// Allocate `[val0, val1, val2] = [666, 777, 700]`
+/// /// Allocate `default_vec = [999, 998, 997]`
 /// let selected0 = AllocatedNum::alloc(cs.namespace(|| "selected0"), || Ok(x)).unwrap();
-/// let selected1 = AllocatedNum::alloc(cs.namespace(|| "selected1"), || Ok(z)).unwrap();
-/// let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
-/// let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
-/// let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(700))).unwrap();
-/// let default_vec = [
-///     &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
-///     &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
-///     &AllocatedNum::alloc(cs.namespace(|| "default2"), || Ok(Fr::from(997))).unwrap(),
+/// let clauses0 = [
+///     CaseClause::new(x, &val0),
+///     CaseClause::new(y, &val1),
 /// ];
-
-/// {
-///     let clauses0: [CaseClause<'_, Fr>; 2] = [
-///         CaseClause {
-///             key: x,
-///             value: &val0,
-///         },
-///         CaseClause {
-///             key: y,
-///             value: &val1,
-///         },
-///     ];
-///     let clauses1: [CaseClause<'_, Fr>; 2] = [
-///         CaseClause {
-///             key: x,
-///             value: &val1,
-///         },
-///         CaseClause {
-///             key: y,
-///             value: &val0,
-///         },
-///     ];
-///     let clauses2: [CaseClause<'_, Fr>; 2] = [
-///         CaseClause {
-///             key: x,
-///             value: &val2,
-///         },
-///         CaseClause {
-///             key: y,
-///             value: &val0,
-///         },
-///     ];
-///     let clauses_vec: [&[CaseClause<'_, Fr>]; 3] = [&clauses0, &clauses1, &clauses2];
-
-///     /// Test regular multicase, select first clause
-///     let mut result = multi_case(
-///         &mut cs.namespace(|| "selected case 0"),
-///         &selected0,
-///         &clauses_vec,
-///         &default_vec,
-///         &g,
-///     )
-///     .unwrap();
-
-///     assert_eq!(val0.get_value(), result[0].get_value());
-///     assert_eq!(val1.get_value(), result[1].get_value());
-///     assert_eq!(val2.get_value(), result[2].get_value());
-///     assert!(cs.is_satisfied());
-
-///     /// Test regular multicase, select default
-///     result = multi_case(
-///         &mut cs.namespace(|| "selected case 1"),
-///         &selected1,
-///         &clauses_vec,
-///         &default_vec,
-///         &g,
-///     )
-///     .unwrap();
-
-///     assert_eq!(default_vec[0].get_value(), result[0].get_value());
-///     assert_eq!(default_vec[1].get_value(), result[1].get_value());
-///     assert_eq!(default_vec[2].get_value(), result[2].get_value());
-///     assert!(cs.is_satisfied());
-/// }
+/// let clauses1 = [
+///     CaseClause::new(x, &val1),
+///     CaseClause::new(y, &val0),
+/// ];
+/// let clauses2 = [
+///     CaseClause::new(x, &val2),
+///     CaseClause::new(y, &val0),
+/// ];
+/// let clauses_vec: [&[CaseClause<'_, Fr>]; 3] = [
+///     &clauses0, 
+///     &clauses1, 
+///     &clauses2
+/// ];
+///
+/// /// Test regular multicase, select first clause
+/// let mut result = multi_case(
+///     &mut cs.namespace(|| "selected case 0"),
+///     &selected0,
+///     &clauses_vec,
+///     &default_vec,
+///     &g,           // Global allocations
+/// )
+/// .unwrap();
+///
+/// assert_eq!(val0.get_value(), result[0].get_value());
+/// assert_eq!(val1.get_value(), result[1].get_value());
+/// assert_eq!(val2.get_value(), result[2].get_value());
+/// assert!(cs.is_satisfied());
 /// ```
 pub(crate) fn multi_case<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
@@ -460,14 +436,8 @@ mod tests {
 
         {
             let clauses = [
-                CaseClause {
-                    key: x,
-                    value: &val0,
-                },
-                CaseClause {
-                    key: y,
-                    value: &val1,
-                },
+                CaseClause::new(x, &val0),
+                CaseClause::new(y, &val1),
             ];
 
             let result = case(
@@ -484,10 +454,7 @@ mod tests {
         }
 
         {
-            let clauses = [CaseClause {
-                key: y,
-                value: &val0,
-            }];
+            let clauses = [CaseClause::new(y, &val0)];
 
             let default_chosen =
                 AllocatedNum::alloc(cs.namespace(|| "default chosen"), || Ok(Fr::from(999)))
@@ -527,35 +494,17 @@ mod tests {
         ];
 
         {
-            let clauses0: [CaseClause<'_, Fr>; 2] = [
-                CaseClause {
-                    key: x,
-                    value: &val0,
-                },
-                CaseClause {
-                    key: y,
-                    value: &val1,
-                },
+            let clauses0 = [
+                CaseClause::new(x, &val0),
+                CaseClause::new(y, &val1),
             ];
-            let clauses1: [CaseClause<'_, Fr>; 2] = [
-                CaseClause {
-                    key: x,
-                    value: &val1,
-                },
-                CaseClause {
-                    key: y,
-                    value: &val0,
-                },
+            let clauses1 = [
+                CaseClause::new(x, &val1),
+                CaseClause::new(y, &val0),
             ];
-            let clauses2: [CaseClause<'_, Fr>; 2] = [
-                CaseClause {
-                    key: x,
-                    value: &val2,
-                },
-                CaseClause {
-                    key: y,
-                    value: &val0,
-                },
+            let clauses2 = [
+                CaseClause::new(x, &val2),
+                CaseClause::new(y, &val0),
             ];
             let clauses_vec: [&[CaseClause<'_, Fr>]; 3] = [&clauses0, &clauses1, &clauses2];
 
