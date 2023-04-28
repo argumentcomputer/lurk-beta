@@ -123,6 +123,7 @@
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
 </pre></div><pre class="rust"><code><span class="attr">#![deny(missing_docs)]
 
 </span><span class="doccomment">//! This module offers a connection the the backend proving engine of Lurk.
@@ -235,17 +236,18 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         multiframes: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;SequentialCS&lt;<span class="lifetime">&#39;a</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;, SynthesisError&gt; {
-        <span class="kw">let </span>res = multiframes
+        <span class="comment">// Note: This loop terminates and returns an error on the first occurrence of `SynthesisError`.
+        </span>multiframes
             .iter()
-            .enumerate()
-            .map(|(<span class="kw">_</span>, multiframe)| {
+            .map(|multiframe| {
                 <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::new();
 
-                multiframe.clone().synthesize(<span class="kw-2">&amp;mut </span>cs).unwrap(); <span class="comment">// FIXME: unwrap
-                </span>(multiframe.clone(), cs)
+                multiframe
+                    .clone()
+                    .synthesize(<span class="kw-2">&amp;mut </span>cs)
+                    .map(|<span class="kw">_</span>| (multiframe.clone(), cs))
             })
-            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-        <span class="prelude-val">Ok</span>(res)
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()
     }
 }
 </code></pre></div></section></main></body></html>
