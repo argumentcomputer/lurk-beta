@@ -1,15 +1,8 @@
 use stable_deref_trait::StableDeref;
-use std::alloc::Layout;
 use std::borrow::Borrow;
-use std::collections::BTreeMap;
-use std::collections::{hash_map::RandomState, HashMap};
-use std::hash::{BuildHasher, Hash};
-use std::iter::{FromIterator, IntoIterator};
-use std::ops::Index;
+use std::collections::HashMap;
+use std::hash::Hash;
 
-use std::sync::atomic::AtomicPtr;
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering;
 use std::sync::RwLock;
 
 #[derive(Debug)]

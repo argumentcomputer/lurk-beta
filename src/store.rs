@@ -125,7 +125,7 @@ impl<F: LurkField> Default for Store<F> {
             dehydrated_cont: Default::default(),
             lurk_package: Arc::new(Package::lurk()),
             constants: Default::default(),
-            symbol_cache: Default::default()
+            symbol_cache: Default::default(),
         };
 
         for name in LURK_EXTERNAL_SYMBOL_NAMES {
@@ -263,7 +263,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn lurk_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
         let package = self.lurk_package.clone();
-        let mut name : String = String::from(name.as_ref());
+        let mut name: String = String::from(name.as_ref());
         name.make_ascii_uppercase();
         let sym = Sym::new_absolute(String::from(name));
         self.intern_sym_in_package(sym, &package)
@@ -271,19 +271,17 @@ impl<F: LurkField> Store<F> {
 
     pub fn sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
         let package = Default::default();
-        let mut name : String = String::from(name.as_ref());
+        let mut name: String = String::from(name.as_ref());
         name.make_ascii_uppercase();
         let sym = Sym::new_absolute(String::from(name));
         self.intern_sym_in_package(sym, &package)
     }
 
     pub fn key<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        let mut name : String = String::from(name.as_ref());
+        let mut name: String = String::from(name.as_ref());
         name.make_ascii_uppercase();
         self.intern_keyword(Symbol::new_absolute(name))
-
     }
-
 
     pub fn car(&self, expr: &Ptr<F>) -> Result<Ptr<F>, Error> {
         Ok(self.car_cdr(expr)?.0)
@@ -355,7 +353,6 @@ impl<F: LurkField> Store<F> {
         assert_eq!((car.tag, cdr.tag), (ExprTag::Char, ExprTag::Str));
         let (i, _) = self.str_store.insert_full((car, cdr));
         Ptr::index(ExprTag::Str, i)
-
     }
 
     pub fn intern_symcons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
@@ -470,9 +467,12 @@ impl<F: LurkField> Store<F> {
 
     pub fn intern_keyword(&mut self, sym: Symbol) -> Ptr<F> {
         let s = self.intern_symbol(sym);
-        Ptr { tag: ExprTag::Key, raw: s.raw, _f: s._f }
+        Ptr {
+            tag: ExprTag::Key,
+            raw: s.raw,
+            _f: s._f,
+        }
     }
-
 
     pub fn intern_symbol(&mut self, sym: Symbol) -> Ptr<F> {
         let mut ptr = self.symnil();
@@ -481,7 +481,11 @@ impl<F: LurkField> Store<F> {
             ptr = self.intern_symcons(str_ptr, ptr);
         }
         if sym.path == vec!["LURK", "NIL"] {
-            Ptr { tag: ExprTag::Nil, raw: ptr.raw, _f: ptr._f }
+            Ptr {
+                tag: ExprTag::Nil,
+                raw: ptr.raw,
+                _f: ptr._f,
+            }
         } else {
             ptr
         }
@@ -499,7 +503,6 @@ impl<F: LurkField> Store<F> {
     pub fn get_sym(&self, sym: Sym) -> Option<Ptr<F>> {
         self.symbol_cache.get(&sym).cloned()
     }
-
 
     pub fn get_lurk_sym<T: AsRef<str>>(&self, name: T, convert_case: bool) -> Option<Ptr<F>> {
         let mut name = format!(".lurk.{}", name.as_ref());
@@ -557,7 +560,7 @@ impl<F: LurkField> Store<F> {
     pub fn get_u64(&self, n: u64) -> Ptr<F> {
         Ptr::index(ExprTag::U64, n as usize)
     }
-    
+
     // intern a string into the Store, which generates the cons'ed representation
     // "foo"
     // TODO: short-circuit interning if we hit the cache
@@ -661,13 +664,13 @@ impl<F: LurkField> Store<F> {
 
     pub fn fetch_symcons(&self, ptr: &Ptr<F>) -> Option<(Ptr<F>, Ptr<F>)> {
         match (ptr.tag, ptr.raw) {
-         (ExprTag::Sym, RawPtr::Null) => Some((self.symnil(), self.symnil())),
-         (ExprTag::Sym, RawPtr::Index(x)) => {
-           let (car, cdr) = self.str_store.get_index(x)?;
-            Some((*car, *cdr))
+            (ExprTag::Sym, RawPtr::Null) => Some((self.symnil(), self.symnil())),
+            (ExprTag::Sym, RawPtr::Index(x)) => {
+                let (car, cdr) = self.str_store.get_index(x)?;
+                Some((*car, *cdr))
+            }
+            _ => None,
         }
-        _ => None
-      }
     }
 
     pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
@@ -679,34 +682,33 @@ impl<F: LurkField> Store<F> {
             ptr = cdr
         }
         Some(Symbol { path })
-
     }
 
     pub fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
         if ptr.tag == ExprTag::Nil {
             Some(Sym::new(".LURK.NIL".into()))
         } else if ptr.tag == ExprTag::Key {
-            let symbol = self.fetch_symbol(&Ptr { tag: ExprTag::Sym, raw: ptr.raw, _f: ptr._f })?;
+            let symbol = self.fetch_symbol(&Ptr {
+                tag: ExprTag::Sym,
+                raw: ptr.raw,
+                _f: ptr._f,
+            })?;
             Some(Sym::Key(symbol))
-
-            
         } else {
             let symbol = self.fetch_symbol(ptr)?;
             Some(Sym::Sym(symbol))
-
         }
-
     }
 
     pub fn fetch_strcons(&self, ptr: &Ptr<F>) -> Option<(Ptr<F>, Ptr<F>)> {
         match (ptr.tag, ptr.raw) {
-         (ExprTag::Str, RawPtr::Null) => Some((self.strnil(), self.strnil())),
-         (ExprTag::Str, RawPtr::Index(x)) => {
-           let (car, cdr) = self.str_store.get_index(x)?;
-            Some((*car, *cdr))
+            (ExprTag::Str, RawPtr::Null) => Some((self.strnil(), self.strnil())),
+            (ExprTag::Str, RawPtr::Index(x)) => {
+                let (car, cdr) = self.str_store.get_index(x)?;
+                Some((*car, *cdr))
+            }
+            _ => None,
         }
-        _ => None
-      }
     }
 
     pub fn fetch_string(&self, ptr: &Ptr<F>) -> Option<String> {
@@ -774,22 +776,30 @@ impl<F: LurkField> Store<F> {
 
     pub fn fetch(&self, ptr: &Ptr<F>) -> Option<Expression<F>> {
         if ptr.is_opaque() {
-            return None
+            return None;
         }
         match ptr.tag {
             ExprTag::Nil => Some(Expression::Nil),
             ExprTag::Cons => self.fetch_cons(ptr).map(|(a, b)| Expression::Cons(*a, *b)),
             ExprTag::Comm => self.fetch_comm(ptr).map(|(a, b)| Expression::Comm(a.0, *b)),
             ExprTag::Sym if ptr.raw.is_null() => Some(Expression::SymNil),
-            ExprTag::Sym => self.fetch_symcons(ptr).map(|(car, cdr)| Expression::SymCons(car, cdr)),
-            ExprTag::Key => Some(Expression::Key(Ptr { tag: ExprTag::Key, raw: ptr.raw, _f: ptr._f })),
+            ExprTag::Sym => self
+                .fetch_symcons(ptr)
+                .map(|(car, cdr)| Expression::SymCons(car, cdr)),
+            ExprTag::Key => Some(Expression::Key(Ptr {
+                tag: ExprTag::Key,
+                raw: ptr.raw,
+                _f: ptr._f,
+            })),
             ExprTag::Num => self.fetch_num(ptr).map(|num| Expression::Num(*num)),
             ExprTag::Fun => self
                 .fetch_fun(ptr)
                 .map(|(a, b, c)| Expression::Fun(*a, *b, *c)),
             ExprTag::Thunk => self.fetch_thunk(ptr).map(|thunk| Expression::Thunk(*thunk)),
             ExprTag::Str if ptr.raw.is_null() => Some(Expression::StrNil),
-            ExprTag::Str => self.fetch_strcons(ptr).map(|(car, cdr)| Expression::StrCons(car, cdr)),
+            ExprTag::Str => self
+                .fetch_strcons(ptr)
+                .map(|(car, cdr)| Expression::StrCons(car, cdr)),
             ExprTag::Char => self.fetch_char(ptr).map(Expression::Char),
             ExprTag::U64 => self.fetch_uint(ptr).map(Expression::UInt),
         }
@@ -1163,8 +1173,8 @@ impl<F: LurkField> Store<F> {
         } else {
             let (z_ptr, z_expr) = match self.fetch(ptr) {
                 Some(Expression::Nil) => {
-                  // todo, add lurk_sym components
-                  (ZExpr::Nil.z_ptr(&self.poseidon_cache), Some(ZExpr::Nil))
+                    // todo, add lurk_sym components
+                    (ZExpr::Nil.z_ptr(&self.poseidon_cache), Some(ZExpr::Nil))
                 }
                 Some(Expression::Cons(car, cdr)) => {
                     let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
@@ -1217,14 +1227,20 @@ impl<F: LurkField> Store<F> {
                     let z_expr = ZExpr::Uint(u);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
-                Some(Expression::StrNil) => (ZExpr::StrNil.z_ptr(&self.poseidon_cache), Some(ZExpr::StrNil)),
+                Some(Expression::StrNil) => (
+                    ZExpr::StrNil.z_ptr(&self.poseidon_cache),
+                    Some(ZExpr::StrNil),
+                ),
                 Some(Expression::StrCons(car, cdr)) => {
                     let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
                     let (z_cdr, _) = self.get_z_expr(&cdr, z_store.clone())?;
                     let z_expr = ZExpr::StrCons(z_car, z_cdr);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
-                Some(Expression::SymNil) => (ZExpr::SymNil.z_ptr(&self.poseidon_cache), Some(ZExpr::SymNil)),
+                Some(Expression::SymNil) => (
+                    ZExpr::SymNil.z_ptr(&self.poseidon_cache),
+                    Some(ZExpr::SymNil),
+                ),
                 Some(Expression::SymCons(car, cdr)) => {
                     let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
                     let (z_cdr, _) = self.get_z_expr(&cdr, z_store.clone())?;
@@ -1236,7 +1252,7 @@ impl<F: LurkField> Store<F> {
                     let z_expr = ZExpr::Key(z_sym);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
-                };
+            };
             if let Some(z_store) = z_store {
                 z_store.borrow_mut().expr_map.insert(z_ptr, z_expr.clone());
             };
@@ -1249,7 +1265,7 @@ impl<F: LurkField> Store<F> {
         let (z_ptr, _) = self.get_z_expr(ptr, Some(z_store.clone()))?;
         // TODO: remove heinous clone
         Ok((z_store.as_ref().clone().into_inner(), z_ptr))
-   }
+    }
 
     pub fn to_z_expr(&self, ptr: &Ptr<F>) -> Option<ZExpr<F>> {
         self.get_z_expr(ptr, None).ok()?.1
@@ -1269,12 +1285,16 @@ impl<F: LurkField> Store<F> {
 
     pub fn hash_string(&mut self, s: &str) -> ZExprPtr<F> {
         let ptr = self.intern_str(s);
-        self.get_z_expr(&ptr, None).expect("known string can't be opaque").0
+        self.get_z_expr(&ptr, None)
+            .expect("known string can't be opaque")
+            .0
     }
 
     pub fn hash_symbol(&mut self, s: Sym) -> ZExprPtr<F> {
         let ptr = self.intern_sym(s);
-        self.get_z_expr(&ptr, None).expect("known symbol can't be opaque").0
+        self.get_z_expr(&ptr, None)
+            .expect("known symbol can't be opaque")
+            .0
     }
 
     pub fn car_cdr(&self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
@@ -1282,13 +1302,13 @@ impl<F: LurkField> Store<F> {
             ExprTag::Nil => Ok((self.get_nil(), self.get_nil())),
             ExprTag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
-                _ => unreachable!(),
+                _ => Err(Error("Can only extract car_cdr from known Cons".into())),
             },
             ExprTag::Str => match self.fetch(ptr) {
-              Some(Expression::StrCons(car, cdr)) => Ok((car, cdr)),
-              Some(Expression::StrNil) => Ok((self.strnil(), self.strnil())),
-              _ => unreachable!(),
-            }
+                Some(Expression::StrCons(car, cdr)) => Ok((car, cdr)),
+                Some(Expression::StrNil) => Ok((self.strnil(), self.strnil())),
+                _ => unreachable!(),
+            },
             _ => Err(Error("Can only extract car_cdr from Cons".into())),
         }
     }
@@ -1669,7 +1689,6 @@ impl<F: LurkField> Expression<F> {
     pub const fn is_thunk(&self) -> bool {
         matches!(self, Self::Thunk(_))
     }
-
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1849,53 +1868,53 @@ pub mod test {
 
     use super::*;
 
-   // proptest! {
-   //   #[test]
-   //   fn test_scalar_ptr_ipld(x in any::<ZExprPtr<Fr>>())  {
-   //     let to_ipld = to_ipld(x).unwrap();
-   //     let from_ipld = from_ipld(to_ipld).unwrap();
-   //     assert_eq!(x, from_ipld);
-   //   }
+    // proptest! {
+    //   #[test]
+    //   fn test_scalar_ptr_ipld(x in any::<ZExprPtr<Fr>>())  {
+    //     let to_ipld = to_ipld(x).unwrap();
+    //     let from_ipld = from_ipld(to_ipld).unwrap();
+    //     assert_eq!(x, from_ipld);
+    //   }
 
-   //   #[test]
-   //   fn prop_scalar_cont_ptr_ipld(x in any::<ZContPtr<Fr>>()) {
-   //       let to_ipld = to_ipld(x).unwrap();
-   //           let from_ipld = from_ipld(to_ipld).unwrap();
-   //           assert_eq!(x, from_ipld);
+    //   #[test]
+    //   fn prop_scalar_cont_ptr_ipld(x in any::<ZContPtr<Fr>>()) {
+    //       let to_ipld = to_ipld(x).unwrap();
+    //           let from_ipld = from_ipld(to_ipld).unwrap();
+    //           assert_eq!(x, from_ipld);
 
-   //   }
-   //   #[test]
-   //   fn prop_op1_ipld(x in any::<Op1>())  {
-   //       let to_ipld = to_ipld(x).unwrap();
-   //       let from_ipld = from_ipld(to_ipld).unwrap();
-   //       assert_eq!(x, from_ipld);
-   //   }
-   // }
+    //   }
+    //   #[test]
+    //   fn prop_op1_ipld(x in any::<Op1>())  {
+    //       let to_ipld = to_ipld(x).unwrap();
+    //       let from_ipld = from_ipld(to_ipld).unwrap();
+    //       assert_eq!(x, from_ipld);
+    //   }
+    // }
 
-   // #[test]
-   // fn unit_op1_ipld() {
-   //     assert_eq!(
-   //         to_ipld(Op1::Car).unwrap(),
-   //         Ipld::Integer(0b0010_0000_0000_0000_i128)
-   //     );
-   // }
+    // #[test]
+    // fn unit_op1_ipld() {
+    //     assert_eq!(
+    //         to_ipld(Op1::Car).unwrap(),
+    //         Ipld::Integer(0b0010_0000_0000_0000_i128)
+    //     );
+    // }
 
-   // proptest! {
-   //   #[test]
-   //   fn prop_op2_ipld(x in any::<Op1>())  {
-   //       let to_ipld = to_ipld(x).unwrap();
-   //       let from_ipld = from_ipld(to_ipld).unwrap();
-   //       assert_eq!(x, from_ipld);
-   //   }
-   // }
+    // proptest! {
+    //   #[test]
+    //   fn prop_op2_ipld(x in any::<Op1>())  {
+    //       let to_ipld = to_ipld(x).unwrap();
+    //       let from_ipld = from_ipld(to_ipld).unwrap();
+    //       assert_eq!(x, from_ipld);
+    //   }
+    // }
 
-   // #[test]
-   // fn unit_op2_ipld() {
-   //     assert_eq!(
-   //         to_ipld(Op2::Sum).unwrap(),
-   //         Ipld::Integer(0b0011_0000_0000_0000_i128)
-   //     );
-   // }
+    // #[test]
+    // fn unit_op2_ipld() {
+    //     assert_eq!(
+    //         to_ipld(Op2::Sum).unwrap(),
+    //         Ipld::Integer(0b0011_0000_0000_0000_i128)
+    //     );
+    // }
 
     #[test]
     fn test_print_num() {
@@ -2094,8 +2113,6 @@ pub mod test {
         // We need to insert a few opaque syms in other_store, in order to acquire a raw_ptr that doesn't exist in
         // store. Use that to check for a malformed/missing opaque sym in store below.
         let _other_opaque_sym2 = other_store.intern_opaque_sym(*sym_hash.value());
-        let other_opaque_sym3 = other_store.intern_opaque_sym(*sym_hash.value());
-
 
         let lang = Lang::<Fr, Coproc<Fr>>::new();
         {
@@ -2265,7 +2282,7 @@ pub mod test {
         let mut store = Store::<Fr>::default();
 
         let opaque_cons = make_maybe_opaque_cons(&mut store, 123, 987);
-        store.car(&opaque_cons).unwrap();
+        store.car(&opaque_cons);
     }
     #[test]
     fn maybe_opaque_cons_cdr() {

@@ -2,7 +2,6 @@ use std::hash::Hash;
 
 use crate::field::LurkField;
 use crate::ptr::{ContPtr, Ptr};
-use crate::sym::Sym;
 use crate::{Num, UInt};
 
 // Expressions, Continuations, Op1, Op2 occupy the same namespace in

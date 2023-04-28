@@ -5,17 +5,16 @@ use proptest_derive::Arbitrary;
 
 use std::collections::BTreeMap;
 
+use crate::hash::PoseidonCache;
+use crate::sym::Sym;
+use crate::tag::ExprTag;
 use crate::z_cont::ZCont;
 use crate::z_data::Encodable;
 use crate::z_data::ZData;
 use crate::z_expr::ZExpr;
 use crate::z_ptr::ZContPtr;
-use crate::z_ptr::ZPtr;
 use crate::z_ptr::ZExprPtr;
-use crate::tag::ExprTag;
-use crate::hash::PoseidonCache;
-use crate::cache_map::CacheMap;
-use crate::sym::Sym;
+use crate::z_ptr::ZPtr;
 
 use crate::field::LurkField;
 
@@ -45,7 +44,10 @@ impl<F: LurkField> Encodable for ZStore<F> {
 
 impl<F: LurkField> ZStore<F> {
     pub fn new() -> Self {
-        ZStore { expr_map : BTreeMap::new(), cont_map: BTreeMap::new() }
+        ZStore {
+            expr_map: BTreeMap::new(),
+            cont_map: BTreeMap::new(),
+        }
     }
 
     pub fn get_expr(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
@@ -57,7 +59,11 @@ impl<F: LurkField> ZStore<F> {
     }
 
     pub fn nil_z_ptr(&mut self) -> ZExprPtr<F> {
-        self.put_symbol(Sym::new_from_path(false, vec!["".into(), "LURK".into(), "NIL".into()]), &PoseidonCache::default()).0
+        self.put_symbol(
+            Sym::new_from_path(false, vec!["".into(), "LURK".into(), "NIL".into()]),
+            &PoseidonCache::default(),
+        )
+        .0
     }
 
     pub fn put_string(
