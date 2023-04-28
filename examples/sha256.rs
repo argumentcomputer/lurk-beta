@@ -1,5 +1,6 @@
 use std::env;
 use std::marker::PhantomData;
+use std::time::{Duration, Instant};
 
 // use bellperson::gadgets::multipack;
 use bellperson::gadgets::sha256::sha256;
@@ -8,11 +9,13 @@ use bellperson::gadgets::num::AllocatedNum;
 use bellperson::gadgets::boolean::{Boolean, AllocatedBit};
 use bellperson::gadgets::num::Num as BNum;
 use lurk::circuit::gadgets::data::GlobalAllocations;
+use lurk::proof::nova::{NovaProver, public_params};
 // use bellperson::gadgets::Assignment;
 use lurk::tag::{ExprTag, Tag};
 use pasta_curves::pallas::Scalar as Fr;
 use sha2::{Digest, Sha256};
 
+use lurk::proof::Prover;
 use lurk::proof::nova::tests::test_aux;
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use lurk::coprocessor::{CoCircuit, Coprocessor};
@@ -155,7 +158,7 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coproc<F> {
 // cargo run --example sha256 1 f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b false
 fn main() {
     let args: Vec<String> = env::args().collect();
-    // println!("{}", args[1]);
+
     let num_of_64_bytes = args[1].parse::<usize>().unwrap();
     let _expect = hex::decode(args[2].parse::<String>().unwrap()).unwrap();
     let _setup_only = args[3].parse::<bool>().unwrap();
@@ -163,37 +166,70 @@ fn main() {
     let input_size = 64 * num_of_64_bytes;
     let _input_str = vec![0u8; input_size];
 
-    let s = &mut Store::<Fr>::new();
+    let store = &mut Store::<Fr>::new();
     let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
     let sym_str = format!(".sha256.hash-{}-zero-bytes", input_size).to_string();
     let name = Sym::new(sym_str.clone());
     let coprocessor: Sha256Coprocessor<Fr> = Sha256Coprocessor::<Fr>::new(input_size);
     let coproc = Sha256Coproc::SC(coprocessor);
 
-    lang.add_coprocessor(name, coproc, s);
+    lang.add_coprocessor(name, coproc, store);
 
     let expr = format!("({})", sym_str);
-    let ptr = s.read(&expr).unwrap();
+    let ptr = store.read(&expr).unwrap();
 
     let result_expr = format!("({}u64 {}u64 {}u64 {}u64)", 17700832373872664624u64, 2853293623205271451u64, 4827926021625475304u64, 16904315803914599243u64);
 
     // dbg!(result_expr.clone());
-    let result_ptr = s.read(&result_expr).unwrap();
+    let result_ptr = store.read(&result_expr).unwrap();
 
-    let limit = 100000;
-    let env = empty_sym_env(s);
-    let (
-        IO {
-            expr: _new_expr,
-            env: _new_env,
-            cont: _new_cont,
-        },
-        _iterations,
-        _emitted,
-    ) = Evaluator::new(ptr, env, s, limit, &lang).eval().unwrap();
+    // let limit = 100000;
+    // let env = empty_sym_env(s);
+    // let (
+    //     IO {
+    //         expr: _new_expr,
+    //         env: _new_env,
+    //         cont: _new_cont,
+    //     },
+    //     _iterations,
+    //     _emitted,
+    // ) = Evaluator::new(ptr, env, s, limit, &lang).eval().unwrap();
 
 
-    test_aux(s, expr.as_str(), Some(result_ptr), None, None, None, 1, Some(&lang));
+    // test_aux(s, expr.as_str(), Some(result_ptr), None, None, None, 1, Some(&lang));
+
+    
+    let reduction_count = 1;
+    
+    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(reduction_count, lang.clone());
+
+    println!("Setting up public parameters...");
+
+    let pp_start = Instant::now();
+    let pp = public_params(reduction_count, &lang);
+    let pp_end = pp_start.elapsed();
+
+    println!("Public parameters took {:?}", pp_end);
+
+    println!("Beginning proof step...");
+
+    let proof_start = Instant::now();
+    let (proof, z0, zi, num_steps) = nova_prover.evaluate_and_prove(&pp, ptr, empty_sym_env(store), store, 10000, &lang).unwrap();
+    let proof_end = proof_start.elapsed();
+
+    println!("Proofs took {:?}", proof_end);
+    
+    println!("Verifying proof...");
+
+    let verify_start = Instant::now();
+    let res = proof.verify(&pp, num_steps, z0.clone(), &zi).unwrap();
+    let verify_end = verify_start.elapsed();
+
+    println!("Verify took {:?}", verify_end);
+    
+    if res {
+        println!("Congratulations! You proved and verified a SHA256 hash calculation in {:?} time!", pp_end + proof_end + verify_end);
+    }
 }
 
 fn make_u64_from_bits<F, CS>(mut cs: CS, bits: &[Boolean]) -> Result<AllocatedPtr<F>, SynthesisError>
