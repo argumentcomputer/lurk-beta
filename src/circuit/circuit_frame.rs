@@ -385,7 +385,7 @@ impl<F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'_, F, IO<F>, Wi
             //
             // End public inputs.
             ////////////////////////////////////////////////////////////////////////////////
-            let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store)?;
+            let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &store)?;
 
             let (new_expr, new_env, new_cont) =
                 self.synthesize_frames(cs, store, input_expr, input_env, input_cont, frames, &g);

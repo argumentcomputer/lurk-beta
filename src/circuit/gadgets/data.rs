@@ -114,7 +114,7 @@ impl<F: LurkField> GlobalAllocations<F> {
         let empty_str_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "empty_str_ptr"),
             store,
-            &store.get_str("").unwrap(),
+            &store.strnil(),
         )?;
 
         let thunk_tag = ExprTag::Thunk.allocate_constant(&mut cs.namespace(|| "thunk_tag"))?;

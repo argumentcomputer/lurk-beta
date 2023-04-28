@@ -23,8 +23,6 @@ use serde::{Deserialize, Serialize};
 /// ```
 pub struct Symbol {
     pub path: Vec<String>,
-    // It would be better not to have this here, but it simplifies things in the Store, at least for now.
-    pub opaque: bool,
 }
 
 /// Enumeration type for symbol names, which can either be a Symbol or a Keyword Symbol.
@@ -40,7 +38,7 @@ trait SymbolTrait {}
 impl Symbol {
     /// Creates a new Symbol with the root path `[""]`.
     pub fn root() -> Self {
-        Self::new_from_path(vec!["".into()])
+        Self::new_from_path(vec![])
     }
 
     /// Creates a new Symbol with the given name and a path derived from it.
@@ -48,7 +46,6 @@ impl Symbol {
         let path = Self::path_from_name(&name);
         Self {
             path,
-            opaque: false,
         }
     }
 
@@ -57,18 +54,12 @@ impl Symbol {
         let path = Self::root_path_from_name(&name);
         Self {
             path,
-            opaque: false,
         }
-    }
-
-    /// Returns true if the Symbol is marked as opaque.
-    pub fn is_opaque(&self) -> bool {
-        self.opaque
     }
 
     /// Returns true if the Symbol is the root Symbol, i.e. if it has a path of `[""]`.
     pub fn is_root(&self) -> bool {
-        !self.is_opaque() && self.path.len() == 1 && self.path[0].is_empty()
+        self.path.len() == 1 && self.path[0].is_empty()
     }
 
     /// Returns true if the Symbol is a top-level Symbol, i.e. if it has more than one path segment and its first segment is empty.
@@ -121,14 +112,6 @@ impl Symbol {
         Self::new_from_path(new_path)
     }
 
-    /// Creates a new opaque Symbol with an empty path.
-    pub fn new_opaque() -> Self {
-        Symbol {
-            path: Default::default(),
-            opaque: true,
-        }
-    }
-
     /// Returns a reference to the path vector of the Symbol.
     pub fn path(&self) -> &Vec<String> {
         &self.path
@@ -138,7 +121,6 @@ impl Symbol {
     fn new_from_path(path: Vec<String>) -> Self {
         Symbol {
             path,
-            opaque: false,
         }
     }
 
@@ -226,16 +208,6 @@ impl Sym {
     /// Creates a new Keyword Sym with a name derived from the given string.
     pub fn new_key(name: String) -> Self {
         Self::Key(Symbol::new(format!(":{name}")))
-    }
-
-    /// Creates a new opaque Sym.
-    pub fn new_opaque(keyword: bool) -> Self {
-        let s = Symbol::new_opaque();
-        if keyword {
-            Self::Key(s)
-        } else {
-            Self::Sym(s)
-        }
     }
 
     /// Returns the root Symbol.

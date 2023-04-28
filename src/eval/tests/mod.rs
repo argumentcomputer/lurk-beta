@@ -2328,7 +2328,7 @@ fn test_root_sym() {
     let s = &mut Store::<Fr>::default();
 
     let sym = Sym::root();
-    let x = s.intern_sym(&sym);
+    let x = s.intern_sym(sym);
 
     let scalar_ptr = &s.hash_expr(&x).unwrap();
 
@@ -2362,7 +2362,7 @@ fn test_sym_hash_values() {
     let toplevel_sym = s.sym(".ASDF");
 
     let root = Sym::root();
-    let root_sym = s.intern_sym(&root);
+    let root_sym = s.intern_sym(root);
 
     let asdf = s.str("ASDF");
     let consed_with_root = s.cons(asdf, root_sym);

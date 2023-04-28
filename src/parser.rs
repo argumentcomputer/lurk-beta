@@ -437,12 +437,12 @@ impl<F: LurkField> Store<F> {
 
     pub(crate) fn intern_sym_in_package(&mut self, sym: Sym, package: &Package) -> Ptr<F> {
         if sym.is_toplevel() {
-            self.intern_sym(&sym)
+            self.intern_sym(sym)
         } else {
             let parent_sym = package.name();
             let new_sym = parent_sym.extend(sym.path());
 
-            self.intern_sym(&new_sym)
+            self.intern_sym(new_sym)
         }
     }
 
