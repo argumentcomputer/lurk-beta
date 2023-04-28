@@ -1107,7 +1107,24 @@ fn apply_continuation<F: LurkField>(
                             Err(control) => return Ok(control),
                         }
                     }
-                    (Expression::Char(_), Expression::Str(_))
+                    (Expression::Char(_), Expression::StrNil)
+                        if matches!(operator, Op2::StrCons) =>
+                    {
+                        cons_witness.strcons_named(ConsName::TheCons, store, evaled_arg, arg2)
+                    }
+                    _ => match operator {
+                        Op2::Equal => store.as_lurk_boolean(store.ptr_eq(&evaled_arg, &arg2)?),
+                        Op2::Cons => {
+                            cons_witness.cons_named(ConsName::TheCons, store, evaled_arg, arg2)
+                        }
+                        Op2::Eval => {
+                            return Ok(Control::Return(evaled_arg, arg2, continuation));
+                        }
+                        _ => {
+                            return Ok(Control::Return(result, env, store.intern_cont_error()));
+                        }
+                    },
+                    (Expression::Char(_), Expression::StrCons(..))
                         if matches!(operator, Op2::StrCons) =>
                     {
                         cons_witness.strcons_named(ConsName::TheCons, store, evaled_arg, arg2)

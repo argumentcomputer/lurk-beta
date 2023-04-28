@@ -12,7 +12,7 @@ use crate::tag::ContTag;
 use crate::writer::Write;
 use crate::z_data::{Encodable, ZData};
 use crate::z_store::ZStore;
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Context, Result, Error};
 use clap::{Arg, ArgAction, Command};
 use peekmore::PeekMore;
 use rustyline::error::ReadlineError;
@@ -387,7 +387,8 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
 
         let res = match expr {
             Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
-                Expression::Sym(Sym::Sym(s)) => {
+                Expression::SymCons(..) => {
+                    let s: Sym = store.fetch_sym(&car).ok_or(Error::msg("handle_meta fetch symbol"))?;
                     match s.name().as_str() {
                         "ASSERT" => {
                             let (first, rest) = store.car_cdr(&rest)?;
@@ -513,7 +514,8 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                         }
                         "LOAD" => {
                             match store.fetch(&store.car(&rest)?).unwrap() {
-                                Expression::Str(path) => {
+                                Expression::StrCons(..) => {
+                                    let path: String = store.fetch_string(&car).ok_or(Error::msg("handle_meta fetch_string"))?;
                                     let joined = p.as_ref().join(Path::new(&path));
                                     self.handle_load(store, &joined, package)?
                                 }

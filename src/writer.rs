@@ -57,14 +57,25 @@ fn write_symbol<F: LurkField, W: io::Write>(
     write!(w, "{symbol_name}")
 }
 
-impl<F: LurkField> Write<F> for Expression<'_, F> {
+impl<F: LurkField> Write<F> for Expression<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         use Expression::*;
 
         match self {
             Nil => write!(w, "NIL"),
-            Sym(s) => write_symbol::<F, _>(w, store, s),
-            Str(s) => write!(w, "\"{s}\""),
+            //Sym(s) => write_symbol::<F, _>(w, store, s),
+            //Str(s) => write!(w, "\"{s}\""),
+            SymNil => todo!(),
+            SymCons(head, tail) => {
+                todo!()
+            }
+            StrNil => todo!(),
+            StrCons(head, tail) => {
+                todo!()
+            }
+            Key(sym) => {
+                todo!()
+            }
             Fun(arg, body, _closed_env) => {
                 let is_zero_arg = *arg
                     == store
@@ -113,7 +124,6 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                 Num(crate::num::Num::Scalar(c.1)).fmt(store, w)?;
                 write!(w, ")")
             }
-            Opaque(f) => f.fmt(store, w),
             Char(c) => {
                 write!(w, "#\\{c}")
             }
@@ -122,7 +132,7 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
     }
 }
 
-impl<F: LurkField> Expression<'_, F> {
+impl<F: LurkField> Expression<F> {
     fn print_tail<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         match self {
             Expression::Nil => write!(w, ")"),

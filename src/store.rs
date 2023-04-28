@@ -31,39 +31,18 @@ use crate::hash::{HashConstants, PoseidonCache};
 type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
 
 #[derive(Debug)]
-pub struct StringSet(
-    pub  string_interner::StringInterner<
-        string_interner::backend::BufferBackend<SymbolUsize>,
-        ahash::RandomState,
-    >,
-);
-
-impl Default for StringSet {
-    fn default() -> Self {
-        StringSet(string_interner::StringInterner::new())
-    }
-}
-
-impl StringSet {
-    #[allow(dead_code)]
-    pub fn all_strings(&self) -> Vec<&str> {
-        self.0.into_iter().map(|x| x.1).collect::<Vec<_>>()
-    }
-}
-
-#[derive(Debug)]
 pub struct Store<F: LurkField> {
     pub cons_store: IndexSet<(Ptr<F>, Ptr<F>)>,
     pub comm_store: IndexSet<(FWrap<F>, Ptr<F>)>,
 
     pub fun_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    pub sym_store: StringSet,
+    pub sym_store: IndexSet<(Ptr<F>, Ptr<F>)>,
 
     // Other sparse storage format without hashing is likely more efficient
     pub num_store: IndexSet<Num<F>>,
 
-    pub str_store: StringSet,
+    pub str_store: IndexSet<(Ptr<F>, Ptr<F>)>,
     pub thunk_store: IndexSet<Thunk<F>>,
     pub call0_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
     pub call_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
@@ -94,13 +73,6 @@ pub struct Store<F: LurkField> {
 
     pub lurk_package: Arc<Package>,
     pub constants: OnceCell<NamedConstants<F>>,
-
-    /// Speeds up the internalization of strings into the ZStore
-    /// When interning "blah", search for ['h', 'a', 'l', 'b']
-    vec_char_cache: CacheMap<Vec<char>, Box<(ZExprPtr<F>, ZExpr<F>)>>,
-    /// Speeds up the internalization of symbols into the ZStore
-    /// When interning .foo.bar, search for ["bar", "foo"]
-    vec_str_cache: CacheMap<Vec<String>, Box<(ZExprPtr<F>, ZExpr<F>)>>,
 }
 
 pub trait TypePredicates {
@@ -152,8 +124,6 @@ impl<F: LurkField> Default for Store<F> {
             dehydrated_cont: Default::default(),
             lurk_package: Arc::new(Package::lurk()),
             constants: Default::default(),
-            vec_char_cache: Default::default(),
-            vec_str_cache: Default::default(),
         };
 
         store.lurk_sym("");
@@ -199,6 +169,13 @@ impl<F: LurkField> Store<F> {
     }
     pub fn strcons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         self.intern_strcons(car, cdr)
+    }
+    pub fn strnil(&self) -> Ptr<F> {
+        Ptr::null(ExprTag::Str)
+    }
+
+    pub fn symnil(&self) -> Ptr<F> {
+        Ptr::null(ExprTag::Sym)
     }
 
     pub fn hidden(&self, secret: F, payload: Ptr<F>) -> Option<Ptr<F>> {
@@ -387,13 +364,9 @@ impl<F: LurkField> Store<F> {
             self.hash_expr(&cdr);
         }
         assert_eq!((car.tag, cdr.tag), (ExprTag::Char, ExprTag::Str));
-        let (c, s) = (
-            self.fetch_char(&car).unwrap(),
-            self.fetch_str(&cdr).unwrap(),
-        );
-        let new_str = format!("{c}{s}");
+        let (i, _) = self.str_store.insert_full((car, cdr));
+        Ptr::index(ExprTag::Str, i)
 
-        self.intern_str(&new_str)
     }
 
     pub fn intern_symcons(&mut self, car: Ptr<F>, cdr: Ptr<F>, key: bool) -> Ptr<F> {
@@ -403,23 +376,8 @@ impl<F: LurkField> Store<F> {
             self.hash_expr(&cdr);
         }
         assert_eq!((car.tag, cdr.tag), (ExprTag::Str, ExprTag::Sym));
-        let (c, s) = (self.fetch_str(&car).unwrap(), self.fetch_sym(&cdr).unwrap());
-        match s.extend(&[c.to_string()]) {
-            Sym::Key(sym) => {
-                if key {
-                    self.intern_sym(&Sym::Key(sym))
-                } else {
-                    self.intern_sym(&Sym::Sym(sym))
-                }
-            }
-            Sym::Sym(sym) => {
-                if key {
-                    self.intern_sym(&Sym::Key(sym))
-                } else {
-                    self.intern_sym(&Sym::Sym(sym))
-                }
-            }
-        }
+        let (i, _) = self.sym_store.insert_full((car, cdr));
+        Ptr::index(ExprTag::Sym, i)
     }
 
     pub fn intern_comm(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
@@ -564,12 +522,13 @@ impl<F: LurkField> Store<F> {
             )
         };
 
-        if let Some(ptr) = self.sym_store.0.get(&symbol_name) {
-            Ptr::index(tag, ptr.to_usize())
-        } else {
-            let ptr = self.sym_store.0.get(symbol_name).unwrap();
-            Ptr::index(tag, ptr.to_usize())
-        }
+        todo!()
+        //if let Some(ptr) = self.sym_store.0.get(&symbol_name) {
+        //    Ptr::index(tag, ptr.to_usize())
+        //} else {
+        //    let ptr = self.sym_store.0.get(symbol_name).unwrap();
+        //    Ptr::index(tag, ptr.to_usize())
+        //}
     }
 
     fn intern_sym_by_full_name<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
@@ -590,22 +549,22 @@ impl<F: LurkField> Store<F> {
                 symbol_name,
             )
         };
+        todo!()
+        //if let Some(ptr) = self.sym_store.0.get(&symbol_name) {
+        //    Ptr::index(tag, ptr.to_usize())
+        //} else {
+        //    // We need to intern each of the path segments individually, so they will be in the store.
+        //    // Otherwise, there can be an error when calling `hash_symbol()` with an immutable store.
 
-        if let Some(ptr) = self.sym_store.0.get(&symbol_name) {
-            Ptr::index(tag, ptr.to_usize())
-        } else {
-            // We need to intern each of the path segments individually, so they will be in the store.
-            // Otherwise, there can be an error when calling `hash_symbol()` with an immutable store.
+        //    Sym::new_absolute(name.into()).path().iter().for_each(|x| {
+        //        self.intern_str(x);
+        //    });
 
-            Sym::new_absolute(name.into()).path().iter().for_each(|x| {
-                self.intern_str(x);
-            });
-
-            let ptr = self.sym_store.0.get_or_intern(symbol_name);
-            let ptr = Ptr::index(tag, ptr.to_usize());
-            self.dehydrated.push(ptr);
-            ptr
-        }
+        //    let ptr = self.sym_store.0.get_or_intern(symbol_name);
+        //    let ptr = Ptr::index(tag, ptr.to_usize());
+        //    self.dehydrated.push(ptr);
+        //    ptr
+        //}
     }
 
     pub fn get_lurk_sym<T: AsRef<str>>(&self, name: T, convert_case: bool) -> Option<Ptr<F>> {
@@ -671,26 +630,29 @@ impl<F: LurkField> Store<F> {
     }
 
     fn intern_str_aux<T: AsRef<str>>(&mut self, str: T) -> Ptr<F> {
-        if let Some(ptr) = self.str_store.0.get(&str) {
-            Ptr::index(ExprTag::Str, ptr.to_usize())
-        } else {
-            let ptr = self.str_store.0.get_or_intern(str);
-            let ptr = Ptr::index(ExprTag::Str, ptr.to_usize());
+        todo!()
+        //if let Some(ptr) = self.str_store.0.get(&str) {
+        //    Ptr::index(ExprTag::Str, ptr.to_usize())
+        //} else {
+        //    let ptr = self.str_store.0.get_or_intern(str);
+        //    let ptr = Ptr::index(ExprTag::Str, ptr.to_usize());
 
-            self.dehydrated.push(ptr);
-            ptr
-        }
+        //    self.dehydrated.push(ptr);
+        //    ptr
+        //}
     }
 
     pub fn get_str<T: AsRef<str>>(&self, name: T) -> Option<Ptr<F>> {
-        let ptr = self.str_store.0.get(name)?;
-        Some(Ptr::index(ExprTag::Str, ptr.to_usize()))
+        todo!()
+        //let ptr = self.str_store.0.get(name)?;
+        //Some(Ptr::index(ExprTag::Str, ptr.to_usize()))
     }
 
     pub fn get_sym(&self, sym: &Sym) -> Option<Ptr<F>> {
         let name = sym.full_sym_name();
-        let ptr = self.sym_store.0.get(name)?;
-        Some(Ptr::index(ExprTag::Sym, ptr.to_usize()))
+        todo!()
+        //let ptr = self.sym_store.0.get(name)?;
+        //Some(Ptr::index(ExprTag::Sym, ptr.to_usize()))
     }
 
     pub fn intern_fun(&mut self, arg: Ptr<F>, body: Ptr<F>, closed_env: Ptr<F>) -> Ptr<F> {
@@ -774,42 +736,53 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn fetch_maybe_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
-        if matches!(ptr.tag, ExprTag::Sym) {
-            self.fetch_sym(ptr)
-        } else {
-            None
-        }
+        todo!()
+        //if matches!(ptr.tag, ExprTag::Sym) {
+        //    self.fetch_sym(ptr)
+        //} else {
+        //    None
+        //}
+    }
+
+    pub fn fetch_symcons(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>)> {
+        todo!()
     }
 
     pub fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
-        debug_assert!(matches!(
-            ptr.tag,
-            ExprTag::Sym | ExprTag::Key | ExprTag::Nil
-        ));
+        todo!()
+        //debug_assert!(matches!(
+        //    ptr.tag,
+        //    ExprTag::Sym | ExprTag::Key | ExprTag::Nil
+        //));
 
-        if ptr.raw.is_opaque() {
-            let is_keyword = ptr.tag == ExprTag::Key;
+        //if ptr.raw.is_opaque() {
+        //    let is_keyword = ptr.tag == ExprTag::Key;
 
-            return Some(Sym::new_opaque(is_keyword));
-        }
+        //    return Some(Sym::new_opaque(is_keyword));
+        //}
 
-        if ptr.tag == ExprTag::Nil {
-            return Some(Sym::new(".LURK.NIL".into()));
-        };
-        self.sym_store
-            .0
-            .resolve(SymbolUsize::try_from_usize(ptr.raw.idx()?).unwrap())
-            .map(|s| match ptr.tag {
-                ExprTag::Sym => Sym::new_sym(s.into()),
-                ExprTag::Key => Sym::new_key(s.into()),
-                _ => unreachable!(),
-            })
+        //if ptr.tag == ExprTag::Nil {
+        //    return Some(Sym::new(".LURK.NIL".into()));
+        //};
+        //self.sym_store
+        //    .0
+        //    .resolve(SymbolUsize::try_from_usize(ptr.raw.idx()?).unwrap())
+        //    .map(|s| match ptr.tag {
+        //        ExprTag::Sym => Sym::new_sym(s.into()),
+        //        ExprTag::Key => Sym::new_key(s.into()),
+        //        _ => unreachable!(),
+        //    })
     }
 
-    pub fn fetch_str(&self, ptr: &Ptr<F>) -> Option<&str> {
-        debug_assert!(matches!(ptr.tag, ExprTag::Str));
-        let symbol = SymbolUsize::try_from_usize(ptr.raw.idx()?)?;
-        self.str_store.0.resolve(symbol)
+    pub fn fetch_string(&self, ptr: &Ptr<F>) -> Option<String> {
+        todo!()
+        //debug_assert!(matches!(ptr.tag, ExprTag::Str));
+        //let symbol = SymbolUsize::try_from_usize(ptr.raw.idx()?)?;
+        //self.str_store.0.resolve(symbol)
+    }
+
+    pub fn fetch_strcons(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>)> {
+        todo!()
     }
 
     pub fn fetch_char(&self, ptr: &Ptr<F>) -> Option<char> {
@@ -864,22 +837,24 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn fetch(&self, ptr: &Ptr<F>) -> Option<Expression<'_, F>> {
+    pub fn fetch(&self, ptr: &Ptr<F>) -> Option<Expression<F>> {
         if ptr.is_opaque() {
-            return Some(Expression::Opaque(*ptr));
+            return None
         }
         match ptr.tag {
             ExprTag::Nil => Some(Expression::Nil),
             ExprTag::Cons => self.fetch_cons(ptr).map(|(a, b)| Expression::Cons(*a, *b)),
             ExprTag::Comm => self.fetch_comm(ptr).map(|(a, b)| Expression::Comm(a.0, *b)),
-            ExprTag::Sym => self.fetch_sym(ptr).map(|sym| Expression::Sym(sym)),
-            ExprTag::Key => self.fetch_sym(ptr).map(|sym| Expression::Sym(sym)),
+            ExprTag::Sym if ptr.raw.is_null() => Some(Expression::SymNil),
+            ExprTag::Sym => self.fetch_symcons(ptr).map(|(car, cdr)| Expression::SymCons(*car, *cdr)),
+            ExprTag::Key => todo!(),
             ExprTag::Num => self.fetch_num(ptr).map(|num| Expression::Num(*num)),
             ExprTag::Fun => self
                 .fetch_fun(ptr)
                 .map(|(a, b, c)| Expression::Fun(*a, *b, *c)),
             ExprTag::Thunk => self.fetch_thunk(ptr).map(|thunk| Expression::Thunk(*thunk)),
-            ExprTag::Str => self.fetch_str(ptr).map(|str| Expression::Str(str)),
+            ExprTag::Str if ptr.raw.is_null() => Some(Expression::StrNil),
+            ExprTag::Str => self.fetch_strcons(ptr).map(|(car, cdr)| Expression::StrCons(*car, *cdr)),
             ExprTag::Char => self.fetch_char(ptr).map(Expression::Char),
             ExprTag::U64 => self.fetch_uint(ptr).map(Expression::UInt),
         }
@@ -1008,120 +983,6 @@ impl<F: LurkField> Store<F> {
                     continuation: *continuation,
                 }),
         }
-    }
-
- /// Folds over a vector of chars, from right to left, hashing and caching
-    /// the hashes of string tails formed by such sequences. For example, when
-    /// hashing ['a', 'b', 'c'], it will also store the hashes of ['b', 'c'],
-    /// ['c'] and [].
-    ///
-    /// While computing this right folded hashes, `put_z_chars` tries to find
-    /// previously computed hashes so it can stop in case of cache hits.
-    pub fn put_z_chars(
-        &self,
-        chars: Vec<char>,
-        z_store: Option<Rc<RefCell<ZStore<F>>>>,
-    ) -> (ZExprPtr<F>, ZExpr<F>) {
-        let mut ptr: ZExprPtr<F>;
-        let mut expr: ZExpr<F>;
-        let mut chars_rev = chars;
-        chars_rev.reverse();
-        let mut heads_acc: Vec<char> = vec![];
-        loop {
-            if chars_rev.is_empty() {
-                expr = ZExpr::StrNil;
-                ptr = expr.z_ptr(&self.poseidon_cache);
-                break;
-            }
-            heads_acc.push(chars_rev.pop().unwrap());
-            match self.vec_char_cache.get(&chars_rev) {
-                Some(cache) => {
-                    let (ptr_cache, expr_cache) = &*cache;
-                    ptr = ptr_cache.clone();
-                    expr = expr_cache.clone();
-                    break;
-                }
-                None => continue,
-            }
-        }
-        while let Some(c) = heads_acc.pop() {
-            expr = ZExpr::StrCons(ZPtr(ExprTag::Char, F::from_char(c)), ptr.clone());
-            ptr = expr.z_ptr(&self.poseidon_cache);
-            if let Some(z_store) = z_store.clone() {
-                z_store
-                    .borrow_mut()
-                    .expr_map
-                    .insert(ptr.clone(), Some(expr.clone()));
-            };
-            chars_rev.push(c);
-            self.vec_char_cache
-                .insert(chars_rev.clone(), Box::new((ptr.clone(), expr.clone())));
-        }
-        (ptr, expr)
-    }
-
-    /// Similar to `put_z_chars`, but deals with strings instead of chars and
-    /// computes symbol hashes instead of string hashes.
-    pub fn put_z_strs(
-        &self,
-        strs: Vec<String>,
-        z_store: Option<Rc<RefCell<ZStore<F>>>>,
-    ) -> (ZExprPtr<F>, ZExpr<F>) {
-        let mut ptr: ZExprPtr<F>;
-        let mut expr: ZExpr<F>;
-        let mut strs_rev = strs;
-        strs_rev.reverse();
-        let mut heads_acc: Vec<String> = vec![];
-        loop {
-            if strs_rev.is_empty() {
-                expr = ZExpr::SymNil;
-                ptr = expr.z_ptr(&self.poseidon_cache);
-                break;
-            }
-            heads_acc.push(strs_rev.pop().unwrap());
-            match self.vec_str_cache.get(&strs_rev) {
-                Some(cache) => {
-                    let (ptr_cache, expr_cache) = &*cache;
-                    ptr = ptr_cache.clone();
-                    expr = expr_cache.clone();
-                    break;
-                }
-                None => continue,
-            }
-        }
-        while let Some(s) = heads_acc.pop() {
-            let (name_ptr, _) = self.put_z_chars(s.chars().collect(), z_store.clone());
-            expr = ZExpr::SymCons(name_ptr, ptr.clone());
-            ptr = expr.z_ptr(&self.poseidon_cache);
-            if let Some(z_store) = z_store.clone() {
-                z_store
-                    .borrow_mut()
-                    .expr_map
-                    .insert(ptr.clone(), Some(expr.clone()));
-            };
-            strs_rev.push(s);
-            self.vec_str_cache
-                .insert(strs_rev.clone(), Box::new((ptr.clone(), expr.clone())));
-        }
-        (ptr, expr)
-    }
-
-    #[inline]
-    pub fn put_z_str(
-        &self,
-        s: String,
-        z_store: Option<Rc<RefCell<ZStore<F>>>>,
-    ) -> (ZExprPtr<F>, ZExpr<F>) {
-        self.put_z_chars(s.chars().collect_vec(), z_store)
-    }
-
-    #[inline]
-    pub fn put_z_sym(
-        &self,
-        s: Sym,
-        z_store: Option<Rc<RefCell<ZStore<F>>>>,
-    ) -> (ZExprPtr<F>, ZExpr<F>) {
-        self.put_z_strs(s.path().to_vec(), z_store)
     }
 
     pub fn get_z_cont(
@@ -1366,7 +1227,10 @@ impl<F: LurkField> Store<F> {
             }
         } else {
             let (z_ptr, z_expr) = match self.fetch(ptr) {
-                Some(Expression::Nil) => (ZExpr::Nil.z_ptr(&self.poseidon_cache), Some(ZExpr::Nil)),
+                Some(Expression::Nil) => {
+                  // todo, add lurk_sym components
+                  (ZExpr::Nil.z_ptr(&self.poseidon_cache), Some(ZExpr::Nil))
+                }
                 Some(Expression::Cons(car, cdr)) => {
                     let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
                     let (z_cdr, _) = self.get_z_expr(&cdr, z_store.clone())?;
@@ -1410,10 +1274,6 @@ impl<F: LurkField> Store<F> {
                     let (z_ptr, _) = self.get_z_expr(&ptr, z_store.clone())?;
                     (z_ptr, None)
                 }
-                Some(Expression::Opaque(ptr)) => {
-                    let (z_ptr, _) = self.get_z_expr(&ptr, z_store.clone())?;
-                    (z_ptr, None)
-                }
                 Some(Expression::Char(c)) => {
                     let z_expr = ZExpr::Char(c);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
@@ -1422,16 +1282,24 @@ impl<F: LurkField> Store<F> {
                     let z_expr = ZExpr::Uint(u);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
-                Some(Expression::Str(s)) => {
-                    let (ptr, expr) = self.put_z_str(s.to_string(), z_store.clone());
-                    (ptr, Some(expr))
+                Some(Expression::StrNil) => (ZExpr::StrNil.z_ptr(&self.poseidon_cache), Some(ZExpr::StrNil)),
+                Some(Expression::StrCons(car, cdr)) => {
+                    let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
+                    let (z_cdr, _) = self.get_z_expr(&cdr, z_store.clone())?;
+                    let z_expr = ZExpr::StrCons(z_car, z_cdr);
+                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
-                Some(Expression::Sym(s)) => {
-                    let (ptr, expr) = self.put_z_sym(s, z_store.clone());
-                    (ptr, Some(expr))
+                Some(Expression::SymNil) => (ZExpr::SymNil.z_ptr(&self.poseidon_cache), Some(ZExpr::SymNil)),
+                Some(Expression::SymCons(car, cdr)) => {
+                    let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
+                    let (z_cdr, _) = self.get_z_expr(&cdr, z_store.clone())?;
+                    let z_expr = ZExpr::SymCons(z_car, z_cdr);
+                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
+                }
+                Some(Expression::Key(sym)) => {
+                  todo!()
                 }
                 };
-            // TODO
             if let Some(z_store) = z_store {
                 z_store.borrow_mut().expr_map.insert(z_ptr, z_expr.clone());
             };
@@ -1463,38 +1331,11 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn hash_string(&mut self, s: &str) -> ZExprPtr<F> {
-        self.put_z_str(s.to_string(), None).0
+        todo!()
     }
 
     pub fn hash_symbol(&mut self, s: Sym) -> ZExprPtr<F> {
-        self.put_z_sym(s, None).0
-    }
-
-    /// Mutable version of car_cdr to handle Str. `(cdr str)` may return a new str (the tail), which must be allocated.
-    pub fn car_cdr_mut(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
-        match ptr.tag {
-            ExprTag::Nil => Ok((self.get_nil(), self.get_nil())),
-            ExprTag::Cons => match self.fetch(ptr) {
-                Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
-                Some(Expression::Opaque(_)) => Err(Error("cannot destructure opaque Cons".into())),
-                _ => unreachable!(),
-            },
-            ExprTag::Str => {
-                if let Some(Expression::Str(s)) = self.fetch(ptr) {
-                    let mut str = s.chars();
-                    if let Some(c) = str.next() {
-                        let cdr_str: String = str.collect();
-                        let str = self.intern_str(&cdr_str);
-                        Ok((self.get_char(c), str))
-                    } else {
-                        Ok((self.nil(), self.intern_str("")))
-                    }
-                } else {
-                    panic!();
-                }
-            }
-            _ => Err(Error("Invalid tag".into())),
-        }
+        todo!()
     }
 
     pub fn car_cdr(&self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
@@ -1502,24 +1343,12 @@ impl<F: LurkField> Store<F> {
             ExprTag::Nil => Ok((self.get_nil(), self.get_nil())),
             ExprTag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
-                Some(Expression::Opaque(_)) => panic!("cannot destructure opaque Cons"),
                 _ => unreachable!(),
             },
-            ExprTag::Str => {
-                if let Some(Expression::Str(s)) = self.fetch(ptr) {
-                    Ok({
-                        let mut chars = s.chars();
-                        if let Some(c) = chars.next() {
-                            let cdr_str: String = chars.collect();
-                            let str = self.get_str(cdr_str).expect("cdr str missing");
-                            (self.get_char(c), str)
-                        } else {
-                            (self.get_nil(), self.get_str("").unwrap())
-                        }
-                    })
-                } else {
-                    panic!();
-                }
+            ExprTag::Str => match self.fetch(ptr) {
+              Some(Expression::StrCons(car, cdr)) => Ok((car, cdr)),
+              Some(Expression::StrNil) => Ok((self.strnil(), self.strnil())),
+              _ => unreachable!(),
             }
             _ => Err(Error("Can only extract car_cdr from Cons".into())),
         }
@@ -1839,40 +1668,45 @@ impl<F: LurkField> Store<F> {
     }
 }
 
-impl<F: LurkField> Expression<'_, F> {
+impl<F: LurkField> Expression<F> {
     pub fn is_keyword_sym(&self) -> bool {
-        match self {
-            Expression::Sym(s) => s.is_keyword(),
-            _ => false,
-        }
+        todo!()
+        //match self {
+        //    Expression::Sym(s) => s.is_keyword(),
+        //    _ => false,
+        //}
     }
 
     pub const fn as_str(&self) -> Option<&str> {
         match self {
-            Expression::Str(s) => Some(s),
+            Expression::StrCons(_, _) => todo!(),
+            Expression::StrNil => Some(""),
             _ => None,
         }
     }
 
     pub fn as_sym_str(&self) -> Option<String> {
-        match self {
-            Expression::Sym(s) => Some(s.full_name()),
-            _ => None,
-        }
+        todo!()
+        //match self {
+        //    Expression::Sym(s) => Some(s.full_name()),
+        //    _ => None,
+        //}
     }
 
     pub const fn as_sym(&self) -> Option<&Sym> {
-        match self {
-            Expression::Sym(s) => Some(s),
-            _ => None,
-        }
+        todo!()
+        //match self {
+        //    Expression::Sym(s) => Some(s),
+        //    _ => None,
+        //}
     }
 
     pub fn as_simple_keyword_string(&self) -> Option<String> {
-        match self {
-            Expression::Sym(s) => s.simple_keyword_name(),
-            _ => None,
-        }
+        todo!()
+        //match self {
+        //    Expression::Sym(s) => s.simple_keyword_name(),
+        //    _ => None,
+        //}
     }
 
     pub const fn is_null(&self) -> bool {
@@ -1888,7 +1722,7 @@ impl<F: LurkField> Expression<'_, F> {
     }
 
     pub const fn is_sym(&self) -> bool {
-        matches!(self, Self::Sym(_))
+        matches!(self, Self::SymCons(..) | Self::SymNil)
     }
     pub const fn is_fun(&self) -> bool {
         matches!(self, Self::Fun(_, _, _))
@@ -1898,16 +1732,13 @@ impl<F: LurkField> Expression<'_, F> {
         matches!(self, Self::Num(_))
     }
     pub const fn is_str(&self) -> bool {
-        matches!(self, Self::Str(_))
+        matches!(self, Self::StrCons(..) | Self::StrNil)
     }
 
     pub const fn is_thunk(&self) -> bool {
         matches!(self, Self::Thunk(_))
     }
 
-    pub const fn is_opaque(&self) -> bool {
-        matches!(self, Self::Opaque(_))
-    }
 }
 
 #[derive(Copy, Clone, Debug)]
