@@ -70,7 +70,7 @@ impl<F: LurkField> std::fmt::Display for ZExpr<F> {
 impl<F: LurkField> ZExpr<F> {
     pub fn z_ptr(&self, cache: &PoseidonCache<F>) -> ZExprPtr<F> {
         match self {
-            ZExpr::Nil => ZPtr(ExprTag::Nil, ZStore::nil_z_ptr().1),
+            ZExpr::Nil => ZPtr(ExprTag::Nil, ZStore::new().nil_z_ptr().1),
             ZExpr::Cons(x, y) => ZPtr(
                 ExprTag::Cons,
                 cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),

@@ -135,7 +135,7 @@ impl Symbol {
     }
 
     /// Derives a Symbol path vector from a string name.
-    fn new_from_path(path: Vec<String>) -> Self {
+    pub fn new_from_path(path: Vec<String>) -> Self {
         Symbol {
             path,
             opaque: false,

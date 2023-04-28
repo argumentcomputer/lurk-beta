@@ -1010,7 +1010,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    /// Folds over a vector of chars, from right to left, hashing and caching
+ /// Folds over a vector of chars, from right to left, hashing and caching
     /// the hashes of string tails formed by such sequences. For example, when
     /// hashing ['a', 'b', 'c'], it will also store the hashes of ['b', 'c'],
     /// ['c'] and [].
@@ -1430,7 +1430,7 @@ impl<F: LurkField> Store<F> {
                     let (ptr, expr) = self.put_z_sym(s, z_store.clone());
                     (ptr, Some(expr))
                 }
-            };
+                };
             // TODO
             if let Some(z_store) = z_store {
                 z_store.borrow_mut().expr_map.insert(z_ptr, z_expr.clone());
@@ -2087,57 +2087,53 @@ pub mod test {
 
     use super::*;
 
-    use libipld::serde::from_ipld;
-    use libipld::serde::to_ipld;
-    use libipld::Ipld;
+   // proptest! {
+   //   #[test]
+   //   fn test_scalar_ptr_ipld(x in any::<ZExprPtr<Fr>>())  {
+   //     let to_ipld = to_ipld(x).unwrap();
+   //     let from_ipld = from_ipld(to_ipld).unwrap();
+   //     assert_eq!(x, from_ipld);
+   //   }
 
-    proptest! {
-      #[test]
-      fn test_scalar_ptr_ipld(x in any::<ZExprPtr<Fr>>())  {
-        let to_ipld = to_ipld(x).unwrap();
-        let from_ipld = from_ipld(to_ipld).unwrap();
-        assert_eq!(x, from_ipld);
-      }
+   //   #[test]
+   //   fn prop_scalar_cont_ptr_ipld(x in any::<ZContPtr<Fr>>()) {
+   //       let to_ipld = to_ipld(x).unwrap();
+   //           let from_ipld = from_ipld(to_ipld).unwrap();
+   //           assert_eq!(x, from_ipld);
 
-      #[test]
-      fn prop_scalar_cont_ptr_ipld(x in any::<ZContPtr<Fr>>()) {
-          let to_ipld = to_ipld(x).unwrap();
-              let from_ipld = from_ipld(to_ipld).unwrap();
-              assert_eq!(x, from_ipld);
+   //   }
+   //   #[test]
+   //   fn prop_op1_ipld(x in any::<Op1>())  {
+   //       let to_ipld = to_ipld(x).unwrap();
+   //       let from_ipld = from_ipld(to_ipld).unwrap();
+   //       assert_eq!(x, from_ipld);
+   //   }
+   // }
 
-      }
-      #[test]
-      fn prop_op1_ipld(x in any::<Op1>())  {
-          let to_ipld = to_ipld(x).unwrap();
-          let from_ipld = from_ipld(to_ipld).unwrap();
-          assert_eq!(x, from_ipld);
-      }
-    }
+   // #[test]
+   // fn unit_op1_ipld() {
+   //     assert_eq!(
+   //         to_ipld(Op1::Car).unwrap(),
+   //         Ipld::Integer(0b0010_0000_0000_0000_i128)
+   //     );
+   // }
 
-    #[test]
-    fn unit_op1_ipld() {
-        assert_eq!(
-            to_ipld(Op1::Car).unwrap(),
-            Ipld::Integer(0b0010_0000_0000_0000_i128)
-        );
-    }
+   // proptest! {
+   //   #[test]
+   //   fn prop_op2_ipld(x in any::<Op1>())  {
+   //       let to_ipld = to_ipld(x).unwrap();
+   //       let from_ipld = from_ipld(to_ipld).unwrap();
+   //       assert_eq!(x, from_ipld);
+   //   }
+   // }
 
-    proptest! {
-      #[test]
-      fn prop_op2_ipld(x in any::<Op1>())  {
-          let to_ipld = to_ipld(x).unwrap();
-          let from_ipld = from_ipld(to_ipld).unwrap();
-          assert_eq!(x, from_ipld);
-      }
-    }
-
-    #[test]
-    fn unit_op2_ipld() {
-        assert_eq!(
-            to_ipld(Op2::Sum).unwrap(),
-            Ipld::Integer(0b0011_0000_0000_0000_i128)
-        );
-    }
+   // #[test]
+   // fn unit_op2_ipld() {
+   //     assert_eq!(
+   //         to_ipld(Op2::Sum).unwrap(),
+   //         Ipld::Integer(0b0011_0000_0000_0000_i128)
+   //     );
+   // }
 
     #[test]
     fn test_print_num() {

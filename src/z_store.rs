@@ -10,11 +10,16 @@ use crate::z_data::Encodable;
 use crate::z_data::ZData;
 use crate::z_expr::ZExpr;
 use crate::z_ptr::ZContPtr;
+use crate::z_ptr::ZPtr;
 use crate::z_ptr::ZExprPtr;
+use crate::tag::ExprTag;
+use crate::hash::PoseidonCache;
+use crate::cache_map::CacheMap;
+use crate::sym::Sym;
 
 use crate::field::LurkField;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 pub struct ZStore<F: LurkField> {
@@ -51,8 +56,50 @@ impl<F: LurkField> ZStore<F> {
         self.cont_map.get(ptr).cloned()?
     }
 
-    pub fn nil_z_ptr() -> ZExprPtr<F> {
+    pub fn insert_expr(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
         todo!()
+    }
+
+    pub fn insert_str(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
+        todo!()
+    }
+
+    pub fn insert_sym(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
+        todo!()
+    }
+
+
+    pub fn nil_z_ptr(&mut self) -> ZExprPtr<F> {
+        self.put_symbol(Sym::new_from_path(false, vec!["".into(), "LURK".into(), "NIL".into()]), &PoseidonCache::default()).0
+    }
+
+    pub fn put_string(
+        &mut self,
+        string: String,
+        poseidon_cache: &PoseidonCache<F>,
+    ) -> (ZExprPtr<F>, ZExpr<F>) {
+        let mut expr = ZExpr::StrNil;
+        let mut ptr = expr.z_ptr(&poseidon_cache);
+        for c in string.chars().rev() {
+            expr = ZExpr::StrCons(ZPtr(ExprTag::Char, F::from_char(c)), ptr.clone());
+            ptr = expr.z_ptr(&poseidon_cache);
+        }
+        (ptr, expr)
+    }
+
+    pub fn put_symbol(
+        &mut self,
+        sym: Sym,
+        poseidon_cache: &PoseidonCache<F>,
+    ) -> (ZExprPtr<F>, ZExpr<F>) {
+        let mut expr = ZExpr::SymNil;
+        let mut ptr = expr.z_ptr(&poseidon_cache);
+        for s in sym.path().iter().rev() {
+            let (str_ptr, _) = self.put_string(s.clone(), &poseidon_cache);
+            expr = ZExpr::SymCons(str_ptr, ptr.clone());
+            ptr = expr.z_ptr(&poseidon_cache);
+        }
+        (ptr, expr)
     }
 }
 
