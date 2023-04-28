@@ -56,19 +56,6 @@ impl<F: LurkField> ZStore<F> {
         self.cont_map.get(ptr).cloned()?
     }
 
-    pub fn insert_expr(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
-        todo!()
-    }
-
-    pub fn insert_str(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
-        todo!()
-    }
-
-    pub fn insert_sym(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
-        todo!()
-    }
-
-
     pub fn nil_z_ptr(&mut self) -> ZExprPtr<F> {
         self.put_symbol(Sym::new_from_path(false, vec!["".into(), "LURK".into(), "NIL".into()]), &PoseidonCache::default()).0
     }

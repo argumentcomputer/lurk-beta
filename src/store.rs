@@ -14,8 +14,7 @@ use crate::expr;
 use crate::expr::{Expression, Thunk};
 use crate::field::{FWrap, LurkField};
 use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
-use crate::parser::{convert_sym_case, names_keyword};
-use crate::ptr::{ContPtr, Ptr};
+use crate::ptr::{ContPtr, Ptr, RawPtr};
 use crate::sym::{Sym, Symbol};
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 use crate::z_cont::ZCont;
@@ -279,7 +278,10 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn key<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        todo!()
+        let mut name : String = String::from(name.as_ref());
+        name.make_ascii_uppercase();
+        self.intern_keyword(Symbol::new_absolute(name))
+
     }
 
 
@@ -650,53 +652,72 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn fetch_maybe_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
-        todo!()
-        //if matches!(ptr.tag, ExprTag::Sym) {
-        //    self.fetch_sym(ptr)
-        //} else {
-        //    None
-        //}
+        if matches!(ptr.tag, ExprTag::Sym) {
+            self.fetch_sym(ptr)
+        } else {
+            None
+        }
     }
 
-    pub fn fetch_symcons(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>)> {
-        todo!()
+    pub fn fetch_symcons(&self, ptr: &Ptr<F>) -> Option<(Ptr<F>, Ptr<F>)> {
+        match (ptr.tag, ptr.raw) {
+         (ExprTag::Sym, RawPtr::Null) => Some((self.symnil(), self.symnil())),
+         (ExprTag::Sym, RawPtr::Index(x)) => {
+           let (car, cdr) = self.str_store.get_index(x)?;
+            Some((*car, *cdr))
+        }
+        _ => None
+      }
+    }
+
+    pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
+        let mut ptr = *ptr;
+        let mut path = Vec::new();
+        while let Some((car, cdr)) = self.fetch_symcons(&ptr) {
+            let string = self.fetch_string(&car)?;
+            path.push(string);
+            ptr = cdr
+        }
+        Some(Symbol { path })
+
     }
 
     pub fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
-        todo!()
-        //debug_assert!(matches!(
-        //    ptr.tag,
-        //    ExprTag::Sym | ExprTag::Key | ExprTag::Nil
-        //));
+        if ptr.tag == ExprTag::Nil {
+            Some(Sym::new(".LURK.NIL".into()))
+        } else if ptr.tag == ExprTag::Key {
+            let symbol = self.fetch_symbol(&Ptr { tag: ExprTag::Sym, raw: ptr.raw, _f: ptr._f })?;
+            Some(Sym::Key(symbol))
 
-        //if ptr.raw.is_opaque() {
-        //    let is_keyword = ptr.tag == ExprTag::Key;
+            
+        } else {
+            let symbol = self.fetch_symbol(ptr)?;
+            Some(Sym::Sym(symbol))
 
-        //    return Some(Sym::new_opaque(is_keyword));
-        //}
+        }
 
-        //if ptr.tag == ExprTag::Nil {
-        //    return Some(Sym::new(".LURK.NIL".into()));
-        //};
-        //self.sym_store
-        //    .0
-        //    .resolve(SymbolUsize::try_from_usize(ptr.raw.idx()?).unwrap())
-        //    .map(|s| match ptr.tag {
-        //        ExprTag::Sym => Sym::new_sym(s.into()),
-        //        ExprTag::Key => Sym::new_key(s.into()),
-        //        _ => unreachable!(),
-        //    })
+    }
+
+    pub fn fetch_strcons(&self, ptr: &Ptr<F>) -> Option<(Ptr<F>, Ptr<F>)> {
+        match (ptr.tag, ptr.raw) {
+         (ExprTag::Str, RawPtr::Null) => Some((self.strnil(), self.strnil())),
+         (ExprTag::Str, RawPtr::Index(x)) => {
+           let (car, cdr) = self.str_store.get_index(x)?;
+            Some((*car, *cdr))
+        }
+        _ => None
+      }
     }
 
     pub fn fetch_string(&self, ptr: &Ptr<F>) -> Option<String> {
-        todo!()
-        //debug_assert!(matches!(ptr.tag, ExprTag::Str));
-        //let symbol = SymbolUsize::try_from_usize(ptr.raw.idx()?)?;
-        //self.str_store.0.resolve(symbol)
-    }
-
-    pub fn fetch_strcons(&self, ptr: &Ptr<F>) -> Option<&(Ptr<F>, Ptr<F>)> {
-        todo!()
+        let mut ptr = *ptr;
+        let mut string = String::new();
+        while let Some((car, cdr)) = self.fetch_strcons(&ptr) {
+            let chr = self.fetch_char(&car)?;
+            string.push(chr);
+            ptr = cdr
+        }
+        Some(string)
     }
 
     pub fn fetch_char(&self, ptr: &Ptr<F>) -> Option<char> {
@@ -760,15 +781,15 @@ impl<F: LurkField> Store<F> {
             ExprTag::Cons => self.fetch_cons(ptr).map(|(a, b)| Expression::Cons(*a, *b)),
             ExprTag::Comm => self.fetch_comm(ptr).map(|(a, b)| Expression::Comm(a.0, *b)),
             ExprTag::Sym if ptr.raw.is_null() => Some(Expression::SymNil),
-            ExprTag::Sym => self.fetch_symcons(ptr).map(|(car, cdr)| Expression::SymCons(*car, *cdr)),
-            ExprTag::Key => todo!(),
+            ExprTag::Sym => self.fetch_symcons(ptr).map(|(car, cdr)| Expression::SymCons(car, cdr)),
+            ExprTag::Key => Some(Expression::Key(Ptr { tag: ExprTag::Key, raw: ptr.raw, _f: ptr._f })),
             ExprTag::Num => self.fetch_num(ptr).map(|num| Expression::Num(*num)),
             ExprTag::Fun => self
                 .fetch_fun(ptr)
                 .map(|(a, b, c)| Expression::Fun(*a, *b, *c)),
             ExprTag::Thunk => self.fetch_thunk(ptr).map(|thunk| Expression::Thunk(*thunk)),
             ExprTag::Str if ptr.raw.is_null() => Some(Expression::StrNil),
-            ExprTag::Str => self.fetch_strcons(ptr).map(|(car, cdr)| Expression::StrCons(*car, *cdr)),
+            ExprTag::Str => self.fetch_strcons(ptr).map(|(car, cdr)| Expression::StrCons(car, cdr)),
             ExprTag::Char => self.fetch_char(ptr).map(Expression::Char),
             ExprTag::U64 => self.fetch_uint(ptr).map(Expression::UInt),
         }
@@ -1211,7 +1232,9 @@ impl<F: LurkField> Store<F> {
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
                 Some(Expression::Key(sym)) => {
-                  todo!()
+                    let (z_sym, _) = self.get_z_expr(&sym, z_store.clone())?;
+                    let z_expr = ZExpr::Key(z_sym);
+                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
                 };
             if let Some(z_store) = z_store {
