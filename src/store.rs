@@ -1861,9 +1861,6 @@ pub mod test {
     use crate::num;
     use crate::writer::Write;
 
-    #[cfg(not(target_arch = "wasm32"))]
-    use proptest::prelude::*;
-
     use blstrs::Scalar as Fr;
 
     use super::*;
@@ -2282,7 +2279,7 @@ pub mod test {
         let mut store = Store::<Fr>::default();
 
         let opaque_cons = make_maybe_opaque_cons(&mut store, 123, 987);
-        store.car(&opaque_cons);
+        store.car(&opaque_cons).unwrap();
     }
     #[test]
     fn maybe_opaque_cons_cdr() {

@@ -233,7 +233,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         store.fetch_scalar(&scalar_ptr)
     }
 
-    pub fn scalar_ptr(&self, store: &Store<F>) -> Option<ZExprPtr<F>> {
+    pub fn scalar_ptr(&self, _store: &Store<F>) -> Option<ZExprPtr<F>> {
         let (tag, value) = (self.tag.get_value()?, self.hash.get_value()?);
         Some(ZPtr(ExprTag::from_field(&tag)?, value))
     }
