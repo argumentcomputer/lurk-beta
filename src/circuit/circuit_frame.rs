@@ -472,34 +472,16 @@ impl<'a, F: LurkField> Results<'a, F> {
         result_apply_continuation: &'a AllocatedNum<F>,
     ) {
         let key = key.to_field();
-        add_clause(
-            &mut self.expr_tag_clauses,
-            &mut self.expr_hash_clauses,
+        self.add_clauses_cons(
             key,
             result_expr,
-        );
-
-        add_clause(
-            &mut self.env_tag_clauses,
-            &mut self.env_hash_clauses,
-            key,
             result_env,
-        );
-
-        add_clause_cont(
-            &mut self.cont_tag_clauses,
-            &mut self.cont_hash_clauses,
-            key,
             result_cont,
-        );
-
-        add_clause_single(
-            &mut self.apply_continuation_clauses,
-            key,
             result_apply_continuation,
-        );
+        )
     }
 
+    #[inline]
     fn add_clauses_cons(
         &mut self,
         key: F,
