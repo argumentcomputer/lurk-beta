@@ -99,10 +99,6 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
         self.store.expect("store missing")
     }
 
-    pub fn frame_count(&self) -> usize {
-        self.count
-    }
-
     pub fn from_frames(
         count: usize,
         frames: &[Frame<T, W, C>],
