@@ -290,20 +290,20 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, IO<F>, Witness<F>, C> 
         let (input_expr, input_env, input_cont) = inputs;
 
         let mut reduce = |store| {
-            let cons_witness = match self.witness.map(|x| x.conses) {
-                Some(hw) => hw,
-                None => HashWitness::new_blank(),
-            };
+            let cons_witness = self
+                .witness
+                .map(|x| x.conses)
+                .unwrap_or_else(|| HashWitness::new_blank());
             let mut allocated_cons_witness = AllocatedConsWitness::from_cons_witness(
                 &mut cs.namespace(|| format!("allocated_cons_witness {i}")),
                 store,
                 &cons_witness,
             )?;
 
-            let cont_witness = match self.witness.map(|x| x.conts) {
-                Some(hw) => hw,
-                None => HashWitness::new_blank(),
-            };
+            let cont_witness = self
+                .witness
+                .map(|x| x.conts)
+                .unwrap_or_else(|| HashWitness::new_blank());
 
             let mut allocated_cont_witness = AllocatedContWitness::from_cont_witness(
                 &mut cs.namespace(|| format!("allocated_cont_witness {i}")),
@@ -3111,16 +3111,16 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         // IF this is open, we need to know what we are opening.
         let digest = result.hash();
 
-        let (open_secret_scalar, open_expr_ptr) = match store.get_maybe_opaque(
-            ExprTag::Comm,
-            digest.get_value().unwrap_or_else(|| F::zero()),
-        ) {
-            Some(commit) => match store.open(commit) {
-                Some((secret, opening)) => (secret, opening),
-                None => (F::zero(), store.get_nil()), // nil is dummy
-            },
-            None => (F::zero(), store.get_nil()), // nil is dummy
-        };
+        let (open_secret_scalar, open_expr_ptr) = store
+            .get_maybe_opaque(
+                ExprTag::Comm,
+                digest.get_value().unwrap_or_else(|| F::zero()),
+            )
+            .and_then(|commit| store.open(commit))
+            .unwrap_or_else(|| {
+                // nil is dummy
+                (F::zero(), store.get_nil())
+            });
 
         let open_expr = AllocatedPtr::alloc(&mut cs.namespace(|| "open_expr"), || {
             Ok(store.hash_expr(&open_expr_ptr).unwrap())
@@ -4372,10 +4372,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         (body, extended_env, tail_cont, newer_cont2_not_dummy)
     };
-    let let_cont = match tail_cont {
-        Ok(c) => c,
-        Err(_) => g.dummy_ptr.clone(),
-    };
+    let let_cont = tail_cont.unwrap_or_else(|_| g.dummy_ptr.clone());
     results.add_clauses_cont(
         ContTag::Let,
         &body,
@@ -4871,10 +4868,10 @@ fn to_unsigned_integers<F: LurkField, CS: ConstraintSystem<F>>(
     g: &GlobalAllocations<F>,
     maybe_unsigned: &AllocatedNum<F>,
 ) -> Result<(AllocatedNum<F>, AllocatedNum<F>), SynthesisError> {
-    let field_elem = match maybe_unsigned.get_value() {
-        Some(v) => v,
-        None => F::zero(), //dummy
-    };
+    let field_elem = maybe_unsigned.get_value().unwrap_or_else(|| {
+        // dummy
+        F::zero()
+    });
     let field_bn = BigUint::from_bytes_le(field_elem.to_repr().as_ref());
     // Since bit decomposition is expensive, we compute it only once here
     let field_elem_bits =
