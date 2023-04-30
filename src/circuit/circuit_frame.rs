@@ -408,8 +408,8 @@ impl<F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'_, F, IO<F>, Wi
 
         match self.store {
             Some(s) => {
-                let frames = self.frames.clone().unwrap();
-                synth(s, &frames, self.input, self.output)
+                let frames = self.frames.as_ref().unwrap();
+                synth(s, frames, self.input, self.output)
             }
             None => {
                 let store = Default::default();
