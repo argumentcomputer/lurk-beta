@@ -63,7 +63,7 @@ default = []
 gpu = ["neptune/opencl"]
 
 [dev-dependencies]
-criterion = "0.3.6"
+criterion = "0.4"
 structopt = { version = "0.3", default-features = false }
 tap = "1.0.1"
 assert_cmd = "2.0.8"
