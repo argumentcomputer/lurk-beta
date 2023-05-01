@@ -95,5 +95,9 @@ inherits = "dev-ci"
 debug-assertions = false
 
 [[bench]]
-name = "benches"
+name = "end2end"
+harness = false
+
+[[bench]]
+name = "public_params"
 harness = false
