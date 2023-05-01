@@ -1,6 +1,6 @@
 use blstrs::Scalar as Fr;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use fcomm;
+
 use lurk::{
     eval::{
         empty_sym_env,
@@ -102,28 +102,40 @@ fn hydration_benchmark(c: &mut Criterion) {
         let mut store = Store::default();
         let _ptr = go_base::<Fr>(&mut store, black_box(10), black_box(16));
 
-        b.iter(|| black_box(store.hydrate_scalar_cache()))
+        b.iter(|| {
+            store.hydrate_scalar_cache();
+            black_box(())
+        })
     });
 
     c.bench_function("hydration_go_base_10_160_bls12", |b| {
         let mut store = Store::default();
         let _ptr = go_base::<Fr>(&mut store, black_box(10), black_box(16));
 
-        b.iter(|| black_box(store.hydrate_scalar_cache()))
+        b.iter(|| {
+            store.hydrate_scalar_cache();
+            black_box(())
+        })
     });
 
     c.bench_function("hydration_go_base_10_16_pasta_pallas", |b| {
         let mut store = Store::default();
         let _ptr = go_base::<pasta_curves::Fp>(&mut store, black_box(10), black_box(16));
 
-        b.iter(|| black_box(store.hydrate_scalar_cache()))
+        b.iter(|| {
+            store.hydrate_scalar_cache();
+            black_box(())
+        })
     });
 
     c.bench_function("hydration_go_base_10_160_pasta_pallas", |b| {
         let mut store = Store::default();
         let _ptr = go_base::<pasta_curves::Fp>(&mut store, black_box(10), black_box(160));
 
-        b.iter(|| black_box(store.hydrate_scalar_cache()))
+        b.iter(|| {
+            store.hydrate_scalar_cache();
+            black_box(())
+        })
     });
 }
 
@@ -181,8 +193,8 @@ fn eval_benchmark(c: &mut Criterion) {
 fn circuit_generation_benchmark(c: &mut Criterion) {
     let limit = 1_000_000_000;
 
-    let lang_bls = Lang::<Fr, Coproc<Fr>>::new();
-    let lang_pallas = Lang::<pasta_curves::Fp, Coproc<pasta_curves::Fp>>::new();
+    let _lang_bls = Lang::<Fr, Coproc<Fr>>::new();
+    let _lang_pallas = Lang::<pasta_curves::Fp, Coproc<pasta_curves::Fp>>::new();
     let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
 
     let reduction_count = DEFAULT_REDUCTION_COUNT;
