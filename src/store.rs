@@ -562,12 +562,10 @@ impl<F: LurkField> Store<F> {
     }
 
     // intern a string into the Store, which generates the cons'ed representation
-    // "foo"
     // TODO: short-circuit interning if we hit the cache
     pub fn intern_str<T: AsRef<str>>(&mut self, s: T) -> Ptr<F> {
         let s: String = String::from(s.as_ref());
         let mut ptr = self.strnil();
-        // 'o' 'o' 'f'
         for c in s.chars().rev() {
             ptr = self.intern_strcons(self.get_char(c), ptr);
         }
@@ -1621,11 +1619,10 @@ impl<F: LurkField> Store<F> {
 
 impl<F: LurkField> Expression<F> {
     pub fn is_keyword_sym(&self) -> bool {
-        todo!()
-        //match self {
-        //    Expression::Sym(s) => s.is_keyword(),
-        //    _ => false,
-        //}
+        match self {
+            Expression::Key(_) => true,
+            _ => false,
+        }
     }
 
     pub const fn as_str(&self) -> Option<&str> {
