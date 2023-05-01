@@ -71,7 +71,7 @@ impl<F: LurkField> std::fmt::Display for ZExpr<F> {
 impl<F: LurkField> ZExpr<F> {
     pub fn z_ptr(&self, cache: &PoseidonCache<F>) -> ZExprPtr<F> {
         match self {
-            ZExpr::Nil => ZPtr(ExprTag::Nil, ZStore::new().nil_z_ptr().1),
+            ZExpr::Nil => ZPtr(ExprTag::Nil, ZStore::new().nil_z_ptr(cache).1),
             ZExpr::Cons(x, y) => ZPtr(
                 ExprTag::Cons,
                 cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),
@@ -160,9 +160,7 @@ impl<F: LurkField> Encodable for ZExpr<F> {
                 [ZData::Atom(u), x, y] if *u == vec![4u8] => {
                     Ok(ZExpr::SymCons(ZExprPtr::de(x)?, ZExprPtr::de(y)?))
                 }
-                [ZData::Atom(u), x] if *u == vec![5u8] => {
-                    Ok(ZExpr::Key(ZExprPtr::de(x)?))
-                }
+                [ZData::Atom(u), x] if *u == vec![5u8] => Ok(ZExpr::Key(ZExprPtr::de(x)?)),
                 [ZData::Atom(u), x, y, z] if *u == vec![6u8] => Ok(ZExpr::Fun {
                     arg: ZExprPtr::de(x)?,
                     body: ZExprPtr::de(y)?,

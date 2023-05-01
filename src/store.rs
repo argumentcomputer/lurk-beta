@@ -480,7 +480,7 @@ impl<F: LurkField> Store<F> {
             let str_ptr = self.intern_str(s);
             ptr = self.intern_symcons(str_ptr, ptr);
         }
-        if sym.path == vec!["LURK", "NIL"] {
+        if sym.path == vec!["", "LURK", "NIL"] {
             Ptr {
                 tag: ExprTag::Nil,
                 raw: ptr.raw,

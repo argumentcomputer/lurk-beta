@@ -44,17 +44,13 @@ impl Symbol {
     /// Creates a new Symbol with the given name and a path derived from it.
     pub fn new(name: String) -> Self {
         let path = Self::path_from_name(&name);
-        Self {
-            path,
-        }
+        Self { path }
     }
 
     /// Creates a new Symbol with an absolute path derived from the given name.
     pub fn new_absolute(name: String) -> Self {
         let path = Self::root_path_from_name(&name);
-        Self {
-            path,
-        }
+        Self { path }
     }
 
     /// Returns true if the Symbol is the root Symbol, i.e. if it has a path of `[""]`.
@@ -119,9 +115,7 @@ impl Symbol {
 
     /// Derives a Symbol path vector from a string name.
     fn new_from_path(path: Vec<String>) -> Self {
-        Symbol {
-            path,
-        }
+        Symbol { path }
     }
 
     // This is the function that normalizes full names by converting all path segments to their quoted forms if and only if needed.

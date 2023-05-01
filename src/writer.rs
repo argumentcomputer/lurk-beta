@@ -74,7 +74,6 @@ impl<F: LurkField> Write<F> for Expression<F> {
                 let head = store.fetch_char(car).expect("missing string head");
                 let tail = store.fetch_string(cdr).expect("missing string tail");
                 write!(w, "\"{head}{tail}\"")
-                
             }
             Key(sym) => {
                 let symbol = store.fetch_symbol(sym).expect("missing symbol");
