@@ -9,7 +9,7 @@ use lurk::{
     field::LurkField,
     ptr::Ptr,
     store::Store,
-    proof::nova::{NovaProver},
+    proof::nova::NovaProver,
     proof::Prover,
 };
 use fcomm;
@@ -202,7 +202,7 @@ fn circuit_generation_benchmark(c: &mut Criterion) {
         let ptr = go_base::<pasta_curves::Fq>(&mut store, black_box(10), black_box(16));
         let prover = NovaProver::new(reduction_count, lang_vesta.clone());
         
-        let pp = public_params(reduction_count, &lang_vesta);
+        let pp = fcomm::public_params(reduction_count).unwrap();
         let frames = prover
             .get_evaluation_frames(ptr, env, &mut store, limit, &lang_vesta)
             .unwrap();
