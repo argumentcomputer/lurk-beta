@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ba5701c5741a7b69.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.71.0-nightly (1a6ae3d69 2023-04-27)" data-search-js="search-618e954b235f6acc.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-6f6ffb5395b17c6e.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../../static.files/source-script-11255107d0a65077.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-f0540c1d82cde29b.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ba5701c5741a7b69.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.71.0-nightly (9ecda8de8 2023-04-30)" data-search-js="search-618e954b235f6acc.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-6f6ffb5395b17c6e.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../../static.files/source-script-11255107d0a65077.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-f0540c1d82cde29b.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -6041,31 +6041,6 @@
 <a href="#6041" id="6041">6041</a>
 <a href="#6042" id="6042">6042</a>
 <a href="#6043" id="6043">6043</a>
-<a href="#6044" id="6044">6044</a>
-<a href="#6045" id="6045">6045</a>
-<a href="#6046" id="6046">6046</a>
-<a href="#6047" id="6047">6047</a>
-<a href="#6048" id="6048">6048</a>
-<a href="#6049" id="6049">6049</a>
-<a href="#6050" id="6050">6050</a>
-<a href="#6051" id="6051">6051</a>
-<a href="#6052" id="6052">6052</a>
-<a href="#6053" id="6053">6053</a>
-<a href="#6054" id="6054">6054</a>
-<a href="#6055" id="6055">6055</a>
-<a href="#6056" id="6056">6056</a>
-<a href="#6057" id="6057">6057</a>
-<a href="#6058" id="6058">6058</a>
-<a href="#6059" id="6059">6059</a>
-<a href="#6060" id="6060">6060</a>
-<a href="#6061" id="6061">6061</a>
-<a href="#6062" id="6062">6062</a>
-<a href="#6063" id="6063">6063</a>
-<a href="#6064" id="6064">6064</a>
-<a href="#6065" id="6065">6065</a>
-<a href="#6066" id="6066">6066</a>
-<a href="#6067" id="6067">6067</a>
-<a href="#6068" id="6068">6068</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
 
@@ -6165,10 +6140,6 @@
 
     <span class="kw">pub fn </span>get_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Store&lt;F&gt; {
         <span class="self">self</span>.store.expect(<span class="string">&quot;store missing&quot;</span>)
-    }
-
-    <span class="kw">pub fn </span>frame_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.count
     }
 
     <span class="kw">pub fn </span>from_frames(
@@ -6358,20 +6329,20 @@
         <span class="kw">let </span>(input_expr, input_env, input_cont) = inputs;
 
         <span class="kw">let </span><span class="kw-2">mut </span>reduce = |store| {
-            <span class="kw">let </span>cons_witness = <span class="kw">match </span><span class="self">self</span>.witness.map(|x| x.conses) {
-                <span class="prelude-val">Some</span>(hw) =&gt; hw,
-                <span class="prelude-val">None </span>=&gt; HashWitness::new_blank(),
-            };
+            <span class="kw">let </span>cons_witness = <span class="self">self
+                </span>.witness
+                .map(|x| x.conses)
+                .unwrap_or_else(|| HashWitness::new_blank());
             <span class="kw">let </span><span class="kw-2">mut </span>allocated_cons_witness = AllocatedConsWitness::from_cons_witness(
                 <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;allocated_cons_witness {i}&quot;</span>)),
                 store,
                 <span class="kw-2">&amp;</span>cons_witness,
             )<span class="question-mark">?</span>;
 
-            <span class="kw">let </span>cont_witness = <span class="kw">match </span><span class="self">self</span>.witness.map(|x| x.conts) {
-                <span class="prelude-val">Some</span>(hw) =&gt; hw,
-                <span class="prelude-val">None </span>=&gt; HashWitness::new_blank(),
-            };
+            <span class="kw">let </span>cont_witness = <span class="self">self
+                </span>.witness
+                .map(|x| x.conts)
+                .unwrap_or_else(|| HashWitness::new_blank());
 
             <span class="kw">let </span><span class="kw-2">mut </span>allocated_cont_witness = AllocatedContWitness::from_cont_witness(
                 <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;allocated_cont_witness {i}&quot;</span>)),
@@ -6476,8 +6447,8 @@
 
         <span class="kw">match </span><span class="self">self</span>.store {
             <span class="prelude-val">Some</span>(s) =&gt; {
-                <span class="kw">let </span>frames = <span class="self">self</span>.frames.clone().unwrap();
-                synth(s, <span class="kw-2">&amp;</span>frames, <span class="self">self</span>.input, <span class="self">self</span>.output)
+                <span class="kw">let </span>frames = <span class="self">self</span>.frames.as_ref().unwrap();
+                synth(s, frames, <span class="self">self</span>.input, <span class="self">self</span>.output)
             }
             <span class="prelude-val">None </span>=&gt; {
                 <span class="kw">let </span>store = Default::default();
@@ -6540,35 +6511,17 @@
         result_apply_continuation: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AllocatedNum&lt;F&gt;,
     ) {
         <span class="kw">let </span>key = key.to_field();
-        add_clause(
-            <span class="kw-2">&amp;mut </span><span class="self">self</span>.expr_tag_clauses,
-            <span class="kw-2">&amp;mut </span><span class="self">self</span>.expr_hash_clauses,
+        <span class="self">self</span>.add_clauses_cons(
             key,
             result_expr,
-        );
-
-        add_clause(
-            <span class="kw-2">&amp;mut </span><span class="self">self</span>.env_tag_clauses,
-            <span class="kw-2">&amp;mut </span><span class="self">self</span>.env_hash_clauses,
-            key,
             result_env,
-        );
-
-        add_clause_cont(
-            <span class="kw-2">&amp;mut </span><span class="self">self</span>.cont_tag_clauses,
-            <span class="kw-2">&amp;mut </span><span class="self">self</span>.cont_hash_clauses,
-            key,
             result_cont,
-        );
-
-        add_clause_single(
-            <span class="kw-2">&amp;mut </span><span class="self">self</span>.apply_continuation_clauses,
-            key,
             result_apply_continuation,
-        );
+        )
     }
 
-    <span class="kw">fn </span>add_clauses_cons(
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>add_clauses_cons(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         key: F,
         result_expr: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AllocatedPtr&lt;F&gt;,
@@ -9179,16 +9132,16 @@
         <span class="comment">// IF this is open, we need to know what we are opening.
         </span><span class="kw">let </span>digest = result.hash();
 
-        <span class="kw">let </span>(open_secret_scalar, open_expr_ptr) = <span class="kw">match </span>store.get_maybe_opaque(
-            ExprTag::Comm,
-            digest.get_value().unwrap_or_else(|| F::zero()),
-        ) {
-            <span class="prelude-val">Some</span>(commit) =&gt; <span class="kw">match </span>store.open(commit) {
-                <span class="prelude-val">Some</span>((secret, opening)) =&gt; (secret, opening),
-                <span class="prelude-val">None </span>=&gt; (F::zero(), store.get_nil()), <span class="comment">// nil is dummy
-            </span>},
-            <span class="prelude-val">None </span>=&gt; (F::zero(), store.get_nil()), <span class="comment">// nil is dummy
-        </span>};
+        <span class="kw">let </span>(open_secret_scalar, open_expr_ptr) = store
+            .get_maybe_opaque(
+                ExprTag::Comm,
+                digest.get_value().unwrap_or_else(|| F::zero()),
+            )
+            .and_then(|commit| store.open(commit))
+            .unwrap_or_else(|| {
+                <span class="comment">// nil is dummy
+                </span>(F::zero(), store.get_nil())
+            });
 
         <span class="kw">let </span>open_expr = AllocatedPtr::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;open_expr&quot;</span>), || {
             <span class="prelude-val">Ok</span>(store.hash_expr(<span class="kw-2">&amp;</span>open_expr_ptr).unwrap())
@@ -10440,10 +10393,7 @@
 
         (body, extended_env, tail_cont, newer_cont2_not_dummy)
     };
-    <span class="kw">let </span>let_cont = <span class="kw">match </span>tail_cont {
-        <span class="prelude-val">Ok</span>(c) =&gt; c,
-        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; g.dummy_ptr.clone(),
-    };
+    <span class="kw">let </span>let_cont = tail_cont.unwrap_or_else(|<span class="kw">_</span>| g.dummy_ptr.clone());
     results.add_clauses_cont(
         ContTag::Let,
         <span class="kw-2">&amp;</span>body,
@@ -10939,10 +10889,10 @@
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
     maybe_unsigned: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedNum&lt;F&gt;, AllocatedNum&lt;F&gt;), SynthesisError&gt; {
-    <span class="kw">let </span>field_elem = <span class="kw">match </span>maybe_unsigned.get_value() {
-        <span class="prelude-val">Some</span>(v) =&gt; v,
-        <span class="prelude-val">None </span>=&gt; F::zero(), <span class="comment">//dummy
-    </span>};
+    <span class="kw">let </span>field_elem = maybe_unsigned.get_value().unwrap_or_else(|| {
+        <span class="comment">// dummy
+        </span>F::zero()
+    });
     <span class="kw">let </span>field_bn = BigUint::from_bytes_le(field_elem.to_repr().as_ref());
     <span class="comment">// Since bit decomposition is expensive, we compute it only once here
     </span><span class="kw">let </span>field_elem_bits =
