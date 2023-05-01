@@ -1,24 +1,25 @@
-use std::time::Duration;
 use blstrs::Scalar as Fr;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use fcomm;
 use lurk::{
     eval::{
         empty_sym_env,
-        lang::{Coproc, Lang}, Evaluator,
+        lang::{Coproc, Lang},
+        Evaluator,
     },
     field::LurkField,
-    ptr::Ptr,
-    store::Store,
     proof::nova::NovaProver,
     proof::Prover,
+    ptr::Ptr,
+    store::Store,
 };
-use fcomm;
 use pprof::criterion::{Output, PProfProfiler};
+use std::time::Duration;
 
 const DEFAULT_REDUCTION_COUNT: usize = 10;
 fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
     let program = format!(
-r#"
+        r#"
 (let ((foo (lambda (a b)
               (letrec ((aux (lambda (i a x)
                                (if (= i b)
@@ -45,7 +46,7 @@ fn end2end_benchmark(c: &mut Criterion) {
         let env = empty_sym_env(&store);
         let ptr = go_base::<pasta_curves::Fq>(&mut store, black_box(10), black_box(0));
         let prover = NovaProver::new(reduction_count, lang_vesta.clone());
-        
+
         // use cached public params
         let pp = fcomm::public_params(reduction_count).unwrap();
 
@@ -59,7 +60,6 @@ fn end2end_benchmark(c: &mut Criterion) {
 }
 
 fn store_benchmark(c: &mut Criterion) {
-
     c.bench_function("store_go_base_10_16_bls12", |b| {
         let mut store = Store::default();
 
@@ -98,41 +98,32 @@ fn store_benchmark(c: &mut Criterion) {
 }
 
 fn hydration_benchmark(c: &mut Criterion) {
-
     c.bench_function("hydration_go_base_10_16_bls12", |b| {
         let mut store = Store::default();
         let _ptr = go_base::<Fr>(&mut store, black_box(10), black_box(16));
 
-        b.iter(|| {
-            black_box(store.hydrate_scalar_cache())
-        })
+        b.iter(|| black_box(store.hydrate_scalar_cache()))
     });
 
     c.bench_function("hydration_go_base_10_160_bls12", |b| {
         let mut store = Store::default();
         let _ptr = go_base::<Fr>(&mut store, black_box(10), black_box(16));
 
-        b.iter(|| {
-            black_box(store.hydrate_scalar_cache())
-        })
+        b.iter(|| black_box(store.hydrate_scalar_cache()))
     });
 
     c.bench_function("hydration_go_base_10_16_pasta_pallas", |b| {
         let mut store = Store::default();
         let _ptr = go_base::<pasta_curves::Fp>(&mut store, black_box(10), black_box(16));
 
-        b.iter(|| {
-            black_box(store.hydrate_scalar_cache())
-        })
+        b.iter(|| black_box(store.hydrate_scalar_cache()))
     });
 
     c.bench_function("hydration_go_base_10_160_pasta_pallas", |b| {
         let mut store = Store::default();
         let _ptr = go_base::<pasta_curves::Fp>(&mut store, black_box(10), black_box(160));
 
-        b.iter(|| {
-            black_box(store.hydrate_scalar_cache())
-        })
+        b.iter(|| black_box(store.hydrate_scalar_cache()))
     });
 }
 
@@ -195,20 +186,24 @@ fn circuit_generation_benchmark(c: &mut Criterion) {
     let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
 
     let reduction_count = DEFAULT_REDUCTION_COUNT;
-    
+
     c.bench_function("prove_go_base_10_16_nova", |b| {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
         let ptr = go_base::<pasta_curves::Fq>(&mut store, black_box(10), black_box(16));
         let prover = NovaProver::new(reduction_count, lang_vesta.clone());
-        
+
         let pp = fcomm::public_params(reduction_count).unwrap();
         let frames = prover
             .get_evaluation_frames(ptr, env, &mut store, limit, &lang_vesta)
             .unwrap();
 
         b.iter(|| {
-            black_box(prover.prove(&pp, frames.clone(), &mut store, &lang_vesta).unwrap());
+            black_box(
+                prover
+                    .prove(&pp, frames.clone(), &mut store, &lang_vesta)
+                    .unwrap(),
+            );
         })
     });
 }
@@ -223,31 +218,33 @@ fn prove_benchmark(c: &mut Criterion) {
         let env = empty_sym_env(&store);
         let ptr = go_base::<pasta_curves::Fq>(&mut store, black_box(10), black_box(0));
         let prover = NovaProver::new(reduction_count, lang_vesta.clone());
-        
+
         let pp = fcomm::public_params(reduction_count).unwrap();
         let frames = prover
             .get_evaluation_frames(ptr, env, &mut store, limit, &lang_vesta)
             .unwrap();
 
         b.iter(|| {
-            let result = prover.prove(&pp, frames.clone(), &mut store, &lang_vesta).unwrap();
+            let result = prover
+                .prove(&pp, frames.clone(), &mut store, &lang_vesta)
+                .unwrap();
             black_box(result);
         })
     });
 }
 
-criterion_group!{
+criterion_group! {
     name = benches;
     config = Criterion::default()
         .measurement_time(Duration::from_secs(120))
         .sample_size(10)
         .with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
-    targets = 
-        end2end_benchmark, 
-        store_benchmark, 
-        hydration_benchmark, 
-        eval_benchmark, 
-        circuit_generation_benchmark, 
+    targets =
+        end2end_benchmark,
+        store_benchmark,
+        hydration_benchmark,
+        eval_benchmark,
+        circuit_generation_benchmark,
         prove_benchmark
 }
 criterion_main!(benches);
