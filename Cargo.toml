@@ -95,21 +95,5 @@ inherits = "dev-ci"
 debug-assertions = false
 
 [[bench]]
-name = "eval"
-harness = false
-
-[[bench]]
-name = "store"
-harness = false
-
-[[bench]]
-name = "hydration"
-harness = false
-
-[[bench]]
-name = "public_params"
-harness = false
-
-[[bench]]
-name = "prove"
+name = "benches"
 harness = false
