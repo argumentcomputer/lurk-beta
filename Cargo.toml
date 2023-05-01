@@ -69,6 +69,8 @@ structopt = { version = "0.3", default-features = false }
 tap = "1.0.1"
 assert_cmd = "2.0.8"
 tempfile = "3.5.0"
+fcomm = { path = "fcomm" }
+pprof = { version = "0.11", features = ["flamegraph", "criterion"] }
 
 [workspace]
 members = [
@@ -94,13 +96,9 @@ inherits = "dev-ci"
 debug-assertions = false
 
 [[bench]]
-name = "eval"
+name = "end2end"
 harness = false
 
 [[bench]]
-name = "store"
-harness = false
-
-[[bench]]
-name = "hydration"
+name = "public_params"
 harness = false

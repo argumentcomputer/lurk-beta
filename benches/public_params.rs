@@ -5,10 +5,11 @@ use lurk::{
     proof::nova,
     proof::groth16::Groth16Prover,
 };
+use std::time::Duration;
 
 const DEFAULT_REDUCTION_COUNT: usize = 10;
 
-fn criterion_benchmark(c: &mut Criterion) {
+fn public_params_benchmark(c: &mut Criterion) {
     let lang_bls = Lang::<Fr, Coproc<Fr>>::new();
     // let lang_pallas = Lang::<pasta_curves::Fp, Coproc<pasta_curves::Fp>>::new();
     let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
@@ -30,5 +31,11 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group!{
+    name = benches;
+    config = Criterion::default()
+        .measurement_time(Duration::from_secs(120))
+        .sample_size(1);
+    targets = public_params_benchmark
+}
 criterion_main!(benches);
