@@ -68,6 +68,8 @@ structopt = { version = "0.3", default-features = false }
 tap = "1.0.1"
 assert_cmd = "2.0.8"
 tempfile = "3.5.0"
+fcomm = { path = "fcomm" }
+pprof = { version = "0.11", features = ["flamegraph", "criterion"] }
 
 [workspace]
 members = [
@@ -102,4 +104,12 @@ harness = false
 
 [[bench]]
 name = "hydration"
+harness = false
+
+[[bench]]
+name = "public_params"
+harness = false
+
+[[bench]]
+name = "prove"
 harness = false
