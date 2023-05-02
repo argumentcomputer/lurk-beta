@@ -172,7 +172,7 @@ pub(crate) mod test {
     fn dummy_lang() {
         let store = &mut Store::<Fr>::default();
         let mut lang = Lang::<Fr, Coproc<Fr>>::new();
-        let name = Sym::new(".cproc.dummy".to_string());
+        let name = Symbol::sym(vec!["".into(), "cproc".into(), "dumb".into()]);
         let dummy = DummyCoprocessor::new();
 
         lang.add_coprocessor(name, Coproc::Dummy(dummy), store);
