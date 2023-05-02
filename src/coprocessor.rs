@@ -5,7 +5,8 @@ use bellperson::{ConstraintSystem, SynthesisError};
 use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::eval::IO;
 use crate::field::LurkField;
-use crate::store::{ContPtr, Ptr, Store};
+use crate::ptr::{ContPtr, Ptr};
+use crate::store::Store;
 use crate::circuit::gadgets::data::GlobalAllocations;
 
 /// `Coprocessor` is a trait that represents a generalized interface for coprocessors.
@@ -100,6 +101,7 @@ pub(crate) mod test {
         fn synthesize<CS: ConstraintSystem<F>>(
             &self,
             cs: &mut CS,
+            _g: &GlobalAllocations<F>,
             _store: &Store<F>,
             input_exprs: &[AllocatedPtr<F>],
             input_env: &AllocatedPtr<F>,

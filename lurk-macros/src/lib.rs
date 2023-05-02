@@ -67,6 +67,7 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
             fn synthesize<CS: bellperson::ConstraintSystem<F>>(
                 &self,
                 cs: &mut CS,
+                g: &crate::circuit::gadgets::data::GlobalAllocations<F>,
                 store: &crate::store::Store<F>,
                 input_exprs: &[crate::circuit::gadgets::pointer::AllocatedPtr<F>],
                 input_env: &crate::circuit::gadgets::pointer::AllocatedPtr<F>,
@@ -135,7 +136,7 @@ fn synthesize_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::Toke
         let variant_ident = &variant.ident;
 
         match_arms.extend(quote! {
-            #name::#variant_ident(cocircuit) => cocircuit.synthesize(cs, store, input_exprs, input_env, input_cont),
+            #name::#variant_ident(cocircuit) => cocircuit.synthesize(cs, g, store, input_exprs, input_env, input_cont),
         });
     }
     match_arms
