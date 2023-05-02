@@ -3,7 +3,7 @@ use std::io::Error;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
-use crate::FileStore;
+use crate::public_parameters::FileStore;
 
 pub fn data_dir() -> PathBuf {
     match std::env::var("FCOMM_DATA_PATH") {

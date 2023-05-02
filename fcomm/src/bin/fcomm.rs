@@ -21,8 +21,8 @@ use lurk::store::{Store, TypePredicates};
 use clap::{AppSettings, Args, Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 
-use fcomm::{
-    self, committed_expression_store, error::Error, evaluate, public_params, Claim, Commitment,
+use lurk::public_parameters::{
+    committed_expression_store, error::Error, evaluate, public_params, Claim, Commitment,
     CommittedExpression, Evaluation, Expression, FileStore, LurkPtr, Opening, OpeningRequest,
     Proof, ReductionCount, S1,
 };
@@ -218,7 +218,7 @@ impl Open {
 
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
-        let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), fcomm::lang().clone());
+        let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lurk::public_parameters::lang().clone());
         let pp = public_params(rc.count()).unwrap();
         let function_map = committed_expression_store();
 
@@ -316,7 +316,7 @@ impl Prove {
     fn prove(&self, limit: usize, lang: &Lang<S1, Coproc<S1>>) {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
-        let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), fcomm::lang().clone());
+        let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lurk::public_parameters::lang().clone());
         let pp = public_params(rc.count()).unwrap();
 
         let proof = match &self.claim {

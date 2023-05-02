@@ -343,8 +343,7 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
     }
 }
 
-/// fake docs
-// #[cfg(test)]
+#[cfg(test)]
 pub mod tests {
     use crate::num::Num;
 

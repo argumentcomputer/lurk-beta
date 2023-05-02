@@ -125,6 +125,20 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         }
     }
 
+    pub fn key(&self) -> String {
+        let mut key = String::new();
+
+        for coprocessor in &self.coprocessors {
+            let name = match coprocessor.0 {
+                Sym::Sym(sym) => &sym.path,
+                Sym::Key(sym) => &sym.path
+            }.join("-");
+
+            key = key + name.as_str()
+        }
+        key
+    }
+
     pub fn add_coprocessor(&mut self, name: Sym, cproc: C, store: &mut Store<F>) {
         let ptr = store.intern_sym_and_ancestors(&name).unwrap();
         let scalar_ptr = store.get_expr_hash(&ptr).unwrap();
