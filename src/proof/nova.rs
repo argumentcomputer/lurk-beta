@@ -2372,7 +2372,7 @@ mod tests {
     #[test]
     fn test_prove_str_cdr_empty() {
         let s = &mut Store::<Fr>::default();
-        let expected_empty_str = s.intern_str("");
+        let expected_empty_str = s.intern_string("");
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2827,7 +2827,7 @@ mod tests {
         let apple = s.read(r#" "apple" "#).unwrap();
         let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
         let pple = s.read(r#" "pple" "#).unwrap();
-        let empty = s.intern_str("");
+        let empty = s.intern_string("");
         let nil = s.nil();
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
@@ -3370,7 +3370,7 @@ mod tests {
         let expr4 = "(u64 (+ 1 1))";
         let res = s.intern_num(1);
         let res2 = s.intern_num(2);
-        let res3 = s.get_u64(2);
+        let res3 = s.intern_u64(2);
         let terminal = s.get_cont_terminal();
 
         test_aux::<Coproc<Fr>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
@@ -3577,12 +3577,12 @@ mod tests {
     fn test_dumb_lang() {
         use crate::coprocessor::test::DumbCoprocessor;
         use crate::eval::tests::coproc::DumbCoproc;
-        use crate::sym::Sym;
+        use crate::symbol::Symbol;
 
         let s = &mut Store::<Fr>::new();
 
         let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
-        let name = Sym::new(".cproc.dumb".to_string());
+        let name = Symbol::sym(vec!["".into(), "cproc".into(), "dumb".into()]);
         let dumb = DumbCoprocessor::new();
         let coproc = DumbCoproc::DC(dumb);
 

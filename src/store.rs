@@ -1816,13 +1816,17 @@ impl<F: LurkField> ZStore<F> {
 #[cfg(test)]
 pub mod test {
 
-    use crate::eval::{
-        empty_sym_env,
-        lang::{Coproc, Lang},
-        Evaluator,
-    };
     use crate::num;
     use crate::writer::Write;
+    use crate::{
+        eval::{
+            empty_sym_env,
+            lang::{Coproc, Lang},
+            Evaluator,
+        },
+        parser::position::Pos::No,
+        syntax::Syntax,
+    };
 
     use blstrs::Scalar as Fr;
 
@@ -2277,8 +2281,11 @@ pub mod test {
     fn sym_in_list() {
         let s = &mut Store::<Fr>::default();
 
-        let expr = s.read("(foo)").unwrap();
-        let sym = s.read("foo").unwrap();
+        let foo_list = Syntax::List(No, vec![Syntax::<Fr>::Symbol(No, Symbol::sym(vec!["foo"]))]);
+        let foo_sym = Syntax::<Fr>::Symbol(No, Symbol::sym(vec!["foo"]));
+
+        let expr = s.intern_syntax(foo_list);
+        let sym = s.intern_syntax(foo_sym);
         let sym1 = s.car(&expr).unwrap();
         let sss = s.fetch_sym(&sym);
         let hash = s.hash_expr(&sym);
