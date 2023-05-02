@@ -1815,7 +1815,6 @@ impl<F: LurkField> ZStore<F> {
 
 #[cfg(test)]
 pub mod test {
-
     use crate::num;
     use crate::writer::Write;
     use crate::{
@@ -1826,6 +1825,7 @@ pub mod test {
         },
         parser::position::Pos::No,
         syntax::Syntax,
+        syntax_macros::*,
     };
 
     use blstrs::Scalar as Fr;

@@ -33,6 +33,7 @@ pub mod z_store;
 
 pub mod error;
 mod num;
+mod syntax_macros;
 pub use num::Num;
 pub use symbol::Symbol;
 pub use uint::UInt;
