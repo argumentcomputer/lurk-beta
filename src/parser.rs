@@ -11,6 +11,7 @@ use thiserror;
 //pub mod error;
 pub mod position;
 //pub mod string;
+//pub mod syntax;
 
 type Span<'a> = nom_locate::LocatedSpan<&'a str>;
 

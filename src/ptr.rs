@@ -185,3 +185,21 @@ impl<F: LurkField> ContPtr<F> {
         }
     }
 }
+
+pub trait TypePredicates {
+    fn is_fun(&self) -> bool;
+    fn is_self_evaluating(&self) -> bool;
+    fn is_potentially(&self, tag: ExprTag) -> bool;
+}
+
+impl<F: LurkField> TypePredicates for Ptr<F> {
+    fn is_fun(&self) -> bool {
+        self.tag.is_fun()
+    }
+    fn is_self_evaluating(&self) -> bool {
+        self.tag.is_self_evaluating()
+    }
+    fn is_potentially(&self, tag: ExprTag) -> bool {
+        self.tag.is_potentially(tag)
+    }
+}

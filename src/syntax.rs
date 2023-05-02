@@ -3,6 +3,8 @@ use std::fmt;
 use crate::field::LurkField;
 use crate::num::Num;
 use crate::parser::position::Pos;
+use crate::ptr::Ptr;
+use crate::store::Store;
 use crate::symbol::Symbol;
 use crate::uint::UInt;
 
@@ -92,7 +94,43 @@ impl<F: LurkField> fmt::Display for Syntax<F> {
         }
     }
 }
-//
+
+impl<F: LurkField> Store<F> {
+    pub fn intern_syntax(&mut self, syn: Syntax<F>) -> Ptr<F> {
+        match syn {
+            Syntax::Num(_, x) => self.intern_num(x),
+            Syntax::UInt(_, x) => self.intern_uint(x),
+            Syntax::Char(_, x) => self.intern_char(x),
+            Syntax::Symbol(_, x) => self.intern_symbol(x),
+            Syntax::String(_, x) => self.intern_string(x),
+            Syntax::Quote(pos, x) => {
+                let xs = vec![Syntax::Symbol(pos, Symbol::lurk_sym("quote")), *x];
+                self.intern_syntax(Syntax::List(pos, xs))
+            }
+            Syntax::List(_, xs) => {
+                let mut cdr = self.nil();
+                for x in xs.into_iter().rev() {
+                    let car = self.intern_syntax(x);
+                    cdr = self.intern_cons(car, cdr);
+                }
+                cdr
+            }
+            Syntax::Improper(_, xs, end) => {
+                let mut cdr = self.intern_syntax(*end);
+                for x in xs.into_iter().rev() {
+                    let car = self.intern_syntax(x);
+                    cdr = self.intern_cons(car, cdr);
+                }
+                cdr
+            }
+        }
+    }
+
+    pub fn fetch_syntax(&mut self, ptr: Ptr<F>) -> Option<Syntax<F>> {
+        todo!()
+    }
+}
+
 //#[cfg(test)]
 //mod test {
 //    use super::*;

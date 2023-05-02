@@ -73,24 +73,6 @@ pub struct Store<F: LurkField> {
     pub constants: OnceCell<NamedConstants<F>>,
 }
 
-pub trait TypePredicates {
-    fn is_fun(&self) -> bool;
-    fn is_self_evaluating(&self) -> bool;
-    fn is_potentially(&self, tag: ExprTag) -> bool;
-}
-
-impl<F: LurkField> TypePredicates for Ptr<F> {
-    fn is_fun(&self) -> bool {
-        self.tag.is_fun()
-    }
-    fn is_self_evaluating(&self) -> bool {
-        self.tag.is_self_evaluating()
-    }
-    fn is_potentially(&self, tag: ExprTag) -> bool {
-        self.tag.is_potentially(tag)
-    }
-}
-
 impl<F: LurkField> Default for Store<F> {
     fn default() -> Self {
         let mut store = Store {
@@ -151,15 +133,17 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn t(&mut self) -> Ptr<F> {
-        self.lurk_sym("T")
+        self.lurk_sym("t")
     }
 
     pub fn cons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         self.intern_cons(car, cdr)
     }
+
     pub fn strcons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         self.intern_strcons(car, cdr)
     }
+
     pub fn strnil(&self) -> Ptr<F> {
         Ptr::null(ExprTag::Str)
     }
@@ -249,11 +233,11 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn uint64(&mut self, n: u64) -> Ptr<F> {
-        self.get_u64(n)
+        self.intern_u64(n)
     }
 
     pub fn str<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        self.intern_str(name)
+        self.intern_string(name)
     }
 
     pub fn lurk_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
@@ -453,10 +437,11 @@ impl<F: LurkField> Store<F> {
     pub fn intern_symbol_path(&mut self, path: Vec<String>) -> Ptr<F> {
         let mut ptr = self.symnil();
         for s in path.iter() {
-            let str_ptr = self.intern_str(s);
+            let str_ptr = self.intern_string(s);
             ptr = self.intern_symcons(str_ptr, ptr);
         }
-        self.symbol_cache.insert(Symbol::Sym(path), Box::new(ptr));
+        self.symbol_cache
+            .insert(Symbol::Sym(path.clone()), Box::new(ptr));
         ptr
     }
 
@@ -525,26 +510,27 @@ impl<F: LurkField> Store<F> {
             .map(|x| Ptr::index(ExprTag::Num, x))
     }
 
-    // TODO: rename this to intern_char
-    pub fn get_char(&self, c: char) -> Ptr<F> {
-        self.get_char_from_u32(u32::from(c))
+    pub fn intern_char(&self, c: char) -> Ptr<F> {
+        Ptr::index(ExprTag::Char, u32::from(c) as usize)
     }
 
-    pub fn get_char_from_u32(&self, code: u32) -> Ptr<F> {
-        Ptr::index(ExprTag::Char, code as usize)
+    pub fn intern_uint(&self, n: UInt) -> Ptr<F> {
+        match n {
+            UInt::U64(x) => self.intern_u64(x),
+        }
     }
 
-    pub fn get_u64(&self, n: u64) -> Ptr<F> {
+    pub fn intern_u64(&self, n: u64) -> Ptr<F> {
         Ptr::index(ExprTag::U64, n as usize)
     }
 
     // intern a string into the Store, which generates the cons'ed representation
     // TODO: short-circuit interning if we hit the cache
-    pub fn intern_str<T: AsRef<str>>(&mut self, s: T) -> Ptr<F> {
+    pub fn intern_string<T: AsRef<str>>(&mut self, s: T) -> Ptr<F> {
         let s: String = String::from(s.as_ref());
         let mut ptr = self.strnil();
         for c in s.chars().rev() {
-            ptr = self.intern_strcons(self.get_char(c), ptr);
+            ptr = self.intern_strcons(self.intern_char(c), ptr);
         }
         ptr
     }
@@ -1262,7 +1248,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn hash_string(&mut self, s: &str) -> ZExprPtr<F> {
-        let ptr = self.intern_str(s);
+        let ptr = self.intern_string(s);
         self.get_z_expr(&ptr, None)
             .expect("known string can't be opaque")
             .0
