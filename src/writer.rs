@@ -3,8 +3,8 @@ use crate::expr::Expression;
 use crate::field::LurkField;
 use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
+use crate::symbol::Symbol;
 use crate::z_expr::ZExpr;
-use crate::Sym;
 use std::io;
 
 pub trait Write<F: LurkField> {
@@ -49,12 +49,9 @@ impl<F: LurkField> Write<F> for ContPtr<F> {
 fn write_symbol<F: LurkField, W: io::Write>(
     w: &mut W,
     store: &Store<F>,
-    sym: &Sym,
+    sym: &Symbol,
 ) -> io::Result<()> {
-    let package = &store.lurk_package;
-    let maybe_abbr = package.relative_abbreviation(sym);
-    let symbol_name = maybe_abbr.full_name();
-    write!(w, "{symbol_name}")
+    todo!()
 }
 
 impl<F: LurkField> Write<F> for Expression<F> {
@@ -63,7 +60,7 @@ impl<F: LurkField> Write<F> for Expression<F> {
 
         match self {
             Nil => write!(w, "NIL"),
-            SymNil => write_symbol::<F, _>(w, store, &Sym::root()),
+            SymNil => write_symbol::<F, _>(w, store, &Symbol::root()),
             SymCons(car, cdr) => {
                 let head = store.fetch_string(car).expect("missing symbol head");
                 let tail = store.fetch_sym(cdr).expect("missing symbol tail");
@@ -77,13 +74,10 @@ impl<F: LurkField> Write<F> for Expression<F> {
             }
             Key(sym) => {
                 let symbol = store.fetch_symbol(sym).expect("missing symbol");
-                write_symbol::<F, _>(w, store, &Sym::Key(symbol))
+                write_symbol::<F, _>(w, store, &Symbol::Key(symbol.path()))
             }
             Fun(arg, body, _closed_env) => {
-                let is_zero_arg = *arg
-                    == store
-                        .get_lurk_sym("_", true)
-                        .expect("dummy_arg (_) missing");
+                let is_zero_arg = *arg == store.get_lurk_sym("_").expect("dummy_arg (_) missing");
                 let arg = store.fetch(arg).unwrap();
                 write!(w, "<FUNCTION (")?;
                 if !is_zero_arg {

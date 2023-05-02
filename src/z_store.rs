@@ -6,7 +6,7 @@ use proptest_derive::Arbitrary;
 use std::collections::BTreeMap;
 
 use crate::hash::PoseidonCache;
-use crate::sym::Sym;
+use crate::symbol::Symbol;
 use crate::tag::ExprTag;
 use crate::z_cont::ZCont;
 use crate::z_data::Encodable;
@@ -59,11 +59,8 @@ impl<F: LurkField> ZStore<F> {
     }
 
     pub fn nil_z_ptr(&mut self, poseidon_cache: &PoseidonCache<F>) -> ZExprPtr<F> {
-        self.put_symbol(
-            Sym::new_from_path(false, vec!["".into(), "LURK".into(), "NIL".into()]),
-            poseidon_cache,
-        )
-        .0
+        self.put_symbol(Symbol::sym(vec!["lurk", "nil"]), poseidon_cache)
+            .0
     }
 
     pub fn put_string(
@@ -82,7 +79,7 @@ impl<F: LurkField> ZStore<F> {
 
     pub fn put_symbol(
         &mut self,
-        sym: Sym,
+        sym: Symbol,
         poseidon_cache: &PoseidonCache<F>,
     ) -> (ZExprPtr<F>, ZExpr<F>) {
         let mut expr = ZExpr::SymNil;

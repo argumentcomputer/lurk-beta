@@ -10,7 +10,7 @@ use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::field::LurkField;
 use crate::ptr::Ptr;
 use crate::store::Store;
-use crate::sym::Sym;
+use crate::symbol::Symbol;
 use crate::z_ptr::ZExprPtr;
 
 /// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.
@@ -114,7 +114,7 @@ impl<F: LurkField> CoCircuit<F> for Coproc<F> {
 #[derive(Debug, Default, Clone)]
 pub struct Lang<F: LurkField, C: Coprocessor<F>> {
     //  A HashMap that stores coprocessors with their associated `Sym` keys.
-    coprocessors: HashMap<Sym, (C, ZExprPtr<F>)>,
+    coprocessors: HashMap<Symbol, (C, ZExprPtr<F>)>,
 }
 
 impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
@@ -124,14 +124,14 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         }
     }
 
-    pub fn add_coprocessor(&mut self, name: Sym, cproc: C, store: &mut Store<F>) {
-        let ptr = store.intern_sym(name.clone());
+    pub fn add_coprocessor(&mut self, name: Symbol, cproc: C, store: &mut Store<F>) {
+        let ptr = store.intern_symbol(name.clone());
         let scalar_ptr = store.hash_expr(&ptr).unwrap();
 
         self.coprocessors.insert(name, (cproc, scalar_ptr));
     }
 
-    pub fn coprocessors(&self) -> &HashMap<Sym, (C, ZExprPtr<F>)> {
+    pub fn coprocessors(&self) -> &HashMap<Symbol, (C, ZExprPtr<F>)> {
         &self.coprocessors
     }
 

@@ -3,11 +3,10 @@ use crate::error::LurkError;
 use crate::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
 use crate::expr::Expression;
 use crate::field::LurkField;
-use crate::package::Package;
 use crate::parser;
 use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
-use crate::sym::Sym;
+use crate::symbol::Symbol;
 use crate::tag::ContTag;
 use crate::writer::Write;
 use crate::z_data::{Encodable, ZData};
@@ -72,34 +71,27 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
         &mut self,
         store: &mut Store<F>,
         chars: &mut peekmore::PeekMoreIterator<T>,
-        package: &Package,
         pwd: P,
     ) -> Result<()> {
-        let (ptr, is_meta) = store.read_maybe_meta(chars, package)?;
+        let (ptr, is_meta) = store.read_maybe_meta(chars)?;
 
         if is_meta {
             let pwd: &Path = pwd.as_ref();
-            self.handle_meta(store, ptr, package, pwd)
+            self.handle_meta(store, ptr, pwd)
         } else {
             self.handle_non_meta(store, ptr).map(|_| ())
         }
     }
 
-    fn handle_load<P: AsRef<Path>>(
-        &mut self,
-        store: &mut Store<F>,
-        file_path: P,
-        package: &Package,
-    ) -> Result<()> {
+    fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store<F>, file_path: P) -> Result<()> {
         eprintln!("Loading from {}.", file_path.as_ref().to_str().unwrap());
-        self.handle_file(store, file_path.as_ref(), package)
+        self.handle_file(store, file_path.as_ref())
     }
 
     fn handle_file<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
         file_path: P,
-        package: &Package,
     ) -> Result<()> {
         let file_path = file_path;
 
@@ -115,7 +107,6 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
             if let Err(e) = self.handle_form(
                 store,
                 &mut chars,
-                package,
                 // use this file's dir as pwd for further loading
                 file_path.as_ref().parent().unwrap(),
             ) {
@@ -133,7 +124,6 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
         &mut self,
         store: &mut Store<F>,
         expr_ptr: Ptr<F>,
-        package: &Package,
         p: P,
     ) -> Result<()>;
 
@@ -238,8 +228,6 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
     mut repl: Repl<F, T, C>,
     lurk_file: Option<P>,
 ) -> Result<()> {
-    let package = Package::lurk();
-
     if lurk_file.is_none() {
         let name = T::name();
         eprintln!("{name} welcomes you.");
@@ -247,7 +235,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
 
     {
         if let Some(lurk_file) = lurk_file {
-            repl.state.handle_load(s, &lurk_file, &package).unwrap();
+            repl.state.handle_load(s, &lurk_file).unwrap();
             return Ok(());
         }
     }
@@ -266,10 +254,10 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
 
                 let mut chars = line.chars().peekmore();
 
-                match s.read_maybe_meta(&mut chars, &package) {
+                match s.read_maybe_meta(&mut chars) {
                     Ok((expr, is_meta)) => {
                         if is_meta {
-                            if let Err(e) = repl.state.handle_meta(s, expr, &package, p) {
+                            if let Err(e) = repl.state.handle_meta(s, expr, p) {
                                 eprintln!("!Error: {e:?}");
                             };
                             continue;
@@ -380,7 +368,6 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
         &mut self,
         store: &mut Store<F>,
         expr_ptr: Ptr<F>,
-        package: &Package,
         p: P,
     ) -> Result<()> {
         let expr = store.fetch(&expr_ptr).unwrap();
@@ -388,11 +375,11 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
         let res = match expr {
             Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
                 Expression::SymCons(..) => {
-                    let s: Sym = store
+                    let s: Symbol = store
                         .fetch_sym(&car)
                         .ok_or(Error::msg("handle_meta fetch symbol"))?;
-                    match s.name().as_str() {
-                        "ASSERT" => {
+                    match s.print_escape().as_str() {
+                        "assert" => {
                             let (first, rest) = store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
                             let (first_evaled, _, _, _) = self
@@ -402,7 +389,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             assert!(!first_evaled.is_nil());
                             None
                         }
-                        "ASSERT-EQ" => {
+                        "assert-eq" => {
                             let (first, rest) = store.car_cdr(&rest)?;
                             let (second, rest) = store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
@@ -424,7 +411,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             );
                             None
                         }
-                        "ASSERT-EMITTED" => {
+                        "assert-emitted" => {
                             let (first, rest) = store.car_cdr(&rest)?;
                             let (second, rest) = store.car_cdr(&rest)?;
 
@@ -449,7 +436,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             }
                             None
                         }
-                        "ASSERT-ERROR" => {
+                        "assert-error" => {
                             let (first, rest) = store.car_cdr(&rest)?;
 
                             assert!(rest.is_nil());
@@ -457,11 +444,11 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
 
                             None
                         }
-                        "CLEAR" => {
+                        "clear" => {
                             self.env = empty_sym_env(store);
                             None
                         }
-                        "DEF" => {
+                        "def" => {
                             // Extends env with a non-recursive binding.
                             //
                             // This: !(:def foo (lambda () 123))
@@ -473,8 +460,8 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             let (first, rest) = store.car_cdr(&rest)?;
                             let (second, rest) = store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
-                            let l = store.sym("LET");
-                            let current_env = store.sym("CURRENT-ENV");
+                            let l = store.sym("let");
+                            let current_env = store.sym("current-env");
                             let binding = store.list(&[first, second]);
                             let bindings = store.list(&[binding]);
                             let current_env_call = store.list(&[current_env]);
@@ -487,7 +474,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             let (new_name, _) = store.car_cdr(&new_binding)?;
                             Some(new_name)
                         }
-                        "DEFREC" => {
+                        "defrec" => {
                             // Extends env with a recursive binding.
                             //
                             // This: !(:def foo (lambda () 123))
@@ -499,8 +486,8 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             let (first, rest) = store.car_cdr(&rest)?;
                             let (second, rest) = store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
-                            let l = store.sym("LETREC");
-                            let current_env = store.sym("CURRENT-ENV");
+                            let l = store.sym("letrec");
+                            let current_env = store.sym("current-env");
                             let binding = store.list(&[first, second]);
                             let bindings = store.list(&[binding]);
                             let current_env_call = store.list(&[current_env]);
@@ -514,21 +501,21 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             let (new_name, _) = store.car_cdr(&new_binding_inner)?;
                             Some(new_name)
                         }
-                        "LOAD" => {
+                        "load" => {
                             match store.fetch(&store.car(&rest)?).unwrap() {
                                 Expression::StrCons(..) => {
                                     let path: String = store
                                         .fetch_string(&car)
                                         .ok_or(Error::msg("handle_meta fetch_string"))?;
                                     let joined = p.as_ref().join(Path::new(&path));
-                                    self.handle_load(store, &joined, package)?
+                                    self.handle_load(store, &joined)?
                                 }
                                 _ => bail!("Argument to LOAD must be a string."),
                             }
                             io::stdout().flush().unwrap();
                             None
                         }
-                        "SET-ENV" => {
+                        "set-env" => {
                             // The state's env is set to the result of evaluating the first argument.
                             let (first, rest) = store.car_cdr(&rest)?;
                             assert!(rest.is_nil());

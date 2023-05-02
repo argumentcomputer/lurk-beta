@@ -14,13 +14,14 @@ pub mod expr;
 pub mod field;
 pub mod hash;
 pub mod hash_witness;
-pub mod package;
+//pub mod package;
 pub mod parser;
 pub mod proof;
 pub mod ptr;
 pub mod repl;
 pub mod store;
-pub mod sym;
+pub mod symbol;
+pub mod syntax;
 pub mod tag;
 pub mod uint;
 pub mod writer;
@@ -33,7 +34,7 @@ pub mod z_store;
 pub mod error;
 mod num;
 pub use num::Num;
-pub use sym::{Sym, Symbol};
+pub use symbol::Symbol;
 pub use uint::UInt;
 
 pub const TEST_SEED: [u8; 16] = [

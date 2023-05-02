@@ -5,7 +5,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::{convert::TryFrom, fmt};
 
 use crate::field::LurkField;
-use crate::store::TypePredicates;
+use crate::ptr::TypePredicates;
 use crate::z_data::Encodable;
 use crate::z_data::ZData;
 

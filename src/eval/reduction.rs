@@ -7,9 +7,9 @@ use crate::expr::{Expression, Thunk};
 use crate::field::LurkField;
 use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness};
 use crate::num::Num;
-use crate::ptr::{ContPtr, Ptr};
+use crate::ptr::{ContPtr, Ptr, TypePredicates};
 use crate::store;
-use crate::store::{NamedConstants, Store, TypePredicates};
+use crate::store::{NamedConstants, Store};
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use crate::writer::Write;
 
@@ -916,7 +916,7 @@ fn apply_continuation<F: LurkField>(
                                 .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
 
-                            store.get_u64(scalar_ptr.value().to_u64_unchecked())
+                            store.intern_u64(scalar_ptr.value().to_u64_unchecked())
                         }
                         ExprTag::U64 => result,
                         _ => return Ok(Control::Error(result, env)),
@@ -935,7 +935,7 @@ fn apply_continuation<F: LurkField>(
                             let scalar_ptr = store
                                 .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
-                            store.get_char_from_u32(scalar_ptr.value().to_u32_unchecked())
+                            store.intern_char(scalar_ptr.value().to_char().unwrap())
                         }
                         _ => return Ok(Control::Error(result, env)),
                     },
@@ -1062,9 +1062,9 @@ fn apply_continuation<F: LurkField>(
                     }
                     (Expression::UInt(a), Expression::UInt(b)) if operator.is_numeric() => {
                         match operator {
-                            Op2::Sum => store.get_u64((a + b).into()),
-                            Op2::Diff => store.get_u64((a - b).into()),
-                            Op2::Product => store.get_u64((a * b).into()),
+                            Op2::Sum => store.intern_u64((a + b).into()),
+                            Op2::Diff => store.intern_u64((a - b).into()),
+                            Op2::Product => store.intern_u64((a * b).into()),
                             Op2::Quotient => {
                                 if b.is_zero() {
                                     return Ok(Control::Return(
@@ -1073,7 +1073,7 @@ fn apply_continuation<F: LurkField>(
                                         store.intern_cont_error(),
                                     ));
                                 } else {
-                                    store.get_u64((a / b).into())
+                                    store.intern_u64((a / b).into())
                                 }
                             }
                             Op2::Modulo => {
@@ -1084,7 +1084,7 @@ fn apply_continuation<F: LurkField>(
                                         store.intern_cont_error(),
                                     ));
                                 } else {
-                                    store.get_u64((a % b).into())
+                                    store.intern_u64((a % b).into())
                                 }
                             }
                             Op2::Equal | Op2::NumEqual => store.as_lurk_boolean(a == b),

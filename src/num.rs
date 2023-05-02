@@ -12,6 +12,9 @@ use std::{
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
+#[cfg(not(target_arch = "wasm32"))]
+use proptest::prelude::*;
+
 use crate::field::LurkField;
 use crate::uint::UInt;
 
@@ -22,6 +25,21 @@ pub enum Num<F: LurkField> {
     Scalar(F),
     /// a small scalar field element in U64 representation for convenience
     U64(u64),
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl<Fr: LurkField> Arbitrary for Num<Fr> {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        any::<FWrap<Fr>>()
+            .prop_map(|f| match f.0.to_u64() {
+                Some(x) => Self::U64(x),
+                None => Self::Scalar(f.0),
+            })
+            .boxed()
+    }
 }
 
 impl<F: LurkField> Copy for Num<F> {}
@@ -280,19 +298,6 @@ mod tests {
     use blstrs::Scalar;
     use blstrs::Scalar as Fr;
     use ff::Field;
-
-    impl<Fr: LurkField> Arbitrary for Num<Fr> {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            prop_oneof!(
-                any::<u64>().prop_map(Num::U64),
-                any::<FWrap<Fr>>().prop_map(|f| Num::Scalar(f.0)),
-            )
-            .boxed()
-        }
-    }
 
     //proptest! {
     //    #[test]
