@@ -8,8 +8,6 @@ use crate::uint::UInt;
 
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
-#[cfg(not(target_arch = "wasm32"))]
-use proptest_derive::Arbitrary;
 
 // Lurk syntax
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -23,26 +21,77 @@ pub enum Syntax<F: LurkField> {
     String(Pos, String),
     // A character literal: #\A #\λ #\u03BB
     Char(Pos, char),
+    // A quoted expression: 'a, '(1 2)
+    Quote(Pos, Box<Syntax<F>>),
     // A nil-terminated cons-list of expressions: (1 2 3)
     List(Pos, Vec<Syntax<F>>),
     // An imprpoer cons-list of expressions: (1 2 . 3)
     Improper(Pos, Vec<Syntax<F>>, Box<Syntax<F>>),
-    // A quoted expression: 'a, '(1 2)
-    Quote(Pos, Syntax<F>),
 }
 
-//impl<F: LurkField> fmt::Display for Syntax<F> {
-//    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//        match self {
-//            Self::Num(_, x) => write!(f, "{}", x),
-//            Self::UInt(_, x) => write!(f, "{}", x),
-//            //Self::Symbol(_, sym) => write!(f, "{}", sym.print_escape()),
-//            Self::String(_, x) => write!(f, "\"{}\"", x.escape_default()),
-//            Self::Char(_, x) => write!(f, "#\\{}", x.escape_default()),
-//            _ => todo!(),
-//        }
-//    }
-//}
+#[cfg(not(target_arch = "wasm32"))]
+impl<Fr: LurkField> Arbitrary for Syntax<Fr> {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        let leaf = prop_oneof![
+            any::<Num<Fr>>().prop_map(|x| Syntax::Num(Pos::No, x)),
+            any::<UInt>().prop_map(|x| Syntax::UInt(Pos::No, x)),
+            any::<Symbol>().prop_map(|x| Syntax::Symbol(Pos::No, x)),
+            any::<String>().prop_map(|x| Syntax::String(Pos::No, x)),
+            any::<char>().prop_map(|x| Syntax::Char(Pos::No, x))
+        ];
+        leaf.prop_recursive(8, 256, 10, |inner| {
+            prop_oneof![
+                inner
+                    .clone()
+                    .prop_map(|x| Syntax::Quote(Pos::No, Box::new(x))),
+                prop::collection::vec(inner.clone(), 0..10).prop_map(|x| Syntax::List(Pos::No, x)),
+                prop::collection::vec(inner.clone(), 1..11).prop_map(|mut xs| {
+                    let x = xs.pop().unwrap();
+                    Syntax::Improper(Pos::No, xs, Box::new(x))
+                })
+            ]
+        })
+        .boxed()
+    }
+}
+
+impl<F: LurkField> fmt::Display for Syntax<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Num(_, x) => write!(f, "{}", x),
+            Self::UInt(_, x) => write!(f, "{}", x),
+            Self::Symbol(_, sym) => write!(f, "{}", sym),
+            Self::String(_, x) => write!(f, "\"{}\"", x.escape_default()),
+            Self::Char(_, x) => write!(f, "#\\{}", x.escape_default()),
+            Self::Quote(_, x) => write!(f, "'{}", x),
+            Self::List(_, xs) => {
+                let mut iter = xs.iter().peekable();
+                write!(f, "(")?;
+                while let Some(x) = iter.next() {
+                    match iter.peek() {
+                        Some(_) => write!(f, "{} ", x)?,
+                        None => write!(f, "{}", x)?,
+                    }
+                }
+                write!(f, ")")
+            }
+            Self::Improper(_, xs, end) => {
+                let mut iter = xs.iter().peekable();
+                write!(f, "(")?;
+                while let Some(x) = iter.next() {
+                    match iter.peek() {
+                        Some(_) => write!(f, "{} ", x)?,
+                        None => write!(f, "{} . {}", x, *end)?,
+                    }
+                }
+                write!(f, ")")
+            }
+        }
+    }
+}
 //
 //#[cfg(test)]
 //mod test {

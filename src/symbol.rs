@@ -52,7 +52,7 @@ pub const LURK_SYMBOL_NAMES: &[&str] = &[
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
-/// Type for hieararchical symbol names
+/// Type for hierarchical symbol names
 pub enum Symbol {
     Sym(Vec<String>),
     Key(Vec<String>),

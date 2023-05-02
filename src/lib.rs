@@ -21,6 +21,7 @@ pub mod ptr;
 pub mod repl;
 pub mod store;
 pub mod symbol;
+pub mod syntax;
 pub mod tag;
 pub mod uint;
 pub mod writer;
