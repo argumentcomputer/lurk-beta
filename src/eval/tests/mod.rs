@@ -1218,7 +1218,7 @@ fn test_str_car_cdr_cons() {
     let apple = s.read(r#" "apple" "#).unwrap();
     let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
     let pple = s.read(r#" "pple" "#).unwrap();
-    let empty = s.intern_str("");
+    let empty = s.intern_string("");
     let nil = s.nil();
     let terminal = s.get_cont_terminal();
     let error = s.get_cont_error();
@@ -2225,8 +2225,8 @@ fn test_u64_conversion() {
 
     let res = s.intern_num(1);
     let res2 = s.intern_num(2);
-    let res3 = s.get_u64(2);
-    let res5 = s.get_u64(123);
+    let res3 = s.intern_u64(2);
+    let res5 = s.intern_u64(123);
     let terminal = s.get_cont_terminal();
     let error = s.get_cont_error();
 
@@ -2323,12 +2323,12 @@ fn test_keyword() {
 
 #[test]
 fn test_root_sym() {
-    use crate::sym::Sym;
+    use crate::Symbol;
 
     let s = &mut Store::<Fr>::default();
 
-    let sym = Sym::root();
-    let x = s.intern_sym(sym);
+    let sym = Symbol::root();
+    let x = s.intern_symbol(sym);
 
     let scalar_ptr = &s.hash_expr(&x).unwrap();
 
@@ -2338,7 +2338,7 @@ fn test_root_sym() {
 
 #[test]
 fn test_sym_hash_values() {
-    use crate::sym::Sym;
+    use crate::Symbol;
 
     let s = &mut Store::<Fr>::default();
 
@@ -2361,8 +2361,8 @@ fn test_sym_hash_values() {
 
     let toplevel_sym = s.sym(".ASDF");
 
-    let root = Sym::root();
-    let root_sym = s.intern_sym(root);
+    let root = Symbol::root();
+    let root_sym = s.intern_symbol(root);
 
     let asdf = s.str("ASDF");
     let consed_with_root = s.cons(asdf, root_sym);
@@ -2564,7 +2564,7 @@ pub(crate) mod coproc {
     use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
     use crate::coprocessor::{test::DumbCoprocessor, CoCircuit};
     use crate::store::Store;
-    use crate::sym::Sym;
+    use crate::symbol::Symbol;
     use crate::tag::{ExprTag, Tag};
 
     use bellperson::ConstraintSystem;
@@ -2623,7 +2623,7 @@ pub(crate) mod coproc {
         let s = &mut Store::<Fr>::new();
 
         let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
-        let name = Sym::new(".cproc.dumb".to_string());
+        let name = Symbol::sym(vec!["".into(), "cproc".into(), "dumb".into()]);
         let dumb = DumbCoprocessor::new();
         let coproc = DumbCoproc::DC(dumb);
 

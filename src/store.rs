@@ -471,7 +471,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn get_lurk_sym<T: AsRef<str>>(&self, name: T) -> Option<Ptr<F>> {
-        let mut sym = Symbol::lurk_sym(name.as_ref());
+        let sym = Symbol::lurk_sym(name.as_ref());
         self.get_sym(sym)
     }
 
