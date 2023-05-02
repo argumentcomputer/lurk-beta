@@ -11,6 +11,8 @@ repository = "https://github.com/lurk-lab/lurk-rs"
 
 [dependencies]
 anyhow = "1.0.69"
+base64 = "0.13.1"
+hex = { version = "0.4.3", features = ["serde"] }
 thiserror = "1.0.38"
 bellperson = "0.24"
 blstrs = "0.6.1"
@@ -29,6 +31,7 @@ rayon = "1.7.0"
 rustyline-derive = "0.8.0"
 rand_xorshift = "0.3.0"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
 serde_repr = "0.1.10"
 indexmap = { version = "1.9.2", features = ["rayon"] }
 ahash = "0.7.6"

@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use clap::{Arg, ArgAction, Command};
 use pasta_curves::pallas;
 
-use fcomm::{
+use lurk::public_parameters::{
     public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, Id, LurkCont,
     LurkPtr, NovaProofCache, Opening, Proof, PtrEvaluation,
 };
@@ -119,8 +119,8 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
     ) -> Self {
         let reduction_count = DEFAULT_REDUCTION_COUNT;
 
-        let proof_map = fcomm::nova_proof_cache(reduction_count);
-        let expression_map = fcomm::committed_expression_store();
+        let proof_map = lurk::public_parameters::nova_proof_cache(reduction_count);
+        let expression_map = lurk::public_parameters::committed_expression_store();
 
         let demo = command.clone().and_then(|c| {
             let l = Self::base_prompt().trim_start_matches('\n').len();
@@ -481,7 +481,7 @@ impl ClutchState<F, Coproc<F>> {
             bail!("proof cid must be a string");
         };
 
-        let cid = fcomm::cid_from_string(&cid_string)?;
+        let cid = lurk::public_parameters::cid_from_string(&cid_string)?;
         self.proof_map
             .get(&cid)
             .ok_or_else(|| anyhow!("proof not found: {cid}"))
@@ -546,7 +546,7 @@ impl ClutchState<F, Coproc<F>> {
             bail!("proof cid must be a string");
         };
 
-        let cid = fcomm::cid_from_string(&cid_string)?;
+        let cid = lurk::public_parameters::cid_from_string(&cid_string)?;
         let proof = self
             .proof_map
             .get(&cid)

@@ -1,5 +1,3 @@
-#![doc = include_str!("../README.md")]
-
 use log::info;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -19,7 +17,7 @@ use libipld::{
     serde::{from_ipld, to_ipld},
     Cid, Ipld,
 };
-use lurk::{
+use crate::{
     circuit::ToInputs,
     eval::{
         empty_sym_env,
@@ -100,13 +98,14 @@ pub fn public_params(rc: usize) -> Result<Arc<PublicParams<'static, Coproc<S1>>>
         None => {
             let disk_cache = public_param_disk_cache();
             // TODO: Add versioning to cache key
-            let key = format!("public-params-rc-{rc}");
+            let lang = lang();
+            let lang_key = lang.key();
+            let key = format!("public-params-rc-{rc}-coproc-{lang_key}");
             if let Some(pp) = disk_cache.get(&key) {
                 let pp = Arc::new(pp);
                 mem_cache.insert(rc, pp.clone());
                 Ok(pp)
             } else {
-                let lang = lang();
                 let pp = Arc::new(nova::public_params(rc, lang));
                 mem_cache.insert(rc, pp.clone());
                 disk_cache
@@ -689,7 +688,7 @@ impl LurkCont {
         _s: &mut Store<F>,
         cont_ptr: &ContPtr<F>,
     ) -> Self {
-        use lurk::tag::ContTag;
+        use crate::tag::ContTag;
 
         match cont_ptr.tag() {
             ContTag::Outermost => Self::Outermost,
@@ -846,7 +845,7 @@ impl<'a> Opening<S1> {
 
         let input_string = input.fmt_to_string(s);
         let status =
-            <lurk::eval::IO<S1> as Evaluable<S1, Witness<S1>, Coproc<S1>>>::status(&public_output);
+            <crate::eval::IO<S1> as Evaluable<S1, Witness<S1>, Coproc<S1>>>::status(&public_output);
         let output_string = if status.is_terminal() {
             // Only actual output if result is terminal.
             output_expr.fmt_to_string(s)
@@ -1168,7 +1167,7 @@ pub fn evaluate<F: LurkField>(
 
     let (io, iterations, _) = evaluator.eval().map_err(|_| Error::EvaluationFailure)?;
 
-    assert!(<lurk::eval::IO<F> as Evaluable<F, Witness<F>, Coproc<F>>>::is_terminal(&io));
+    assert!(<crate::eval::IO<F> as Evaluable<F, Witness<F>, Coproc<F>>>::is_terminal(&io));
     Ok((io, iterations))
 }
 

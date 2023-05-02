@@ -16,7 +16,6 @@ use pasta_curves::pallas::Scalar as Fr;
 use sha2::{Digest, Sha256};
 
 use lurk::proof::Prover;
-use lurk::proof::nova::tests::test_aux;
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use lurk::coprocessor::{CoCircuit, Coprocessor};
 use lurk::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
@@ -160,7 +159,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     let num_of_64_bytes = args[1].parse::<usize>().unwrap();
-    let _expect = hex::decode(args[2].parse::<String>().unwrap()).unwrap();
+    let expect = hex::decode(args[2].parse::<String>().unwrap()).unwrap();
     let _setup_only = args[3].parse::<bool>().unwrap();
 
     let input_size = 64 * num_of_64_bytes;
@@ -175,31 +174,18 @@ fn main() {
 
     lang.add_coprocessor(name, coproc, store);
 
-    let expr = format!("({})", sym_str);
+    let coproc_expr = format!("({})", sym_str);
+
+    let u1: u64 = u64::from_be_bytes(expect[0..8].try_into().unwrap());
+    let u2: u64 = u64::from_be_bytes(expect[8..16].try_into().unwrap());
+    let u3: u64 = u64::from_be_bytes(expect[16..24].try_into().unwrap());
+    let u4: u64 = u64::from_be_bytes(expect[24..32].try_into().unwrap());
+    let result_expr = format!("({}u64 {}u64 {}u64 {}u64)", u1, u2, u3, u4);
+
+    let expr = format!("(emit (eq {coproc_expr} (quote {result_expr})))");
     let ptr = store.read(&expr).unwrap();
-
-    let result_expr = format!("({}u64 {}u64 {}u64 {}u64)", 17700832373872664624u64, 2853293623205271451u64, 4827926021625475304u64, 16904315803914599243u64);
-
-    // dbg!(result_expr.clone());
-    let result_ptr = store.read(&result_expr).unwrap();
-
-    // let limit = 100000;
-    // let env = empty_sym_env(s);
-    // let (
-    //     IO {
-    //         expr: _new_expr,
-    //         env: _new_env,
-    //         cont: _new_cont,
-    //     },
-    //     _iterations,
-    //     _emitted,
-    // ) = Evaluator::new(ptr, env, s, limit, &lang).eval().unwrap();
-
-
-    // test_aux(s, expr.as_str(), Some(result_ptr), None, None, None, 1, Some(&lang));
-
     
-    let reduction_count = 1;
+    let reduction_count = 10;
     
     let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(reduction_count, lang.clone());
 
