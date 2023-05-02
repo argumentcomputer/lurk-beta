@@ -13,7 +13,6 @@ use lurk::{
     ptr::Ptr,
     store::Store,
 };
-use pprof::criterion::{Output, PProfProfiler};
 use std::time::Duration;
 
 const DEFAULT_REDUCTION_COUNT: usize = 10;
@@ -245,18 +244,37 @@ fn prove_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group! {
-    name = benches;
-    config = Criterion::default()
-        .measurement_time(Duration::from_secs(120))
-        .sample_size(10)
-        .with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
-    targets =
-        end2end_benchmark,
-        store_benchmark,
-        hydration_benchmark,
-        eval_benchmark,
-        circuit_generation_benchmark,
-        prove_benchmark
+cfg_if::cfg_if! {
+    if #[cfg(feature = "flamegraph")] {
+        criterion_group! {
+            name = benches;
+            config = Criterion::default()
+            .measurement_time(Duration::from_secs(120))
+            .sample_size(10)
+            .with_profiler(pprof::criterion::PProfProfiler::new(100, pprof::criterion::Output::Flamegraph(None)));
+        targets =
+            end2end_benchmark,
+            store_benchmark,
+            hydration_benchmark,
+            eval_benchmark,
+            circuit_generation_benchmark,
+            prove_benchmark
+        }
+    } else {
+        criterion_group! {
+            name = benches;
+            config = Criterion::default()
+            .measurement_time(Duration::from_secs(120))
+            .sample_size(10);
+        targets =
+            end2end_benchmark,
+            store_benchmark,
+            hydration_benchmark,
+            eval_benchmark,
+            circuit_generation_benchmark,
+            prove_benchmark
+        }
+    }
 }
+
 criterion_main!(benches);
