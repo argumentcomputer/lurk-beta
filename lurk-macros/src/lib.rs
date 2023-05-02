@@ -37,27 +37,27 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
     let arity_arms = arity_match_arms(name, variants);
     let synthesize_arms = synthesize_match_arms(name, variants);
     let res = quote! {
-        impl <F: crate::field::LurkField> crate::coprocessor::Coprocessor<F> for #name<F> {
+        impl <F: lurk::field::LurkField> lurk::coprocessor::Coprocessor<F> for #name<F> {
             fn eval_arity(&self) -> usize {
                 match self {
                     #eval_arity_arms
                 }
             }
 
-            fn evaluate(&self, s: &mut crate::store::Store<F>, args: crate::ptr::Ptr<F>, env: crate::ptr::Ptr<F>, cont: crate::ptr::ContPtr<F>) -> crate::eval::IO<F> {
+            fn evaluate(&self, s: &mut lurk::store::Store<F>, args: lurk::ptr::Ptr<F>, env: lurk::ptr::Ptr<F>, cont: lurk::ptr::ContPtr<F>) -> lurk::eval::IO<F> {
                 match self {
                     #evaluate_arms
                 }
             }
 
-            fn simple_evaluate(&self, s: &mut crate::store::Store<F>, args: &[crate::ptr::Ptr<F>]) -> crate::ptr::Ptr<F> {
+            fn simple_evaluate(&self, s: &mut lurk::store::Store<F>, args: &[lurk::ptr::Ptr<F>]) -> lurk::ptr::Ptr<F> {
                 match self {
                     #simple_evaluate_arms
                 }
             }
         }
 
-        impl<F: crate::field::LurkField> crate::coprocessor::CoCircuit<F> for #name<F> {
+        impl<F: lurk::field::LurkField> lurk::coprocessor::CoCircuit<F> for #name<F> {
             fn arity(&self) -> usize {
                 match self {
                     #arity_arms
@@ -67,12 +67,12 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
             fn synthesize<CS: bellperson::ConstraintSystem<F>>(
                 &self,
                 cs: &mut CS,
-                g: &crate::circuit::gadgets::data::GlobalAllocations<F>,
-                store: &crate::store::Store<F>,
-                input_exprs: &[crate::circuit::gadgets::pointer::AllocatedPtr<F>],
-                input_env: &crate::circuit::gadgets::pointer::AllocatedPtr<F>,
-                input_cont: &crate::circuit::gadgets::pointer::AllocatedContPtr<F>,
-            ) -> Result<(crate::circuit::gadgets::pointer::AllocatedPtr<F>, crate::circuit::gadgets::pointer::AllocatedPtr<F>, crate::circuit::gadgets::pointer::AllocatedContPtr<F>), bellperson::SynthesisError> {
+                g: &lurk::circuit::gadgets::data::GlobalAllocations<F>,
+                store: &lurk::store::Store<F>,
+                input_exprs: &[lurk::circuit::gadgets::pointer::AllocatedPtr<F>],
+                input_env: &lurk::circuit::gadgets::pointer::AllocatedPtr<F>,
+                input_cont: &lurk::circuit::gadgets::pointer::AllocatedContPtr<F>,
+            ) -> Result<(lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedContPtr<F>), bellperson::SynthesisError> {
                 match self {
                     #synthesize_arms
                 }

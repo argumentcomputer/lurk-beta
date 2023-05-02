@@ -5,12 +5,13 @@ use std::marker::PhantomData;
 use lurk_macros::Coproc;
 use serde::{Deserialize, Serialize};
 
-use crate::circuit::gadgets::data::GlobalAllocations;
 use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::field::LurkField;
 use crate::ptr::{Ptr, ScalarPtr};
 use crate::store::Store;
 use crate::sym::Sym;
+
+use crate as lurk;
 
 /// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.
 ///

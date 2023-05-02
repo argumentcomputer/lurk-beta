@@ -9,6 +9,8 @@ use crate::writer::Write;
 use lurk_macros::{let_store, lurk, Coproc};
 use pasta_curves::pallas::Scalar as Fr;
 
+use crate as lurk;
+
 fn test_aux<C: Coprocessor<Fr>>(
     s: &mut Store<Fr>,
     expr: &str,
