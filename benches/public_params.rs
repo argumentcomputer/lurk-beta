@@ -2,8 +2,8 @@ use blstrs::Scalar as Fr;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lurk::{
     eval::lang::{Coproc, Lang},
-    proof::nova,
     proof::groth16::Groth16Prover,
+    proof::nova,
 };
 use std::time::Duration;
 
@@ -31,7 +31,7 @@ fn public_params_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!{
+criterion_group! {
     name = benches;
     config = Criterion::default()
         .measurement_time(Duration::from_secs(120))
