@@ -8,7 +8,7 @@ pub enum OP<'a, F: LurkField> {
     Hash2Ptrs(F, MetaPtr<'a>, [&'a MetaPtr<'a>; 2]),
     Hash3Ptrs(F, MetaPtr<'a>, [&'a MetaPtr<'a>; 3]),
     Hash4Ptrs(F, MetaPtr<'a>, [&'a MetaPtr<'a>; 4]),
-    CarCdr(MetaPtr<'a>, MetaPtr<'a>, MetaPtr<'a>), // car, cdr, cons src
+    CarCdr(MetaPtr<'a>, MetaPtr<'a>, &'a MetaPtr<'a>), // car, cdr, cons src
     AssertTagEq(&'a MetaPtr<'a>, F, &'a str),
     AssertTagOr(&'a MetaPtr<'a>, F, F, &'a str),
     Seq(Vec<Box<OP<'a, F>>>),
