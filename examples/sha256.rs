@@ -13,6 +13,7 @@ use lurk::circuit::gadgets::data::GlobalAllocations;
 use lurk::proof::nova::{NovaProver, public_params};
 // use bellperson::gadgets::Assignment;
 use lurk::tag::{ExprTag, Tag};
+use lurk_macros::Coproc;
 use pasta_curves::pallas::Scalar as Fr;
 use sha2::{Digest, Sha256};
 
@@ -27,6 +28,8 @@ use lurk::store::Store;
 use lurk::sym::Sym;
 // use lurk::uint::UInt;
 // use lurk::writer::Write;
+
+const REDUCTION_COUNT: usize = 10;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Sha256Coprocessor<F: LurkField> {
@@ -113,44 +116,9 @@ impl<F: LurkField> Sha256Coprocessor<F> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Coproc)]
 enum Sha256Coproc<F: LurkField> {
     SC(Sha256Coprocessor<F>),
-}
-
-impl<F: LurkField> Coprocessor<F> for Sha256Coproc<F> {
-    fn eval_arity(&self) -> usize {
-        match self {
-            Self::SC(c) => c.eval_arity(),
-        }
-    }
-
-    fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
-        match self {
-            Self::SC(c) => c.simple_evaluate(s, args),
-        }
-    }
-}
-
-impl<F: LurkField> CoCircuit<F> for Sha256Coproc<F> {
-    fn arity(&self) -> usize {
-        match self {
-            Self::SC(c) => c.arity(),
-        }
-    }
-    fn synthesize<CS: ConstraintSystem<F>>(
-            &self,
-            cs: &mut CS,
-            g: &GlobalAllocations<F>,
-            store: &Store<F>,
-            input_exprs: &[AllocatedPtr<F>],
-            input_env: &AllocatedPtr<F>,
-            input_cont: &AllocatedContPtr<F>,
-        ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        match self {
-            Self::SC(c) => c.synthesize(cs, g, store, input_exprs, input_env, input_cont)
-        }
-    }
 }
 
 // cargo run --example sha256 1 f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b false
@@ -185,14 +153,12 @@ fn main() {
     let expr = format!("(emit (eq {coproc_expr} (quote {result_expr})))");
     let ptr = store.read(&expr).unwrap();
     
-    let reduction_count = 1;
-    
-    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(reduction_count, lang.clone());
+    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang.clone());
 
     println!("Setting up public parameters...");
 
     let pp_start = Instant::now();
-    let pp = public_params(reduction_count, &lang);
+    let pp = public_params(REDUCTION_COUNT, &lang);
     let pp_end = pp_start.elapsed();
 
     println!("Public parameters took {:?}", pp_end);
