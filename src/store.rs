@@ -2,7 +2,6 @@ use rayon::prelude::*;
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::usize;
 use thiserror;
 
@@ -13,9 +12,8 @@ use crate::cont::Continuation;
 use crate::expr;
 use crate::expr::{Expression, Thunk};
 use crate::field::{FWrap, LurkField};
-use crate::package::{Package, LURK_EXTERNAL_SYMBOL_NAMES};
 use crate::ptr::{ContPtr, Ptr, RawPtr};
-use crate::sym::{Sym, Symbol};
+use crate::symbol::Symbol;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 use crate::z_cont::ZCont;
 use crate::z_expr::ZExpr;
@@ -70,9 +68,8 @@ pub struct Store<F: LurkField> {
 
     // improve intern_str, intern_sym performance
     //pub string_cache: CacheMap<String, Box<Ptr<F>>>,
-    pub symbol_cache: CacheMap<Sym, Box<Ptr<F>>>,
+    pub symbol_cache: CacheMap<Symbol, Box<Ptr<F>>>,
 
-    pub lurk_package: Arc<Package>,
     pub constants: OnceCell<NamedConstants<F>>,
 }
 
@@ -123,14 +120,12 @@ impl<F: LurkField> Default for Store<F> {
             poseidon_cache: Default::default(),
             dehydrated: Default::default(),
             dehydrated_cont: Default::default(),
-            lurk_package: Arc::new(Package::lurk()),
             constants: Default::default(),
             symbol_cache: Default::default(),
         };
 
-        for name in LURK_EXTERNAL_SYMBOL_NAMES {
-            let sym = Sym::new_absolute(format!(".LURK.{}", name));
-            store.intern_sym(sym);
+        for sym in Symbol::lurk_syms() {
+            store.intern_symbol(sym);
         }
 
         store
@@ -262,25 +257,15 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn lurk_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        let package = self.lurk_package.clone();
-        let mut name: String = String::from(name.as_ref());
-        name.make_ascii_uppercase();
-        let sym = Sym::new_absolute(String::from(name));
-        self.intern_sym_in_package(sym, &package)
+        self.intern_symbol(Symbol::sym(vec!["lurk", name.as_ref()]))
     }
 
     pub fn sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        let package = Default::default();
-        let mut name: String = String::from(name.as_ref());
-        name.make_ascii_uppercase();
-        let sym = Sym::new_absolute(String::from(name));
-        self.intern_sym_in_package(sym, &package)
+        self.intern_symbol(Symbol::sym(vec![name.as_ref()]))
     }
 
     pub fn key<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        let mut name: String = String::from(name.as_ref());
-        name.make_ascii_uppercase();
-        self.intern_keyword(Symbol::new_absolute(name))
+        self.intern_symbol(Symbol::key(vec![name.as_ref()]))
     }
 
     pub fn car(&self, expr: &Ptr<F>) -> Result<Ptr<F>, Error> {
@@ -316,19 +301,19 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn get_nil(&self) -> Ptr<F> {
-        self.get_lurk_sym("nil", true).expect("missing NIL")
+        self.get_lurk_sym("nil").expect("missing NIL")
     }
 
     pub fn get_begin(&self) -> Ptr<F> {
-        self.get_lurk_sym("begin", true).expect("missing BEGIN")
+        self.get_lurk_sym("begin").expect("missing BEGIN")
     }
 
     pub fn get_quote(&self) -> Ptr<F> {
-        self.get_lurk_sym("quote", true).expect("missing QUOTE")
+        self.get_lurk_sym("quote").expect("missing QUOTE")
     }
 
     pub fn get_t(&self) -> Ptr<F> {
-        self.get_lurk_sym("t", true).expect("missing T")
+        self.get_lurk_sym("t").expect("missing T")
     }
 
     pub fn intern_cons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
@@ -465,52 +450,44 @@ impl<F: LurkField> Store<F> {
             .fold(self.lurk_sym("nil"), |acc, elt| self.intern_cons(*elt, acc))
     }
 
-    pub fn intern_keyword(&mut self, sym: Symbol) -> Ptr<F> {
-        let s = self.intern_symbol(sym);
-        Ptr {
-            tag: ExprTag::Key,
-            raw: s.raw,
-            _f: s._f,
-        }
-    }
-
-    pub fn intern_symbol(&mut self, sym: Symbol) -> Ptr<F> {
+    pub fn intern_symbol_path(&mut self, path: Vec<String>) -> Ptr<F> {
         let mut ptr = self.symnil();
-        for s in sym.path.iter() {
+        for s in path.iter() {
             let str_ptr = self.intern_str(s);
             ptr = self.intern_symcons(str_ptr, ptr);
         }
-        if sym.path == vec!["", "LURK", "NIL"] {
+        self.symbol_cache.insert(Symbol::Sym(path), Box::new(ptr));
+        ptr
+    }
+
+    pub fn intern_symbol(&mut self, sym: Symbol) -> Ptr<F> {
+        let ptr = self.intern_symbol_path(sym.path());
+        let ptr = if sym.path() == vec!["lurk".to_string(), "nil".to_string()] {
             Ptr {
                 tag: ExprTag::Nil,
                 raw: ptr.raw,
                 _f: ptr._f,
             }
+        } else if sym.is_key() {
+            Ptr {
+                tag: ExprTag::Key,
+                raw: ptr.raw,
+                _f: ptr._f,
+            }
         } else {
             ptr
-        }
-    }
-
-    pub fn intern_sym(&mut self, sym: Sym) -> Ptr<F> {
-        let ptr = match sym.clone() {
-            Sym::Sym(s) => self.intern_symbol(s),
-            Sym::Key(s) => self.intern_keyword(s),
         };
         self.symbol_cache.insert(sym, Box::new(ptr));
         ptr
     }
 
-    pub fn get_sym(&self, sym: Sym) -> Option<Ptr<F>> {
+    pub fn get_sym(&self, sym: Symbol) -> Option<Ptr<F>> {
         self.symbol_cache.get(&sym).cloned()
     }
 
-    pub fn get_lurk_sym<T: AsRef<str>>(&self, name: T, convert_case: bool) -> Option<Ptr<F>> {
-        let mut name = format!(".lurk.{}", name.as_ref());
-        if convert_case {
-            crate::parser::convert_sym_case(&mut name);
-        }
-
-        self.get_sym(Sym::new_absolute(name))
+    pub fn get_lurk_sym<T: AsRef<str>>(&self, name: T) -> Option<Ptr<F>> {
+        let mut sym = Symbol::lurk_sym(name.as_ref());
+        self.get_sym(sym)
     }
 
     pub fn intern_num<T: Into<Num<F>>>(&mut self, num: T) -> Ptr<F> {
@@ -652,7 +629,7 @@ impl<F: LurkField> Store<F> {
         self.z_cont_ptr_map.get(scalar_ptr).map(|p| *p)
     }
 
-    pub fn fetch_maybe_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
+    pub fn fetch_maybe_sym(&self, ptr: &Ptr<F>) -> Option<Symbol> {
         if matches!(ptr.tag, ExprTag::Sym) {
             self.fetch_sym(ptr)
         } else {
@@ -671,7 +648,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
+    pub fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<Symbol> {
         let mut ptr = *ptr;
         let mut path = Vec::new();
         while let Some((car, cdr)) = self.fetch_symcons(&ptr) {
@@ -679,22 +656,25 @@ impl<F: LurkField> Store<F> {
             path.push(string);
             ptr = cdr
         }
-        Some(Symbol { path })
+        Some(Symbol::Sym(path))
     }
 
-    pub fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<Sym> {
+    pub fn fetch_key(&self, ptr: &Ptr<F>) -> Option<Symbol> {
+        let symbol = self.fetch_sym(&Ptr {
+            tag: ExprTag::Sym,
+            raw: ptr.raw,
+            _f: ptr._f,
+        })?;
+        Some(Symbol::Key(symbol.path()))
+    }
+
+    pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
         if ptr.tag == ExprTag::Nil {
-            Some(Sym::new(".LURK.NIL".into()))
+            Some(Symbol::nil())
         } else if ptr.tag == ExprTag::Key {
-            let symbol = self.fetch_symbol(&Ptr {
-                tag: ExprTag::Sym,
-                raw: ptr.raw,
-                _f: ptr._f,
-            })?;
-            Some(Sym::Key(symbol))
+            self.fetch_key(ptr)
         } else {
-            let symbol = self.fetch_symbol(ptr)?;
-            Some(Sym::Sym(symbol))
+            self.fetch_sym(ptr)
         }
     }
 
@@ -1288,8 +1268,8 @@ impl<F: LurkField> Store<F> {
             .0
     }
 
-    pub fn hash_symbol(&mut self, s: Sym) -> ZExprPtr<F> {
-        let ptr = self.intern_sym(s);
+    pub fn hash_symbol(&mut self, s: Symbol) -> ZExprPtr<F> {
+        let ptr = self.intern_symbol(s);
         self.get_z_expr(&ptr, None)
             .expect("known symbol can't be opaque")
             .0
@@ -1641,7 +1621,7 @@ impl<F: LurkField> Expression<F> {
         //}
     }
 
-    pub const fn as_sym(&self) -> Option<&Sym> {
+    pub const fn as_sym(&self) -> Option<&Symbol> {
         todo!()
         //match self {
         //    Expression::Sym(s) => Some(s),
@@ -1747,7 +1727,7 @@ pub struct NamedConstants<F: LurkField> {
 impl<F: LurkField> NamedConstants<F> {
     pub fn new(store: &Store<F>) -> Self {
         let hash_sym = |name: &str| {
-            let ptr = store.get_lurk_sym(name, true).unwrap();
+            let ptr = store.get_lurk_sym(name).unwrap();
             let maybe_z_ptr = store.hash_expr(&ptr);
             ConstantPtrs(maybe_z_ptr, ptr)
         };

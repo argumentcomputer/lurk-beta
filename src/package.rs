@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 
-use crate::sym::Sym;
+use crate::symbol::Symbol;
 
 #[derive(Clone, Debug)]
 pub struct Package {
-    pub name: Sym,
-    pub external_symbols: HashSet<Sym>,
+    pub name: Symbol,
+    pub external_symbols: HashSet<Symbol>,
 }
 
 pub const LURK_EXTERNAL_SYMBOL_NAMES: &[&str] = &[
@@ -48,7 +48,7 @@ pub const LURK_EXTERNAL_SYMBOL_NAMES: &[&str] = &[
 ];
 
 impl Package {
-    pub fn new(name: Sym) -> Self {
+    pub fn new(name: Symbol) -> Self {
         Self {
             name,
             external_symbols: Default::default(),
@@ -56,10 +56,10 @@ impl Package {
     }
 
     pub fn root() -> Self {
-        Self::new(Sym::root())
+        Self::new(Symbol::root())
     }
 
-    pub fn name(&self) -> &Sym {
+    pub fn name(&self) -> &Symbol {
         &self.name
     }
 
@@ -79,26 +79,26 @@ impl Package {
         }
     }
 
-    pub fn remove_external_symbol(&mut self, sym: &Sym) {
+    pub fn remove_external_symbol(&mut self, sym: &Symbol) {
         self.external_symbols.remove(sym);
     }
 
-    pub fn remove_external_symbols(&mut self, syms: &[Sym]) {
+    pub fn remove_external_symbols(&mut self, syms: &[Symbol]) {
         for sym in syms.iter() {
             self.external_symbols.remove(sym);
         }
     }
 
-    pub fn local_symbol(&self, sym: &Sym) -> Option<&Sym> {
+    pub fn local_symbol(&self, sym: &Symbol) -> Option<&Symbol> {
         self.external_symbols.get(sym)
     }
 
-    pub fn relative_abbreviation(&self, sym: &Sym) -> Sym {
+    pub fn relative_abbreviation(&self, sym: &Symbol) -> Symbol {
         let name = &self.name;
         let name_path = name.path();
         let sym_path = sym.path();
 
-        if sym.is_keyword() != name.is_keyword() {
+        if sym.is_key() != name.is_key() {
             return sym.clone();
         }
 
@@ -106,17 +106,17 @@ impl Package {
             return sym.clone();
         }
 
-        let name_is_prefix = sym_path.iter().zip(name.path()).all(|(a, b)| a == b);
+        let name_is_prefix = sym_path.iter().zip(name.path()).all(|(a, b)| *a == b);
 
         if name_is_prefix && sym_path != name_path {
-            Sym::new_from_path(false, sym_path[name_path.len()..].to_vec())
+            Symbol::Sym(sym_path[name_path.len()..].to_vec())
         } else {
             sym.clone()
         }
     }
 
     pub fn lurk() -> Self {
-        let lurk_sym = Sym::new_from_path(false, vec!["".into(), "LURK".into()]);
+        let lurk_sym = Symbol::new(vec!["LURK"]);
         let mut package = Package::new(lurk_sym);
 
         package.add_external_symbols(LURK_EXTERNAL_SYMBOL_NAMES);
