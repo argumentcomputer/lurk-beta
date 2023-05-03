@@ -1,5 +1,5 @@
 use blstrs::Scalar as Fr;
-use criterion::{black_box, criterion_group, criterion_main, Criterion, SamplingMode, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode};
 
 use lurk::{
     eval::{
@@ -37,10 +37,11 @@ fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
 
 fn end2end_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("end2end_benchmark");
-    group.sampling_mode(SamplingMode::Flat)
-         .measurement_time(Duration::from_secs(120))
-         .sample_size(10);
-    
+    group
+        .sampling_mode(SamplingMode::Flat)
+        .measurement_time(Duration::from_secs(120))
+        .sample_size(10);
+
     let limit = 1_000_000_000;
     let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
@@ -64,14 +65,15 @@ fn end2end_benchmark(c: &mut Criterion) {
                 .unwrap();
         })
     });
-    
+
     group.finish();
 }
 
 fn store_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("store_benchmark");
-    group.measurement_time(Duration::from_secs(5))
-         .sample_size(60);
+    group
+        .measurement_time(Duration::from_secs(5))
+        .sample_size(60);
 
     let mut bls12_store = Store::<Fr>::default();
     let mut pallas_store = Store::<pasta_curves::Fp>::default();
@@ -80,7 +82,7 @@ fn store_benchmark(c: &mut Criterion) {
     let sizes = vec![(10, 16), (10, 160)];
     for size in sizes {
         let parameter_string = format!("_{}_{}", size.0, size.1);
-        
+
         let bls12_id = BenchmarkId::new("store_go_base_bls12", &parameter_string);
         group.bench_with_input(bls12_id, &size, |b, &s| {
             b.iter(|| {
@@ -88,7 +90,7 @@ fn store_benchmark(c: &mut Criterion) {
                 black_box(result)
             })
         });
-        
+
         let pasta_id = BenchmarkId::new("store_go_base_pallas", &parameter_string);
         group.bench_with_input(pasta_id, &size, |b, &s| {
             b.iter(|| {
@@ -103,8 +105,9 @@ fn store_benchmark(c: &mut Criterion) {
 
 fn hydration_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("hydration_benchmark");
-    group.measurement_time(Duration::from_secs(5))
-         .sample_size(60);
+    group
+        .measurement_time(Duration::from_secs(5))
+        .sample_size(60);
 
     let mut bls12_store = Store::<Fr>::default();
     let mut pallas_store = Store::<pasta_curves::Fp>::default();
@@ -113,24 +116,20 @@ fn hydration_benchmark(c: &mut Criterion) {
     let sizes = vec![(10, 16), (10, 160)];
     for size in sizes {
         let parameter_string = format!("_{}_{}", size.0, size.1);
-        
+
         {
             let benchmark_id = BenchmarkId::new("hydration_go_base_bls12", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
                 let _ptr = go_base::<Fr>(&mut bls12_store, s.0, s.1);
-                b.iter(|| {
-                    bls12_store.hydrate_scalar_cache()
-                })
+                b.iter(|| bls12_store.hydrate_scalar_cache())
             });
         }
-        
+
         {
             let benchmark_id = BenchmarkId::new("hydration_go_base_pallas", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
                 let _ptr = go_base::<pasta_curves::Fp>(&mut pallas_store, s.0, s.1);
-                b.iter(|| {
-                    pallas_store.hydrate_scalar_cache()
-                })
+                b.iter(|| pallas_store.hydrate_scalar_cache())
             });
         }
     }
@@ -140,8 +139,9 @@ fn hydration_benchmark(c: &mut Criterion) {
 
 fn eval_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("eval_benchmark");
-    group.measurement_time(Duration::from_secs(5))
-         .sample_size(60);
+    group
+        .measurement_time(Duration::from_secs(5))
+        .sample_size(60);
 
     let limit = 1_000_000_000;
     let lang_bls12 = Lang::<Fr, Coproc<Fr>>::new();
@@ -153,23 +153,37 @@ fn eval_benchmark(c: &mut Criterion) {
     let sizes = vec![(10, 16), (10, 160)];
     for size in sizes {
         let parameter_string = format!("_{}_{}", size.0, size.1);
-        
+
         {
             let benchmark_id = BenchmarkId::new("eval_go_base_bls12", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
                 let ptr = go_base::<Fr>(&mut bls12_store, s.0, s.1);
                 b.iter(|| {
-                    Evaluator::new(ptr, empty_sym_env(&bls12_store), &mut bls12_store, limit, &lang_bls12).eval()
+                    Evaluator::new(
+                        ptr,
+                        empty_sym_env(&bls12_store),
+                        &mut bls12_store,
+                        limit,
+                        &lang_bls12,
+                    )
+                    .eval()
                 })
             });
         }
-        
+
         {
             let benchmark_id = BenchmarkId::new("eval_go_base_pallas", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
                 let ptr = go_base::<pasta_curves::Fp>(&mut pallas_store, s.0, s.1);
                 b.iter(|| {
-                    Evaluator::new(ptr, empty_sym_env(&pallas_store), &mut pallas_store, limit, &lang_pallas).eval()
+                    Evaluator::new(
+                        ptr,
+                        empty_sym_env(&pallas_store),
+                        &mut pallas_store,
+                        limit,
+                        &lang_pallas,
+                    )
+                    .eval()
                 })
             });
         }
@@ -213,9 +227,10 @@ fn eval_benchmark(c: &mut Criterion) {
 
 fn prove_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("prove_benchmark");
-    group.sampling_mode(SamplingMode::Flat)
-         .measurement_time(Duration::from_secs(120))
-         .sample_size(10);
+    group
+        .sampling_mode(SamplingMode::Flat)
+        .measurement_time(Duration::from_secs(120))
+        .sample_size(10);
 
     let limit = 1_000_000_000;
     let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
@@ -244,8 +259,9 @@ fn prove_benchmark(c: &mut Criterion) {
 
 fn verify_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("verify_benchmark");
-    group.measurement_time(Duration::from_secs(5))
-         .sample_size(60);
+    group
+        .measurement_time(Duration::from_secs(5))
+        .sample_size(60);
 
     let limit = 1_000_000_000;
     let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
@@ -268,7 +284,10 @@ fn verify_benchmark(c: &mut Criterion) {
                 .unwrap();
 
             b.iter(|| {
-                let result = proof.0.verify(&pp, proof.3, proof.1.clone(), &proof.2[..]).unwrap();
+                let result = proof
+                    .0
+                    .verify(&pp, proof.3, proof.1.clone(), &proof.2[..])
+                    .unwrap();
                 black_box(result);
             })
         });
