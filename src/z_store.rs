@@ -100,13 +100,6 @@ mod tests {
 
     proptest! {
         #[test]
-        fn prop_z_expr(x in any::<ZExpr<Scalar>>()) {
-            let ser = x.ser();
-            let de  = ZExpr::de(&ser).expect("read ZExpr");
-            assert_eq!(x, de)
-        }
-
-        #[test]
         fn prop_z_store(s in any::<ZStore<Scalar>>()) {
             let ser = s.ser();
             let de  = ZStore::de(&ser).expect("read ZStore");

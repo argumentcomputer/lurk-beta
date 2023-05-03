@@ -74,11 +74,11 @@ impl Symbol {
     }
 
     pub fn nil() -> Symbol {
-        Symbol::Sym(vec!["LURK".to_string(), "NIL".to_string()])
+        Symbol::Sym(vec!["lurk".to_string(), "nil".to_string()])
     }
 
     pub fn lurk_sym(name: &str) -> Symbol {
-        Symbol::Sym(vec!["LURK".to_string(), name.to_string()])
+        Symbol::Sym(vec!["lurk".to_string(), name.to_string()])
     }
 
     pub fn lurk_syms() -> Vec<Symbol> {
@@ -193,6 +193,7 @@ pub enum LurkSym {
     OpGth,
     OpLte,
     OpGte,
+    Dummy,
 }
 
 impl fmt::Display for LurkSym {
@@ -233,6 +234,7 @@ impl fmt::Display for LurkSym {
             Self::OpGth => write!(f, ">"),
             Self::OpLte => write!(f, "<="),
             Self::OpGte => write!(f, ">="),
+            Self::Dummy => write!(f, "_"),
         }
     }
 }
@@ -273,6 +275,7 @@ pub const LURK_SYMBOLS: &[LurkSym] = &[
     LurkSym::OpGth,
     LurkSym::OpLte,
     LurkSym::OpGte,
+    LurkSym::Dummy,
 ];
 
 #[cfg(test)]

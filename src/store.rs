@@ -2353,7 +2353,7 @@ pub mod test {
     fn empty_str_fetch_aux(hydrate: bool) {
         let s = &mut Store::<Fr>::default();
 
-        let str = s.intern_string(r#" "" "#);
+        let str = s.intern_string("");
 
         // Unless the cache is hydrated, the inner destructuring will not map the ZExprPtr to corresponding Ptr.
         if hydrate {

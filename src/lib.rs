@@ -15,7 +15,6 @@ pub mod field;
 pub mod hash;
 pub mod hash_witness;
 //pub mod package;
-pub mod lurk_sym;
 pub mod parser;
 pub mod proof;
 pub mod ptr;
