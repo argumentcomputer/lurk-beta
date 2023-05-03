@@ -1220,6 +1220,7 @@ impl<F: LurkField> Store<F> {
             if let Some(z_store) = z_store {
                 z_store.borrow_mut().expr_map.insert(z_ptr, z_expr.clone());
             };
+            self.z_expr_ptr_map.insert(z_ptr, Box::new(*ptr));
             Ok((z_ptr, z_expr))
         }
     }
