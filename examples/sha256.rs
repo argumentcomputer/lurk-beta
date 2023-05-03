@@ -11,11 +11,13 @@ use bellperson::gadgets::sha256::sha256;
 use bellperson::{ConstraintSystem, SynthesisError};
 use itertools::enumerate;
 use lurk::circuit::gadgets::data::GlobalAllocations;
-use lurk::proof::nova::{public_params, NovaProver};
+use lurk::proof::nova::NovaProver;
+use lurk::public_parameters::public_params;
 // use bellperson::gadgets::Assignment;
 use lurk::tag::{ExprTag, Tag};
 use lurk_macros::Coproc;
 use pasta_curves::pallas::Scalar as Fr;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
@@ -32,7 +34,7 @@ use lurk::sym::Sym;
 
 const REDUCTION_COUNT: usize = 10;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Sha256Coprocessor<F: LurkField> {
     n: usize,
     pub(crate) _p: PhantomData<F>,
@@ -127,7 +129,7 @@ impl<F: LurkField> Sha256Coprocessor<F> {
     }
 }
 
-#[derive(Clone, Debug, Coproc)]
+#[derive(Clone, Debug, Coproc, Serialize, Deserialize)]
 enum Sha256Coproc<F: LurkField> {
     SC(Sha256Coprocessor<F>),
 }
@@ -170,7 +172,7 @@ fn main() {
     println!("Setting up public parameters...");
 
     let pp_start = Instant::now();
-    let pp = public_params(REDUCTION_COUNT, lang_rc.clone());
+    let pp = public_params::<Sha256Coproc<Fr>>(REDUCTION_COUNT, lang_rc.clone()).unwrap();
     let pp_end = pp_start.elapsed();
 
     println!("Public parameters took {:?}", pp_end);
