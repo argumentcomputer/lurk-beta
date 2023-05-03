@@ -1815,7 +1815,6 @@ impl<F: LurkField> ZStore<F> {
 
 #[cfg(test)]
 pub mod test {
-    use crate::{num, list, symbol};
     use crate::writer::Write;
     use crate::{
         eval::{
@@ -1824,8 +1823,8 @@ pub mod test {
             Evaluator,
         },
         parser::position::Pos,
-        syntax::Syntax,
     };
+    use crate::{list, num, str, symbol};
 
     use blstrs::Scalar as Fr;
 
@@ -2311,7 +2310,7 @@ pub mod test {
     fn str_car_cdr_hashes() {
         let s = &mut Store::<Fr>::default();
 
-        let str = s.read(r#" "ORANGE" "#).unwrap();
+        let str = s.intern_syntax(str!(Fr, "ORANGE"));
         let str2 = s.cdr(&str).unwrap();
         let c = s.car(&str).unwrap();
 
