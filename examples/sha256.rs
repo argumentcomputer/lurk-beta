@@ -1,27 +1,28 @@
 use std::env;
 use std::marker::PhantomData;
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::Instant;
 
 // use bellperson::gadgets::multipack;
+use bellperson::gadgets::boolean::{AllocatedBit, Boolean};
+use bellperson::gadgets::num::AllocatedNum;
+use bellperson::gadgets::num::Num as BNum;
 use bellperson::gadgets::sha256::sha256;
 use bellperson::{ConstraintSystem, SynthesisError};
-use bellperson::gadgets::num::AllocatedNum;
-use bellperson::gadgets::boolean::{Boolean, AllocatedBit};
-use bellperson::gadgets::num::Num as BNum;
 use itertools::enumerate;
 use lurk::circuit::gadgets::data::GlobalAllocations;
-use lurk::proof::nova::{NovaProver, public_params};
+use lurk::proof::nova::{public_params, NovaProver};
 // use bellperson::gadgets::Assignment;
 use lurk::tag::{ExprTag, Tag};
 use lurk_macros::Coproc;
 use pasta_curves::pallas::Scalar as Fr;
 use sha2::{Digest, Sha256};
 
-use lurk::proof::Prover;
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use lurk::coprocessor::{CoCircuit, Coprocessor};
-use lurk::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
+use lurk::eval::{empty_sym_env, lang::Lang};
 use lurk::field::LurkField;
+use lurk::proof::Prover;
 // use lurk::num::Num;
 use lurk::ptr::Ptr;
 use lurk::store::Store;
@@ -51,25 +52,35 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        
         // TODO: Maybe fix this
         let false_bool = Boolean::from(AllocatedBit::alloc(cs.namespace(|| "false"), Some(false))?);
-        
+
         let preimage = vec![false_bool; self.n * 8];
 
         let mut bits = sha256(cs.namespace(|| "SHAhash"), &preimage)?;
 
         bits.reverse();
 
-
-        let nums: Vec<AllocatedPtr<F>> = (0..4).map(
-            |i| make_u64_from_bits(cs.namespace(|| format!("num{i}")), &bits [(64 * i) .. (64 * (i + 1))]).unwrap()
-        ).collect();
+        let nums: Vec<AllocatedPtr<F>> = (0..4)
+            .map(|i| {
+                make_u64_from_bits(
+                    cs.namespace(|| format!("num{i}")),
+                    &bits[(64 * i)..(64 * (i + 1))],
+                )
+                .unwrap()
+            })
+            .collect();
 
         let mut result_ptr: AllocatedPtr<F> = g.nil_ptr.clone();
 
         for (i, num) in enumerate(nums) {
-            result_ptr = AllocatedPtr::construct_cons(cs.namespace(|| format!("limb_{i}")), g, store, &num, &result_ptr.clone())?
+            result_ptr = AllocatedPtr::construct_cons(
+                cs.namespace(|| format!("limb_{i}")),
+                g,
+                store,
+                &num,
+                &result_ptr.clone(),
+            )?
         }
 
         Ok((result_ptr, input_env.clone(), input_cont.clone()))
@@ -103,7 +114,7 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         let d = u64::from_be_bytes(array);
 
         // println!("{} {} {} {}", a, b, c, d);
-        return s.list(&[a, b, c, d].map(|x| s.get_u64(x)));
+        s.list(&[a, b, c, d].map(|x| s.get_u64(x)))
     }
 }
 
@@ -134,7 +145,7 @@ fn main() {
 
     let store = &mut Store::<Fr>::new();
     let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
-    let sym_str = format!(".sha256.hash-{}-zero-bytes", input_size).to_string();
+    let sym_str = format!(".sha256.hash-{}-zero-bytes", input_size);
     let name = Sym::new(sym_str.clone());
     let coprocessor: Sha256Coprocessor<Fr> = Sha256Coprocessor::<Fr>::new(input_size);
     let coproc = Sha256Coproc::SC(coprocessor);
@@ -143,22 +154,23 @@ fn main() {
 
     let coproc_expr = format!("({})", sym_str);
 
-    let mut u: [u64;4] = [0u64; 4];
-    
+    let mut u: [u64; 4] = [0u64; 4];
+
     for i in 0..4 {
-        u[i] = u64::from_be_bytes(expect[(i * 8) .. (i + 1) * 8].try_into().unwrap())
+        u[i] = u64::from_be_bytes(expect[(i * 8)..(i + 1) * 8].try_into().unwrap())
     }
     let result_expr = format!("({}u64 {}u64 {}u64 {}u64)", u[0], u[1], u[2], u[3]);
 
     let expr = format!("(emit (eq {coproc_expr} (quote {result_expr})))");
     let ptr = store.read(&expr).unwrap();
-    
+
     let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang.clone());
+    let lang_rc = Arc::new(lang);
 
     println!("Setting up public parameters...");
 
     let pp_start = Instant::now();
-    let pp = public_params(REDUCTION_COUNT, &lang);
+    let pp = public_params(REDUCTION_COUNT, lang_rc.clone());
     let pp_end = pp_start.elapsed();
 
     println!("Public parameters took {:?}", pp_end);
@@ -166,28 +178,36 @@ fn main() {
     println!("Beginning proof step...");
 
     let proof_start = Instant::now();
-    let (proof, z0, zi, num_steps) = nova_prover.evaluate_and_prove(&pp, ptr, empty_sym_env(store), store, 10000, &lang).unwrap();
+    let (proof, z0, zi, num_steps) = nova_prover
+        .evaluate_and_prove(&pp, ptr, empty_sym_env(store), store, 10000, lang_rc)
+        .unwrap();
     let proof_end = proof_start.elapsed();
 
     println!("Proofs took {:?}", proof_end);
-    
+
     println!("Verifying proof...");
 
     let verify_start = Instant::now();
-    let res = proof.verify(&pp, num_steps, z0.clone(), &zi).unwrap();
+    let res = proof.verify(&pp, num_steps, z0, &zi).unwrap();
     let verify_end = verify_start.elapsed();
 
     println!("Verify took {:?}", verify_end);
-    
+
     if res {
-        println!("Congratulations! You proved and verified a SHA256 hash calculation in {:?} time!", pp_end + proof_end + verify_end);
+        println!(
+            "Congratulations! You proved and verified a SHA256 hash calculation in {:?} time!",
+            pp_end + proof_end + verify_end
+        );
     }
 }
 
-fn make_u64_from_bits<F, CS>(mut cs: CS, bits: &[Boolean]) -> Result<AllocatedPtr<F>, SynthesisError>
+fn make_u64_from_bits<F, CS>(
+    mut cs: CS,
+    bits: &[Boolean],
+) -> Result<AllocatedPtr<F>, SynthesisError>
 where
     F: LurkField,
-    CS: ConstraintSystem<F>
+    CS: ConstraintSystem<F>,
 {
     let mut num = BNum::<F>::zero();
     let mut coeff = F::one();
@@ -198,7 +218,9 @@ where
         coeff = coeff.double();
     }
 
-    let allocated_num = AllocatedNum::alloc(&mut cs.namespace(|| "chunk"), || num.get_value().ok_or(SynthesisError::AssignmentMissing))?;
+    let allocated_num = AllocatedNum::alloc(&mut cs.namespace(|| "chunk"), || {
+        num.get_value().ok_or(SynthesisError::AssignmentMissing)
+    })?;
     // num * 1 = input
     cs.enforce(
         || "packing constraint",

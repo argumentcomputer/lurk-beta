@@ -2564,7 +2564,7 @@ pub(crate) mod coproc {
     use super::super::lang::Lang;
     use super::super::*;
     use super::*;
-    use crate::coprocessor::{test::DumbCoprocessor};
+    use crate::coprocessor::test::DumbCoprocessor;
     use crate::store::Store;
     use crate::sym::Sym;
 
@@ -2573,7 +2573,6 @@ pub(crate) mod coproc {
         DC(DumbCoprocessor<F>),
     }
 
-        
     #[test]
     fn test_dumb_lang() {
         let s = &mut Store::<Fr>::new();

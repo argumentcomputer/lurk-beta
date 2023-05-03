@@ -94,10 +94,11 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         for coprocessor in &self.coprocessors {
             let name = match coprocessor.0 {
                 Sym::Sym(sym) => &sym.path,
-                Sym::Key(sym) => &sym.path
-            }.join("-");
+                Sym::Key(sym) => &sym.path,
+            }
+            .join("-");
 
-            key = key + name.as_str()
+            key += name.as_str()
         }
         key
     }

@@ -2,12 +2,12 @@ use std::fmt::Debug;
 
 use bellperson::{ConstraintSystem, SynthesisError};
 
+use crate::circuit::gadgets::data::GlobalAllocations;
 use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::eval::IO;
 use crate::field::LurkField;
 use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
-use crate::circuit::gadgets::data::GlobalAllocations;
 
 /// `Coprocessor` is a trait that represents a generalized interface for coprocessors.
 /// Coprocessors augment the Lurk circuit and evaluation with additional built-in functionality.
@@ -82,13 +82,15 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
 
 #[cfg(test)]
 pub(crate) mod test {
+    use serde::{Deserialize, Serialize};
+
     use super::*;
     use crate::circuit::gadgets::constraints::{add, mul};
     use crate::tag::{ExprTag, Tag};
     use std::marker::PhantomData;
 
     /// A dumb Coprocessor for testing.
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Serialize, Deserialize)]
     pub(crate) struct DumbCoprocessor<F: LurkField> {
         pub(crate) _p: PhantomData<F>,
     }

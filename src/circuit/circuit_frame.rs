@@ -39,6 +39,7 @@ use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use num_bigint::BigUint;
 use num_integer::Integer;
 use num_traits::FromPrimitive;
+use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug)]
 pub struct CircuitFrame<'a, F: LurkField, T, W, C: Coprocessor<F>> {
@@ -52,7 +53,7 @@ pub struct CircuitFrame<'a, F: LurkField, T, W, C: Coprocessor<F>> {
 #[derive(Clone)]
 pub struct MultiFrame<'a, F: LurkField, T: Copy, W, C: Coprocessor<F>> {
     pub store: Option<&'a Store<F>>,
-    pub lang: Option<&'a Lang<F, C>>,
+    pub lang: Option<Arc<Lang<F, C>>>,
     pub input: Option<T>,
     pub output: Option<T>,
     pub frames: Option<Vec<CircuitFrame<'a, F, T, W, C>>>,
@@ -84,7 +85,7 @@ impl<'a, F: LurkField, T: Clone + Copy, W: Copy, C: Coprocessor<F>> CircuitFrame
 impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coprocessor<F>>
     MultiFrame<'a, F, T, W, C>
 {
-    pub fn blank(count: usize, lang: &'a Lang<F, C>) -> Self {
+    pub fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self {
         Self {
             store: None,
             lang: Some(lang),
@@ -103,7 +104,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
         count: usize,
         frames: &[Frame<T, W, C>],
         store: &'a Store<F>,
-        lang: &'a Lang<F, C>,
+        lang: Arc<Lang<F, C>>,
     ) -> Vec<Self> {
         // `count` is the number of `Frames` to include per `MultiFrame`.
         let total_frames = frames.len();
@@ -134,7 +135,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
 
             let mf = MultiFrame {
                 store: Some(store),
-                lang: Some(lang),
+                lang: Some(lang.clone()),
                 input: Some(chunk[0].input),
                 output: Some(output),
                 frames: Some(inner_frames),
@@ -152,7 +153,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
         count: usize,
         circuit_frame: Option<CircuitFrame<'a, F, T, W, C>>,
         store: &'a Store<F>,
-        lang: &'a Lang<F, C>,
+        lang: Arc<Lang<F, C>>,
     ) -> Self {
         let (frames, input, output) = if let Some(circuit_frame) = circuit_frame {
             (
@@ -223,7 +224,13 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
                 (
                     i + 1,
                     frame
-                        .synthesize(cs, i, allocated_io, self.lang.expect("Lang missing"), g)
+                        .synthesize(
+                            cs,
+                            i,
+                            allocated_io,
+                            self.lang.as_ref().expect("Lang missing"),
+                            g,
+                        )
                         .unwrap(),
                 )
             });
@@ -5345,16 +5352,17 @@ mod tests {
             env,
             cont: store.intern_cont_outermost(),
         };
-        let lang = Lang::<Fr, Coproc<Fr>>::new();
+        let raw_lang = Lang::<Fr, Coproc<Fr>>::new();
+        let lang = Arc::new(raw_lang.clone());
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
 
         let public_params = Groth16Prover::<Bls12, Coproc<Fr>, Fr>::create_groth_params(
             DEFAULT_REDUCTION_COUNT,
-            &lang,
+            lang.clone(),
         )
         .unwrap();
         let groth_prover =
-            Groth16Prover::<Bls12, Coproc<Fr>, Fr>::new(DEFAULT_REDUCTION_COUNT, lang.clone());
+            Groth16Prover::<Bls12, Coproc<Fr>, Fr>::new(DEFAULT_REDUCTION_COUNT, raw_lang);
         let groth_params = &public_params.0;
 
         let vk = &groth_params.vk;
@@ -5367,7 +5375,7 @@ mod tests {
             let mut cs_blank = MetricCS::<Fr>::new();
             let blank_multiframe = MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::blank(
                 DEFAULT_REDUCTION_COUNT,
-                &lang,
+                lang.clone(),
             );
 
             blank_multiframe
@@ -5384,7 +5392,7 @@ mod tests {
                     _p: Default::default(),
                 }],
                 store,
-                &lang,
+                lang.clone(),
             );
 
             let multiframe = &multiframes[0];
@@ -5481,7 +5489,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let lang = Lang::<Fr, Coproc<Fr>>::new();
+        let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
         store.hydrate_scalar_cache();
 
@@ -5500,7 +5508,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                &lang,
+                lang.clone(),
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5562,7 +5570,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let lang = Lang::<Fr, Coproc<Fr>>::new();
+        let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
         store.hydrate_scalar_cache();
 
@@ -5581,7 +5589,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                &lang,
+                lang.clone(),
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5643,7 +5651,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let lang = Lang::<Fr, Coproc<Fr>>::new();
+        let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
 
         store.hydrate_scalar_cache();
@@ -5663,7 +5671,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                &lang,
+                lang.clone(),
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5726,7 +5734,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let lang = Lang::<Fr, Coproc<Fr>>::new();
+        let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
 
         store.hydrate_scalar_cache();
@@ -5746,7 +5754,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                &lang,
+                lang.clone(),
             )[0]
             .clone()
             .synthesize(&mut cs)

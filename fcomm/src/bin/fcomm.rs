@@ -4,6 +4,7 @@ use std::env;
 use std::fs::read_to_string;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use hex::FromHex;
 use serde::de::DeserializeOwned;
@@ -218,8 +219,9 @@ impl Open {
 
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
-        let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lurk::public_parameters::lang().clone());
-        let pp = public_params(rc.count()).unwrap();
+        let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
+        let lang_rc = Arc::new(lang.clone());
+        let pp = public_params(rc.count(), lang_rc).unwrap();
         let function_map = committed_expression_store();
 
         let handle_proof = |out_path, proof: Proof<S1>| {
@@ -231,13 +233,15 @@ impl Open {
 
         let handle_claim = |claim: Claim<S1>| serde_json::to_writer(io::stdout(), &claim);
 
+        let lang_rc = Arc::new(lang.clone());
         if let Some(request_path) = &self.request {
             assert!(!self.chain, "chain and request may not both be specified");
             let request = opening_request(request_path).expect("failed to read opening request");
 
             if let Some(out_path) = &self.proof {
                 let proof =
-                    Opening::open_and_prove(s, request, limit, false, &prover, &pp, lang).unwrap();
+                    Opening::open_and_prove(s, request, limit, false, &prover, &pp, lang_rc)
+                        .unwrap();
 
                 handle_proof(out_path, proof);
             } else {
@@ -275,10 +279,11 @@ impl Open {
 
             let input_path = self.input.as_ref().expect("input missing");
             let input = input(s, input_path, eval_input, limit, self.quote_input, lang).unwrap();
+            let lang_rc = Arc::new(lang.clone());
 
             if let Some(out_path) = &self.proof {
                 let proof = Opening::apply_and_prove(
-                    s, input, function, limit, self.chain, false, &prover, &pp, lang,
+                    s, input, function, limit, self.chain, false, &prover, &pp, lang_rc,
                 )
                 .unwrap();
 
@@ -316,8 +321,9 @@ impl Prove {
     fn prove(&self, limit: usize, lang: &Lang<S1, Coproc<S1>>) {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
-        let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lurk::public_parameters::lang().clone());
-        let pp = public_params(rc.count()).unwrap();
+        let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
+        let lang_rc = Arc::new(lang.clone());
+        let pp = public_params(rc.count(), lang_rc.clone()).unwrap();
 
         let proof = match &self.claim {
             Some(claim) => {
@@ -332,7 +338,7 @@ impl Prove {
                     false,
                     &prover,
                     &pp,
-                    lang,
+                    lang_rc,
                 )
                 .unwrap()
             }
@@ -347,7 +353,7 @@ impl Prove {
                 )
                 .unwrap();
 
-                Proof::eval_and_prove(s, expr, None, limit, false, &prover, &pp, lang).unwrap()
+                Proof::eval_and_prove(s, expr, None, limit, false, &prover, &pp, lang_rc).unwrap()
             }
         };
 
@@ -362,7 +368,8 @@ impl Prove {
 impl Verify {
     fn verify(&self, cli_error: bool, lang: &Lang<S1, Coproc<S1>>) {
         let proof = proof(Some(&self.proof)).unwrap();
-        let pp = public_params(proof.reduction_count.count()).unwrap();
+        let lang_rc = Arc::new(lang.clone());
+        let pp = public_params(proof.reduction_count.count(), lang_rc).unwrap();
         let result = proof.verify(&pp, lang).unwrap();
 
         serde_json::to_writer(io::stdout(), &result).unwrap();
