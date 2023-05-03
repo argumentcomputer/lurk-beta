@@ -1824,7 +1824,7 @@ pub mod test {
         },
         parser::position::Pos,
     };
-    use crate::{list, num, str, symbol};
+    use crate::{list, num, symbol};
 
     use blstrs::Scalar as Fr;
 
@@ -2310,7 +2310,7 @@ pub mod test {
     fn str_car_cdr_hashes() {
         let s = &mut Store::<Fr>::default();
 
-        let str = s.intern_syntax(str!(Fr, "ORANGE"));
+        let str = s.intern_string("ORANGE");
         let str2 = s.cdr(&str).unwrap();
         let c = s.car(&str).unwrap();
 
@@ -2325,7 +2325,7 @@ pub mod test {
     fn str_inner_fetch_aux(str: &str, hydrate: bool) {
         let s = &mut Store::<Fr>::default();
 
-        let str = s.read(str).unwrap();
+        let str = s.intern_string(str);
         let str2 = s.cdr(&str).unwrap();
 
         // Unless the cache is hydrated, the inner destructuring will not map the ZExprPtr to corresponding Ptr.
@@ -2353,7 +2353,7 @@ pub mod test {
     fn empty_str_fetch_aux(hydrate: bool) {
         let s = &mut Store::<Fr>::default();
 
-        let str = s.read(r#" "" "#).unwrap();
+        let str = s.intern_string(r#" "" "#);
 
         // Unless the cache is hydrated, the inner destructuring will not map the ZExprPtr to corresponding Ptr.
         if hydrate {
