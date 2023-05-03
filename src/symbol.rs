@@ -11,45 +11,6 @@ pub const SYM_SEPARATOR: char = '.';
 pub const SYM_MARKER: char = '.';
 pub const ESCAPE_CHARS: &'static str = "(){}[]=,.:";
 
-pub const LURK_SYMBOL_NAMES: &[&str] = &[
-    "atom",
-    "begin",
-    "car",
-    "cdr",
-    "char",
-    "comm",
-    "commit",
-    "cons",
-    "current-env",
-    "emit",
-    "eval",
-    "eq",
-    "hide",
-    "if",
-    "lambda",
-    "let",
-    "letrec",
-    "nil",
-    "num",
-    "u64",
-    "open",
-    "quote",
-    "secret",
-    "strcons",
-    "t",
-    "_",
-    "+",
-    "-",
-    "*",
-    "/",
-    "%",
-    "=",
-    "<",
-    ">",
-    "<=",
-    ">=",
-];
-
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 /// Type for hierarchical symbol names
@@ -122,8 +83,8 @@ impl Symbol {
 
     pub fn lurk_syms() -> Vec<Symbol> {
         let mut vec = Vec::new();
-        for name in LURK_SYMBOL_NAMES {
-            vec.push(Self::lurk_sym(name))
+        for lurksym in LURK_SYMBOLS {
+            vec.push(Self::lurk_sym(&format!("{}", lurksym)))
         }
         vec
     }
@@ -193,6 +154,126 @@ impl fmt::Display for Symbol {
         }
     }
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+pub enum LurkSym {
+    Atom,
+    Begin,
+    Car,
+    Cdr,
+    Char,
+    Comm,
+    Commit,
+    Cons,
+    CurrentEnv,
+    Emit,
+    Eval,
+    Eq,
+    Hide,
+    If,
+    Lambda,
+    Let,
+    Letrec,
+    Nil,
+    Num,
+    U64,
+    Open,
+    Quote,
+    Secret,
+    Strcons,
+    T,
+    OpAdd,
+    OpSub,
+    OpMul,
+    OpDiv,
+    OpMod,
+    OpEql,
+    OpLth,
+    OpGth,
+    OpLte,
+    OpGte,
+}
+
+impl fmt::Display for LurkSym {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Atom => write!(f, "atom"),
+            Self::Begin => write!(f, "begin"),
+            Self::Car => write!(f, "car"),
+            Self::Cdr => write!(f, "cdr"),
+            Self::Char => write!(f, "char"),
+            Self::Comm => write!(f, "comm"),
+            Self::Commit => write!(f, "commit"),
+            Self::Cons => write!(f, "cons"),
+            Self::CurrentEnv => write!(f, "current-env"),
+            Self::Emit => write!(f, "emit"),
+            Self::Eval => write!(f, "eval"),
+            Self::Eq => write!(f, "eq"),
+            Self::Hide => write!(f, "hide"),
+            Self::If => write!(f, "if"),
+            Self::Lambda => write!(f, "lambda"),
+            Self::Let => write!(f, "let"),
+            Self::Letrec => write!(f, "letrec"),
+            Self::Nil => write!(f, "nil"),
+            Self::Num => write!(f, "num"),
+            Self::U64 => write!(f, "u64"),
+            Self::Open => write!(f, "open"),
+            Self::Quote => write!(f, "quote"),
+            Self::Secret => write!(f, "secret"),
+            Self::Strcons => write!(f, "strcons"),
+            Self::T => write!(f, "t"),
+            Self::OpAdd => write!(f, "+"),
+            Self::OpSub => write!(f, "-"),
+            Self::OpMul => write!(f, "*"),
+            Self::OpDiv => write!(f, "/"),
+            Self::OpMod => write!(f, "%"),
+            Self::OpEql => write!(f, "="),
+            Self::OpLth => write!(f, "<"),
+            Self::OpGth => write!(f, ">"),
+            Self::OpLte => write!(f, "<="),
+            Self::OpGte => write!(f, ">="),
+        }
+    }
+}
+
+pub const LURK_SYMBOLS: &[LurkSym] = &[
+    LurkSym::Atom,
+    LurkSym::Begin,
+    LurkSym::Car,
+    LurkSym::Cdr,
+    LurkSym::Char,
+    LurkSym::Comm,
+    LurkSym::Commit,
+    LurkSym::Cons,
+    LurkSym::CurrentEnv,
+    LurkSym::Emit,
+    LurkSym::Eval,
+    LurkSym::Eq,
+    LurkSym::Hide,
+    LurkSym::If,
+    LurkSym::Lambda,
+    LurkSym::Let,
+    LurkSym::Letrec,
+    LurkSym::Nil,
+    LurkSym::Num,
+    LurkSym::U64,
+    LurkSym::Open,
+    LurkSym::Quote,
+    LurkSym::Secret,
+    LurkSym::Strcons,
+    LurkSym::T,
+    LurkSym::OpAdd,
+    LurkSym::OpSub,
+    LurkSym::OpMul,
+    LurkSym::OpDiv,
+    LurkSym::OpMod,
+    LurkSym::OpEql,
+    LurkSym::OpLth,
+    LurkSym::OpGth,
+    LurkSym::OpLte,
+    LurkSym::OpGte,
+];
 
 #[cfg(test)]
 pub mod test {
