@@ -7,10 +7,10 @@ use crate::symbol::Symbol;
 use crate::uint::UInt;
 use thiserror;
 
-//pub mod base;
-//pub mod error;
+pub mod base;
+pub mod error;
 pub mod position;
-//pub mod string;
+pub mod string;
 //pub mod syntax;
 
 type Span<'a> = nom_locate::LocatedSpan<&'a str>;

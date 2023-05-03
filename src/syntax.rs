@@ -1,11 +1,12 @@
 use std::fmt;
 
+use crate::expr::Expression;
 use crate::field::LurkField;
 use crate::num::Num;
 use crate::parser::position::Pos;
 use crate::ptr::Ptr;
 use crate::store::Store;
-use crate::symbol::Symbol;
+use crate::symbol::{LurkSym, Symbol};
 use crate::uint::UInt;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -19,6 +20,8 @@ pub enum Syntax<F: LurkField> {
     UInt(Pos, UInt),
     // A hierarchical symbol foo, foo.bar.baz or keyword :foo
     Symbol(Pos, Symbol),
+    // A hierarchical symbol foo, foo.bar.baz or keyword :foo
+    LurkSym(Pos, LurkSym),
     // A string literal: "foobar", "foo\nbar"
     String(Pos, String),
     // A character literal: #\A #\λ #\u03BB
@@ -41,6 +44,7 @@ impl<Fr: LurkField> Arbitrary for Syntax<Fr> {
             any::<Num<Fr>>().prop_map(|x| Syntax::Num(Pos::No, x)),
             any::<UInt>().prop_map(|x| Syntax::UInt(Pos::No, x)),
             any::<Symbol>().prop_map(|x| Syntax::Symbol(Pos::No, x)),
+            any::<LurkSym>().prop_map(|x| Syntax::LurkSym(Pos::No, x)),
             any::<String>().prop_map(|x| Syntax::String(Pos::No, x)),
             any::<char>().prop_map(|x| Syntax::Char(Pos::No, x))
         ];
@@ -66,6 +70,7 @@ impl<F: LurkField> fmt::Display for Syntax<F> {
             Self::Num(_, x) => write!(f, "{}", x),
             Self::UInt(_, x) => write!(f, "{}", x),
             Self::Symbol(_, sym) => write!(f, "{}", sym),
+            Self::LurkSym(_, sym) => write!(f, "{}", sym),
             Self::String(_, x) => write!(f, "\"{}\"", x.escape_default()),
             Self::Char(_, x) => write!(f, "#\\{}", x.escape_default()),
             Self::Quote(_, x) => write!(f, "'{}", x),
@@ -102,6 +107,7 @@ impl<F: LurkField> Store<F> {
             Syntax::UInt(_, x) => self.intern_uint(x),
             Syntax::Char(_, x) => self.intern_char(x),
             Syntax::Symbol(_, x) => self.intern_symbol(x),
+            Syntax::LurkSym(_, _x) => todo!(),
             Syntax::String(_, x) => self.intern_string(x),
             Syntax::Quote(pos, x) => {
                 let xs = vec![Syntax::Symbol(pos, Symbol::lurk_sym("quote")), *x];
@@ -125,6 +131,17 @@ impl<F: LurkField> Store<F> {
             }
         }
     }
+
+    //pub fn fetch_syntax_list(&mut self, ptr: Ptr<F>) -> Option<Syntax<F>> {
+    //    let mut list = vec![];
+    //    let mut ptr = ptr;
+
+    //    while let Expression::Cons(car, cdr) = self.get_expr(ptr)? {
+    //        list.push(self.fetch_syntax(car)?);
+    //        ptr = cdr;
+    //    }
+    //    Ok(Syntax::List(Pos::No, list, Box::new(self.get_syn(cid)?)))
+    //}
 
     pub fn fetch_syntax(&mut self, ptr: Ptr<F>) -> Option<Syntax<F>> {
         todo!()
