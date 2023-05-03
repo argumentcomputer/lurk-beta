@@ -751,7 +751,7 @@ impl<F: LurkField> Store<F> {
                 .fetch_symcons(ptr)
                 .map(|(car, cdr)| Expression::SymCons(car, cdr)),
             ExprTag::Key => Some(Expression::Key(Ptr {
-                tag: ExprTag::Key,
+                tag: ExprTag::Sym,
                 raw: ptr.raw,
                 _f: ptr._f,
             })),
@@ -1970,8 +1970,8 @@ pub mod test {
         let opaque_fun = store.intern_opaque_fun(*fun_hash.value());
         let opaque_fun2 = store.intern_opaque_fun(*fun_hash2.value());
 
-        let eq = store.sym("eq");
-        let t = store.sym("t");
+        let eq = store.lurk_sym("eq");
+        let t = store.lurk_sym("t");
         let nil = store.nil();
         let limit = 10;
         let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
@@ -2006,7 +2006,7 @@ pub mod test {
             // without this affecting equality semantics.
 
             let n = store.num(123);
-            let cons = store.sym("cons");
+            let cons = store.lurk_sym("cons");
             let cons_expr1 = store.list(&[cons, fun, n]);
             let cons_expr2 = store.list(&[cons, opaque_fun, n]);
 
@@ -2031,14 +2031,14 @@ pub mod test {
         let opaque_sym = store.intern_opaque_sym(*sym_hash.value());
         let opaque_sym2 = store.intern_opaque_sym(*sym_hash2.value());
 
-        let quote = store.sym("quote");
+        let quote = store.lurk_sym("quote");
         let qsym = store.list(&[quote, sym]);
         let qsym2 = store.list(&[quote, sym2]);
         let qsym_opaque = store.list(&[quote, opaque_sym]);
         let qsym_opaque2 = store.list(&[quote, opaque_sym2]);
 
-        let eq = store.sym("eq");
-        let t = store.sym("t");
+        let eq = store.lurk_sym("eq");
+        let t = store.lurk_sym("t");
         let nil = store.nil();
         let limit = 10;
 
@@ -2135,11 +2135,11 @@ pub mod test {
         let opaque_cons = store.intern_opaque_cons(*cons_hash.value());
         let opaque_cons2 = store.intern_opaque_cons(*cons_hash2.value());
 
-        let eq = store.sym("eq");
-        let t = store.sym("t");
+        let eq = store.lurk_sym("eq");
+        let t = store.lurk_sym("t");
         let nil = store.nil();
         let limit = 10;
-        let quote = store.sym("quote");
+        let quote = store.lurk_sym("quote");
         let qcons = store.list(&[quote, cons]);
         let qcons2 = store.list(&[quote, cons2]);
         let qcons_opaque = store.list(&[quote, opaque_cons]);
@@ -2184,7 +2184,7 @@ pub mod test {
 
             let n = store.num(123);
             let n2 = store.num(321);
-            let cons_sym = store.sym("cons");
+            let cons_sym = store.lurk_sym("cons");
             let cons_expr1 = store.list(&[cons_sym, qcons, n]);
             let cons_expr2 = store.list(&[cons_sym, qcons_opaque, n]);
             let cons_expr3 = store.list(&[cons_sym, qcons_opaque, n2]);
@@ -2255,26 +2255,21 @@ pub mod test {
         store.cdr(&opaque_cons).unwrap();
     }
 
-    //#[test]
-    //fn sym_and_key_hashes() {
-    //    let s = &mut Store::<Fr>::default();
+    #[test]
+    fn sym_and_key_hashes() {
+       let s = &mut Store::<Fr>::default();
 
-    //    let sym = s.root_sym("orange", false);
-    //    let key = s.key("orange");
+       let sym = s.sym("orange");
+       let key = s.key("orange");
 
-    //    let sym_ptr = s.hash_expr(&sym).unwrap();
-    //    let key_ptr = s.hash_expr(&key).unwrap();
-    //    let sym_hash = sym_ptr.1;
-    //    let key_hash = key_ptr.1;
+       let sym_ptr = s.hash_expr(&sym).unwrap();
+       let key_ptr = s.hash_expr(&key).unwrap();
+       let sym_hash = sym_ptr.1;
+       let key_hash = key_ptr.1;
 
-    //    let sym_expr = s.fetch_sym(&sym);
-    //    let key_expr = s.fetch_sym(&key);
-
-    //    dbg!(&sym_expr, &key_expr);
-
-    //    assert_eq!(sym_hash, key_hash);
-    //    assert!(sym_ptr != key_ptr);
-    //}
+       assert_eq!(sym_hash, key_hash);
+       assert!(sym_ptr != key_ptr);
+    }
 
     #[test]
     fn sym_in_list() {

@@ -83,8 +83,8 @@ impl Symbol {
 
     pub fn lurk_syms() -> Vec<Symbol> {
         let mut vec = Vec::new();
-        for lurksym in LURK_SYMBOLS {
-            vec.push(Self::lurk_sym(&format!("{}", lurksym)))
+        for lurk_sym in LURK_SYMBOLS {
+            vec.push(Self::lurk_sym(&format!("{}", lurk_sym)))
         }
         vec
     }
