@@ -178,37 +178,38 @@ fn eval_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-fn circuit_generation_benchmark(c: &mut Criterion) {
-    let mut group = c.benchmark_group("eval_benchmark");
-    group.measurement_time(Duration::from_secs(5))
-         .sample_size(60);
+// todo!(): come back to this later when we know what to do with circuit generation
+// fn circuit_generation_benchmark(c: &mut Criterion) {
+//     let mut group = c.benchmark_group("eval_benchmark");
+//     group.measurement_time(Duration::from_secs(5))
+//          .sample_size(60);
 
-    let limit = 1_000_000_000;
-    let _lang_bls = Lang::<Fr, Coproc<Fr>>::new();
-    let _lang_pallas = Lang::<pasta_curves::Fp, Coproc<pasta_curves::Fp>>::new();
-    let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
+//     let limit = 1_000_000_000;
+//     let _lang_bls = Lang::<Fr, Coproc<Fr>>::new();
+//     let _lang_pallas = Lang::<pasta_curves::Fp, Coproc<pasta_curves::Fp>>::new();
+//     let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
 
-    let reduction_count = DEFAULT_REDUCTION_COUNT;
+//     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
-    group.bench_function("circuit_generation_go_base_10_16_nova", |b| {
-        let mut store = Store::default();
-        let env = empty_sym_env(&store);
-        let ptr = go_base::<pasta_curves::Fq>(&mut store, black_box(10), black_box(16));
-        let prover = NovaProver::new(reduction_count, lang_vesta.clone());
+//     group.bench_function("circuit_generation_go_base_10_16_nova", |b| {
+//         let mut store = Store::default();
+//         let env = empty_sym_env(&store);
+//         let ptr = go_base::<pasta_curves::Fq>(&mut store, black_box(10), black_box(16));
+//         let prover = NovaProver::new(reduction_count, lang_vesta.clone());
 
-        let pp = fcomm::public_params(reduction_count).unwrap();
-        let frames = prover
-            .get_evaluation_frames(ptr, env, &mut store, limit, &lang_vesta)
-            .unwrap();
+//         let pp = fcomm::public_params(reduction_count).unwrap();
+//         let frames = prover
+//             .get_evaluation_frames(ptr, env, &mut store, limit, &lang_vesta)
+//             .unwrap();
 
-        b.iter(|| {
-            let result = prover
-                .prove(&pp, frames.clone(), &mut store, &lang_vesta)
-                .unwrap();
-            black_box(result);
-        })
-    });
-}
+//         b.iter(|| {
+//             let result = prover
+//                 .prove(&pp, frames.clone(), &mut store, &lang_vesta)
+//                 .unwrap();
+//             black_box(result);
+//         })
+//     });
+// }
 
 fn prove_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("prove_benchmark");
@@ -241,19 +242,55 @@ fn prove_benchmark(c: &mut Criterion) {
     });
 }
 
+fn verify_benchmark(c: &mut Criterion) {
+    let mut group = c.benchmark_group("verify_benchmark");
+    group.measurement_time(Duration::from_secs(5))
+         .sample_size(60);
+
+    let limit = 1_000_000_000;
+    let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
+    let mut store = Store::default();
+    let reduction_count = DEFAULT_REDUCTION_COUNT;
+
+    let sizes = vec![(10, 16), (10, 160)];
+    for size in sizes {
+        let parameter_string = format!("_{}_{}", size.0, size.1);
+        let benchmark_id = BenchmarkId::new("verify_go_base_nova", &parameter_string);
+        group.bench_with_input(benchmark_id, &size, |b, &s| {
+            let ptr = go_base(&mut store, s.0, s.1);
+            let prover = NovaProver::new(reduction_count, lang_vesta.clone());
+            let pp = fcomm::public_params(reduction_count).unwrap();
+            let frames = prover
+                .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_vesta)
+                .unwrap();
+            let proof = prover
+                .prove(&pp, frames.clone(), &mut store, &lang_vesta)
+                .unwrap();
+
+            b.iter(|| {
+                let result = proof.0.verify(&pp, proof.3, proof.1.clone(), &proof.2[..]).unwrap();
+                black_box(result);
+            })
+        });
+    }
+
+    group.finish();
+}
+
 cfg_if::cfg_if! {
     if #[cfg(feature = "flamegraph")] {
         criterion_group! {
             name = benches;
             config = Criterion::default()
-                .with_profiler(pprof::criterion::PProfProfiler::new(100, pprof::criterion::Output::Flamegraph(None)));
+                .with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
             targets =
                 end2end_benchmark,
                 store_benchmark,
                 hydration_benchmark,
                 eval_benchmark,
-                circuit_generation_benchmark,
-                prove_benchmark
+                // circuit_generation_benchmark,
+                prove_benchmark,
+                verify_benchmark
         }
     } else {
         criterion_group! {
@@ -264,8 +301,9 @@ cfg_if::cfg_if! {
                 store_benchmark,
                 hydration_benchmark,
                 eval_benchmark,
-                circuit_generation_benchmark,
-                prove_benchmark
+                // circuit_generation_benchmark,
+                prove_benchmark,
+                verify_benchmark
         }
     }
 }
