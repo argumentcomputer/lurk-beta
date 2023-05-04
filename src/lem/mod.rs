@@ -20,6 +20,8 @@ impl<'a> MetaPtr<'a> {
 
 #[derive(Clone)]
 pub enum OP<'a, F: LurkField> {
+    Set(MetaPtr<'a>, F, F),
+    Copy(MetaPtr<'a>, MetaPtr<'a>),
     HashFPtr(F, MetaPtr<'a>, F, MetaPtr<'a>),
     Hash2Ptrs(F, MetaPtr<'a>, [MetaPtr<'a>; 2]),
     Hash3Ptrs(F, MetaPtr<'a>, [MetaPtr<'a>; 3]),
@@ -125,9 +127,79 @@ impl<'a, F: LurkField + std::cmp::Ord + std::hash::Hash> LEM<'a, F> {
                     };
                     map.insert(dst.name(), dst_ptr);
                 }
+                OP::Hash2Ptrs(tag, dst, src) => {
+                    let src_ptr1 = map.get(src[0].name()).unwrap();
+                    let src_ptr2 = map.get(src[1].name()).unwrap();
+                    let (idx, _) = store.ptr2_store.insert_full((*src_ptr1, *src_ptr2));
+                    let dst_ptr = Ptr {
+                        tag: Tag::from_field(*tag).unwrap(),
+                        idx,
+                    };
+                    map.insert(dst.name(), dst_ptr);
+                }
+                OP::Hash3Ptrs(tag, dst, src) => {
+                    let src_ptr1 = map.get(src[0].name()).unwrap();
+                    let src_ptr2 = map.get(src[1].name()).unwrap();
+                    let src_ptr3 = map.get(src[2].name()).unwrap();
+                    let (idx, _) = store
+                        .ptr3_store
+                        .insert_full((*src_ptr1, *src_ptr2, *src_ptr3));
+                    let dst_ptr = Ptr {
+                        tag: Tag::from_field(*tag).unwrap(),
+                        idx,
+                    };
+                    map.insert(dst.name(), dst_ptr);
+                }
+                OP::Hash4Ptrs(tag, dst, src) => {
+                    let src_ptr1 = map.get(src[0].name()).unwrap();
+                    let src_ptr2 = map.get(src[1].name()).unwrap();
+                    let src_ptr3 = map.get(src[2].name()).unwrap();
+                    let src_ptr4 = map.get(src[3].name()).unwrap();
+                    let (idx, _) = store
+                        .ptr4_store
+                        .insert_full((*src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4));
+                    let dst_ptr = Ptr {
+                        tag: Tag::from_field(*tag).unwrap(),
+                        idx,
+                    };
+                    map.insert(dst.name(), dst_ptr);
+                }
                 OP::Seq(ops) => stack.extend(ops.iter().rev()),
                 _ => todo!(),
             }
         }
     }
+}
+
+pub fn step<'a, F: LurkField + std::cmp::Ord>() -> LEM<'a, F> {
+    let input = ["expr_in", "env_in", "cont_in"];
+    let output = ["expr_out", "env_out", "cont_out"];
+    let op = OP::MatchTag(
+        MetaPtr("expr_in"),
+        {
+            let mut match_map = BTreeMap::default();
+            match_map.insert(
+                Tag::Num.to_field(),
+                OP::MatchTag(
+                    MetaPtr("cont_in"),
+                    {
+                        let mut match_map = BTreeMap::default();
+                        match_map.insert(
+                            Tag::Outermost.to_field(),
+                            OP::Seq(vec![
+                                OP::Copy(MetaPtr("expr_out"), MetaPtr("expr_in")),
+                                OP::Copy(MetaPtr("env_out"), MetaPtr("env_in")),
+                                OP::Set(MetaPtr("cont_out"), Tag::Terminal.to_field(), F::zero()),
+                            ]),
+                        );
+                        match_map
+                    },
+                    Box::new(OP::Err("todo")),
+                ),
+            );
+            match_map
+        },
+        Box::new(OP::Err("todo")),
+    );
+    LEM { input, output, op }
 }

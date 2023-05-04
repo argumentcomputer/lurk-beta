@@ -14,6 +14,8 @@ pub enum Tag {
     Sym,
     Key,
     Thunk,
+    Outermost,
+    Terminal,
 }
 
 impl Tag {
