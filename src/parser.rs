@@ -1,17 +1,14 @@
-use peekmore::{PeekMore, PeekMoreIterator};
-
 use crate::field::LurkField;
 use crate::ptr::Ptr;
 use crate::store::Store;
-use crate::symbol::Symbol;
-use crate::uint::UInt;
+use peekmore::PeekMoreIterator;
 use thiserror;
 
 pub mod base;
 pub mod error;
 pub mod position;
 pub mod string;
-//pub mod syntax;
+pub mod syntax;
 
 type Span<'a> = nom_locate::LocatedSpan<&'a str>;
 
@@ -33,7 +30,7 @@ pub enum Error {
     Syntax(String),
 }
 impl<F: LurkField> Store<F> {
-    pub fn read(&mut self, input: &str) -> Result<Ptr<F>, Error> {
+    pub fn read(&mut self, _input: &str) -> Result<Ptr<F>, Error> {
         todo!()
         //let package = Default::default();
 
@@ -41,7 +38,7 @@ impl<F: LurkField> Store<F> {
     }
     pub fn read_maybe_meta<T: Iterator<Item = char>>(
         &mut self,
-        chars: &mut PeekMoreIterator<T>,
+        _chars: &mut PeekMoreIterator<T>,
     ) -> Result<(Ptr<F>, bool), Error> {
         todo!()
     }

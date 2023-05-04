@@ -5,7 +5,7 @@ use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
 use crate::symbol::Symbol;
 use crate::z_expr::ZExpr;
-use pasta_curves::pallas::Scalar as Fr;
+//use pasta_curves::pallas::Scalar as Fr;
 use std::io;
 
 pub trait Write<F: LurkField> {
@@ -48,9 +48,9 @@ impl<F: LurkField> Write<F> for ContPtr<F> {
 }
 
 fn write_symbol<F: LurkField, W: io::Write>(
-    w: &mut W,
-    store: &Store<F>,
-    sym: &Symbol,
+    _w: &mut W,
+    _store: &Store<F>,
+    _sym: &Symbol,
 ) -> io::Result<()> {
     todo!()
 }

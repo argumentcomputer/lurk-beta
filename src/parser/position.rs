@@ -17,7 +17,7 @@ pub enum Pos {
 }
 
 impl PartialEq for Pos {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, _other: &Self) -> bool {
         true
     }
 }
@@ -64,7 +64,7 @@ impl Pos {
     }
 
     /// Construct a position from the difference of two Spans
-    pub fn from_upto(from: Span, upto: Span) -> Self {
+    pub fn from_upto(from: Span<'_>, upto: Span<'_>) -> Self {
         Self::Pos {
             from_offset: from.location_offset(),
             from_line: from.location_line() as usize,
