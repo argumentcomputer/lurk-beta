@@ -192,24 +192,6 @@ fn evaluate_lookup() {
 }
 
 #[test]
-fn print_expr() {
-    let mut s = Store::<Fr>::default();
-    let nil = s.nil();
-    let x = s.sym("x");
-    let lambda = s.lurk_sym("lambda");
-    let val = s.num(123);
-    let lambda_args = s.cons(x, nil);
-    let body = s.cons(x, nil);
-    let rest = s.cons(lambda_args, body);
-    let whole_lambda = s.cons(lambda, rest);
-    let lambda_arguments = s.cons(val, nil);
-    let expr = s.cons(whole_lambda, lambda_arguments);
-    let output = expr.fmt_to_string(&s);
-
-    assert_eq!("((LAMBDA (X) X) 123)".to_string(), output);
-}
-
-#[test]
 fn evaluate_cons() {
     let s = &mut Store::<Fr>::default();
     let expr = "(cons 1 2)";

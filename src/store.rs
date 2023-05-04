@@ -102,8 +102,8 @@ impl<F: LurkField> Default for Store<F> {
             poseidon_cache: Default::default(),
             dehydrated: Default::default(),
             dehydrated_cont: Default::default(),
-            constants: Default::default(),
             symbol_cache: Default::default(),
+            constants: Default::default(),
         };
 
         for sym in Symbol::lurk_syms() {
@@ -2257,18 +2257,18 @@ pub mod test {
 
     #[test]
     fn sym_and_key_hashes() {
-       let s = &mut Store::<Fr>::default();
+        let s = &mut Store::<Fr>::default();
 
-       let sym = s.sym("orange");
-       let key = s.key("orange");
+        let sym = s.sym("orange");
+        let key = s.key("orange");
 
-       let sym_ptr = s.hash_expr(&sym).unwrap();
-       let key_ptr = s.hash_expr(&key).unwrap();
-       let sym_hash = sym_ptr.1;
-       let key_hash = key_ptr.1;
+        let sym_ptr = s.hash_expr(&sym).unwrap();
+        let key_ptr = s.hash_expr(&key).unwrap();
+        let sym_hash = sym_ptr.1;
+        let key_hash = key_ptr.1;
 
-       assert_eq!(sym_hash, key_hash);
-       assert!(sym_ptr != key_ptr);
+        assert_eq!(sym_hash, key_hash);
+        assert!(sym_ptr != key_ptr);
     }
 
     #[test]
