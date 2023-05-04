@@ -106,7 +106,7 @@ impl<F: LurkField> Default for Store<F> {
             constants: Default::default(),
         };
 
-        for sym in Symbol::lurk_syms() {
+        for (sym, _) in Symbol::lurk_syms() {
             store.intern_symbol(sym);
         }
 

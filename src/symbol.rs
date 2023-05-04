@@ -5,6 +5,7 @@ use crate::parser::whitespace;
 use proptest_derive::Arbitrary;
 /// Module for symbol type, Sym.
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 pub const KEYWORD_MARKER: char = ':';
 pub const SYM_SEPARATOR: char = '.';
@@ -81,12 +82,12 @@ impl Symbol {
         Symbol::Sym(vec!["lurk".to_string(), name.to_string()])
     }
 
-    pub fn lurk_syms() -> Vec<Symbol> {
-        let mut vec = Vec::new();
+    pub fn lurk_syms() -> HashMap<Symbol, LurkSym> {
+        let mut syms = HashMap::new();
         for lurk_sym in LURK_SYMBOLS {
-            vec.push(Self::lurk_sym(&format!("{}", lurk_sym)))
+            syms.insert(Self::lurk_sym(&format!("{}", lurk_sym)), *lurk_sym);
         }
-        vec
+        syms
     }
 
     pub fn is_whitespace(c: char) -> bool {
