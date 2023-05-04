@@ -20,7 +20,6 @@ pub mod lang;
 
 mod reduction;
 
-mod lem;
 #[cfg(test)]
 pub(crate) mod tests;
 
