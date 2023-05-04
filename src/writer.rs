@@ -5,7 +5,6 @@ use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
 use crate::symbol::Symbol;
 use crate::z_expr::ZExpr;
-//use pasta_curves::pallas::Scalar as Fr;
 use std::io;
 
 pub trait Write<F: LurkField> {
@@ -332,29 +331,35 @@ impl<F: LurkField> Write<F> for Continuation<F> {
     }
 }
 
-#[test]
-fn print_expr() {
-    let mut s = Store::<Fr>::default();
-    let nil = s.nil();
-    let x = s.sym("x");
-    let lambda = s.lurk_sym("lambda");
-    let val = s.num(123);
-    let lambda_args = s.cons(x, nil);
-    let body = s.cons(x, nil);
-    let rest = s.cons(lambda_args, body);
-    let whole_lambda = s.cons(lambda, rest);
-    let lambda_arguments = s.cons(val, nil);
-    let expr = s.cons(whole_lambda, lambda_arguments);
-    let output = expr.fmt_to_string(&s);
+#[cfg(test)]
+pub mod test {
+    use super::*;
+    use pasta_curves::pallas::Scalar as Fr;
 
-    assert_eq!("((lambda (x) x) 123)".to_string(), output);
-}
+    #[test]
+    fn print_expr() {
+        let mut s = Store::<Fr>::default();
+        let nil = s.nil();
+        let x = s.sym("x");
+        let lambda = s.lurk_sym("lambda");
+        let val = s.num(123);
+        let lambda_args = s.cons(x, nil);
+        let body = s.cons(x, nil);
+        let rest = s.cons(lambda_args, body);
+        let whole_lambda = s.cons(lambda, rest);
+        let lambda_arguments = s.cons(val, nil);
+        let expr = s.cons(whole_lambda, lambda_arguments);
+        let output = expr.fmt_to_string(&s);
 
-#[test]
-fn print_expr2() {
-    let mut s = Store::<Fr>::default();
-    let expr = s.intern_symbol_path(vec!["lurk".into(), "foo".into(), "bar".into()]);
-    let output = expr.fmt_to_string(&s);
+        assert_eq!("((lambda (x) x) 123)".to_string(), output);
+    }
 
-    assert_eq!("foo.bar".to_string(), output);
+    #[test]
+    fn print_expr2() {
+        let mut s = Store::<Fr>::default();
+        let expr = s.intern_symbol_path(vec!["lurk".into(), "foo".into(), "bar".into()]);
+        let output = expr.fmt_to_string(&s);
+
+        assert_eq!("foo.bar".to_string(), output);
+    }
 }

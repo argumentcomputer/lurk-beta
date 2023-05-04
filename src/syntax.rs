@@ -37,7 +37,7 @@ pub enum Syntax<F: LurkField> {
 
 impl<F: LurkField> Syntax<F> {
     pub fn nil(pos: Pos) -> Syntax<F> {
-        Syntax::LurkSym(Pos::No, LurkSym::Nil)
+        Syntax::LurkSym(pos, LurkSym::Nil)
     }
 }
 
@@ -211,7 +211,7 @@ impl<F: LurkField> Store<F> {
 mod test {
     use super::*;
     use blstrs::Scalar as Fr;
-    use proptest::prelude::*;
+    // use proptest::prelude::*;
 
     // TODO: Write better tests
     #[test]

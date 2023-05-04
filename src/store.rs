@@ -2121,6 +2121,7 @@ pub mod test {
         }
     }
 
+    // FIXME
     #[test]
     fn opaque_cons() {
         let mut store = Store::<Fr>::default();
@@ -2373,6 +2374,7 @@ pub mod test {
     }
 
     #[test]
+    // FIXME
     fn opaque_comm_fmt() {
         let s = &mut Store::<Fr>::default();
 

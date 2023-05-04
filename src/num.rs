@@ -292,12 +292,11 @@ impl<'de, F: LurkField> Deserialize<'de> for Num<F> {
 mod tests {
     use super::*;
 
-    use proptest::prelude::*;
-
-    use crate::field::FWrap;
     use blstrs::Scalar;
     use blstrs::Scalar as Fr;
     use ff::Field;
+
+    // use proptest::prelude::*;
 
     //proptest! {
     //    #[test]
