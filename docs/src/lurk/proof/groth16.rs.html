@@ -681,6 +681,13 @@
 <a href="#681" id="681">681</a>
 <a href="#682" id="682">682</a>
 <a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>bellperson::groth16::aggregate::setup_fake_srs;
 <span class="kw">use </span>bellperson::{
@@ -703,6 +710,7 @@
 <span class="kw">use </span>rand_core::{RngCore, SeedableRng};
 <span class="kw">use </span>rand_xorshift::XorShiftRng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span><span class="kw">crate</span>::circuit::MultiFrame;
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
@@ -785,7 +793,7 @@
     <span class="doccomment">/// Creates Groth16 parameters using the given reduction count.
     </span><span class="kw">pub fn </span>create_groth_params(
         reduction_count: usize,
-        lang: <span class="kw-2">&amp;</span>Lang&lt;Scalar, C&gt;,
+        lang: Arc&lt;Lang&lt;Scalar, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PublicParams&lt;Bls12&gt;, SynthesisError&gt; {
         <span class="kw">let </span>multiframe: MultiFrame&lt;<span class="lifetime">&#39;_</span>, Scalar, IO&lt;Scalar&gt;, Witness&lt;Scalar&gt;, C&gt; =
             MultiFrame::blank(reduction_count, lang);
@@ -821,13 +829,14 @@
         store: <span class="kw-2">&amp;mut </span>Store&lt;Scalar&gt;,
         limit: usize,
         <span class="kw-2">mut </span>rng: R,
-        lang: <span class="kw-2">&amp;</span>Lang&lt;Scalar, C&gt;,
+        lang: Arc&lt;Lang&lt;Scalar, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;Bls12&gt;, IO&lt;Scalar&gt;, IO&lt;Scalar&gt;), ProofError&gt; {
         <span class="kw">let </span>padding_predicate = |count| <span class="self">self</span>.needs_frame_padding(count);
-        <span class="kw">let </span>frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate, lang)<span class="question-mark">?</span>;
+        <span class="kw">let </span>frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate, <span class="kw-2">&amp;</span>lang)<span class="question-mark">?</span>;
         store.hydrate_scalar_cache();
 
-        <span class="kw">let </span>multiframes = MultiFrame::from_frames(<span class="self">self</span>.reduction_count(), <span class="kw-2">&amp;</span>frames, store, lang);
+        <span class="kw">let </span>multiframes =
+            MultiFrame::from_frames(<span class="self">self</span>.reduction_count(), <span class="kw-2">&amp;</span>frames, store, lang.clone());
         <span class="kw">let </span><span class="kw-2">mut </span>proofs = Vec::with_capacity(multiframes.len());
         <span class="kw">let </span><span class="kw-2">mut </span>statements = Vec::with_capacity(multiframes.len());
 
@@ -1072,8 +1081,12 @@
     ) {
         <span class="kw">let </span>rng = OsRng;
 
-        <span class="kw">let </span>public_params =
-            Groth16Prover::&lt;<span class="kw">_</span>, C, Fr&gt;::create_groth_params(DEFAULT_REDUCTION_COUNT, <span class="kw-2">&amp;</span>lang).unwrap();
+        <span class="kw">let </span>lang_rc = Arc::new(lang.clone());
+        <span class="kw">let </span>public_params = Groth16Prover::&lt;<span class="kw">_</span>, C, Fr&gt;::create_groth_params(
+            DEFAULT_REDUCTION_COUNT,
+            lang_rc.clone(),
+        )
+        .unwrap();
         <span class="kw">let </span>groth_prover = Groth16Prover::new(DEFAULT_REDUCTION_COUNT, lang.clone());
         <span class="kw">let </span>groth_params = <span class="kw-2">&amp;</span>public_params.<span class="number">0</span>;
 
@@ -1087,7 +1100,8 @@
                 Evaluator::generate_frames(expr, e, s, limit, padding_predicate, <span class="kw-2">&amp;</span>lang).unwrap();
             s.hydrate_scalar_cache();
 
-            <span class="kw">let </span>multi_frames = MultiFrame::from_frames(DEFAULT_REDUCTION_COUNT, <span class="kw-2">&amp;</span>frames, s, <span class="kw-2">&amp;</span>lang);
+            <span class="kw">let </span>multi_frames =
+                MultiFrame::from_frames(DEFAULT_REDUCTION_COUNT, <span class="kw-2">&amp;</span>frames, s, lang_rc.clone());
 
             <span class="kw">let </span>cs = groth_prover.outer_synthesize(<span class="kw-2">&amp;</span>multi_frames).unwrap();
 
@@ -1108,7 +1122,7 @@
             <span class="kw">let </span>constraint_systems_verified = verify_sequential_css::&lt;Scalar, C&gt;(<span class="kw-2">&amp;</span>cs).unwrap();
             <span class="macro">assert!</span>(constraint_systems_verified);
 
-            check_cs_deltas(<span class="kw-2">&amp;</span>cs, limit, <span class="kw-2">&amp;</span>lang);
+            check_cs_deltas(<span class="kw-2">&amp;</span>cs, limit, lang_rc.clone());
         }
 
         <span class="kw">let </span>proof_results = <span class="kw">if </span>check_groth16 {
@@ -1122,7 +1136,7 @@
                         s,
                         limit,
                         rng,
-                        <span class="kw-2">&amp;</span>lang,
+                        lang_rc,
                     )
                     .unwrap(),
             )
@@ -1151,7 +1165,7 @@
     <span class="kw">fn </span>check_cs_deltas&lt;C: Coprocessor&lt;Fr&gt;&gt;(
         constraint_systems: <span class="kw-2">&amp;</span>SequentialCS&lt;<span class="lifetime">&#39;_</span>, Fr, IO&lt;Fr&gt;, Witness&lt;Fr&gt;, C&gt;,
         limit: usize,
-        lang: <span class="kw-2">&amp;</span>Lang&lt;Fr, C&gt;,
+        lang: Arc&lt;Lang&lt;Fr, C&gt;&gt;,
     ) {
         <span class="kw">let </span><span class="kw-2">mut </span>cs_blank = MetricCS::&lt;Fr&gt;::new();
         <span class="kw">let </span>blank_frame = MultiFrame::&lt;Scalar, <span class="kw">_</span>, <span class="kw">_</span>, C&gt;::blank(DEFAULT_REDUCTION_COUNT, lang);

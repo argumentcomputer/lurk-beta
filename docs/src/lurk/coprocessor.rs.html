@@ -149,10 +149,16 @@
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
 
 <span class="kw">use </span>bellperson::{ConstraintSystem, SynthesisError};
 
+<span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::data::GlobalAllocations;
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 <span class="kw">use </span><span class="kw">crate</span>::eval::IO;
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
@@ -219,6 +225,7 @@
     <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _cs: <span class="kw-2">&amp;mut </span>CS,
+        _g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
         _store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         _input_exprs: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
         _input_env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
@@ -231,13 +238,15 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>test {
+    <span class="kw">use </span>serde::{Deserialize, Serialize};
+
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::constraints::{add, mul};
     <span class="kw">use </span><span class="kw">crate</span>::tag::{ExprTag, Tag};
     <span class="kw">use </span>std::marker::PhantomData;
 
     <span class="doccomment">/// A dumb Coprocessor for testing.
-    </span><span class="attr">#[derive(Clone, Debug)]
+    </span><span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>DumbCoprocessor&lt;F: LurkField&gt; {
         <span class="kw">pub</span>(<span class="kw">crate</span>) _p: PhantomData&lt;F&gt;,
     }
@@ -250,6 +259,7 @@
         <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
             <span class="kw-2">&amp;</span><span class="self">self</span>,
             cs: <span class="kw-2">&amp;mut </span>CS,
+            _g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
             _store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
             input_exprs: <span class="kw-2">&amp;</span>[AllocatedPtr&lt;F&gt;],
             input_env: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,

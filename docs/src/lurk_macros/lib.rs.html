@@ -184,6 +184,7 @@
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Lurk Macros
 //!
 //! ## Derive macros for Lurk
@@ -223,27 +224,27 @@
     <span class="kw">let </span>arity_arms = arity_match_arms(name, variants);
     <span class="kw">let </span>synthesize_arms = synthesize_match_arms(name, variants);
     <span class="kw">let </span>res = <span class="macro">quote! </span>{
-        <span class="kw">impl </span>&lt;F: <span class="kw">crate</span>::field::LurkField&gt; <span class="kw">crate</span>::coprocessor::Coprocessor&lt;F&gt; <span class="kw">for </span>#name&lt;F&gt; {
+        <span class="kw">impl </span>&lt;F: lurk::field::LurkField&gt; lurk::coprocessor::Coprocessor&lt;F&gt; <span class="kw">for </span>#name&lt;F&gt; {
             <span class="kw">fn </span>eval_arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
                 <span class="kw">match </span><span class="self">self </span>{
                     #eval_arity_arms
                 }
             }
 
-            <span class="kw">fn </span>evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::store::Store&lt;F&gt;, args: <span class="kw">crate</span>::ptr::Ptr&lt;F&gt;, env: <span class="kw">crate</span>::ptr::Ptr&lt;F&gt;, cont: <span class="kw">crate</span>::ptr::ContPtr&lt;F&gt;) -&gt; <span class="kw">crate</span>::eval::IO&lt;F&gt; {
+            <span class="kw">fn </span>evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span>lurk::store::Store&lt;F&gt;, args: lurk::ptr::Ptr&lt;F&gt;, env: lurk::ptr::Ptr&lt;F&gt;, cont: lurk::ptr::ContPtr&lt;F&gt;) -&gt; lurk::eval::IO&lt;F&gt; {
                 <span class="kw">match </span><span class="self">self </span>{
                     #evaluate_arms
                 }
             }
 
-            <span class="kw">fn </span>simple_evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::store::Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[<span class="kw">crate</span>::ptr::Ptr&lt;F&gt;]) -&gt; <span class="kw">crate</span>::ptr::Ptr&lt;F&gt; {
+            <span class="kw">fn </span>simple_evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span>lurk::store::Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[lurk::ptr::Ptr&lt;F&gt;]) -&gt; lurk::ptr::Ptr&lt;F&gt; {
                 <span class="kw">match </span><span class="self">self </span>{
                     #simple_evaluate_arms
                 }
             }
         }
 
-        <span class="kw">impl</span>&lt;F: <span class="kw">crate</span>::field::LurkField&gt; <span class="kw">crate</span>::coprocessor::CoCircuit&lt;F&gt; <span class="kw">for </span>#name&lt;F&gt; {
+        <span class="kw">impl</span>&lt;F: lurk::field::LurkField&gt; lurk::coprocessor::CoCircuit&lt;F&gt; <span class="kw">for </span>#name&lt;F&gt; {
             <span class="kw">fn </span>arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
                 <span class="kw">match </span><span class="self">self </span>{
                     #arity_arms
@@ -253,11 +254,12 @@
             <span class="kw">fn </span>synthesize&lt;CS: bellperson::ConstraintSystem&lt;F&gt;&gt;(
                 <span class="kw-2">&amp;</span><span class="self">self</span>,
                 cs: <span class="kw-2">&amp;mut </span>CS,
-                store: <span class="kw-2">&amp;</span><span class="kw">crate</span>::store::Store&lt;F&gt;,
-                input_exprs: <span class="kw-2">&amp;</span>[<span class="kw">crate</span>::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;],
-                input_env: <span class="kw-2">&amp;</span><span class="kw">crate</span>::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;,
-                input_cont: <span class="kw-2">&amp;</span><span class="kw">crate</span>::circuit::gadgets::pointer::AllocatedContPtr&lt;F&gt;,
-            ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="kw">crate</span>::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;, <span class="kw">crate</span>::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;, <span class="kw">crate</span>::circuit::gadgets::pointer::AllocatedContPtr&lt;F&gt;), bellperson::SynthesisError&gt; {
+                g: <span class="kw-2">&amp;</span>lurk::circuit::gadgets::data::GlobalAllocations&lt;F&gt;,
+                store: <span class="kw-2">&amp;</span>lurk::store::Store&lt;F&gt;,
+                input_exprs: <span class="kw-2">&amp;</span>[lurk::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;],
+                input_env: <span class="kw-2">&amp;</span>lurk::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;,
+                input_cont: <span class="kw-2">&amp;</span>lurk::circuit::gadgets::pointer::AllocatedContPtr&lt;F&gt;,
+            ) -&gt; <span class="prelude-ty">Result</span>&lt;(lurk::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;, lurk::circuit::gadgets::pointer::AllocatedPtr&lt;F&gt;, lurk::circuit::gadgets::pointer::AllocatedContPtr&lt;F&gt;), bellperson::SynthesisError&gt; {
                 <span class="kw">match </span><span class="self">self </span>{
                     #synthesize_arms
                 }
@@ -321,7 +323,7 @@
         <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
 
         match_arms.extend(<span class="macro">quote! </span>{
-            #name::#variant_ident(cocircuit) =&gt; cocircuit.synthesize(cs, store, input_exprs, input_env, input_cont),
+            #name::#variant_ident(cocircuit) =&gt; cocircuit.synthesize(cs, g, store, input_exprs, input_env, input_cont),
         });
     }
     match_arms

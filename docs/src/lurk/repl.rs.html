@@ -621,6 +621,7 @@
 <a href="#621" id="621">621</a>
 <a href="#622" id="622">622</a>
 <a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
 <span class="kw">use </span><span class="kw">crate</span>::error::LurkError;
 <span class="kw">use </span><span class="kw">crate</span>::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
@@ -651,6 +652,7 @@
 <span class="kw">use </span>std::path::Path;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>std::path::PathBuf;
+<span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>tap::TapOptional;
 
 <span class="attr">#[derive(Completer, Helper, Highlighter, Hinter)]
@@ -669,7 +671,7 @@
     <span class="kw">pub </span>env: Ptr&lt;F&gt;,
     <span class="kw">pub </span>limit: usize,
     <span class="kw">pub </span>command: <span class="prelude-ty">Option</span>&lt;Command&gt;,
-    <span class="kw">pub </span>lang: Lang&lt;F, C&gt;,
+    <span class="kw">pub </span>lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
 }
 
 <span class="kw">pub struct </span>Repl&lt;F: LurkField, T: ReplTrait&lt;F, C&gt;, C: Coprocessor&lt;F&gt;&gt; {
@@ -932,7 +934,7 @@
             env: empty_sym_env(s),
             limit,
             command,
-            lang,
+            lang: Arc::new(lang),
         }
     }
     <span class="kw">pub fn </span>eval_expr(
@@ -963,7 +965,7 @@
             env: empty_sym_env(s),
             limit,
             command,
-            lang,
+            lang: Arc::new(lang),
         }
     }
 

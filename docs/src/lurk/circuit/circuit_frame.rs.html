@@ -5942,6 +5942,15 @@
 <a href="#5942" id="5942">5942</a>
 <a href="#5943" id="5943">5943</a>
 <a href="#5944" id="5944">5944</a>
+<a href="#5945" id="5945">5945</a>
+<a href="#5946" id="5946">5946</a>
+<a href="#5947" id="5947">5947</a>
+<a href="#5948" id="5948">5948</a>
+<a href="#5949" id="5949">5949</a>
+<a href="#5950" id="5950">5950</a>
+<a href="#5951" id="5951">5951</a>
+<a href="#5952" id="5952">5952</a>
+<a href="#5953" id="5953">5953</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
 
@@ -5983,6 +5992,7 @@
 <span class="kw">use </span>num_bigint::BigUint;
 <span class="kw">use </span>num_integer::Integer;
 <span class="kw">use </span>num_traits::FromPrimitive;
+<span class="kw">use </span>std::sync::Arc;
 
 <span class="attr">#[derive(Clone, Copy, Debug)]
 </span><span class="kw">pub struct </span>CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F: LurkField, T, W, C: Coprocessor&lt;F&gt;&gt; {
@@ -5996,7 +6006,7 @@
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>MultiFrame&lt;<span class="lifetime">&#39;a</span>, F: LurkField, T: Copy, W, C: Coprocessor&lt;F&gt;&gt; {
     <span class="kw">pub </span>store: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;&gt;,
-    <span class="kw">pub </span>lang: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Lang&lt;F, C&gt;&gt;,
+    <span class="kw">pub </span>lang: <span class="prelude-ty">Option</span>&lt;Arc&lt;Lang&lt;F, C&gt;&gt;&gt;,
     <span class="kw">pub </span>input: <span class="prelude-ty">Option</span>&lt;T&gt;,
     <span class="kw">pub </span>output: <span class="prelude-ty">Option</span>&lt;T&gt;,
     <span class="kw">pub </span>frames: <span class="prelude-ty">Option</span>&lt;Vec&lt;CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F, T, W, C&gt;&gt;&gt;,
@@ -6028,7 +6038,7 @@
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coprocessor&lt;F&gt;&gt;
     MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, T, W, C&gt;
 {
-    <span class="kw">pub fn </span>blank(count: usize, lang: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Lang&lt;F, C&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>blank(count: usize, lang: Arc&lt;Lang&lt;F, C&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             store: <span class="prelude-val">None</span>,
             lang: <span class="prelude-val">Some</span>(lang),
@@ -6047,7 +6057,7 @@
         count: usize,
         frames: <span class="kw-2">&amp;</span>[Frame&lt;T, W, C&gt;],
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
-        lang: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Lang&lt;F, C&gt;,
+        lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
         <span class="comment">// `count` is the number of `Frames` to include per `MultiFrame`.
         </span><span class="kw">let </span>total_frames = frames.len();
@@ -6078,7 +6088,7 @@
 
             <span class="kw">let </span>mf = MultiFrame {
                 store: <span class="prelude-val">Some</span>(store),
-                lang: <span class="prelude-val">Some</span>(lang),
+                lang: <span class="prelude-val">Some</span>(lang.clone()),
                 input: <span class="prelude-val">Some</span>(chunk[<span class="number">0</span>].input),
                 output: <span class="prelude-val">Some</span>(output),
                 frames: <span class="prelude-val">Some</span>(inner_frames),
@@ -6096,7 +6106,7 @@
         count: usize,
         circuit_frame: <span class="prelude-ty">Option</span>&lt;CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F, T, W, C&gt;&gt;,
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
-        lang: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Lang&lt;F, C&gt;,
+        lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>(frames, input, output) = <span class="kw">if let </span><span class="prelude-val">Some</span>(circuit_frame) = circuit_frame {
             (
@@ -6167,7 +6177,13 @@
                 (
                     i + <span class="number">1</span>,
                     frame
-                        .synthesize(cs, i, allocated_io, <span class="self">self</span>.lang.expect(<span class="string">&quot;Lang missing&quot;</span>), g)
+                        .synthesize(
+                            cs,
+                            i,
+                            allocated_io,
+                            <span class="self">self</span>.lang.as_ref().expect(<span class="string">&quot;Lang missing&quot;</span>),
+                            g,
+                        )
                         .unwrap(),
                 )
             });
@@ -8569,7 +8585,7 @@
                 )<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>(result_expr, result_env, result_cont) =
-                    coproc.synthesize(cs, store, <span class="kw-2">&amp;</span>inputs[..arity], env, cont)<span class="question-mark">?</span>;
+                    coproc.synthesize(cs, g, store, <span class="kw-2">&amp;</span>inputs[..arity], env, cont)<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>new_expr = <span class="macro">pick_ptr!</span>(cs, <span class="kw-2">&amp;</span>arity_is_correct, <span class="kw-2">&amp;</span>result_expr, <span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>; <span class="comment">// TODO: The error case should probably be expr, but this is harder in straight evaluation atm.
                 </span><span class="kw">let </span>new_env = <span class="macro">pick_ptr!</span>(cs, <span class="kw-2">&amp;</span>arity_is_correct, <span class="kw-2">&amp;</span>result_env, <span class="kw-2">&amp;</span>env)<span class="question-mark">?</span>;
@@ -8695,7 +8711,8 @@
         <span class="kw-2">&amp;</span>expr_cdr_not_dummy.not(),
         <span class="kw-2">&amp;</span>head_is_begin.not(),
         <span class="kw-2">&amp;</span>head_is_current_env.not(),
-        <span class="kw-2">&amp;</span>head_potentially_fun.not()
+        <span class="kw-2">&amp;</span>head_potentially_fun.not(),
+        <span class="kw-2">&amp;</span>head_is_coprocessor.not()
     )<span class="question-mark">?</span>;
     <span class="kw">let </span>zero_arg_built_in_too_many_args_error =
         <span class="macro">and!</span>(cs, <span class="kw-2">&amp;</span>head_is_current_env, <span class="kw-2">&amp;</span>is_zero_arg_call.not())<span class="question-mark">?</span>;
@@ -11189,16 +11206,17 @@
             env,
             cont: store.intern_cont_outermost(),
         };
-        <span class="kw">let </span>lang = Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new();
+        <span class="kw">let </span>raw_lang = Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new();
+        <span class="kw">let </span>lang = Arc::new(raw_lang.clone());
         <span class="kw">let </span>(<span class="kw">_</span>, witness) = input.reduce(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>lang).unwrap();
 
         <span class="kw">let </span>public_params = Groth16Prover::&lt;Bls12, Coproc&lt;Fr&gt;, Fr&gt;::create_groth_params(
             DEFAULT_REDUCTION_COUNT,
-            <span class="kw-2">&amp;</span>lang,
+            lang.clone(),
         )
         .unwrap();
         <span class="kw">let </span>groth_prover =
-            Groth16Prover::&lt;Bls12, Coproc&lt;Fr&gt;, Fr&gt;::new(DEFAULT_REDUCTION_COUNT, lang.clone());
+            Groth16Prover::&lt;Bls12, Coproc&lt;Fr&gt;, Fr&gt;::new(DEFAULT_REDUCTION_COUNT, raw_lang);
         <span class="kw">let </span>groth_params = <span class="kw-2">&amp;</span>public_params.<span class="number">0</span>;
 
         <span class="kw">let </span>vk = <span class="kw-2">&amp;</span>groth_params.vk;
@@ -11211,7 +11229,7 @@
             <span class="kw">let </span><span class="kw-2">mut </span>cs_blank = MetricCS::&lt;Fr&gt;::new();
             <span class="kw">let </span>blank_multiframe = MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, <span class="kw">_</span>, <span class="kw">_</span>, Coproc&lt;Fr&gt;&gt;::blank(
                 DEFAULT_REDUCTION_COUNT,
-                <span class="kw-2">&amp;</span>lang,
+                lang.clone(),
             );
 
             blank_multiframe
@@ -11228,7 +11246,7 @@
                     _p: Default::default(),
                 }],
                 store,
-                <span class="kw-2">&amp;</span>lang,
+                lang.clone(),
             );
 
             <span class="kw">let </span>multiframe = <span class="kw-2">&amp;</span>multiframes[<span class="number">0</span>];
@@ -11325,7 +11343,7 @@
             cont: store.intern_cont_outermost(),
         };
 
-        <span class="kw">let </span>lang = Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new();
+        <span class="kw">let </span>lang = Arc::new(Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new());
         <span class="kw">let </span>(<span class="kw">_</span>, witness) = input.reduce(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>lang).unwrap();
         store.hydrate_scalar_cache();
 
@@ -11344,7 +11362,7 @@
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
-                <span class="kw-2">&amp;</span>lang,
+                lang.clone(),
             )[<span class="number">0</span>]
             .clone()
             .synthesize(<span class="kw-2">&amp;mut </span>cs)
@@ -11406,7 +11424,7 @@
             cont: store.intern_cont_outermost(),
         };
 
-        <span class="kw">let </span>lang = Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new();
+        <span class="kw">let </span>lang = Arc::new(Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new());
         <span class="kw">let </span>(<span class="kw">_</span>, witness) = input.reduce(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>lang).unwrap();
         store.hydrate_scalar_cache();
 
@@ -11425,7 +11443,7 @@
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
-                <span class="kw-2">&amp;</span>lang,
+                lang.clone(),
             )[<span class="number">0</span>]
             .clone()
             .synthesize(<span class="kw-2">&amp;mut </span>cs)
@@ -11487,7 +11505,7 @@
             cont: store.intern_cont_outermost(),
         };
 
-        <span class="kw">let </span>lang = Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new();
+        <span class="kw">let </span>lang = Arc::new(Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new());
         <span class="kw">let </span>(<span class="kw">_</span>, witness) = input.reduce(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>lang).unwrap();
 
         store.hydrate_scalar_cache();
@@ -11507,7 +11525,7 @@
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
-                <span class="kw-2">&amp;</span>lang,
+                lang.clone(),
             )[<span class="number">0</span>]
             .clone()
             .synthesize(<span class="kw-2">&amp;mut </span>cs)
@@ -11570,7 +11588,7 @@
             cont: store.intern_cont_outermost(),
         };
 
-        <span class="kw">let </span>lang = Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new();
+        <span class="kw">let </span>lang = Arc::new(Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new());
         <span class="kw">let </span>(<span class="kw">_</span>, witness) = input.reduce(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>lang).unwrap();
 
         store.hydrate_scalar_cache();
@@ -11590,7 +11608,7 @@
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
-                <span class="kw-2">&amp;</span>lang,
+                lang.clone(),
             )[<span class="number">0</span>]
             .clone()
             .synthesize(<span class="kw-2">&amp;mut </span>cs)

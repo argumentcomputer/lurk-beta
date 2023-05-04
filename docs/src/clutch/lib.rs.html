@@ -564,16 +564,18 @@
 <a href="#564" id="564">564</a>
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
 </pre></div><pre class="rust"><code><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">&quot;../README.md&quot;</span>)]
 
 </span><span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::{Arg, ArgAction, Command};
-<span class="kw">use </span>pasta_curves::pallas;
-
-<span class="kw">use </span>fcomm::{
+<span class="kw">use </span>lurk::public_parameters::{
     public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, Id, LurkCont,
     LurkPtr, NovaProofCache, Opening, Proof, PtrEvaluation,
 };
+<span class="kw">use </span>pasta_curves::pallas;
+
 <span class="kw">use </span>lurk::coprocessor::Coprocessor;
 <span class="kw">use </span>lurk::eval::{
     lang::{Coproc, Lang},
@@ -593,6 +595,7 @@
 <span class="kw">use </span>std::fs::File;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, BufRead};
 <span class="kw">use </span>std::path::Path;
+<span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::thread;
 
 <span class="kw">const </span>DEFAULT_REDUCTION_COUNT: usize = <span class="number">10</span>;
@@ -687,8 +690,8 @@
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>reduction_count = DEFAULT_REDUCTION_COUNT;
 
-        <span class="kw">let </span>proof_map = fcomm::nova_proof_cache(reduction_count);
-        <span class="kw">let </span>expression_map = fcomm::committed_expression_store();
+        <span class="kw">let </span>proof_map = lurk::public_parameters::nova_proof_cache(reduction_count);
+        <span class="kw">let </span>expression_map = lurk::public_parameters::committed_expression_store();
 
         <span class="kw">let </span>demo = command.clone().and_then(|c| {
             <span class="kw">let </span>l = <span class="self">Self</span>::base_prompt().trim_start_matches(<span class="string">&#39;\n&#39;</span>).len();
@@ -699,8 +702,9 @@
                 .map(|demo_file| Demo::new_from_path(demo_file, l))
         });
 
+        <span class="kw">let </span>lang_rc = Arc::new(lang.clone());
         <span class="comment">// Load params from disk cache, or generate them in the background.
-        </span>thread::spawn(<span class="kw">move </span>|| public_params(reduction_count));
+        </span>thread::spawn(<span class="kw">move </span>|| public_params(reduction_count, lang_rc));
 
         <span class="self">Self </span>{
             repl_state: ReplState::new(s, limit, command, lang),
@@ -841,8 +845,8 @@
 }
 
 <span class="kw">impl </span>ClutchState&lt;F, Coproc&lt;F&gt;&gt; {
-    <span class="kw">fn </span>lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Lang&lt;F, Coproc&lt;F&gt;&gt; {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.repl_state.lang
+    <span class="kw">fn </span>lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;Lang&lt;F, Coproc&lt;F&gt;&gt;&gt; {
+        <span class="self">self</span>.repl_state.lang.clone()
     }
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, rest: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
         <span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
@@ -999,7 +1003,7 @@
 
         <span class="kw">let </span>commitment_expr = <span class="self">self</span>.expression_map.get(<span class="kw-2">&amp;</span>commitment);
         <span class="kw">let </span>commitment_ptr = commitment_expr.map(|c| {
-            <span class="kw">let </span>ptr = c.expr.ptr(store, <span class="self">self</span>.repl_state.limit, <span class="self">self</span>.lang());
+            <span class="kw">let </span>ptr = c.expr.ptr(store, <span class="self">self</span>.repl_state.limit, <span class="kw-2">&amp;</span><span class="self">self</span>.lang());
 
             <span class="kw">if let </span><span class="prelude-val">Some</span>(secret) = c.secret {
                 store.intern_comm(secret, ptr);
@@ -1015,7 +1019,7 @@
 
     <span class="kw">fn </span>proof_in_expr(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, rest: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
         <span class="kw">let </span>proof = <span class="self">self</span>.get_proof(store, rest)<span class="question-mark">?</span>;
-        <span class="kw">let </span>(input, _output) = proof.io(store, <span class="self">self</span>.lang())<span class="question-mark">?</span>;
+        <span class="kw">let </span>(input, _output) = proof.io(store, <span class="kw-2">&amp;</span><span class="self">self</span>.lang())<span class="question-mark">?</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>handle = io::stdout().lock();
         input.expr.fmt(store, <span class="kw-2">&amp;mut </span>handle)<span class="question-mark">?</span>;
@@ -1024,7 +1028,7 @@
     }
     <span class="kw">fn </span>proof_out_expr(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, rest: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
         <span class="kw">let </span>proof = <span class="self">self</span>.get_proof(store, rest)<span class="question-mark">?</span>;
-        <span class="kw">let </span>(_input, output) = proof.io(store, <span class="self">self</span>.lang())<span class="question-mark">?</span>;
+        <span class="kw">let </span>(_input, output) = proof.io(store, <span class="kw-2">&amp;</span><span class="self">self</span>.lang())<span class="question-mark">?</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>handle = io::stdout().lock();
         output.expr.fmt(store, <span class="kw-2">&amp;mut </span>handle)<span class="question-mark">?</span>;
@@ -1049,7 +1053,7 @@
             <span class="macro">bail!</span>(<span class="string">&quot;proof cid must be a string&quot;</span>);
         };
 
-        <span class="kw">let </span>cid = fcomm::cid_from_string(<span class="kw-2">&amp;</span>cid_string)<span class="question-mark">?</span>;
+        <span class="kw">let </span>cid = lurk::public_parameters::cid_from_string(<span class="kw-2">&amp;</span>cid_string)<span class="question-mark">?</span>;
         <span class="self">self</span>.proof_map
             .get(<span class="kw-2">&amp;</span>cid)
             .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;proof not found: {cid}&quot;</span>))
@@ -1058,8 +1062,8 @@
     <span class="kw">fn </span>prove(<span class="kw-2">&amp;mut </span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, rest: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
         <span class="kw">let </span>(proof_in_expr, _rest1) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>prover = NovaProver::&lt;F, Coproc&lt;F&gt;&gt;::new(<span class="self">self</span>.reduction_count, <span class="self">self</span>.lang().clone());
-        <span class="kw">let </span>pp = public_params(<span class="self">self</span>.reduction_count)<span class="question-mark">?</span>;
+        <span class="kw">let </span>prover = NovaProver::&lt;F, Coproc&lt;F&gt;&gt;::new(<span class="self">self</span>.reduction_count, (<span class="kw-2">*</span><span class="self">self</span>.lang()).clone());
+        <span class="kw">let </span>pp = public_params(<span class="self">self</span>.reduction_count, <span class="self">self</span>.lang())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>proof = <span class="kw">if </span>rest.is_nil() {
             <span class="self">self</span>.last_claim
@@ -1089,7 +1093,7 @@
             )
         }<span class="question-mark">?</span>;
 
-        <span class="kw">if </span>proof.verify(<span class="kw-2">&amp;</span>pp, <span class="self">self</span>.lang())<span class="question-mark">?</span>.verified {
+        <span class="kw">if </span>proof.verify(<span class="kw-2">&amp;</span>pp, <span class="kw-2">&amp;</span><span class="self">self</span>.lang())<span class="question-mark">?</span>.verified {
             <span class="kw">let </span>cid_str = proof.claim.cid().to_string();
             <span class="kw">match </span>proof.claim {
                 Claim::Evaluation(<span class="kw">_</span>) | Claim::Opening(<span class="kw">_</span>) =&gt; <span class="macro">println!</span>(<span class="string">&quot;{0:#?}&quot;</span>, proof.claim),
@@ -1114,14 +1118,14 @@
             <span class="macro">bail!</span>(<span class="string">&quot;proof cid must be a string&quot;</span>);
         };
 
-        <span class="kw">let </span>cid = fcomm::cid_from_string(<span class="kw-2">&amp;</span>cid_string)<span class="question-mark">?</span>;
+        <span class="kw">let </span>cid = lurk::public_parameters::cid_from_string(<span class="kw-2">&amp;</span>cid_string)<span class="question-mark">?</span>;
         <span class="kw">let </span>proof = <span class="self">self
             </span>.proof_map
             .get(<span class="kw-2">&amp;</span>cid)
             .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;proof not found: {cid}&quot;</span>))<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>pp = public_params(<span class="self">self</span>.reduction_count)<span class="question-mark">?</span>;
-        <span class="kw">let </span>result = proof.verify(<span class="kw-2">&amp;</span>pp, <span class="self">self</span>.lang()).unwrap();
+        <span class="kw">let </span>pp = public_params(<span class="self">self</span>.reduction_count, <span class="self">self</span>.lang())<span class="question-mark">?</span>;
+        <span class="kw">let </span>result = proof.verify(<span class="kw-2">&amp;</span>pp, <span class="kw-2">&amp;</span><span class="self">self</span>.lang()).unwrap();
 
         <span class="kw">if </span>result.verified {
             <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(store.get_t()))

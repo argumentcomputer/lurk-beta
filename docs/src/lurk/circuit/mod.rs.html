@@ -49,6 +49,7 @@
 <a href="#49" id="49">49</a>
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::too_many_arguments)]
 </span><span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 
@@ -56,7 +57,8 @@
 <span class="kw">use </span><span class="kw">crate</span>::store::Store;
 
 <span class="attr">#[macro_use]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>gadgets;
+</span><span class="kw">pub mod </span>gadgets;
+
 <span class="kw">mod </span>circuit_frame;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>circuit_frame::<span class="kw-2">*</span>;
 

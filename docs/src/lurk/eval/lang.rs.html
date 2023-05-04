@@ -140,6 +140,23 @@
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
@@ -152,6 +169,8 @@
 <span class="kw">use </span><span class="kw">crate</span>::ptr::{Ptr, ScalarPtr};
 <span class="kw">use </span><span class="kw">crate</span>::store::Store;
 <span class="kw">use </span><span class="kw">crate</span>::sym::Sym;
+
+<span class="kw">use crate as </span>lurk;
 
 <span class="doccomment">/// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.
 ///
@@ -226,6 +245,21 @@
         <span class="self">Self </span>{
             coprocessors: Default::default(),
         }
+    }
+
+    <span class="kw">pub fn </span>key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="kw">let </span><span class="kw-2">mut </span>key = String::new();
+
+        <span class="kw">for </span>coprocessor <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.coprocessors {
+            <span class="kw">let </span>name = <span class="kw">match </span>coprocessor.<span class="number">0 </span>{
+                Sym::Sym(sym) =&gt; <span class="kw-2">&amp;</span>sym.path,
+                Sym::Key(sym) =&gt; <span class="kw-2">&amp;</span>sym.path,
+            }
+            .join(<span class="string">&quot;-&quot;</span>);
+
+            key += name.as_str()
+        }
+        key
     }
 
     <span class="kw">pub fn </span>add_coprocessor(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: Sym, cproc: C, store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;) {
