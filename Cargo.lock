@@ -95,6 +95,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7de8ce5e0f9f8d88245311066a578d72b7af3e7088f32783804676302df237e4"
 
 [[package]]
+name = "anymap"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33954243bd79057c2de7338850b85983a44588021f8a5fee574a8888c6de4344"
+
+[[package]]
 name = "arrayref"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -532,7 +538,6 @@ dependencies = [
  "assert_cmd",
  "blstrs",
  "clap 4.2.4",
- "fcomm",
  "fil_pasta_curves",
  "lurk",
  "pretty_env_logger",
@@ -1358,7 +1363,9 @@ version = "0.2.0"
 dependencies = [
  "ahash",
  "anyhow",
+ "anymap",
  "assert_cmd",
+ "base64",
  "bellperson",
  "blstrs",
  "cid",
@@ -1370,6 +1377,7 @@ dependencies = [
  "fil_pasta_curves",
  "generic-array 0.14.7",
  "getrandom",
+ "hex",
  "indexmap",
  "itertools 0.9.0",
  "log",
@@ -1397,7 +1405,9 @@ dependencies = [
  "rustyline",
  "rustyline-derive",
  "serde",
+ "serde_json",
  "serde_repr",
+ "sha2",
  "string-interner",
  "structopt",
  "tap",

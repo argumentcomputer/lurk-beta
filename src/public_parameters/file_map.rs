@@ -3,12 +3,44 @@ use std::io::Error;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
-use crate::FileStore;
+use crate::public_parameters::FileStore;
 
-pub fn data_dir() -> PathBuf {
+pub(crate) fn data_dir() -> PathBuf {
     match std::env::var("FCOMM_DATA_PATH") {
         Ok(name) => name.into(),
         Err(_) => PathBuf::from("/var/tmp/fcomm_data/"),
+    }
+}
+
+pub(crate) struct FileIndex<K: ToString> {
+    dir: PathBuf,
+    _t: PhantomData<K>,
+}
+
+impl<K: ToString> FileIndex<K> {
+    pub(crate) fn new<P: AsRef<Path>>(name: P) -> Result<Self, Error> {
+        let data_dir = data_dir();
+        let dir = PathBuf::from(&data_dir).join(name.as_ref());
+        create_dir_all(&dir)?;
+
+        Ok(Self {
+            dir,
+            _t: Default::default(),
+        })
+    }
+
+    fn key_path(&self, key: &K) -> PathBuf {
+        self.dir.join(PathBuf::from(key.to_string()))
+    }
+
+    pub(crate) fn get<V: FileStore>(&self, key: &K) -> Option<V> {
+        self.key_path(key);
+        V::read_from_path(self.key_path(key)).ok()
+    }
+
+    pub(crate) fn set<V: FileStore>(&self, key: K, data: &V) -> Result<(), Error> {
+        data.write_to_path(self.key_path(&key));
+        Ok(())
     }
 }
 

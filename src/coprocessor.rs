@@ -2,6 +2,7 @@ use std::fmt::Debug;
 
 use bellperson::{ConstraintSystem, SynthesisError};
 
+use crate::circuit::gadgets::data::GlobalAllocations;
 use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::eval::IO;
 use crate::field::LurkField;
@@ -68,6 +69,7 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
     fn synthesize<CS: ConstraintSystem<F>>(
         &self,
         _cs: &mut CS,
+        _g: &GlobalAllocations<F>,
         _store: &Store<F>,
         _input_exprs: &[AllocatedPtr<F>],
         _input_env: &AllocatedPtr<F>,
@@ -80,13 +82,15 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
 
 #[cfg(test)]
 pub(crate) mod test {
+    use serde::{Deserialize, Serialize};
+
     use super::*;
     use crate::circuit::gadgets::constraints::{add, mul};
     use crate::tag::{ExprTag, Tag};
     use std::marker::PhantomData;
 
     /// A dumb Coprocessor for testing.
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Serialize, Deserialize)]
     pub(crate) struct DumbCoprocessor<F: LurkField> {
         pub(crate) _p: PhantomData<F>,
     }
@@ -99,6 +103,7 @@ pub(crate) mod test {
         fn synthesize<CS: ConstraintSystem<F>>(
             &self,
             cs: &mut CS,
+            _g: &GlobalAllocations<F>,
             _store: &Store<F>,
             input_exprs: &[AllocatedPtr<F>],
             input_env: &AllocatedPtr<F>,

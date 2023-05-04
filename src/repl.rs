@@ -28,6 +28,7 @@ use std::marker::PhantomData;
 use std::path::Path;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
+use std::sync::Arc;
 use tap::TapOptional;
 
 #[derive(Completer, Helper, Highlighter, Hinter)]
@@ -46,7 +47,7 @@ pub struct ReplState<F: LurkField, C: Coprocessor<F>> {
     pub env: Ptr<F>,
     pub limit: usize,
     pub command: Option<Command>,
-    pub lang: Lang<F, C>,
+    pub lang: Arc<Lang<F, C>>,
 }
 
 pub struct Repl<F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>> {
@@ -309,7 +310,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplState<F, C> {
             env: empty_sym_env(s),
             limit,
             command,
-            lang,
+            lang: Arc::new(lang),
         }
     }
     pub fn eval_expr(
@@ -340,7 +341,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
             env: empty_sym_env(s),
             limit,
             command,
-            lang,
+            lang: Arc::new(lang),
         }
     }
 
