@@ -1,5 +1,7 @@
 use blstrs::Scalar as Fr;
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode};
+use criterion::{
+    black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, SamplingMode,
+};
 use lurk::{
     eval::{
         empty_sym_env,
@@ -278,17 +280,18 @@ fn verify_benchmark(c: &mut Criterion) {
             let frames = prover
                 .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_vesta)
                 .unwrap();
-            let proof = prover
+            let (proof, z0, zi, num_steps) = prover
                 .prove(&pp, frames.clone(), &mut store, &lang_vesta)
                 .unwrap();
 
-            b.iter(|| {
-                let result = proof
-                    .0
-                    .verify(&pp, proof.3, proof.1.clone(), &proof.2[..])
-                    .unwrap();
-                black_box(result);
-            })
+            b.iter_batched(
+                || z0.clone(),
+                |z0| {
+                    let result = proof.verify(&pp, num_steps, z0, &zi[..]).unwrap();
+                    black_box(result);
+                },
+                BatchSize::LargeInput,
+            )
         });
     }
 
@@ -317,18 +320,22 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
             let frames = prover
                 .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_vesta)
                 .unwrap();
-            let proof = prover
+            let (proof, z0, zi, num_steps) = prover
                 .prove(&pp, frames.clone(), &mut store, &lang_vesta)
                 .unwrap();
 
-            let compressed_proof = proof.0.compress(&pp).unwrap();
+            let compressed_proof = proof.compress(&pp).unwrap();
 
-            b.iter(|| {
-                let result = compressed_proof
-                    .verify(&pp, proof.3, proof.1.clone(), &proof.2[..])
-                    .unwrap();
-                black_box(result);
-            })
+            b.iter_batched(
+                || z0.clone(),
+                |z0| {
+                    let result = compressed_proof
+                        .verify(&pp, num_steps, z0, &zi[..])
+                        .unwrap();
+                    black_box(result);
+                },
+                BatchSize::LargeInput,
+            )
         });
     }
 
