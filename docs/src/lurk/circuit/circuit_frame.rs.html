@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ba5701c5741a7b69.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.71.0-nightly (9ecda8de8 2023-04-30)" data-search-js="search-618e954b235f6acc.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-6f6ffb5395b17c6e.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../../static.files/source-script-11255107d0a65077.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-f0540c1d82cde29b.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ba5701c5741a7b69.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.71.0-nightly (473f916d8 2023-05-03)" data-search-js="search-618e954b235f6acc.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-6f6ffb5395b17c6e.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../../static.files/source-script-11255107d0a65077.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-f0540c1d82cde29b.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -5942,105 +5942,6 @@
 <a href="#5942" id="5942">5942</a>
 <a href="#5943" id="5943">5943</a>
 <a href="#5944" id="5944">5944</a>
-<a href="#5945" id="5945">5945</a>
-<a href="#5946" id="5946">5946</a>
-<a href="#5947" id="5947">5947</a>
-<a href="#5948" id="5948">5948</a>
-<a href="#5949" id="5949">5949</a>
-<a href="#5950" id="5950">5950</a>
-<a href="#5951" id="5951">5951</a>
-<a href="#5952" id="5952">5952</a>
-<a href="#5953" id="5953">5953</a>
-<a href="#5954" id="5954">5954</a>
-<a href="#5955" id="5955">5955</a>
-<a href="#5956" id="5956">5956</a>
-<a href="#5957" id="5957">5957</a>
-<a href="#5958" id="5958">5958</a>
-<a href="#5959" id="5959">5959</a>
-<a href="#5960" id="5960">5960</a>
-<a href="#5961" id="5961">5961</a>
-<a href="#5962" id="5962">5962</a>
-<a href="#5963" id="5963">5963</a>
-<a href="#5964" id="5964">5964</a>
-<a href="#5965" id="5965">5965</a>
-<a href="#5966" id="5966">5966</a>
-<a href="#5967" id="5967">5967</a>
-<a href="#5968" id="5968">5968</a>
-<a href="#5969" id="5969">5969</a>
-<a href="#5970" id="5970">5970</a>
-<a href="#5971" id="5971">5971</a>
-<a href="#5972" id="5972">5972</a>
-<a href="#5973" id="5973">5973</a>
-<a href="#5974" id="5974">5974</a>
-<a href="#5975" id="5975">5975</a>
-<a href="#5976" id="5976">5976</a>
-<a href="#5977" id="5977">5977</a>
-<a href="#5978" id="5978">5978</a>
-<a href="#5979" id="5979">5979</a>
-<a href="#5980" id="5980">5980</a>
-<a href="#5981" id="5981">5981</a>
-<a href="#5982" id="5982">5982</a>
-<a href="#5983" id="5983">5983</a>
-<a href="#5984" id="5984">5984</a>
-<a href="#5985" id="5985">5985</a>
-<a href="#5986" id="5986">5986</a>
-<a href="#5987" id="5987">5987</a>
-<a href="#5988" id="5988">5988</a>
-<a href="#5989" id="5989">5989</a>
-<a href="#5990" id="5990">5990</a>
-<a href="#5991" id="5991">5991</a>
-<a href="#5992" id="5992">5992</a>
-<a href="#5993" id="5993">5993</a>
-<a href="#5994" id="5994">5994</a>
-<a href="#5995" id="5995">5995</a>
-<a href="#5996" id="5996">5996</a>
-<a href="#5997" id="5997">5997</a>
-<a href="#5998" id="5998">5998</a>
-<a href="#5999" id="5999">5999</a>
-<a href="#6000" id="6000">6000</a>
-<a href="#6001" id="6001">6001</a>
-<a href="#6002" id="6002">6002</a>
-<a href="#6003" id="6003">6003</a>
-<a href="#6004" id="6004">6004</a>
-<a href="#6005" id="6005">6005</a>
-<a href="#6006" id="6006">6006</a>
-<a href="#6007" id="6007">6007</a>
-<a href="#6008" id="6008">6008</a>
-<a href="#6009" id="6009">6009</a>
-<a href="#6010" id="6010">6010</a>
-<a href="#6011" id="6011">6011</a>
-<a href="#6012" id="6012">6012</a>
-<a href="#6013" id="6013">6013</a>
-<a href="#6014" id="6014">6014</a>
-<a href="#6015" id="6015">6015</a>
-<a href="#6016" id="6016">6016</a>
-<a href="#6017" id="6017">6017</a>
-<a href="#6018" id="6018">6018</a>
-<a href="#6019" id="6019">6019</a>
-<a href="#6020" id="6020">6020</a>
-<a href="#6021" id="6021">6021</a>
-<a href="#6022" id="6022">6022</a>
-<a href="#6023" id="6023">6023</a>
-<a href="#6024" id="6024">6024</a>
-<a href="#6025" id="6025">6025</a>
-<a href="#6026" id="6026">6026</a>
-<a href="#6027" id="6027">6027</a>
-<a href="#6028" id="6028">6028</a>
-<a href="#6029" id="6029">6029</a>
-<a href="#6030" id="6030">6030</a>
-<a href="#6031" id="6031">6031</a>
-<a href="#6032" id="6032">6032</a>
-<a href="#6033" id="6033">6033</a>
-<a href="#6034" id="6034">6034</a>
-<a href="#6035" id="6035">6035</a>
-<a href="#6036" id="6036">6036</a>
-<a href="#6037" id="6037">6037</a>
-<a href="#6038" id="6038">6038</a>
-<a href="#6039" id="6039">6039</a>
-<a href="#6040" id="6040">6040</a>
-<a href="#6041" id="6041">6041</a>
-<a href="#6042" id="6042">6042</a>
-<a href="#6043" id="6043">6043</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
 
@@ -6498,7 +6399,7 @@
     key: F,
     value: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AllocatedNum&lt;F&gt;,
 ) {
-    clauses.push(CaseClause { key, value });
+    clauses.push(CaseClause::new(key, value));
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt; Results&lt;<span class="lifetime">&#39;a</span>, F&gt; {
@@ -9226,104 +9127,32 @@
             op1.tag(),
             <span class="kw-2">&amp;</span>[
                 <span class="kw-2">&amp;</span>[
-                    CaseClause {
-                        key: Op1::Car.to_field(),
-                        value: res_car.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Cdr.to_field(),
-                        value: res_cdr.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Atom.to_field(),
-                        value: is_atom_ptr.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Emit.to_field(),
-                        value: result.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Commit.to_field(),
-                        value: commitment.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Open.to_field(),
-                        value: committed_expr.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Secret.to_field(),
-                        value: <span class="kw-2">&amp;</span>g.num_tag,
-                    },
-                    CaseClause {
-                        key: Op1::Num.to_field(),
-                        value: num.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::U64.to_field(),
-                        value: <span class="kw-2">&amp;</span>g.u64_tag,
-                    },
-                    CaseClause {
-                        key: Op1::Comm.to_field(),
-                        value: comm.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Char.to_field(),
-                        value: <span class="kw-2">&amp;</span>g.char_tag,
-                    },
-                    CaseClause {
-                        key: Op1::Eval.to_field(),
-                        value: result.tag(),
-                    },
+                    CaseClause::new(Op1::Car.to_field(), res_car.tag()),
+                    CaseClause::new(Op1::Cdr.to_field(), res_cdr.tag()),
+                    CaseClause::new(Op1::Atom.to_field(), is_atom_ptr.tag()),
+                    CaseClause::new(Op1::Emit.to_field(), result.tag()),
+                    CaseClause::new(Op1::Commit.to_field(), commitment.tag()),
+                    CaseClause::new(Op1::Open.to_field(), committed_expr.tag()),
+                    CaseClause::new(Op1::Secret.to_field(), <span class="kw-2">&amp;</span>g.num_tag),
+                    CaseClause::new(Op1::Num.to_field(), num.tag()),
+                    CaseClause::new(Op1::U64.to_field(), <span class="kw-2">&amp;</span>g.u64_tag),
+                    CaseClause::new(Op1::Comm.to_field(), comm.tag()),
+                    CaseClause::new(Op1::Char.to_field(), <span class="kw-2">&amp;</span>g.char_tag),
+                    CaseClause::new(Op1::Eval.to_field(), result.tag()),
                 ],
                 <span class="kw-2">&amp;</span>[
-                    CaseClause {
-                        key: Op1::Car.to_field(),
-                        value: allocated_car.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Cdr.to_field(),
-                        value: allocated_cdr.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Atom.to_field(),
-                        value: is_atom_ptr.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Emit.to_field(),
-                        value: result.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Commit.to_field(),
-                        value: commitment.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Open.to_field(),
-                        value: committed_expr.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Secret.to_field(),
-                        value: <span class="kw-2">&amp;</span>commitment_secret,
-                    },
-                    CaseClause {
-                        key: Op1::Num.to_field(),
-                        value: num.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::U64.to_field(),
-                        value: <span class="kw-2">&amp;</span>u64_elem,
-                    },
-                    CaseClause {
-                        key: Op1::Comm.to_field(),
-                        value: comm.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Char.to_field(),
-                        value: <span class="kw-2">&amp;</span>u32_elem,
-                    },
-                    CaseClause {
-                        key: Op1::Eval.to_field(),
-                        value: result.hash(),
-                    },
+                    CaseClause::new(Op1::Car.to_field(), allocated_car.hash()),
+                    CaseClause::new(Op1::Cdr.to_field(), allocated_cdr.hash()),
+                    CaseClause::new(Op1::Atom.to_field(), is_atom_ptr.hash()),
+                    CaseClause::new(Op1::Emit.to_field(), result.hash()),
+                    CaseClause::new(Op1::Commit.to_field(), commitment.hash()),
+                    CaseClause::new(Op1::Open.to_field(), committed_expr.hash()),
+                    CaseClause::new(Op1::Secret.to_field(), <span class="kw-2">&amp;</span>commitment_secret),
+                    CaseClause::new(Op1::Num.to_field(), num.hash()),
+                    CaseClause::new(Op1::U64.to_field(), <span class="kw-2">&amp;</span>u64_elem),
+                    CaseClause::new(Op1::Comm.to_field(), comm.hash()),
+                    CaseClause::new(Op1::Char.to_field(), <span class="kw-2">&amp;</span>u32_elem),
+                    CaseClause::new(Op1::Eval.to_field(), result.hash()),
                 ],
             ],
             <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>g.default_num, <span class="kw-2">&amp;</span>g.default_num],
@@ -9943,42 +9772,15 @@
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;Binop2 case&quot;</span>),
             op2.tag(),
             <span class="kw-2">&amp;</span>[
-                CaseClause {
-                    key: Op2::Sum.to_field(),
-                    value: <span class="kw-2">&amp;</span>sum,
-                },
-                CaseClause {
-                    key: Op2::Diff.to_field(),
-                    value: <span class="kw-2">&amp;</span>diff,
-                },
-                CaseClause {
-                    key: Op2::Product.to_field(),
-                    value: <span class="kw-2">&amp;</span>product,
-                },
-                CaseClause {
-                    key: Op2::Quotient.to_field(),
-                    value: <span class="kw-2">&amp;</span>quotient,
-                },
-                CaseClause {
-                    key: Op2::Equal.to_field(),
-                    value: args_equal_ptr.hash(),
-                },
-                CaseClause {
-                    key: Op2::NumEqual.to_field(),
-                    value: args_equal_ptr.hash(),
-                },
-                CaseClause {
-                    key: Op2::Cons.to_field(),
-                    value: cons.hash(),
-                },
-                CaseClause {
-                    key: Op2::StrCons.to_field(),
-                    value: cons.hash(),
-                },
-                CaseClause {
-                    key: Op2::Hide.to_field(),
-                    value: commitment.hash(),
-                },
+                CaseClause::new(Op2::Sum.to_field(), <span class="kw-2">&amp;</span>sum),
+                CaseClause::new(Op2::Diff.to_field(), <span class="kw-2">&amp;</span>diff),
+                CaseClause::new(Op2::Product.to_field(), <span class="kw-2">&amp;</span>product),
+                CaseClause::new(Op2::Quotient.to_field(), <span class="kw-2">&amp;</span>quotient),
+                CaseClause::new(Op2::Equal.to_field(), args_equal_ptr.hash()),
+                CaseClause::new(Op2::NumEqual.to_field(), args_equal_ptr.hash()),
+                CaseClause::new(Op2::Cons.to_field(), cons.hash()),
+                CaseClause::new(Op2::StrCons.to_field(), cons.hash()),
+                CaseClause::new(Op2::Hide.to_field(), commitment.hash()),
             ],
             <span class="kw-2">&amp;</span>g.default_num,
             g,
