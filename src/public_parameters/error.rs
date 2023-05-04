@@ -1,5 +1,5 @@
+use crate::store;
 use bellperson::SynthesisError;
-use lurk::store;
 use std::io;
 use thiserror::Error;
 

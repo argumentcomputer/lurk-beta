@@ -2,12 +2,12 @@
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::{Arg, ArgAction, Command};
-use pasta_curves::pallas;
-
-use fcomm::{
+use lurk::public_parameters::{
     public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, Id, LurkCont,
     LurkPtr, NovaProofCache, Opening, Proof, PtrEvaluation,
 };
+use pasta_curves::pallas;
+
 use lurk::coprocessor::Coprocessor;
 use lurk::eval::{
     lang::{Coproc, Lang},
@@ -27,6 +27,7 @@ use lurk::writer::Write;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
+use std::sync::Arc;
 use std::thread;
 
 const DEFAULT_REDUCTION_COUNT: usize = 10;
@@ -121,8 +122,8 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
     ) -> Self {
         let reduction_count = DEFAULT_REDUCTION_COUNT;
 
-        let proof_map = fcomm::nova_proof_cache(reduction_count);
-        let expression_map = fcomm::committed_expression_store();
+        let proof_map = lurk::public_parameters::nova_proof_cache(reduction_count);
+        let expression_map = lurk::public_parameters::committed_expression_store();
 
         let demo = command.clone().and_then(|c| {
             let l = Self::base_prompt().trim_start_matches('\n').len();
@@ -133,8 +134,9 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
                 .map(|demo_file| Demo::new_from_path(demo_file, l))
         });
 
+        let lang_rc = Arc::new(lang.clone());
         // Load params from disk cache, or generate them in the background.
-        thread::spawn(move || public_params(reduction_count));
+        thread::spawn(move || public_params(reduction_count, lang_rc));
 
         Self {
             repl_state: ReplState::new(s, limit, command, lang),
@@ -275,8 +277,8 @@ impl<F: LurkField, C: Coprocessor<F>> ClutchState<F, C> {
 }
 
 impl ClutchState<F, Coproc<F>> {
-    fn lang(&self) -> &Lang<F, Coproc<F>> {
-        &self.repl_state.lang
+    fn lang(&self) -> Arc<Lang<F, Coproc<F>>> {
+        self.repl_state.lang.clone()
     }
     fn commit(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (first, rest) = store.car_cdr(&rest)?;
@@ -433,7 +435,7 @@ impl ClutchState<F, Coproc<F>> {
 
         let commitment_expr = self.expression_map.get(&commitment);
         let commitment_ptr = commitment_expr.map(|c| {
-            let ptr = c.expr.ptr(store, self.repl_state.limit, self.lang());
+            let ptr = c.expr.ptr(store, self.repl_state.limit, &self.lang());
 
             if let Some(secret) = c.secret {
                 store.intern_comm(secret, ptr);
@@ -449,7 +451,7 @@ impl ClutchState<F, Coproc<F>> {
 
     fn proof_in_expr(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let proof = self.get_proof(store, rest)?;
-        let (input, _output) = proof.io(store, self.lang())?;
+        let (input, _output) = proof.io(store, &self.lang())?;
 
         let mut handle = io::stdout().lock();
         input.expr.fmt(store, &mut handle)?;
@@ -458,7 +460,7 @@ impl ClutchState<F, Coproc<F>> {
     }
     fn proof_out_expr(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let proof = self.get_proof(store, rest)?;
-        let (_input, output) = proof.io(store, self.lang())?;
+        let (_input, output) = proof.io(store, &self.lang())?;
 
         let mut handle = io::stdout().lock();
         output.expr.fmt(store, &mut handle)?;
@@ -483,7 +485,7 @@ impl ClutchState<F, Coproc<F>> {
             bail!("proof cid must be a string");
         };
 
-        let cid = fcomm::cid_from_string(&cid_string)?;
+        let cid = lurk::public_parameters::cid_from_string(&cid_string)?;
         self.proof_map
             .get(&cid)
             .ok_or_else(|| anyhow!("proof not found: {cid}"))
@@ -492,8 +494,8 @@ impl ClutchState<F, Coproc<F>> {
     fn prove(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (proof_in_expr, _rest1) = store.car_cdr(&rest)?;
 
-        let prover = NovaProver::<F, Coproc<F>>::new(self.reduction_count, self.lang().clone());
-        let pp = public_params(self.reduction_count)?;
+        let prover = NovaProver::<F, Coproc<F>>::new(self.reduction_count, (*self.lang()).clone());
+        let pp = public_params(self.reduction_count, self.lang())?;
 
         let proof = if rest.is_nil() {
             self.last_claim
@@ -523,7 +525,7 @@ impl ClutchState<F, Coproc<F>> {
             )
         }?;
 
-        if proof.verify(&pp, self.lang())?.verified {
+        if proof.verify(&pp, &self.lang())?.verified {
             let cid_str = proof.claim.cid().to_string();
             match proof.claim {
                 Claim::Evaluation(_) | Claim::Opening(_) => println!("{0:#?}", proof.claim),
@@ -548,14 +550,14 @@ impl ClutchState<F, Coproc<F>> {
             bail!("proof cid must be a string");
         };
 
-        let cid = fcomm::cid_from_string(&cid_string)?;
+        let cid = lurk::public_parameters::cid_from_string(&cid_string)?;
         let proof = self
             .proof_map
             .get(&cid)
             .ok_or_else(|| anyhow!("proof not found: {cid}"))?;
 
-        let pp = public_params(self.reduction_count)?;
-        let result = proof.verify(&pp, self.lang()).unwrap();
+        let pp = public_params(self.reduction_count, self.lang())?;
+        let result = proof.verify(&pp, &self.lang()).unwrap();
 
         if result.verified {
             Ok(Some(store.get_t()))
