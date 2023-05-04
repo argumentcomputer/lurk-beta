@@ -1,6 +1,5 @@
 use blstrs::Scalar as Fr;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode};
-
 use lurk::{
     eval::{
         empty_sym_env,
@@ -260,15 +259,15 @@ fn prove_benchmark(c: &mut Criterion) {
 fn verify_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("verify_benchmark");
     group
-        .measurement_time(Duration::from_secs(5))
-        .sample_size(60);
+        .measurement_time(Duration::from_secs(10))
+        .sample_size(10);
 
     let limit = 1_000_000_000;
     let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
     let mut store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
-    let sizes = vec![(10, 16), (10, 160)];
+    let sizes = vec![(10, 0)];
     for size in sizes {
         let parameter_string = format!("_{}_{}", size.0, size.1);
         let benchmark_id = BenchmarkId::new("verify_go_base_nova", &parameter_string);
@@ -296,12 +295,52 @@ fn verify_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
+fn verify_compressed_benchmark(c: &mut Criterion) {
+    let mut group = c.benchmark_group("verify_compressed_benchmark");
+    group
+        .measurement_time(Duration::from_secs(10))
+        .sample_size(10);
+
+    let limit = 1_000_000_000;
+    let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
+    let mut store = Store::default();
+    let reduction_count = DEFAULT_REDUCTION_COUNT;
+
+    let sizes = vec![(10, 0)];
+    for size in sizes {
+        let parameter_string = format!("_{}_{}", size.0, size.1);
+        let benchmark_id = BenchmarkId::new("verify_compressed_go_base_nova", &parameter_string);
+        group.bench_with_input(benchmark_id, &size, |b, &s| {
+            let ptr = go_base(&mut store, s.0, s.1);
+            let prover = NovaProver::new(reduction_count, lang_vesta.clone());
+            let pp = fcomm::public_params(reduction_count).unwrap();
+            let frames = prover
+                .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_vesta)
+                .unwrap();
+            let proof = prover
+                .prove(&pp, frames.clone(), &mut store, &lang_vesta)
+                .unwrap();
+
+            let compressed_proof = proof.0.compress(&pp).unwrap();
+
+            b.iter(|| {
+                let result = compressed_proof
+                    .verify(&pp, proof.3, proof.1.clone(), &proof.2[..])
+                    .unwrap();
+                black_box(result);
+            })
+        });
+    }
+
+    group.finish();
+}
+
 cfg_if::cfg_if! {
     if #[cfg(feature = "flamegraph")] {
         criterion_group! {
             name = benches;
             config = Criterion::default()
-                .with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
+                .with_profiler(pprof::criterion::PProfProfiler::new(100, pprof::criterion::Output::Flamegraph(None)));
             targets =
                 end2end_benchmark,
                 store_benchmark,
@@ -309,7 +348,8 @@ cfg_if::cfg_if! {
                 eval_benchmark,
                 // circuit_generation_benchmark,
                 prove_benchmark,
-                verify_benchmark
+                verify_benchmark,
+                verify_compressed_benchmark
         }
     } else {
         criterion_group! {
@@ -322,7 +362,8 @@ cfg_if::cfg_if! {
                 eval_benchmark,
                 // circuit_generation_benchmark,
                 prove_benchmark,
-                verify_benchmark
+                verify_benchmark,
+                verify_compressed_benchmark
         }
     }
 }
