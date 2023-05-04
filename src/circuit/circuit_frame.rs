@@ -455,7 +455,7 @@ fn add_clause_single<'a, F: LurkField>(
     key: F,
     value: &'a AllocatedNum<F>,
 ) {
-    clauses.push(CaseClause { key, value });
+    clauses.push(CaseClause::new(key, value));
 }
 
 impl<'a, F: LurkField> Results<'a, F> {
@@ -3183,104 +3183,32 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             op1.tag(),
             &[
                 &[
-                    CaseClause {
-                        key: Op1::Car.to_field(),
-                        value: res_car.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Cdr.to_field(),
-                        value: res_cdr.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Atom.to_field(),
-                        value: is_atom_ptr.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Emit.to_field(),
-                        value: result.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Commit.to_field(),
-                        value: commitment.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Open.to_field(),
-                        value: committed_expr.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Secret.to_field(),
-                        value: &g.num_tag,
-                    },
-                    CaseClause {
-                        key: Op1::Num.to_field(),
-                        value: num.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::U64.to_field(),
-                        value: &g.u64_tag,
-                    },
-                    CaseClause {
-                        key: Op1::Comm.to_field(),
-                        value: comm.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Char.to_field(),
-                        value: &g.char_tag,
-                    },
-                    CaseClause {
-                        key: Op1::Eval.to_field(),
-                        value: result.tag(),
-                    },
+                    CaseClause::new(Op1::Car.to_field(), res_car.tag()),
+                    CaseClause::new(Op1::Cdr.to_field(), res_cdr.tag()),
+                    CaseClause::new(Op1::Atom.to_field(), is_atom_ptr.tag()),
+                    CaseClause::new(Op1::Emit.to_field(), result.tag()),
+                    CaseClause::new(Op1::Commit.to_field(), commitment.tag()),
+                    CaseClause::new(Op1::Open.to_field(), committed_expr.tag()),
+                    CaseClause::new(Op1::Secret.to_field(), &g.num_tag),
+                    CaseClause::new(Op1::Num.to_field(), num.tag()),
+                    CaseClause::new(Op1::U64.to_field(), &g.u64_tag),
+                    CaseClause::new(Op1::Comm.to_field(), comm.tag()),
+                    CaseClause::new(Op1::Char.to_field(), &g.char_tag),
+                    CaseClause::new(Op1::Eval.to_field(), result.tag()),
                 ],
                 &[
-                    CaseClause {
-                        key: Op1::Car.to_field(),
-                        value: allocated_car.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Cdr.to_field(),
-                        value: allocated_cdr.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Atom.to_field(),
-                        value: is_atom_ptr.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Emit.to_field(),
-                        value: result.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Commit.to_field(),
-                        value: commitment.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Open.to_field(),
-                        value: committed_expr.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Secret.to_field(),
-                        value: &commitment_secret,
-                    },
-                    CaseClause {
-                        key: Op1::Num.to_field(),
-                        value: num.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::U64.to_field(),
-                        value: &u64_elem,
-                    },
-                    CaseClause {
-                        key: Op1::Comm.to_field(),
-                        value: comm.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Char.to_field(),
-                        value: &u32_elem,
-                    },
-                    CaseClause {
-                        key: Op1::Eval.to_field(),
-                        value: result.hash(),
-                    },
+                    CaseClause::new(Op1::Car.to_field(), allocated_car.hash()),
+                    CaseClause::new(Op1::Cdr.to_field(), allocated_cdr.hash()),
+                    CaseClause::new(Op1::Atom.to_field(), is_atom_ptr.hash()),
+                    CaseClause::new(Op1::Emit.to_field(), result.hash()),
+                    CaseClause::new(Op1::Commit.to_field(), commitment.hash()),
+                    CaseClause::new(Op1::Open.to_field(), committed_expr.hash()),
+                    CaseClause::new(Op1::Secret.to_field(), &commitment_secret),
+                    CaseClause::new(Op1::Num.to_field(), num.hash()),
+                    CaseClause::new(Op1::U64.to_field(), &u64_elem),
+                    CaseClause::new(Op1::Comm.to_field(), comm.hash()),
+                    CaseClause::new(Op1::Char.to_field(), &u32_elem),
+                    CaseClause::new(Op1::Eval.to_field(), result.hash()),
                 ],
             ],
             &[&g.default_num, &g.default_num],
@@ -3900,42 +3828,15 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &mut cs.namespace(|| "Binop2 case"),
             op2.tag(),
             &[
-                CaseClause {
-                    key: Op2::Sum.to_field(),
-                    value: &sum,
-                },
-                CaseClause {
-                    key: Op2::Diff.to_field(),
-                    value: &diff,
-                },
-                CaseClause {
-                    key: Op2::Product.to_field(),
-                    value: &product,
-                },
-                CaseClause {
-                    key: Op2::Quotient.to_field(),
-                    value: &quotient,
-                },
-                CaseClause {
-                    key: Op2::Equal.to_field(),
-                    value: args_equal_ptr.hash(),
-                },
-                CaseClause {
-                    key: Op2::NumEqual.to_field(),
-                    value: args_equal_ptr.hash(),
-                },
-                CaseClause {
-                    key: Op2::Cons.to_field(),
-                    value: cons.hash(),
-                },
-                CaseClause {
-                    key: Op2::StrCons.to_field(),
-                    value: cons.hash(),
-                },
-                CaseClause {
-                    key: Op2::Hide.to_field(),
-                    value: commitment.hash(),
-                },
+                CaseClause::new(Op2::Sum.to_field(), &sum),
+                CaseClause::new(Op2::Diff.to_field(), &diff),
+                CaseClause::new(Op2::Product.to_field(), &product),
+                CaseClause::new(Op2::Quotient.to_field(), &quotient),
+                CaseClause::new(Op2::Equal.to_field(), args_equal_ptr.hash()),
+                CaseClause::new(Op2::NumEqual.to_field(), args_equal_ptr.hash()),
+                CaseClause::new(Op2::Cons.to_field(), cons.hash()),
+                CaseClause::new(Op2::StrCons.to_field(), cons.hash()),
+                CaseClause::new(Op2::Hide.to_field(), commitment.hash()),
             ],
             &g.default_num,
             g,
