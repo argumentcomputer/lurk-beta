@@ -210,28 +210,72 @@ mod test {
     use blstrs::Scalar as Fr;
     // use proptest::prelude::*;
 
-    // TODO: Write better tests
     #[test]
     fn display_syntax() {
-        assert_eq!("nil", format!("{}", Syntax::<Fr>::nil(Pos::No)));
-        assert_eq!(
-            "(nil)",
-            format!(
-                "{}",
-                Syntax::<Fr>::List(Pos::No, vec![Syntax::nil(Pos::No)])
-            )
-        );
-        assert_eq!(
-            "(nil . nil)",
-            format!(
-                "{}",
-                Syntax::<Fr>::Improper(
-                    Pos::No,
-                    vec![Syntax::nil(Pos::No)],
-                    Box::new(Syntax::nil(Pos::No))
-                )
-            )
-        )
+        let mut s = Store::<Fr>::default();
+        let lurk_syms = Symbol::lurk_syms();
+
+        macro_rules! improper {
+            ( $( $x:expr ),+ ) => {
+                {
+                    let mut vec = vec!($($x,)*);
+                    let mut tmp = vec.pop().unwrap();
+                    while let Some(x) = vec.pop() {
+                        tmp = s.cons(x, tmp);
+                    }
+                    tmp
+                }
+            };
+        }
+
+        macro_rules! list {
+            ( $( $x:expr ),* ) => {
+                {
+                    let mut vec = vec!($($x,)*);
+                    let mut tmp = s.nil();
+                    while let Some(x) = vec.pop() {
+                        tmp = s.cons(x, tmp);
+                    }
+                    tmp
+                }
+            };
+        }
+
+        macro_rules! sym {
+            ( $sym:ident ) => {
+                {
+                    let sym = stringify!($sym);
+                    if lurk_syms.contains_key(&Symbol::lurk_sym(sym)) {
+                        s.lurk_sym(sym)
+                    }
+                    else {
+                        s.sym(sym)
+                    }
+                }
+            };
+        }
+
+        // Quote tests
+        let expr = list!(sym!(quote), list!(sym!(f), sym!(x), sym!(y)));
+        let output = s.fetch_syntax(expr).unwrap();
+        assert_eq!("'(f x y)".to_string(), format!("{}", output));
+
+        let expr = list!(sym!(quote), sym!(f), sym!(x), sym!(y));
+        let output = s.fetch_syntax(expr).unwrap();
+        assert_eq!("(quote f x y)".to_string(), format!("{}", output));
+
+        // List tests
+        let expr = list!();
+        let output = s.fetch_syntax(expr).unwrap();
+        assert_eq!("nil".to_string(), format!("{}", output));
+
+        let expr = improper!(sym!(x), sym!(y), sym!(z));
+        let output = s.fetch_syntax(expr).unwrap();
+        assert_eq!("(x y . z)".to_string(), format!("{}", output));
+
+        let expr = improper!(sym!(x), sym!(y), sym!(nil));
+        let output = s.fetch_syntax(expr).unwrap();
+        assert_eq!("(x y)".to_string(), format!("{}", output));
     }
 
     // proptest! {
