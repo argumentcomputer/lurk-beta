@@ -21,7 +21,7 @@ pub(crate) struct CaseClause<'a, F: LurkField> {
 }
 
 impl<'a, F: LurkField> CaseClause<'a, F> {
-    pub fn new(key: F, value: &'a AllocatedNum<F>) -> Self {
+    pub(crate) fn new(key: F, value: &'a AllocatedNum<F>) -> Self {
         CaseClause { key, value }
     }
 }
@@ -435,7 +435,14 @@ mod tests {
         {
             let clauses = [CaseClause::new(x, &val0), CaseClause::new(y, &val1)];
 
-            let result = case(&default, &g).unwrap();
+            let result = case(
+                &mut cs.namespace(|| "selected case"),
+                &selected,
+                &clauses,
+                &default,
+                &g,
+            )
+            .unwrap();
 
             assert_eq!(val0.get_value(), result.get_value());
             assert!(cs.is_satisfied());
