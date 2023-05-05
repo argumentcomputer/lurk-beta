@@ -1464,6 +1464,7 @@ dependencies = [
  "assert_cmd",
  "base64",
  "bellperson",
+ "bincode",
  "blstrs",
  "cfg-if",
  "cid",

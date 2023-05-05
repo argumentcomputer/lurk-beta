@@ -399,13 +399,14 @@ where
         let file = File::create(path).expect("failed to create file");
         let writer = BufWriter::new(&file);
 
-        serde_json::to_writer(writer, &self).expect("failed to write file");
+        bincode::serialize_into(writer, &self).expect("failed to write file");
     }
 
     fn read_from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
-        Ok(serde_json::from_reader(reader)?)
+        bincode::deserialize_from(reader)
+            .map_err(|e| Error::CacheError(format!("Cache deserialization error: {}", e)))
     }
 
     fn read_from_stdin() -> Result<Self, Error> {
