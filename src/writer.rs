@@ -47,11 +47,12 @@ impl<F: LurkField> Write<F> for ContPtr<F> {
 }
 
 fn write_symbol<F: LurkField, W: io::Write>(
-    _w: &mut W,
+    w: &mut W,
     _store: &Store<F>,
-    _sym: &Symbol,
+    sym: &Symbol,
 ) -> io::Result<()> {
-    todo!()
+    // TODO print special symbols correctly
+    write!(w, "{}", sym)
 }
 
 impl<F: LurkField> Write<F> for Expression<F> {
@@ -357,9 +358,9 @@ pub mod test {
     #[test]
     fn print_expr2() {
         let mut s = Store::<Fr>::default();
-        let expr = s.intern_symbol_path(vec!["lurk".into(), "foo".into(), "bar".into()]);
+        let expr = s.intern_symbol_path(vec!["foo".into(), "bar".into(), "baz".into()]);
         let output = expr.fmt_to_string(&s);
 
-        assert_eq!("foo.bar".to_string(), output);
+        assert_eq!("foo.bar.baz".to_string(), output);
     }
 }

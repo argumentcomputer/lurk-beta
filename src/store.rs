@@ -625,9 +625,9 @@ impl<F: LurkField> Store<F> {
 
     pub fn fetch_symcons(&self, ptr: &Ptr<F>) -> Option<(Ptr<F>, Ptr<F>)> {
         match (ptr.tag, ptr.raw) {
-            (ExprTag::Sym, RawPtr::Null) => Some((self.symnil(), self.symnil())),
+            (ExprTag::Sym, RawPtr::Null) => None,
             (ExprTag::Sym, RawPtr::Index(x)) => {
-                let (car, cdr) = self.str_store.get_index(x)?;
+                let (car, cdr) = self.sym_store.get_index(x)?;
                 Some((*car, *cdr))
             }
             _ => None,
@@ -642,7 +642,7 @@ impl<F: LurkField> Store<F> {
             path.push(string);
             ptr = cdr
         }
-        Some(Symbol::Sym(path))
+        Some(Symbol::Sym(path.into_iter().rev().collect()))
     }
 
     pub fn fetch_key(&self, ptr: &Ptr<F>) -> Option<Symbol> {
@@ -666,7 +666,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn fetch_strcons(&self, ptr: &Ptr<F>) -> Option<(Ptr<F>, Ptr<F>)> {
         match (ptr.tag, ptr.raw) {
-            (ExprTag::Str, RawPtr::Null) => Some((self.strnil(), self.strnil())),
+            (ExprTag::Str, RawPtr::Null) => None,
             (ExprTag::Str, RawPtr::Index(x)) => {
                 let (car, cdr) = self.str_store.get_index(x)?;
                 Some((*car, *cdr))
