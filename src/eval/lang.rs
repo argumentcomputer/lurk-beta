@@ -11,6 +11,8 @@ use crate::ptr::{Ptr, ScalarPtr};
 use crate::store::Store;
 use crate::sym::Sym;
 
+use crate as lurk;
+
 /// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.
 ///
 /// It provides specific behavior for a dummy coprocessor.
@@ -84,6 +86,21 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         Self {
             coprocessors: Default::default(),
         }
+    }
+
+    pub fn key(&self) -> String {
+        let mut key = String::new();
+
+        for coprocessor in &self.coprocessors {
+            let name = match coprocessor.0 {
+                Sym::Sym(sym) => &sym.path,
+                Sym::Key(sym) => &sym.path,
+            }
+            .join("-");
+
+            key += name.as_str()
+        }
+        key
     }
 
     pub fn add_coprocessor(&mut self, name: Sym, cproc: C, store: &mut Store<F>) {

@@ -13,18 +13,16 @@ use itertools::Itertools;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
-/*
-Initialized map entry for a fixed `key` with
-an allocated `value` computed at runtime.
-*/
+/// Initialized map entry for a fixed `key` with
+/// an allocated `value` computed at runtime.
 pub(crate) struct CaseClause<'a, F: LurkField> {
     pub(crate) key: F,
     pub(crate) value: &'a AllocatedNum<F>,
 }
 
 impl<'a, F: LurkField> CaseClause<'a, F> {
-    fn new(key: F, value: &'a AllocatedNum<F>) -> Self {
-        CaseClause::<'a, F> { key, value }
+    pub fn new(key: F, value: &'a AllocatedNum<F>) -> Self {
+        CaseClause { key, value }
     }
 }
 
@@ -441,9 +439,6 @@ mod tests {
             ];
 
             let result = case(
-                &mut cs.namespace(|| "selected case"),
-                &selected,
-                &clauses,
                 &default,
                 &g,
             )
@@ -572,26 +567,8 @@ mod tests {
             &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
         ];
 
-        let clauses0: [CaseClause<'_, Fr>; 2] = [
-            CaseClause {
-                key: x,
-                value: &val0,
-            },
-            CaseClause {
-                key: x,
-                value: &val1,
-            },
-        ];
-        let clauses1: [CaseClause<'_, Fr>; 2] = [
-            CaseClause {
-                key: x,
-                value: &val2,
-            },
-            CaseClause {
-                key: x,
-                value: &val0,
-            },
-        ];
+        let clauses0 = [CaseClause::new(x, &val0), CaseClause::new(x, &val1)];
+        let clauses1 = [CaseClause::new(x, &val2), CaseClause::new(x, &val0)];
 
         // Test repeated keys
         let invalid_clauses_vec: [&[CaseClause<'_, Fr>]; 2] = [&clauses0, &clauses1];
@@ -629,26 +606,8 @@ mod tests {
             &AllocatedNum::alloc(cs.namespace(|| "default2"), || Ok(Fr::from(997))).unwrap(),
         ];
 
-        let clauses0: [CaseClause<'_, Fr>; 2] = [
-            CaseClause {
-                key: x,
-                value: &val0,
-            },
-            CaseClause {
-                key: y,
-                value: &val1,
-            },
-        ];
-        let clauses1: [CaseClause<'_, Fr>; 2] = [
-            CaseClause {
-                key: y,
-                value: &val2,
-            },
-            CaseClause {
-                key: x,
-                value: &val0,
-            },
-        ];
+        let clauses0 = [CaseClause::new(x, &val0), CaseClause::new(y, &val1)];
+        let clauses1 = [CaseClause::new(y, &val2), CaseClause::new(x, &val0)];
 
         let invalid_clauses_vec: [&[CaseClause<'_, Fr>]; 2] = [&clauses0, &clauses1];
 
@@ -684,29 +643,11 @@ mod tests {
             &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
         ];
 
-        let clauses0: [CaseClause<'_, Fr>; 2] = [
-            CaseClause {
-                key: x,
-                value: &val0,
-            },
-            CaseClause {
-                key: y,
-                value: &val1,
-            },
-        ];
+        let clauses0 = [CaseClause::new(x, &val0), CaseClause::new(y, &val1)];
         let clauses1: [CaseClause<'_, Fr>; 3] = [
-            CaseClause {
-                key: x,
-                value: &val2,
-            },
-            CaseClause {
-                key: y,
-                value: &val2,
-            },
-            CaseClause {
-                key: x,
-                value: &val0,
-            },
+            CaseClause::new(x, &val2),
+            CaseClause::new(y, &val2),
+            CaseClause::new(x, &val0),
         ];
 
         // Test invalid clauses sizes
@@ -761,29 +702,11 @@ mod tests {
         let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
         let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
         let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(700))).unwrap();
-        let clauses0: [CaseClause<'_, Fr>; 2] = [
-            CaseClause {
-                key: x,
-                value: &val0,
-            },
-            CaseClause {
-                key: y,
-                value: &val1,
-            },
-        ];
-        let clauses1: [CaseClause<'_, Fr>; 3] = [
-            CaseClause {
-                key: x,
-                value: &val2,
-            },
-            CaseClause {
-                key: y,
-                value: &val2,
-            },
-            CaseClause {
-                key: x,
-                value: &val0,
-            },
+        let clauses0 = [CaseClause::new(x, &val0), CaseClause::new(y, &val1)];
+        let clauses1 = [
+            CaseClause::new(x, &val2),
+            CaseClause::new(y, &val2),
+            CaseClause::new(x, &val0),
         ];
         let clauses_vec: [&[CaseClause<'_, Fr>]; 2] = [&clauses0, &clauses1];
 
@@ -815,16 +738,7 @@ mod tests {
             &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
             &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
         ];
-        let clauses0: [CaseClause<'_, Fr>; 2] = [
-            CaseClause {
-                key: x,
-                value: &val0,
-            },
-            CaseClause {
-                key: y,
-                value: &val1,
-            },
-        ];
+        let clauses0 = [CaseClause::new(x, &val0), CaseClause::new(y, &val1)];
         let clauses1 = [];
         let clauses_vec: [&[CaseClause<'_, Fr>]; 2] = [&clauses0, &clauses1];
 
@@ -871,16 +785,7 @@ mod tests {
         .unwrap();
 
         {
-            let clauses = [
-                CaseClause {
-                    key: x,
-                    value: &val0,
-                },
-                CaseClause {
-                    key: y,
-                    value: &val1,
-                },
-            ];
+            let clauses = [CaseClause::new(x, &val0), CaseClause::new(y, &val1)];
 
             let result = case(
                 &mut cs.namespace(|| "selected case"),
@@ -896,14 +801,8 @@ mod tests {
         }
         {
             let clauses_blank = [
-                CaseClause {
-                    key: x,
-                    value: &val0_blank,
-                },
-                CaseClause {
-                    key: y,
-                    value: &val1_blank,
-                },
+                CaseClause::new(x, &val0_blank),
+                CaseClause::new(y, &val1_blank),
             ];
 
             let _result = case(

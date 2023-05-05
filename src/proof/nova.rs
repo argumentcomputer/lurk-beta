@@ -14,6 +14,7 @@ use nova::{
 };
 use pasta_curves::{pallas, vesta};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use crate::circuit::{
     gadgets::{
@@ -81,10 +82,10 @@ pub enum Proof<'a, C: Coprocessor<S1>> {
 }
 
 /// Generates the public parameters for the Nova proving system.
-pub fn public_params<C: Coprocessor<S1>>(
+pub fn public_params<'a, C: Coprocessor<S1>>(
     num_iters_per_step: usize,
-    lang: &Lang<S1, C>,
-) -> PublicParams<'_, C> {
+    lang: Arc<Lang<S1, C>>,
+) -> PublicParams<'a, C> {
     let (circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step, lang);
 
     let pp = nova::PublicParams::setup(circuit_primary, circuit_secondary);
@@ -93,7 +94,7 @@ pub fn public_params<C: Coprocessor<S1>>(
 }
 
 impl<'a, C: Coprocessor<S1>> MultiFrame<'a, S1, IO<S1>, Witness<S1>, C> {
-    fn circuits(count: usize, lang: &'a Lang<S1, C>) -> (C1<'a, C>, C2) {
+    fn circuits(count: usize, lang: Arc<Lang<S1, C>>) -> (C1<'a, C>, C2) {
         (
             MultiFrame::blank(count, lang),
             TrivialTestCircuit::default(),
@@ -155,12 +156,13 @@ impl<C: Coprocessor<S1>> NovaProver<S1, C> {
         env: Ptr<S1>,
         store: &'a mut Store<S1>,
         limit: usize,
-        lang: &'a Lang<S1, C>,
+        lang: Arc<Lang<S1, C>>,
     ) -> Result<(Proof<'_, C>, Vec<S1>, Vec<S1>, usize), ProofError> {
-        let frames = self.get_evaluation_frames(expr, env, store, limit, lang)?;
+        let frames = self.get_evaluation_frames(expr, env, store, limit, &lang)?;
         let z0 = frames[0].input.to_vector(store)?;
         let zi = frames.last().unwrap().output.to_vector(store)?;
-        let circuits = MultiFrame::from_frames(self.reduction_count(), &frames, store, lang);
+        let circuits =
+            MultiFrame::from_frames(self.reduction_count(), &frames, store, lang.clone());
         let num_steps = circuits.len();
         let proof =
             Proof::prove_recursively(pp, store, &circuits, self.reduction_count, z0.clone(), lang)?;
@@ -238,7 +240,7 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
         circuits: &[C1<'a, C>],
         num_iters_per_step: usize,
         z0: Vec<S1>,
-        lang: &'a Lang<S1, C>,
+        lang: Arc<Lang<S1, C>>,
     ) -> Result<Self, ProofError> {
         assert!(!circuits.is_empty());
         assert_eq!(circuits[0].arity(), z0.len());
@@ -344,7 +346,7 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use crate::num::Num;
 
     use super::*;
@@ -362,7 +364,8 @@ mod tests {
 
     const DEFAULT_REDUCTION_COUNT: usize = 5;
     const REDUCTION_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
-    fn test_aux<C: Coprocessor<Fr>>(
+    /// fake docs
+    pub fn test_aux<C: Coprocessor<Fr>>(
         s: &mut Store<Fr>,
         expr: &str,
         expected_result: Option<Ptr<Fr>>,
@@ -370,7 +373,7 @@ mod tests {
         expected_cont: Option<ContPtr<Fr>>,
         expected_emitted: Option<Vec<Ptr<Fr>>>,
         expected_iterations: usize,
-        lang: Option<&Lang<Fr, C>>,
+        lang: Option<Arc<Lang<Fr, C>>>,
     ) {
         for chunk_size in REDUCTION_COUNTS_TO_TEST {
             nova_test_full_aux(
@@ -384,7 +387,7 @@ mod tests {
                 chunk_size,
                 false,
                 None,
-                lang,
+                lang.clone(),
             )
         }
     }
@@ -400,7 +403,7 @@ mod tests {
         reduction_count: usize,
         check_nova: bool,
         limit: Option<usize>,
-        lang: Option<&Lang<Fr, C>>,
+        lang: Option<Arc<Lang<Fr, C>>>,
     ) {
         let expr = s.read(expr).unwrap();
 
@@ -424,7 +427,7 @@ mod tests {
             f(l)
         } else {
             let lang = Lang::new();
-            f(&lang)
+            f(Arc::new(lang))
         };
     }
 
@@ -439,18 +442,18 @@ mod tests {
         reduction_count: usize,
         check_nova: bool,
         limit: Option<usize>,
-        lang: &Lang<Fr, C>,
+        lang: Arc<Lang<Fr, C>>,
     ) {
         let limit = limit.unwrap_or(10000);
 
         let e = empty_sym_env(s);
 
-        let nova_prover = NovaProver::<Fr, C>::new(reduction_count, lang.clone());
+        let nova_prover = NovaProver::<Fr, C>::new(reduction_count, (*lang).clone());
 
         if check_nova {
-            let pp = public_params(reduction_count, lang);
+            let pp = public_params(reduction_count, lang.clone());
             let (proof, z0, zi, num_steps) = nova_prover
-                .evaluate_and_prove(&pp, expr, empty_sym_env(s), s, limit, &lang)
+                .evaluate_and_prove(&pp, expr, empty_sym_env(s), s, limit, lang.clone())
                 .unwrap();
 
             let res = proof.verify(&pp, num_steps, z0.clone(), &zi);
@@ -469,7 +472,8 @@ mod tests {
             .get_evaluation_frames(expr, e, s, limit, &lang)
             .unwrap();
 
-        let multiframes = MultiFrame::from_frames(nova_prover.reduction_count(), &frames, s, &lang);
+        let multiframes =
+            MultiFrame::from_frames(nova_prover.reduction_count(), &frames, s, lang.clone());
         let len = multiframes.len();
 
         let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
@@ -3447,7 +3451,7 @@ mod tests {
         let expr = s.list(&[fun, input]);
         let res = s.num(10);
         let terminal = s.get_cont_terminal();
-        let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
+        let lang: Arc<Lang<Fr, Coproc<Fr>>> = Arc::new(Lang::new());
 
         nova_test_full_aux2(
             s,
@@ -3460,7 +3464,7 @@ mod tests {
             DEFAULT_REDUCTION_COUNT,
             false,
             None,
-            &lang,
+            lang,
         );
     }
 
@@ -3600,10 +3604,29 @@ mod tests {
 
         let res = s.num(89);
         let error = s.get_cont_error();
+        let lang = Arc::new(lang);
 
-        test_aux(s, &expr, Some(res), None, None, None, 1, Some(&lang));
-        test_aux(s, &expr2, Some(res), None, None, None, 3, Some(&lang));
-        test_aux(s, &expr3, None, None, Some(error), None, 1, Some(&lang));
-        test_aux(s, &expr4, None, None, Some(error), None, 1, Some(&lang));
+        test_aux(s, &expr, Some(res), None, None, None, 1, Some(lang.clone()));
+        test_aux(
+            s,
+            &expr2,
+            Some(res),
+            None,
+            None,
+            None,
+            3,
+            Some(lang.clone()),
+        );
+        test_aux(
+            s,
+            &expr3,
+            None,
+            None,
+            Some(error),
+            None,
+            1,
+            Some(lang.clone()),
+        );
+        test_aux(s, &expr4, None, None, Some(error), None, 1, Some(lang));
     }
 }
