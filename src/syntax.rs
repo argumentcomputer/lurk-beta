@@ -8,6 +8,7 @@ use crate::ptr::Ptr;
 use crate::store::Store;
 use crate::symbol::{LurkSym, Symbol};
 use crate::uint::UInt;
+use std::collections::HashMap;
 
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
@@ -32,6 +33,12 @@ pub enum Syntax<F: LurkField> {
     List(Pos, Vec<Syntax<F>>),
     // An imprpoer cons-list of expressions: (1 2 . 3)
     Improper(Pos, Vec<Syntax<F>>, Box<Syntax<F>>),
+}
+
+impl<F: LurkField> Syntax<F> {
+    pub fn nil(pos: Pos) -> Syntax<F> {
+        Syntax::LurkSym(pos, LurkSym::Nil)
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -107,7 +114,7 @@ impl<F: LurkField> Store<F> {
             Syntax::UInt(_, x) => self.intern_uint(x),
             Syntax::Char(_, x) => self.intern_char(x),
             Syntax::Symbol(_, x) => self.intern_symbol(x),
-            Syntax::LurkSym(_, _x) => todo!(),
+            Syntax::LurkSym(_, x) => self.intern_symbol(Symbol::lurk_sym(&format!("{x}"))),
             Syntax::String(_, x) => self.intern_string(x),
             Syntax::Quote(pos, x) => {
                 let xs = vec![Syntax::Symbol(pos, Symbol::lurk_sym("quote")), *x];
@@ -132,7 +139,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn fetch_syntax_list(&self, mut ptr: Ptr<F>) -> Option<Syntax<F>> {
+    fn fetch_syntax_list(&self, mut ptr: Ptr<F>) -> Option<Syntax<F>> {
         let mut list = vec![];
         loop {
             match self.fetch(&ptr)? {
@@ -140,7 +147,18 @@ impl<F: LurkField> Store<F> {
                     list.push(self.fetch_syntax(car)?);
                     ptr = cdr;
                 }
-                Expression::Nil => return Some(Syntax::List(Pos::No, list)),
+                Expression::Nil => {
+                    if list.is_empty() {
+                        return Some(Syntax::LurkSym(Pos::No, LurkSym::Nil));
+                    } else if list.len() == 2 {
+                        if let Syntax::LurkSym(_, LurkSym::Quote) = list[0] {
+                            return Some(Syntax::Quote(Pos::No, Box::new(list[1].clone())));
+                        }
+                        return Some(Syntax::List(Pos::No, list));
+                    } else {
+                        return Some(Syntax::List(Pos::No, list));
+                    }
+                }
                 _ => {
                     if list.is_empty() {
                         return None;
@@ -153,7 +171,11 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn fetch_syntax(&self, ptr: Ptr<F>) -> Option<Syntax<F>> {
+    fn fetch_syntax_aux(
+        &self,
+        lurk_syms: HashMap<Symbol, LurkSym>,
+        ptr: Ptr<F>,
+    ) -> Option<Syntax<F>> {
         let expr = self.fetch(&ptr)?;
         match expr {
             Expression::Num(f) => Some(Syntax::Num(Pos::No, f)),
@@ -163,43 +185,60 @@ impl<F: LurkField> Store<F> {
             Expression::StrNil => Some(Syntax::String(Pos::No, "".to_string())),
             Expression::StrCons(..) => Some(Syntax::String(Pos::No, self.fetch_string(&ptr)?)),
             Expression::SymNil => Some(Syntax::Symbol(Pos::No, Symbol::root())),
-            Expression::SymCons(..) => Some(Syntax::Symbol(Pos::No, self.fetch_symbol(&ptr)?)),
+            Expression::SymCons(..) => {
+                let sym = self.fetch_symbol(&ptr)?;
+                if let Some(sym) = lurk_syms.get(&sym) {
+                    Some(Syntax::LurkSym(Pos::No, *sym))
+                } else {
+                    Some(Syntax::Symbol(Pos::No, sym))
+                }
+            }
             Expression::Key(..) => Some(Syntax::Symbol(Pos::No, self.fetch_key(&ptr)?)),
             Expression::Comm(..) | Expression::Thunk(..) | Expression::Fun(..) => None,
         }
     }
+
+    pub fn fetch_syntax(&self, ptr: Ptr<F>) -> Option<Syntax<F>> {
+        let lurk_syms = Symbol::lurk_syms();
+        self.fetch_syntax_aux(lurk_syms, ptr)
+    }
 }
 
-//#[cfg(test)]
-//mod test {
-//    use super::*;
-//    use blstrs::Scalar as Fr;
-//    use proptest::prelude::*;
-//
-//    //#[test]
-//    //fn display_syntax() {
-//    //    assert_eq!("NIL", format!("{}", Lurk::<Fr>::Nil(Pos::No)));
-//    //    assert_eq!(
-//    //        "(NIL)",
-//    //        format!(
-//    //            "{}",
-//    //            Lurk::<Fr>::Cons(Pos::No, Box::new((Lurk::Nil(Pos::No), Lurk::Nil(Pos::No))))
-//    //        )
-//    //    );
-//    //    assert_eq!(
-//    //        "(#\\a . #\\b)",
-//    //        format!(
-//    //            "{}",
-//    //            Lurk::<Fr>::Cons(Pos::No, Box::new((Lurk::Nil(Pos::No), Lurk::Nil(Pos::No))))
-//    //        )
-//    //    )
-//    //}
-//
-//    //proptest! {
-//    //#[test]
-//    //fn prop_display_syntax(x in any::<Lurk<Fr>>()) {
-//    //  println!("{}", x);
-//    //  assert!(false)
-//    //}
-//    //}
-//}
+#[cfg(test)]
+mod test {
+    use super::*;
+    use blstrs::Scalar as Fr;
+    // use proptest::prelude::*;
+
+    // TODO: Write better tests
+    #[test]
+    fn display_syntax() {
+        assert_eq!("nil", format!("{}", Syntax::<Fr>::nil(Pos::No)));
+        assert_eq!(
+            "(nil)",
+            format!(
+                "{}",
+                Syntax::<Fr>::List(Pos::No, vec![Syntax::nil(Pos::No)])
+            )
+        );
+        assert_eq!(
+            "(nil . nil)",
+            format!(
+                "{}",
+                Syntax::<Fr>::Improper(
+                    Pos::No,
+                    vec![Syntax::nil(Pos::No)],
+                    Box::new(Syntax::nil(Pos::No))
+                )
+            )
+        )
+    }
+
+    // proptest! {
+    //     #[test]
+    //     fn prop_display_syntax(x in any::<Syntax<Fr>>()) {
+    //         println!("{}", x);
+    //         assert!(false)
+    //     }
+    // }
+}
