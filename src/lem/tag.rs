@@ -1,6 +1,4 @@
-use crate::field::LurkField;
-
-#[derive(Clone, Copy, PartialEq, std::cmp::Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, std::cmp::PartialOrd, std::cmp::Ord, std::cmp::Eq, Hash)]
 pub enum Tag {
     Nil,
     Num,
@@ -17,14 +15,4 @@ pub enum Tag {
     Outermost,
     Terminal,
     Error,
-}
-
-impl Tag {
-    pub fn to_field<F: LurkField>(self) -> F {
-        todo!()
-    }
-
-    pub fn from_field<F: LurkField>(f: F) -> Option<Tag> {
-        todo!()
-    }
 }

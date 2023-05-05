@@ -1,22 +1,22 @@
 use crate::field::LurkField;
 
-use super::{tag::Tag, MetaPtr, LEM, LEMOP};
+use super::{ptr::PtrVal, tag::Tag, MetaPtr, LEM, LEMOP};
 
-pub fn step<'a, F: LurkField + std::cmp::Ord>() -> LEM<'a, F> {
+pub fn step<'a, F: LurkField + std::cmp::Ord>() -> LEM<'a> {
     let input = ["expr_in", "env_in", "cont_in"];
     let output = ["expr_out", "env_out", "cont_out"];
     let lem_op = LEMOP::mk_match_tag(
         MetaPtr("expr_in"),
         vec![(
-            Tag::Num.to_field(),
+            Tag::Num,
             LEMOP::mk_match_tag(
                 MetaPtr("cont_in"),
                 vec![(
-                    Tag::Outermost.to_field(),
+                    Tag::Outermost,
                     LEMOP::Seq(vec![
                         LEMOP::Copy(MetaPtr("expr_out"), MetaPtr("expr_in")),
                         LEMOP::Copy(MetaPtr("env_out"), MetaPtr("env_in")),
-                        LEMOP::Set(MetaPtr("cont_out"), Tag::Terminal.to_field(), F::zero()),
+                        LEMOP::Set(MetaPtr("cont_out"), Tag::Terminal, PtrVal::Null),
                     ]),
                 )],
                 LEMOP::Err("Invalid continuation tag"),
