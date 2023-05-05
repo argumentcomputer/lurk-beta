@@ -196,9 +196,19 @@ pub(crate) fn case<F: LurkField, CS: ConstraintSystem<F>>(
 /// a vector containing the corresponding values, or if no key is selected,
 /// returns the default value.
 ///
-/// ```
+/// ```no_run
+/// # use bellperson::{
+/// #     gadgets::boolean::{AllocatedBit, Boolean},
+/// #     gadgets::num::AllocatedNum,
+/// #     ConstraintSystem, SynthesisError,
+/// #     util_cs::test_cs::TestConstraintSystem,
+/// # };
+/// # use lurk::circuit::gadgets::{
+/// #     data::GlobalAllocations
+/// # };
+/// # use blstrs::Scalar as Fr;
 /// # let mut cs = TestConstraintSystem::<Fr>::new();
-/// # let s = &mut Store::<Fr>::default();
+/// # let s = &mut lurk::store::Store::<Fr>::default();
 /// # let g = GlobalAllocations::new(&mut cs, s).unwrap();
 
 /// # let x = Fr::from(123);
@@ -212,6 +222,7 @@ pub(crate) fn case<F: LurkField, CS: ConstraintSystem<F>>(
 /// #     &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
 /// #     &AllocatedNum::alloc(cs.namespace(|| "default2"), || Ok(Fr::from(997))).unwrap(),
 /// # ];
+/// /// We skip showing the setup of allocating all these Nums, but its still necessary
 /// /// Allocate `[x, y, z] = [123, 124, 125]`
 /// /// Allocate `[val0, val1, val2] = [666, 777, 700]`
 /// /// Allocate `default_vec = [999, 998, 997]`
