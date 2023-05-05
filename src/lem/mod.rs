@@ -128,10 +128,10 @@ impl<'a> LEM<'a> {
         let mut map: HashMap<&'a str, Ptr> = HashMap::default();
         map.insert(self.input[0], i[0]);
         if map.insert(self.input[1], i[1]).is_some() {
-            return Err(format!("{} already defined. Malformed LEM", self.input[1]));
+            return Err(format!("{} already defined", self.input[1]));
         }
         if map.insert(self.input[2], i[2]).is_some() {
-            return Err(format!("{} already defined. Malformed LEM", self.input[2]));
+            return Err(format!("{} already defined", self.input[2]));
         }
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
@@ -142,31 +142,43 @@ impl<'a> LEM<'a> {
                         val: *val,
                     };
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
-                        return Err(format!("{} already defined. Malformed LEM", tgt.name()));
+                        return Err(format!("{} already defined", tgt.name()));
                     }
                 }
                 LEMOP::Copy(tgt, src) => {
-                    let src_ptr = map.get(src.name()).unwrap();
+                    let Some(src_ptr) = map.get(src.name()) else {
+                        return Err(format!("{} not defined", src.name()))
+                    };
                     if map.insert(tgt.name(), src_ptr.clone()).is_some() {
-                        return Err(format!("{} already defined. Malformed LEM", tgt.name()));
+                        return Err(format!("{} already defined", tgt.name()));
                     }
                 }
                 LEMOP::Hash2Ptrs(tgt, tag, src) => {
-                    let src_ptr1 = map.get(src[0].name()).unwrap();
-                    let src_ptr2 = map.get(src[1].name()).unwrap();
+                    let Some(src_ptr1) = map.get(src[0].name()) else {
+                        return Err(format!("{} not defined", src[0].name()))
+                    };
+                    let Some(src_ptr2) = map.get(src[1].name()) else {
+                        return Err(format!("{} not defined", src[1].name()))
+                    };
                     let (idx, _) = store.ptr2_store.insert_full((*src_ptr1, *src_ptr2));
                     let tgt_ptr = Ptr {
                         tag: *tag,
                         val: PtrVal::Idx(idx),
                     };
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
-                        return Err(format!("{} already defined. Malformed LEM", tgt.name()));
+                        return Err(format!("{} already defined", tgt.name()));
                     }
                 }
                 LEMOP::Hash3Ptrs(tgt, tag, src) => {
-                    let src_ptr1 = map.get(src[0].name()).unwrap();
-                    let src_ptr2 = map.get(src[1].name()).unwrap();
-                    let src_ptr3 = map.get(src[2].name()).unwrap();
+                    let Some(src_ptr1) = map.get(src[0].name()) else {
+                        return Err(format!("{} not defined", src[0].name()))
+                    };
+                    let Some(src_ptr2) = map.get(src[1].name()) else {
+                        return Err(format!("{} not defined", src[1].name()))
+                    };
+                    let Some(src_ptr3) = map.get(src[2].name()) else {
+                        return Err(format!("{} not defined", src[2].name()))
+                    };
                     let (idx, _) = store
                         .ptr3_store
                         .insert_full((*src_ptr1, *src_ptr2, *src_ptr3));
@@ -175,14 +187,22 @@ impl<'a> LEM<'a> {
                         val: PtrVal::Idx(idx),
                     };
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
-                        return Err(format!("{} already defined. Malformed LEM", tgt.name()));
+                        return Err(format!("{} already defined", tgt.name()));
                     }
                 }
                 LEMOP::Hash4Ptrs(tgt, tag, src) => {
-                    let src_ptr1 = map.get(src[0].name()).unwrap();
-                    let src_ptr2 = map.get(src[1].name()).unwrap();
-                    let src_ptr3 = map.get(src[2].name()).unwrap();
-                    let src_ptr4 = map.get(src[3].name()).unwrap();
+                    let Some(src_ptr1) = map.get(src[0].name()) else {
+                        return Err(format!("{} not defined", src[0].name()))
+                    };
+                    let Some(src_ptr2) = map.get(src[1].name()) else {
+                        return Err(format!("{} not defined", src[1].name()))
+                    };
+                    let Some(src_ptr3) = map.get(src[2].name()) else {
+                        return Err(format!("{} not defined", src[2].name()))
+                    };
+                    let Some(src_ptr4) = map.get(src[3].name()) else {
+                        return Err(format!("{} not defined", src[3].name()))
+                    };
                     let (idx, _) = store
                         .ptr4_store
                         .insert_full((*src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4));
@@ -191,98 +211,82 @@ impl<'a> LEM<'a> {
                         val: PtrVal::Idx(idx),
                     };
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
-                        return Err(format!("{} already defined. Malformed LEM", tgt.name()));
+                        return Err(format!("{} already defined", tgt.name()));
                     }
                 }
                 LEMOP::Unhash2Ptrs(tgts, src) => {
-                    let src_ptr = map.get(src.name()).unwrap();
-                    if let PtrVal::Idx(idx) = src_ptr.val {
-                        let (a, b) = store.ptr2_store.get_index(idx).unwrap();
-                        if map.insert(tgts[0].name(), *a).is_some() {
-                            return Err(format!(
-                                "{} already defined. Malformed LEM",
-                                tgts[0].name()
-                            ));
-                        }
-                        if map.insert(tgts[1].name(), *b).is_some() {
-                            return Err(format!(
-                                "{} already defined. Malformed LEM",
-                                tgts[1].name()
-                            ));
-                        }
-                    } else {
+                    let Some(src_ptr) = map.get(src.name()) else {
+                        return Err(format!("{} not defined", src.name()))
+                    };
+                    let PtrVal::Idx(idx) = src_ptr.val else {
                         return Err(format!(
-                            "{} is an invalid pointer to unhash. Malformed LEM",
+                            "{} is bound to a null pointer and can't be unhashed",
                             src.name()
                         ));
+                    };
+                    let Some((a, b)) = store.ptr2_store.get_index(idx) else {
+                        return Err(format!("{} isn't bound to a 2-hashed pointer", src.name()))
+                    };
+                    if map.insert(tgts[0].name(), *a).is_some() {
+                        return Err(format!("{} already defined", tgts[0].name()));
+                    }
+                    if map.insert(tgts[1].name(), *b).is_some() {
+                        return Err(format!("{} already defined", tgts[1].name()));
                     }
                 }
                 LEMOP::Unhash3Ptrs(tgts, src) => {
-                    let src_ptr = map.get(src.name()).unwrap();
-                    if let PtrVal::Idx(idx) = src_ptr.val {
-                        let (a, b, c) = store.ptr3_store.get_index(idx).unwrap();
-                        if map.insert(tgts[0].name(), *a).is_some() {
-                            return Err(format!(
-                                "{} already defined. Malformed LEM",
-                                tgts[0].name()
-                            ));
-                        }
-                        if map.insert(tgts[1].name(), *b).is_some() {
-                            return Err(format!(
-                                "{} already defined. Malformed LEM",
-                                tgts[1].name()
-                            ));
-                        }
-                        if map.insert(tgts[2].name(), *c).is_some() {
-                            return Err(format!(
-                                "{} already defined. Malformed LEM",
-                                tgts[2].name()
-                            ));
-                        }
-                    } else {
+                    let Some(src_ptr) = map.get(src.name()) else {
+                        return Err(format!("{} not defined", src.name()))
+                    };
+                    let PtrVal::Idx(idx) = src_ptr.val else {
                         return Err(format!(
-                            "{} is an invalid pointer to unhash. Malformed LEM",
+                            "{} is bound to a null pointer and can't be unhashed",
                             src.name()
                         ));
+                    };
+                    let Some((a, b, c)) = store.ptr3_store.get_index(idx) else {
+                        return Err(format!("{} isn't bound to a 3-hashed pointer", src.name()))
+                    };
+                    if map.insert(tgts[0].name(), *a).is_some() {
+                        return Err(format!("{} already defined", tgts[0].name()));
+                    }
+                    if map.insert(tgts[1].name(), *b).is_some() {
+                        return Err(format!("{} already defined", tgts[1].name()));
+                    }
+                    if map.insert(tgts[2].name(), *c).is_some() {
+                        return Err(format!("{} already defined", tgts[2].name()));
                     }
                 }
                 LEMOP::Unhash4Ptrs(tgts, src) => {
-                    let src_ptr = map.get(src.name()).unwrap();
-                    if let PtrVal::Idx(idx) = src_ptr.val {
-                        let (a, b, c, d) = store.ptr4_store.get_index(idx).unwrap();
-                        if map.insert(tgts[0].name(), *a).is_some() {
-                            return Err(format!(
-                                "{} already defined. Malformed LEM",
-                                tgts[0].name()
-                            ));
-                        }
-                        if map.insert(tgts[1].name(), *b).is_some() {
-                            return Err(format!(
-                                "{} already defined. Malformed LEM",
-                                tgts[1].name()
-                            ));
-                        }
-                        if map.insert(tgts[2].name(), *c).is_some() {
-                            return Err(format!(
-                                "{} already defined. Malformed LEM",
-                                tgts[2].name()
-                            ));
-                        }
-                        if map.insert(tgts[3].name(), *d).is_some() {
-                            return Err(format!(
-                                "{} already defined. Malformed LEM",
-                                tgts[3].name()
-                            ));
-                        }
-                    } else {
+                    let Some(src_ptr) = map.get(src.name()) else {
+                        return Err(format!("{} not defined", src.name()))
+                    };
+                    let PtrVal::Idx(idx) = src_ptr.val else {
                         return Err(format!(
-                            "{} is an invalid pointer to unhash. Malformed LEM",
+                            "{} is bound to a null pointer and can't be unhashed",
                             src.name()
                         ));
+                    };
+                    let Some((a, b, c, d)) = store.ptr4_store.get_index(idx) else {
+                        return Err(format!("{} isn't bound to a 4-hashed pointer", src.name()))
+                    };
+                    if map.insert(tgts[0].name(), *a).is_some() {
+                        return Err(format!("{} already defined", tgts[0].name()));
+                    }
+                    if map.insert(tgts[1].name(), *b).is_some() {
+                        return Err(format!("{} already defined", tgts[1].name()));
+                    }
+                    if map.insert(tgts[2].name(), *c).is_some() {
+                        return Err(format!("{} already defined", tgts[2].name()));
+                    }
+                    if map.insert(tgts[3].name(), *d).is_some() {
+                        return Err(format!("{} already defined", tgts[3].name()));
                     }
                 }
                 LEMOP::MatchTag(ptr, cases, def) => {
-                    let ptr_match = map.get(ptr.name()).unwrap();
+                    let Some(ptr_match) = map.get(ptr.name()) else {
+                        return Err(format!("{} not defined", ptr.name()))
+                    };
                     match cases.get(&ptr_match.tag) {
                         Some(op) => stack.push(op),
                         None => stack.push(def),
@@ -292,13 +296,15 @@ impl<'a> LEM<'a> {
                 LEMOP::Err(s) => return Err(s.to_string()), // this should use the error continuation
             }
         }
-        Ok((
-            [
-                *map.get(self.output[0]).unwrap(),
-                *map.get(self.output[1]).unwrap(),
-                *map.get(self.output[2]).unwrap(),
-            ],
-            map,
-        ))
+        let Some(out1) = map.get(self.output[0]) else {
+            return Err(format!("Output {} not defined", self.output[0]))
+        };
+        let Some(out2) = map.get(self.output[1]) else {
+            return Err(format!("Output {} not defined", self.output[1]))
+        };
+        let Some(out3) = map.get(self.output[2]) else {
+            return Err(format!("Output {} not defined", self.output[2]))
+        };
+        Ok(([*out1, *out2, *out3], map))
     }
 }
