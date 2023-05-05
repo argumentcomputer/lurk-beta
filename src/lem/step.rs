@@ -14,9 +14,9 @@ pub fn step<'a, F: LurkField + std::cmp::Ord>() -> LEM<'a, F> {
                 vec![(
                     Tag::Outermost.to_field(),
                     LEMOP::Seq(vec![
-                        LEMOP::NewFrom(MetaPtr("expr_out"), MetaPtr("expr_in")),
-                        LEMOP::NewFrom(MetaPtr("env_out"), MetaPtr("env_in")),
-                        LEMOP::New(MetaPtr("cont_out"), Tag::Terminal.to_field(), F::zero()),
+                        LEMOP::Copy(MetaPtr("expr_out"), MetaPtr("expr_in")),
+                        LEMOP::Copy(MetaPtr("env_out"), MetaPtr("env_in")),
+                        LEMOP::Set(MetaPtr("cont_out"), Tag::Terminal.to_field(), F::zero()),
                     ]),
                 )],
                 LEMOP::Err("Invalid continuation tag"),

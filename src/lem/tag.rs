@@ -16,6 +16,7 @@ pub enum Tag {
     Thunk,
     Outermost,
     Terminal,
+    Error,
 }
 
 impl Tag {
