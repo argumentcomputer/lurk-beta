@@ -229,8 +229,8 @@ pub(crate) fn case<F: LurkField, CS: ConstraintSystem<F>>(
 ///     CaseClause::new(y, &val0),
 /// ];
 /// let clauses_vec: [&[CaseClause<'_, Fr>]; 3] = [
-///     &clauses0, 
-///     &clauses1, 
+///     &clauses0,
+///     &clauses1,
 ///     &clauses2
 /// ];
 ///
@@ -433,16 +433,9 @@ mod tests {
             AllocatedNum::alloc(cs.namespace(|| "default_v"), || Ok(Fr::from(999))).unwrap();
 
         {
-            let clauses = [
-                CaseClause::new(x, &val0),
-                CaseClause::new(y, &val1),
-            ];
+            let clauses = [CaseClause::new(x, &val0), CaseClause::new(y, &val1)];
 
-            let result = case(
-                &default,
-                &g,
-            )
-            .unwrap();
+            let result = case(&default, &g).unwrap();
 
             assert_eq!(val0.get_value(), result.get_value());
             assert!(cs.is_satisfied());
@@ -489,18 +482,9 @@ mod tests {
         ];
 
         {
-            let clauses0 = [
-                CaseClause::new(x, &val0),
-                CaseClause::new(y, &val1),
-            ];
-            let clauses1 = [
-                CaseClause::new(x, &val1),
-                CaseClause::new(y, &val0),
-            ];
-            let clauses2 = [
-                CaseClause::new(x, &val2),
-                CaseClause::new(y, &val0),
-            ];
+            let clauses0 = [CaseClause::new(x, &val0), CaseClause::new(y, &val1)];
+            let clauses1 = [CaseClause::new(x, &val1), CaseClause::new(y, &val0)];
+            let clauses2 = [CaseClause::new(x, &val2), CaseClause::new(y, &val0)];
             let clauses_vec: [&[CaseClause<'_, Fr>]; 3] = [&clauses0, &clauses1, &clauses2];
 
             // Test regular multicase, select first clause
