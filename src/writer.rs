@@ -51,8 +51,13 @@ fn write_symbol<F: LurkField, W: io::Write>(
     _store: &Store<F>,
     sym: &Symbol,
 ) -> io::Result<()> {
-    // TODO print special symbols correctly
-    write!(w, "{}", sym)
+    let lurk_syms = Symbol::lurk_syms();
+    if let Some(sym) = lurk_syms.get(&sym) {
+        write!(w, "{}", sym)
+    }
+    else {
+        write!(w, "{}", sym)
+    }
 }
 
 impl<F: LurkField> Write<F> for Expression<F> {
