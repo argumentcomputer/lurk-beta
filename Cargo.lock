@@ -1367,6 +1367,7 @@ dependencies = [
  "assert_cmd",
  "base64",
  "bellperson",
+ "bincode",
  "blstrs",
  "cid",
  "clap 4.2.4",
