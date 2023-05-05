@@ -334,6 +334,7 @@ impl<F: LurkField> Write<F> for Continuation<F> {
 
 #[test]
 fn print_expr() {
+    use pasta_curves::pallas::Scalar as Fr;
     let mut s = Store::<Fr>::default();
     let nil = s.nil();
     let x = s.sym("x");
@@ -352,6 +353,7 @@ fn print_expr() {
 
 #[test]
 fn print_expr2() {
+    use pasta_curves::pallas::Scalar as Fr;
     let mut s = Store::<Fr>::default();
     let expr = s.intern_symbol_path(vec!["lurk".into(), "foo".into(), "bar".into()]);
     let output = expr.fmt_to_string(&s);

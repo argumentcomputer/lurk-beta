@@ -10,6 +10,7 @@ use nom::{
     character::complete::{char, multispace1, one_of},
     combinator::{map, value, verify},
     multi::fold_many0,
+    multi::fold_many1,
     sequence::{delimited, preceded},
     IResult,
 };
@@ -138,6 +139,29 @@ pub fn parse_fragment<'a, F: LurkField>(
                 ),
             ))(from)
         }
+    }
+}
+
+/// Parse a string. Use a loop of parse_fragment and push all of the fragments
+/// into an output string.
+pub fn parse_string_inner1<'a, F: LurkField>(
+    delim: char,
+    whitespace: bool,
+    must_escape: &'static str,
+) -> impl Fn(Span<'a>) -> IResult<Span<'a>, String, ParseError<Span<'a>, F>> {
+    move |from: Span<'a>| {
+        fold_many1(
+            parse_fragment(delim, whitespace, must_escape),
+            String::new,
+            |mut string, fragment| {
+                match fragment {
+                    StringFragment::Literal(s) => string.push_str(s.fragment()),
+                    StringFragment::EscapedChar(c) => string.push(c),
+                    StringFragment::EscapedWS => {}
+                }
+                string
+            },
+        )(from)
     }
 }
 

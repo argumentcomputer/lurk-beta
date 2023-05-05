@@ -72,7 +72,7 @@ impl<F: LurkField> fmt::Display for Syntax<F> {
             Self::Symbol(_, sym) => write!(f, "{}", sym),
             Self::LurkSym(_, sym) => write!(f, "{}", sym),
             Self::String(_, x) => write!(f, "\"{}\"", x.escape_default()),
-            Self::Char(_, x) => write!(f, "#\\{}", x.escape_default()),
+            Self::Char(_, x) => write!(f, "'{}'", x.escape_default()),
             Self::Quote(_, x) => write!(f, "'{}", x),
             Self::List(_, xs) => {
                 let mut iter = xs.iter().peekable();
@@ -140,16 +140,13 @@ impl<F: LurkField> Store<F> {
                     list.push(self.fetch_syntax(car)?);
                     ptr = cdr;
                 }
-                Expression::Nil => {
-                    return Some(Syntax::List(Pos::No, list))
-                }
+                Expression::Nil => return Some(Syntax::List(Pos::No, list)),
                 _ => {
                     if list.is_empty() {
-                        return None
-                    }
-                    else {
+                        return None;
+                    } else {
                         let end = Box::new(self.fetch_syntax(ptr)?);
-                        return Some(Syntax::Improper(Pos::No, list, end))
+                        return Some(Syntax::Improper(Pos::No, list, end));
                     }
                 }
             }
@@ -162,16 +159,13 @@ impl<F: LurkField> Store<F> {
             Expression::Num(f) => Some(Syntax::Num(Pos::No, f)),
             Expression::Char(_) => Some(Syntax::Char(Pos::No, self.fetch_char(&ptr)?)),
             Expression::UInt(_) => Some(Syntax::UInt(Pos::No, self.fetch_uint(&ptr)?)),
-            Expression::Nil |
-            Expression::Cons(..) => self.fetch_syntax_list(ptr),
+            Expression::Nil | Expression::Cons(..) => self.fetch_syntax_list(ptr),
             Expression::StrNil => Some(Syntax::String(Pos::No, "".to_string())),
             Expression::StrCons(..) => Some(Syntax::String(Pos::No, self.fetch_string(&ptr)?)),
             Expression::SymNil => Some(Syntax::Symbol(Pos::No, Symbol::root())),
             Expression::SymCons(..) => Some(Syntax::Symbol(Pos::No, self.fetch_symbol(&ptr)?)),
             Expression::Key(..) => Some(Syntax::Symbol(Pos::No, self.fetch_key(&ptr)?)),
-            Expression::Comm(..) |
-            Expression::Thunk(..) |
-            Expression::Fun(..) => None,
+            Expression::Comm(..) | Expression::Thunk(..) | Expression::Fun(..) => None,
         }
     }
 }

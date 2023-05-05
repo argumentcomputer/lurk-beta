@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub const KEYWORD_MARKER: char = ':';
 pub const SYM_SEPARATOR: char = '.';
 pub const SYM_MARKER: char = '.';
-pub const ESCAPE_CHARS: &'static str = "(){}[],.:";
+pub const ESCAPE_CHARS: &'static str = "(){}[],.:'";
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
@@ -108,7 +108,7 @@ impl Symbol {
     }
 
     pub fn print_root(&self) -> String {
-        format!("_{}", self.marker())
+        format!("#{}", self.marker())
     }
 
     pub fn print_escape(&self) -> String {
@@ -133,7 +133,7 @@ impl Symbol {
         if self.is_root()
             || self.is_key()
             || xs[0].is_empty()
-            || xs[0] == "_"
+            || xs[0] == "#"
             || xs[0] == self.print_root()
         {
             return true;
@@ -148,7 +148,7 @@ impl Symbol {
 impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.is_root() {
-            write!(f, "_{}", self.marker())
+            write!(f, "#{}", self.marker())
         } else {
             write!(f, "{}", self.print_escape())
         }

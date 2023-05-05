@@ -12,12 +12,12 @@ macro_rules! num {
 }
 
 #[macro_export]
-macro_rules! u64 {
+macro_rules! uint {
     ($f:ty, $i:literal) => {
-        $crate::syntax::Syntax::<$f>::U64(Pos::No, ($i as u64))
+        $crate::syntax::Syntax::<$f>::UInt(Pos::No, $crate::uint::UInt::U64($i as u64))
     };
     ($i:literal) => {
-        $crate::syntax::Syntax::U64(Pos::No, ($i as u64))
+        $crate::syntax::Syntax::UInt(Pos::No, $crate::uint::UInt::U64($i as u64))
     };
 }
 
@@ -164,7 +164,7 @@ macro_rules! keyword {
             $(
                 temp_vec.push($x.to_string());
             )*
-            $crate::syntax::Syntax::Symbol(Pos::No, $crate::sym::Symbol::Key(temp_vec))
+            $crate::syntax::Syntax::Symbol(Pos::No, $crate::symbol::Symbol::Key(temp_vec))
         }
     };
     ($f:ty, [$( $x:expr ),*]) => {
@@ -174,14 +174,43 @@ macro_rules! keyword {
             $(
                 temp_vec.push($x.to_string());
             )*
-            $crate::syntax::Syntax::<$f>::Symbol(Pos::No, $crate::sym::Symbol::Key(temp_vec))
+            $crate::syntax::Syntax::<$f>::Symbol(Pos::No, $crate::symbol::Symbol::Key(temp_vec))
         }
     };
 }
-
 #[macro_export]
 macro_rules! list {
-    ($f:ty, [$( $x:expr ),*]) => {
+    ([$( $x:expr ),*], $end:expr ) => {
+        {
+            #[allow(unused_mut)]
+            let mut temp_vec = Vec::new();
+            $(
+                temp_vec.push($x);
+            )*
+            $crate::syntax::Syntax::Improper(Pos::No, temp_vec, Box::new($end))
+        }
+    };
+    ([$( $x:expr ),*] ) => {
+        {
+            #[allow(unused_mut)]
+            let mut temp_vec = Vec::new();
+            $(
+                temp_vec.push($x);
+            )*
+            $crate::syntax::Syntax::List(Pos::No, temp_vec)
+        }
+    };
+    ($f:ty,  [$( $x:expr ),*], $end:expr ) => {
+        {
+            #[allow(unused_mut)]
+            let mut temp_vec = Vec::new();
+            $(
+                temp_vec.push($x);
+            )*
+            $crate::syntax::Syntax::<$f>::Improper(Pos::No, temp_vec, Box::new($end))
+        }
+    };
+    ($f:ty,  [$( $x:expr ),*] ) => {
         {
             #[allow(unused_mut)]
             let mut temp_vec = Vec::new();
