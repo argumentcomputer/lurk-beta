@@ -39,6 +39,7 @@ use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use num_bigint::BigUint;
 use num_integer::Integer;
 use num_traits::FromPrimitive;
+use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug)]
 pub struct CircuitFrame<'a, F: LurkField, T, W, C: Coprocessor<F>> {
@@ -52,7 +53,7 @@ pub struct CircuitFrame<'a, F: LurkField, T, W, C: Coprocessor<F>> {
 #[derive(Clone)]
 pub struct MultiFrame<'a, F: LurkField, T: Copy, W, C: Coprocessor<F>> {
     pub store: Option<&'a Store<F>>,
-    pub lang: Option<&'a Lang<F, C>>,
+    pub lang: Option<Arc<Lang<F, C>>>,
     pub input: Option<T>,
     pub output: Option<T>,
     pub frames: Option<Vec<CircuitFrame<'a, F, T, W, C>>>,
@@ -84,7 +85,7 @@ impl<'a, F: LurkField, T: Clone + Copy, W: Copy, C: Coprocessor<F>> CircuitFrame
 impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coprocessor<F>>
     MultiFrame<'a, F, T, W, C>
 {
-    pub fn blank(count: usize, lang: &'a Lang<F, C>) -> Self {
+    pub fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self {
         Self {
             store: None,
             lang: Some(lang),
@@ -99,15 +100,11 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
         self.store.expect("store missing")
     }
 
-    pub fn frame_count(&self) -> usize {
-        self.count
-    }
-
     pub fn from_frames(
         count: usize,
         frames: &[Frame<T, W, C>],
         store: &'a Store<F>,
-        lang: &'a Lang<F, C>,
+        lang: Arc<Lang<F, C>>,
     ) -> Vec<Self> {
         // `count` is the number of `Frames` to include per `MultiFrame`.
         let total_frames = frames.len();
@@ -138,7 +135,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
 
             let mf = MultiFrame {
                 store: Some(store),
-                lang: Some(lang),
+                lang: Some(lang.clone()),
                 input: Some(chunk[0].input),
                 output: Some(output),
                 frames: Some(inner_frames),
@@ -156,7 +153,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
         count: usize,
         circuit_frame: Option<CircuitFrame<'a, F, T, W, C>>,
         store: &'a Store<F>,
-        lang: &'a Lang<F, C>,
+        lang: Arc<Lang<F, C>>,
     ) -> Self {
         let (frames, input, output) = if let Some(circuit_frame) = circuit_frame {
             (
@@ -227,7 +224,13 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
                 (
                     i + 1,
                     frame
-                        .synthesize(cs, i, allocated_io, self.lang.expect("Lang missing"), g)
+                        .synthesize(
+                            cs,
+                            i,
+                            allocated_io,
+                            self.lang.as_ref().expect("Lang missing"),
+                            g,
+                        )
                         .unwrap(),
                 )
             });
@@ -290,20 +293,20 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, IO<F>, Witness<F>, C> 
         let (input_expr, input_env, input_cont) = inputs;
 
         let mut reduce = |store| {
-            let cons_witness = match self.witness.map(|x| x.conses) {
-                Some(hw) => hw,
-                None => HashWitness::new_blank(),
-            };
+            let cons_witness = self
+                .witness
+                .map(|x| x.conses)
+                .unwrap_or_else(|| HashWitness::new_blank());
             let mut allocated_cons_witness = AllocatedConsWitness::from_cons_witness(
                 &mut cs.namespace(|| format!("allocated_cons_witness {i}")),
                 store,
                 &cons_witness,
             )?;
 
-            let cont_witness = match self.witness.map(|x| x.conts) {
-                Some(hw) => hw,
-                None => HashWitness::new_blank(),
-            };
+            let cont_witness = self
+                .witness
+                .map(|x| x.conts)
+                .unwrap_or_else(|| HashWitness::new_blank());
 
             let mut allocated_cont_witness = AllocatedContWitness::from_cont_witness(
                 &mut cs.namespace(|| format!("allocated_cont_witness {i}")),
@@ -408,8 +411,8 @@ impl<F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'_, F, IO<F>, Wi
 
         match self.store {
             Some(s) => {
-                let frames = self.frames.clone().unwrap();
-                synth(s, &frames, self.input, self.output)
+                let frames = self.frames.as_ref().unwrap();
+                synth(s, frames, self.input, self.output)
             }
             None => {
                 let store = Default::default();
@@ -459,7 +462,7 @@ fn add_clause_single<'a, F: LurkField>(
     key: F,
     value: &'a AllocatedNum<F>,
 ) {
-    clauses.push(CaseClause { key, value });
+    clauses.push(CaseClause::new(key, value));
 }
 
 impl<'a, F: LurkField> Results<'a, F> {
@@ -472,34 +475,16 @@ impl<'a, F: LurkField> Results<'a, F> {
         result_apply_continuation: &'a AllocatedNum<F>,
     ) {
         let key = key.to_field();
-        add_clause(
-            &mut self.expr_tag_clauses,
-            &mut self.expr_hash_clauses,
+        self.add_clauses_cons(
             key,
             result_expr,
-        );
-
-        add_clause(
-            &mut self.env_tag_clauses,
-            &mut self.env_hash_clauses,
-            key,
             result_env,
-        );
-
-        add_clause_cont(
-            &mut self.cont_tag_clauses,
-            &mut self.cont_hash_clauses,
-            key,
             result_cont,
-        );
-
-        add_clause_single(
-            &mut self.apply_continuation_clauses,
-            key,
             result_apply_continuation,
-        );
+        )
     }
 
+    #[inline]
     fn add_clauses_cons(
         &mut self,
         key: F,
@@ -2647,7 +2632,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 )?;
 
                 let (result_expr, result_env, result_cont) =
-                    coproc.synthesize(cs, store, &inputs[..arity], env, cont)?;
+                    coproc.synthesize(cs, g, store, &inputs[..arity], env, cont)?;
 
                 let new_expr = pick_ptr!(cs, &arity_is_correct, &result_expr, &rest)?; // TODO: The error case should probably be expr, but this is harder in straight evaluation atm.
                 let new_env = pick_ptr!(cs, &arity_is_correct, &result_env, &env)?;
@@ -2773,7 +2758,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
         &expr_cdr_not_dummy.not(),
         &head_is_begin.not(),
         &head_is_current_env.not(),
-        &head_potentially_fun.not()
+        &head_potentially_fun.not(),
+        &head_is_coprocessor.not()
     )?;
     let zero_arg_built_in_too_many_args_error =
         and!(cs, &head_is_current_env, &is_zero_arg_call.not())?;
@@ -3111,16 +3097,16 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         // IF this is open, we need to know what we are opening.
         let digest = result.hash();
 
-        let (open_secret_scalar, open_expr_ptr) = match store.get_maybe_opaque(
-            ExprTag::Comm,
-            digest.get_value().unwrap_or_else(|| F::zero()),
-        ) {
-            Some(commit) => match store.open(commit) {
-                Some((secret, opening)) => (secret, opening),
-                None => (F::zero(), store.get_nil()), // nil is dummy
-            },
-            None => (F::zero(), store.get_nil()), // nil is dummy
-        };
+        let (open_secret_scalar, open_expr_ptr) = store
+            .get_maybe_opaque(
+                ExprTag::Comm,
+                digest.get_value().unwrap_or_else(|| F::zero()),
+            )
+            .and_then(|commit| store.open(commit))
+            .unwrap_or_else(|| {
+                // nil is dummy
+                (F::zero(), store.get_nil())
+            });
 
         let open_expr = AllocatedPtr::alloc(&mut cs.namespace(|| "open_expr"), || {
             Ok(store.hash_expr(&open_expr_ptr).unwrap())
@@ -3205,104 +3191,32 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             op1.tag(),
             &[
                 &[
-                    CaseClause {
-                        key: Op1::Car.to_field(),
-                        value: res_car.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Cdr.to_field(),
-                        value: res_cdr.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Atom.to_field(),
-                        value: is_atom_ptr.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Emit.to_field(),
-                        value: result.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Commit.to_field(),
-                        value: commitment.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Open.to_field(),
-                        value: committed_expr.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Secret.to_field(),
-                        value: &g.num_tag,
-                    },
-                    CaseClause {
-                        key: Op1::Num.to_field(),
-                        value: num.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::U64.to_field(),
-                        value: &g.u64_tag,
-                    },
-                    CaseClause {
-                        key: Op1::Comm.to_field(),
-                        value: comm.tag(),
-                    },
-                    CaseClause {
-                        key: Op1::Char.to_field(),
-                        value: &g.char_tag,
-                    },
-                    CaseClause {
-                        key: Op1::Eval.to_field(),
-                        value: result.tag(),
-                    },
+                    CaseClause::new(Op1::Car.to_field(), res_car.tag()),
+                    CaseClause::new(Op1::Cdr.to_field(), res_cdr.tag()),
+                    CaseClause::new(Op1::Atom.to_field(), is_atom_ptr.tag()),
+                    CaseClause::new(Op1::Emit.to_field(), result.tag()),
+                    CaseClause::new(Op1::Commit.to_field(), commitment.tag()),
+                    CaseClause::new(Op1::Open.to_field(), committed_expr.tag()),
+                    CaseClause::new(Op1::Secret.to_field(), &g.num_tag),
+                    CaseClause::new(Op1::Num.to_field(), num.tag()),
+                    CaseClause::new(Op1::U64.to_field(), &g.u64_tag),
+                    CaseClause::new(Op1::Comm.to_field(), comm.tag()),
+                    CaseClause::new(Op1::Char.to_field(), &g.char_tag),
+                    CaseClause::new(Op1::Eval.to_field(), result.tag()),
                 ],
                 &[
-                    CaseClause {
-                        key: Op1::Car.to_field(),
-                        value: allocated_car.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Cdr.to_field(),
-                        value: allocated_cdr.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Atom.to_field(),
-                        value: is_atom_ptr.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Emit.to_field(),
-                        value: result.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Commit.to_field(),
-                        value: commitment.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Open.to_field(),
-                        value: committed_expr.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Secret.to_field(),
-                        value: &commitment_secret,
-                    },
-                    CaseClause {
-                        key: Op1::Num.to_field(),
-                        value: num.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::U64.to_field(),
-                        value: &u64_elem,
-                    },
-                    CaseClause {
-                        key: Op1::Comm.to_field(),
-                        value: comm.hash(),
-                    },
-                    CaseClause {
-                        key: Op1::Char.to_field(),
-                        value: &u32_elem,
-                    },
-                    CaseClause {
-                        key: Op1::Eval.to_field(),
-                        value: result.hash(),
-                    },
+                    CaseClause::new(Op1::Car.to_field(), allocated_car.hash()),
+                    CaseClause::new(Op1::Cdr.to_field(), allocated_cdr.hash()),
+                    CaseClause::new(Op1::Atom.to_field(), is_atom_ptr.hash()),
+                    CaseClause::new(Op1::Emit.to_field(), result.hash()),
+                    CaseClause::new(Op1::Commit.to_field(), commitment.hash()),
+                    CaseClause::new(Op1::Open.to_field(), committed_expr.hash()),
+                    CaseClause::new(Op1::Secret.to_field(), &commitment_secret),
+                    CaseClause::new(Op1::Num.to_field(), num.hash()),
+                    CaseClause::new(Op1::U64.to_field(), &u64_elem),
+                    CaseClause::new(Op1::Comm.to_field(), comm.hash()),
+                    CaseClause::new(Op1::Char.to_field(), &u32_elem),
+                    CaseClause::new(Op1::Eval.to_field(), result.hash()),
                 ],
             ],
             &[&g.default_num, &g.default_num],
@@ -3922,42 +3836,15 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &mut cs.namespace(|| "Binop2 case"),
             op2.tag(),
             &[
-                CaseClause {
-                    key: Op2::Sum.to_field(),
-                    value: &sum,
-                },
-                CaseClause {
-                    key: Op2::Diff.to_field(),
-                    value: &diff,
-                },
-                CaseClause {
-                    key: Op2::Product.to_field(),
-                    value: &product,
-                },
-                CaseClause {
-                    key: Op2::Quotient.to_field(),
-                    value: &quotient,
-                },
-                CaseClause {
-                    key: Op2::Equal.to_field(),
-                    value: args_equal_ptr.hash(),
-                },
-                CaseClause {
-                    key: Op2::NumEqual.to_field(),
-                    value: args_equal_ptr.hash(),
-                },
-                CaseClause {
-                    key: Op2::Cons.to_field(),
-                    value: cons.hash(),
-                },
-                CaseClause {
-                    key: Op2::StrCons.to_field(),
-                    value: cons.hash(),
-                },
-                CaseClause {
-                    key: Op2::Hide.to_field(),
-                    value: commitment.hash(),
-                },
+                CaseClause::new(Op2::Sum.to_field(), &sum),
+                CaseClause::new(Op2::Diff.to_field(), &diff),
+                CaseClause::new(Op2::Product.to_field(), &product),
+                CaseClause::new(Op2::Quotient.to_field(), &quotient),
+                CaseClause::new(Op2::Equal.to_field(), args_equal_ptr.hash()),
+                CaseClause::new(Op2::NumEqual.to_field(), args_equal_ptr.hash()),
+                CaseClause::new(Op2::Cons.to_field(), cons.hash()),
+                CaseClause::new(Op2::StrCons.to_field(), cons.hash()),
+                CaseClause::new(Op2::Hide.to_field(), commitment.hash()),
             ],
             &g.default_num,
             g,
@@ -4372,10 +4259,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         (body, extended_env, tail_cont, newer_cont2_not_dummy)
     };
-    let let_cont = match tail_cont {
-        Ok(c) => c,
-        Err(_) => g.dummy_ptr.clone(),
-    };
+    let let_cont = tail_cont.unwrap_or_else(|_| g.dummy_ptr.clone());
     results.add_clauses_cont(
         ContTag::Let,
         &body,
@@ -4871,10 +4755,10 @@ fn to_unsigned_integers<F: LurkField, CS: ConstraintSystem<F>>(
     g: &GlobalAllocations<F>,
     maybe_unsigned: &AllocatedNum<F>,
 ) -> Result<(AllocatedNum<F>, AllocatedNum<F>), SynthesisError> {
-    let field_elem = match maybe_unsigned.get_value() {
-        Some(v) => v,
-        None => F::zero(), //dummy
-    };
+    let field_elem = maybe_unsigned.get_value().unwrap_or_else(|| {
+        // dummy
+        F::zero()
+    });
     let field_bn = BigUint::from_bytes_le(field_elem.to_repr().as_ref());
     // Since bit decomposition is expensive, we compute it only once here
     let field_elem_bits =
@@ -5369,16 +5253,17 @@ mod tests {
             env,
             cont: store.intern_cont_outermost(),
         };
-        let lang = Lang::<Fr, Coproc<Fr>>::new();
+        let raw_lang = Lang::<Fr, Coproc<Fr>>::new();
+        let lang = Arc::new(raw_lang.clone());
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
 
         let public_params = Groth16Prover::<Bls12, Coproc<Fr>, Fr>::create_groth_params(
             DEFAULT_REDUCTION_COUNT,
-            &lang,
+            lang.clone(),
         )
         .unwrap();
         let groth_prover =
-            Groth16Prover::<Bls12, Coproc<Fr>, Fr>::new(DEFAULT_REDUCTION_COUNT, lang.clone());
+            Groth16Prover::<Bls12, Coproc<Fr>, Fr>::new(DEFAULT_REDUCTION_COUNT, raw_lang);
         let groth_params = &public_params.0;
 
         let vk = &groth_params.vk;
@@ -5391,7 +5276,7 @@ mod tests {
             let mut cs_blank = MetricCS::<Fr>::new();
             let blank_multiframe = MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::blank(
                 DEFAULT_REDUCTION_COUNT,
-                &lang,
+                lang.clone(),
             );
 
             blank_multiframe
@@ -5408,7 +5293,7 @@ mod tests {
                     _p: Default::default(),
                 }],
                 store,
-                &lang,
+                lang.clone(),
             );
 
             let multiframe = &multiframes[0];
@@ -5505,7 +5390,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let lang = Lang::<Fr, Coproc<Fr>>::new();
+        let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
         store.hydrate_scalar_cache();
 
@@ -5524,7 +5409,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                &lang,
+                lang.clone(),
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5586,7 +5471,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let lang = Lang::<Fr, Coproc<Fr>>::new();
+        let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
         store.hydrate_scalar_cache();
 
@@ -5605,7 +5490,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                &lang,
+                lang.clone(),
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5667,7 +5552,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let lang = Lang::<Fr, Coproc<Fr>>::new();
+        let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
 
         store.hydrate_scalar_cache();
@@ -5687,7 +5572,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                &lang,
+                lang.clone(),
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5750,7 +5635,7 @@ mod tests {
             cont: store.intern_cont_outermost(),
         };
 
-        let lang = Lang::<Fr, Coproc<Fr>>::new();
+        let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
 
         store.hydrate_scalar_cache();
@@ -5770,7 +5655,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                &lang,
+                lang.clone(),
             )[0]
             .clone()
             .synthesize(&mut cs)
