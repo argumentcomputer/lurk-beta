@@ -58,7 +58,7 @@ proptest = "1.1.0"
 proptest-derive = "0.3.0"
 rand = "0.8.5"
 rustyline = { version = "11.0", features = ["derive", "with-file-history"], default-features = false }
-dirs = "5.0.0"
+home = "0.5.5"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
@@ -70,19 +70,18 @@ opencl = ["neptune/opencl"]
 cuda = ["neptune/cuda"]
 # compile without ISA extensions
 portable = ["blstrs/portable", "pasta-msm/portable"]
+flamegraph = ["pprof/flamegraph", "pprof/criterion"]
 
 [dev-dependencies]
-criterion = "0.3.6"
+criterion = "0.4"
 hex = "0.4.3"
 sha2 = { version = "0.10.2"}
 structopt = { version = "0.3", default-features = false }
 tap = "1.0.1"
 assert_cmd = "2.0.8"
 tempfile = "3.5.0"
-
-[[bench]]
-name = "eval"
-harness = false
+pprof = { version = "0.11" }
+cfg-if = "1.0.0"
 
 [workspace]
 members = [
@@ -106,3 +105,11 @@ codegen-units = 16
 # being off (they test release behavior in case of duplicate clauses).
 inherits = "dev-ci"
 debug-assertions = false
+
+[[bench]]
+name = "end2end"
+harness = false
+
+[[bench]]
+name = "public_params"
+harness = false

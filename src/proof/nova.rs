@@ -131,7 +131,8 @@ impl<'a, C: Coprocessor<S1> + 'a> Prover<'a, '_, S1, C> for NovaProver<S1, C> {
 }
 
 impl<C: Coprocessor<S1>> NovaProver<S1, C> {
-    fn get_evaluation_frames(
+    /// Evaluates and generates the frames of the computation given the expression, environment, and store
+    pub fn get_evaluation_frames(
         &self,
         expr: Ptr<S1>,
         env: Ptr<S1>,
@@ -148,6 +149,25 @@ impl<C: Coprocessor<S1>> NovaProver<S1, C> {
         Ok(frames)
     }
 
+    /// Proves the computation given the public parameters, frames, and store.
+    pub fn prove<'a>(
+        &'a self,
+        pp: &'a PublicParams<'_, C>,
+        frames: Vec<Frame<IO<S1>, Witness<S1>, C>>,
+        store: &'a mut Store<S1>,
+        lang: Arc<Lang<S1, C>>,
+    ) -> Result<(Proof<'_, C>, Vec<S1>, Vec<S1>, usize), ProofError> {
+        let z0 = frames[0].input.to_vector(store)?;
+        let zi = frames.last().unwrap().output.to_vector(store)?;
+        let circuits =
+            MultiFrame::from_frames(self.reduction_count(), &frames, store, lang.clone());
+        let num_steps = circuits.len();
+        let proof =
+            Proof::prove_recursively(pp, store, &circuits, self.reduction_count, z0.clone(), lang)?;
+
+        Ok((proof, z0, zi, num_steps))
+    }
+
     /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
     pub fn evaluate_and_prove<'a>(
         &'a self,
@@ -159,15 +179,7 @@ impl<C: Coprocessor<S1>> NovaProver<S1, C> {
         lang: Arc<Lang<S1, C>>,
     ) -> Result<(Proof<'_, C>, Vec<S1>, Vec<S1>, usize), ProofError> {
         let frames = self.get_evaluation_frames(expr, env, store, limit, &lang)?;
-        let z0 = frames[0].input.to_vector(store)?;
-        let zi = frames.last().unwrap().output.to_vector(store)?;
-        let circuits =
-            MultiFrame::from_frames(self.reduction_count(), &frames, store, lang.clone());
-        let num_steps = circuits.len();
-        let proof =
-            Proof::prove_recursively(pp, store, &circuits, self.reduction_count, z0.clone(), lang)?;
-
-        Ok((proof, z0, zi, num_steps))
+        self.prove(pp, frames, store, lang)
     }
 }
 

@@ -153,7 +153,7 @@ impl<F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>> Repl<F, T, C> {
         lang: Lang<F, C>,
     ) -> Result<Self> {
         #[cfg(not(target_arch = "wasm32"))]
-        let history_path = dirs::home_dir()
+        let history_path = home::home_dir()
             .expect("missing home directory")
             .join(".lurk-history");
 

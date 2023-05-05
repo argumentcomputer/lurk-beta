@@ -140,7 +140,8 @@ confidence-threshold = 0.8
 exceptions = [
     # Each entry is the crate and version constraint, and its specific allow
     # list
-    #{ allow = ["Zlib"], name = "adler32", version = "*" },
+    # inferno is only imported under the flamegraph feature
+    { allow = ["CDDL-1.0"], name = "inferno" },
 ]
 
 # Some crates don't have (easily) machine readable licensing information,
