@@ -13,7 +13,6 @@ use crate::z_data::{Encodable, ZData};
 use crate::z_store::ZStore;
 use anyhow::{bail, Context, Error, Result};
 use clap::{Arg, ArgAction, Command};
-use peekmore::PeekMore;
 use rustyline::error::ReadlineError;
 use rustyline::history::DefaultHistory;
 use rustyline::validate::{
@@ -67,13 +66,13 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
 
     fn command() -> Command;
 
-    fn handle_form<P: AsRef<Path> + Copy, T: Iterator<Item = char>>(
+    fn handle_form<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
-        chars: &mut peekmore::PeekMoreIterator<T>,
+        input: &str,
         pwd: P,
     ) -> Result<()> {
-        let (ptr, is_meta) = store.read_maybe_meta(chars)?;
+        let (ptr, is_meta) = store.read_maybe_meta(input)?;
 
         if is_meta {
             let pwd: &Path = pwd.as_ref();
@@ -101,12 +100,11 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
             file_path.as_ref().to_str().unwrap(),
             input
         );
-        let mut chars = input.chars().peekmore();
 
         loop {
             if let Err(e) = self.handle_form(
                 store,
-                &mut chars,
+                &input,
                 // use this file's dir as pwd for further loading
                 file_path.as_ref().parent().unwrap(),
             ) {
@@ -252,9 +250,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
                 #[cfg(not(target_arch = "wasm32"))]
                 repl.save_history()?;
 
-                let mut chars = line.chars().peekmore();
-
-                match s.read_maybe_meta(&mut chars) {
+                match s.read_maybe_meta(&line) {
                     Ok((expr, is_meta)) => {
                         if is_meta {
                             if let Err(e) = repl.state.handle_meta(s, expr, p) {

@@ -1360,7 +1360,6 @@ dependencies = [
  "num-traits",
  "once_cell",
  "pairing",
- "peekmore",
  "pretty_env_logger",
  "proptest",
  "proptest-derive",
@@ -1750,12 +1749,6 @@ dependencies = [
  "smallvec",
  "windows-sys 0.45.0",
 ]
-
-[[package]]
-name = "peekmore"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d0adcb0436b76d531e8fe932b4fcaab6beae984ce200b38dad595d8e1e3dce8"
 
 [[package]]
 name = "plotters"

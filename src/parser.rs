@@ -1,7 +1,8 @@
 use crate::field::LurkField;
 use crate::ptr::Ptr;
 use crate::store::Store;
-use peekmore::PeekMoreIterator;
+use crate::syntax::Syntax;
+use nom::Parser;
 use thiserror;
 
 pub mod base;
@@ -30,17 +31,32 @@ pub enum Error {
     Syntax(String),
 }
 impl<F: LurkField> Store<F> {
-    pub fn read(&mut self, _input: &str) -> Result<Ptr<F>, Error> {
-        todo!()
-        //let package = Default::default();
-
-        //self.read_in_package(input, &package)
+    pub fn read(&mut self, input: &str) -> Result<Ptr<F>, Error> {
+        self.read_aux(syntax::parse_string(), input)
     }
-    pub fn read_maybe_meta<T: Iterator<Item = char>>(
+
+    fn read_aux<'a, P>(&mut self, mut p: P, input: &'a str) -> Result<Ptr<F>, Error>
+    where
+        P: Parser<Span<'a>, Syntax<F>, error::ParseError<Span<'a>, F>>,
+    {
+        match p.parse(Span::<'a>::new(input)) {
+            Ok((_i, x)) => {
+                let ptr = self.intern_syntax(x);
+                Ok(ptr)
+            }
+            Err(e) => {
+                Err(Error::Syntax(format!("{}", e)))
+            }
+        }
+    }
+
+    pub fn read_maybe_meta(
         &mut self,
-        _chars: &mut PeekMoreIterator<T>,
+        input: &str,
     ) -> Result<(Ptr<F>, bool), Error> {
-        todo!()
+        // TODO: add a meta parser
+        let ptr = self.read_aux(syntax::parse_syntax(), input)?;
+        Ok((ptr, false))
     }
 }
 
