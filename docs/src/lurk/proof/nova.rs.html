@@ -3639,9 +3639,6 @@
 <a href="#3639" id="3639">3639</a>
 <a href="#3640" id="3640">3640</a>
 <a href="#3641" id="3641">3641</a>
-<a href="#3642" id="3642">3642</a>
-<a href="#3643" id="3643">3643</a>
-<a href="#3644" id="3644">3644</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>std::marker::PhantomData;
@@ -7237,16 +7234,13 @@
     </span><span class="kw">fn </span>test_dumb_lang() {
         <span class="kw">use </span><span class="kw">crate</span>::coprocessor::test::DumbCoprocessor;
         <span class="kw">use </span><span class="kw">crate</span>::eval::tests::coproc::DumbCoproc;
-        <span class="kw">use </span><span class="kw">crate</span>::sym::Sym;
 
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::new();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>lang = Lang::&lt;Fr, DumbCoproc&lt;Fr&gt;&gt;::new();
-        <span class="kw">let </span>name = Sym::new(<span class="string">&quot;.cproc.dumb&quot;</span>.to_string());
-        <span class="kw">let </span>dumb = DumbCoprocessor::new();
-        <span class="kw">let </span>coproc = DumbCoproc::DC(dumb);
-
-        lang.add_coprocessor(name, coproc, s);
+        <span class="kw">let </span>lang = Lang::&lt;Fr, DumbCoproc&lt;Fr&gt;&gt;::new_with_bindings(
+            s,
+            <span class="macro">vec!</span>[(<span class="string">&quot;.cproc.dumb&quot;</span>, DumbCoprocessor::new().into())],
+        );
 
         <span class="comment">// 9^2 + 8 = 89
         </span><span class="kw">let </span>expr = <span class="string">&quot;(.cproc.dumb 9 8)&quot;</span>;

@@ -157,6 +157,53 @@
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
 <a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
@@ -247,6 +294,17 @@
         }
     }
 
+    <span class="kw">pub fn </span>new_with_bindings&lt;B: Into&lt;Binding&lt;F, C&gt;&gt;&gt;(s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, bindings: Vec&lt;B&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>new = <span class="self">Self </span>{
+            coprocessors: Default::default(),
+        };
+        <span class="kw">for </span>b <span class="kw">in </span>bindings {
+            new.add_binding(b.into(), s);
+        }
+
+        new
+    }
+
     <span class="kw">pub fn </span>key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="kw">let </span><span class="kw-2">mut </span>key = String::new();
 
@@ -262,11 +320,25 @@
         key
     }
 
-    <span class="kw">pub fn </span>add_coprocessor(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: Sym, cproc: C, store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;) {
+    <span class="kw">pub fn </span>add_coprocessor&lt;T: Into&lt;C&gt;, S: Into&lt;Sym&gt;&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        name: S,
+        cproc: T,
+        store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+    ) {
+        <span class="kw">let </span>name = name.into();
         <span class="kw">let </span>ptr = store.intern_sym_and_ancestors(<span class="kw-2">&amp;</span>name).unwrap();
         <span class="kw">let </span>scalar_ptr = store.get_expr_hash(<span class="kw-2">&amp;</span>ptr).unwrap();
 
-        <span class="self">self</span>.coprocessors.insert(name, (cproc, scalar_ptr));
+        <span class="self">self</span>.coprocessors.insert(name, (cproc.into(), scalar_ptr));
+    }
+
+    <span class="kw">pub fn </span>add_binding&lt;B: Into&lt;Binding&lt;F, C&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, binding: B, store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;) {
+        <span class="kw">let </span>Binding { name, coproc, _p } = binding.into();
+        <span class="kw">let </span>ptr = store.intern_sym_and_ancestors(<span class="kw-2">&amp;</span>name).unwrap();
+        <span class="kw">let </span>scalar_ptr = store.get_expr_hash(<span class="kw-2">&amp;</span>ptr).unwrap();
+
+        <span class="self">self</span>.coprocessors.insert(name, (coproc, scalar_ptr));
     }
 
     <span class="kw">pub fn </span>coprocessors(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>HashMap&lt;Sym, (C, ScalarPtr&lt;F&gt;)&gt; {
@@ -296,6 +368,28 @@
     }
 }
 
+<span class="kw">pub struct </span>Binding&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
+    name: Sym,
+    coproc: C,
+    _p: PhantomData&lt;F&gt;,
+}
+
+<span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;, S: Into&lt;Sym&gt;&gt; From&lt;(S, C)&gt; <span class="kw">for </span>Binding&lt;F, C&gt; {
+    <span class="kw">fn </span>from(pair: (S, C)) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new(pair.<span class="number">0</span>, pair.<span class="number">1</span>)
+    }
+}
+
+<span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; Binding&lt;F, C&gt; {
+    <span class="kw">pub fn </span>new&lt;T: Into&lt;C&gt;, S: Into&lt;Sym&gt;&gt;(name: S, coproc: T) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            name: name.into(),
+            coproc: coproc.into(),
+            _p: Default::default(),
+        }
+    }
+}
+
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>test {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -309,11 +403,11 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>dummy_lang() {
         <span class="kw">let </span>store = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span><span class="kw-2">mut </span>lang = Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new();
-        <span class="kw">let </span>name = Sym::new(<span class="string">&quot;.cproc.dummy&quot;</span>.to_string());
-        <span class="kw">let </span>dummy = DummyCoprocessor::new();
 
-        lang.add_coprocessor(name, Coproc::Dummy(dummy), store);
+        <span class="kw">let </span>_lang = Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new_with_bindings(
+            store,
+            <span class="macro">vec!</span>[(<span class="string">&quot;.cproc.dummy&quot;</span>, DummyCoprocessor::new().into())],
+        );
     }
 }
 </code></pre></div></section></main></body></html>

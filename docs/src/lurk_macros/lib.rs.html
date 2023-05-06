@@ -185,6 +185,51 @@
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Lurk Macros
 //!
 //! ## Derive macros for Lurk
@@ -220,9 +265,13 @@
     <span class="kw">let </span>eval_arity_arms = eval_arity_match_arms(name, variants);
     <span class="kw">let </span>evaluate_arms = evaluate_match_arms(name, variants);
     <span class="kw">let </span>simple_evaluate_arms = simple_evaluate_match_arms(name, variants);
+    <span class="kw">let </span>has_circuit_arms = has_circuit_match_arms(name, variants);
 
     <span class="kw">let </span>arity_arms = arity_match_arms(name, variants);
     <span class="kw">let </span>synthesize_arms = synthesize_match_arms(name, variants);
+
+    <span class="kw">let </span>from_impls = from_impls(name, variants);
+
     <span class="kw">let </span>res = <span class="macro">quote! </span>{
         <span class="kw">impl </span>&lt;F: lurk::field::LurkField&gt; lurk::coprocessor::Coprocessor&lt;F&gt; <span class="kw">for </span>#name&lt;F&gt; {
             <span class="kw">fn </span>eval_arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
@@ -240,6 +289,12 @@
             <span class="kw">fn </span>simple_evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span>lurk::store::Store&lt;F&gt;, args: <span class="kw-2">&amp;</span>[lurk::ptr::Ptr&lt;F&gt;]) -&gt; lurk::ptr::Ptr&lt;F&gt; {
                 <span class="kw">match </span><span class="self">self </span>{
                     #simple_evaluate_arms
+                }
+            }
+
+            <span class="kw">fn </span>has_circuit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+                <span class="kw">match </span><span class="self">self </span>{
+                    #has_circuit_arms
                 }
             }
         }
@@ -265,6 +320,8 @@
                 }
             }
         }
+
+        #from_impls
     };
     res.into()
 }
@@ -305,6 +362,18 @@
     match_arms
 }
 
+<span class="kw">fn </span>has_circuit_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
+    <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
+    <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
+        <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
+
+        match_arms.extend(<span class="macro">quote! </span>{
+            #name::#variant_ident(coprocessor) =&gt; coprocessor.has_circuit(),
+        });
+    }
+    match_arms
+}
+
 <span class="kw">fn </span>arity_match_arms(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
     <span class="kw">let </span><span class="kw-2">mut </span>match_arms = <span class="macro">quote! </span>{};
     <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
@@ -327,6 +396,27 @@
         });
     }
     match_arms
+}
+
+<span class="kw">fn </span>from_impls(name: <span class="kw-2">&amp;</span>Ident, variants: <span class="kw-2">&amp;</span>DataEnum) -&gt; proc_macro2::TokenStream {
+    <span class="kw">let </span><span class="kw-2">mut </span>impls = <span class="macro">quote! </span>{};
+
+    <span class="kw">for </span>variant <span class="kw">in </span>variants.variants.iter() {
+        <span class="kw">let </span>variant_ident = <span class="kw-2">&amp;</span>variant.ident;
+        <span class="kw">let </span>variant_inner = <span class="kw">match </span><span class="kw-2">&amp;</span>variant.fields {
+            syn::Fields::Unnamed(x) =&gt; <span class="kw-2">&amp;</span>x.unnamed,
+            <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(),
+        };
+        impls.extend(<span class="macro">quote! </span>{
+            <span class="kw">impl</span>&lt;F: lurk::field::LurkField&gt; From&lt;#variant_inner&gt; <span class="kw">for </span>#name&lt;F&gt; {
+                <span class="kw">fn </span>from(c: #variant_inner) -&gt; <span class="self">Self </span>{
+                    <span class="self">Self</span>::#variant_ident(c)
+                 }
+            }
+        })
+    }
+
+    impls
 }
 
 <span class="comment">////////////////////////////////////////////////////////////////////////////////

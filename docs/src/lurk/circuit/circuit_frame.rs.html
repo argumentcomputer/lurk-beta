@@ -5951,6 +5951,13 @@
 <a href="#5951" id="5951">5951</a>
 <a href="#5952" id="5952">5952</a>
 <a href="#5953" id="5953">5953</a>
+<a href="#5954" id="5954">5954</a>
+<a href="#5955" id="5955">5955</a>
+<a href="#5956" id="5956">5956</a>
+<a href="#5957" id="5957">5957</a>
+<a href="#5958" id="5958">5958</a>
+<a href="#5959" id="5959">5959</a>
+<a href="#5960" id="5960">5960</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
 
@@ -7350,7 +7357,10 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>head_is_coprocessor_bools = Vec::with_capacity(lang.coprocessors().len());
 
-    <span class="kw">for </span>(sym, (_coproc, scalar_ptr)) <span class="kw">in </span>lang.coprocessors().iter() {
+    <span class="kw">for </span>(sym, (coproc, scalar_ptr)) <span class="kw">in </span>lang.coprocessors().iter() {
+        <span class="kw">if </span>!coproc.has_circuit() {
+            <span class="kw">continue</span>;
+        };
         <span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;head is {}&quot;</span>, sym.full_name()));
 
         <span class="kw">let </span>allocated_boolean = head.alloc_hash_equal(cs, <span class="kw-2">*</span>scalar_ptr.value())<span class="question-mark">?</span>;
@@ -8574,6 +8584,10 @@
             )<span class="question-mark">?</span>;
 
             <span class="kw">for </span>(sym, (coproc, scalar_ptr)) <span class="kw">in </span>lang.coprocessors().iter() {
+                <span class="kw">if </span>!coproc.has_circuit() {
+                    <span class="kw">continue</span>;
+                };
+
                 <span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;{} coprocessor&quot;</span>, sym.full_name()));
 
                 <span class="kw">let </span>arity = coproc.arity();

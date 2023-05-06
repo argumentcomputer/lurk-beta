@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Coproc"],"struct":["DummyCoprocessor","Lang"]};
+window.SIDEBAR_ITEMS = {"enum":["Coproc"],"struct":["Binding","DummyCoprocessor","Lang"]};
