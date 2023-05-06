@@ -1,6 +1,7 @@
+use std::collections::HashMap;
 use std::hash::Hash;
 
-use crate::field::LurkField;
+use crate::field::{FWrap, LurkField};
 use generic_array::typenum::{U3, U4, U6, U8};
 use neptune::{poseidon::PoseidonConstants, Poseidon};
 use once_cell::sync::OnceCell;
@@ -87,6 +88,58 @@ pub struct PoseidonCache<F: LurkField> {
     a8: dashmap::DashMap<CacheKey<F, 8>, F, ahash::RandomState>,
 
     pub constants: HashConstants<F>,
+}
+
+#[derive(Default, Debug)]
+pub struct InversePoseidonCache<F: LurkField> {
+    a3: HashMap<FWrap<F>, [F; 3]>,
+    a4: HashMap<FWrap<F>, [F; 4]>,
+    a6: HashMap<FWrap<F>, [F; 6]>,
+    a8: HashMap<FWrap<F>, [F; 8]>,
+
+    pub constants: HashConstants<F>,
+}
+
+impl<F: LurkField> InversePoseidonCache<F> {
+    pub fn get<const ARITY: usize>(&self, key: &FWrap<F>) -> Option<&[F; ARITY]> {
+        macro_rules! get {
+            ($name:ident, $n: expr) => {{
+                let preimage = self.$name.get(key);
+                if let Some(p) = preimage {
+                    assert_eq!(ARITY, $n);
+                    Some(unsafe { std::mem::transmute::<&[F; $n], &[F; ARITY]>(p) })
+                } else {
+                    None
+                }
+            }};
+        }
+
+        match ARITY {
+            3 => get!(a3, 3),
+            4 => get!(a4, 4),
+            6 => get!(a6, 6),
+            8 => get!(a8, 8),
+            _ => unreachable!(),
+        }
+    }
+    pub fn insert<const ARITY: usize>(&mut self, key: FWrap<F>, preimage: [F; ARITY]) {
+        macro_rules! insert {
+            ($name:ident, $n:expr) => {{
+                let mut buffer = [F::zero(); $n];
+                buffer.copy_from_slice(&preimage);
+
+                self.$name.insert(key, buffer);
+            }};
+        }
+
+        match ARITY {
+            3 => insert!(a3, 3),
+            4 => insert!(a4, 4),
+            6 => insert!(a6, 6),
+            8 => insert!(a8, 8),
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
