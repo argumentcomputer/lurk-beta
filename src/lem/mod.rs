@@ -7,6 +7,77 @@ use std::collections::{BTreeMap, HashMap};
 
 use self::{ptr::Ptr, ptr::PtrVal, store::Store, tag::Tag};
 
+/// ## Lurk Evaluation Model (LEM)
+/// 
+/// A LEM is a description of Lurk's evaluation algorithm, encoded as data. In
+/// other words, it's a meta-representation of Lurk's step function.
+/// 
+/// The motivation behind LEM is the fact that hand-writing the circuit is a
+/// fragile process that hinders experimentation and safety. Thus we would like
+/// to bootstrap the circuit automatically, given a higher level description of
+/// the step function.
+/// 
+/// ### Data semantics
+/// 
+/// A LEM describes how to handle pointers with "meta pointers", with are
+/// basically named references. Instead of saying `let foo ...` in Rust, we
+/// use a `MetaPtr("foo")` in LEM.
+/// 
+/// The actual algorithm is encoded with a LEM operation (`LEMOP`). It's worth
+/// noting that one of the LEM operators is in fact a vector of operators, which
+/// allows imperative expressiveness.
+/// 
+/// ### Interpretation
+/// 
+/// Running a LEM is done via interpretation, which might be a bit slower than
+/// calling Rust functions directly. But it also has its advantages:
+/// 
+/// 1. The logic to collect data during execution can be factored out from the
+/// definition of the step function. This process is needed in order to evidence
+/// the inputs for the circuit at proving time;
+/// 
+/// 2. Actually, such logic to collect data is a natural consequence of the fact
+/// that we're on a higher level of abstraction. Relevant data is not simply
+/// stored on rust variables that die after the function ends. On the contrary,
+/// all relevant data lives on a `HashMap` that's also a product of the
+/// interpreted LEM.
+/// 
+/// ### Static checks of correctness
+/// 
+/// Since a LEM is an algorithm encoded as data, we can perform static checks of
+/// correctness as some form of (automated) formal verification. Here are some
+/// (WIP) properties we want a LEM to have before we can adopt it as a proper
+/// Lurk step function:
+/// 
+/// 1. Static single assignments: overwriting meta pointers would erase relevant
+/// data needed to feed the circuit at proving time. We don't want to lose any
+/// piece of information that the prover might know;
+/// 
+/// 2. Non-duplicated input labels: right at the start of interpretation, the
+/// input labels are bound to the actual pointers that represent the expression,
+/// environment and continuation. If some label is repeated, it will fatally
+/// break property 1;
+/// 
+/// 3. Output assignment completeness: at the end of every step we want all the
+/// output labels to be bound to some pointer otherwise we wouldn't know how to
+/// proceed on the next step;
+/// 
+/// 4. Non-duplicated output labels: property 3 forces us have a pointer bound
+/// to every output label. If some output label is duplicated, we would fatally
+/// break property 1;
+/// 
+/// 5. Disjoint input and output labels: if an input label is also present in
+/// the output, satisfying property 3 would break property 1 because such label
+/// would be bound twice;
+/// 
+/// 6. Assign first, use later: this prevents obvious "x not found" errors at
+/// interpretation time.
+pub struct LEM<'a> {
+    input: [&'a str; 3],
+    output: [&'a str; 3],
+    lem_op: LEMOP<'a>,
+}
+
 #[derive(PartialEq, Clone, Copy)]
 pub struct MetaPtr<'a>(&'a str);
 
@@ -95,12 +166,6 @@ impl<'a> LEMOP<'a> {
     }
 }
 
-pub struct LEM<'a> {
-    input: [&'a str; 3],
-    output: [&'a str; 3],
-    lem_op: LEMOP<'a>,
-}
-
 impl<'a> LEM<'a> {
     pub fn check(&self) {
         for s in self.input.iter() {
@@ -109,12 +174,7 @@ impl<'a> LEM<'a> {
                 "Input and output must be disjoint"
             )
         }
-        // TODO: assert that the input and output pointers are all different
-        // TODO: assert that all tag field elements are in range
-        // TODO: assert that used pointers have been previously defined
-        // TODO: assert that input pointers aren't overwritten (including the input)
-        // TODO: assert that all input pointers are used
-        // TODO: assert that all output pointers are defined
+        // TODO
     }
 
     // pub fn compile should generate the circuit

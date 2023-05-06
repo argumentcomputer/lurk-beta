@@ -1,8 +1,6 @@
-use crate::field::LurkField;
-
 use super::{ptr::PtrVal, tag::Tag, MetaPtr, LEM, LEMOP};
 
-pub fn step<'a, F: LurkField + std::cmp::Ord>() -> LEM<'a> {
+pub fn step<'a>() -> LEM<'a> {
     let input = ["expr_in", "env_in", "cont_in"];
     let output = ["expr_out", "env_out", "cont_out"];
     let lem_op = LEMOP::mk_match_tag(
@@ -28,5 +26,13 @@ pub fn step<'a, F: LurkField + std::cmp::Ord>() -> LEM<'a> {
         input,
         output,
         lem_op,
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    #[test]
+    fn check_step() {
+        super::step().check()
     }
 }
