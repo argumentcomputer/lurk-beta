@@ -12,7 +12,6 @@ use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
 use lurk::public_parameters::public_params;
 use lurk::store::Store;
-use lurk::sym::Sym;
 use lurk::tag::{ExprTag, Tag};
 use lurk::Num;
 use lurk_macros::Coproc;
@@ -105,6 +104,10 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         let blah = &[u[0], u[1]].map(|x| s.intern_num(u128_into_scalar::<F>(x)));
         s.list(blah)
     }
+
+    fn has_circuit(&self) -> bool {
+        true
+    }
 }
 
 fn u128_into_scalar<F: LurkField>(u: u128) -> Num<F> {
@@ -140,13 +143,11 @@ fn main() {
     let input_size = 64 * num_of_64_bytes;
 
     let store = &mut Store::<Fr>::new();
-    let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
     let sym_str = format!(".sha256.hash-{}-zero-bytes", input_size);
-    let name = Sym::new(sym_str.clone());
-    let coprocessor: Sha256Coprocessor<Fr> = Sha256Coprocessor::<Fr>::new(input_size);
-    let coproc = Sha256Coproc::SC(coprocessor);
-
-    lang.add_coprocessor(name, coproc, store);
+    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
+        store,
+        vec![(sym_str.clone(), Sha256Coprocessor::new(input_size).into())],
+    );
 
     let coproc_expr = format!("({})", sym_str);
 

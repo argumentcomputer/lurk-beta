@@ -22,7 +22,10 @@ use crate::store::Store;
 /// - A trait [`crate::coprocessor::Coprocessor`], which defines the methods and behavior for all coprocessors.
 /// - An enum such as [`crate::eval::lang::Coproc`], which "closes" the hierarchy of possible coprocessor
 ///   implementations we want to instantiate at a particular point in the code.
-pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + CoCircuit<F> {
+pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> {
+    fn new() -> Self {
+        unimplemented!();
+    }
     fn eval_arity(&self) -> usize;
 
     fn evaluate(&self, s: &mut Store<F>, args: Ptr<F>, env: Ptr<F>, cont: ContPtr<F>) -> IO<F> {
@@ -53,6 +56,11 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + CoCircuit<F> {
 
     /// As with all evaluation, the value returned from `simple_evaluate` must be fully evaluated.
     fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F>;
+
+    /// Returns true if this Coprocessor actually implements a circuit.
+    fn has_circuit(&self) -> bool {
+        false
+    }
 }
 
 /// `CoCircuit` is a trait that represents a generalized interface for coprocessors.
@@ -143,6 +151,10 @@ pub(crate) mod test {
             let x = s.intern_num(result);
 
             return x;
+        }
+
+        fn has_circuit(&self) -> bool {
+            true
         }
     }
 

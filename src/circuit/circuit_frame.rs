@@ -1397,7 +1397,10 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
 
     let mut head_is_coprocessor_bools = Vec::with_capacity(lang.coprocessors().len());
 
-    for (sym, (_coproc, scalar_ptr)) in lang.coprocessors().iter() {
+    for (sym, (coproc, scalar_ptr)) in lang.coprocessors().iter() {
+        if !coproc.has_circuit() {
+            continue;
+        };
         let cs = &mut cs.namespace(|| format!("head is {}", sym.full_name()));
 
         let allocated_boolean = head.alloc_hash_equal(cs, *scalar_ptr.value())?;
@@ -2621,6 +2624,10 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             )?;
 
             for (sym, (coproc, scalar_ptr)) in lang.coprocessors().iter() {
+                if !coproc.has_circuit() {
+                    continue;
+                };
+
                 let cs = &mut cs.namespace(|| format!("{} coprocessor", sym.full_name()));
 
                 let arity = coproc.arity();

@@ -33,9 +33,13 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
     let eval_arity_arms = eval_arity_match_arms(name, variants);
     let evaluate_arms = evaluate_match_arms(name, variants);
     let simple_evaluate_arms = simple_evaluate_match_arms(name, variants);
+    let has_circuit_arms = has_circuit_match_arms(name, variants);
 
     let arity_arms = arity_match_arms(name, variants);
     let synthesize_arms = synthesize_match_arms(name, variants);
+
+    let from_impls = from_impls(name, variants);
+
     let res = quote! {
         impl <F: lurk::field::LurkField> lurk::coprocessor::Coprocessor<F> for #name<F> {
             fn eval_arity(&self) -> usize {
@@ -53,6 +57,12 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
             fn simple_evaluate(&self, s: &mut lurk::store::Store<F>, args: &[lurk::ptr::Ptr<F>]) -> lurk::ptr::Ptr<F> {
                 match self {
                     #simple_evaluate_arms
+                }
+            }
+
+            fn has_circuit(&self) -> bool {
+                match self {
+                    #has_circuit_arms
                 }
             }
         }
@@ -78,6 +88,8 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
                 }
             }
         }
+
+        #from_impls
     };
     res.into()
 }
@@ -118,6 +130,18 @@ fn simple_evaluate_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2:
     match_arms
 }
 
+fn has_circuit_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
+    let mut match_arms = quote! {};
+    for variant in variants.variants.iter() {
+        let variant_ident = &variant.ident;
+
+        match_arms.extend(quote! {
+            #name::#variant_ident(coprocessor) => coprocessor.has_circuit(),
+        });
+    }
+    match_arms
+}
+
 fn arity_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
     let mut match_arms = quote! {};
     for variant in variants.variants.iter() {
@@ -140,6 +164,27 @@ fn synthesize_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::Toke
         });
     }
     match_arms
+}
+
+fn from_impls(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
+    let mut impls = quote! {};
+
+    for variant in variants.variants.iter() {
+        let variant_ident = &variant.ident;
+        let variant_inner = match &variant.fields {
+            syn::Fields::Unnamed(x) => &x.unnamed,
+            _ => unimplemented!(),
+        };
+        impls.extend(quote! {
+            impl<F: lurk::field::LurkField> From<#variant_inner> for #name<F> {
+                fn from(c: #variant_inner) -> Self {
+                    Self::#variant_ident(c)
+                 }
+            }
+        })
+    }
+
+    impls
 }
 
 ////////////////////////////////////////////////////////////////////////////////

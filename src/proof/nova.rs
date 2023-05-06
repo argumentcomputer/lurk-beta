@@ -3593,16 +3593,13 @@ pub mod tests {
     fn test_dumb_lang() {
         use crate::coprocessor::test::DumbCoprocessor;
         use crate::eval::tests::coproc::DumbCoproc;
-        use crate::sym::Sym;
 
         let s = &mut Store::<Fr>::new();
 
-        let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
-        let name = Sym::new(".cproc.dumb".to_string());
-        let dumb = DumbCoprocessor::new();
-        let coproc = DumbCoproc::DC(dumb);
-
-        lang.add_coprocessor(name, coproc, s);
+        let lang = Lang::<Fr, DumbCoproc<Fr>>::new_with_bindings(
+            s,
+            vec![(".cproc.dumb", DumbCoprocessor::new().into())],
+        );
 
         // 9^2 + 8 = 89
         let expr = "(.cproc.dumb 9 8)";
