@@ -1170,6 +1170,7 @@
 <a href="#1170" id="1170">1170</a>
 <a href="#1171" id="1171">1171</a>
 <a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>log::info;
 <span class="kw">use </span>std::convert::TryFrom;
 <span class="kw">use </span>std::fs::File;
@@ -1571,13 +1572,14 @@
         <span class="kw">let </span>file = File::create(path).expect(<span class="string">&quot;failed to create file&quot;</span>);
         <span class="kw">let </span>writer = BufWriter::new(<span class="kw-2">&amp;</span>file);
 
-        serde_json::to_writer(writer, <span class="kw-2">&amp;</span><span class="self">self</span>).expect(<span class="string">&quot;failed to write file&quot;</span>);
+        bincode::serialize_into(writer, <span class="kw-2">&amp;</span><span class="self">self</span>).expect(<span class="string">&quot;failed to write file&quot;</span>);
     }
 
     <span class="kw">fn </span>read_from_path&lt;P: AsRef&lt;Path&gt;&gt;(path: P) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
         <span class="kw">let </span>file = File::open(path)<span class="question-mark">?</span>;
         <span class="kw">let </span>reader = BufReader::new(file);
-        <span class="prelude-val">Ok</span>(serde_json::from_reader(reader)<span class="question-mark">?</span>)
+        bincode::deserialize_from(reader)
+            .map_err(|e| Error::CacheError(<span class="macro">format!</span>(<span class="string">&quot;Cache deserialization error: {}&quot;</span>, e)))
     }
 
     <span class="kw">fn </span>read_from_stdin() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
