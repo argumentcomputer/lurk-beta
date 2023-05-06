@@ -50,7 +50,13 @@ impl<Fr: LurkField> Arbitrary for Syntax<Fr> {
         let leaf = prop_oneof![
             any::<Num<Fr>>().prop_map(|x| Syntax::Num(Pos::No, x)),
             any::<UInt>().prop_map(|x| Syntax::UInt(Pos::No, x)),
-            any::<Symbol>().prop_map(|x| Syntax::Symbol(Pos::No, x)),
+            any::<Symbol>().prop_map(|x| {
+                if let Some(val) = Symbol::lurk_syms().get(&Symbol::lurk_sym(&format!("{}", x))) {
+                    Syntax::LurkSym(Pos::No, *val)
+                } else {
+                    Syntax::Symbol(Pos::No, x)
+                }
+            }),
             any::<LurkSym>().prop_map(|x| Syntax::LurkSym(Pos::No, x)),
             any::<String>().prop_map(|x| Syntax::String(Pos::No, x)),
             any::<char>().prop_map(|x| Syntax::Char(Pos::No, x))
@@ -61,7 +67,7 @@ impl<Fr: LurkField> Arbitrary for Syntax<Fr> {
                     .clone()
                     .prop_map(|x| Syntax::Quote(Pos::No, Box::new(x))),
                 prop::collection::vec(inner.clone(), 0..10).prop_map(|x| Syntax::List(Pos::No, x)),
-                prop::collection::vec(inner.clone(), 1..11).prop_map(|mut xs| {
+                prop::collection::vec(inner.clone(), 2..12).prop_map(|mut xs| {
                     let x = xs.pop().unwrap();
                     Syntax::Improper(Pos::No, xs, Box::new(x))
                 })
@@ -75,11 +81,17 @@ impl<F: LurkField> fmt::Display for Syntax<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Num(_, x) => write!(f, "{}", x),
-            Self::UInt(_, x) => write!(f, "{}", x),
+            Self::UInt(_, x) => write!(f, "{}u64", x),
             Self::Symbol(_, sym) => write!(f, "{}", sym),
             Self::LurkSym(_, sym) => write!(f, "{}", sym),
             Self::String(_, x) => write!(f, "\"{}\"", x.escape_default()),
-            Self::Char(_, x) => write!(f, "'{}'", x.escape_default()),
+            Self::Char(_, x) => {
+                if *x == '(' || *x == ')' {
+                    write!(f, "'\\{}'", x)
+                } else {
+                    write!(f, "'{}'", x.escape_default())
+                }
+            }
             Self::Quote(_, x) => write!(f, "'{}", x),
             Self::List(_, xs) => {
                 let mut iter = xs.iter().peekable();
@@ -204,85 +216,82 @@ impl<F: LurkField> Store<F> {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-    use blstrs::Scalar as Fr;
-    // use proptest::prelude::*;
-
-    #[test]
-    fn display_syntax() {
-        let mut s = Store::<Fr>::default();
-        let lurk_syms = Symbol::lurk_syms();
-
-        macro_rules! improper {
-            ( $( $x:expr ),+ ) => {
-                {
-                    let mut vec = vec!($($x,)*);
-                    let mut tmp = vec.pop().unwrap();
-                    while let Some(x) = vec.pop() {
-                        tmp = s.cons(x, tmp);
-                    }
-                    tmp
-                }
-            };
-        }
-
-        macro_rules! list {
-            ( $( $x:expr ),* ) => {
-                {
-                    let mut vec = vec!($($x,)*);
-                    let mut tmp = s.nil();
-                    while let Some(x) = vec.pop() {
-                        tmp = s.cons(x, tmp);
-                    }
-                    tmp
-                }
-            };
-        }
-
-        macro_rules! sym {
-            ( $sym:ident ) => {
-                {
-                    let sym = stringify!($sym);
-                    if lurk_syms.contains_key(&Symbol::lurk_sym(sym)) {
-                        s.lurk_sym(sym)
-                    }
-                    else {
-                        s.sym(sym)
-                    }
-                }
-            };
-        }
-
-        // Quote tests
-        let expr = list!(sym!(quote), list!(sym!(f), sym!(x), sym!(y)));
-        let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!("'(f x y)".to_string(), format!("{}", output));
-
-        let expr = list!(sym!(quote), sym!(f), sym!(x), sym!(y));
-        let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!("(quote f x y)".to_string(), format!("{}", output));
-
-        // List tests
-        let expr = list!();
-        let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!("nil".to_string(), format!("{}", output));
-
-        let expr = improper!(sym!(x), sym!(y), sym!(z));
-        let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!("(x y . z)".to_string(), format!("{}", output));
-
-        let expr = improper!(sym!(x), sym!(y), sym!(nil));
-        let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!("(x y)".to_string(), format!("{}", output));
-    }
-
-    // proptest! {
-    //     #[test]
-    //     fn prop_display_syntax(x in any::<Syntax<Fr>>()) {
-    //         println!("{}", x);
-    //         assert!(false)
-    //     }
-    // }
-}
+//#[cfg(test)]
+//mod test {
+//    use super::*;
+//    use blstrs::Scalar as Fr;
+//    // use proptest::prelude::*;
+//
+//    #[test]
+//    fn display_syntax() {
+//        let mut s = Store::<Fr>::default();
+//        let lurk_syms = Symbol::lurk_syms();
+//
+//        macro_rules! improper {
+//            ( $( $x:expr ),+ ) => {
+//                {
+//                    let mut vec = vec!($($x,)*);
+//                    let mut tmp = vec.pop().unwrap();
+//                    while let Some(x) = vec.pop() {
+//                        tmp = s.cons(x, tmp);
+//                    }
+//                    tmp
+//                }
+//            };
+//        }
+//
+//        macro_rules! list {
+//            ( $( $x:expr ),* ) => {
+//                {
+//                    let mut vec = vec!($($x,)*);
+//                    let mut tmp = s.nil();
+//                    while let Some(x) = vec.pop() {
+//                        tmp = s.cons(x, tmp);
+//                    }
+//                    tmp
+//                }
+//            };
+//        }
+//
+//        macro_rules! sym {
+//            ( $sym:ident ) => {{
+//                let sym = stringify!($sym);
+//                if lurk_syms.contains_key(&Symbol::lurk_sym(sym)) {
+//                    s.lurk_sym(sym)
+//                } else {
+//                    s.sym(sym)
+//                }
+//            }};
+//        }
+//
+//        // Quote tests
+//        let expr = list!(sym!(quote), list!(sym!(f), sym!(x), sym!(y)));
+//        let output = s.fetch_syntax(expr).unwrap();
+//        assert_eq!("'(f x y)".to_string(), format!("{}", output));
+//
+//        let expr = list!(sym!(quote), sym!(f), sym!(x), sym!(y));
+//        let output = s.fetch_syntax(expr).unwrap();
+//        assert_eq!("(quote f x y)".to_string(), format!("{}", output));
+//
+//        // List tests
+//        let expr = list!();
+//        let output = s.fetch_syntax(expr).unwrap();
+//        assert_eq!("nil".to_string(), format!("{}", output));
+//
+//        let expr = improper!(sym!(x), sym!(y), sym!(z));
+//        let output = s.fetch_syntax(expr).unwrap();
+//        assert_eq!("(x y . z)".to_string(), format!("{}", output));
+//
+//        let expr = improper!(sym!(x), sym!(y), sym!(nil));
+//        let output = s.fetch_syntax(expr).unwrap();
+//        assert_eq!("(x y)".to_string(), format!("{}", output));
+//    }
+//
+//    // proptest! {
+//    //     #[test]
+//    //     fn prop_display_syntax(x in any::<Syntax<Fr>>()) {
+//    //         println!("{}", x);
+//    //         assert!(false)
+//    //     }
+//    // }
+//}

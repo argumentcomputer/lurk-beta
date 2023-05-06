@@ -10,7 +10,7 @@ use std::collections::HashMap;
 pub const KEYWORD_MARKER: char = ':';
 pub const SYM_SEPARATOR: char = '.';
 pub const SYM_MARKER: char = '.';
-pub const ESCAPE_CHARS: &'static str = "(){}[],.:'";
+pub const ESCAPE_CHARS: &'static str = "(){}[],.:'\\\"";
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
@@ -126,6 +126,9 @@ impl Symbol {
             res.push(SYM_SEPARATOR);
             res.push_str(&Self::escape_symbol_element(&x));
         }
+        if xs[xs.len() - 1].is_empty() {
+            res.push(SYM_SEPARATOR);
+        }
         res
     }
 
@@ -140,7 +143,7 @@ impl Symbol {
             return true;
         };
         let c = xs[0].chars().next().unwrap();
-        "1234567890.:'[](){}=,\"\\".chars().any(|x| x == c)
+        "1234567890.:'[](){},\"\\".chars().any(|x| x == c)
             || char::is_whitespace(c)
             || char::is_control(c)
     }

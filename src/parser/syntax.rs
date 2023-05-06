@@ -4,6 +4,7 @@ use nom::{
     bytes::complete::{tag, take_till},
     character::complete::{char, multispace0, multispace1, none_of},
     combinator::{opt, peek, success, value},
+    error::context,
     multi::{many0, separated_list0, separated_list1},
     sequence::{preceded, terminated},
     IResult,
@@ -18,7 +19,6 @@ use crate::{
         string, Span,
     },
     symbol,
-    symbol::LurkSym,
     symbol::Symbol,
     syntax::Syntax,
     uint::UInt,
@@ -58,7 +58,7 @@ pub fn parse_symbol_limb<F: LurkField>(
 }
 
 pub fn parse_symbol_inner<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
+) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Symbol, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
         let key_mark = symbol::KEYWORD_MARKER;
         let sym_mark = symbol::SYM_MARKER;
@@ -71,21 +71,19 @@ pub fn parse_symbol_inner<F: LurkField>(
             // :foo
             value((false, key_mark), char(key_mark)),
             // foo
-            value((false, sym_mark), peek(none_of("',=(){}[]1234567890"))),
+            value((false, sym_mark), peek(none_of("',(){}[]1234567890"))),
         ))(from)?;
         if is_root && mark == key_mark {
-            let pos = Pos::from_upto(from, i);
-            Ok((i, Syntax::Symbol(pos, Symbol::Key(vec![]))))
+            Ok((i, Symbol::Key(vec![])))
         } else if is_root && mark == sym_mark {
-            let pos = Pos::from_upto(from, i);
-            Ok((i, Syntax::Symbol(pos, Symbol::Sym(vec![]))))
+            Ok((i, Symbol::Sym(vec![])))
         } else {
-            let (upto, path) = separated_list1(char(sym_sep), parse_symbol_limb())(i)?;
-            let pos = Pos::from_upto(from, upto);
+            let (i, path) = separated_list1(char(sym_sep), parse_symbol_limb())(i)?;
+            let (upto, _) = opt(tag("."))(i)?;
             if mark == key_mark {
-                Ok((upto, Syntax::Symbol(pos, Symbol::Key(path))))
+                Ok((upto, Symbol::Key(path)))
             } else {
-                Ok((upto, Syntax::Symbol(pos, Symbol::Sym(path))))
+                Ok((upto, Symbol::Sym(path)))
             }
         }
     }
@@ -94,57 +92,13 @@ pub fn parse_symbol_inner<F: LurkField>(
 pub fn parse_symbol<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
-        let (i, sym) = alt((parse_lurksym(), parse_symbol_inner()))(from)?;
-        Ok((i, sym))
-    }
-}
-
-pub fn parse_lurksym<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
-    move |from: Span<'_>| {
-        let (i, _) = opt(char(symbol::SYM_MARKER))(from)?;
-        let (upto, lurksym) = alt((
-            value(LurkSym::Atom, tag("atom")),
-            value(LurkSym::Begin, tag("begin")),
-            value(LurkSym::Car, tag("car")),
-            value(LurkSym::Cdr, tag("cdr")),
-            value(LurkSym::Char, tag("char")),
-            value(LurkSym::Comm, tag("comm")),
-            value(LurkSym::Commit, tag("commit")),
-            value(LurkSym::Cons, tag("cons")),
-            value(LurkSym::CurrentEnv, tag("current-env")),
-            value(LurkSym::Emit, tag("emit")),
-            value(LurkSym::Eval, tag("eval")),
-            value(LurkSym::Eq, tag("eq")),
-            value(LurkSym::Hide, tag("hide")),
-            value(LurkSym::If, tag("if")),
-            value(LurkSym::Lambda, tag("lambda")),
-            value(LurkSym::Let, tag("let")),
-            value(LurkSym::Letrec, tag("letrec")),
-            value(LurkSym::Nil, tag("nil")),
-            value(LurkSym::Num, tag("num")),
-            value(LurkSym::U64, tag("u64")),
-            alt((
-                value(LurkSym::Open, tag("open")),
-                value(LurkSym::Quote, tag("quote")),
-                value(LurkSym::Secret, tag("secret")),
-                value(LurkSym::Strcons, tag("strcons")),
-                value(LurkSym::T, tag("t")),
-                value(LurkSym::OpAdd, tag("+")),
-                value(LurkSym::OpSub, tag("-")),
-                value(LurkSym::OpMul, tag("*")),
-                value(LurkSym::OpDiv, tag("/")),
-                value(LurkSym::OpMod, tag("%")),
-                value(LurkSym::OpEql, tag("=")),
-                value(LurkSym::OpLth, tag("<")),
-                value(LurkSym::OpGth, tag(">")),
-                value(LurkSym::OpLte, tag("<=")),
-                value(LurkSym::OpGte, tag(">=")),
-                value(LurkSym::Dummy, tag("_")),
-            )),
-        ))(i)?;
+        let (upto, sym) = parse_symbol_inner()(from)?;
         let pos = Pos::from_upto(from, upto);
-        Ok((upto, Syntax::LurkSym(pos, lurksym)))
+        if let Some(val) = Symbol::lurk_syms().get(&Symbol::lurk_sym(&format!("{}", sym))) {
+            Ok((upto, Syntax::LurkSym(pos, *val)))
+        } else {
+            Ok((upto, Syntax::Symbol(pos, sym)))
+        }
     }
 }
 
@@ -228,7 +182,7 @@ pub fn parse_char<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
         let (i, _) = tag("'")(from)?;
-        let (i, s) = string::parse_string_inner1('\'', false, "()'")(i)?;
+        let (i, s) = string::parse_string_inner1('\'', true, "()'")(i)?;
         let (upto, _) = tag("'")(i)?;
         let mut chars: Vec<char> = s.chars().collect();
         if chars.len() == 1 {
@@ -265,10 +219,15 @@ pub fn parse_list<F: LurkField>(
 pub fn parse_quote<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
-        let (i, _) = tag("'")(from)?;
-        let (upto, s) = parse_syntax()(i)?;
-        let pos = Pos::from_upto(from, upto);
-        Ok((i, Syntax::Quote(pos, Box::new(s))))
+        let (i, c) = opt(parse_char())(from)?;
+        if let Some(c) = c {
+            Ok((i, c))
+        } else {
+            let (i, _) = tag("'")(from)?;
+            let (upto, s) = parse_syntax()(i)?;
+            let pos = Pos::from_upto(from, upto);
+            Ok((upto, Syntax::Quote(pos, Box::new(s))))
+        }
     }
 }
 
@@ -277,30 +236,31 @@ pub fn parse_syntax<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
         alt((
-            parse_num(),
+            context("symbol", parse_symbol()),
             parse_uint(),
-            parse_char(),
+            parse_num(),
             parse_string(),
-            parse_symbol(),
-            parse_list(),
-            parse_quote(),
+            context("quote", parse_quote()),
+            context("list", parse_list()),
         ))(from)
     }
 }
 
 #[cfg(test)]
 pub mod tests {
-    use crate::field::FWrap;
-    use blstrs::Scalar as Fr;
+    use crate::symbol::LurkSym;
+    use blstrs::Scalar;
     use nom::Parser;
+    #[cfg(not(target_arch = "wasm32"))]
+    use proptest::prelude::*;
 
     use super::*;
     #[allow(unused_imports)]
     use crate::{char, keyword, list, num, str, symbol, uint};
 
-    fn test<'a, P>(mut p: P, i: &'a str, expected: Option<Syntax<Fr>>) -> bool
+    fn test<'a, P>(mut p: P, i: &'a str, expected: Option<Syntax<Scalar>>) -> bool
     where
-        P: Parser<Span<'a>, Syntax<Fr>, ParseError<Span<'a>, Fr>>,
+        P: Parser<Span<'a>, Syntax<Scalar>, ParseError<Span<'a>, Scalar>>,
     {
         match (expected, p.parse(Span::<'a>::new(i))) {
             (Some(expected), Ok((_i, x))) if x == expected => true,
@@ -481,6 +441,21 @@ pub mod tests {
             "('a' 'b' 'c')",
             Some(list!([char!('a'), char!('b'), char!('c')])),
         ));
+
+        assert!(test(
+            parse_syntax(),
+            "(a. b. c.)",
+            Some(list!([symbol!(["a"]), symbol!(["b"]), symbol!(["c"])])),
+        ));
+        assert!(test(
+            parse_syntax(),
+            "(a.. b.. c..)",
+            Some(list!([
+                symbol!(["a", ""]),
+                symbol!(["b", ""]),
+                symbol!(["c", ""])
+            ])),
+        ));
     }
 
     #[test]
@@ -499,10 +474,15 @@ pub mod tests {
             "'a",
             Some(Syntax::Quote(Pos::No, Box::new(symbol!(["a"]))))
         ));
-        assert!(test(parse_syntax(), "'a'", Some(char!('a'))));
-        assert!(test(parse_syntax(), "'a'", Some(char!('a'))));
         assert!(test(
-            parse_quote(),
+            parse_syntax(),
+            "'a",
+            Some(Syntax::Quote(Pos::No, Box::new(symbol!(["a"]))))
+        ));
+        assert!(test(parse_quote(), "'a'", Some(char!('a'))));
+        assert!(test(parse_quote(), "'a'", Some(char!('a'))));
+        assert!(test(
+            parse_syntax(),
             "'(a b)",
             Some(Syntax::Quote(
                 Pos::No,
@@ -541,15 +521,15 @@ pub mod tests {
         ));
         assert!(test(
             parse_num(),
-            &format!("0x{}", Fr::most_positive().hex_digits()),
-            Some(num!(Num::Scalar(Fr::most_positive())))
+            &format!("0x{}", Scalar::most_positive().hex_digits()),
+            Some(num!(Num::Scalar(Scalar::most_positive())))
         ));
         assert!(test(
             parse_num(),
             "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000",
             Some(Syntax::Num(
                 Pos::No,
-                Num::Scalar(<Fr as ff::Field>::zero() - Fr::from(1u64))
+                Num::Scalar(<Scalar as ff::Field>::zero() - Scalar::from(1u64))
             )),
         ));
         assert!(test(
@@ -593,39 +573,79 @@ pub mod tests {
         ));
         assert!(test(
             parse_syntax(),
-            "(#:, 11242421860377074631u64, :\u{ae}\u{60500}\u{87}..)",
+            "11242421860377074631u64",
+            Some(uint!(11242421860377074631))
+        ));
+
+        assert!(test(
+            parse_syntax(),
+            ":\u{ae}\u{60500}\u{87}..)",
+            Some(keyword!(["®\u{60500}\u{87}", ""]))
+        ));
+        assert!(test(
+            parse_syntax(),
+            "(#: 11242421860377074631u64 . :\u{ae}\u{60500}\u{87}..)",
             Some(list!(
                 [keyword!([]), uint!(11242421860377074631)],
-                keyword!(["®\u{60500}\u{87}", "", ""])
+                keyword!(["®\u{60500}\u{87}", ""])
             ))
         ));
+        assert!(test(
+            parse_syntax(),
+            "((\"\"))",
+            Some(list!([list!([Syntax::String(Pos::No, "".to_string())])]))
+        ));
+
+        assert!(test(
+            parse_syntax(),
+            "((=))",
+            Some(list!([list!([Syntax::LurkSym(Pos::No, LurkSym::OpEql)])]))
+        ));
+        assert!(test(
+            parse_syntax(),
+            "('.. . a)",
+            Some(list!(
+                [Syntax::Quote(Pos::No, Box::new(symbol!([""])))],
+                symbol!(["a"])
+            ))
+        ));
+        assert_eq!(
+            "(.. . a)",
+            format!("{}", list!(Scalar, [symbol!([""])], symbol!(["a"])))
+        );
+        assert_eq!(
+            "('.. . a)",
+            format!(
+                "{}",
+                list!(
+                    Scalar,
+                    [Syntax::Quote(Pos::No, Box::new(symbol!([""])))],
+                    symbol!(["a"])
+                )
+            )
+        );
+        assert!(test(parse_syntax(), "'\\('", Some(char!('('))));
+        assert_eq!("'\\('", format!("{}", char!(Scalar, '(')));
+        assert_eq!(
+            "(' ' . a)",
+            format!("{}", list!(Scalar, [char!(' ')], symbol!(["a"])))
+        );
+        assert!(test(
+            parse_syntax(),
+            "(' ' . a)",
+            Some(list!([char!(' ')], symbol!(["a"])))
+        ));
     }
-    //
-    //    #[quickcheck]
-    //    fn prop_parse_num(f: FWrap<Fr>) -> bool {
-    //        let hex = format!("0x{}", f.0.hex_digits());
-    //        match parse_syn_num::<Fr>()(Span<'_>::new(&hex)) {
-    //            Ok((_, Syn::Num(_, f2))) => {
-    //                println!("f1 0x{}", f.0.hex_digits());
-    //                println!("f2 0x{}", f2.hex_digits());
-    //                f.0 == f2
-    //            }
-    //            _ => false,
-    //        }
-    //    }
-    //    #[quickcheck]
-    //    fn prop_syn_parse_print(syn: Syn<Fr>) -> bool {
-    //        println!("==================");
-    //        println!("syn1 {}", syn);
-    //        println!("syn1 {:?}", syn);
-    //        let hex = format!("{}", syn);
-    //        match parse_syn::<Fr>()(Span<'_>::new(&hex)) {
-    //            Ok((_, syn2)) => {
-    //                println!("syn2 {}", syn2);
-    //                println!("syn2 {:?}", syn2);
-    //                syn == syn2
-    //            }
-    //            _ => false,
-    //        }
-    //    }
+
+    proptest! {
+        #[test]
+        fn prop_syntax(x in any::<Syntax<Scalar>>()) {
+            let text = format!("{}", x);
+            let (_, res)  = parse_syntax()(Span::new(&text)).expect("valid parse");
+            eprintln!("------------------");
+            eprintln!("x {} {:?}", x, x);
+            eprintln!("res {} {:?}", res, res);
+            assert_eq!(x, res)
+        }
+    }
 }
