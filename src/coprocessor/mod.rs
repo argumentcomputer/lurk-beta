@@ -23,9 +23,6 @@ use crate::store::Store;
 /// - An enum such as [`crate::eval::lang::Coproc`], which "closes" the hierarchy of possible coprocessor
 ///   implementations we want to instantiate at a particular point in the code.
 pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> {
-    fn new() -> Self {
-        unimplemented!();
-    }
     fn eval_arity(&self) -> usize;
 
     fn evaluate(&self, s: &mut Store<F>, args: Ptr<F>, env: Ptr<F>, cont: ContPtr<F>) -> IO<F> {
