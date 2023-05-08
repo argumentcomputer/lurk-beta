@@ -1,4 +1,4 @@
-use super::{ptr::PtrVal, tag::Tag, MetaPtr, LEM, LEMOP};
+use super::{pointers::PtrVal, tag::Tag, MetaPtr, LEM, LEMOP};
 
 pub fn step<'a>() -> LEM<'a> {
     let input = ["expr_in", "env_in", "cont_in"];

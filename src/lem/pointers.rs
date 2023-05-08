@@ -3,6 +3,8 @@ use super::tag::Tag;
 #[derive(Clone, Copy, PartialEq, std::cmp::Eq, Hash)]
 pub enum PtrVal {
     Idx(usize),
+    Char(char),
+    U64(u64),
     Null,
 }
 
