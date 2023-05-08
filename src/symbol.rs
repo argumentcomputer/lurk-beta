@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::parser::whitespace;
+use crate::parser::LURK_WHITESPACE;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 /// Module for symbol type, Sym.
@@ -91,7 +91,7 @@ impl Symbol {
     }
 
     pub fn is_whitespace(c: char) -> bool {
-        whitespace().iter().any(|x| *x == c)
+        LURK_WHITESPACE.iter().any(|x| *x == c)
     }
 
     pub fn escape_symbol_element(xs: &str) -> String {
