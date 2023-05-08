@@ -1,11 +1,14 @@
 mod pointers;
 mod step;
 mod store;
+mod symbol;
 mod tag;
 
 use std::collections::{BTreeMap, HashMap};
 
-use self::{pointers::Ptr, pointers::PtrVal, store::Store, tag::Tag};
+use crate::field::LurkField;
+
+use self::{pointers::LurkData, store::Store, tag::Tag};
 
 /// ## Lurk Evaluation Model (LEM)
 ///
@@ -90,7 +93,7 @@ impl<'a> MetaPtr<'a> {
 
 #[derive(Clone)]
 pub enum LEMOP<'a> {
-    Set(MetaPtr<'a>, Tag, PtrVal),
+    Set(MetaPtr<'a>, Tag),
     Copy(MetaPtr<'a>, MetaPtr<'a>),
     Hash2Ptrs(MetaPtr<'a>, Tag, [MetaPtr<'a>; 2]),
     Hash3Ptrs(MetaPtr<'a>, Tag, [MetaPtr<'a>; 3]),
@@ -179,13 +182,13 @@ impl<'a> LEM<'a> {
 
     // pub fn compile should generate the circuit
 
-    pub fn run(
+    pub fn run<F: LurkField + std::hash::Hash>(
         &self,
-        i: [Ptr; 3],
-        store: &mut Store,
-    ) -> Result<([Ptr; 3], HashMap<&'a str, Ptr>), String> {
+        i: [LurkData<F>; 3],
+        store: &mut Store<F>,
+    ) -> Result<([LurkData<F>; 3], HashMap<&'a str, LurkData<F>>), String> {
         // key/val pairs on this map should never be overwritten
-        let mut map: HashMap<&'a str, Ptr> = HashMap::default();
+        let mut map: HashMap<&'a str, LurkData<F>> = HashMap::default();
         map.insert(self.input[0], i[0]);
         if map.insert(self.input[1], i[1]).is_some() {
             return Err(format!("{} already defined", self.input[1]));
@@ -196,11 +199,8 @@ impl<'a> LEM<'a> {
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
             match op {
-                LEMOP::Set(tgt, tag, val) => {
-                    let tgt_ptr = Ptr {
-                        tag: *tag,
-                        val: *val,
-                    };
+                LEMOP::Set(tgt, tag) => {
+                    let tgt_ptr = LurkData::Tag(*tag);
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -209,7 +209,7 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr) = map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    if map.insert(tgt.name(), src_ptr.clone()).is_some() {
+                    if map.insert(tgt.name(), *src_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
                 }
@@ -220,11 +220,8 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr2) = map.get(src[1].name()) else {
                         return Err(format!("{} not defined", src[1].name()))
                     };
-                    let (idx, _) = store.ptr2_store.insert_full((*src_ptr1, *src_ptr2));
-                    let tgt_ptr = Ptr {
-                        tag: *tag,
-                        val: PtrVal::Idx(idx),
-                    };
+                    let (idx, _) = store.data2.insert_full((*src_ptr1, *src_ptr2));
+                    let tgt_ptr = LurkData::Ptr(*tag, idx);
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -239,13 +236,8 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr3) = map.get(src[2].name()) else {
                         return Err(format!("{} not defined", src[2].name()))
                     };
-                    let (idx, _) = store
-                        .ptr3_store
-                        .insert_full((*src_ptr1, *src_ptr2, *src_ptr3));
-                    let tgt_ptr = Ptr {
-                        tag: *tag,
-                        val: PtrVal::Idx(idx),
-                    };
+                    let (idx, _) = store.data3.insert_full((*src_ptr1, *src_ptr2, *src_ptr3));
+                    let tgt_ptr = LurkData::Ptr(*tag, idx);
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -264,12 +256,9 @@ impl<'a> LEM<'a> {
                         return Err(format!("{} not defined", src[3].name()))
                     };
                     let (idx, _) = store
-                        .ptr4_store
+                        .data4
                         .insert_full((*src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4));
-                    let tgt_ptr = Ptr {
-                        tag: *tag,
-                        val: PtrVal::Idx(idx),
-                    };
+                    let tgt_ptr = LurkData::Ptr(*tag, idx);
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -278,13 +267,13 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr) = map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    let PtrVal::Idx(idx) = src_ptr.val else {
+                    let LurkData::Ptr(_, idx) = src_ptr else {
                         return Err(format!(
                             "{} is bound to a null pointer and can't be unhashed",
                             src.name()
                         ));
                     };
-                    let Some((a, b)) = store.ptr2_store.get_index(idx) else {
+                    let Some((a, b)) = store.data2.get_index(*idx) else {
                         return Err(format!("{} isn't bound to a 2-hashed pointer", src.name()))
                     };
                     if map.insert(tgts[0].name(), *a).is_some() {
@@ -298,13 +287,13 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr) = map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    let PtrVal::Idx(idx) = src_ptr.val else {
+                    let LurkData::Ptr(_, idx) = src_ptr else {
                         return Err(format!(
                             "{} is bound to a null pointer and can't be unhashed",
                             src.name()
                         ));
                     };
-                    let Some((a, b, c)) = store.ptr3_store.get_index(idx) else {
+                    let Some((a, b, c)) = store.data3.get_index(*idx) else {
                         return Err(format!("{} isn't bound to a 3-hashed pointer", src.name()))
                     };
                     if map.insert(tgts[0].name(), *a).is_some() {
@@ -321,13 +310,13 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr) = map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    let PtrVal::Idx(idx) = src_ptr.val else {
+                    let LurkData::Ptr(_, idx) = src_ptr else {
                         return Err(format!(
                             "{} is bound to a null pointer and can't be unhashed",
                             src.name()
                         ));
                     };
-                    let Some((a, b, c, d)) = store.ptr4_store.get_index(idx) else {
+                    let Some((a, b, c, d)) = store.data4.get_index(*idx) else {
                         return Err(format!("{} isn't bound to a 4-hashed pointer", src.name()))
                     };
                     if map.insert(tgts[0].name(), *a).is_some() {
@@ -344,10 +333,10 @@ impl<'a> LEM<'a> {
                     }
                 }
                 LEMOP::MatchTag(ptr, cases, def) => {
-                    let Some(ptr_match) = map.get(ptr.name()) else {
+                    let Some(LurkData::Ptr(tag, _)) = map.get(ptr.name()) else {
                         return Err(format!("{} not defined", ptr.name()))
                     };
-                    match cases.get(&ptr_match.tag) {
+                    match cases.get(tag) {
                         Some(op) => stack.push(op),
                         None => stack.push(def),
                     }
