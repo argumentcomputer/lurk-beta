@@ -2,16 +2,17 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use bellperson::{ConstraintSystem, SynthesisError};
+use lurk_macros::Coproc;
 use serde::{Deserialize, Serialize};
 
-use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::field::LurkField;
 use crate::ptr::Ptr;
 use crate::store::Store;
 use crate::symbol::Symbol;
 use crate::z_ptr::ZExprPtr;
+
+use crate as lurk;
 
 /// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.
 ///
@@ -53,51 +54,15 @@ impl<F: LurkField> DummyCoprocessor<F> {
 /// `CoProc` is an enum that wraps over different implementations of the [`crate::coprocessor::Coprocessor`] trait.
 /// It is used at runtime to encode a finite choice of acceptable coprocessors.
 ///
-/// This enum is the key to constrainting a trait hierarchy by allowing us to have a common type
+/// This enum is the key to constraining a trait hierarchy by allowing us to have a common type
 /// for all implementations of the [`crate::coprocessor::Coprocessor`] trait (which e.g. allows putting them in a collection).
 ///
 /// # Pattern
 /// The enum `CoProc` serves as the "closing" element of a trait hierarchy, providing
 /// a common type for all coprocessor implementations.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Coproc)]
 pub enum Coproc<F: LurkField> {
     Dummy(DummyCoprocessor<F>),
-}
-
-// TODO: Auto-generate this with a macro.
-impl<F: LurkField> Coprocessor<F> for Coproc<F> {
-    fn eval_arity(&self) -> usize {
-        match self {
-            Self::Dummy(c) => c.eval_arity(),
-        }
-    }
-
-    fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
-        match self {
-            Self::Dummy(c) => c.simple_evaluate(s, args),
-        }
-    }
-}
-
-impl<F: LurkField> CoCircuit<F> for Coproc<F> {
-    fn arity(&self) -> usize {
-        match self {
-            Self::Dummy(c) => c.arity(),
-        }
-    }
-
-    fn synthesize<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        store: &Store<F>,
-        input_exprs: &[AllocatedPtr<F>],
-        input_env: &AllocatedPtr<F>,
-        input_cont: &AllocatedContPtr<F>,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        match self {
-            Self::Dummy(c) => c.synthesize(cs, store, input_exprs, input_env, input_cont),
-        }
-    }
 }
 
 /// `Lang` is a struct that represents a language with coprocessors.
@@ -124,11 +89,51 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         }
     }
 
-    pub fn add_coprocessor(&mut self, name: Symbol, cproc: C, store: &mut Store<F>) {
-        let ptr = store.intern_symbol(name.clone());
+    pub fn new_with_bindings<B: Into<Binding<F, C>>>(s: &mut Store<F>, bindings: Vec<B>) -> Self {
+        let mut new = Self {
+            coprocessors: Default::default(),
+        };
+        for b in bindings {
+            new.add_binding(b.into(), s);
+        }
+
+        new
+    }
+
+    pub fn key(&self) -> String {
+        let mut key = String::new();
+
+        for coprocessor in &self.coprocessors {
+            let name = match coprocessor.0 {
+                Symbol::Sym(sym) => sym,
+                Symbol::Key(sym) => sym,
+            }
+            .join("-");
+
+            key += name.as_str()
+        }
+        key
+    }
+
+    pub fn add_coprocessor<T: Into<C>, S: Into<Symbol>>(
+        &mut self,
+        name: S,
+        cproc: T,
+        store: &mut Store<F>,
+    ) {
+        let symbol = name.into();
+        let ptr = store.intern_symbol(name.into());
         let scalar_ptr = store.hash_expr(&ptr).unwrap();
 
-        self.coprocessors.insert(name, (cproc, scalar_ptr));
+        self.coprocessors.insert(name.into(), (cproc.into(), scalar_ptr));
+    }
+
+    pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B, store: &mut Store<F>) {
+        let Binding { name, coproc, _p } = binding.into();
+        let ptr = store.intern_symbol(name);
+        let scalar_ptr = store.hash_expr(&ptr).unwrap();
+
+        self.coprocessors.insert(name, (coproc, scalar_ptr));
     }
 
     pub fn coprocessors(&self) -> &HashMap<Symbol, (C, ZExprPtr<F>)> {
@@ -158,6 +163,28 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
     }
 }
 
+pub struct Binding<F: LurkField, C: Coprocessor<F>> {
+    name: Symbol,
+    coproc: C,
+    _p: PhantomData<F>,
+}
+
+impl<F: LurkField, C: Coprocessor<F>, S: Into<Symbol>> From<(S, C)> for Binding<F, C> {
+    fn from(pair: (S, C)) -> Self {
+        Self::new(pair.0, pair.1)
+    }
+}
+
+impl<F: LurkField, C: Coprocessor<F>> Binding<F, C> {
+    pub fn new<T: Into<C>, S: Into<Symbol>>(name: S, coproc: T) -> Self {
+        Self {
+            name: name.into(),
+            coproc: coproc.into(),
+            _p: Default::default(),
+        }
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
@@ -175,6 +202,6 @@ pub(crate) mod test {
         let name = Symbol::sym(vec!["".into(), "cproc".into(), "dumb".into()]);
         let dummy = DummyCoprocessor::new();
 
-        lang.add_coprocessor(name, Coproc::Dummy(dummy), store);
+        lang.add_coprocessor(name, dummy, store);
     }
 }
