@@ -88,7 +88,7 @@ pub fn parse_literal<'a, F: LurkField>(
         s.push(delim);
         s.push('\\');
         if !whitespace {
-            for c in crate::parser::whitespace() {
+            for c in crate::parser::LURK_WHITESPACE {
                 s.push(c);
             }
         }

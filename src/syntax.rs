@@ -239,30 +239,30 @@ mod test {
         let lurk_syms = Symbol::lurk_syms();
 
         macro_rules! improper {
-           ( $( $x:expr ),+ ) => {
-               {
-                   let mut vec = vec!($($x,)*);
-                   let mut tmp = vec.pop().unwrap();
-                   while let Some(x) = vec.pop() {
-                       tmp = s.cons(x, tmp);
-                   }
-                   tmp
-               }
-           };
-       }
+            ( $( $x:expr ),+ ) => {
+                {
+                    let mut vec = vec!($($x,)*);
+                    let mut tmp = vec.pop().unwrap();
+                    while let Some(x) = vec.pop() {
+                        tmp = s.cons(x, tmp);
+                    }
+                    tmp
+                }
+            };
+        }
 
         macro_rules! list {
-           ( $( $x:expr ),* ) => {
-               {
-                   let mut vec = vec!($($x,)*);
-                   let mut tmp = s.nil();
-                   while let Some(x) = vec.pop() {
-                       tmp = s.cons(x, tmp);
-                   }
-                   tmp
-               }
-           };
-       }
+            ( $( $x:expr ),* ) => {
+                {
+                    let mut vec = vec!($($x,)*);
+                    let mut tmp = s.nil();
+                    while let Some(x) = vec.pop() {
+                        tmp = s.cons(x, tmp);
+                    }
+                    tmp
+                }
+            };
+        }
 
         macro_rules! sym {
             ( $sym:ident ) => {{
@@ -299,20 +299,20 @@ mod test {
     }
 
     proptest! {
-         // #[test]
-         // fn prop_display_syntax(x in any::<Syntax<Fr>>()) {
-         //     println!("{}", x);
-         //     assert!(false)
-         // }
+    // #[test]
+    // fn prop_display_syntax(x in any::<Syntax<Fr>>()) {
+    //     println!("{}", x);
+    //     assert!(false)
+    // }
 
-         #[test]
-         fn syntax_full_roundtrip(x in any::<Syntax<Fr>>()) {
-             let mut store1 = Store::<Fr>::default();
-             let ptr1 = store1.intern_syntax(x.clone());
-             let (z_store, z_ptr) = store1.to_z_store_with_ptr(&ptr1).unwrap();
-             let (store2, ptr2) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();
-             let y = store2.fetch_syntax(ptr2).unwrap();
-             assert!(x.loose_eq(y))
-         }
+    #[test]
+    fn syntax_full_roundtrip(x in any::<Syntax<Fr>>()) {
+        let mut store1 = Store::<Fr>::default();
+        let ptr1 = store1.intern_syntax(x.clone());
+        let (z_store, z_ptr) = store1.to_z_store_with_ptr(&ptr1).unwrap();
+        let (store2, ptr2) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();
+        let y = store2.fetch_syntax(ptr2).unwrap();
+        assert!(x.loose_eq(y))
+    }
     }
 }
