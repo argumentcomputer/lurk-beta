@@ -39,6 +39,18 @@ impl<F: LurkField> Syntax<F> {
     pub fn nil(pos: Pos) -> Syntax<F> {
         Syntax::LurkSym(pos, LurkSym::Nil)
     }
+
+    pub fn loose_eq(self, other: Syntax<F>) -> bool {
+        match (self, other) {
+            (Syntax::Quote(_, x), Syntax::List(_, list)) => {
+                list == vec![Syntax::LurkSym(Pos::No, LurkSym::Quote), *x]
+            }
+            (Syntax::List(_, list), Syntax::Quote(_, x)) => {
+                list == vec![Syntax::LurkSym(Pos::No, LurkSym::Quote), *x]
+            }
+            (x, y) => x == y,
+        }
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -216,82 +228,91 @@ impl<F: LurkField> Store<F> {
     }
 }
 
-//#[cfg(test)]
-//mod test {
-//    use super::*;
-//    use blstrs::Scalar as Fr;
-//    // use proptest::prelude::*;
-//
-//    #[test]
-//    fn display_syntax() {
-//        let mut s = Store::<Fr>::default();
-//        let lurk_syms = Symbol::lurk_syms();
-//
-//        macro_rules! improper {
-//            ( $( $x:expr ),+ ) => {
-//                {
-//                    let mut vec = vec!($($x,)*);
-//                    let mut tmp = vec.pop().unwrap();
-//                    while let Some(x) = vec.pop() {
-//                        tmp = s.cons(x, tmp);
-//                    }
-//                    tmp
-//                }
-//            };
-//        }
-//
-//        macro_rules! list {
-//            ( $( $x:expr ),* ) => {
-//                {
-//                    let mut vec = vec!($($x,)*);
-//                    let mut tmp = s.nil();
-//                    while let Some(x) = vec.pop() {
-//                        tmp = s.cons(x, tmp);
-//                    }
-//                    tmp
-//                }
-//            };
-//        }
-//
-//        macro_rules! sym {
-//            ( $sym:ident ) => {{
-//                let sym = stringify!($sym);
-//                if lurk_syms.contains_key(&Symbol::lurk_sym(sym)) {
-//                    s.lurk_sym(sym)
-//                } else {
-//                    s.sym(sym)
-//                }
-//            }};
-//        }
-//
-//        // Quote tests
-//        let expr = list!(sym!(quote), list!(sym!(f), sym!(x), sym!(y)));
-//        let output = s.fetch_syntax(expr).unwrap();
-//        assert_eq!("'(f x y)".to_string(), format!("{}", output));
-//
-//        let expr = list!(sym!(quote), sym!(f), sym!(x), sym!(y));
-//        let output = s.fetch_syntax(expr).unwrap();
-//        assert_eq!("(quote f x y)".to_string(), format!("{}", output));
-//
-//        // List tests
-//        let expr = list!();
-//        let output = s.fetch_syntax(expr).unwrap();
-//        assert_eq!("nil".to_string(), format!("{}", output));
-//
-//        let expr = improper!(sym!(x), sym!(y), sym!(z));
-//        let output = s.fetch_syntax(expr).unwrap();
-//        assert_eq!("(x y . z)".to_string(), format!("{}", output));
-//
-//        let expr = improper!(sym!(x), sym!(y), sym!(nil));
-//        let output = s.fetch_syntax(expr).unwrap();
-//        assert_eq!("(x y)".to_string(), format!("{}", output));
-//    }
-//
-//    // proptest! {
-//    //     #[test]
-//    //     fn prop_display_syntax(x in any::<Syntax<Fr>>()) {
-//    //         println!("{}", x);
-//    //         assert!(false)
-//    //     }
-//    // }
-//}
+#[cfg(test)]
+mod test {
+    use super::*;
+    use blstrs::Scalar as Fr;
+
+    #[test]
+    fn display_syntax() {
+        let mut s = Store::<Fr>::default();
+        let lurk_syms = Symbol::lurk_syms();
+
+        macro_rules! improper {
+           ( $( $x:expr ),+ ) => {
+               {
+                   let mut vec = vec!($($x,)*);
+                   let mut tmp = vec.pop().unwrap();
+                   while let Some(x) = vec.pop() {
+                       tmp = s.cons(x, tmp);
+                   }
+                   tmp
+               }
+           };
+       }
+
+        macro_rules! list {
+           ( $( $x:expr ),* ) => {
+               {
+                   let mut vec = vec!($($x,)*);
+                   let mut tmp = s.nil();
+                   while let Some(x) = vec.pop() {
+                       tmp = s.cons(x, tmp);
+                   }
+                   tmp
+               }
+           };
+       }
+
+        macro_rules! sym {
+            ( $sym:ident ) => {{
+                let sym = stringify!($sym);
+                if lurk_syms.contains_key(&Symbol::lurk_sym(sym)) {
+                    s.lurk_sym(sym)
+                } else {
+                    s.sym(sym)
+                }
+            }};
+        }
+
+        // Quote tests
+        let expr = list!(sym!(quote), list!(sym!(f), sym!(x), sym!(y)));
+        let output = s.fetch_syntax(expr).unwrap();
+        assert_eq!("'(f x y)".to_string(), format!("{}", output));
+
+        let expr = list!(sym!(quote), sym!(f), sym!(x), sym!(y));
+        let output = s.fetch_syntax(expr).unwrap();
+        assert_eq!("(quote f x y)".to_string(), format!("{}", output));
+
+        // List tests
+        let expr = list!();
+        let output = s.fetch_syntax(expr).unwrap();
+        assert_eq!("nil".to_string(), format!("{}", output));
+
+        let expr = improper!(sym!(x), sym!(y), sym!(z));
+        let output = s.fetch_syntax(expr).unwrap();
+        assert_eq!("(x y . z)".to_string(), format!("{}", output));
+
+        let expr = improper!(sym!(x), sym!(y), sym!(nil));
+        let output = s.fetch_syntax(expr).unwrap();
+        assert_eq!("(x y)".to_string(), format!("{}", output));
+    }
+
+    proptest! {
+         // #[test]
+         // fn prop_display_syntax(x in any::<Syntax<Fr>>()) {
+         //     println!("{}", x);
+         //     assert!(false)
+         // }
+
+         #[test]
+         fn syntax_full_roundtrip(x in any::<Syntax<Fr>>()) {
+             let mut store1 = Store::<Fr>::default();
+             let ptr1 = store1.intern_syntax(x.clone());
+             let (z_store, z_ptr) = store1.to_z_store_with_ptr(&ptr1).unwrap();
+             let (store2, ptr2) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();
+             let y = store2.fetch_syntax(ptr2).unwrap();
+             assert!(x.loose_eq(y))
+         }
+    }
+}

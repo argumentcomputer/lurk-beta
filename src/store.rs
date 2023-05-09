@@ -1812,6 +1812,25 @@ impl<F: LurkField> ZStore<F> {
         }
         store
     }
+
+    pub fn to_store_with_z_ptr(&self, z_ptr: &ZExprPtr<F>) -> Result<(Store<F>, Ptr<F>), Error> {
+        let mut store = Store::new();
+        let mut ptr_ret = None;
+
+        for ptr in self.expr_map.keys() {
+            let ptr_ret_maybe = store.intern_z_expr_ptr(*ptr, self);
+            if *ptr == *z_ptr {
+                ptr_ret = ptr_ret_maybe;
+            }
+        }
+        for ptr in self.cont_map.keys() {
+            store.intern_z_cont_ptr(*ptr, self);
+        }
+        match ptr_ret {
+            Some(ptr_ret) => Ok((store, ptr_ret)),
+            None => Err(Error("Couldn't find given ZExprPtr".into())),
+        }
+    }
 }
 
 #[cfg(test)]
