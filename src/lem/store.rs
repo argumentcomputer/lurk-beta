@@ -20,7 +20,7 @@ pub struct Store<F: LurkField> {
     vec_str_cache: HashMap<Vec<String>, Ptr<F>>,
 }
 
-impl<F: LurkField + std::hash::Hash> Store<F> {
+impl<F: LurkField> Store<F> {
     pub fn index_string(&mut self, s: String) -> Ptr<F> {
         let mut chars = s.chars().rev().collect_vec();
         let mut ptr;

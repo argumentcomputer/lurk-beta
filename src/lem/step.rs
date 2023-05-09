@@ -41,7 +41,7 @@ pub mod tests {
 
     #[test]
     fn eval_42() {
-        let expr = Ptr::Num(Scalar::from(42));
+        // let expr = Ptr::Num(Scalar::from(42));
         // let (res, _) = super::step().eval_res(expr).unwrap();
         // assert!(res == expr);
     }

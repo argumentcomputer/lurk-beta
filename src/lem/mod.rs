@@ -187,7 +187,7 @@ impl<'a> LEM<'a> {
 
     // pub fn compile should generate the circuit
 
-    pub fn run<F: LurkField + std::hash::Hash>(
+    pub fn run<F: LurkField>(
         &self,
         i: [Ptr<F>; 3],
         store: &mut Store<F>,
@@ -382,7 +382,7 @@ impl<'a> LEM<'a> {
         Ok(([*out1, *out2, *out3], map))
     }
 
-    pub fn eval<F: LurkField + std::hash::Hash>(
+    pub fn eval<F: LurkField>(
         self,
         expr: Ptr<F>,
     ) -> Result<(Vec<StepData<'a, F>>, Store<F>), String> {
@@ -409,10 +409,7 @@ impl<'a> LEM<'a> {
         Ok((steps_data, store))
     }
 
-    pub fn eval_res<F: LurkField + std::hash::Hash>(
-        self,
-        expr: Ptr<F>,
-    ) -> Result<(Ptr<F>, Store<F>), String> {
+    pub fn eval_res<F: LurkField>(self, expr: Ptr<F>) -> Result<(Ptr<F>, Store<F>), String> {
         let (steps_data, store) = self.eval(expr)?;
         Ok((
             steps_data
