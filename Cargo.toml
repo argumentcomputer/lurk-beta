@@ -45,6 +45,7 @@ num-traits = "0.2.15"
 nom = "7.1.3"
 clap = "4.1.8"
 tap = "1.0.1"
+stable_deref_trait = "1.1.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 memmap = { version = "0.5.10", package = "memmap2" }

@@ -8,7 +8,11 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::field::LurkField;
 
-use self::{pointers::{Ptr, PtrVal}, store::Store, tag::Tag};
+use self::{
+    pointers::{Ptr, PtrVal},
+    store::Store,
+    tag::Tag,
+};
 
 /// ## Lurk Evaluation Model (LEM)
 ///
@@ -205,7 +209,10 @@ impl<'a> LEM<'a> {
         while let Some(op) = stack.pop() {
             match op {
                 LEMOP::MkNull(tgt, tag) => {
-                    let tgt_ptr = Ptr {tag: *tag, val: PtrVal::Null};
+                    let tgt_ptr = Ptr {
+                        tag: *tag,
+                        val: PtrVal::Null,
+                    };
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -225,8 +232,11 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr2) = map.get(src[1].name()) else {
                         return Err(format!("{} not defined", src[1].name()))
                     };
-                    let (idx, _) = store.data2.insert_full((*src_ptr1, *src_ptr2));
-                    let tgt_ptr = Ptr {tag: *tag, val: PtrVal::Index(idx)};
+                    let (idx, _) = store.ptrs2.insert_full((*src_ptr1, *src_ptr2));
+                    let tgt_ptr = Ptr {
+                        tag: *tag,
+                        val: PtrVal::Index2(idx),
+                    };
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -241,8 +251,11 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr3) = map.get(src[2].name()) else {
                         return Err(format!("{} not defined", src[2].name()))
                     };
-                    let (idx, _) = store.data3.insert_full((*src_ptr1, *src_ptr2, *src_ptr3));
-                    let tgt_ptr = Ptr {tag: *tag, val: PtrVal::Index(idx)};
+                    let (idx, _) = store.ptrs3.insert_full((*src_ptr1, *src_ptr2, *src_ptr3));
+                    let tgt_ptr = Ptr {
+                        tag: *tag,
+                        val: PtrVal::Index3(idx),
+                    };
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -261,9 +274,12 @@ impl<'a> LEM<'a> {
                         return Err(format!("{} not defined", src[3].name()))
                     };
                     let (idx, _) = store
-                        .data4
+                        .ptrs4
                         .insert_full((*src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4));
-                    let tgt_ptr = Ptr {tag: *tag, val: PtrVal::Index(idx)};
+                    let tgt_ptr = Ptr {
+                        tag: *tag,
+                        val: PtrVal::Index4(idx),
+                    };
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -272,13 +288,13 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr) = map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    let Ptr { tag: _, val: PtrVal::Index(idx)} = src_ptr else {
+                    let Ptr { tag: _, val: PtrVal::Index2(idx)} = src_ptr else {
                         return Err(format!(
                             "{} is bound to a null pointer and can't be unhashed",
                             src.name()
                         ));
                     };
-                    let Some((a, b)) = store.data2.get_index(*idx) else {
+                    let Some((a, b)) = store.ptrs2.get_index(*idx) else {
                         return Err(format!("{} isn't bound to a 2-hashed pointer", src.name()))
                     };
                     if map.insert(tgts[0].name(), *a).is_some() {
@@ -292,13 +308,13 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr) = map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    let Ptr { tag: _, val: PtrVal::Index(idx)} = src_ptr else {
+                    let Ptr { tag: _, val: PtrVal::Index3(idx)} = src_ptr else {
                         return Err(format!(
                             "{} is bound to a null pointer and can't be unhashed",
                             src.name()
                         ));
                     };
-                    let Some((a, b, c)) = store.data3.get_index(*idx) else {
+                    let Some((a, b, c)) = store.ptrs3.get_index(*idx) else {
                         return Err(format!("{} isn't bound to a 3-hashed pointer", src.name()))
                     };
                     if map.insert(tgts[0].name(), *a).is_some() {
@@ -315,13 +331,13 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr) = map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    let Ptr { tag: _, val: PtrVal::Index(idx)} = src_ptr else {
+                    let Ptr { tag: _, val: PtrVal::Index4(idx)} = src_ptr else {
                         return Err(format!(
                             "{} is bound to a null pointer and can't be unhashed",
                             src.name()
                         ));
                     };
-                    let Some((a, b, c, d)) = store.data4.get_index(*idx) else {
+                    let Some((a, b, c, d)) = store.ptrs4.get_index(*idx) else {
                         return Err(format!("{} isn't bound to a 4-hashed pointer", src.name()))
                     };
                     if map.insert(tgts[0].name(), *a).is_some() {
@@ -387,11 +403,20 @@ impl<'a> LEM<'a> {
         expr: Ptr<F>,
     ) -> Result<(Vec<StepData<'a, F>>, Store<F>), String> {
         let mut expr = expr;
-        let mut env = Ptr {tag: Tag::Nil, val: PtrVal::Null};
-        let mut cont = Ptr {tag: Tag::Outermost, val: PtrVal::Null};
+        let mut env = Ptr {
+            tag: Tag::Nil,
+            val: PtrVal::Null,
+        };
+        let mut cont = Ptr {
+            tag: Tag::Outermost,
+            val: PtrVal::Null,
+        };
         let mut steps_data = vec![];
         let mut store: Store<F> = Default::default();
-        let terminal = Ptr {tag: Tag::Terminal, val: PtrVal::Null};
+        let terminal = Ptr {
+            tag: Tag::Terminal,
+            val: PtrVal::Null,
+        };
         loop {
             let input = [expr, env, cont];
             let (output, values) = self.run(input, &mut store)?;

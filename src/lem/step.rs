@@ -30,8 +30,11 @@ pub fn step() -> LEM<'static> {
 }
 
 #[cfg(test)]
-pub mod tests {
-    use crate::lem::{pointers::{Ptr, PtrVal}, tag::Tag};
+mod tests {
+    use crate::lem::{
+        pointers::{Ptr, PtrVal},
+        tag::Tag,
+    };
     use blstrs::Scalar;
 
     #[test]
@@ -41,7 +44,10 @@ pub mod tests {
 
     #[test]
     fn eval_42() {
-        let expr = Ptr{tag: Tag::Num, val: PtrVal::Num(Scalar::from(42))};
+        let expr = Ptr {
+            tag: Tag::Num,
+            val: PtrVal::Num(Scalar::from(42)),
+        };
         let (res, _) = super::step().eval_res(expr).unwrap();
         assert!(res == expr);
     }
