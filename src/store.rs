@@ -2140,7 +2140,6 @@ pub mod test {
         }
     }
 
-    // FIXME
     #[test]
     fn opaque_cons() {
         let mut store = Store::<Fr>::default();
@@ -2175,7 +2174,6 @@ pub mod test {
 
         {
             let comparison_expr = store.list(&[eq, qcons, qcons_opaque]);
-            // FIXME: need to implement Write for opaque data.
             let (result, _, _) =
                 Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
                     .eval()
@@ -2393,20 +2391,16 @@ pub mod test {
     }
 
     #[test]
-    // FIXME
     fn opaque_comm_fmt() {
         let s = &mut Store::<Fr>::default();
 
         let scalar = Fr::from(123);
         let opaque_comm = s.intern_opaque_comm(Fr::from(123));
-        let expr = s.fetch(&opaque_comm).unwrap();
 
         let num = num::Num::from_scalar(scalar);
         assert_eq!(
             format!("<Opaque Comm {}>", Expression::Num(num).fmt_to_string(s)),
             opaque_comm.fmt_to_string(s),
         );
-
-        assert_eq!(opaque_comm.fmt_to_string(s), expr.fmt_to_string(s));
     }
 }

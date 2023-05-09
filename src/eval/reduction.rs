@@ -1043,93 +1043,99 @@ fn apply_continuation<F: LurkField>(
                     }
                 };
 
-                let result = match (
-                    store
-                        .fetch(&evaled_arg)
-                        .ok_or_else(|| store::Error("Fetch failed".into()))?,
-                    store
-                        .fetch(&arg2)
-                        .ok_or_else(|| store::Error("Fetch failed".into()))?,
-                ) {
-                    (Expression::Num(a), Expression::Num(b)) if operator.is_numeric() => {
-                        match num_num(store, operator, a, b) {
-                            Ok(x) => x,
-                            Err(control) => return Ok(control),
-                        }
-                    }
-                    (Expression::Num(a), _) if operator == Op2::Hide => {
-                        store.hide(a.into_scalar(), arg2)
-                    }
-                    (Expression::UInt(a), Expression::UInt(b)) if operator.is_numeric() => {
-                        match operator {
-                            Op2::Sum => store.intern_u64((a + b).into()),
-                            Op2::Diff => store.intern_u64((a - b).into()),
-                            Op2::Product => store.intern_u64((a * b).into()),
-                            Op2::Quotient => {
-                                if b.is_zero() {
-                                    return Ok(Control::Return(
-                                        result,
-                                        env,
-                                        store.intern_cont_error(),
-                                    ));
-                                } else {
-                                    store.intern_u64((a / b).into())
-                                }
-                            }
-                            Op2::Modulo => {
-                                if b.is_zero() {
-                                    return Ok(Control::Return(
-                                        result,
-                                        env,
-                                        store.intern_cont_error(),
-                                    ));
-                                } else {
-                                    store.intern_u64((a % b).into())
-                                }
-                            }
-                            Op2::Equal | Op2::NumEqual => store.as_lurk_boolean(a == b),
-                            Op2::Less => store.as_lurk_boolean(a < b),
-                            Op2::Greater => store.as_lurk_boolean(a > b),
-                            Op2::LessEqual => store.as_lurk_boolean(a <= b),
-                            Op2::GreaterEqual => store.as_lurk_boolean(a >= b),
-                            _ => unreachable!(),
-                        }
-                    }
-                    (Expression::Num(a), Expression::UInt(b)) if operator.is_numeric() => {
-                        match num_num(store, operator, a, b.into()) {
-                            Ok(x) => x,
-                            Err(control) => return Ok(control),
-                        }
-                    }
-                    (Expression::UInt(a), Expression::Num(b)) if operator.is_numeric() => {
-                        match num_num(store, operator, a.into(), b) {
-                            Ok(x) => x,
-                            Err(control) => return Ok(control),
-                        }
-                    }
-                    (Expression::Char(_), Expression::StrNil)
-                        if matches!(operator, Op2::StrCons) =>
-                    {
-                        cons_witness.strcons_named(ConsName::TheCons, store, evaled_arg, arg2)
-                    }
-                    (Expression::Char(_), Expression::StrCons(..))
-                        if matches!(operator, Op2::StrCons) =>
-                    {
-                        cons_witness.strcons_named(ConsName::TheCons, store, evaled_arg, arg2)
-                    }
-                    _ => match operator {
-                        Op2::Equal => store.as_lurk_boolean(store.ptr_eq(&evaled_arg, &arg2)?),
+                // The reason for matching the operator before trying to fetch is that, instead of the other way around,
+                // as it was before, is that opaque data can be tested for equality and consed without needing to be fetched
+                // from the store
+                let result =
+                    match operator {
+                        Op2::Equal => {
+                            store.as_lurk_boolean(store.ptr_eq(&evaled_arg, &arg2)?)
+                        },
                         Op2::Cons => {
                             cons_witness.cons_named(ConsName::TheCons, store, evaled_arg, arg2)
                         }
                         Op2::Eval => {
                             return Ok(Control::Return(evaled_arg, arg2, continuation));
                         }
-                        _ => {
-                            return Ok(Control::Return(result, env, store.intern_cont_error()));
+                        _ => match (
+                            store
+                                .fetch(&evaled_arg)
+                                .ok_or_else(|| store::Error("Fetch failed".into()))?,
+                            store
+                                .fetch(&arg2)
+                                .ok_or_else(|| store::Error("Fetch failed".into()))?,
+                        ) {
+                            (Expression::Num(a), Expression::Num(b)) if operator.is_numeric() => {
+                                match num_num(store, operator, a, b) {
+                                    Ok(x) => x,
+                                    Err(control) => return Ok(control),
+                                }
+                            }
+                            (Expression::Num(a), _) if operator == Op2::Hide => {
+                                store.hide(a.into_scalar(), arg2)
+                            }
+                            (Expression::UInt(a), Expression::UInt(b)) if operator.is_numeric() => {
+                                match operator {
+                                    Op2::Sum => store.intern_u64((a + b).into()),
+                                    Op2::Diff => store.intern_u64((a - b).into()),
+                                    Op2::Product => store.intern_u64((a * b).into()),
+                                    Op2::Quotient => {
+                                        if b.is_zero() {
+                                            return Ok(Control::Return(
+                                                result,
+                                                env,
+                                                store.intern_cont_error(),
+                                            ));
+                                        } else {
+                                            store.intern_u64((a / b).into())
+                                        }
+                                    }
+                                    Op2::Modulo => {
+                                        if b.is_zero() {
+                                            return Ok(Control::Return(
+                                                result,
+                                                env,
+                                                store.intern_cont_error(),
+                                            ));
+                                        } else {
+                                            store.intern_u64((a % b).into())
+                                        }
+                                    }
+                                    Op2::Equal | Op2::NumEqual => store.as_lurk_boolean(a == b),
+                                    Op2::Less => store.as_lurk_boolean(a < b),
+                                    Op2::Greater => store.as_lurk_boolean(a > b),
+                                    Op2::LessEqual => store.as_lurk_boolean(a <= b),
+                                    Op2::GreaterEqual => store.as_lurk_boolean(a >= b),
+                                    _ => unreachable!(),
+                                }
+                            }
+                            (Expression::Num(a), Expression::UInt(b)) if operator.is_numeric() => {
+                                match num_num(store, operator, a, b.into()) {
+                                    Ok(x) => x,
+                                    Err(control) => return Ok(control),
+                                }
+                            }
+                            (Expression::UInt(a), Expression::Num(b)) if operator.is_numeric() => {
+                                match num_num(store, operator, a.into(), b) {
+                                    Ok(x) => x,
+                                    Err(control) => return Ok(control),
+                                }
+                            }
+                            (Expression::Char(_), Expression::StrNil)
+                                if matches!(operator, Op2::StrCons) =>
+                            {
+                                cons_witness.strcons_named(ConsName::TheCons, store, evaled_arg, arg2)
+                            }
+                            (Expression::Char(_), Expression::StrCons(..))
+                                if matches!(operator, Op2::StrCons) =>
+                            {
+                                cons_witness.strcons_named(ConsName::TheCons, store, evaled_arg, arg2)
+                            }
+                            _ => {
+                                return Ok(Control::Return(result, env, store.intern_cont_error()));
+                            }
                         }
-                    },
-                };
+                    };
                 Control::MakeThunk(result, env, continuation)
             }
             _ => unreachable!(),
