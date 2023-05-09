@@ -1240,6 +1240,11 @@ impl<F: LurkField> Store<F> {
         self.get_z_expr(ptr, None).ok().map(|x| x.0)
     }
 
+  // This isn't needed, right?
+  pub fn get_expr_hash(&self, _ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
+    todo!()
+  }
+
     pub fn to_z_cont(&self, ptr: &ContPtr<F>) -> Option<ZCont<F>> {
         self.get_z_cont(ptr, None).ok()?.1
     }
