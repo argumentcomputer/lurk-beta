@@ -538,7 +538,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
 
         let commitment = Self::from_ptr_and_secret(s, &fun_ptr, secret);
 
-        let open = s.sym("open");
+        let open = s.lurk_sym("open");
         let comm_ptr = s.hide(secret, fun_ptr);
 
         // (open <commitment>)
@@ -551,7 +551,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
     }
 
     fn fun_application(&self, s: &mut Store<F>, input: Ptr<F>) -> Ptr<F> {
-        let open = s.sym("open");
+        let open = s.lurk_sym("open");
         let comm_ptr = self.ptr(s);
 
         // (open <commitment>)

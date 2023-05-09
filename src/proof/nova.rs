@@ -852,7 +852,7 @@ pub mod tests {
 
     fn test_prove_unop_regression_aux(chunk_count: usize) {
         let s = &mut Store::<Fr>::default();
-        let expected = s.sym("t");
+        let expected = s.lurk_sym("t");
         let terminal = s.get_cont_terminal();
         nova_test_full_aux::<Coproc<Fr>>(
             s,
@@ -3547,7 +3547,7 @@ pub mod tests {
         let error = s.get_cont_error();
 
         let hash_num = |s: &mut Store<Fr>, name| {
-            let sym = s.sym(name);
+            let sym = s.lurk_sym(name);
             let scalar_ptr = s.hash_expr(&sym).unwrap();
             let hash = *scalar_ptr.value();
             Num::Scalar(hash)

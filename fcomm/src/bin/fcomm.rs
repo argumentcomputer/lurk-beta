@@ -419,7 +419,7 @@ fn read_no_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
 ) -> Result<(Ptr<F>, Ptr<F>), Error> {
     let src = read_from_path(store, path)?;
 
-    let quote = store.sym("quote");
+    let quote = store.lurk_sym("quote");
     let quoted = store.list(&[quote, src]);
     Ok((quoted, src))
 }

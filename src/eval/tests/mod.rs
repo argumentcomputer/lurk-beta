@@ -1484,7 +1484,7 @@ fn hide_opaque_open_available() {
 
     assert!(!comm.is_opaque());
 
-    let open = s.sym("open");
+    let open = s.lurk_sym("open");
     let x = s.sym("x");
     let lang = Lang::new();
 
@@ -1494,7 +1494,7 @@ fn hide_opaque_open_available() {
     }
 
     {
-        let secret = s.sym("secret");
+        let secret = s.lurk_sym("secret");
         let expr = s.list(&[secret, comm]);
         let sec = s.num(123);
         test_aux2::<Coproc<Fr>>(s, &expr, Some(sec), None, None, None, 2, &lang);
