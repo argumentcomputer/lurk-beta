@@ -64,7 +64,7 @@ impl<F: LurkField> Write<F> for Expression<F> {
         use Expression::*;
 
         match self {
-            Nil => write!(w, "NIL"),
+            Nil => write!(w, "nil"),
             SymNil => write_symbol::<F, _>(w, store, &Symbol::root()),
             SymCons(car, cdr) => {
                 let head = store.fetch_string(car).expect("missing symbol head");

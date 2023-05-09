@@ -223,7 +223,7 @@ pub enum LurkCont {
 
 impl<F: LurkField> Default for LurkPtr<F> {
     fn default() -> Self {
-        Self::Source("NIL".to_string())
+        Self::Source("nil".to_string())
     }
 }
 
