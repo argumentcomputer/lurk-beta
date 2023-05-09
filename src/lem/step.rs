@@ -14,7 +14,7 @@ pub fn step() -> LEM<'static> {
                     LEMOP::Seq(vec![
                         LEMOP::Copy(MetaPtr("expr_out"), MetaPtr("expr_in")),
                         LEMOP::Copy(MetaPtr("env_out"), MetaPtr("env_in")),
-                        LEMOP::Set(MetaPtr("cont_out"), Tag::Terminal, None),
+                        LEMOP::MkNull(MetaPtr("cont_out"), Tag::Terminal),
                     ]),
                 )],
                 LEMOP::Err("Invalid continuation tag"),
@@ -31,7 +31,7 @@ pub fn step() -> LEM<'static> {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::lem::pointers::Ptr;
+    use crate::lem::{pointers::{Ptr, PtrVal}, tag::Tag};
     use blstrs::Scalar;
 
     #[test]
@@ -41,8 +41,8 @@ pub mod tests {
 
     #[test]
     fn eval_42() {
-        // let expr = Ptr::Num(Scalar::from(42));
-        // let (res, _) = super::step().eval_res(expr).unwrap();
-        // assert!(res == expr);
+        let expr = Ptr{tag: Tag::Num, val: PtrVal::Num(Scalar::from(42))};
+        let (res, _) = super::step().eval_res(expr).unwrap();
+        assert!(res == expr);
     }
 }

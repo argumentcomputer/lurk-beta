@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::field::LurkField;
 
-use self::{pointers::Ptr, store::Store, tag::Tag};
+use self::{pointers::{Ptr, PtrVal}, store::Store, tag::Tag};
 
 /// ## Lurk Evaluation Model (LEM)
 ///
@@ -93,7 +93,7 @@ impl<'a> MetaPtr<'a> {
 
 #[derive(Clone)]
 pub enum LEMOP<'a> {
-    Set(MetaPtr<'a>, Tag, Option<usize>),
+    MkNull(MetaPtr<'a>, Tag),
     Copy(MetaPtr<'a>, MetaPtr<'a>),
     Hash2Ptrs(MetaPtr<'a>, Tag, [MetaPtr<'a>; 2]),
     Hash3Ptrs(MetaPtr<'a>, Tag, [MetaPtr<'a>; 3]),
@@ -204,8 +204,8 @@ impl<'a> LEM<'a> {
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
             match op {
-                LEMOP::Set(tgt, tag, idx) => {
-                    let tgt_ptr = Ptr::Indexed(*tag, *idx);
+                LEMOP::MkNull(tgt, tag) => {
+                    let tgt_ptr = Ptr {tag: *tag, val: PtrVal::Null};
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -226,7 +226,7 @@ impl<'a> LEM<'a> {
                         return Err(format!("{} not defined", src[1].name()))
                     };
                     let (idx, _) = store.data2.insert_full((*src_ptr1, *src_ptr2));
-                    let tgt_ptr = Ptr::Indexed(*tag, Some(idx));
+                    let tgt_ptr = Ptr {tag: *tag, val: PtrVal::Index(idx)};
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -242,7 +242,7 @@ impl<'a> LEM<'a> {
                         return Err(format!("{} not defined", src[2].name()))
                     };
                     let (idx, _) = store.data3.insert_full((*src_ptr1, *src_ptr2, *src_ptr3));
-                    let tgt_ptr = Ptr::Indexed(*tag, Some(idx));
+                    let tgt_ptr = Ptr {tag: *tag, val: PtrVal::Index(idx)};
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -263,7 +263,7 @@ impl<'a> LEM<'a> {
                     let (idx, _) = store
                         .data4
                         .insert_full((*src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4));
-                    let tgt_ptr = Ptr::Indexed(*tag, Some(idx));
+                    let tgt_ptr = Ptr {tag: *tag, val: PtrVal::Index(idx)};
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -272,7 +272,7 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr) = map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    let Ptr::Indexed(_, Some(idx)) = src_ptr else {
+                    let Ptr { tag: _, val: PtrVal::Index(idx)} = src_ptr else {
                         return Err(format!(
                             "{} is bound to a null pointer and can't be unhashed",
                             src.name()
@@ -292,7 +292,7 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr) = map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    let Ptr::Indexed(_, Some(idx)) = src_ptr else {
+                    let Ptr { tag: _, val: PtrVal::Index(idx)} = src_ptr else {
                         return Err(format!(
                             "{} is bound to a null pointer and can't be unhashed",
                             src.name()
@@ -315,7 +315,7 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr) = map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    let Ptr::Indexed(_, Some(idx)) = src_ptr else {
+                    let Ptr { tag: _, val: PtrVal::Index(idx)} = src_ptr else {
                         return Err(format!(
                             "{} is bound to a null pointer and can't be unhashed",
                             src.name()
@@ -338,7 +338,7 @@ impl<'a> LEM<'a> {
                     }
                 }
                 LEMOP::IfTagEq(ptr, tag, tt, ff) => {
-                    let Some(Ptr::Indexed(ptr_tag, _)) = map.get(ptr.name()) else {
+                    let Some(Ptr {tag: ptr_tag, val: _}) = map.get(ptr.name()) else {
                         return Err(format!("{} not defined", ptr.name()))
                     };
                     if ptr_tag == tag {
@@ -348,7 +348,7 @@ impl<'a> LEM<'a> {
                     }
                 }
                 LEMOP::IfTagOr(ptr, tag1, tag2, tt, ff) => {
-                    let Some(Ptr::Indexed(ptr_tag, _)) = map.get(ptr.name()) else {
+                    let Some(Ptr {tag: ptr_tag, val: _}) = map.get(ptr.name()) else {
                         return Err(format!("{} not defined", ptr.name()))
                     };
                     if ptr_tag == tag1 || ptr_tag == tag2 {
@@ -358,10 +358,10 @@ impl<'a> LEM<'a> {
                     }
                 }
                 LEMOP::MatchTag(ptr, cases, def) => {
-                    let Some(Ptr::Indexed(tag, _)) = map.get(ptr.name()) else {
+                    let Some(Ptr {tag: ptr_tag, val: _}) = map.get(ptr.name()) else {
                         return Err(format!("{} not defined", ptr.name()))
                     };
-                    match cases.get(tag) {
+                    match cases.get(ptr_tag) {
                         Some(op) => stack.push(op),
                         None => stack.push(def),
                     }
@@ -387,11 +387,11 @@ impl<'a> LEM<'a> {
         expr: Ptr<F>,
     ) -> Result<(Vec<StepData<'a, F>>, Store<F>), String> {
         let mut expr = expr;
-        let mut env = Ptr::Indexed(Tag::Nil, None);
-        let mut cont = Ptr::Indexed(Tag::Outermost, None);
+        let mut env = Ptr {tag: Tag::Nil, val: PtrVal::Null};
+        let mut cont = Ptr {tag: Tag::Outermost, val: PtrVal::Null};
         let mut steps_data = vec![];
         let mut store: Store<F> = Default::default();
-        let terminal = Ptr::Indexed(Tag::Terminal, None);
+        let terminal = Ptr {tag: Tag::Terminal, val: PtrVal::Null};
         loop {
             let input = [expr, env, cont];
             let (output, values) = self.run(input, &mut store)?;

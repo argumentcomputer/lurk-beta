@@ -6,7 +6,7 @@ use itertools::Itertools;
 use crate::{field::LurkField, lem::tag::Tag};
 
 use super::{
-    pointers::{AquaPtr, Ptr},
+    pointers::{AquaPtr, Ptr, PtrVal},
     symbol::Symbol,
 };
 
@@ -28,7 +28,7 @@ impl<F: LurkField> Store<F> {
         loop {
             // try a cache hit until no char is left while accumulating the heads
             if chars.is_empty() {
-                ptr = Ptr::Indexed(Tag::Str, None);
+                ptr = Ptr {tag: Tag::Str, val: PtrVal::Null};
                 break;
             }
             match self.vec_char_cache.get(&chars) {
@@ -41,8 +41,8 @@ impl<F: LurkField> Store<F> {
         }
         while let Some(head) = heads.pop() {
             // use the accumulated heads to construct the pointers and populate the cache
-            let (idx, _) = self.data2.insert_full((Ptr::Char(head), ptr));
-            ptr = Ptr::Indexed(Tag::Str, Some(idx));
+            let (idx, _) = self.data2.insert_full((Ptr {tag: Tag::Char, val: PtrVal::Null}, ptr));
+            ptr = Ptr {tag: Tag::Str, val: PtrVal::Index(idx) };
             chars.push(head);
             self.vec_char_cache.insert(chars.clone(), ptr);
         }
@@ -57,7 +57,7 @@ impl<F: LurkField> Store<F> {
         loop {
             // try a cache hit until no char is left while accumulating the heads
             if components.is_empty() {
-                ptr = Ptr::Indexed(Tag::Sym, None);
+                ptr = Ptr {tag: Tag::Sym, val: PtrVal::Null};
                 break;
             }
             match self.vec_str_cache.get(&components) {
@@ -72,7 +72,7 @@ impl<F: LurkField> Store<F> {
             // use the accumulated heads to construct the pointers and populate the cache
             let head_ptr = self.index_string(head.clone());
             let (idx, _) = self.data2.insert_full((head_ptr, ptr));
-            ptr = Ptr::Indexed(Tag::Sym, Some(idx));
+            ptr = Ptr {tag: Tag::Sym, val: PtrVal::Index(idx) };
             components.push(head);
             self.vec_str_cache.insert(components.clone(), ptr);
         }
