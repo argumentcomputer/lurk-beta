@@ -31,8 +31,18 @@ pub fn step() -> LEM<'static> {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::lem::pointers::Ptr;
+    use blstrs::Scalar;
+
     #[test]
     fn check_step() {
         super::step().check()
+    }
+
+    #[test]
+    fn eval_42() {
+        let expr = Ptr::Num(Scalar::from(42));
+        // let (res, _) = super::step().eval_res(expr).unwrap();
+        // assert!(res == expr);
     }
 }
