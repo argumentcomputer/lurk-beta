@@ -129,7 +129,7 @@ impl fmt::Display for Error {
 /// tests or during evaluation, etc.
 impl<F: LurkField> Store<F> {
     pub fn nil(&mut self) -> Ptr<F> {
-        self.intern_nil()
+        self.lurk_sym("nil")
     }
 
     pub fn t(&mut self) -> Ptr<F> {
@@ -266,10 +266,6 @@ impl<F: LurkField> Store<F> {
 
     pub fn new() -> Self {
         Store::default()
-    }
-
-    pub fn intern_nil(&mut self) -> Ptr<F> {
-        self.lurk_sym("nil")
     }
 
     pub fn intern_symnil(&self, key: bool) -> Ptr<F> {
@@ -1369,7 +1365,7 @@ impl<F: LurkField> Store<F> {
             use ZExpr::*;
             match (z_ptr.tag(), z_store.get_expr(&z_ptr)) {
                 (ExprTag::Nil, Some(Nil)) => {
-                    let ptr = self.intern_nil();
+                    let ptr = self.lurk_sym("nil");
                     self.create_z_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
@@ -2128,7 +2124,7 @@ pub mod test {
             // without this affecting equality semantics.
 
             let n = store.num(123);
-            let cons = store.sym("cons");
+            let cons = store.lurk_sym("cons");
             let cons_expr1 = store.list(&[cons, qsym, n]);
             let cons_expr2 = store.list(&[cons, qsym_opaque, n]);
 
