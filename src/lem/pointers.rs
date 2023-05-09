@@ -8,12 +8,11 @@ pub enum LurkData<F: LurkField> {
     U64(u64),
     Num(F),
     Comm(F, F),
-    Tag(Tag),
-    Ptr(Tag, usize),
+    Ptr(Tag, Option<usize>),
 }
 
 impl<F: LurkField> LurkData<F> {
-    pub fn try_sym_to_key_ptr(self) -> LurkData<F> {
+    pub fn key_ptr_if_sym_ptr(self) -> LurkData<F> {
         match self {
             LurkData::Ptr(Tag::Sym, idx) => LurkData::Ptr(Tag::Key, idx),
             _ => self,

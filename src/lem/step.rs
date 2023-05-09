@@ -14,7 +14,7 @@ pub fn step() -> LEM<'static> {
                     LEMOP::Seq(vec![
                         LEMOP::Copy(MetaPtr("expr_out"), MetaPtr("expr_in")),
                         LEMOP::Copy(MetaPtr("env_out"), MetaPtr("env_in")),
-                        LEMOP::Set(MetaPtr("cont_out"), Tag::Terminal),
+                        LEMOP::Set(MetaPtr("cont_out"), Tag::Terminal, None),
                     ]),
                 )],
                 LEMOP::Err("Invalid continuation tag"),

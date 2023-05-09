@@ -93,7 +93,7 @@ impl<'a> MetaPtr<'a> {
 
 #[derive(Clone)]
 pub enum LEMOP<'a> {
-    Set(MetaPtr<'a>, Tag),
+    Set(MetaPtr<'a>, Tag, Option<usize>),
     Copy(MetaPtr<'a>, MetaPtr<'a>),
     Hash2Ptrs(MetaPtr<'a>, Tag, [MetaPtr<'a>; 2]),
     Hash3Ptrs(MetaPtr<'a>, Tag, [MetaPtr<'a>; 3]),
@@ -101,33 +101,32 @@ pub enum LEMOP<'a> {
     Unhash2Ptrs([MetaPtr<'a>; 2], MetaPtr<'a>),
     Unhash3Ptrs([MetaPtr<'a>; 3], MetaPtr<'a>),
     Unhash4Ptrs([MetaPtr<'a>; 4], MetaPtr<'a>),
+    IfTagEq(MetaPtr<'a>, Tag, Box<LEMOP<'a>>, Box<LEMOP<'a>>),
+    IfTagOr(MetaPtr<'a>, Tag, Tag, Box<LEMOP<'a>>, Box<LEMOP<'a>>),
     MatchTag(MetaPtr<'a>, BTreeMap<Tag, LEMOP<'a>>, Box<LEMOP<'a>>),
     Err(&'a str),
     Seq(Vec<LEMOP<'a>>),
 }
 
 impl<'a> LEMOP<'a> {
-    pub fn assert_tag_eq(ptr: MetaPtr<'a>, tag: Tag, ff: LEMOP<'a>, tt: LEMOP<'a>) -> LEMOP<'a> {
-        let mut map = BTreeMap::new();
-        map.insert(tag, tt);
-        LEMOP::MatchTag(ptr, map, Box::new(ff))
+    #[inline]
+    pub fn mk_if_tag_eq(ptr: MetaPtr<'a>, tag: Tag, ff: LEMOP<'a>, tt: LEMOP<'a>) -> LEMOP<'a> {
+        LEMOP::IfTagEq(ptr, tag, Box::new(tt), Box::new(ff))
     }
 
-    pub fn assert_tag_or(
+    #[inline]
+    pub fn mk_if_tag_or(
         ptr: MetaPtr<'a>,
-        val1: Tag,
-        val2: Tag,
+        tag1: Tag,
+        tag2: Tag,
         ff: LEMOP<'a>,
         tt: LEMOP<'a>,
     ) -> LEMOP<'a> {
-        let mut map = BTreeMap::new();
-        map.insert(val1, tt.clone());
-        map.insert(val2, tt);
-        LEMOP::MatchTag(ptr, map, Box::new(ff))
+        LEMOP::IfTagOr(ptr, tag1, tag2, Box::new(tt), Box::new(ff))
     }
 
     pub fn assert_list(ptr: MetaPtr<'a>, ff: LEMOP<'a>, tt: LEMOP<'a>) -> LEMOP<'a> {
-        Self::assert_tag_or(ptr, Tag::Cons, Tag::Nil, ff, tt)
+        Self::mk_if_tag_or(ptr, Tag::Cons, Tag::Nil, ff, tt)
     }
 
     pub fn mk_cons(o: &'a str, i: [MetaPtr<'a>; 2]) -> LEMOP<'a> {
@@ -135,11 +134,11 @@ impl<'a> LEMOP<'a> {
     }
 
     pub fn mk_strcons(o: &'a str, i: [MetaPtr<'a>; 2]) -> LEMOP<'a> {
-        Self::assert_tag_eq(
+        Self::mk_if_tag_eq(
             i[0],
             Tag::Char,
             LEMOP::Err("strcons requires a char as the first argument"),
-            Self::assert_tag_eq(
+            Self::mk_if_tag_eq(
                 i[1],
                 Tag::Str,
                 LEMOP::Err("strcons requires a str as the second argument"),
@@ -199,8 +198,8 @@ impl<'a> LEM<'a> {
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
             match op {
-                LEMOP::Set(tgt, tag) => {
-                    let tgt_ptr = LurkData::Tag(*tag);
+                LEMOP::Set(tgt, tag, idx) => {
+                    let tgt_ptr = LurkData::Ptr(*tag, *idx);
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -221,7 +220,7 @@ impl<'a> LEM<'a> {
                         return Err(format!("{} not defined", src[1].name()))
                     };
                     let (idx, _) = store.data2.insert_full((*src_ptr1, *src_ptr2));
-                    let tgt_ptr = LurkData::Ptr(*tag, idx);
+                    let tgt_ptr = LurkData::Ptr(*tag, Some(idx));
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -237,7 +236,7 @@ impl<'a> LEM<'a> {
                         return Err(format!("{} not defined", src[2].name()))
                     };
                     let (idx, _) = store.data3.insert_full((*src_ptr1, *src_ptr2, *src_ptr3));
-                    let tgt_ptr = LurkData::Ptr(*tag, idx);
+                    let tgt_ptr = LurkData::Ptr(*tag, Some(idx));
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -258,7 +257,7 @@ impl<'a> LEM<'a> {
                     let (idx, _) = store
                         .data4
                         .insert_full((*src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4));
-                    let tgt_ptr = LurkData::Ptr(*tag, idx);
+                    let tgt_ptr = LurkData::Ptr(*tag, Some(idx));
                     if map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -267,7 +266,7 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr) = map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    let LurkData::Ptr(_, idx) = src_ptr else {
+                    let LurkData::Ptr(_, Some(idx)) = src_ptr else {
                         return Err(format!(
                             "{} is bound to a null pointer and can't be unhashed",
                             src.name()
@@ -287,7 +286,7 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr) = map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    let LurkData::Ptr(_, idx) = src_ptr else {
+                    let LurkData::Ptr(_, Some(idx)) = src_ptr else {
                         return Err(format!(
                             "{} is bound to a null pointer and can't be unhashed",
                             src.name()
@@ -310,7 +309,7 @@ impl<'a> LEM<'a> {
                     let Some(src_ptr) = map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    let LurkData::Ptr(_, idx) = src_ptr else {
+                    let LurkData::Ptr(_, Some(idx)) = src_ptr else {
                         return Err(format!(
                             "{} is bound to a null pointer and can't be unhashed",
                             src.name()
@@ -330,6 +329,26 @@ impl<'a> LEM<'a> {
                     }
                     if map.insert(tgts[3].name(), *d).is_some() {
                         return Err(format!("{} already defined", tgts[3].name()));
+                    }
+                }
+                LEMOP::IfTagEq(ptr, tag, tt, ff) => {
+                    let Some(LurkData::Ptr(ptr_tag, _)) = map.get(ptr.name()) else {
+                        return Err(format!("{} not defined", ptr.name()))
+                    };
+                    if ptr_tag == tag {
+                        stack.push(tt)
+                    } else {
+                        stack.push(ff)
+                    }
+                }
+                LEMOP::IfTagOr(ptr, tag1, tag2, tt, ff) => {
+                    let Some(LurkData::Ptr(ptr_tag, _)) = map.get(ptr.name()) else {
+                        return Err(format!("{} not defined", ptr.name()))
+                    };
+                    if ptr_tag == tag1 || ptr_tag == tag2 {
+                        stack.push(tt)
+                    } else {
+                        stack.push(ff)
                     }
                 }
                 LEMOP::MatchTag(ptr, cases, def) => {

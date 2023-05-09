@@ -27,7 +27,7 @@ impl<F: LurkField + std::hash::Hash> Store<F> {
         loop {
             // try a cache hit until no char is left while accumulating the heads
             if chars.is_empty() {
-                ptr = LurkData::Tag(Tag::Str);
+                ptr = LurkData::Ptr(Tag::Str, None);
                 break;
             }
             match self.vec_char_cache.get(&chars) {
@@ -41,7 +41,7 @@ impl<F: LurkField + std::hash::Hash> Store<F> {
         while let Some(head) = heads.pop() {
             // use the accumulated heads to construct the pointers and populate the cache
             let (idx, _) = self.data2.insert_full((LurkData::Char(head), ptr));
-            ptr = LurkData::Ptr(Tag::Str, idx);
+            ptr = LurkData::Ptr(Tag::Str, Some(idx));
             chars.push(head);
             self.vec_char_cache.insert(chars.clone(), ptr);
         }
@@ -56,7 +56,7 @@ impl<F: LurkField + std::hash::Hash> Store<F> {
         loop {
             // try a cache hit until no char is left while accumulating the heads
             if components.is_empty() {
-                ptr = LurkData::Tag(Tag::Sym);
+                ptr = LurkData::Ptr(Tag::Sym, None);
                 break;
             }
             match self.vec_str_cache.get(&components) {
@@ -71,7 +71,7 @@ impl<F: LurkField + std::hash::Hash> Store<F> {
             // use the accumulated heads to construct the pointers and populate the cache
             let head_ptr = self.index_string(head.clone());
             let (idx, _) = self.data2.insert_full((head_ptr, ptr));
-            ptr = LurkData::Ptr(Tag::Sym, idx);
+            ptr = LurkData::Ptr(Tag::Sym, Some(idx));
             components.push(head);
             self.vec_str_cache.insert(components.clone(), ptr);
         }
@@ -81,7 +81,7 @@ impl<F: LurkField + std::hash::Hash> Store<F> {
     pub fn index_symbol(&mut self, s: Symbol) -> LurkData<F> {
         match s {
             Symbol::Sym(path) => self.index_symbol_path(path),
-            Symbol::Key(path) => self.index_symbol_path(path).try_sym_to_key_ptr(),
+            Symbol::Key(path) => self.index_symbol_path(path).key_ptr_if_sym_ptr(),
         }
     }
 
