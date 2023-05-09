@@ -1127,7 +1127,7 @@ pub fn evaluate<F: LurkField>(
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    //use super::*;
 
     //#[test]
     //fn test_cert_serialization() {

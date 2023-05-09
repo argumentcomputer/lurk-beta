@@ -30,6 +30,7 @@ pub enum Error {
     #[error("Syntax error: {0}")]
     Syntax(String),
 }
+
 impl<F: LurkField> Store<F> {
     pub fn read(&mut self, input: &str) -> Result<Ptr<F>, Error> {
         self.read_aux(syntax::parse_string(), input)
@@ -44,16 +45,11 @@ impl<F: LurkField> Store<F> {
                 let ptr = self.intern_syntax(x);
                 Ok(ptr)
             }
-            Err(e) => {
-                Err(Error::Syntax(format!("{}", e)))
-            }
+            Err(e) => Err(Error::Syntax(format!("{}", e))),
         }
     }
 
-    pub fn read_maybe_meta(
-        &mut self,
-        input: &str,
-    ) -> Result<(Ptr<F>, bool), Error> {
+    pub fn read_maybe_meta(&mut self, input: &str) -> Result<(Ptr<F>, bool), Error> {
         // TODO: add a meta parser
         let ptr = self.read_aux(syntax::parse_syntax(), input)?;
         Ok((ptr, false))

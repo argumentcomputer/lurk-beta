@@ -21,11 +21,11 @@ pub enum Symbol {
 }
 
 impl Symbol {
-    pub fn sym(path: Vec<&str>) -> Symbol {
+    pub fn sym(path: Vec<&str>) -> Self {
         Symbol::Sym(path.iter().map(|x| x.to_string()).collect())
     }
 
-    pub fn key(path: Vec<&str>) -> Symbol {
+    pub fn key(path: Vec<&str>) -> Self {
         Symbol::Key(path.iter().map(|x| x.to_string()).collect())
     }
     /// Creates a new Symbol with the root path `[""]`.
@@ -156,6 +156,18 @@ impl fmt::Display for Symbol {
         } else {
             write!(f, "{}", self.print_escape())
         }
+    }
+}
+
+impl From<&str> for Symbol {
+    fn from(s: &str) -> Symbol {
+        Self::lurk_sym(s)
+    }
+}
+
+impl From<String> for Symbol {
+    fn from(s: String) -> Symbol {
+        Self::lurk_sym(&s)
     }
 }
 

@@ -996,7 +996,7 @@ fn evaluate_zero_arg_lambda_variants() {
             .eval()
             .unwrap();
 
-        assert_eq!(crate::tag::ExprTag::Fun, result_expr.tag);
+        assert_eq!(ExprTag::Fun, result_expr.tag);
         assert_eq!(3, iterations);
     }
     {
@@ -2549,7 +2549,6 @@ pub(crate) mod coproc {
     use crate::coprocessor::test::DumbCoprocessor;
     use crate::store::Store;
     use crate::symbol::Symbol;
-    use crate::tag::{ExprTag, Tag};
 
     #[derive(Clone, Debug, Coproc)]
     pub(crate) enum DumbCoproc<F: LurkField> {
