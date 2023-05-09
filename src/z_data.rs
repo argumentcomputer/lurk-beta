@@ -335,6 +335,43 @@ impl<A: Encodable + Sized, B: Encodable + Sized> Encodable for (A, B) {
     }
 }
 
+//use serde::{ser, Serialize};
+//
+//pub struct Serializer {
+//  // Maybe Vec<u8>?
+//  output: Vec<ZData>,
+//}
+//
+//// Same here
+//pub fn to_bytes<T>(value: &T) -> Result<Vec<ZData>>
+//where T: Serialize,
+//{
+//  let mut serializer = Serializer {
+//    output: Vec::new(),
+//  };
+//  value.serialize(&mut serializer)?;
+//  Ok(serializer.output)
+//}
+//
+//
+//impl<'a> ser::Serializer for &'a mut Serializer {
+//  type Ok = ();
+//  
+//  // Which error type?
+//  type Error = Error;
+//
+//  //  type SerializeSeq = Self;
+//  //  type SerializeTuple = Self;
+//  //  type SerializeTupleStruct = Self;
+//  //  type SerializeTupleVariant = Self;
+//  //  type SerializeMap = Self;
+//  //  type SerializeStruct = Self;
+//  //  type SerializeStructVariant = Self;
+//
+//  fn serialize_bool(self,
+//
+//}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;

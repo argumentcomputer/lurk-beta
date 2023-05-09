@@ -608,11 +608,11 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn fetch_scalar(&self, scalar_ptr: &ZExprPtr<F>) -> Option<Ptr<F>> {
-        self.z_expr_ptr_map.get(scalar_ptr).map(|p| *p)
+        self.z_expr_ptr_map.get(scalar_ptr).copied()
     }
 
     pub fn fetch_scalar_cont(&self, scalar_ptr: &ZContPtr<F>) -> Option<ContPtr<F>> {
-        self.z_cont_ptr_map.get(scalar_ptr).map(|p| *p)
+        self.z_cont_ptr_map.get(scalar_ptr).copied()
     }
 
     pub fn fetch_maybe_sym(&self, ptr: &Ptr<F>) -> Option<Symbol> {
@@ -903,10 +903,10 @@ impl<F: LurkField> Store<F> {
             let z_ptr = self
                 .opaque_cont_ptrs
                 .get_index(idx)
-                .ok_or(Error(format!("get_z_expr unknown opaque")))?;
+                .ok_or(Error("get_z_expr unknown opaque".into()))?;
             match self.z_cont_ptr_map.get(z_ptr) {
                 // TODO: cycle-detection needed either here or on opaque ptr creation
-                Some(p) => self.get_z_cont(&p, z_store.clone()),
+                Some(p) => self.get_z_cont(p, z_store.clone()),
                 None => Ok((*z_ptr, None)),
             }
         } else {
@@ -1107,7 +1107,7 @@ impl<F: LurkField> Store<F> {
                     (z_ptr, Some(z_cont))
                 }
                 None => {
-                    let (z_ptr, _) = self.get_z_cont(&ptr, z_store.clone())?;
+                    let (z_ptr, _) = self.get_z_cont(ptr, z_store.clone())?;
                     (z_ptr, None)
                 }
             };
@@ -1128,11 +1128,11 @@ impl<F: LurkField> Store<F> {
             let z_ptr = self
                 .opaque_ptrs
                 .get_index(idx)
-                .ok_or(Error(format!("get_z_expr unknown opaque")))?;
+                .ok_or(Error("get_z_expr unknown opaque".into()))?;
             match self.z_expr_ptr_map.get(z_ptr) {
                 None => Ok((*z_ptr, None)),
                 // TODO: cycle-detection needed either here or on opaque ptr creation
-                Some(p) => self.get_z_expr(&p, z_store.clone()),
+                Some(p) => self.get_z_expr(p, z_store.clone()),
             }
         } else {
             let (z_ptr, z_expr) = match self.fetch(ptr) {
@@ -1180,7 +1180,7 @@ impl<F: LurkField> Store<F> {
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
                 None => {
-                    let (z_ptr, _) = self.get_z_expr(&ptr, z_store.clone())?;
+                    let (z_ptr, _) = self.get_z_expr(ptr, z_store.clone())?;
                     (z_ptr, None)
                 }
                 Some(Expression::Char(c)) => {
@@ -1238,6 +1238,11 @@ impl<F: LurkField> Store<F> {
 
     pub fn hash_expr(&self, ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
         self.get_z_expr(ptr, None).ok().map(|x| x.0)
+    }
+
+    // This isn't needed, right?
+    pub fn get_expr_hash(&self, _ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
+        todo!()
     }
 
     pub fn to_z_cont(&self, ptr: &ContPtr<F>) -> Option<ZCont<F>> {
@@ -1516,7 +1521,7 @@ impl<F: LurkField> Store<F> {
                     operator,
                     continuation,
                 } => Continuation::Unop {
-                    operator: operator,
+                    operator,
                     continuation: self.intern_z_cont_ptr(continuation, z_store)?,
                 },
                 Binop {
@@ -1525,7 +1530,7 @@ impl<F: LurkField> Store<F> {
                     unevaled_args,
                     continuation,
                 } => Continuation::Binop {
-                    operator: operator,
+                    operator,
                     saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
                     unevaled_args: self.intern_z_expr_ptr(unevaled_args, z_store)?,
                     continuation: self.intern_z_cont_ptr(continuation, z_store)?,
@@ -1535,7 +1540,7 @@ impl<F: LurkField> Store<F> {
                     evaled_arg,
                     continuation,
                 } => Continuation::Binop2 {
-                    operator: operator,
+                    operator,
                     evaled_arg: self.intern_z_expr_ptr(evaled_arg, z_store)?,
                     continuation: self.intern_z_cont_ptr(continuation, z_store)?,
                 },
@@ -1586,10 +1591,7 @@ impl<F: LurkField> Store<F> {
 
 impl<F: LurkField> Expression<F> {
     pub fn is_keyword_sym(&self) -> bool {
-        match self {
-            Expression::Key(_) => true,
-            _ => false,
-        }
+        matches!(self, Expression::Key(_))
     }
 
     pub const fn as_str(&self) -> Option<&str> {

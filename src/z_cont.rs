@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use serde::{Serialize, Deserialize};
 
 use crate::field::LurkField;
 use crate::z_data::Encodable;
@@ -16,7 +17,7 @@ use crate::tag::Op2;
 use crate::tag::Tag;
 use crate::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 pub enum ZCont<F: LurkField> {

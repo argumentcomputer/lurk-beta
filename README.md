@@ -161,6 +161,20 @@ You can install the `lurkrs` Repl on your machine with
 $ cargo install --path .
 ```
 
+## Benchmarking
+
+To trigger a benchmark:
+
+1. Click on the Actions tab in the upper part of the Github UI
+2. Click on the "Benchmarking" section of the left-hand bar
+3. Click on the "Run workflow" pulldown button on the right
+4. Select the branch you want to benchmark, and click on the green "Run workflow" button to benchmark.
+
+Then, check the following link for the benchmark reports:
+
+https://lurk-lab.github.io/lurk-rs/benchmarks/criterion/reports/
+
+
 ## Nix
 
 Install [Nix](https://nixos.org) and [enable Nix flakes](https://nixos.wiki/wiki/Flakes). Then, you can enter into a Nix devshell with the appropriate dependencies for Lurk with

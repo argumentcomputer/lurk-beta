@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
+use serde::{Serialize, Deserialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
@@ -16,7 +17,7 @@ use crate::tag::{ContTag, ExprTag, Tag};
 
 use crate::hash::IntoHashComponents;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 // Note: the trait bound E: Tag is not necessary in the struct, but it makes the proptest strategy more efficient.
 /// A struct representing a scalar pointer with a tag and a value.

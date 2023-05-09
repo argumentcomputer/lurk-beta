@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod test {
-    use blstrs::Scalar as Fr;
-    use lurk::{
+    use lurk_crate::{
         eval::lang::{Coproc, Lang},
-        eval::IO,
+        eval::{empty_sym_env, Evaluator, IO},
         store::Store,
     };
-    use lurk_macro::{let_store, lurk};
+    use lurk_macros::{let_store, lurk};
+    use pasta_curves::pallas::Scalar as Fr;
 
     type TestLang = Lang<Fr, Coproc<Fr>>;
 
@@ -24,8 +24,9 @@ mod test {
 
         assert_eq!(res2, res);
     }
+
     #[test]
-    fn test_letstar() {
+    fn test_let() {
         let_store!();
         let res = lurk!((let ((a 1)) a)).unwrap();
 
@@ -35,7 +36,7 @@ mod test {
     }
 
     #[test]
-    fn test_letrecstar() {
+    fn test_letrec() {
         let_store!();
         let res = lurk!((letrec ((a 1)) a)).unwrap();
 
@@ -49,8 +50,6 @@ mod test {
 
         assert_eq!(res2, res);
     }
-
-    use lurk::eval::{empty_sym_env, Evaluator};
 
     #[test]
     fn outer_evaluate_recursion1() {
@@ -78,7 +77,7 @@ mod test {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit, &lang)
+        ) = Evaluator::new(expr, empty_sym_env(&s_), s_, limit, &lang)
             .eval()
             .unwrap();
 
@@ -103,7 +102,7 @@ mod test {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s_), &mut s_, limit, &lang)
+        ) = Evaluator::new(expr, empty_sym_env(&s_), s_, limit, &lang)
             .eval()
             .unwrap();
 

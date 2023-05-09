@@ -6,7 +6,10 @@ use crate::num::Num;
 use crate::tag::{ExprTag, Op, Op1, Op2};
 use crate::writer::Write;
 
+use lurk_macros::{let_store, lurk, Coproc};
 use pasta_curves::pallas::Scalar as Fr;
+
+use crate as lurk;
 
 fn test_aux<C: Coprocessor<Fr>>(
     s: &mut Store<Fr>,
@@ -975,9 +978,10 @@ fn evaluate_zero_arg_lambda() {
 #[test]
 fn evaluate_zero_arg_lambda_variants() {
     {
-        let mut s = Store::<Fr>::default();
+        let_store!();
+
         let limit = 20;
-        let expr = s.read("((lambda (x) 123))").unwrap();
+        let expr = lurk!(((lambda (x) 123))).unwrap();
         let lang = Lang::<Fr, Coproc<Fr>>::new();
 
         let (
@@ -988,11 +992,11 @@ fn evaluate_zero_arg_lambda_variants() {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit, &lang)
+        ) = Evaluator::new(expr, empty_sym_env(s_), s_, limit, &lang)
             .eval()
             .unwrap();
 
-        assert_eq!(crate::tag::ExprTag::Fun, result_expr.tag);
+        assert_eq!(ExprTag::Fun, result_expr.tag);
         assert_eq!(3, iterations);
     }
     {
@@ -2542,62 +2546,13 @@ pub(crate) mod coproc {
     use super::super::lang::Lang;
     use super::super::*;
     use super::*;
-    use crate::circuit::gadgets::constraints::{add, mul};
-    use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
-    use crate::coprocessor::{test::DumbCoprocessor, CoCircuit};
+    use crate::coprocessor::test::DumbCoprocessor;
     use crate::store::Store;
     use crate::symbol::Symbol;
-    use crate::tag::{ExprTag, Tag};
 
-    use bellperson::ConstraintSystem;
-
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Coproc)]
     pub(crate) enum DumbCoproc<F: LurkField> {
         DC(DumbCoprocessor<F>),
-    }
-
-    use bellperson::SynthesisError;
-
-    impl<F: LurkField> Coprocessor<F> for DumbCoproc<F> {
-        fn eval_arity(&self) -> usize {
-            match self {
-                Self::DC(c) => c.eval_arity(),
-            }
-        }
-
-        fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
-            match self {
-                Self::DC(c) => c.simple_evaluate(s, args),
-            }
-        }
-    }
-
-    impl<F: LurkField> CoCircuit<F> for DumbCoproc<F> {
-        fn arity(&self) -> usize {
-            2
-        }
-
-        fn synthesize<CS: ConstraintSystem<F>>(
-            &self,
-            cs: &mut CS,
-            _store: &Store<F>,
-            input_exprs: &[AllocatedPtr<F>],
-            input_env: &AllocatedPtr<F>,
-            input_cont: &AllocatedContPtr<F>,
-        ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError>
-        {
-            let a = input_exprs[0].clone();
-            let b = &input_exprs[1];
-
-            // FIXME: Check tags.
-
-            // a^2 + b = c
-            let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;
-            let c = add(&mut cs.namespace(|| "add"), &a2, b.hash())?;
-            let c_ptr = AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)?;
-
-            Ok((c_ptr, input_env.clone(), input_cont.clone()))
-        }
     }
 
     #[test]
@@ -2624,8 +2579,8 @@ pub(crate) mod coproc {
         let res = s.num(89);
         let error = s.get_cont_error();
 
-        test_aux(s, &expr, Some(res), None, None, None, 2, Some(&lang));
-        test_aux(s, &expr2, Some(res), None, None, None, 4, Some(&lang));
+        test_aux(s, &expr, Some(res), None, None, None, 1, Some(&lang));
+        test_aux(s, &expr2, Some(res), None, None, None, 3, Some(&lang));
         test_aux(s, &expr3, None, None, Some(error), None, 1, Some(&lang));
     }
 }

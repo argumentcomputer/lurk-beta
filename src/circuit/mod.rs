@@ -5,7 +5,8 @@ use crate::eval::IO;
 use crate::store::Store;
 
 #[macro_use]
-pub(crate) mod gadgets;
+pub mod gadgets;
+
 mod circuit_frame;
 pub(crate) use circuit_frame::*;
 

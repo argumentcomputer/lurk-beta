@@ -1,10 +1,13 @@
 use crate::field::FWrap;
+use serde::{Serialize, Deserialize};
 
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 
+use crate::store::Store;
+use crate::ptr::Ptr;
 use crate::hash::PoseidonCache;
 use crate::tag::{ExprTag, Tag};
 use crate::z_data::Encodable;
@@ -16,7 +19,7 @@ use anyhow::anyhow;
 
 use crate::field::LurkField;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 /// Enum to represent a z expression.
@@ -114,6 +117,52 @@ impl<F: LurkField> ZExpr<F> {
             },
         }
     }
+
+  pub fn from_ptr(_store: &Store<F>, _ptr: &Ptr<F>) -> Option<Self> {
+    todo!()
+   // match ptr.tag {
+   //   ExprTag::Nil => Some(ZExpr::Nil),
+   //   ExprTag::Cons => store.fetch_cons(ptr).and_then(|(car, cdr)| {
+   //     if let (Some(car), Some(cdr)) = (store.get_expr_hash(car), store.get_expr_hash(cdr))
+   //     {
+   //       Some(ZExpr::Cons(car, cdr))
+   //     } else {
+   //       None
+   //     }
+   //   }),
+   //   ExprTag::Comm => store.fetch_comm(ptr).and_then(|(secret, payload)| {
+   //     store
+   //       .get_expr_hash(payload)
+   //       .map(|payload| ScalarExpression::Comm(secret.0, payload))
+   //   }),
+   //   ExprTag::Sym | ExprTag::Key => store.fetch_sym(ptr).map(ScalarExpression::Sym),
+   //   ExprTag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
+   //     if let (Some(arg), Some(body), Some(closed_env)) = (
+   //       store.get_expr_hash(arg),
+   //       store.get_expr_hash(body),
+   //       store.get_expr_hash(closed_env),
+   //     ) {
+   //       Some(ScalarExpression::Fun {
+   //         arg,
+   //         body,
+   //         closed_env,
+   //       })
+   //     } else {
+   //       None
+   //     }
+   //   }),
+   //   ExprTag::Num => store.fetch_num(ptr).map(|num| match num {
+   //     Num::U64(x) => ScalarExpression::Num((*x).into()),
+   //     Num::Scalar(x) => ScalarExpression::Num(*x),
+   //   }),
+   //   ExprTag::Str => store
+   //     .fetch_str(ptr)
+   //     .map(|str| ScalarExpression::Str(str.to_string())),
+   //   ExprTag::Char => store.fetch_char(ptr).map(ScalarExpression::Char),
+   //   ExprTag::U64 => store.fetch_uint(ptr).map(ScalarExpression::UInt),
+   //   ExprTag::Thunk => unimplemented!(),
+   // }
+  }
 }
 
 impl<F: LurkField> Encodable for ZExpr<F> {

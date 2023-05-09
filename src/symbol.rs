@@ -10,7 +10,7 @@ use std::collections::HashMap;
 pub const KEYWORD_MARKER: char = ':';
 pub const SYM_SEPARATOR: char = '.';
 pub const SYM_MARKER: char = '.';
-pub const ESCAPE_CHARS: &'static str = "(){}[],.:'\\\"";
+pub const ESCAPE_CHARS: &str = "(){}[],.:'\\\"";
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
@@ -21,11 +21,11 @@ pub enum Symbol {
 }
 
 impl Symbol {
-    pub fn sym(path: Vec<&str>) -> Symbol {
+    pub fn sym(path: Vec<&str>) -> Self {
         Symbol::Sym(path.iter().map(|x| x.to_string()).collect())
     }
 
-    pub fn key(path: Vec<&str>) -> Symbol {
+    pub fn key(path: Vec<&str>) -> Self {
         Symbol::Key(path.iter().map(|x| x.to_string()).collect())
     }
     /// Creates a new Symbol with the root path `[""]`.
@@ -124,7 +124,7 @@ impl Symbol {
         res.push_str(&Self::escape_symbol_element(&xs[0]));
         for x in xs[1..].iter() {
             res.push(SYM_SEPARATOR);
-            res.push_str(&Self::escape_symbol_element(&x));
+            res.push_str(&Self::escape_symbol_element(x));
         }
         if xs[xs.len() - 1].is_empty() {
             res.push(SYM_SEPARATOR);
@@ -156,6 +156,18 @@ impl fmt::Display for Symbol {
         } else {
             write!(f, "{}", self.print_escape())
         }
+    }
+}
+
+impl From<&str> for Symbol {
+    fn from(s: &str) -> Symbol {
+        Self::lurk_sym(s)
+    }
+}
+
+impl From<String> for Symbol {
+    fn from(s: String) -> Symbol {
+        Self::lurk_sym(&s)
     }
 }
 

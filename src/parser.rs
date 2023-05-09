@@ -28,6 +28,7 @@ pub enum Error {
     #[error("Syntax error: {0}")]
     Syntax(String),
 }
+
 impl<F: LurkField> Store<F> {
     pub fn read(&mut self, input: &str) -> Result<Ptr<F>, Error> {
         self.read_aux(syntax::parse_syntax(), input)

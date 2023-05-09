@@ -18,6 +18,7 @@ pub mod hash_witness;
 pub mod parser;
 pub mod proof;
 pub mod ptr;
+pub mod public_parameters;
 pub mod repl;
 pub mod store;
 pub mod symbol;
