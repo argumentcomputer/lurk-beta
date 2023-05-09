@@ -52,7 +52,7 @@ fn write_symbol<F: LurkField, W: io::Write>(
     sym: &Symbol,
 ) -> io::Result<()> {
     let lurk_syms = Symbol::lurk_syms();
-    if let Some(sym) = lurk_syms.get(&sym) {
+    if let Some(sym) = lurk_syms.get(sym) {
         write!(w, "{}", sym)
     } else {
         write!(w, "{}", sym)

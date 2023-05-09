@@ -67,7 +67,7 @@ impl<Fr: LurkField> Arbitrary for Syntax<Fr> {
                     .clone()
                     .prop_map(|x| Syntax::Quote(Pos::No, Box::new(x))),
                 prop::collection::vec(inner.clone(), 0..10).prop_map(|x| Syntax::List(Pos::No, x)),
-                prop::collection::vec(inner.clone(), 2..12).prop_map(|mut xs| {
+                prop::collection::vec(inner, 2..12).prop_map(|mut xs| {
                     let x = xs.pop().unwrap();
                     Syntax::Improper(Pos::No, xs, Box::new(x))
                 })

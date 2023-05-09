@@ -3,7 +3,6 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
-//use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::coprocessor::Coprocessor;
@@ -14,30 +13,21 @@ use crate::{
         lang::{Coproc, Lang},
         Evaluable, Evaluator, Status, Witness, IO,
     },
-  hash::PoseidonCache,
     field::LurkField,
+    hash::PoseidonCache,
     proof::nova::{self, NovaProver, PublicParams},
     proof::Prover,
     ptr::{ContPtr, Ptr},
-    //scalar_store::ScalarStore,
     store::Store,
-  tag::ExprTag,
-  writer::Write,
-  z_expr::ZExpr,
-  z_data::{ZData, Encodable},
-  z_ptr::ZExprPtr,
-  z_store::ZStore,
+    tag::ExprTag,
+    writer::Write,
+    z_data::{Encodable, ZData},
+    z_expr::ZExpr,
+    z_ptr::ZExprPtr,
+    z_store::ZStore,
 };
 use ff::PrimeField;
 use hex::FromHex;
-//use libipld::{
-//    cbor::DagCborCodec,
-//    json::DagJsonCodec,
-//    multihash::{Code, MultihashDigest},
-//    prelude::Codec,
-//    serde::{from_ipld, to_ipld},
-//    Cid, Ipld,
-//};
 use once_cell::sync::OnceCell;
 use pasta_curves::pallas;
 use rand::rngs::OsRng;
@@ -70,11 +60,6 @@ mod base64 {
         base64::decode(base64.as_bytes()).map_err(serde::de::Error::custom)
     }
 }
-
-//pub type NovaProofCache = FileMap<Cid, Proof<'static, S1>>;
-//pub fn nova_proof_cache(reduction_count: usize) -> NovaProofCache {
-//    FileMap::<Cid, Proof<'_, S1>>::new(format!("nova_proofs.{}", reduction_count)).unwrap()
-//}
 
 pub type NovaProofCache = FileMap<ZExprPtr<S1>, Proof<'static, S1>>;
 pub fn nova_proof_cache(reduction_count: usize) -> NovaProofCache {
@@ -207,14 +192,6 @@ pub struct Opening<F: LurkField> {
     pub new_commitment: Option<Commitment<F>>,
 }
 
-//#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
-//pub struct LurkScalarBytes {
-//    #[serde(with = "base64")]
-//    scalar_store: Vec<u8>,
-//    #[serde(with = "base64")]
-//    scalar_ptr: Vec<u8>, // can also be a scalar_cont_ptr
-//}
-
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 pub struct ZBytes {
     #[serde(with = "base64")]
@@ -223,24 +200,11 @@ pub struct ZBytes {
     z_ptr: Vec<u8>, // can also be a scalar_cont_ptr
 }
 
-//#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-//pub struct LurkScalarIpld {
-//    scalar_store: Ipld,
-//    scalar_ptr: Ipld,
-//}
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ZStorePtr<F: LurkField> {
     z_store: ZStore<F>,
     z_ptr: ZExprPtr<F>,
 }
-
-//#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-//pub enum LurkPtr {
-//    Source(String),
-//    ScalarBytes(LurkScalarBytes),
-//    Ipld(LurkScalarIpld),
-//}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum LurkPtr<F: LurkField> {
@@ -383,56 +347,26 @@ impl ReductionCount {
     }
 }
 
-//pub trait Id
-//where
-//    Self: Sized,
-//{
-//    fn id(&self) -> String;
-//    fn cid(&self) -> Cid;
-//    fn has_id(&self, id: String) -> bool;
-//}
-
 pub trait Id
 where
-  Self: Sized
+    Self: Sized,
 {
     fn id<F: LurkField>(&self) -> String;
     fn z_ptr<F: LurkField>(&self) -> ZExprPtr<F>;
     fn has_id<F: LurkField>(&self, id: String) -> bool;
 }
 
-//impl<T: Serialize> Id for T
-//where
-//    for<'de> T: Deserialize<'de>,
-//{
-//    fn cid(&self) -> Cid {
-//        let ipld = to_ipld(self).unwrap();
-//        let dag_json = DagJsonCodec.encode(&ipld).unwrap();
-//
-//        let digest = Code::Blake3_256.digest(&dag_json);
-//        Cid::new_v1(0x55, digest)
-//    }
-//
-//    fn id(&self) -> String {
-//        self.cid().to_string()
-//    }
-//
-//    fn has_id(&self, id: String) -> bool {
-//        self.id() == id
-//    }
-//}
-
 fn to_z_expr<T: Sized + Serialize, F: LurkField>(_val: T) -> ZExpr<F> {
-  todo!()
+    todo!()
 }
 
 impl<T> Id for T
 where
-  T: Serialize + for<'de> Deserialize<'de>,
+    T: Serialize + for<'de> Deserialize<'de>,
 {
     fn z_ptr<F: LurkField>(&self) -> ZExprPtr<F> {
-      let z_expr = to_z_expr(self);
-      z_expr.z_ptr(&PoseidonCache::default())
+        let z_expr = to_z_expr(self);
+        z_expr.z_ptr(&PoseidonCache::default())
     }
 
     fn id<F: LurkField>(&self) -> String {
@@ -642,12 +576,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> CommittedExpression<F> {
 }
 
 impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
-    pub fn ptr(//<G: LurkField + Serialize + DeserializeOwned>(
-        &self,
-        s: &mut Store<F>,
-        limit: usize,
-        lang: &Lang<F, Coproc<F>>,
-    ) -> Ptr<F> {
+    pub fn ptr(&self, s: &mut Store<F>, limit: usize, lang: &Lang<F, Coproc<F>>) -> Ptr<F> {
         match self {
             LurkPtr::Source(source) => {
                 let ptr = s.read(source).expect("could not read source");
@@ -655,73 +584,27 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
 
                 out.expr
             }
-            //LurkPtr::ScalarBytes(lurk_scalar_bytes) => {
-            //    let scalar_store: Ipld = DagCborCodec
-            //        .decode(&lurk_scalar_bytes.scalar_store)
-            //        .expect("could not read opaque scalar store");
-            //    let scalar_ptr: Ipld = DagCborCodec
-            //        .decode(&lurk_scalar_bytes.scalar_ptr)
-            //        .expect("could not read opaque scalar ptr");
+            LurkPtr::Bytes(bytes) => {
+                let z_store_data = ZData::de(&bytes.z_store).expect("could not read opaque zstore");
+                let z_ptr_data = ZData::de(&bytes.z_ptr).expect("could not read opaque zstore");
 
-            //    let lurk_ptr = LurkPtr::Ipld(LurkScalarIpld {
-            //        scalar_store,
-            //        scalar_ptr,
-            //    });
+                let z_store = ZStore::de(&z_store_data).expect("could not read opaque zstore");
+                let z_ptr = ZExprPtr::de(&z_ptr_data).expect("could not read opaque zptr");
 
-            //    lurk_ptr.ptr(s, limit, lang)
-            //}
-	  LurkPtr::Bytes(bytes) => {
-	    let z_store_data = ZData::de(&bytes.z_store).expect("could not read opaque zstore");
-	    let z_ptr_data = ZData::de(&bytes.z_ptr).expect("could not read opaque zstore");
+                let lurk_ptr = LurkPtr::ZStorePtr(ZStorePtr { z_store, z_ptr });
 
-	    let z_store = ZStore::de(&z_store_data).expect("could not read opaque zstore");
-	    let z_ptr = ZExprPtr::de(&z_ptr_data).expect("could not read opaque zptr");
-
-	    let lurk_ptr = LurkPtr::ZStorePtr(ZStorePtr {
-	      z_store,
-	      z_ptr,
-	    });
-
-	    lurk_ptr.ptr(s, limit, lang)
-	  }
-          //  LurkPtr::Ipld(lurk_scalar_ipld) => {
-          //      // FIXME: put the scalar_store in a new field for the store.
-          //      let fun_scalar_store: ScalarStore<F> =
-          //          from_ipld(lurk_scalar_ipld.scalar_store.clone()).unwrap();
-          //      let fun_scalar_ptr: ZExprPtr<F> =
-          //          from_ipld(lurk_scalar_ipld.scalar_ptr.clone()).unwrap();
-          //      s.intern_scalar_ptr(fun_scalar_ptr, &fun_scalar_store)
-          //          .expect("failed to intern scalar_ptr for fun")
-          //  }
-	  LurkPtr::ZStorePtr(z_store_ptr) => {
-	    let z_store = &z_store_ptr.z_store;
-	    let z_ptr = z_store_ptr.z_ptr;
-	    s.intern_z_expr_ptr(z_ptr, &z_store).expect("failed to intern z_ptr")
-	  }
+                lurk_ptr.ptr(s, limit, lang)
+            }
+            LurkPtr::ZStorePtr(z_store_ptr) => {
+                let z_store = &z_store_ptr.z_store;
+                let z_ptr = z_store_ptr.z_ptr;
+                s.intern_z_expr_ptr(z_ptr, z_store)
+                    .expect("failed to intern z_ptr")
+            }
         }
     }
 
-    //pub fn from_ptr<F: LurkField + Serialize>(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
-    //    let (scalar_store, scalar_ptr) = ScalarStore::new_with_expr(s, ptr);
-    //    let scalar_ptr = scalar_ptr.unwrap();
-
-    //    let scalar_store_ipld = to_ipld(scalar_store).unwrap();
-    //    let new_fun_ipld = to_ipld(scalar_ptr).unwrap();
-
-    //    let scalar_store_bytes = DagCborCodec.encode(&scalar_store_ipld).unwrap();
-    //    let new_fun_bytes = DagCborCodec.encode(&new_fun_ipld).unwrap();
-
-    //    let again = from_ipld(new_fun_ipld).unwrap();
-    //    assert_eq!(&scalar_ptr, &again);
-
-    //    Self::ScalarBytes(LurkScalarBytes {
-    //        scalar_store: scalar_store_bytes,
-    //        scalar_ptr: new_fun_bytes,
-    //    })
-    //}
-
-  pub fn from_ptr//<G: LurkField + Serialize>
-    (s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
+    pub fn from_ptr(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
         let (z_store, z_ptr) = ZStore::new_with_expr(s, ptr);
         let z_ptr = z_ptr.unwrap();
 
@@ -990,7 +873,7 @@ impl<'a> Proof<'a, S1> {
         let function_map = committed_expression_store();
 
         //let cid = claim.cid();
-      let z_ptr = claim.z_ptr();
+        let z_ptr = claim.z_ptr();
 
         if let Some(proof) = proof_map.get(&z_ptr) {
             return Ok(proof);
