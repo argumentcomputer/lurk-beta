@@ -42,6 +42,7 @@ impl<F: LurkField> Ptr<F> {
     }
 }
 
+#[derive(Clone)]
 pub enum AquaPtr<F: LurkField> {
     Leaf(Tag, F),
     Tree2(Tag, F, Box<(AquaPtr<F>, AquaPtr<F>)>),

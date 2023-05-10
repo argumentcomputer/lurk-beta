@@ -79,10 +79,10 @@ use self::{
 ///
 /// 6. Assign first, use later: this prevents obvious "x not found" errors at
 /// interpretation time.
-pub struct LEM<'a> {
+pub struct LEM<'a, F: LurkField> {
     input: [&'a str; 3],
     output: [&'a str; 3],
-    lem_op: LEMOP<'a>,
+    lem_op: LEMOP<'a, F>,
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -96,7 +96,7 @@ impl<'a> MetaPtr<'a> {
 }
 
 #[derive(Clone)]
-pub enum LEMOP<'a> {
+pub enum LEMOP<'a, F: LurkField> {
     MkNull(MetaPtr<'a>, Tag),
     Copy(MetaPtr<'a>, MetaPtr<'a>),
     Hash2Ptrs(MetaPtr<'a>, Tag, [MetaPtr<'a>; 2]),
@@ -105,10 +105,12 @@ pub enum LEMOP<'a> {
     Unhash2Ptrs([MetaPtr<'a>; 2], MetaPtr<'a>),
     Unhash3Ptrs([MetaPtr<'a>; 3], MetaPtr<'a>),
     Unhash4Ptrs([MetaPtr<'a>; 4], MetaPtr<'a>),
-    IfTagEq(MetaPtr<'a>, Tag, Box<LEMOP<'a>>, Box<LEMOP<'a>>),
-    IfTagOr(MetaPtr<'a>, Tag, Tag, Box<LEMOP<'a>>, Box<LEMOP<'a>>),
-    MatchTag(MetaPtr<'a>, BTreeMap<Tag, LEMOP<'a>>, Box<LEMOP<'a>>),
-    Seq(Vec<LEMOP<'a>>),
+    Hide(MetaPtr<'a>, F, MetaPtr<'a>),
+    Open(MetaPtr<'a>, F),
+    IfTagEq(MetaPtr<'a>, Tag, Box<LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
+    IfTagOr(MetaPtr<'a>, Tag, Tag, Box<LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
+    MatchTag(MetaPtr<'a>, BTreeMap<Tag, LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
+    Seq(Vec<LEMOP<'a, F>>),
 }
 
 pub struct StepData<'a, F: LurkField> {
@@ -117,9 +119,9 @@ pub struct StepData<'a, F: LurkField> {
     values: HashMap<&'a str, Ptr<F>>,
 }
 
-impl<'a> LEMOP<'a> {
+impl<'a, F: LurkField> LEMOP<'a, F> {
     #[inline]
-    pub fn mk_if_tag_eq(ptr: MetaPtr<'a>, tag: Tag, ff: LEMOP<'a>, tt: LEMOP<'a>) -> LEMOP<'a> {
+    pub fn mk_if_tag_eq(ptr: MetaPtr<'a>, tag: Tag, ff: LEMOP<'a, F>, tt: LEMOP<'a, F>) -> LEMOP<'a, F> {
         LEMOP::IfTagEq(ptr, tag, Box::new(tt), Box::new(ff))
     }
 
@@ -128,17 +130,17 @@ impl<'a> LEMOP<'a> {
         ptr: MetaPtr<'a>,
         tag1: Tag,
         tag2: Tag,
-        ff: LEMOP<'a>,
-        tt: LEMOP<'a>,
-    ) -> LEMOP<'a> {
+        ff: LEMOP<'a, F>,
+        tt: LEMOP<'a, F>,
+    ) -> LEMOP<'a, F> {
         LEMOP::IfTagOr(ptr, tag1, tag2, Box::new(tt), Box::new(ff))
     }
 
-    pub fn assert_list(ptr: MetaPtr<'a>, ff: LEMOP<'a>, tt: LEMOP<'a>) -> LEMOP<'a> {
+    pub fn assert_list(ptr: MetaPtr<'a>, ff: LEMOP<'a, F>, tt: LEMOP<'a, F>) -> LEMOP<'a, F> {
         Self::mk_if_tag_or(ptr, Tag::Cons, Tag::Nil, ff, tt)
     }
 
-    pub fn mk_cons(o: &'a str, i: [MetaPtr<'a>; 2]) -> LEMOP<'a> {
+    pub fn mk_cons(o: &'a str, i: [MetaPtr<'a>; 2]) -> LEMOP<'a, F> {
         LEMOP::Hash2Ptrs(MetaPtr(o), Tag::Cons, i)
     }
 
@@ -168,7 +170,7 @@ impl<'a> LEMOP<'a> {
     //     )
     // }
 
-    pub fn mk_match_tag(i: MetaPtr<'a>, cases: Vec<(Tag, LEMOP<'a>)>, def: LEMOP<'a>) -> LEMOP<'a> {
+    pub fn mk_match_tag(i: MetaPtr<'a>, cases: Vec<(Tag, LEMOP<'a, F>)>, def: LEMOP<'a, F>) -> LEMOP<'a, F> {
         let mut match_map = BTreeMap::default();
         for (f, op) in cases.iter() {
             match_map.insert(*f, op.clone());
@@ -177,7 +179,7 @@ impl<'a> LEMOP<'a> {
     }
 }
 
-impl<'a> LEM<'a> {
+impl<'a, F: LurkField> LEM<'a, F> {
     pub fn check(&self) {
         for s in self.input.iter() {
             assert!(
@@ -190,7 +192,7 @@ impl<'a> LEM<'a> {
 
     // pub fn compile should generate the circuit
 
-    pub fn run<F: LurkField>(
+    pub fn run(
         &self,
         i: [Ptr<F>; 3],
         store: &mut Store<F>,
@@ -352,6 +354,8 @@ impl<'a> LEM<'a> {
                         return Err(format!("{} already defined", tgts[3].name()));
                     }
                 }
+                LEMOP::Hide(tgt, secret, src) => todo!(),
+                LEMOP::Open(tgt, hash) => todo!(),
                 LEMOP::IfTagEq(ptr, tag, tt, ff) => {
                     let Some(Ptr {tag: ptr_tag, val: _}) = map.get(ptr.name()) else {
                         return Err(format!("{} not defined", ptr.name()))
@@ -396,7 +400,7 @@ impl<'a> LEM<'a> {
         Ok(([*out1, *out2, *out3], map))
     }
 
-    pub fn eval<F: LurkField>(
+    pub fn eval(
         self,
         expr: Ptr<F>,
     ) -> Result<(Vec<StepData<'a, F>>, Store<F>), String> {
@@ -432,7 +436,7 @@ impl<'a> LEM<'a> {
         Ok((steps_data, store))
     }
 
-    pub fn eval_res<F: LurkField>(self, expr: Ptr<F>) -> Result<(Ptr<F>, Store<F>), String> {
+    pub fn eval_res(self, expr: Ptr<F>) -> Result<(Ptr<F>, Store<F>), String> {
         let (steps_data, store) = self.eval(expr)?;
         Ok((
             steps_data

@@ -1,6 +1,8 @@
+use crate::field::LurkField;
+
 use super::{tag::Tag, MetaPtr, LEM, LEMOP};
 
-pub fn error() -> LEMOP<'static> {
+pub fn error<F: LurkField>() -> LEMOP<'static, F> {
     LEMOP::Seq(vec![
         LEMOP::Copy(MetaPtr("expr_out"), MetaPtr("expr_in")),
         LEMOP::Copy(MetaPtr("env_out"), MetaPtr("env_in")),
@@ -8,7 +10,7 @@ pub fn error() -> LEMOP<'static> {
     ])
 }
 
-pub fn terminate() -> LEMOP<'static> {
+pub fn terminate<F: LurkField>() -> LEMOP<'static, F> {
     LEMOP::Seq(vec![
         LEMOP::Copy(MetaPtr("expr_out"), MetaPtr("expr_in")),
         LEMOP::Copy(MetaPtr("env_out"), MetaPtr("env_in")),
@@ -16,7 +18,7 @@ pub fn terminate() -> LEMOP<'static> {
     ])
 }
 
-pub fn step() -> LEM<'static> {
+pub fn step<F: LurkField>() -> LEM<'static, F> {
     let input = ["expr_in", "env_in", "cont_in"];
     let output = ["expr_out", "env_out", "cont_out"];
     let lem_op = LEMOP::mk_match_tag(
@@ -51,7 +53,7 @@ mod tests {
 
     #[test]
     fn check_step() {
-        super::step().check()
+        super::step::<Scalar>().check()
     }
 
     #[test]
