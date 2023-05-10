@@ -2,7 +2,7 @@ use crate::field::*;
 
 use super::tag::Tag;
 
-#[derive(Clone, Copy, PartialEq, std::cmp::Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PtrVal<F: LurkField> {
     Null,
     Char(char),
@@ -13,7 +13,7 @@ pub enum PtrVal<F: LurkField> {
     Index4(usize),
 }
 
-#[derive(Clone, Copy, PartialEq, std::cmp::Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Ptr<F: LurkField> {
     pub tag: Tag,
     pub val: PtrVal<F>,
@@ -42,26 +42,40 @@ impl<F: LurkField> Ptr<F> {
     }
 }
 
-pub enum AquaPtr<F: LurkField> {
-    Leaf(Tag, F),
-    Tree2(Tag, F, Box<(AquaPtr<F>, AquaPtr<F>)>),
-    Tree3(Tag, F, Box<(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>)>),
-    Tree4(
-        Tag,
-        F,
-        Box<(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>, AquaPtr<F>)>,
-    ),
-    Comm(F, F, Box<AquaPtr<F>>), // hash, secret, src
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct AquaPtr<F: LurkField> {
+    pub tag: Tag,
+    pub val: F,
 }
 
-impl<F: LurkField> AquaPtr<F> {
-    pub fn tag_val_fields(&self) -> (F, F) {
-        match self {
-            Self::Leaf(tag, f) => (tag.field(), *f),
-            Self::Comm(f, ..) => (Tag::Comm.field(), *f),
-            Self::Tree2(tag, f, _) => (tag.field(), *f),
-            Self::Tree3(tag, f, ..) => (tag.field(), *f),
-            Self::Tree4(tag, f, ..) => (tag.field(), *f),
-        }
-    }
+pub enum AquaPtrKind<F: LurkField> {
+    Leaf,
+    Tree2(AquaPtr<F>, AquaPtr<F>),
+    Tree3(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>),
+    Tree4(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>, AquaPtr<F>),
+    Comm(F, F, AquaPtr<F>), // hash, secret, src
 }
+
+// pub enum AquaPtr<F: LurkField> {
+//     Leaf(Tag, F),
+//     Tree2(Tag, F, Box<(AquaPtr<F>, AquaPtr<F>)>),
+//     Tree3(Tag, F, Box<(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>)>),
+//     Tree4(
+//         Tag,
+//         F,
+//         Box<(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>, AquaPtr<F>)>,
+//     ),
+//     Comm(F, F, Box<AquaPtr<F>>), // hash, secret, src
+// }
+
+// impl<F: LurkField> AquaPtr<F> {
+//     pub fn tag_val_fields(&self) -> (F, F) {
+//         match self {
+//             Self::Leaf(tag, f) => (tag.field(), *f),
+//             Self::Comm(f, ..) => (Tag::Comm.field(), *f),
+//             Self::Tree2(tag, f, _) => (tag.field(), *f),
+//             Self::Tree3(tag, f, ..) => (tag.field(), *f),
+//             Self::Tree4(tag, f, ..) => (tag.field(), *f),
+//         }
+//     }
+// }

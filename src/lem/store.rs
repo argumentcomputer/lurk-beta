@@ -6,11 +6,11 @@ use itertools::Itertools;
 use crate::{
     field::{FWrap, LurkField},
     hash::PoseidonCache,
-    lem::tag::Tag,
+    lem::tag::Tag, cache_map::CacheMap,
 };
 
 use super::{
-    pointers::{AquaPtr, Ptr, PtrVal},
+    pointers::{AquaPtr, Ptr, PtrVal, AquaPtrKind},
     symbol::Symbol,
 };
 
@@ -24,6 +24,8 @@ pub struct Store<F: LurkField> {
 
     vec_char_cache: HashMap<Vec<char>, Ptr<F>>,
     vec_str_cache: HashMap<Vec<String>, Ptr<F>>,
+
+    aqua_store: CacheMap<AquaPtr<F>, AquaPtrKind<F>>,
 
     pub poseidon_cache: PoseidonCache<F>,
 }
@@ -115,7 +117,7 @@ impl<F: LurkField> Store<F> {
     // TODO: this function can be even faster if `AquaPtr` implements `Copy`
     pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<AquaPtr<F>, &str> {
         match (ptr.tag, ptr.val) {
-            (Tag::Char, PtrVal::Char(x)) => Ok(AquaPtr::Leaf(Tag::Char, F::from_char(x))),
+            (Tag::Char, PtrVal::Char(x)) => Ok(AquaPtr { tag: Tag::Char, val: F::from_char(x) }),
             (Tag::U64, PtrVal::U64(x)) => Ok(AquaPtr::Leaf(Tag::Char, F::from_u64(x))),
             (Tag::Num, PtrVal::Field(x)) => Ok(AquaPtr::Leaf(Tag::Num, x)),
             (tag, PtrVal::Null) => Ok(AquaPtr::Leaf(tag, F::zero())),
