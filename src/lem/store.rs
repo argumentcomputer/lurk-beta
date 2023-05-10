@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use indexmap::IndexSet;
 use itertools::Itertools;
 
-use crate::{cache_map::CacheMap, field::LurkField, hash::PoseidonCache, lem::tag::Tag};
+use crate::{field::LurkField, hash::PoseidonCache, lem::tag::Tag};
 
 use super::{
     pointers::{AquaPtr, Ptr, PtrVal},
@@ -20,9 +20,6 @@ pub struct Store<F: LurkField> {
     vec_str_cache: HashMap<Vec<String>, Ptr<F>>,
 
     poseidon_cache: PoseidonCache<F>,
-    aqua_cache2: CacheMap<usize, AquaPtr<F>>,
-    aqua_cache3: CacheMap<usize, AquaPtr<F>>,
-    aqua_cache4: CacheMap<usize, AquaPtr<F>>,
 }
 
 impl<F: LurkField> Store<F> {
@@ -109,6 +106,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    // TODO: this function can be even faster if `AquaPtr` implements `Copy`
     pub fn hydrate_ptr(&self, ptr: Ptr<F>) -> Result<AquaPtr<F>, &str> {
         match (ptr.tag, ptr.val) {
             (Tag::Char, PtrVal::Char(x)) => Ok(AquaPtr::Leaf(Tag::Char, F::from_char(x))),
@@ -116,6 +114,7 @@ impl<F: LurkField> Store<F> {
             (Tag::Num, PtrVal::Num(x)) => Ok(AquaPtr::Leaf(Tag::Num, x)),
             (tag, PtrVal::Null) => Ok(AquaPtr::Leaf(tag, F::zero())),
             (tag, PtrVal::Index2(idx)) => {
+                // TODO: how to cache this?
                 let Some((a, b)) = self.ptrs2.get_index(idx) else {
                     return Err("Index not found on ptrs2")
                 };
@@ -131,6 +130,7 @@ impl<F: LurkField> Store<F> {
                 ))
             }
             (tag, PtrVal::Index3(idx)) => {
+                // TODO: how to cache this?
                 let Some((a, b, c)) = self.ptrs3.get_index(idx) else {
                     return Err("Index not found on ptrs3")
                 };
@@ -148,6 +148,7 @@ impl<F: LurkField> Store<F> {
                 ))
             }
             (tag, PtrVal::Index4(idx)) => {
+                // TODO: how to cache this?
                 let Some((a, b, c, d)) = self.ptrs4.get_index(idx) else {
                     return Err("Index not found on ptrs4")
                 };
@@ -159,12 +160,12 @@ impl<F: LurkField> Store<F> {
                 let (b_tag_f, b_val_f) = b.tag_val_fields();
                 let (c_tag_f, c_val_f) = c.tag_val_fields();
                 let (d_tag_f, d_val_f) = d.tag_val_fields();
-                Ok(AquaPtr::Tree2(
+                Ok(AquaPtr::Tree4(
                     tag,
                     self.poseidon_cache.hash8(&[
                         a_tag_f, a_val_f, b_tag_f, b_val_f, c_tag_f, c_val_f, d_tag_f, d_val_f,
                     ]),
-                    Box::new((a, b)),
+                    Box::new((a, b, c, d)),
                 ))
             }
             _ => Err("Invalid tag/val combination"),
