@@ -13,20 +13,6 @@ pub enum PtrVal<F: LurkField> {
     Index4(usize),
 }
 
-impl<F: LurkField> std::hash::Hash for PtrVal<F> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match self {
-            PtrVal::Char(x) => (0, x).hash(state),
-            PtrVal::U64(x) => (1, x).hash(state),
-            PtrVal::Num(x) => (2, x.to_repr().as_ref()).hash(state),
-            PtrVal::Null => 0.hash(state),
-            PtrVal::Index2(x) => (4, x).hash(state),
-            PtrVal::Index3(x) => (5, x).hash(state),
-            PtrVal::Index4(x) => (6, x).hash(state),
-        }
-    }
-}
-
 #[derive(Clone, Copy, PartialEq, std::cmp::Eq)]
 pub struct Ptr<F: LurkField> {
     pub tag: Tag,
@@ -35,8 +21,15 @@ pub struct Ptr<F: LurkField> {
 
 impl<F: LurkField> std::hash::Hash for Ptr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.tag.hash(state);
-        self.val.hash(state);
+        match self.val {
+            PtrVal::Char(x) => (0, self.tag, x).hash(state),
+            PtrVal::U64(x) => (1, self.tag, x).hash(state),
+            PtrVal::Num(x) => (2, self.tag, x.to_repr().as_ref()).hash(state),
+            PtrVal::Null => self.tag.hash(state),
+            PtrVal::Index2(x) => (4, self.tag, x).hash(state),
+            PtrVal::Index3(x) => (5, self.tag, x).hash(state),
+            PtrVal::Index4(x) => (6, self.tag, x).hash(state),
+        }
     }
 }
 

@@ -108,7 +108,6 @@ pub enum LEMOP<'a> {
     IfTagEq(MetaPtr<'a>, Tag, Box<LEMOP<'a>>, Box<LEMOP<'a>>),
     IfTagOr(MetaPtr<'a>, Tag, Tag, Box<LEMOP<'a>>, Box<LEMOP<'a>>),
     MatchTag(MetaPtr<'a>, BTreeMap<Tag, LEMOP<'a>>, Box<LEMOP<'a>>),
-    Err(&'a str),
     Seq(Vec<LEMOP<'a>>),
 }
 
@@ -143,31 +142,31 @@ impl<'a> LEMOP<'a> {
         LEMOP::Hash2Ptrs(MetaPtr(o), Tag::Cons, i)
     }
 
-    pub fn mk_strcons(o: &'a str, i: [MetaPtr<'a>; 2]) -> LEMOP<'a> {
-        Self::mk_if_tag_eq(
-            i[0],
-            Tag::Char,
-            LEMOP::Err("strcons requires a char as the first argument"),
-            Self::mk_if_tag_eq(
-                i[1],
-                Tag::Str,
-                LEMOP::Err("strcons requires a str as the second argument"),
-                LEMOP::Hash2Ptrs(MetaPtr(o), Tag::Str, i),
-            ),
-        )
-    }
+    // pub fn mk_strcons(o: &'a str, i: [MetaPtr<'a>; 2]) -> LEMOP<'a> {
+    //     Self::mk_if_tag_eq(
+    //         i[0],
+    //         Tag::Char,
+    //         LEMOP::Err("strcons requires a char as the first argument"),
+    //         Self::mk_if_tag_eq(
+    //             i[1],
+    //             Tag::Str,
+    //             LEMOP::Err("strcons requires a str as the second argument"),
+    //             LEMOP::Hash2Ptrs(MetaPtr(o), Tag::Str, i),
+    //         ),
+    //     )
+    // }
 
-    pub fn mk_fun(o: &'a str, i: [MetaPtr<'a>; 3]) -> LEMOP<'a> {
-        Self::assert_list(
-            i[0],
-            LEMOP::Err("The arguments must be a list"),
-            Self::assert_list(
-                i[2],
-                LEMOP::Err("The closed env must be a list"),
-                LEMOP::Hash3Ptrs(MetaPtr(o), Tag::Fun, i),
-            ),
-        )
-    }
+    // pub fn mk_fun(o: &'a str, i: [MetaPtr<'a>; 3]) -> LEMOP<'a> {
+    //     Self::assert_list(
+    //         i[0],
+    //         LEMOP::Err("The arguments must be a list"),
+    //         Self::assert_list(
+    //             i[2],
+    //             LEMOP::Err("The closed env must be a list"),
+    //             LEMOP::Hash3Ptrs(MetaPtr(o), Tag::Fun, i),
+    //         ),
+    //     )
+    // }
 
     pub fn mk_match_tag(i: MetaPtr<'a>, cases: Vec<(Tag, LEMOP<'a>)>, def: LEMOP<'a>) -> LEMOP<'a> {
         let mut match_map = BTreeMap::default();
@@ -383,7 +382,6 @@ impl<'a> LEM<'a> {
                     }
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
-                LEMOP::Err(s) => return Err(s.to_string()), // this should use the error continuation
             }
         }
         let Some(out1) = map.get(self.output[0]) else {

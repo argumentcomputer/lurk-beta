@@ -1,5 +1,21 @@
 use super::{tag::Tag, MetaPtr, LEM, LEMOP};
 
+pub fn error() -> LEMOP<'static> {
+    LEMOP::Seq(vec![
+        LEMOP::Copy(MetaPtr("expr_out"), MetaPtr("expr_in")),
+        LEMOP::Copy(MetaPtr("env_out"), MetaPtr("env_in")),
+        LEMOP::MkNull(MetaPtr("cont_out"), Tag::Error),
+    ])
+}
+
+pub fn terminate() -> LEMOP<'static> {
+    LEMOP::Seq(vec![
+        LEMOP::Copy(MetaPtr("expr_out"), MetaPtr("expr_in")),
+        LEMOP::Copy(MetaPtr("env_out"), MetaPtr("env_in")),
+        LEMOP::MkNull(MetaPtr("cont_out"), Tag::Terminal),
+    ])
+}
+
 pub fn step() -> LEM<'static> {
     let input = ["expr_in", "env_in", "cont_in"];
     let output = ["expr_out", "env_out", "cont_out"];
@@ -11,16 +27,12 @@ pub fn step() -> LEM<'static> {
                 MetaPtr("cont_in"),
                 vec![(
                     Tag::Outermost,
-                    LEMOP::Seq(vec![
-                        LEMOP::Copy(MetaPtr("expr_out"), MetaPtr("expr_in")),
-                        LEMOP::Copy(MetaPtr("env_out"), MetaPtr("env_in")),
-                        LEMOP::MkNull(MetaPtr("cont_out"), Tag::Terminal),
-                    ]),
+                    terminate(),
                 )],
-                LEMOP::Err("Invalid continuation tag"),
+                error(),
             ),
         )],
-        LEMOP::Err("Invalid expression tag"),
+        error(),
     );
     LEM {
         input,
