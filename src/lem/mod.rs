@@ -6,7 +6,7 @@ mod tag;
 
 use std::collections::{BTreeMap, HashMap};
 
-use crate::field::LurkField;
+use crate::field::{FWrap, LurkField};
 
 use self::{
     pointers::{Ptr, PtrVal},
@@ -121,7 +121,12 @@ pub struct StepData<'a, F: LurkField> {
 
 impl<'a, F: LurkField> LEMOP<'a, F> {
     #[inline]
-    pub fn mk_if_tag_eq(ptr: MetaPtr<'a>, tag: Tag, ff: LEMOP<'a, F>, tt: LEMOP<'a, F>) -> LEMOP<'a, F> {
+    pub fn mk_if_tag_eq(
+        ptr: MetaPtr<'a>,
+        tag: Tag,
+        ff: LEMOP<'a, F>,
+        tt: LEMOP<'a, F>,
+    ) -> LEMOP<'a, F> {
         LEMOP::IfTagEq(ptr, tag, Box::new(tt), Box::new(ff))
     }
 
@@ -170,7 +175,11 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
     //     )
     // }
 
-    pub fn mk_match_tag(i: MetaPtr<'a>, cases: Vec<(Tag, LEMOP<'a, F>)>, def: LEMOP<'a, F>) -> LEMOP<'a, F> {
+    pub fn mk_match_tag(
+        i: MetaPtr<'a>,
+        cases: Vec<(Tag, LEMOP<'a, F>)>,
+        def: LEMOP<'a, F>,
+    ) -> LEMOP<'a, F> {
         let mut match_map = BTreeMap::default();
         for (f, op) in cases.iter() {
             match_map.insert(*f, op.clone());
@@ -354,7 +363,25 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         return Err(format!("{} already defined", tgts[3].name()));
                     }
                 }
-                LEMOP::Hide(tgt, secret, src) => todo!(),
+                LEMOP::Hide(tgt, secret, src) => {
+                    let Some(src_ptr) = map.get(src.name()) else {
+                        return Err(format!("{} not defined", src.name()))
+                    };
+                    let aqua_ptr = store.hydrate_ptr(src_ptr)?;
+                    let (tag_f, val_f) = aqua_ptr.tag_val_fields();
+                    let hash = store.poseidon_cache.hash3(&[*secret, tag_f, val_f]);
+                    let (idx, _) =
+                        store
+                            .comms
+                            .insert_full((FWrap::<F>(hash), FWrap::<F>(*secret), *src_ptr));
+                    let tgt_ptr = Ptr {
+                        tag: Tag::Comm,
+                        val: PtrVal::Comm(idx),
+                    };
+                    if map.insert(tgt.name(), tgt_ptr).is_some() {
+                        return Err(format!("{} already defined", tgt.name()));
+                    }
+                }
                 LEMOP::Open(tgt, hash) => todo!(),
                 LEMOP::IfTagEq(ptr, tag, tt, ff) => {
                     let Some(Ptr {tag: ptr_tag, val: _}) = map.get(ptr.name()) else {
@@ -400,10 +427,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
         Ok(([*out1, *out2, *out3], map))
     }
 
-    pub fn eval(
-        self,
-        expr: Ptr<F>,
-    ) -> Result<(Vec<StepData<'a, F>>, Store<F>), String> {
+    pub fn eval(self, expr: Ptr<F>) -> Result<(Vec<StepData<'a, F>>, Store<F>), String> {
         let mut expr = expr;
         let mut env = Ptr {
             tag: Tag::Nil,

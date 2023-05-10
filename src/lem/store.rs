@@ -3,7 +3,11 @@ use std::collections::HashMap;
 use indexmap::IndexSet;
 use itertools::Itertools;
 
-use crate::{field::LurkField, hash::PoseidonCache, lem::tag::Tag};
+use crate::{
+    field::{FWrap, LurkField},
+    hash::PoseidonCache,
+    lem::tag::Tag,
+};
 
 use super::{
     pointers::{AquaPtr, Ptr, PtrVal},
@@ -12,6 +16,7 @@ use super::{
 
 #[derive(Default)]
 pub struct Store<F: LurkField> {
+    pub comms: IndexSet<(FWrap<F>, FWrap<F>, Ptr<F>)>, // hash, secret, src
     pub ptrs2: IndexSet<(Ptr<F>, Ptr<F>)>,
     pub ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
     pub ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
@@ -19,7 +24,7 @@ pub struct Store<F: LurkField> {
     vec_char_cache: HashMap<Vec<char>, Ptr<F>>,
     vec_str_cache: HashMap<Vec<String>, Ptr<F>>,
 
-    poseidon_cache: PoseidonCache<F>,
+    pub poseidon_cache: PoseidonCache<F>,
 }
 
 impl<F: LurkField> Store<F> {
@@ -107,7 +112,7 @@ impl<F: LurkField> Store<F> {
     }
 
     // TODO: this function can be even faster if `AquaPtr` implements `Copy`
-    pub fn hydrate_ptr(&self, ptr: Ptr<F>) -> Result<AquaPtr<F>, &str> {
+    pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<AquaPtr<F>, &str> {
         match (ptr.tag, ptr.val) {
             (Tag::Char, PtrVal::Char(x)) => Ok(AquaPtr::Leaf(Tag::Char, F::from_char(x))),
             (Tag::U64, PtrVal::U64(x)) => Ok(AquaPtr::Leaf(Tag::Char, F::from_u64(x))),
@@ -118,8 +123,8 @@ impl<F: LurkField> Store<F> {
                 let Some((a, b)) = self.ptrs2.get_index(idx) else {
                     return Err("Index not found on ptrs2")
                 };
-                let a = self.hydrate_ptr(*a)?;
-                let b = self.hydrate_ptr(*b)?;
+                let a = self.hydrate_ptr(a)?;
+                let b = self.hydrate_ptr(b)?;
                 let (a_tag_f, a_val_f) = a.tag_val_fields();
                 let (b_tag_f, b_val_f) = b.tag_val_fields();
                 Ok(AquaPtr::Tree2(
@@ -134,9 +139,9 @@ impl<F: LurkField> Store<F> {
                 let Some((a, b, c)) = self.ptrs3.get_index(idx) else {
                     return Err("Index not found on ptrs3")
                 };
-                let a = self.hydrate_ptr(*a)?;
-                let b = self.hydrate_ptr(*b)?;
-                let c = self.hydrate_ptr(*c)?;
+                let a = self.hydrate_ptr(a)?;
+                let b = self.hydrate_ptr(b)?;
+                let c = self.hydrate_ptr(c)?;
                 let (a_tag_f, a_val_f) = a.tag_val_fields();
                 let (b_tag_f, b_val_f) = b.tag_val_fields();
                 let (c_tag_f, c_val_f) = c.tag_val_fields();
@@ -152,10 +157,10 @@ impl<F: LurkField> Store<F> {
                 let Some((a, b, c, d)) = self.ptrs4.get_index(idx) else {
                     return Err("Index not found on ptrs4")
                 };
-                let a = self.hydrate_ptr(*a)?;
-                let b = self.hydrate_ptr(*b)?;
-                let c = self.hydrate_ptr(*c)?;
-                let d = self.hydrate_ptr(*d)?;
+                let a = self.hydrate_ptr(a)?;
+                let b = self.hydrate_ptr(b)?;
+                let c = self.hydrate_ptr(c)?;
+                let d = self.hydrate_ptr(d)?;
                 let (a_tag_f, a_val_f) = a.tag_val_fields();
                 let (b_tag_f, b_val_f) = b.tag_val_fields();
                 let (c_tag_f, c_val_f) = c.tag_val_fields();
@@ -167,6 +172,13 @@ impl<F: LurkField> Store<F> {
                     ]),
                     Box::new((a, b, c, d)),
                 ))
+            }
+            (Tag::Comm, PtrVal::Comm(idx)) => {
+                let Some((hash, secret, ptr)) = self.comms.get_index(idx) else {
+                    return Err("Index not found on ptrs4")
+                };
+                let ptr = self.hydrate_ptr(ptr)?;
+                Ok(AquaPtr::Comm(hash.0, secret.0, Box::new(ptr)))
             }
             _ => Err("Invalid tag/val combination"),
         }

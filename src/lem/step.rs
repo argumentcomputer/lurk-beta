@@ -27,10 +27,7 @@ pub fn step<F: LurkField>() -> LEM<'static, F> {
             Tag::Num,
             LEMOP::mk_match_tag(
                 MetaPtr("cont_in"),
-                vec![(
-                    Tag::Outermost,
-                    terminate(),
-                )],
+                vec![(Tag::Outermost, terminate())],
                 error(),
             ),
         )],
