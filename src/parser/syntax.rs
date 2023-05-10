@@ -246,6 +246,21 @@ pub fn parse_syntax<F: LurkField>(
     }
 }
 
+pub fn parse_maybe_meta<F: LurkField>(
+) -> impl Fn(Span<'_>) -> IResult<Span<'_>, (Syntax<F>, bool), ParseError<Span<'_>, F>> {
+    move |from: Span<'_>| {
+        let (next, meta) = opt(char('!'))(from)?;
+        if meta.is_some() {
+            let (end, syntax) = parse_syntax()(next)?;
+            Ok((end, (syntax, true)))
+        }
+        else {
+            let (end, syntax) = parse_syntax()(from)?;
+            Ok((end, (syntax, false)))
+        }
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use crate::symbol::LurkSym;
