@@ -16,10 +16,11 @@ use super::{
 
 #[derive(Default)]
 pub struct Store<F: LurkField> {
-    pub comms: IndexSet<(FWrap<F>, FWrap<F>, Ptr<F>)>, // hash, secret, src
     pub ptrs2: IndexSet<(Ptr<F>, Ptr<F>)>,
     pub ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
     pub ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
+
+    pub comms: HashMap<FWrap<F>, (F, Ptr<F>)>, // hash -> (secret, src)
 
     vec_char_cache: HashMap<Vec<char>, Ptr<F>>,
     vec_str_cache: HashMap<Vec<String>, Ptr<F>>,
@@ -116,7 +117,7 @@ impl<F: LurkField> Store<F> {
         match (ptr.tag, ptr.val) {
             (Tag::Char, PtrVal::Char(x)) => Ok(AquaPtr::Leaf(Tag::Char, F::from_char(x))),
             (Tag::U64, PtrVal::U64(x)) => Ok(AquaPtr::Leaf(Tag::Char, F::from_u64(x))),
-            (Tag::Num, PtrVal::Num(x)) => Ok(AquaPtr::Leaf(Tag::Num, x)),
+            (Tag::Num, PtrVal::Field(x)) => Ok(AquaPtr::Leaf(Tag::Num, x)),
             (tag, PtrVal::Null) => Ok(AquaPtr::Leaf(tag, F::zero())),
             (tag, PtrVal::Index2(idx)) => {
                 // TODO: how to cache this?
@@ -173,12 +174,12 @@ impl<F: LurkField> Store<F> {
                     Box::new((a, b, c, d)),
                 ))
             }
-            (Tag::Comm, PtrVal::Comm(idx)) => {
-                let Some((hash, secret, ptr)) = self.comms.get_index(idx) else {
-                    return Err("Index not found on ptrs4")
+            (Tag::Comm, PtrVal::Field(hash)) => {
+                let Some((secret, ptr)) = self.comms.get(&FWrap(hash)) else {
+                    return Err("Hash not found")
                 };
                 let ptr = self.hydrate_ptr(ptr)?;
-                Ok(AquaPtr::Comm(hash.0, secret.0, Box::new(ptr)))
+                Ok(AquaPtr::Comm(hash, *secret, Box::new(ptr)))
             }
             _ => Err("Invalid tag/val combination"),
         }

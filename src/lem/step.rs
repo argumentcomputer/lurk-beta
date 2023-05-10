@@ -57,7 +57,7 @@ mod tests {
     fn eval_42() {
         let expr = Ptr {
             tag: Tag::Num,
-            val: PtrVal::Num(Scalar::from(42)),
+            val: PtrVal::Field(Scalar::from(42)),
         };
         let (res, _) = super::step().eval_res(expr).unwrap();
         assert!(res == expr);

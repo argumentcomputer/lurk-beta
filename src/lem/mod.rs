@@ -95,6 +95,16 @@ impl<'a> MetaPtr<'a> {
     }
 }
 
+#[derive(PartialEq, Clone, Copy)]
+pub struct MetaVar<'a>(&'a str);
+
+impl<'a> MetaVar<'a> {
+    #[inline]
+    pub fn name(self) -> &'a str {
+        self.0
+    }
+}
+
 #[derive(Clone)]
 pub enum LEMOP<'a, F: LurkField> {
     MkNull(MetaPtr<'a>, Tag),
@@ -106,7 +116,7 @@ pub enum LEMOP<'a, F: LurkField> {
     Unhash3Ptrs([MetaPtr<'a>; 3], MetaPtr<'a>),
     Unhash4Ptrs([MetaPtr<'a>; 4], MetaPtr<'a>),
     Hide(MetaPtr<'a>, F, MetaPtr<'a>),
-    Open(MetaPtr<'a>, F),
+    Open(MetaVar<'a>, MetaPtr<'a>, F), // secret, tgt, src hash
     IfTagEq(MetaPtr<'a>, Tag, Box<LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
     IfTagOr(MetaPtr<'a>, Tag, Tag, Box<LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
     MatchTag(MetaPtr<'a>, BTreeMap<Tag, LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
@@ -116,7 +126,8 @@ pub enum LEMOP<'a, F: LurkField> {
 pub struct StepData<'a, F: LurkField> {
     input: [Ptr<F>; 3],
     output: [Ptr<F>; 3],
-    values: HashMap<&'a str, Ptr<F>>,
+    ptrs: HashMap<&'a str, Ptr<F>>,
+    vals: HashMap<&'a str, F>,
 }
 
 impl<'a, F: LurkField> LEMOP<'a, F> {
@@ -205,14 +216,15 @@ impl<'a, F: LurkField> LEM<'a, F> {
         &self,
         i: [Ptr<F>; 3],
         store: &mut Store<F>,
-    ) -> Result<([Ptr<F>; 3], HashMap<&'a str, Ptr<F>>), String> {
+    ) -> Result<([Ptr<F>; 3], HashMap<&'a str, Ptr<F>>, HashMap<&'a str, F>), String> {
         // key/val pairs on this map should never be overwritten
-        let mut map: HashMap<&'a str, Ptr<F>> = HashMap::default();
-        map.insert(self.input[0], i[0]);
-        if map.insert(self.input[1], i[1]).is_some() {
+        let mut ptr_map: HashMap<&'a str, Ptr<F>> = HashMap::default();
+        let mut var_map: HashMap<&'a str, F> = HashMap::default();
+        ptr_map.insert(self.input[0], i[0]);
+        if ptr_map.insert(self.input[1], i[1]).is_some() {
             return Err(format!("{} already defined", self.input[1]));
         }
-        if map.insert(self.input[2], i[2]).is_some() {
+        if ptr_map.insert(self.input[2], i[2]).is_some() {
             return Err(format!("{} already defined", self.input[2]));
         }
         let mut stack = vec![&self.lem_op];
@@ -223,23 +235,23 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         tag: *tag,
                         val: PtrVal::Null,
                     };
-                    if map.insert(tgt.name(), tgt_ptr).is_some() {
+                    if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
                 }
                 LEMOP::Copy(tgt, src) => {
-                    let Some(src_ptr) = map.get(src.name()) else {
+                    let Some(src_ptr) = ptr_map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    if map.insert(tgt.name(), *src_ptr).is_some() {
+                    if ptr_map.insert(tgt.name(), *src_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
                 }
                 LEMOP::Hash2Ptrs(tgt, tag, src) => {
-                    let Some(src_ptr1) = map.get(src[0].name()) else {
+                    let Some(src_ptr1) = ptr_map.get(src[0].name()) else {
                         return Err(format!("{} not defined", src[0].name()))
                     };
-                    let Some(src_ptr2) = map.get(src[1].name()) else {
+                    let Some(src_ptr2) = ptr_map.get(src[1].name()) else {
                         return Err(format!("{} not defined", src[1].name()))
                     };
                     let (idx, _) = store.ptrs2.insert_full((*src_ptr1, *src_ptr2));
@@ -247,18 +259,18 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         tag: *tag,
                         val: PtrVal::Index2(idx),
                     };
-                    if map.insert(tgt.name(), tgt_ptr).is_some() {
+                    if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
                 }
                 LEMOP::Hash3Ptrs(tgt, tag, src) => {
-                    let Some(src_ptr1) = map.get(src[0].name()) else {
+                    let Some(src_ptr1) = ptr_map.get(src[0].name()) else {
                         return Err(format!("{} not defined", src[0].name()))
                     };
-                    let Some(src_ptr2) = map.get(src[1].name()) else {
+                    let Some(src_ptr2) = ptr_map.get(src[1].name()) else {
                         return Err(format!("{} not defined", src[1].name()))
                     };
-                    let Some(src_ptr3) = map.get(src[2].name()) else {
+                    let Some(src_ptr3) = ptr_map.get(src[2].name()) else {
                         return Err(format!("{} not defined", src[2].name()))
                     };
                     let (idx, _) = store.ptrs3.insert_full((*src_ptr1, *src_ptr2, *src_ptr3));
@@ -266,21 +278,21 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         tag: *tag,
                         val: PtrVal::Index3(idx),
                     };
-                    if map.insert(tgt.name(), tgt_ptr).is_some() {
+                    if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
                 }
                 LEMOP::Hash4Ptrs(tgt, tag, src) => {
-                    let Some(src_ptr1) = map.get(src[0].name()) else {
+                    let Some(src_ptr1) = ptr_map.get(src[0].name()) else {
                         return Err(format!("{} not defined", src[0].name()))
                     };
-                    let Some(src_ptr2) = map.get(src[1].name()) else {
+                    let Some(src_ptr2) = ptr_map.get(src[1].name()) else {
                         return Err(format!("{} not defined", src[1].name()))
                     };
-                    let Some(src_ptr3) = map.get(src[2].name()) else {
+                    let Some(src_ptr3) = ptr_map.get(src[2].name()) else {
                         return Err(format!("{} not defined", src[2].name()))
                     };
-                    let Some(src_ptr4) = map.get(src[3].name()) else {
+                    let Some(src_ptr4) = ptr_map.get(src[3].name()) else {
                         return Err(format!("{} not defined", src[3].name()))
                     };
                     let (idx, _) = store
@@ -290,12 +302,12 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         tag: *tag,
                         val: PtrVal::Index4(idx),
                     };
-                    if map.insert(tgt.name(), tgt_ptr).is_some() {
+                    if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
                 }
                 LEMOP::Unhash2Ptrs(tgts, src) => {
-                    let Some(src_ptr) = map.get(src.name()) else {
+                    let Some(src_ptr) = ptr_map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
                     let Ptr { tag: _, val: PtrVal::Index2(idx)} = src_ptr else {
@@ -307,15 +319,15 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     let Some((a, b)) = store.ptrs2.get_index(*idx) else {
                         return Err(format!("{} isn't bound to a 2-hashed pointer", src.name()))
                     };
-                    if map.insert(tgts[0].name(), *a).is_some() {
+                    if ptr_map.insert(tgts[0].name(), *a).is_some() {
                         return Err(format!("{} already defined", tgts[0].name()));
                     }
-                    if map.insert(tgts[1].name(), *b).is_some() {
+                    if ptr_map.insert(tgts[1].name(), *b).is_some() {
                         return Err(format!("{} already defined", tgts[1].name()));
                     }
                 }
                 LEMOP::Unhash3Ptrs(tgts, src) => {
-                    let Some(src_ptr) = map.get(src.name()) else {
+                    let Some(src_ptr) = ptr_map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
                     let Ptr { tag: _, val: PtrVal::Index3(idx)} = src_ptr else {
@@ -327,18 +339,18 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     let Some((a, b, c)) = store.ptrs3.get_index(*idx) else {
                         return Err(format!("{} isn't bound to a 3-hashed pointer", src.name()))
                     };
-                    if map.insert(tgts[0].name(), *a).is_some() {
+                    if ptr_map.insert(tgts[0].name(), *a).is_some() {
                         return Err(format!("{} already defined", tgts[0].name()));
                     }
-                    if map.insert(tgts[1].name(), *b).is_some() {
+                    if ptr_map.insert(tgts[1].name(), *b).is_some() {
                         return Err(format!("{} already defined", tgts[1].name()));
                     }
-                    if map.insert(tgts[2].name(), *c).is_some() {
+                    if ptr_map.insert(tgts[2].name(), *c).is_some() {
                         return Err(format!("{} already defined", tgts[2].name()));
                     }
                 }
                 LEMOP::Unhash4Ptrs(tgts, src) => {
-                    let Some(src_ptr) = map.get(src.name()) else {
+                    let Some(src_ptr) = ptr_map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
                     let Ptr { tag: _, val: PtrVal::Index4(idx)} = src_ptr else {
@@ -350,41 +362,48 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     let Some((a, b, c, d)) = store.ptrs4.get_index(*idx) else {
                         return Err(format!("{} isn't bound to a 4-hashed pointer", src.name()))
                     };
-                    if map.insert(tgts[0].name(), *a).is_some() {
+                    if ptr_map.insert(tgts[0].name(), *a).is_some() {
                         return Err(format!("{} already defined", tgts[0].name()));
                     }
-                    if map.insert(tgts[1].name(), *b).is_some() {
+                    if ptr_map.insert(tgts[1].name(), *b).is_some() {
                         return Err(format!("{} already defined", tgts[1].name()));
                     }
-                    if map.insert(tgts[2].name(), *c).is_some() {
+                    if ptr_map.insert(tgts[2].name(), *c).is_some() {
                         return Err(format!("{} already defined", tgts[2].name()));
                     }
-                    if map.insert(tgts[3].name(), *d).is_some() {
+                    if ptr_map.insert(tgts[3].name(), *d).is_some() {
                         return Err(format!("{} already defined", tgts[3].name()));
                     }
                 }
                 LEMOP::Hide(tgt, secret, src) => {
-                    let Some(src_ptr) = map.get(src.name()) else {
+                    let Some(src_ptr) = ptr_map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
                     let aqua_ptr = store.hydrate_ptr(src_ptr)?;
                     let (tag_f, val_f) = aqua_ptr.tag_val_fields();
                     let hash = store.poseidon_cache.hash3(&[*secret, tag_f, val_f]);
-                    let (idx, _) =
-                        store
-                            .comms
-                            .insert_full((FWrap::<F>(hash), FWrap::<F>(*secret), *src_ptr));
                     let tgt_ptr = Ptr {
                         tag: Tag::Comm,
-                        val: PtrVal::Comm(idx),
+                        val: PtrVal::Field(hash),
                     };
-                    if map.insert(tgt.name(), tgt_ptr).is_some() {
+                    store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
+                    if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
                 }
-                LEMOP::Open(tgt, hash) => todo!(),
+                LEMOP::Open(tgt_secret, tgt_ptr, hash) => {
+                    let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
+                        return Err(format!("No committed data for hash {}", hash.hex_digits()))
+                    };
+                    if ptr_map.insert(tgt_ptr.name(), *ptr).is_some() {
+                        return Err(format!("{} already defined", tgt_ptr.name()));
+                    }
+                    if var_map.insert(tgt_secret.name(), *secret).is_some() {
+                        return Err(format!("{} already defined", tgt_secret.name()));
+                    }
+                }
                 LEMOP::IfTagEq(ptr, tag, tt, ff) => {
-                    let Some(Ptr {tag: ptr_tag, val: _}) = map.get(ptr.name()) else {
+                    let Some(Ptr {tag: ptr_tag, val: _}) = ptr_map.get(ptr.name()) else {
                         return Err(format!("{} not defined", ptr.name()))
                     };
                     if ptr_tag == tag {
@@ -394,7 +413,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     }
                 }
                 LEMOP::IfTagOr(ptr, tag1, tag2, tt, ff) => {
-                    let Some(Ptr {tag: ptr_tag, val: _}) = map.get(ptr.name()) else {
+                    let Some(Ptr {tag: ptr_tag, val: _}) = ptr_map.get(ptr.name()) else {
                         return Err(format!("{} not defined", ptr.name()))
                     };
                     if ptr_tag == tag1 || ptr_tag == tag2 {
@@ -404,7 +423,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     }
                 }
                 LEMOP::MatchTag(ptr, cases, def) => {
-                    let Some(Ptr {tag: ptr_tag, val: _}) = map.get(ptr.name()) else {
+                    let Some(Ptr {tag: ptr_tag, val: _}) = ptr_map.get(ptr.name()) else {
                         return Err(format!("{} not defined", ptr.name()))
                     };
                     match cases.get(ptr_tag) {
@@ -415,16 +434,16 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
             }
         }
-        let Some(out1) = map.get(self.output[0]) else {
+        let Some(out1) = ptr_map.get(self.output[0]) else {
             return Err(format!("Output {} not defined", self.output[0]))
         };
-        let Some(out2) = map.get(self.output[1]) else {
+        let Some(out2) = ptr_map.get(self.output[1]) else {
             return Err(format!("Output {} not defined", self.output[1]))
         };
-        let Some(out3) = map.get(self.output[2]) else {
+        let Some(out3) = ptr_map.get(self.output[2]) else {
             return Err(format!("Output {} not defined", self.output[2]))
         };
-        Ok(([*out1, *out2, *out3], map))
+        Ok(([*out1, *out2, *out3], ptr_map, var_map))
     }
 
     pub fn eval(self, expr: Ptr<F>) -> Result<(Vec<StepData<'a, F>>, Store<F>), String> {
@@ -445,11 +464,12 @@ impl<'a, F: LurkField> LEM<'a, F> {
         };
         loop {
             let input = [expr, env, cont];
-            let (output, values) = self.run(input, &mut store)?;
+            let (output, ptrs, vals) = self.run(input, &mut store)?;
             steps_data.push(StepData {
                 input,
                 output,
-                values,
+                ptrs,
+                vals,
             });
             if output[2] == terminal {
                 break;

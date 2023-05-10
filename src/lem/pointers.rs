@@ -7,11 +7,10 @@ pub enum PtrVal<F: LurkField> {
     Null,
     Char(char),
     U64(u64),
-    Num(F),
+    Field(F),
     Index2(usize),
     Index3(usize),
     Index4(usize),
-    Comm(usize),
 }
 
 #[derive(Clone, Copy, PartialEq, std::cmp::Eq)]
@@ -26,11 +25,10 @@ impl<F: LurkField> std::hash::Hash for Ptr<F> {
             PtrVal::Null => self.tag.hash(state),
             PtrVal::Char(x) => (0, self.tag, x).hash(state),
             PtrVal::U64(x) => (1, self.tag, x).hash(state),
-            PtrVal::Num(x) => (2, self.tag, x.to_repr().as_ref()).hash(state),
+            PtrVal::Field(x) => (2, self.tag, x.to_repr().as_ref()).hash(state),
             PtrVal::Index2(x) => (3, self.tag, x).hash(state),
             PtrVal::Index3(x) => (4, self.tag, x).hash(state),
             PtrVal::Index4(x) => (5, self.tag, x).hash(state),
-            PtrVal::Comm(x) => (6, self.tag, x).hash(state),
         }
     }
 }
