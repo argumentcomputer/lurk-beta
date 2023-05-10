@@ -356,7 +356,7 @@ impl<A: Encodable + Sized, B: Encodable + Sized> Encodable for (A, B) {
 //
 //impl<'a> ser::Serializer for &'a mut Serializer {
 //  type Ok = ();
-//  
+//
 //  // Which error type?
 //  type Error = Error;
 //

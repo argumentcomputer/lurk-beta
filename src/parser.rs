@@ -38,9 +38,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn read_maybe_meta(&mut self, input: &str) -> Result<(Ptr<F>, bool), Error> {
         match syntax::parse_maybe_meta().parse(Span::new(input)) {
-            Ok((_i, (x, meta))) => {
-                Ok((self.intern_syntax(x), meta))
-            },
+            Ok((_i, (x, meta))) => Ok((self.intern_syntax(x), meta)),
             Err(e) => Err(Error::Syntax(format!("{}", e))),
         }
     }

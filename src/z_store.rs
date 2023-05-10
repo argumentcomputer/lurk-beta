@@ -130,8 +130,8 @@ impl<F: LurkField> ZStore<F> {
     }
 
     pub fn nil_z_ptr(&mut self, poseidon_cache: &PoseidonCache<F>) -> ZExprPtr<F> {
-        self.put_symbol(Symbol::sym(vec!["lurk", "nil"]), poseidon_cache)
-            .0
+        let z_ptr = self.put_symbol(Symbol::nil(), poseidon_cache).0;
+        ZPtr(ExprTag::Nil, z_ptr.1)
     }
 
     pub fn put_string(

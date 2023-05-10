@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;

@@ -122,7 +122,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         store: &mut Store<F>,
     ) {
         let name = name.into();
-      // TODO: Check if intern_symbol should take a reference
+        // TODO: Check if intern_symbol should take a reference
         let ptr = store.intern_symbol(name.clone());
         let scalar_ptr = store.hash_expr(&ptr).unwrap();
 

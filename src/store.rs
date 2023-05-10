@@ -443,7 +443,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn intern_symbol(&mut self, sym: Symbol) -> Ptr<F> {
         let ptr = self.intern_symbol_path(sym.path());
-        let ptr = if sym.path() == vec!["lurk".to_string(), "nil".to_string()] {
+        let ptr = if sym == Symbol::nil() {
             Ptr {
                 tag: ExprTag::Nil,
                 raw: ptr.raw,

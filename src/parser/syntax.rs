@@ -253,8 +253,7 @@ pub fn parse_maybe_meta<F: LurkField>(
         if meta.is_some() {
             let (end, syntax) = parse_syntax()(next)?;
             Ok((end, (syntax, true)))
-        }
-        else {
+        } else {
             let (end, syntax) = parse_syntax()(from)?;
             Ok((end, (syntax, false)))
         }
