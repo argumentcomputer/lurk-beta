@@ -116,7 +116,6 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    // TODO: this function can be even faster if `AquaPtr` implements `Copy`
     pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<AquaPtr<F>, &str> {
         match (ptr.tag, ptr.val) {
             (Tag::Char, PtrVal::Char(x)) => Ok(AquaPtr {

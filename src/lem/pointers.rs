@@ -61,27 +61,3 @@ pub enum AquaPtrKind<F: LurkField> {
     Tree4(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>, AquaPtr<F>),
     Comm(F, AquaPtr<F>), // secret, src
 }
-
-// pub enum AquaPtr<F: LurkField> {
-//     Leaf(Tag, F),
-//     Tree2(Tag, F, Box<(AquaPtr<F>, AquaPtr<F>)>),
-//     Tree3(Tag, F, Box<(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>)>),
-//     Tree4(
-//         Tag,
-//         F,
-//         Box<(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>, AquaPtr<F>)>,
-//     ),
-//     Comm(F, F, Box<AquaPtr<F>>), // hash, secret, src
-// }
-
-// impl<F: LurkField> AquaPtr<F> {
-//     pub fn tag_val_fields(&self) -> (F, F) {
-//         match self {
-//             Self::Leaf(tag, f) => (tag.field(), *f),
-//             Self::Comm(f, ..) => (Tag::Comm.field(), *f),
-//             Self::Tree2(tag, f, _) => (tag.field(), *f),
-//             Self::Tree3(tag, f, ..) => (tag.field(), *f),
-//             Self::Tree4(tag, f, ..) => (tag.field(), *f),
-//         }
-//     }
-// }
