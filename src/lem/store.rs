@@ -1,16 +1,17 @@
 use std::collections::HashMap;
 
+use dashmap::DashMap;
 use indexmap::IndexSet;
 use itertools::Itertools;
 
 use crate::{
     field::{FWrap, LurkField},
     hash::PoseidonCache,
-    lem::tag::Tag, cache_map::CacheMap,
+    lem::tag::Tag,
 };
 
 use super::{
-    pointers::{AquaPtr, Ptr, PtrVal, AquaPtrKind},
+    pointers::{AquaPtr, AquaPtrKind, Ptr, PtrVal},
     symbol::Symbol,
 };
 
@@ -25,7 +26,8 @@ pub struct Store<F: LurkField> {
     vec_char_cache: HashMap<Vec<char>, Ptr<F>>,
     vec_str_cache: HashMap<Vec<String>, Ptr<F>>,
 
-    aqua_store: CacheMap<AquaPtr<F>, AquaPtrKind<F>>,
+    aqua_store: DashMap<AquaPtr<F>, AquaPtrKind<F>, ahash::RandomState>,
+    aqua_cache: DashMap<Ptr<F>, AquaPtr<F>, ahash::RandomState>,
 
     pub poseidon_cache: PoseidonCache<F>,
 }
@@ -117,72 +119,115 @@ impl<F: LurkField> Store<F> {
     // TODO: this function can be even faster if `AquaPtr` implements `Copy`
     pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<AquaPtr<F>, &str> {
         match (ptr.tag, ptr.val) {
-            (Tag::Char, PtrVal::Char(x)) => Ok(AquaPtr { tag: Tag::Char, val: F::from_char(x) }),
-            (Tag::U64, PtrVal::U64(x)) => Ok(AquaPtr::Leaf(Tag::Char, F::from_u64(x))),
-            (Tag::Num, PtrVal::Field(x)) => Ok(AquaPtr::Leaf(Tag::Num, x)),
-            (tag, PtrVal::Null) => Ok(AquaPtr::Leaf(tag, F::zero())),
-            (tag, PtrVal::Index2(idx)) => {
-                // TODO: how to cache this?
-                let Some((a, b)) = self.ptrs2.get_index(idx) else {
-                    return Err("Index not found on ptrs2")
-                };
-                let a = self.hydrate_ptr(a)?;
-                let b = self.hydrate_ptr(b)?;
-                let (a_tag_f, a_val_f) = a.tag_val_fields();
-                let (b_tag_f, b_val_f) = b.tag_val_fields();
-                Ok(AquaPtr::Tree2(
-                    tag,
-                    self.poseidon_cache
-                        .hash4(&[a_tag_f, a_val_f, b_tag_f, b_val_f]),
-                    Box::new((a, b)),
-                ))
-            }
-            (tag, PtrVal::Index3(idx)) => {
-                // TODO: how to cache this?
-                let Some((a, b, c)) = self.ptrs3.get_index(idx) else {
-                    return Err("Index not found on ptrs3")
-                };
-                let a = self.hydrate_ptr(a)?;
-                let b = self.hydrate_ptr(b)?;
-                let c = self.hydrate_ptr(c)?;
-                let (a_tag_f, a_val_f) = a.tag_val_fields();
-                let (b_tag_f, b_val_f) = b.tag_val_fields();
-                let (c_tag_f, c_val_f) = c.tag_val_fields();
-                Ok(AquaPtr::Tree3(
-                    tag,
-                    self.poseidon_cache
-                        .hash6(&[a_tag_f, a_val_f, b_tag_f, b_val_f, c_tag_f, c_val_f]),
-                    Box::new((a, b, c)),
-                ))
-            }
-            (tag, PtrVal::Index4(idx)) => {
-                // TODO: how to cache this?
-                let Some((a, b, c, d)) = self.ptrs4.get_index(idx) else {
-                    return Err("Index not found on ptrs4")
-                };
-                let a = self.hydrate_ptr(a)?;
-                let b = self.hydrate_ptr(b)?;
-                let c = self.hydrate_ptr(c)?;
-                let d = self.hydrate_ptr(d)?;
-                let (a_tag_f, a_val_f) = a.tag_val_fields();
-                let (b_tag_f, b_val_f) = b.tag_val_fields();
-                let (c_tag_f, c_val_f) = c.tag_val_fields();
-                let (d_tag_f, d_val_f) = d.tag_val_fields();
-                Ok(AquaPtr::Tree4(
-                    tag,
-                    self.poseidon_cache.hash8(&[
-                        a_tag_f, a_val_f, b_tag_f, b_val_f, c_tag_f, c_val_f, d_tag_f, d_val_f,
-                    ]),
-                    Box::new((a, b, c, d)),
-                ))
-            }
-            (Tag::Comm, PtrVal::Field(hash)) => {
-                let Some((secret, ptr)) = self.comms.get(&FWrap(hash)) else {
-                    return Err("Hash not found")
-                };
-                let ptr = self.hydrate_ptr(ptr)?;
-                Ok(AquaPtr::Comm(hash, *secret, Box::new(ptr)))
-            }
+            (Tag::Char, PtrVal::Char(x)) => Ok(AquaPtr {
+                tag: Tag::Char,
+                val: F::from_char(x),
+            }),
+            (Tag::U64, PtrVal::U64(x)) => Ok(AquaPtr {
+                tag: Tag::U64,
+                val: F::from_u64(x),
+            }),
+            (Tag::Num, PtrVal::Field(x)) => Ok(AquaPtr {
+                tag: Tag::Num,
+                val: x,
+            }),
+            (tag, PtrVal::Null) => Ok(AquaPtr {
+                tag,
+                val: F::zero(),
+            }),
+            (tag, PtrVal::Index2(idx)) => match self.aqua_cache.get(&ptr) {
+                Some(aqua_ptr) => Ok(*aqua_ptr),
+                None => {
+                    let Some((a, b)) = self.ptrs2.get_index(idx) else {
+                            return Err("Index not found on ptrs2")
+                        };
+                    let a = self.hydrate_ptr(a)?;
+                    let b = self.hydrate_ptr(b)?;
+                    let aqua_ptr = AquaPtr {
+                        tag,
+                        val: self.poseidon_cache.hash4(&[
+                            a.tag.field(),
+                            a.val,
+                            b.tag.field(),
+                            b.val,
+                        ]),
+                    };
+                    self.aqua_store.insert(aqua_ptr, AquaPtrKind::Tree2(a, b));
+                    self.aqua_cache.insert(*ptr, aqua_ptr);
+                    Ok(aqua_ptr)
+                }
+            },
+            (tag, PtrVal::Index3(idx)) => match self.aqua_cache.get(&ptr) {
+                Some(aqua_ptr) => Ok(*aqua_ptr),
+                None => {
+                    let Some((a, b, c)) = self.ptrs3.get_index(idx) else {
+                            return Err("Index not found on ptrs3")
+                        };
+                    let a = self.hydrate_ptr(a)?;
+                    let b = self.hydrate_ptr(b)?;
+                    let c = self.hydrate_ptr(c)?;
+                    let aqua_ptr = AquaPtr {
+                        tag,
+                        val: self.poseidon_cache.hash6(&[
+                            a.tag.field(),
+                            a.val,
+                            b.tag.field(),
+                            b.val,
+                            c.tag.field(),
+                            c.val,
+                        ]),
+                    };
+                    self.aqua_store
+                        .insert(aqua_ptr, AquaPtrKind::Tree3(a, b, c));
+                    self.aqua_cache.insert(*ptr, aqua_ptr);
+                    Ok(aqua_ptr)
+                }
+            },
+            (tag, PtrVal::Index4(idx)) => match self.aqua_cache.get(&ptr) {
+                Some(aqua_ptr) => Ok(*aqua_ptr),
+                None => {
+                    let Some((a, b, c, d)) = self.ptrs4.get_index(idx) else {
+                            return Err("Index not found on ptrs4")
+                        };
+                    let a = self.hydrate_ptr(a)?;
+                    let b = self.hydrate_ptr(b)?;
+                    let c = self.hydrate_ptr(c)?;
+                    let d = self.hydrate_ptr(d)?;
+                    let aqua_ptr = AquaPtr {
+                        tag,
+                        val: self.poseidon_cache.hash8(&[
+                            a.tag.field(),
+                            a.val,
+                            b.tag.field(),
+                            b.val,
+                            c.tag.field(),
+                            c.val,
+                            d.tag.field(),
+                            d.val,
+                        ]),
+                    };
+                    self.aqua_store
+                        .insert(aqua_ptr, AquaPtrKind::Tree4(a, b, c, d));
+                    self.aqua_cache.insert(*ptr, aqua_ptr);
+                    Ok(aqua_ptr)
+                }
+            },
+            (Tag::Comm, PtrVal::Field(hash)) => match self.aqua_cache.get(&ptr) {
+                Some(aqua_ptr) => Ok(*aqua_ptr),
+                None => {
+                    let Some((secret, ptr)) = self.comms.get(&FWrap(hash)) else {
+                            return Err("Hash not found")
+                        };
+                    let aqua_ptr = AquaPtr {
+                        tag: Tag::Comm,
+                        val: hash,
+                    };
+                    self.aqua_store
+                        .insert(aqua_ptr, AquaPtrKind::Comm(*secret, self.hydrate_ptr(ptr)?));
+                    self.aqua_cache.insert(*ptr, aqua_ptr);
+                    Ok(aqua_ptr)
+                }
+            },
             _ => Err("Invalid tag/val combination"),
         }
     }

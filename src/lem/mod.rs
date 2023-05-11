@@ -380,7 +380,10 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         return Err(format!("{} not defined", src.name()))
                     };
                     let aqua_ptr = store.hydrate_ptr(src_ptr)?;
-                    let hash = store.poseidon_cache.hash3(&[*secret, aqua_ptr.tag.field(), aqua_ptr.val]);
+                    let hash =
+                        store
+                            .poseidon_cache
+                            .hash3(&[*secret, aqua_ptr.tag.field(), aqua_ptr.val]);
                     let tgt_ptr = Ptr {
                         tag: Tag::Comm,
                         val: PtrVal::Field(hash),

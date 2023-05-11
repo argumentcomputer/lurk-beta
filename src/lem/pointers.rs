@@ -42,18 +42,24 @@ impl<F: LurkField> Ptr<F> {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct AquaPtr<F: LurkField> {
     pub tag: Tag,
     pub val: F,
 }
 
+impl<F: LurkField> std::hash::Hash for AquaPtr<F> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.tag.hash(state);
+        self.val.to_repr().as_ref().hash(state);
+    }
+}
+
 pub enum AquaPtrKind<F: LurkField> {
-    Leaf,
     Tree2(AquaPtr<F>, AquaPtr<F>),
     Tree3(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>),
     Tree4(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>, AquaPtr<F>),
-    Comm(F, F, AquaPtr<F>), // hash, secret, src
+    Comm(F, AquaPtr<F>), // secret, src
 }
 
 // pub enum AquaPtr<F: LurkField> {
