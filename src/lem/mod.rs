@@ -4,7 +4,7 @@ mod store;
 mod symbol;
 mod tag;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use crate::field::{FWrap, LurkField};
 
@@ -13,11 +13,11 @@ use self::{
     store::Store,
     tag::Tag,
 };
-use bellperson::ConstraintSystem;
-use crate::circuit::gadgets::data::GlobalAllocations;
-use bellperson::SynthesisError;
-use crate::circuit::gadgets::case::CaseClause;
 use crate::circuit::gadgets::case::multi_case;
+use crate::circuit::gadgets::case::CaseClause;
+use crate::circuit::gadgets::data::GlobalAllocations;
+use bellperson::ConstraintSystem;
+use bellperson::SynthesisError;
 
 /// ## Lurk Evaluation Model (LEM)
 ///
@@ -86,8 +86,9 @@ use crate::circuit::gadgets::case::multi_case;
 /// interpretation time.
 pub struct LEM<'a, F: LurkField> {
     input: [&'a str; 3],
-    output: [&'a str; 3],
     lem_op: LEMOP<'a, F>,
+    to_copy: HashMap<&'a str, &'a str>,
+    output: [&'a str; 3],
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -124,7 +125,7 @@ pub enum LEMOP<'a, F: LurkField> {
     Open(MetaVar<'a>, MetaPtr<'a>, F), // secret, tgt, src hash
     IfTagEq(MetaPtr<'a>, Tag, Box<LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
     IfTagOr(MetaPtr<'a>, Tag, Tag, Box<LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
-    MatchTag(MetaPtr<'a>, BTreeMap<Tag, LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
+    MatchTag(MetaPtr<'a>, HashMap<Tag, LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
     Seq(Vec<LEMOP<'a, F>>),
 }
 
@@ -191,16 +192,13 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
     //     )
     // }
 
+    #[inline]
     pub fn mk_match_tag(
         i: MetaPtr<'a>,
         cases: Vec<(Tag, LEMOP<'a, F>)>,
         def: LEMOP<'a, F>,
     ) -> LEMOP<'a, F> {
-        let mut match_map = BTreeMap::default();
-        for (f, op) in cases.iter() {
-            match_map.insert(*f, op.clone());
-        }
-        LEMOP::MatchTag(i, match_map, Box::new(def))
+        LEMOP::MatchTag(i, HashMap::from_iter(cases), Box::new(def))
     }
 }
 
@@ -288,7 +286,6 @@ impl<'a, F: LurkField> LEM<'a, F> {
 
         Ok(())
     }*/
-
 
     pub fn run(
         &self,
@@ -513,6 +510,13 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
             }
+        }
+        for (copy_from, copy_into) in self.to_copy.iter() {
+            if let Some(src_ptr) = ptr_map.get(copy_from) {
+                if ptr_map.insert(copy_into, *src_ptr).is_some() {
+                    return Err(format!("{} already defined", copy_into));
+                }
+            };
         }
         let Some(out1) = ptr_map.get(self.output[0]) else {
             return Err(format!("Output {} not defined", self.output[0]))

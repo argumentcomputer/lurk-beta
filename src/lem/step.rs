@@ -1,42 +1,55 @@
+use std::collections::HashMap;
+
 use crate::field::LurkField;
 
 use super::{tag::Tag, MetaPtr, LEM, LEMOP};
 
-pub fn error<F: LurkField>() -> LEMOP<'static, F> {
-    LEMOP::Seq(vec![
-        LEMOP::Copy(MetaPtr("expr_out"), MetaPtr("expr_in")),
-        LEMOP::Copy(MetaPtr("env_out"), MetaPtr("env_in")),
-        LEMOP::MkNull(MetaPtr("cont_out"), Tag::Error),
-    ])
-}
-
-pub fn terminate<F: LurkField>() -> LEMOP<'static, F> {
-    LEMOP::Seq(vec![
-        LEMOP::Copy(MetaPtr("expr_out"), MetaPtr("expr_in")),
-        LEMOP::Copy(MetaPtr("env_out"), MetaPtr("env_in")),
-        LEMOP::MkNull(MetaPtr("cont_out"), Tag::Terminal),
-    ])
-}
-
 pub fn step<F: LurkField>() -> LEM<'static, F> {
     let input = ["expr_in", "env_in", "cont_in"];
-    let output = ["expr_out", "env_out", "cont_out"];
     let lem_op = LEMOP::mk_match_tag(
         MetaPtr("expr_in"),
         vec![(
             Tag::Num,
             LEMOP::mk_match_tag(
                 MetaPtr("cont_in"),
-                vec![(Tag::Outermost, terminate())],
-                error(),
+                vec![(
+                    Tag::Outermost,
+                    LEMOP::Seq(vec![
+                        LEMOP::Copy(MetaPtr("expr_out_ret"), MetaPtr("expr_in")),
+                        LEMOP::Copy(MetaPtr("env_out_ret"), MetaPtr("env_in")),
+                        LEMOP::MkNull(MetaPtr("cont_out_ret"), Tag::Terminal),
+                    ]),
+                )],
+                LEMOP::Seq(vec![
+                    LEMOP::Copy(MetaPtr("expr_out_error_inner"), MetaPtr("expr_in")),
+                    LEMOP::Copy(MetaPtr("env_out_error_inner"), MetaPtr("env_in")),
+                    LEMOP::MkNull(MetaPtr("cont_out_error_inner"), Tag::Error),
+                ]),
             ),
         )],
-        error(),
+        LEMOP::Seq(vec![
+            LEMOP::Copy(MetaPtr("expr_out_error_outer"), MetaPtr("expr_in")),
+            LEMOP::Copy(MetaPtr("env_out_error_outer"), MetaPtr("env_in")),
+            LEMOP::MkNull(MetaPtr("cont_out_error_outer"), Tag::Error),
+        ]),
     );
+    let to_copy = HashMap::from_iter(vec![
+        ("expr_out_ret", "expr_out"),
+        ("expr_out_error_inner", "expr_out"),
+        ("expr_out_error_outer", "expr_out"),
+        ("env_out_ret", "env_out"),
+        ("env_out_error_inner", "env_out"),
+        ("env_out_error_outer", "env_out"),
+        ("cont_out_ret", "cont_out"),
+        ("cont_out_error_inner", "cont_out"),
+        ("cont_out_error_outer", "cont_out"),
+    ]);
+    let output = ["expr_out", "env_out", "cont_out"];
     LEM {
         input,
-        output,
         lem_op,
+        to_copy,
+        output,
     }
 }
 
