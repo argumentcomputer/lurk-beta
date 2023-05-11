@@ -13,6 +13,11 @@ use self::{
     store::Store,
     tag::Tag,
 };
+use bellperson::ConstraintSystem;
+use crate::circuit::gadgets::data::GlobalAllocations;
+use bellperson::SynthesisError;
+use crate::circuit::gadgets::case::CaseClause;
+use crate::circuit::gadgets::case::multi_case;
 
 /// ## Lurk Evaluation Model (LEM)
 ///
@@ -211,6 +216,79 @@ impl<'a, F: LurkField> LEM<'a, F> {
     }
 
     // pub fn compile should generate the circuit
+    /*pub fn compile(
+        &self,
+        cs: ConstraintSystem<F>,
+        g: GlobalAllocations<F>,
+    ) -> Result<(), SynthesisError> {
+
+        //let mut cs = TestConstraintSystem::<F>::new();
+        //let s = &mut crate::store::Store::<F>::default();
+        //let g = GlobalAllocations::new(&mut cs, s).unwrap();
+
+        let mut stack = vec![&self.lem_op];
+        while let Some(op) = stack.pop() {
+            match op {
+                LEMOP::MkNull(tgt, tag) => {
+                    // assuming no err after calling run()
+                    // tgt.name =  Allocate (tag, null)
+                },
+                LEMOP::Copy(tgt, src) => {
+                    // assuming no err after calling run()
+                    // alloc equal
+                },
+                LEMOP::MatchTag(ptr, cases, def) => {
+                    let multiclauses: Vec<Vec<CaseClause<'_, F>>> = Vec::new();
+                    for var_name in cases.return_var_names {
+                        let clauses: Vec<CaseClause<'_, F>> = Vec::new();
+                        multicases.push(clauses);
+                    }
+
+                    // Need to find a way to mimic the following:
+                    //let Some(Ptr {tag: ptr_tag, val: _}) = map.get(ptr.name()) else {
+                    //    return Err(format!("{} not defined", ptr.name()))
+                    //};
+                    let ptr_tag = cs.get(ptr.name()); //TODO: we need to construct the path to the tag, instead of this
+
+                    for (key, c_op) in cases.iter() {
+                        // Recursively construct the circuit for c_op
+                        c_op.compile(cs, g);
+
+                        // create clause based on (non-existing yet) return value of c
+                        // percorrer variaveis
+                        // buscar no circuito cada variavel para obter o `val`
+                        //
+                        // existe expr_in no circuito
+                        // copia para expr_out
+                        for (i, var_name) in cases.return_var_names.iter().enumerate() {
+
+                            multiclauses[i].push(CaseClause::new(key, val));
+                        }
+
+                    }
+                    // Recursively construct circuit for def
+                    //
+                    // create default
+                    let default = [
+                        // take return from def,
+                        def.return_value
+                    ];
+                    //
+                    // create multicase
+                    multi_case(
+                        &mut cs.namespace(|| "multicase"),
+                        &ptr_tag,
+                        &[&clauses[..]],
+                        &default,
+                        &g,
+                    )
+                }
+            }
+        };
+
+        Ok(())
+    }*/
+
 
     pub fn run(
         &self,
