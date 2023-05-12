@@ -64,8 +64,8 @@ pub fn parse_symbol_inner<F: LurkField>(
         let sym_mark = symbol::SYM_MARKER;
         let sym_sep = symbol::SYM_SEPARATOR;
         let (i, (is_root, mark)) = alt((
-            value((true, key_mark), tag("#:")),
-            value((true, sym_mark), tag("#.")),
+            value((true, key_mark), tag("~:()")),
+            value((true, sym_mark), tag("~()")),
             // .foo
             value((false, sym_mark), char(sym_mark)),
             // :foo
@@ -178,6 +178,23 @@ pub fn parse_string<F: LurkField>(
     }
 }
 
+// Old syntax for chars
+pub fn parse_old_char<F: LurkField>(
+) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
+    |from: Span<'_>| {
+        let (i, _) = tag("#\\")(from)?;
+        let (upto, s) = string::parse_string_inner1('\'', true, "()'")(i)?;
+        let mut chars: Vec<char> = s.chars().collect();
+        if chars.len() == 1 {
+            let c = chars.pop().unwrap();
+            let pos = Pos::from_upto(from, upto);
+            Ok((upto, Syntax::Char(pos, c)))
+        } else {
+            ParseError::throw(from, ParseErrorKind::InvalidChar(s))
+        }
+    }
+}
+
 pub fn parse_char<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
@@ -236,6 +253,7 @@ pub fn parse_syntax<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
         alt((
+            parse_old_char(),
             context("symbol", parse_symbol()),
             parse_uint(),
             parse_num(),
