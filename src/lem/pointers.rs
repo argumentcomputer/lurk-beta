@@ -4,9 +4,6 @@ use super::tag::Tag;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PtrVal<F: LurkField> {
-    Null,
-    Char(char),
-    U64(u64),
     Field(F),
     Index2(usize),
     Index3(usize),
@@ -22,22 +19,35 @@ pub struct Ptr<F: LurkField> {
 impl<F: LurkField> std::hash::Hash for Ptr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self.val {
-            PtrVal::Null => self.tag.hash(state),
-            PtrVal::Char(x) => (0, self.tag, x).hash(state),
-            PtrVal::U64(x) => (1, self.tag, x).hash(state),
-            PtrVal::Field(x) => (2, self.tag, x.to_repr().as_ref()).hash(state),
-            PtrVal::Index2(x) => (3, self.tag, x).hash(state),
-            PtrVal::Index3(x) => (4, self.tag, x).hash(state),
-            PtrVal::Index4(x) => (5, self.tag, x).hash(state),
+            PtrVal::Field(x) => (0, self.tag, x.to_repr().as_ref()).hash(state),
+            PtrVal::Index2(x) => (1, self.tag, x).hash(state),
+            PtrVal::Index3(x) => (2, self.tag, x).hash(state),
+            PtrVal::Index4(x) => (3, self.tag, x).hash(state),
         }
     }
 }
 
 impl<F: LurkField> Ptr<F> {
-    pub fn key_ptr_if_sym_ptr(self) -> Ptr<F> {
+    pub fn key_ptr_if_sym_ptr(self) -> Self {
         match self {
             Ptr { tag: Tag::Sym, val } => Ptr { tag: Tag::Key, val },
             _ => self,
+        }
+    }
+
+    #[inline]
+    pub fn null(tag: Tag) -> Self {
+        Ptr {
+            tag,
+            val: PtrVal::Field(F::zero()),
+        }
+    }
+
+    #[inline]
+    pub fn reserved(val: F) -> Self {
+        Ptr {
+            tag: Tag::Reserved,
+            val: PtrVal::Field(val),
         }
     }
 }

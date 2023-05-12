@@ -26,8 +26,8 @@ pub struct Store<F: LurkField> {
     vec_char_cache: HashMap<Vec<char>, Ptr<F>>,
     vec_str_cache: HashMap<Vec<String>, Ptr<F>>,
 
-    aqua_store: DashMap<AquaPtr<F>, AquaPtrKind<F>, ahash::RandomState>,
     aqua_cache: DashMap<Ptr<F>, AquaPtr<F>, ahash::RandomState>,
+    aqua_dag: DashMap<AquaPtr<F>, AquaPtrKind<F>, ahash::RandomState>,
 
     pub poseidon_cache: PoseidonCache<F>,
 }
@@ -40,10 +40,7 @@ impl<F: LurkField> Store<F> {
         loop {
             // try a cache hit until no char is left while accumulating the heads
             if chars.is_empty() {
-                ptr = Ptr {
-                    tag: Tag::Str,
-                    val: PtrVal::Null,
-                };
+                ptr = Ptr::null(Tag::Str);
                 break;
             }
             match self.vec_char_cache.get(&chars) {
@@ -59,7 +56,7 @@ impl<F: LurkField> Store<F> {
             let (idx, _) = self.ptrs2.insert_full((
                 Ptr {
                     tag: Tag::Char,
-                    val: PtrVal::Null,
+                    val: PtrVal::Field(F::from_char(head)),
                 },
                 ptr,
             ));
@@ -81,10 +78,7 @@ impl<F: LurkField> Store<F> {
         loop {
             // try a cache hit until no char is left while accumulating the heads
             if components.is_empty() {
-                ptr = Ptr {
-                    tag: Tag::Sym,
-                    val: PtrVal::Null,
-                };
+                ptr = Ptr::null(Tag::Sym);
                 break;
             }
             match self.vec_str_cache.get(&components) {
@@ -118,22 +112,23 @@ impl<F: LurkField> Store<F> {
 
     pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<AquaPtr<F>, &str> {
         match (ptr.tag, ptr.val) {
-            (Tag::Char, PtrVal::Char(x)) => Ok(AquaPtr {
-                tag: Tag::Char,
-                val: F::from_char(x),
-            }),
-            (Tag::U64, PtrVal::U64(x)) => Ok(AquaPtr {
-                tag: Tag::U64,
-                val: F::from_u64(x),
-            }),
-            (Tag::Num, PtrVal::Field(x)) => Ok(AquaPtr {
-                tag: Tag::Num,
-                val: x,
-            }),
-            (tag, PtrVal::Null) => Ok(AquaPtr {
-                tag,
-                val: F::zero(),
-            }),
+            (Tag::Comm, PtrVal::Field(hash)) => match self.aqua_cache.get(&ptr) {
+                Some(aqua_ptr) => Ok(*aqua_ptr),
+                None => {
+                    let Some((secret, ptr)) = self.comms.get(&FWrap(hash)) else {
+                            return Err("Hash not found")
+                        };
+                    let aqua_ptr = AquaPtr {
+                        tag: Tag::Comm,
+                        val: hash,
+                    };
+                    self.aqua_dag
+                        .insert(aqua_ptr, AquaPtrKind::Comm(*secret, self.hydrate_ptr(ptr)?));
+                    self.aqua_cache.insert(*ptr, aqua_ptr);
+                    Ok(aqua_ptr)
+                }
+            },
+            (tag, PtrVal::Field(x)) => Ok(AquaPtr { tag, val: x }),
             (tag, PtrVal::Index2(idx)) => match self.aqua_cache.get(&ptr) {
                 Some(aqua_ptr) => Ok(*aqua_ptr),
                 None => {
@@ -151,7 +146,7 @@ impl<F: LurkField> Store<F> {
                             b.val,
                         ]),
                     };
-                    self.aqua_store.insert(aqua_ptr, AquaPtrKind::Tree2(a, b));
+                    self.aqua_dag.insert(aqua_ptr, AquaPtrKind::Tree2(a, b));
                     self.aqua_cache.insert(*ptr, aqua_ptr);
                     Ok(aqua_ptr)
                 }
@@ -176,8 +171,7 @@ impl<F: LurkField> Store<F> {
                             c.val,
                         ]),
                     };
-                    self.aqua_store
-                        .insert(aqua_ptr, AquaPtrKind::Tree3(a, b, c));
+                    self.aqua_dag.insert(aqua_ptr, AquaPtrKind::Tree3(a, b, c));
                     self.aqua_cache.insert(*ptr, aqua_ptr);
                     Ok(aqua_ptr)
                 }
@@ -205,29 +199,12 @@ impl<F: LurkField> Store<F> {
                             d.val,
                         ]),
                     };
-                    self.aqua_store
+                    self.aqua_dag
                         .insert(aqua_ptr, AquaPtrKind::Tree4(a, b, c, d));
                     self.aqua_cache.insert(*ptr, aqua_ptr);
                     Ok(aqua_ptr)
                 }
             },
-            (Tag::Comm, PtrVal::Field(hash)) => match self.aqua_cache.get(&ptr) {
-                Some(aqua_ptr) => Ok(*aqua_ptr),
-                None => {
-                    let Some((secret, ptr)) = self.comms.get(&FWrap(hash)) else {
-                            return Err("Hash not found")
-                        };
-                    let aqua_ptr = AquaPtr {
-                        tag: Tag::Comm,
-                        val: hash,
-                    };
-                    self.aqua_store
-                        .insert(aqua_ptr, AquaPtrKind::Comm(*secret, self.hydrate_ptr(ptr)?));
-                    self.aqua_cache.insert(*ptr, aqua_ptr);
-                    Ok(aqua_ptr)
-                }
-            },
-            _ => Err("Invalid tag/val combination"),
         }
     }
 }

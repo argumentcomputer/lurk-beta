@@ -126,6 +126,11 @@ pub enum LEMOP<'a, F: LurkField> {
     IfTagEq(MetaPtr<'a>, Tag, Box<LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
     IfTagOr(MetaPtr<'a>, Tag, Tag, Box<LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
     MatchTag(MetaPtr<'a>, HashMap<Tag, LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
+    MatchFieldVal(
+        MetaPtr<'a>,
+        HashMap<FWrap<F>, LEMOP<'a, F>>,
+        Box<LEMOP<'a, F>>,
+    ),
     Seq(Vec<LEMOP<'a, F>>),
 }
 
@@ -133,7 +138,7 @@ pub struct StepData<'a, F: LurkField> {
     input: [Ptr<F>; 3],
     output: [Ptr<F>; 3],
     ptrs: HashMap<&'a str, Ptr<F>>,
-    vals: HashMap<&'a str, F>,
+    vars: HashMap<&'a str, F>,
 }
 
 impl<'a, F: LurkField> LEMOP<'a, F> {
@@ -166,7 +171,7 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
         LEMOP::Hash2Ptrs(MetaPtr(o), Tag::Cons, i)
     }
 
-    // pub fn mk_strcons(o: &'a str, i: [MetaPtr<'a>; 2]) -> LEMOP<'a> {
+    // pub fn mk_strcons(o: &'a str, i: [MetaPtr<'a>; 2]) -> LEMOP<'a, F> {
     //     Self::mk_if_tag_eq(
     //         i[0],
     //         Tag::Char,
@@ -180,7 +185,7 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
     //     )
     // }
 
-    // pub fn mk_fun(o: &'a str, i: [MetaPtr<'a>; 3]) -> LEMOP<'a> {
+    // pub fn mk_fun(o: &'a str, i: [MetaPtr<'a>; 3]) -> LEMOP<'a, F> {
     //     Self::assert_list(
     //         i[0],
     //         LEMOP::Err("The arguments must be a list"),
@@ -306,10 +311,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
         while let Some(op) = stack.pop() {
             match op {
                 LEMOP::MkNull(tgt, tag) => {
-                    let tgt_ptr = Ptr {
-                        tag: *tag,
-                        val: PtrVal::Null,
-                    };
+                    let tgt_ptr = Ptr::null(*tag);
                     if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -508,6 +510,15 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         None => stack.push(def),
                     }
                 }
+                LEMOP::MatchFieldVal(ptr, cases, def) => {
+                    let Some(Ptr {tag: _, val: PtrVal::Field(f)}) = ptr_map.get(ptr.name()) else {
+                        return Err(format!("{} not defined as a pointer with a field value", ptr.name()))
+                    };
+                    match cases.get(&FWrap(*f)) {
+                        Some(op) => stack.push(op),
+                        None => stack.push(def),
+                    }
+                }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
             }
         }
@@ -532,28 +543,19 @@ impl<'a, F: LurkField> LEM<'a, F> {
 
     pub fn eval(self, expr: Ptr<F>) -> Result<(Vec<StepData<'a, F>>, Store<F>), String> {
         let mut expr = expr;
-        let mut env = Ptr {
-            tag: Tag::Nil,
-            val: PtrVal::Null,
-        };
-        let mut cont = Ptr {
-            tag: Tag::Outermost,
-            val: PtrVal::Null,
-        };
+        let mut env = Ptr::null(Tag::Nil);
+        let mut cont = Ptr::null(Tag::Outermost);
         let mut steps_data = vec![];
         let mut store: Store<F> = Default::default();
-        let terminal = Ptr {
-            tag: Tag::Terminal,
-            val: PtrVal::Null,
-        };
+        let terminal = Ptr::null(Tag::Terminal);
         loop {
             let input = [expr, env, cont];
-            let (output, ptrs, vals) = self.run(input, &mut store)?;
+            let (output, ptrs, vars) = self.run(input, &mut store)?;
             steps_data.push(StepData {
                 input,
                 output,
                 ptrs,
-                vals,
+                vars,
             });
             if output[2] == terminal {
                 break;

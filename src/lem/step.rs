@@ -4,6 +4,8 @@ use crate::field::LurkField;
 
 use super::{tag::Tag, MetaPtr, LEM, LEMOP};
 
+// TODO: remove name conflicts between branches automatically instead of putting
+// this burden on the LEM programmer's shoulders
 pub fn step<F: LurkField>() -> LEM<'static, F> {
     let input = ["expr_in", "env_in", "cont_in"];
     let lem_op = LEMOP::mk_match_tag(
