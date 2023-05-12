@@ -1,5 +1,6 @@
+mod eval;
+mod lurk_package;
 mod pointers;
-mod step;
 mod store;
 mod symbol;
 mod tag;
@@ -134,69 +135,7 @@ pub enum LEMOP<'a, F: LurkField> {
     Seq(Vec<LEMOP<'a, F>>),
 }
 
-pub struct StepData<'a, F: LurkField> {
-    input: [Ptr<F>; 3],
-    output: [Ptr<F>; 3],
-    ptrs: HashMap<&'a str, Ptr<F>>,
-    vars: HashMap<&'a str, F>,
-}
-
 impl<'a, F: LurkField> LEMOP<'a, F> {
-    #[inline]
-    pub fn mk_if_tag_eq(
-        ptr: MetaPtr<'a>,
-        tag: Tag,
-        ff: LEMOP<'a, F>,
-        tt: LEMOP<'a, F>,
-    ) -> LEMOP<'a, F> {
-        LEMOP::IfTagEq(ptr, tag, Box::new(tt), Box::new(ff))
-    }
-
-    #[inline]
-    pub fn mk_if_tag_or(
-        ptr: MetaPtr<'a>,
-        tag1: Tag,
-        tag2: Tag,
-        ff: LEMOP<'a, F>,
-        tt: LEMOP<'a, F>,
-    ) -> LEMOP<'a, F> {
-        LEMOP::IfTagOr(ptr, tag1, tag2, Box::new(tt), Box::new(ff))
-    }
-
-    pub fn assert_list(ptr: MetaPtr<'a>, ff: LEMOP<'a, F>, tt: LEMOP<'a, F>) -> LEMOP<'a, F> {
-        Self::mk_if_tag_or(ptr, Tag::Cons, Tag::Nil, ff, tt)
-    }
-
-    pub fn mk_cons(o: &'a str, i: [MetaPtr<'a>; 2]) -> LEMOP<'a, F> {
-        LEMOP::Hash2Ptrs(MetaPtr(o), Tag::Cons, i)
-    }
-
-    // pub fn mk_strcons(o: &'a str, i: [MetaPtr<'a>; 2]) -> LEMOP<'a, F> {
-    //     Self::mk_if_tag_eq(
-    //         i[0],
-    //         Tag::Char,
-    //         LEMOP::Err("strcons requires a char as the first argument"),
-    //         Self::mk_if_tag_eq(
-    //             i[1],
-    //             Tag::Str,
-    //             LEMOP::Err("strcons requires a str as the second argument"),
-    //             LEMOP::Hash2Ptrs(MetaPtr(o), Tag::Str, i),
-    //         ),
-    //     )
-    // }
-
-    // pub fn mk_fun(o: &'a str, i: [MetaPtr<'a>; 3]) -> LEMOP<'a, F> {
-    //     Self::assert_list(
-    //         i[0],
-    //         LEMOP::Err("The arguments must be a list"),
-    //         Self::assert_list(
-    //             i[2],
-    //             LEMOP::Err("The closed env must be a list"),
-    //             LEMOP::Hash3Ptrs(MetaPtr(o), Tag::Fun, i),
-    //         ),
-    //     )
-    // }
-
     #[inline]
     pub fn mk_match_tag(
         i: MetaPtr<'a>,
@@ -298,8 +237,8 @@ impl<'a, F: LurkField> LEM<'a, F> {
         store: &mut Store<F>,
     ) -> Result<([Ptr<F>; 3], HashMap<&'a str, Ptr<F>>, HashMap<&'a str, F>), String> {
         // key/val pairs on this map should never be overwritten
-        let mut ptr_map: HashMap<&'a str, Ptr<F>> = HashMap::default();
-        let mut var_map: HashMap<&'a str, F> = HashMap::default();
+        let mut ptr_map = HashMap::default();
+        let mut var_map = HashMap::default();
         ptr_map.insert(self.input[0], i[0]);
         if ptr_map.insert(self.input[1], i[1]).is_some() {
             return Err(format!("{} already defined", self.input[1]));
@@ -539,41 +478,5 @@ impl<'a, F: LurkField> LEM<'a, F> {
             return Err(format!("Output {} not defined", self.output[2]))
         };
         Ok(([*out1, *out2, *out3], ptr_map, var_map))
-    }
-
-    pub fn eval(self, expr: Ptr<F>) -> Result<(Vec<StepData<'a, F>>, Store<F>), String> {
-        let mut expr = expr;
-        let mut env = Ptr::null(Tag::Nil);
-        let mut cont = Ptr::null(Tag::Outermost);
-        let mut steps_data = vec![];
-        let mut store: Store<F> = Default::default();
-        let terminal = Ptr::null(Tag::Terminal);
-        loop {
-            let input = [expr, env, cont];
-            let (output, ptrs, vars) = self.run(input, &mut store)?;
-            steps_data.push(StepData {
-                input,
-                output,
-                ptrs,
-                vars,
-            });
-            if output[2] == terminal {
-                break;
-            } else {
-                [expr, env, cont] = output;
-            }
-        }
-        Ok((steps_data, store))
-    }
-
-    pub fn eval_res(self, expr: Ptr<F>) -> Result<(Ptr<F>, Store<F>), String> {
-        let (steps_data, store) = self.eval(expr)?;
-        Ok((
-            steps_data
-                .last()
-                .expect("eval should add at least one step data")
-                .output[0],
-            store,
-        ))
     }
 }
