@@ -185,6 +185,7 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
                     Ok(alloc_tgt) => {
                         enforce_equal(cs, || "enforce copy", &alloc_tgt, alloc_src);
                         alloc_vars.insert(&mut tgt.name(), alloc_tgt);
+                        // TODO: check if name exists in the hashmap
                     },
                     Err(_) => panic!("xii2"),
                 };
@@ -202,9 +203,7 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
                 for (key, c_op) in cases.iter() {
                     // Recursively construct the circuit for c_op
 
-                    let clause_output_var_names = {
-                        c_op.compile(cs, g.clone(), alloc_vars)?
-                    };
+                    let clause_output_var_names = c_op.compile(cs, g.clone(), alloc_vars)?;
 
                     for (i, var_name) in clause_output_var_names.iter().enumerate() {
                         let alloc_var = match alloc_vars.get(var_name.clone()) {
@@ -249,7 +248,7 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
                     Ok(r) => r,
                     Err(_) => panic!("xii7"),
                 };
-                // Glue
+                // TODO: Glue: here we have a potential soundness problems, double check
                 for (i, elem) in result.iter().enumerate() {
                     let mut result_name = format!("match_result_{}", i);
                     alloc_vars.insert(&mut result_name[..], elem.clone());
