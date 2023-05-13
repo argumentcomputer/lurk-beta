@@ -21,7 +21,7 @@ use rand::{rngs::StdRng, SeedableRng};
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 
 /// The type of finite fields used in the language
-/// For Pallas/Vesta see https://electriccoin.co/blog/the-pasta-curves-for-halo-2-and-beyond/
+/// For Pallas/Vesta see `<https://electriccoin.co/blog/the-pasta-curves-for-halo-2-and-beyond/>`
 pub enum LanguageField {
     /// The Pallas field,
     Pallas,
@@ -231,7 +231,7 @@ pub struct FWrap<F: LurkField>(pub F);
 impl<F: LurkField> Copy for FWrap<F> {}
 
 #[cfg(not(target_arch = "wasm32"))]
-/// Trait implementation for generating FWrap<F> instances with proptest
+/// Trait implementation for generating `FWrap<F>` instances with proptest
 impl<F: LurkField> Arbitrary for FWrap<F> {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;

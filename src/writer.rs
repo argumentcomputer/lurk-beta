@@ -31,7 +31,10 @@ impl<F: LurkField> Write<F> for Ptr<F> {
         } else if let Some(expr) = store.fetch(self) {
             expr.fmt(store, w)
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, "Cannot find expression pointer"))
+            Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Cannot find expression pointer",
+            ))
         }
     }
 }
@@ -41,7 +44,10 @@ impl<F: LurkField> Write<F> for ContPtr<F> {
         if let Some(cont) = store.fetch_cont(self) {
             cont.fmt(store, w)
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, "Cannot find continuation pointer"))
+            Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Cannot find continuation pointer",
+            ))
         }
     }
 }
