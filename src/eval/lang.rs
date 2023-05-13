@@ -162,6 +162,8 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
     }
 }
 
+/// A `Binding` associates a name (`Sym`) and `Coprocessor`. It facilitates modular construction of `Lang`s using
+/// `Coprocessor`s.
 pub struct Binding<F: LurkField, C: Coprocessor<F>> {
     name: Sym,
     coproc: C,
