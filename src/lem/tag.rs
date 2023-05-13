@@ -2,7 +2,7 @@ use crate::field::LurkField;
 
 #[derive(Clone, Copy, PartialEq, std::cmp::PartialOrd, std::cmp::Ord, std::cmp::Eq, Hash)]
 pub enum Tag {
-    Reserved,
+    LurkSym,
     Num,
     U64,
     Char,

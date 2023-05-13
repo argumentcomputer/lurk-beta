@@ -1,5 +1,5 @@
 mod eval;
-mod package;
+mod lurk_symbol;
 mod pointers;
 mod store;
 mod symbol;

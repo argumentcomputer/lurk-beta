@@ -1,6 +1,6 @@
 use crate::field::*;
 
-use super::tag::Tag;
+use super::{lurk_symbol::LurkSymbol, tag::Tag};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PtrVal<F: LurkField> {
@@ -44,10 +44,10 @@ impl<F: LurkField> Ptr<F> {
     }
 
     #[inline]
-    pub fn reserved(val: F) -> Self {
+    pub fn lurk_sym(sym: LurkSymbol) -> Self {
         Ptr {
-            tag: Tag::Reserved,
-            val: PtrVal::Field(val),
+            tag: Tag::LurkSym,
+            val: PtrVal::Field(sym.field()),
         }
     }
 }

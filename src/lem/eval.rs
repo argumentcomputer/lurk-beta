@@ -2,13 +2,7 @@ use std::collections::HashMap;
 
 use crate::field::LurkField;
 
-use super::{
-    package::{lurk_package, Package},
-    pointers::Ptr,
-    store::Store,
-    tag::Tag,
-    MetaPtr, LEM, LEMOP,
-};
+use super::{lurk_symbol::LurkSymbol, pointers::Ptr, store::Store, tag::Tag, MetaPtr, LEM, LEMOP};
 
 // TODO: remove name conflicts between branches automatically instead of putting
 // this burden on the LEM programmer's shoulders
@@ -73,8 +67,7 @@ pub fn eval<'a, F: LurkField>(
     expr: Ptr<F>,
 ) -> Result<(Vec<StepData<'a, F>>, Store<F>), String> {
     let mut expr = expr;
-    let lurk_package: Package<F> = lurk_package();
-    let mut env = Ptr::reserved(lurk_package.field(vec!["nil"]));
+    let mut env = Ptr::lurk_sym(LurkSymbol::Nil);
     let mut cont = Ptr::null(Tag::Outermost);
     let mut steps_data = vec![];
     let mut store: Store<F> = Default::default();
