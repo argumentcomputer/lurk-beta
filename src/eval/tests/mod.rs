@@ -73,6 +73,8 @@ fn test_aux2<C: Coprocessor<Fr>>(
 
     if let Some(expected_result) = expected_result {
         dbg!(expected_result.fmt_to_string(s), &new_expr.fmt_to_string(s));
+        eprintln!("expected {:?}", expected_result);
+        eprintln!("new_expr {:?}", new_expr);
         assert!(s.ptr_eq(&expected_result, &new_expr).unwrap());
     }
     if let Some(expected_env) = expected_env {
@@ -228,7 +230,7 @@ fn emit_output() {
 #[test]
 fn evaluate_lambda() {
     let s = &mut Store::<Fr>::default();
-    let expr = "((lambda(x) x) 123)";
+    let expr = "((lambda (x) x) 123)";
 
     let expected = s.num(123);
     let terminal = s.get_cont_terminal();
@@ -362,12 +364,12 @@ fn evaluate_num_equal() {
     {
         let expr = "(= 5 5)";
 
-        // TODO: Consider special-casing T, like NIL, and force it to the
+        // TODO: Consider special-casing t, like nil, and force it to the
         // immediate value 1 (with Symbol type-tag). That way boolean logic
         // will work out. It might be more consistent to have an explicit
         // boolean type (like Scheme), though. Otherwise we will have to
         // think about handling of symbol names (if made explicit), since
-        // neither T/NIL as 1/0 will *not* be hashes of their symbol names.
+        // neither t/nil as 1/0 will *not* be hashes of their symbol names.
         let expected = s.t();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
@@ -1316,7 +1318,7 @@ fn test_car_nil() {
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
-        r#"(car NIL)"#,
+        r#"(car nil)"#,
         Some(expected),
         None,
         Some(terminal),
@@ -1333,7 +1335,7 @@ fn test_cdr_nil() {
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
-        r#"(cdr NIL)"#,
+        r#"(cdr nil)"#,
         Some(expected),
         None,
         Some(terminal),

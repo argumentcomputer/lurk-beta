@@ -1,6 +1,7 @@
 use crate::field::LurkField;
 use crate::ptr::Ptr;
 use crate::store::Store;
+use nom::sequence::preceded;
 use nom::Parser;
 use thiserror;
 
@@ -30,14 +31,14 @@ pub enum Error {
 
 impl<F: LurkField> Store<F> {
     pub fn read(&mut self, input: &str) -> Result<Ptr<F>, Error> {
-        match syntax::parse_syntax().parse(Span::new(input)) {
+        match preceded(syntax::parse_space, syntax::parse_syntax()).parse(Span::new(input)) {
             Ok((_i, x)) => Ok(self.intern_syntax(x)),
             Err(e) => Err(Error::Syntax(format!("{}", e))),
         }
     }
 
     pub fn read_maybe_meta(&mut self, input: &str) -> Result<(Ptr<F>, bool), Error> {
-        match syntax::parse_maybe_meta().parse(Span::new(input)) {
+        match preceded(syntax::parse_space, syntax::parse_maybe_meta()).parse(Span::new(input)) {
             Ok((_i, (x, meta))) => Ok((self.intern_syntax(x), meta)),
             Err(e) => Err(Error::Syntax(format!("{}", e))),
         }

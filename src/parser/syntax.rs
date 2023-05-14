@@ -2,7 +2,7 @@ use crate::field::LurkField;
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_till},
-    character::complete::{char, multispace0, multispace1, none_of},
+    character::complete::{anychar, char, multispace0, multispace1, none_of},
     combinator::{opt, peek, success, value},
     error::context,
     multi::{many0, separated_list0, separated_list1},
@@ -71,7 +71,7 @@ pub fn parse_symbol_inner<F: LurkField>(
             // :foo
             value((false, key_mark), char(key_mark)),
             // foo
-            value((false, sym_mark), peek(none_of("',(){}[]1234567890"))),
+            value((false, sym_mark), peek(none_of("',~#(){}[]1234567890"))),
         ))(from)?;
         if is_root && mark == key_mark {
             Ok((i, Symbol::Key(vec![])))
@@ -178,20 +178,14 @@ pub fn parse_string<F: LurkField>(
     }
 }
 
-// Old syntax for chars
-pub fn parse_old_char<F: LurkField>(
+// hash syntax for chars
+pub fn parse_hash_char<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
     |from: Span<'_>| {
         let (i, _) = tag("#\\")(from)?;
-        let (upto, s) = string::parse_string_inner1('\'', true, "()'")(i)?;
-        let mut chars: Vec<char> = s.chars().collect();
-        if chars.len() == 1 {
-            let c = chars.pop().unwrap();
-            let pos = Pos::from_upto(from, upto);
-            Ok((upto, Syntax::Char(pos, c)))
-        } else {
-            ParseError::throw(from, ParseErrorKind::InvalidChar(s))
-        }
+        let (upto, c) = alt((string::parse_unicode(), anychar))(i)?;
+        let pos = Pos::from_upto(from, upto);
+        Ok((upto, Syntax::Char(pos, c)))
     }
 }
 
@@ -253,7 +247,7 @@ pub fn parse_syntax<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
         alt((
-            parse_old_char(),
+            parse_hash_char(),
             context("symbol", parse_symbol()),
             parse_uint(),
             parse_num(),
@@ -331,7 +325,7 @@ pub mod tests {
     #[test]
     fn unit_parse_symbol() {
         assert!(test(parse_symbol(), "", None));
-        assert!(test(parse_symbol(), "#.", Some(symbol!([]))));
+        assert!(test(parse_symbol(), "~()", Some(symbol!([]))));
         assert!(test(parse_symbol(), ".", None));
         assert!(test(parse_symbol(), "..", Some(symbol!([""]))));
         assert!(test(parse_symbol(), "foo", Some(symbol!(["foo"]))));
@@ -381,7 +375,7 @@ pub mod tests {
     #[test]
     fn unit_parse_keyword() {
         assert!(test(parse_symbol(), "", None));
-        assert!(test(parse_symbol(), "#:", Some(keyword!([]))));
+        assert!(test(parse_symbol(), "~:()", Some(keyword!([]))));
         assert!(test(parse_symbol(), ":", None));
         assert!(test(parse_symbol(), ":.", Some(keyword!([""]))));
         assert!(test(parse_symbol(), ":foo", Some(keyword!(["foo"]))));
@@ -497,6 +491,17 @@ pub mod tests {
         assert!(test(parse_char(), "'\\u{8f}'", Some(char!('\u{8f}'))));
         assert!(test(parse_char(), "'('", None));
         assert!(test(parse_char(), "'\\('", Some(char!('('))));
+    }
+    #[test]
+    fn unit_parse_hash_char() {
+        assert!(test(parse_hash_char(), "#\\a", Some(char!('a'))));
+        assert!(test(parse_hash_char(), "#\\b", Some(char!('b'))));
+        assert!(test(parse_hash_char(), r#"#\b"#, Some(char!('b'))));
+        assert!(test(parse_hash_char(), "#\\u{8f}", Some(char!('\u{8f}'))));
+        assert!(test(parse_syntax(), "#\\a", Some(char!('a'))));
+        assert!(test(parse_syntax(), "#\\b", Some(char!('b'))));
+        assert!(test(parse_syntax(), r#"#\b"#, Some(char!('b'))));
+        assert!(test(parse_syntax(), r#"#\u{8f}"#, Some(char!('\u{8f}'))));
     }
 
     #[test]
@@ -616,7 +621,7 @@ pub mod tests {
         ));
         assert!(test(
             parse_syntax(),
-            "(#: 11242421860377074631u64 . :\u{ae}\u{60500}\u{87}..)",
+            "(~:() 11242421860377074631u64 . :\u{ae}\u{60500}\u{87}..)",
             Some(list!(
                 [keyword!([]), uint!(11242421860377074631)],
                 keyword!(["®\u{60500}\u{87}", ""])

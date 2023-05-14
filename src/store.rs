@@ -1193,7 +1193,7 @@ impl<F: LurkField> Store<F> {
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
                 Some(Expression::UInt(u)) => {
-                    let z_expr = ZExpr::Uint(u);
+                    let z_expr = ZExpr::UInt(u);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
                 Some(Expression::StrNil) => (
@@ -1223,7 +1223,7 @@ impl<F: LurkField> Store<F> {
                 }
             };
             if let Some(z_store) = z_store {
-                z_store.borrow_mut().expr_map.insert(z_ptr, z_expr.clone());
+                z_store.borrow_mut().insert_expr(&z_ptr, z_expr.clone());
             };
             self.z_expr_ptr_map.insert(z_ptr, Box::new(*ptr));
             Ok((z_ptr, z_expr))
@@ -1281,7 +1281,7 @@ impl<F: LurkField> Store<F> {
             },
             ExprTag::Str => match self.fetch(ptr) {
                 Some(Expression::StrCons(car, cdr)) => Ok((car, cdr)),
-                Some(Expression::StrNil) => Ok((self.strnil(), self.strnil())),
+                Some(Expression::StrNil) => Ok((self.get_nil(), self.strnil())),
                 _ => unreachable!(),
             },
             _ => Err(Error("Can only extract car_cdr from Cons".into())),
@@ -1434,6 +1434,7 @@ impl<F: LurkField> Store<F> {
                     Some(ptr)
                 }
                 (ExprTag::Char, Some(Char(x))) => Some(x.into()),
+                (ExprTag::U64, Some(UInt(x))) => Some(self.intern_uint(x)),
                 (ExprTag::Thunk, Some(Thunk(value, continuation))) => {
                     let value = self.intern_z_expr_ptr(value, z_store)?;
                     let continuation = self.intern_z_cont_ptr(continuation, z_store)?;
@@ -1607,29 +1608,29 @@ impl<F: LurkField> Expression<F> {
         }
     }
 
-    pub fn as_sym_str(&self) -> Option<String> {
-        todo!()
-        //match self {
-        //    Expression::Sym(s) => Some(s.full_name()),
-        //    _ => None,
-        //}
-    }
+    //pub fn as_sym_str(&self) -> Option<String> {
+    //    todo!()
+    //    //match self {
+    //    //    Expression::Sym(s) => Some(s.full_name()),
+    //    //    _ => None,
+    //    //}
+    //}
 
-    pub const fn as_sym(&self) -> Option<&Symbol> {
-        todo!()
-        //match self {
-        //    Expression::Sym(s) => Some(s),
-        //    _ => None,
-        //}
-    }
+    //pub const fn as_sym(&self) -> Option<&Symbol> {
+    //    todo!()
+    //    //match self {
+    //    //    Expression::Sym(s) => Some(s),
+    //    //    _ => None,
+    //    //}
+    //}
 
-    pub fn as_simple_keyword_string(&self) -> Option<String> {
-        todo!()
-        //match self {
-        //    Expression::Sym(s) => s.simple_keyword_name(),
-        //    _ => None,
-        //}
-    }
+    //pub fn as_simple_keyword_string(&self) -> Option<String> {
+    //    todo!()
+    //    //match self {
+    //    //    Expression::Sym(s) => s.simple_keyword_name(),
+    //    //    _ => None,
+    //    //}
+    //}
 
     pub const fn is_null(&self) -> bool {
         matches!(self, Self::Nil)
@@ -1822,18 +1823,14 @@ impl<F: LurkField> ZStore<F> {
 
     pub fn to_store_with_z_ptr(&self, z_ptr: &ZExprPtr<F>) -> Result<(Store<F>, Ptr<F>), Error> {
         let mut store = Store::new();
-        let mut ptr_ret = None;
 
         for ptr in self.expr_map.keys() {
-            let ptr_ret_maybe = store.intern_z_expr_ptr(*ptr, self);
-            if *ptr == *z_ptr {
-                ptr_ret = ptr_ret_maybe;
-            }
+            store.intern_z_expr_ptr(*ptr, self);
         }
         for ptr in self.cont_map.keys() {
             store.intern_z_cont_ptr(*ptr, self);
         }
-        match ptr_ret {
+        match store.intern_z_expr_ptr(*z_ptr, self) {
             Some(ptr_ret) => Ok((store, ptr_ret)),
             None => Err(Error("Couldn't find given ZExprPtr".into())),
         }
