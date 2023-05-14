@@ -2013,7 +2013,7 @@ fn test_num_syntax_implications() {
 fn test_quoted_symbols() {
     let s = &mut Store::<Fr>::default();
     let expr = "(let ((|foo bar| 9)
-                          (|Foo \\| Bar| (lambda (|x|) (* x x))))
+                          (|Foo \\| Bar| (lambda (x) (* x x))))
                       (|Foo \\| Bar| |foo bar|))";
     let res = s.num(81);
     let terminal = s.get_cont_terminal();
@@ -2330,9 +2330,9 @@ fn test_sym_hash_values() {
 
     let s = &mut Store::<Fr>::default();
 
-    let sym = s.sym(".ASDF.FDSA");
-    let key = s.sym(":ASDF.FDSA");
-    let expr = s.read("(cons \"FDSA\" '.ASDF)").unwrap();
+    let sym = s.sym(".asdf.fdsa");
+    let key = s.sym(":asdf.fdsa");
+    let expr = s.read("(cons \"fdsa\" '.asdf)").unwrap();
 
     let limit = 10;
     let env = empty_sym_env(s);
@@ -2347,12 +2347,12 @@ fn test_sym_hash_values() {
         _emitted,
     ) = Evaluator::new(expr, env, s, limit, &lang).eval().unwrap();
 
-    let toplevel_sym = s.sym(".ASDF");
+    let toplevel_sym = s.sym(".asdf");
 
     let root = Symbol::root();
     let root_sym = s.intern_symbol(root);
 
-    let asdf = s.str("ASDF");
+    let asdf = s.str("asdf");
     let consed_with_root = s.cons(asdf, root_sym);
 
     let cons_scalar_ptr = &s.hash_expr(&new_expr).unwrap();
