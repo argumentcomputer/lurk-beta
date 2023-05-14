@@ -542,28 +542,41 @@ impl<'a, F: LurkField> LEM<'a, F> {
         name: &'a str,
         store: &mut Store<F>,
         witness: &Witness<'a, F>,
-    ) -> AllocatedPtr<F> {
+    ) -> Result<AllocatedPtr<F>, String> {
         let ptr = witness.ptrs.get(name).unwrap();
-        let aqua_ptr = store.hydrate_ptr(ptr).unwrap();
-        let alloc_tag = AllocatedNum::alloc(cs.namespace(|| format!("alloc {} tag", name)), || {
+        let aqua_ptr = store.hydrate_ptr(ptr)?;
+        let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {} tag", name)), || {
             Ok(aqua_ptr.tag.field())
-        })
-        .unwrap();
-        let alloc_val = AllocatedNum::alloc(cs.namespace(|| format!("alloc {} val", name)), || {
+        }) else {
+            return Err(format!("Couldn't allocate tag for {}", name))
+        };
+        let Ok(alloc_val) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {} val", name)), || {
             Ok(aqua_ptr.val)
-        })
-        .unwrap();
-        let alloc_ptr = AllocatedPtr::from_parts(&alloc_tag, &alloc_val);
-        alloc_ptr
+        }) else {
+            return Err(format!("Couldn't allocate val for {}", name))
+        };
+        Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_val))
     }
 
     fn enforce_equal_ptrs<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         a: &AllocatedPtr<F>,
+        a_name: &str,
         b: &AllocatedPtr<F>,
+        b_name: &str,
     ) {
-        enforce_equal(cs, || "enforce copy tag", &a.tag(), &b.tag());
-        enforce_equal(cs, || "enforce copy val", &a.hash(), &b.hash());
+        enforce_equal(
+            cs,
+            || format!("{}'s tag equals {}'s tag", a_name, b_name),
+            &a.tag(),
+            &b.tag(),
+        );
+        enforce_equal(
+            cs,
+            || format!("{}'s val equals {}'s val", a_name, b_name),
+            &a.hash(),
+            &b.hash(),
+        );
     }
 
     pub fn compile<CS: ConstraintSystem<F>>(
@@ -577,7 +590,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
         // allocate first input
         alloc_ptrs.insert(
             self.input[0],
-            Self::allocate_ptr(cs, self.input[0], store, witness),
+            Self::allocate_ptr(cs, self.input[0], store, witness)?,
         );
 
         // allocate second input
@@ -586,7 +599,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
         }
         alloc_ptrs.insert(
             self.input[1],
-            Self::allocate_ptr(cs, self.input[1], store, witness),
+            Self::allocate_ptr(cs, self.input[1], store, witness)?,
         );
 
         // allocate third input
@@ -595,9 +608,10 @@ impl<'a, F: LurkField> LEM<'a, F> {
         }
         alloc_ptrs.insert(
             self.input[2],
-            Self::allocate_ptr(cs, self.input[2], store, witness),
+            Self::allocate_ptr(cs, self.input[2], store, witness)?,
         );
 
+        let alloc_zero = AllocatedNum::alloc(cs.namespace(|| "#zero"), || Ok(F::zero())).unwrap();
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
             match op {
@@ -605,13 +619,24 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     if alloc_ptrs.contains_key(tgt.name()) {
                         return Err(format!("{} already allocated", tgt.name()));
                     }
-                    let alloc_tgt = Self::allocate_ptr(cs, tgt.name(), store, witness);
-                    let alloc_tag =
-                        AllocatedNum::alloc(cs.namespace(|| "todo"), || Ok(tag.field())).unwrap();
-                    let alloc_zero =
-                        AllocatedNum::alloc(cs.namespace(|| "todo"), || Ok(F::zero())).unwrap();
-                    enforce_equal(cs, || "todo", &alloc_tgt.tag(), &alloc_tag);
-                    enforce_equal(cs, || "todo", &alloc_tgt.hash(), &alloc_zero);
+                    let alloc_tgt = Self::allocate_ptr(cs, tgt.name(), store, witness)?;
+                    let alloc_tag = AllocatedNum::alloc(
+                        cs.namespace(|| format!("{}'s tag", tgt.name())),
+                        || Ok(tag.field()),
+                    )
+                    .unwrap();
+                    enforce_equal(
+                        cs,
+                        || format!("{}'s tag is {}", tgt.name(), F::hex_digits(tag.field())),
+                        &alloc_tgt.tag(),
+                        &alloc_tag,
+                    );
+                    enforce_equal(
+                        cs,
+                        || format!("{}'s val is zero", tgt.name()),
+                        &alloc_tgt.hash(),
+                        &alloc_zero,
+                    );
                 }
                 LEMOP::Copy(tgt, src) => {
                     let Some(alloc_src) = alloc_ptrs.get(src.name()) else {
@@ -620,10 +645,10 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     if alloc_ptrs.contains_key(tgt.name()) {
                         return Err(format!("{} already allocated", tgt.name()));
                     }
-                    let alloc_tgt = Self::allocate_ptr(cs, tgt.name(), store, witness);
+                    let alloc_tgt = Self::allocate_ptr(cs, tgt.name(), store, witness)?;
                     let alloc_src = alloc_src.clone();
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
-                    Self::enforce_equal_ptrs(cs, &alloc_src, &alloc_tgt);
+                    Self::enforce_equal_ptrs(cs, &alloc_src, src.name(), &alloc_tgt, tgt.name());
                 }
                 _ => todo!(),
             }

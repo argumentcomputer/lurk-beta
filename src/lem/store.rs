@@ -110,13 +110,13 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<AquaPtr<F>, &str> {
+    pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<AquaPtr<F>, String> {
         match (ptr.tag, ptr.val) {
             (Tag::Comm, PtrVal::Field(hash)) => match self.aqua_cache.get(&ptr) {
                 Some(aqua_ptr) => Ok(*aqua_ptr),
                 None => {
                     let Some((secret, ptr)) = self.comms.get(&FWrap(hash)) else {
-                            return Err("Hash not found")
+                            return Err(format!("Hash {} not found", hash.hex_digits()))
                         };
                     let aqua_ptr = AquaPtr {
                         tag: Tag::Comm,
@@ -133,7 +133,7 @@ impl<F: LurkField> Store<F> {
                 Some(aqua_ptr) => Ok(*aqua_ptr),
                 None => {
                     let Some((a, b)) = self.ptrs2.get_index(idx) else {
-                            return Err("Index not found on ptrs2")
+                            return Err(format!("Index {idx} not found on ptrs2"))
                         };
                     let a = self.hydrate_ptr(a)?;
                     let b = self.hydrate_ptr(b)?;
@@ -155,7 +155,7 @@ impl<F: LurkField> Store<F> {
                 Some(aqua_ptr) => Ok(*aqua_ptr),
                 None => {
                     let Some((a, b, c)) = self.ptrs3.get_index(idx) else {
-                            return Err("Index not found on ptrs3")
+                            return Err(format!("Index {idx} not found on ptrs3"))
                         };
                     let a = self.hydrate_ptr(a)?;
                     let b = self.hydrate_ptr(b)?;
@@ -180,7 +180,7 @@ impl<F: LurkField> Store<F> {
                 Some(aqua_ptr) => Ok(*aqua_ptr),
                 None => {
                     let Some((a, b, c, d)) = self.ptrs4.get_index(idx) else {
-                            return Err("Index not found on ptrs4")
+                            return Err(format!("Index {idx} not found on ptrs4"))
                         };
                     let a = self.hydrate_ptr(a)?;
                     let b = self.hydrate_ptr(b)?;
