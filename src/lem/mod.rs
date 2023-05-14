@@ -650,6 +650,8 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                     Self::enforce_equal_ptrs(cs, &alloc_src, src.name(), &alloc_tgt, tgt.name());
                 }
+                LEMOP::MatchTag(ptr, cases, def) => todo!(),
+                LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
                 _ => todo!(),
             }
         }
