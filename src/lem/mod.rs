@@ -150,179 +150,131 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
         LEMOP::MatchTag(i, HashMap::from_iter(cases), Box::new(def))
     }
 
-    fn allocate_ptr<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        name: &'a str,
-        allocated: &mut HashMap<&'a str, AllocatedPtr<F>>,
-        store: &mut Store<F>,
-        ptrs: &HashMap<&'a str, Ptr<F>>,
-    ) -> AllocatedPtr<F> {
-        match allocated.get(name) {
-            Some(alloc) => alloc.clone(),
-            None => {
-                let ptr = ptrs.get(name).unwrap();
-                let aqua_ptr = store.hydrate_ptr(ptr).unwrap();
-                let alloc_tag =
-                    AllocatedNum::alloc(cs.namespace(|| "alloc"), || Ok(aqua_ptr.tag.field()))
-                        .unwrap();
-                let alloc_val =
-                    AllocatedNum::alloc(cs.namespace(|| "alloc"), || Ok(aqua_ptr.val)).unwrap();
-                let alloc_ptr = AllocatedPtr::from_parts(&alloc_tag, &alloc_val);
-                allocated.insert(name, alloc_ptr.clone());
-                alloc_ptr
-            }
-        }
-    }
+    // // pub fn compile should generate the circuit
+    // pub fn compile<CS: ConstraintSystem<F>>(
+    //     &self,
+    //     cs: &mut CS,
+    //     g: GlobalAllocations<F>,
+    //     alloc_vars: &mut HashMap<&'a mut str, AllocatedNum<F>>,
+    // ) -> Result<Vec<&str>, String> {
+    //     //let mut cs = TestConstraintSystem::<F>::new();
+    //     //let s = &mut crate::store::Store::<F>::default();
+    //     //let g = GlobalAllocations::new(&mut cs, s).unwrap();
 
-    pub fn compile_<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        ptrs: &HashMap<&'a str, Ptr<F>>,
-        store: &mut Store<F>,
-    ) {
-        let mut allocated: HashMap<&'a str, AllocatedPtr<F>> = HashMap::default();
-        let mut stack = vec![self];
-        while let Some(op) = stack.pop() {
-            match op {
-                LEMOP::Copy(tgt, src) => {
-                    let alloc_tgt = Self::allocate_ptr(cs, tgt.name(), &mut allocated, store, ptrs);
-                    let alloc_src = Self::allocate_ptr(cs, src.name(), &mut allocated, store, ptrs);
-                    enforce_equal(
-                        cs,
-                        || "enforce copy tag",
-                        &alloc_tgt.tag(),
-                        &alloc_src.tag(),
-                    );
-                    enforce_equal(
-                        cs,
-                        || "enforce copy val",
-                        &alloc_tgt.hash(),
-                        &alloc_src.hash(),
-                    );
-                }
-                _ => todo!(),
-            }
-        }
-    }
+    //     let output_names = match self {
+    //         /*LEMOP::MkNull(tgt, tag) => {
+    //             // tgt.name =  Allocate (tag, null)
+    //         },*/
+    //         LEMOP::Copy(tgt, src) => {
+    //             let mut output_names = Vec::new();
+    //             let Some(alloc_src) = alloc_vars.get(src.name()) else {
+    //                     return Err(format!("{} not defined", src.name()))
+    //                 };
 
-    // pub fn compile should generate the circuit
-    pub fn compile<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        g: GlobalAllocations<F>,
-        alloc_vars: &mut HashMap<&'a mut str, AllocatedNum<F>>,
-    ) -> Result<Vec<&str>, String> {
-        //let mut cs = TestConstraintSystem::<F>::new();
-        //let s = &mut crate::store::Store::<F>::default();
-        //let g = GlobalAllocations::new(&mut cs, s).unwrap();
+    //             let alloc_tgt_res = match alloc_src.get_value() {
+    //                 Some(val) => AllocatedNum::alloc(cs.namespace(|| "alloc"), || {
+    //                     Ok(alloc_src.get_value().unwrap())
+    //                 }),
+    //                 None => {
+    //                     panic!("xii");
+    //                 }
+    //             };
+    //             // enforce equal
+    //             match alloc_tgt_res {
+    //                 Ok(alloc_tgt) => {
+    //                     enforce_equal(cs, || "enforce copy", &alloc_tgt, alloc_src);
+    //                     alloc_vars.insert(&mut tgt.name(), alloc_tgt);
+    //                     // TODO: check if name exists in the hashmap
+    //                 }
+    //                 Err(_) => panic!("xii2"),
+    //             };
+    //             output_names.push(&tgt.name()[..]);
+    //             output_names
+    //         }
+    //         LEMOP::MatchTag(ptr, cases, def) => {
+    //             let mut output_names = Vec::new();
+    //             let mut multiclauses: Vec<Vec<CaseClause<'_, F>>> = Vec::new();
+    //             for var_name in cases.iter() {
+    //                 let clauses: Vec<CaseClause<'_, F>> = Vec::new();
+    //                 multiclauses.push(clauses);
+    //             }
 
-        let output_names = match self {
-            /*LEMOP::MkNull(tgt, tag) => {
-                // tgt.name =  Allocate (tag, null)
-            },*/
-            LEMOP::Copy(tgt, src) => {
-                let mut output_names = Vec::new();
-                let Some(alloc_src) = alloc_vars.get(src.name()) else {
-                        return Err(format!("{} not defined", src.name()))
-                    };
+    //             for (key, c_op) in cases.iter() {
+    //                 // Recursively construct the circuit for c_op
 
-                let alloc_tgt_res = match alloc_src.get_value() {
-                    Some(val) => AllocatedNum::alloc(cs.namespace(|| "alloc"), || {
-                        Ok(alloc_src.get_value().unwrap())
-                    }),
-                    None => {
-                        panic!("xii");
-                    }
-                };
-                // enforce equal
-                match alloc_tgt_res {
-                    Ok(alloc_tgt) => {
-                        enforce_equal(cs, || "enforce copy", &alloc_tgt, alloc_src);
-                        alloc_vars.insert(&mut tgt.name(), alloc_tgt);
-                        // TODO: check if name exists in the hashmap
-                    }
-                    Err(_) => panic!("xii2"),
-                };
-                output_names.push(&tgt.name()[..]);
-                output_names
-            }
-            LEMOP::MatchTag(ptr, cases, def) => {
-                let mut output_names = Vec::new();
-                let mut multiclauses: Vec<Vec<CaseClause<'_, F>>> = Vec::new();
-                for var_name in cases.iter() {
-                    let clauses: Vec<CaseClause<'_, F>> = Vec::new();
-                    multiclauses.push(clauses);
-                }
+    //                 let clause_output_var_names = c_op.compile(cs, g.clone(), alloc_vars)?;
 
-                for (key, c_op) in cases.iter() {
-                    // Recursively construct the circuit for c_op
+    //                 for (i, var_name) in clause_output_var_names.iter().enumerate() {
+    //                     let alloc_var = match alloc_vars.get(var_name.clone()) {
+    //                         Some(v) => v,
+    //                         None => panic!("xii3"),
+    //                     };
+    //                     multiclauses[i].push(CaseClause {
+    //                         key: key.field(),
+    //                         value: alloc_var,
+    //                     });
+    //                 }
+    //             }
+    //             // Recursively construct circuit for def
+    //             let default_output_var_names = def.compile(cs, g.clone(), alloc_vars)?;
+    //             // create default
+    //             let mut default = vec![];
+    //             for name in default_output_var_names {
+    //                 let var = alloc_vars.get(name.clone());
+    //                 let var = match var {
+    //                     Some(v) => v,
+    //                     None => panic!("xii5"),
+    //                 };
+    //                 default.push(var);
+    //             }
 
-                    let clause_output_var_names = c_op.compile(cs, g.clone(), alloc_vars)?;
+    //             // Convert multiclauses
+    //             let m = multiclauses
+    //                 .iter()
+    //                 .map(|v| v.as_slice())
+    //                 .collect::<Vec<&[CaseClause<'a, F>]>>()
+    //                 .as_slice();
 
-                    for (i, var_name) in clause_output_var_names.iter().enumerate() {
-                        let alloc_var = match alloc_vars.get(var_name.clone()) {
-                            Some(v) => v,
-                            None => panic!("xii3"),
-                        };
-                        multiclauses[i].push(CaseClause {
-                            key: key.field(),
-                            value: alloc_var,
-                        });
-                    }
-                }
-                // Recursively construct circuit for def
-                let default_output_var_names = def.compile(cs, g.clone(), alloc_vars)?;
-                // create default
-                let mut default = vec![];
-                for name in default_output_var_names {
-                    let var = alloc_vars.get(name.clone());
-                    let var = match var {
-                        Some(v) => v,
-                        None => panic!("xii5"),
-                    };
-                    default.push(var);
-                }
+    //             let ptr_tag = match alloc_vars.get(ptr.name()) {
+    //                 Some(p) => p,
+    //                 None => panic!("xii6"),
+    //             };
 
-                // Convert multiclauses
-                let m = multiclauses
-                    .iter()
-                    .map(|v| v.as_slice())
-                    .collect::<Vec<&[CaseClause<'a, F>]>>()
-                    .as_slice();
+    //             // create multicase
+    //             let result = multi_case(
+    //                 &mut cs.namespace(|| "multicase"),
+    //                 &ptr_tag,
+    //                 &m,
+    //                 &default[..],
+    //                 &g.clone(),
+    //             );
 
-                let ptr_tag = match alloc_vars.get(ptr.name()) {
-                    Some(p) => p,
-                    None => panic!("xii6"),
-                };
+    //             let result = match result {
+    //                 Ok(r) => r,
+    //                 Err(_) => panic!("xii7"),
+    //             };
+    //             // TODO: Glue: here we have a potential soundness problems, double check
+    //             for (i, elem) in result.iter().enumerate() {
+    //                 let mut result_name = format!("match_result_{}", i);
+    //                 alloc_vars.insert(&mut result_name[..], elem.clone());
+    //                 output_names.push(&result_name[..])
+    //             }
+    //             output_names
+    //         }
+    //         _ => {
+    //             panic!("xii8");
+    //         }
+    //     };
 
-                // create multicase
-                let result = multi_case(
-                    &mut cs.namespace(|| "multicase"),
-                    &ptr_tag,
-                    &m,
-                    &default[..],
-                    &g.clone(),
-                );
+    //     Ok(output_names)
+    // }
+}
 
-                let result = match result {
-                    Ok(r) => r,
-                    Err(_) => panic!("xii7"),
-                };
-                // TODO: Glue: here we have a potential soundness problems, double check
-                for (i, elem) in result.iter().enumerate() {
-                    let mut result_name = format!("match_result_{}", i);
-                    alloc_vars.insert(&mut result_name[..], elem.clone());
-                    output_names.push(&result_name[..])
-                }
-                output_names
-            }
-            _ => {
-                panic!("xii8");
-            }
-        };
-
-        Ok(output_names)
-    }
+pub struct Witness<'a, F: LurkField> {
+    input: [Ptr<F>; 3],
+    output: [Ptr<F>; 3],
+    ptrs: HashMap<&'a str, Ptr<F>>,
+    vars: HashMap<&'a str, F>,
 }
 
 impl<'a, F: LurkField> LEM<'a, F> {
@@ -583,5 +535,62 @@ impl<'a, F: LurkField> LEM<'a, F> {
             return Err(format!("Output {} not defined", self.output[2]))
         };
         Ok(([*out1, *out2, *out3], ptr_map, var_map))
+    }
+
+    fn allocate_ptr<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        name: &'a str,
+        store: &mut Store<F>,
+        witness: &Witness<'a, F>,
+    ) -> AllocatedPtr<F> {
+        let ptr = witness.ptrs.get(name).unwrap();
+        let aqua_ptr = store.hydrate_ptr(ptr).unwrap();
+        let alloc_tag = AllocatedNum::alloc(cs.namespace(|| format!("alloc {} tag", name)), || {
+            Ok(aqua_ptr.tag.field())
+        })
+        .unwrap();
+        let alloc_val = AllocatedNum::alloc(cs.namespace(|| format!("alloc {} val", name)), || {
+            Ok(aqua_ptr.val)
+        })
+        .unwrap();
+        let alloc_ptr = AllocatedPtr::from_parts(&alloc_tag, &alloc_val);
+        alloc_ptr
+    }
+
+    pub fn compile<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &mut Store<F>,
+        witness: &Witness<'a, F>,
+    ) -> Result<(), String> {
+        let mut allocated: HashMap<&'a str, AllocatedPtr<F>> = HashMap::default();
+        let mut stack = vec![&self.lem_op];
+        let alloc_in0 = Self::allocate_ptr(cs, self.input[0], store, witness);
+        // TODO: enforce equal, do the same for other inputs
+        while let Some(op) = stack.pop() {
+            match op {
+                LEMOP::Copy(tgt, src) => {
+                    let Some(alloc_src_) = allocated.get(src.name()) else {
+                        return Err(format!("{} not allocated", src.name()));
+                    };
+                    let alloc_src = alloc_src_.clone();
+                    if allocated.contains_key(tgt.name()) {
+                        return Err(format!("{} already allocated", tgt.name()));
+                    }
+                    let alloc_tgt = Self::allocate_ptr(cs, tgt.name(), store, witness);
+                    allocated.insert(tgt.name(), alloc_tgt.clone());
+                    enforce_equal(cs, || "enforce copy tag", &alloc_tgt.tag(), alloc_src.tag());
+                    enforce_equal(
+                        cs,
+                        || "enforce copy val",
+                        &alloc_tgt.hash(),
+                        alloc_src.hash(),
+                    );
+                }
+                _ => todo!(),
+            }
+        }
+        // TOOD: check allocated output
+        Ok(())
     }
 }

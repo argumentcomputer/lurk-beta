@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use crate::field::LurkField;
 
-use super::{lurk_symbol::LurkSymbol, pointers::Ptr, store::Store, tag::Tag, MetaPtr, LEM, LEMOP};
+use super::{
+    lurk_symbol::LurkSymbol, pointers::Ptr, store::Store, tag::Tag, MetaPtr, Witness, LEM, LEMOP,
+};
 
 // TODO: remove name conflicts between branches automatically instead of putting
 // this burden on the LEM programmer's shoulders
@@ -55,17 +57,10 @@ pub fn step<F: LurkField>() -> LEM<'static, F> {
     }
 }
 
-pub struct StepData<'a, F: LurkField> {
-    input: [Ptr<F>; 3],
-    output: [Ptr<F>; 3],
-    ptrs: HashMap<&'a str, Ptr<F>>,
-    vars: HashMap<&'a str, F>,
-}
-
 pub fn eval<'a, F: LurkField>(
     lem: LEM<'a, F>,
     expr: Ptr<F>,
-) -> Result<(Vec<StepData<'a, F>>, Store<F>), String> {
+) -> Result<(Vec<Witness<'a, F>>, Store<F>), String> {
     let mut expr = expr;
     let mut env = Ptr::lurk_sym(LurkSymbol::Nil);
     let mut cont = Ptr::null(Tag::Outermost);
@@ -75,7 +70,7 @@ pub fn eval<'a, F: LurkField>(
     loop {
         let input = [expr, env, cont];
         let (output, ptrs, vars) = lem.run(input, &mut store)?;
-        steps_data.push(StepData {
+        steps_data.push(Witness {
             input,
             output,
             ptrs,
