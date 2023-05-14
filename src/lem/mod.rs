@@ -557,35 +557,73 @@ impl<'a, F: LurkField> LEM<'a, F> {
         alloc_ptr
     }
 
+    fn enforce_equal_ptrs<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        a: &AllocatedPtr<F>,
+        b: &AllocatedPtr<F>,
+    ) {
+        enforce_equal(cs, || "enforce copy tag", &a.tag(), &b.tag());
+        enforce_equal(cs, || "enforce copy val", &a.hash(), &b.hash());
+    }
+
     pub fn compile<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         store: &mut Store<F>,
         witness: &Witness<'a, F>,
     ) -> Result<(), String> {
-        let mut allocated: HashMap<&'a str, AllocatedPtr<F>> = HashMap::default();
+        let mut alloc_ptrs: HashMap<&'a str, AllocatedPtr<F>> = HashMap::default();
+
+        // allocate first input
+        alloc_ptrs.insert(
+            self.input[0],
+            Self::allocate_ptr(cs, self.input[0], store, witness),
+        );
+
+        // allocate second input
+        if alloc_ptrs.contains_key(self.input[1]) {
+            return Err(format!("{} already allocated", self.input[1]));
+        }
+        alloc_ptrs.insert(
+            self.input[1],
+            Self::allocate_ptr(cs, self.input[1], store, witness),
+        );
+
+        // allocate third input
+        if alloc_ptrs.contains_key(self.input[2]) {
+            return Err(format!("{} already allocated", self.input[2]));
+        }
+        alloc_ptrs.insert(
+            self.input[2],
+            Self::allocate_ptr(cs, self.input[2], store, witness),
+        );
+
         let mut stack = vec![&self.lem_op];
-        let alloc_in0 = Self::allocate_ptr(cs, self.input[0], store, witness);
-        // TODO: enforce equal, do the same for other inputs
         while let Some(op) = stack.pop() {
             match op {
-                LEMOP::Copy(tgt, src) => {
-                    let Some(alloc_src_) = allocated.get(src.name()) else {
-                        return Err(format!("{} not allocated", src.name()));
-                    };
-                    let alloc_src = alloc_src_.clone();
-                    if allocated.contains_key(tgt.name()) {
+                LEMOP::MkNull(tgt, tag) => {
+                    if alloc_ptrs.contains_key(tgt.name()) {
                         return Err(format!("{} already allocated", tgt.name()));
                     }
                     let alloc_tgt = Self::allocate_ptr(cs, tgt.name(), store, witness);
-                    allocated.insert(tgt.name(), alloc_tgt.clone());
-                    enforce_equal(cs, || "enforce copy tag", &alloc_tgt.tag(), alloc_src.tag());
-                    enforce_equal(
-                        cs,
-                        || "enforce copy val",
-                        &alloc_tgt.hash(),
-                        alloc_src.hash(),
-                    );
+                    let alloc_tag =
+                        AllocatedNum::alloc(cs.namespace(|| "todo"), || Ok(tag.field())).unwrap();
+                    let alloc_zero =
+                        AllocatedNum::alloc(cs.namespace(|| "todo"), || Ok(F::zero())).unwrap();
+                    enforce_equal(cs, || "todo", &alloc_tgt.tag(), &alloc_tag);
+                    enforce_equal(cs, || "todo", &alloc_tgt.hash(), &alloc_zero);
+                }
+                LEMOP::Copy(tgt, src) => {
+                    let Some(alloc_src) = alloc_ptrs.get(src.name()) else {
+                        return Err(format!("{} not allocated", src.name()));
+                    };
+                    if alloc_ptrs.contains_key(tgt.name()) {
+                        return Err(format!("{} already allocated", tgt.name()));
+                    }
+                    let alloc_tgt = Self::allocate_ptr(cs, tgt.name(), store, witness);
+                    let alloc_src = alloc_src.clone();
+                    alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
+                    Self::enforce_equal_ptrs(cs, &alloc_src, &alloc_tgt);
                 }
                 _ => todo!(),
             }
