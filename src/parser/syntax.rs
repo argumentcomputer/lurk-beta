@@ -5,8 +5,8 @@ use nom::{
     character::complete::{anychar, char, multispace0, multispace1, none_of},
     combinator::{opt, peek, success, value},
     error::context,
-    multi::{many0, separated_list0, separated_list1},
-    sequence::{preceded, terminated},
+    multi::{many0, separated_list1},
+    sequence::{delimited, preceded, terminated},
     IResult,
 };
 
@@ -50,6 +50,12 @@ pub fn parse_symbol_limb<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, String, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
         let (i, s) = alt((
+            delimited(
+                tag("|"),
+                string::parse_string_inner1('|', true, "|"),
+                tag("|"),
+            ),
+            string::parse_string_inner1(symbol::SYM_SEPARATOR, false, symbol::ESCAPE_CHARS),
             string::parse_string_inner1(symbol::SYM_SEPARATOR, false, symbol::ESCAPE_CHARS),
             value(String::from(""), peek(tag("."))),
         ))(from)?;
@@ -210,8 +216,8 @@ pub fn parse_list<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
         let (i, _) = tag("(")(from)?;
-        let (i, _) = parse_space(i)?;
-        let (i, xs) = separated_list0(parse_space1, parse_syntax())(i)?;
+        //let (i, _) = parse_space(i)?;
+        let (i, xs) = many0(preceded(parse_space, parse_syntax()))(i)?;
         let (i, end) = opt(preceded(
             preceded(parse_space, tag(".")),
             preceded(parse_space, parse_syntax()),
@@ -329,6 +335,17 @@ pub mod tests {
         assert!(test(parse_symbol(), ".", None));
         assert!(test(parse_symbol(), "..", Some(symbol!([""]))));
         assert!(test(parse_symbol(), "foo", Some(symbol!(["foo"]))));
+        assert!(test(parse_symbol(), "|foo|", Some(symbol!(["foo"]))));
+        assert!(test(
+            parse_symbol(),
+            "|foo|.|bar|",
+            Some(symbol!(["foo", "bar"]))
+        ));
+        assert!(test(
+            parse_symbol(),
+            ".|foo|.|bar|",
+            Some(symbol!(["foo", "bar"]))
+        ));
         assert!(test(parse_symbol(), ".foo", Some(symbol!(["foo"]))));
         assert!(test(parse_symbol(), "..foo", Some(symbol!(["", "foo"]))));
         assert!(test(parse_symbol(), "foo.", Some(symbol!(["foo"]))));

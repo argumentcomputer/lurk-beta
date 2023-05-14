@@ -2013,7 +2013,7 @@ fn test_num_syntax_implications() {
 fn test_quoted_symbols() {
     let s = &mut Store::<Fr>::default();
     let expr = "(let ((|foo bar| 9)
-                          (|Foo \\| Bar| (lambda (|X|) (* x x))))
+                          (|Foo \\| Bar| (lambda (|x|) (* x x))))
                       (|Foo \\| Bar| |foo bar|))";
     let res = s.num(81);
     let terminal = s.get_cont_terminal();
@@ -2298,7 +2298,7 @@ fn test_keyword() {
     let expr = ":asdf";
     let expr2 = "(eq :asdf :asdf)";
     let expr3 = "(eq :asdf 'asdf)";
-    let res = s.key("ASDF");
+    let res = s.key("asdf");
     let res2 = s.get_t();
     let res3 = s.get_nil();
 
