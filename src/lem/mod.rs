@@ -671,65 +671,73 @@ impl<'a, F: LurkField> LEM<'a, F> {
         );
 
         let alloc_zero = AllocatedNum::alloc(cs.namespace(|| "#zero"), || Ok(F::zero())).unwrap();
-        let mut stack = vec![&self.lem_op];
-        while let Some(op) = stack.pop() {
-            match op {
-                LEMOP::MkNull(tgt, tag) => {
-                    if alloc_ptrs.contains_key(tgt.name()) {
-                        return Err(format!("{} already allocated", tgt.name()));
+        let mut stack = vec![(&self.lem_op, false)];
+        while let Some((op, is_dummy)) = stack.pop() {
+            if is_dummy {
+                // TODO: set `op.potential_assignments` with dummy variables
+                // FIX: we will need to do it for meta vars in the future as well
+            } else {
+                match op {
+                    LEMOP::MkNull(tgt, tag) => {
+                        if alloc_ptrs.contains_key(tgt.name()) {
+                            return Err(format!("{} already allocated", tgt.name()));
+                        }
+                        let alloc_tgt = Self::allocate_ptr(cs, tgt.name(), store, witness)?;
+                        let alloc_tag = AllocatedNum::alloc(
+                            cs.namespace(|| format!("{}'s tag", tgt.name())),
+                            || Ok(tag.field()),
+                        )
+                        .unwrap();
+                        enforce_equal(
+                            cs,
+                            || format!("{}'s tag is {}", tgt.name(), F::hex_digits(tag.field())),
+                            &alloc_tgt.tag(),
+                            &alloc_tag,
+                        );
+                        enforce_equal(
+                            cs,
+                            || format!("{}'s val is zero", tgt.name()),
+                            &alloc_tgt.hash(),
+                            &alloc_zero,
+                        );
                     }
-                    let alloc_tgt = Self::allocate_ptr(cs, tgt.name(), store, witness)?;
-                    let alloc_tag = AllocatedNum::alloc(
-                        cs.namespace(|| format!("{}'s tag", tgt.name())),
-                        || Ok(tag.field()),
-                    )
-                    .unwrap();
-                    enforce_equal(
-                        cs,
-                        || format!("{}'s tag is {}", tgt.name(), F::hex_digits(tag.field())),
-                        &alloc_tgt.tag(),
-                        &alloc_tag,
-                    );
-                    enforce_equal(
-                        cs,
-                        || format!("{}'s val is zero", tgt.name()),
-                        &alloc_tgt.hash(),
-                        &alloc_zero,
-                    );
-                }
-                LEMOP::Copy(tgt, src) => {
-                    let Some(alloc_src) = alloc_ptrs.get(src.name()) else {
+                    LEMOP::Copy(tgt, src) => {
+                        let Some(alloc_src) = alloc_ptrs.get(src.name()) else {
                         return Err(format!("{} not allocated", src.name()));
                     };
-                    if alloc_ptrs.contains_key(tgt.name()) {
-                        return Err(format!("{} already allocated", tgt.name()));
+                        if alloc_ptrs.contains_key(tgt.name()) {
+                            return Err(format!("{} already allocated", tgt.name()));
+                        }
+                        let alloc_tgt = Self::allocate_ptr(cs, tgt.name(), store, witness)?;
+                        let alloc_src = alloc_src.clone();
+                        alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
+                        Self::enforce_equal_ptrs(
+                            cs,
+                            &alloc_src,
+                            src.name(),
+                            &alloc_tgt,
+                            tgt.name(),
+                        );
                     }
-                    let alloc_tgt = Self::allocate_ptr(cs, tgt.name(), store, witness)?;
-                    let alloc_src = alloc_src.clone();
-                    alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
-                    Self::enforce_equal_ptrs(cs, &alloc_src, src.name(), &alloc_tgt, tgt.name());
-                }
-                LEMOP::MatchTag(ptr, cases, def) => {
-                    let Some(ptr) = witness.ptrs.get(ptr.name()) else {
+                    LEMOP::MatchTag(ptr, cases, def) => {
+                        let Some(ptr) = witness.ptrs.get(ptr.name()) else {
                         return Err(format!("Couldn't find {} in the witness", ptr.name()))
                     };
-                    let mut has_match = false;
-                    for (tag, op) in cases.iter() {
-                        // constrain tag
-                        if *tag == ptr.tag {
-                            has_match = true;
-                            stack.push(op);
-                        } else {
-                            // set dummy values for `op.potential_assignments`
-                            // may need to do it for vars in the future as well
-                        }
-                        if !has_match {
-                            stack.push(def);
+                        let mut has_match = false;
+                        for (tag, op) in cases.iter() {
+                            // constrain tag
+                            if *tag == ptr.tag {
+                                has_match = true;
+                                stack.push((op, false));
+                            } else {
+                                stack.push((op, true));
+                            }
+                            stack.push((def, has_match)); // if has match, then `def` can be constrained with dummies
                         }
                     }
+                    LEMOP::Seq(ops) => stack.extend(ops.iter().rev().map(|op| (op, false))),
+                    _ => todo!(),
                 }
-                LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
-                _ => todo!(),
             }
         }
         // TODO: constrain that for each `(copy_from_vec, copy_into)` in
