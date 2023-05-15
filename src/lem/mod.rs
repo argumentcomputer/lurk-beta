@@ -97,7 +97,7 @@ pub struct LEM<'a, F: LurkField> {
     output: [&'a str; 3],
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Eq, Hash)]
 pub struct MetaPtr<'a>(&'a str);
 
 impl<'a> MetaPtr<'a> {
@@ -107,7 +107,7 @@ impl<'a> MetaPtr<'a> {
     }
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Eq, Hash)]
 pub struct MetaVar<'a>(&'a str);
 
 impl<'a> MetaVar<'a> {
@@ -150,8 +150,9 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
         LEMOP::MatchTag(i, HashMap::from_iter(cases), Box::new(def))
     }
 
-    pub fn potential_assignments(&self) -> HashSet<&'a str> {
+    pub fn potential_assignments(&self) -> (HashSet<MetaPtr<'a>>, HashSet<MetaVar<'a>>) {
         let mut ptrs_set = HashSet::default();
+        let mut vars_set = HashSet::default();
         let mut stack = vec![self];
         while let Some(op) = stack.pop() {
             match op {
@@ -161,25 +162,26 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
                 | LEMOP::Hash3Ptrs(ptr, ..)
                 | LEMOP::Hash4Ptrs(ptr, ..)
                 | LEMOP::Hide(ptr, ..) => {
-                    ptrs_set.insert(ptr.name());
+                    ptrs_set.insert(*ptr);
                 }
                 LEMOP::Unhash2Ptrs([a, b], _) => {
-                    ptrs_set.insert(a.name());
-                    ptrs_set.insert(b.name());
+                    ptrs_set.insert(*a);
+                    ptrs_set.insert(*b);
                 }
                 LEMOP::Unhash3Ptrs([a, b, c], _) => {
-                    ptrs_set.insert(a.name());
-                    ptrs_set.insert(b.name());
-                    ptrs_set.insert(c.name());
+                    ptrs_set.insert(*a);
+                    ptrs_set.insert(*b);
+                    ptrs_set.insert(*c);
                 }
                 LEMOP::Unhash4Ptrs([a, b, c, d], _) => {
-                    ptrs_set.insert(a.name());
-                    ptrs_set.insert(b.name());
-                    ptrs_set.insert(c.name());
-                    ptrs_set.insert(d.name());
+                    ptrs_set.insert(*a);
+                    ptrs_set.insert(*b);
+                    ptrs_set.insert(*c);
+                    ptrs_set.insert(*d);
                 }
-                LEMOP::Open(_, p, _) => {
-                    ptrs_set.insert(p.name());
+                LEMOP::Open(v, p, _) => {
+                    ptrs_set.insert(*p);
+                    vars_set.insert(*v);
                 }
                 LEMOP::IfTagEq(.., a, b) | LEMOP::IfTagOr(.., a, b) => {
                     stack.push(a);
@@ -202,7 +204,7 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
                 }
             }
         }
-        ptrs_set
+        (ptrs_set, vars_set)
     }
 
     // // pub fn compile should generate the circuit
@@ -579,10 +581,6 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     if ptr_map.insert(copy_into, *src_ptr).is_some() {
                         return Err(format!("{} already defined", copy_into));
                     }
-                } else {
-                    if ptr_map.insert(copy_from, Ptr::null(Tag::Dummy)).is_some() {
-                        return Err(format!("{} already defined", copy_from));
-                    }
                 }
             }
         }
@@ -669,6 +667,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
     ) -> Result<(), String> {
         let mut alloc_ptrs: HashMap<&'a str, AllocatedPtr<F>> = HashMap::default();
 
+        // TODO: constrain that each input corresponds to what's in the `witness`
         // allocate first input
         {
             alloc_ptrs.insert(
@@ -709,11 +708,12 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     }
                     let alloc_tgt =
                         Self::allocate_ptr_from_witness(cs, tgt.name(), store, witness)?;
-                    let alloc_tag = AllocatedNum::alloc(
+                    let Ok(alloc_tag) = AllocatedNum::alloc(
                         cs.namespace(|| format!("{}'s tag", tgt.name())),
                         || Ok(tag.field()),
-                    )
-                    .unwrap();
+                    ) else {
+                        return Err(format!("Couldn't allocate tag for {}", tgt.name()));
+                    };
                     enforce_equal(
                         cs,
                         || format!("{}'s tag is {}", tgt.name(), F::hex_digits(tag.field())),
