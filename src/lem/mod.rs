@@ -600,40 +600,21 @@ impl<'a, F: LurkField> LEM<'a, F> {
         cs: &mut CS,
         name: &'a str,
         store: &mut Store<F>,
-        witness: &Witness<'a, F>,
+        ptr_witness: &HashMap<&'a str, Ptr<F>>,
     ) -> Result<AllocatedPtr<F>, String> {
-        let Some(ptr) = witness.ptrs.get(name) else {
+        let Some(ptr) = ptr_witness.get(name) else {
             return Err(format!("Couldn't find {} in the witness", name))
         };
         let aqua_ptr = store.hydrate_ptr(ptr)?;
-        let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {} tag", name)), || {
+        let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {}'s tag", name)), || {
             Ok(aqua_ptr.tag.field())
         }) else {
             return Err(format!("Couldn't allocate tag for {}", name))
         };
-        let Ok(alloc_val) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {} val", name)), || {
+        let Ok(alloc_val) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {}'s val", name)), || {
             Ok(aqua_ptr.val)
         }) else {
             return Err(format!("Couldn't allocate val for {}", name))
-        };
-        Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_val))
-    }
-
-    fn allocate_ptr_from_tag_and_val<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        namespace: String,
-        tag: F,
-        val: F,
-    ) -> Result<AllocatedPtr<F>, String> {
-        let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("#tag {}", namespace)), || {
-            Ok(tag)
-        }) else {
-            return Err(format!("Couldn't allocate tag for namespace {}", namespace))
-        };
-        let Ok(alloc_val) = AllocatedNum::alloc(cs.namespace(|| format!("#val {}", namespace)), || {
-            Ok(val)
-        }) else {
-            return Err(format!("Couldn't allocate tag for namespace {}", namespace))
         };
         Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_val))
     }
@@ -666,13 +647,14 @@ impl<'a, F: LurkField> LEM<'a, F> {
         witness: &Witness<'a, F>,
     ) -> Result<(), String> {
         let mut alloc_ptrs: HashMap<&'a str, AllocatedPtr<F>> = HashMap::default();
+        let mut ptrs_witness = witness.ptrs.clone();
+        let mut vars_witness = witness.vars.clone();
 
-        // TODO: constrain that each input corresponds to what's in the `witness`
         // allocate first input
         {
             alloc_ptrs.insert(
                 self.input[0],
-                Self::allocate_ptr_from_witness(cs, self.input[0], store, witness)?,
+                Self::allocate_ptr_from_witness(cs, self.input[0], store, &ptrs_witness)?,
             );
         }
 
@@ -683,7 +665,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
             }
             alloc_ptrs.insert(
                 self.input[1],
-                Self::allocate_ptr_from_witness(cs, self.input[1], store, witness)?,
+                Self::allocate_ptr_from_witness(cs, self.input[1], store, &ptrs_witness)?,
             );
         }
 
@@ -694,11 +676,11 @@ impl<'a, F: LurkField> LEM<'a, F> {
             }
             alloc_ptrs.insert(
                 self.input[2],
-                Self::allocate_ptr_from_witness(cs, self.input[2], store, witness)?,
+                Self::allocate_ptr_from_witness(cs, self.input[2], store, &ptrs_witness)?,
             );
         }
 
-        let alloc_zero = AllocatedNum::alloc(cs.namespace(|| "#zero"), || Ok(F::zero())).unwrap();
+        let zero = AllocatedNum::alloc(cs.namespace(|| "#zero"), || Ok(F::zero())).unwrap();
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
             match op {
@@ -707,7 +689,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         return Err(format!("{} already allocated", tgt.name()));
                     }
                     let alloc_tgt =
-                        Self::allocate_ptr_from_witness(cs, tgt.name(), store, witness)?;
+                        Self::allocate_ptr_from_witness(cs, tgt.name(), store, &ptrs_witness)?;
                     let Ok(alloc_tag) = AllocatedNum::alloc(
                         cs.namespace(|| format!("{}'s tag", tgt.name())),
                         || Ok(tag.field()),
@@ -716,7 +698,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     };
                     enforce_equal(
                         cs,
-                        || format!("{}'s tag is {}", tgt.name(), F::hex_digits(tag.field())),
+                        || format!("{}'s tag is {}", tgt.name(), tag.field::<F>().hex_digits()),
                         &alloc_tgt.tag(),
                         &alloc_tag,
                     );
@@ -724,7 +706,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         cs,
                         || format!("{}'s val is zero", tgt.name()),
                         &alloc_tgt.hash(),
-                        &alloc_zero,
+                        &zero,
                     );
                 }
                 LEMOP::Copy(tgt, src) => {
@@ -735,7 +717,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         return Err(format!("{} already allocated", tgt.name()));
                     }
                     let alloc_tgt =
-                        Self::allocate_ptr_from_witness(cs, tgt.name(), store, witness)?;
+                        Self::allocate_ptr_from_witness(cs, tgt.name(), store, &ptrs_witness)?;
                     let alloc_src = alloc_src.clone();
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                     Self::enforce_equal_ptrs(cs, &alloc_src, src.name(), &alloc_tgt, tgt.name());
@@ -744,17 +726,48 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     let Some(alloc_match_ptr) = alloc_ptrs.get(match_ptr.name()) else {
                         return Err(format!("{} not allocated", match_ptr.name()));
                     };
-                    let Some(ptr) = witness.ptrs.get(match_ptr.name()) else {
-                        return Err(format!("Couldn't find {} in the witness", match_ptr.name()))
+                    let Some(tag_f) = alloc_match_ptr.tag().get_value() else {
+                        return Err(format!("Couldn't get tag for allocated pointer {}", match_ptr.name()));
                     };
-                    let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("alloc tag for {}'s MatchTag", match_ptr.name())), || {
-                        Ok(ptr.tag.field())
-                    }) else {
-                        return Err(format!("Couldn't allocate tag for {}'s MatchTag", match_ptr.name()))
-                    };
-                    enforce_equal(cs, || "", alloc_match_ptr.tag(), &alloc_tag);
-                    stack.extend(cases.values());
+                    let mut has_match = false;
+                    for (tag, op) in cases.iter() {
+                        if tag.field::<F>() == tag_f {
+                            has_match = true;
+                        } else {
+                            let (ptrs, vars) = op.potential_assignments();
+                            for ptr in ptrs.iter() {
+                                ptrs_witness.insert(ptr.name(), Ptr::null(Tag::Dummy));
+                            }
+                            for var in vars.iter() {
+                                vars_witness.insert(var.name(), F::zero());
+                            }
+                        }
+                        stack.push(op);
+                    }
+                    if has_match {
+                        let (ptrs, vars) = def.potential_assignments();
+                        for ptr in ptrs.iter() {
+                            ptrs_witness.insert(ptr.name(), Ptr::null(Tag::Dummy));
+                        }
+                        for var in vars.iter() {
+                            vars_witness.insert(var.name(), F::zero());
+                        }
+                    }
                     stack.push(def);
+                    // let Some(alloc_match_ptr) = alloc_ptrs.get(match_ptr.name()) else {
+                    //     return Err(format!("{} not allocated", match_ptr.name()));
+                    // };
+                    // let Some(ptr) = witness.ptrs.get(match_ptr.name()) else {
+                    //     return Err(format!("Couldn't find {} in the witness", match_ptr.name()))
+                    // };
+                    // let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("alloc tag for {}'s MatchTag", match_ptr.name())), || {
+                    //     Ok(ptr.tag.field())
+                    // }) else {
+                    //     return Err(format!("Couldn't allocate tag for {}'s MatchTag", match_ptr.name()))
+                    // };
+                    // enforce_equal(cs, || "", alloc_match_ptr.tag(), &alloc_tag);
+                    // stack.extend(cases.values());
+                    // stack.push(def);
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
                 _ => todo!(),
@@ -768,65 +781,10 @@ impl<'a, F: LurkField> LEM<'a, F> {
             // BONUS: constrain that the remaining elements of `copy_from_vec` all
             // equal the dummy pointer
         }
-        {
-            let Some(alloc_out) = alloc_ptrs.get(self.output[0]) else {
-                return Err(format!("{} not allocated", self.output[0]));
-            };
-            let ptr_out = witness.output[0];
-            let ptr_out_aqua = store.hydrate_ptr(&ptr_out)?;
-            let ptr_out_alloc = Self::allocate_ptr_from_tag_and_val(
-                cs,
-                format!("Output {}", self.output[0]),
-                ptr_out_aqua.tag.field(),
-                ptr_out_aqua.val,
-            )?;
-            Self::enforce_equal_ptrs(
-                cs,
-                alloc_out,
-                "allocated output[0]",
-                &ptr_out_alloc,
-                "expected output[0]",
-            )
-        }
-        {
-            let Some(alloc_out) = alloc_ptrs.get(self.output[1]) else {
-                return Err(format!("{} not allocated", self.output[1]));
-            };
-            let ptr_out = witness.output[1];
-            let ptr_out_aqua = store.hydrate_ptr(&ptr_out)?;
-            let ptr_out_alloc = Self::allocate_ptr_from_tag_and_val(
-                cs,
-                format!("Output {}", self.output[1]),
-                ptr_out_aqua.tag.field(),
-                ptr_out_aqua.val,
-            )?;
-            Self::enforce_equal_ptrs(
-                cs,
-                alloc_out,
-                "allocated output[1]",
-                &ptr_out_alloc,
-                "expected output[1]",
-            )
-        }
-        {
-            let Some(alloc_out) = alloc_ptrs.get(self.output[2]) else {
-                return Err(format!("{} not allocated", self.output[2]));
-            };
-            let ptr_out = witness.output[2];
-            let ptr_out_aqua = store.hydrate_ptr(&ptr_out)?;
-            let ptr_out_alloc = Self::allocate_ptr_from_tag_and_val(
-                cs,
-                format!("Output {}", self.output[2]),
-                ptr_out_aqua.tag.field(),
-                ptr_out_aqua.val,
-            )?;
-            Self::enforce_equal_ptrs(
-                cs,
-                alloc_out,
-                "allocated output[2]",
-                &ptr_out_alloc,
-                "expected output[2]",
-            )
+        for name in self.output {
+            if !alloc_ptrs.contains_key(name) {
+                return Err(format!("{} not allocated", name));
+            }
         }
         Ok(())
     }
