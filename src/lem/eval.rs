@@ -37,17 +37,28 @@ pub fn step<F: LurkField>() -> LEM<'static, F> {
             LEMOP::MkNull(MetaPtr("cont_out_error_outer"), Tag::Error),
         ]),
     );
-    let to_copy = HashMap::from_iter(vec![
-        ("expr_out_ret", "expr_out"),
-        ("expr_out_error_inner", "expr_out"),
-        ("expr_out_error_outer", "expr_out"),
-        ("env_out_ret", "env_out"),
-        ("env_out_error_inner", "env_out"),
-        ("env_out_error_outer", "env_out"),
-        ("cont_out_ret", "cont_out"),
-        ("cont_out_error_inner", "cont_out"),
-        ("cont_out_error_outer", "cont_out"),
-    ]);
+    let to_copy = vec![
+        (
+            vec![
+                "expr_out_ret",
+                "expr_out_error_inner",
+                "expr_out_error_outer",
+            ],
+            "expr_out",
+        ),
+        (
+            vec!["env_out_ret", "env_out_error_inner", "env_out_error_outer"],
+            "env_out",
+        ),
+        (
+            vec![
+                "cont_out_ret",
+                "cont_out_error_inner",
+                "cont_out_error_outer",
+            ],
+            "cont_out",
+        ),
+    ];
     let output = ["expr_out", "env_out", "cont_out"];
     LEM {
         input,

@@ -5,7 +5,7 @@ mod store;
 mod symbol;
 mod tag;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     circuit::gadgets::pointer::AllocatedPtr,
@@ -93,7 +93,7 @@ use bellperson::ConstraintSystem;
 pub struct LEM<'a, F: LurkField> {
     input: [&'a str; 3],
     lem_op: LEMOP<'a, F>,
-    to_copy: HashMap<&'a str, &'a str>,
+    to_copy: Vec<(Vec<&'a str>, &'a str)>,
     output: [&'a str; 3],
 }
 
@@ -518,12 +518,14 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
             }
         }
-        for (copy_from, copy_into) in self.to_copy.iter() {
-            if let Some(src_ptr) = ptr_map.get(copy_from) {
-                if ptr_map.insert(copy_into, *src_ptr).is_some() {
-                    return Err(format!("{} already defined", copy_into));
-                }
-            };
+        for (copy_from_vec, copy_into) in self.to_copy.iter() {
+            for copy_from in copy_from_vec.iter() {
+                if let Some(src_ptr) = ptr_map.get(copy_from) {
+                    if ptr_map.insert(copy_into, *src_ptr).is_some() {
+                        return Err(format!("{} already defined", copy_into));
+                    }
+                };
+            }
         }
         let Some(out1) = ptr_map.get(self.output[0]) else {
             return Err(format!("Output {} not defined", self.output[0]))
