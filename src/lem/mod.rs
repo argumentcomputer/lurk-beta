@@ -93,7 +93,7 @@ use bellperson::ConstraintSystem;
 pub struct LEM<'a, F: LurkField> {
     input: [&'a str; 3],
     lem_op: LEMOP<'a, F>,
-    to_copy: Vec<(Vec<&'a str>, &'a str)>,
+    do_copy: Vec<(Vec<&'a str>, &'a str)>,
     output: [&'a str; 3],
 }
 
@@ -148,6 +148,61 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
         def: LEMOP<'a, F>,
     ) -> LEMOP<'a, F> {
         LEMOP::MatchTag(i, HashMap::from_iter(cases), Box::new(def))
+    }
+
+    pub fn potential_assignments(&self) -> HashSet<&'a str> {
+        let mut ptrs_set = HashSet::default();
+        let mut stack = vec![self];
+        while let Some(op) = stack.pop() {
+            match op {
+                LEMOP::MkNull(ptr, _)
+                | LEMOP::Copy(ptr, _)
+                | LEMOP::Hash2Ptrs(ptr, ..)
+                | LEMOP::Hash3Ptrs(ptr, ..)
+                | LEMOP::Hash4Ptrs(ptr, ..)
+                | LEMOP::Hide(ptr, ..) => {
+                    ptrs_set.insert(ptr.name());
+                }
+                LEMOP::Unhash2Ptrs([a, b], _) => {
+                    ptrs_set.insert(a.name());
+                    ptrs_set.insert(b.name());
+                }
+                LEMOP::Unhash3Ptrs([a, b, c], _) => {
+                    ptrs_set.insert(a.name());
+                    ptrs_set.insert(b.name());
+                    ptrs_set.insert(c.name());
+                }
+                LEMOP::Unhash4Ptrs([a, b, c, d], _) => {
+                    ptrs_set.insert(a.name());
+                    ptrs_set.insert(b.name());
+                    ptrs_set.insert(c.name());
+                    ptrs_set.insert(d.name());
+                }
+                LEMOP::Open(_, p, _) => {
+                    ptrs_set.insert(p.name());
+                }
+                LEMOP::IfTagEq(.., a, b) | LEMOP::IfTagOr(.., a, b) => {
+                    stack.push(a);
+                    stack.push(b);
+                }
+                LEMOP::MatchTag(_, cases, def) => {
+                    for op in cases.values() {
+                        stack.push(op);
+                    }
+                    stack.push(def);
+                }
+                LEMOP::MatchFieldVal(_, cases, def) => {
+                    for op in cases.values() {
+                        stack.push(op);
+                    }
+                    stack.push(def);
+                }
+                LEMOP::Seq(ops) => {
+                    stack.extend(ops.iter());
+                }
+            }
+        }
+        ptrs_set
     }
 
     // // pub fn compile should generate the circuit
@@ -518,7 +573,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
             }
         }
-        for (copy_from_vec, copy_into) in self.to_copy.iter() {
+        for (copy_from_vec, copy_into) in self.do_copy.iter() {
             for copy_from in copy_from_vec.iter() {
                 if let Some(src_ptr) = ptr_map.get(copy_from) {
                     if ptr_map.insert(copy_into, *src_ptr).is_some() {
@@ -545,7 +600,9 @@ impl<'a, F: LurkField> LEM<'a, F> {
         store: &mut Store<F>,
         witness: &Witness<'a, F>,
     ) -> Result<AllocatedPtr<F>, String> {
-        let ptr = witness.ptrs.get(name).unwrap();
+        let Some(ptr) = witness.ptrs.get(name) else {
+            return Err(format!("Couldn't find {} in the witness", name))
+        };
         let aqua_ptr = store.hydrate_ptr(ptr)?;
         let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {} tag", name)), || {
             Ok(aqua_ptr.tag.field())
@@ -652,12 +709,33 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                     Self::enforce_equal_ptrs(cs, &alloc_src, src.name(), &alloc_tgt, tgt.name());
                 }
-                LEMOP::MatchTag(ptr, cases, def) => todo!(),
+                LEMOP::MatchTag(ptr, cases, def) => {
+                    let Some(ptr) = witness.ptrs.get(ptr.name()) else {
+                        return Err(format!("Couldn't find {} in the witness", ptr.name()))
+                    };
+                    let mut has_match = false;
+                    for (tag, op) in cases.iter() {
+                        // constrain tag
+                        if *tag == ptr.tag {
+                            has_match = true;
+                            stack.push(op);
+                        } else {
+                            // set dummy values for `op.potential_assignments`
+                            // may need to do it for vars in the future as well
+                        }
+                        if !has_match {
+                            stack.push(def);
+                        }
+                    }
+                }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
                 _ => todo!(),
             }
         }
-        // TOOD: check allocated output
+        // TODO: constrain that for each `(copy_from_vec, copy_into)` in
+        // `self.do_copy` there is at least one `copy_from` in `copy_from_vec`
+        // such that `copy_from === copy_into`
+        for (copy_from_vec, copy_into) in self.do_copy.iter() {}
         Ok(())
     }
 }

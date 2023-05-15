@@ -37,7 +37,7 @@ pub fn step<F: LurkField>() -> LEM<'static, F> {
             LEMOP::MkNull(MetaPtr("cont_out_error_outer"), Tag::Error),
         ]),
     );
-    let to_copy = vec![
+    let do_copy = vec![
         (
             vec![
                 "expr_out_ret",
@@ -63,7 +63,7 @@ pub fn step<F: LurkField>() -> LEM<'static, F> {
     LEM {
         input,
         lem_op,
-        to_copy,
+        do_copy,
         output,
     }
 }
