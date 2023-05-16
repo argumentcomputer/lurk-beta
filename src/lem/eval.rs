@@ -19,53 +19,34 @@ pub fn step<F: LurkField>() -> LEM<'static, F> {
                 vec![(
                     Tag::Outermost,
                     LEMOP::Seq(vec![
-                        LEMOP::Copy(MetaPtr("expr_out_ret"), MetaPtr("expr_in")),
-                        LEMOP::Copy(MetaPtr("env_out_ret"), MetaPtr("env_in")),
                         LEMOP::MkNull(MetaPtr("cont_out_ret"), Tag::Terminal),
+                        LEMOP::SetReturn([
+                            MetaPtr("expr_in"),
+                            MetaPtr("env_in"),
+                            MetaPtr("cont_out_ret"),
+                        ]),
                     ]),
                 )],
                 LEMOP::Seq(vec![
-                    LEMOP::Copy(MetaPtr("expr_out_error_inner"), MetaPtr("expr_in")),
-                    LEMOP::Copy(MetaPtr("env_out_error_inner"), MetaPtr("env_in")),
                     LEMOP::MkNull(MetaPtr("cont_out_error_inner"), Tag::Error),
+                    LEMOP::SetReturn([
+                        MetaPtr("expr_in"),
+                        MetaPtr("env_in"),
+                        MetaPtr("cont_out_error_inner"),
+                    ]),
                 ]),
             ),
         )],
         LEMOP::Seq(vec![
-            LEMOP::Copy(MetaPtr("expr_out_error_outer"), MetaPtr("expr_in")),
-            LEMOP::Copy(MetaPtr("env_out_error_outer"), MetaPtr("env_in")),
             LEMOP::MkNull(MetaPtr("cont_out_error_outer"), Tag::Error),
+            LEMOP::SetReturn([
+                MetaPtr("expr_in"),
+                MetaPtr("env_in"),
+                MetaPtr("cont_out_error_outer"),
+            ]),
         ]),
     );
-    let do_copy = vec![
-        (
-            vec![
-                "expr_out_ret",
-                "expr_out_error_inner",
-                "expr_out_error_outer",
-            ],
-            "expr_out",
-        ),
-        (
-            vec!["env_out_ret", "env_out_error_inner", "env_out_error_outer"],
-            "env_out",
-        ),
-        (
-            vec![
-                "cont_out_ret",
-                "cont_out_error_inner",
-                "cont_out_error_outer",
-            ],
-            "cont_out",
-        ),
-    ];
-    let output = ["expr_out", "env_out", "cont_out"];
-    LEM {
-        input,
-        lem_op,
-        do_copy,
-        output,
-    }
+    LEM { input, lem_op }
 }
 
 pub fn eval<'a, F: LurkField>(

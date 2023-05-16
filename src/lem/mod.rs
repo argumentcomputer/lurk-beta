@@ -93,8 +93,6 @@ use bellperson::ConstraintSystem;
 pub struct LEM<'a, F: LurkField> {
     input: [&'a str; 3],
     lem_op: LEMOP<'a, F>,
-    do_copy: Vec<(Vec<&'a str>, &'a str)>,
-    output: [&'a str; 3],
 }
 
 #[derive(PartialEq, Clone, Copy, Eq, Hash)]
@@ -138,6 +136,7 @@ pub enum LEMOP<'a, F: LurkField> {
         Box<LEMOP<'a, F>>,
     ),
     Seq(Vec<LEMOP<'a, F>>),
+    SetReturn([MetaPtr<'a>; 3]),
 }
 
 impl<'a, F: LurkField> LEMOP<'a, F> {
@@ -202,6 +201,7 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
                 LEMOP::Seq(ops) => {
                     stack.extend(ops.iter());
                 }
+                LEMOP::SetReturn(_) => {}
             }
         }
         (ptrs_set, vars_set)
@@ -336,12 +336,6 @@ pub struct Witness<'a, F: LurkField> {
 
 impl<'a, F: LurkField> LEM<'a, F> {
     pub fn check(&self) {
-        for s in self.input.iter() {
-            assert!(
-                !self.output.contains(&s),
-                "Input and output must be disjoint"
-            )
-        }
         // TODO
     }
 
@@ -360,6 +354,9 @@ impl<'a, F: LurkField> LEM<'a, F> {
         if ptr_map.insert(self.input[2], i[2]).is_some() {
             return Err(format!("{} already defined", self.input[2]));
         }
+        let mut out1: Option<Ptr<F>> = None;
+        let mut out2: Option<Ptr<F>> = None;
+        let mut out3: Option<Ptr<F>> = None;
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
             match op {
@@ -573,27 +570,23 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     }
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
-            }
-        }
-        for (copy_from_vec, copy_into) in self.do_copy.iter() {
-            for copy_from in copy_from_vec.iter() {
-                if let Some(src_ptr) = ptr_map.get(copy_from) {
-                    if ptr_map.insert(copy_into, *src_ptr).is_some() {
-                        return Err(format!("{} already defined", copy_into));
-                    }
+                LEMOP::SetReturn(o) => {
+                    out1 = ptr_map.get(&o[0].name()).map(|x| *x);
+                    out2 = ptr_map.get(&o[1].name()).map(|x| *x);
+                    out3 = ptr_map.get(&o[2].name()).map(|x| *x);
                 }
             }
         }
-        let Some(out1) = ptr_map.get(self.output[0]) else {
-            return Err(format!("Output {} not defined", self.output[0]))
+        let Some(out1) = out1 else {
+            return Err("Output 1 not defined".to_string());
         };
-        let Some(out2) = ptr_map.get(self.output[1]) else {
-            return Err(format!("Output {} not defined", self.output[1]))
+        let Some(out2) = out2 else {
+            return Err("Output 2 not defined".to_string());
         };
-        let Some(out3) = ptr_map.get(self.output[2]) else {
-            return Err(format!("Output {} not defined", self.output[2]))
+        let Some(out3) = out3 else {
+            return Err("Output 3 not defined".to_string());
         };
-        Ok(([*out1, *out2, *out3], ptr_map, var_map))
+        Ok(([out1, out2, out3], ptr_map, var_map))
     }
 
     fn allocate_ptr_from_witness<CS: ConstraintSystem<F>>(
@@ -771,19 +764,6 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
                 _ => todo!(),
-            }
-        }
-        for (copy_from_vec, copy_into) in self.do_copy.iter() {
-            // TODO: constrain that for each `(copy_from_vec, copy_into)` in
-            // `self.do_copy` there is at least one `copy_from` in `copy_from_vec`
-            // such that `copy_from === copy_into`
-            //
-            // BONUS: constrain that the remaining elements of `copy_from_vec` all
-            // equal the dummy pointer
-        }
-        for name in self.output {
-            if !alloc_ptrs.contains_key(name) {
-                return Err(format!("{} not allocated", name));
             }
         }
         Ok(())
