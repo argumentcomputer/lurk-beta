@@ -77,6 +77,18 @@ impl<E: Tag, F: LurkField> Encodable for ZPtr<E, F> {
     }
 }
 
+impl<F: LurkField> TryFrom<ZData> for ZPtr<F> {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &ZData) -> Result<Self, Error> {
+        let (x, y): (FWrap<F>, FWrap<F>) = Self::from(value);
+        let tag_as_u16 =
+            x.0.to_u16()
+                .ok_or_else(|| anyhow!("invalid range for field element representing a tag"))?;
+        let tag = E::try_from(tag_as_u16).map_err(|_| anyhow!("invalid tag"))?;
+        Ok(ZPtr(tag, y.0))
+    }
+
 #[allow(clippy::derived_hash_with_manual_eq)]
 impl<E: Tag, F: LurkField> Hash for ZPtr<E, F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

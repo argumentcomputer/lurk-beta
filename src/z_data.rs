@@ -339,6 +339,12 @@ impl<A: Encodable + Sized, B: Encodable + Sized> Encodable for (A, B) {
 use serde::ser;
 use thiserror::Error;
 
+// Serialize ZData to bytes
+// Wrapper function for testing
+pub fn to_bytes(zd: ZData) -> Vec<u8> {
+    zd.ser()
+}
+
 #[derive(Error, Debug)]
 pub enum SerdeError {
     #[error("Type error")]
@@ -351,6 +357,7 @@ impl serde::ser::Error for SerdeError {
     }
 }
 
+// Maybe should be atom and cell
 pub struct SerializeCell {
     cell: Vec<ZData>,
 }
@@ -376,13 +383,190 @@ where
     value.serialize(Serializer)
 }
 
+// Ignored these and just use the serializer
+// If this way is faster, use an override of some kind
+// Should this be a pub fn from_z_expr instead?
+impl<F: LurkField> From<ZExpr<F>> for ZData {
+  fn from(value: &ZExpr<F>) -> Self {
+        match value {
+            ZExpr::Nil => ZData::Cell(vec![ZData::Atom(vec![0u8])]),
+            ZExpr::Cons(x, y) => ZData::Cell(vec![ZData::Atom(vec![1u8]), x.ser(), y.ser()]),
+            ZExpr::Comm(f, x) => {
+                ZData::Cell(vec![ZData::Atom(vec![2u8]), FWrap(*f).ser(), x.ser()])
+            }
+            ZExpr::SymNil => ZData::Cell(vec![ZData::Atom(vec![3u8])]),
+            ZExpr::SymCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![4u8]), x.ser(), y.ser()]),
+            ZExpr::Key(x) => ZData::Cell(vec![ZData::Atom(vec![5u8]), x.ser()]),
+            ZExpr::Fun {
+                arg,
+                body,
+                closed_env,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![6u8]),
+                arg.ser(),
+                body.ser(),
+                closed_env.ser(),
+            ]),
+            ZExpr::Num(f) => ZData::Cell(vec![ZData::Atom(vec![7u8]), FWrap(*f).ser()]),
+            ZExpr::StrNil => ZData::Cell(vec![ZData::Atom(vec![8u8])]),
+            ZExpr::StrCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![9u8]), x.ser(), y.ser()]),
+            ZExpr::Thunk(x, y) => ZData::Cell(vec![ZData::Atom(vec![10u8]), x.ser(), y.ser()]),
+            ZExpr::Char(x) => ZData::Cell(vec![ZData::Atom(vec![11u8]), (*x).ser()]),
+            ZExpr::Uint(x) => ZData::Cell(vec![ZData::Atom(vec![12u8]), x.ser()]),
+        }
+}
+
+impl<F: LurkField> From<ZPtr<F>> for ZData {
+  fn from(value: &ZPtr<F>) -> Self {
+    let (x, y): (FWrap<F>, FWrap<F>) = (FWrap(value.0.to_field()), FWrap(value.1));
+    Self::from((x,y))
+  }
+}
+
+impl<F: LurkField> From<FWrap<F>> for ZData {
+  // Beware, this assumes a little endian encoding
+  fn from(value: &FWrap<F>) -> Self {
+    let bytes: Vec<u8> = Vec::from(value.0.to_repr().as_ref());
+    let mut trimmed_bytes: Vec<_> = bytes.into_iter().rev().skip_while(|x| *x == 0u8).collect();
+    trimmed_bytes.reverse();
+    ZData::Atom(trimmed_bytes)
+  }
+}
+
+impl<F: LurkField> From<ZStore<F>> for ZData {
+  fn from(value: &ZStore<F>) -> Self {
+    Self::from(self.expr_map.clone(), self.cont_map.clone())
+  }
+}
+
+impl<F: LurkField> From<ZCont<F>> for ZData {
+  fn from(value: &ZCont<F>) -> Self {
+        match self {
+            ZCont::Outermost => ZData::Cell(vec![ZData::Atom(vec![0u8])]),
+            ZCont::Call0 {
+                saved_env,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![1u8]),
+                saved_env.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::Call {
+                unevaled_arg,
+                saved_env,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![2u8]),
+                unevaled_arg.ser(),
+                saved_env.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::Call2 {
+                function,
+                saved_env,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![3u8]),
+                function.ser(),
+                saved_env.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::Tail {
+                saved_env,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![4u8]),
+                saved_env.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::Error => ZData::Cell(vec![ZData::Atom(vec![5u8])]),
+            ZCont::Lookup {
+                saved_env,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![6u8]),
+                saved_env.ser(),
+                continuation.ser(),
+            ]),
+
+            ZCont::Unop {
+                operator,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![7u8]),
+                operator.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::Binop {
+                operator,
+                saved_env,
+                unevaled_args,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![8u8]),
+                operator.ser(),
+                saved_env.ser(),
+                unevaled_args.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::Binop2 {
+                operator,
+                evaled_arg,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![9u8]),
+                operator.ser(),
+                evaled_arg.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::If {
+                unevaled_args,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![10u8]),
+                unevaled_args.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::Let {
+                var,
+                body,
+                saved_env,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![11u8]),
+                var.ser(),
+                body.ser(),
+                saved_env.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::LetRec {
+                var,
+                body,
+                saved_env,
+                continuation,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![12u8]),
+                var.ser(),
+                body.ser(),
+                saved_env.ser(),
+                continuation.ser(),
+            ]),
+            ZCont::Emit { continuation } => {
+                ZData::Cell(vec![ZData::Atom(vec![13u8]), continuation.ser()])
+            }
+            ZCont::Dummy => ZData::Cell(vec![ZData::Atom(vec![14u8])]),
+            ZCont::Terminal => ZData::Cell(vec![ZData::Atom(vec![15u8])]),
+        }
+  }
+}
+
 impl ser::Serializer for Serializer {
     type Ok = ZData;
 
     type Error = SerdeError;
 
     type SerializeSeq = SerializeCell;
-    type SerializeTuple = SerializeCell;
+    type SerializeTuple = SerializeCell; 
     type SerializeTupleStruct = SerializeCell;
     type SerializeTupleVariant = SerializeCell;
     type SerializeMap = SerializeCell;
@@ -422,12 +606,6 @@ impl ser::Serializer for Serializer {
         ))
     }
 
-    // TODO: provided, should I override?
-    //#[inline]
-    //  fn serialize_i128(self, value: i128) -> Result<Self::Ok, Self::Error> {
-    //    Err(SerdeError::UnsupportedType("Unsigned integers not supported".into()))
-    //  }
-
     #[inline]
     fn serialize_u8(self, value: u8) -> Result<Self::Ok, Self::Error> {
         self.serialize_u32(value.into())
@@ -463,56 +641,45 @@ impl ser::Serializer for Serializer {
         self.serialize_u32(value as u32)
     }
 
-    // Should strings be Atoms or Cells?
     #[inline]
     fn serialize_str(self, value: &str) -> Result<Self::Ok, Self::Error> {
-        Ok(ZData::Atom(value.as_bytes().to_vec()))
-        //Ok(ZData::Cell(self.serialize_seq(Some(value.len()))?.cell))
+      self.serialize_bytes(value.as_bytes())
     }
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Self::Ok, Self::Error> {
         Ok(ZData::Atom(value.to_vec()))
     }
 
-    // TODO: Confirm whether or not this and other compound types are supported
     #[inline]
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        Err(SerdeError::UnsupportedType(
-            "Unit type not supported".into(),
-        ))
+      self.serialize_none()
     }
 
     #[inline]
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
-        Err(SerdeError::UnsupportedType(
-            "Unit structs not supported".into(),
-        ))
+      self.serialize_none()
     }
 
     #[inline]
     fn serialize_unit_variant(
         self,
         _name: &'static str,
-        _variant_index: u32,
+        variant_index: u32,
         _variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
-        Err(SerdeError::UnsupportedType(
-            "Unit variant not supported".into(),
-        ))
+      self.serialize_u32(variant_index)
     }
 
     #[inline]
     fn serialize_newtype_struct<T: ?Sized>(
         self,
         _name: &'static str,
-        _value: &T,
+        value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: ser::Serialize,
     {
-        Err(SerdeError::UnsupportedType(
-            "Newtype struct not supported".into(),
-        ))
+      value.serialize(self)
     }
 
     fn serialize_newtype_variant<T: ?Sized>(
@@ -664,18 +831,18 @@ impl ser::SerializeMap for SerializeCell {
     type Ok = ZData;
     type Error = SerdeError;
 
-    fn serialize_key<T: ?Sized>(&mut self, _key: &T) -> Result<(), Self::Error>
+    fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<(), Self::Error>
     where
         T: ser::Serialize,
     {
-        todo!()
+        cell.push(key.serialize(self))
     }
 
-    fn serialize_value<T: ?Sized>(&mut self, _value: &T) -> Result<(), Self::Error>
+    fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: ser::Serialize,
     {
-        todo!()
+        cell.push(value.serialize(self))
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
@@ -726,6 +893,65 @@ impl ser::SerializeStructVariant for SerializeCell {
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use crate::z_expr::ZExpr;
+    use pasta_curves::pallas::Scalar;
+
+    #[test]
+    fn unit_serde_encodable_zdata() {
+        let ze: ZExpr<Scalar> = ZExpr::Nil;
+        let zd = to_z_data(ze);
+        println!("ZData: {:?}", zd);
+    }
+
+    //#[test]
+    //fn unit_serde_encodable_bytes() {
+    //    let test = |zd: ZData, xs: Vec<u8>| {
+    //        println!("{:?}", zd.ser());
+    //        let enc = zd.ser();
+    //        assert_eq!(enc, xs);
+    //        let ser = to_z_data(xs);
+    //        assert_eq!(ser, xs);
+    //    };
+
+    //    test(ZData::Atom(vec![]), vec![0b0000_0000]);
+    //    test(ZData::Cell(vec![]), vec![0b1000_0000]);
+    //    test(ZData::Atom(vec![0]), vec![0b0100_0001, 0]);
+    //    test(ZData::Atom(vec![1]), vec![0b0100_0001, 1]);
+    //    test(
+    //        ZData::Cell(vec![ZData::Atom(vec![1])]),
+    //        vec![0b1100_0001, 0b0100_0001, 1],
+    //    );
+    //    test(
+    //        ZData::Cell(vec![ZData::Atom(vec![1]), ZData::Atom(vec![1])]),
+    //        vec![0b1100_0010, 0b0100_0001, 1, 0b0100_0001, 1],
+    //    );
+    //    #[rustfmt::skip]
+    //    test(
+    //        ZData::Atom(vec![
+    //            0, 0, 0, 0, 0, 0, 0, 0,
+    //            0, 0, 0, 0, 0, 0, 0, 0,
+    //            0, 0, 0, 69, 96, 43, 67,
+    //            4, 224, 2, 148, 222, 23, 85, 212,
+    //            43, 182, 14, 90, 138, 62, 151, 68,
+    //            207, 128, 70, 44, 70, 31, 155, 81,
+    //            19, 21, 219, 228, 40, 235, 21, 137,
+    //            238, 250, 180, 50, 118, 244, 44, 84,
+    //            75, 185,
+    //        ]),
+    //        vec![0b0000_0001, 65,
+    //            0, 0, 0, 0, 0, 0, 0, 0,
+    //            0, 0, 0, 0, 0, 0, 0, 0,
+    //            0, 0, 0, 69, 96, 43, 67,
+    //            4, 224, 2, 148, 222, 23, 85, 212,
+    //            43, 182, 14, 90, 138, 62, 151, 68,
+    //            207, 128, 70, 44, 70, 31, 155, 81,
+    //            19, 21, 219, 228, 40, 235, 21, 137,
+    //            238, 250, 180, 50, 118, 244, 44, 84,
+    //            75, 185,
+    //        ],
+    //    );
+    //}
+
     #[test]
     fn unit_byte_count() {
         assert_eq!(ZData::byte_count(0), 1);
@@ -755,7 +981,7 @@ pub mod tests {
             let ser = zd.ser();
             assert_eq!(ser, xs);
             println!("{:?}", ZData::de(&ser));
-            assert_eq!(zd, ZData::de(&ser).expect("valid lightdata"))
+            assert_eq!(zd, ZData::de(&ser).expect("valid zdata"))
         };
         test(ZData::Atom(vec![]), vec![0b0000_0000]);
         test(ZData::Cell(vec![]), vec![0b1000_0000]);

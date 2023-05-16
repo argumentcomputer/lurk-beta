@@ -165,37 +165,11 @@ impl<F: LurkField> ZExpr<F> {
     }
 }
 
-impl<F: LurkField> Encodable for ZExpr<F> {
-    fn ser(&self) -> ZData {
-        match self {
-            ZExpr::Nil => ZData::Cell(vec![ZData::Atom(vec![0u8])]),
-            ZExpr::Cons(x, y) => ZData::Cell(vec![ZData::Atom(vec![1u8]), x.ser(), y.ser()]),
-            ZExpr::Comm(f, x) => {
-                ZData::Cell(vec![ZData::Atom(vec![2u8]), FWrap(*f).ser(), x.ser()])
-            }
-            ZExpr::SymNil => ZData::Cell(vec![ZData::Atom(vec![3u8])]),
-            ZExpr::SymCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![4u8]), x.ser(), y.ser()]),
-            ZExpr::Key(x) => ZData::Cell(vec![ZData::Atom(vec![5u8]), x.ser()]),
-            ZExpr::Fun {
-                arg,
-                body,
-                closed_env,
-            } => ZData::Cell(vec![
-                ZData::Atom(vec![6u8]),
-                arg.ser(),
-                body.ser(),
-                closed_env.ser(),
-            ]),
-            ZExpr::Num(f) => ZData::Cell(vec![ZData::Atom(vec![7u8]), FWrap(*f).ser()]),
-            ZExpr::StrNil => ZData::Cell(vec![ZData::Atom(vec![8u8])]),
-            ZExpr::StrCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![9u8]), x.ser(), y.ser()]),
-            ZExpr::Thunk(x, y) => ZData::Cell(vec![ZData::Atom(vec![10u8]), x.ser(), y.ser()]),
-            ZExpr::Char(x) => ZData::Cell(vec![ZData::Atom(vec![11u8]), (*x).ser()]),
-            ZExpr::Uint(x) => ZData::Cell(vec![ZData::Atom(vec![12u8]), x.ser()]),
-        }
-    }
-    fn de(ld: &ZData) -> anyhow::Result<Self> {
-        match ld {
+impl<F: LurkField> TryFrom<ZData> for ZExpr<F> {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &ZData) -> Result<Self, Error> {
+        match value {
             ZData::Atom(v) => Err(anyhow!("ZExpr::Atom({:?})", v)),
             ZData::Cell(v) => match (*v).as_slice() {
                 [ZData::Atom(u)] if *u == vec![0u8] => Ok(ZExpr::Nil),
