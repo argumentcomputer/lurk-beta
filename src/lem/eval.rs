@@ -136,6 +136,8 @@ mod tests {
                 w
             );
             assert!(cs.is_satisfied());
+            assert_eq!(cs.num_constraints(), 50);
+            assert_eq!(cs.num_inputs(), 1); // TODO: review
         }
     }
 }
