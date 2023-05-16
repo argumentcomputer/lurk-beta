@@ -600,7 +600,6 @@ pub(crate) fn all_booleans_are_false<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(all_are_false)
 }
 
-
 pub(crate) fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     v: &[&Boolean],

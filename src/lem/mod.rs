@@ -8,7 +8,7 @@ mod tag;
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    circuit::gadgets::{pointer::AllocatedPtr, constraints::all_booleans_are_false},
+    circuit::gadgets::{constraints::all_booleans_are_false, pointer::AllocatedPtr},
     field::{FWrap, LurkField},
 };
 
@@ -21,12 +21,14 @@ use self::{
 use crate::circuit::gadgets::case::multi_case;
 use crate::circuit::gadgets::case::CaseClause;
 use crate::circuit::gadgets::constraints::enforce_equal;
+use crate::circuit::gadgets::constraints::{
+    alloc_equal, alloc_equal_const, enforce_implication, popcount,
+};
 use crate::circuit::gadgets::data::GlobalAllocations;
+use bellperson::gadgets::boolean::Boolean;
 use bellperson::gadgets::num::AllocatedNum;
 use bellperson::ConstraintSystem;
-use bellperson::gadgets::boolean::Boolean;
 use bellperson::SynthesisError;
-use crate::circuit::gadgets::constraints::{alloc_equal, alloc_equal_const, enforce_implication, popcount};
 
 /// ## Lurk Evaluation Model (LEM)
 ///
@@ -615,39 +617,43 @@ impl<'a, F: LurkField> LEM<'a, F> {
         Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_val))
     }
 
-    fn enforce_equal_ptrs<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        a: &AllocatedPtr<F>,
-        a_name: &str,
-        b: &AllocatedPtr<F>,
-        b_name: &str,
-    ) {
-        enforce_equal(
-            cs,
-            || format!("{}'s tag equals {}'s tag", a_name, b_name),
-            &a.tag(),
-            &b.tag(),
-        );
-        enforce_equal(
-            cs,
-            || format!("{}'s val equals {}'s val", a_name, b_name),
-            &a.hash(),
-            &b.hash(),
-        );
-    }
+    // fn enforce_equal_ptrs<CS: ConstraintSystem<F>>(
+    //     cs: &mut CS,
+    //     a: &AllocatedPtr<F>,
+    //     a_name: &str,
+    //     b: &AllocatedPtr<F>,
+    //     b_name: &str,
+    // ) {
+    //     enforce_equal(
+    //         cs,
+    //         || format!("{}'s tag equals {}'s tag", a_name, b_name),
+    //         &a.tag(),
+    //         &b.tag(),
+    //     );
+    //     enforce_equal(
+    //         cs,
+    //         || format!("{}'s val equals {}'s val", a_name, b_name),
+    //         &a.hash(),
+    //         &b.hash(),
+    //     );
+    // }
 
     pub(crate) fn implies_equal<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         not_dummy: &Boolean,
         a: &AllocatedNum<F>,
         b: &AllocatedNum<F>,
-    ) -> Result<(), SynthesisError>{
-        let is_equal = alloc_equal(&mut cs.namespace(|| "is_equal"), a, b)?;
-        enforce_implication(
+    ) -> Result<(), String> {
+        let Ok(is_equal) = alloc_equal(&mut cs.namespace(|| "is_equal"), a, b) else {
+            return Err("TODO".to_string())
+        };
+        let Ok(_) = enforce_implication(
             &mut cs.namespace(|| "not dummy implies tag is equal"),
             not_dummy,
             &is_equal
-        )?;
+        ) else {
+            return Err("TODO".to_string())
+        };
         Ok(())
     }
 
@@ -705,8 +711,8 @@ impl<'a, F: LurkField> LEM<'a, F> {
         // TODO: consider greating globals
         let zero = AllocatedNum::alloc(cs.namespace(|| "#zero"), || Ok(F::zero())).unwrap();
         let one = AllocatedNum::alloc(cs.namespace(|| "#one"), || Ok(F::one())).unwrap();
-        let mut stack = vec![&self.lem_op];
-        while let Some(op) = stack.pop() {
+        let mut stack = vec![(&self.lem_op, None)];
+        while let Some((op, not_dummy)) = stack.pop() {
             match op {
                 LEMOP::MkNull(tgt, tag) => {
                     if alloc_ptrs.contains_key(tgt.name()) {
@@ -721,45 +727,47 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         return Err(format!("Couldn't allocate tag for {}", tgt.name()));
                     };
 
-                    Self::implies_equal(
-                        &mut cs.namespace(|| "tag_is_equal"),
-                        not_dummy,
-                        alloc_tgt.tag(),
-                        &alloc_tag,
-                    );
-                    Self::implies_equal(
-                        &mut cs.namespace(|| "hash_is_equal"),
-                        not_dummy,
-                        alloc_tgt.hash(),
-                        &zero,
-                    );
-
-                    /*enforce_equal(
-                        cs,
-                        || format!("{}'s tag is {}", tgt.name(), tag.field::<F>().hex_digits()),
-                        &alloc_tgt.tag(),
-                        &alloc_tag,
-                    );
-                    enforce_equal(
-                        cs,
-                        || format!("{}'s val is zero", tgt.name()),
-                        &alloc_tgt.hash(),
-                        &zero,
-                    );*/
-                }
-                LEMOP::Copy(tgt, src) => {
-                    let Some(alloc_src) = alloc_ptrs.get(src.name()) else {
-                        return Err(format!("{} not allocated", src.name()));
-                    };
-                    if alloc_ptrs.contains_key(tgt.name()) {
-                        return Err(format!("{} already allocated", tgt.name()));
+                    if let Some(not_dummy) = not_dummy {
+                        Self::implies_equal(
+                            &mut cs.namespace(|| "tag_is_equal"),
+                            &not_dummy,
+                            alloc_tgt.tag(),
+                            &alloc_tag,
+                        )?;
+                        Self::implies_equal(
+                            &mut cs.namespace(|| "hash_is_equal"),
+                            &not_dummy,
+                            alloc_tgt.hash(),
+                            &zero,
+                        )?;
+                    } else {
+                        enforce_equal(
+                            cs,
+                            || format!("{}'s tag is {}", tgt.name(), tag.field::<F>().hex_digits()),
+                            &alloc_tgt.tag(),
+                            &alloc_tag,
+                        );
+                        enforce_equal(
+                            cs,
+                            || format!("{}'s val is zero", tgt.name()),
+                            &alloc_tgt.hash(),
+                            &zero,
+                        );
                     }
-                    let alloc_tgt =
-                        Self::allocate_ptr_from_witness(cs, tgt.name(), store, &ptrs_witness)?;
-                    let alloc_src = alloc_src.clone();
-                    alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
-                    Self::enforce_equal_ptrs(cs, &alloc_src, src.name(), &alloc_tgt, tgt.name());
                 }
+                // LEMOP::Copy(tgt, src) => { Copy might just disappear!!
+                //     let Some(alloc_src) = alloc_ptrs.get(src.name()) else {
+                //         return Err(format!("{} not allocated", src.name()));
+                //     };
+                //     if alloc_ptrs.contains_key(tgt.name()) {
+                //         return Err(format!("{} already allocated", tgt.name()));
+                //     }
+                //     let alloc_tgt =
+                //         Self::allocate_ptr_from_witness(cs, tgt.name(), store, &ptrs_witness)?;
+                //     let alloc_src = alloc_src.clone();
+                //     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
+                //     Self::enforce_equal_ptrs(cs, &alloc_src, src.name(), &alloc_tgt, tgt.name());
+                // }
                 LEMOP::MatchTag(match_ptr, cases, def) => {
                     let Some(alloc_match_ptr) = alloc_ptrs.get(match_ptr.name()) else {
                         return Err(format!("{} not allocated", match_ptr.name()));
@@ -768,15 +776,16 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         return Err(format!("Couldn't get tag for allocated pointer {}", match_ptr.name()));
                     };
                     let mut has_match = false;
-                    let not_dummy_vec = Vec::new();
+                    let mut not_dummy_vec = Vec::new();
                     for (tag, op) in cases.iter() {
-
                         let Ok(alloc_has_match) = alloc_equal_const(
                             &mut cs.namespace(|| "alloc_has_match"),
                             alloc_match_ptr.tag(),
                             tag.field::<F>(),
-                        );
-                        not_dummy_vec.push(alloc_has_match);
+                        ) else {
+                            return Err("TODO".to_string());
+                        };
+                        not_dummy_vec.push(alloc_has_match.clone());
 
                         if tag.field::<F>() == tag_f {
                             has_match = true;
@@ -789,7 +798,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                                 vars_witness.insert(var.name(), F::zero());
                             }
                         }
-                        stack.push(op);
+                        stack.push((op, Some(alloc_has_match)));
                     }
                     if has_match {
                         let (ptrs, vars) = def.potential_assignments();
@@ -800,35 +809,26 @@ impl<'a, F: LurkField> LEM<'a, F> {
                             vars_witness.insert(var.name(), F::zero());
                         }
                     }
-                    stack.push(def);
-
                     let Ok(is_default) = all_booleans_are_false(
                         &mut cs.namespace(|| "is_default"),
                         &not_dummy_vec.iter().collect::<Vec<_>>(),
-                    ); // see or_v_unchecked_for_optimization
+                    ) else {
+                        return Err("TODO".to_string());
+                    }; // see or_v_unchecked_for_optimization
+
+                    stack.push((def, Some(is_default.clone())));
+
                     not_dummy_vec.push(is_default);
-                    popcount(
+
+                    let Ok(_) = popcount(
                         &mut cs.namespace(|| "popcount"),
                         &not_dummy_vec[..],
                         &one,
-                    );
-
-                    // let Some(alloc_match_ptr) = alloc_ptrs.get(match_ptr.name()) else {
-                    //     return Err(format!("{} not allocated", match_ptr.name()));
-                    // };
-                    // let Some(ptr) = witness.ptrs.get(match_ptr.name()) else {
-                    //     return Err(format!("Couldn't find {} in the witness", match_ptr.name()))
-                    // };
-                    // let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("alloc tag for {}'s MatchTag", match_ptr.name())), || {
-                    //     Ok(ptr.tag.field())
-                    // }) else {
-                    //     return Err(format!("Couldn't allocate tag for {}'s MatchTag", match_ptr.name()))
-                    // };
-                    // enforce_equal(cs, || "", alloc_match_ptr.tag(), &alloc_tag);
-                    // stack.extend(cases.values());
-                    // stack.push(def);
+                    ) else {
+                        return Err("TODO".to_string())
+                    };
                 }
-                LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
+                LEMOP::Seq(ops) => stack.extend(ops.iter().rev().map(|op| (op, not_dummy.clone()))),
                 _ => todo!(),
             }
         }
