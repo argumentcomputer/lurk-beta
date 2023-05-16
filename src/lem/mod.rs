@@ -29,6 +29,7 @@ use bellperson::gadgets::boolean::Boolean;
 use bellperson::gadgets::num::AllocatedNum;
 use bellperson::ConstraintSystem;
 use bellperson::SynthesisError;
+use ff::derive::bitvec::store::BitStore;
 
 /// ## Lurk Evaluation Model (LEM)
 ///
@@ -729,13 +730,15 @@ impl<'a, F: LurkField> LEM<'a, F> {
 
                     if let Some(not_dummy) = not_dummy {
                         Self::implies_equal(
-                            &mut cs.namespace(|| "tag_is_equal"),
+                            // TODO: improve namespace
+                            &mut cs.namespace(|| format!("tag_is_equal_{:?}_{:?}", alloc_tag.get_value(), tgt.name())),
                             &not_dummy,
                             alloc_tgt.tag(),
                             &alloc_tag,
                         )?;
                         Self::implies_equal(
-                            &mut cs.namespace(|| "hash_is_equal"),
+                            // TODO: improve namespace
+                            &mut cs.namespace(|| format!("hash_is_equal_{:?}_{:?}", alloc_tag.get_value(), tgt.name())),
                             &not_dummy,
                             alloc_tgt.hash(),
                             &zero,
@@ -777,9 +780,14 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     };
                     let mut has_match = false;
                     let mut not_dummy_vec = Vec::new();
-                    for (tag, op) in cases.iter() {
+                    for (i, (tag, op)) in cases.iter().enumerate() {
+                        dbg!(i);
+                        dbg!(tag.field::<F>());
+                        //dbg!(op);
+
                         let Ok(alloc_has_match) = alloc_equal_const(
-                            &mut cs.namespace(|| "alloc_has_match"),
+                            // TODO: improve namespace
+                            &mut cs.namespace(|| format!("alloc_has_match_{:?}_{:?}", tag.field::<F>(), alloc_match_ptr.tag().get_value())),
                             alloc_match_ptr.tag(),
                             tag.field::<F>(),
                         ) else {
@@ -810,7 +818,8 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         }
                     }
                     let Ok(is_default) = all_booleans_are_false(
-                        &mut cs.namespace(|| "is_default"),
+                        // TODO: improve namespace
+                        &mut cs.namespace(|| format!("is_default_{:?}", alloc_match_ptr.tag().get_value())),
                         &not_dummy_vec.iter().collect::<Vec<_>>(),
                     ) else {
                         return Err("TODO".to_string());
@@ -821,7 +830,8 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     not_dummy_vec.push(is_default);
 
                     let Ok(_) = popcount(
-                        &mut cs.namespace(|| "popcount"),
+                        // TODO: improve namespace
+                        &mut cs.namespace(|| format!("popcount_{:?}", alloc_match_ptr.tag().get_value())),
                         &not_dummy_vec[..],
                         &one,
                     ) else {
@@ -829,6 +839,9 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     };
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev().map(|op| (op, not_dummy.clone()))),
+                LEMOP::SetReturn(outputs) => {
+                    // TODO: implement
+                },
                 _ => todo!(),
             }
         }

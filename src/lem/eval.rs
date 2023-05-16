@@ -99,6 +99,8 @@ mod tests {
         tag::Tag,
     };
     use blstrs::Scalar;
+    use bellperson::util_cs::test_cs::TestConstraintSystem;
+    use blstrs::Scalar as Fr;
 
     #[test]
     fn check_step() {
@@ -113,5 +115,27 @@ mod tests {
         };
         let (res, _) = eval_res(step(), expr).unwrap();
         assert!(res == expr);
+    }
+
+    #[test]
+    fn compile_42() {
+        let expr = Ptr {
+            tag: Tag::Num,
+            val: PtrVal::Field(Scalar::from(42)),
+        };
+        let (res, mut store) = eval(step(), expr).unwrap();
+
+        assert!(res.last().expect("eval should add at least one step data").output[0] == expr);
+
+
+        for w in res.iter() {
+            let mut cs = TestConstraintSystem::<Fr>::new();
+            step().constrain(
+                &mut cs,
+                &mut store,
+                w
+            );
+            assert!(cs.is_satisfied());
+        }
     }
 }
