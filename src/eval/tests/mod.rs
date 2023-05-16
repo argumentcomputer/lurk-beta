@@ -2330,9 +2330,9 @@ fn test_sym_hash_values() {
 
     let s = &mut Store::<Fr>::default();
 
-    let sym = s.sym(".asdf.fdsa");
-    let key = s.sym(":asdf.fdsa");
-    let expr = s.read("(cons \"fdsa\" '.asdf)").unwrap();
+    let sym = s.read(".asdf.fdsa").unwrap();
+    let key = s.read(":asdf.fdsa").unwrap();
+    let expr = s.read("(cons \"fdsa\" 'asdf)").unwrap();
 
     let limit = 10;
     let env = empty_sym_env(s);
@@ -2347,7 +2347,7 @@ fn test_sym_hash_values() {
         _emitted,
     ) = Evaluator::new(expr, env, s, limit, &lang).eval().unwrap();
 
-    let toplevel_sym = s.sym(".asdf");
+    let toplevel_sym = s.read(".asdf").unwrap();
 
     let root = Symbol::root();
     let root_sym = s.intern_symbol(root);
@@ -2562,7 +2562,7 @@ pub(crate) mod coproc {
         let s = &mut Store::<Fr>::new();
 
         let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
-        let name = Symbol::sym(vec!["".into(), "cproc".into(), "dumb".into()]);
+        let name = Symbol::sym(vec!["cproc".into(), "dumb".into()]);
         let dumb = DumbCoprocessor::new();
         let coproc = DumbCoproc::DC(dumb);
 
