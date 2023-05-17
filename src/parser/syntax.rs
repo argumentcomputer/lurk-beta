@@ -148,14 +148,11 @@ fn f_from_le_bytes<F: LurkField>(bs: &[u8]) -> F {
     res
 }
 
-pub fn parse_num<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
+pub fn parse_num_inner<F: LurkField>(
+    base: base::LitBase,
+) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Num<F>, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
-        let (i, base) = alt((
-            preceded(tag("0"), base::parse_litbase_code()),
-            success(base::LitBase::Dec),
-        ))(from)?;
-        let (upto, bytes): (Span<'_>, Vec<u8>) = base::parse_litbase_le_bytes(base)(i)?;
+        let (upto, bytes): (Span<'_>, Vec<u8>) = base::parse_litbase_le_bytes(base)(from)?;
         let max_bytes = (F::zero() - F::one()).to_bytes();
         let max_uint = num_bigint::BigUint::from_bytes_le(&max_bytes);
         if num_bigint::BigUint::from_bytes_le(&bytes) > max_uint {
@@ -164,14 +161,37 @@ pub fn parse_num<F: LurkField>(
                 ParseErrorKind::NumLiteralTooBig(F::most_positive(), max_uint),
             )
         } else {
-            let pos = Pos::from_upto(from, upto);
             let f = f_from_le_bytes::<F>(&bytes);
             if let Some(x) = f.to_u64() {
-                Ok((upto, Syntax::Num(pos, Num::U64(x))))
+                Ok((upto, Num::U64(x)))
             } else {
-                Ok((upto, Syntax::Num(pos, Num::Scalar(f))))
+                Ok((upto, Num::Scalar(f)))
             }
         }
+    }
+}
+
+pub fn parse_num<F: LurkField>(
+) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
+    move |from: Span<'_>| {
+        let (i, neg) = opt(tag("-"))(from)?;
+        let (i, base) = alt((
+            preceded(tag("0"), base::parse_litbase_code()),
+            success(base::LitBase::Dec),
+        ))(i)?;
+        let (i, num) = parse_num_inner(base)(i)?;
+        let (upto, denom) = opt(preceded(tag("/"), parse_num_inner(base)))(i)?;
+        let pos = Pos::from_upto(from, upto);
+        let mut tmp = Num::<F>::U64(0);
+        if let Some(_) = neg {
+            tmp -= num;
+        } else {
+            tmp = num;
+        }
+        if let Some(denom) = denom {
+            tmp /= denom;
+        }
+        Ok((upto, Syntax::Num(pos, tmp)))
     }
 }
 
@@ -254,9 +274,9 @@ pub fn parse_syntax<F: LurkField>(
     move |from: Span<'_>| {
         alt((
             parse_hash_char(),
-            context("symbol", parse_symbol()),
             parse_uint(),
             parse_num(),
+            context("symbol", parse_symbol()),
             parse_string(),
             context("quote", parse_quote()),
             context("list", parse_list()),
@@ -591,6 +611,22 @@ pub mod tests {
             "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
             None,
         ));
+        assert!(test(parse_num(), "-0", Some(num!(0))));
+        let mut tmp = Num::U64(1u64);
+        tmp /= Num::U64(2u64);
+        assert!(test(parse_num(), "1/2", Some(Syntax::Num(Pos::No, tmp))));
+        let mut tmp = Num::U64(0u64);
+        tmp -= Num::U64(1u64);
+        tmp /= Num::U64(2u64);
+        assert!(test(parse_num(), "-1/2", Some(Syntax::Num(Pos::No, tmp))));
+        //assert!(test(
+        //    parse_num(),
+        //    "1/2",
+        //    Some(num!(
+        //        0x39f6d3a994cebea4199cec0404d0ec02a9ded2017fff2dff7fffffff80000001
+        //    ))
+        //));
+        //assert!(test(parse_num(), "-1/2", Some(num!(0))));
     }
 
     #[test]
