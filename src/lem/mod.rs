@@ -568,6 +568,8 @@ impl<'a, F: LurkField> LEM<'a, F> {
         let Ok(is_equal) = alloc_equal(cs.namespace(|| "is_equal"), a, b) else {
             return Err("TODO".to_string())
         };
+        dbg!(not_dummy.get_value());
+        dbg!(is_equal.get_value());
         let Ok(_) = enforce_implication(
             cs.namespace(|| "not dummy implies tag is equal"),
             not_dummy,
@@ -653,15 +655,16 @@ impl<'a, F: LurkField> LEM<'a, F> {
         // TODO: consider greating globals
         let zero = AllocatedNum::alloc(cs.namespace(|| "#zero"), || Ok(F::zero())).unwrap();
         let one = AllocatedNum::alloc(cs.namespace(|| "#one"), || Ok(F::one())).unwrap();
-        let mut stack = vec![(&self.lem_op, None)];
-        while let Some((op, not_dummy)) = stack.pop() {
+        let mut stack = vec![(&self.lem_op, None, Vec::new())];
+        while let Some((op, not_dummy, path)) = stack.pop() {
             match op {
                 LEMOP::MkNull(tgt, tag) => {
                     if alloc_ptrs.contains_key(tgt.name()) {
                         return Err(format!("{} already allocated", tgt.name()));
-                    }
+                    };
                     let alloc_tgt =
                         Self::allocate_ptr_from_witness(cs, tgt.name(), store, &ptrs_witness)?;
+                    alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                     let Ok(alloc_tag) = AllocatedNum::alloc(              //  take from globals
                         cs.namespace(|| format!("{}'s tag", tgt.name())),
                         || Ok(tag.field()),
@@ -671,22 +674,16 @@ impl<'a, F: LurkField> LEM<'a, F> {
 
                     if let Some(not_dummy) = not_dummy {
                         Self::implies_equal(
-                            // TODO: improve namespace
                             &mut cs.namespace(|| {
-                                format!("tag_is_equal_{:?}_{:?}", alloc_tag.get_value(), tgt.name())
+                                format!("{:?}.tag_is_equal", path.join("."))
                             }),
                             &not_dummy,
                             alloc_tgt.tag(),
                             &alloc_tag,
                         )?;
                         Self::implies_equal(
-                            // TODO: improve namespace
                             &mut cs.namespace(|| {
-                                format!(
-                                    "hash_is_equal_{:?}_{:?}",
-                                    alloc_tag.get_value(),
-                                    tgt.name()
-                                )
+                                format!("{:?}.hash_is_equal", path.join("."))
                             }),
                             &not_dummy,
                             alloc_tgt.hash(),
@@ -729,17 +726,14 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     };
                     let mut not_dummy_vec = Vec::new();
                     for (i, (tag, op)) in cases.iter().enumerate() {
-                        dbg!(i);
-                        dbg!(tag.field::<F>());
-                        //dbg!(op);
-
                         let Ok(alloc_has_match) = alloc_equal_const(
-                            // TODO: improve namespace
-                            &mut cs.namespace(|| format!("alloc_has_match_{:?}_{:?}", tag.field::<F>(), alloc_match_ptr.tag().get_value())),
+                            &mut cs.namespace(
+                                || format!("{}.alloc_has_match item:{}, tag:{:?}", path.join("."), i, tag.field::<F>())
+                            ),
                             alloc_match_ptr.tag(),
                             tag.field::<F>(),
                         ) else {
-                            return Err("TODO".to_string());
+                            return Err("Allocated variable does not has the expected tag".to_string());
                         };
                         not_dummy_vec.push(alloc_has_match.clone());
 
@@ -752,31 +746,36 @@ impl<'a, F: LurkField> LEM<'a, F> {
                                 vars_witness.insert(var.name(), F::zero());
                             }
                         }
-                        stack.push((op, Some(alloc_has_match)));
+                        let mut new_path_matchtag = path.clone();
+                        new_path_matchtag.push("MatchTag.");
+                        stack.push((op, Some(alloc_has_match), new_path_matchtag));
                     }
 
                     let Ok(_) = popcount(
-                        // TODO: improve namespace
-                        &mut cs.namespace(|| format!("popcount_{:?}", alloc_match_ptr.tag().get_value())),
+                        &mut cs.namespace(|| format!("{}.popcount", path.join("."))),
                         &not_dummy_vec[..],
                         &one,
                     ) else {
-                        return Err("TODO".to_string())
+                        return Err("Failed to constrain popcount gadget".to_string())
                     };
                 }
-                LEMOP::Seq(ops) => stack.extend(ops.iter().rev().map(|op| (op, not_dummy.clone()))),
+                LEMOP::Seq(ops) => {
+                    let mut new_path_seq = path.clone();
+                    new_path_seq.push("Seq.");
+                    stack.extend(ops.iter().rev().map(|op| (op, not_dummy.clone(), new_path_seq.clone())))
+                },
                 LEMOP::SetReturn(outputs) => {
                     for (i, output) in outputs.iter().enumerate() {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {
-                            return Err("TODO".to_string())
+                            return Err("Could not find output allocated in the circuit".to_string())
                         };
                         let Some(ptr_expected) = ptrs_witness.get(output.name()) else {
-                            return Err("TODO".to_string())
+                            return Err("Could not find the expected witness".to_string())
                         };
                         let alloc_ptr_expected = Self::allocate_input_ptr(
                             cs,
                             ptr_expected,
-                            format!("output {}", i),
+                            format!("{}.output {}", path.join("."), i),
                             store,
                         )?;
 
@@ -785,19 +784,19 @@ impl<'a, F: LurkField> LEM<'a, F> {
                                 cs,
                                 &not_dummy,
                                 alloc_ptr_computed,
-                                format!("computed output {}", i),
+                                format!("{}.computed output {}", path.join("."), i),
                                 &alloc_ptr_expected,
-                                format!("expected output {}", i)
+                                format!("{}.expected output {}", path.join("."), i)
                             ) else {
-                                return Err("TODO".to_string())
+                                return Err("Failed to constrain implies_ptr_equal".to_string())
                             };
                         } else {
                             Self::enforce_equal_ptrs(
                                 cs,
                                 alloc_ptr_computed,
-                                format!("computed output {}", i),
+                                format!("{}.computed output {}", path.join("."), i),
                                 &alloc_ptr_expected,
-                                format!("expected output {}", i),
+                                format!("{}.expected output {}", path.join("."), i),
                             );
                         }
                     }
