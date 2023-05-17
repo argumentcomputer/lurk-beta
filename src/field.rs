@@ -263,13 +263,28 @@ impl<F: LurkField> Ord for FWrap<F> {
     }
 }
 
+// TODO: Overriden below, is there a use for this uncompressed version?
+//impl<F: LurkField> Serialize for FWrap<F> {
+//    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//    where
+//        S: serde::Serializer,
+//    {
+//        let bytes: Vec<u8> = Vec::from(self.0.to_repr().as_ref());
+//        bytes.serialize(serializer)
+//    }
+//}
+
+
 impl<F: LurkField> Serialize for FWrap<F> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         let bytes: Vec<u8> = Vec::from(self.0.to_repr().as_ref());
-        bytes.serialize(serializer)
+        let mut trimmed_bytes: Vec<u8> =
+            bytes.into_iter().rev().skip_while(|x| *x == 0u8).collect();
+        trimmed_bytes.reverse();
+        serializer.serialize_bytes(&trimmed_bytes)
     }
 }
 

@@ -769,7 +769,7 @@ impl<'a> Opening<S1> {
             let new_comm = s.cdr(&cons)?;
 
             let new_secret0 = s.secret(new_comm).expect("secret missing");
-            let new_secret = *s.get_expr_hash(&new_secret0).expect("hash missing").value();
+            let new_secret = *s.hash_expr(&new_secret0).expect("hash missing").value();
 
             let (_, new_fun) = s.open(new_comm).expect("opening missing");
             let new_commitment = Commitment::from_comm(s, &new_comm);

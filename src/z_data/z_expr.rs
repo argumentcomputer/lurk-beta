@@ -19,7 +19,7 @@ use anyhow::anyhow;
 
 use crate::field::LurkField;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 /// Enum to represent a z expression.
@@ -165,11 +165,66 @@ impl<F: LurkField> ZExpr<F> {
     }
 }
 
-impl<F: LurkField> TryFrom<ZData> for ZExpr<F> {
-    type Error = anyhow::Error;
+// Note: We can remove this in favor of a derive if there's a way to
+// serialize an F as an FWrap (maybe serialize_with attribute)
+impl<F: LurkField> Serialize for ZExpr<F> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            ZExpr::Nil => [0u8].serialize(serializer),
+            ZExpr::Cons(x, y) => (1u8, x, y).serialize(serializer),
+            ZExpr::Comm(f, x) => (2u8, FWrap(*f), x).serialize(serializer),
+            ZExpr::SymNil => [3u8].serialize(serializer),
+            ZExpr::SymCons(x, y) => (4u8, x, y).serialize(serializer),
+            ZExpr::Key(x) => (5u8, x).serialize(serializer),
+            ZExpr::Fun {
+                arg,
+                body,
+                closed_env,
+            } => (6u8, arg, body, closed_env).serialize(serializer),
+            ZExpr::Num(f) => (7u8, FWrap(*f)).serialize(serializer),
+            ZExpr::StrNil => [8u8].serialize(serializer),
+            ZExpr::StrCons(x, y) => (9u8, x, y).serialize(serializer),
+            ZExpr::Thunk(x, y) => (10u8, x, y).serialize(serializer),
+            ZExpr::Char(x) => (11u8, *x).serialize(serializer),
+            ZExpr::Uint(x) => (12u8, u64::from(*x)).serialize(serializer),
+        }
+    }
+}
 
-    fn try_from(value: &ZData) -> Result<Self, Error> {
-        match value {
+impl<F: LurkField> Encodable for ZExpr<F> {
+    fn ser(&self) -> ZData {
+        match self {
+            ZExpr::Nil => ZData::Cell(vec![ZData::Atom(vec![0u8])]),
+            ZExpr::Cons(x, y) => ZData::Cell(vec![ZData::Atom(vec![1u8]), x.ser(), y.ser()]),
+            ZExpr::Comm(f, x) => {
+                ZData::Cell(vec![ZData::Atom(vec![2u8]), FWrap(*f).ser(), x.ser()])
+            }
+            ZExpr::SymNil => ZData::Cell(vec![ZData::Atom(vec![3u8])]),
+            ZExpr::SymCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![4u8]), x.ser(), y.ser()]),
+            ZExpr::Key(x) => ZData::Cell(vec![ZData::Atom(vec![5u8]), x.ser()]),
+            ZExpr::Fun {
+                arg,
+                body,
+                closed_env,
+            } => ZData::Cell(vec![
+                ZData::Atom(vec![6u8]),
+                arg.ser(),
+                body.ser(),
+                closed_env.ser(),
+            ]),
+            ZExpr::Num(f) => ZData::Cell(vec![ZData::Atom(vec![7u8]), FWrap(*f).ser()]),
+            ZExpr::StrNil => ZData::Cell(vec![ZData::Atom(vec![8u8])]),
+            ZExpr::StrCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![9u8]), x.ser(), y.ser()]),
+            ZExpr::Thunk(x, y) => ZData::Cell(vec![ZData::Atom(vec![10u8]), x.ser(), y.ser()]),
+            ZExpr::Char(x) => ZData::Cell(vec![ZData::Atom(vec![11u8]), (*x).ser()]),
+            ZExpr::Uint(x) => ZData::Cell(vec![ZData::Atom(vec![12u8]), x.ser()]),
+        }
+    }
+    fn de(ld: &ZData) -> anyhow::Result<Self> {
+        match ld {
             ZData::Atom(v) => Err(anyhow!("ZExpr::Atom({:?})", v)),
             ZData::Cell(v) => match (*v).as_slice() {
                 [ZData::Atom(u)] if *u == vec![0u8] => Ok(ZExpr::Nil),
