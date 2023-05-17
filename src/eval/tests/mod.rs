@@ -244,7 +244,7 @@ fn evaluate_empty_args_lambda() {
 
     let expected = s.num(123);
     let terminal = s.get_cont_terminal();
-    test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 4, None);
+    test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
 }
 
 #[test]
