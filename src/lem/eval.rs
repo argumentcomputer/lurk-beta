@@ -65,8 +65,8 @@ mod tests {
             let mut cs = TestConstraintSystem::<Fr>::new();
             lem.constrain(&mut cs, &mut store, w).unwrap();
             assert!(cs.is_satisfied());
-            assert_eq!(cs.num_constraints(), 26);
-            assert_eq!(cs.num_inputs(), 7); // TODO: review
+            assert_eq!(cs.num_constraints(), 68);
+            assert_eq!(cs.num_inputs(), 13); // TODO: review
         }
     }
 
