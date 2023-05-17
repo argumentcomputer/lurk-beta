@@ -463,13 +463,13 @@ impl<'a, F: LurkField> LEM<'a, F> {
         let mut expr = expr;
         let mut env = Ptr::lurk_sym(LurkSymbol::Nil);
         let mut cont = Ptr::null(Tag::Outermost);
-        let mut steps_data = vec![];
+        let mut witnesses = vec![];
         let mut store: Store<F> = Default::default();
         let terminal = Ptr::null(Tag::Terminal);
         loop {
             let input = [expr, env, cont];
             let (output, ptrs, vars) = self.run(input, &mut store)?;
-            steps_data.push(Witness {
+            witnesses.push(Witness {
                 input,
                 output,
                 ptrs,
@@ -481,13 +481,13 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 [expr, env, cont] = output;
             }
         }
-        Ok((steps_data, store))
+        Ok((witnesses, store))
     }
 
     pub fn eval_res(&self, expr: Ptr<F>) -> Result<(Ptr<F>, Store<F>), String> {
-        let (steps_data, store) = self.eval(expr)?;
+        let (witnesses, store) = self.eval(expr)?;
         Ok((
-            steps_data
+            witnesses
                 .last()
                 .expect("eval should add at least one step data")
                 .output[0],
@@ -495,15 +495,12 @@ impl<'a, F: LurkField> LEM<'a, F> {
         ))
     }
 
-    fn allocate_input_ptr_from_witness<CS: ConstraintSystem<F>>(
+    fn allocate_input_ptr<CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        name: &'a str,
+        ptr: &Ptr<F>,
+        name: String,
         store: &mut Store<F>,
-        ptr_witness: &HashMap<&'a str, Ptr<F>>,
     ) -> Result<AllocatedPtr<F>, String> {
-        let Some(ptr) = ptr_witness.get(name) else {
-            return Err(format!("Couldn't find {} in the witness", name))
-        };
         let aqua_ptr = store.hydrate_ptr(ptr)?;
         let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {}'s tag", name)), || {
             Ok(aqua_ptr.tag.field())
@@ -549,26 +546,26 @@ impl<'a, F: LurkField> LEM<'a, F> {
         Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_val))
     }
 
-    // fn enforce_equal_ptrs<CS: ConstraintSystem<F>>(
-    //     cs: &mut CS,
-    //     a: &AllocatedPtr<F>,
-    //     a_name: &str,
-    //     b: &AllocatedPtr<F>,
-    //     b_name: &str,
-    // ) {
-    //     enforce_equal(
-    //         cs,
-    //         || format!("{}'s tag equals {}'s tag", a_name, b_name),
-    //         &a.tag(),
-    //         &b.tag(),
-    //     );
-    //     enforce_equal(
-    //         cs,
-    //         || format!("{}'s val equals {}'s val", a_name, b_name),
-    //         &a.hash(),
-    //         &b.hash(),
-    //     );
-    // }
+    fn enforce_equal_ptrs<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        a: &AllocatedPtr<F>,
+        a_name: String,
+        b: &AllocatedPtr<F>,
+        b_name: String,
+    ) {
+        enforce_equal(
+            cs,
+            || format!("{}'s tag equals {}'s tag", a_name, b_name),
+            &a.tag(),
+            &b.tag(),
+        );
+        enforce_equal(
+            cs,
+            || format!("{}'s val equals {}'s val", a_name, b_name),
+            &a.hash(),
+            &b.hash(),
+        );
+    }
 
     fn implies_equal<CS: ConstraintSystem<F>>(
         cs: &mut CS,
@@ -576,11 +573,11 @@ impl<'a, F: LurkField> LEM<'a, F> {
         a: &AllocatedNum<F>,
         b: &AllocatedNum<F>,
     ) -> Result<(), String> {
-        let Ok(is_equal) = alloc_equal(&mut cs.namespace(|| "is_equal"), a, b) else {
+        let Ok(is_equal) = alloc_equal(cs.namespace(|| "is_equal"), a, b) else {
             return Err("TODO".to_string())
         };
         let Ok(_) = enforce_implication(
-            &mut cs.namespace(|| "not dummy implies tag is equal"),
+            cs.namespace(|| "not dummy implies tag is equal"),
             not_dummy,
             &is_equal
         ) else {
@@ -589,16 +586,28 @@ impl<'a, F: LurkField> LEM<'a, F> {
         Ok(())
     }
 
-    /*pub(crate) fn implies_ptr_equal<CS: ConstraintSystem<F>>(
+    fn implies_ptr_equal<CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        not_dummy: Boolean,
-        ptr_a: AllocatedPtr<F>,
-        ptr_b: AllocatedPtr<F>,
+        not_dummy: &Boolean,
+        ptr_a: &AllocatedPtr<F>,
+        a_name: String,
+        ptr_b: &AllocatedPtr<F>,
+        b_name: String,
     ) -> Result<(), String> {
-        Self::implies_equal(&mut cs.namespace(|| "implies tag equal"), &not_dummy, ptr_a.tag(), ptr_b.tag())?;
-        Self::implies_equal(&mut cs.namespace(|| "implies hash equal"), &not_dummy, ptr_a.hash(), ptr_b.hash())?;
+        Self::implies_equal(
+            &mut cs.namespace(|| format!("implies tag equal for {} and {}", a_name, b_name)),
+            not_dummy,
+            ptr_a.tag(),
+            ptr_b.tag(),
+        )?;
+        Self::implies_equal(
+            &mut cs.namespace(|| format!("implies hash equal for {} and {}", a_name, b_name)),
+            not_dummy,
+            ptr_a.hash(),
+            ptr_b.hash(),
+        )?;
         Ok(())
-    }*/
+    }
 
     pub fn constrain<CS: ConstraintSystem<F>>(
         &self,
@@ -612,9 +621,12 @@ impl<'a, F: LurkField> LEM<'a, F> {
 
         // allocate first input
         {
+            let Some(ptr) = ptrs_witness.get(self.input[0]) else {
+                return Err("TODO".to_string())
+            };
             alloc_ptrs.insert(
                 self.input[0],
-                Self::allocate_input_ptr_from_witness(cs, self.input[0], store, &ptrs_witness)?,
+                Self::allocate_input_ptr(cs, ptr, format!("input {}", self.input[0]), store)?,
             );
         }
 
@@ -623,9 +635,12 @@ impl<'a, F: LurkField> LEM<'a, F> {
             if alloc_ptrs.contains_key(self.input[1]) {
                 return Err(format!("{} already allocated", self.input[1]));
             }
+            let Some(ptr) = ptrs_witness.get(self.input[1]) else {
+                return Err("TODO".to_string())
+            };
             alloc_ptrs.insert(
                 self.input[1],
-                Self::allocate_input_ptr_from_witness(cs, self.input[1], store, &ptrs_witness)?,
+                Self::allocate_input_ptr(cs, ptr, format!("input {}", self.input[1]), store)?,
             );
         }
 
@@ -634,9 +649,12 @@ impl<'a, F: LurkField> LEM<'a, F> {
             if alloc_ptrs.contains_key(self.input[2]) {
                 return Err(format!("{} already allocated", self.input[2]));
             }
+            let Some(ptr) = ptrs_witness.get(self.input[2]) else {
+                return Err("TODO".to_string())
+            };
             alloc_ptrs.insert(
                 self.input[2],
-                Self::allocate_input_ptr_from_witness(cs, self.input[2], store, &ptrs_witness)?,
+                Self::allocate_input_ptr(cs, ptr, format!("input {}", self.input[2]), store)?,
             );
         }
 
@@ -779,7 +797,41 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev().map(|op| (op, not_dummy.clone()))),
                 LEMOP::SetReturn(outputs) => {
-                    // TODO: implement
+                    for (i, output) in outputs.iter().enumerate() {
+                        let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {
+                            return Err("TODO".to_string())
+                        };
+                        let Some(ptr_expected) = ptrs_witness.get(output.name()) else {
+                            return Err("TODO".to_string())
+                        };
+                        let alloc_ptr_expected = Self::allocate_input_ptr(
+                            cs,
+                            ptr_expected,
+                            format!("output {}", i),
+                            store,
+                        )?;
+
+                        if let Some(not_dummy) = not_dummy.clone() {
+                            let Ok(_) = Self::implies_ptr_equal(
+                                cs,
+                                &not_dummy,
+                                alloc_ptr_computed,
+                                format!("computed output {}", i),
+                                &alloc_ptr_expected,
+                                format!("expected output {}", i)
+                            ) else {
+                                return Err("TODO".to_string())
+                            };
+                        } else {
+                            Self::enforce_equal_ptrs(
+                                cs,
+                                alloc_ptr_computed,
+                                format!("computed output {}", i),
+                                &alloc_ptr_expected,
+                                format!("expected output {}", i),
+                            );
+                        }
+                    }
                 }
                 _ => todo!(),
             }

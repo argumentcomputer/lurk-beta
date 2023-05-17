@@ -65,7 +65,7 @@ mod tests {
     }
 
     #[test]
-    fn compile_42() {
+    fn constrain_42() {
         let expr = Ptr::num(Fr::from_u64(42));
         let lem = step();
         let (res, mut store) = lem.eval(expr).unwrap();
