@@ -13,6 +13,7 @@ use crate::{
 };
 
 use self::{
+    lurk_symbol::LurkSymbol,
     pointers::{Ptr, PtrVal},
     store::Store,
     tag::Tag,
@@ -458,6 +459,42 @@ impl<'a, F: LurkField> LEM<'a, F> {
         Ok(([out1, out2, out3], ptr_map, var_map))
     }
 
+    pub fn eval(&self, expr: Ptr<F>) -> Result<(Vec<Witness<'a, F>>, Store<F>), String> {
+        let mut expr = expr;
+        let mut env = Ptr::lurk_sym(LurkSymbol::Nil);
+        let mut cont = Ptr::null(Tag::Outermost);
+        let mut steps_data = vec![];
+        let mut store: Store<F> = Default::default();
+        let terminal = Ptr::null(Tag::Terminal);
+        loop {
+            let input = [expr, env, cont];
+            let (output, ptrs, vars) = self.run(input, &mut store)?;
+            steps_data.push(Witness {
+                input,
+                output,
+                ptrs,
+                vars,
+            });
+            if output[2] == terminal {
+                break;
+            } else {
+                [expr, env, cont] = output;
+            }
+        }
+        Ok((steps_data, store))
+    }
+
+    pub fn eval_res(&self, expr: Ptr<F>) -> Result<(Ptr<F>, Store<F>), String> {
+        let (steps_data, store) = self.eval(expr)?;
+        Ok((
+            steps_data
+                .last()
+                .expect("eval should add at least one step data")
+                .output[0],
+            store,
+        ))
+    }
+
     fn allocate_input_ptr_from_witness<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         name: &'a str,
@@ -479,10 +516,10 @@ impl<'a, F: LurkField> LEM<'a, F> {
             return Err(format!("Couldn't allocate val for {}", name))
         };
 
-        let Ok(tag_input) = alloc_tag.inputize(cs.namespace(|| format!("inputize tag for {}", name))) else {
+        let Ok(_) = alloc_tag.inputize(cs.namespace(|| format!("inputize tag for {}", name))) else {
             return Err(format!("Couldn't inputize tag for {}", name))
         };
-        let Ok(hash_input) = alloc_val.inputize(cs.namespace(|| format!("inputize val for {}", name))) else {
+        let Ok(_) = alloc_val.inputize(cs.namespace(|| format!("inputize val for {}", name))) else {
             return Err(format!("Couldn't inputize val for {}", name))
         };
 
