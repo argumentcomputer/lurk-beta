@@ -1156,7 +1156,7 @@ impl<F: LurkField> Store<F> {
                     let z_expr = ZExpr::Comm(secret, z_payload);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
-                Some(Expression::Fun(args, env, body)) => {
+                Some(Expression::Fun(args, body, env)) => {
                     let (z_args, _) = self.get_z_expr(&args, z_store.clone())?;
                     let (z_env, _) = self.get_z_expr(&env, z_store.clone())?;
                     let (z_body, _) = self.get_z_expr(&body, z_store.clone())?;
