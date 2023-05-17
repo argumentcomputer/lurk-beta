@@ -50,7 +50,7 @@ pub fn step<F: LurkField>() -> LEM<'static, F> {
 }
 
 pub fn eval<'a, F: LurkField>(
-    lem: LEM<'a, F>,
+    lem: &LEM<'a, F>,
     expr: Ptr<F>,
 ) -> Result<(Vec<Witness<'a, F>>, Store<F>), String> {
     let mut expr = expr;
@@ -78,7 +78,7 @@ pub fn eval<'a, F: LurkField>(
 }
 
 pub fn eval_res<'a, F: LurkField>(
-    lem: LEM<'a, F>,
+    lem: &LEM<'a, F>,
     expr: Ptr<F>,
 ) -> Result<(Ptr<F>, Store<F>), String> {
     let (steps_data, store) = eval(lem, expr)?;
@@ -98,43 +98,69 @@ mod tests {
         pointers::{Ptr, PtrVal},
         tag::Tag,
     };
-    use blstrs::Scalar;
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
 
     #[test]
     fn check_step() {
-        step::<Scalar>().check()
+        step::<Fr>().check()
     }
 
     #[test]
     fn eval_42() {
-        let expr = Ptr {
-            tag: Tag::Num,
-            val: PtrVal::Field(Scalar::from(42)),
-        };
-        let (res, _) = eval_res(step(), expr).unwrap();
+        let expr = Ptr::num(Fr::from_u64(42));
+        let (res, _) = eval_res(&step(), expr).unwrap();
         assert!(res == expr);
     }
 
     #[test]
     fn compile_42() {
-        let expr = Ptr {
-            tag: Tag::Num,
-            val: PtrVal::Field(Scalar::from(42)),
-        };
-        let (res, mut store) = eval(step(), expr).unwrap();
+        let expr = Ptr::num(Fr::from_u64(42));
+        let (res, mut store) = eval(&step(), expr).unwrap();
 
-        assert!(res.last().expect("eval should add at least one step data").output[0] == expr);
-
+        assert!(
+            res.last()
+                .expect("eval should add at least one step data")
+                .output[0]
+                == expr
+        );
 
         for w in res.iter() {
             let mut cs = TestConstraintSystem::<Fr>::new();
-            step().constrain(
-                &mut cs,
-                &mut store,
-                w
-            );
+            step().constrain(&mut cs, &mut store, w).unwrap();
+            assert!(cs.is_satisfied());
+        }
+    }
+
+    #[test]
+    fn accepts_dummy_nested_match_tag() {
+        let input = ["expr_in", "env_in", "cont_in"];
+        let lem_op = LEMOP::mk_match_tag(
+            MetaPtr("expr_in"),
+            vec![(
+                Tag::Num,
+                LEMOP::SetReturn([MetaPtr("expr_in"), MetaPtr("env_in"), MetaPtr("cont_in")]),
+            )],
+            LEMOP::mk_match_tag(
+                MetaPtr("expr_in"),
+                vec![],
+                LEMOP::Seq(vec![
+                    LEMOP::MkNull(MetaPtr("cont_out_error"), Tag::Error),
+                    LEMOP::SetReturn([
+                        MetaPtr("expr_in"),
+                        MetaPtr("env_in"),
+                        MetaPtr("cont_out_error"),
+                    ]),
+                ]),
+            ),
+        );
+        let lem: LEM<'static, Fr> = LEM { input, lem_op };
+
+        let expr = Ptr::num(Fr::from_u64(42));
+        let (res, mut store) = eval(&lem, expr).unwrap();
+        for w in res.iter() {
+            let mut cs = TestConstraintSystem::<Fr>::new();
+            lem.constrain(&mut cs, &mut store, w).unwrap();
             assert!(cs.is_satisfied());
         }
     }

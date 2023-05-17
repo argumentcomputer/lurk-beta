@@ -36,6 +36,14 @@ impl<F: LurkField> Ptr<F> {
     }
 
     #[inline]
+    pub fn num(f: F) -> Self {
+        Ptr {
+            tag: Tag::Num,
+            val: PtrVal::Field(f),
+        }
+    }
+
+    #[inline]
     pub fn null(tag: Tag) -> Self {
         Ptr {
             tag,

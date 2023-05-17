@@ -18,18 +18,13 @@ use self::{
     tag::Tag,
 };
 
-use crate::circuit::gadgets::case::multi_case;
-use crate::circuit::gadgets::case::CaseClause;
 use crate::circuit::gadgets::constraints::enforce_equal;
 use crate::circuit::gadgets::constraints::{
     alloc_equal, alloc_equal_const, enforce_implication, popcount,
 };
-use crate::circuit::gadgets::data::GlobalAllocations;
 use bellperson::gadgets::boolean::Boolean;
 use bellperson::gadgets::num::AllocatedNum;
 use bellperson::ConstraintSystem;
-use bellperson::SynthesisError;
-use ff::derive::bitvec::store::BitStore;
 
 /// ## Lurk Evaluation Model (LEM)
 ///
@@ -213,47 +208,6 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
         (ptrs_set, vars_set)
     }
 
-    // // pub fn compile should generate the circuit
-    // pub fn compile<CS: ConstraintSystem<F>>(
-    //     &self,
-    //     cs: &mut CS,
-    //     g: GlobalAllocations<F>,
-    //     alloc_vars: &mut HashMap<&'a mut str, AllocatedNum<F>>,
-    // ) -> Result<Vec<&str>, String> {
-    //     //let mut cs = TestConstraintSystem::<F>::new();
-    //     //let s = &mut crate::store::Store::<F>::default();
-    //     //let g = GlobalAllocations::new(&mut cs, s).unwrap();
-
-    //     let output_names = match self {
-    //         /*LEMOP::MkNull(tgt, tag) => {
-    //             // tgt.name =  Allocate (tag, null)
-    //         },*/
-    //         LEMOP::Copy(tgt, src) => {
-    //             let mut output_names = Vec::new();
-    //             let Some(alloc_src) = alloc_vars.get(src.name()) else {
-    //                     return Err(format!("{} not defined", src.name()))
-    //                 };
-
-    //             let alloc_tgt_res = match alloc_src.get_value() {
-    //                 Some(val) => AllocatedNum::alloc(cs.namespace(|| "alloc"), || {
-    //                     Ok(alloc_src.get_value().unwrap())
-    //                 }),
-    //                 None => {
-    //                     panic!("xii");
-    //                 }
-    //             };
-    //             // enforce equal
-    //             match alloc_tgt_res {
-    //                 Ok(alloc_tgt) => {
-    //                     enforce_equal(cs, || "enforce copy", &alloc_tgt, alloc_src);
-    //                     alloc_vars.insert(&mut tgt.name(), alloc_tgt);
-    //                     // TODO: check if name exists in the hashmap
-    //                 }
-    //                 Err(_) => panic!("xii2"),
-    //             };
-    //             output_names.push(&tgt.name()[..]);
-    //             output_names
-    //         }
     //         LEMOP::MatchTag(ptr, cases, def) => {
     //             let mut output_names = Vec::new();
     //             let mut multiclauses: Vec<Vec<CaseClause<'_, F>>> = Vec::new();
@@ -324,13 +278,6 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
     //             }
     //             output_names
     //         }
-    //         _ => {
-    //             panic!("xii8");
-    //         }
-    //     };
-
-    //     Ok(output_names)
-    // }
 }
 
 pub struct Witness<'a, F: LurkField> {
@@ -639,7 +586,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
     //     );
     // }
 
-    pub(crate) fn implies_equal<CS: ConstraintSystem<F>>(
+    fn implies_equal<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         not_dummy: &Boolean,
         a: &AllocatedNum<F>,
@@ -731,14 +678,22 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     if let Some(not_dummy) = not_dummy {
                         Self::implies_equal(
                             // TODO: improve namespace
-                            &mut cs.namespace(|| format!("tag_is_equal_{:?}_{:?}", alloc_tag.get_value(), tgt.name())),
+                            &mut cs.namespace(|| {
+                                format!("tag_is_equal_{:?}_{:?}", alloc_tag.get_value(), tgt.name())
+                            }),
                             &not_dummy,
                             alloc_tgt.tag(),
                             &alloc_tag,
                         )?;
                         Self::implies_equal(
                             // TODO: improve namespace
-                            &mut cs.namespace(|| format!("hash_is_equal_{:?}_{:?}", alloc_tag.get_value(), tgt.name())),
+                            &mut cs.namespace(|| {
+                                format!(
+                                    "hash_is_equal_{:?}_{:?}",
+                                    alloc_tag.get_value(),
+                                    tgt.name()
+                                )
+                            }),
                             &not_dummy,
                             alloc_tgt.hash(),
                             &zero,
@@ -841,7 +796,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev().map(|op| (op, not_dummy.clone()))),
                 LEMOP::SetReturn(outputs) => {
                     // TODO: implement
-                },
+                }
                 _ => todo!(),
             }
         }
