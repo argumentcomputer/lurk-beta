@@ -238,6 +238,16 @@ fn evaluate_lambda() {
 }
 
 #[test]
+fn evaluate_empty_args_lambda() {
+    let s = &mut Store::<Fr>::default();
+    let expr = "((lambda () 123))";
+
+    let expected = s.num(123);
+    let terminal = s.get_cont_terminal();
+    test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 4, None);
+}
+
+#[test]
 fn evaluate_lambda2() {
     let s = &mut Store::<Fr>::default();
     let expr = "((lambda (y) ((lambda (x) y) 321)) 123)";
