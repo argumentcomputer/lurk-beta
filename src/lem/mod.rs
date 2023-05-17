@@ -529,6 +529,37 @@ impl<'a, F: LurkField> LEM<'a, F> {
         Ok(([out1, out2, out3], ptr_map, var_map))
     }
 
+    fn allocate_input_ptr_from_witness<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        name: &'a str,
+        store: &mut Store<F>,
+        ptr_witness: &HashMap<&'a str, Ptr<F>>,
+    ) -> Result<AllocatedPtr<F>, String> {
+        let Some(ptr) = ptr_witness.get(name) else {
+            return Err(format!("Couldn't find {} in the witness", name))
+        };
+        let aqua_ptr = store.hydrate_ptr(ptr)?;
+        let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {}'s tag", name)), || {
+            Ok(aqua_ptr.tag.field())
+        }) else {
+            return Err(format!("Couldn't allocate tag for {}", name))
+        };
+        let Ok(alloc_val) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {}'s val", name)), || {
+            Ok(aqua_ptr.val)
+        }) else {
+            return Err(format!("Couldn't allocate val for {}", name))
+        };
+
+        let Ok(tag_input) = alloc_tag.inputize(cs.namespace(|| format!("inputize tag for {}", name))) else {
+            return Err(format!("Couldn't inputize tag for {}", name))
+        };
+        let Ok(hash_input) = alloc_val.inputize(cs.namespace(|| format!("inputize val for {}", name))) else {
+            return Err(format!("Couldn't inputize val for {}", name))
+        };
+
+        Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_val))
+    }
+
     fn allocate_ptr_from_witness<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         name: &'a str,
@@ -617,7 +648,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
         {
             alloc_ptrs.insert(
                 self.input[0],
-                Self::allocate_ptr_from_witness(cs, self.input[0], store, &ptrs_witness)?,
+                Self::allocate_input_ptr_from_witness(cs, self.input[0], store, &ptrs_witness)?,
             );
         }
 
@@ -628,7 +659,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
             }
             alloc_ptrs.insert(
                 self.input[1],
-                Self::allocate_ptr_from_witness(cs, self.input[1], store, &ptrs_witness)?,
+                Self::allocate_input_ptr_from_witness(cs, self.input[1], store, &ptrs_witness)?,
             );
         }
 
@@ -639,7 +670,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
             }
             alloc_ptrs.insert(
                 self.input[2],
-                Self::allocate_ptr_from_witness(cs, self.input[2], store, &ptrs_witness)?,
+                Self::allocate_input_ptr_from_witness(cs, self.input[2], store, &ptrs_witness)?,
             );
         }
 
