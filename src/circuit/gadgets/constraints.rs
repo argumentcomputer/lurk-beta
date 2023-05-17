@@ -586,20 +586,6 @@ pub(crate) fn or_v_unchecked_for_optimization<CS: ConstraintSystem<F>, F: PrimeF
     Ok(nor.not())
 }
 
-pub(crate) fn all_booleans_are_false<CS: ConstraintSystem<F>, F: PrimeField>(
-    mut cs: CS,
-    v: &[&Boolean],
-) -> Result<Boolean, SynthesisError> {
-    // Count the number of true values in v.
-    let count_true = v.iter().fold(Num::zero(), |acc, b| {
-        acc.add_bool_with_coeff(CS::one(), b, F::one())
-    });
-
-    let all_are_false = alloc_num_is_zero(&mut cs.namespace(|| "all_are_false"), count_true)?;
-
-    Ok(all_are_false)
-}
-
 pub(crate) fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     v: &[&Boolean],

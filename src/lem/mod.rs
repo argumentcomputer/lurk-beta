@@ -8,7 +8,7 @@ mod tag;
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    circuit::gadgets::{constraints::all_booleans_are_false, pointer::AllocatedPtr},
+    circuit::gadgets::pointer::AllocatedPtr,
     field::{FWrap, LurkField},
 };
 
@@ -131,24 +131,16 @@ pub enum LEMOP<'a, F: LurkField> {
     Open(MetaVar<'a>, MetaPtr<'a>, F), // secret, tgt, src hash
     IfTagEq(MetaPtr<'a>, Tag, Box<LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
     IfTagOr(MetaPtr<'a>, Tag, Tag, Box<LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
-    MatchTag(MetaPtr<'a>, HashMap<Tag, LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
-    MatchFieldVal(
-        MetaPtr<'a>,
-        HashMap<FWrap<F>, LEMOP<'a, F>>,
-        Box<LEMOP<'a, F>>,
-    ),
+    MatchTag(MetaPtr<'a>, HashMap<Tag, LEMOP<'a, F>>),
+    MatchFieldVal(MetaPtr<'a>, HashMap<FWrap<F>, LEMOP<'a, F>>),
     Seq(Vec<LEMOP<'a, F>>),
     SetReturn([MetaPtr<'a>; 3]),
 }
 
 impl<'a, F: LurkField> LEMOP<'a, F> {
     #[inline]
-    pub fn mk_match_tag(
-        i: MetaPtr<'a>,
-        cases: Vec<(Tag, LEMOP<'a, F>)>,
-        def: LEMOP<'a, F>,
-    ) -> LEMOP<'a, F> {
-        LEMOP::MatchTag(i, HashMap::from_iter(cases), Box::new(def))
+    pub fn mk_match_tag(i: MetaPtr<'a>, cases: Vec<(Tag, LEMOP<'a, F>)>) -> LEMOP<'a, F> {
+        LEMOP::MatchTag(i, HashMap::from_iter(cases))
     }
 
     pub fn potential_assignments(&self) -> (HashSet<MetaPtr<'a>>, HashSet<MetaVar<'a>>) {
@@ -188,17 +180,15 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
                     stack.push(a);
                     stack.push(b);
                 }
-                LEMOP::MatchTag(_, cases, def) => {
+                LEMOP::MatchTag(_, cases) => {
                     for op in cases.values() {
                         stack.push(op);
                     }
-                    stack.push(def);
                 }
-                LEMOP::MatchFieldVal(_, cases, def) => {
+                LEMOP::MatchFieldVal(_, cases) => {
                     for op in cases.values() {
                         stack.push(op);
                     }
-                    stack.push(def);
                 }
                 LEMOP::Seq(ops) => {
                     stack.extend(ops.iter());
@@ -421,22 +411,24 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         stack.push(ff)
                     }
                 }
-                LEMOP::MatchTag(ptr, cases, def) => {
+                LEMOP::MatchTag(ptr, cases) => {
                     let Some(Ptr {tag: ptr_tag, val: _}) = ptr_map.get(ptr.name()) else {
                         return Err(format!("{} not defined", ptr.name()))
                     };
                     match cases.get(ptr_tag) {
                         Some(op) => stack.push(op),
-                        None => stack.push(def),
+                        None => return Err(format!("No match for tag {:?}", ptr_tag)),
                     }
                 }
-                LEMOP::MatchFieldVal(ptr, cases, def) => {
+                LEMOP::MatchFieldVal(ptr, cases) => {
                     let Some(Ptr {tag: _, val: PtrVal::Field(f)}) = ptr_map.get(ptr.name()) else {
                         return Err(format!("{} not defined as a pointer with a field value", ptr.name()))
                     };
                     match cases.get(&FWrap(*f)) {
                         Some(op) => stack.push(op),
-                        None => stack.push(def),
+                        None => {
+                            return Err(format!("No match for field element {}", f.hex_digits()))
+                        }
                     }
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
@@ -728,14 +720,13 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 //     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                 //     Self::enforce_equal_ptrs(cs, &alloc_src, src.name(), &alloc_tgt, tgt.name());
                 // }
-                LEMOP::MatchTag(match_ptr, cases, def) => {
+                LEMOP::MatchTag(match_ptr, cases) => {
                     let Some(alloc_match_ptr) = alloc_ptrs.get(match_ptr.name()) else {
                         return Err(format!("{} not allocated", match_ptr.name()));
                     };
                     let Some(tag_f) = alloc_match_ptr.tag().get_value() else {
                         return Err(format!("Couldn't get tag for allocated pointer {}", match_ptr.name()));
                     };
-                    let mut has_match = false;
                     let mut not_dummy_vec = Vec::new();
                     for (i, (tag, op)) in cases.iter().enumerate() {
                         dbg!(i);
@@ -752,9 +743,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         };
                         not_dummy_vec.push(alloc_has_match.clone());
 
-                        if tag.field::<F>() == tag_f {
-                            has_match = true;
-                        } else {
+                        if tag.field::<F>() != tag_f {
                             let (ptrs, vars) = op.potential_assignments();
                             for ptr in ptrs.iter() {
                                 ptrs_witness.insert(ptr.name(), Ptr::null(Tag::Dummy));
@@ -765,26 +754,6 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         }
                         stack.push((op, Some(alloc_has_match)));
                     }
-                    if has_match {
-                        let (ptrs, vars) = def.potential_assignments();
-                        for ptr in ptrs.iter() {
-                            ptrs_witness.insert(ptr.name(), Ptr::null(Tag::Dummy));
-                        }
-                        for var in vars.iter() {
-                            vars_witness.insert(var.name(), F::zero());
-                        }
-                    }
-                    let Ok(is_default) = all_booleans_are_false(
-                        // TODO: improve namespace
-                        &mut cs.namespace(|| format!("is_default_{:?}", alloc_match_ptr.tag().get_value())),
-                        &not_dummy_vec.iter().collect::<Vec<_>>(),
-                    ) else {
-                        return Err("TODO".to_string());
-                    }; // see or_v_unchecked_for_optimization
-
-                    stack.push((def, Some(is_default.clone())));
-
-                    not_dummy_vec.push(is_default);
 
                     let Ok(_) = popcount(
                         // TODO: improve namespace

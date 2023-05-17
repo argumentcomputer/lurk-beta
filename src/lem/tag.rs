@@ -1,6 +1,6 @@
 use crate::field::LurkField;
 
-#[derive(Clone, Copy, PartialEq, std::cmp::PartialOrd, std::cmp::Ord, std::cmp::Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Debug, PartialOrd, Ord, Eq, Hash)]
 pub enum Tag {
     Dummy,
     LurkSym,

@@ -23,24 +23,8 @@ pub fn step<F: LurkField>() -> LEM<'static, F> {
                         ]),
                     ]),
                 )],
-                LEMOP::Seq(vec![
-                    LEMOP::MkNull(MetaPtr("cont_out_error_inner"), Tag::Error),
-                    LEMOP::SetReturn([
-                        MetaPtr("expr_in"),
-                        MetaPtr("env_in"),
-                        MetaPtr("cont_out_error_inner"),
-                    ]),
-                ]),
             ),
         )],
-        LEMOP::Seq(vec![
-            LEMOP::MkNull(MetaPtr("cont_out_error_outer"), Tag::Error),
-            LEMOP::SetReturn([
-                MetaPtr("expr_in"),
-                MetaPtr("env_in"),
-                MetaPtr("cont_out_error_outer"),
-            ]),
-        ]),
     );
     LEM { input, lem_op }
 }
@@ -81,7 +65,7 @@ mod tests {
             let mut cs = TestConstraintSystem::<Fr>::new();
             lem.constrain(&mut cs, &mut store, w).unwrap();
             assert!(cs.is_satisfied());
-            assert_eq!(cs.num_constraints(), 56);
+            assert_eq!(cs.num_constraints(), 26);
             assert_eq!(cs.num_inputs(), 7); // TODO: review
         }
     }
@@ -91,29 +75,36 @@ mod tests {
         let input = ["expr_in", "env_in", "cont_in"];
         let lem_op = LEMOP::mk_match_tag(
             MetaPtr("expr_in"),
-            vec![(
-                Tag::Num,
-                LEMOP::Seq(vec![
-                    LEMOP::MkNull(MetaPtr("cont_out_terminal"), Tag::Terminal),
-                    LEMOP::SetReturn([
-                        MetaPtr("expr_in"),
-                        MetaPtr("env_in"),
-                        MetaPtr("cont_out_terminal"),
+            vec![
+                (
+                    Tag::Num,
+                    LEMOP::Seq(vec![
+                        LEMOP::MkNull(MetaPtr("cont_out_terminal"), Tag::Terminal),
+                        LEMOP::SetReturn([
+                            MetaPtr("expr_in"),
+                            MetaPtr("env_in"),
+                            MetaPtr("cont_out_terminal"),
+                        ]),
                     ]),
-                ]),
-            )],
-            LEMOP::mk_match_tag(
-                MetaPtr("expr_in"),
-                vec![],
-                LEMOP::Seq(vec![
-                    LEMOP::MkNull(MetaPtr("cont_out_error"), Tag::Error),
-                    LEMOP::SetReturn([
+                ),
+                (
+                    Tag::Char,
+                    LEMOP::mk_match_tag(
                         MetaPtr("expr_in"),
-                        MetaPtr("env_in"),
-                        MetaPtr("cont_out_error"),
-                    ]),
-                ]),
-            ),
+                        vec![(
+                            Tag::Num,
+                            LEMOP::Seq(vec![
+                                LEMOP::MkNull(MetaPtr("cont_out_error"), Tag::Error),
+                                LEMOP::SetReturn([
+                                    MetaPtr("expr_in"),
+                                    MetaPtr("env_in"),
+                                    MetaPtr("cont_out_error"),
+                                ]),
+                            ]),
+                        )],
+                    ),
+                ),
+            ],
         );
         let lem: LEM<'static, Fr> = LEM { input, lem_op };
 
