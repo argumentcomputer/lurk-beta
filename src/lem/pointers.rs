@@ -44,6 +44,14 @@ impl<F: LurkField> Ptr<F> {
     }
 
     #[inline]
+    pub fn char(c: char) -> Self {
+        Ptr {
+            tag: Tag::Char,
+            val: PtrVal::Field(F::from_char(c)),
+        }
+    }
+
+    #[inline]
     pub fn null(tag: Tag) -> Self {
         Ptr {
             tag,
@@ -56,6 +64,30 @@ impl<F: LurkField> Ptr<F> {
         Ptr {
             tag: Tag::LurkSym,
             val: PtrVal::Field(sym.field()),
+        }
+    }
+
+    #[inline]
+    pub fn get_index2(&self) -> Option<usize> {
+        match self.val {
+            PtrVal::Index2(idx) => Some(idx),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub fn get_index3(&self) -> Option<usize> {
+        match self.val {
+            PtrVal::Index3(idx) => Some(idx),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub fn get_index4(&self) -> Option<usize> {
+        match self.val {
+            PtrVal::Index4(idx) => Some(idx),
+            _ => None,
         }
     }
 }

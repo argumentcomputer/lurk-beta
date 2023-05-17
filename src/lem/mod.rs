@@ -334,11 +334,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     let Some(src_ptr2) = ptr_map.get(src[1].name()) else {
                         return Err(format!("{} not defined", src[1].name()))
                     };
-                    let (idx, _) = store.ptrs2.insert_full((*src_ptr1, *src_ptr2));
-                    let tgt_ptr = Ptr {
-                        tag: *tag,
-                        val: PtrVal::Index2(idx),
-                    };
+                    let tgt_ptr = store.index_2_ptrs(*tag, *src_ptr1, *src_ptr2);
                     if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -353,11 +349,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     let Some(src_ptr3) = ptr_map.get(src[2].name()) else {
                         return Err(format!("{} not defined", src[2].name()))
                     };
-                    let (idx, _) = store.ptrs3.insert_full((*src_ptr1, *src_ptr2, *src_ptr3));
-                    let tgt_ptr = Ptr {
-                        tag: *tag,
-                        val: PtrVal::Index3(idx),
-                    };
+                    let tgt_ptr = store.index_3_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3);
                     if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -375,13 +367,8 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     let Some(src_ptr4) = ptr_map.get(src[3].name()) else {
                         return Err(format!("{} not defined", src[3].name()))
                     };
-                    let (idx, _) = store
-                        .ptrs4
-                        .insert_full((*src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4));
-                    let tgt_ptr = Ptr {
-                        tag: *tag,
-                        val: PtrVal::Index4(idx),
-                    };
+                    let tgt_ptr =
+                        store.index_4_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4);
                     if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -390,13 +377,13 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     let Some(src_ptr) = ptr_map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    let Ptr { tag: _, val: PtrVal::Index2(idx)} = src_ptr else {
+                    let Some(idx) = src_ptr.get_index2() else {
                         return Err(format!(
-                            "{} is bound to a null pointer and can't be unhashed",
+                            "{} is bound to a leaf pointer",
                             src.name()
                         ));
                     };
-                    let Some((a, b)) = store.ptrs2.get_index(*idx) else {
+                    let Some((a, b)) = store.fetch_2_ptrs(idx) else {
                         return Err(format!("{} isn't bound to a 2-hashed pointer", src.name()))
                     };
                     if ptr_map.insert(tgts[0].name(), *a).is_some() {
@@ -410,13 +397,13 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     let Some(src_ptr) = ptr_map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    let Ptr { tag: _, val: PtrVal::Index3(idx)} = src_ptr else {
+                    let Some(idx) = src_ptr.get_index3() else {
                         return Err(format!(
-                            "{} is bound to a null pointer and can't be unhashed",
+                            "{} is bound to a leaf pointer",
                             src.name()
                         ));
                     };
-                    let Some((a, b, c)) = store.ptrs3.get_index(*idx) else {
+                    let Some((a, b, c)) = store.fetch_3_ptrs(idx) else {
                         return Err(format!("{} isn't bound to a 3-hashed pointer", src.name()))
                     };
                     if ptr_map.insert(tgts[0].name(), *a).is_some() {
@@ -433,13 +420,13 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     let Some(src_ptr) = ptr_map.get(src.name()) else {
                         return Err(format!("{} not defined", src.name()))
                     };
-                    let Ptr { tag: _, val: PtrVal::Index4(idx)} = src_ptr else {
+                    let Some(idx) = src_ptr.get_index4() else {
                         return Err(format!(
-                            "{} is bound to a null pointer and can't be unhashed",
+                            "{} is bound to a leaf pointer",
                             src.name()
                         ));
                     };
-                    let Some((a, b, c, d)) = store.ptrs4.get_index(*idx) else {
+                    let Some((a, b, c, d)) = store.fetch_4_ptrs(idx) else {
                         return Err(format!("{} isn't bound to a 4-hashed pointer", src.name()))
                     };
                     if ptr_map.insert(tgts[0].name(), *a).is_some() {

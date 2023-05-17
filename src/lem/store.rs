@@ -17,9 +17,9 @@ use super::{
 
 #[derive(Default)]
 pub struct Store<F: LurkField> {
-    pub ptrs2: IndexSet<(Ptr<F>, Ptr<F>)>,
-    pub ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
-    pub ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
+    ptrs2: IndexSet<(Ptr<F>, Ptr<F>)>,
+    ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
+    ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
     pub comms: HashMap<FWrap<F>, (F, Ptr<F>)>, // hash -> (secret, src)
 
@@ -33,6 +33,45 @@ pub struct Store<F: LurkField> {
 }
 
 impl<F: LurkField> Store<F> {
+    #[inline]
+    pub fn index_2_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
+        Ptr {
+            tag,
+            val: PtrVal::Index2(self.ptrs2.insert_full((a, b)).0),
+        }
+    }
+
+    #[inline]
+    pub fn index_3_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>) -> Ptr<F> {
+        Ptr {
+            tag,
+            val: PtrVal::Index3(self.ptrs3.insert_full((a, b, c)).0),
+        }
+    }
+
+    #[inline]
+    pub fn index_4_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>, d: Ptr<F>) -> Ptr<F> {
+        Ptr {
+            tag,
+            val: PtrVal::Index4(self.ptrs4.insert_full((a, b, c, d)).0),
+        }
+    }
+
+    #[inline]
+    pub fn fetch_2_ptrs(&self, idx: usize) -> Option<&(Ptr<F>, Ptr<F>)> {
+        self.ptrs2.get_index(idx)
+    }
+
+    #[inline]
+    pub fn fetch_3_ptrs(&self, idx: usize) -> Option<&(Ptr<F>, Ptr<F>, Ptr<F>)> {
+        self.ptrs3.get_index(idx)
+    }
+
+    #[inline]
+    pub fn fetch_4_ptrs(&self, idx: usize) -> Option<&(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)> {
+        self.ptrs4.get_index(idx)
+    }
+
     pub fn index_string(&mut self, s: String) -> Ptr<F> {
         let mut chars = s.chars().rev().collect_vec();
         let mut ptr;
@@ -53,17 +92,7 @@ impl<F: LurkField> Store<F> {
         }
         while let Some(head) = heads.pop() {
             // use the accumulated heads to construct the pointers and populate the cache
-            let (idx, _) = self.ptrs2.insert_full((
-                Ptr {
-                    tag: Tag::Char,
-                    val: PtrVal::Field(F::from_char(head)),
-                },
-                ptr,
-            ));
-            ptr = Ptr {
-                tag: Tag::Str,
-                val: PtrVal::Index2(idx),
-            };
+            ptr = self.index_2_ptrs(Tag::Str, Ptr::char(head), ptr);
             chars.push(head);
             self.vec_char_cache.insert(chars.clone(), ptr);
         }
@@ -92,11 +121,7 @@ impl<F: LurkField> Store<F> {
         while let Some(head) = heads.pop() {
             // use the accumulated heads to construct the pointers and populate the cache
             let head_ptr = self.index_string(head.clone());
-            let (idx, _) = self.ptrs2.insert_full((head_ptr, ptr));
-            ptr = Ptr {
-                tag: Tag::Sym,
-                val: PtrVal::Index2(idx),
-            };
+            ptr = self.index_2_ptrs(Tag::Sym, head_ptr, ptr);
             components.push(head);
             self.vec_str_cache.insert(components.clone(), ptr);
         }
