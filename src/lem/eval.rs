@@ -141,7 +141,14 @@ mod tests {
             MetaPtr("expr_in"),
             vec![(
                 Tag::Num,
-                LEMOP::SetReturn([MetaPtr("expr_in"), MetaPtr("env_in"), MetaPtr("cont_in")]),
+                LEMOP::Seq(vec![
+                    LEMOP::MkNull(MetaPtr("cont_out_terminal"), Tag::Terminal),
+                    LEMOP::SetReturn([
+                        MetaPtr("expr_in"),
+                        MetaPtr("env_in"),
+                        MetaPtr("cont_out_terminal"),
+                    ]),
+                ]),
             )],
             LEMOP::mk_match_tag(
                 MetaPtr("expr_in"),
