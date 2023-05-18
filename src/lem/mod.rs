@@ -120,7 +120,6 @@ impl<'a> MetaVar<'a> {
 #[derive(Clone)]
 pub enum LEMOP<'a, F: LurkField> {
     MkNull(MetaPtr<'a>, Tag),
-    Copy(MetaPtr<'a>, MetaPtr<'a>),
     Hash2Ptrs(MetaPtr<'a>, Tag, [MetaPtr<'a>; 2]),
     Hash3Ptrs(MetaPtr<'a>, Tag, [MetaPtr<'a>; 3]),
     Hash4Ptrs(MetaPtr<'a>, Tag, [MetaPtr<'a>; 4]),
@@ -150,7 +149,6 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
         while let Some(op) = stack.pop() {
             match op {
                 LEMOP::MkNull(ptr, _)
-                | LEMOP::Copy(ptr, _)
                 | LEMOP::Hash2Ptrs(ptr, ..)
                 | LEMOP::Hash3Ptrs(ptr, ..)
                 | LEMOP::Hash4Ptrs(ptr, ..)
@@ -236,14 +234,6 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 LEMOP::MkNull(tgt, tag) => {
                     let tgt_ptr = Ptr::null(*tag);
                     if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
-                        return Err(format!("{} already defined", tgt.name()));
-                    }
-                }
-                LEMOP::Copy(tgt, src) => {
-                    let Some(src_ptr) = ptr_map.get(src.name()) else {
-                        return Err(format!("{} not defined", src.name()))
-                    };
-                    if ptr_map.insert(tgt.name(), *src_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
                 }
@@ -561,18 +551,16 @@ impl<'a, F: LurkField> LEM<'a, F> {
 
     fn implies_equal<CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        not_dummy: &Boolean,
+        premise: &Boolean,
         a: &AllocatedNum<F>,
         b: &AllocatedNum<F>,
     ) -> Result<(), String> {
         let Ok(is_equal) = alloc_equal(cs.namespace(|| "is_equal"), a, b) else {
             return Err("TODO".to_string())
         };
-        dbg!(not_dummy.get_value());
-        dbg!(is_equal.get_value());
         let Ok(_) = enforce_implication(
             cs.namespace(|| "not dummy implies tag is equal"),
-            not_dummy,
+            premise,
             &is_equal
         ) else {
             return Err("TODO".to_string())
@@ -700,19 +688,6 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         );
                     }
                 }
-                // LEMOP::Copy(tgt, src) => { Copy might just disappear!!
-                //     let Some(alloc_src) = alloc_ptrs.get(src.name()) else {
-                //         return Err(format!("{} not allocated", src.name()));
-                //     };
-                //     if alloc_ptrs.contains_key(tgt.name()) {
-                //         return Err(format!("{} already allocated", tgt.name()));
-                //     }
-                //     let alloc_tgt =
-                //         Self::allocate_ptr_from_witness(cs, tgt.name(), store, &ptrs_witness)?;
-                //     let alloc_src = alloc_src.clone();
-                //     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
-                //     Self::enforce_equal_ptrs(cs, &alloc_src, src.name(), &alloc_tgt, tgt.name());
-                // }
                 LEMOP::MatchTag(match_ptr, cases) => {
                     let Some(alloc_match_ptr) = alloc_ptrs.get(match_ptr.name()) else {
                         return Err(format!("{} not allocated", match_ptr.name()));
@@ -812,5 +787,81 @@ impl<'a, F: LurkField> LEM<'a, F> {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lem::{pointers::Ptr, tag::Tag};
+    use bellperson::util_cs::test_cs::TestConstraintSystem;
+    use blstrs::Scalar as Fr;
+
+    #[test]
+    fn accepts_dummy_nested_match_tag() {
+        let input = ["expr_in", "env_in", "cont_in"];
+        let lem_op = LEMOP::mk_match_tag(
+            MetaPtr("expr_in"),
+            vec![
+                (
+                    Tag::Num,
+                    LEMOP::Seq(vec![
+                        LEMOP::MkNull(MetaPtr("cont_out_terminal"), Tag::Terminal),
+                        LEMOP::SetReturn([
+                            MetaPtr("expr_in"),
+                            MetaPtr("env_in"),
+                            MetaPtr("cont_out_terminal"),
+                        ]),
+                    ]),
+                ),
+                (
+                    Tag::Char,
+                    LEMOP::mk_match_tag(
+                        // this nested match excercises the need to pass on the information
+                        // that we are on a dummy branch, because a constrain will
+                        // be created for `cont_out_error` and it will need to be relaxed
+                        // by an implication with a false premise
+                        MetaPtr("expr_in"),
+                        vec![(
+                            Tag::Num,
+                            LEMOP::Seq(vec![
+                                LEMOP::MkNull(MetaPtr("cont_out_error"), Tag::Error),
+                                LEMOP::SetReturn([
+                                    MetaPtr("expr_in"),
+                                    MetaPtr("env_in"),
+                                    MetaPtr("cont_out_error"),
+                                ]),
+                            ]),
+                        )],
+                    ),
+                ),
+                (
+                    Tag::Sym,
+                    LEMOP::mk_match_tag(
+                        // this nested match exercises the need to relax `popcount`
+                        // because there is no match but it's on a dummy path, so
+                        // we don't want to be too restrictive
+                        MetaPtr("expr_in"),
+                        vec![(
+                            Tag::Char,
+                            LEMOP::SetReturn([
+                                MetaPtr("expr_in"),
+                                MetaPtr("env_in"),
+                                MetaPtr("cont_in"),
+                            ]),
+                        )],
+                    ),
+                ),
+            ],
+        );
+        let lem: LEM<'static, Fr> = LEM { input, lem_op };
+
+        let expr = Ptr::num(Fr::from_u64(42));
+        let (res, mut store) = lem.eval(expr).unwrap();
+        for w in res.iter() {
+            let mut cs = TestConstraintSystem::<Fr>::new();
+            lem.constrain(&mut cs, &mut store, w).unwrap();
+            assert!(cs.is_satisfied());
+        }
     }
 }

@@ -32,7 +32,7 @@ pub fn step<F: LurkField>() -> LEM<'static, F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lem::{pointers::Ptr, tag::Tag};
+    use crate::lem::pointers::Ptr;
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
 
@@ -65,55 +65,8 @@ mod tests {
             let mut cs = TestConstraintSystem::<Fr>::new();
             lem.constrain(&mut cs, &mut store, w).unwrap();
             assert!(cs.is_satisfied());
-            assert_eq!(cs.num_constraints(), 68);
+            assert_eq!(cs.num_constraints(), 71);
             assert_eq!(cs.num_inputs(), 13); // TODO: review
-        }
-    }
-
-    #[test]
-    fn accepts_dummy_nested_match_tag() {
-        let input = ["expr_in", "env_in", "cont_in"];
-        let lem_op = LEMOP::mk_match_tag(
-            MetaPtr("expr_in"),
-            vec![
-                (
-                    Tag::Num,
-                    LEMOP::Seq(vec![
-                        LEMOP::MkNull(MetaPtr("cont_out_terminal"), Tag::Terminal),
-                        LEMOP::SetReturn([
-                            MetaPtr("expr_in"),
-                            MetaPtr("env_in"),
-                            MetaPtr("cont_out_terminal"),
-                        ]),
-                    ]),
-                ),
-                (
-                    Tag::Char,
-                    LEMOP::mk_match_tag(
-                        MetaPtr("expr_in"),
-                        vec![(
-                            Tag::Num,
-                            LEMOP::Seq(vec![
-                                LEMOP::MkNull(MetaPtr("cont_out_error"), Tag::Error),
-                                LEMOP::SetReturn([
-                                    MetaPtr("expr_in"),
-                                    MetaPtr("env_in"),
-                                    MetaPtr("cont_out_error"),
-                                ]),
-                            ]),
-                        )],
-                    ),
-                ),
-            ],
-        );
-        let lem: LEM<'static, Fr> = LEM { input, lem_op };
-
-        let expr = Ptr::num(Fr::from_u64(42));
-        let (res, mut store) = lem.eval(expr).unwrap();
-        for w in res.iter() {
-            let mut cs = TestConstraintSystem::<Fr>::new();
-            lem.constrain(&mut cs, &mut store, w).unwrap();
-            assert!(cs.is_satisfied());
         }
     }
 }
