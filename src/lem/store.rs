@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 use std::collections::HashMap;
 
 use dashmap::DashMap;
@@ -21,31 +22,43 @@ pub struct Store<F: LurkField> {
     ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
     ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    pub comms: HashMap<FWrap<F>, (F, Ptr<F>)>, // hash -> (secret, src)
-
     vec_char_cache: HashMap<Vec<char>, Ptr<F>>,
     vec_str_cache: HashMap<Vec<String>, Ptr<F>>,
 
+    dehydrated: Vec<Ptr<F>>,
     aqua_cache: DashMap<Ptr<F>, AquaPtr<F>, ahash::RandomState>,
     aqua_dag: DashMap<AquaPtr<F>, AquaPtrKind<F>, ahash::RandomState>,
 
     pub poseidon_cache: PoseidonCache<F>,
+    pub comms: HashMap<FWrap<F>, (F, Ptr<F>)>, // hash -> (secret, src)
 }
 
 impl<F: LurkField> Store<F> {
-    #[inline]
     pub fn index_2_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
-        Ptr::Tree2(tag, self.ptrs2.insert_full((a, b)).0)
+        let (idx, inserted) = self.ptrs2.insert_full((a, b));
+        let ptr = Ptr::Tree2(tag, idx);
+        if inserted {
+            self.dehydrated.push(ptr);
+        }
+        ptr
     }
 
-    #[inline]
     pub fn index_3_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>) -> Ptr<F> {
-        Ptr::Tree3(tag, self.ptrs3.insert_full((a, b, c)).0)
+        let (idx, inserted) = self.ptrs3.insert_full((a, b, c));
+        let ptr = Ptr::Tree3(tag, idx);
+        if inserted {
+            self.dehydrated.push(ptr);
+        }
+        ptr
     }
 
-    #[inline]
     pub fn index_4_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>, d: Ptr<F>) -> Ptr<F> {
-        Ptr::Tree4(tag, self.ptrs4.insert_full((a, b, c, d)).0)
+        let (idx, inserted) = self.ptrs4.insert_full((a, b, c, d));
+        let ptr = Ptr::Tree4(tag, idx);
+        if inserted {
+            self.dehydrated.push(ptr);
+        }
+        ptr
     }
 
     #[inline]
@@ -222,5 +235,12 @@ impl<F: LurkField> Store<F> {
                 }
             },
         }
+    }
+
+    pub fn deluge(&mut self) {
+        self.dehydrated.par_iter().for_each(|ptr| {
+            self.hydrate_ptr(ptr).expect("failed to hydrate pointer");
+        });
+        self.dehydrated = Vec::new();
     }
 }
