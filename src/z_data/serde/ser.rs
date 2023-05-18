@@ -1,26 +1,13 @@
-use thiserror::Error;
 use serde::{ser, Serialize};
 
 use crate::z_data::ZData;
+use crate::z_data::serde::SerdeError;
 
 pub fn to_z_data<T>(value: T) -> Result<ZData, SerdeError>
 where
     T: ser::Serialize,
 {
     value.serialize(&Serializer)
-}
-
-
-#[derive(Error, Debug)]
-pub enum SerdeError {
-    #[error("Type error")]
-    UnsupportedType(String),
-}
-
-impl serde::ser::Error for SerdeError {
-    fn custom<T: core::fmt::Display>(msg: T) -> Self {
-        Self::UnsupportedType(msg.to_string())
-    }
 }
 
 pub struct Serializer;
@@ -87,28 +74,28 @@ impl<'a> ser::Serializer for &'a Serializer {
 
     #[inline]
     fn serialize_i8(self, _value: i8) -> Result<Self::Ok, Self::Error> {
-        Err(SerdeError::UnsupportedType(
+        Err(SerdeError::Function(
             "Unsigned integers not supported".into(),
         ))
     }
 
     #[inline]
     fn serialize_i16(self, _value: i16) -> Result<Self::Ok, Self::Error> {
-        Err(SerdeError::UnsupportedType(
+        Err(SerdeError::Function(
             "Unsigned integers not supported".into(),
         ))
     }
 
     #[inline]
     fn serialize_i32(self, _value: i32) -> Result<Self::Ok, Self::Error> {
-        Err(SerdeError::UnsupportedType(
+        Err(SerdeError::Function(
             "Unsigned integers not supported".into(),
         ))
     }
 
     #[inline]
     fn serialize_i64(self, _value: i64) -> Result<Self::Ok, Self::Error> {
-        Err(SerdeError::UnsupportedType(
+        Err(SerdeError::Function(
             "Unsigned integers not supported".into(),
         ))
     }
@@ -135,12 +122,12 @@ impl<'a> ser::Serializer for &'a Serializer {
 
     #[inline]
     fn serialize_f32(self, _value: f32) -> Result<Self::Ok, Self::Error> {
-        Err(SerdeError::UnsupportedType("Floats not supported".into()))
+        Err(SerdeError::Function("Floats not supported".into()))
     }
 
     #[inline]
     fn serialize_f64(self, _value: f64) -> Result<Self::Ok, Self::Error> {
-        Err(SerdeError::UnsupportedType("Floats not supported".into()))
+        Err(SerdeError::Function("Floats not supported".into()))
     }
 
     #[inline]
@@ -291,6 +278,11 @@ impl<'a> ser::Serializer for &'a Serializer {
             variant_index,
         })
     }
+
+  #[inline]
+  fn is_human_readable(&self) -> bool {
+    false
+  }
 }
 
 impl ser::SerializeSeq for SerializeCell {
@@ -454,125 +446,104 @@ mod tests {
 
     #[test]
     fn ser_z_expr() {
+      let test_zexpr = |ze: ZExpr<Scalar>| {
+	let zd = to_z_data(ze).unwrap();
+	println!("ZData: {:?}", zd);
+	//assert_eq!(ze.ser(), zd);
+      };
         let f = Scalar::one();
         let zp = ZExprPtr::from_parts(ExprTag::Sym, f);
         assert_eq!(zp.ser(), to_z_data(zp).unwrap());
         let zc = ZContPtr::from_parts(ContTag::Lookup, f);
         assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let ze: ZExpr<Scalar> = ZExpr::Nil;
-        assert_eq!(ze.ser(), to_z_data(ze).unwrap());
-        let ze: ZExpr<Scalar> = ZExpr::Cons(zp, zp);
-        assert_eq!(ze.ser(), to_z_data(ze).unwrap());
-        let ze: ZExpr<Scalar> = ZExpr::Comm(f, zp);
-        assert_eq!(ze.ser(), to_z_data(ze).unwrap());
-        let ze: ZExpr<Scalar> = ZExpr::SymNil;
-        assert_eq!(ze.ser(), to_z_data(ze).unwrap());
-        let ze: ZExpr<Scalar> = ZExpr::SymCons(zp, zp);
-        assert_eq!(ze.ser(), to_z_data(ze).unwrap());
-        let ze: ZExpr<Scalar> = ZExpr::Key(zp);
-        assert_eq!(ze.ser(), to_z_data(ze).unwrap());
-        let ze: ZExpr<Scalar> = ZExpr::Fun {
-            arg: zp,
-            body: zp,
-            closed_env: zp,
-        };
-        assert_eq!(ze.ser(), to_z_data(ze).unwrap());
-        let ze: ZExpr<Scalar> = ZExpr::Num(f);
-        assert_eq!(ze.ser(), to_z_data(ze).unwrap());
-        let ze: ZExpr<Scalar> = ZExpr::StrNil;
-        assert_eq!(ze.ser(), to_z_data(ze).unwrap());
-        let ze: ZExpr<Scalar> = ZExpr::StrCons(zp, zp);
-        assert_eq!(ze.ser(), to_z_data(ze).unwrap());
-        let ze: ZExpr<Scalar> = ZExpr::Thunk(zp, zc);
-        assert_eq!(ze.ser(), to_z_data(ze).unwrap());
-        let ze: ZExpr<Scalar> = ZExpr::Char('a');
-        assert_eq!(ze.ser(), to_z_data(ze).unwrap());
-        let ze: ZExpr<Scalar> = ZExpr::Uint(UInt::U64(0));
-        assert_eq!(ze.ser(), to_z_data(ze).unwrap());
+
+      test_zexpr(ZExpr::Nil);
+      test_zexpr(ZExpr::Cons(zp, zp));
+      test_zexpr(ZExpr::Comm(f, zp));
+      test_zexpr(ZExpr::SymNil);
+      test_zexpr(ZExpr::SymCons(zp, zp));
+      test_zexpr(ZExpr::Key(zp));
+      test_zexpr(ZExpr::Fun{arg: zp, body: zp, closed_env: zp});
+      test_zexpr(ZExpr::Num(f));
+      test_zexpr(ZExpr::StrNil);
+      test_zexpr(ZExpr::StrCons(zp, zp));
+      test_zexpr(ZExpr::Thunk(zp, zc));
+      test_zexpr(ZExpr::Char('a'));
+      test_zexpr(ZExpr::Uint(UInt::U64(0)));
+
         let zs: ZStore<Scalar> = ZStore::new();
         assert_eq!(zs.ser(), to_z_data(zs).unwrap());
-        //println!("ZData: {:?}", zd);
     }
 
     #[test]
     fn ser_z_cont() {
+      let test_zcont = |zc: ZCont<Scalar>| {
+	assert_eq!(zc.ser(), to_z_data(zc).unwrap());
+      };
         let f = Scalar::one();
         let ze = ZExprPtr::from_parts(ExprTag::Nil, f);
         let zp = ZContPtr::from_parts(ContTag::Outermost, f);
         assert_eq!(zp.ser(), to_z_data(zp).unwrap());
-        let zc: ZCont<Scalar> = ZCont::Outermost;
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let zc: ZCont<Scalar> = ZCont::Call0 {
+
+      test_zcont(ZCont::Outermost);
+      test_zcont(ZCont::Call0 {
             saved_env: ze,
             continuation: zp,
-        };
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let zc: ZCont<Scalar> = ZCont::Call {
+      });
+      test_zcont(ZCont::Call {
             unevaled_arg: ze,
             saved_env: ze,
             continuation: zp,
-        };
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let zc: ZCont<Scalar> = ZCont::Call2 {
+      });
+      test_zcont(ZCont::Call2 {
             function: ze,
             saved_env: ze,
             continuation: zp,
-        };
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let zc: ZCont<Scalar> = ZCont::Tail {
+      });
+      test_zcont(ZCont::Tail {
             saved_env: ze,
             continuation: zp,
-        };
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let zc: ZCont<Scalar> = ZCont::Error;
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let zc: ZCont<Scalar> = ZCont::Lookup {
+      });
+      test_zcont(ZCont::Error);
+      test_zcont(ZCont::Lookup {
             saved_env: ze,
             continuation: zp,
-        };
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let zc: ZCont<Scalar> = ZCont::Unop {
+      });
+      test_zcont(ZCont::Unop {
             operator: Op1::Car,
             continuation: zp,
-        };
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let zc: ZCont<Scalar> = ZCont::Binop {
+      });
+      test_zcont(ZCont::Binop {
             operator: Op2::Sum,
             saved_env: ze,
             unevaled_args: ze,
             continuation: zp,
-        };
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let zc: ZCont<Scalar> = ZCont::Binop2 {
+      });
+      test_zcont(ZCont::Binop2 {
             operator: Op2::Sum,
             evaled_arg: ze,
             continuation: zp,
-        };
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let zc: ZCont<Scalar> = ZCont::If {
+      });
+      test_zcont(ZCont::If {
             unevaled_args: ze,
             continuation: zp,
-        };
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let zc: ZCont<Scalar> = ZCont::Let {
+      });
+      test_zcont(ZCont::Let {
             var: ze,
             body: ze,
             saved_env: ze,
             continuation: zp,
-        };
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let zc: ZCont<Scalar> = ZCont::LetRec {
+      });
+      test_zcont(ZCont::LetRec {
             var: ze,
             body: ze,
             saved_env: ze,
             continuation: zp,
-        };
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let zc: ZCont<Scalar> = ZCont::Emit { continuation: zp };
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let zc: ZCont<Scalar> = ZCont::Dummy;
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        let zc: ZCont<Scalar> = ZCont::Terminal;
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
+      });
+      test_zcont(ZCont::Emit {
+            continuation: zp,
+      });
+      test_zcont(ZCont::Dummy);
+      test_zcont(ZCont::Terminal);
     }
 }
