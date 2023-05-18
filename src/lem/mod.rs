@@ -21,7 +21,7 @@ use self::{
 
 use crate::circuit::gadgets::constraints::enforce_equal;
 use crate::circuit::gadgets::constraints::{
-    alloc_equal, alloc_equal_const, enforce_implication, popcount,
+    alloc_equal, alloc_equal_const, enforce_implication, enforce_selector_if_not_dummy, popcount,
 };
 use bellperson::gadgets::boolean::Boolean;
 use bellperson::gadgets::num::AllocatedNum;
@@ -676,38 +676,51 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     for (i, (tag, op)) in cases.iter().enumerate() {
                         let Ok(alloc_has_match) = alloc_equal_const(
                             &mut cs.namespace(
-                                || format!("{}.alloc_has_match item:{}, tag:{:?}", path.join("."), i, tag.field::<F>())
+                                || format!("{}.alloc_has_match (item:{}, tag:{:?})", path.join("."), i, tag.field::<F>())
                             ),
                             alloc_match_ptr.tag(),
                             tag.field::<F>(),
                         ) else {
-                            return Err("Allocated variable does not has the expected tag".to_string());
+                            return Err("Allocated variable does not have the expected tag".to_string());
                         };
                         not_dummy_vec.push(alloc_has_match.clone());
 
                         let mut new_path_matchtag = path.clone();
-                        new_path_matchtag.push("MatchTag.");
+                        new_path_matchtag.push(format!("MatchTag.{:?}.", tag.field::<F>()));
                         if let Some(not_dummy) = not_dummy.clone() {
-                            let Ok(not_dummy_and_has_match) = and(cs, &not_dummy, &alloc_has_match) else {
-                                return Err("TODO".to_string());
-                            };
+                            let Ok(not_dummy_and_has_match) = and
+                                (
+                                    &mut cs.namespace(|| format!("{}.and_v (item:{}, tag:{:?})", path.join("."), i, tag.field::<F>())),
+                                    &not_dummy,
+                                    &alloc_has_match
+                                ) else {
+                                    return Err("TODO".to_string());
+                                };
                             stack.push((op, Some(not_dummy_and_has_match), new_path_matchtag));
                         } else {
                             stack.push((op, Some(alloc_has_match), new_path_matchtag));
                         }
                     }
 
-                    let Ok(_) = popcount(
-                        &mut cs.namespace(|| format!("{}.popcount", path.join("."))),
-                        &not_dummy_vec[..],
-                        &one,
-                    ) else {
-                        return Err("Failed to constrain popcount gadget".to_string())
-                    };
+                    if let Some(not_dummy) = not_dummy {
+                        enforce_selector_if_not_dummy(
+                            &mut cs.namespace(|| format!("{}.enforce exactly one selected (if not dummy, tag: {:?})", path.join("."), alloc_match_ptr.tag().get_value())),
+                            &not_dummy_vec,
+                            &not_dummy, // TODO: consider renaming for clarity
+                        );
+                    } else {
+                        let Ok(_) = popcount(
+                            &mut cs.namespace(|| format!("{}.popcount", path.join("."))),
+                            &not_dummy_vec[..],
+                            &one,
+                        ) else {
+                            return Err("Failed to constrain popcount gadget".to_string())
+                        };
+                    }
                 }
                 LEMOP::Seq(ops) => {
                     let mut new_path_seq = path.clone();
-                    new_path_seq.push("Seq.");
+                    new_path_seq.push(format!("Seq."));
                     stack.extend(
                         ops.iter()
                             .rev()
