@@ -1120,6 +1120,7 @@ impl<F: LurkField> Store<F> {
             if let Some(z_store) = z_store {
                 z_store.borrow_mut().cont_map.insert(z_ptr, z_cont.clone());
             };
+            self.z_cont_ptr_map.insert(z_ptr, Box::new(*ptr));
             Ok((z_ptr, z_cont))
         }
     }
@@ -1361,7 +1362,7 @@ impl<F: LurkField> Store<F> {
 
     /// The only places that `ZPtr`s for `Ptr`s should be created, to
     /// ensure that they are cached properly
-    fn create_z_ptr(&self, ptr: Ptr<F>, hash: F) -> ZExprPtr<F> {
+    fn create_z_expr_ptr(&self, ptr: Ptr<F>, hash: F) -> ZExprPtr<F> {
         let z_ptr = ZPtr(ptr.tag, hash);
         self.z_expr_ptr_map.insert(z_ptr, Box::new(ptr));
         z_ptr
@@ -1375,49 +1376,49 @@ impl<F: LurkField> Store<F> {
             match (z_ptr.tag(), z_store.get_expr(&z_ptr)) {
                 (ExprTag::Nil, Some(Nil)) => {
                     let ptr = self.lurk_sym("nil");
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Cons, Some(Cons(car, cdr))) => {
                     let car = self.intern_z_expr_ptr(car, z_store)?;
                     let cdr = self.intern_z_expr_ptr(cdr, z_store)?;
                     let ptr = self.intern_cons(car, cdr);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Comm, Some(Comm(secret, payload))) => {
                     let payload = self.intern_z_expr_ptr(payload, z_store)?;
                     let ptr = self.intern_comm(secret, payload);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Str, Some(StrNil)) => {
                     let ptr = self.intern_strnil();
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Str, Some(StrCons(strcar, strcdr))) => {
                     let strcar = self.intern_z_expr_ptr(strcar, z_store)?;
                     let strcdr = self.intern_z_expr_ptr(strcdr, z_store)?;
                     let ptr = self.intern_strcons(strcar, strcdr);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Str, Some(SymNil)) => {
                     let ptr = self.intern_symnil(false);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Sym, Some(SymCons(symcar, symcdr))) => {
                     let symcar = self.intern_z_expr_ptr(symcar, z_store)?;
                     let symcdr = self.intern_z_expr_ptr(symcdr, z_store)?;
                     let ptr = self.intern_symcons(symcar, symcdr);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Key, Some(SymNil)) => {
                     let ptr = self.intern_symnil(true);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 // TODO: check if this is correctly returning a Tag::Key
@@ -1425,12 +1426,12 @@ impl<F: LurkField> Store<F> {
                     let keycar = self.intern_z_expr_ptr(keycar, z_store)?;
                     let keycdr = self.intern_z_expr_ptr(keycdr, z_store)?;
                     let ptr = self.intern_symcons(keycar, keycdr);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Num, Some(Num(x))) => {
                     let ptr = self.intern_num(crate::Num::Scalar(x));
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Char, Some(Char(x))) => Some(x.into()),
@@ -1442,7 +1443,7 @@ impl<F: LurkField> Store<F> {
                         value,
                         continuation,
                     });
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (
@@ -1457,17 +1458,23 @@ impl<F: LurkField> Store<F> {
                     let body = self.intern_z_expr_ptr(body, z_store)?;
                     let env = self.intern_z_expr_ptr(closed_env, z_store)?;
                     let ptr = self.intern_fun(arg, body, env);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (tag, None) => {
                     let ptr = self.intern_maybe_opaque(tag, z_ptr.1);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 _ => None,
             }
         }
+    }
+
+    fn create_z_cont_ptr(&self, ptr: ContPtr<F>, hash: F) -> ZContPtr<F> {
+        let z_ptr = ZPtr(ptr.tag, hash);
+        self.z_cont_ptr_map.insert(z_ptr, Box::new(ptr));
+        z_ptr
     }
 
     pub fn intern_z_cont_ptr(
@@ -1585,7 +1592,9 @@ impl<F: LurkField> Store<F> {
             };
 
             if continuation.cont_tag() == tag {
-                Some(continuation.intern_aux(self))
+                let ptr = continuation.intern_aux(self);
+                self.create_z_cont_ptr(ptr, *z_ptr.value());
+                Some(ptr)
             } else {
                 None
             }
