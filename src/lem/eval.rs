@@ -15,7 +15,7 @@ pub fn step<F: LurkField>() -> LEM<'static, F> {
                 vec![(
                     Tag::Outermost,
                     LEMOP::Seq(vec![
-                        LEMOP::MkNull("cont_out_ret", Tag::Terminal),
+                        LEMOP::MkNull(MetaPtr("cont_out_ret"), Tag::Terminal),
                         LEMOP::SetReturn([
                             MetaPtr("expr_in"),
                             MetaPtr("env_in"),
