@@ -8,7 +8,7 @@ mod tag;
 use std::collections::HashMap;
 
 use crate::{
-    circuit::gadgets::{constraints::and_v_, pointer::AllocatedPtr},
+    circuit::gadgets::{constraints::and, pointer::AllocatedPtr},
     field::{FWrap, LurkField},
 };
 
@@ -683,7 +683,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         let mut new_path_matchtag = path.clone();
                         new_path_matchtag.push("MatchTag.");
                         if let Some(not_dummy) = not_dummy.clone() {
-                            let Ok(not_dummy_and_has_match) = and_v_(cs, &[&not_dummy, &alloc_has_match]) else {
+                            let Ok(not_dummy_and_has_match) = and(cs, &not_dummy, &alloc_has_match) else {
                                 return Err("TODO".to_string());
                             };
                             stack.push((op, Some(not_dummy_and_has_match), new_path_matchtag));

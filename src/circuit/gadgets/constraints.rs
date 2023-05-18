@@ -637,21 +637,34 @@ pub(crate) fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(and)
 }
 
-// This is used because of the argument `cs: &mut CS`. I've removed the assertion, but we need to pick a better gadget!
-pub(crate) fn and_v_<CS: ConstraintSystem<F>, F: PrimeField>(
+/// This is a replication of Bellperson's original `and`, but receives a mutable
+/// reference for the constraint system instead of a copy
+pub(crate) fn and<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: &mut CS,
-    v: &[&Boolean],
+    a: &Boolean,
+    b: &Boolean,
 ) -> Result<Boolean, SynthesisError> {
-    // Count the number of false values in v.
-    let count_false = v.iter().fold(Num::zero(), |acc, b| {
-        acc.add_bool_with_coeff(CS::one(), &b.not(), F::one())
-    });
-
-    // If the number of false values is zero, then all of the values are true.
-    // Therefore, and(v0, v1, ..., vn) is true.
-    let and = alloc_num_is_zero(&mut cs.namespace(|| "nor_of_nots"), count_false)?;
-
-    Ok(and)
+    match (a, b) {
+        // false AND x is always false
+        (&Boolean::Constant(false), _) | (_, &Boolean::Constant(false)) => {
+            Ok(Boolean::Constant(false))
+        }
+        // true AND x is always x
+        (&Boolean::Constant(true), x) | (x, &Boolean::Constant(true)) => Ok(x.clone()),
+        // a AND (NOT b)
+        (&Boolean::Is(ref is), &Boolean::Not(ref not))
+        | (&Boolean::Not(ref not), &Boolean::Is(ref is)) => {
+            Ok(Boolean::Is(AllocatedBit::and_not(cs, is, not)?))
+        }
+        // (NOT a) AND (NOT b) = a NOR b
+        (&Boolean::Not(ref a), &Boolean::Not(ref b)) => {
+            Ok(Boolean::Is(AllocatedBit::nor(cs, a, b)?))
+        }
+        // a AND b
+        (&Boolean::Is(ref a), &Boolean::Is(ref b)) => {
+            Ok(Boolean::Is(AllocatedBit::and(cs, a, b)?))
+        }
+    }
 }
 
 pub(crate) fn enforce_implication<CS: ConstraintSystem<F>, F: PrimeField>(
