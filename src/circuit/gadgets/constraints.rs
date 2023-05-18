@@ -607,6 +607,23 @@ pub(crate) fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(and)
 }
 
+// This is used because of the argument `cs: &mut CS`. I've removed the assertion, but we need to pick a better gadget!
+pub(crate) fn and_v_<CS: ConstraintSystem<F>, F: PrimeField>(
+    cs: &mut CS,
+    v: &[&Boolean],
+) -> Result<Boolean, SynthesisError> {
+    // Count the number of false values in v.
+    let count_false = v.iter().fold(Num::zero(), |acc, b| {
+        acc.add_bool_with_coeff(CS::one(), &b.not(), F::one())
+    });
+
+    // If the number of false values is zero, then all of the values are true.
+    // Therefore, and(v0, v1, ..., vn) is true.
+    let and = alloc_num_is_zero(&mut cs.namespace(|| "nor_of_nots"), count_false)?;
+
+    Ok(and)
+}
+
 pub(crate) fn enforce_implication<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     a: &Boolean,

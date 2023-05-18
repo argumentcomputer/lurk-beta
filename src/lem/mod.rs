@@ -8,7 +8,7 @@ mod tag;
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    circuit::gadgets::pointer::AllocatedPtr,
+    circuit::gadgets::{constraints::and_v_, pointer::AllocatedPtr},
     field::{FWrap, LurkField},
 };
 
@@ -674,17 +674,13 @@ impl<'a, F: LurkField> LEM<'a, F> {
 
                     if let Some(not_dummy) = not_dummy {
                         Self::implies_equal(
-                            &mut cs.namespace(|| {
-                                format!("{:?}.tag_is_equal", path.join("."))
-                            }),
+                            &mut cs.namespace(|| format!("{:?}.tag_is_equal", path.join("."))),
                             &not_dummy,
                             alloc_tgt.tag(),
                             &alloc_tag,
                         )?;
                         Self::implies_equal(
-                            &mut cs.namespace(|| {
-                                format!("{:?}.hash_is_equal", path.join("."))
-                            }),
+                            &mut cs.namespace(|| format!("{:?}.hash_is_equal", path.join("."))),
                             &not_dummy,
                             alloc_tgt.hash(),
                             &zero,
@@ -748,7 +744,14 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         }
                         let mut new_path_matchtag = path.clone();
                         new_path_matchtag.push("MatchTag.");
-                        stack.push((op, Some(alloc_has_match), new_path_matchtag));
+                        if let Some(not_dummy) = not_dummy.clone() {
+                            let Ok(not_dummy_and_has_match) = and_v_(cs, &[&not_dummy, &alloc_has_match]) else {
+                                return Err("TODO".to_string());
+                            };
+                            stack.push((op, Some(not_dummy_and_has_match), new_path_matchtag));
+                        } else {
+                            stack.push((op, Some(alloc_has_match), new_path_matchtag));
+                        }
                     }
 
                     let Ok(_) = popcount(
@@ -762,8 +765,12 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 LEMOP::Seq(ops) => {
                     let mut new_path_seq = path.clone();
                     new_path_seq.push("Seq.");
-                    stack.extend(ops.iter().rev().map(|op| (op, not_dummy.clone(), new_path_seq.clone())))
-                },
+                    stack.extend(
+                        ops.iter()
+                            .rev()
+                            .map(|op| (op, not_dummy.clone(), new_path_seq.clone())),
+                    )
+                }
                 LEMOP::SetReturn(outputs) => {
                     for (i, output) in outputs.iter().enumerate() {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {
