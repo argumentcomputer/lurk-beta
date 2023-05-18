@@ -62,7 +62,7 @@ impl<F: LurkField> Ptr<F> {
     }
 
     #[inline]
-    pub fn lurk_sym(sym: LurkSymbol) -> Self {
+    pub fn lurk_sym(sym: &LurkSymbol) -> Self {
         Ptr::Leaf(Tag::LurkSym, sym.field())
     }
 
@@ -95,6 +95,16 @@ impl<F: LurkField> Ptr<F> {
 pub struct AquaPtr<F: LurkField> {
     pub tag: Tag,
     pub val: F,
+}
+
+impl<F: LurkField> AquaPtr<F> {
+    #[inline]
+    pub fn dummy() -> Self {
+        Self {
+            tag: Tag::Dummy,
+            val: F::zero(),
+        }
+    }
 }
 
 impl<F: LurkField> std::hash::Hash for AquaPtr<F> {

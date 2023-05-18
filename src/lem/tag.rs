@@ -19,7 +19,7 @@ pub enum Tag {
 }
 
 impl Tag {
-    pub fn field<F: LurkField>(self) -> F {
+    pub fn field<F: LurkField>(&self) -> F {
         match self {
             Tag::Dummy => F::from_u64(0),
             // Expression
