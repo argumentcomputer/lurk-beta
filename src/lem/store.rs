@@ -11,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    pointers::{AquaPtr, AquaPtrKind, Ptr, PtrVal},
+    pointers::{AquaPtr, AquaPtrKind, Ptr},
     symbol::Symbol,
 };
 
@@ -35,26 +35,17 @@ pub struct Store<F: LurkField> {
 impl<F: LurkField> Store<F> {
     #[inline]
     pub fn index_2_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
-        Ptr {
-            tag,
-            val: PtrVal::Index2(self.ptrs2.insert_full((a, b)).0),
-        }
+        Ptr::Tree2(tag, self.ptrs2.insert_full((a, b)).0)
     }
 
     #[inline]
     pub fn index_3_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>) -> Ptr<F> {
-        Ptr {
-            tag,
-            val: PtrVal::Index3(self.ptrs3.insert_full((a, b, c)).0),
-        }
+        Ptr::Tree3(tag, self.ptrs3.insert_full((a, b, c)).0)
     }
 
     #[inline]
     pub fn index_4_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>, d: Ptr<F>) -> Ptr<F> {
-        Ptr {
-            tag,
-            val: PtrVal::Index4(self.ptrs4.insert_full((a, b, c, d)).0),
-        }
+        Ptr::Tree4(tag, self.ptrs4.insert_full((a, b, c, d)).0)
     }
 
     #[inline]
@@ -136,16 +127,16 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<AquaPtr<F>, String> {
-        match (ptr.tag, ptr.val) {
-            (Tag::Comm, PtrVal::Field(hash)) => match self.aqua_cache.get(&ptr) {
+        match ptr {
+            Ptr::Leaf(Tag::Comm, hash) => match self.aqua_cache.get(&ptr) {
                 Some(aqua_ptr) => Ok(*aqua_ptr),
                 None => {
-                    let Some((secret, ptr)) = self.comms.get(&FWrap(hash)) else {
+                    let Some((secret, ptr)) = self.comms.get(&FWrap(*hash)) else {
                             return Err(format!("Hash {} not found", hash.hex_digits()))
                         };
                     let aqua_ptr = AquaPtr {
                         tag: Tag::Comm,
-                        val: hash,
+                        val: *hash,
                     };
                     self.aqua_dag
                         .insert(aqua_ptr, AquaPtrKind::Comm(*secret, self.hydrate_ptr(ptr)?));
@@ -153,17 +144,17 @@ impl<F: LurkField> Store<F> {
                     Ok(aqua_ptr)
                 }
             },
-            (tag, PtrVal::Field(x)) => Ok(AquaPtr { tag, val: x }),
-            (tag, PtrVal::Index2(idx)) => match self.aqua_cache.get(&ptr) {
+            Ptr::Leaf(tag, x) => Ok(AquaPtr { tag: *tag, val: *x }),
+            Ptr::Tree2(tag, idx) => match self.aqua_cache.get(&ptr) {
                 Some(aqua_ptr) => Ok(*aqua_ptr),
                 None => {
-                    let Some((a, b)) = self.ptrs2.get_index(idx) else {
+                    let Some((a, b)) = self.ptrs2.get_index(*idx) else {
                             return Err(format!("Index {idx} not found on ptrs2"))
                         };
                     let a = self.hydrate_ptr(a)?;
                     let b = self.hydrate_ptr(b)?;
                     let aqua_ptr = AquaPtr {
-                        tag,
+                        tag: *tag,
                         val: self.poseidon_cache.hash4(&[
                             a.tag.field(),
                             a.val,
@@ -176,17 +167,17 @@ impl<F: LurkField> Store<F> {
                     Ok(aqua_ptr)
                 }
             },
-            (tag, PtrVal::Index3(idx)) => match self.aqua_cache.get(&ptr) {
+            Ptr::Tree3(tag, idx) => match self.aqua_cache.get(&ptr) {
                 Some(aqua_ptr) => Ok(*aqua_ptr),
                 None => {
-                    let Some((a, b, c)) = self.ptrs3.get_index(idx) else {
+                    let Some((a, b, c)) = self.ptrs3.get_index(*idx) else {
                             return Err(format!("Index {idx} not found on ptrs3"))
                         };
                     let a = self.hydrate_ptr(a)?;
                     let b = self.hydrate_ptr(b)?;
                     let c = self.hydrate_ptr(c)?;
                     let aqua_ptr = AquaPtr {
-                        tag,
+                        tag: *tag,
                         val: self.poseidon_cache.hash6(&[
                             a.tag.field(),
                             a.val,
@@ -201,10 +192,10 @@ impl<F: LurkField> Store<F> {
                     Ok(aqua_ptr)
                 }
             },
-            (tag, PtrVal::Index4(idx)) => match self.aqua_cache.get(&ptr) {
+            Ptr::Tree4(tag, idx) => match self.aqua_cache.get(&ptr) {
                 Some(aqua_ptr) => Ok(*aqua_ptr),
                 None => {
-                    let Some((a, b, c, d)) = self.ptrs4.get_index(idx) else {
+                    let Some((a, b, c, d)) = self.ptrs4.get_index(*idx) else {
                             return Err(format!("Index {idx} not found on ptrs4"))
                         };
                     let a = self.hydrate_ptr(a)?;
@@ -212,7 +203,7 @@ impl<F: LurkField> Store<F> {
                     let c = self.hydrate_ptr(c)?;
                     let d = self.hydrate_ptr(d)?;
                     let aqua_ptr = AquaPtr {
-                        tag,
+                        tag: *tag,
                         val: self.poseidon_cache.hash8(&[
                             a.tag.field(),
                             a.val,

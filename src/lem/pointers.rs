@@ -3,90 +3,89 @@ use crate::field::*;
 use super::{lurk_symbol::LurkSymbol, tag::Tag};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum PtrVal<F: LurkField> {
-    Field(F),
-    Index2(usize),
-    Index3(usize),
-    Index4(usize),
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct Ptr<F: LurkField> {
-    pub tag: Tag,
-    pub val: PtrVal<F>,
+pub enum Ptr<F: LurkField> {
+    Leaf(Tag, F),
+    Tree2(Tag, usize),
+    Tree3(Tag, usize),
+    Tree4(Tag, usize),
 }
 
 impl<F: LurkField> std::hash::Hash for Ptr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match self.val {
-            PtrVal::Field(x) => (0, self.tag, x.to_repr().as_ref()).hash(state),
-            PtrVal::Index2(x) => (1, self.tag, x).hash(state),
-            PtrVal::Index3(x) => (2, self.tag, x).hash(state),
-            PtrVal::Index4(x) => (3, self.tag, x).hash(state),
+        match self {
+            Ptr::Leaf(tag, f) => (0, tag, f.to_repr().as_ref()).hash(state),
+            Ptr::Tree2(tag, x) => (1, tag, x).hash(state),
+            Ptr::Tree3(tag, x) => (2, tag, x).hash(state),
+            Ptr::Tree4(tag, x) => (3, tag, x).hash(state),
         }
     }
 }
 
 impl<F: LurkField> Ptr<F> {
+    pub fn tag(&self) -> &Tag {
+        match self {
+            Ptr::Leaf(tag, _) => tag,
+            Ptr::Tree2(tag, _) => tag,
+            Ptr::Tree3(tag, _) => tag,
+            Ptr::Tree4(tag, _) => tag,
+        }
+    }
+
     pub fn key_ptr_if_sym_ptr(self) -> Self {
         match self {
-            Ptr { tag: Tag::Sym, val } => Ptr { tag: Tag::Key, val },
-            _ => self,
+            Ptr::Leaf(Tag::Sym, f) => Ptr::Leaf(Tag::Key, f),
+            Ptr::Tree2(Tag::Sym, x) => Ptr::Tree2(Tag::Key, x),
+            Ptr::Tree3(Tag::Sym, x) => Ptr::Tree3(Tag::Key, x),
+            Ptr::Tree4(Tag::Sym, x) => Ptr::Tree4(Tag::Key, x),
+            _ => panic!("No Tag::Sym"),
         }
     }
 
     #[inline]
     pub fn num(f: F) -> Self {
-        Ptr {
-            tag: Tag::Num,
-            val: PtrVal::Field(f),
-        }
+        Ptr::Leaf(Tag::Num, f)
     }
 
     #[inline]
     pub fn char(c: char) -> Self {
-        Ptr {
-            tag: Tag::Char,
-            val: PtrVal::Field(F::from_char(c)),
-        }
+        Ptr::Leaf(Tag::Char, F::from_char(c))
+    }
+
+    #[inline]
+    pub fn comm(hash: F) -> Self {
+        Ptr::Leaf(Tag::Comm, hash)
     }
 
     #[inline]
     pub fn null(tag: Tag) -> Self {
-        Ptr {
-            tag,
-            val: PtrVal::Field(F::zero()),
-        }
+        Ptr::Leaf(tag, F::zero())
     }
 
     #[inline]
     pub fn lurk_sym(sym: LurkSymbol) -> Self {
-        Ptr {
-            tag: Tag::LurkSym,
-            val: PtrVal::Field(sym.field()),
-        }
+        Ptr::Leaf(Tag::LurkSym, sym.field())
     }
 
     #[inline]
     pub fn get_index2(&self) -> Option<usize> {
-        match self.val {
-            PtrVal::Index2(idx) => Some(idx),
+        match self {
+            Ptr::Tree2(_, x) => Some(*x),
             _ => None,
         }
     }
 
     #[inline]
     pub fn get_index3(&self) -> Option<usize> {
-        match self.val {
-            PtrVal::Index3(idx) => Some(idx),
+        match self {
+            Ptr::Tree3(_, x) => Some(*x),
             _ => None,
         }
     }
 
     #[inline]
     pub fn get_index4(&self) -> Option<usize> {
-        match self.val {
-            PtrVal::Index4(idx) => Some(idx),
+        match self {
+            Ptr::Tree4(_, x) => Some(*x),
             _ => None,
         }
     }

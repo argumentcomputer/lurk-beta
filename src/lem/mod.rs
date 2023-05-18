@@ -12,12 +12,7 @@ use crate::{
     field::{FWrap, LurkField},
 };
 
-use self::{
-    lurk_symbol::LurkSymbol,
-    pointers::{Ptr, PtrVal},
-    store::Store,
-    tag::Tag,
-};
+use self::{lurk_symbol::LurkSymbol, pointers::Ptr, store::Store, tag::Tag};
 
 use crate::circuit::gadgets::constraints::enforce_equal;
 use crate::circuit::gadgets::constraints::{
@@ -131,7 +126,7 @@ pub enum LEMOP<'a, F: LurkField> {
     IfTagEq(MetaPtr<'a>, Tag, Box<LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
     IfTagOr(MetaPtr<'a>, Tag, Tag, Box<LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
     MatchTag(MetaPtr<'a>, HashMap<Tag, LEMOP<'a, F>>),
-    MatchFieldVal(MetaPtr<'a>, HashMap<FWrap<F>, LEMOP<'a, F>>),
+    MatchLeafVal(MetaPtr<'a>, HashMap<FWrap<F>, LEMOP<'a, F>>),
     Seq(Vec<LEMOP<'a, F>>),
     SetReturn([MetaPtr<'a>; 3]),
 }
@@ -183,7 +178,7 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
                         stack.push(op);
                     }
                 }
-                LEMOP::MatchFieldVal(_, cases) => {
+                LEMOP::MatchLeafVal(_, cases) => {
                     for op in cases.values() {
                         stack.push(op);
                     }
@@ -361,10 +356,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         store
                             .poseidon_cache
                             .hash3(&[*secret, aqua_ptr.tag.field(), aqua_ptr.val]);
-                    let tgt_ptr = Ptr {
-                        tag: Tag::Comm,
-                        val: PtrVal::Field(hash),
-                    };
+                    let tgt_ptr = Ptr::comm(hash);
                     store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
                     if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
@@ -382,19 +374,20 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     }
                 }
                 LEMOP::IfTagEq(ptr, tag, tt, ff) => {
-                    let Some(Ptr {tag: ptr_tag, val: _}) = ptr_map.get(ptr.name()) else {
+                    let Some(ptr) = ptr_map.get(ptr.name()) else {
                         return Err(format!("{} not defined", ptr.name()))
                     };
-                    if ptr_tag == tag {
+                    if ptr.tag() == tag {
                         stack.push(tt)
                     } else {
                         stack.push(ff)
                     }
                 }
                 LEMOP::IfTagOr(ptr, tag1, tag2, tt, ff) => {
-                    let Some(Ptr {tag: ptr_tag, val: _}) = ptr_map.get(ptr.name()) else {
+                    let Some(ptr) = ptr_map.get(ptr.name()) else {
                         return Err(format!("{} not defined", ptr.name()))
                     };
+                    let ptr_tag = ptr.tag();
                     if ptr_tag == tag1 || ptr_tag == tag2 {
                         stack.push(tt)
                     } else {
@@ -402,16 +395,17 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     }
                 }
                 LEMOP::MatchTag(ptr, cases) => {
-                    let Some(Ptr {tag: ptr_tag, val: _}) = ptr_map.get(ptr.name()) else {
+                    let Some(ptr) = ptr_map.get(ptr.name()) else {
                         return Err(format!("{} not defined", ptr.name()))
                     };
+                    let ptr_tag = ptr.tag();
                     match cases.get(ptr_tag) {
                         Some(op) => stack.push(op),
                         None => return Err(format!("No match for tag {:?}", ptr_tag)),
                     }
                 }
-                LEMOP::MatchFieldVal(ptr, cases) => {
-                    let Some(Ptr {tag: _, val: PtrVal::Field(f)}) = ptr_map.get(ptr.name()) else {
+                LEMOP::MatchLeafVal(ptr, cases) => {
+                    let Some(Ptr::Leaf(_, f)) = ptr_map.get(ptr.name()) else {
                         return Err(format!("{} not defined as a pointer with a field value", ptr.name()))
                     };
                     match cases.get(&FWrap(*f)) {
