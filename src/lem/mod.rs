@@ -5,14 +5,19 @@ mod store;
 mod symbol;
 mod tag;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::{
     circuit::gadgets::{constraints::and_v_, pointer::AllocatedPtr},
     field::{FWrap, LurkField},
 };
 
-use self::{lurk_symbol::LurkSymbol, pointers::Ptr, store::Store, tag::Tag};
+use self::{
+    lurk_symbol::LurkSymbol,
+    pointers::{AquaPtr, Ptr},
+    store::Store,
+    tag::Tag,
+};
 
 use crate::circuit::gadgets::constraints::enforce_equal;
 use crate::circuit::gadgets::constraints::{
@@ -93,12 +98,40 @@ pub struct LEM<'a, F: LurkField> {
 }
 
 #[derive(PartialEq, Clone, Copy, Eq, Hash)]
-pub struct MetaPtr<'a>(&'a str);
+pub enum MetaPtr<'a> {
+    Raw(&'a str),
+    Ref(&'a str),
+}
 
 impl<'a> MetaPtr<'a> {
     #[inline]
-    pub fn name(self) -> &'a str {
-        self.0
+    pub fn name(&self) -> &'a str {
+        match self {
+            Self::Raw(name) | Self::Ref(name) => name,
+        }
+    }
+
+    pub fn get_ptr<F: LurkField>(
+        &self,
+        ref_map: &HashMap<&'a str, &'a str>,
+        ptr_map: &HashMap<&'a str, Ptr<F>>,
+    ) -> Result<Ptr<F>, String> {
+        match self {
+            Self::Raw(name) => match ptr_map.get(name) {
+                None => Err(format!("Pointer {} not defined", name)),
+                Some(ptr) => Ok(*ptr),
+            },
+            Self::Ref(ref_name) => match ref_map.get(ref_name) {
+                None => Err(format!("Reference {} not defined", ref_name)),
+                Some(name) => match ptr_map.get(name) {
+                    None => Err(format!(
+                        "Pointer {} not defined (referenced by {})",
+                        name, ref_name
+                    )),
+                    Some(ptr) => Ok(*ptr),
+                },
+            },
+        }
     }
 }
 
@@ -114,15 +147,16 @@ impl<'a> MetaVar<'a> {
 
 #[derive(Clone)]
 pub enum LEMOP<'a, F: LurkField> {
-    MkNull(MetaPtr<'a>, Tag),
-    Hash2Ptrs(MetaPtr<'a>, Tag, [MetaPtr<'a>; 2]),
-    Hash3Ptrs(MetaPtr<'a>, Tag, [MetaPtr<'a>; 3]),
-    Hash4Ptrs(MetaPtr<'a>, Tag, [MetaPtr<'a>; 4]),
-    Unhash2Ptrs([MetaPtr<'a>; 2], MetaPtr<'a>),
-    Unhash3Ptrs([MetaPtr<'a>; 3], MetaPtr<'a>),
-    Unhash4Ptrs([MetaPtr<'a>; 4], MetaPtr<'a>),
-    Hide(MetaPtr<'a>, F, MetaPtr<'a>),
-    Open(MetaVar<'a>, MetaPtr<'a>, F), // secret, tgt, src hash
+    MkNull(&'a str, Tag),
+    MkRef(&'a str, &'a str),
+    Hash2Ptrs(&'a str, Tag, [MetaPtr<'a>; 2]),
+    Hash3Ptrs(&'a str, Tag, [MetaPtr<'a>; 3]),
+    Hash4Ptrs(&'a str, Tag, [MetaPtr<'a>; 4]),
+    Unhash2Ptrs([&'a str; 2], MetaPtr<'a>),
+    Unhash3Ptrs([&'a str; 3], MetaPtr<'a>),
+    Unhash4Ptrs([&'a str; 4], MetaPtr<'a>),
+    Hide(&'a str, F, MetaPtr<'a>),
+    Open(&'a str, &'a str, F), // secret, tgt, src hash
     IfTagEq(MetaPtr<'a>, Tag, Box<LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
     IfTagOr(MetaPtr<'a>, Tag, Tag, Box<LEMOP<'a, F>>, Box<LEMOP<'a, F>>),
     MatchTag(MetaPtr<'a>, HashMap<Tag, LEMOP<'a, F>>),
@@ -136,66 +170,12 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
     pub fn mk_match_tag(i: MetaPtr<'a>, cases: Vec<(Tag, LEMOP<'a, F>)>) -> LEMOP<'a, F> {
         LEMOP::MatchTag(i, HashMap::from_iter(cases))
     }
-
-    pub fn potential_assignments(&self) -> (HashSet<MetaPtr<'a>>, HashSet<MetaVar<'a>>) {
-        let mut ptrs_set = HashSet::default();
-        let mut vars_set = HashSet::default();
-        let mut stack = vec![self];
-        while let Some(op) = stack.pop() {
-            match op {
-                LEMOP::MkNull(ptr, _)
-                | LEMOP::Hash2Ptrs(ptr, ..)
-                | LEMOP::Hash3Ptrs(ptr, ..)
-                | LEMOP::Hash4Ptrs(ptr, ..)
-                | LEMOP::Hide(ptr, ..) => {
-                    ptrs_set.insert(*ptr);
-                }
-                LEMOP::Unhash2Ptrs([a, b], _) => {
-                    ptrs_set.insert(*a);
-                    ptrs_set.insert(*b);
-                }
-                LEMOP::Unhash3Ptrs([a, b, c], _) => {
-                    ptrs_set.insert(*a);
-                    ptrs_set.insert(*b);
-                    ptrs_set.insert(*c);
-                }
-                LEMOP::Unhash4Ptrs([a, b, c, d], _) => {
-                    ptrs_set.insert(*a);
-                    ptrs_set.insert(*b);
-                    ptrs_set.insert(*c);
-                    ptrs_set.insert(*d);
-                }
-                LEMOP::Open(v, p, _) => {
-                    ptrs_set.insert(*p);
-                    vars_set.insert(*v);
-                }
-                LEMOP::IfTagEq(.., a, b) | LEMOP::IfTagOr(.., a, b) => {
-                    stack.push(a);
-                    stack.push(b);
-                }
-                LEMOP::MatchTag(_, cases) => {
-                    for op in cases.values() {
-                        stack.push(op);
-                    }
-                }
-                LEMOP::MatchLeafVal(_, cases) => {
-                    for op in cases.values() {
-                        stack.push(op);
-                    }
-                }
-                LEMOP::Seq(ops) => {
-                    stack.extend(ops.iter());
-                }
-                LEMOP::SetReturn(_) => {}
-            }
-        }
-        (ptrs_set, vars_set)
-    }
 }
 
 pub struct Witness<'a, F: LurkField> {
     input: [Ptr<F>; 3],
     output: [Ptr<F>; 3],
+    refs: HashMap<&'a str, &'a str>,
     ptrs: HashMap<&'a str, Ptr<F>>,
     vars: HashMap<&'a str, F>,
 }
@@ -209,8 +189,17 @@ impl<'a, F: LurkField> LEM<'a, F> {
         &self,
         i: [Ptr<F>; 3],
         store: &mut Store<F>,
-    ) -> Result<([Ptr<F>; 3], HashMap<&'a str, Ptr<F>>, HashMap<&'a str, F>), String> {
+    ) -> Result<
+        (
+            [Ptr<F>; 3],
+            HashMap<&'a str, &'a str>,
+            HashMap<&'a str, Ptr<F>>,
+            HashMap<&'a str, F>,
+        ),
+        String,
+    > {
         // key/val pairs on this map should never be overwritten
+        let mut ref_map = HashMap::default();
         let mut ptr_map = HashMap::default();
         let mut var_map = HashMap::default();
         ptr_map.insert(self.input[0], i[0]);
@@ -228,149 +217,125 @@ impl<'a, F: LurkField> LEM<'a, F> {
             match op {
                 LEMOP::MkNull(tgt, tag) => {
                     let tgt_ptr = Ptr::null(*tag);
-                    if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
-                        return Err(format!("{} already defined", tgt.name()));
+                    if ptr_map.insert(tgt, tgt_ptr).is_some() {
+                        return Err(format!("{} already defined", tgt));
                     }
                 }
+                LEMOP::MkRef(tgt, src) => {
+                    ref_map.insert(*tgt, *src);
+                }
                 LEMOP::Hash2Ptrs(tgt, tag, src) => {
-                    let Some(src_ptr1) = ptr_map.get(src[0].name()) else {
-                        return Err(format!("{} not defined", src[0].name()))
-                    };
-                    let Some(src_ptr2) = ptr_map.get(src[1].name()) else {
-                        return Err(format!("{} not defined", src[1].name()))
-                    };
-                    let tgt_ptr = store.index_2_ptrs(*tag, *src_ptr1, *src_ptr2);
-                    if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
-                        return Err(format!("{} already defined", tgt.name()));
+                    let src_ptr1 = src[0].get_ptr(&ref_map, &ptr_map)?;
+                    let src_ptr2 = src[1].get_ptr(&ref_map, &ptr_map)?;
+                    let tgt_ptr = store.index_2_ptrs(*tag, src_ptr1, src_ptr2);
+                    if ptr_map.insert(tgt, tgt_ptr).is_some() {
+                        return Err(format!("{} already defined", tgt));
                     }
                 }
                 LEMOP::Hash3Ptrs(tgt, tag, src) => {
-                    let Some(src_ptr1) = ptr_map.get(src[0].name()) else {
-                        return Err(format!("{} not defined", src[0].name()))
-                    };
-                    let Some(src_ptr2) = ptr_map.get(src[1].name()) else {
-                        return Err(format!("{} not defined", src[1].name()))
-                    };
-                    let Some(src_ptr3) = ptr_map.get(src[2].name()) else {
-                        return Err(format!("{} not defined", src[2].name()))
-                    };
-                    let tgt_ptr = store.index_3_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3);
-                    if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
-                        return Err(format!("{} already defined", tgt.name()));
+                    let src_ptr1 = src[0].get_ptr(&ref_map, &ptr_map)?;
+                    let src_ptr2 = src[1].get_ptr(&ref_map, &ptr_map)?;
+                    let src_ptr3 = src[2].get_ptr(&ref_map, &ptr_map)?;
+                    let tgt_ptr = store.index_3_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3);
+                    if ptr_map.insert(tgt, tgt_ptr).is_some() {
+                        return Err(format!("{} already defined", tgt));
                     }
                 }
                 LEMOP::Hash4Ptrs(tgt, tag, src) => {
-                    let Some(src_ptr1) = ptr_map.get(src[0].name()) else {
-                        return Err(format!("{} not defined", src[0].name()))
-                    };
-                    let Some(src_ptr2) = ptr_map.get(src[1].name()) else {
-                        return Err(format!("{} not defined", src[1].name()))
-                    };
-                    let Some(src_ptr3) = ptr_map.get(src[2].name()) else {
-                        return Err(format!("{} not defined", src[2].name()))
-                    };
-                    let Some(src_ptr4) = ptr_map.get(src[3].name()) else {
-                        return Err(format!("{} not defined", src[3].name()))
-                    };
-                    let tgt_ptr =
-                        store.index_4_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4);
-                    if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
-                        return Err(format!("{} already defined", tgt.name()));
+                    let src_ptr1 = src[0].get_ptr(&ref_map, &ptr_map)?;
+                    let src_ptr2 = src[1].get_ptr(&ref_map, &ptr_map)?;
+                    let src_ptr3 = src[2].get_ptr(&ref_map, &ptr_map)?;
+                    let src_ptr4 = src[3].get_ptr(&ref_map, &ptr_map)?;
+                    let tgt_ptr = store.index_4_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
+                    if ptr_map.insert(tgt, tgt_ptr).is_some() {
+                        return Err(format!("{} already defined", tgt));
                     }
                 }
                 LEMOP::Unhash2Ptrs(tgts, src) => {
-                    let Some(src_ptr) = ptr_map.get(src.name()) else {
-                        return Err(format!("{} not defined", src.name()))
-                    };
+                    let src_ptr = src.get_ptr(&ref_map, &ptr_map)?;
                     let Some(idx) = src_ptr.get_index2() else {
                         return Err(format!(
-                            "{} is bound to a leaf pointer",
+                            "{} isn't a Tree2 pointer",
                             src.name()
                         ));
                     };
                     let Some((a, b)) = store.fetch_2_ptrs(idx) else {
-                        return Err(format!("{} isn't bound to a 2-hashed pointer", src.name()))
+                        return Err(format!("Couldn't fetch {}'s children", src.name()))
                     };
-                    if ptr_map.insert(tgts[0].name(), *a).is_some() {
-                        return Err(format!("{} already defined", tgts[0].name()));
+                    if ptr_map.insert(tgts[0], *a).is_some() {
+                        return Err(format!("{} already defined", tgts[0]));
                     }
-                    if ptr_map.insert(tgts[1].name(), *b).is_some() {
-                        return Err(format!("{} already defined", tgts[1].name()));
+                    if ptr_map.insert(tgts[1], *b).is_some() {
+                        return Err(format!("{} already defined", tgts[1]));
                     }
                 }
                 LEMOP::Unhash3Ptrs(tgts, src) => {
-                    let Some(src_ptr) = ptr_map.get(src.name()) else {
-                        return Err(format!("{} not defined", src.name()))
-                    };
+                    let src_ptr = src.get_ptr(&ref_map, &ptr_map)?;
                     let Some(idx) = src_ptr.get_index3() else {
                         return Err(format!(
-                            "{} is bound to a leaf pointer",
+                            "{} isn't a Tree3 pointer",
                             src.name()
                         ));
                     };
                     let Some((a, b, c)) = store.fetch_3_ptrs(idx) else {
-                        return Err(format!("{} isn't bound to a 3-hashed pointer", src.name()))
+                        return Err(format!("Couldn't fetch {}'s children", src.name()))
                     };
-                    if ptr_map.insert(tgts[0].name(), *a).is_some() {
-                        return Err(format!("{} already defined", tgts[0].name()));
+                    if ptr_map.insert(tgts[0], *a).is_some() {
+                        return Err(format!("{} already defined", tgts[0]));
                     }
-                    if ptr_map.insert(tgts[1].name(), *b).is_some() {
-                        return Err(format!("{} already defined", tgts[1].name()));
+                    if ptr_map.insert(tgts[1], *b).is_some() {
+                        return Err(format!("{} already defined", tgts[1]));
                     }
-                    if ptr_map.insert(tgts[2].name(), *c).is_some() {
-                        return Err(format!("{} already defined", tgts[2].name()));
+                    if ptr_map.insert(tgts[2], *c).is_some() {
+                        return Err(format!("{} already defined", tgts[2]));
                     }
                 }
                 LEMOP::Unhash4Ptrs(tgts, src) => {
-                    let Some(src_ptr) = ptr_map.get(src.name()) else {
-                        return Err(format!("{} not defined", src.name()))
-                    };
+                    let src_ptr = src.get_ptr(&ref_map, &ptr_map)?;
                     let Some(idx) = src_ptr.get_index4() else {
                         return Err(format!(
-                            "{} is bound to a leaf pointer",
+                            "{} isn't a Tree4 pointer",
                             src.name()
                         ));
                     };
                     let Some((a, b, c, d)) = store.fetch_4_ptrs(idx) else {
-                        return Err(format!("{} isn't bound to a 4-hashed pointer", src.name()))
+                        return Err(format!("Couldn't fetch {}'s children", src.name()))
                     };
-                    if ptr_map.insert(tgts[0].name(), *a).is_some() {
-                        return Err(format!("{} already defined", tgts[0].name()));
+                    if ptr_map.insert(tgts[0], *a).is_some() {
+                        return Err(format!("{} already defined", tgts[0]));
                     }
-                    if ptr_map.insert(tgts[1].name(), *b).is_some() {
-                        return Err(format!("{} already defined", tgts[1].name()));
+                    if ptr_map.insert(tgts[1], *b).is_some() {
+                        return Err(format!("{} already defined", tgts[1]));
                     }
-                    if ptr_map.insert(tgts[2].name(), *c).is_some() {
-                        return Err(format!("{} already defined", tgts[2].name()));
+                    if ptr_map.insert(tgts[2], *c).is_some() {
+                        return Err(format!("{} already defined", tgts[2]));
                     }
-                    if ptr_map.insert(tgts[3].name(), *d).is_some() {
-                        return Err(format!("{} already defined", tgts[3].name()));
+                    if ptr_map.insert(tgts[3], *d).is_some() {
+                        return Err(format!("{} already defined", tgts[3]));
                     }
                 }
                 LEMOP::Hide(tgt, secret, src) => {
-                    let Some(src_ptr) = ptr_map.get(src.name()) else {
-                        return Err(format!("{} not defined", src.name()))
-                    };
-                    let aqua_ptr = store.hydrate_ptr(src_ptr)?;
+                    let src_ptr = src.get_ptr(&ref_map, &ptr_map)?;
+                    let aqua_ptr = store.hydrate_ptr(&src_ptr)?;
                     let hash =
                         store
                             .poseidon_cache
                             .hash3(&[*secret, aqua_ptr.tag.field(), aqua_ptr.val]);
                     let tgt_ptr = Ptr::comm(hash);
-                    store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
-                    if ptr_map.insert(tgt.name(), tgt_ptr).is_some() {
-                        return Err(format!("{} already defined", tgt.name()));
+                    store.comms.insert(FWrap::<F>(hash), (*secret, src_ptr));
+                    if ptr_map.insert(tgt, tgt_ptr).is_some() {
+                        return Err(format!("{} already defined", tgt));
                     }
                 }
                 LEMOP::Open(tgt_secret, tgt_ptr, hash) => {
                     let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
                         return Err(format!("No committed data for hash {}", hash.hex_digits()))
                     };
-                    if ptr_map.insert(tgt_ptr.name(), *ptr).is_some() {
-                        return Err(format!("{} already defined", tgt_ptr.name()));
+                    if ptr_map.insert(tgt_ptr, *ptr).is_some() {
+                        return Err(format!("{} already defined", tgt_ptr));
                     }
-                    if var_map.insert(tgt_secret.name(), *secret).is_some() {
-                        return Err(format!("{} already defined", tgt_secret.name()));
+                    if var_map.insert(*tgt_secret, *secret).is_some() {
+                        return Err(format!("{} already defined", tgt_secret));
                     }
                 }
                 LEMOP::IfTagEq(ptr, tag, tt, ff) => {
@@ -432,7 +397,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
         let Some(out3) = out3 else {
             return Err("Output 3 not defined".to_string());
         };
-        Ok(([out1, out2, out3], ptr_map, var_map))
+        Ok(([out1, out2, out3], ref_map, ptr_map, var_map))
     }
 
     pub fn eval(&self, expr: Ptr<F>) -> Result<(Vec<Witness<'a, F>>, Store<F>), String> {
@@ -444,10 +409,11 @@ impl<'a, F: LurkField> LEM<'a, F> {
         let terminal = Ptr::null(Tag::Terminal);
         loop {
             let input = [expr, env, cont];
-            let (output, ptrs, vars) = self.run(input, &mut store)?;
+            let (output, refs, ptrs, vars) = self.run(input, &mut store)?;
             witnesses.push(Witness {
                 input,
                 output,
+                refs,
                 ptrs,
                 vars,
             });
@@ -501,14 +467,9 @@ impl<'a, F: LurkField> LEM<'a, F> {
 
     fn allocate_ptr_from_witness<CS: ConstraintSystem<F>>(
         cs: &mut CS,
+        aqua_ptr: AquaPtr<F>,
         name: &'a str,
-        store: &mut Store<F>,
-        ptr_witness: &HashMap<&'a str, Ptr<F>>,
     ) -> Result<AllocatedPtr<F>, String> {
-        let Some(ptr) = ptr_witness.get(name) else {
-            return Err(format!("Couldn't find {} in the witness", name))
-        };
-        let aqua_ptr = store.hydrate_ptr(ptr)?;
         let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {}'s tag", name)), || {
             Ok(aqua_ptr.tag.field())
         }) else {
@@ -585,6 +546,8 @@ impl<'a, F: LurkField> LEM<'a, F> {
         Ok(())
     }
 
+    // TODO: remove dependency on `potential_assignments` and set dummy values on the fly
+    //       to avoid doing it twice for the same meta data
     pub fn constrain<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -592,12 +555,10 @@ impl<'a, F: LurkField> LEM<'a, F> {
         witness: &Witness<'a, F>,
     ) -> Result<(), String> {
         let mut alloc_ptrs: HashMap<&'a str, AllocatedPtr<F>> = HashMap::default();
-        let mut ptrs_witness = witness.ptrs.clone();
-        let mut vars_witness = witness.vars.clone();
 
         // allocate first input
         {
-            let Some(ptr) = ptrs_witness.get(self.input[0]) else {
+            let Some(ptr) = witness.ptrs.get(self.input[0]) else {
                 return Err("TODO".to_string())
             };
             alloc_ptrs.insert(
@@ -611,7 +572,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
             if alloc_ptrs.contains_key(self.input[1]) {
                 return Err(format!("{} already allocated", self.input[1]));
             }
-            let Some(ptr) = ptrs_witness.get(self.input[1]) else {
+            let Some(ptr) = witness.ptrs.get(self.input[1]) else {
                 return Err("TODO".to_string())
             };
             alloc_ptrs.insert(
@@ -625,7 +586,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
             if alloc_ptrs.contains_key(self.input[2]) {
                 return Err(format!("{} already allocated", self.input[2]));
             }
-            let Some(ptr) = ptrs_witness.get(self.input[2]) else {
+            let Some(ptr) = witness.ptrs.get(self.input[2]) else {
                 return Err("TODO".to_string())
             };
             alloc_ptrs.insert(
@@ -637,21 +598,41 @@ impl<'a, F: LurkField> LEM<'a, F> {
         // TODO: consider greating globals
         let zero = AllocatedNum::alloc(cs.namespace(|| "#zero"), || Ok(F::zero())).unwrap();
         let one = AllocatedNum::alloc(cs.namespace(|| "#one"), || Ok(F::one())).unwrap();
-        let mut stack = vec![(&self.lem_op, None, Vec::new())];
+        let mut stack = vec![(&self.lem_op, None::<Boolean>, Vec::new())];
         while let Some((op, not_dummy, path)) = stack.pop() {
             match op {
                 LEMOP::MkNull(tgt, tag) => {
-                    if alloc_ptrs.contains_key(tgt.name()) {
-                        return Err(format!("{} already allocated", tgt.name()));
+                    if alloc_ptrs.contains_key(tgt) {
+                        return Err(format!("{} already allocated", tgt));
                     };
-                    let alloc_tgt =
-                        Self::allocate_ptr_from_witness(cs, tgt.name(), store, &ptrs_witness)?;
-                    alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
+                    let aqua_ptr = match not_dummy.clone() {
+                        None => {
+                            let Some(ptr) = witness.ptrs.get(tgt) else {
+                                return Err("TODO".to_string());
+                            };
+                            store.hydrate_ptr(ptr)?
+                        }
+                        Some(not_dummy) => {
+                            if not_dummy.get_value().unwrap() {
+                                let Some(ptr) = witness.ptrs.get(tgt) else {
+                                    return Err("TODO".to_string());
+                                };
+                                store.hydrate_ptr(ptr)?
+                            } else {
+                                AquaPtr {
+                                    tag: Tag::Dummy,
+                                    val: F::zero(),
+                                }
+                            }
+                        }
+                    };
+                    let alloc_tgt = Self::allocate_ptr_from_witness(cs, aqua_ptr, tgt)?;
+                    alloc_ptrs.insert(tgt, alloc_tgt.clone());
                     let Ok(alloc_tag) = AllocatedNum::alloc(              //  take from globals
-                        cs.namespace(|| format!("{}'s tag", tgt.name())),
+                        cs.namespace(|| format!("{}'s tag", tgt)),
                         || Ok(tag.field()),
                     ) else {
-                        return Err(format!("Couldn't allocate tag for {}", tgt.name()));
+                        return Err(format!("Couldn't allocate tag for {}", tgt));
                     };
 
                     if let Some(not_dummy) = not_dummy {
@@ -670,13 +651,13 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     } else {
                         enforce_equal(
                             cs,
-                            || format!("{}'s tag is {}", tgt.name(), tag.field::<F>().hex_digits()),
+                            || format!("{}'s tag is {}", tgt, tag.field::<F>().hex_digits()),
                             &alloc_tgt.tag(),
                             &alloc_tag,
                         );
                         enforce_equal(
                             cs,
-                            || format!("{}'s val is zero", tgt.name()),
+                            || format!("{}'s val is zero", tgt),
                             &alloc_tgt.hash(),
                             &zero,
                         );
@@ -685,9 +666,6 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 LEMOP::MatchTag(match_ptr, cases) => {
                     let Some(alloc_match_ptr) = alloc_ptrs.get(match_ptr.name()) else {
                         return Err(format!("{} not allocated", match_ptr.name()));
-                    };
-                    let Some(tag_f) = alloc_match_ptr.tag().get_value() else {
-                        return Err(format!("Couldn't get tag for allocated pointer {}", match_ptr.name()));
                     };
                     let mut not_dummy_vec = Vec::new();
                     for (i, (tag, op)) in cases.iter().enumerate() {
@@ -702,15 +680,6 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         };
                         not_dummy_vec.push(alloc_has_match.clone());
 
-                        if tag.field::<F>() != tag_f {
-                            let (ptrs, vars) = op.potential_assignments();
-                            for ptr in ptrs.iter() {
-                                ptrs_witness.insert(ptr.name(), Ptr::null(Tag::Dummy));
-                            }
-                            for var in vars.iter() {
-                                vars_witness.insert(var.name(), F::zero());
-                            }
-                        }
                         let mut new_path_matchtag = path.clone();
                         new_path_matchtag.push("MatchTag.");
                         if let Some(not_dummy) = not_dummy.clone() {
@@ -745,7 +714,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {
                             return Err("Could not find output allocated in the circuit".to_string())
                         };
-                        let Some(ptr_expected) = ptrs_witness.get(output.name()) else {
+                        let Some(ptr_expected) = witness.ptrs.get(output.name()) else {
                             return Err("Could not find the expected witness".to_string())
                         };
                         let alloc_ptr_expected = Self::allocate_input_ptr(
@@ -795,16 +764,16 @@ mod tests {
     fn accepts_dummy_nested_match_tag() {
         let input = ["expr_in", "env_in", "cont_in"];
         let lem_op = LEMOP::mk_match_tag(
-            MetaPtr("expr_in"),
+            MetaPtr::Raw("expr_in"),
             vec![
                 (
                     Tag::Num,
                     LEMOP::Seq(vec![
-                        LEMOP::MkNull(MetaPtr("cont_out_terminal"), Tag::Terminal),
+                        LEMOP::MkNull("cont_out_terminal", Tag::Terminal),
                         LEMOP::SetReturn([
-                            MetaPtr("expr_in"),
-                            MetaPtr("env_in"),
-                            MetaPtr("cont_out_terminal"),
+                            MetaPtr::Raw("expr_in"),
+                            MetaPtr::Raw("env_in"),
+                            MetaPtr::Raw("cont_out_terminal"),
                         ]),
                     ]),
                 ),
@@ -815,15 +784,15 @@ mod tests {
                         // that we are on a dummy branch, because a constrain will
                         // be created for `cont_out_error` and it will need to be relaxed
                         // by an implication with a false premise
-                        MetaPtr("expr_in"),
+                        MetaPtr::Raw("expr_in"),
                         vec![(
                             Tag::Num,
                             LEMOP::Seq(vec![
-                                LEMOP::MkNull(MetaPtr("cont_out_error"), Tag::Error),
+                                LEMOP::MkNull("cont_out_error", Tag::Error),
                                 LEMOP::SetReturn([
-                                    MetaPtr("expr_in"),
-                                    MetaPtr("env_in"),
-                                    MetaPtr("cont_out_error"),
+                                    MetaPtr::Raw("expr_in"),
+                                    MetaPtr::Raw("env_in"),
+                                    MetaPtr::Raw("cont_out_error"),
                                 ]),
                             ]),
                         )],
@@ -835,13 +804,13 @@ mod tests {
                         // this nested match exercises the need to relax `popcount`
                         // because there is no match but it's on a dummy path, so
                         // we don't want to be too restrictive
-                        MetaPtr("expr_in"),
+                        MetaPtr::Raw("expr_in"),
                         vec![(
                             Tag::Char,
                             LEMOP::SetReturn([
-                                MetaPtr("expr_in"),
-                                MetaPtr("env_in"),
-                                MetaPtr("cont_in"),
+                                MetaPtr::Raw("expr_in"),
+                                MetaPtr::Raw("env_in"),
+                                MetaPtr::Raw("cont_in"),
                             ]),
                         )],
                     ),

@@ -7,19 +7,19 @@ use super::{tag::Tag, MetaPtr, LEM, LEMOP};
 pub fn step<F: LurkField>() -> LEM<'static, F> {
     let input = ["expr_in", "env_in", "cont_in"];
     let lem_op = LEMOP::mk_match_tag(
-        MetaPtr("expr_in"),
+        MetaPtr::Raw("expr_in"),
         vec![(
             Tag::Num,
             LEMOP::mk_match_tag(
-                MetaPtr("cont_in"),
+                MetaPtr::Raw("cont_in"),
                 vec![(
                     Tag::Outermost,
                     LEMOP::Seq(vec![
-                        LEMOP::MkNull(MetaPtr("cont_out_ret"), Tag::Terminal),
+                        LEMOP::MkNull("cont_out_ret", Tag::Terminal),
                         LEMOP::SetReturn([
-                            MetaPtr("expr_in"),
-                            MetaPtr("env_in"),
-                            MetaPtr("cont_out_ret"),
+                            MetaPtr::Raw("expr_in"),
+                            MetaPtr::Raw("env_in"),
+                            MetaPtr::Raw("cont_out_ret"),
                         ]),
                     ]),
                 )],
