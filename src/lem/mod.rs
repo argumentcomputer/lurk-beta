@@ -182,6 +182,7 @@ impl<'a, F: LurkField> LEMOP<'a, F> {
     }
 }
 
+#[derive(Clone)]
 pub struct Witness<'a, F: LurkField> {
     input: [Ptr<F>; 3],
     output: [Ptr<F>; 3],
@@ -195,19 +196,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
         // TODO
     }
 
-    pub fn run(
-        &self,
-        i: [Ptr<F>; 3],
-        store: &mut Store<F>,
-    ) -> Result<
-        (
-            [Ptr<F>; 3],
-            HashMap<&'a str, &'a str>,
-            HashMap<&'a str, Ptr<F>>,
-            HashMap<&'a str, F>,
-        ),
-        String,
-    > {
+    pub fn run(&self, i: [Ptr<F>; 3], store: &mut Store<F>) -> Result<Witness<'a, F>, String> {
         // key/val pairs on this map should never be overwritten
         let mut ref_map = HashMap::default();
         let mut ptr_map = HashMap::default();
@@ -401,7 +390,13 @@ impl<'a, F: LurkField> LEM<'a, F> {
         let Some(out3) = out3 else {
             return Err("Output 3 not defined".to_string());
         };
-        Ok(([out1, out2, out3], ref_map, ptr_map, var_map))
+        Ok(Witness {
+            input: i,
+            output: [out1, out2, out3],
+            refs: ref_map,
+            ptrs: ptr_map,
+            vars: var_map,
+        })
     }
 
     pub fn eval(&self, expr: Ptr<F>) -> Result<(Vec<Witness<'a, F>>, Store<F>), String> {
@@ -413,18 +408,12 @@ impl<'a, F: LurkField> LEM<'a, F> {
         let terminal = Ptr::null(Tag::Terminal);
         loop {
             let input = [expr, env, cont];
-            let (output, refs, ptrs, vars) = self.run(input, &mut store)?;
-            witnesses.push(Witness {
-                input,
-                output,
-                refs,
-                ptrs,
-                vars,
-            });
-            if output[2] == terminal {
+            let w = self.run(input, &mut store)?;
+            witnesses.push(w.clone());
+            if w.output[2] == terminal {
                 break;
             } else {
-                [expr, env, cont] = output;
+                [expr, env, cont] = w.output;
             }
         }
         Ok((witnesses, store))
@@ -443,11 +432,9 @@ impl<'a, F: LurkField> LEM<'a, F> {
 
     fn allocate_input_ptr<CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        ptr: &Ptr<F>,
+        aqua_ptr: &AquaPtr<F>,
         name: String,
-        store: &mut Store<F>,
     ) -> Result<AllocatedPtr<F>, String> {
-        let aqua_ptr = store.hydrate_ptr(ptr)?;
         let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {}'s tag", name)), || {
             Ok(aqua_ptr.tag.field())
         }) else {
@@ -567,7 +554,11 @@ impl<'a, F: LurkField> LEM<'a, F> {
             };
             alloc_ptrs.insert(
                 self.input[0],
-                Self::allocate_input_ptr(cs, ptr, format!("input {}", self.input[0]), store)?,
+                Self::allocate_input_ptr(
+                    cs,
+                    &store.hydrate_ptr(ptr)?,
+                    format!("input {}", self.input[0]),
+                )?,
             );
         }
 
@@ -581,7 +572,11 @@ impl<'a, F: LurkField> LEM<'a, F> {
             };
             alloc_ptrs.insert(
                 self.input[1],
-                Self::allocate_input_ptr(cs, ptr, format!("input {}", self.input[1]), store)?,
+                Self::allocate_input_ptr(
+                    cs,
+                    &store.hydrate_ptr(ptr)?,
+                    format!("input {}", self.input[1]),
+                )?,
             );
         }
 
@@ -595,7 +590,11 @@ impl<'a, F: LurkField> LEM<'a, F> {
             };
             alloc_ptrs.insert(
                 self.input[2],
-                Self::allocate_input_ptr(cs, ptr, format!("input {}", self.input[2]), store)?,
+                Self::allocate_input_ptr(
+                    cs,
+                    &store.hydrate_ptr(ptr)?,
+                    format!("input {}", self.input[2]),
+                )?,
             );
         }
 
@@ -703,11 +702,19 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     }
 
                     if let Some(not_dummy) = not_dummy {
-                        enforce_selector_if_not_dummy(
-                            &mut cs.namespace(|| format!("{}.enforce exactly one selected (if not dummy, tag: {:?})", path.join("."), alloc_match_ptr.tag().get_value())),
+                        let Ok(_) = enforce_selector_if_not_dummy(
+                            &mut cs.namespace(|| {
+                                format!(
+                                    "{}.enforce exactly one selected (if not dummy, tag: {:?})",
+                                    path.join("."),
+                                    alloc_match_ptr.tag().get_value()
+                                )
+                            }),
                             &not_dummy_vec,
                             &not_dummy, // TODO: consider renaming for clarity
-                        );
+                        ) else {
+                            return Err("TODO".to_string());
+                        };
                     } else {
                         let Ok(_) = popcount(
                             &mut cs.namespace(|| format!("{}.popcount", path.join("."))),
@@ -733,14 +740,31 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output_name) else {
                             return Err("Could not find output allocated in the circuit".to_string())
                         };
-                        let Some(ptr_expected) = witness.ptrs.get(output_name) else {
-                            return Err("Could not find the expected witness".to_string())
+                        let aqua_ptr = match not_dummy.clone() {
+                            None => {
+                                let Some(ptr) = witness.ptrs.get(output_name) else {
+                                    return Err("Could not find the expected witness".to_string());
+                                };
+                                store.hydrate_ptr(ptr)?
+                            }
+                            Some(not_dummy) => {
+                                if not_dummy.get_value().unwrap() {
+                                    let Some(ptr) = witness.ptrs.get(output_name) else {
+                                        return Err("Could not find the expected witness".to_string());
+                                    };
+                                    store.hydrate_ptr(ptr)?
+                                } else {
+                                    AquaPtr {
+                                        tag: Tag::Dummy,
+                                        val: F::zero(),
+                                    }
+                                }
+                            }
                         };
                         let alloc_ptr_expected = Self::allocate_input_ptr(
                             cs,
-                            ptr_expected,
+                            &aqua_ptr,
                             format!("{}.output {}", path.join("."), i),
-                            store,
                         )?;
 
                         if let Some(not_dummy) = not_dummy.clone() {
