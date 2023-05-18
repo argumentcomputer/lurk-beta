@@ -661,9 +661,7 @@ pub(crate) fn and<CS: ConstraintSystem<F>, F: PrimeField>(
             Ok(Boolean::Is(AllocatedBit::nor(cs, a, b)?))
         }
         // a AND b
-        (&Boolean::Is(ref a), &Boolean::Is(ref b)) => {
-            Ok(Boolean::Is(AllocatedBit::and(cs, a, b)?))
-        }
+        (&Boolean::Is(ref a), &Boolean::Is(ref b)) => Ok(Boolean::Is(AllocatedBit::and(cs, a, b)?)),
     }
 }
 

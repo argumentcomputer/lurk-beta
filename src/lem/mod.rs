@@ -133,6 +133,16 @@ impl<'a> MetaPtr<'a> {
             },
         }
     }
+
+    pub fn get_ptr_name(&self, ref_map: &HashMap<&'a str, &'a str>) -> Result<&'a str, String> {
+        match self {
+            Self::Raw(name) => Ok(*name),
+            Self::Ref(ref_name) => match ref_map.get(ref_name) {
+                None => Err(format!("Reference {} not defined", ref_name)),
+                Some(name) => Ok(*name),
+            },
+        }
+    }
 }
 
 #[derive(PartialEq, Clone, Copy, Eq, Hash)]
@@ -339,9 +349,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     }
                 }
                 LEMOP::IfTagEq(ptr, tag, tt, ff) => {
-                    let Some(ptr) = ptr_map.get(ptr.name()) else {
-                        return Err(format!("{} not defined", ptr.name()))
-                    };
+                    let ptr = ptr.get_ptr(&ref_map, &ptr_map)?;
                     if ptr.tag() == tag {
                         stack.push(tt)
                     } else {
@@ -349,9 +357,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     }
                 }
                 LEMOP::IfTagOr(ptr, tag1, tag2, tt, ff) => {
-                    let Some(ptr) = ptr_map.get(ptr.name()) else {
-                        return Err(format!("{} not defined", ptr.name()))
-                    };
+                    let ptr = ptr.get_ptr(&ref_map, &ptr_map)?;
                     let ptr_tag = ptr.tag();
                     if ptr_tag == tag1 || ptr_tag == tag2 {
                         stack.push(tt)
@@ -360,9 +366,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     }
                 }
                 LEMOP::MatchTag(ptr, cases) => {
-                    let Some(ptr) = ptr_map.get(ptr.name()) else {
-                        return Err(format!("{} not defined", ptr.name()))
-                    };
+                    let ptr = ptr.get_ptr(&ref_map, &ptr_map)?;
                     let ptr_tag = ptr.tag();
                     match cases.get(ptr_tag) {
                         Some(op) => stack.push(op),
@@ -370,10 +374,10 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     }
                 }
                 LEMOP::MatchLeafVal(ptr, cases) => {
-                    let Some(Ptr::Leaf(_, f)) = ptr_map.get(ptr.name()) else {
+                    let Ptr::Leaf(_, f) = ptr.get_ptr(&ref_map, &ptr_map)? else {
                         return Err(format!("{} not defined as a pointer with a field value", ptr.name()))
                     };
-                    match cases.get(&FWrap(*f)) {
+                    match cases.get(&FWrap(f)) {
                         Some(op) => stack.push(op),
                         None => {
                             return Err(format!("No match for field element {}", f.hex_digits()))
@@ -382,9 +386,9 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
                 LEMOP::SetReturn(o) => {
-                    out1 = ptr_map.get(&o[0].name()).map(|x| *x);
-                    out2 = ptr_map.get(&o[1].name()).map(|x| *x);
-                    out3 = ptr_map.get(&o[2].name()).map(|x| *x);
+                    out1 = Some(o[0].get_ptr(&ref_map, &ptr_map)?);
+                    out2 = Some(o[1].get_ptr(&ref_map, &ptr_map)?);
+                    out3 = Some(o[2].get_ptr(&ref_map, &ptr_map)?);
                 }
             }
         }
@@ -664,8 +668,9 @@ impl<'a, F: LurkField> LEM<'a, F> {
                     }
                 }
                 LEMOP::MatchTag(match_ptr, cases) => {
-                    let Some(alloc_match_ptr) = alloc_ptrs.get(match_ptr.name()) else {
-                        return Err(format!("{} not allocated", match_ptr.name()));
+                    let match_ptr_name = match_ptr.get_ptr_name(&witness.refs)?;
+                    let Some(alloc_match_ptr) = alloc_ptrs.get(match_ptr_name) else {
+                        return Err(format!("{} not allocated", match_ptr_name));
                     };
                     let mut not_dummy_vec = Vec::new();
                     for (i, (tag, op)) in cases.iter().enumerate() {
@@ -711,10 +716,11 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 }
                 LEMOP::SetReturn(outputs) => {
                     for (i, output) in outputs.iter().enumerate() {
-                        let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {
+                        let output_name = output.get_ptr_name(&witness.refs)?;
+                        let Some(alloc_ptr_computed) = alloc_ptrs.get(output_name) else {
                             return Err("Could not find output allocated in the circuit".to_string())
                         };
-                        let Some(ptr_expected) = witness.ptrs.get(output.name()) else {
+                        let Some(ptr_expected) = witness.ptrs.get(output_name) else {
                             return Err("Could not find the expected witness".to_string())
                         };
                         let alloc_ptr_expected = Self::allocate_input_ptr(
