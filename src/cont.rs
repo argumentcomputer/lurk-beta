@@ -12,13 +12,13 @@ pub enum Continuation<F: LurkField> {
         continuation: ContPtr<F>,
     },
     Call {
-        unevaled_arg: Ptr<F>,
         saved_env: Ptr<F>,
+        unevaled_arg: Ptr<F>,
         continuation: ContPtr<F>,
     },
     Call2 {
-        function: Ptr<F>,
         saved_env: Ptr<F>,
+        function: Ptr<F>,
         continuation: ContPtr<F>,
     },
     Tail {

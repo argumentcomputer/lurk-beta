@@ -935,12 +935,12 @@ impl<F: LurkField> Store<F> {
                     (z_ptr, Some(z_cont))
                 }
                 Some(Continuation::Call {
-                    unevaled_arg,
                     saved_env,
+                    unevaled_arg,
                     continuation,
                 }) => {
-                    let (z_arg_ptr, _) = self.get_z_expr(&unevaled_arg, z_store.clone())?;
                     let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
+                    let (z_arg_ptr, _) = self.get_z_expr(&unevaled_arg, z_store.clone())?;
                     let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
                     let z_cont = ZCont::<F>::Call {
                         unevaled_arg: z_arg_ptr,
@@ -951,12 +951,12 @@ impl<F: LurkField> Store<F> {
                     (z_ptr, Some(z_cont))
                 }
                 Some(Continuation::Call2 {
-                    function,
                     saved_env,
+                    function,
                     continuation,
                 }) => {
-                    let (z_fun_ptr, _) = self.get_z_expr(&function, z_store.clone())?;
                     let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
+                    let (z_fun_ptr, _) = self.get_z_expr(&function, z_store.clone())?;
                     let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
                     let z_cont = ZCont::<F>::Call2 {
                         function: z_fun_ptr,
@@ -1498,21 +1498,21 @@ impl<F: LurkField> Store<F> {
                     continuation: self.intern_z_cont_ptr(continuation, z_store)?,
                 },
                 Call {
-                    unevaled_arg,
                     saved_env,
+                    unevaled_arg,
                     continuation,
                 } => Continuation::Call {
-                    unevaled_arg: self.intern_z_expr_ptr(unevaled_arg, z_store)?,
                     saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    unevaled_arg: self.intern_z_expr_ptr(unevaled_arg, z_store)?,
                     continuation: self.intern_z_cont_ptr(continuation, z_store)?,
                 },
                 Call2 {
-                    function,
                     saved_env,
+                    function,
                     continuation,
                 } => Continuation::Call2 {
-                    function: self.intern_z_expr_ptr(function, z_store)?,
                     saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    function: self.intern_z_expr_ptr(function, z_store)?,
                     continuation: self.intern_z_cont_ptr(continuation, z_store)?,
                 },
                 Tail {
