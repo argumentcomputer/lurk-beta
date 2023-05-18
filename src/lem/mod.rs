@@ -488,6 +488,9 @@ impl<'a, F: LurkField> LEM<'a, F> {
         );
     }
 
+    /*
+     * Enforce equality of a and b only if not dummy.
+     */
     fn implies_equal<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         premise: &Boolean,
@@ -495,18 +498,21 @@ impl<'a, F: LurkField> LEM<'a, F> {
         b: &AllocatedNum<F>,
     ) -> Result<(), String> {
         let Ok(is_equal) = alloc_equal(cs.namespace(|| "is_equal"), a, b) else {
-            return Err("TODO".to_string())
+            return Err("Could not constraint alloc_equal".to_string())
         };
         let Ok(_) = enforce_implication(
             cs.namespace(|| "not dummy implies tag is equal"),
             premise,
             &is_equal
         ) else {
-            return Err("TODO".to_string())
+            return Err("Could not constrin enforce_implication".to_string())
         };
         Ok(())
     }
 
+    /*
+     * Enforce equality of pointers is not dummy.
+     */
     fn implies_ptr_equal<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         premise: &Boolean,
@@ -540,6 +546,16 @@ impl<'a, F: LurkField> LEM<'a, F> {
         }
     }
 
+    /*
+     * TODO: improve
+     * Create R1CS constraints for LEM.
+     * As we find new operations, we stack them to be constrained later.
+     * We use hash maps we manage viariables and pointers.
+     * This way we can reference allocated variables that were
+     * created previously.
+     * We have real paths and virtual paths, which are associated to `not_dummy` variables.
+     * Then we can constrain LEM using implications.
+     */
     pub fn constrain<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -548,10 +564,11 @@ impl<'a, F: LurkField> LEM<'a, F> {
     ) -> Result<(), String> {
         let mut alloc_ptrs: HashMap<&'a str, AllocatedPtr<F>> = HashMap::default();
 
+        // TODO: consider creating `initialize` function
         // allocate first input
         {
             let Some(ptr) = witness.ptrs.get(self.input[0]) else {
-                return Err("TODO".to_string())
+                return Err("Could not find first input".to_string())
             };
             alloc_ptrs.insert(
                 self.input[0],
@@ -569,7 +586,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 return Err(format!("{} already allocated", self.input[1]));
             }
             let Some(ptr) = witness.ptrs.get(self.input[1]) else {
-                return Err("TODO".to_string())
+                return Err("Could not find second input".to_string())
             };
             alloc_ptrs.insert(
                 self.input[1],
@@ -587,7 +604,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 return Err(format!("{} already allocated", self.input[2]));
             }
             let Some(ptr) = witness.ptrs.get(self.input[2]) else {
-                return Err("TODO".to_string())
+                return Err("Could not find third input".to_string())
             };
             alloc_ptrs.insert(
                 self.input[2],
@@ -628,6 +645,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         return Err(format!("Couldn't allocate tag for {}", tgt));
                     };
 
+                    // If `concrete_path` is Some, then we constrain using "not dummy implies ..." logic
                     if let Some(concrete_path) = concrete_path {
                         Self::implies_equal(
                             &mut cs.namespace(|| format!("{:?}.tag_is_equal", path.join("."))),
@@ -641,7 +659,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                             alloc_tgt.hash(),
                             &zero,
                         )?;
-                    } else {
+                    } else { // If `concrete_path` is None, we just do regular constraining
                         enforce_equal(
                             cs,
                             || format!("{}'s tag is {}", tgt, tag.field::<F>().hex_digits()),
@@ -683,7 +701,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                                     &concrete_path,
                                     &alloc_has_match
                                 ) else {
-                                    return Err("TODO".to_string());
+                                    return Err("Failed to constrain AND".to_string());
                                 };
                             stack.push((op, Some(concrete_path_and_has_match), new_path_matchtag));
                         } else {
@@ -691,6 +709,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         }
                     }
 
+                    // If `concrete_path` is Some, then we constrain using "not dummy implies ..." logic
                     if let Some(concrete_path) = concrete_path {
                         let Ok(_) = enforce_selector_with_premise(
                             &mut cs.namespace(|| {
@@ -703,15 +722,15 @@ impl<'a, F: LurkField> LEM<'a, F> {
                             &concrete_path,
                             &concrete_path_vec,
                         ) else {
-                            return Err("TODO".to_string());
+                            return Err("Failed to enforce selector if not dummy".to_string());
                         };
-                    } else {
+                    } else { // If `concrete_path` is None, we just do regular constraining
                         let Ok(_) = popcount(
-                            &mut cs.namespace(|| format!("{}.popcount", path.join("."))),
+                            &mut cs.namespace(|| format!("{}.enforce exactly one selected", path.join("."))),
                             &concrete_path_vec[..],
                             &one,
                         ) else {
-                            return Err("Failed to constrain popcount gadget".to_string())
+                            return Err("Failed to enforce selector".to_string())
                         };
                     }
                 }
@@ -746,6 +765,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                             format!("{}.output {}", path.join("."), i),
                         )?;
 
+                        // If `concrete_path` is Some, then we constrain using "not dummy implies ..." logic
                         if let Some(concrete_path) = concrete_path.clone() {
                             let Ok(_) = Self::implies_ptr_equal(
                                 cs,
@@ -757,13 +777,13 @@ impl<'a, F: LurkField> LEM<'a, F> {
                             ) else {
                                 return Err("Failed to constrain implies_ptr_equal".to_string())
                             };
-                        } else {
+                        } else { // If `concrete_path` is None, we just do regular constraining
                             Self::enforce_equal_ptrs(
                                 cs,
                                 alloc_ptr_computed,
-                                format!("{}.computed output {}", path.join("."), i),
+                                format!("{}.computed output {}", path.concat(), i),
                                 &alloc_ptr_expected,
-                                format!("{}.expected output {}", path.join("."), i),
+                                format!("{}.expected output {}", path.join(""), i),
                             );
                         }
                     }
