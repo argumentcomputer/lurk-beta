@@ -99,6 +99,36 @@ pub(crate) fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(())
 }
 
+/// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v`
+/// is equal to one if not_dummy is true.
+///
+/// summation(v) = one (if not dummy)
+#[allow(dead_code)]
+pub(crate) fn enforce_selector_if_not_dummy<F: PrimeField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    v: &[Boolean],
+    not_dummy: &Boolean,
+) -> Result<(), SynthesisError> {
+    let mut v_lc = LinearCombination::<F>::zero();
+    for b in v {
+        v_lc = add_to_lc::<F, CS>(b, v_lc, F::one())?;
+    }
+    let mut nd_lc_b = LinearCombination::<F>::zero();
+    nd_lc_b = add_to_lc::<F, CS>(not_dummy, nd_lc_b, F::one())?;
+    let mut nd_lc_c = LinearCombination::<F>::zero();
+    nd_lc_c = add_to_lc::<F, CS>(not_dummy, nd_lc_c, F::one())?;
+
+    // (summation(v)) * not_dummy = not_dummy
+    cs.enforce(
+        || "enforce selector if not dummy",
+        |_| v_lc,
+        |_| nd_lc_b,
+        |_| nd_lc_c,
+    );
+
+    Ok(())
+}
+
 pub(crate) fn add_to_lc<F: PrimeField, CS: ConstraintSystem<F>>(
     b: &Boolean,
     lc: LinearCombination<F>,
