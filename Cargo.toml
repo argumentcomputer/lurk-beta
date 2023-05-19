@@ -112,5 +112,9 @@ name = "end2end"
 harness = false
 
 [[bench]]
+name = "fibonacci"
+harness = false
+
+[[bench]]
 name = "public_params"
 harness = false
