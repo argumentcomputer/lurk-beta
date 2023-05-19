@@ -1,32 +1,28 @@
 use crate::field::LurkField;
 
-use super::{tag::Tag, MetaPtr, LEM, LEMOP};
+use super::{shortcuts::*, tag::Tag, LEM, LEMOP};
 
 // TODO: remove name conflicts between branches automatically instead of putting
 // this burden on the LEM programmer's shoulders
-pub fn step<F: LurkField>() -> LEM<'static, F> {
+pub fn step<F: LurkField>() -> Result<LEM<F>, String> {
     let input = ["expr_in", "env_in", "cont_in"];
-    let lem_op = LEMOP::mk_match_tag(
-        MetaPtr("expr_in"),
+    let lem_op = match_tag(
+        mptr("expr_in"),
         vec![(
             Tag::Num,
-            LEMOP::mk_match_tag(
-                MetaPtr("cont_in"),
+            match_tag(
+                mptr("cont_in"),
                 vec![(
                     Tag::Outermost,
                     LEMOP::Seq(vec![
-                        LEMOP::MkNull(MetaPtr("cont_out_ret"), Tag::Terminal),
-                        LEMOP::SetReturn([
-                            MetaPtr("expr_in"),
-                            MetaPtr("env_in"),
-                            MetaPtr("cont_out_ret"),
-                        ]),
+                        LEMOP::MkNull(mptr("cont_out_ret"), Tag::Terminal),
+                        LEMOP::SetReturn([mptr("expr_in"), mptr("env_in"), mptr("cont_out_ret")]),
                     ]),
                 )],
             ),
         )],
     );
-    LEM { input, lem_op }
+    LEM::new(input, lem_op)
 }
 
 #[cfg(test)]
@@ -38,20 +34,20 @@ mod tests {
 
     #[test]
     fn check_step() {
-        step::<Fr>().check()
+        step::<Fr>().unwrap().check()
     }
 
     #[test]
     fn eval_42() {
         let expr = Ptr::num(Fr::from_u64(42));
-        let (res, _) = step().eval_res(expr).unwrap();
+        let (res, _) = step().unwrap().eval_res(expr).unwrap();
         assert!(res == expr);
     }
 
     #[test]
     fn constrain_42() {
         let expr = Ptr::num(Fr::from_u64(42));
-        let lem = step();
+        let lem = step().unwrap();
         let (res, mut store) = lem.eval(expr).unwrap();
 
         assert!(
