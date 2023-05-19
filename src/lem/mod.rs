@@ -125,11 +125,6 @@ impl MetaVar {
     }
 }
 
-#[inline]
-pub fn mvar(name: &str) -> MetaVar {
-    MetaVar(name.to_string())
-}
-
 #[derive(Clone)]
 pub enum LEMOP<F: LurkField> {
     MkNull(MetaPtr, Tag),
@@ -148,15 +143,19 @@ pub enum LEMOP<F: LurkField> {
 }
 
 impl<F: LurkField> LEMOP<F> {
+    pub fn check(&self) -> Result<(), String> {
+        // TODO
+        Ok(())
+    }
+
     pub fn deconflict(
         &self,
-        path: Vec<String>,
+        path: String,
         dmap: &DashMap<String, String, ahash::RandomState>, // name -> path/name
     ) -> Result<Self, String> {
-        let path_name = path.join("/");
         match self {
             Self::MkNull(ptr, tag) => {
-                let new_name = format!("{}/{}", path_name, ptr.name());
+                let new_name = format!("{}.{}", path, ptr.name());
                 dmap.insert(ptr.name().clone(), new_name.clone());
                 Ok(Self::MkNull(MetaPtr(new_name), *tag))
             }
@@ -167,7 +166,7 @@ impl<F: LurkField> LEMOP<F> {
                 let Some(src1_path) = dmap.get(src[1].name()) else {
                     return Err("TODO".to_string());
                 };
-                let new_name = format!("{}/{}", path_name, tgt.name());
+                let new_name = format!("{}/{}", path, tgt.name());
                 dmap.insert(tgt.name().clone(), new_name.clone());
                 Ok(Self::Hash2Ptrs(
                     MetaPtr(new_name),
@@ -185,7 +184,7 @@ impl<F: LurkField> LEMOP<F> {
                 let Some(src2_path) = dmap.get(src[2].name()) else {
                     return Err("TODO".to_string());
                 };
-                let new_name = format!("{}/{}", path_name, tgt.name());
+                let new_name = format!("{}/{}", path, tgt.name());
                 dmap.insert(tgt.name().clone(), new_name.clone());
                 Ok(Self::Hash3Ptrs(
                     MetaPtr(new_name),
@@ -210,7 +209,7 @@ impl<F: LurkField> LEMOP<F> {
                 let Some(src3_path) = dmap.get(src[3].name()) else {
                     return Err("TODO".to_string());
                 };
-                let new_name = format!("{}/{}", path_name, tgt.name());
+                let new_name = format!("{}/{}", path, tgt.name());
                 dmap.insert(tgt.name().clone(), new_name.clone());
                 Ok(Self::Hash4Ptrs(
                     MetaPtr(new_name),
@@ -224,16 +223,15 @@ impl<F: LurkField> LEMOP<F> {
                 ))
             }
             LEMOP::MatchTag(ptr, cases) => {
+                let Some(ptr_path) = dmap.get(ptr.name()) else {
+                    return Err("TODOd".to_string());
+                };
                 let mut new_cases = vec![];
                 for (tag, case) in cases.iter() {
-                    let new_path = path.clone();
-                    new_path.push(todo!());
+                    let new_path = format!("{}.{}", &path, &tag);
                     let new_case = case.deconflict(new_path, dmap)?;
-                    new_cases.push((tag, new_case));
+                    new_cases.push((*tag, new_case));
                 }
-                let Some(ptr_path) = dmap.get(ptr.name()) else {
-                    return Err("TODO".to_string());
-                };
                 Ok(LEMOP::MatchTag(
                     MetaPtr(ptr_path.clone()),
                     HashMap::from_iter(new_cases),
@@ -248,13 +246,13 @@ impl<F: LurkField> LEMOP<F> {
             }
             LEMOP::SetReturn(o) => {
                 let Some(o0) = dmap.get(o[0].name()) else {
-                    return Err("TODO".to_string());
+                    return Err("TODOa".to_string());
                 };
                 let Some(o1) = dmap.get(o[1].name()) else {
-                    return Err("TODO".to_string());
+                    return Err("TODOb".to_string());
                 };
                 let Some(o2) = dmap.get(o[2].name()) else {
-                    return Err("TODO".to_string());
+                    return Err("TODOc".to_string());
                 };
                 Ok(LEMOP::SetReturn([
                     MetaPtr(o0.clone()),
@@ -277,14 +275,12 @@ pub struct Witness<F: LurkField> {
 
 impl<F: LurkField> LEM<F> {
     pub fn new(input: [&str; 3], lem_op: LEMOP<F>) -> Result<LEM<F>, String> {
+        lem_op.check()?;
+        let dmap = DashMap::from_iter(input.map(|i| (i.to_string(), i.to_string())));
         Ok(LEM {
             input: input.map(|i| i.to_string()),
-            lem_op: lem_op.deconflict(vec![], &DashMap::default())?,
+            lem_op: lem_op.deconflict(String::new(), &dmap)?,
         })
-    }
-
-    pub fn check(&self) {
-        // TODO
     }
 
     pub fn run(&self, input: [Ptr<F>; 3], store: &mut Store<F>) -> Result<Witness<F>, String> {
@@ -870,6 +866,11 @@ mod shortcuts {
     }
 
     #[inline]
+    pub fn mvar(name: &str) -> MetaVar {
+        MetaVar(name.to_string())
+    }
+
+    #[inline]
     pub fn match_tag<F: LurkField>(i: MetaPtr, cases: Vec<(Tag, LEMOP<F>)>) -> LEMOP<F> {
         LEMOP::MatchTag(i, HashMap::from_iter(cases))
     }
@@ -903,7 +904,7 @@ mod tests {
                 (
                     Tag::Char,
                     match_tag(
-                        // this nested match excercises the need to pass on the information
+                        // This nested match excercises the need to pass on the information
                         // that we are on a virtual branch, because a constrain will
                         // be created for `cont_out_error` and it will need to be relaxed
                         // by an implication with a false premise
@@ -924,7 +925,7 @@ mod tests {
                 (
                     Tag::Sym,
                     match_tag(
-                        // this nested match exercises the need to relax `popcount`
+                        // This nested match exercises the need to relax `popcount`
                         // because there is no match but it's on a virtual path, so
                         // we don't want to be too restrictive
                         mptr("expr_in"),
@@ -933,6 +934,50 @@ mod tests {
                             LEMOP::SetReturn([mptr("expr_in"), mptr("env_in"), mptr("cont_in")]),
                         )],
                     ),
+                ),
+            ],
+        );
+        let lem = LEM::new(input, lem_op).unwrap();
+
+        let expr = Ptr::num(Fr::from_u64(42));
+        let (res, mut store) = lem.eval(expr).unwrap();
+        for w in res.iter() {
+            let mut cs = TestConstraintSystem::<Fr>::new();
+            lem.constrain(&mut cs, &mut store, w).unwrap();
+            assert!(cs.is_satisfied());
+        }
+    }
+
+    #[test]
+    fn resolves_conflicts_of_clashing_names_in_parallel_branches() {
+        let input = ["expr_in", "env_in", "cont_in"];
+        let lem_op = match_tag(
+            // This match is creating `cont_out_terminal` on two different branches,
+            // which, in theory, would cause troubles at allocation time. But we're
+            // dealing with that automatically
+            mptr("expr_in"),
+            vec![
+                (
+                    Tag::Num,
+                    LEMOP::Seq(vec![
+                        LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
+                        LEMOP::SetReturn([
+                            mptr("expr_in"),
+                            mptr("env_in"),
+                            mptr("cont_out_terminal"),
+                        ]),
+                    ]),
+                ),
+                (
+                    Tag::Char,
+                    LEMOP::Seq(vec![
+                        LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
+                        LEMOP::SetReturn([
+                            mptr("expr_in"),
+                            mptr("env_in"),
+                            mptr("cont_out_terminal"),
+                        ]),
+                    ]),
                 ),
             ],
         );

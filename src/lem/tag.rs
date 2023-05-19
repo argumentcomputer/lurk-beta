@@ -32,9 +32,12 @@ impl Display for Tag {
         match self {
             Tag::Dummy => write!(f, "Dummy"),
             Tag::LurkSym => write!(f, "LurkSym"),
+            Tag::Char => write!(f, "Char"),
             Tag::Num => write!(f, "Num"),
+            Tag::Sym => write!(f, "Sym"),
             Tag::Outermost => write!(f, "Outermost"),
             Tag::Terminal => write!(f, "Terminal"),
+            Tag::Error => write!(f, "Error"),
             _ => todo!(),
         }
     }

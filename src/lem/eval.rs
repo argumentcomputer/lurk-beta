@@ -15,8 +15,8 @@ pub fn step<F: LurkField>() -> Result<LEM<F>, String> {
                 vec![(
                     Tag::Outermost,
                     LEMOP::Seq(vec![
-                        LEMOP::MkNull(mptr("cont_out_ret"), Tag::Terminal),
-                        LEMOP::SetReturn([mptr("expr_in"), mptr("env_in"), mptr("cont_out_ret")]),
+                        LEMOP::MkNull(mptr("cont_out"), Tag::Terminal),
+                        LEMOP::SetReturn([mptr("expr_in"), mptr("env_in"), mptr("cont_out")]),
                     ]),
                 )],
             ),
@@ -31,11 +31,6 @@ mod tests {
     use crate::lem::pointers::Ptr;
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
-
-    #[test]
-    fn check_step() {
-        step::<Fr>().unwrap().check()
-    }
 
     #[test]
     fn eval_42() {
