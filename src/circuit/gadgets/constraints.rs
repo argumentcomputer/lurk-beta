@@ -700,6 +700,22 @@ pub(crate) fn implies<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(Boolean::and(cs, a, &b.not())?.not())
 }
 
+/// Enforce equality of two allocated numbers given an implication premise
+pub(crate) fn implies_equal<CS: ConstraintSystem<F>, F: PrimeField>(
+    cs: &mut CS,
+    premise: &Boolean,
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
+) -> Result<(), SynthesisError> {
+    let is_equal = alloc_equal(cs.namespace(|| "is_equal"), a, b)?;
+    enforce_implication(
+        cs.namespace(|| "premise implies equality"),
+        premise,
+        &is_equal,
+    )?;
+    Ok(())
+}
+
 pub(crate) fn or<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     a: &Boolean,

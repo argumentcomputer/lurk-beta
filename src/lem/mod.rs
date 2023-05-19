@@ -8,7 +8,10 @@ mod tag;
 use std::collections::HashMap;
 
 use crate::{
-    circuit::gadgets::{constraints::and, pointer::AllocatedPtr},
+    circuit::gadgets::{
+        constraints::{and, implies_equal},
+        pointer::AllocatedPtr,
+    },
     field::{FWrap, LurkField},
 };
 
@@ -21,7 +24,7 @@ use self::{
 
 use crate::circuit::gadgets::constraints::enforce_equal;
 use crate::circuit::gadgets::constraints::{
-    alloc_equal, alloc_equal_const, enforce_implication, enforce_selector_with_premise, popcount,
+    alloc_equal_const, enforce_selector_with_premise, popcount,
 };
 use bellperson::gadgets::boolean::Boolean;
 use bellperson::gadgets::num::AllocatedNum;
@@ -236,8 +239,8 @@ impl<F: LurkField> LEMOP<F> {
                 };
                 let mut new_cases = vec![];
                 for (tag, case) in cases.iter() {
-                    let new_path = format!("{}.{}", &path, &tag);
-                    let new_case = case.deconflict(new_path, dmap)?;
+                    // each case needs it's own clone of `dmap`
+                    let new_case = case.deconflict(format!("{}.{}", &path, &tag), &dmap.clone())?;
                     new_cases.push((*tag, new_case));
                 }
                 Ok(LEMOP::MatchTag(
@@ -504,12 +507,12 @@ impl<F: LurkField> LEM<F> {
         aqua_ptr: &AquaPtr<F>,
         name: &String,
     ) -> Result<AllocatedPtr<F>, String> {
-        let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {}'s tag", name)), || {
+        let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("allocate {}'s tag", name)), || {
             Ok(aqua_ptr.tag.field())
         }) else {
             return Err(format!("Couldn't allocate tag for {}", name))
         };
-        let Ok(alloc_val) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {}'s val", name)), || {
+        let Ok(alloc_val) = AllocatedNum::alloc(cs.namespace(|| format!("allocate {}'s val", name)), || {
             Ok(aqua_ptr.val)
         }) else {
             return Err(format!("Couldn't allocate val for {}", name))
@@ -522,79 +525,18 @@ impl<F: LurkField> LEM<F> {
         aqua_ptr: &AquaPtr<F>,
         name: &String,
     ) -> Result<AllocatedPtr<F>, String> {
-        let alloc_ptr = Self::allocate_ptr(cs, aqua_ptr, name)?;
-        let Ok(_) = alloc_ptr.tag().inputize(cs.namespace(|| format!("inputize tag for {}", name))) else {
+        let alloc_ptr = Self::allocate_ptr(
+            &mut cs.namespace(|| format!("allocate pointer {}", name)),
+            aqua_ptr,
+            name,
+        )?;
+        let Ok(_) = alloc_ptr.tag().inputize(cs.namespace(|| format!("inputize {}'s tag", name))) else {
             return Err(format!("Couldn't inputize tag for {}", name))
         };
-        let Ok(_) = alloc_ptr.hash().inputize(cs.namespace(|| format!("inputize val for {}", name))) else {
+        let Ok(_) = alloc_ptr.hash().inputize(cs.namespace(|| format!("inputize {}'s val", name))) else {
             return Err(format!("Couldn't inputize val for {}", name))
         };
         Ok(alloc_ptr)
-    }
-
-    fn enforce_equal_ptrs<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        a: &AllocatedPtr<F>,
-        a_name: String,
-        b: &AllocatedPtr<F>,
-        b_name: String,
-    ) {
-        enforce_equal(
-            cs,
-            || format!("{}'s tag equals {}'s tag", a_name, b_name),
-            &a.tag(),
-            &b.tag(),
-        );
-        enforce_equal(
-            cs,
-            || format!("{}'s val equals {}'s val", a_name, b_name),
-            &a.hash(),
-            &b.hash(),
-        );
-    }
-
-    /// Enforce equality of two allocated numbers given an implication premise
-    fn implies_equal<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        premise: &Boolean,
-        a: &AllocatedNum<F>,
-        b: &AllocatedNum<F>,
-    ) -> Result<(), String> {
-        let Ok(is_equal) = alloc_equal(cs.namespace(|| "is_equal"), a, b) else {
-            return Err("Could not constraint alloc_equal".to_string())
-        };
-        let Ok(_) = enforce_implication(
-            cs.namespace(|| "premise implies equality"),
-            premise,
-            &is_equal
-        ) else {
-            return Err("Could not constrin enforce_implication".to_string())
-        };
-        Ok(())
-    }
-
-    /// Enforce equality of two allocated pointers given an implication premise
-    fn implies_ptr_equal<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        premise: &Boolean,
-        a: &AllocatedPtr<F>,
-        a_name: String,
-        b: &AllocatedPtr<F>,
-        b_name: String,
-    ) -> Result<(), String> {
-        Self::implies_equal(
-            &mut cs.namespace(|| format!("implies tag equal for {} and {}", a_name, b_name)),
-            premise,
-            a.tag(),
-            b.tag(),
-        )?;
-        Self::implies_equal(
-            &mut cs.namespace(|| format!("implies hash equal for {} and {}", a_name, b_name)),
-            premise,
-            a.hash(),
-            b.hash(),
-        )?;
-        Ok(())
     }
 
     fn on_concrete_path(concrete_path: &Option<Boolean>) -> Result<bool, String> {
@@ -632,9 +574,9 @@ impl<F: LurkField> LEM<F> {
             alloc_ptrs.insert(
                 &self.input[0],
                 Self::allocate_input_ptr(
-                    cs,
+                    &mut cs.namespace(|| format!("allocate input {}", self.input[0])),
                     &store.hydrate_ptr(ptr)?,
-                    &format!("input {}", self.input[0]),
+                    &self.input[0],
                 )?,
             );
         }
@@ -650,9 +592,9 @@ impl<F: LurkField> LEM<F> {
             alloc_ptrs.insert(
                 &self.input[1],
                 Self::allocate_input_ptr(
-                    cs,
+                    &mut cs.namespace(|| format!("allocate input {}", self.input[1])),
                     &store.hydrate_ptr(ptr)?,
-                    &format!("input {}", self.input[1]),
+                    &self.input[1],
                 )?,
             );
         }
@@ -668,9 +610,9 @@ impl<F: LurkField> LEM<F> {
             alloc_ptrs.insert(
                 &self.input[2],
                 Self::allocate_input_ptr(
-                    cs,
+                    &mut cs.namespace(|| format!("allocate input {}", self.input[2])),
                     &store.hydrate_ptr(ptr)?,
-                    &format!("input {}", self.input[2]),
+                    &self.input[2],
                 )?,
             );
         }
@@ -679,7 +621,7 @@ impl<F: LurkField> LEM<F> {
         let zero = AllocatedNum::alloc(cs.namespace(|| "#zero"), || Ok(F::zero())).unwrap();
         let one = AllocatedNum::alloc(cs.namespace(|| "#one"), || Ok(F::one())).unwrap();
         let mut alloc_tags: HashMap<&Tag, AllocatedNum<F>> = HashMap::default();
-        let mut stack = vec![(&self.lem_op, None::<Boolean>, Vec::new())];
+        let mut stack = vec![(&self.lem_op, None::<Boolean>, String::new())];
         while let Some((op, concrete_path, path)) = stack.pop() {
             match op {
                 LEMOP::MkNull(tgt, tag) => {
@@ -696,8 +638,12 @@ impl<F: LurkField> LEM<F> {
                             AquaPtr::dummy()
                         }
                     };
-                    let alloc_tgt = Self::allocate_ptr(cs, &aqua_ptr, tgt.name())?;
-                    alloc_ptrs.insert(&tgt.name(), alloc_tgt.clone());
+                    let alloc_tgt = Self::allocate_ptr(
+                        &mut cs.namespace(|| format!("allocate pointer {}", tgt.name())),
+                        &aqua_ptr,
+                        tgt.name(),
+                    )?;
+                    alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                     let alloc_tag = {
                         match alloc_tags.get(tag) {
                             Some(alloc_tag) => alloc_tag.clone(),
@@ -716,18 +662,22 @@ impl<F: LurkField> LEM<F> {
 
                     // If `concrete_path` is Some, then we constrain using "concrete implies ..." logic
                     if let Some(concrete_path) = concrete_path {
-                        Self::implies_equal(
-                            &mut cs.namespace(|| format!("{:?}.tag_is_equal", path.join("."))),
+                        let Ok(_) = implies_equal(
+                            &mut cs.namespace(|| format!("implies equal for {}'s tag", tgt.name())),
                             &concrete_path,
                             alloc_tgt.tag(),
                             &alloc_tag,
-                        )?;
-                        Self::implies_equal(
-                            &mut cs.namespace(|| format!("{:?}.hash_is_equal", path.join("."))),
+                        ) else {
+                            return Err("TODO".to_string())
+                        };
+                        let Ok(_) = implies_equal(
+                            &mut cs.namespace(|| format!("implies equal for {}'s val (must be zero)", tgt.name())),
                             &concrete_path,
                             alloc_tgt.hash(),
                             &zero,
-                        )?;
+                        ) else {
+                            return Err("TODO".to_string())
+                        };
                     } else {
                         // If `concrete_path` is None, we just do regular constraining
                         enforce_equal(
@@ -752,7 +702,7 @@ impl<F: LurkField> LEM<F> {
                     for (tag, op) in cases.iter() {
                         let Ok(alloc_has_match) = alloc_equal_const(
                             &mut cs.namespace(
-                                || format!("{}.alloc_has_match (tag:{})", path.join("."), tag)
+                                || format!("{}.alloc_equal_const (tag:{})", &path, tag)
                             ),
                             alloc_match_ptr.tag(),
                             tag.field::<F>(),
@@ -761,16 +711,15 @@ impl<F: LurkField> LEM<F> {
                         };
                         concrete_path_vec.push(alloc_has_match.clone());
 
-                        let mut new_path_matchtag = path.clone();
-                        new_path_matchtag.push(format!("MatchTag.{:?}.", tag.field::<F>()));
+                        let new_path_matchtag = format!("{}.{}", &path, tag);
                         if let Some(concrete_path) = concrete_path.clone() {
                             let Ok(concrete_path_and_has_match) = and
                                 (
-                                    &mut cs.namespace(|| format!("{}.and_v (tag:{})", path.join("."), tag)),
+                                    &mut cs.namespace(|| format!("{}.and (tag:{})", &path, tag)),
                                     &concrete_path,
                                     &alloc_has_match
                                 ) else {
-                                    return Err("Failed to constrain AND".to_string());
+                                    return Err("Failed to constrain `and`".to_string());
                                 };
                             stack.push((op, Some(concrete_path_and_has_match), new_path_matchtag));
                         } else {
@@ -784,7 +733,7 @@ impl<F: LurkField> LEM<F> {
                             &mut cs.namespace(|| {
                                 format!(
                                     "{}.enforce exactly one selected (if concrete, tag: {:?})",
-                                    path.join("."),
+                                    &path,
                                     alloc_match_ptr.tag().get_value()
                                 )
                             }),
@@ -796,7 +745,7 @@ impl<F: LurkField> LEM<F> {
                     } else {
                         // If `concrete_path` is None, we just do regular constraining
                         let Ok(_) = popcount(
-                            &mut cs.namespace(|| format!("{}.enforce exactly one selected", path.join("."))),
+                            &mut cs.namespace(|| format!("{}.enforce exactly one selected", &path)),
                             &concrete_path_vec[..],
                             &one,
                         ) else {
@@ -804,56 +753,47 @@ impl<F: LurkField> LEM<F> {
                         };
                     }
                 }
-                LEMOP::Seq(ops) => {
-                    let mut new_path_seq = path.clone();
-                    new_path_seq.push(format!("Seq."));
-                    stack.extend(
-                        ops.iter()
-                            .rev()
-                            .map(|op| (op, concrete_path.clone(), new_path_seq.clone())),
-                    )
-                }
+                LEMOP::Seq(ops) => stack.extend(
+                    ops.iter()
+                        .rev()
+                        .map(|op| (op, concrete_path.clone(), path.clone())),
+                ),
                 LEMOP::SetReturn(outputs) => {
                     for (i, output) in outputs.iter().enumerate() {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {
-                            return Err("Could not find output allocated in the circuit".to_string())
+                            return Err(format!("Output {} not allocated", output.name()))
                         };
                         let aqua_ptr = {
                             if Self::on_concrete_path(&concrete_path)? {
                                 let Some(ptr) = witness.ptrs.get(output.name()) else {
-                                    return Err("Could not find the expected witness".to_string());
+                                    return Err(format!("Output {} not found in the witness", output.name()))
                                 };
                                 store.hydrate_ptr(ptr)?
                             } else {
                                 AquaPtr::dummy()
                             }
                         };
+                        let output_name = format!("{}.output[{}]", &path, i);
                         let alloc_ptr_expected = Self::allocate_input_ptr(
-                            cs,
+                            &mut cs.namespace(|| format!("allocate input for {}", &output_name)),
                             &aqua_ptr,
-                            &format!("{}.output {}", path.join("."), i),
+                            &output_name,
                         )?;
 
                         // If `concrete_path` is Some, then we constrain using "concrete implies ..." logic
                         if let Some(concrete_path) = concrete_path.clone() {
-                            let Ok(_) = Self::implies_ptr_equal(
-                                cs,
+                            let Ok(_) = alloc_ptr_computed.implies_ptr_equal(
+                                &mut cs.namespace(|| format!("enforce imply equal for {}", output_name)),
                                 &concrete_path,
-                                alloc_ptr_computed,
-                                format!("{}.computed output {}", path.join("."), i),
                                 &alloc_ptr_expected,
-                                format!("{}.expected output {}", path.join("."), i)
                             ) else {
                                 return Err("Failed to constrain implies_ptr_equal".to_string())
                             };
                         } else {
                             // If `concrete_path` is None, we just do regular constraining
-                            Self::enforce_equal_ptrs(
-                                cs,
-                                alloc_ptr_computed,
-                                format!("{}.computed output {}", path.concat(), i),
+                            alloc_ptr_computed.enforce_equal(
+                                &mut cs.namespace(|| format!("enforce equal for {}", output_name)),
                                 &alloc_ptr_expected,
-                                format!("{}.expected output {}", path.join(""), i),
                             );
                         }
                     }
