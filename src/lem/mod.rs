@@ -385,10 +385,10 @@ impl<'a, F: LurkField> LEM<'a, F> {
         ))
     }
 
-    fn allocate_input_ptr<CS: ConstraintSystem<F>>(
+    fn allocate_ptr<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         aqua_ptr: &AquaPtr<F>,
-        name: String,
+        name: &String,
     ) -> Result<AllocatedPtr<F>, String> {
         let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {}'s tag", name)), || {
             Ok(aqua_ptr.tag.field())
@@ -400,33 +400,22 @@ impl<'a, F: LurkField> LEM<'a, F> {
         }) else {
             return Err(format!("Couldn't allocate val for {}", name))
         };
-
-        let Ok(_) = alloc_tag.inputize(cs.namespace(|| format!("inputize tag for {}", name))) else {
-            return Err(format!("Couldn't inputize tag for {}", name))
-        };
-        let Ok(_) = alloc_val.inputize(cs.namespace(|| format!("inputize val for {}", name))) else {
-            return Err(format!("Couldn't inputize val for {}", name))
-        };
-
         Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_val))
     }
 
-    fn allocate_ptr<CS: ConstraintSystem<F>>(
+    fn allocate_input_ptr<CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        aqua_ptr: AquaPtr<F>,
-        name: &'a str,
+        aqua_ptr: &AquaPtr<F>,
+        name: &String,
     ) -> Result<AllocatedPtr<F>, String> {
-        let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {}'s tag", name)), || {
-            Ok(aqua_ptr.tag.field())
-        }) else {
-            return Err(format!("Couldn't allocate tag for {}", name))
+        let alloc_ptr = Self::allocate_ptr(cs, aqua_ptr, name)?;
+        let Ok(_) = alloc_ptr.tag().inputize(cs.namespace(|| format!("inputize tag for {}", name))) else {
+            return Err(format!("Couldn't inputize tag for {}", name))
         };
-        let Ok(alloc_val) = AllocatedNum::alloc(cs.namespace(|| format!("alloc {}'s val", name)), || {
-            Ok(aqua_ptr.val)
-        }) else {
-            return Err(format!("Couldn't allocate val for {}", name))
+        let Ok(_) = alloc_ptr.hash().inputize(cs.namespace(|| format!("inputize val for {}", name))) else {
+            return Err(format!("Couldn't inputize val for {}", name))
         };
-        Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_val))
+        Ok(alloc_ptr)
     }
 
     fn enforce_equal_ptrs<CS: ConstraintSystem<F>>(
@@ -450,9 +439,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
         );
     }
 
-    /*
-     * Enforce equality of a and b only if not dummy.
-     */
+    /// Enforce equality of two allocated numbers given an implication premise
     fn implies_equal<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         premise: &Boolean,
@@ -463,7 +450,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
             return Err("Could not constraint alloc_equal".to_string())
         };
         let Ok(_) = enforce_implication(
-            cs.namespace(|| "not dummy implies tag is equal"),
+            cs.namespace(|| "premise implies equality"),
             premise,
             &is_equal
         ) else {
@@ -472,9 +459,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
         Ok(())
     }
 
-    /*
-     * Enforce equality of pointers is not dummy.
-     */
+    /// Enforce equality of two allocated pointers given an implication premise
     fn implies_ptr_equal<CS: ConstraintSystem<F>>(
         cs: &mut CS,
         premise: &Boolean,
@@ -508,16 +493,14 @@ impl<'a, F: LurkField> LEM<'a, F> {
         }
     }
 
-    /*
-     * TODO: improve
-     * Create R1CS constraints for LEM.
-     * As we find new operations, we stack them to be constrained later.
-     * We use hash maps we manage viariables and pointers.
-     * This way we can reference allocated variables that were
-     * created previously.
-     * We have real paths and virtual paths, which are associated to `not_dummy` variables.
-     * Then we can constrain LEM using implications.
-     */
+    /// TODO: improve
+    /// Create R1CS constraints for LEM.
+    /// As we find new operations, we stack them to be constrained later.
+    /// We use hash maps we manage viariables and pointers.
+    /// This way we can reference allocated variables that were
+    /// created previously.
+    /// We have real paths and virtual paths.
+    /// Then we can constrain LEM using implications.
     pub fn constrain<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -537,7 +520,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 Self::allocate_input_ptr(
                     cs,
                     &store.hydrate_ptr(ptr)?,
-                    format!("input {}", self.input[0]),
+                    &format!("input {}", self.input[0]),
                 )?,
             );
         }
@@ -555,7 +538,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 Self::allocate_input_ptr(
                     cs,
                     &store.hydrate_ptr(ptr)?,
-                    format!("input {}", self.input[1]),
+                    &format!("input {}", self.input[1]),
                 )?,
             );
         }
@@ -573,7 +556,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                 Self::allocate_input_ptr(
                     cs,
                     &store.hydrate_ptr(ptr)?,
-                    format!("input {}", self.input[2]),
+                    &format!("input {}", self.input[2]),
                 )?,
             );
         }
@@ -581,6 +564,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
         // TODO: consider greating globals
         let zero = AllocatedNum::alloc(cs.namespace(|| "#zero"), || Ok(F::zero())).unwrap();
         let one = AllocatedNum::alloc(cs.namespace(|| "#one"), || Ok(F::one())).unwrap();
+        let mut alloc_tags: HashMap<&Tag, AllocatedNum<F>> = HashMap::default();
         let mut stack = vec![(&self.lem_op, None::<Boolean>, Vec::new())];
         while let Some((op, concrete_path, path)) = stack.pop() {
             match op {
@@ -598,16 +582,25 @@ impl<'a, F: LurkField> LEM<'a, F> {
                             AquaPtr::dummy()
                         }
                     };
-                    let alloc_tgt = Self::allocate_ptr(cs, aqua_ptr, tgt.name())?;
+                    let alloc_tgt = Self::allocate_ptr(cs, &aqua_ptr, &tgt.name().to_string())?;
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
-                    let Ok(alloc_tag) = AllocatedNum::alloc( // take from globals
-                        cs.namespace(|| format!("{}'s tag", tgt.name())),
-                        || Ok(tag.field()),
-                    ) else {
-                        return Err(format!("Couldn't allocate tag for {}", tgt.name()));
+                    let alloc_tag = {
+                        match alloc_tags.get(tag) {
+                            Some(alloc_tag) => alloc_tag.clone(),
+                            None => {
+                                let Ok(alloc_tag) = AllocatedNum::alloc(
+                                    cs.namespace(|| format!("Tag {:?}", tag)),
+                                    || Ok(tag.field()),
+                                ) else {
+                                    return Err(format!("Couldn't allocate tag for {}", tgt.name()));
+                                };
+                                alloc_tags.insert(tag, alloc_tag.clone());
+                                alloc_tag
+                            }
+                        }
                     };
 
-                    // If `concrete_path` is Some, then we constrain using "not dummy implies ..." logic
+                    // If `concrete_path` is Some, then we constrain using "concrete implies ..." logic
                     if let Some(concrete_path) = concrete_path {
                         Self::implies_equal(
                             &mut cs.namespace(|| format!("{:?}.tag_is_equal", path.join("."))),
@@ -671,12 +664,12 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         }
                     }
 
-                    // If `concrete_path` is Some, then we constrain using "not dummy implies ..." logic
+                    // If `concrete_path` is Some, then we constrain using "concrete implies ..." logic
                     if let Some(concrete_path) = concrete_path {
                         let Ok(_) = enforce_selector_with_premise(
                             &mut cs.namespace(|| {
                                 format!(
-                                    "{}.enforce exactly one selected (if not dummy, tag: {:?})",
+                                    "{}.enforce exactly one selected (if concrete, tag: {:?})",
                                     path.join("."),
                                     alloc_match_ptr.tag().get_value()
                                 )
@@ -684,7 +677,7 @@ impl<'a, F: LurkField> LEM<'a, F> {
                             &concrete_path,
                             &concrete_path_vec,
                         ) else {
-                            return Err("Failed to enforce selector if not dummy".to_string());
+                            return Err("Failed to enforce selector if concrete".to_string());
                         };
                     } else {
                         // If `concrete_path` is None, we just do regular constraining
@@ -724,10 +717,10 @@ impl<'a, F: LurkField> LEM<'a, F> {
                         let alloc_ptr_expected = Self::allocate_input_ptr(
                             cs,
                             &aqua_ptr,
-                            format!("{}.output {}", path.join("."), i),
+                            &format!("{}.output {}", path.join("."), i),
                         )?;
 
-                        // If `concrete_path` is Some, then we constrain using "not dummy implies ..." logic
+                        // If `concrete_path` is Some, then we constrain using "concrete implies ..." logic
                         if let Some(concrete_path) = concrete_path.clone() {
                             let Ok(_) = Self::implies_ptr_equal(
                                 cs,
@@ -766,7 +759,7 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     #[test]
-    fn accepts_dummy_nested_match_tag() {
+    fn accepts_virtual_nested_match_tag() {
         let input = ["expr_in", "env_in", "cont_in"];
         let lem_op = LEMOP::mk_match_tag(
             MetaPtr("expr_in"),
@@ -786,7 +779,7 @@ mod tests {
                     Tag::Char,
                     LEMOP::mk_match_tag(
                         // this nested match excercises the need to pass on the information
-                        // that we are on a dummy branch, because a constrain will
+                        // that we are on a virtual branch, because a constrain will
                         // be created for `cont_out_error` and it will need to be relaxed
                         // by an implication with a false premise
                         MetaPtr("expr_in"),
@@ -807,7 +800,7 @@ mod tests {
                     Tag::Sym,
                     LEMOP::mk_match_tag(
                         // this nested match exercises the need to relax `popcount`
-                        // because there is no match but it's on a dummy path, so
+                        // because there is no match but it's on a virtual path, so
                         // we don't want to be too restrictive
                         MetaPtr("expr_in"),
                         vec![(
