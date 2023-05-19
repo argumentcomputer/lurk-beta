@@ -1716,6 +1716,7 @@ dependencies = [
 [[package]]
 name = "neptune"
 version = "8.1.1"
+source = "git+https://github.com/winston-h-zhang/neptune.git?branch=hz/unsafe_serde#055d10c3cb43cff49144c7902e955677c144193c"
 dependencies = [
  "abomonation",
  "abomonation_derive",
@@ -1766,6 +1767,7 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 [[package]]
 name = "nova-snark"
 version = "0.19.0"
+source = "git+https://github.com/winston-h-zhang/Nova.git?branch=hz/unsafe_serde#3d9837390c40e7776e6c7494b82a8c9baf49be21"
 dependencies = [
  "abomonation",
  "abomonation_derive",
