@@ -136,7 +136,7 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
 
         let lang_rc = Arc::new(lang.clone());
         // Load params from disk cache, or generate them in the background.
-        thread::spawn(move || public_params(reduction_count, lang_rc));
+        thread::spawn(move || public_params(reduction_count, true, lang_rc));
 
         Self {
             repl_state: ReplState::new(s, limit, command, lang),
@@ -495,7 +495,7 @@ impl ClutchState<F, Coproc<F>> {
         let (proof_in_expr, _rest1) = store.car_cdr(&rest)?;
 
         let prover = NovaProver::<F, Coproc<F>>::new(self.reduction_count, (*self.lang()).clone());
-        let pp = public_params(self.reduction_count, self.lang())?;
+        let pp = public_params(self.reduction_count, true, self.lang())?;
 
         let proof = if rest.is_nil() {
             self.last_claim
@@ -556,7 +556,7 @@ impl ClutchState<F, Coproc<F>> {
             .get(&cid)
             .ok_or_else(|| anyhow!("proof not found: {cid}"))?;
 
-        let pp = public_params(self.reduction_count, self.lang())?;
+        let pp = public_params(self.reduction_count, true, self.lang())?;
         let result = proof.verify(&pp, &self.lang()).unwrap();
 
         if result.verified {

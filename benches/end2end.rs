@@ -56,7 +56,7 @@ fn end2end_benchmark(c: &mut Criterion) {
     let prover = NovaProver::new(reduction_count, lang_vesta);
 
     // use cached public params
-    let pp = public_parameters::public_params(reduction_count, lang_vesta_rc.clone()).unwrap();
+    let pp = public_parameters::public_params(reduction_count, true, lang_vesta_rc.clone()).unwrap();
 
     let size = (10, 0);
     let benchmark_id = BenchmarkId::new("end2end_go_base_nova", format!("_{}_{}", size.0, size.1));
@@ -248,7 +248,7 @@ fn prove_benchmark(c: &mut Criterion) {
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<pasta_curves::Fq>(&mut store, s.0, s.1);
         let prover = NovaProver::new(reduction_count, lang_vesta.clone());
-        let pp = public_parameters::public_params(reduction_count, lang_vesta_rc.clone()).unwrap();
+        let pp = public_parameters::public_params(reduction_count, true, lang_vesta_rc.clone()).unwrap();
         let frames = prover
             .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_vesta)
             .unwrap();
@@ -282,7 +282,7 @@ fn verify_benchmark(c: &mut Criterion) {
             let ptr = go_base(&mut store, s.0, s.1);
             let prover = NovaProver::new(reduction_count, lang_vesta.clone());
             let pp =
-                public_parameters::public_params(reduction_count, lang_vesta_rc.clone()).unwrap();
+                public_parameters::public_params(reduction_count, true, lang_vesta_rc.clone()).unwrap();
             let frames = prover
                 .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_vesta)
                 .unwrap();
@@ -324,7 +324,7 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
             let ptr = go_base(&mut store, s.0, s.1);
             let prover = NovaProver::new(reduction_count, lang_vesta.clone());
             let pp =
-                public_parameters::public_params(reduction_count, lang_vesta_rc.clone()).unwrap();
+                public_parameters::public_params(reduction_count, true, lang_vesta_rc.clone()).unwrap();
             let frames = prover
                 .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_vesta)
                 .unwrap();
