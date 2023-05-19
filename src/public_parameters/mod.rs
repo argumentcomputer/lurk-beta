@@ -78,10 +78,11 @@ pub fn committed_expression_store() -> CommittedExpressionMap {
 
 pub fn public_params<C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static>(
     rc: usize,
+    quick: bool,
     lang: Arc<Lang<S1, C>>,
 ) -> Result<Arc<PublicParams<'static, C>>, Error> {
     let f = |lang: Arc<Lang<S1, C>>| Arc::new(nova::public_params(rc, lang));
-    registry::CACHE_REG.get_coprocessor_or_update_with(rc, f, lang)
+    registry::CACHE_REG.get_coprocessor_or_update_with(rc, quick, f, lang)
 }
 
 // Number of circuit reductions per step, equivalent to `chunk_frame_count`

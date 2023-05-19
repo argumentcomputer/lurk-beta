@@ -2,6 +2,7 @@
 
 use std::marker::PhantomData;
 
+use abomonation::Abomonation;
 use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 use nova::{
@@ -60,11 +61,35 @@ pub type C2 = TrivialTestCircuit<<G2 as Group>::Scalar>;
 pub type NovaPublicParams<'a, C> = nova::PublicParams<G1, G2, C1<'a, C>, C2>;
 
 /// A struct that contains public parameters for the Nova proving system.
-#[derive(Serialize, Deserialize)]
-pub struct PublicParams<'a, C: Coprocessor<S1>> {
-    pp: NovaPublicParams<'a, C>,
-    pk: ProverKey<G1, G2, C1<'a, C>, C2, SS1, SS2>,
-    vk: VerifierKey<G1, G2, C1<'a, C>, C2, SS1, SS2>,
+#[derive(Clone, Serialize, Deserialize)]
+pub struct PublicParams<'c, C: Coprocessor<S1>> {
+    pp: NovaPublicParams<'c, C>,
+    pk: ProverKey<G1, G2, C1<'c, C>, C2, SS1, SS2>,
+    vk: VerifierKey<G1, G2, C1<'c, C>, C2, SS1, SS2>,
+}
+
+impl<'c, C: Coprocessor<S1>> Abomonation for PublicParams<'c, C> {
+    unsafe fn entomb<W: std::io::Write>(&self, bytes: &mut W) -> std::io::Result<()> { 
+        self.pp.entomb(bytes)?;
+        self.pk.entomb(bytes)?;
+        self.vk.entomb(bytes)?;
+        Ok(()) 
+    }
+
+    unsafe fn exhume<'a,'b>(&'a mut self, mut bytes: &'b mut [u8]) -> Option<&'b mut [u8]> {
+        let temp = bytes; bytes = self.pp.exhume(temp)?;
+        let temp = bytes; bytes = self.pk.exhume(temp)?;
+        let temp = bytes; bytes = self.vk.exhume(temp)?;
+        Some(bytes)
+    }
+
+    fn extent(&self) -> usize {
+        let mut size = 0;
+        size += self.pp.extent();
+        size += self.pk.extent();
+        size += self.vk.extent();
+        size
+    }
 }
 
 /// An enum representing the two types of proofs that can be generated and verified.
