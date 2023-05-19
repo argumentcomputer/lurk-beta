@@ -1,7 +1,7 @@
 use serde::{ser, Serialize};
 
-use crate::z_data::ZData;
 use crate::z_data::serde::SerdeError;
+use crate::z_data::ZData;
 
 pub fn to_z_data<T>(value: T) -> Result<ZData, SerdeError>
 where
@@ -279,10 +279,10 @@ impl<'a> ser::Serializer for &'a Serializer {
         })
     }
 
-  #[inline]
-  fn is_human_readable(&self) -> bool {
-    false
-  }
+    #[inline]
+    fn is_human_readable(&self) -> bool {
+        false
+    }
 }
 
 impl ser::SerializeSeq for SerializeCell {
@@ -431,45 +431,49 @@ impl<'a> ser::SerializeStructVariant for StructSerializer<'a> {
 
 #[cfg(test)]
 mod tests {
-  //use super::*;
+    //use super::*;
 
-  use crate::tag::{ExprTag, ContTag};
-  use crate::z_expr::ZExpr;
-  use crate::z_cont::ZCont;
-  use crate::z_ptr::{ZExprPtr, ZContPtr};
+    use crate::tag::{ContTag, ExprTag};
     use crate::tag::{Op1, Op2};
     use crate::uint::UInt;
-  use crate::z_store::ZStore;
+    use crate::z_cont::ZCont;
+    use crate::z_data::to_z_data;
+    use crate::z_data::Encodable;
+    use crate::z_expr::ZExpr;
+    use crate::z_ptr::{ZContPtr, ZExprPtr};
+    use crate::z_store::ZStore;
     use pasta_curves::pallas::Scalar;
-  use crate::z_data::to_z_data;
-  use crate::z_data::Encodable;
 
     #[test]
     fn ser_z_expr() {
-      let test_zexpr = |ze: ZExpr<Scalar>| {
-	let zd = to_z_data(ze).unwrap();
-	println!("ZData: {:?}", zd);
-	//assert_eq!(ze.ser(), zd);
-      };
+        let test_zexpr = |ze: ZExpr<Scalar>| {
+            let zd = to_z_data(ze).unwrap();
+            println!("ZData: {:?}", zd);
+            //assert_eq!(ze.ser(), zd);
+        };
         let f = Scalar::one();
         let zp = ZExprPtr::from_parts(ExprTag::Sym, f);
         assert_eq!(zp.ser(), to_z_data(zp).unwrap());
         let zc = ZContPtr::from_parts(ContTag::Lookup, f);
         assert_eq!(zc.ser(), to_z_data(zc).unwrap());
 
-      test_zexpr(ZExpr::Nil);
-      test_zexpr(ZExpr::Cons(zp, zp));
-      test_zexpr(ZExpr::Comm(f, zp));
-      test_zexpr(ZExpr::SymNil);
-      test_zexpr(ZExpr::SymCons(zp, zp));
-      test_zexpr(ZExpr::Key(zp));
-      test_zexpr(ZExpr::Fun{arg: zp, body: zp, closed_env: zp});
-      test_zexpr(ZExpr::Num(f));
-      test_zexpr(ZExpr::StrNil);
-      test_zexpr(ZExpr::StrCons(zp, zp));
-      test_zexpr(ZExpr::Thunk(zp, zc));
-      test_zexpr(ZExpr::Char('a'));
-      test_zexpr(ZExpr::Uint(UInt::U64(0)));
+        test_zexpr(ZExpr::Nil);
+        test_zexpr(ZExpr::Cons(zp, zp));
+        test_zexpr(ZExpr::Comm(f, zp));
+        test_zexpr(ZExpr::SymNil);
+        test_zexpr(ZExpr::SymCons(zp, zp));
+        test_zexpr(ZExpr::Key(zp));
+        test_zexpr(ZExpr::Fun {
+            arg: zp,
+            body: zp,
+            closed_env: zp,
+        });
+        test_zexpr(ZExpr::Num(f));
+        test_zexpr(ZExpr::StrNil);
+        test_zexpr(ZExpr::StrCons(zp, zp));
+        test_zexpr(ZExpr::Thunk(zp, zc));
+        test_zexpr(ZExpr::Char('a'));
+        test_zexpr(ZExpr::Uint(UInt::U64(0)));
 
         let zs: ZStore<Scalar> = ZStore::new();
         assert_eq!(zs.ser(), to_z_data(zs).unwrap());
@@ -477,73 +481,71 @@ mod tests {
 
     #[test]
     fn ser_z_cont() {
-      let test_zcont = |zc: ZCont<Scalar>| {
-	assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-      };
+        let test_zcont = |zc: ZCont<Scalar>| {
+            assert_eq!(zc.ser(), to_z_data(zc).unwrap());
+        };
         let f = Scalar::one();
         let ze = ZExprPtr::from_parts(ExprTag::Nil, f);
         let zp = ZContPtr::from_parts(ContTag::Outermost, f);
         assert_eq!(zp.ser(), to_z_data(zp).unwrap());
 
-      test_zcont(ZCont::Outermost);
-      test_zcont(ZCont::Call0 {
+        test_zcont(ZCont::Outermost);
+        test_zcont(ZCont::Call0 {
             saved_env: ze,
             continuation: zp,
-      });
-      test_zcont(ZCont::Call {
+        });
+        test_zcont(ZCont::Call {
             unevaled_arg: ze,
             saved_env: ze,
             continuation: zp,
-      });
-      test_zcont(ZCont::Call2 {
+        });
+        test_zcont(ZCont::Call2 {
             function: ze,
             saved_env: ze,
             continuation: zp,
-      });
-      test_zcont(ZCont::Tail {
+        });
+        test_zcont(ZCont::Tail {
             saved_env: ze,
             continuation: zp,
-      });
-      test_zcont(ZCont::Error);
-      test_zcont(ZCont::Lookup {
+        });
+        test_zcont(ZCont::Error);
+        test_zcont(ZCont::Lookup {
             saved_env: ze,
             continuation: zp,
-      });
-      test_zcont(ZCont::Unop {
+        });
+        test_zcont(ZCont::Unop {
             operator: Op1::Car,
             continuation: zp,
-      });
-      test_zcont(ZCont::Binop {
+        });
+        test_zcont(ZCont::Binop {
             operator: Op2::Sum,
             saved_env: ze,
             unevaled_args: ze,
             continuation: zp,
-      });
-      test_zcont(ZCont::Binop2 {
+        });
+        test_zcont(ZCont::Binop2 {
             operator: Op2::Sum,
             evaled_arg: ze,
             continuation: zp,
-      });
-      test_zcont(ZCont::If {
+        });
+        test_zcont(ZCont::If {
             unevaled_args: ze,
             continuation: zp,
-      });
-      test_zcont(ZCont::Let {
+        });
+        test_zcont(ZCont::Let {
             var: ze,
             body: ze,
             saved_env: ze,
             continuation: zp,
-      });
-      test_zcont(ZCont::LetRec {
+        });
+        test_zcont(ZCont::LetRec {
             var: ze,
             body: ze,
             saved_env: ze,
             continuation: zp,
-      });
-      test_zcont(ZCont::Emit {
-            continuation: zp,
-      });
-      test_zcont(ZCont::Dummy);
-      test_zcont(ZCont::Terminal);
+        });
+        test_zcont(ZCont::Emit { continuation: zp });
+        test_zcont(ZCont::Dummy);
+        test_zcont(ZCont::Terminal);
     }
 }

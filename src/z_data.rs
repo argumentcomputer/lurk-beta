@@ -24,11 +24,11 @@ use nom::multi::count;
 use nom::Finish;
 use nom::IResult;
 
-pub mod z_expr;
+mod serde;
 pub mod z_cont;
+pub mod z_expr;
 pub mod z_ptr;
 pub mod z_store;
-mod serde;
 
 pub use self::serde::to_z_data;
 
@@ -224,7 +224,6 @@ impl ZData {
         Ok((i, res))
     }
 }
-
 
 /// A trait for types that can be serialized and deserialized using `ZData`.
 pub trait Encodable {

@@ -274,7 +274,6 @@ impl<F: LurkField> Ord for FWrap<F> {
 //    }
 //}
 
-
 impl<F: LurkField> Serialize for FWrap<F> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
