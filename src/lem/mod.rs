@@ -156,18 +156,22 @@ impl<F: LurkField> LEMOP<F> {
         match self {
             Self::MkNull(ptr, tag) => {
                 let new_name = format!("{}.{}", path, ptr.name());
-                dmap.insert(ptr.name().clone(), new_name.clone());
+                if dmap.insert(ptr.name().clone(), new_name.clone()).is_some() {
+                    return Err(format!("{} already defined", ptr.name()));
+                };
                 Ok(Self::MkNull(MetaPtr(new_name), *tag))
             }
             Self::Hash2Ptrs(tgt, tag, src) => {
                 let Some(src0_path) = dmap.get(src[0].name()) else {
-                    return Err("TODO".to_string());
+                    return Err(format!("{} not defined", src[0].name()));
                 };
                 let Some(src1_path) = dmap.get(src[1].name()) else {
-                    return Err("TODO".to_string());
+                    return Err(format!("{} not defined", src[1].name()));
                 };
                 let new_name = format!("{}/{}", path, tgt.name());
-                dmap.insert(tgt.name().clone(), new_name.clone());
+                if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
+                    return Err(format!("{} already defined", tgt.name()));
+                };
                 Ok(Self::Hash2Ptrs(
                     MetaPtr(new_name),
                     *tag,
@@ -176,16 +180,18 @@ impl<F: LurkField> LEMOP<F> {
             }
             Self::Hash3Ptrs(tgt, tag, src) => {
                 let Some(src0_path) = dmap.get(src[0].name()) else {
-                    return Err("TODO".to_string());
+                    return Err(format!("{} not defined", src[0].name()));
                 };
                 let Some(src1_path) = dmap.get(src[1].name()) else {
-                    return Err("TODO".to_string());
+                    return Err(format!("{} not defined", src[1].name()));
                 };
                 let Some(src2_path) = dmap.get(src[2].name()) else {
-                    return Err("TODO".to_string());
+                    return Err(format!("{} not defined", src[2].name()));
                 };
                 let new_name = format!("{}/{}", path, tgt.name());
-                dmap.insert(tgt.name().clone(), new_name.clone());
+                if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
+                    return Err(format!("{} already defined", tgt.name()));
+                };
                 Ok(Self::Hash3Ptrs(
                     MetaPtr(new_name),
                     *tag,
@@ -198,19 +204,21 @@ impl<F: LurkField> LEMOP<F> {
             }
             Self::Hash4Ptrs(tgt, tag, src) => {
                 let Some(src0_path) = dmap.get(src[0].name()) else {
-                    return Err("TODO".to_string());
+                    return Err(format!("{} not defined", src[0].name()));
                 };
                 let Some(src1_path) = dmap.get(src[1].name()) else {
-                    return Err("TODO".to_string());
+                    return Err(format!("{} not defined", src[1].name()));
                 };
                 let Some(src2_path) = dmap.get(src[2].name()) else {
-                    return Err("TODO".to_string());
+                    return Err(format!("{} not defined", src[2].name()));
                 };
                 let Some(src3_path) = dmap.get(src[3].name()) else {
-                    return Err("TODO".to_string());
+                    return Err(format!("{} not defined", src[3].name()));
                 };
                 let new_name = format!("{}/{}", path, tgt.name());
-                dmap.insert(tgt.name().clone(), new_name.clone());
+                if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
+                    return Err(format!("{} already defined", tgt.name()));
+                };
                 Ok(Self::Hash4Ptrs(
                     MetaPtr(new_name),
                     *tag,
@@ -224,7 +232,7 @@ impl<F: LurkField> LEMOP<F> {
             }
             LEMOP::MatchTag(ptr, cases) => {
                 let Some(ptr_path) = dmap.get(ptr.name()) else {
-                    return Err("TODOd".to_string());
+                    return Err(format!("{} not defined", ptr.name()));
                 };
                 let mut new_cases = vec![];
                 for (tag, case) in cases.iter() {
@@ -246,13 +254,13 @@ impl<F: LurkField> LEMOP<F> {
             }
             LEMOP::SetReturn(o) => {
                 let Some(o0) = dmap.get(o[0].name()) else {
-                    return Err("TODOa".to_string());
+                    return Err(format!("{} not defined", o[0].name()));
                 };
                 let Some(o1) = dmap.get(o[1].name()) else {
-                    return Err("TODOb".to_string());
+                    return Err(format!("{} not defined", o[1].name()));
                 };
                 let Some(o2) = dmap.get(o[2].name()) else {
-                    return Err("TODOc".to_string());
+                    return Err(format!("{} not defined", o[2].name()));
                 };
                 Ok(LEMOP::SetReturn([
                     MetaPtr(o0.clone()),
@@ -594,7 +602,7 @@ impl<F: LurkField> LEM<F> {
             None => Ok(true),
             Some(concrete_path) => match concrete_path.get_value() {
                 Some(b) => Ok(b),
-                None => Err("TODO".to_string()),
+                None => Err("Couldn't check whether we're on a concrete path".to_string()),
             },
         }
     }
@@ -681,7 +689,7 @@ impl<F: LurkField> LEM<F> {
                     let aqua_ptr = {
                         if Self::on_concrete_path(&concrete_path)? {
                             let Some(ptr) = witness.ptrs.get(tgt.name()) else {
-                                return Err("TODO".to_string());
+                                return Err(format!("Couldn't retrieve witness {}", tgt.name()));
                             };
                             store.hydrate_ptr(ptr)?
                         } else {
