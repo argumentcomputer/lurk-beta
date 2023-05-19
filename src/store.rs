@@ -29,7 +29,7 @@ pub enum HashScalar {
 
 type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
 
-#[derive(Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct StringSet(
     pub  string_interner::StringInterner<
         string_interner::backend::BufferBackend<SymbolUsize>,
@@ -50,7 +50,7 @@ impl StringSet {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Store<F: LurkField> {
     pub cons_store: IndexSet<(Ptr<F>, Ptr<F>)>,
     pub comm_store: IndexSet<(FWrap<F>, Ptr<F>)>,

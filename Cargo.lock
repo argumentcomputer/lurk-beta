@@ -3,6 +3,23 @@
 version = 3
 
 [[package]]
+name = "abomonation"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56e72913c99b1f927aa7bd59a41518fdd9995f63ffc8760f211609e0241c4fb2"
+
+[[package]]
+name = "abomonation_derive"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e50e2a046af56a864c62d97b7153fda72c596e646be1b0c7963736821f6e1efa"
+dependencies = [
+ "proc-macro2 1.0.56",
+ "quote 1.0.26",
+ "synstructure",
+]
+
+[[package]]
 name = "addchain"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1458,6 +1475,8 @@ dependencies = [
 name = "lurk"
 version = "0.2.0"
 dependencies = [
+ "abomonation",
+ "abomonation_derive",
  "ahash 0.7.6",
  "anyhow",
  "anymap",
@@ -1697,9 +1716,9 @@ dependencies = [
 [[package]]
 name = "neptune"
 version = "8.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d47b29bc49c7d957eb446e298f96cd7088829e2d7a549ab04b36bc82434e27b"
 dependencies = [
+ "abomonation",
+ "abomonation_derive",
  "bellperson",
  "blake2s_simd 0.5.11",
  "blstrs",
@@ -1746,10 +1765,10 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 
 [[package]]
 name = "nova-snark"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b027edd6db7d0e0c60027750f82d9a33893b5e074ca419ec26cc931a91fc404c"
+version = "0.19.0"
 dependencies = [
+ "abomonation",
+ "abomonation_derive",
  "bellperson",
  "bincode",
  "bitvec",

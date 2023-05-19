@@ -32,7 +32,7 @@ pub enum HashConst<'a, F: LurkField> {
 }
 
 /// Holds the constants needed for poseidon hashing.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct HashConstants<F: LurkField> {
     c3: OnceCell<PoseidonConstants<F, U3>>,
     c4: OnceCell<PoseidonConstants<F, U4>>,
@@ -78,7 +78,7 @@ impl<F: LurkField> HashConstants<F> {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct PoseidonCache<F: LurkField> {
     a3: dashmap::DashMap<CacheKey<F, 3>, F, ahash::RandomState>,
     a4: dashmap::DashMap<CacheKey<F, 4>, F, ahash::RandomState>,
