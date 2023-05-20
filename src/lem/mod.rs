@@ -759,12 +759,13 @@ impl<F: LurkField> LEM<F> {
                         .map(|op| (op, concrete_path.clone(), path.clone())),
                 ),
                 LEMOP::SetReturn(outputs) => {
+                    let is_concrete_path = Self::on_concrete_path(&concrete_path)?; 
                     for (i, output) in outputs.iter().enumerate() {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {
                             return Err(format!("Output {} not allocated", output.name()))
                         };
                         let aqua_ptr = {
-                            if Self::on_concrete_path(&concrete_path)? {
+                            if is_concrete_path {
                                 let Some(ptr) = witness.ptrs.get(output.name()) else {
                                     return Err(format!("Output {} not found in the witness", output.name()))
                                 };
