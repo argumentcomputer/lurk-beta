@@ -2,6 +2,16 @@ use crate::field::*;
 
 use super::{lurk_symbol::LurkSymbol, tag::Tag};
 
+/// `Ptr` is the main piece of data LEMs operate on. We can think of a pointer
+/// as a building block for trees that represent Lurk data. A pointer can be a
+/// leaf that contains data encoded as an element of a `LurkField` or it can have
+/// children. For performance, the children of a pointer are stored on an
+/// `IndexMap` and the resulding index is carried by the pointer itself.
+/// 
+/// Finally, a pointer also has a tag, which says what kind of data it encodes.
+/// Note that, in theory, the tag would be enough to tell how many children a
+/// pointer has. But to simplify the implementation (and probably speed up
+/// hydration), we express the number of children in the pointer's enum.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Ptr<F: LurkField> {
     Leaf(Tag, F),
@@ -31,13 +41,11 @@ impl<F: LurkField> Ptr<F> {
         }
     }
 
-    pub fn key_ptr_if_sym_ptr(self) -> Self {
+    pub fn sym_to_key(self) -> Self {
         match self {
             Ptr::Leaf(Tag::Sym, f) => Ptr::Leaf(Tag::Key, f),
             Ptr::Tree2(Tag::Sym, x) => Ptr::Tree2(Tag::Key, x),
-            Ptr::Tree3(Tag::Sym, x) => Ptr::Tree3(Tag::Key, x),
-            Ptr::Tree4(Tag::Sym, x) => Ptr::Tree4(Tag::Key, x),
-            _ => panic!("No Tag::Sym"),
+            _ => panic!("Malformed sym pointer"),
         }
     }
 
@@ -91,10 +99,27 @@ impl<F: LurkField> Ptr<F> {
     }
 }
 
+/// An `AquaPtr` is the result of "hydrating" a `Ptr`. This process is better
+/// explained in the store but, in short, we want to know the Poseidon hash of
+/// the children of a `Ptr`.
+/// 
+/// `AquaPtr`s are used mainly for proofs, but they're also useful when we want
+/// to content-address a store.
+/// 
+/// An important note is that computing the respective `AquaPtr` of a `Ptr` can
+/// be expensive because of the Poseidon hashes. That's why we operate on `Ptr`s
+/// when interpreting LEMs and delay the need for `AquaPtr`s as much as possible.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct AquaPtr<F: LurkField> {
     pub tag: Tag,
     pub val: F,
+}
+
+pub enum AquaPtrKind<F: LurkField> {
+    Tree2(AquaPtr<F>, AquaPtr<F>),
+    Tree3(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>),
+    Tree4(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>, AquaPtr<F>),
+    Comm(F, AquaPtr<F>), // secret, src
 }
 
 impl<F: LurkField> AquaPtr<F> {
@@ -112,11 +137,4 @@ impl<F: LurkField> std::hash::Hash for AquaPtr<F> {
         self.tag.hash(state);
         self.val.to_repr().as_ref().hash(state);
     }
-}
-
-pub enum AquaPtrKind<F: LurkField> {
-    Tree2(AquaPtr<F>, AquaPtr<F>),
-    Tree3(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>),
-    Tree4(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>, AquaPtr<F>),
-    Comm(F, AquaPtr<F>), // secret, src
 }

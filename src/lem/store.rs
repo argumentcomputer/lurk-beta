@@ -43,6 +43,11 @@ impl<F: LurkField> Store<F> {
         ptr
     }
 
+    #[inline]
+    pub fn index_2_ptrs_not_dehydrated(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
+        Ptr::Tree2(tag, self.ptrs2.insert_full((a, b)).0)
+    }
+
     pub fn index_3_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>) -> Ptr<F> {
         let (idx, inserted) = self.ptrs3.insert_full((a, b, c));
         let ptr = Ptr::Tree3(tag, idx);
@@ -52,6 +57,11 @@ impl<F: LurkField> Store<F> {
         ptr
     }
 
+    #[inline]
+    pub fn index_3_ptrs_not_dehydrated(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>) -> Ptr<F> {
+        Ptr::Tree3(tag, self.ptrs3.insert_full((a, b, c)).0)
+    }
+
     pub fn index_4_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>, d: Ptr<F>) -> Ptr<F> {
         let (idx, inserted) = self.ptrs4.insert_full((a, b, c, d));
         let ptr = Ptr::Tree4(tag, idx);
@@ -59,6 +69,11 @@ impl<F: LurkField> Store<F> {
             self.dehydrated.push(ptr);
         }
         ptr
+    }
+
+    #[inline]
+    pub fn index_4_ptrs_not_dehydrated(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>, d: Ptr<F>) -> Ptr<F> {
+        Ptr::Tree4(tag, self.ptrs4.insert_full((a, b, c, d)).0)
     }
 
     #[inline]
@@ -135,7 +150,7 @@ impl<F: LurkField> Store<F> {
     pub fn index_symbol(&mut self, s: Symbol) -> Ptr<F> {
         match s {
             Symbol::Sym(path) => self.index_symbol_path(path),
-            Symbol::Key(path) => self.index_symbol_path(path).key_ptr_if_sym_ptr(),
+            Symbol::Key(path) => self.index_symbol_path(path).sym_to_key(),
         }
     }
 

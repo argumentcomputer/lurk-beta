@@ -9,7 +9,10 @@ use std::collections::HashMap;
 
 use crate::{
     circuit::gadgets::{
-        constraints::{and, implies_equal},
+        constraints::{
+            alloc_equal_const, and, enforce_equal, enforce_selector_with_premise, implies_equal,
+            popcount,
+        },
         pointer::AllocatedPtr,
     },
     field::{FWrap, LurkField},
@@ -22,13 +25,10 @@ use self::{
     tag::Tag,
 };
 
-use crate::circuit::gadgets::constraints::enforce_equal;
-use crate::circuit::gadgets::constraints::{
-    alloc_equal_const, enforce_selector_with_premise, popcount,
+use bellperson::{
+    gadgets::{boolean::Boolean, num::AllocatedNum},
+    ConstraintSystem,
 };
-use bellperson::gadgets::boolean::Boolean;
-use bellperson::gadgets::num::AllocatedNum;
-use bellperson::ConstraintSystem;
 use dashmap::DashMap;
 
 /// ## Lurk Evaluation Model (LEM)
@@ -568,14 +568,11 @@ impl<F: LurkField> LEM<F> {
         // TODO: consider creating `initialize` function
         // allocate first input
         {
-            let Some(ptr) = witness.ptrs.get(&self.input[0]) else {
-                return Err("Could not find first input".to_string())
-            };
             alloc_ptrs.insert(
                 &self.input[0],
                 Self::allocate_input_ptr(
                     &mut cs.namespace(|| format!("allocate input {}", self.input[0])),
-                    &store.hydrate_ptr(ptr)?,
+                    &store.hydrate_ptr(&witness.input[0])?,
                     &self.input[0],
                 )?,
             );
@@ -586,14 +583,11 @@ impl<F: LurkField> LEM<F> {
             if alloc_ptrs.contains_key(&self.input[1]) {
                 return Err(format!("{} already allocated", self.input[1]));
             }
-            let Some(ptr) = witness.ptrs.get(&self.input[1]) else {
-                return Err("Could not find second input".to_string())
-            };
             alloc_ptrs.insert(
                 &self.input[1],
                 Self::allocate_input_ptr(
                     &mut cs.namespace(|| format!("allocate input {}", self.input[1])),
-                    &store.hydrate_ptr(ptr)?,
+                    &store.hydrate_ptr(&witness.input[1])?,
                     &self.input[1],
                 )?,
             );
@@ -604,14 +598,11 @@ impl<F: LurkField> LEM<F> {
             if alloc_ptrs.contains_key(&self.input[2]) {
                 return Err(format!("{} already allocated", self.input[2]));
             }
-            let Some(ptr) = witness.ptrs.get(&self.input[2]) else {
-                return Err("Could not find third input".to_string())
-            };
             alloc_ptrs.insert(
                 &self.input[2],
                 Self::allocate_input_ptr(
                     &mut cs.namespace(|| format!("allocate input {}", self.input[2])),
-                    &store.hydrate_ptr(ptr)?,
+                    &store.hydrate_ptr(&witness.input[2])?,
                     &self.input[2],
                 )?,
             );
@@ -759,7 +750,7 @@ impl<F: LurkField> LEM<F> {
                         .map(|op| (op, concrete_path.clone(), path.clone())),
                 ),
                 LEMOP::SetReturn(outputs) => {
-                    let is_concrete_path = Self::on_concrete_path(&concrete_path)?; 
+                    let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
                     for (i, output) in outputs.iter().enumerate() {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {
                             return Err(format!("Output {} not allocated", output.name()))
