@@ -71,7 +71,7 @@ impl<F: LurkField> Ptr<F> {
 
     #[inline]
     pub fn lurk_sym(sym: &LurkSymbol) -> Self {
-        Ptr::Leaf(Tag::LurkSym, sym.field())
+        Ptr::Leaf(Tag::LurkSymbol, sym.field())
     }
 
     #[inline]

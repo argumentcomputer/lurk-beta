@@ -5,7 +5,7 @@ use crate::field::LurkField;
 #[derive(Clone, Copy, PartialEq, Debug, PartialOrd, Ord, Eq, Hash)]
 pub enum Tag {
     Dummy,
-    LurkSym,
+    LurkSymbol,
     Num,
     U64,
     Char,
@@ -31,7 +31,7 @@ impl Display for Tag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Tag::Dummy => write!(f, "Dummy"),
-            Tag::LurkSym => write!(f, "LurkSym"),
+            Tag::LurkSymbol => write!(f, "LurkSymbol"),
             Tag::Char => write!(f, "Char"),
             Tag::Num => write!(f, "Num"),
             Tag::Sym => write!(f, "Sym"),
