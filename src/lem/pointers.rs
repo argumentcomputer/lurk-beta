@@ -7,7 +7,7 @@ use super::{lurk_symbol::LurkSymbol, tag::Tag};
 /// leaf that contains data encoded as an element of a `LurkField` or it can have
 /// children. For performance, the children of a pointer are stored on an
 /// `IndexMap` and the resulding index is carried by the pointer itself.
-/// 
+///
 /// Finally, a pointer also has a tag, which says what kind of data it encodes.
 /// Note that, in theory, the tag would be enough to tell how many children a
 /// pointer has. But to simplify the implementation (and probably speed up
@@ -102,10 +102,10 @@ impl<F: LurkField> Ptr<F> {
 /// An `AquaPtr` is the result of "hydrating" a `Ptr`. This process is better
 /// explained in the store but, in short, we want to know the Poseidon hash of
 /// the children of a `Ptr`.
-/// 
+///
 /// `AquaPtr`s are used mainly for proofs, but they're also useful when we want
 /// to content-address a store.
-/// 
+///
 /// An important note is that computing the respective `AquaPtr` of a `Ptr` can
 /// be expensive because of the Poseidon hashes. That's why we operate on `Ptr`s
 /// when interpreting LEMs and delay the need for `AquaPtr`s as much as possible.

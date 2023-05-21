@@ -238,7 +238,7 @@ impl<F: LurkField> LEMOP<F> {
                     return Err(format!("{} not defined", ptr.name()));
                 };
                 let mut new_cases = vec![];
-                for (tag, case) in cases.iter() {
+                for (tag, case) in cases {
                     // each case needs it's own clone of `dmap`
                     let new_case = case.deconflict(format!("{}.{}", &path, &tag), &dmap.clone())?;
                     new_cases.push((*tag, new_case));
@@ -250,7 +250,7 @@ impl<F: LurkField> LEMOP<F> {
             }
             LEMOP::Seq(ops) => {
                 let mut new_ops = vec![];
-                for op in ops.iter() {
+                for op in ops {
                     new_ops.push(op.deconflict(path.clone(), dmap)?);
                 }
                 Ok(LEMOP::Seq(new_ops))
@@ -453,6 +453,9 @@ impl<F: LurkField> LEM<F> {
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
                 LEMOP::SetReturn(o) => {
+                    if output.is_some() {
+                        return Err("Tried to return twice".to_string());
+                    }
                     output = Some([
                         o[0].get_ptr(&ptrs)?,
                         o[1].get_ptr(&ptrs)?,
@@ -472,15 +475,14 @@ impl<F: LurkField> LEM<F> {
         })
     }
 
-    pub fn eval(&self, expr: Ptr<F>) -> Result<(Vec<Witness<F>>, Store<F>), String> {
+    pub fn eval(&self, expr: Ptr<F>, store: &mut Store<F>) -> Result<Vec<Witness<F>>, String> {
         let mut expr = expr;
         let mut env = Ptr::lurk_sym(&LurkSymbol::Nil);
         let mut cont = Ptr::null(Tag::Outermost);
         let mut witnesses = vec![];
-        let mut store: Store<F> = Default::default();
         let terminal = Ptr::null(Tag::Terminal);
         loop {
-            let w = self.run([expr, env, cont], &mut store)?;
+            let w = self.run([expr, env, cont], store)?;
             witnesses.push(w.clone());
             if w.output[2] == terminal {
                 break;
@@ -488,18 +490,7 @@ impl<F: LurkField> LEM<F> {
                 [expr, env, cont] = w.output;
             }
         }
-        Ok((witnesses, store))
-    }
-
-    pub fn eval_res(&self, expr: Ptr<F>) -> Result<(Ptr<F>, Store<F>), String> {
-        let (witnesses, store) = self.eval(expr)?;
-        Ok((
-            witnesses
-                .last()
-                .expect("eval should add at least one step data")
-                .output[0],
-            store,
-        ))
+        Ok(witnesses)
     }
 
     fn allocate_ptr<CS: ConstraintSystem<F>>(
@@ -520,23 +511,18 @@ impl<F: LurkField> LEM<F> {
         Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_val))
     }
 
-    fn allocate_input_ptr<CS: ConstraintSystem<F>>(
+    fn inputize_ptr<CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        aqua_ptr: &AquaPtr<F>,
+        alloc_ptr: &AllocatedPtr<F>,
         name: &String,
-    ) -> Result<AllocatedPtr<F>, String> {
-        let alloc_ptr = Self::allocate_ptr(
-            &mut cs.namespace(|| format!("allocate pointer {}", name)),
-            aqua_ptr,
-            name,
-        )?;
+    ) -> Result<(), String> {
         let Ok(_) = alloc_ptr.tag().inputize(cs.namespace(|| format!("inputize {}'s tag", name))) else {
             return Err(format!("Couldn't inputize tag for {}", name))
         };
         let Ok(_) = alloc_ptr.hash().inputize(cs.namespace(|| format!("inputize {}'s val", name))) else {
             return Err(format!("Couldn't inputize val for {}", name))
         };
-        Ok(alloc_ptr)
+        Ok(())
     }
 
     fn on_concrete_path(concrete_path: &Option<Boolean>) -> Result<bool, String> {
@@ -568,14 +554,13 @@ impl<F: LurkField> LEM<F> {
         // TODO: consider creating `initialize` function
         // allocate first input
         {
-            alloc_ptrs.insert(
+            let alloc_ptr = Self::allocate_ptr(
+                &mut cs.namespace(|| format!("allocate input {}", self.input[0])),
+                &store.hydrate_ptr(&witness.input[0])?,
                 &self.input[0],
-                Self::allocate_input_ptr(
-                    &mut cs.namespace(|| format!("allocate input {}", self.input[0])),
-                    &store.hydrate_ptr(&witness.input[0])?,
-                    &self.input[0],
-                )?,
-            );
+            )?;
+            alloc_ptrs.insert(&self.input[0], alloc_ptr.clone());
+            Self::inputize_ptr(cs, &alloc_ptr, &self.input[0])?;
         }
 
         // allocate second input
@@ -583,14 +568,13 @@ impl<F: LurkField> LEM<F> {
             if alloc_ptrs.contains_key(&self.input[1]) {
                 return Err(format!("{} already allocated", self.input[1]));
             }
-            alloc_ptrs.insert(
+            let alloc_ptr = Self::allocate_ptr(
+                &mut cs.namespace(|| format!("allocate input {}", self.input[1])),
+                &store.hydrate_ptr(&witness.input[1])?,
                 &self.input[1],
-                Self::allocate_input_ptr(
-                    &mut cs.namespace(|| format!("allocate input {}", self.input[1])),
-                    &store.hydrate_ptr(&witness.input[1])?,
-                    &self.input[1],
-                )?,
-            );
+            )?;
+            alloc_ptrs.insert(&self.input[1], alloc_ptr.clone());
+            Self::inputize_ptr(cs, &alloc_ptr, &self.input[1])?;
         }
 
         // allocate third input
@@ -598,15 +582,16 @@ impl<F: LurkField> LEM<F> {
             if alloc_ptrs.contains_key(&self.input[2]) {
                 return Err(format!("{} already allocated", self.input[2]));
             }
-            alloc_ptrs.insert(
+            let alloc_ptr = Self::allocate_ptr(
+                &mut cs.namespace(|| format!("allocate input {}", self.input[2])),
+                &store.hydrate_ptr(&witness.input[2])?,
                 &self.input[2],
-                Self::allocate_input_ptr(
-                    &mut cs.namespace(|| format!("allocate input {}", self.input[2])),
-                    &store.hydrate_ptr(&witness.input[2])?,
-                    &self.input[2],
-                )?,
-            );
+            )?;
+            alloc_ptrs.insert(&self.input[2], alloc_ptr.clone());
+            Self::inputize_ptr(cs, &alloc_ptr, &self.input[2])?;
         }
+
+        let mut n_imputized_outputs = 0;
 
         // TODO: consider greating globals
         let zero = AllocatedNum::alloc(cs.namespace(|| "#zero"), || Ok(F::zero())).unwrap();
@@ -690,7 +675,7 @@ impl<F: LurkField> LEM<F> {
                         return Err(format!("{} not allocated", match_ptr.name()));
                     };
                     let mut concrete_path_vec = Vec::new();
-                    for (tag, op) in cases.iter() {
+                    for (tag, op) in cases {
                         let Ok(alloc_has_match) = alloc_equal_const(
                             &mut cs.namespace(
                                 || format!("{}.alloc_equal_const (tag:{})", &path, tag)
@@ -766,16 +751,21 @@ impl<F: LurkField> LEM<F> {
                             }
                         };
                         let output_name = format!("{}.output[{}]", &path, i);
-                        let alloc_ptr_expected = Self::allocate_input_ptr(
+                        let alloc_ptr_expected = Self::allocate_ptr(
                             &mut cs.namespace(|| format!("allocate input for {}", &output_name)),
                             &aqua_ptr,
                             &output_name,
                         )?;
 
+                        if is_concrete_path {
+                            Self::inputize_ptr(cs, &alloc_ptr_expected, &output_name)?;
+                            n_imputized_outputs += 1;
+                        }
+
                         // If `concrete_path` is Some, then we constrain using "concrete implies ..." logic
                         if let Some(concrete_path) = concrete_path.clone() {
                             let Ok(_) = alloc_ptr_computed.implies_ptr_equal(
-                                &mut cs.namespace(|| format!("enforce imply equal for {}", output_name)),
+                                &mut cs.namespace(|| format!("enforce imply equal for {}", &output_name)),
                                 &concrete_path,
                                 &alloc_ptr_expected,
                             ) else {
@@ -784,7 +774,7 @@ impl<F: LurkField> LEM<F> {
                         } else {
                             // If `concrete_path` is None, we just do regular constraining
                             alloc_ptr_computed.enforce_equal(
-                                &mut cs.namespace(|| format!("enforce equal for {}", output_name)),
+                                &mut cs.namespace(|| format!("enforce equal for {}", &output_name)),
                                 &alloc_ptr_expected,
                             );
                         }
@@ -792,6 +782,9 @@ impl<F: LurkField> LEM<F> {
                 }
                 _ => todo!(),
             }
+        }
+        if n_imputized_outputs != 3 {
+            return Err("Couldn't imputize the right number of outputs".to_string());
         }
         Ok(())
     }
@@ -823,6 +816,14 @@ mod tests {
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
     use shortcuts::*;
+
+    fn constrain_test_helper(lem: &LEM<Fr>, store: &mut Store<Fr>, witnesses: &Vec<Witness<Fr>>) {
+        for w in witnesses {
+            let mut cs = TestConstraintSystem::<Fr>::new();
+            lem.constrain(&mut cs, store, w).unwrap();
+            assert!(cs.is_satisfied());
+        }
+    }
 
     #[test]
     fn accepts_virtual_nested_match_tag() {
@@ -880,12 +881,9 @@ mod tests {
         let lem = LEM::new(input, lem_op).unwrap();
 
         let expr = Ptr::num(Fr::from_u64(42));
-        let (res, mut store) = lem.eval(expr).unwrap();
-        for w in res.iter() {
-            let mut cs = TestConstraintSystem::<Fr>::new();
-            lem.constrain(&mut cs, &mut store, w).unwrap();
-            assert!(cs.is_satisfied());
-        }
+        let mut store = Store::default();
+        let witnesses = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &witnesses);
     }
 
     #[test]
@@ -924,11 +922,8 @@ mod tests {
         let lem = LEM::new(input, lem_op).unwrap();
 
         let expr = Ptr::num(Fr::from_u64(42));
-        let (res, mut store) = lem.eval(expr).unwrap();
-        for w in res.iter() {
-            let mut cs = TestConstraintSystem::<Fr>::new();
-            lem.constrain(&mut cs, &mut store, w).unwrap();
-            assert!(cs.is_satisfied());
-        }
+        let mut store = Store::default();
+        let witnesses = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &witnesses);
     }
 }

@@ -28,36 +28,41 @@ pub fn step<F: LurkField>() -> Result<LEM<F>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lem::pointers::Ptr;
+    use crate::lem::{pointers::Ptr, store::Store};
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
 
-    #[test]
-    fn eval_42() {
-        let expr = Ptr::num(Fr::from_u64(42));
-        let (res, _) = step().unwrap().eval_res(expr).unwrap();
-        assert!(res == expr);
+    const NUM_INPUTS: usize = 13;
+    const NUM_CONSTRAINTS: usize = 69;
+
+    fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {
+        let lem = step().unwrap();
+        for (expr_in, expr_out) in pairs {
+            let witnesses = lem.eval(expr_in, store).unwrap();
+            assert!(
+                witnesses
+                    .last()
+                    .expect("eval should add at least one step data")
+                    .output[0]
+                    == expr_out
+            );
+            for witness in witnesses {
+                let mut cs = TestConstraintSystem::<Fr>::new();
+                lem.constrain(&mut cs, store, &witness).unwrap();
+                assert!(cs.is_satisfied());
+                assert_eq!(cs.num_inputs(), NUM_INPUTS);
+                assert_eq!(cs.num_constraints(), NUM_CONSTRAINTS);
+            }
+        }
+    }
+
+    fn expr_in_expr_out_pairs() -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
+        vec![(Ptr::num(Fr::from_u64(42)), Ptr::num(Fr::from_u64(42)))]
     }
 
     #[test]
-    fn constrain_42() {
-        let expr = Ptr::num(Fr::from_u64(42));
-        let lem = step().unwrap();
-        let (res, mut store) = lem.eval(expr).unwrap();
-
-        assert!(
-            res.last()
-                .expect("eval should add at least one step data")
-                .output[0]
-                == expr
-        );
-
-        for w in res.iter() {
-            let mut cs = TestConstraintSystem::<Fr>::new();
-            lem.constrain(&mut cs, &mut store, w).unwrap();
-            assert!(cs.is_satisfied());
-            assert_eq!(cs.num_constraints(), 69);
-            assert_eq!(cs.num_inputs(), 13);
-        }
+    fn test_pairs() {
+        let mut store = Store::default();
+        test_eval_and_constrain_aux(&mut store, expr_in_expr_out_pairs());
     }
 }

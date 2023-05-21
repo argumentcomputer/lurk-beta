@@ -58,7 +58,13 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn index_3_ptrs_not_dehydrated(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>) -> Ptr<F> {
+    pub fn index_3_ptrs_not_dehydrated(
+        &mut self,
+        tag: Tag,
+        a: Ptr<F>,
+        b: Ptr<F>,
+        c: Ptr<F>,
+    ) -> Ptr<F> {
         Ptr::Tree3(tag, self.ptrs3.insert_full((a, b, c)).0)
     }
 
@@ -72,7 +78,14 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn index_4_ptrs_not_dehydrated(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>, d: Ptr<F>) -> Ptr<F> {
+    pub fn index_4_ptrs_not_dehydrated(
+        &mut self,
+        tag: Tag,
+        a: Ptr<F>,
+        b: Ptr<F>,
+        c: Ptr<F>,
+        d: Ptr<F>,
+    ) -> Ptr<F> {
         Ptr::Tree4(tag, self.ptrs4.insert_full((a, b, c, d)).0)
     }
 
