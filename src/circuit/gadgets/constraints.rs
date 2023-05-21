@@ -646,22 +646,22 @@ pub(crate) fn and<CS: ConstraintSystem<F>, F: PrimeField>(
 ) -> Result<Boolean, SynthesisError> {
     match (a, b) {
         // false AND x is always false
-        (&Boolean::Constant(false), _) | (_, &Boolean::Constant(false)) => {
+        (Boolean::Constant(false), _) | (_, Boolean::Constant(false)) => {
             Ok(Boolean::Constant(false))
         }
         // true AND x is always x
-        (&Boolean::Constant(true), x) | (x, &Boolean::Constant(true)) => Ok(x.clone()),
+        (Boolean::Constant(true), x) | (x, Boolean::Constant(true)) => Ok(x.clone()),
         // a AND (NOT b)
-        (&Boolean::Is(ref is), &Boolean::Not(ref not))
-        | (&Boolean::Not(ref not), &Boolean::Is(ref is)) => {
+        (Boolean::Is(is), Boolean::Not(not))
+        | (Boolean::Not(not), Boolean::Is(is)) => {
             Ok(Boolean::Is(AllocatedBit::and_not(cs, is, not)?))
         }
         // (NOT a) AND (NOT b) = a NOR b
-        (&Boolean::Not(ref a), &Boolean::Not(ref b)) => {
+        (Boolean::Not(a), Boolean::Not(b)) => {
             Ok(Boolean::Is(AllocatedBit::nor(cs, a, b)?))
         }
         // a AND b
-        (&Boolean::Is(ref a), &Boolean::Is(ref b)) => Ok(Boolean::Is(AllocatedBit::and(cs, a, b)?)),
+        (Boolean::Is(a), Boolean::Is(b)) => Ok(Boolean::Is(AllocatedBit::and(cs, a, b)?)),
     }
 }
 

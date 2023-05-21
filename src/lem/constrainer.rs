@@ -26,12 +26,12 @@ impl<F: LurkField> LEM<F> {
         let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("allocate {}'s tag", name)), || {
             Ok(aqua_ptr.tag.field())
         }) else {
-            return Err(format!("Couldn't allocate tag for {}", name))
+            return Err(format!("Couldn't allocate {}'s tag", name))
         };
         let Ok(alloc_val) = AllocatedNum::alloc(cs.namespace(|| format!("allocate {}'s val", name)), || {
             Ok(aqua_ptr.val)
         }) else {
-            return Err(format!("Couldn't allocate val for {}", name))
+            return Err(format!("Couldn't allocate {}'s val", name))
         };
         Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_val))
     }
@@ -42,10 +42,10 @@ impl<F: LurkField> LEM<F> {
         name: &String,
     ) -> Result<(), String> {
         let Ok(_) = alloc_ptr.tag().inputize(cs.namespace(|| format!("inputize {}'s tag", name))) else {
-            return Err(format!("Couldn't inputize tag for {}", name))
+            return Err(format!("Couldn't inputize {}'s tag", name))
         };
         let Ok(_) = alloc_ptr.hash().inputize(cs.namespace(|| format!("inputize {}'s val", name))) else {
-            return Err(format!("Couldn't inputize val for {}", name))
+            return Err(format!("Couldn't inputize {}'s val", name))
         };
         Ok(())
     }
@@ -184,13 +184,13 @@ impl<F: LurkField> LEM<F> {
                         enforce_equal(
                             cs,
                             || format!("{}'s tag is {}", tgt.name(), tag.field::<F>().hex_digits()),
-                            &alloc_tgt.tag(),
+                            alloc_tgt.tag(),
                             &alloc_tag,
                         );
                         enforce_equal(
                             cs,
                             || format!("{}'s val is zero", tgt.name()),
-                            &alloc_tgt.hash(),
+                            alloc_tgt.hash(),
                             &zero,
                         );
                     }

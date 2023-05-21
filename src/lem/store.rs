@@ -132,7 +132,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn index_symbol_path(&mut self, path: Vec<String>) -> Ptr<F> {
-        let mut components = path.clone();
+        let mut components = path;
         components.reverse();
         let mut ptr;
         let mut heads = vec![];
@@ -169,7 +169,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<AquaPtr<F>, String> {
         match ptr {
-            Ptr::Leaf(Tag::Comm, hash) => match self.aqua_cache.get(&ptr) {
+            Ptr::Leaf(Tag::Comm, hash) => match self.aqua_cache.get(ptr) {
                 Some(aqua_ptr) => Ok(*aqua_ptr),
                 None => {
                     let Some((secret, ptr)) = self.comms.get(&FWrap(*hash)) else {
@@ -186,7 +186,7 @@ impl<F: LurkField> Store<F> {
                 }
             },
             Ptr::Leaf(tag, x) => Ok(AquaPtr { tag: *tag, val: *x }),
-            Ptr::Tree2(tag, idx) => match self.aqua_cache.get(&ptr) {
+            Ptr::Tree2(tag, idx) => match self.aqua_cache.get(ptr) {
                 Some(aqua_ptr) => Ok(*aqua_ptr),
                 None => {
                     let Some((a, b)) = self.ptrs2.get_index(*idx) else {
@@ -208,7 +208,7 @@ impl<F: LurkField> Store<F> {
                     Ok(aqua_ptr)
                 }
             },
-            Ptr::Tree3(tag, idx) => match self.aqua_cache.get(&ptr) {
+            Ptr::Tree3(tag, idx) => match self.aqua_cache.get(ptr) {
                 Some(aqua_ptr) => Ok(*aqua_ptr),
                 None => {
                     let Some((a, b, c)) = self.ptrs3.get_index(*idx) else {
@@ -233,7 +233,7 @@ impl<F: LurkField> Store<F> {
                     Ok(aqua_ptr)
                 }
             },
-            Ptr::Tree4(tag, idx) => match self.aqua_cache.get(&ptr) {
+            Ptr::Tree4(tag, idx) => match self.aqua_cache.get(ptr) {
                 Some(aqua_ptr) => Ok(*aqua_ptr),
                 None => {
                     let Some((a, b, c, d)) = self.ptrs4.get_index(*idx) else {
