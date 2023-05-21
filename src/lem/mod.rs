@@ -261,6 +261,7 @@ impl<F: LurkField> LEMOP<F> {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct Witness<F: LurkField> {
     input: [Ptr<F>; 3],
     output: [Ptr<F>; 3],
@@ -282,18 +283,21 @@ impl<F: LurkField> LEM<F> {
 mod shortcuts {
     use super::*;
 
+    #[allow(dead_code)]
     #[inline]
-    pub fn mptr(name: &str) -> MetaPtr {
+    pub(crate) fn mptr(name: &str) -> MetaPtr {
         MetaPtr(name.to_string())
     }
 
+    #[allow(dead_code)]
     #[inline]
-    pub fn mvar(name: &str) -> MetaVar {
+    pub(crate) fn mvar(name: &str) -> MetaVar {
         MetaVar(name.to_string())
     }
 
+    #[allow(dead_code)]
     #[inline]
-    pub fn match_tag<F: LurkField>(i: MetaPtr, cases: Vec<(Tag, LEMOP<F>)>) -> LEMOP<F> {
+    pub(crate) fn match_tag<F: LurkField>(i: MetaPtr, cases: Vec<(Tag, LEMOP<F>)>) -> LEMOP<F> {
         LEMOP::MatchTag(i, HashMap::from_iter(cases))
     }
 }

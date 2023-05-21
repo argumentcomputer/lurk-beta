@@ -192,10 +192,11 @@ impl<F: LurkField> LEM<F> {
         let mut cont = Ptr::null(Tag::Outermost);
         let mut witnesses = vec![];
         let terminal = Ptr::null(Tag::Terminal);
+        let error = Ptr::null(Tag::Error);
         loop {
             let w = self.run([expr, env, cont], store)?;
             witnesses.push(w.clone());
-            if w.output[2] == terminal {
+            if w.output[2] == terminal || w.output[2] == error {
                 break;
             } else {
                 [expr, env, cont] = w.output;

@@ -115,7 +115,8 @@ pub struct AquaPtr<F: LurkField> {
     pub val: F,
 }
 
-pub enum AquaPtrKind<F: LurkField> {
+#[allow(dead_code)]
+pub(crate) enum AquaPtrKind<F: LurkField> {
     Tree2(AquaPtr<F>, AquaPtr<F>),
     Tree3(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>),
     Tree4(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>, AquaPtr<F>),

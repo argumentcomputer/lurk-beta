@@ -116,7 +116,7 @@ impl<F: LurkField> LEM<F> {
             Self::inputize_ptr(cs, &alloc_ptr, &self.input[2])?;
         }
 
-        let mut n_imputized_outputs = 0;
+        let mut num_inputized_outputs = 0;
 
         // TODO: consider greating globals
         let zero = AllocatedNum::alloc(cs.namespace(|| "#zero"), || Ok(F::zero())).unwrap();
@@ -284,7 +284,7 @@ impl<F: LurkField> LEM<F> {
 
                         if is_concrete_path {
                             Self::inputize_ptr(cs, &alloc_ptr_expected, &output_name)?;
-                            n_imputized_outputs += 1;
+                            num_inputized_outputs += 1;
                         }
 
                         // If `concrete_path` is Some, then we constrain using "concrete implies ..." logic
@@ -308,8 +308,8 @@ impl<F: LurkField> LEM<F> {
                 _ => todo!(),
             }
         }
-        if n_imputized_outputs != 3 {
-            return Err("Couldn't imputize the right number of outputs".to_string());
+        if num_inputized_outputs != 3 {
+            return Err("Couldn't inputize the right number of outputs".to_string());
         }
         Ok(())
     }

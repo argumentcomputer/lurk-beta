@@ -4,7 +4,8 @@ use super::{shortcuts::*, tag::Tag, LEM, LEMOP};
 
 // TODO: remove name conflicts between branches automatically instead of putting
 // this burden on the LEM programmer's shoulders
-pub fn step<F: LurkField>() -> Result<LEM<F>, String> {
+#[allow(dead_code)]
+pub(crate) fn step<F: LurkField>() -> Result<LEM<F>, String> {
     let input = ["expr_in", "env_in", "cont_in"];
     let lem_op = match_tag(
         mptr("expr_in"),
@@ -56,13 +57,15 @@ mod tests {
         }
     }
 
-    fn expr_in_expr_out_pairs() -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
+    fn expr_in_expr_out_pairs(_store: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
         vec![(Ptr::num(Fr::from_u64(42)), Ptr::num(Fr::from_u64(42)))]
     }
 
     #[test]
     fn test_pairs() {
         let mut store = Store::default();
-        test_eval_and_constrain_aux(&mut store, expr_in_expr_out_pairs());
+        let pairs = expr_in_expr_out_pairs(&mut store);
+        store.deluge();
+        test_eval_and_constrain_aux(&mut store, pairs);
     }
 }
