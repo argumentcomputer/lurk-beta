@@ -7,7 +7,7 @@ use tempfile::{Builder, TempDir};
 
 use pasta_curves::pallas;
 
-use fcomm::{Commitment, CommittedExpression, FileStore, LurkPtr, Proof};
+use lurk::public_parameters::{Commitment, CommittedExpression, FileStore, LurkPtr, Proof};
 use lurk::store::Store;
 
 use camino::Utf8Path;

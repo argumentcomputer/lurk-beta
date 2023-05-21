@@ -20,6 +20,7 @@ use pairing_lib::{Engine, MultiMillerLoop};
 use rand_core::{RngCore, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use crate::circuit::MultiFrame;
 use crate::coprocessor::Coprocessor;
@@ -102,7 +103,7 @@ impl<C: Coprocessor<Scalar>> Groth16Prover<Bls12, C, Scalar> {
     /// Creates Groth16 parameters using the given reduction count.
     pub fn create_groth_params(
         reduction_count: usize,
-        lang: &Lang<Scalar, C>,
+        lang: Arc<Lang<Scalar, C>>,
     ) -> Result<PublicParams<Bls12>, SynthesisError> {
         let multiframe: MultiFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>, C> =
             MultiFrame::blank(reduction_count, lang);
@@ -138,13 +139,14 @@ impl<C: Coprocessor<Scalar>> Groth16Prover<Bls12, C, Scalar> {
         store: &mut Store<Scalar>,
         limit: usize,
         mut rng: R,
-        lang: &Lang<Scalar, C>,
+        lang: Arc<Lang<Scalar, C>>,
     ) -> Result<(Proof<Bls12>, IO<Scalar>, IO<Scalar>), ProofError> {
         let padding_predicate = |count| self.needs_frame_padding(count);
-        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate, lang)?;
+        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate, &lang)?;
         store.hydrate_scalar_cache();
 
-        let multiframes = MultiFrame::from_frames(self.reduction_count(), &frames, store, lang);
+        let multiframes =
+            MultiFrame::from_frames(self.reduction_count(), &frames, store, lang.clone());
         let mut proofs = Vec::with_capacity(multiframes.len());
         let mut statements = Vec::with_capacity(multiframes.len());
 
@@ -261,10 +263,6 @@ impl<'a, 'b, C: Coprocessor<Scalar>> Prover<'a, 'b, Scalar, C> for Groth16Prover
     type PublicParams = PublicParams<Bls12>;
 
     fn new(reduction_count: usize, lang: Lang<Scalar, C>) -> Self {
-        assert!(
-            lang.is_default(),
-            "Coprocessors are not yet supported in circuits."
-        );
         Groth16Prover {
             reduction_count,
             lang,
@@ -389,8 +387,12 @@ mod tests {
     ) {
         let rng = OsRng;
 
-        let public_params =
-            Groth16Prover::<_, C, Fr>::create_groth_params(DEFAULT_REDUCTION_COUNT, &lang).unwrap();
+        let lang_rc = Arc::new(lang.clone());
+        let public_params = Groth16Prover::<_, C, Fr>::create_groth_params(
+            DEFAULT_REDUCTION_COUNT,
+            lang_rc.clone(),
+        )
+        .unwrap();
         let groth_prover = Groth16Prover::new(DEFAULT_REDUCTION_COUNT, lang.clone());
         let groth_params = &public_params.0;
 
@@ -404,7 +406,8 @@ mod tests {
                 Evaluator::generate_frames(expr, e, s, limit, padding_predicate, &lang).unwrap();
             s.hydrate_scalar_cache();
 
-            let multi_frames = MultiFrame::from_frames(DEFAULT_REDUCTION_COUNT, &frames, s, &lang);
+            let multi_frames =
+                MultiFrame::from_frames(DEFAULT_REDUCTION_COUNT, &frames, s, lang_rc.clone());
 
             let cs = groth_prover.outer_synthesize(&multi_frames).unwrap();
 
@@ -425,7 +428,7 @@ mod tests {
             let constraint_systems_verified = verify_sequential_css::<Scalar, C>(&cs).unwrap();
             assert!(constraint_systems_verified);
 
-            check_cs_deltas(&cs, limit, &lang);
+            check_cs_deltas(&cs, limit, lang_rc.clone());
         }
 
         let proof_results = if check_groth16 {
@@ -439,7 +442,7 @@ mod tests {
                         s,
                         limit,
                         rng,
-                        &lang,
+                        lang_rc,
                     )
                     .unwrap(),
             )
@@ -468,7 +471,7 @@ mod tests {
     fn check_cs_deltas<C: Coprocessor<Fr>>(
         constraint_systems: &SequentialCS<'_, Fr, IO<Fr>, Witness<Fr>, C>,
         limit: usize,
-        lang: &Lang<Fr, C>,
+        lang: Arc<Lang<Fr, C>>,
     ) {
         let mut cs_blank = MetricCS::<Fr>::new();
         let blank_frame = MultiFrame::<Scalar, _, _, C>::blank(DEFAULT_REDUCTION_COUNT, lang);

@@ -9,6 +9,8 @@ use crate::writer::Write;
 use lurk_macros::{let_store, lurk, Coproc};
 use pasta_curves::pallas::Scalar as Fr;
 
+use crate as lurk;
+
 fn test_aux<C: Coprocessor<Fr>>(
     s: &mut Store<Fr>,
     expr: &str,
@@ -2564,7 +2566,6 @@ pub(crate) mod coproc {
     use super::*;
     use crate::coprocessor::test::DumbCoprocessor;
     use crate::store::Store;
-    use crate::sym::Sym;
 
     #[derive(Clone, Debug, Coproc)]
     pub(crate) enum DumbCoproc<F: LurkField> {
@@ -2575,12 +2576,10 @@ pub(crate) mod coproc {
     fn test_dumb_lang() {
         let s = &mut Store::<Fr>::new();
 
-        let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
-        let name = Sym::new(".cproc.dumb".to_string());
-        let dumb = DumbCoprocessor::new();
-        let coproc = DumbCoproc::DC(dumb);
-
-        lang.add_coprocessor(name, coproc, s);
+        let lang = Lang::<Fr, DumbCoproc<Fr>>::new_with_bindings(
+            s,
+            vec![(".cproc.dumb", DumbCoprocessor::new().into())],
+        );
 
         // 9^2 + 8 = 89
         let expr = "(.cproc.dumb 9 8)";

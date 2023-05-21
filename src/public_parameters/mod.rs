@@ -1,25 +1,13 @@
-#![doc = include_str!("../README.md")]
-
 use log::info;
-use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use ff::PrimeField;
-use hex::FromHex;
-use libipld::{
-    cbor::DagCborCodec,
-    json::DagJsonCodec,
-    multihash::{Code, MultihashDigest},
-    prelude::Codec,
-    serde::{from_ipld, to_ipld},
-    Cid, Ipld,
-};
-use lurk::{
+use crate::coprocessor::Coprocessor;
+use crate::{
     circuit::ToInputs,
     eval::{
         empty_sym_env,
@@ -35,6 +23,16 @@ use lurk::{
     tag::ExprTag,
     writer::Write,
 };
+use ff::PrimeField;
+use hex::FromHex;
+use libipld::{
+    cbor::DagCborCodec,
+    json::DagJsonCodec,
+    multihash::{Code, MultihashDigest},
+    prelude::Codec,
+    serde::{from_ipld, to_ipld},
+    Cid, Ipld,
+};
 use once_cell::sync::OnceCell;
 use pasta_curves::pallas;
 use rand::rngs::OsRng;
@@ -43,6 +41,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub mod error;
 mod file_map;
+mod registry;
 
 use error::Error;
 use file_map::FileMap;
@@ -56,12 +55,12 @@ mod base64 {
     use serde::{Deserialize, Serialize};
     use serde::{Deserializer, Serializer};
 
-    pub fn serialize<S: Serializer>(v: &Vec<u8>, s: S) -> Result<S::Ok, S::Error> {
+    pub(crate) fn serialize<S: Serializer>(v: &Vec<u8>, s: S) -> Result<S::Ok, S::Error> {
         let base64 = base64::encode(v);
         String::serialize(&base64, s)
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
+    pub(crate) fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
         let base64 = String::deserialize(d)?;
         base64::decode(base64.as_bytes()).map_err(serde::de::Error::custom)
     }
@@ -69,7 +68,7 @@ mod base64 {
 
 pub type NovaProofCache = FileMap<Cid, Proof<'static, S1>>;
 pub fn nova_proof_cache(reduction_count: usize) -> NovaProofCache {
-    FileMap::<Cid, Proof<S1>>::new(format!("nova_proofs.{}", reduction_count)).unwrap()
+    FileMap::<Cid, Proof<'_, S1>>::new(format!("nova_proofs.{}", reduction_count)).unwrap()
 }
 
 pub type CommittedExpressionMap = FileMap<Commitment<S1>, CommittedExpression<S1>>;
@@ -77,46 +76,12 @@ pub fn committed_expression_store() -> CommittedExpressionMap {
     FileMap::<Commitment<S1>, CommittedExpression<S1>>::new("committed_expressions").unwrap()
 }
 
-pub type PublicParamMemCache = Mutex<HashMap<usize, Arc<PublicParams<'static, Coproc<S1>>>>>;
-fn public_param_mem_cache() -> &'static PublicParamMemCache {
-    static CACHE: OnceCell<PublicParamMemCache> = OnceCell::new();
-    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-pub type PublicParamDiskCache = FileMap<String, PublicParams<'static, Coproc<S1>>>;
-fn public_param_disk_cache() -> PublicParamDiskCache {
-    FileMap::new("public_params").unwrap()
-}
-
-pub fn lang<'a>() -> &'a Lang<S1, Coproc<S1>> {
-    static LANG: OnceCell<Lang<S1, Coproc<S1>>> = OnceCell::new();
-
-    LANG.get_or_init(Lang::<S1, Coproc<S1>>::new)
-}
-
-pub fn public_params(rc: usize) -> Result<Arc<PublicParams<'static, Coproc<S1>>>, Error> {
-    let mut mem_cache = public_param_mem_cache().lock().unwrap();
-    match mem_cache.get(&rc) {
-        Some(pp) => Ok(pp.clone()),
-        None => {
-            let disk_cache = public_param_disk_cache();
-            // TODO: Add versioning to cache key
-            let key = format!("public-params-rc-{rc}");
-            if let Some(pp) = disk_cache.get(&key) {
-                let pp = Arc::new(pp);
-                mem_cache.insert(rc, pp.clone());
-                Ok(pp)
-            } else {
-                let lang = lang();
-                let pp = Arc::new(nova::public_params(rc, lang));
-                mem_cache.insert(rc, pp.clone());
-                disk_cache
-                    .set(key, &pp)
-                    .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
-                Ok(pp)
-            }
-        }
-    }
+pub fn public_params<C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static>(
+    rc: usize,
+    lang: Arc<Lang<S1, C>>,
+) -> Result<Arc<PublicParams<'static, C>>, Error> {
+    let f = |lang: Arc<Lang<S1, C>>| Arc::new(nova::public_params(rc, lang));
+    registry::CACHE_REG.get_coprocessor_or_update_with(rc, f, lang)
 }
 
 // Number of circuit reductions per step, equivalent to `chunk_frame_count`
@@ -434,13 +399,14 @@ where
         let file = File::create(path).expect("failed to create file");
         let writer = BufWriter::new(&file);
 
-        serde_json::to_writer(writer, &self).expect("failed to write file");
+        bincode::serialize_into(writer, &self).expect("failed to write file");
     }
 
     fn read_from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
-        Ok(serde_json::from_reader(reader)?)
+        bincode::deserialize_from(reader)
+            .map_err(|e| Error::CacheError(format!("Cache deserialization error: {}", e)))
     }
 
     fn read_from_stdin() -> Result<Self, Error> {
@@ -690,7 +656,7 @@ impl LurkCont {
         _s: &mut Store<F>,
         cont_ptr: &ContPtr<F>,
     ) -> Self {
-        use lurk::tag::ContTag;
+        use crate::tag::ContTag;
 
         match cont_ptr.tag {
             ContTag::Outermost => Self::Outermost,
@@ -725,10 +691,10 @@ impl<'a> Opening<S1> {
         chain: bool,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<Coproc<S1>>,
-        lang: &'a Lang<S1, Coproc<S1>>,
+        pp: &'a PublicParams<'_, Coproc<S1>>,
+        lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Proof<'a, S1>, Error> {
-        let claim = Self::apply(s, input, function, limit, chain, lang)?;
+        let claim = Self::apply(s, input, function, limit, chain, &lang)?;
         Proof::prove_claim(
             s,
             &claim,
@@ -746,10 +712,10 @@ impl<'a> Opening<S1> {
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<Coproc<S1>>,
-        lang: &'a Lang<S1, Coproc<S1>>,
+        pp: &'a PublicParams<'_, Coproc<S1>>,
+        lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Proof<'a, S1>, Error> {
-        let input = request.input.expr.ptr(s, limit, lang);
+        let input = request.input.expr.ptr(s, limit, &lang);
         let commitment = request.commitment;
 
         let function_map = committed_expression_store();
@@ -847,7 +813,7 @@ impl<'a> Opening<S1> {
 
         let input_string = input.fmt_to_string(s);
         let status =
-            <lurk::eval::IO<S1> as Evaluable<S1, Witness<S1>, Coproc<S1>>>::status(&public_output);
+            <crate::eval::IO<S1> as Evaluable<S1, Witness<S1>, Coproc<S1>>>::status(&public_output);
         let output_string = if status.is_terminal() {
             // Only actual output if result is terminal.
             output_expr.fmt_to_string(s)
@@ -879,8 +845,8 @@ impl<'a> Proof<'a, S1> {
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<Coproc<S1>>,
-        lang: &'a Lang<S1, Coproc<S1>>,
+        pp: &'a PublicParams<'_, Coproc<S1>>,
+        lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Self, Error> {
         let env = supplied_env.unwrap_or_else(|| empty_sym_env(s));
         let cont = s.intern_cont_outermost();
@@ -888,7 +854,7 @@ impl<'a> Proof<'a, S1> {
 
         // TODO: It's a little silly that we evaluate here, but evaluation is also repeated in `NovaProver::evaluate_and_prove()`.
         // Refactor to avoid that.
-        let (public_output, _iterations) = evaluate(s, expr, supplied_env, limit, lang)?;
+        let (public_output, _iterations) = evaluate(s, expr, supplied_env, limit, &lang)?;
 
         let claim = if supplied_env.is_some() {
             // This is a bit of a hack, but the idea is that if the env was supplied it's likely to contain a literal function,
@@ -917,8 +883,8 @@ impl<'a> Proof<'a, S1> {
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<Coproc<S1>>,
-        lang: &'a Lang<S1, Coproc<S1>>,
+        pp: &'a PublicParams<'_, Coproc<S1>>,
+        lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Self, Error> {
         let reduction_count = nova_prover.reduction_count();
 
@@ -943,7 +909,7 @@ impl<'a> Proof<'a, S1> {
                 s.read(&e.expr).expect("bad expression"),
                 s.read(&e.env).expect("bad env"),
             ),
-            Claim::PtrEvaluation(e) => (e.expr.ptr(s, limit, lang), e.env.ptr(s, limit, lang)),
+            Claim::PtrEvaluation(e) => (e.expr.ptr(s, limit, &lang), e.env.ptr(s, limit, &lang)),
             Claim::Opening(o) => {
                 let commitment = o.commitment;
 
@@ -954,7 +920,7 @@ impl<'a> Proof<'a, S1> {
 
                 let input = s.read(&o.input).expect("bad expression");
                 let (c, expression) =
-                    Commitment::construct_with_fun_application(s, function, input, limit, lang)?;
+                    Commitment::construct_with_fun_application(s, function, input, limit, &lang)?;
 
                 assert_eq!(commitment, c);
                 (expression, empty_sym_env(s))
@@ -962,7 +928,7 @@ impl<'a> Proof<'a, S1> {
         };
 
         let (proof, _public_input, _public_output, num_steps) = nova_prover
-            .evaluate_and_prove(pp, expr, env, s, limit, lang)
+            .evaluate_and_prove(pp, expr, env, s, limit, lang.clone())
             .expect("Nova proof failed");
 
         let proof = Self {
@@ -990,7 +956,7 @@ impl<'a> Proof<'a, S1> {
             }
         };
 
-        proof.verify(pp, lang).expect("Nova verification failed");
+        proof.verify(pp, &lang).expect("Nova verification failed");
 
         proof_map.set(cid, &proof).unwrap();
 
@@ -999,7 +965,7 @@ impl<'a> Proof<'a, S1> {
 
     pub fn verify(
         &self,
-        pp: &PublicParams<Coproc<S1>>,
+        pp: &PublicParams<'_, Coproc<S1>>,
         lang: &Lang<S1, Coproc<S1>>,
     ) -> Result<VerificationResult, Error> {
         let (public_inputs, public_outputs) = self.io_vecs(lang)?;
@@ -1169,7 +1135,11 @@ pub fn evaluate<F: LurkField>(
 
     let (io, iterations, _) = evaluator.eval().map_err(|_| Error::EvaluationFailure)?;
 
-    assert!(<lurk::eval::IO<F> as Evaluable<F, Witness<F>, Coproc<F>>>::is_terminal(&io));
+    assert!(<crate::eval::IO<F> as Evaluable<
+        F,
+        Witness<F>,
+        Coproc<F>,
+    >>::is_terminal(&io));
     Ok((io, iterations))
 }
 

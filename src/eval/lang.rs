@@ -11,6 +11,8 @@ use crate::ptr::{Ptr, ScalarPtr};
 use crate::store::Store;
 use crate::sym::Sym;
 
+use crate as lurk;
+
 /// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.
 ///
 /// It provides specific behavior for a dummy coprocessor.
@@ -86,11 +88,51 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         }
     }
 
-    pub fn add_coprocessor(&mut self, name: Sym, cproc: C, store: &mut Store<F>) {
+    pub fn new_with_bindings<B: Into<Binding<F, C>>>(s: &mut Store<F>, bindings: Vec<B>) -> Self {
+        let mut new = Self {
+            coprocessors: Default::default(),
+        };
+        for b in bindings {
+            new.add_binding(b.into(), s);
+        }
+
+        new
+    }
+
+    pub fn key(&self) -> String {
+        let mut key = String::new();
+
+        for coprocessor in &self.coprocessors {
+            let name = match coprocessor.0 {
+                Sym::Sym(sym) => &sym.path,
+                Sym::Key(sym) => &sym.path,
+            }
+            .join("-");
+
+            key += name.as_str()
+        }
+        key
+    }
+
+    pub fn add_coprocessor<T: Into<C>, S: Into<Sym>>(
+        &mut self,
+        name: S,
+        cproc: T,
+        store: &mut Store<F>,
+    ) {
+        let name = name.into();
         let ptr = store.intern_sym_and_ancestors(&name).unwrap();
         let scalar_ptr = store.get_expr_hash(&ptr).unwrap();
 
-        self.coprocessors.insert(name, (cproc, scalar_ptr));
+        self.coprocessors.insert(name, (cproc.into(), scalar_ptr));
+    }
+
+    pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B, store: &mut Store<F>) {
+        let Binding { name, coproc, _p } = binding.into();
+        let ptr = store.intern_sym_and_ancestors(&name).unwrap();
+        let scalar_ptr = store.get_expr_hash(&ptr).unwrap();
+
+        self.coprocessors.insert(name, (coproc, scalar_ptr));
     }
 
     pub fn coprocessors(&self) -> &HashMap<Sym, (C, ScalarPtr<F>)> {
@@ -120,6 +162,30 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
     }
 }
 
+/// A `Binding` associates a name (`Sym`) and `Coprocessor`. It facilitates modular construction of `Lang`s using
+/// `Coprocessor`s.
+pub struct Binding<F: LurkField, C: Coprocessor<F>> {
+    name: Sym,
+    coproc: C,
+    _p: PhantomData<F>,
+}
+
+impl<F: LurkField, C: Coprocessor<F>, S: Into<Sym>> From<(S, C)> for Binding<F, C> {
+    fn from(pair: (S, C)) -> Self {
+        Self::new(pair.0, pair.1)
+    }
+}
+
+impl<F: LurkField, C: Coprocessor<F>> Binding<F, C> {
+    pub fn new<T: Into<C>, S: Into<Sym>>(name: S, coproc: T) -> Self {
+        Self {
+            name: name.into(),
+            coproc: coproc.into(),
+            _p: Default::default(),
+        }
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
@@ -133,10 +199,10 @@ pub(crate) mod test {
     #[test]
     fn dummy_lang() {
         let store = &mut Store::<Fr>::default();
-        let mut lang = Lang::<Fr, Coproc<Fr>>::new();
-        let name = Sym::new(".cproc.dummy".to_string());
-        let dummy = DummyCoprocessor::new();
 
-        lang.add_coprocessor(name, Coproc::Dummy(dummy), store);
+        let _lang = Lang::<Fr, Coproc<Fr>>::new_with_bindings(
+            store,
+            vec![(".cproc.dummy", DummyCoprocessor::new().into())],
+        );
     }
 }

@@ -33,31 +33,41 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
     let eval_arity_arms = eval_arity_match_arms(name, variants);
     let evaluate_arms = evaluate_match_arms(name, variants);
     let simple_evaluate_arms = simple_evaluate_match_arms(name, variants);
+    let has_circuit_arms = has_circuit_match_arms(name, variants);
 
     let arity_arms = arity_match_arms(name, variants);
     let synthesize_arms = synthesize_match_arms(name, variants);
+
+    let from_impls = from_impls(name, variants);
+
     let res = quote! {
-        impl <F: crate::field::LurkField> crate::coprocessor::Coprocessor<F> for #name<F> {
+        impl <F: lurk::field::LurkField> lurk::coprocessor::Coprocessor<F> for #name<F> {
             fn eval_arity(&self) -> usize {
                 match self {
                     #eval_arity_arms
                 }
             }
 
-            fn evaluate(&self, s: &mut crate::store::Store<F>, args: crate::ptr::Ptr<F>, env: crate::ptr::Ptr<F>, cont: crate::ptr::ContPtr<F>) -> crate::eval::IO<F> {
+            fn evaluate(&self, s: &mut lurk::store::Store<F>, args: lurk::ptr::Ptr<F>, env: lurk::ptr::Ptr<F>, cont: lurk::ptr::ContPtr<F>) -> lurk::eval::IO<F> {
                 match self {
                     #evaluate_arms
                 }
             }
 
-            fn simple_evaluate(&self, s: &mut crate::store::Store<F>, args: &[crate::ptr::Ptr<F>]) -> crate::ptr::Ptr<F> {
+            fn simple_evaluate(&self, s: &mut lurk::store::Store<F>, args: &[lurk::ptr::Ptr<F>]) -> lurk::ptr::Ptr<F> {
                 match self {
                     #simple_evaluate_arms
                 }
             }
+
+            fn has_circuit(&self) -> bool {
+                match self {
+                    #has_circuit_arms
+                }
+            }
         }
 
-        impl<F: crate::field::LurkField> crate::coprocessor::CoCircuit<F> for #name<F> {
+        impl<F: lurk::field::LurkField> lurk::coprocessor::CoCircuit<F> for #name<F> {
             fn arity(&self) -> usize {
                 match self {
                     #arity_arms
@@ -67,16 +77,19 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
             fn synthesize<CS: bellperson::ConstraintSystem<F>>(
                 &self,
                 cs: &mut CS,
-                store: &crate::store::Store<F>,
-                input_exprs: &[crate::circuit::gadgets::pointer::AllocatedPtr<F>],
-                input_env: &crate::circuit::gadgets::pointer::AllocatedPtr<F>,
-                input_cont: &crate::circuit::gadgets::pointer::AllocatedContPtr<F>,
-            ) -> Result<(crate::circuit::gadgets::pointer::AllocatedPtr<F>, crate::circuit::gadgets::pointer::AllocatedPtr<F>, crate::circuit::gadgets::pointer::AllocatedContPtr<F>), bellperson::SynthesisError> {
+                g: &lurk::circuit::gadgets::data::GlobalAllocations<F>,
+                store: &lurk::store::Store<F>,
+                input_exprs: &[lurk::circuit::gadgets::pointer::AllocatedPtr<F>],
+                input_env: &lurk::circuit::gadgets::pointer::AllocatedPtr<F>,
+                input_cont: &lurk::circuit::gadgets::pointer::AllocatedContPtr<F>,
+            ) -> Result<(lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedContPtr<F>), bellperson::SynthesisError> {
                 match self {
                     #synthesize_arms
                 }
             }
         }
+
+        #from_impls
     };
     res.into()
 }
@@ -117,6 +130,18 @@ fn simple_evaluate_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2:
     match_arms
 }
 
+fn has_circuit_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
+    let mut match_arms = quote! {};
+    for variant in variants.variants.iter() {
+        let variant_ident = &variant.ident;
+
+        match_arms.extend(quote! {
+            #name::#variant_ident(coprocessor) => coprocessor.has_circuit(),
+        });
+    }
+    match_arms
+}
+
 fn arity_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
     let mut match_arms = quote! {};
     for variant in variants.variants.iter() {
@@ -135,10 +160,31 @@ fn synthesize_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::Toke
         let variant_ident = &variant.ident;
 
         match_arms.extend(quote! {
-            #name::#variant_ident(cocircuit) => cocircuit.synthesize(cs, store, input_exprs, input_env, input_cont),
+            #name::#variant_ident(cocircuit) => cocircuit.synthesize(cs, g, store, input_exprs, input_env, input_cont),
         });
     }
     match_arms
+}
+
+fn from_impls(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
+    let mut impls = quote! {};
+
+    for variant in variants.variants.iter() {
+        let variant_ident = &variant.ident;
+        let variant_inner = match &variant.fields {
+            syn::Fields::Unnamed(x) => &x.unnamed,
+            _ => unimplemented!(),
+        };
+        impls.extend(quote! {
+            impl<F: lurk::field::LurkField> From<#variant_inner> for #name<F> {
+                fn from(c: #variant_inner) -> Self {
+                    Self::#variant_ident(c)
+                 }
+            }
+        })
+    }
+
+    impls
 }
 
 ////////////////////////////////////////////////////////////////////////////////
