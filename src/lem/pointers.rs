@@ -1,6 +1,6 @@
 use crate::field::*;
 
-use super::{lurk_symbol::LurkSymbol, tag::Tag};
+use super::{symbol::LurkSymbol, tag::Tag};
 
 /// `Ptr` is the main piece of data LEMs operate on. We can think of a pointer
 /// as a building block for trees that represent Lurk data. A pointer can be a
@@ -18,6 +18,7 @@ pub enum Ptr<F: LurkField> {
     Tree2(Tag, usize),
     Tree3(Tag, usize),
     Tree4(Tag, usize),
+    LurkSymbol(LurkSymbol),
 }
 
 impl<F: LurkField> std::hash::Hash for Ptr<F> {
@@ -27,6 +28,7 @@ impl<F: LurkField> std::hash::Hash for Ptr<F> {
             Ptr::Tree2(tag, x) => (1, tag, x).hash(state),
             Ptr::Tree3(tag, x) => (2, tag, x).hash(state),
             Ptr::Tree4(tag, x) => (3, tag, x).hash(state),
+            Ptr::LurkSymbol(lurk_symbol) => (4, lurk_symbol).hash(state),
         }
     }
 }
@@ -38,6 +40,7 @@ impl<F: LurkField> Ptr<F> {
             Ptr::Tree2(tag, _) => tag,
             Ptr::Tree3(tag, _) => tag,
             Ptr::Tree4(tag, _) => tag,
+            Ptr::LurkSymbol(_) => &Tag::LurkSymbol,
         }
     }
 
@@ -99,31 +102,34 @@ impl<F: LurkField> Ptr<F> {
     }
 }
 
-/// An `AquaPtr` is the result of "hydrating" a `Ptr`. This process is better
+/// A `ZPtr` is the result of "hydrating" a `Ptr`. This process is better
 /// explained in the store but, in short, we want to know the Poseidon hash of
 /// the children of a `Ptr`.
 ///
-/// `AquaPtr`s are used mainly for proofs, but they're also useful when we want
+/// `ZPtr`s are used mainly for proofs, but they're also useful when we want
 /// to content-address a store.
 ///
-/// An important note is that computing the respective `AquaPtr` of a `Ptr` can
-/// be expensive because of the Poseidon hashes. That's why we operate on `Ptr`s
-/// when interpreting LEMs and delay the need for `AquaPtr`s as much as possible.
+/// An important note is that computing the respective `ZPtr` of a `Ptr` can be
+/// expensive because of the Poseidon hashes. That's why we operate on `Ptr`s
+/// when interpreting LEMs and delay the need for `ZPtr`s as much as possible.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub struct AquaPtr<F: LurkField> {
+pub struct ZPtr<F: LurkField> {
     pub tag: Tag,
     pub hash: F,
 }
 
+/// `ZChildren` keeps track of the children of `ZPtr`s, in case they have any.
+/// This information is saved during hydration and is needed to content-address
+/// a store.
 #[allow(dead_code)]
-pub(crate) enum AquaPtrKind<F: LurkField> {
-    Tree2(AquaPtr<F>, AquaPtr<F>),
-    Tree3(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>),
-    Tree4(AquaPtr<F>, AquaPtr<F>, AquaPtr<F>, AquaPtr<F>),
-    Comm(F, AquaPtr<F>), // secret, src
+pub(crate) enum ZChildren<F: LurkField> {
+    Tree2(ZPtr<F>, ZPtr<F>),
+    Tree3(ZPtr<F>, ZPtr<F>, ZPtr<F>),
+    Tree4(ZPtr<F>, ZPtr<F>, ZPtr<F>, ZPtr<F>),
+    Comm(F, ZPtr<F>), // secret, src
 }
 
-impl<F: LurkField> AquaPtr<F> {
+impl<F: LurkField> ZPtr<F> {
     #[inline]
     pub fn dummy() -> Self {
         Self {
@@ -133,7 +139,7 @@ impl<F: LurkField> AquaPtr<F> {
     }
 }
 
-impl<F: LurkField> std::hash::Hash for AquaPtr<F> {
+impl<F: LurkField> std::hash::Hash for ZPtr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.tag.hash(state);
         self.hash.to_repr().as_ref().hash(state);

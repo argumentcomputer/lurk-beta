@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::field::{FWrap, LurkField};
 
-use super::{lurk_symbol::LurkSymbol, pointers::Ptr, store::Store, tag::Tag, Witness, LEM, LEMOP};
+use super::{pointers::Ptr, store::Store, symbol::LurkSymbol, tag::Tag, Witness, LEM, LEMOP};
 
 impl<F: LurkField> LEM<F> {
     pub fn run(&self, input: [Ptr<F>; 3], store: &mut Store<F>) -> Result<Witness<F>, String> {
@@ -118,11 +118,11 @@ impl<F: LurkField> LEM<F> {
                 }
                 LEMOP::Hide(tgt, secret, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
-                    let aqua_ptr = store.hydrate_ptr(&src_ptr)?;
+                    let z_ptr = store.hydrate_ptr(&src_ptr)?;
                     let hash =
                         store
                             .poseidon_cache
-                            .hash3(&[*secret, aqua_ptr.tag.field(), aqua_ptr.hash]);
+                            .hash3(&[*secret, z_ptr.tag.to_field(), z_ptr.hash]);
                     let tgt_ptr = Ptr::comm(hash);
                     store.comms.insert(FWrap::<F>(hash), (*secret, src_ptr));
                     if ptrs.insert(tgt.name().clone(), tgt_ptr).is_some() {
@@ -149,17 +149,12 @@ impl<F: LurkField> LEM<F> {
                     }
                 }
                 LEMOP::MatchLurkSymbolVal(ptr, cases) => {
-                    let Ptr::Leaf(Tag::LurkSymbol, f) = ptr.get_ptr(&ptrs)? else {
+                    let Ptr::LurkSymbol(lurk_symbol) = ptr.get_ptr(&ptrs)? else {
                         return Err(format!("{} not defined as a pointer to a Lurk symbol", ptr.name()))
-                    };
-                    let Some(lurk_symbol) = LurkSymbol::from_field(&f) else {
-                        return Err(format!("{} contains invalid value for a Lurk symbol", ptr.name()))
                     };
                     match cases.get(&lurk_symbol) {
                         Some(op) => stack.push(op),
-                        None => {
-                            return Err(format!("No match for field element {}", f.hex_digits()))
-                        }
+                        None => return Err(format!("No match for LurkSymbol {}", lurk_symbol)),
                     }
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),

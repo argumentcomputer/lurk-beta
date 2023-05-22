@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::{
-    pointers::{AquaPtr, AquaPtrKind, Ptr},
+    pointers::{Ptr, ZChildren, ZPtr},
     symbol::Symbol,
 };
 
@@ -26,8 +26,8 @@ pub struct Store<F: LurkField> {
     vec_str_cache: HashMap<Vec<String>, Ptr<F>>,
 
     dehydrated: Vec<Ptr<F>>,
-    aqua_cache: DashMap<Ptr<F>, AquaPtr<F>, ahash::RandomState>,
-    aqua_dag: DashMap<AquaPtr<F>, AquaPtrKind<F>, ahash::RandomState>,
+    z_cache: DashMap<Ptr<F>, ZPtr<F>, ahash::RandomState>,
+    z_dag: DashMap<ZPtr<F>, ZChildren<F>, ahash::RandomState>,
 
     pub poseidon_cache: PoseidonCache<F>,
     pub comms: HashMap<FWrap<F>, (F, Ptr<F>)>, // hash -> (secret, src)
@@ -167,52 +167,52 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<AquaPtr<F>, String> {
+    pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>, String> {
         match ptr {
-            Ptr::Leaf(Tag::Comm, hash) => match self.aqua_cache.get(ptr) {
-                Some(aqua_ptr) => Ok(*aqua_ptr),
+            Ptr::Leaf(Tag::Comm, hash) => match self.z_cache.get(ptr) {
+                Some(z_ptr) => Ok(*z_ptr),
                 None => {
                     let Some((secret, ptr)) = self.comms.get(&FWrap(*hash)) else {
                             return Err(format!("Hash {} not found", hash.hex_digits()))
                         };
-                    let aqua_ptr = AquaPtr {
+                    let z_ptr = ZPtr {
                         tag: Tag::Comm,
                         hash: *hash,
                     };
-                    self.aqua_dag
-                        .insert(aqua_ptr, AquaPtrKind::Comm(*secret, self.hydrate_ptr(ptr)?));
-                    self.aqua_cache.insert(*ptr, aqua_ptr);
-                    Ok(aqua_ptr)
+                    self.z_dag
+                        .insert(z_ptr, ZChildren::Comm(*secret, self.hydrate_ptr(ptr)?));
+                    self.z_cache.insert(*ptr, z_ptr);
+                    Ok(z_ptr)
                 }
             },
-            Ptr::Leaf(tag, x) => Ok(AquaPtr {
+            Ptr::Leaf(tag, x) => Ok(ZPtr {
                 tag: *tag,
                 hash: *x,
             }),
-            Ptr::Tree2(tag, idx) => match self.aqua_cache.get(ptr) {
-                Some(aqua_ptr) => Ok(*aqua_ptr),
+            Ptr::Tree2(tag, idx) => match self.z_cache.get(ptr) {
+                Some(z_ptr) => Ok(*z_ptr),
                 None => {
                     let Some((a, b)) = self.ptrs2.get_index(*idx) else {
                             return Err(format!("Index {idx} not found on ptrs2"))
                         };
                     let a = self.hydrate_ptr(a)?;
                     let b = self.hydrate_ptr(b)?;
-                    let aqua_ptr = AquaPtr {
+                    let z_ptr = ZPtr {
                         tag: *tag,
                         hash: self.poseidon_cache.hash4(&[
-                            a.tag.field(),
+                            a.tag.to_field(),
                             a.hash,
-                            b.tag.field(),
+                            b.tag.to_field(),
                             b.hash,
                         ]),
                     };
-                    self.aqua_dag.insert(aqua_ptr, AquaPtrKind::Tree2(a, b));
-                    self.aqua_cache.insert(*ptr, aqua_ptr);
-                    Ok(aqua_ptr)
+                    self.z_dag.insert(z_ptr, ZChildren::Tree2(a, b));
+                    self.z_cache.insert(*ptr, z_ptr);
+                    Ok(z_ptr)
                 }
             },
-            Ptr::Tree3(tag, idx) => match self.aqua_cache.get(ptr) {
-                Some(aqua_ptr) => Ok(*aqua_ptr),
+            Ptr::Tree3(tag, idx) => match self.z_cache.get(ptr) {
+                Some(z_ptr) => Ok(*z_ptr),
                 None => {
                     let Some((a, b, c)) = self.ptrs3.get_index(*idx) else {
                             return Err(format!("Index {idx} not found on ptrs3"))
@@ -220,24 +220,24 @@ impl<F: LurkField> Store<F> {
                     let a = self.hydrate_ptr(a)?;
                     let b = self.hydrate_ptr(b)?;
                     let c = self.hydrate_ptr(c)?;
-                    let aqua_ptr = AquaPtr {
+                    let z_ptr = ZPtr {
                         tag: *tag,
                         hash: self.poseidon_cache.hash6(&[
-                            a.tag.field(),
+                            a.tag.to_field(),
                             a.hash,
-                            b.tag.field(),
+                            b.tag.to_field(),
                             b.hash,
-                            c.tag.field(),
+                            c.tag.to_field(),
                             c.hash,
                         ]),
                     };
-                    self.aqua_dag.insert(aqua_ptr, AquaPtrKind::Tree3(a, b, c));
-                    self.aqua_cache.insert(*ptr, aqua_ptr);
-                    Ok(aqua_ptr)
+                    self.z_dag.insert(z_ptr, ZChildren::Tree3(a, b, c));
+                    self.z_cache.insert(*ptr, z_ptr);
+                    Ok(z_ptr)
                 }
             },
-            Ptr::Tree4(tag, idx) => match self.aqua_cache.get(ptr) {
-                Some(aqua_ptr) => Ok(*aqua_ptr),
+            Ptr::Tree4(tag, idx) => match self.z_cache.get(ptr) {
+                Some(z_ptr) => Ok(*z_ptr),
                 None => {
                     let Some((a, b, c, d)) = self.ptrs4.get_index(*idx) else {
                             return Err(format!("Index {idx} not found on ptrs4"))
@@ -246,29 +246,32 @@ impl<F: LurkField> Store<F> {
                     let b = self.hydrate_ptr(b)?;
                     let c = self.hydrate_ptr(c)?;
                     let d = self.hydrate_ptr(d)?;
-                    let aqua_ptr = AquaPtr {
+                    let z_ptr = ZPtr {
                         tag: *tag,
                         hash: self.poseidon_cache.hash8(&[
-                            a.tag.field(),
+                            a.tag.to_field(),
                             a.hash,
-                            b.tag.field(),
+                            b.tag.to_field(),
                             b.hash,
-                            c.tag.field(),
+                            c.tag.to_field(),
                             c.hash,
-                            d.tag.field(),
+                            d.tag.to_field(),
                             d.hash,
                         ]),
                     };
-                    self.aqua_dag
-                        .insert(aqua_ptr, AquaPtrKind::Tree4(a, b, c, d));
-                    self.aqua_cache.insert(*ptr, aqua_ptr);
-                    Ok(aqua_ptr)
+                    self.z_dag.insert(z_ptr, ZChildren::Tree4(a, b, c, d));
+                    self.z_cache.insert(*ptr, z_ptr);
+                    Ok(z_ptr)
                 }
             },
+            Ptr::LurkSymbol(lurk_symbol) => Ok(ZPtr {
+                tag: Tag::LurkSymbol,
+                hash: lurk_symbol.field(),
+            }),
         }
     }
 
-    pub fn deluge(&mut self) {
+    pub fn hydrate_z_cache(&mut self) {
         self.dehydrated.par_iter().for_each(|ptr| {
             self.hydrate_ptr(ptr).expect("failed to hydrate pointer");
         });

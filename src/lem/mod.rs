@@ -1,7 +1,6 @@
 mod constrainer;
 mod eval;
 mod interpreter;
-mod lurk_symbol;
 mod pointers;
 mod store;
 mod symbol;
@@ -11,7 +10,7 @@ use std::collections::HashMap;
 
 use crate::field::LurkField;
 
-use self::{lurk_symbol::LurkSymbol, pointers::Ptr, tag::Tag};
+use self::{pointers::Ptr, symbol::LurkSymbol, tag::Tag};
 
 use dashmap::DashMap;
 

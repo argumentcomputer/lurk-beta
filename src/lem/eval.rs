@@ -2,8 +2,7 @@ use crate::field::LurkField;
 
 use super::{shortcuts::*, tag::Tag, LEM, LEMOP};
 
-// TODO: remove name conflicts between branches automatically instead of putting
-// this burden on the LEM programmer's shoulders
+/// This is Lurk's step function encoded as a LEM
 #[allow(dead_code)]
 pub(crate) fn step<F: LurkField>() -> Result<LEM<F>, String> {
     let input = ["expr_in", "env_in", "cont_in"];
@@ -65,7 +64,7 @@ mod tests {
     fn test_pairs() {
         let mut store = Store::default();
         let pairs = expr_in_expr_out_pairs(&mut store);
-        store.deluge();
+        store.hydrate_z_cache();
         test_eval_and_constrain_aux(&mut store, pairs);
     }
 }

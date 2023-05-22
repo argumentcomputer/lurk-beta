@@ -15,7 +15,7 @@ use crate::circuit::gadgets::{
 
 use crate::field::{FWrap, LurkField};
 
-use super::{pointers::AquaPtr, store::Store, Witness, LEM, LEMOP};
+use super::{pointers::ZPtr, store::Store, Witness, LEM, LEMOP};
 
 #[derive(Default)]
 struct AllocationManager<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
@@ -44,16 +44,16 @@ impl<F: LurkField> AllocationManager<F> {
 impl<F: LurkField> LEM<F> {
     fn allocate_ptr<CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        aqua_ptr: &AquaPtr<F>,
+        z_ptr: &ZPtr<F>,
         name: &String,
     ) -> Result<AllocatedPtr<F>, String> {
         let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("allocate {}'s tag", name)), || 
-            Ok(aqua_ptr.tag.field())
+            Ok(z_ptr.tag.to_field())
         ) else {
             return Err(format!("Couldn't allocate {}'s tag", name))
         };
         let Ok(alloc_hash) = AllocatedNum::alloc(cs.namespace(|| format!("allocate {}'s hash", name)), || 
-            Ok(aqua_ptr.hash)
+            Ok(z_ptr.hash)
         ) else {
             return Err(format!("Couldn't allocate {}'s hash", name))
         };
@@ -166,23 +166,23 @@ impl<F: LurkField> LEM<F> {
                     if alloc_ptrs.contains_key(tgt.name()) {
                         return Err(format!("{} already allocated", tgt.name()));
                     };
-                    let aqua_ptr = {
+                    let z_ptr = {
                         if Self::on_concrete_path(&branch_path_info)? {
                             let Some(ptr) = witness.ptrs.get(tgt.name()) else {
                                 return Err(format!("Couldn't retrieve witness {}", tgt.name()));
                             };
                             store.hydrate_ptr(ptr)?
                         } else {
-                            AquaPtr::dummy()
+                            ZPtr::dummy()
                         }
                     };
                     let alloc_tgt = Self::allocate_ptr(
                         &mut cs.namespace(|| format!("allocate pointer {}", tgt.name())),
-                        &aqua_ptr,
+                        &z_ptr,
                         tgt.name(),
                     )?;
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
-                    let alloc_tag = alloc_manager.alloc(cs, tag.field())?;
+                    let alloc_tag = alloc_manager.alloc(cs, tag.to_field())?;
 
                     // If `concrete_path` is Some, then we constrain using "concrete implies ..." logic
                     if let Some(concrete_path) = branch_path_info {
@@ -205,7 +205,13 @@ impl<F: LurkField> LEM<F> {
                         // If `concrete_path` is None, we just do regular constraining
                         enforce_equal(
                             cs,
-                            || format!("{}'s tag is {}", tgt.name(), tag.field::<F>().hex_digits()),
+                            || {
+                                format!(
+                                    "{}'s tag is {}",
+                                    tgt.name(),
+                                    tag.to_field::<F>().hex_digits()
+                                )
+                            },
                             alloc_tgt.tag(),
                             &alloc_tag,
                         );
@@ -227,7 +233,7 @@ impl<F: LurkField> LEM<F> {
                                 || format!("{}.alloc_equal_const (tag:{})", &path, tag)
                             ),
                             alloc_match_ptr.tag(),
-                            tag.field::<F>(),
+                            tag.to_field::<F>(),
                         ) else {
                             return Err("Allocated variable does not have the expected tag".to_string());
                         };
@@ -285,20 +291,20 @@ impl<F: LurkField> LEM<F> {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {
                             return Err(format!("Output {} not allocated", output.name()))
                         };
-                        let aqua_ptr = {
+                        let z_ptr = {
                             if is_concrete_path {
                                 let Some(ptr) = witness.ptrs.get(output.name()) else {
                                     return Err(format!("Output {} not found in the witness", output.name()))
                                 };
                                 store.hydrate_ptr(ptr)?
                             } else {
-                                AquaPtr::dummy()
+                                ZPtr::dummy()
                             }
                         };
                         let output_name = format!("{}.output[{}]", &path, i);
                         let alloc_ptr_expected = Self::allocate_ptr(
                             &mut cs.namespace(|| format!("allocate input for {}", &output_name)),
-                            &aqua_ptr,
+                            &z_ptr,
                             &output_name,
                         )?;
 
