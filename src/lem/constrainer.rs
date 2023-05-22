@@ -98,15 +98,15 @@ impl<F: LurkField> LEM<F> {
     /// that operation. In this case, we use regular equality enforcements
     ///
     /// * If it's `Some(concrete_path)`, it means that we're on a logical LEM
-    /// branch, which might be *virtual* or *concrete*. A virtual path is one
-    /// that wasn't taken during evaluation and thus its witness pointers and
-    /// variables weren't bound. A concrete path means that that evaluation took
-    /// that path and the witness data should be complete. For virtual paths we
-    /// need to create dummy bindings and relax the enforcements with
-    /// implications whose premises are false. So, in the end, we use
+    /// branch, which might be *virtual* or *concrete* depending on the witness.
+    /// A virtual path is one that wasn't taken during evaluation and thus its
+    /// witness pointers and variables weren't bound. A concrete path means that
+    /// evaluation took that path and the witness data should be complete. For
+    /// virtual paths we need to create dummy bindings and relax the enforcements
+    /// with implications whose premises are false. So, in the end, we use
     /// implications on both virtual and concrete paths to make sure that the
-    /// circuit structure is always the same. The premise is precicely
-    /// `concrete_path`.
+    /// circuit structure is always the same, independently of the witness. The
+    /// premise is precicely `concrete_path`.
     pub fn constrain<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
